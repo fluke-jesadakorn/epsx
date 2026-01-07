@@ -1,8 +1,10 @@
 'use client'
 
+import { PermissionTransferList } from '@/components/groups/PermissionTransferList'
 import { PageLoadingSpinner } from '@/components/ui/LoadingSpinner'
 import { PancakeCard } from '@/components/ui/PancakeCard'
 import { toast } from '@/hooks/use-toast'
+import { useAvailablePermissions } from '@/hooks/useGroupPermissions'
 import { createPlansClient, isApiSuccess } from '@/shared/api/plans'
 import { useSharedAuth } from '@/shared/components/auth/Provider'
 import { createAdminApiClient } from '@/shared/utils/api-client'
@@ -40,6 +42,7 @@ export default function NewPlanPage() {
     metadata: {}
   })
   const [customPermission, setCustomPermission] = useState('')
+  const { permissions: availablePermissions, isLoading: loadingPermissions } = useAvailablePermissions()
 
   if (authLoading) {
     return (
@@ -148,38 +151,7 @@ export default function NewPlanPage() {
     })
   }
 
-  const addCustomPermission = () => {
-    if (!customPermission.trim()) {
-      toast({
-        title: "Error",
-        description: "Permission string is required",
-        variant: "destructive"
-      })
-      return
-    }
 
-    if (formData.permissions.includes(customPermission)) {
-      toast({
-        title: "Error",
-        description: "Permission already exists",
-        variant: "destructive"
-      })
-      return
-    }
-
-    setFormData({
-      ...formData,
-      permissions: [...formData.permissions, customPermission]
-    })
-    setCustomPermission('')
-  }
-
-  const removePermission = (permission: string) => {
-    setFormData({
-      ...formData,
-      permissions: formData.permissions.filter(p => p !== permission)
-    })
-  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-yellow-50 via-orange-50 to-pink-50 dark:from-gray-900 dark:via-purple-900 dark:to-gray-900 p-6">
@@ -296,63 +268,18 @@ export default function NewPlanPage() {
                   Plan Permissions
                 </label>
 
-                {/* Add Custom Permission */}
-                <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-xl mb-4">
-                  <div className="flex gap-4">
-                    <input
-                      type="text"
-                      value={customPermission}
-                      onChange={(e) => setCustomPermission(e.target.value)}
-                      placeholder="e.g., epsx:rankings:view:100"
-                      className="flex-1 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                    />
-                    <button
-                      type="button"
-                      onClick={addCustomPermission}
-                      className="px-4 py-2 bg-gradient-to-r from-emerald-400 to-green-500 text-white rounded-lg font-semibold hover:from-emerald-500 hover:to-green-600"
-                    >
-                      Add Permission
-                    </button>
-                  </div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                    Format: platform:resource:action or platform:resource:action:limit
-                  </p>
+                {/* Permission List - Drag & Drop */}
+                <div className="space-y-4">
+                  <PermissionTransferList
+                    available={availablePermissions}
+                    selected={formData.permissions}
+                    onChange={(newSelected: string[]) => setFormData({ ...formData, permissions: newSelected })}
+                    isLoading={loadingPermissions}
+                    systemPermissions={new Set(
+                      availablePermissions.filter((p: string) => p.startsWith('system:') || p.startsWith('admin:'))
+                    )}
+                  />
                 </div>
-
-                {/* Current Template Info */}
-                {formData.template_name && (
-                  <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl mb-4">
-                    <h4 className="font-semibold text-blue-800 dark:text-blue-300 mb-2">
-                      Current Template: {PERMISSION_TEMPLATE_CONFIGS[formData.template_name].name}
-                    </h4>
-                    <p className="text-sm text-blue-700 dark:text-blue-400">
-                      {PERMISSION_TEMPLATE_CONFIGS[formData.template_name].description}
-                    </p>
-                  </div>
-                )}
-
-                {/* Permission List */}
-                {formData.permissions.length > 0 && (
-                  <div className="space-y-2">
-                    <h4 className="font-medium text-gray-800 dark:text-gray-200">Assigned Permissions ({formData.permissions.length})</h4>
-                    <div className="max-h-48 overflow-y-auto space-y-2">
-                      {formData.permissions.map((permission, index) => (
-                        <div key={index} className="flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-600">
-                          <code className="text-sm font-mono text-gray-800 dark:text-gray-200">
-                            {permission}
-                          </code>
-                          <button
-                            type="button"
-                            onClick={() => removePermission(permission)}
-                            className="text-red-500 hover:text-red-700 font-bold ml-2"
-                          >
-                            ✕
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
 
                 {/* Features Preview */}
                 {formData.features.length > 0 && (

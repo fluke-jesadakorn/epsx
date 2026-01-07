@@ -38,8 +38,8 @@ export function NotificationBellClient() {
     browserNotifications: {
       showNotification: (type, title, message) => {
         const notifType = type === 'security' ? 'security' :
-                         type === 'permission' ? 'permissions' :
-                         type === 'wallet' ? 'trading' : 'system'
+          type === 'permission' ? 'permissions' :
+            type === 'wallet' ? 'analytics' : 'system'
         showBrowserNotification(notifType, title, message)
       }
     },

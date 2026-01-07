@@ -24,7 +24,12 @@ export interface PermissionAnalytics {
   total?: number;
   pending_notifications?: number;
   total_groups?: number;
+  total_permissions?: number;
   active_permissions?: number;
+  permission_usage?: any[];
+  expiring_soon?: number;
+  expired?: number;
+  health_score?: number;
 }
 
 export interface SystemMetrics {
@@ -41,6 +46,21 @@ export interface SystemMetrics {
 export interface AnalyticsDashboardData {
   summary: any;
   trends: any[];
+  metrics?: {
+    totalRequests?: number;
+  };
+}
+
+export interface DeveloperPortalStats {
+  total_api_keys: number;
+  active_api_keys: number;
+  revoked_api_keys: number;
+  expired_api_keys: number;
+  total_modules: number;
+  active_modules: number;
+  total_requests_today: number;
+  total_requests_this_month: number;
+  top_modules_by_usage: any[];
 }
 
 export const DEFAULT_ANALYTICS_CONFIG = {
@@ -77,6 +97,7 @@ export interface ApiKey {
 
 interface ApiKeysResponse {
   keys: ApiKey[];
+  api_keys?: ApiKey[];
 }
 
 // ============================================================================
@@ -131,7 +152,7 @@ export function usePermissionAnalytics() {
 
 export function useSystemMetrics() {
   const { data, error, isLoading, mutate } = useSWR<SystemMetrics>(
-    '/api/admin/analytics/performance',
+    '/api/admin/analytics/metrics',
     fetcher,
     REALTIME_ANALYTICS_CONFIG
   );
@@ -145,14 +166,22 @@ export function useSystemMetrics() {
 }
 
 export function useAnalyticsDashboard(dateRange: string = '7d', selectedModule: string = 'all') {
-  const { data, error, isLoading, mutate } = useSWR<AnalyticsDashboardData>(
-    `/api/admin/analytics/dashboard?dateRange=${dateRange}&selectedModule=${selectedModule}`,
+  const { data, error, isLoading, mutate } = useSWR<DeveloperPortalStats>(
+    '/api/admin/developer-portal/stats',
     fetcher,
     DEFAULT_ANALYTICS_CONFIG
   );
 
+  const dashboardData: AnalyticsDashboardData | undefined = data ? {
+    summary: data,
+    trends: [],
+    metrics: {
+      totalRequests: data.total_requests_this_month
+    }
+  } : undefined;
+
   return {
-    dashboardData: data,
+    dashboardData,
     isLoading,
     error,
     refresh: mutate,
@@ -162,13 +191,13 @@ export function useAnalyticsDashboard(dateRange: string = '7d', selectedModule: 
 // API Key Management
 export function useApiKeys() {
   const { data, error, isLoading, mutate } = useSWR<ApiKeysResponse>(
-    '/api/admin/api-keys',
+    '/api/admin/developer-portal/api-keys',
     fetcher,
     SLOW_ANALYTICS_CONFIG
   );
 
   return {
-    apiKeys: data?.keys || [],
+    apiKeys: data?.api_keys || data?.keys || [],
     isLoading,
     error,
     refresh: mutate,

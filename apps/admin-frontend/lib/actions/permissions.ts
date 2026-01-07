@@ -211,10 +211,10 @@ export async function getPermissionTemplates(): Promise<PermissionTemplate[]> {
     return [
       {
         id: '1',
-        name: 'Basic Trader',
-        description: 'Essential permissions for trading functionality',
-        permissions: ['epsx:trading:basic', 'epsx:analytics:view', 'epsx:portfolio:view'],
-        category: 'Trading',
+        name: 'Basic Analyst',
+        description: 'Essential permissions for analytics functionality',
+        permissions: ['epsx:analytics:basic', 'epsx:analytics:view', 'epsx:portfolio:view'],
+        category: 'Analytics',
         isDefault: true,
         created_at: new Date().toISOString()
       },
@@ -350,7 +350,7 @@ export async function getPermissionAuditLog(
           id: '1',
           action: 'grant',
           wallet_address: '0x742d35Cc6634C0532925a3b8D4C9db96C4b4d8b6',
-          permissions: ['epsx:trading:basic', 'epsx:analytics:view'],
+          permissions: ['epsx:analytics:basic', 'epsx:analytics:view'],
           performed_by: 'admin@epsx.com',
           timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
           reason: 'Standard user permissions',

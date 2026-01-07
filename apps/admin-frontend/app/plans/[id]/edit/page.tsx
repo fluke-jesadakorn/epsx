@@ -1,7 +1,9 @@
 'use client'
 
+import { PermissionTransferList } from '@/components/groups/PermissionTransferList'
 import { PageLoadingSpinner } from '@/components/ui/LoadingSpinner'
 import { toast } from '@/hooks/use-toast'
+import { useAvailablePermissions } from '@/hooks/useGroupPermissions'
 import { createPlansClient, isApiSuccess, type PlanResponse } from '@/shared/api/plans'
 import { useSharedAuth } from '@/shared/components/auth/Provider'
 import { createAdminApiClient } from '@/shared/utils/api-client'
@@ -36,6 +38,8 @@ export default function EditPlanPage() {
   })
   const [newFeature, setNewFeature] = useState('')
   const [saving, setSaving] = useState(false)
+  const { permissions: availablePermissions, isLoading: loadingPermissions } = useAvailablePermissions()
+  const [customPermissions, setCustomPermissions] = useState<string[]>([])
 
   useEffect(() => {
     if (!authLoading && (!isAuthenticated || !user)) {
@@ -141,6 +145,23 @@ export default function EditPlanPage() {
     loadPlan()
   }, [params.id, router])
 
+  // Sync custom permissions from plan data
+  useEffect(() => {
+    if (plan && plan.permissions) {
+      // Filter out permission strings that are handled by the UI inputs (limits)
+      const managedPrefixes = [
+        'epsx:api:calls:',
+        'epsx:rankings:view:',
+        'epsx:analytics:queries:',
+        'epsx:export:limit:',
+        'epsx:trading:premium',
+        'epsx:analytics:premium'
+      ]
+      const others = plan.permissions.filter(p => !managedPrefixes.some(prefix => p.startsWith(prefix)))
+      setCustomPermissions(others)
+    }
+  }, [plan])
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -159,7 +180,6 @@ export default function EditPlanPage() {
       } else if (formData.api_calls_limit > 0) {
         permissions.push(`epsx:api:calls:${formData.api_calls_limit}`)
       }
-      // If 0, don't add permission (not granted)
 
       // Rankings permission
       if (formData.rankings_limit === -1) {
@@ -167,7 +187,6 @@ export default function EditPlanPage() {
       } else if (formData.rankings_limit > 0) {
         permissions.push(`epsx:rankings:view:${formData.rankings_limit}`)
       }
-      // If 0, don't add permission (not granted)
 
       // Analytics permission
       if (formData.analytics_queries === -1) {
@@ -175,7 +194,6 @@ export default function EditPlanPage() {
       } else if (formData.analytics_queries > 0) {
         permissions.push(`epsx:analytics:queries:${formData.analytics_queries}`)
       }
-      // If 0, don't add permission (not granted)
 
       // Premium features
       if (formData.premium_features) {
@@ -189,7 +207,9 @@ export default function EditPlanPage() {
       } else if (formData.export_limit > 0) {
         permissions.push(`epsx:export:limit:${formData.export_limit}`)
       }
-      // If 0, don't add permission (not granted)
+
+      // Add custom permissions from TransferList
+      permissions.push(...customPermissions)
 
       const response = await adminClient.updatePlan(params.id as string, {
         name: formData.name,
@@ -601,6 +621,29 @@ export default function EditPlanPage() {
                 </span>
               </label>
             </div>
+          </div>
+
+          {/* Advanced Permissions (Drag & Drop) */}
+          <div className="bg-gradient-to-r from-gray-50 to-slate-50 dark:from-gray-900/30 dark:to-slate-900/30 rounded-2xl p-6">
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">🔐 Advanced Permissions</h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+              Manage specific permissions directly. Drag and drop permissions to assign them to this plan.
+              Note: API limits configured above are automatically handled and shouldn't be added here manually.
+            </p>
+            <PermissionTransferList
+              available={availablePermissions.filter(p =>
+                !p.startsWith('epsx:api:calls:') &&
+                !p.startsWith('epsx:rankings:view:') &&
+                !p.startsWith('epsx:analytics:queries:') &&
+                !p.startsWith('epsx:export:limit:')
+              )}
+              selected={customPermissions}
+              onChange={setCustomPermissions}
+              isLoading={loadingPermissions}
+              systemPermissions={new Set(
+                availablePermissions.filter(p => p.startsWith('system:') || p.startsWith('admin:'))
+              )}
+            />
           </div>
 
           {/* Feature List */}

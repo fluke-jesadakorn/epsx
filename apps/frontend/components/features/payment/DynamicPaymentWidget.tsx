@@ -10,10 +10,10 @@
 
 'use client';
 
-import { CheckCircle, Loader2 } from 'lucide-react';
+import { AlertTriangle, CheckCircle, Loader2, RefreshCw } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getAddress, parseUnits } from 'viem';
-import { useAccount, useBalance, useChainId } from 'wagmi';
+import { useAccount, useBalance, useChainId, useReadContract } from 'wagmi';
 
 import { ZERO_LINK_HASH } from '@/lib/contracts/PaymentEscrowABI';
 import {
@@ -103,6 +103,7 @@ export function DynamicPaymentWidget({
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [selectedToken, setSelectedToken] = useState<SupportedToken | null>(null);
+    const [tokenVerificationStatus, setTokenVerificationStatus] = useState<'pending' | 'checking' | 'verified' | 'failed'>('pending');
 
     // Memoize supported tokens to prevent recreation on each render
     const supportedTokens = useMemo(() => getSupportedTokens(chainId), [chainId]);
@@ -304,14 +305,7 @@ export function DynamicPaymentWidget({
                     const submitUrl = `${backendUrl}/api/payments/submit`;
                     const requestBody = {
                         transaction_hash: txHash,
-                        plan_id: paymentData?.context_type === 'plan' ? paymentData.context_id : undefined, // Assuming context_id is UUID for plan
-                        // For other types, backend might need to handle differently or we map appropriately.
-                        // The current backend handler expects 'plan_id'. 
-                        // If this is a 'group' payment, we might need to adjust backend or pass group_id as plan_id if they overlap?
-                        // Checking backend: submit_tx_handler expects plan_id.
-                        // If context_type is 'group', we might need to pass the plan_id that corresponds to that group? 
-                        // Or maybe context_id IS the plan_id?
-                        // Let's assume context_id is the correct ID to pass for now.
+                        // context_id is the plan/group ID to pass to backend
                         plan_id: paymentData?.context_id,
                         expected_amount: paymentData?.amount,
                         currency: paymentData?.currency,
@@ -358,8 +352,46 @@ export function DynamicPaymentWidget({
     // ============ Add Token to Wallet Hook ============
     const { addToken, isAdding: isAddingToken, isTokenAdded } = useAddTokenToWallet();
 
+    // ============ Token Verification (for local Anvil) ============
+    // Check if token contract is accessible - important for Tailscale IP access
+    const [verificationKey, setVerificationKey] = useState(0);
+    const { data: tokenSymbolData, isLoading: isVerifyingToken, isError: tokenVerifyError, refetch: recheckToken } = useReadContract({
+        address: tokenAddress as `0x${string}`,
+        abi: [{ name: 'symbol', type: 'function', inputs: [], outputs: [{ type: 'string' }] }] as const,
+        functionName: 'symbol',
+        chainId: chainId,
+        query: {
+            enabled: !!tokenAddress && chainId === 31337, // Only verify on local Anvil
+            retry: 1,
+            staleTime: 0,
+        },
+    });
+
+    // Update verification status based on contract read result
+    useEffect(() => {
+        if (chainId !== 31337) {
+            // Non-local chains are assumed to be verified
+            setTokenVerificationStatus('verified');
+        } else if (isVerifyingToken) {
+            setTokenVerificationStatus('checking');
+        } else if (tokenVerifyError) {
+            setTokenVerificationStatus('failed');
+        } else if (tokenSymbolData) {
+            setTokenVerificationStatus('verified');
+        } else {
+            setTokenVerificationStatus('pending');
+        }
+    }, [chainId, isVerifyingToken, tokenVerifyError, tokenSymbolData]);
+
+    // Handle recheck token button
+    const handleRecheckToken = useCallback(() => {
+        setTokenVerificationStatus('checking');
+        setVerificationKey(prev => prev + 1);
+        recheckToken();
+    }, [recheckToken]);
+
     // Check token balance
-    const { data: balanceData } = useBalance({
+    const { data: balanceData, refetch: refetchBalance } = useBalance({
         address: address,
         token: tokenAddress as `0x${string}`,
         chainId: chainId,
@@ -519,6 +551,54 @@ export function DynamicPaymentWidget({
                 </div>
             )}
 
+            {/* Token Verification Status (for local Anvil) */}
+            {chainId === 31337 && selectedToken && (
+                <div className={cn(
+                    'mb-6 p-4 rounded-lg border flex items-center justify-between',
+                    tokenVerificationStatus === 'verified'
+                        ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
+                        : tokenVerificationStatus === 'failed'
+                            ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
+                            : 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800'
+                )}>
+                    <div className="flex items-center gap-2">
+                        {tokenVerificationStatus === 'checking' && (
+                            <Loader2 className="w-4 h-4 text-yellow-600 animate-spin" />
+                        )}
+                        {tokenVerificationStatus === 'verified' && (
+                            <CheckCircle className="w-4 h-4 text-green-600" />
+                        )}
+                        {tokenVerificationStatus === 'failed' && (
+                            <AlertTriangle className="w-4 h-4 text-red-600" />
+                        )}
+                        <span className={cn(
+                            'text-sm font-medium',
+                            tokenVerificationStatus === 'verified' ? 'text-green-700 dark:text-green-300'
+                                : tokenVerificationStatus === 'failed' ? 'text-red-700 dark:text-red-300'
+                                    : 'text-yellow-700 dark:text-yellow-300'
+                        )}>
+                            {tokenVerificationStatus === 'checking' && `Checking ${selectedToken.symbol} token...`}
+                            {tokenVerificationStatus === 'verified' && `${selectedToken.symbol} token verified ✓`}
+                            {tokenVerificationStatus === 'failed' && `Cannot reach ${selectedToken.symbol} token contract`}
+                            {tokenVerificationStatus === 'pending' && `Verifying ${selectedToken.symbol} token...`}
+                        </span>
+                    </div>
+                    <button
+                        onClick={handleRecheckToken}
+                        disabled={tokenVerificationStatus === 'checking'}
+                        className={cn(
+                            'flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-all',
+                            'bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600',
+                            'hover:bg-gray-100 dark:hover:bg-gray-700',
+                            tokenVerificationStatus === 'checking' && 'opacity-50 cursor-not-allowed'
+                        )}
+                    >
+                        <RefreshCw className={cn('w-3 h-3', tokenVerificationStatus === 'checking' && 'animate-spin')} />
+                        Recheck Token
+                    </button>
+                </div>
+            )}
+
             {/* Expiration Info */}
             {paymentData.expires_at && (
                 <div className="mb-6 p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-800">
@@ -545,6 +625,44 @@ export function DynamicPaymentWidget({
                 </div>
             )}
 
+            {/* Add Token to Wallet Step - Show before payment if token not added */}
+            {isConnected && selectedToken && !isTokenAdded(selectedToken.symbol) && submissionStep !== 'confirmed' && (
+                <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                    <div className="flex items-start gap-3">
+                        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-800 flex items-center justify-center">
+                            <span className="text-blue-600 dark:text-blue-300 font-bold text-sm">1</span>
+                        </div>
+                        <div className="flex-1">
+                            <h4 className="font-semibold text-blue-800 dark:text-blue-200 mb-1">
+                                Add {selectedToken.symbol} to Wallet
+                            </h4>
+                            <p className="text-sm text-blue-700 dark:text-blue-300 mb-3">
+                                First, add {selectedToken.symbol} token to your wallet to view your balance and enable payments.
+                            </p>
+                            <button
+                                onClick={() => addToken(selectedToken.symbol)}
+                                disabled={isAddingToken}
+                                className={cn(
+                                    'px-4 py-2 rounded-lg font-medium text-sm transition-all',
+                                    isAddingToken
+                                        ? 'bg-blue-300 cursor-not-allowed'
+                                        : 'bg-blue-600 hover:bg-blue-700 text-white'
+                                )}
+                            >
+                                {isAddingToken ? (
+                                    <span className="flex items-center gap-2">
+                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                        Adding Token...
+                                    </span>
+                                ) : (
+                                    `Add ${selectedToken.symbol} to Wallet`
+                                )}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Pay Button */}
             {!isConnected ? (
                 <div className="text-center py-4">
@@ -560,6 +678,14 @@ export function DynamicPaymentWidget({
                 >
                     <CheckCircle className="w-5 h-5" />
                     Payment Successful!
+                </button>
+            ) : !selectedToken || !isTokenAdded(selectedToken.symbol) ? (
+                /* Disabled Pay Button - Token not added yet */
+                <button
+                    disabled
+                    className="w-full py-4 rounded-xl font-bold text-lg bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed"
+                >
+                    Add Token to Wallet First
                 </button>
             ) : (
                 <button

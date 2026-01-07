@@ -1,6 +1,6 @@
 /**
  * Comprehensive Frontend Functionality E2E Tests
- * Tests complete trading platform workflows
+ * Tests complete analytics platform workflows
  */
 import { test, expect, Page } from '@playwright/test';
 
@@ -262,14 +262,14 @@ test.describe('Trading Interface', () => {
     await loginUser(page);
   });
 
-  test('should access trading page', async ({ page }) => {
-    console.log('🧪 Testing trading interface access');
+  test('should access analytics page', async ({ page }) => {
+    console.log('🧪 Testing analytics interface access');
 
-    await page.goto('/trading');
+    await page.goto('/analytics');
     await page.waitForLoadState('networkidle');
 
-    // Should access trading page (if implemented)
-    if (page.url().includes('/trading')) {
+    // Should access analytics page (if implemented)
+    if (page.url().includes('/analytics')) {
       console.log('✅ Trading page accessible');
     } else {
       console.log('⚠️ Trading page may not be implemented yet');

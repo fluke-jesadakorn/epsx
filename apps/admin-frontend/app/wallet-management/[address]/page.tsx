@@ -4,42 +4,23 @@
  */
 'use client';
 
-import { ArrowLeft, Clock, Copy, ExternalLink, Package, RefreshCw, Save, Shield } from 'lucide-react';
+import { ArrowLeft, Clock, Copy, ExternalLink, Package, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
-import { PermissionTransferList } from '@/components/groups/PermissionTransferList';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { DisableWalletModal, type DisableWalletData } from '@/components/wallet/DisableWalletModal';
 import { ReenableWalletModal, type ReenableWalletData } from '@/components/wallet/ReenableWalletModal';
+import { WalletAccessManager } from '@/components/wallet/WalletAccessManager';
 import { WalletActivityTimeline } from '@/components/wallet/WalletActivityTimeline';
 import type { WalletActivityEvent, WalletData, WalletStatus } from '@/components/wallet/types';
 import { walletMgmt } from '@/lib/api/wallet-management-client';
 import { cn } from '@/lib/utils';
 import { useSharedAuth } from '@/shared/components/auth/Provider';
-
-// All available permissions in the system
-const ALL_AVAILABLE_PERMISSIONS = [
-    'epsx:analytics:view',
-    'epsx:analytics:advanced',
-    'epsx:trading:basic',
-    'epsx:trading:advanced',
-    'epsx:trading:pro',
-    'epsx:data:export',
-    'epsx:api:read',
-    'epsx:api:write',
-    'epsx:notifications:manage',
-    'epsx:markets:view',
-    'epsx:markets:alerts',
-    'epsx:pay:basic',
-    'epsx:pay:advanced',
-    'epsx:token:view',
-    'epsx:token:transfer',
-];
 
 const STATUS_CONFIG: Record<WalletStatus, { label: string; emoji: string; className: string }> = {
     active: {
@@ -98,11 +79,6 @@ export default function WalletDetailPage() {
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [activityEvents, setActivityEvents] = useState<WalletActivityEvent[]>([]);
     const [copied, setCopied] = useState(false);
-    const [isSavingPermissions, setIsSavingPermissions] = useState(false);
-
-    // Permission management state
-    const [selectedPermissions, setSelectedPermissions] = useState<string[]>([]);
-    const [hasPermissionChanges, setHasPermissionChanges] = useState(false);
 
     // Modals
     const [showDisableModal, setShowDisableModal] = useState(false);
@@ -121,10 +97,7 @@ export default function WalletDetailPage() {
             ]);
             setWallet(walletData);
             setActivityEvents(events);
-            // Initialize selected permissions from wallet data
-            const currentPermissions = walletData.permissions.map(p => p.permission);
-            setSelectedPermissions(currentPermissions);
-            setHasPermissionChanges(false);
+
         } catch (err) {
             console.error('Failed to load wallet:', err);
             toast.error('Failed to load wallet details');
@@ -149,68 +122,48 @@ export default function WalletDetailPage() {
         setTimeout(() => setCopied(false), 2000);
     };
 
-    // Handle permission changes from PermissionTransferList
-    const handlePermissionsChange = useCallback((newPermissions: string[]) => {
-        setSelectedPermissions(newPermissions);
-        // Check if permissions have changed from original
-        const originalPermissions = wallet?.permissions.map(p => p.permission) ?? [];
-        const hasChanged =
-            newPermissions.length !== originalPermissions.length ||
-            newPermissions.some(p => !originalPermissions.includes(p)) ||
-            originalPermissions.some(p => !newPermissions.includes(p));
-        setHasPermissionChanges(hasChanged);
-    }, [wallet]);
 
-    // Save permission changes
-    const handleSavePermissions = async () => {
-        if (!wallet || !hasPermissionChanges) return;
-
-        setIsSavingPermissions(true);
-        try {
-            const originalPermissions = wallet.permissions.map(p => p.permission);
-            const toAdd = selectedPermissions.filter(p => !originalPermissions.includes(p));
-            const toRemove = originalPermissions.filter(p => !selectedPermissions.includes(p));
-
-            // TODO: Call API to update permissions
-
-            // Simulate API call
-            await new Promise(resolve => setTimeout(resolve, 1000));
-
-            toast.success(`Permissions updated: +${toAdd.length} / -${toRemove.length}`);
-            setHasPermissionChanges(false);
-            await loadWallet();
-        } catch (err) {
-            toast.error('Failed to save permission changes');
-        } finally {
-            setIsSavingPermissions(false);
-        }
-    };
 
     const handleDisableWallet = async (data: DisableWalletData) => {
+        if (!wallet) return;
         setIsActionLoading(true);
         try {
-            // TODO: Call API to disable wallet
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            await walletMgmt.disableWallet(wallet.walletAddress, {
+                duration_days: data.duration === 'until_manual' ? undefined : data.duration,
+                reason_category: data.reasonCategory,
+                reason_details: data.reasonDetails,
+                affected_platforms: data.affectedPlatforms,
+                block_login: data.blockLogin,
+                pause_subscriptions: data.pauseSubscriptions,
+                notify_user: data.notifyUser,
+            });
             toast.success('Wallet disabled successfully');
             setShowDisableModal(false);
             await loadWallet();
         } catch (err) {
-            toast.error('Failed to disable wallet');
+            console.error('Failed to disable wallet:', err);
+            toast.error(err instanceof Error ? err.message : 'Failed to disable wallet');
         } finally {
             setIsActionLoading(false);
         }
     };
 
     const handleReenableWallet = async (data: ReenableWalletData) => {
+        if (!wallet) return;
         setIsActionLoading(true);
         try {
-            // TODO: Call API to re-enable wallet
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            await walletMgmt.enableWallet(wallet.walletAddress, {
+                platforms_to_enable: data.platformsToEnable,
+                restore_permissions: data.restorePermissions,
+                resume_subscriptions: data.resumeSubscriptions,
+                resolution_note: data.resolutionNote,
+            });
             toast.success('Wallet re-enabled successfully');
             setShowReenableModal(false);
             await loadWallet();
         } catch (err) {
-            toast.error('Failed to re-enable wallet');
+            console.error('Failed to re-enable wallet:', err);
+            toast.error(err instanceof Error ? err.message : 'Failed to re-enable wallet');
         } finally {
             setIsActionLoading(false);
         }
@@ -433,34 +386,11 @@ export default function WalletDetailPage() {
                     </div>
                 )}
 
-                {/* Permissions - Drag and Drop Transfer List */}
-                <div className="rounded-xl bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-gray-200 dark:border-gray-700 p-5">
-                    <div className="flex items-center justify-between mb-4">
-                        <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                            <Shield className="h-5 w-5 text-blue-600" />
-                            Access Permissions
-                        </h3>
-                        {hasPermissionChanges && (
-                            <Button
-                                onClick={handleSavePermissions}
-                                disabled={isSavingPermissions}
-                                className="gap-2 bg-green-600 hover:bg-green-700 text-white"
-                            >
-                                {isSavingPermissions ? (
-                                    <RefreshCw className="h-4 w-4 animate-spin" />
-                                ) : (
-                                    <Save className="h-4 w-4" />
-                                )}
-                                Save Changes
-                            </Button>
-                        )}
-                    </div>
-                    <PermissionTransferList
-                        available={ALL_AVAILABLE_PERMISSIONS}
-                        selected={selectedPermissions}
-                        onChange={handlePermissionsChange}
-                    />
-                </div>
+                {/* Access Permissions - Unified Manager */}
+                <WalletAccessManager
+                    walletAddress={wallet.walletAddress}
+                    onSaveComplete={loadWallet}
+                />
 
                 {/* Quick Actions */}
                 <div className="rounded-xl bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-gray-200 dark:border-gray-700 p-5">
@@ -482,7 +412,7 @@ export default function WalletDetailPage() {
                                 onClick={() => setShowDisableModal(true)}
                                 className="border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-400 dark:hover:bg-amber-900/20"
                             >
-                                ⚠️ Temporarily Disable
+                                ⚠️ Disable Wallet
                             </Button>
                         )}
                         <Button

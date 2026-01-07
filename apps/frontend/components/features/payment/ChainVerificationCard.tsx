@@ -26,28 +26,50 @@ interface NetworkConfig {
     blockExplorerUrls?: string[];
 }
 
-const NETWORK_CONFIGS: Record<number, NetworkConfig> = {
-    56: {
-        chainId: '0x38',
-        chainName: 'BNB Smart Chain',
-        nativeCurrency: { name: 'BNB', symbol: 'BNB', decimals: 18 },
-        rpcUrls: ['https://bsc-dataseed.binance.org/'],
-        blockExplorerUrls: ['https://bscscan.com'],
-    },
-    97: {
-        chainId: '0x61',
-        chainName: 'BSC Testnet',
-        nativeCurrency: { name: 'tBNB', symbol: 'tBNB', decimals: 18 },
-        rpcUrls: ['https://data-seed-prebsc-1-s1.binance.org:8545/'],
-        blockExplorerUrls: ['https://testnet.bscscan.com'],
-    },
-    31337: {
-        chainId: '0x7a69',
-        chainName: 'Anvil Local (BSC Fork)',
-        nativeCurrency: { name: 'BNB', symbol: 'BNB', decimals: 18 },
-        rpcUrls: ['http://127.0.0.1:8545'],
-    },
-};
+/**
+ * Get the local Anvil RPC URL based on current browser hostname.
+ * Supports Tailscale IPs (100.x.x.x) and other local network IPs.
+ */
+function getLocalAnvilRpcUrl(): string {
+    if (typeof window === 'undefined') {
+        return 'http://127.0.0.1:8545';
+    }
+    const hostname = window.location.hostname;
+    // Use the same host for Anvil RPC on port 8545
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+        return 'http://127.0.0.1:8545';
+    }
+    // For Tailscale IPs (100.x.x.x) or other local IPs, use the same host
+    return `http://${hostname}:8545`;
+}
+
+/**
+ * Get network configs dynamically (local Anvil uses current hostname)
+ */
+function getNetworkConfigs(): Record<number, NetworkConfig> {
+    return {
+        56: {
+            chainId: '0x38',
+            chainName: 'BNB Smart Chain',
+            nativeCurrency: { name: 'BNB', symbol: 'BNB', decimals: 18 },
+            rpcUrls: ['https://bsc-dataseed.binance.org/'],
+            blockExplorerUrls: ['https://bscscan.com'],
+        },
+        97: {
+            chainId: '0x61',
+            chainName: 'BSC Testnet',
+            nativeCurrency: { name: 'tBNB', symbol: 'tBNB', decimals: 18 },
+            rpcUrls: ['https://data-seed-prebsc-1-s1.binance.org:8545/'],
+            blockExplorerUrls: ['https://testnet.bscscan.com'],
+        },
+        31337: {
+            chainId: '0x7a69',
+            chainName: 'Anvil Local (BSC Fork)',
+            nativeCurrency: { name: 'BNB', symbol: 'BNB', decimals: 18 },
+            rpcUrls: [getLocalAnvilRpcUrl()],
+        },
+    };
+}
 
 interface ChainVerificationCardProps {
     /** Optional callback when chain switches to a supported network */
@@ -121,7 +143,7 @@ export function ChainVerificationCard({
     const handleAddNetwork = async (chain: ChainInfo) => {
         if (!connector || isAddingNetwork) return;
 
-        const config = NETWORK_CONFIGS[chain.id];
+        const config = getNetworkConfigs()[chain.id];
         if (!config) {
             setErrorMessage('Network configuration not available.');
             return;

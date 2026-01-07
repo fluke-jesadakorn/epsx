@@ -1,7 +1,7 @@
 'use server';
 
+import { createFrontendApiClient } from '@/shared/api';
 import type { PaginatedResponse } from '@/shared/types/api';
-import { Service, URL, URLContext } from '@/shared/utils/url-resolver';
 
 interface StockRanking {
   rank: number;
@@ -18,30 +18,34 @@ interface StockRanking {
   }>;
 }
 
-// Using shared PaginatedResponse type instead of local ApiResponse
-
 // Fetch data for PublicRankingPreview (StockFinancialData format) - Public ranks 101-105
 export async function fetchPublicRankingData(page = 1, limit = 5) {
   try {
-    const apiUrl = URL.get(Service.BACKEND, URLContext.SERVER);
+    const client = createFrontendApiClient({ serverSide: true });
+
     // Start from rank 101 (page 21 with 5 per page: (21-1)*5 + 1 = 101)
     const publicPage = Math.floor(100 / limit) + page;
-    const url = `${apiUrl}/api/analytics/rankings?page=${publicPage}&limit=${limit}&sort_by=market_cap`;
 
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'Accept': 'application/json',
-        'Cache-Control': 'no-cache',
+    const response = await client.get<PaginatedResponse<StockRanking>>(
+      '/api/analytics/rankings',
+      {
+        page: publicPage,
+        limit,
+        sort_by: 'market_cap'
       },
-      next: { revalidate: 300 }, // Cache for 5 minutes
-    });
+      {
+        next: { revalidate: 300 }, // Cache for 5 minutes
+        headers: {
+          'Cache-Control': 'no-cache',
+        }
+      } as RequestInit
+    );
 
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+    if (!response.success || !response.data) {
+      throw new Error(response.error || `Request failed with status ${response.status}`);
     }
 
-    const apiData: PaginatedResponse<StockRanking> = await response.json();
+    const apiData = response.data;
 
     if (!Array.isArray(apiData.data)) {
       throw new Error('Invalid API response format');
@@ -79,25 +83,31 @@ export async function fetchPublicRankingData(page = 1, limit = 5) {
 // Fetch data for ClientEpsCardSection (TableDataMetrics format) - Public ranks 101-103
 export async function fetchEpsCardData(page = 1, limit = 3) {
   try {
-    const apiUrl = URL.get(Service.BACKEND, URLContext.SERVER);
+    const client = createFrontendApiClient({ serverSide: true });
+
     // Start from rank 101 (page 34 with 3 per page: (34-1)*3 + 1 = 100, so page 35 = 103)
     const publicPage = Math.floor(100 / limit) + page;
-    const url = `${apiUrl}/api/analytics/rankings?page=${publicPage}&limit=${limit}&sort_by=market_cap`;
 
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'Accept': 'application/json',
-        'Cache-Control': 'no-cache',
+    const response = await client.get<PaginatedResponse<StockRanking>>(
+      '/api/analytics/rankings',
+      {
+        page: publicPage,
+        limit,
+        sort_by: 'market_cap'
       },
-      next: { revalidate: 300 }, // Cache for 5 minutes
-    });
+      {
+        next: { revalidate: 300 }, // Cache for 5 minutes
+        headers: {
+          'Cache-Control': 'no-cache',
+        }
+      } as RequestInit
+    );
 
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+    if (!response.success || !response.data) {
+      throw new Error(response.error || `Request failed with status ${response.status}`);
     }
 
-    const apiData: PaginatedResponse<StockRanking> = await response.json();
+    const apiData = response.data;
 
     if (!Array.isArray(apiData.data)) {
       throw new Error('Invalid API response format');

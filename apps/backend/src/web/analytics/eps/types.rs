@@ -274,9 +274,9 @@ pub struct CardDashboardMetadata {
     pub data_source: String,
 }
 
-/// Convert from DDD trading analytics to API response
+/// Convert from DDD market analytics to API response
 impl EPSRankingsApiResponse {
-    pub fn from_ddd_ranking_entry(ranking_entry: crate::domain::trading_analytics::aggregates::eps_ranking::RankingEntry, rank: u32, page: i32, limit: i32, total: i64) -> Self {
+    pub fn from_ddd_ranking_entry(ranking_entry: crate::domain::market_analytics::aggregates::eps_ranking::RankingEntry, rank: u32, page: i32, limit: i32, total: i64) -> Self {
         let total_pages = ((total as f64) / (limit as f64)).ceil() as i32;
         
         // Convert DDD RankingEntry to legacy EPSRanking for API compatibility
@@ -301,7 +301,7 @@ impl EPSRankingsApiResponse {
     
     /// Convert DDD RankingEntry to legacy EPSRanking for API compatibility
     fn convert_ddd_entry_to_legacy_ranking(
-        entry: crate::domain::trading_analytics::aggregates::eps_ranking::RankingEntry, 
+        entry: crate::domain::market_analytics::aggregates::eps_ranking::RankingEntry, 
         rank: u32
     ) -> crate::domain::shared_kernel::entities::eps_growth::EPSRanking {
         crate::domain::shared_kernel::entities::eps_growth::EPSRanking::from_eps_data(

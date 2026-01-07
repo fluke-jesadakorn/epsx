@@ -79,7 +79,7 @@ export function DisableWalletModal({
     onConfirm,
     isLoading = false,
 }: DisableWalletModalProps) {
-    const [duration, setDuration] = useState<string>('30');
+    const [duration, setDuration] = useState<string>('until_manual');
     const [reasonCategory, setReasonCategory] = useState<DisableReasonCategory>('suspicious_activity');
     const [reasonDetails, setReasonDetails] = useState('');
     const [affectedPlatforms, setAffectedPlatforms] = useState<Platform[]>(['analytics', 'pay', 'token', 'markets']);
@@ -128,7 +128,7 @@ export function DisableWalletModal({
 
     const handleClose = () => {
         // Reset form
-        setDuration('30');
+        setDuration('until_manual');
         setReasonCategory('suspicious_activity');
         setReasonDetails('');
         setAffectedPlatforms(['analytics', 'pay', 'token', 'markets']);
@@ -145,7 +145,7 @@ export function DisableWalletModal({
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
                         <AlertTriangle className="h-5 w-5" />
-                        Temporarily Disable Wallet
+                        Disable Wallet
                     </DialogTitle>
                     <DialogDescription>
                         Disable access for wallet{' '}

@@ -1,6 +1,8 @@
 // Direct Web3 API Client for Backend Communication
 // Bypasses Bearer token requirements for public authentication routes
 
+import { UnifiedApiClient } from '@/shared/utils/api-client';
+
 /**
  * Direct backend API communication for Web3 wallet authentication
  * Uses public routes that don't require Bearer tokens
@@ -41,6 +43,7 @@ export interface VerifyRequest {
  */
 export class DirectWeb3Api {
   private backendUrl: string;
+  private client: UnifiedApiClient;
 
   constructor(backendUrl?: string) {
     // Enhanced backend URL resolution
@@ -48,8 +51,15 @@ export class DirectWeb3Api {
       backendUrl ||
       (typeof window !== 'undefined'
         ? process.env.NEXT_PUBLIC_BACKEND_URL ||
-          window.location.origin.replace(/:300[0-9]/, ':8080')
+        window.location.origin.replace(/:300[0-9]/, ':8080')
         : process.env.BACKEND_URL || 'http://localhost:8080');
+
+    // Initialize the unified API client
+    this.client = new UnifiedApiClient({
+      baseURL: this.backendUrl,
+      platform: 'frontend',
+      serverSide: typeof window === 'undefined',
+    });
   }
 
   /**
@@ -58,48 +68,17 @@ export class DirectWeb3Api {
    */
   async requestChallenge(walletAddress: string): Promise<ChallengeResponse> {
     try {
-      const response = await fetch(
-        `${this.backendUrl}/api/auth/web3/challenge`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            wallet_address: walletAddress,
-          }),
-        }
-      );
+      const response = await this.client.post<ChallengeResponse>('/api/auth/web3/challenge', {
+        wallet_address: walletAddress,
+      });
 
-      if (!response.ok) {
-        let errorMessage = `Challenge request failed: ${response.status} ${response.statusText}`;
-
-        try {
-          const errorData = await response.json();
-          errorMessage = errorData.error || errorData.message || errorMessage;
-        } catch {
-          // Use default error message if JSON parsing fails
-        }
-
-        throw new Error(errorMessage);
+      if (!response.success || !response.data) {
+        throw new Error(response.error || response.message || 'Challenge generation failed');
       }
 
-      const challengeData = await response.json();
-
-      if (!challengeData.success) {
-        throw new Error(challengeData.error || 'Challenge generation failed');
-      }
-
-      return challengeData;
+      return response.data;
     } catch (error) {
       console.error('❌ Challenge request failed:', error);
-
-      if (error instanceof TypeError && error.message.includes('fetch')) {
-        throw new Error(
-          `Cannot connect to backend at ${this.backendUrl}. Please ensure the backend server is running.`
-        );
-      }
-
       throw error;
     }
   }
@@ -110,54 +89,21 @@ export class DirectWeb3Api {
    */
   async verifySignature(request: VerifyRequest): Promise<VerifyResponse> {
     try {
-      const response = await fetch(`${this.backendUrl}/api/auth/web3/verify`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(request),
-      });
+      const response = await this.client.post<VerifyResponse>('/api/auth/web3/verify', request);
 
-      if (!response.ok) {
-        let errorMessage = `Signature verification failed: ${response.status} ${response.statusText}`;
-
-        try {
-          const errorData = await response.json();
-          errorMessage = errorData.error || errorData.message || errorMessage;
-        } catch {
-          // Use default error message if JSON parsing fails
-        }
-
-        throw new Error(errorMessage);
-      }
-
-      const verifyData = await response.json();
-
-      // Handle real API response
-      if (!verifyData.success) {
-        throw new Error(
-          verifyData.message ||
-            verifyData.error ||
-            'Signature verification failed'
-        );
+      if (!response.success || !response.data) {
+        throw new Error(response.error || response.message || 'Signature verification failed');
       }
 
       return {
-        success: verifyData.success,
-        wallet_address: verifyData.wallet_address,
-        permissions: verifyData.permissions || [],
-        access_token: verifyData.access_token,
-        is_new_user: verifyData.is_new_user,
+        success: response.data.success,
+        wallet_address: response.data.wallet_address,
+        permissions: response.data.permissions || [],
+        access_token: response.data.access_token,
+        is_new_user: response.data.is_new_user,
       };
     } catch (error) {
       console.error('❌ Signature verification failed:', error);
-
-      if (error instanceof TypeError && error.message.includes('fetch')) {
-        throw new Error(
-          `Cannot connect to backend at ${this.backendUrl}. Please ensure the backend server is running.`
-        );
-      }
-
       throw error;
     }
   }

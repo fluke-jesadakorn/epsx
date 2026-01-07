@@ -3,7 +3,7 @@
 
 pub mod models;
 pub mod handlers;
-pub mod admin_models;    // Admin-specific command models (trading analytics pattern)
+pub mod admin_models;    // Admin-specific command models (market analytics pattern)
 pub mod admin_handlers;  // Admin command handlers
 
 pub use models::*;

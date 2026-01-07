@@ -52,27 +52,27 @@ export interface BaseProgressiveAuthProps {
    * Minimum authentication level required for this component
    */
   requiredLevel: AuthLevelType;
-  
+
   /**
    * Content to show when user meets the required auth level
    */
   children: ReactNode;
-  
+
   /**
    * Optional fallback content for unauthorized users
    */
   fallback?: ReactNode;
-  
+
   /**
    * Custom message explaining why authentication is needed
    */
   authMessage?: string;
-  
+
   /**
    * Whether to show upgrade prompts
    */
   showUpgradePrompts?: boolean;
-  
+
   /**
    * Action name for better UX messaging
    */
@@ -84,12 +84,12 @@ export interface UserProgressiveAuthProps extends BaseProgressiveAuthProps {
    * Context type for user authentication (optional for backward compatibility)
    */
   context?: 'user';
-  
+
   /**
    * Required permissions for user context (e.g., ['epsx:analytics:view'])
    */
   requiredPermissions?: string[];
-  
+
   /**
    * Minimum subscription tier required
    */
@@ -101,17 +101,17 @@ export interface AdminProgressiveAuthProps extends BaseProgressiveAuthProps {
    * Context type for admin authentication (optional for backward compatibility)
    */
   context?: 'admin';
-  
+
   /**
    * Required admin permissions (e.g., ['admin:users:manage', 'admin:system:view'])
    */
   requiredPermissions?: string[];
-  
+
   /**
    * Required security level for admin operations
    */
   requiredSecurityLevel?: 'standard' | 'elevated' | 'critical';
-  
+
   /**
    * Whether MFA is required for this operation
    */
@@ -124,22 +124,22 @@ export interface ProgressiveAuthProps extends BaseProgressiveAuthProps {
    * Optional context type for authentication (defaults to 'user' if not specified)
    */
   context?: 'user' | 'admin';
-  
+
   /**
    * Required permissions (format depends on context)
    */
   requiredPermissions?: string[];
-  
+
   /**
    * Required tier for user context
    */
   requiredTier?: string;
-  
+
   /**
    * Required security level for admin context
    */
   requiredSecurityLevel?: 'standard' | 'elevated' | 'critical';
-  
+
   /**
    * Whether MFA is required (admin context)
    */
@@ -222,7 +222,7 @@ export const AUTH_MESSAGES = {
     PREMIUM_REQUIRED: 'Sign in to access premium features',
     SUBSCRIPTION_REQUIRED: 'Upgrade your subscription to access this feature',
   },
-  
+
   // Admin messages
   ADMIN: {
     CONNECT_WALLET: 'Connect your admin wallet to access administrative features',
@@ -247,9 +247,9 @@ export const ACTION_NAMES = {
     ACCESS_DASHBOARD: 'access your dashboard',
     SAVE_PREFERENCES: 'save preferences',
     EXPORT_DATA: 'export your data',
-    VIEW_TRADING_DATA: 'view trading data',
+    VIEW_ANALYTICS_DATA: 'view analytics data',
   },
-  
+
   // Admin actions
   ADMIN: {
     MANAGE_USERS: 'manage users',
@@ -275,7 +275,7 @@ export const PERMISSION_LEVELS = {
     PRO: ['epsx:analytics:*', 'epsx:export:*', 'epsx:api:*'],
     ENTERPRISE: ['epsx:*:*'],
   },
-  
+
   // Admin permission levels
   ADMIN: {
     SUPER_ADMIN: ['admin:*:*'],
@@ -308,7 +308,7 @@ export function getUserAuthMessage(actionName?: string, level?: AuthLevelType): 
         return AUTH_MESSAGES.USER.SIGN_IN_REQUIRED;
     }
   }
-  
+
   // Map action names to specific messages
   const messageMap: Record<string, string> = {
     [ACTION_NAMES.USER.MAKE_PAYMENT]: AUTH_MESSAGES.USER.PAYMENT_REQUIRED,
@@ -316,7 +316,7 @@ export function getUserAuthMessage(actionName?: string, level?: AuthLevelType): 
     [ACTION_NAMES.USER.GENERATE_API_KEY]: AUTH_MESSAGES.USER.API_REQUIRED,
     [ACTION_NAMES.USER.VIEW_PREMIUM]: AUTH_MESSAGES.USER.PREMIUM_REQUIRED,
   };
-  
+
   return messageMap[actionName] || AUTH_MESSAGES.USER.SIGN_IN_REQUIRED;
 }
 
@@ -324,7 +324,7 @@ export function getAdminAuthMessage(actionName?: string, level?: AuthLevelType, 
   if (requireMFA) {
     return AUTH_MESSAGES.ADMIN.MFA_REQUIRED;
   }
-  
+
   if (!actionName) {
     switch (level) {
       case AuthLevel.CONNECTED:
@@ -335,7 +335,7 @@ export function getAdminAuthMessage(actionName?: string, level?: AuthLevelType, 
         return AUTH_MESSAGES.ADMIN.SIGN_IN_REQUIRED;
     }
   }
-  
+
   // Map action names to specific messages
   const messageMap: Record<string, string> = {
     [ACTION_NAMES.ADMIN.MANAGE_USERS]: AUTH_MESSAGES.ADMIN.USER_MANAGEMENT_REQUIRED,
@@ -344,7 +344,7 @@ export function getAdminAuthMessage(actionName?: string, level?: AuthLevelType, 
     [ACTION_NAMES.ADMIN.VIEW_ANALYTICS]: AUTH_MESSAGES.ADMIN.ANALYTICS_REQUIRED,
     [ACTION_NAMES.ADMIN.SECURITY_OPERATIONS]: AUTH_MESSAGES.ADMIN.SECURITY_REQUIRED,
   };
-  
+
   return messageMap[actionName] || AUTH_MESSAGES.ADMIN.SIGN_IN_REQUIRED;
 }
 
@@ -369,15 +369,15 @@ export function isAdminAuthState(state: AuthState): state is AdminAuthState {
 }
 
 export function hasRequiredPermissions(
-  userPermissions: string[], 
+  userPermissions: string[],
   requiredPermissions: string[]
 ): boolean {
   if (requiredPermissions.length === 0) return true;
-  
-  return requiredPermissions.every(required => 
-    userPermissions.some(permission => 
-      permission === required || 
-      permission.includes('*') || 
+
+  return requiredPermissions.every(required =>
+    userPermissions.some(permission =>
+      permission === required ||
+      permission.includes('*') ||
       permission === 'admin:*:*' ||
       permission === 'epsx:*:*'
     )
@@ -385,7 +385,7 @@ export function hasRequiredPermissions(
 }
 
 export function meetsSecurityLevel(
-  userLevel: string, 
+  userLevel: string,
   requiredLevel: 'standard' | 'elevated' | 'critical'
 ): boolean {
   const levelOrder = { 'standard': 0, 'elevated': 1, 'critical': 2 };
@@ -397,19 +397,19 @@ export function getRequiredAuthLevel(permissions: string[]): AuthLevelType {
   const sensitivePermissions = [
     'admin:security:', 'admin:system:', 'epsx:payment:', 'epsx:api:'
   ];
-  
+
   const hasSensitivePermission = permissions.some(permission =>
     sensitivePermissions.some(sensitive => permission.includes(sensitive))
   );
-  
+
   if (hasSensitivePermission) {
     return AuthLevel.AUTHENTICATED;
   }
-  
+
   if (permissions.length > 0) {
     return AuthLevel.CONNECTED;
   }
-  
+
   return AuthLevel.PUBLIC;
 }
 

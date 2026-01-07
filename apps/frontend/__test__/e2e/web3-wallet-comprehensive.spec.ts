@@ -298,7 +298,7 @@ test.describe('Web3 Wallet E2E - Complete Coverage', () => {
         refresh_token: 'siwe_refresh_token_new_user',
         user_id: 'new_user_siwe_id',
         wallet_address: TEST_WALLETS.unregistered,
-        permissions: ['user:profile:view', 'user:trading:basic'],
+        permissions: ['user:profile:view', 'user:analytics:basic'],
         expires_in: 3600
       });
 
@@ -345,7 +345,7 @@ test.describe('Web3 Wallet E2E - Complete Coverage', () => {
         refresh_token: 'siwe_refresh_token_existing',
         user_id: 'existing_user_id',
         wallet_address: TEST_WALLETS.registered,
-        permissions: ['user:profile:view', 'user:trading:advanced', 'user:analytics:access'],
+        permissions: ['user:profile:view', 'user:analytics:advanced', 'user:analytics:access'],
         expires_in: 3600
       });
 
@@ -449,7 +449,7 @@ test.describe('Web3 Wallet E2E - Complete Coverage', () => {
             }
           },
           { 
-            permission: 'advanced:trading:access', 
+            permission: 'advanced:analytics:access', 
             source: 'token', 
             granted_at: new Date().toISOString(), 
             is_active: true 
@@ -457,7 +457,7 @@ test.describe('Web3 Wallet E2E - Complete Coverage', () => {
         ],
         user_tier: 'token',
         has_api_access: true,
-        automatic_grants: ['token:holder:access', 'advanced:trading:access']
+        automatic_grants: ['token:holder:access', 'advanced:analytics:access']
       });
 
       await page.goto(`${BASE_URL}/profile`);
@@ -626,7 +626,7 @@ test.describe('Web3 Wallet E2E - Complete Coverage', () => {
         user_id: 'persistent_user_id',
         wallet_address: TEST_WALLETS.registered,
         is_authenticated: true,
-        permissions: ['user:profile:view', 'user:trading:access'],
+        permissions: ['user:profile:view', 'user:analytics:access'],
         expires_at: new Date(Date.now() + 3600 * 1000).toISOString()
       });
 
@@ -717,7 +717,7 @@ test.describe('Web3 Wallet E2E - Complete Coverage', () => {
         user_id: 'multi_tab_user',
         wallet_address: TEST_WALLETS.tokenHolder,
         is_authenticated: true,
-        permissions: ['user:profile:view', 'user:trading:access'],
+        permissions: ['user:profile:view', 'user:analytics:access'],
         expires_at: new Date(Date.now() + 3600 * 1000).toISOString()
       });
 

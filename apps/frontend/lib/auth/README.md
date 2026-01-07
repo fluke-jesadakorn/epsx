@@ -131,14 +131,14 @@ function MyComponent() {
 import { useWeb3Permission, useWeb3Tier } from '@/lib/auth/use-web3-auth';
 
 function ProtectedComponent() {
-  const canTrade = useWeb3Permission('epsx:trading:access');
+  const canViewAnalytics = useWeb3Permission('epsx:analytics:access');
   const hasNFTAccess = useWeb3Tier('nft');
   
-  if (!canTrade) {
-    return <div>Trading access required</div>;
+  if (!canViewAnalytics) {
+    return <div>Analytics access required</div>;
   }
   
-  return <div>Trading interface</div>;
+  return <div>Analytics interface</div>;
 }
 ```
 

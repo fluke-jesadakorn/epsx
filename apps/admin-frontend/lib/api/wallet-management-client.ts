@@ -160,6 +160,10 @@ function mapWalletDtoToData(dto: WalletSummaryDto): WalletData {
     // Parse disable info from metadata if present
     const disableInfo = dto.metadata?.['disable_info'] as WalletData['disableInfo'] | undefined;
 
+    // Extract label and note from metadata
+    const label = dto.metadata?.['label'] as string | undefined;
+    const note = dto.metadata?.['note'] as string | undefined;
+
     return {
         walletAddress: dto.wallet_address,
         status,
@@ -169,7 +173,10 @@ function mapWalletDtoToData(dto: WalletSummaryDto): WalletData {
         platforms: Array.from(platforms),
         permissions,
         subscriptions,
+        groups: (dto.groups || []).map(g => ({ groupName: g.group_name, role: g.role })),
         metadata: dto.metadata,
+        label,
+        note,
     };
 }
 
@@ -285,15 +292,21 @@ export const walletMgmt = {
      * Fetch detailed wallet information
      */
     async fetchWalletDetail(walletAddress: string): Promise<WalletData> {
-        const res = await adminApiClient.get<{ data: WalletSummaryDto }>(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const res = await adminApiClient.get<any>(
             `/api/admin/wallets/${walletAddress}`
         );
 
-        if (!res.data?.data) {
+        // Handle AdminApiResponse wrapper: { success, data: { wallet: {...} }, message }
+        // Also handle direct response: { wallet: {...} }
+        const responseData = res.data?.data || res.data;
+        const walletDto = responseData?.wallet || responseData;
+
+        if (!walletDto || !walletDto.wallet_address) {
             throw new Error('Wallet not found');
         }
 
-        return mapWalletDtoToData(res.data.data);
+        return mapWalletDtoToData(walletDto);
     },
 
     /**
@@ -380,6 +393,21 @@ export const walletMgmt = {
                 })
             )
         );
+    },
+
+    /**
+     * Update wallet metadata (label and note)
+     */
+    async updateWalletMetadata(walletAddress: string, data: {
+        label?: string | null;
+        note?: string | null;
+    }): Promise<void> {
+        await adminApiClient.patch(`/api/admin/wallets/${walletAddress}`, {
+            metadata: {
+                label: data.label ?? undefined,
+                note: data.note ?? undefined,
+            },
+        });
     },
 };
 

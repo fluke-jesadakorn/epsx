@@ -1,269 +1,103 @@
-'use client';
 
-import { PricingCard, PricingCardData, PricingCardSkeleton } from '@/components/plans/PricingCard';
+import { PricingCardData } from '@/components/plans/PricingCard';
 import { env } from '@/shared/env/schema';
-import { Star } from 'lucide-react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { DynamicPricingClient } from './DynamicPricingClient';
 
-interface DynamicPlan {
-  id: number;
-  name: string;
-  planType: 'personal' | 'api';
-  basePrice: number;
-  currentPrice: number;
-  currency: string;
-  features: string[];
-  affiliateCommissionRate: number;
-  displayOrder: number;
-  isActive: boolean;
-  isHighlighted: boolean;
-  activePromotions: string[];
-  effectivePrice: number;
-  promotionalBadges?: string[];
-  campaignSummary?: string;
+interface DynamicPricingSectionProps {
+  initialAffiliateCode?: string | null;
 }
 
-const DynamicPricingSection = () => {
-  const [personalPlans, setPersonalPlans] = useState<PricingCardData[]>([]);
-  const [apiPlans, setApiPlans] = useState<PricingCardData[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [affiliateCode, setAffiliateCode] = useState<string | null>(null);
-  const [affiliateInfo, setAffiliateInfo] = useState<any>(null);
+export default async function DynamicPricingSection({ initialAffiliateCode }: DynamicPricingSectionProps = {}) {
+  // Optimization: Do NOT read cookies here. Reading cookies forces dynamic rendering.
+  // We strictly use the prop passed from the page (URL param).
+  // If a user has a cookie but no URL param, the Client Component will handle fetching the discounted price.
+  const affiliateCode = initialAffiliateCode || null;
 
-  const router = useRouter();
-  const searchParams = useSearchParams();
+  let personalPlans: PricingCardData[] = [];
+  let apiPlans: PricingCardData[] = [];
+  // const affiliateInfo = null; // To fully support affiliateInfo, we might need another fetch
 
-  // Extract affiliate code from URL parameters
-  useEffect(() => {
-    const refCode = searchParams.get('ref') || searchParams.get('affiliate') || searchParams.get('aff');
-    if (refCode) {
-      setAffiliateCode(refCode);
-      document.cookie = `affiliate_code=${encodeURIComponent(refCode)}; path=/; max-age=2592000; SameSite=lax`;
-    } else {
-      const cookies = document.cookie.split(';').reduce((acc, cookie) => {
-        const [key, value] = cookie.trim().split('=');
-        if (key && value) acc[key] = value;
-        return acc;
-      }, {} as Record<string, string>);
-
-      const storedCode = cookies.affiliate_code || localStorage.getItem('affiliateCode');
-      if (storedCode) {
-        setAffiliateCode(decodeURIComponent(storedCode));
-      }
-    }
-  }, [searchParams]);
-
-  // Fetch dynamic plans from backend
-  useEffect(() => {
-    const fetchPlans = async () => {
-      try {
-        setLoading(true);
-
-        const baseUrl = env.BACKEND_URL;
-        let apiUrl = `${baseUrl}/api/public/plans`;
-
-        if (affiliateCode) {
-          apiUrl += `?affiliate_code=${encodeURIComponent(affiliateCode)}`;
-        }
-
-        const response = await fetch(apiUrl, {
-          method: 'GET',
-          headers: { 'Accept': 'application/json' },
-        });
-
-        if (!response.ok) {
-          throw new Error(`Failed to fetch plans: ${response.status}`);
-        }
-
-        const result = await response.json();
-
-        if (result.success && result.data && Array.isArray(result.data)) {
-          const planData = result.data.map((item: any) => ({
-            id: item.id,
-            name: item.name,
-            planType: item.plan_type,
-            basePrice: parseFloat(item.current_price) || 0,
-            currentPrice: parseFloat(item.current_price) || 0,
-            effectivePrice: parseFloat(item.current_price) || 0,
-            currency: item.currency || 'USD',
-            displayOrder: item.display_order || 0,
-            isActive: item.is_active,
-            isHighlighted: item.is_highlighted || item.is_promoted || false,
-            features: Array.isArray(item.features) ? item.features : [],
-            activePromotions: [],
-            promotionalBadges: [],
-          }));
-
-          // Separate personal and API plans
-          const personal = planData
-            .filter((plan: any) => plan.isActive)
-            .filter((plan: any) => {
-              const type = plan.planType?.toLowerCase();
-              return !type || !type.includes('api');
-            })
-            .sort((a: any, b: any) => (a.displayOrder || 0) - (b.displayOrder || 0))
-            .map(transformToPricingCard);
-
-          const api = planData
-            .filter((plan: any) => plan.isActive)
-            .filter((plan: any) => {
-              const type = plan.planType?.toLowerCase();
-              return type && type.includes('api');
-            })
-            .sort((a: any, b: any) => (a.displayOrder || 0) - (b.displayOrder || 0))
-            .map(transformToPricingCard);
-
-          setPersonalPlans(personal);
-          setApiPlans(api);
-        } else {
-          throw new Error('No valid plan data received');
-        }
-      } catch (error) {
-        console.error('[DynamicPricing] Error fetching plans:', error);
-        setPersonalPlans([]);
-        setApiPlans([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchPlans();
-  }, [affiliateCode]);
-
-  // Transform backend plan to frontend pricing card
-  const transformToPricingCard = (plan: DynamicPlan): PricingCardData => {
-    const hasDiscount = plan.currentPrice < plan.basePrice;
-
-    return {
-      id: plan.id,
-      title: plan.name,
-      price: plan.effectivePrice === 0 ? 'Free' : `$${plan.effectivePrice.toFixed(2)} ${plan.currency}`,
-      originalPrice: hasDiscount ? `$${plan.basePrice.toFixed(2)} ${plan.currency}` : undefined,
-      features: plan.features.map(feature => ({ text: feature, included: true })),
-      highlight: plan.isHighlighted,
-      buttonText: plan.effectivePrice === 0 ? 'Start Free' : 'Get Started',
-      promotions: plan.activePromotions || [],
-      badges: plan.promotionalBadges || [],
-      savings: hasDiscount ? `Save ${plan.currency} ${(plan.basePrice - plan.currentPrice).toFixed(2)}` : undefined
-    };
-  };
-
-  const handlePlanClick = (plan: PricingCardData) => {
-    let paymentUrl = '/payment';
-    const params = new URLSearchParams();
+  try {
+    const baseUrl = env.BACKEND_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080';
+    let apiUrl = `${baseUrl}/api/public/plans`;
 
     if (affiliateCode) {
-      params.set('ref', affiliateCode);
+      apiUrl += `?affiliate_code=${encodeURIComponent(affiliateCode)}`;
     }
 
-    params.set('plan', plan.id.toString());
+    const response = await fetch(apiUrl, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+      // cache: 'force-cache' // or similar if we want caching
+    });
 
-    if (params.toString()) {
-      paymentUrl += `?${params.toString()}`;
+    if (response.ok) {
+      const result = await response.json();
+
+      if (result.success && result.data && Array.isArray(result.data)) {
+        const planData = result.data.map((item: any) => ({
+          id: item.id,
+          name: item.name,
+          planType: item.plan_type,
+          basePrice: parseFloat(item.current_price) || 0,
+          currentPrice: parseFloat(item.current_price) || 0,
+          effectivePrice: parseFloat(item.current_price) || 0,
+          currency: item.currency || 'USD',
+          displayOrder: item.display_order || 0,
+          isActive: item.is_active,
+          isHighlighted: item.is_highlighted || item.is_promoted || false,
+          features: Array.isArray(item.features) ? item.features : [],
+          activePromotions: [],
+          promotionalBadges: [],
+        }));
+
+        // Use helper to transform (inline here since we can't easily share the one from Client)
+        const transformToPricingCard = (plan: any): PricingCardData => {
+          const hasDiscount = plan.currentPrice < plan.basePrice;
+
+          return {
+            id: plan.id,
+            title: plan.name,
+            price: plan.effectivePrice === 0 ? 'Free' : `$${plan.effectivePrice.toFixed(2)} ${plan.currency}`,
+            originalPrice: hasDiscount ? `$${plan.basePrice.toFixed(2)} ${plan.currency}` : undefined,
+            features: plan.features.map((feature: string) => ({ text: feature, included: true })),
+            highlight: plan.isHighlighted,
+            buttonText: plan.effectivePrice === 0 ? 'Start Free' : 'Get Started',
+            promotions: plan.activePromotions || [],
+            badges: plan.promotionalBadges || [],
+            savings: hasDiscount ? `Save ${plan.currency} ${(plan.basePrice - plan.currentPrice).toFixed(2)}` : undefined
+          };
+        };
+
+        personalPlans = planData
+          .filter((plan: any) => plan.isActive)
+          .filter((plan: any) => {
+            const type = plan.planType?.toLowerCase();
+            return !type || !type.includes('api');
+          })
+          .sort((a: any, b: any) => (a.displayOrder || 0) - (b.displayOrder || 0))
+          .map(transformToPricingCard);
+
+        apiPlans = planData
+          .filter((plan: any) => plan.isActive)
+          .filter((plan: any) => {
+            const type = plan.planType?.toLowerCase();
+            return type && type.includes('api');
+          })
+          .sort((a: any, b: any) => (a.displayOrder || 0) - (b.displayOrder || 0))
+          .map(transformToPricingCard);
+      }
     }
-
-    router.push(paymentUrl);
-  };
-
-  const renderPricingCards = (cards: PricingCardData[]) => {
-    if (loading) {
-      return Array.from({ length: 3 }).map((_, index) => (
-        <PricingCardSkeleton key={index} />
-      ));
-    }
-
-    return cards.map((card) => (
-      <PricingCard
-        key={card.id}
-        card={card}
-        onSelect={handlePlanClick}
-        affiliateInfo={affiliateInfo}
-        affiliateCode={affiliateCode}
-      />
-    ));
-  };
+  } catch (error) {
+    console.error('[DynamicPricing] Error fetching plans on server:', error);
+  }
 
   return (
-    <div className="relative w-full py-16 sm:py-24 lg:py-32 overflow-hidden">
-      {/* Analytics-style background decorations */}
-      <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute top-20 left-10 w-32 h-32 bg-gradient-to-br from-orange-400/10 to-yellow-400/10 dark:from-orange-600/5 dark:to-yellow-600/5 rounded-full animate-float" />
-        <div className="absolute bottom-20 right-20 w-24 h-24 bg-gradient-to-br from-blue-400/10 to-cyan-400/10 dark:from-blue-700/5 dark:to-cyan-700/5 rounded-full animate-bounce-gentle" />
-        <div className="absolute top-1/2 left-1/4 w-16 h-16 bg-gradient-to-br from-purple-400/10 to-pink-400/10 dark:from-purple-700/5 dark:to-pink-700/5 rounded-full animate-pulse-gentle" />
-        <div className="absolute bottom-1/4 right-1/3 w-20 h-20 bg-gradient-to-br from-green-400/10 to-emerald-400/10 dark:from-green-700/5 dark:to-emerald-700/5 rounded-full animate-float-reverse" />
-      </div>
-
-      {/* Affiliate attribution banner */}
-      {affiliateCode && affiliateInfo && (
-        <div className="container mx-auto px-4 mb-8">
-          <div className="bg-gradient-to-r from-purple-500 to-pink-500 text-white p-4 rounded-2xl text-center shadow-xl">
-            <div className="flex items-center justify-center gap-2 text-lg font-semibold">
-              <Star className="h-5 w-5" />
-              <span>You're eligible for {affiliateInfo.commission_rate}% affiliate rewards!</span>
-              <Star className="h-5 w-5" />
-            </div>
-            <p className="text-sm mt-1 opacity-90">
-              Referred by partner: {affiliateCode} • Special pricing applied
-            </p>
-          </div>
-        </div>
-      )}
-
-      <div className="relative container mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl space-y-16 sm:space-y-20 lg:space-y-24">
-
-        {/* Personal Plans */}
-        <div className="space-y-8 sm:space-y-12">
-          <div className="text-center space-y-6 sm:space-y-8 animate-slide-up">
-            <h2 className="text-4xl sm:text-6xl font-bold">
-              <span className="mr-2">💰</span>
-              <span className="bg-gradient-to-r from-orange-500 via-yellow-500 to-orange-600 dark:from-orange-400 dark:via-yellow-400 dark:to-orange-500 bg-clip-text text-transparent animate-gradient-x">
-                Personal Plans
-              </span>
-            </h2>
-            <p className="text-lg sm:text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto leading-relaxed">
-              🚀 Choose the perfect plan for individual use and start your data journey
-            </p>
-            <div className="w-32 sm:w-40 h-1.5 bg-gradient-to-r from-orange-500 via-yellow-500 to-orange-600 mx-auto rounded-full" />
-
-            {/* Decorative elements */}
-            <div className="flex justify-center items-center gap-4 mt-6">
-              <div className="w-2 h-2 bg-orange-400 rounded-full animate-pulse" />
-              <div
-                className="w-3 h-3 bg-yellow-400 rounded-full animate-pulse"
-                style={{ animationDelay: '0.5s' }}
-              />
-              <div
-                className="w-2 h-2 bg-orange-400 rounded-full animate-pulse"
-                style={{ animationDelay: '1s' }}
-              />
-            </div>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 md:gap-12 lg:gap-16 px-4 py-8">
-            {renderPricingCards(personalPlans)}
-          </div>
-        </div>
-
-        {/* API Plans */}
-        <div className="space-y-8 sm:space-y-12">
-          <div className="text-center space-y-4 sm:space-y-6 animate-fade-in">
-            <h2 className="text-4xl sm:text-5xl font-bold bg-gradient-to-r from-orange-500 via-pink-500 to-purple-500 bg-clip-text text-transparent">
-              API Plans
-            </h2>
-            <p className="text-lg sm:text-xl text-foreground/80 max-w-2xl mx-auto">
-              Integrate our powerful API into your systems
-            </p>
-            <div className="relative w-24 sm:w-32 h-1 sm:h-1.5 bg-gradient-to-r from-orange-500 to-pink-500 mx-auto rounded-full overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/25 to-transparent animate-shimmer" />
-            </div>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 md:gap-12 lg:gap-16 px-4 py-8">
-            {renderPricingCards(apiPlans)}
-          </div>
-        </div>
-      </div>
-    </div>
+    <DynamicPricingClient
+      personalPlans={personalPlans}
+      apiPlans={apiPlans}
+      affiliateCode={affiliateCode}
+      affiliateInfo={null} // Pass null for now unless we fetch it 
+    />
   );
-};
-
-export default DynamicPricingSection;
+}

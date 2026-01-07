@@ -82,6 +82,7 @@ impl QueryHandler<GetWalletListQuery> for GetWalletListQueryHandler {
                 permissions_count: w.permissions_count,
                 groups_count: w.groups_count,
                 last_activity: Some(w.created_at),
+                metadata: w.wallet_metadata,
             })
             .collect();
 

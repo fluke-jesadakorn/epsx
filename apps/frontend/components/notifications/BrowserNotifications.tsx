@@ -1,13 +1,13 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { Bell, BellOff, Settings, CheckCircle, AlertTriangle, X } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
+import { AlertTriangle, Bell, BellOff, CheckCircle, X } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
 interface BrowserNotificationsProps {
@@ -18,13 +18,13 @@ interface BrowserNotificationsProps {
 
 interface NotificationSettings {
   enabled: boolean;
-  trading: boolean;
+  analytics: boolean;
   security: boolean;
   system: boolean;
   permissions: boolean;
 }
 
-export function BrowserNotifications({ 
+export function BrowserNotifications({
   className = '',
   autoRequestPermission = false,
   enabledByDefault = false
@@ -33,7 +33,7 @@ export function BrowserNotifications({
   const [isSupported, setIsSupported] = useState(false);
   const [settings, setSettings] = useState<NotificationSettings>({
     enabled: enabledByDefault,
-    trading: true,
+    analytics: true,
     security: true,
     system: false,
     permissions: true,
@@ -44,14 +44,14 @@ export function BrowserNotifications({
     if (typeof window !== 'undefined' && 'Notification' in window) {
       setIsSupported(true);
       setPermission(Notification.permission);
-      
+
       // Load settings from cookies first, fallback to localStorage for migration
       const cookies = document.cookie.split(';').reduce((acc, cookie) => {
         const [key, value] = cookie.trim().split('=');
         if (key && value) acc[key] = value;
         return acc;
       }, {} as Record<string, string>);
-      
+
       const savedSettings = cookies.browser_notifications || localStorage.getItem('browser-notifications');
       if (savedSettings) {
         try {
@@ -85,19 +85,19 @@ export function BrowserNotifications({
     try {
       const result = await Notification.requestPermission();
       setPermission(result);
-      
+
       if (result === 'granted') {
         toast.success('Browser notifications enabled');
         setSettings(prev => ({ ...prev, enabled: true }));
-        
+
         // Show welcome notification
         showNotification(
           'EPSX Notifications Enabled',
           'You\'ll receive important alerts about your account',
-          { 
+          {
             icon: '/favicon.ico',
             tag: 'welcome',
-            requireInteraction: false 
+            requireInteraction: false
           }
         );
       } else {
@@ -111,8 +111,8 @@ export function BrowserNotifications({
   };
 
   const showNotification = useCallback((
-    title: string, 
-    body: string, 
+    title: string,
+    body: string,
     options: NotificationOptions & { tag?: string; requireInteraction?: boolean } = {}
   ) => {
     if (!isSupported || permission !== 'granted' || !settings.enabled) {
@@ -137,7 +137,7 @@ export function BrowserNotifications({
       notification.onclick = () => {
         window.focus();
         notification.close();
-        
+
         // Navigate to relevant page if URL provided
         if (options.data?.url) {
           window.location.href = options.data.url;
@@ -151,18 +151,18 @@ export function BrowserNotifications({
   }, [isSupported, permission, settings.enabled]);
 
   // Public method to show notifications from other components
-  const showTradingAlert = useCallback((title: string, body: string, url?: string) => {
-    if (!settings.trading) return;
-    showNotification(title, body, { 
-      tag: 'trading',
+  const showAnalyticsAlert = useCallback((title: string, body: string, url?: string) => {
+    if (!settings.analytics) return;
+    showNotification(title, body, {
+      tag: 'analytics',
       requireInteraction: true,
-      data: { url, type: 'trading' }
+      data: { url, type: 'analytics' }
     });
-  }, [showNotification, settings.trading]);
+  }, [showNotification, settings.analytics]);
 
   const showSecurityAlert = useCallback((title: string, body: string, url?: string) => {
     if (!settings.security) return;
-    showNotification(title, body, { 
+    showNotification(title, body, {
       tag: 'security',
       requireInteraction: true,
       data: { url, type: 'security' }
@@ -171,7 +171,7 @@ export function BrowserNotifications({
 
   const showSystemAlert = useCallback((title: string, body: string, url?: string) => {
     if (!settings.system) return;
-    showNotification(title, body, { 
+    showNotification(title, body, {
       tag: 'system',
       requireInteraction: false,
       data: { url, type: 'system' }
@@ -180,7 +180,7 @@ export function BrowserNotifications({
 
   const showPermissionAlert = useCallback((title: string, body: string, url?: string) => {
     if (!settings.permissions) return;
-    showNotification(title, body, { 
+    showNotification(title, body, {
       tag: 'permissions',
       requireInteraction: true,
       data: { url, type: 'permissions' }
@@ -191,14 +191,14 @@ export function BrowserNotifications({
   useEffect(() => {
     if (typeof window !== 'undefined') {
       (window as any).epsxNotifications = {
-        trading: showTradingAlert,
+        analytics: showAnalyticsAlert,
         security: showSecurityAlert,
         system: showSystemAlert,
         permissions: showPermissionAlert,
         show: showNotification,
       };
     }
-  }, [showTradingAlert, showSecurityAlert, showSystemAlert, showPermissionAlert, showNotification]);
+  }, [showAnalyticsAlert, showSecurityAlert, showSystemAlert, showPermissionAlert, showNotification]);
 
   const getPermissionBadge = () => {
     switch (permission) {
@@ -261,14 +261,14 @@ export function BrowserNotifications({
           {getPermissionBadge()}
         </CardTitle>
       </CardHeader>
-      
+
       <CardContent className="space-y-4">
         {/* Permission Status */}
         {permission === 'default' && (
           <Alert>
             <Bell className="h-4 w-4" />
             <AlertDescription>
-              Enable browser notifications to receive important alerts about your trading activity, 
+              Enable browser notifications to receive important alerts about your analytics activity,
               security events, and permission changes.
             </AlertDescription>
           </Alert>
@@ -278,7 +278,7 @@ export function BrowserNotifications({
           <Alert variant="destructive">
             <BellOff className="h-4 w-4" />
             <AlertDescription>
-              Browser notifications are blocked. To enable them, click the 🔒 icon in your browser's 
+              Browser notifications are blocked. To enable them, click the 🔒 icon in your browser's
               address bar and allow notifications for this site.
             </AlertDescription>
           </Alert>
@@ -306,7 +306,7 @@ export function BrowserNotifications({
               <Switch
                 id="notifications-enabled"
                 checked={settings.enabled}
-                onCheckedChange={(checked) => 
+                onCheckedChange={(checked) =>
                   setSettings(prev => ({ ...prev, enabled: checked }))
                 }
               />
@@ -315,14 +315,14 @@ export function BrowserNotifications({
             {settings.enabled && (
               <div className="space-y-3 pl-6 border-l-2 border-gray-200 dark:border-gray-700">
                 <div className="flex items-center justify-between">
-                  <Label htmlFor="trading-notifications" className="text-sm">
-                    💹 Trading & Portfolio Alerts
+                  <Label htmlFor="analytics-notifications" className="text-sm">
+                    💹 Analytics & Portfolio Alerts
                   </Label>
                   <Switch
-                    id="trading-notifications"
-                    checked={settings.trading}
-                    onCheckedChange={(checked) => 
-                      setSettings(prev => ({ ...prev, trading: checked }))
+                    id="analytics-notifications"
+                    checked={settings.analytics}
+                    onCheckedChange={(checked) =>
+                      setSettings(prev => ({ ...prev, analytics: checked }))
                     }
                   />
                 </div>
@@ -334,7 +334,7 @@ export function BrowserNotifications({
                   <Switch
                     id="security-notifications"
                     checked={settings.security}
-                    onCheckedChange={(checked) => 
+                    onCheckedChange={(checked) =>
                       setSettings(prev => ({ ...prev, security: checked }))
                     }
                   />
@@ -347,7 +347,7 @@ export function BrowserNotifications({
                   <Switch
                     id="permissions-notifications"
                     checked={settings.permissions}
-                    onCheckedChange={(checked) => 
+                    onCheckedChange={(checked) =>
                       setSettings(prev => ({ ...prev, permissions: checked }))
                     }
                   />
@@ -360,7 +360,7 @@ export function BrowserNotifications({
                   <Switch
                     id="system-notifications"
                     checked={settings.system}
-                    onCheckedChange={(checked) => 
+                    onCheckedChange={(checked) =>
                       setSettings(prev => ({ ...prev, system: checked }))
                     }
                   />
@@ -393,7 +393,7 @@ export function BrowserNotifications({
 
 // Export notification helper hook for other components
 export function useBrowserNotifications() {
-  const showNotification = useCallback((type: 'trading' | 'security' | 'system' | 'permissions', title: string, body: string, url?: string) => {
+  const showNotification = useCallback((type: 'analytics' | 'security' | 'system' | 'permissions', title: string, body: string, url?: string) => {
     if (typeof window !== 'undefined' && (window as any).epsxNotifications) {
       (window as any).epsxNotifications[type](title, body, url);
     }

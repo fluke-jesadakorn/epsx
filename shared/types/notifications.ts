@@ -6,7 +6,7 @@ export type NotificationType =
     | 'data'
     | 'feature'
     | 'security'
-    | 'trading'
+    | 'analytics'
     | 'account'
     | 'price_alert'
     | 'info'

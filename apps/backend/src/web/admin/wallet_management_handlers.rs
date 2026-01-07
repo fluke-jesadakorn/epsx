@@ -182,7 +182,7 @@ impl From<query_models::WalletSummaryDto> for WalletSummaryResponse {
             permissions_count: dto.permissions_count,
             groups_count: dto.groups_count,
             last_activity: dto.last_activity,
-            metadata: serde_json::json!({}), // Metadata preserved for future use
+            metadata: dto.metadata.unwrap_or(serde_json::json!({})),
         }
     }
 }
@@ -197,7 +197,7 @@ impl From<query_models::WalletDetailDto> for WalletDetailResponse {
             permissions: dto.permissions.into_iter().map(Into::into).collect(),
             groups: dto.groups.into_iter().map(Into::into).collect(),
             activity_summary: dto.activity_summary.into(),
-            metadata: serde_json::json!({}),
+            metadata: dto.metadata.unwrap_or(serde_json::json!({})),
         }
     }
 }
@@ -587,6 +587,115 @@ pub async fn get_user_stats_handler(
     Ok(Json(AdminApiResponse::success_with_meta(
         web_response,
         "User statistics retrieved successfully",
+        metadata,
+    )))
+}
+
+/**
+ * Disable a wallet (CQRS-based)
+ * POST /admin/wallets/:wallet_address/disable
+ */
+#[utoipa::path(
+    post,
+    path = "/admin/wallets/{wallet_address}/disable",
+    tag = "admin-wallets",
+    request_body = command_models::DisableWalletCommand,
+    responses(
+        (status = 200, description = "Successfully disabled wallet"),
+        (status = 400, description = "Bad request"),
+        (status = 401, description = "Unauthorized"),
+        (status = 403, description = "Forbidden"),
+        (status = 404, description = "Wallet not found"),
+        (status = 500, description = "Internal server error")
+    ),
+    params(
+        ("wallet_address" = String, Path, description = "Wallet address")
+    ),
+    security(("bearerAuth" = []))
+)]
+pub async fn disable_user_handler(
+    Path(wallet_address): Path<String>,
+    State(app_state): State<AppState>,
+    RequestJson(request): RequestJson<command_models::DisableWalletCommand>,
+) -> Result<Json<AdminApiResponse<command_models::DisableWalletResponse>>, StatusCode> {
+    info!("🚫 Admin: Disabling user: {} (CQRS)", wallet_address);
+
+    // Ensure path param matches body logic if needed, but command has it.
+    // Overwrite the wallet address in command from path to be safe/consistent
+    let command = command_models::DisableWalletCommand {
+        wallet_address: wallet_address.clone(),
+        ..request
+    };
+
+    // Execute CQRS handler
+    let handler = command_handlers::DisableWalletCommandHandler::new(app_state.db_pool.clone());
+    let response = handler.handle(command).await.map_err(|e| {
+        error!("❌ Disable wallet failed: {}", e);
+        if e.to_string().contains("not found") {
+            return StatusCode::NOT_FOUND;
+        }
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    let metadata = AdminMetadata::crud_operation("disable_user", Some("admin".to_string()));
+
+    Ok(Json(AdminApiResponse::success_with_meta(
+        response,
+        "Wallet disabled successfully",
+        metadata,
+    )))
+}
+
+/**
+ * Enable a wallet (CQRS-based)
+ * POST /admin/wallets/:wallet_address/enable
+ */
+#[utoipa::path(
+    post,
+    path = "/admin/wallets/{wallet_address}/enable",
+    tag = "admin-wallets",
+    request_body = command_models::EnableWalletCommand,
+    responses(
+        (status = 200, description = "Successfully enabled wallet"),
+        (status = 400, description = "Bad request"),
+        (status = 401, description = "Unauthorized"),
+        (status = 403, description = "Forbidden"),
+        (status = 404, description = "Wallet not found"),
+        (status = 500, description = "Internal server error")
+    ),
+    params(
+        ("wallet_address" = String, Path, description = "Wallet address")
+    ),
+    security(("bearerAuth" = []))
+)]
+pub async fn enable_user_handler(
+    Path(wallet_address): Path<String>,
+    State(app_state): State<AppState>,
+    RequestJson(request): RequestJson<command_models::EnableWalletCommand>,
+) -> Result<Json<AdminApiResponse<command_models::EnableWalletResponse>>, StatusCode> {
+    info!("✅ Admin: Enabling user: {} (CQRS)", wallet_address);
+
+    // Ensure path param matches body logic
+    let command = command_models::EnableWalletCommand {
+        wallet_address: wallet_address.clone(),
+        ..request
+    };
+
+    // Execute CQRS handler
+    let handler = command_handlers::EnableWalletCommandHandler::new(app_state.db_pool.clone());
+    let response = handler.handle(command).await.map_err(|e| {
+        error!("❌ Enable wallet failed: {}", e);
+        if e.to_string().contains("not found") {
+            return StatusCode::NOT_FOUND;
+        }
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    let metadata = AdminMetadata::crud_operation("enable_user", Some("admin".to_string()));
+
+    Ok(Json(AdminApiResponse::success_with_meta(
+        response,
+        "Wallet enabled successfully",
         metadata,
     )))
 }

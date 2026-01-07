@@ -25,10 +25,9 @@ export interface TestUser {
 // Permission-based route access mapping (for test validation)
 export const PERMISSION_ROUTE_MAP: Record<string, string[]> = {
   'epsx:rankings:view': ['/'],
-  'epsx:trading:basic': ['/trading'],
+  'epsx:analytics:basic': ['/analytics', '/premium', '/advanced-analytics'],
   'epsx:portfolio:view': ['/portfolio'],
-  'epsx:analytics:basic': ['/premium', '/advanced-analytics'],
-  'epsx:trading:advanced': ['/professional'],
+  'epsx:analytics:advanced': ['/professional'],
   'epsx:alerts:email': ['/alerts'],
   'epsx:portfolio:tools': ['/vip'],
   'epsx:support:priority': ['/priority-support'],
@@ -41,9 +40,8 @@ export const PERMISSION_ROUTE_MAP: Record<string, string[]> = {
 // Permission-based API endpoint mapping (for test validation)
 export const PERMISSION_API_MAP: Record<string, string[]> = {
   'epsx:portfolio:view': ['/api/portfolio/basic'],
-  'epsx:trading:basic': ['/api/trading/basic'],
   'epsx:analytics:basic': ['/api/analytics/basic'],
-  'epsx:trading:advanced': ['/api/trading/advanced'],
+  'epsx:analytics:advanced': ['/api/analytics/advanced'],
   'epsx:portfolio:tools': ['/api/portfolio/tools'],
   'epsx:research:reports': ['/api/research/reports'],
   'epsx:*:*': ['/api/enterprise/bulk'],
@@ -59,7 +57,7 @@ export const TEST_USERS: Record<string, TestUser> = {
     role: 'user',
     permissions: [
       'epsx:rankings:view:3',
-      'epsx:trading:basic',
+      'epsx:analytics:basic',
       'epsx:portfolio:view',
       'epsx:notifications:basic'
     ],
@@ -69,7 +67,7 @@ export const TEST_USERS: Record<string, TestUser> = {
     created_at: '2024-01-01T00:00:00Z',
     last_login: '2024-08-22T10:00:00Z'
   },
-  
+
   BRONZE_USER: {
     id: 'user_bronze_001',
     email: 'bronze.user@epsx.io',
@@ -77,7 +75,7 @@ export const TEST_USERS: Record<string, TestUser> = {
     role: 'user',
     permissions: [
       'epsx:rankings:view:5',
-      'epsx:trading:basic',
+      'epsx:analytics:basic',
       'epsx:portfolio:view',
       'epsx:portfolio:history',
       'epsx:notifications:enhanced',
@@ -90,7 +88,7 @@ export const TEST_USERS: Record<string, TestUser> = {
     created_at: '2024-02-01T00:00:00Z',
     last_login: '2024-08-22T10:15:00Z'
   },
-  
+
   SILVER_USER: {
     id: 'user_silver_001',
     email: 'silver.user@epsx.io',
@@ -98,8 +96,8 @@ export const TEST_USERS: Record<string, TestUser> = {
     role: 'user',
     permissions: [
       'epsx:rankings:view:25',
-      'epsx:trading:basic',
-      'epsx:trading:advanced',
+      'epsx:analytics:basic',
+      'epsx:analytics:advanced',
       'epsx:portfolio:view',
       'epsx:portfolio:history',
       'epsx:notifications:enhanced',
@@ -114,7 +112,7 @@ export const TEST_USERS: Record<string, TestUser> = {
     created_at: '2024-03-01T00:00:00Z',
     last_login: '2024-08-22T10:30:00Z'
   },
-  
+
   GOLD_USER: {
     id: 'user_gold_001',
     email: 'gold.user@epsx.io',
@@ -122,9 +120,9 @@ export const TEST_USERS: Record<string, TestUser> = {
     role: 'premium',
     permissions: [
       'epsx:rankings:view:50',
-      'epsx:trading:basic',
-      'epsx:trading:advanced',
-      'epsx:trading:premium',
+      'epsx:analytics:basic',
+      'epsx:analytics:advanced',
+      'epsx:analytics:premium',
       'epsx:portfolio:view',
       'epsx:portfolio:history',
       'epsx:portfolio:tools',
@@ -142,7 +140,7 @@ export const TEST_USERS: Record<string, TestUser> = {
     created_at: '2024-04-01T00:00:00Z',
     last_login: '2024-08-22T10:45:00Z'
   },
-  
+
   PLATINUM_USER: {
     id: 'user_platinum_001',
     email: 'platinum.user@epsx.io',
@@ -150,9 +148,9 @@ export const TEST_USERS: Record<string, TestUser> = {
     role: 'premium',
     permissions: [
       'epsx:rankings:view:100',
-      'epsx:trading:basic',
-      'epsx:trading:advanced',
-      'epsx:trading:premium',
+      'epsx:analytics:basic',
+      'epsx:analytics:advanced',
+      'epsx:analytics:premium',
       'epsx:portfolio:view',
       'epsx:portfolio:history',
       'epsx:portfolio:tools',
@@ -172,7 +170,7 @@ export const TEST_USERS: Record<string, TestUser> = {
     created_at: '2024-05-01T00:00:00Z',
     last_login: '2024-08-22T11:00:00Z'
   },
-  
+
   ENTERPRISE_USER: {
     id: 'user_enterprise_001',
     email: 'enterprise.user@epsx.io',
@@ -192,7 +190,7 @@ export const TEST_USERS: Record<string, TestUser> = {
     created_at: '2024-06-01T00:00:00Z',
     last_login: '2024-08-22T11:15:00Z'
   },
-  
+
   // Additional test cases
   EXPIRED_USER: {
     id: 'user_expired_001',
@@ -201,7 +199,7 @@ export const TEST_USERS: Record<string, TestUser> = {
     role: 'user',
     permissions: [
       'epsx:rankings:view:3',
-      'epsx:trading:basic',
+      'epsx:analytics:basic',
       'epsx:portfolio:view',
       'epsx:notifications:basic'
     ], // Downgraded permissions after expiry
@@ -212,7 +210,7 @@ export const TEST_USERS: Record<string, TestUser> = {
     created_at: '2024-01-01T00:00:00Z',
     last_login: '2024-08-22T09:00:00Z'
   },
-  
+
   TRIAL_USER: {
     id: 'user_trial_001',
     email: 'trial.user@epsx.io',
@@ -220,9 +218,9 @@ export const TEST_USERS: Record<string, TestUser> = {
     role: 'user',
     permissions: [
       'epsx:rankings:view:50',
-      'epsx:trading:basic',
-      'epsx:trading:advanced',
-      'epsx:trading:premium',
+      'epsx:analytics:basic',
+      'epsx:analytics:advanced',
+      'epsx:analytics:premium',
       'epsx:portfolio:view',
       'epsx:portfolio:history',
       'epsx:portfolio:tools',
@@ -238,7 +236,7 @@ export const TEST_USERS: Record<string, TestUser> = {
     created_at: '2024-08-22T00:00:00Z',
     last_login: '2024-08-22T11:30:00Z'
   },
-  
+
   CANCELLED_USER: {
     id: 'user_cancelled_001',
     email: 'cancelled.user@epsx.io',
@@ -246,8 +244,8 @@ export const TEST_USERS: Record<string, TestUser> = {
     role: 'user',
     permissions: [
       'epsx:rankings:view:25',
-      'epsx:trading:basic',
-      'epsx:trading:advanced',
+      'epsx:analytics:basic',
+      'epsx:analytics:advanced',
       'epsx:portfolio:view',
       'epsx:portfolio:history',
       'epsx:notifications:enhanced',
@@ -265,21 +263,21 @@ export const TEST_USERS: Record<string, TestUser> = {
 
 // Helper functions for test setup
 export function getUserByTier(tier: string): TestUser {
-  const userKey = Object.keys(TEST_USERS).find(key => 
+  const userKey = Object.keys(TEST_USERS).find(key =>
     TEST_USERS[key].package_tier === tier && TEST_USERS[key].subscription_status === 'active'
   );
-  
+
   if (!userKey) {
     throw new Error(`No test user found for tier: ${tier}`);
   }
-  
+
   return TEST_USERS[userKey];
 }
 
 export function getAllActiveTierUsers(): TestUser[] {
-  return Object.values(TEST_USERS).filter(user => 
-    user.subscription_status === 'active' && 
-    !user.email.includes('expired') && 
+  return Object.values(TEST_USERS).filter(user =>
+    user.subscription_status === 'active' &&
+    !user.email.includes('expired') &&
     !user.email.includes('cancelled')
   );
 }
@@ -316,7 +314,7 @@ export function generateMockJWT(user: TestUser): string {
     iat: Math.floor(Date.now() / 1000),
     exp: Math.floor(Date.now() / 1000) + 3600 // 1 hour
   };
-  
+
   // In real implementation, this would be properly signed
   // For testing, we'll use base64 encoding
   return `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.${Buffer.from(JSON.stringify(payload)).toString('base64')}.mock_signature_${user.id}`;
@@ -335,7 +333,7 @@ export function canUserAccessRoute(user: TestUser, route: string): boolean {
   for (const permission of user.permissions) {
     const allowedRoutes = PERMISSION_ROUTE_MAP[permission] || [];
     if (allowedRoutes.includes(route)) return true;
-    
+
     // Check for wildcard permission matches
     if (permission.endsWith(':*:*') || permission.endsWith(':*')) {
       const basePermission = permission.replace(/:.*$/, '');
@@ -365,7 +363,7 @@ export function canUserAccessApiEndpoint(user: TestUser, endpoint: string): bool
     if (allowedEndpoints.some(allowed => endpoint.startsWith(allowed))) {
       return true;
     }
-    
+
     // Check for wildcard permission matches
     if (permission.endsWith(':*:*') || permission.endsWith(':*')) {
       const basePermission = permission.replace(/:.*$/, '');
@@ -429,22 +427,22 @@ export function getUserRankingLimit(user: TestUser): number {
 export function userHasPermission(user: TestUser, permission: string): boolean {
   // Check for exact match
   if (user.permissions.includes(permission)) return true;
-  
+
   // Check for wildcard matches
   for (const userPerm of user.permissions) {
     if (userPerm.endsWith(':*:*') || userPerm.endsWith(':*')) {
       const userParts = userPerm.split(':');
       const requiredParts = permission.split(':');
-      
+
       // Admin wildcard
       if (userPerm === 'admin:*:*') return true;
-      
+
       // Platform wildcard (epsx:*:*)
       if (userParts.length === 3 && userParts[1] === '*' && userParts[2] === '*') {
         if (requiredParts[0] === userParts[0]) return true;
       }
-      
-      // Resource wildcard (epsx:trading:*)
+
+      // Resource wildcard (epsx:analytics:*)
       if (userParts.length === 3 && userParts[2] === '*') {
         if (requiredParts[0] === userParts[0] && requiredParts[1] === userParts[1]) {
           return true;
@@ -452,7 +450,7 @@ export function userHasPermission(user: TestUser, permission: string): boolean {
       }
     }
   }
-  
+
   return false;
 }
 
@@ -491,7 +489,7 @@ export function deriveTierFromUserPermissions(user: TestUser): string {
  * Get users by permission criteria for testing
  */
 export function getUsersByPermission(permission: string): TestUser[] {
-  return Object.values(TEST_USERS).filter(user => 
+  return Object.values(TEST_USERS).filter(user =>
     userHasPermission(user, permission)
   );
 }
@@ -500,7 +498,7 @@ export function getUsersByPermission(permission: string): TestUser[] {
  * Get users by ranking limit for testing
  */
 export function getUsersByRankingLimit(limit: number): TestUser[] {
-  return Object.values(TEST_USERS).filter(user => 
+  return Object.values(TEST_USERS).filter(user =>
     getUserRankingLimit(user) === limit
   );
 }
@@ -523,12 +521,12 @@ export function getPermissionTestUsers(): TestUser[] {
  * Create custom test user with specific permissions
  */
 export function createTestUserWithPermissions(
-  permissions: string[], 
+  permissions: string[],
   overrides: Partial<TestUser> = {}
 ): TestUser {
   const derivedTier = deriveTierFromUserPermissions({ permissions } as TestUser);
   const rankingLimit = getUserRankingLimit({ permissions } as TestUser);
-  
+
   return {
     id: `test_user_${Date.now()}`,
     email: `test.user.${Date.now()}@epsx.io`,

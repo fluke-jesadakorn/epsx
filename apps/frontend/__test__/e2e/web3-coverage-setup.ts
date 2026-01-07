@@ -256,7 +256,7 @@ export const WalletTestHelpers = {
         type: 'token',
         permissions: [
           { permission: 'token:holder:access', source: 'token' },
-          { permission: 'advanced:trading:access', source: 'token' }
+          { permission: 'advanced:analytics:access', source: 'token' }
         ]
       },
       {

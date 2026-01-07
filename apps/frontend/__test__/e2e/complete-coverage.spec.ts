@@ -138,12 +138,12 @@ test.describe('🔒 Complete Protected Pages Coverage', () => {
     await loginUser(page);
   });
 
-  test('should access all main dashboard and trading pages', async ({ page }) => {
+  test('should access all main dashboard and analytics pages', async ({ page }) => {
     console.log('🧪 Testing main application pages');
 
     const mainPages = [
       { path: '/dashboard', name: 'Dashboard' },
-      { path: '/trading', name: 'Trading Interface' },
+      { path: '/analytics', name: 'Trading Interface' },
       { path: '/portfolio', name: 'Portfolio' },
       { path: '/settings', name: 'Settings' },
     ];
@@ -310,7 +310,7 @@ test.describe('🔧 Complete Form Interaction Coverage', () => {
   test('should test button interactions on all pages', async ({ page }) => {
     console.log('🧪 Testing button interactions across all pages');
 
-    const interactivePages = ['/dashboard', '/settings', '/analytics', '/trading'];
+    const interactivePages = ['/dashboard', '/settings', '/analytics', '/analytics'];
 
     for (const pagePath of interactivePages) {
       console.log(`📍 Testing buttons on ${pagePath}`);
@@ -356,7 +356,7 @@ test.describe('🌐 Complete Cross-Browser and Device Coverage', () => {
       '/dashboard',
       '/analytics',
       '/settings',
-      '/trading',
+      '/analytics',
       '/payment',
     ];
 
@@ -424,7 +424,7 @@ test.describe('⚡ Complete Performance and Error Coverage', () => {
     console.log('🧪 Testing performance across all pages');
 
     const allPages = [
-      '/', '/dashboard', '/trading', '/analytics', '/analytics/eps',
+      '/', '/dashboard', '/analytics', '/analytics', '/analytics/eps',
       '/analytics/pattern-recognition', '/settings', '/portfolio',
       '/payment', '/payment/quick', '/payment/enterprise'
     ];
@@ -472,7 +472,7 @@ test.describe('⚡ Complete Performance and Error Coverage', () => {
       '/analytics/eps',
       '/portfolio',
       '/settings',
-      '/trading',
+      '/analytics',
     ];
 
     for (const apiPage of apiDependentPages) {
@@ -497,7 +497,7 @@ test.describe('🔍 Complete Accessibility Coverage', () => {
     console.log('🧪 Testing accessibility across all pages');
 
     const accessibilityPages = [
-      '/dashboard', '/analytics', '/settings', '/trading', '/payment'
+      '/dashboard', '/analytics', '/settings', '/analytics', '/payment'
     ];
 
     for (const accessibilityPage of accessibilityPages) {
@@ -534,7 +534,7 @@ test.describe('🔄 Complete User Journey Coverage', () => {
     await loginUser(page);
   });
 
-  test('should complete full user workflow: analytics to trading to payment', async ({ page }) => {
+  test('should complete full user workflow: analytics to action to payment', async ({ page }) => {
     console.log('🧪 Testing complete user journey workflow');
 
     // Start with analytics research
@@ -549,10 +549,10 @@ test.describe('🔄 Complete User Journey Coverage', () => {
       console.log('✅ Step 2: Entered symbol for analysis');
     }
 
-    // Move to trading interface
-    await page.goto('/trading');
+    // Move to analytics interface
+    await page.goto('/analytics');
     await page.waitForLoadState('networkidle');
-    console.log('✅ Step 3: Accessed trading interface');
+    console.log('✅ Step 3: Accessed analytics interface');
 
     // Check payment options
     await page.goto('/payment');
@@ -576,7 +576,7 @@ test.describe('🔄 Complete User Journey Coverage', () => {
       '/analytics',
       '/analytics/eps',
       '/settings',
-      '/trading',
+      '/analytics',
       '/payment/quick',
       '/dashboard',
       '/portfolio',

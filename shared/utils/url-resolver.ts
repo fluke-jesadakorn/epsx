@@ -146,6 +146,16 @@ function getDefaultBackendUrl(): string {
     if (process.env.BACKEND_URL) return process.env.BACKEND_URL;
     if (process.env.NEXT_PUBLIC_BACKEND_URL) return process.env.NEXT_PUBLIC_BACKEND_URL;
   }
+
+  // In browser development, use the same host as the frontend but port 8080
+  if (typeof window !== 'undefined' && isDev) {
+    const hostname = window.location.hostname;
+    // Don't redirect localhost to localhost - that's the default anyway
+    if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
+      return `http://${hostname}:8080`;
+    }
+  }
+
   if (isDev) return 'http://localhost:8080';
   if (isStaging) return 'https://staging-api.epsx.io';
   return 'https://api.epsx.io'; // Production default
@@ -156,6 +166,15 @@ function getDefaultFrontendUrl(): string {
     if (process.env.FRONTEND_URL) return process.env.FRONTEND_URL;
     if (process.env.NEXT_PUBLIC_APP_URL) return process.env.NEXT_PUBLIC_APP_URL;
   }
+
+  // In browser development, use the same host but port 3000
+  if (typeof window !== 'undefined' && isDev) {
+    const hostname = window.location.hostname;
+    if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
+      return `http://${hostname}:3000`;
+    }
+  }
+
   if (isDev) return 'http://localhost:3000';
   if (isStaging) return 'https://staging.epsx.io';
   return 'https://epsx.io'; // Production default
@@ -166,6 +185,15 @@ function getDefaultAdminUrl(): string {
     if (process.env.ADMIN_FRONTEND_URL) return process.env.ADMIN_FRONTEND_URL;
     if (process.env.NEXT_PUBLIC_ADMIN_URL) return process.env.NEXT_PUBLIC_ADMIN_URL;
   }
+
+  // In browser development, use the same host but port 3001
+  if (typeof window !== 'undefined' && isDev) {
+    const hostname = window.location.hostname;
+    if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
+      return `http://${hostname}:3001`;
+    }
+  }
+
   if (isDev) return 'http://localhost:3001';
   if (isStaging) return 'https://staging-admin.epsx.io';
   return 'https://admin.epsx.io'; // Production default

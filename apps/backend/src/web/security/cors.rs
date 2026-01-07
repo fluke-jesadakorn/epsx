@@ -1,6 +1,7 @@
 // CORS Configuration Module - Production CORS Security
-use axum::http::{HeaderValue, Method, header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE}};
-use tower_http::cors::{CorsLayer, Any};
+use axum::http::{HeaderValue, HeaderName, Method, header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE}};
+use tower_http::cors::{CorsLayer, Any, AllowOrigin};
+
 use std::time::Duration;
 
 use crate::config::env::{get_env_var, is_production};
@@ -14,6 +15,9 @@ pub fn get_cors_layer() -> CorsLayer {
         development_cors()
     }
 }
+
+/// Custom AllowOrigin implementation that allows any origin while still supporting credentials
+
 
 /// Create production-ready CORS layer with origin restriction and credential support
 pub fn production_cors_layer() -> CorsLayer {
@@ -51,23 +55,25 @@ fn production_cors_with_origins(allowed_origins: Vec<String>) -> CorsLayer {
                     AUTHORIZATION,
                     CONTENT_TYPE,
                     // Custom headers for OIDC and API
-                    HeaderValue::from_static("x-api-version"),
-                    HeaderValue::from_static("x-request-id"),
-                    HeaderValue::from_static("x-client-version"),
+
+                    HeaderName::from_static("x-api-version"),
+                    HeaderName::from_static("x-request-id"),
+                    HeaderName::from_static("x-client-version"),
+                    HeaderName::from_static("x-access-level"),
                     // Next.js React Server Components header
-                    HeaderValue::from_static("rsc"),
+                    HeaderName::from_static("rsc"),
                     // Next.js Router headers for prefetching
-                    HeaderValue::from_static("next-router-prefetch"),
-                    HeaderValue::from_static("next-router-state-tree"),
-                    HeaderValue::from_static("next-url"),
-                    HeaderValue::from_static("referer"),
+                    HeaderName::from_static("next-router-prefetch"),
+                    HeaderName::from_static("next-router-state-tree"),
+                    HeaderName::from_static("next-url"),
+                    HeaderName::from_static("referer"),
                     // Common HTTP headers needed by browsers and clients
-                    HeaderValue::from_static("cache-control"),
+                    HeaderName::from_static("cache-control"),
                 ])
                 .expose_headers([
-                    HeaderValue::from_static("x-request-id"),
-                    HeaderValue::from_static("x-rate-limit-remaining"),
-                    HeaderValue::from_static("x-rate-limit-reset"),
+                    HeaderName::from_static("x-request-id"),
+                    HeaderName::from_static("x-rate-limit-remaining"),
+                    HeaderName::from_static("x-rate-limit-reset"),
                 ])
                 .allow_credentials(true)
                 .max_age(ONE_DAY) // 24 hours
@@ -89,16 +95,17 @@ fn production_cors_fallback() -> CorsLayer {
             ACCEPT,
             AUTHORIZATION,
             CONTENT_TYPE,
-            HeaderValue::from_static("rsc"),
-            HeaderValue::from_static("next-router-prefetch"),
-            HeaderValue::from_static("next-router-state-tree"),
-            HeaderValue::from_static("next-url"),
-            HeaderValue::from_static("referer"),
-            HeaderValue::from_static("purpose"),
-            HeaderValue::from_static("x-middleware-prefetch"),
-            HeaderValue::from_static("x-nextjs-data"),
+            HeaderName::from_static("x-access-level"),
+            HeaderName::from_static("rsc"),
+            HeaderName::from_static("next-router-prefetch"),
+            HeaderName::from_static("next-router-state-tree"),
+            HeaderName::from_static("next-url"),
+            HeaderName::from_static("referer"),
+            HeaderName::from_static("purpose"),
+            HeaderName::from_static("x-middleware-prefetch"),
+            HeaderName::from_static("x-nextjs-data"),
             // Common HTTP headers needed by browsers and clients
-            HeaderValue::from_static("cache-control"),
+            HeaderName::from_static("cache-control"),
         ])
         .allow_credentials(false) // Safer default
         .max_age(Duration::from_secs(300)) // 5 minutes
@@ -106,31 +113,17 @@ fn production_cors_fallback() -> CorsLayer {
 
 /// Development CORS configuration - more permissive for local development
 fn development_cors() -> CorsLayer {
-    // For development, use dynamic origins to allow credentials
-    // This supports local network development (e.g. 192.168.x.x)
-    let mut allowed_origins = super::get_allowed_origins();
+    // For development, we allow ALL origins to support things like Tailscale
+    // access (http://100.x.x.x) without needing to manually add every IP to the allowlist.
+    // Using AllowAllOrigins allows us to set allow_credentials(true), which Any does not support.
     
-    // Add hardcoded defaults just in case env vars are missing
-    let defaults = vec![
-        "http://localhost:3000",
-        "http://localhost:3001", 
-        "http://127.0.0.1:3000",
-        "http://127.0.0.1:3001",
-    ];
+    // We still call this to ensure env vars are processed if needed for other things,
+    // but we won't use the result for restriction.
+    let _ = super::get_allowed_origins();
     
-    for origin in defaults {
-        if !allowed_origins.contains(&origin.to_string()) {
-            allowed_origins.push(origin.to_string());
-        }
-    }
-    
-    let origins: Vec<HeaderValue> = allowed_origins
-        .iter()
-        .filter_map(|origin| origin.parse::<HeaderValue>().ok())
-        .collect();
-
     CorsLayer::new()
-        .allow_origin(origins)
+        // Allow all origins via mirror_request (allows any origin that connects)
+        .allow_origin(AllowOrigin::mirror_request())
         .allow_methods([
             Method::GET,
             Method::POST,
@@ -143,29 +136,30 @@ fn development_cors() -> CorsLayer {
             ACCEPT,
             AUTHORIZATION,
             CONTENT_TYPE,
-            HeaderValue::from_static("x-api-version"),
-            HeaderValue::from_static("x-request-id"),
-            HeaderValue::from_static("x-client-version"),
-            HeaderValue::from_static("x-admin-session"),
+            HeaderName::from_static("x-api-version"),
+            HeaderName::from_static("x-request-id"),
+            HeaderName::from_static("x-client-version"),
+            HeaderName::from_static("x-access-level"),
+            HeaderName::from_static("x-admin-session"),
             // Next.js React Server Components header
-            HeaderValue::from_static("rsc"),
+            HeaderName::from_static("rsc"),
             // Next.js Router headers for prefetching
-            HeaderValue::from_static("next-router-prefetch"),
-            HeaderValue::from_static("next-router-state-tree"),
-            HeaderValue::from_static("next-url"),
-            HeaderValue::from_static("referer"),
-            HeaderValue::from_static("purpose"),
-            HeaderValue::from_static("x-middleware-prefetch"),
-            HeaderValue::from_static("x-nextjs-data"),
+            HeaderName::from_static("next-router-prefetch"),
+            HeaderName::from_static("next-router-state-tree"),
+            HeaderName::from_static("next-url"),
+            HeaderName::from_static("referer"),
+            HeaderName::from_static("purpose"),
+            HeaderName::from_static("x-middleware-prefetch"),
+            HeaderName::from_static("x-nextjs-data"),
             // Common HTTP headers needed by browsers and clients
-            HeaderValue::from_static("cache-control"),
+            HeaderName::from_static("cache-control"),
         ])
         .expose_headers([
-            HeaderValue::from_static("x-request-id"),
-            HeaderValue::from_static("x-rate-limit-remaining"),
-            HeaderValue::from_static("x-rate-limit-reset"),
+            HeaderName::from_static("x-request-id"),
+            HeaderName::from_static("x-rate-limit-remaining"),
+            HeaderName::from_static("x-rate-limit-reset"),
         ])
-        .allow_credentials(true) // Now we can allow credentials with specific origins
+        .allow_credentials(true) // Now we can allow credentials with any origin
         .max_age(ONE_HOUR) // 1 hour
 }
 
@@ -183,20 +177,20 @@ pub fn oidc_cors_layer() -> CorsLayer {
             AUTHORIZATION,
             CONTENT_TYPE,
             // Next.js React Server Components header
-            HeaderValue::from_static("rsc"),
+            HeaderName::from_static("rsc"),
             // Next.js Router headers for prefetching
-            HeaderValue::from_static("next-router-prefetch"),
-            HeaderValue::from_static("next-router-state-tree"),
-            HeaderValue::from_static("next-url"),
-            HeaderValue::from_static("referer"),
-            HeaderValue::from_static("purpose"),
-            HeaderValue::from_static("x-middleware-prefetch"),
-            HeaderValue::from_static("x-nextjs-data"),
+            HeaderName::from_static("next-router-prefetch"),
+            HeaderName::from_static("next-router-state-tree"),
+            HeaderName::from_static("next-url"),
+            HeaderName::from_static("referer"),
+            HeaderName::from_static("purpose"),
+            HeaderName::from_static("x-middleware-prefetch"),
+            HeaderName::from_static("x-nextjs-data"),
             // Common HTTP headers needed by browsers and clients
-            HeaderValue::from_static("cache-control"),
+            HeaderName::from_static("cache-control"),
         ])
         .expose_headers([
-            HeaderValue::from_static("x-request-id"),
+            HeaderName::from_static("x-request-id"),
         ])
         .allow_credentials(false) // Must be false when using Any origin
         .max_age(ONE_DAY) // 24 hours
@@ -210,6 +204,44 @@ pub fn admin_cors_layer() -> CorsLayer {
     if allowed_origins.is_empty() && is_production() {
         tracing::warn!("No admin origins configured for production, using safe fallback");
         return production_cors_fallback();
+    }
+    
+    // In development (non-production), we use AllowAllOrigins to support Tailscale/LAN access
+    if !is_production() {
+         return CorsLayer::new()
+            .allow_origin(AllowOrigin::mirror_request())
+            .allow_methods([
+                Method::GET,
+                Method::POST,
+                Method::PUT,
+                Method::PATCH,
+                Method::DELETE,
+                Method::OPTIONS,
+            ])
+            .allow_headers([
+                ACCEPT,
+                AUTHORIZATION,
+                CONTENT_TYPE,
+                HeaderName::from_static("x-admin-session"),
+                HeaderName::from_static("x-request-id"),
+                HeaderName::from_static("x-access-level"),
+                HeaderName::from_static("rsc"),
+                HeaderName::from_static("next-router-prefetch"),
+                HeaderName::from_static("next-router-state-tree"),
+                HeaderName::from_static("next-url"),
+                HeaderName::from_static("referer"),
+                HeaderName::from_static("purpose"),
+                HeaderName::from_static("x-middleware-prefetch"),
+                HeaderName::from_static("x-nextjs-data"),
+                // Common HTTP headers needed by browsers and clients
+                HeaderName::from_static("cache-control"),
+            ])
+            .expose_headers([
+                HeaderName::from_static("x-request-id"),
+                HeaderName::from_static("x-rate-limit-remaining"),
+            ])
+            .allow_credentials(true)
+            .max_age(ONE_HOUR);
     }
     
     // Use explicit origins to allow credentials (needed for OIDC sessions)
@@ -236,22 +268,23 @@ pub fn admin_cors_layer() -> CorsLayer {
             ACCEPT,
             AUTHORIZATION,
             CONTENT_TYPE,
-            HeaderValue::from_static("x-admin-session"),
-            HeaderValue::from_static("x-request-id"),
-            HeaderValue::from_static("rsc"),
-            HeaderValue::from_static("next-router-prefetch"),
-            HeaderValue::from_static("next-router-state-tree"),
-            HeaderValue::from_static("next-url"),
-            HeaderValue::from_static("referer"),
-            HeaderValue::from_static("purpose"),
-            HeaderValue::from_static("x-middleware-prefetch"),
-            HeaderValue::from_static("x-nextjs-data"),
+            HeaderName::from_static("x-admin-session"),
+            HeaderName::from_static("x-request-id"),
+            HeaderName::from_static("x-access-level"),
+            HeaderName::from_static("rsc"),
+            HeaderName::from_static("next-router-prefetch"),
+            HeaderName::from_static("next-router-state-tree"),
+            HeaderName::from_static("next-url"),
+            HeaderName::from_static("referer"),
+            HeaderName::from_static("purpose"),
+            HeaderName::from_static("x-middleware-prefetch"),
+            HeaderName::from_static("x-nextjs-data"),
             // Common HTTP headers needed by browsers and clients
-            HeaderValue::from_static("cache-control"),
+            HeaderName::from_static("cache-control"),
         ])
         .expose_headers([
-            HeaderValue::from_static("x-request-id"),
-            HeaderValue::from_static("x-rate-limit-remaining"),
+            HeaderName::from_static("x-request-id"),
+            HeaderName::from_static("x-rate-limit-remaining"),
         ])
         .allow_credentials(true)
         .max_age(if is_production() { ONE_DAY } else { ONE_HOUR })
@@ -285,7 +318,7 @@ fn get_admin_origins() -> Vec<String> {
 
 /// Validate CORS configuration
 pub fn validate_cors_config() -> Result<(), Vec<String>> {
-    let errors = Vec::new();
+    let mut errors = Vec::new();
     let allowed_origins = super::get_allowed_origins();
     
     if is_production() {

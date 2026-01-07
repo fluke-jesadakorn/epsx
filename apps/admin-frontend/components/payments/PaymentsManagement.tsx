@@ -176,10 +176,24 @@ export function PaymentsManagement() {
     };
 
     const formatCurrency = (amount: number, currency: string = 'USD') => {
-        return new Intl.NumberFormat('en-US', {
-            style: 'currency',
-            currency,
-        }).format(amount);
+        try {
+            if (currency === 'USDT') {
+                return new Intl.NumberFormat('en-US', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                }).format(amount) + ' USDT';
+            }
+
+            return new Intl.NumberFormat('en-US', {
+                style: 'currency',
+                currency,
+            }).format(amount);
+        } catch (e) {
+            return `${new Intl.NumberFormat('en-US', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+            }).format(amount)} ${currency}`;
+        }
     };
 
     const formatDate = (dateString: string) => {

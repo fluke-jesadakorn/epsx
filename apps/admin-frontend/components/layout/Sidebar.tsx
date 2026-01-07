@@ -39,8 +39,8 @@ const navigationItems: NavItem[] = [
   },
   {
     id: 'permissions',
-    label: 'Permissions',
-    href: '/permissions',
+    label: 'Group & Permission',
+    href: '/group-and-permission',
     icon: '🔑',
     requiresAuth: true,
   },
@@ -79,13 +79,7 @@ const navigationItems: NavItem[] = [
     icon: '🔔',
     requiresAuth: true,
   },
-  {
-    id: 'mint',
-    label: 'Mint Tokens',
-    href: '/mint',
-    icon: '🖨️',
-    requiresAuth: false,
-  },
+
   {
     id: 'settings',
     label: 'Settings',

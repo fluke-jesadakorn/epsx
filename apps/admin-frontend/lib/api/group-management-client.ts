@@ -204,6 +204,7 @@ export const groupMgmt = {
   async getUserGroups(userId: string): Promise<UserGroupMembership[]> {
     const res = await adminApiClient.get<any>(API_ROUTES.ADMIN.PERMISSION_ASSIGNMENTS, {
       wallet_address: userId,
+      is_active: true, // Only return active assignments (exclude soft-deleted)
       limit: 100, // Reasonable limit
     });
 
@@ -320,6 +321,16 @@ export const groupMgmt = {
     const params = filters
       ? Object.fromEntries(Object.entries(filters).filter(([, v]) => v !== undefined))
       : undefined;
+
+    // Fix date formatting for backend (backend expects ISO string, frontend might send YYYY-MM-DD)
+    if (params) {
+      if (params.date_from && typeof params.date_from === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(params.date_from)) {
+        params.date_from = `${params.date_from}T00:00:00Z`;
+      }
+      if (params.date_to && typeof params.date_to === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(params.date_to)) {
+        params.date_to = `${params.date_to}T23:59:59Z`;
+      }
+    }
 
     const res = await adminApiClient.get<{ history: GroupAssignmentHistory[]; total: number }>(
       '/api/admin/groups/history',

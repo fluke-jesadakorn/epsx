@@ -207,10 +207,10 @@ export interface NotificationPreferences {
   email: boolean;
   push: boolean;
   in_app: boolean;
-  trading_alerts: boolean;
+  analytics_alerts: boolean;
   price_alerts?: boolean;
   system_updates: boolean;
-  tradingAlerts?: boolean;
+  analyticsAlerts?: boolean;
   securityAlerts?: boolean;
   complianceNotifications?: boolean;
   marketing?: boolean;

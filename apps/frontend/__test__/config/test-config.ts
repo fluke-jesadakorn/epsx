@@ -50,19 +50,19 @@ export const TEST_CONFIG: TestEnvironmentConfig = {
   baseUrl: process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:3000',
   apiUrl: process.env.PLAYWRIGHT_API_URL || 'http://localhost:8080',
   adminUrl: process.env.PLAYWRIGHT_ADMIN_URL || 'http://localhost:3001',
-  
+
   timeout: {
     action: 15000,      // 15 seconds for actions like click, fill
     navigation: 30000,  // 30 seconds for page navigation
     test: 60000,        // 60 seconds for entire test
     expect: 10000       // 10 seconds for expect assertions
   },
-  
+
   retries: {
     flaky: 2,          // Retry flaky tests 2 times
     critical: 3        // Retry critical tests 3 times
   },
-  
+
   performance: {
     thresholds: {
       loadTime: {
@@ -88,30 +88,30 @@ export const TEST_CONFIG: TestEnvironmentConfig = {
       }
     }
   },
-  
+
   tiers: {
     FREE: {
-      features: ['basic-trading', 'portfolio-view', 'basic-notifications'],
+      features: ['basic-analytics', 'portfolio-view', 'basic-notifications'],
       rateLimits: { perMinute: 10, perHour: 100 },
       performanceExpectations: { maxLoadTime: 3000, maxApiResponse: 2000 }
     },
     BRONZE: {
-      features: ['basic-trading', 'portfolio-view', 'enhanced-notifications', 'portfolio-history'],
+      features: ['basic-analytics', 'portfolio-view', 'enhanced-notifications', 'portfolio-history'],
       rateLimits: { perMinute: 30, perHour: 500 },
       performanceExpectations: { maxLoadTime: 2500, maxApiResponse: 1500 }
     },
     SILVER: {
-      features: ['basic-trading', 'portfolio-view', 'enhanced-notifications', 'portfolio-history', 'advanced-analytics', 'advanced-trading'],
+      features: ['basic-analytics', 'portfolio-view', 'enhanced-notifications', 'portfolio-history', 'advanced-analytics'],
       rateLimits: { perMinute: 60, perHour: 1500 },
       performanceExpectations: { maxLoadTime: 2000, maxApiResponse: 1000 }
     },
     GOLD: {
-      features: ['basic-trading', 'portfolio-view', 'enhanced-notifications', 'portfolio-history', 'advanced-analytics', 'advanced-trading', 'portfolio-tools', 'priority-support'],
+      features: ['basic-analytics', 'portfolio-view', 'enhanced-notifications', 'portfolio-history', 'advanced-analytics', 'portfolio-tools', 'priority-support'],
       rateLimits: { perMinute: 120, perHour: 5000 },
       performanceExpectations: { maxLoadTime: 1500, maxApiResponse: 750 }
     },
     PLATINUM: {
-      features: ['basic-trading', 'portfolio-view', 'enhanced-notifications', 'portfolio-history', 'advanced-analytics', 'advanced-trading', 'portfolio-tools', 'priority-support', 'research-reports', 'custom-dashboards'],
+      features: ['basic-analytics', 'portfolio-view', 'enhanced-notifications', 'portfolio-history', 'advanced-analytics', 'portfolio-tools', 'priority-support', 'research-reports', 'custom-dashboards'],
       rateLimits: { perMinute: 300, perHour: 15000 },
       performanceExpectations: { maxLoadTime: 1200, maxApiResponse: 500 }
     },
@@ -137,7 +137,7 @@ export const TEST_SELECTORS = {
     userProfile: '[data-testid="user-profile"]',
     tierBadge: '[data-testid="tier-badge"]'
   },
-  
+
   // Navigation
   navigation: {
     mainNav: '[data-testid="main-nav"]',
@@ -146,34 +146,34 @@ export const TEST_SELECTORS = {
     breadcrumb: '[data-testid="breadcrumb"]',
     bottomNav: '[data-testid="bottom-nav"]'
   },
-  
-  // Trading
-  trading: {
-    interface: '[data-testid="trading-interface"]',
-    buyButton: '[data-testid="buy-button"]',
-    sellButton: '[data-testid="sell-button"]',
-    orderForm: '[data-testid="order-form"]',
-    orderHistory: '[data-testid="order-history"]',
-    priceChart: '[data-testid="price-chart"]'
+
+  // Market Data
+  market: {
+    interface: '[data-testid=\"market-interface\"]',
+    buyButton: '[data-testid=\"buy-button\"]',
+    sellButton: '[data-testid=\"sell-button\"]',
+    orderForm: '[data-testid=\"order-form\"]',
+    orderHistory: '[data-testid=\"order-history\"]',
+    priceChart: '[data-testid=\"price-chart\"]'
   },
-  
+
   // Portfolio
   portfolio: {
-    balance: '[data-testid="portfolio-balance"]',
-    positions: '[data-testid="positions-table"]',
-    performance: '[data-testid="performance-metrics"]',
-    history: '[data-testid="portfolio-history"]',
-    optimizer: '[data-testid="portfolio-optimizer"]'
+    balance: '[data-testid=\"portfolio-balance\"]',
+    positions: '[data-testid=\"positions-table\"]',
+    performance: '[data-testid=\"performance-metrics\"]',
+    history: '[data-testid=\"portfolio-history\"]',
+    optimizer: '[data-testid=\"portfolio-optimizer\"]'
   },
-  
+
   // Analytics
   analytics: {
-    dashboard: '[data-testid="analytics-dashboard"]',
-    charts: '[data-testid="analytics-charts"]',
-    indicators: '[data-testid="technical-indicators"]',
-    reports: '[data-testid="analytics-reports"]'
+    dashboard: '[data-testid=\"analytics-dashboard\"]',
+    charts: '[data-testid=\"analytics-charts\"]',
+    indicators: '[data-testid=\"technical-indicators\"]',
+    reports: '[data-testid=\"analytics-reports\"]'
   },
-  
+
   // Subscription
   subscription: {
     upgradeButton: '[data-testid="upgrade-button"]',
@@ -182,7 +182,7 @@ export const TEST_SELECTORS = {
     billingHistory: '[data-testid="billing-history"]',
     cancelButton: '[data-testid="cancel-subscription"]'
   },
-  
+
   // Mobile specific
   mobile: {
     menuButton: '[data-testid="mobile-menu-button"]',
@@ -190,7 +190,7 @@ export const TEST_SELECTORS = {
     swipeContainer: '[data-testid="swipe-container"]',
     pullToRefresh: '[data-testid="pull-to-refresh"]'
   },
-  
+
   // Performance indicators
   performance: {
     loadingSpinner: '[data-testid="loading-spinner"]',
@@ -198,7 +198,7 @@ export const TEST_SELECTORS = {
     lazyLoading: '[data-lazy="true"]',
     virtualScroll: '[data-virtual-scroll="true"]'
   },
-  
+
   // Error states
   errors: {
     errorBoundary: '[data-testid="error-boundary"]',
@@ -220,7 +220,7 @@ export const MOCK_RESPONSES = {
         email: 'test@example.com',
         role: 'user',
         package_tier: 'GOLD',
-        permissions: ['trading:basic', 'portfolio:view']
+        permissions: ['analytics:basic', 'portfolio:view']
       },
       performance: {
         validation_time_ms: 45,
@@ -232,7 +232,7 @@ export const MOCK_RESPONSES = {
       error: 'Session expired'
     }
   },
-  
+
   portfolio: {
     balance: {
       total: 125000.50,
@@ -250,7 +250,7 @@ export const MOCK_RESPONSES = {
       }
     ]
   },
-  
+
   analytics: {
     basic: {
       daily_pnl: 1250.75,
@@ -270,7 +270,7 @@ export const MOCK_RESPONSES = {
       }
     }
   },
-  
+
   subscription: {
     current: {
       tier: 'GOLD',
@@ -292,7 +292,7 @@ export const TEST_DATA_GENERATORS = {
     package_tier: tier,
     created_at: new Date().toISOString()
   }),
-  
+
   transaction: () => ({
     id: `tx_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
     symbol: ['AAPL', 'GOOGL', 'MSFT', 'AMZN'][Math.floor(Math.random() * 4)],
@@ -301,7 +301,7 @@ export const TEST_DATA_GENERATORS = {
     price: Math.round((Math.random() * 1000 + 50) * 100) / 100,
     timestamp: new Date().toISOString()
   }),
-  
+
   portfolioData: (balance: number = 100000) => ({
     balance,
     positions: Array.from({ length: 5 }, (_, i) => ({
@@ -324,7 +324,7 @@ export const ENVIRONMENT_CONFIG = {
       test: 120000  // Longer timeouts in development
     }
   },
-  
+
   ci: {
     ...TEST_CONFIG,
     retries: {
@@ -336,7 +336,7 @@ export const ENVIRONMENT_CONFIG = {
       test: 90000   // Longer timeouts in CI
     }
   },
-  
+
   production: {
     ...TEST_CONFIG,
     performance: {
@@ -359,11 +359,11 @@ export const ENVIRONMENT_CONFIG = {
 export function getTestConfig(): TestEnvironmentConfig {
   const env = process.env.NODE_ENV || 'development';
   const isCI = process.env.CI === 'true';
-  
+
   if (isCI) {
     return ENVIRONMENT_CONFIG.ci;
   }
-  
+
   return ENVIRONMENT_CONFIG[env as keyof typeof ENVIRONMENT_CONFIG] || TEST_CONFIG;
 }
 
@@ -372,19 +372,19 @@ export function getTestConfig(): TestEnvironmentConfig {
  */
 export const VALIDATORS = {
   email: (email: string): boolean => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email),
-  
+
   currency: (amount: string): boolean => /^\$?[\d,]+\.?\d{0,2}$/.test(amount),
-  
+
   percentage: (percent: string): boolean => /^-?\d+\.?\d{0,2}%?$/.test(percent),
-  
+
   tierAccess: (userTier: string, requiredTier: string): boolean => {
     const tierLevels = { FREE: 1, BRONZE: 2, SILVER: 3, GOLD: 4, PLATINUM: 5, ENTERPRISE: 6 };
-    return (tierLevels[userTier as keyof typeof tierLevels] || 0) >= 
-           (tierLevels[requiredTier as keyof typeof tierLevels] || 0);
+    return (tierLevels[userTier as keyof typeof tierLevels] || 0) >=
+      (tierLevels[requiredTier as keyof typeof tierLevels] || 0);
   },
-  
+
   performance: (metric: number, threshold: number): boolean => metric <= threshold,
-  
+
   responseTime: (responseTime: number, tier: string): boolean => {
     const threshold = TEST_CONFIG.performance.thresholds.apiResponse[tier] || 2000;
     return responseTime <= threshold;

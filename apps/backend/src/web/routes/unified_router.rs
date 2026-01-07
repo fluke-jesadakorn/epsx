@@ -599,113 +599,12 @@ impl UnifiedRouteBuilder {
     // CORS CONFIGURATION
     // ============================================================================
 
+    // ============================================================================
+    // CORS CONFIGURATION
+    // ============================================================================
+
     fn configure_cors(&self) -> CorsLayer {
-        use tower_http::cors::Any;
-        use axum::http::{HeaderName, HeaderValue};
-        use std::time::Duration;
-        use crate::config::env::is_production;
-
-        if is_production() {
-            // Production: Use Any origin without credentials
-            CorsLayer::new()
-                .allow_origin(Any)
-                .allow_methods([
-                    Method::GET,
-                    Method::POST,
-                    Method::PUT,
-                    Method::PATCH,
-                    Method::DELETE,
-                    Method::OPTIONS,
-                ])
-                .allow_headers([
-                    HeaderName::from_static("accept"),
-                    HeaderName::from_static("authorization"),
-                    HeaderName::from_static("content-type"),
-                    HeaderName::from_static("origin"),
-                    HeaderName::from_static("referer"),
-                    HeaderName::from_static("x-api-version"),
-                    HeaderName::from_static("x-request-id"),
-                    HeaderName::from_static("x-client-version"),
-                    HeaderName::from_static("x-admin-session"),
-                    HeaderName::from_static("x-access-level"),
-                    HeaderName::from_static("x-admin-context"),
-                    HeaderName::from_static("rsc"),
-                    HeaderName::from_static("next-router-prefetch"),
-                    HeaderName::from_static("next-router-state-tree"),
-                    HeaderName::from_static("next-url"),
-                    HeaderName::from_static("purpose"),
-                    HeaderName::from_static("x-middleware-prefetch"),
-                    HeaderName::from_static("x-nextjs-data"),
-                    HeaderName::from_static("x-wallet-address"),
-                    HeaderName::from_static("x-chain-id"),
-                    HeaderName::from_static("x-web3-signature"),
-                    HeaderName::from_static("x-signed-message"),
-                    HeaderName::from_static("x-timestamp"),
-                    HeaderName::from_static("x-nonce"),
-                ])
-                .expose_headers([
-                    HeaderName::from_static("x-request-id"),
-                    HeaderName::from_static("x-rate-limit-remaining"),
-                    HeaderName::from_static("x-rate-limit-reset"),
-                ])
-                .allow_credentials(false)
-                .max_age(Duration::from_secs(86400))
-        } else {
-            // Development: Use specific origins with credentials
-            let origins: Vec<HeaderValue> = vec![
-                "http://localhost:3000".parse()
-                    .expect("Static localhost:3000 URL should always parse"),
-                "http://localhost:3001".parse()
-                    .expect("Static localhost:3001 URL should always parse"),
-                "http://127.0.0.1:3000".parse()
-                    .expect("Static 127.0.0.1:3000 URL should always parse"),
-                "http://127.0.0.1:3001".parse()
-                    .expect("Static 127.0.0.1:3001 URL should always parse"),
-            ];
-
-            CorsLayer::new()
-                .allow_origin(origins)
-                .allow_methods([
-                    Method::GET,
-                    Method::POST,
-                    Method::PUT,
-                    Method::PATCH,
-                    Method::DELETE,
-                    Method::OPTIONS,
-                ])
-                .allow_headers([
-                    HeaderName::from_static("accept"),
-                    HeaderName::from_static("authorization"),
-                    HeaderName::from_static("content-type"),
-                    HeaderName::from_static("origin"),
-                    HeaderName::from_static("referer"),
-                    HeaderName::from_static("x-api-version"),
-                    HeaderName::from_static("x-request-id"),
-                    HeaderName::from_static("x-client-version"),
-                    HeaderName::from_static("x-admin-session"),
-                    HeaderName::from_static("x-access-level"),
-                    HeaderName::from_static("x-admin-context"),
-                    HeaderName::from_static("rsc"),
-                    HeaderName::from_static("next-router-prefetch"),
-                    HeaderName::from_static("next-router-state-tree"),
-                    HeaderName::from_static("next-url"),
-                    HeaderName::from_static("purpose"),
-                    HeaderName::from_static("x-middleware-prefetch"),
-                    HeaderName::from_static("x-nextjs-data"),
-                    HeaderName::from_static("x-wallet-address"),
-                    HeaderName::from_static("x-chain-id"),
-                    HeaderName::from_static("x-web3-signature"),
-                    HeaderName::from_static("x-signed-message"),
-                    HeaderName::from_static("x-timestamp"),
-                    HeaderName::from_static("x-nonce"),
-                ])
-                .expose_headers([
-                    HeaderName::from_static("x-request-id"),
-                    HeaderName::from_static("x-rate-limit-remaining"),
-                    HeaderName::from_static("x-rate-limit-reset"),
-                ])
-                .allow_credentials(true) // Can allow credentials with specific origins
-                .max_age(Duration::from_secs(3600))
-        }
+        // Use centralized CORS configuration from security module
+        crate::web::security::cors::get_cors_layer()
     }
 }

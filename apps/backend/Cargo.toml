@@ -70,8 +70,8 @@ thiserror = "1.0"
 tokio = { version = "1.0", features = ["full"] }
 tokio-stream = { version = "0.1", features = ["sync"] }
 async-stream = "0.3"
-tower = "0.4"
-tower-http = { version = "0.5", features = ["cors", "compression-gzip", "trace", "timeout", "limit"] }
+tower = { version = "0.5", features = ["util", "timeout"] }
+tower-http = { version = "0.5", features = ["cors", "compression-gzip", "trace", "timeout", "limit", "request-id", "set-header", "util"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tokio-retry = "0.3"

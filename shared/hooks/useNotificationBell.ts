@@ -97,7 +97,7 @@ export function useNotificationBell(
               : sseNotif.notification_type === 'permission'
                 ? 'permissions'
                 : sseNotif.notification_type === 'wallet'
-                  ? 'trading'
+                  ? 'analytics'
                   : 'system'
 
           browserNotifications.showNotification(

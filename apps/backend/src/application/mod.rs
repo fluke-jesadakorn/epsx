@@ -6,7 +6,7 @@ pub mod shared;
 pub mod wallet_management; // Web3-first: wallet-based operations
 pub mod permission_management; // Permission groups, policies, and assignments
 pub mod subscription_management; // Plans, subscriptions, and billing
-pub mod trading_analytics; // Stock analysis and EPS rankings
+pub mod market_analytics; // Stock analysis and EPS rankings
 pub mod notification; // Multi-channel notification system with scheduling
 pub mod realtime_events; // Real-time event delivery and retry system
 pub mod resource_management; // Resource usage tracking and billing

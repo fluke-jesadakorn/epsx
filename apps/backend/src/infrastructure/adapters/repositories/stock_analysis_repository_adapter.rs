@@ -2,8 +2,8 @@ use crate::prelude::*;
 
 use tracing::{debug, error, info};
 
-use crate::domain::trading_analytics::aggregates::eps_ranking::{EPSRanking as DDDEPSRanking, RankingEntry, RankingType, RankingPeriod};
-use crate::domain::trading_analytics::value_objects::*;
+use crate::domain::market_analytics::aggregates::eps_ranking::{EPSRanking as DDDEPSRanking, RankingEntry, RankingType, RankingPeriod};
+use crate::domain::market_analytics::value_objects::*;
 use crate::domain::shared_kernel::entities::eps_growth::{EPSRanking as LegacyEPSRanking};
 use crate::domain::shared_kernel::services::eps_ranking_service::{EPSRankingService, EPSRankingParams, EPSRepository};
 use crate::domain::shared_kernel::entities::eps_growth::{EPSGrowthData, EPSRanking};

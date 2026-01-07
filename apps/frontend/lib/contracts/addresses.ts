@@ -146,6 +146,21 @@ export function isPaymentEscrowDeployed(chainId: number): boolean {
 }
 
 /**
+ * Get the local Anvil base URL based on current browser hostname.
+ * Supports Tailscale IPs (100.x.x.x) and other local network IPs.
+ */
+function getLocalAnvilBaseUrl(): string {
+  if (typeof window === 'undefined') {
+    return 'http://127.0.0.1:8545';
+  }
+  const hostname = window.location.hostname;
+  if (hostname === 'localhost' || hostname === '127.0.0.1') {
+    return 'http://127.0.0.1:8545';
+  }
+  return `http://${hostname}:8545`;
+}
+
+/**
  * Chain-specific explorer URLs
  */
 export const CHAIN_EXPLORERS = {
@@ -163,9 +178,9 @@ export const CHAIN_EXPLORERS = {
   },
   31337: {
     name: 'Local Anvil',
-    url: 'http://127.0.0.1:8545',
-    tx: (hash: string) => `http://127.0.0.1:8545/tx/${hash}`, // No real explorer for local
-    address: (addr: string) => `http://127.0.0.1:8545/address/${addr}`,
+    get url() { return getLocalAnvilBaseUrl(); },
+    tx: (hash: string) => `${getLocalAnvilBaseUrl()}/tx/${hash}`,
+    address: (addr: string) => `${getLocalAnvilBaseUrl()}/address/${addr}`,
   },
 } as const;
 

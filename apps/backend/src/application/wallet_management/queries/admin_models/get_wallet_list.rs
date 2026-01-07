@@ -91,6 +91,7 @@ pub struct WalletSummaryDto {
     pub permissions_count: i32,
     pub groups_count: i32,
     pub last_activity: Option<DateTime<Utc>>,
+    pub metadata: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

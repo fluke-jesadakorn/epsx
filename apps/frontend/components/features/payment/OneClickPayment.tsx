@@ -217,9 +217,9 @@ const getDescriptionForPlan = (planType: string): string => {
       return 'Most popular choice';
     case 'enterprise':
     case 'premium':
-      return 'For serious traders';
+      return 'For serious analysts';
     default:
-      return 'Trading plan';
+      return 'Analytics plan';
   }
 };
 

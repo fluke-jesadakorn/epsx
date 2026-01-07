@@ -19,6 +19,7 @@ import {
 import { cn } from '@/lib/utils';
 
 import type { Platform, WalletData, WalletStatus } from './types';
+import { WalletLabelBadge } from './WalletLabelBadge';
 
 interface WalletCardProps {
     wallet: WalletData;
@@ -169,6 +170,11 @@ export function WalletCard({
                                 {statusConfig.emoji} {statusConfig.label}
                             </Badge>
 
+                            {/* Label Badge */}
+                            {wallet.label && (
+                                <WalletLabelBadge label={wallet.label} size="sm" />
+                            )}
+
                             {wallet.platforms.map((platform) => (
                                 <Badge
                                     key={platform}
@@ -181,6 +187,13 @@ export function WalletCard({
                             ))}
                         </div>
 
+                        {/* Note snippet */}
+                        {wallet.note && (
+                            <div className="mt-1.5 text-xs text-gray-500 dark:text-gray-400 truncate max-w-[300px]" title={wallet.note}>
+                                📝 {wallet.note.length > 50 ? wallet.note.slice(0, 50) + '...' : wallet.note}
+                            </div>
+                        )}
+
                         {/* Disable reason if applicable */}
                         {wallet.disableInfo && (
                             <div className="mt-2 text-xs text-amber-600 dark:text-amber-400">
@@ -192,17 +205,39 @@ export function WalletCard({
                 </div>
 
                 {/* Stats */}
-                <div className="hidden sm:block mx-6 text-right">
-                    <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">
-                        {activePermissions} permission{activePermissions !== 1 ? 's' : ''}
-                    </div>
-                    {wallet.lastAuthAt && (
-                        <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">
-                            Active {formatTimeAgo(wallet.lastAuthAt)}
+                <div className="hidden md:flex items-center gap-8 mx-6">
+                    {/* Plan */}
+                    <div className="flex flex-col items-start min-w-[60px]">
+                        <span className="text-[10px] uppercase text-gray-400 font-semibold tracking-wider mb-0.5">Plan</span>
+                        <div className="flex items-center gap-1.5">
+                            <span className="text-sm font-medium text-gray-900 dark:text-gray-200">
+                                {wallet.subscriptions[0]?.planName || 'Free'}
+                            </span>
                         </div>
-                    )}
-                    <div className="text-xs text-gray-400 dark:text-gray-500">
-                        Created {formatTimeAgo(wallet.createdAt)}
+                    </div>
+
+                    {/* Group */}
+                    <div className="flex flex-col items-start min-w-[60px]">
+                        <span className="text-[10px] uppercase text-gray-400 font-semibold tracking-wider mb-0.5">Group</span>
+                        <div className="flex items-center gap-1.5">
+                            <span className="text-sm font-medium text-gray-900 dark:text-gray-200">
+                                {wallet.groups?.[0]?.groupName || 'User'}
+                                {(wallet.groups?.length || 0) > 1 && (
+                                    <span className="text-xs text-gray-500">+{wallet.groups!.length - 1}</span>
+                                )}
+                            </span>
+                        </div>
+                    </div>
+
+                    {/* Permission */}
+                    <div className="flex flex-col items-start min-w-[60px]">
+                        <span className="text-[10px] uppercase text-gray-400 font-semibold tracking-wider mb-0.5">Perms</span>
+                        <div className="flex items-center gap-1.5">
+                            <span className="text-sm font-medium text-gray-900 dark:text-gray-200">
+                                {activePermissions}
+                            </span>
+                            <span className="text-xs text-gray-500">Access</span>
+                        </div>
                     </div>
                 </div>
 

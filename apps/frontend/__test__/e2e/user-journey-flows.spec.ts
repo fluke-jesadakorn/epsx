@@ -61,13 +61,13 @@ test.describe('🎯 Complete Trading Workflow Journey', () => {
     await loginUser(page);
   });
 
-  test('should complete end-to-end trading research workflow', async ({ page }) => {
-    console.log('🧪 Testing complete trading research workflow');
+  test('should complete end-to-end analytics research workflow', async ({ page }) => {
+    console.log('🧪 Testing complete analytics research workflow');
 
     // Step 1: Start with dashboard overview
     await page.goto('/dashboard');
     await page.waitForLoadState('networkidle');
-    console.log('✅ Step 1: Accessed trading dashboard');
+    console.log('✅ Step 1: Accessed analytics dashboard');
 
     // Look for market data or overview widgets
     const dashboardElements = [
@@ -81,13 +81,13 @@ test.describe('🎯 Complete Trading Workflow Journey', () => {
     for (const element of dashboardElements) {
       if (await element.isVisible()) {
         foundDashboardData = true;
-        console.log('✅ Found dashboard trading data');
+        console.log('✅ Found dashboard analytics data');
         break;
       }
     }
 
     if (!foundDashboardData) {
-      console.log('⚠️ Dashboard trading data may not be implemented yet');
+      console.log('⚠️ Dashboard analytics data may not be implemented yet');
     }
 
     // Step 2: Research with EPS analytics
@@ -146,22 +146,22 @@ test.describe('🎯 Complete Trading Workflow Journey', () => {
       }
     }
 
-    // Step 4: Access trading interface
-    await page.goto('/trading');
+    // Step 4: Access analytics interface
+    await page.goto('/analytics');
     await page.waitForLoadState('networkidle');
-    console.log('✅ Step 4: Accessed trading interface');
+    console.log('✅ Step 4: Accessed analytics interface');
 
-    // Check for trading-specific elements
-    const tradingElements = [
+    // Check for analytics-specific elements
+    const analyticsElements = [
       page.locator('[data-testid*="trade"]'),
       page.locator('button').filter({ hasText: /buy|sell|order/i }),
       page.locator('[data-testid*="portfolio"]'),
       page.locator('table').filter({ hasText: /symbol|price|quantity/i }),
     ];
 
-    for (const element of tradingElements) {
+    for (const element of analyticsElements) {
       if (await element.isVisible()) {
-        console.log('✅ Found trading interface element');
+        console.log('✅ Found analytics interface element');
         break;
       }
     }
@@ -176,7 +176,7 @@ test.describe('🎯 Complete Trading Workflow Journey', () => {
     await page.waitForLoadState('networkidle');
     console.log('✅ Step 6: Returned to dashboard with research insights');
 
-    console.log('🎉 Complete trading research workflow successful');
+    console.log('🎉 Complete analytics research workflow successful');
   });
 
   test('should handle data export and portfolio management workflow', async ({ page }) => {
@@ -489,7 +489,7 @@ test.describe('🔐 Role-Based Feature Access', () => {
     // Test features that may be permission-restricted
     const restrictedFeatures = [
       { path: '/analytics/pattern-recognition', feature: 'Pattern Recognition' },
-      { path: '/trading', feature: 'Trading Interface' },
+      { path: '/analytics', feature: 'Analytics Interface' },
       { path: '/payment/enterprise', feature: 'Enterprise Payment' },
     ];
 
@@ -606,7 +606,7 @@ test.describe('🔄 Cross-Feature Integration Journey', () => {
     await loginUser(page);
   });
 
-  test('should test data flow between analytics and trading features', async ({ page }) => {
+  test('should test data flow between analytics and analytics features', async ({ page }) => {
     console.log('🧪 Testing cross-feature data integration');
 
     // Step 1: Research stock in analytics
@@ -619,8 +619,8 @@ test.describe('🔄 Cross-Feature Integration Journey', () => {
       console.log('✅ Researched AAPL in analytics');
     }
 
-    // Step 2: Check if research carries over to trading
-    await page.goto('/trading');
+    // Step 2: Check if research carries over to analytics
+    await page.goto('/analytics');
     await page.waitForLoadState('networkidle');
     
     // Look for recently viewed or suggested stocks
@@ -632,7 +632,7 @@ test.describe('🔄 Cross-Feature Integration Journey', () => {
 
     for (const element of recentSymbols) {
       if (await element.isVisible()) {
-        console.log('✅ Analytics research carried over to trading interface');
+        console.log('✅ Analytics research carried over to analytics interface');
         break;
       }
     }
@@ -693,7 +693,7 @@ test.describe('🔄 Cross-Feature Integration Journey', () => {
 
     if (modifiedSetting) {
       // Step 2: Verify setting impact across features
-      const featuresToCheck = ['/dashboard', '/analytics', '/trading'];
+      const featuresToCheck = ['/dashboard', '/analytics', '/analytics'];
       
       for (const featurePath of featuresToCheck) {
         await page.goto(featurePath);

@@ -30,24 +30,53 @@ const queryClient = new QueryClient({
     },
 });
 
+/**
+ * Get the dynamic Anvil RPC URL based on the current browser hostname.
+ * Supports Tailscale IPs (100.x.x.x) and other local network access.
+ */
+function getAnvilRpcUrl(): string {
+    if (typeof window === 'undefined') {
+        return 'http://127.0.0.1:8545';
+    }
+    const hostname = window.location.hostname;
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+        return 'http://127.0.0.1:8545';
+    }
+    // For Tailscale or other network access, use the same hostname
+    return `http://${hostname}:8545`;
+}
+
 // Define Anvil Localhost chain for development (configured as BSC-like)
-const anvilLocalhost = {
-    id: 31337,
-    name: 'Anvil Local (BSC)',
-    nativeCurrency: {
-        decimals: 18,
-        name: 'BNB',
-        symbol: 'BNB',
-    },
-    rpcUrls: {
-        default: { http: ['http://127.0.0.1:8545'] },
-        public: { http: ['http://127.0.0.1:8545'] },
-    },
-    blockExplorers: {
-        default: { name: 'Anvil', url: 'http://127.0.0.1:8545' },
-    },
-    testnet: true,
-} as const satisfies Chain;
+// Note: rpcUrls are evaluated at runtime via getter for dynamic hostname support
+const createAnvilLocalhost = (): Chain => {
+    const rpcUrl = getAnvilRpcUrl();
+    return {
+        id: 31337,
+        name: 'Anvil Local (BSC)',
+        nativeCurrency: {
+            decimals: 18,
+            name: 'BNB',
+            symbol: 'BNB',
+        },
+        rpcUrls: {
+            default: { http: [rpcUrl] },
+            public: { http: [rpcUrl] },
+        },
+        blockExplorers: {
+            default: { name: 'Anvil', url: rpcUrl },
+        },
+        testnet: true,
+    } as Chain;
+};
+
+// Lazy-init to ensure window is available
+let anvilLocalhost: Chain | null = null;
+const getAnvilLocalhost = (): Chain => {
+    if (!anvilLocalhost) {
+        anvilLocalhost = createAnvilLocalhost();
+    }
+    return anvilLocalhost;
+};
 
 // Get the blockchain network from environment
 const isMainnet = process.env.NEXT_PUBLIC_BLOCKCHAIN_NETWORK === 'mainnet';
@@ -58,13 +87,20 @@ const defaultChainId = Number(process.env.NEXT_PUBLIC_CHAIN_ID);
 // In production mainnet: only BSC Mainnet
 // In production non-mainnet: BSC Testnet + BSC Mainnet
 // In development: Include Anvil Local for local testing
-const DEFAULT_CHAINS = isMainnet && isProduction
-    ? [bsc]
-    : isProduction
-        ? [bscTestnet, bsc]
-        : defaultChainId === 31337
-            ? [anvilLocalhost, bscTestnet, bsc]  // Anvil first when it's the default
-            : [bscTestnet, anvilLocalhost, bsc]; // Include Anvil in dev for switching
+// Note: Function-based to ensure Anvil chain is created with correct hostname at runtime
+function getDefaultChains(): Chain[] {
+    if (isMainnet && isProduction) {
+        return [bsc];
+    }
+    if (isProduction) {
+        return [bscTestnet, bsc];
+    }
+    // Development: include Anvil with dynamic RPC URL
+    const anvil = getAnvilLocalhost();
+    return defaultChainId === 31337
+        ? [anvil, bscTestnet, bsc]  // Anvil first when it's the default
+        : [bscTestnet, anvil, bsc]; // Include Anvil in dev for switching
+}
 
 const DEFAULT_APP_NAME = 'EPSX';
 const DEFAULT_PROJECT_ID = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || '04e0a500abfa1e095bf8f64b15fa2812';
@@ -99,10 +135,12 @@ export function UnifiedWeb3Provider({
     children,
     appName = DEFAULT_APP_NAME,
     projectId = DEFAULT_PROJECT_ID,
-    chains = DEFAULT_CHAINS,
+    chains,
     learnMoreUrl = DEFAULT_LEARN_MORE_URL,
     isAdminMode = false,
 }: UnifiedWeb3ProviderProps) {
+    // Use provided chains or get default chains (with dynamic Anvil RPC)
+    const resolvedChains = chains ?? getDefaultChains();
     const [isHydrated, setIsHydrated] = useState(false);
     const { resolvedTheme } = useTheme();
 
@@ -142,9 +180,9 @@ export function UnifiedWeb3Provider({
     const config = React.useMemo(() => getDefaultConfig({
         appName,
         projectId,
-        chains: chains as any,
+        chains: resolvedChains as any,
         ssr: true,
-    }), [appName, projectId, chains]);
+    }), [appName, projectId, resolvedChains]);
 
     const customLightTheme = React.useMemo(() => lightTheme({
         accentColor: '#f97316',

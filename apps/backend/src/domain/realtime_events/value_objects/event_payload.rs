@@ -142,7 +142,7 @@ impl EventPayload {
             .with_metadata("channel".to_string(), "notifications".to_string())
     }
     
-    /// Create trading event payload
+    /// Create market event payload
     pub fn stock_price_update(
         symbol: String,
         price: f64,
@@ -160,7 +160,7 @@ impl EventPayload {
         });
         
         Self::new(EventType::StockPriceUpdate, data)
-            .with_metadata("channel".to_string(), "trading".to_string())
+            .with_metadata("channel".to_string(), "market".to_string())
     }
 }
 

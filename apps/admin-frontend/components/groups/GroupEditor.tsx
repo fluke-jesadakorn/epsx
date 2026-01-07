@@ -14,23 +14,16 @@
 
 import {
   AlertTriangle,
-  Cpu, Database,
-  Globe,
   Key,
-  Monitor,
-  Search,
   Shield,
-  Star,
-  Users,
-  X
+  Star
 } from 'lucide-react'
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
+import { PermissionTransferList } from './PermissionTransferList'
 
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Checkbox } from '@/components/ui/FormComponents'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -46,7 +39,6 @@ import {
   Group,
   UpdateGroupRequest
 } from '@/lib/api/group-management-client'
-import { cn } from '@/lib/shared'
 
 interface GroupEditorProps {
   group?: Group | null
@@ -92,8 +84,6 @@ export function GroupEditor({ group, onSave, onCancel, className }: GroupEditorP
   })
 
   const [errors, setErrors] = useState<Record<string, string>>({})
-  const [searchTerm, setSearchTerm] = useState('')
-  const [selectedCategory, setSelectedCategory] = useState<string>('all')
 
   // Hooks
   const { createGroup, updateGroup } = useGroups()
@@ -120,69 +110,6 @@ export function GroupEditor({ group, onSave, onCancel, className }: GroupEditorP
     }
     setErrors({})
   }, [group])
-
-  // Categorize permissions
-  const permissionCategories = useMemo<PermissionCategory[]>(() => {
-    const categories: PermissionCategory[] = [
-      {
-        name: 'Admin',
-        icon: <Shield className="h-4 w-4" />,
-        permissions: availablePermissions.filter(p => p.startsWith('admin:')),
-        description: 'Administrative and system management permissions'
-      },
-      {
-        name: 'Users',
-        icon: <Users className="h-4 w-4" />,
-        permissions: availablePermissions.filter(p => p.includes('users')),
-        description: 'User management and account operations'
-      },
-      {
-        name: 'Analytics',
-        icon: <Cpu className="h-4 w-4" />,
-        permissions: availablePermissions.filter(p => p.includes('analytics')),
-        description: 'Analytics and reporting access'
-      },
-      {
-        name: 'Web3',
-        icon: <Globe className="h-4 w-4" />,
-        permissions: availablePermissions.filter(p => p.includes('web3') || p.includes('blockchain')),
-        description: 'Web3 and blockchain-related permissions'
-      },
-      {
-        name: 'API',
-        icon: <Database className="h-4 w-4" />,
-        permissions: availablePermissions.filter(p => p.includes('api')),
-        description: 'API access and integration permissions'
-      },
-      {
-        name: 'Platform',
-        icon: <Monitor className="h-4 w-4" />,
-        permissions: availablePermissions.filter(p => p.startsWith('epsx:') || p.startsWith('platform:')),
-        description: 'Core platform access permissions'
-      }
-    ]
-
-    return categories
-  }, [availablePermissions])
-
-  // Filter permissions based on search and category
-  const filteredPermissions = useMemo(() => {
-    let permissions = availablePermissions
-
-    // Filter by category
-    if (selectedCategory !== 'all') {
-      const category = permissionCategories.find(c => c.name.toLowerCase() === selectedCategory)
-      permissions = category?.permissions || []
-    }
-
-    // Filter by search term
-    if (searchTerm) {
-      const searchLower = searchTerm.toLowerCase()
-      permissions = permissions.filter(p => p.toLowerCase().includes(searchLower))
-    }
-
-    return permissions.sort()
-  }, [availablePermissions, permissionCategories, selectedCategory, searchTerm])
 
   // Form validation
   const validateForm = useCallback(() => {
@@ -374,105 +301,22 @@ export function GroupEditor({ group, onSave, onCancel, className }: GroupEditorP
           )}
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Search and Filter */}
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="relative flex-1">
-              <Search className="h-4 w-4 absolute left-3 top-3 text-gray-400" />
-              <Input
-                placeholder="Search permissions..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-            <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-              <SelectTrigger className="w-full sm:w-48">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Categories</SelectItem>
-                {permissionCategories.map((category) => (
-                  <SelectItem key={category.name.toLowerCase()} value={category.name.toLowerCase()}>
-                    {category.name} ({category.permissions.length})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Selected Permissions Summary */}
-          {formData.permissions.length > 0 && (
-            <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
-              <h4 className="font-medium text-blue-900 mb-2">Selected Permissions</h4>
-              <div className="flex flex-wrap gap-1">
-                {formData.permissions.map((permission) => (
-                  <Badge
-                    key={permission}
-                    variant="secondary"
-                    className="cursor-pointer hover:bg-red-100"
-                    onClick={() => handlePermissionToggle(permission)}
-                  >
-                    {permission}
-                    <X className="h-3 w-3 ml-1" />
-                  </Badge>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Permission List */}
-          {loadingPermissions ? (
-            <div className="text-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-              <p className="text-sm text-gray-600 mt-2">Loading permissions...</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-96 overflow-y-auto">
-              {filteredPermissions.map((permission) => {
-                const isSelected = formData.permissions.includes(permission)
-                const parts = permission.split(':')
-                const platform = parts[0] || ''
-                const resource = parts[1] || ''
-                const action = parts[2] || ''
-
-                return (
-                  <div
-                    key={permission}
-                    className={cn(
-                      'flex items-center p-3 rounded-lg border cursor-pointer transition-colors',
-                      isSelected
-                        ? 'bg-blue-50 border-blue-200 text-blue-900'
-                        : 'bg-white border-gray-200 hover:bg-gray-50'
-                    )}
-                    onClick={() => handlePermissionToggle(permission)}
-                  >
-                    <Checkbox
-                      checked={isSelected}
-                      onChange={() => handlePermissionToggle(permission)}
-                      className="mr-3"
-                    />
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium truncate">
-                        {permission}
-                      </div>
-                      {resource && action && (
-                        <div className="text-xs text-gray-500">
-                          {platform} → {resource} → {action}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          )}
-
-          {filteredPermissions.length === 0 && !loadingPermissions && (
-            <div className="text-center py-8 text-gray-500">
-              <Key className="h-8 w-8 mx-auto mb-2 opacity-50" />
-              <p>No permissions found matching your search.</p>
-            </div>
-          )}
+          <CardContent className="space-y-4">
+            <PermissionTransferList
+              available={availablePermissions}
+              selected={formData.permissions}
+              onChange={(newSelected: string[]) => {
+                setFormData(prev => ({ ...prev, permissions: newSelected }))
+                if (errors.permissions) {
+                  setErrors(prev => ({ ...prev, permissions: '' }))
+                }
+              }}
+              isLoading={loadingPermissions}
+              systemPermissions={new Set(
+                availablePermissions.filter(p => p.startsWith('system:') || p.startsWith('admin:'))
+              )}
+            />
+          </CardContent>
         </CardContent>
       </Card>
 

@@ -19,6 +19,7 @@ pub mod payments;
 pub mod errors;
 pub mod responses; // Unified API response format
 pub mod public;
+pub mod security; // Expose security module for CORS
 
 // API documentation (always available)
 pub mod docs;

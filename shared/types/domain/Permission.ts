@@ -54,7 +54,7 @@ export interface PermissionExpiryInfo {
 
 export type PermissionCategory =
   | 'analytics'
-  | 'trading'
+  | 'market'
   | 'admin'
   | 'billing'
   | 'api'

@@ -1,5 +1,5 @@
-import { getSessionFromWeb3 } from '@/lib/server/token';
 import { DashboardClient } from '@/components/dashboard/DashboardClient';
+import { getSessionFromWeb3 } from '@/lib/server/token';
 
 // Force dynamic rendering for pages that use authentication
 export const dynamic = 'force-dynamic';
@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 export default async function DashboardPage() {
   // Get session data server-side using Web3 (but don't redirect on failure)
   const session = await getSessionFromWeb3();
-  
+
   // Transform session data to structured format with null checks
   const user = session?.isAuthenticated && session.user ? {
     id: session.user.id || '',
@@ -16,7 +16,7 @@ export default async function DashboardPage() {
     permissions: session.user.permissions || ['epsx:analytics:view'],
     package_tier: session.user.package_tier || 'FREE',
     wallet_address: session.user.wallet_address,
-    
+
     // Cross-platform fields
     platforms: session.user.platforms || ['epsx'],
     primary_platform: session.user.primary_platform || 'epsx',
@@ -51,12 +51,12 @@ export default async function DashboardPage() {
             Personal Dashboard
           </h1>
           <p className="text-slate-600 dark:text-slate-400 mt-2">
-            Your personalized trading analytics and portfolio overview
+            Your personalized market analytics and portfolio overview
           </p>
         </div>
 
         {user && permissions ? (
-          <DashboardClient 
+          <DashboardClient
             user={user}
             permissions={permissions}
             dashboardData={dashboardData}

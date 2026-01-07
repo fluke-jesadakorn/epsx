@@ -1,8 +1,8 @@
 
 use std::sync::Arc;
 use chrono::{DateTime, Utc};
-use crate::domain::trading_analytics::aggregates::stock_analysis::StockAnalysis;
-use crate::domain::trading_analytics::value_objects::*;
+use crate::domain::market_analytics::aggregates::stock_analysis::StockAnalysis;
+use crate::domain::market_analytics::value_objects::*;
 use crate::domain::shared_kernel::entities::stock::{Stock as LegacyStock};
 use crate::domain::shared_kernel::entities::market_data::StockScreeningResult;
 use crate::infrastructure::adapters::services::tradingview::TradingViewApiService;

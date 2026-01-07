@@ -3,7 +3,7 @@
  * Stub implementation for build compatibility
  */
 
-import { Shield, BarChart3, Coins } from 'lucide-react';
+import { BarChart3, Coins, Shield } from 'lucide-react';
 
 export function useCrossPlatformAuth() {
   return {
@@ -18,33 +18,33 @@ export function useCrossPlatformAuth() {
     isLoading: false,
     error: null,
     hasPermission: (permission: string) => false,
-    login: async () => {},
-    logout: async () => {},
-    switchPlatform: async (platform: string) => {},
+    login: async () => { },
+    logout: async () => { },
+    switchPlatform: async (platform: string) => { },
   };
 }
 
 export function usePlatformContext() {
   return {
-    currentPlatform: { 
-      id: 'admin', 
-      code: 'admin', 
-      name: 'Admin', 
+    currentPlatform: {
+      id: 'admin',
+      code: 'admin',
+      name: 'Admin',
       icon: Shield,
       description: 'Administrative dashboard'
     },
     availablePlatforms: [
       { id: 'admin', code: 'admin', name: 'Admin', icon: Shield, description: 'Administrative dashboard' },
-      { id: 'epsx', code: 'epsx', name: 'EPSX', icon: BarChart3, description: 'Trading analytics platform' },
+      { id: 'epsx', code: 'epsx', name: 'EPSX', icon: BarChart3, description: 'Market analytics platform' },
       { id: 'epsx-pay', code: 'epsx-pay', name: 'EPSX Pay', icon: Coins, description: 'Payment processing' }
     ],
     accessiblePlatforms: [
       { id: 'admin', code: 'admin', name: 'Admin', icon: Shield, description: 'Administrative dashboard' },
-      { id: 'epsx', code: 'epsx', name: 'EPSX', icon: BarChart3, description: 'Trading analytics platform' },
+      { id: 'epsx', code: 'epsx', name: 'EPSX', icon: BarChart3, description: 'Market analytics platform' },
       { id: 'epsx-pay', code: 'epsx-pay', name: 'EPSX Pay', icon: Coins, description: 'Payment processing' }
     ],
-    switchPlatform: (platform: string) => {},
-    switchToPlatform: (platform: string) => {},
+    switchPlatform: (platform: string) => { },
+    switchToPlatform: (platform: string) => { },
   };
 }
 

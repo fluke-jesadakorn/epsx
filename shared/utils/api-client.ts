@@ -104,26 +104,23 @@ export class UnifiedApiClient {
     // Server-side: attempt to get token from cookies (Next.js only)
     if (this.isServerSide) {
       try {
-        // Check if we're in a Next.js environment and headers module is available
-        if (typeof process !== 'undefined' && process.env['NEXT_RUNTIME']) {
-          try {
-            const { cookies } = await import('next/headers');
-            const cookieStore = await cookies();
+        // Dynamic import to avoid bundling server modules in client
+        // This is safe because we're inside the isServerSide check
+        const { cookies } = await import('next/headers');
 
-            // Get access token from unified cookies (no context separation)
-            const tokenCookie = cookieStore.get(COOKIES.access);
+        // cookies() is an async function in newer Next.js versions
+        const cookieStore = await cookies();
 
-            if (tokenCookie?.value) {
-              headers['Authorization'] = `Bearer ${tokenCookie.value}`;
-            }
-          } catch (nextError) {
-            // Next.js headers module might not be available in non-Next.js environments
-            console.warn(`Next.js headers not available in ${this.platform} context:`, nextError);
-          }
+        // Get access token from unified cookies (no context separation)
+        const tokenCookie = cookieStore.get(COOKIES.access);
+
+        if (tokenCookie?.value) {
+          headers['Authorization'] = `Bearer ${tokenCookie.value}`;
         }
       } catch (error) {
-        // Cookie access might fail in some server contexts or non-Next.js environments
-        console.warn(`Failed to get server-side ${this.platform} auth token:`, error);
+        // This is expected during build time or in non-request contexts
+        // We log only if we really expected to be in a request context (optional)
+        // console.debug(`[UnifiedApiClient] Server-side token retrieval skipped:`, error);
       }
     } else {
       // Client-side: attempt to get token from accessible cookies
@@ -202,7 +199,10 @@ export class UnifiedApiClient {
 
       if (!response.ok) {
         const errorMessage = data?.message || data?.error || `HTTP ${response.status}: ${response.statusText}`;
-        console.error(`[UnifiedApiClient] Error ${response.status} ${requestConfig.method || 'GET'} ${url}:`, errorMessage);
+        // Don't log 404 errors - they are often expected (e.g., user has no permissions)
+        if (response.status !== 404) {
+          console.error(`[UnifiedApiClient] Error ${response.status} ${requestConfig.method || 'GET'} ${url}:`, errorMessage);
+        }
         throw new APIError(
           response.status,
           errorMessage,

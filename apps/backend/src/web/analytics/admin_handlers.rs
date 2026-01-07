@@ -24,7 +24,7 @@ pub async fn system_metrics_handler(
     Extension(db_pool): Extension<Arc<crate::infrastructure::adapters::repositories::database_types::DbPool>>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
     use crate::application::shared::QueryHandler;
-    use crate::application::trading_analytics::queries::{GetSystemMetricsQuery, GetSystemMetricsQueryHandler};
+    use crate::application::market_analytics::queries::{GetSystemMetricsQuery, GetSystemMetricsQueryHandler};
 
     tracing::info!("📊 System metrics request (CQRS)");
 
@@ -85,8 +85,8 @@ pub async fn admin_time_series_handler(
     Query(params): Query<std::collections::HashMap<String, String>>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
     use crate::application::shared::QueryHandler;
-    use crate::application::trading_analytics::queries::{GetAdminTimeSeriesQuery, GetAdminTimeSeriesQueryHandler};
-    use crate::application::trading_analytics::queries::{TimeSeriesGranularity, MetricType};
+    use crate::application::market_analytics::queries::{GetAdminTimeSeriesQuery, GetAdminTimeSeriesQueryHandler};
+    use crate::application::market_analytics::queries::{TimeSeriesGranularity, MetricType};
 
     // Parse query parameters with defaults
     let start_date = params.get("start_date")
@@ -173,7 +173,7 @@ pub async fn admin_modules_handler(
     Query(params): Query<std::collections::HashMap<String, String>>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
     use crate::application::shared::QueryHandler;
-    use crate::application::trading_analytics::queries::{GetAdminModulesQuery, GetAdminModulesQueryHandler};
+    use crate::application::market_analytics::queries::{GetAdminModulesQuery, GetAdminModulesQueryHandler};
 
     // Parse query parameters
     let include_inactive = params.get("include_inactive")

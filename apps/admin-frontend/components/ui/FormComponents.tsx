@@ -9,14 +9,14 @@
 import * as React from 'react';
 
 import {
-    PancakeButton as Button,
-    PancakeCheckboxAlias as Checkbox,
-    PancakeFormAlias as Form,
-    PancakeFormFieldAlias as FormField,
-    PancakeInputAlias as Input,
-    PancakeLabelAlias as Label,
-    PancakeSelectAlias as Select,
-    PancakeTextareaAlias as Textarea
+  PancakeButton as Button,
+  Checkbox,
+  Form,
+  FormField,
+  Input,
+  FormLabel as Label,
+  Select,
+  Textarea
 } from '@/shared/components';
 
 // ============================================================================

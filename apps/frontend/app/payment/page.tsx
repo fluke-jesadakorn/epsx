@@ -2,6 +2,7 @@ import { GlobalAuthGuard } from '@/components/auth/GlobalAuthGuard';
 import { PaymentStatusServer } from '@/components/sections/payment/PaymentStatusServer';
 import { getCurrentUser } from '@/lib/server-actions';
 import { getDebugSessionInfo } from '@/lib/server-actions-user';
+import { redirect } from 'next/navigation';
 import { Suspense } from 'react';
 import { PaymentPageClient } from './PaymentPageClient';
 
@@ -13,6 +14,11 @@ export const dynamic = 'force-dynamic';
  * - /payment?plan=uuid       → Plan payment (subscription)
  * - /payment?group=uuid      → Group payment (permission access)
  * - /payment?link=slug       → Dynamic payment link
+ * 
+ * NOTE: Better to use dynamic routes going forward:
+ * - /payment/plan/[id]
+ * - /payment/group/[id]
+ * - /payment/link/[slug]
  */
 interface PaymentPageProps {
   searchParams: Promise<{
@@ -28,17 +34,28 @@ export default async function PaymentPage({ searchParams }: PaymentPageProps) {
 
   // Extract payment context from search params
   const resolvedSearchParams = await searchParams;
+
+  // REFACTOR: Redirect query string patterns to new dynamic routes
+  if (resolvedSearchParams.plan) {
+    redirect(`/payment/plan/${resolvedSearchParams.plan}`);
+  }
+  if (resolvedSearchParams.group) {
+    redirect(`/payment/group/${resolvedSearchParams.group}`);
+  }
+  if (resolvedSearchParams.link) {
+    redirect(`/payment/link/${resolvedSearchParams.link}`);
+  }
+
   const selectedPackageId = resolvedSearchParams.plan || '';
 
-  // V2 Dynamic Payment Context
+  // V2 Dynamic Payment Context (mostly handled by redirects now, but kept for default state)
   const paymentContext = {
-    planId: resolvedSearchParams.plan || null,
-    groupId: resolvedSearchParams.group || null,
-    linkSlug: resolvedSearchParams.link || null,
+    planId: null,
+    groupId: null,
+    linkSlug: null,
   };
 
-  // Determine if this is a dynamic link payment
-  const isDynamicPayment = !!(paymentContext.planId || paymentContext.groupId || paymentContext.linkSlug);
+  const isDynamicPayment = false;
 
   // Show GlobalAuthGuard modal for unauthenticated users (same pattern as Developer page)
   if (!user) {

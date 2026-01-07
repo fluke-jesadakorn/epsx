@@ -1,7 +1,7 @@
 'use client'
 
 import { cn } from '@/lib/utils'
-import { PancakeInput as Input } from '@/shared/components'
+import { Input } from '@/shared/components'
 import { ChevronLeft, ChevronRight, GripVertical, Loader2, Plus, Search, Shield, Trash2, X } from 'lucide-react'
 import React, { useCallback, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
@@ -144,14 +144,25 @@ export const PermissionTransferList: React.FC<PermissionTransferListProps> = ({
 
     // Filtered lists based on search
     const filteredAvailable = useMemo(() => {
-        return availableItems.filter(item =>
-            item.toLowerCase().includes(leftSearch.toLowerCase())
-        )
+        console.log('Filtering available items:', {
+            total: availableItems.length,
+            search: leftSearch,
+            sample: availableItems.slice(0, 3)
+        })
+        return availableItems.filter(item => {
+            if (!item || typeof item !== 'string') {
+                console.warn('Invalid item found in availableItems:', item)
+                return false
+            }
+            const match = item.toLowerCase().includes(leftSearch.toLowerCase())
+            if (match) console.log('Match found:', item)
+            return match
+        })
     }, [availableItems, leftSearch])
 
     const filteredSelected = useMemo(() => {
         return selected.filter(item =>
-            item.toLowerCase().includes(rightSearch.toLowerCase())
+            item && typeof item === 'string' && item.toLowerCase().includes(rightSearch.toLowerCase())
         )
     }, [selected, rightSearch])
 

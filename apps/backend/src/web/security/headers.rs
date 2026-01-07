@@ -1,103 +1,15 @@
 // Security Headers Module - Production Security Headers Implementation
+// Helper functions for security header generation
+
+use crate::config::env::is_production;
 use axum::http::{HeaderName, HeaderValue};
-use tower::ServiceBuilder;
-use tower_http::set_header::SetResponseHeaderLayer;
-
-use crate::config::env::{get_env_var, is_production};
-
-/// Create comprehensive security headers layer for production
-pub fn security_headers_layer<S>() -> ServiceBuilder<
-    impl tower::Layer<S> + Clone,
-> {
-    let mut builder = ServiceBuilder::new();
-
-    // Content Security Policy
-    let csp = build_content_security_policy();
-    builder = builder.layer(SetResponseHeaderLayer::overriding(
-        HeaderName::from_static("content-security-policy"),
-        HeaderValue::from_str(&csp).unwrap_or_else(|_| HeaderValue::from_static("default-src 'self'")),
-    ));
-
-    // Strict Transport Security (HTTPS only in production)
-    if is_production() {
-        builder = builder.layer(SetResponseHeaderLayer::overriding(
-            HeaderName::from_static("strict-transport-security"),
-            HeaderValue::from_static("max-age=31536000; includeSubDomains; preload"),
-        ));
-    }
-
-    // X-Frame-Options
-    builder = builder.layer(SetResponseHeaderLayer::overriding(
-        HeaderName::from_static("x-frame-options"),
-        HeaderValue::from_static("DENY"),
-    ));
-
-    // X-Content-Type-Options
-    builder = builder.layer(SetResponseHeaderLayer::overriding(
-        HeaderName::from_static("x-content-type-options"),
-        HeaderValue::from_static("nosniff"),
-    ));
-
-    // X-XSS-Protection
-    builder = builder.layer(SetResponseHeaderLayer::overriding(
-        HeaderName::from_static("x-xss-protection"),
-        HeaderValue::from_static("1; mode=block"),
-    ));
-
-    // Referrer Policy
-    builder = builder.layer(SetResponseHeaderLayer::overriding(
-        HeaderName::from_static("referrer-policy"),
-        HeaderValue::from_static("strict-origin-when-cross-origin"),
-    ));
-
-    // Permissions Policy
-    let permissions_policy = build_permissions_policy();
-    builder = builder.layer(SetResponseHeaderLayer::overriding(
-        HeaderName::from_static("permissions-policy"),
-        HeaderValue::from_str(&permissions_policy).unwrap_or_else(|_| HeaderValue::from_static("")),
-    ));
-
-    // Cross-Origin Embedder Policy
-    if is_production() {
-        builder = builder.layer(SetResponseHeaderLayer::overriding(
-            HeaderName::from_static("cross-origin-embedder-policy"),
-            HeaderValue::from_static("require-corp"),
-        ));
-    }
-
-    // Cross-Origin Opener Policy
-    builder = builder.layer(SetResponseHeaderLayer::overriding(
-        HeaderName::from_static("cross-origin-opener-policy"),
-        HeaderValue::from_static("same-origin"),
-    ));
-
-    // Cross-Origin Resource Policy
-    builder = builder.layer(SetResponseHeaderLayer::overriding(
-        HeaderName::from_static("cross-origin-resource-policy"),
-        HeaderValue::from_static("same-origin"),
-    ));
-
-    // Remove potentially sensitive headers
-    builder = builder.layer(SetResponseHeaderLayer::overriding(
-        HeaderName::from_static("server"),
-        HeaderValue::from_static("EPSX/1.0"),
-    ));
-
-    // Cache Control for sensitive endpoints
-    builder = builder.layer(SetResponseHeaderLayer::if_not_present(
-        HeaderName::from_static("cache-control"),
-        HeaderValue::from_static("no-cache, no-store, must-revalidate, private"),
-    ));
-
-    builder
-}
 
 /// Build Content Security Policy based on environment and allowed origins
-fn build_content_security_policy() -> String {
+pub fn build_content_security_policy() -> String {
     let allowed_origins = super::get_allowed_origins();
     let origins_str = allowed_origins.join(" ");
 
-    let csp_parts = vec![
+    let mut csp_parts = vec![
         "default-src 'self'".to_string(),
         format!("connect-src 'self' {} wss://data.tradingview.com https://api.tradingview.com", origins_str),
         "font-src 'self' data: https://fonts.gstatic.com".to_string(),
@@ -122,7 +34,7 @@ fn build_content_security_policy() -> String {
 }
 
 /// Build Permissions Policy to restrict browser features
-fn build_permissions_policy() -> String {
+pub fn build_permissions_policy() -> String {
     vec![
         "accelerometer=()",
         "ambient-light-sensor=()",
@@ -182,7 +94,7 @@ pub fn api_security_headers() -> Vec<(HeaderName, HeaderValue)> {
 
 /// Security headers for OIDC endpoints
 pub fn oidc_security_headers() -> Vec<(HeaderName, HeaderValue)> {
-    let headers = api_security_headers();
+    let mut headers = api_security_headers();
     
     // Additional OIDC-specific headers
     headers.extend([
@@ -201,7 +113,7 @@ pub fn oidc_security_headers() -> Vec<(HeaderName, HeaderValue)> {
 
 /// Security headers for admin endpoints
 pub fn admin_security_headers() -> Vec<(HeaderName, HeaderValue)> {
-    let headers = api_security_headers();
+    let mut headers = api_security_headers();
     
     // Additional admin-specific headers
     headers.extend([

@@ -223,15 +223,15 @@ const moduleDocumentation: ModuleDocumentation[] = [
     ]
   },
   {
-    name: 'trading-signals',
-    displayName: 'Trading Signals',
-    description: 'AI-powered trading signals and strategy management',
-    category: 'Trading',
+    name: 'market-signals',
+    displayName: 'Market Signals',
+    description: 'AI-powered market signals and strategy management',
+    category: 'Analytics',
     endpoints: [
       {
         method: 'GET',
-        path: '/api/trading-signals/signals',
-        description: 'Get current trading signals',
+        path: '/api/market-signals/signals',
+        description: 'Get current market signals',
         accessLevel: 'Silver+',
         parameters: [
           { name: 'symbols', type: 'string', required: false, description: 'Comma-separated symbols (e.g., "AAPL,MSFT")' },
@@ -253,8 +253,8 @@ const moduleDocumentation: ModuleDocumentation[] = [
       },
       {
         method: 'POST',
-        path: '/api/trading-signals/strategies/{id}/backtest',
-        description: 'Run backtesting on a trading strategy',
+        path: '/api/market-signals/strategies/{id}/backtest',
+        description: 'Run backtesting on a market strategy',
         accessLevel: 'Gold+',
         parameters: [
           { name: 'id', type: 'string', required: true, description: 'Strategy ID in path' },
@@ -321,7 +321,7 @@ export const ApiDocumentation: React.FC = () => {
         </div>
         <p className="text-lg text-gray-600 mb-6">
           Complete guide to integrating with the EPSX module-based API platform.
-          Access financial data, analytics, and trading tools programmatically.
+          Access financial data, analytics, and market tools programmatically.
         </p>
 
         {/* Quick Start Banner */}

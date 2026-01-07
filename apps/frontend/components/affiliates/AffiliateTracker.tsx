@@ -179,7 +179,7 @@ export function AffiliateTracker({ children, onAffiliateDetected }: AffiliateTra
       'TECHPRO': 'Tech Influencer Pro',
       'CRYPTOHUB': 'Crypto Trader Hub',
       'APIDEVS': 'API Developer Community',
-      'TRADEPRO': 'Trading Academy Pro'
+      'TRADEPRO': 'Analytics Academy Pro'
     };
 
     return nameMap[code] || 'Partner Network';

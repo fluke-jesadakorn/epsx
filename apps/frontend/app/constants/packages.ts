@@ -1,7 +1,7 @@
 // Permission Template System - Simplified Configuration
-export type PermissionTemplateName = 
+export type PermissionTemplateName =
   | 'Free Template'
-  | 'Bronze Template' 
+  | 'Bronze Template'
   | 'Silver Template'
   | 'Gold Template'
   | 'Platinum Template'
@@ -23,35 +23,35 @@ export const PERMISSION_TEMPLATES: Record<PermissionTemplateName, PermissionTemp
     displayTier: 'FREE',
     color: 'gray-500',
     features: ['Basic access', 'View 3 rankings', 'Community support'],
-    permissions: ['epsx:rankings:view:3', 'epsx:trading:basic', 'epsx:portfolio:view']
+    permissions: ['epsx:rankings:view:3', 'epsx:analytics:basic', 'epsx:portfolio:view']
   },
   'Bronze Template': {
-    name: 'Bronze Template', 
+    name: 'Bronze Template',
     displayTier: 'BRONZE',
     color: 'amber-600',
     features: ['Enhanced access', 'View 5 rankings', 'Basic features'],
-    permissions: ['epsx:rankings:view:5', 'epsx:trading:basic', 'epsx:portfolio:view', 'epsx:portfolio:history']
+    permissions: ['epsx:rankings:view:5', 'epsx:analytics:basic', 'epsx:portfolio:view', 'epsx:portfolio:history']
   },
   'Silver Template': {
     name: 'Silver Template',
-    displayTier: 'SILVER', 
+    displayTier: 'SILVER',
     color: 'slate-400',
     features: ['Premium access', 'View 25 rankings', 'Advanced analytics'],
-    permissions: ['epsx:rankings:view:25', 'epsx:trading:basic', 'epsx:trading:advanced', 'epsx:portfolio:view', 'epsx:analytics:basic']
+    permissions: ['epsx:rankings:view:25', 'epsx:analytics:basic', 'epsx:analytics:advanced', 'epsx:portfolio:view', 'epsx:analytics:basic']
   },
   'Gold Template': {
     name: 'Gold Template',
     displayTier: 'GOLD',
-    color: 'yellow-500', 
+    color: 'yellow-500',
     features: ['Professional access', 'View 50 rankings', 'Premium tools'],
-    permissions: ['epsx:rankings:view:50', 'epsx:trading:premium', 'epsx:portfolio:tools', 'epsx:analytics:advanced']
+    permissions: ['epsx:rankings:view:50', 'epsx:analytics:premium', 'epsx:portfolio:tools', 'epsx:analytics:advanced']
   },
   'Platinum Template': {
     name: 'Platinum Template',
     displayTier: 'PLATINUM',
     color: 'purple-500',
     features: ['VIP access', 'View 100 rankings', 'Advanced features'],
-    permissions: ['epsx:rankings:view:100', 'epsx:trading:premium', 'epsx:analytics:premium', 'epsx:research:reports', 'epsx:dashboards:custom']
+    permissions: ['epsx:rankings:view:100', 'epsx:analytics:premium', 'epsx:research:reports', 'epsx:dashboards:custom']
   },
   'Enterprise Template': {
     name: 'Enterprise Template',
@@ -103,18 +103,18 @@ export const getRankingLimitFromPermissions = (permissions: string[]): number =>
 export const getDisplayTierFromPermissions = (permissions: string[]): string => {
   // Find the highest tier based on permissions
   for (const [_templateName, template] of Object.entries(PERMISSION_TEMPLATES)) {
-    const hasRequiredPermissions = template.permissions.some(perm => 
+    const hasRequiredPermissions = template.permissions.some(perm =>
       permissions.some(userPerm => {
         // Simple match for now - could be more sophisticated
         return userPerm === perm || userPerm.startsWith(perm.split(':').slice(0, 2).join(':'));
       })
     );
-    
+
     if (hasRequiredPermissions) {
       return template.displayTier;
     }
   }
-  
+
   return 'FREE'; // Default tier
 };
 
@@ -149,7 +149,7 @@ export const validatePayment = (amount: number, currency: CurrencyType): Payment
 
 export type PaymentLoadingState =
   | { state: 'idle' }
-  | { state: 'loading' } 
+  | { state: 'loading' }
   | { state: 'success' }
   | { state: 'error'; error: PaymentError };
 

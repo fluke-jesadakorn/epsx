@@ -57,6 +57,7 @@ pub struct WalletDetailDto {
     pub permissions: Vec<WalletPermissionDto>,
     pub groups: Vec<WalletGroupDto>,
     pub activity_summary: WalletActivitySummaryDto,
+    pub metadata: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

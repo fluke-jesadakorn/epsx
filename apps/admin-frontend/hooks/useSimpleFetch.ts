@@ -1,52 +1,22 @@
 /**
  * Simple fetch hook for admin frontend
- * Uses Bearer token authentication for admin API access
+ * Uses Shared AdminApiClient for API access
  */
 import { useCallback } from 'react';
-import { env } from '@/config/env';
-
-const BACKEND_URL = env.BACKEND_URL;
-
-function getToken(): string | null {
-  if (typeof document === 'undefined') return null;
-
-  const cookies = document.cookie.split(';');
-
-  // Try both development and production cookie names
-  const tokenCookie = cookies.find(c => {
-    const trimmed = c.trim();
-    return trimmed.startsWith('epsx.access=') || trimmed.startsWith('__Host-epsx.access=');
-  });
-
-  if (!tokenCookie) return null;
-
-  return tokenCookie.split('=')[1] || null;
-}
+import { adminApiClient } from '../lib/api-client';
 
 export function useSimpleFetch() {
-  const fetchSimple = useCallback(async (
+  const fetchSimple = useCallback(async <T = any>(
     endpoint: string,
     options?: RequestInit
-  ): Promise<Response> => {
+  ): Promise<T> => {
+    const response = await adminApiClient.get<T>(endpoint, options as any);
 
-    const token = getToken();
-
-    const response = await fetch(`${BACKEND_URL}${endpoint}`, {
-      ...options,
-      headers: {
-        ...(token && { 'Authorization': `Bearer ${token}` }),
-        'Content-Type': 'application/json',
-        ...options?.headers
-      },
-      credentials: 'include'
-    });
-
-    if (!response.ok) {
-      const err = await response.text().catch(() => 'Request failed');
-      throw new Error(`HTTP ${response.status}: ${err}`);
+    if (!response.success && response.status !== 404) {
+      throw new Error(response.error || 'Request failed');
     }
 
-    return response;
+    return response.data as T;
   }, []);
 
   return { fetchSimple };

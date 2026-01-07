@@ -1,6 +1,6 @@
 # EPSX Backend - Clean Architecture Implementation
 
-A high-performance Rust backend implementing Clean Architecture principles for the EPSX trading platform, featuring comprehensive authentication, permission management, real-time data processing, and financial analytics with **Diesel async database integration**.
+A high-performance Rust backend implementing Clean Architecture principles for the EPSX analytics platform, featuring comprehensive authentication, permission management, real-time data processing, and financial analytics with **Diesel async database integration**.
 
 [![Rust](https://img.shields.io/badge/Rust-2021-000000?style=flat-square&logo=rust&logoColor=white)](https://www.rust-lang.org/)
 [![Axum](https://img.shields.io/badge/Axum-0.7-orange?style=flat-square)](https://docs.rs/axum/)
@@ -238,7 +238,7 @@ The EPSX backend implements a well-structured Clean Architecture pattern with fi
 - **Attack Analytics**: Comprehensive security analytics
 
 ### Real-time Features
-- **WebSocket Support**: Live trading data and notifications
+- **WebSocket Support**: Live market data and notifications
 - **Server-Sent Events**: Real-time updates for admin dashboard
 - **Live Data Streaming**: Market data and user activity streams
 - **Background Jobs**: Automated feature expiration and notifications

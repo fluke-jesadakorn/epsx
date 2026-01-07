@@ -9,13 +9,13 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-  UnifiedThemeToggle,
 } from '@/components/ui';
+import { themeUtils } from '@/components/ui/SafeThemeScript';
 import { useWeb3AuthStore } from '@/lib/auth/store';
 import { formatAddress } from '@/shared/auth/utils';
 import { useSharedAuth } from '@/shared/components/auth/Provider';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
-import { Check, Code, Copy, ExternalLink, Settings, Wallet } from 'lucide-react';
+import { Check, ChevronRight, Code, Copy, ExternalLink, LogOut, Moon, Settings, Sun, Wallet } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useAccount, useDisconnect, useSignMessage } from 'wagmi';
@@ -67,6 +67,7 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
   const [isDisconnecting, setIsDisconnecting] = useState(false);
   const [authRetryCount, setAuthRetryCount] = useState(0);
   const [lastAuthError, setLastAuthError] = useState<string | null>(null);
+  const [currentTheme, setCurrentTheme] = useState<'light' | 'dark'>('light');
   const { address, isConnected, connector } = useAccount();
   const { disconnect } = useDisconnect();
   const { isInitialized } = useUnifiedWeb3();
@@ -74,7 +75,6 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
   const { signMessageAsync } = useSignMessage();
 
   // Get web3 auth store for syncing authentication state
-  // Use selectors to prevent unnecessary re-renders when other parts of the store change
   const setWeb3Connected = useWeb3AuthStore((s: any) => s.setConnected);
   const setWeb3Authenticated = useWeb3AuthStore((s: any) => s.setAuthenticated);
   const setWeb3WalletAddress = useWeb3AuthStore((s: any) => s.setWalletAddress);
@@ -88,29 +88,25 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
   useEffect(() => {
     if (isConnected && address) {
       const normalizedAddress = address.toLowerCase();
-
-      // ✅ Only update if state actually changed to prevent infinite loops
       if (!storeIsConnected) {
         setWeb3Connected(true);
       }
       if (storeWalletAddress !== normalizedAddress) {
         setWeb3WalletAddress(normalizedAddress);
       }
-
     }
   }, [isConnected, address, setWeb3Connected, setWeb3WalletAddress, storeIsConnected, storeWalletAddress]);
 
   useEffect(() => {
     if (!isHydrated) {
       setIsHydrated(true);
+      setCurrentTheme(themeUtils.getTheme());
     }
   }, [isConnected, address, connector, isInitialized, isAuthenticated, isHydrated]);
 
-  // Sync disconnect state: Clear web3 auth store when wallet disconnects
+  // Sync disconnect state
   useEffect(() => {
     if (!isConnected || !address) {
-      // Wallet disconnected - clear web3 auth store completely
-      // ✅ Only update if state actually changed
       if (storeIsConnected) {
         setWeb3Connected(false);
       }
@@ -120,21 +116,13 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
       if (storeWalletAddress !== undefined) {
         setWeb3WalletAddress(undefined);
       }
-
-      setAuthRetryCount(0); // Reset retry count
-      setLastAuthError(null); // Clear last error
+      setAuthRetryCount(0);
+      setLastAuthError(null);
     }
   }, [isConnected, address, setWeb3Connected, setWeb3Authenticated, setWeb3WalletAddress, storeIsConnected, storeIsAuthenticated, storeWalletAddress]);
 
-  // NOTE: Auto-authentication is DISABLED
-  // Users only need to connect wallet. SIWE sign-in is triggered:
-  // 1. Manually via "Sign In" button in dropdown
-  // 2. Automatically when backend returns 401/403 on protected API calls
-  // Frontend does NOT enforce permissions - backend handles all authorization
-
   const handleCopyAddress = async () => {
     if (!address) return;
-
     try {
       await navigator.clipboard.writeText(address);
       setCopied(true);
@@ -144,7 +132,70 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
     }
   };
 
-  // Show loading state during hydration or before RainbowKit is ready
+  const handleViewExplorer = () => {
+    const explorerUrl = `https://bscscan.com/address/${address}`;
+    window.open(explorerUrl, '_blank', 'noopener,noreferrer');
+  };
+
+  const handleSignIn = async () => {
+    if (!address) return;
+    try {
+      setIsAuthenticating(true);
+      const challenge = await requestChallenge(address);
+      const signature = await signMessageAsync({ message: challenge.message });
+      const result = await authenticateWithWallet(
+        challenge.wallet_address,
+        signature,
+        challenge.message,
+        challenge.nonce
+      );
+
+      if (result.success) {
+        setAuthRetryCount(0);
+        setLastAuthError(null);
+        setWeb3Authenticated(true);
+        setWeb3WalletAddress(address.toLowerCase());
+      } else {
+        console.error('❌ Sign-in failed:', result.error);
+        setLastAuthError(result.error ?? null);
+      }
+    } catch (error: any) {
+      console.error('❌ Sign-in error:', error);
+      if (error?.code !== 4001 && !error?.message?.includes('User rejected')) {
+        setLastAuthError(error?.message || 'Sign-in failed');
+      }
+    } finally {
+      setIsAuthenticating(false);
+    }
+  };
+
+  const handleDisconnect = async () => {
+    setIsDisconnecting(true);
+    try {
+      await logout();
+      disconnect();
+      setWeb3Connected(false);
+      setWeb3Authenticated(false);
+      setWeb3WalletAddress(undefined);
+      setIsOpen(false);
+    } catch (error) {
+      console.error('OIDC logout error:', error);
+      disconnect();
+      setWeb3Connected(false);
+      setWeb3Authenticated(false);
+      setWeb3WalletAddress(undefined);
+      setIsOpen(false);
+    } finally {
+      setTimeout(() => setIsDisconnecting(false), 500);
+    }
+  };
+
+  const handleThemeToggle = () => {
+    const newTheme = themeUtils.toggleTheme();
+    setCurrentTheme(newTheme);
+  };
+
+  // Loading state
   if (!isHydrated || !isInitialized) {
     return (
       <Button
@@ -158,25 +209,19 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
     );
   }
 
-  // Only render connect button when RainbowKit is fully initialized
+  // Not connected - show connect button
   if (!isConnected || !address) {
     return (
       <ConnectButton.Custom>
-        {({ openConnectModal, connectModalOpen, mounted }) => {
-          // Build className safely to avoid Promise issues
-          const baseClasses = 'flex items-center gap-2 rounded-2xl font-medium transition-colors';
+        {({ openConnectModal }) => {
+          const baseClasses = 'flex items-center gap-2 rounded-2xl font-medium transition-all duration-200';
           const sizeClasses = compact ? 'h-8 px-3 text-xs' : 'h-10 px-4 text-sm';
           const colorClasses = 'bg-gradient-to-r from-orange-400 to-orange-600 hover:from-orange-500 hover:to-orange-700 text-white shadow-lg hover:shadow-xl border-0';
           const extraClasses = typeof className === 'string' ? className : '';
-
           const finalClassName = [baseClasses, sizeClasses, colorClasses, extraClasses].filter(Boolean).join(' ');
 
           return (
-            <button
-              onClick={openConnectModal}
-              type="button"
-              className={finalClassName}
-            >
+            <button onClick={openConnectModal} type="button" className={finalClassName}>
               <Wallet className={compact ? 'h-3 w-3 text-white' : 'h-4 w-4 text-white'} />
               <span>Connect</span>
             </button>
@@ -190,307 +235,213 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
   const connectorId = connector?.id?.toLowerCase() || 'injected';
   const providerInfo = walletProviders[connectorId] || walletProviders.injected;
 
-  const getTriggerContent = () => {
-    // Show error state when max retries reached
-    if (authRetryCount >= 3 && lastAuthError) {
-      if (compact) {
-        return (
-          <div className="flex items-center gap-2">
-            <Wallet className="h-4 w-4 text-red-500" />
-            <span className="text-xs font-medium text-red-600 dark:text-red-400">
-              Auth Failed
-            </span>
-          </div>
-        );
-      }
-      return (
-        <div className="flex items-center gap-2">
-          <Wallet className="h-5 w-5 text-red-500" />
-          <span className="text-sm font-medium text-red-600 dark:text-red-400">
-            Authentication Failed
-          </span>
-        </div>
-      );
-    }
-
-    // Show authenticating state
-    if (isAuthenticating) {
-      if (compact) {
-        return (
-          <div className="flex items-center gap-2">
-            <Wallet className="h-4 w-4 text-orange-500" />
-            <span className="text-xs font-medium text-orange-600 dark:text-orange-400">
-              Signing... ({authRetryCount + 1}/3)
-            </span>
-          </div>
-        );
-      }
-      return (
-        <div className="flex items-center gap-2">
-          <Wallet className="h-5 w-5 text-orange-500" />
-          <span className="text-sm font-medium text-orange-600 dark:text-orange-400">
-            Signing... ({authRetryCount + 1}/3)
-          </span>
-        </div>
-      );
-    }
-
-    if (compact) {
-      return (
-        <div className="flex items-center gap-2">
-          <Wallet className="h-4 w-4 text-orange-500" />
-          <span className="text-xs font-medium text-slate-700 dark:text-slate-300">
-            {formatAddress(address)}
-          </span>
-        </div>
-      );
-    }
-
-    return (
-      <div className="flex items-center gap-2">
-        <Wallet className="h-5 w-5 text-orange-500" />
-        <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
-          {formatAddress(address)}
-        </span>
-      </div>
-    );
+  const getStatus = () => {
+    if (authRetryCount >= 3 && lastAuthError) return { text: 'Auth Failed', color: 'text-red-500' };
+    if (isAuthenticating) return { text: `Signing... (${authRetryCount + 1}/3)`, color: 'text-orange-500' };
+    if (isAuthenticated) return { text: 'Authenticated', color: 'text-emerald-500' };
+    return { text: 'Connected', color: 'text-slate-500' };
   };
+
+  const status = getStatus();
 
   return (
     <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
       <DropdownMenuTrigger asChild>
         <button
-          className="flex items-center gap-2 rounded-2xl px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50/80 hover:text-slate-700 dark:text-slate-300 dark:hover:bg-slate-800/40 dark:hover:text-slate-200 bg-transparent border-0 transition-colors"
+          className={`flex items-center gap-2 rounded-2xl px-3 py-2 text-sm font-medium transition-all duration-200
+            text-slate-600 hover:bg-slate-50/80 hover:text-slate-700 
+            dark:text-slate-300 dark:hover:bg-slate-800/40 dark:hover:text-slate-200 
+            bg-transparent border-0 ${className}`}
         >
-          {getTriggerContent()}
+          <Wallet className={`h-4 w-4 ${status.color === 'text-red-500' ? 'text-red-500' : 'text-orange-500'}`} />
+          <span className="text-sm font-medium">{formatAddress(address)}</span>
         </button>
       </DropdownMenuTrigger>
 
       <DropdownMenuContent
         align="end"
-        sideOffset={5}
+        sideOffset={8}
         style={{ zIndex: 99999 }}
-        className="w-64 p-2 bg-white/95 backdrop-blur-xl border border-orange-100/50 dark:bg-slate-900/95 dark:border-slate-700/50"
+        className="w-72 p-0 bg-white/98 backdrop-blur-xl border border-slate-200 dark:bg-slate-900/98 dark:border-slate-700 shadow-2xl rounded-2xl overflow-hidden"
       >
-        {/* Wallet Header */}
-        <div className="px-3 py-2 mb-2">
+        {/* ═══════════════════════════════════════════════════════════════
+            HEADER - Wallet Info Card
+        ═══════════════════════════════════════════════════════════════ */}
+        <div className="p-4 bg-gradient-to-br from-slate-50 to-orange-50/50 dark:from-slate-800 dark:to-orange-900/20 border-b border-slate-200/50 dark:border-slate-700/50">
           <div className="flex items-center gap-3">
-            <Wallet className="h-5 w-5 text-orange-500" />
-            <div>
-              <div className="text-sm font-medium text-slate-900 dark:text-slate-100">
+            <div className="flex items-center justify-center w-10 h-10 rounded-full bg-white dark:bg-slate-700 shadow-sm">
+              <span className="text-xl">{providerInfo.icon}</span>
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
                 {providerInfo.name}
               </div>
-              <div className="text-xs text-slate-500 dark:text-slate-400">
-                {authRetryCount >= 3 && lastAuthError
-                  ? `Authentication Failed (${authRetryCount} attempts)`
-                  : isAuthenticating
-                    ? `Signing... (${authRetryCount + 1}/3)`
-                    : isAuthenticated
-                      ? 'Authenticated'
-                      : 'Connected'}
+              <div className="text-xs font-mono text-slate-500 dark:text-slate-400 truncate">
+                {address}
+              </div>
+              <div className={`text-xs font-medium ${status.color} flex items-center gap-1 mt-0.5`}>
+                {status.text === 'Authenticated' && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />}
+                {status.text}
               </div>
             </div>
           </div>
         </div>
 
-        <DropdownMenuSeparator className="bg-orange-100/50 dark:bg-slate-700/50" />
+        {/* ═══════════════════════════════════════════════════════════════
+            QUICK ACTIONS - Copy & Explorer Buttons
+        ═══════════════════════════════════════════════════════════════ */}
+        <div className="p-2 flex gap-2">
+          <button
+            onClick={handleCopyAddress}
+            className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl
+              bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700
+              text-slate-700 dark:text-slate-300 text-sm font-medium transition-all duration-150"
+          >
+            {copied ? <Check className="h-4 w-4 text-emerald-500" /> : <Copy className="h-4 w-4" />}
+            {copied ? 'Copied!' : 'Copy'}
+          </button>
+          <button
+            onClick={handleViewExplorer}
+            className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl
+              bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700
+              text-slate-700 dark:text-slate-300 text-sm font-medium transition-all duration-150"
+          >
+            <ExternalLink className="h-4 w-4" />
+            Explorer
+          </button>
+        </div>
 
-        {/* Wallet Address */}
-        <DropdownMenuItem
-          onClick={handleCopyAddress}
-          className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer hover:bg-orange-50/80 dark:hover:bg-slate-800/40"
-        >
-          <div className="flex items-center gap-2 flex-1">
-            {copied ? (
-              <Check className="h-4 w-4 text-orange-500" />
-            ) : (
-              <Copy className="h-4 w-4 text-orange-500" />
-            )}
-            <div>
-              <div className="text-sm font-medium">
-                {copied ? 'Copied!' : 'Copy Address'}
-              </div>
-              <div className="text-xs text-slate-500 dark:text-slate-400 font-mono">
-                {formatAddress(address)}
-              </div>
-            </div>
-          </div>
-        </DropdownMenuItem>
+        <DropdownMenuSeparator className="bg-slate-200/50 dark:bg-slate-700/50 my-0" />
 
-        {/* Sign In - only show when connected but not authenticated */}
+        {/* ═══════════════════════════════════════════════════════════════
+            SIGN IN - Only when connected but not authenticated
+        ═══════════════════════════════════════════════════════════════ */}
         {!isAuthenticated && !isAuthenticating && (
-          <DropdownMenuItem
-            onClick={async () => {
-              if (!address) return;
-              try {
-                setIsAuthenticating(true);
+          <>
+            <div className="p-2">
+              <button
+                onClick={handleSignIn}
+                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl
+                  bg-gradient-to-r from-emerald-50 to-green-50 hover:from-emerald-100 hover:to-green-100
+                  dark:from-emerald-900/30 dark:to-green-900/30 dark:hover:from-emerald-900/50 dark:hover:to-green-900/50
+                  border border-emerald-200/50 dark:border-emerald-700/30
+                  text-emerald-700 dark:text-emerald-300 transition-all duration-150"
+              >
+                <Wallet className="h-4 w-4" />
+                <div className="flex-1 text-left">
+                  <div className="text-sm font-semibold">Sign In with Wallet</div>
+                  <div className="text-xs opacity-75">Authenticate to access all features</div>
+                </div>
+              </button>
+            </div>
+            <DropdownMenuSeparator className="bg-slate-200/50 dark:bg-slate-700/50 my-0" />
+          </>
+        )}
 
-                // Step 1: Request challenge from backend
-                const challenge = await requestChallenge(address);
-
-                // Step 2: Prompt user to sign the SIWE message
-                const signature = await signMessageAsync({
-                  message: challenge.message,
-                });
-
-                // Step 3: Complete authentication with signature
-                const result = await authenticateWithWallet(
-                  challenge.wallet_address,
-                  signature,
-                  challenge.message,
-                  challenge.nonce
-                );
-
-                if (result.success) {
+        {/* ═══════════════════════════════════════════════════════════════
+            RETRY AUTH - Only when auth failed
+        ═══════════════════════════════════════════════════════════════ */}
+        {authRetryCount >= 3 && lastAuthError && (
+          <>
+            <div className="p-2">
+              <button
+                onClick={() => {
                   setAuthRetryCount(0);
                   setLastAuthError(null);
-                  setWeb3Authenticated(true);
-                  setWeb3WalletAddress(address.toLowerCase());
-                } else {
-                  console.error('❌ Sign-in failed:', result.error);
-                  setLastAuthError(result.error ?? null);
-                }
-              } catch (error: any) {
-                console.error('❌ Sign-in error:', error);
-                if (error?.code === 4001 || error?.message?.includes('User rejected')) {
-                } else {
-                  setLastAuthError(error?.message || 'Sign-in failed');
-                }
-              } finally {
-                setIsAuthenticating(false);
-              }
-            }}
-            className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer hover:bg-green-50/80 dark:hover:bg-green-900/20 text-green-600 dark:text-green-400"
-          >
-            <Wallet className="h-4 w-4 text-green-600 dark:text-green-400" />
-            <div>
-              <div className="text-sm font-medium">Sign In</div>
-              <div className="text-xs opacity-75">
-                Authenticate with your wallet
-              </div>
+                }}
+                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl
+                  bg-orange-50 hover:bg-orange-100 dark:bg-orange-900/20 dark:hover:bg-orange-900/30
+                  text-orange-700 dark:text-orange-300 transition-all duration-150"
+              >
+                <Wallet className="h-4 w-4" />
+                <div className="flex-1 text-left">
+                  <div className="text-sm font-medium">Retry Authentication</div>
+                  <div className="text-xs opacity-75">Clear error and try again</div>
+                </div>
+              </button>
             </div>
-          </DropdownMenuItem>
+            <DropdownMenuSeparator className="bg-slate-200/50 dark:bg-slate-700/50 my-0" />
+          </>
         )}
 
-        {/* Retry Authentication - only show when auth failed */}
-        {authRetryCount >= 3 && lastAuthError && (
-          <DropdownMenuItem
-            onClick={() => {
-              setAuthRetryCount(0);
-              setLastAuthError(null);
-            }}
-            className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer hover:bg-orange-50/80 dark:hover:bg-slate-800/40"
-          >
-            <Wallet className="h-4 w-4 text-orange-500" />
-            <div>
-              <div className="text-sm font-medium">Clear Error</div>
-              <div className="text-xs text-slate-500 dark:text-slate-400">
-                Reset authentication state
-              </div>
-            </div>
+        {/* ═══════════════════════════════════════════════════════════════
+            NAVIGATION LINKS
+        ═══════════════════════════════════════════════════════════════ */}
+        <div className="p-2 space-y-1">
+          <DropdownMenuItem asChild className="p-0">
+            <Link
+              href="/account"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer
+                hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+            >
+              <Settings className="h-4 w-4 text-slate-500" />
+              <span className="flex-1 text-sm font-medium text-slate-700 dark:text-slate-300">Account Settings</span>
+              <ChevronRight className="h-4 w-4 text-slate-400" />
+            </Link>
           </DropdownMenuItem>
-        )}
 
-        {/* View on Explorer */}
-        <DropdownMenuItem
-          onClick={() => {
-            const explorerUrl = `https://bscscan.com/address/${address}`;
-            window.open(explorerUrl, '_blank', 'noopener,noreferrer');
-            setIsOpen(false);
-          }}
-          className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer hover:bg-orange-50/80 dark:hover:bg-slate-800/40"
-        >
-          <ExternalLink className="h-4 w-4 text-orange-500" />
-          <div>
-            <div className="text-sm font-medium">View on Explorer</div>
-            <div className="text-xs text-slate-500 dark:text-slate-400">
-              Open in BSCScan
-            </div>
-          </div>
-        </DropdownMenuItem>
-
-        <DropdownMenuSeparator className="bg-orange-100/50 dark:bg-slate-700/50" />
-
-        {/* Developer Portal */}
-        <DropdownMenuItem asChild className="px-3 py-2 rounded-lg cursor-pointer hover:bg-orange-50/80 dark:hover:bg-slate-800/40">
-          <Link href="/developer" className="flex items-center gap-3">
-            <Code className="h-4 w-4 text-orange-500" />
-            <div>
-              <div className="text-sm font-medium">Developer Portal</div>
-              <div className="text-xs text-slate-500 dark:text-slate-400">
-                Manage API keys and access
-              </div>
-            </div>
-          </Link>
-        </DropdownMenuItem>
-
-        {/* Account */}
-        <DropdownMenuItem asChild className="px-3 py-2 rounded-lg cursor-pointer hover:bg-orange-50/80 dark:hover:bg-slate-800/40">
-          <Link href="/account" className="flex items-center gap-3">
-            <Settings className="h-4 w-4 text-orange-500" />
-            <div>
-              <div className="text-sm font-medium">Account</div>
-              <div className="text-xs text-slate-500 dark:text-slate-400">
-                Manage your account settings
-              </div>
-            </div>
-          </Link>
-        </DropdownMenuItem>
-
-        {/* Theme Toggle */}
-        <div className="px-3 py-2">
-          <UnifiedThemeToggle
-            variant="minimal"
-            showLabel={true}
-            showTooltip={false}
-            className="w-full justify-start gap-3 rounded-lg px-0 py-1 text-sm font-medium text-slate-600 hover:bg-orange-50/80 hover:text-slate-700 dark:text-slate-300 dark:hover:bg-slate-800/40 dark:hover:text-slate-200"
-          />
+          <DropdownMenuItem asChild className="p-0">
+            <Link
+              href="/developer"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer
+                hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+            >
+              <Code className="h-4 w-4 text-slate-500" />
+              <span className="flex-1 text-sm font-medium text-slate-700 dark:text-slate-300">Developer Portal</span>
+              <ChevronRight className="h-4 w-4 text-slate-400" />
+            </Link>
+          </DropdownMenuItem>
         </div>
 
-        <DropdownMenuSeparator className="bg-orange-100/50 dark:bg-slate-700/50" />
+        <DropdownMenuSeparator className="bg-slate-200/50 dark:bg-slate-700/50 my-0" />
 
-        {/* Disconnect Wallet */}
-        <DropdownMenuItem
-          onClick={async () => {
-            // Prevent auto-auth during manual disconnect
-            setIsDisconnecting(true);
-
-            try {
-              // 1. OIDC Session Termination (clear access_token, id_token, refresh_token, session cookies)
-              await logout();
-
-              // 2. Wallet Disconnection (wagmi)
-              disconnect();
-
-              // 3. Local State Cleanup
-              setWeb3Connected(false);
-              setWeb3Authenticated(false);
-              setWeb3WalletAddress(undefined);
-              setIsOpen(false);
-            } catch (error) {
-              console.error('OIDC logout error:', error);
-              // Ensure wallet disconnects even if OIDC logout fails
-              disconnect();
-              setWeb3Connected(false);
-              setWeb3Authenticated(false);
-              setWeb3WalletAddress(undefined);
-              setIsOpen(false);
-            } finally {
-              // Reset flag after disconnect completes (500ms ensures wagmi cleanup finishes)
-              setTimeout(() => setIsDisconnecting(false), 500);
-            }
-          }}
-          className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer hover:bg-red-50/80 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400"
-        >
-          <Wallet className="h-4 w-4 text-red-600 dark:text-red-400" />
-          <div>
-            <div className="text-sm font-medium">Disconnect</div>
-            <div className="text-xs opacity-75">
-              Disconnect your wallet
+        {/* ═══════════════════════════════════════════════════════════════
+            THEME TOGGLE
+        ═══════════════════════════════════════════════════════════════ */}
+        <div className="p-2">
+          <button
+            onClick={handleThemeToggle}
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl
+              hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+          >
+            {currentTheme === 'dark' ? (
+              <Moon className="h-4 w-4 text-slate-500" />
+            ) : (
+              <Sun className="h-4 w-4 text-amber-500" />
+            )}
+            <span className="flex-1 text-left text-sm font-medium text-slate-700 dark:text-slate-300">
+              {currentTheme === 'dark' ? 'Dark Mode' : 'Light Mode'}
+            </span>
+            {/* Toggle Switch */}
+            <div className={`relative w-10 h-5 rounded-full transition-colors ${currentTheme === 'dark' ? 'bg-orange-500' : 'bg-slate-300'
+              }`}>
+              <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${currentTheme === 'dark' ? 'translate-x-5' : 'translate-x-0.5'
+                }`} />
             </div>
-          </div>
-        </DropdownMenuItem>
+          </button>
+        </div>
+
+        <DropdownMenuSeparator className="bg-slate-200/50 dark:bg-slate-700/50 my-0" />
+
+        {/* ═══════════════════════════════════════════════════════════════
+            DISCONNECT - Danger Zone
+        ═══════════════════════════════════════════════════════════════ */}
+        <div className="p-2">
+          <button
+            onClick={handleDisconnect}
+            disabled={isDisconnecting}
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl
+              bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/30
+              text-red-600 dark:text-red-400 transition-all duration-150
+              disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <LogOut className="h-4 w-4" />
+            <span className="text-sm font-medium">
+              {isDisconnecting ? 'Disconnecting...' : 'Disconnect Wallet'}
+            </span>
+          </button>
+        </div>
       </DropdownMenuContent>
-    </DropdownMenu >
+    </DropdownMenu>
   );
 }

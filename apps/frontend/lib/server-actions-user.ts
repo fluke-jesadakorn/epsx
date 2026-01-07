@@ -12,6 +12,8 @@ export interface AuthUser {
   role?: string;
 }
 
+import { createFrontendApiClient } from '@/shared/utils/api-client';
+
 export async function getCurrentUser() {
   try {
     const cookieStore = await cookies();
@@ -22,30 +24,33 @@ export async function getCurrentUser() {
     if (!token) {
       token = cookieStore.get('epsx.access')?.value;
       if (token) console.log('🔍 [Debug] getCurrentUser: Found epsx.access cookie');
-    } else {
     }
 
     if (!token) {
       return null;
     }
-    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080';
 
-    const response = await fetch(`${backendUrl}/api/auth/web3/session`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      cache: 'no-store' // Ensure we always get fresh status
+    // Use UnifiedApiClient with the token we found
+    const client = createFrontendApiClient({
+      token,
+      serverSide: true
     });
 
+    const response = await client.get<{
+      authenticated: boolean;
+      role?: string;
+      permissions?: string[];
+      wallet_address: string;
+    }>('/api/auth/web3/session', undefined, {
+      cache: 'no-store'
+    });
 
-    if (!response.ok) {
+    if (!response.success || !response.data) {
       // Token invalid or expired
       return null;
     }
 
-    const data = await response.json();
+    const data = response.data;
 
     if (!data.authenticated) {
       return null;
@@ -86,31 +91,23 @@ export async function getPaymentHistory() {
       return [];
     }
 
-    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080';
+    // Use UnifiedApiClient with the token
+    const client = createFrontendApiClient({
+      token,
+      serverSide: true
+    });
 
-    const response = await fetch(`${backendUrl}/api/payments/history`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
+    const response = await client.get<{ payments: any[] }>('/api/payments/history', undefined, {
       cache: 'no-store'
     });
 
-    if (!response.ok) {
-      console.error('[getPaymentHistory] Failed to fetch:', response.status, response.statusText);
-      return [];
-    }
-
-    const result = await response.json();
-
-    if (!result.success || !result.data) {
-      console.error('[getPaymentHistory] Invalid response format:', result);
+    if (!response.success || !response.data) {
+      console.error('[getPaymentHistory] Failed to fetch or invalid response:', response.error);
       return [];
     }
 
     // Map backend response to Transaction format expected by PaymentStatusSection
-    const payments = result.data.payments || [];
+    const payments = response.data.payments || [];
     return payments.map((payment: any) => ({
       orderNo: payment.payment_reference || payment.id || '',
       actualAmount: payment.amount || 0,

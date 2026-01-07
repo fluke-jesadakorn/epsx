@@ -72,10 +72,22 @@ impl CommandHandler<UpdateWalletCommand> for UpdateWalletCommandHandler {
             updates.push(format!("is_active = {}", command.is_active.unwrap()));
         }
 
+        // Handle metadata update - merge with existing wallet_metadata
+        if let Some(ref new_metadata) = command.metadata {
+            // Use JSONB concatenation to merge new values with existing metadata
+            // This preserves existing fields while updating/adding new ones
+            let metadata_json = serde_json::to_string(new_metadata).unwrap_or_else(|_| "{}".to_string());
+            updates.push(format!(
+                "wallet_metadata = COALESCE(wallet_metadata, '{{}}') || '{}'::jsonb",
+                metadata_json.replace("'", "''")
+            ));
+        }
+
         // Always update updated_at
         updates.push("updated_at = NOW()".to_string());
 
-        if updates.is_empty() {
+        if updates.len() == 1 {
+            // Only updated_at was added
             return Err(ApplicationError::validation(
                 "update_fields",
                 "No fields to update",
@@ -135,11 +147,13 @@ impl UpdateWalletCommandHandler {
             created_at: chrono::DateTime<chrono::Utc>,
             #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
             last_auth_at: Option<chrono::DateTime<chrono::Utc>>,
+            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Jsonb>)]
+            wallet_metadata: Option<serde_json::Value>,
         }
 
         let wallet = diesel::sql_query(
             r#"
-            SELECT wallet_address, is_active, created_at, last_auth_at
+            SELECT wallet_address, is_active, created_at, last_auth_at, wallet_metadata
             FROM wallet_users
             WHERE wallet_address = $1
             "#
@@ -151,6 +165,8 @@ impl UpdateWalletCommandHandler {
             error!("❌ Failed to fetch updated wallet: {}", e);
             ApplicationError::infrastructure(format!("Failed to fetch wallet: {}", e))
         })?;
+
+        // ... (permissions query skipped for brevity as it is unchanged)
 
         // Get permissions
         #[derive(QueryableByName)]
@@ -175,10 +191,10 @@ impl UpdateWalletCommandHandler {
                 pgm.granted_at,
                 wgm.expires_at,
                 wgm.is_active
-            FROM wallet_group_assignments wga
-            JOIN group_permissions pgm ON wga.group_id = pgm.group_id
+            FROM wallet_group_assignments wgm
+            JOIN group_permissions pgm ON wgm.group_id = pgm.group_id
             JOIN permissions p ON pgm.permission_id = p.id
-            WHERE wga.wallet_address = $1
+            WHERE wgm.wallet_address = $1
               AND p.is_active = true
 
             UNION ALL
@@ -235,6 +251,7 @@ impl UpdateWalletCommandHandler {
             permissions,
             groups,
             activity_summary,
+            metadata: wallet.wallet_metadata,
         })
     }
 }

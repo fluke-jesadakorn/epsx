@@ -4,6 +4,7 @@
  */
 
 import { apiLogger, safeError } from '@/lib/utils/logging';
+import { UnifiedApiClient } from '@/shared/api';
 import type { PaginatedResponse } from '@/shared/types/api';
 import type { CountResponse, StockFinancialData } from './client';
 
@@ -57,20 +58,27 @@ export interface StockChart {
 // ============================================================================
 
 export class MarketApiClient {
-  private baseUrl: string;
+  private client: UnifiedApiClient;
 
   constructor(baseUrl?: string) {
-    // Use absolute URL for server-side requests, relative for client-side
-    if (baseUrl) {
-      this.baseUrl = baseUrl;
-    } else if (typeof window === 'undefined') {
-      // Server-side: use absolute URL
-      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-      this.baseUrl = `${frontendUrl}/api/market-data/stocks`;
-    } else {
-      // Client-side: use relative URL
-      this.baseUrl = '/api/market-data/stocks';
+    let clientBaseUrl = baseUrl;
+    if (!clientBaseUrl) {
+      if (typeof window === 'undefined') {
+        // Server-side: use absolute URL
+        clientBaseUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+      } else {
+        // Client-side: use relative URL (empty string works for UnifiedApiClient to use relative paths)
+        clientBaseUrl = '';
+      }
     }
+
+    // We use UnifiedApiClient but pointing to our Frontend API Routes
+    this.client = new UnifiedApiClient({
+      baseURL: clientBaseUrl,
+      headers: {
+        'Content-Type': 'application/json',
+      }
+    });
   }
 
   /**
@@ -78,32 +86,16 @@ export class MarketApiClient {
    */
   async getStocks(params: StockApiParams = {}): Promise<PaginatedResponse<StockFinancialData>> {
     try {
-      const searchParams = new URLSearchParams();
+      const response = await this.client.get<PaginatedResponse<StockFinancialData>>(
+        '/api/market-data/stocks',
+        params as Record<string, any>
+      );
 
-      // Add pagination parameters
-      if (params.page) searchParams.set('page', params.page.toString());
-      if (params.limit) searchParams.set('limit', params.limit.toString());
-      if (params.country) searchParams.set('country', params.country);
-      if (params.quarters) searchParams.set('quarters', params.quarters.toString());
-      if (params.sector) searchParams.set('sector', params.sector);
-      if (params.min_market_cap) searchParams.set('min_market_cap', params.min_market_cap.toString());
-      if (params.sort_by) searchParams.set('sort_by', params.sort_by);
-      if (params.sort_order) searchParams.set('sort_order', params.sort_order);
-
-      const url = `${this.baseUrl}?${searchParams.toString()}`;
-
-      const response = await fetch(url, {
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      if (!response.success) {
+        throw new Error(response.error || `Request failed with status ${response.status}`);
       }
 
-      const data = await response.json();
+      const data = response.data!;
 
       apiLogger.debug('Market data fetched', {
         params,
@@ -125,27 +117,16 @@ export class MarketApiClient {
    */
   async getStockCount(params: Omit<StockApiParams, 'page' | 'limit'> = {}): Promise<CountResponse> {
     try {
-      const searchParams = new URLSearchParams();
+      const response = await this.client.get<CountResponse>(
+        '/api/market-data/stocks/count',
+        params as Record<string, any>
+      );
 
-      if (params.country) searchParams.set('country', params.country);
-      if (params.quarters) searchParams.set('quarters', params.quarters.toString());
-      if (params.sector) searchParams.set('sector', params.sector);
-      if (params.min_market_cap) searchParams.set('min_market_cap', params.min_market_cap.toString());
-
-      const url = `${this.baseUrl}/count?${searchParams.toString()}`;
-
-      const response = await fetch(url, {
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      if (!response.success) {
+        throw new Error(response.error || `Request failed with status ${response.status}`);
       }
 
-      return await response.json();
+      return response.data!;
     } catch (error) {
       apiLogger.error('Failed to fetch stock count', {
         params,
@@ -160,24 +141,17 @@ export class MarketApiClient {
    */
   async getStock(symbol: string): Promise<StockFinancialData> {
     try {
-      const url = `${this.baseUrl}/${symbol}`;
+      const response = await this.client.get<StockFinancialData>(
+        `/api/market-data/stocks/${symbol}`
+      );
 
-      const response = await fetch(url, {
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      if (!response.success) {
+        throw new Error(response.error || `Request failed with status ${response.status}`);
       }
-
-      const data = await response.json();
 
       apiLogger.debug('Individual stock data fetched', { symbol });
 
-      return data;
+      return response.data!;
     } catch (error) {
       apiLogger.error('Failed to fetch individual stock data', {
         symbol,
@@ -192,20 +166,15 @@ export class MarketApiClient {
    */
   async getMarketSummary(): Promise<MarketSummary> {
     try {
-      const url = `${this.baseUrl}/summary`;
+      const response = await this.client.get<MarketSummary>(
+        '/api/market-data/stocks/summary'
+      );
 
-      const response = await fetch(url, {
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      if (!response.success) {
+        throw new Error(response.error || `Request failed with status ${response.status}`);
       }
 
-      return await response.json();
+      return response.data!;
     } catch (error) {
       apiLogger.error('Failed to fetch market summary', {
         error: safeError(error).message
@@ -219,20 +188,15 @@ export class MarketApiClient {
    */
   async getStockPrice(symbol: string): Promise<StockPrice> {
     try {
-      const url = `/api/market-data/prices/${symbol}`;
+      const response = await this.client.get<StockPrice>(
+        `/api/market-data/prices/${symbol}`
+      );
 
-      const response = await fetch(url, {
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      if (!response.success) {
+        throw new Error(response.error || `Request failed with status ${response.status}`);
       }
 
-      return await response.json();
+      return response.data!;
     } catch (error) {
       apiLogger.error('Failed to fetch stock price', {
         symbol,
@@ -247,20 +211,16 @@ export class MarketApiClient {
    */
   async getStockChart(symbol: string, timeframe: StockChart['timeframe'] = '1d'): Promise<StockChart> {
     try {
-      const url = `/api/market-data/charts/${symbol}?timeframe=${timeframe}`;
+      const response = await this.client.get<StockChart>(
+        `/api/market-data/charts/${symbol}`,
+        { timeframe }
+      );
 
-      const response = await fetch(url, {
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      if (!response.success) {
+        throw new Error(response.error || `Request failed with status ${response.status}`);
       }
 
-      return await response.json();
+      return response.data!;
     } catch (error) {
       apiLogger.error('Failed to fetch stock chart', {
         symbol,
@@ -281,20 +241,21 @@ export class MarketApiClient {
     country: string;
   }>> {
     try {
-      const url = `/api/market-data/search?q=${encodeURIComponent(query)}&limit=${limit}`;
+      const response = await this.client.get<Array<{
+        symbol: string;
+        companyName: string;
+        sector: string;
+        country: string;
+      }>>(
+        '/api/market-data/search',
+        { q: query, limit }
+      );
 
-      const response = await fetch(url, {
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      if (!response.success) {
+        throw new Error(response.error || `Request failed with status ${response.status}`);
       }
 
-      return await response.json();
+      return response.data!;
     } catch (error) {
       apiLogger.error('Failed to search stocks', {
         query,
@@ -310,20 +271,15 @@ export class MarketApiClient {
    */
   async getSectors(): Promise<string[]> {
     try {
-      const url = `/api/market-data/sectors`;
+      const response = await this.client.get<string[]>(
+        '/api/market-data/sectors'
+      );
 
-      const response = await fetch(url, {
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      if (!response.success) {
+        throw new Error(response.error || `Request failed with status ${response.status}`);
       }
 
-      return await response.json();
+      return response.data!;
     } catch (error) {
       apiLogger.error('Failed to fetch sectors', {
         error: safeError(error).message
@@ -337,20 +293,15 @@ export class MarketApiClient {
    */
   async getCountries(): Promise<string[]> {
     try {
-      const url = `/api/market-data/countries`;
+      const response = await this.client.get<string[]>(
+        '/api/market-data/countries'
+      );
 
-      const response = await fetch(url, {
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      if (!response.success) {
+        throw new Error(response.error || `Request failed with status ${response.status}`);
       }
 
-      return await response.json();
+      return response.data!;
     } catch (error) {
       apiLogger.error('Failed to fetch countries', {
         error: safeError(error).message

@@ -151,10 +151,20 @@ export function WalletHub({ className }: WalletHubProps) {
     const handleDisableWallet = async (data: DisableWalletData) => {
         setIsActionLoading(true);
         try {
-            // TODO: Call API
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            await walletMgmt.disableWallet(data.walletAddress, {
+                duration_days: data.duration === 'until_manual' ? undefined : data.duration,
+                reason_category: data.reasonCategory,
+                reason_details: data.reasonDetails,
+                affected_platforms: data.affectedPlatforms,
+                block_login: data.blockLogin,
+                pause_subscriptions: data.pauseSubscriptions,
+                notify_user: data.notifyUser,
+            });
             setDisableModalWallet(null);
             await loadData();
+        } catch (err) {
+            console.error('Failed to disable wallet:', err);
+            // Optionally handle error
         } finally {
             setIsActionLoading(false);
         }
@@ -163,10 +173,17 @@ export function WalletHub({ className }: WalletHubProps) {
     const handleReenableWallet = async (data: ReenableWalletData) => {
         setIsActionLoading(true);
         try {
-            // TODO: Call API
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            await walletMgmt.enableWallet(data.walletAddress, {
+                platforms_to_enable: data.platformsToEnable,
+                restore_permissions: data.restorePermissions,
+                resume_subscriptions: data.resumeSubscriptions,
+                resolution_note: data.resolutionNote,
+            });
             setReenableModalWallet(null);
             await loadData();
+        } catch (err) {
+            console.error('Failed to re-enable wallet:', err);
+            // Optionally handle error
         } finally {
             setIsActionLoading(false);
         }

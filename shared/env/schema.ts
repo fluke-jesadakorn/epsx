@@ -7,25 +7,61 @@ import { z } from 'zod';
 
 // Environment context detection
 export const isServer = typeof window === 'undefined';
-export const isDev = (typeof process !== 'undefined' && process.env?.NODE_ENV === 'development') || (typeof window !== 'undefined' && window.location.hostname === 'localhost') || false;
+// Helper to detect if running in development environment
+// Includes localhost, Tailscale IPs (100.x.x.x), and local network IPs
+const isDevHostname = (hostname: string): boolean => {
+  if (hostname === 'localhost') return true;
+  if (hostname === '127.0.0.1') return true;
+  // Tailscale IPs (CGNAT range)
+  if (hostname.startsWith('100.')) return true;
+  // Local network IPs
+  if (hostname.startsWith('192.168.')) return true;
+  if (hostname.startsWith('10.')) return true;
+  // Docker/internal ranges
+  if (hostname.startsWith('172.')) return true;
+  return false;
+};
+
+export const isDev = (typeof process !== 'undefined' && process.env?.NODE_ENV === 'development') || (typeof window !== 'undefined' && isDevHostname(window.location.hostname)) || false;
 export const isProd = (typeof process !== 'undefined' && process.env?.NODE_ENV === 'production') || false;
 export const isStaging = (typeof process !== 'undefined' && process.env?.NODE_ENV === 'production' && process.env?.DEPLOYMENT_ENV === 'staging') || false;
 export const isBuild = (typeof process !== 'undefined' && (process.env?.NEXT_PHASE === 'phase-production-build' || process.env?.CI === 'true')) || false;
 
 // URL defaults based on environment
 const getDefaultBackendUrl = () => {
+  // In browser development, use the same host as the frontend but port 8080
+  if (typeof window !== 'undefined' && isDev) {
+    const hostname = window.location.hostname;
+    if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
+      return `http://${hostname}:8080`;
+    }
+  }
   if (isDev) return 'http://localhost:8080';
   if (isStaging) return 'https://staging-api.epsx.io';
   return 'https://api.epsx.io'; // Production default - api.epsx.io maps to backend service
 };
 
 const getDefaultFrontendUrl = () => {
+  // In browser development, use the current origin
+  if (typeof window !== 'undefined' && isDev) {
+    const hostname = window.location.hostname;
+    if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
+      return `http://${hostname}:3000`;
+    }
+  }
   if (isDev) return 'http://localhost:3000';
   if (isStaging) return 'https://staging.epsx.io';
   return undefined; // Force explicit configuration in production
 };
 
 const getDefaultAdminUrl = () => {
+  // In browser development, use the same host as the frontend but port 3001
+  if (typeof window !== 'undefined' && isDev) {
+    const hostname = window.location.hostname;
+    if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
+      return `http://${hostname}:3001`;
+    }
+  }
   if (isDev) return 'http://localhost:3001';
   if (isStaging) return 'https://staging-admin.epsx.io';
   return undefined; // Force explicit configuration in production

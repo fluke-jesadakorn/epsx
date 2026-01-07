@@ -4,8 +4,8 @@ const ANVIL_PORT = 8546;
 const PROXY_PORT = 8545;
 
 console.log(`\n🔌 Starting Anvil Proxy...`);
-console.log(`   Proxy: http://localhost:${PROXY_PORT}`);
-console.log(`   Anvil: http://localhost:${ANVIL_PORT} (background)`);
+console.log(`   Proxy: http://0.0.0.0:${PROXY_PORT} (accessible via Tailscale)`);
+console.log(`   Anvil: http://127.0.0.1:${ANVIL_PORT} (background)`);
 
 // Start Anvil on background port
 const anvil = spawn(["./apps/contracts/start-anvil-local.sh"], {
@@ -110,6 +110,7 @@ const getHtml = (txHash: string) => `
 
 // Start Proxy Server
 Bun.serve({
+    hostname: "0.0.0.0",
     port: PROXY_PORT,
     async fetch(req) {
         const url = new URL(req.url);

@@ -25,7 +25,7 @@ export type AuthLevel = 'ANONYMOUS' | 'AUTHENTICATED' | 'PROGRESSIVE' | 'FULL';
 // Utility function for platform display names
 const getPlatformDisplayName = (platform: string): string => {
   switch (platform.toLowerCase()) {
-    case 'epsx': return 'EPSX Trading Platform';
+    case 'epsx': return 'EPSX Analytics Platform';
     case 'epsx-pay': return 'EPSX Pay';
     case 'epsx-token': return 'EPSX Token';
     case 'admin': return 'Admin Portal';
@@ -39,58 +39,58 @@ export interface UnifiedPermissionGuardProps {
    * Platform context - determines which auth system to use
    */
   platform: Platform;
-  
+
   /**
    * Content to show when user has the required permissions
    */
   children: ReactNode;
-  
+
   /**
    * Required permissions (any one will grant access)
    */
   permissions?: string[];
-  
+
   /**
    * Legacy single permission string (for backward compatibility)
    */
   permission?: string;
-  
+
   /**
    * Legacy resource + action pattern
    */
   resource?: string;
   action?: string;
-  
+
   /**
    * Permission platform scope (defaults to 'epsx' for frontend, 'admin' for admin)
    */
   permissionPlatform?: string;
-  
+
   /**
    * Optional fallback content for insufficient permissions
    */
   fallback?: ReactNode;
-  
+
   /**
    * Custom message for permission denial
    */
   deniedMessage?: string;
-  
+
   /**
    * Action name for better UX messaging
    */
   actionName?: string;
-  
+
   /**
    * Whether to show detailed permission info (admin only)
    */
   showPermissionDetails?: boolean;
-  
+
   /**
    * Minimum authentication level required (admin only)
    */
   minAuthLevel?: AuthLevel;
-  
+
   /**
    * Legacy props for backward compatibility
    */
@@ -129,12 +129,12 @@ export default function UnifiedPermissionGuard({
   adminAction
 }: UnifiedPermissionGuardProps) {
   const auth = useAuthHook(platform);
-  
+
   // Not authenticated
   if (!auth.user) {
     return fallback ? <>{fallback}</> : null;
   }
-  
+
   // Check minimum auth level (admin only)
   if (platform === 'admin' && minAuthLevel && auth.canAccess) {
     if (!auth.canAccess(minAuthLevel)) {
@@ -155,68 +155,68 @@ export default function UnifiedPermissionGuard({
       );
     }
   }
-  
+
   // Build permissions array from various sources
   const requiredPermissions: string[] = [];
   const targetPlatform = permissionPlatform || (platform === 'admin' ? 'admin' : 'epsx');
-  
+
   // New permissions prop
   if (permissions) {
     requiredPermissions.push(...permissions);
   }
-  
+
   // Legacy permission prop
   if (permission) {
     requiredPermissions.push(permission);
   }
-  
+
   // Legacy resource + action
   if (resource && action) {
     requiredPermissions.push(`${targetPlatform}:${resource}:${action}`);
   }
-  
+
   // Legacy admin action shortcuts
   if (adminAction && resource) {
     requiredPermissions.push(`${targetPlatform}:${resource}:${adminAction}`);
   }
-  
+
   // Legacy role check (converted to permission check)
   if (role) {
     if (role.toLowerCase() === 'admin') {
       requiredPermissions.push('admin:*:*');
     }
   }
-  
+
   // Legacy tier check (simplified)
   if (tier) {
     const tierPermission = `${targetPlatform}:tier:${tier}`;
     requiredPermissions.push(tierPermission);
   }
-  
+
   // If no permissions specified, just show content
   if (requiredPermissions.length === 0) {
     return <>{children}</>;
   }
-  
+
   // Check permissions based on requireAll flag
-  const hasRequiredPermission = requireAll 
+  const hasRequiredPermission = requireAll
     ? auth.hasAllPermissions(requiredPermissions)
     : auth.hasAnyPermission(requiredPermissions);
-  
+
   if (hasRequiredPermission) {
     return <>{children}</>;
   }
-  
+
   // Show custom fallback if provided
   if (fallback) {
     return <>{fallback}</>;
   }
-  
+
   // Don't show access denied if explicitly disabled
   if (!showAccessDenied) {
     return null;
   }
-  
+
   // Show upgrade prompt for frontend users with tier/role requirements
   if (platform === 'frontend' && showUpgradePrompt && (tier || role)) {
     return (
@@ -243,7 +243,7 @@ export default function UnifiedPermissionGuard({
       </div>
     );
   }
-  
+
   // Default permission denied view (enhanced for admin)
   if (platform === 'admin') {
     return (
@@ -260,7 +260,7 @@ export default function UnifiedPermissionGuard({
                     Insufficient Permissions
                   </h3>
                 </div>
-                
+
                 <p className="text-sm text-amber-700">
                   {deniedMessage || `You don't have permission to ${actionName || 'access this feature'}.`}
                 </p>
@@ -305,7 +305,7 @@ export default function UnifiedPermissionGuard({
       </div>
     );
   }
-  
+
   // Simple denied view for frontend
   return (
     <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
@@ -326,12 +326,12 @@ export default function UnifiedPermissionGuard({
 // CONVENIENCE COMPONENTS - PLATFORM AGNOSTIC
 // ============================================================================
 
-export function RequirePermission({ 
+export function RequirePermission({
   platform,
-  permission, 
-  permissionPlatform, 
-  children, 
-  fallback = null 
+  permission,
+  permissionPlatform,
+  children,
+  fallback = null
 }: {
   platform: Platform;
   permission: string;
@@ -352,11 +352,11 @@ export function RequirePermission({
   );
 }
 
-export function RequireRole({ 
+export function RequireRole({
   platform,
-  role, 
-  children, 
-  fallback = null 
+  role,
+  children,
+  fallback = null
 }: {
   platform: Platform;
   role: string;
@@ -375,11 +375,11 @@ export function RequireRole({
   );
 }
 
-export function RequireTier({ 
+export function RequireTier({
   platform,
-  tier, 
-  children, 
-  fallback = null 
+  tier,
+  children,
+  fallback = null
 }: {
   platform: Platform;
   tier: string;
@@ -399,13 +399,13 @@ export function RequireTier({
   );
 }
 
-export function RequireAccess({ 
+export function RequireAccess({
   platform,
-  resource, 
-  action, 
-  permissionPlatform, 
-  children, 
-  fallback = null 
+  resource,
+  action,
+  permissionPlatform,
+  children,
+  fallback = null
 }: {
   platform: Platform;
   resource: string;
@@ -432,11 +432,11 @@ export function RequireAccess({
 // ADMIN-SPECIFIC CONVENIENCE COMPONENTS
 // ============================================================================
 
-export function RequireAdminPermission({ 
-  permission, 
-  permissionPlatform, 
-  children, 
-  fallback = null 
+export function RequireAdminPermission({
+  permission,
+  permissionPlatform,
+  children,
+  fallback = null
 }: {
   permission: string;
   permissionPlatform?: string;
@@ -457,9 +457,9 @@ export function RequireAdminPermission({
   );
 }
 
-export function RequireUserManagement({ 
-  children, 
-  fallback = null 
+export function RequireUserManagement({
+  children,
+  fallback = null
 }: {
   children: ReactNode;
   fallback?: ReactNode;
@@ -477,9 +477,9 @@ export function RequireUserManagement({
   );
 }
 
-export function RequireSystemManagement({ 
-  children, 
-  fallback = null 
+export function RequireSystemManagement({
+  children,
+  fallback = null
 }: {
   children: ReactNode;
   fallback?: ReactNode;
@@ -497,9 +497,9 @@ export function RequireSystemManagement({
   );
 }
 
-export function RequireAnalyticsAccess({ 
-  children, 
-  fallback = null 
+export function RequireAnalyticsAccess({
+  children,
+  fallback = null
 }: {
   children: ReactNode;
   fallback?: ReactNode;
@@ -517,9 +517,9 @@ export function RequireAnalyticsAccess({
   );
 }
 
-export function RequirePlatformManagement({ 
-  children, 
-  fallback = null 
+export function RequirePlatformManagement({
+  children,
+  fallback = null
 }: {
   children: ReactNode;
   fallback?: ReactNode;
@@ -537,9 +537,9 @@ export function RequirePlatformManagement({
   );
 }
 
-export function RequireSecurityAccess({ 
-  children, 
-  fallback = null 
+export function RequireSecurityAccess({
+  children,
+  fallback = null
 }: {
   children: ReactNode;
   fallback?: ReactNode;
@@ -592,7 +592,7 @@ export function withUnifiedPermissions<P extends object>(
 
 export function useUnifiedPermissionGuard(platform: Platform, permissions: string[]) {
   const auth = useAuthHook(platform);
-  
+
   return {
     hasPermission: auth.hasAnyPermission(permissions),
     userPermissions: auth.permissions,

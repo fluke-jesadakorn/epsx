@@ -6,8 +6,8 @@ export const epsxTheme = {
   brand: {
     name: 'EPSX',
     fullName: 'EPSX Analytics',
-    tagline: 'Professional Trading Analytics Platform',
-    description: 'Advanced analytics platform for professional traders',
+    tagline: 'Professional Market Analytics Platform',
+    description: 'Advanced analytics platform for professional analysts',
   },
 
   // Color Palette
@@ -158,7 +158,7 @@ export const epsxTheme = {
   applications: {
     frontend: {
       name: 'EPSX Analytics',
-      description: 'Professional Trading Analytics',
+      description: 'Professional Market Analytics',
       primaryColor: 'primary',
       logo: 'E',
     },
@@ -220,7 +220,7 @@ export const getApplicationTheme = (app: keyof typeof epsxTheme.applications) =>
 
 export const getCSSVariables = () => {
   const variables: Record<string, string> = {};
-  
+
   // Convert color palette to CSS variables
   Object.entries(epsxTheme.colors).forEach(([colorName, colorValues]) => {
     if (typeof colorValues === 'object') {

@@ -1,5 +1,5 @@
-import { getCurrentUser } from '@/lib/server-actions'
 import { PlanSelection } from '@/components/plans/PlanSelection'
+import { getCurrentUser } from '@/lib/server-actions'
 
 export const dynamic = 'force-dynamic'
 
@@ -15,7 +15,7 @@ export default async function PlansPage() {
             Choose Your EPSX Plan
           </h1>
           <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto leading-relaxed">
-            Unlock powerful analytics features, API access, and premium tools to supercharge your trading experience
+            Unlock powerful analytics features, API access, and premium tools to supercharge your analytics experience
           </p>
         </div>
 
@@ -33,7 +33,7 @@ export default async function PlansPage() {
                 Can I change my plan later?
               </h3>
               <p className="text-gray-600 dark:text-gray-300">
-                Yes! You can upgrade or downgrade your plan at any time. Changes take effect immediately, 
+                Yes! You can upgrade or downgrade your plan at any time. Changes take effect immediately,
                 and we'll prorate any billing adjustments.
               </p>
             </div>
@@ -43,7 +43,7 @@ export default async function PlansPage() {
                 What happens to my API keys when I change plans?
               </h3>
               <p className="text-gray-600 dark:text-gray-300">
-                Your API keys remain valid when upgrading. If downgrading removes API access, 
+                Your API keys remain valid when upgrading. If downgrading removes API access,
                 we'll notify you 7 days in advance so you can adjust your integrations.
               </p>
             </div>
@@ -53,7 +53,7 @@ export default async function PlansPage() {
                 Do you offer custom enterprise plans?
               </h3>
               <p className="text-gray-600 dark:text-gray-300">
-                Absolutely! We can create custom plans with specific features, higher limits, 
+                Absolutely! We can create custom plans with specific features, higher limits,
                 and dedicated support. <a href="/contact" className="text-emerald-600 hover:underline">Contact us</a> to discuss your needs.
               </p>
             </div>
@@ -63,7 +63,7 @@ export default async function PlansPage() {
                 Is there a free trial?
               </h3>
               <p className="text-gray-600 dark:text-gray-300">
-                We offer a 7-day free trial for all premium plans. No credit card required - 
+                We offer a 7-day free trial for all premium plans. No credit card required -
                 just sign up and start exploring advanced features immediately.
               </p>
             </div>

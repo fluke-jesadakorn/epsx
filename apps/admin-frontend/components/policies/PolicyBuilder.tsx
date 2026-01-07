@@ -392,7 +392,7 @@ export default function PolicyBuilder() {
             <div>
               <label className="block text-sm font-semibold mb-2 text-gray-700 dark:text-gray-300">Policy Name *</label>
               <Input
-                placeholder="e.g., Trading Hours Control"
+                placeholder="e.g., Business Hours Control"
                 value={formData.name}
                 onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                 className="rounded-2xl border-2 min-h-[44px]"

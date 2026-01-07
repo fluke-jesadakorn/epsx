@@ -1,11 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server';
 import { testApiHandler } from 'next-test-api-route-handler';
-import { cookies } from 'next/headers';
+import { NextRequest, NextResponse } from 'next/server';
 
 // Mock the auth handlers that would normally be in app/api/auth/web3/
 const mockWeb3ChallengeHandler = async (req: NextRequest) => {
   const body = await req.json();
-  
+
   if (!body.wallet_address) {
     return NextResponse.json(
       { error: 'wallet_address is required' },
@@ -24,14 +23,14 @@ const mockWeb3ChallengeHandler = async (req: NextRequest) => {
   // Simulate successful challenge generation
   return NextResponse.json({
     nonce: 'test_nonce_' + Date.now(),
-    message: `epsx.io wants you to sign in with your Ethereum account:\n${body.wallet_address}\n\nSign in to EPSX trading platform\n\nURI: https://epsx.io\nVersion: 1\nChain ID: 1\nNonce: test_nonce_${Date.now()}\nIssued At: ${new Date().toISOString()}`,
+    message: `epsx.io wants you to sign in with your Ethereum account:\n${body.wallet_address}\n\nSign in to EPSX analytics platform\n\nURI: https://epsx.io\nVersion: 1\nChain ID: 1\nNonce: test_nonce_${Date.now()}\nIssued At: ${new Date().toISOString()}`,
     expires_at: new Date(Date.now() + 15 * 60 * 1000).toISOString()
   });
 };
 
 const mockWeb3VerifyHandler = async (req: NextRequest) => {
   const body = await req.json();
-  
+
   if (!body.message || !body.signature || !body.wallet_address) {
     return NextResponse.json(
       { error: 'Missing required fields' },
@@ -54,7 +53,7 @@ const mockWeb3VerifyHandler = async (req: NextRequest) => {
     refresh_token: 'mock_refresh_token',
     user_id: 'test_user_id',
     wallet_address: body.wallet_address,
-    permissions: ['user:profile:view', 'user:trading:access'],
+    permissions: ['user:profile:view', 'user:analytics:access'],
     expires_in: 3600
   };
 
@@ -85,7 +84,7 @@ const mockWeb3VerifyHandler = async (req: NextRequest) => {
 const mockWeb3PermissionsHandler = async (req: NextRequest) => {
   const url = new URL(req.url);
   const walletAddress = url.searchParams.get('wallet_address');
-  
+
   if (!walletAddress) {
     return NextResponse.json(
       { error: 'wallet_address parameter required' },
@@ -103,7 +102,7 @@ const mockWeb3PermissionsHandler = async (req: NextRequest) => {
   } else if (walletAddress.includes('token')) {
     permissions = [
       { permission: 'token:holder:access', permission_type: 'token_gated', granted_at: new Date().toISOString(), is_active: true },
-      { permission: 'user:trading:advanced', permission_type: 'token_gated', granted_at: new Date().toISOString(), is_active: true }
+      { permission: 'user:analytics:advanced', permission_type: 'token_gated', granted_at: new Date().toISOString(), is_active: true }
     ];
   } else {
     permissions = [
@@ -121,7 +120,7 @@ const mockWeb3PermissionsHandler = async (req: NextRequest) => {
 const mockWeb3StatusHandler = async (req: NextRequest) => {
   const url = new URL(req.url);
   const walletAddress = url.searchParams.get('wallet_address');
-  
+
   if (!walletAddress) {
     return NextResponse.json(
       { error: 'wallet_address parameter required' },
@@ -143,7 +142,7 @@ const mockWeb3StatusHandler = async (req: NextRequest) => {
 
 const mockLinkWalletHandler = async (req: NextRequest) => {
   const body = await req.json();
-  
+
   if (!body.wallet_address || !body.user_id || !body.signature || !body.message) {
     return NextResponse.json(
       { error: 'Missing required fields' },
@@ -192,7 +191,7 @@ const mockSessionHandler = async (req: NextRequest) => {
     user_id: 'test_user_id',
     wallet_address: '0x742d35Cc6634C0532925a3b8D369D7763F3c45c6',
     is_authenticated: true,
-    permissions: ['user:profile:view', 'user:trading:access'],
+    permissions: ['user:profile:view', 'user:analytics:access'],
     expires_at: new Date(Date.now() + 3600 * 1000).toISOString()
   });
 };
@@ -212,14 +211,14 @@ describe('Web3 Authentication Flow Integration', () => {
           });
 
           expect(res.status).toBe(200);
-          
+
           const data = await res.json();
           expect(data).toHaveProperty('nonce');
           expect(data).toHaveProperty('message');
           expect(data).toHaveProperty('expires_at');
           expect(data.message).toContain('epsx.io');
           expect(data.message).toContain('0x742d35Cc6634C0532925a3b8D369D7763F3c45c6');
-          expect(data.message).toContain('Sign in to EPSX trading platform');
+          expect(data.message).toContain('Sign in to EPSX analytics platform');
         },
       });
     });
@@ -237,7 +236,7 @@ describe('Web3 Authentication Flow Integration', () => {
           });
 
           expect(res.status).toBe(400);
-          
+
           const data = await res.json();
           expect(data.error).toContain('Invalid wallet address format');
         },
@@ -255,7 +254,7 @@ describe('Web3 Authentication Flow Integration', () => {
           });
 
           expect(res.status).toBe(400);
-          
+
           const data = await res.json();
           expect(data.error).toContain('wallet_address is required');
         },
@@ -279,7 +278,7 @@ describe('Web3 Authentication Flow Integration', () => {
           });
 
           expect(res.status).toBe(200);
-          
+
           const data = await res.json();
           expect(data).toHaveProperty('access_token');
           expect(data).toHaveProperty('id_token');
@@ -288,7 +287,7 @@ describe('Web3 Authentication Flow Integration', () => {
           expect(data).toHaveProperty('wallet_address');
           expect(data).toHaveProperty('permissions');
           expect(data).toHaveProperty('expires_in');
-          
+
           expect(data.wallet_address).toBe('0x742d35Cc6634C0532925a3b8D369D7763F3c45c6');
           expect(Array.isArray(data.permissions)).toBe(true);
           expect(data.expires_in).toBe(3600);
@@ -317,7 +316,7 @@ describe('Web3 Authentication Flow Integration', () => {
           });
 
           expect(res.status).toBe(401);
-          
+
           const data = await res.json();
           expect(data.error).toContain('Invalid signature');
         },
@@ -338,7 +337,7 @@ describe('Web3 Authentication Flow Integration', () => {
           });
 
           expect(res.status).toBe(400);
-          
+
           const data = await res.json();
           expect(data.error).toContain('Missing required fields');
         },
@@ -357,7 +356,7 @@ describe('Web3 Authentication Flow Integration', () => {
           });
 
           expect(res.status).toBe(200);
-          
+
           const data = await res.json();
           expect(data).toHaveProperty('wallet_address');
           expect(data).toHaveProperty('permissions');
@@ -378,7 +377,7 @@ describe('Web3 Authentication Flow Integration', () => {
           });
 
           expect(res.status).toBe(200);
-          
+
           const data = await res.json();
           const nftPermission = data.permissions.find((p: any) => p.permission === 'nft:holder:access');
           expect(nftPermission).toBeDefined();
@@ -397,7 +396,7 @@ describe('Web3 Authentication Flow Integration', () => {
           });
 
           expect(res.status).toBe(200);
-          
+
           const data = await res.json();
           const tokenPermission = data.permissions.find((p: any) => p.permission === 'token:holder:access');
           expect(tokenPermission).toBeDefined();
@@ -416,7 +415,7 @@ describe('Web3 Authentication Flow Integration', () => {
           });
 
           expect(res.status).toBe(400);
-          
+
           const data = await res.json();
           expect(data.error).toContain('wallet_address parameter required');
         },
@@ -435,7 +434,7 @@ describe('Web3 Authentication Flow Integration', () => {
           });
 
           expect(res.status).toBe(200);
-          
+
           const data = await res.json();
           expect(data.wallet_address).toBe('0x742d35Cc6634C0532925a3b8D369D7763F3c45c6');
           expect(data.is_registered).toBe(false);
@@ -456,7 +455,7 @@ describe('Web3 Authentication Flow Integration', () => {
           });
 
           expect(res.status).toBe(200);
-          
+
           const data = await res.json();
           expect(data.is_registered).toBe(true);
           expect(data.is_available).toBe(false);
@@ -484,7 +483,7 @@ describe('Web3 Authentication Flow Integration', () => {
           });
 
           expect(res.status).toBe(200);
-          
+
           const data = await res.json();
           expect(data.success).toBe(true);
           expect(data.message).toBe('Wallet linked successfully');
@@ -510,7 +509,7 @@ describe('Web3 Authentication Flow Integration', () => {
           });
 
           expect(res.status).toBe(400);
-          
+
           const data = await res.json();
           expect(data.error).toContain('Invalid user ID format');
         },
@@ -533,7 +532,7 @@ describe('Web3 Authentication Flow Integration', () => {
           });
 
           expect(res.status).toBe(409);
-          
+
           const data = await res.json();
           expect(data.error).toContain('Wallet already linked');
         },
@@ -554,7 +553,7 @@ describe('Web3 Authentication Flow Integration', () => {
           });
 
           expect(res.status).toBe(400);
-          
+
           const data = await res.json();
           expect(data.error).toContain('Missing required fields');
         },
@@ -575,7 +574,7 @@ describe('Web3 Authentication Flow Integration', () => {
           });
 
           expect(res.status).toBe(200);
-          
+
           const data = await res.json();
           expect(data).toHaveProperty('user_id');
           expect(data).toHaveProperty('wallet_address');
@@ -597,7 +596,7 @@ describe('Web3 Authentication Flow Integration', () => {
           });
 
           expect(res.status).toBe(401);
-          
+
           const data = await res.json();
           expect(data.error).toContain('No active session');
         },

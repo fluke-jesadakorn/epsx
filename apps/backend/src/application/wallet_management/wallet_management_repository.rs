@@ -15,6 +15,7 @@ pub struct WalletBasicInfo {
     pub is_active: bool,
     pub created_at: DateTime<Utc>,
     pub last_auth_at: Option<DateTime<Utc>>,
+    pub wallet_metadata: Option<serde_json::Value>,
 }
 
 /// Wallet summary with counts (for list view)
@@ -26,6 +27,7 @@ pub struct WalletSummary {
     pub last_auth_at: Option<DateTime<Utc>>,
     pub permissions_count: i32,
     pub groups_count: i32,
+    pub wallet_metadata: Option<serde_json::Value>,
 }
 
 /// Wallet permission record
@@ -81,11 +83,13 @@ impl WalletManagementRepository {
             created_at: DateTime<Utc>,
             #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
             last_auth_at: Option<DateTime<Utc>>,
+            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Jsonb>)]
+            wallet_metadata: Option<serde_json::Value>,
         }
 
         let wallet = diesel::sql_query(
             r#"
-            SELECT wallet_address, is_active, created_at, last_auth_at
+            SELECT wallet_address, is_active, created_at, last_auth_at, wallet_metadata
             FROM wallet_users
             WHERE wallet_address = $1
             "#
@@ -101,6 +105,7 @@ impl WalletManagementRepository {
             is_active: w.is_active,
             created_at: w.created_at,
             last_auth_at: w.last_auth_at,
+            wallet_metadata: w.wallet_metadata,
         }))
     }
 
@@ -184,7 +189,11 @@ impl WalletManagementRepository {
         let mut where_parts = Vec::new();
 
         if let Some(ref search) = criteria.search {
-            where_parts.push(format!("wu.wallet_address ILIKE '%{}%'", search.replace("'", "''")));
+            let escaped = search.replace("'", "''");
+            where_parts.push(format!(
+                "(wu.wallet_address ILIKE '%{}%' OR wu.wallet_metadata->>'label' ILIKE '%{}%' OR wu.wallet_metadata->>'note' ILIKE '%{}%')",
+                escaped, escaped, escaped
+            ));
         }
 
         if let Some(ref status) = criteria.status {
@@ -234,6 +243,7 @@ impl WalletManagementRepository {
                 wu.is_active,
                 wu.created_at,
                 wu.last_auth_at,
+                wu.wallet_metadata,
                 COALESCE(perms.count, 0)::int as permissions_count,
                 0 as groups_count
             FROM wallet_users wu
@@ -264,6 +274,8 @@ impl WalletManagementRepository {
             permissions_count: i32,
             #[diesel(sql_type = diesel::sql_types::Integer)]
             groups_count: i32,
+            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Jsonb>)]
+            wallet_metadata: Option<serde_json::Value>,
         }
 
         let rows = diesel::sql_query(&query_str)
@@ -278,6 +290,7 @@ impl WalletManagementRepository {
             last_auth_at: row.last_auth_at,
             permissions_count: row.permissions_count,
             groups_count: row.groups_count,
+            wallet_metadata: row.wallet_metadata,
         }).collect())
     }
 
@@ -294,7 +307,11 @@ impl WalletManagementRepository {
         let mut where_parts = Vec::new();
 
         if let Some(ref search) = criteria.search {
-            where_parts.push(format!("wu.wallet_address ILIKE '%{}%'", search.replace("'", "''")));
+            let escaped = search.replace("'", "''");
+            where_parts.push(format!(
+                "(wu.wallet_address ILIKE '%{}%' OR wu.wallet_metadata->>'label' ILIKE '%{}%' OR wu.wallet_metadata->>'note' ILIKE '%{}%')",
+                escaped, escaped, escaped
+            ));
         }
 
         if let Some(ref status) = criteria.status {

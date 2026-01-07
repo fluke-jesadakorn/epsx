@@ -46,7 +46,7 @@ const AVAILABLE_MODULES = [
   { id: 'stock-ranking', name: 'Stock Ranking', description: 'Advanced stock ranking and analysis' },
   { id: 'market-data', name: 'Market Data', description: 'Real-time and historical market data' },
   { id: 'portfolio-analysis', name: 'Portfolio Analysis', description: 'Portfolio management and risk analysis' },
-  { id: 'trading-signals', name: 'Trading Signals', description: 'AI-powered trading signals' },
+  { id: 'market-signals', name: 'Market Signals', description: 'AI-powered market signals' },
 ];
 
 /**
@@ -84,20 +84,20 @@ export const ApiKeyRequestForm: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Basic validation
-    if (!formData.company_name || !formData.contact_name || !formData.email || 
-        !formData.use_case || formData.modules_interested.length === 0) {
+    if (!formData.company_name || !formData.contact_name || !formData.email ||
+      !formData.use_case || formData.modules_interested.length === 0) {
       toast.error('Please fill in all required fields');
       return;
     }
 
     setIsSubmitting(true);
-    
+
     try {
       // Simulate API call - in real implementation, this would send to your backend
       await new Promise(resolve => setTimeout(resolve, 2000));
-      
+
       setIsSubmitted(true);
       toast.success('Your API key request has been submitted successfully!');
     } catch (_error) {
@@ -116,10 +116,10 @@ export const ApiKeyRequestForm: React.FC = () => {
           <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
           <h2 className="text-2xl font-bold text-gray-900 mb-2">Request Submitted!</h2>
           <p className="text-gray-600 mb-6">
-            Thank you for your interest in the EPSX API. Our team will review your request and 
+            Thank you for your interest in the EPSX API. Our team will review your request and
             get back to you within 2-3 business days.
           </p>
-          
+
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
             <h3 className="font-semibold text-blue-900 mb-2">What happens next?</h3>
             <ul className="text-sm text-blue-800 text-left space-y-1">
@@ -129,7 +129,7 @@ export const ApiKeyRequestForm: React.FC = () => {
               <li>• You can then create and manage your API keys</li>
             </ul>
           </div>
-          
+
           <div className="space-y-3">
             <Button onClick={() => window.location.href = '/docs/api'} variant="outline">
               View API Documentation
@@ -174,7 +174,7 @@ export const ApiKeyRequestForm: React.FC = () => {
             <Building className="w-5 h-5 mr-2 text-blue-600" />
             Company Information
           </h2>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <FormField id="company_name" label="Company Name" required>
               <Input
@@ -183,7 +183,7 @@ export const ApiKeyRequestForm: React.FC = () => {
                 placeholder="Your Company Inc."
               />
             </FormField>
-            
+
             <FormField id="company_size" label="Company Size">
               <Select
                 value={formData.company_size}
@@ -195,7 +195,7 @@ export const ApiKeyRequestForm: React.FC = () => {
                 ))}
               </Select>
             </FormField>
-            
+
             <FormField id="website" label="Website">
               <Input
                 type="url"
@@ -213,7 +213,7 @@ export const ApiKeyRequestForm: React.FC = () => {
             <Mail className="w-5 h-5 mr-2 text-blue-600" />
             Contact Information
           </h2>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <FormField id="contact_name" label="Contact Name" required>
               <Input
@@ -222,7 +222,7 @@ export const ApiKeyRequestForm: React.FC = () => {
                 placeholder="John Doe"
               />
             </FormField>
-            
+
             <FormField id="email" label="Email Address" required>
               <Input
                 type="email"
@@ -231,7 +231,7 @@ export const ApiKeyRequestForm: React.FC = () => {
                 placeholder="john@yourcompany.com"
               />
             </FormField>
-            
+
             <FormField id="phone" label="Phone Number">
               <Input
                 type="tel"
@@ -249,7 +249,7 @@ export const ApiKeyRequestForm: React.FC = () => {
             <Code className="w-5 h-5 mr-2 text-blue-600" />
             Project Information
           </h2>
-          
+
           <div className="space-y-4">
             <FormField id="use_case" label="Use Case Description" required>
               <Textarea
@@ -259,7 +259,7 @@ export const ApiKeyRequestForm: React.FC = () => {
                 rows={4}
               />
             </FormField>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <FormField id="api_volume" label="Expected API Volume">
                 <Select
@@ -272,7 +272,7 @@ export const ApiKeyRequestForm: React.FC = () => {
                   ))}
                 </Select>
               </FormField>
-              
+
               <FormField id="timeline" label="Integration Timeline">
                 <Select
                   value={formData.integration_timeline}
@@ -295,7 +295,7 @@ export const ApiKeyRequestForm: React.FC = () => {
             Modules of Interest
           </h2>
           <p className="text-gray-600 mb-4">Select the modules you&apos;re interested in accessing (select at least one):</p>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {AVAILABLE_MODULES.map(module => (
               <div key={module.id} className="border rounded-lg p-4">
@@ -319,7 +319,7 @@ export const ApiKeyRequestForm: React.FC = () => {
         {/* Additional Information */}
         <div className="bg-white border rounded-lg p-6">
           <h2 className="text-xl font-semibold text-gray-900 mb-4">Additional Information</h2>
-          
+
           <FormField id="details" label="Additional Details">
             <Textarea
               value={formData.additional_info}

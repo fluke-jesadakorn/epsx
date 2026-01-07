@@ -7,7 +7,7 @@ pub mod wallet_management; // Web3-first: wallet-based user management
 pub mod payment; // Payment processing and validation
 pub mod permission_management; // Permission groups, policies, and assignments
 pub mod subscription_management; // Plans, subscriptions, and billing
-pub mod trading_analytics;
+pub mod market_analytics;
 pub mod notification;
 
 pub mod realtime_events;

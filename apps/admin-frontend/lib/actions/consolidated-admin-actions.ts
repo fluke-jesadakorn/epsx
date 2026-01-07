@@ -1,5 +1,6 @@
 'use server';
 
+import { createAdminApiClient } from '@/lib/api-client';
 import { cookies } from 'next/headers';
 
 // ============================================================================
@@ -28,37 +29,15 @@ interface ActionResult<T = unknown> {
 // HELPER FUNCTIONS
 // ============================================================================
 
-async function getAdminSession() {
+async function getAdminClient() {
   const cookieStore = await cookies();
-  const sessionToken = cookieStore.get('admin_session_token');
+  const sessionToken = cookieStore.get('admin_session_token')?.value;
 
-  if (!sessionToken) {
-    throw new Error('Unauthorized: No admin session found');
-  }
-
-  return sessionToken.value;
-}
-
-async function makeAdminApiRequest(
-  endpoint: string,
-  options: RequestInit = {}
-): Promise<Response> {
-  const backendUrl = process.env.BACKEND_URL || 'http://localhost:8080';
-  const sessionToken = await getAdminSession();
-
-  const response = await fetch(`${backendUrl}${endpoint}`, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${sessionToken}`,
-      'X-API-Version': 'v1',
-      'X-Access-Level': 'admin',
-      'X-Admin-Context': 'true',
-      ...options.headers,
-    },
+  // We pass the token explicitly to ensure it's used
+  return createAdminApiClient({
+    serverSide: true,
+    token: sessionToken,
   });
-
-  return response;
 }
 
 // ============================================================================
@@ -69,6 +48,8 @@ export async function createAdminNotification(
   params: CreateNotificationParams
 ): Promise<ActionResult> {
   try {
+    const client = await getAdminClient();
+
     // Map frontend priority to backend priority
     const priorityMap: Record<string, string> = {
       'low': 'low',
@@ -96,24 +77,18 @@ export async function createAdminNotification(
       expires_at: params.expiresAt,
     };
 
-    const response = await makeAdminApiRequest('/api/admin/notifications/send', {
-      method: 'POST',
-      body: JSON.stringify(requestBody),
-    });
+    const response = await client.post<any>('/api/admin/notifications/send', requestBody);
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
+    if (!response.success) {
       return {
         success: false,
-        error: errorData.message || `HTTP ${response.status}: ${response.statusText}`,
+        error: response.error || 'Failed to create notification',
       };
     }
 
-    const data = await response.json();
-
     return {
       success: true,
-      data: data.data,
+      data: response.data,
     };
   } catch (error) {
     // eslint-disable-next-line no-console
@@ -142,22 +117,20 @@ export async function sendNotification(
 
 export async function cleanupExpiredPermissionsAction(): Promise<ActionResult> {
   try {
-    const response = await makeAdminApiRequest('/api/admin/permissions/cleanup', {
-      method: 'POST',
-    });
+    const client = await getAdminClient();
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
+    const response = await client.post<any>('/api/admin/permissions/cleanup');
+
+    if (!response.success) {
       return {
         success: false,
-        error: errorData.message || `HTTP ${response.status}: ${response.statusText}`,
+        error: response.error || 'Failed to cleanup permissions',
       };
     }
 
-    const data = await response.json();
     return {
       success: true,
-      data: data.data,
+      data: response.data,
     };
   } catch (error) {
     // eslint-disable-next-line no-console

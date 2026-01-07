@@ -34,7 +34,7 @@ async function setupMockApiEndpoints(page: Page) {
       contentType: 'application/json',
       body: JSON.stringify({
         nonce: `nonce_${Date.now()}_${Math.random()}`,
-        message: `epsx.io wants you to sign in with your Ethereum account:\n${body.wallet_address}\n\nSign in to EPSX trading platform\n\nURI: https://epsx.io\nVersion: 1\nChain ID: 1\nNonce: nonce_${Date.now()}\nIssued At: ${new Date().toISOString()}`,
+        message: `epsx.io wants you to sign in with your Ethereum account:\n${body.wallet_address}\n\nSign in to EPSX analytics platform\n\nURI: https://epsx.io\nVersion: 1\nChain ID: 1\nNonce: nonce_${Date.now()}\nIssued At: ${new Date().toISOString()}`,
         expires_at: new Date(Date.now() + 15 * 60 * 1000).toISOString()
       }),
     });
@@ -76,7 +76,7 @@ async function setupMockApiEndpoints(page: Page) {
         refresh_token: `refresh_${Date.now()}_${Math.random()}`,
         user_id: `user_${Date.now()}`,
         wallet_address: body.wallet_address,
-        permissions: ['user:profile:view', 'user:trading:access'],
+        permissions: ['user:profile:view', 'user:analytics:access'],
         expires_in: 3600
       }),
     });

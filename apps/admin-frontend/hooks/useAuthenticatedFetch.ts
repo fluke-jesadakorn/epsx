@@ -1,56 +1,36 @@
 /**
  * Authenticated API Fetch Hook
- * Uses SharedWeb3AuthClient to get the access token for API requests
+ * Uses Shared AdminApiClient for API requests
  */
-import { env } from '@/config/env';
-import { useSharedAuth } from '@/shared/components/auth/Provider';
 import { useCallback } from 'react';
-
-const BACKEND_URL = env.BACKEND_URL;
+import { adminApiClient } from '../lib/api-client';
 
 export function useAuthenticatedFetch() {
-  const { user } = useSharedAuth();
-
-  const fetchWithAuth = useCallback(async (
+  const fetchWithAuth = useCallback(async <T = any>(
     endpoint: string,
     options?: RequestInit
-  ): Promise<Response> => {
-    // Get the access token from the user object
-    const token = user?.access;
+  ): Promise<T> => {
+    // Determine method from options or default to GET
+    const method = options?.method?.toLowerCase() || 'get';
 
-    // Debug: Log token information for troubleshooting
+    let response;
 
-    // Check JWT structure
-    if (token && token.includes('.')) {
-      const parts = token.split('.');
-      if (parts.length === 3) {
-        try {
-          const header = JSON.parse(atob(parts[0] || ''));
-          const payload = JSON.parse(atob(parts[1] || ''));
-        } catch (e) {
-        }
-      }
+    if (method === 'post') {
+      response = await adminApiClient.post<T>(endpoint, options?.body ? JSON.parse(options.body as string) : undefined, options as any);
+    } else if (method === 'put') {
+      response = await adminApiClient.put<T>(endpoint, options?.body ? JSON.parse(options.body as string) : undefined, options as any);
+    } else if (method === 'delete') {
+      response = await adminApiClient.delete<T>(endpoint, options as any);
+    } else {
+      response = await adminApiClient.get<T>(endpoint, undefined, options as any);
     }
 
-    const headers = {
-      ...(token && { 'Authorization': `Bearer ${token}` }),
-      'Content-Type': 'application/json',
-      ...options?.headers
-    };
-
-    const response = await fetch(`${BACKEND_URL}${endpoint}`, {
-      ...options,
-      headers,
-      credentials: 'include'
-    });
-
-    if (!response.ok) {
-      const err = await response.text().catch(() => 'Request failed');
-      throw new Error(`HTTP ${response.status}: ${err}`);
+    if (!response.success) {
+      throw new Error(response.error || `Request failed with status ${response.status}`);
     }
 
-    return response;
-  }, [user?.access]);
+    return response.data as T;
+  }, []);
 
   return { fetchWithAuth };
 }

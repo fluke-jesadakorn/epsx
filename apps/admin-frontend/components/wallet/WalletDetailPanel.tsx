@@ -4,10 +4,11 @@
  */
 'use client';
 
-import { ExternalLink, Package, Shield } from 'lucide-react';
-import { useState } from 'react';
+import { Check, ExternalLink, Package, Pencil, Shield, X } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import {
     Sheet,
     SheetContent,
@@ -15,11 +16,14 @@ import {
     SheetHeader,
     SheetTitle,
 } from '@/components/ui/sheet';
+import { Textarea } from '@/components/ui/textarea';
+import { walletMgmt } from '@/lib/api/wallet-management-client';
 import { formatDate } from '@/lib/utils/date';
 
 import { AssignPermissionForm, type AssignPermissionData } from './AssignPermissionForm';
 import { WalletActivityHistory } from './WalletActivityHistory';
 import { WalletHeader } from './WalletHeader';
+import { WalletLabelBadge } from './WalletLabelBadge';
 import { WalletPermissionTable } from './WalletPermissionTable';
 import type { WalletActivityEvent, WalletData } from './types';
 
@@ -47,6 +51,21 @@ export function WalletDetailPanel({
 }: WalletDetailPanelProps) {
     const [isAssigning, setIsAssigning] = useState(false);
 
+    // Label & Note editing state
+    const [isEditingLabel, setIsEditingLabel] = useState(false);
+    const [isEditingNote, setIsEditingNote] = useState(false);
+    const [labelValue, setLabelValue] = useState('');
+    const [noteValue, setNoteValue] = useState('');
+    const [isSaving, setIsSaving] = useState(false);
+
+    // Sync label/note state when wallet changes
+    useEffect(() => {
+        if (wallet) {
+            setLabelValue(wallet.label || '');
+            setNoteValue(wallet.note || '');
+        }
+    }, [wallet?.walletAddress, wallet?.label, wallet?.note]);
+
     const isDisabled = wallet?.status === 'disabled';
     const activeSubscriptions = wallet?.subscriptions?.filter(s => s.status === 'active') ?? [];
 
@@ -59,6 +78,38 @@ export function WalletDetailPanel({
             setIsAssigning(false);
         }
     };
+
+    // Save label
+    const handleSaveLabel = useCallback(async () => {
+        if (!wallet) return;
+        setIsSaving(true);
+        try {
+            await walletMgmt.updateWalletMetadata(wallet.walletAddress, {
+                label: labelValue.trim() || null,
+            });
+            setIsEditingLabel(false);
+        } catch (error) {
+            console.error('Failed to save label:', error);
+        } finally {
+            setIsSaving(false);
+        }
+    }, [wallet, labelValue]);
+
+    // Save note
+    const handleSaveNote = useCallback(async () => {
+        if (!wallet) return;
+        setIsSaving(true);
+        try {
+            await walletMgmt.updateWalletMetadata(wallet.walletAddress, {
+                note: noteValue.trim() || null,
+            });
+            setIsEditingNote(false);
+        } catch (error) {
+            console.error('Failed to save note:', error);
+        } finally {
+            setIsSaving(false);
+        }
+    }, [wallet, noteValue]);
 
     return (
         <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -89,6 +140,124 @@ export function WalletDetailPanel({
                         <div className="mt-6 space-y-8">
                             {/* Header Section */}
                             <WalletHeader wallet={wallet} />
+
+                            {/* Label & Note Section */}
+                            <div className="p-4 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/30">
+                                <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4 flex items-center gap-2">
+                                    🏷️ Label & Notes
+                                </h4>
+
+                                {/* Label */}
+                                <div className="mb-4">
+                                    <label className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5 block">
+                                        Label
+                                    </label>
+                                    {isEditingLabel ? (
+                                        <div className="flex items-center gap-2">
+                                            <Input
+                                                value={labelValue}
+                                                onChange={(e) => setLabelValue(e.target.value)}
+                                                placeholder="e.g., VIP, Whale, Partner..."
+                                                className="flex-1 h-9"
+                                                maxLength={30}
+                                                autoFocus
+                                            />
+                                            <Button
+                                                size="sm"
+                                                variant="ghost"
+                                                onClick={handleSaveLabel}
+                                                disabled={isSaving}
+                                                className="h-9 w-9 p-0"
+                                            >
+                                                <Check className="h-4 w-4 text-green-600" />
+                                            </Button>
+                                            <Button
+                                                size="sm"
+                                                variant="ghost"
+                                                onClick={() => {
+                                                    setLabelValue(wallet.label || '');
+                                                    setIsEditingLabel(false);
+                                                }}
+                                                className="h-9 w-9 p-0"
+                                            >
+                                                <X className="h-4 w-4 text-gray-500" />
+                                            </Button>
+                                        </div>
+                                    ) : (
+                                        <div
+                                            className="flex items-center gap-2 cursor-pointer group"
+                                            onClick={() => setIsEditingLabel(true)}
+                                        >
+                                            {wallet.label ? (
+                                                <WalletLabelBadge label={wallet.label} size="md" />
+                                            ) : (
+                                                <span className="text-sm text-gray-400 italic">No label</span>
+                                            )}
+                                            <Pencil className="h-3.5 w-3.5 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Note */}
+                                <div>
+                                    <label className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5 block">
+                                        Note
+                                    </label>
+                                    {isEditingNote ? (
+                                        <div className="space-y-2">
+                                            <Textarea
+                                                value={noteValue}
+                                                onChange={(e) => setNoteValue(e.target.value)}
+                                                placeholder="Add a note about this wallet..."
+                                                className="resize-none"
+                                                rows={3}
+                                                maxLength={500}
+                                                autoFocus
+                                            />
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-xs text-gray-400">
+                                                    {noteValue.length}/500
+                                                </span>
+                                                <div className="flex gap-2">
+                                                    <Button
+                                                        size="sm"
+                                                        variant="ghost"
+                                                        onClick={() => {
+                                                            setNoteValue(wallet.note || '');
+                                                            setIsEditingNote(false);
+                                                        }}
+                                                    >
+                                                        Cancel
+                                                    </Button>
+                                                    <Button
+                                                        size="sm"
+                                                        onClick={handleSaveNote}
+                                                        disabled={isSaving}
+                                                    >
+                                                        {isSaving ? 'Saving...' : 'Save'}
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div
+                                            className="cursor-pointer group p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors -mx-2"
+                                            onClick={() => setIsEditingNote(true)}
+                                        >
+                                            {wallet.note ? (
+                                                <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+                                                    {wallet.note}
+                                                </p>
+                                            ) : (
+                                                <p className="text-sm text-gray-400 italic flex items-center gap-1">
+                                                    <Pencil className="h-3 w-3" />
+                                                    Click to add a note...
+                                                </p>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
 
                             {/* Active Subscriptions */}
                             {activeSubscriptions.length > 0 && (

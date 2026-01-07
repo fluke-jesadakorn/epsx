@@ -24,7 +24,7 @@ import { AccessOverview } from './AccessOverview';
 import { PaymentHistoryTab } from './PaymentHistoryTab';
 
 interface NotificationPreferences {
-  trading: boolean;
+  analytics: boolean;
   security: boolean;
   account: boolean;
   system: boolean;
@@ -47,7 +47,7 @@ export function AccountClient() {
   const { base } = useApiClient({ platform: 'frontend' });
   const { address } = useAccount();
   const [notificationPrefs, setNotificationPrefs] = useState<NotificationPreferences>({
-    trading: true,
+    analytics: true,
     security: true,
     account: true,
     system: false,
@@ -310,7 +310,7 @@ export function AccountClient() {
 
               <div className="grid sm:grid-cols-2 gap-4">
                 {[
-                  { id: 'trading', label: 'Trading Alerts', desc: 'Price movements & portfolio', icon: '💹' },
+                  { id: 'analytics', label: 'Analytics Alerts', desc: 'Price movements & portfolio', icon: '💹' },
                   { id: 'security', label: 'Security Alerts', desc: 'Auth & security warnings', icon: '🛡️' },
                   { id: 'account', label: 'Account Updates', desc: 'Profile & subscription', icon: '👤' },
                   { id: 'system', label: 'System Status', desc: 'Maintenance & features', icon: '⚙️' },

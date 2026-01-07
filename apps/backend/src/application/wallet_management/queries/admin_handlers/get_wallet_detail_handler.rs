@@ -192,6 +192,7 @@ impl QueryHandler<GetWalletDetailQuery> for GetWalletDetailQueryHandler {
             permissions,
             groups,
             activity_summary,
+            metadata: wallet.wallet_metadata,
         };
 
         info!(

@@ -37,6 +37,8 @@ interface PolicyEvaluation {
   policy_name?: string;
 }
 
+import { adminApiClient } from '@/lib/api-client';
+
 interface PolicyStats {
   total_policies: number;
   active_policies: number;
@@ -119,10 +121,9 @@ export default function PolicyMonitor() {
 
   const loadPolicyStats = async () => {
     try {
-      const response = await fetch('/api/admin/policies/stats');
-      if (response.ok) {
-        const data = await response.json();
-        setStats(data.stats);
+      const response = await adminApiClient.get<{ stats: PolicyStats }>('/api/admin/policies/stats');
+      if (response.success && response.data) {
+        setStats(response.data.stats);
       }
     } catch (_error) {
       // eslint-disable-next-line no-console
@@ -138,12 +139,12 @@ export default function PolicyMonitor() {
           id: '1',
           user_id: 'user1',
           user_email: 'alice@epsx.io',
-          action_attempted: 'epsx:trading:execute',
+          action_attempted: 'epsx:analytics:execute',
           decision: 'allow',
-          decision_reason: 'Trading Hours Policy: Within business hours',
+          decision_reason: 'Business Hours Policy: Within business hours',
           evaluation_time_ms: 11,
           evaluated_at: new Date(Date.now() - 15000).toISOString(),
-          policy_name: 'Trading Hours',
+          policy_name: 'Business Hours',
         },
         {
           id: '2',
@@ -160,7 +161,7 @@ export default function PolicyMonitor() {
           id: '3',
           user_id: 'user3',
           user_email: 'carol@epsx.io',
-          action_attempted: 'epsx:trading:execute',
+          action_attempted: 'epsx:analytics:execute',
           decision: 'deny',
           decision_reason: 'Risk Control Policy: Risk score too high',
           evaluation_time_ms: 8,
@@ -184,12 +185,12 @@ export default function PolicyMonitor() {
           id: Date.now().toString(),
           user_id: `user${Math.floor(Math.random() * 10)}`,
           user_email: `user${Math.floor(Math.random() * 10)}@epsx.io`,
-          action_attempted: (['epsx:trading:execute', 'epsx:analytics:view', 'epsx:portfolio:export'][Math.floor(Math.random() * 3)] || 'epsx:analytics:view'),
+          action_attempted: (['epsx:analytics:execute', 'epsx:analytics:view', 'epsx:portfolio:export'][Math.floor(Math.random() * 3)] || 'epsx:analytics:view'),
           decision: (['allow', 'deny', 'require_mfa', 'require_approval'][Math.floor(Math.random() * 4)] as any || 'allow'),
           decision_reason: 'Policy evaluation completed',
           evaluation_time_ms: Math.floor(Math.random() * 50) + 5,
           evaluated_at: new Date().toISOString(),
-          policy_name: (['Trading Hours', 'Risk Control', 'Data Export'][Math.floor(Math.random() * 3)] || 'Trading Hours'),
+          policy_name: (['Business Hours', 'Risk Control', 'Data Export'][Math.floor(Math.random() * 3)] || 'Business Hours'),
         };
 
         setLiveEvaluations(prev => [newEvaluation, ...prev.slice(0, 19)]); // Keep last 20
@@ -612,7 +613,7 @@ export default function PolicyMonitor() {
               <div className="flex items-start sm:items-center gap-2">
                 <div className="w-2 h-2 bg-green-500 rounded-full mt-1 sm:mt-0 flex-shrink-0" />
                 <span className="font-medium text-green-900 flex-shrink-0">LOW</span>
-                <span className="text-sm text-green-700">Trading Hours Policy evaluation time increased to 45ms</span>
+                <span className="text-sm text-green-700">Business Hours Policy evaluation time increased to 45ms</span>
               </div>
               <span className="text-xs text-green-600 self-end sm:self-auto">12m ago</span>
             </div>
