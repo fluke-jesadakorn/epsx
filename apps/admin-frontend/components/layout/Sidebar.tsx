@@ -4,7 +4,6 @@ import { useSharedAuth } from '@/shared/components/auth/Provider';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
-import { useAccount } from 'wagmi';
 
 interface NavItem {
   id: string;
@@ -66,6 +65,13 @@ const navigationItems: NavItem[] = [
     requiresAuth: true,
   },
   {
+    id: 'audit-log',
+    label: 'Audit Log',
+    href: '/audit-log',
+    icon: '📜',
+    requiresAuth: true,
+  },
+  {
     id: 'developer',
     label: 'Developer',
     href: '/developer-portal',
@@ -79,7 +85,6 @@ const navigationItems: NavItem[] = [
     icon: '🔔',
     requiresAuth: true,
   },
-
   {
     id: 'settings',
     label: 'Settings',
@@ -95,11 +100,11 @@ const navigationItems: NavItem[] = [
 export function Sidebar() {
   const pathname = usePathname();
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set(['permissions']));
-  const { isConnected } = useAccount();
   const { isAuthenticated } = useSharedAuth();
 
-  // Combined connection status: wagmi connected OR cookie-based auth
-  const isWalletConnected = isConnected || isAuthenticated;
+  // Use isAuthenticated from SharedAuth - it already tracks wallet connection state
+  // This avoids depending on wagmi context which may not be available during SSR
+  const isWalletConnected = isAuthenticated;
 
   const toggleExpanded = (itemId: string) => {
     const newExpanded = new Set(expandedItems);

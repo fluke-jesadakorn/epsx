@@ -8,7 +8,7 @@ pub mod notification_repository_adapter;
 pub mod stock_analysis_repository_adapter;
 pub mod market_data_repository_adapter;
 pub mod tradingview_eps_repository; // TradingView EPS data adapter
-// pub mod payment_repository_adapter; // Temporarily disabled due to compilation issues
+pub mod payment_repository_adapter;
 pub mod mappers;
 
 pub mod wallet_user_repository_adapter;
@@ -25,7 +25,7 @@ pub use database_types::*;
 pub use notification_repository_adapter::NotificationRepositoryAdapter;
 pub use stock_analysis_repository_adapter::StockAnalysisRepositoryAdapter;
 pub use tradingview_eps_repository::TradingViewEPSRepository;
-// pub use payment_repository_adapter::PaymentRepositoryAdapter; // Temporarily disabled
+pub use payment_repository_adapter::PaymentRepositoryAdapter;
 
 pub use wallet_user_repository_adapter::WalletUserRepositoryAdapter;
 pub use subscription_repository_adapter::SubscriptionRepositoryAdapter;

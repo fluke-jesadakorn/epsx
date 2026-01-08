@@ -70,7 +70,7 @@ export interface PlanResponse {
   promotion_discount?: number; // Discount percentage
   promotion_ends_at?: string; // When active promotion ends
   currency: string;
-  target_audience: string;
+  target_audience?: string;
   billing_model: string;
   plan_category: string;
   is_active: boolean;
@@ -311,7 +311,7 @@ export class PlansAPIClient {
     value: number;
     label: string;
     category: string;
-    audience: string;
+    audience?: string;
   }>> {
     const response = await this.getPlans({ is_active: true });
     if (response.success && response.data?.plans) {

@@ -27,6 +27,7 @@ import { devLog } from '@/shared/utils';
 import { ChainVerificationCard } from './ChainVerificationCard';
 import { useAddTokenToWallet } from './hooks/useAddTokenToWallet';
 import { useDirectTokenTransfer } from './hooks/useDirectTokenTransfer';
+import { usePublicBalance } from './hooks/usePublicBalance';
 
 // Supported token type
 interface SupportedToken {
@@ -390,7 +391,9 @@ export function DynamicPaymentWidget({
         recheckToken();
     }, [recheckToken]);
 
-    // Check token balance
+
+
+    // Check token balance (Wallet)
     const { data: balanceData, refetch: refetchBalance } = useBalance({
         address: address,
         token: tokenAddress as `0x${string}`,
@@ -399,6 +402,12 @@ export function DynamicPaymentWidget({
             enabled: !!address && !!tokenAddress,
         },
     });
+
+    // Check token balance (Public/RPC Direct) - Bypass wallet RPC issues
+    const { balance: publicBalance } = usePublicBalance(
+        tokenAddress || undefined,
+        address
+    );
 
     // Start payment flow - Register token with MetaMask, then transfer
     const handlePayment = async () => {
@@ -553,49 +562,75 @@ export function DynamicPaymentWidget({
 
             {/* Token Verification Status (for local Anvil) */}
             {chainId === 31337 && selectedToken && (
-                <div className={cn(
-                    'mb-6 p-4 rounded-lg border flex items-center justify-between',
-                    tokenVerificationStatus === 'verified'
-                        ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
-                        : tokenVerificationStatus === 'failed'
-                            ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
-                            : 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800'
-                )}>
-                    <div className="flex items-center gap-2">
-                        {tokenVerificationStatus === 'checking' && (
-                            <Loader2 className="w-4 h-4 text-yellow-600 animate-spin" />
-                        )}
-                        {tokenVerificationStatus === 'verified' && (
-                            <CheckCircle className="w-4 h-4 text-green-600" />
-                        )}
-                        {tokenVerificationStatus === 'failed' && (
-                            <AlertTriangle className="w-4 h-4 text-red-600" />
-                        )}
-                        <span className={cn(
-                            'text-sm font-medium',
-                            tokenVerificationStatus === 'verified' ? 'text-green-700 dark:text-green-300'
-                                : tokenVerificationStatus === 'failed' ? 'text-red-700 dark:text-red-300'
-                                    : 'text-yellow-700 dark:text-yellow-300'
-                        )}>
-                            {tokenVerificationStatus === 'checking' && `Checking ${selectedToken.symbol} token...`}
-                            {tokenVerificationStatus === 'verified' && `${selectedToken.symbol} token verified ✓`}
-                            {tokenVerificationStatus === 'failed' && `Cannot reach ${selectedToken.symbol} token contract`}
-                            {tokenVerificationStatus === 'pending' && `Verifying ${selectedToken.symbol} token...`}
-                        </span>
+                <div className="mb-6 space-y-3">
+                    <div className={cn(
+                        'p-4 rounded-lg border flex items-center justify-between',
+                        tokenVerificationStatus === 'verified'
+                            ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
+                            : tokenVerificationStatus === 'failed'
+                                ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
+                                : 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800'
+                    )}>
+                        <div className="flex items-center gap-2">
+                            {tokenVerificationStatus === 'checking' && (
+                                <Loader2 className="w-4 h-4 text-yellow-600 animate-spin" />
+                            )}
+                            {tokenVerificationStatus === 'verified' && (
+                                <CheckCircle className="w-4 h-4 text-green-600" />
+                            )}
+                            {tokenVerificationStatus === 'failed' && (
+                                <AlertTriangle className="w-4 h-4 text-red-600" />
+                            )}
+                            <span className={cn(
+                                'text-sm font-medium',
+                                tokenVerificationStatus === 'verified' ? 'text-green-700 dark:text-green-300'
+                                    : tokenVerificationStatus === 'failed' ? 'text-red-700 dark:text-red-300'
+                                        : 'text-yellow-700 dark:text-yellow-300'
+                            )}>
+                                {tokenVerificationStatus === 'checking' && `Checking ${selectedToken.symbol} token...`}
+                                {tokenVerificationStatus === 'verified' && `${selectedToken.symbol} token verified ✓`}
+                                {tokenVerificationStatus === 'failed' && `Cannot reach ${selectedToken.symbol} token contract`}
+                                {tokenVerificationStatus === 'pending' && `Verifying ${selectedToken.symbol} token...`}
+                            </span>
+                        </div>
+                        <button
+                            onClick={handleRecheckToken}
+                            disabled={tokenVerificationStatus === 'checking'}
+                            className={cn(
+                                'flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-all',
+                                'bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600',
+                                'hover:bg-gray-100 dark:hover:bg-gray-700',
+                                tokenVerificationStatus === 'checking' && 'opacity-50 cursor-not-allowed'
+                            )}
+                        >
+                            <RefreshCw className={cn('w-3 h-3', tokenVerificationStatus === 'checking' && 'animate-spin')} />
+                            Recheck Token
+                        </button>
                     </div>
-                    <button
-                        onClick={handleRecheckToken}
-                        disabled={tokenVerificationStatus === 'checking'}
-                        className={cn(
-                            'flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-all',
-                            'bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600',
-                            'hover:bg-gray-100 dark:hover:bg-gray-700',
-                            tokenVerificationStatus === 'checking' && 'opacity-50 cursor-not-allowed'
-                        )}
-                    >
-                        <RefreshCw className={cn('w-3 h-3', tokenVerificationStatus === 'checking' && 'animate-spin')} />
-                        Recheck Token
-                    </button>
+
+                    {/* RPC Warning Mismatch */}
+                    {publicBalance && balanceData && parseFloat(publicBalance) > parseFloat(balanceData.formatted) && (
+                        <div className="p-4 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
+                            <div className="flex items-start gap-3">
+                                <AlertTriangle className="w-5 h-5 text-red-600 mt-0.5" />
+                                <div>
+                                    <h5 className="font-bold text-red-800 dark:text-red-200 text-sm">RPC Connection Issue Detected</h5>
+                                    <p className="text-sm text-red-700 dark:text-red-300 mt-1">
+                                        Your actual balance is <strong>{publicBalance} {selectedToken.symbol}</strong>, but MetaMask shows {balanceData.formatted}.
+                                    </p>
+                                    <p className="text-sm text-red-700 dark:text-red-300 mt-2">
+                                        <strong>To fix this:</strong>
+                                        <ol className="list-decimal ml-4 mt-1 space-y-1">
+                                            <li>Open MetaMask Settings → Networks → Anvil Local</li>
+                                            <li>Change RPC URL to: <code className="bg-red-100 dark:bg-red-900/40 px-1 py-0.5 rounded">http://{typeof window !== 'undefined' ? window.location.hostname : '127.0.0.1'}:8545</code></li>
+                                            <li>Save and Refresh this page</li>
+                                            <li>Remove {selectedToken.symbol} from MetaMask and add it again</li>
+                                        </ol>
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
             )}
 
@@ -636,9 +671,34 @@ export function DynamicPaymentWidget({
                             <h4 className="font-semibold text-blue-800 dark:text-blue-200 mb-1">
                                 Add {selectedToken.symbol} to Wallet
                             </h4>
-                            <p className="text-sm text-blue-700 dark:text-blue-300 mb-3">
+                            <p className="text-sm text-blue-700 dark:text-blue-300 mb-2">
                                 First, add {selectedToken.symbol} token to your wallet to view your balance and enable payments.
                             </p>
+                            {/* Show on-chain balance */}
+                            {(publicBalance || balanceData) && (
+                                <div className="mb-3">
+                                    <p className="text-sm text-green-700 dark:text-green-300 font-medium">
+                                        ✅ On-chain balance: {publicBalance || balanceData?.formatted} {selectedToken.symbol}
+                                    </p>
+
+                                    {/* Show funding help if balance is 0 */}
+                                    {((publicBalance && parseFloat(publicBalance) === 0) || (!publicBalance && balanceData && parseFloat(balanceData.formatted) === 0)) && (
+                                        <div className="mt-2 text-xs bg-yellow-50 dark:bg-yellow-900/10 p-2 rounded border border-yellow-200 dark:border-yellow-800 text-yellow-800 dark:text-yellow-200">
+                                            <strong>Need test tokens?</strong> Run this in your terminal:
+                                            <code className="block mt-1 bg-white dark:bg-black/20 p-1 rounded select-all">
+                                                bun fund:wallet {address}
+                                            </code>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Warning tip if mismatch */}
+                            {publicBalance && balanceData && parseFloat(publicBalance) > 0 && parseFloat(balanceData.formatted) === 0 && (
+                                <p className="text-xs text-blue-600 dark:text-blue-400 mb-3">
+                                    💡 MetaMask shows "0" but you have funds. This is a connection issue. See the red box below for the fix.
+                                </p>
+                            )}
                             <button
                                 onClick={() => addToken(selectedToken.symbol)}
                                 disabled={isAddingToken}
@@ -662,6 +722,54 @@ export function DynamicPaymentWidget({
                     </div>
                 </div>
             )}
+
+            {/* Local Anvil Diagnostics - ALWAYS SHOW if on local chain */}
+            {chainId === 31337 && selectedToken && (
+                <div className="mb-6 space-y-3">
+                    {/* On-chain balance display */}
+                    {(publicBalance || balanceData) && (
+                        <div className="p-3 bg-gray-50 dark:bg-white/5 rounded-lg border border-gray-200 dark:border-white/10">
+                            <p className="text-sm font-medium flex items-center gap-2">
+                                <span>🔍 Diagnostics:</span>
+                                <span className={cn(
+                                    publicBalance && parseFloat(publicBalance) > 0 ? "text-green-600" : "text-gray-600"
+                                )}>
+                                    Real On-Chain Balance: {publicBalance || '...'} {selectedToken.symbol}
+                                </span>
+                            </p>
+                            <p className="text-xs text-gray-500 mt-1">
+                                MetaMask sees: {balanceData?.formatted || '0'} {selectedToken.symbol}
+                            </p>
+                        </div>
+                    )}
+
+                    {/* Warning tip if mismatch */}
+                    {publicBalance && balanceData && parseFloat(publicBalance) > 0 && parseFloat(balanceData.formatted) === 0 && (
+                        <div className="p-4 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
+                            <div className="flex items-start gap-3">
+                                <AlertTriangle className="w-5 h-5 text-red-600 mt-0.5" />
+                                <div>
+                                    <h5 className="font-bold text-red-800 dark:text-red-200 text-sm">RPC Connection Issue Detected</h5>
+                                    <p className="text-sm text-red-700 dark:text-red-300 mt-1">
+                                        Your actual balance is <strong>{publicBalance} {selectedToken.symbol}</strong>, but MetaMask shows {balanceData.formatted}.
+                                    </p>
+                                    <p className="text-sm text-red-700 dark:text-red-300 mt-2">
+                                        <strong>To fix this:</strong>
+                                        <ol className="list-decimal ml-4 mt-1 space-y-1">
+                                            <li>Open MetaMask Settings → Networks → Anvil Local</li>
+                                            <li>Change RPC URL to: <code className="bg-red-100 dark:bg-red-900/40 px-1 py-0.5 rounded">http://{typeof window !== 'undefined' ? window.location.hostname : '127.0.0.1'}:8545</code></li>
+                                            <li>Save and Refresh this page</li>
+                                            <li>Remove {selectedToken.symbol} from MetaMask and add it again</li>
+                                        </ol>
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
+
+
 
             {/* Pay Button */}
             {!isConnected ? (

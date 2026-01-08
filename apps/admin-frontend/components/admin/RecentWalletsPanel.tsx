@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useSimpleFetch } from '@/hooks/useSimpleFetch';
+import { logger } from '@/lib/logger';
 
 interface WalletConnection {
   wallet_address: string;
@@ -66,12 +67,10 @@ export function RecentWalletsPanel() {
 
     try {
       // Try to get 30 days of data to show more meaningful results
-      const response = await fetchSimple('/api/admin/web3/recent-wallets?limit=10&days=30');
-      const result = await response.json();
+      const result = await fetchSimple<RecentWalletsData>('/api/admin/web3/recent-wallets?limit=10&days=30');
       setData(result);
     } catch (err) {
-      // eslint-disable-next-line no-console
-      console.error('Error fetching recent wallets:', err);
+      logger.error('Error fetching recent wallets', { error: err instanceof Error ? err.message : String(err) });
       setError(
         err instanceof Error ? err.message : 'Failed to load recent wallets'
       );

@@ -521,10 +521,7 @@ impl UnifiedWeb3AuthService {
             "New wallet event emitted for admin notification"
         );
 
-        // TODO: In future phases, integrate with:
-        // - SSE broadcasting to admin dashboard
-        // - Webhook delivery to external systems
-        // - Real-time notification queue
+        // Future enhancement: SSE broadcasting, webhook delivery, real-time notification queue
     }
 
     /// Get manual permissions from normalized tables

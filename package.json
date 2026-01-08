@@ -17,6 +17,7 @@
     "dev:anvil": "bun scripts/anvil-proxy.ts",
     "setup:local": "chmod +x apps/contracts/scripts/setup-local.sh && ./apps/contracts/scripts/setup-local.sh",
     "fund:tokens": "chmod +x apps/contracts/scripts/fund-tokens.sh && ./apps/contracts/scripts/fund-tokens.sh",
+    "fund:wallet": "chmod +x scripts/dev/fund-wallet.sh && ./scripts/dev/fund-wallet.sh",
     "dev:up": "docker compose -f infrastructure/docker/docker-compose.yml up --build",
     "dev:down": "docker compose -f infrastructure/docker/docker-compose.yml down",
     "dev:logs": "docker compose -f infrastructure/docker/docker-compose.yml logs -f",

@@ -14,7 +14,7 @@ use crate::domain::developer_portal::{
     PermissionGroupInfo,
 };
 use crate::prelude::*;
-use crate::schemas::primary::{api_keys, api_key_module_access, api_modules, api_key_permissions, groups};
+use crate::schemas::primary::{api_keys, api_key_module_access, api_key_permissions, api_modules};
 
 /// API Key Repository for database operations
 pub struct ApiKeyRepository {
@@ -104,6 +104,8 @@ impl ApiKeyRepository {
                     api_key_permissions::permission_group_id.eq(group_id),
                     api_key_permissions::granted_at.eq(&now),
                     api_key_permissions::granted_by.eq(&request.created_by),
+                    api_key_permissions::is_active.eq(true),
+                    api_key_permissions::metadata.eq(serde_json::json!({})),
                 ))
                 .execute(&mut conn)
                 .await
@@ -281,6 +283,8 @@ impl ApiKeyRepository {
         conn: &mut AsyncPgConnection,
         api_key_id: Uuid,
     ) -> AppResult<Vec<PermissionGroupInfo>> {
+        use crate::schemas::primary::{api_key_permissions, groups};
+
         #[derive(Queryable)]
         struct GroupRow {
             id: Uuid,
@@ -293,6 +297,7 @@ impl ApiKeyRepository {
         let rows = api_key_permissions::table
             .inner_join(groups::table.on(groups::id.eq(api_key_permissions::permission_group_id)))
             .filter(api_key_permissions::api_key_id.eq(&api_key_id))
+            .filter(api_key_permissions::is_active.eq(true))
             .select((
                 groups::id,
                 groups::name,

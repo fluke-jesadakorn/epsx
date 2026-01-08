@@ -120,7 +120,7 @@ impl CommandHandler<CreatePaymentCommand> for CreatePaymentCommandHandler {
         );
         
         // Create the payment aggregate
-        let payment = Payment::create(
+        let mut payment = Payment::create(
             command.wallet_address,
             command.amount,
             command.method,
@@ -129,17 +129,14 @@ impl CommandHandler<CreatePaymentCommand> for CreatePaymentCommandHandler {
             ApplicationError::business_logic(format!("Payment creation failed: {}", e))
         })?;
         
-        // TODO: Custom reference and metadata support not yet implemented in Payment aggregate
-        // Custom reference setting would need to be implemented in Payment domain logic
-        if let Some(_reference) = command.reference {
-            // payment.set_custom_reference(reference) - Method not yet implemented
-            tracing::warn!("Custom reference not implemented yet");
+        // Set custom reference if provided
+        if let Some(reference) = command.reference {
+            payment.metadata_mut().custom_reference = Some(reference);
         }
         
-        // Metadata addition would need to be implemented in Payment domain logic
-        for (_key, _value) in command.metadata {
-            // payment.add_metadata(key, value) - Method not yet implemented
-            tracing::warn!("Payment metadata addition not implemented yet");
+        // Set custom metadata if provided
+        for (key, value) in command.metadata {
+            payment.metadata_mut().custom_data.insert(key, value);
         }
         
         // For crypto payments, assign address

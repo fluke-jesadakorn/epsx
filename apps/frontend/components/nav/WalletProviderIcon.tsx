@@ -68,7 +68,7 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
   const [authRetryCount, setAuthRetryCount] = useState(0);
   const [lastAuthError, setLastAuthError] = useState<string | null>(null);
   const [currentTheme, setCurrentTheme] = useState<'light' | 'dark'>('light');
-  const { address, isConnected, connector } = useAccount();
+  const { address, isConnected, connector, status: accountStatus } = useAccount();
   const { disconnect } = useDisconnect();
   const { isInitialized } = useUnifiedWeb3();
   const { isAuthenticated, requestChallenge, authenticateWithWallet, logout } = useSharedAuth();
@@ -205,6 +205,20 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
         disabled
       >
         <Wallet className="h-4 w-4" />
+      </Button>
+    );
+  }
+
+  // Handle reconnecting/connecting states to prevent flash
+  if (accountStatus === 'reconnecting' || accountStatus === 'connecting') {
+    return (
+      <Button
+        variant="ghost"
+        size="icon"
+        className={`h-10 w-10 rounded-full bg-orange-50 text-orange-500 hover:bg-orange-100 dark:bg-slate-800 dark:text-orange-400 dark:hover:bg-slate-700 ${className}`}
+        disabled
+      >
+        <div className="h-4 w-4 animate-spin rounded-full border-2 border-orange-500 border-t-transparent" />
       </Button>
     );
   }

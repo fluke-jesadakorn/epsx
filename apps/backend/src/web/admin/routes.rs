@@ -110,12 +110,12 @@ use super::notification_handlers::{
   delete_admin_notification_handler,
 };
 // System settings handlers
-use super::system_settings_handlers::{
-  get_all_settings_handler,
-  get_settings_by_category_handler,
-  update_settings_handler,
-  reset_settings_handler,
-};
+// use super::system_settings_handlers::{
+//   get_all_settings_handler,
+//   get_settings_by_category_handler,
+//   update_settings_handler,
+//   reset_settings_handler,
+// };
 use crate::web::auth::AppState;
 
 pub fn create_admin_routes() -> Router<AppState> {
@@ -205,9 +205,7 @@ pub fn create_admin_routes() -> Router<AppState> {
     .route("/permissions/bulk/apply-template", post(bulk_apply_template))
     .route("/permissions/bulk/validate", post(bulk_validate))
 
-    // Admin-specific permission analytics (TODO: implement these functions)
-    // .route("/permissions/analytics", get(crate::web::admin::permissions::get_permission_analytics))
-    // .route("/permissions/audit", get(crate::web::admin::permissions::get_permission_audit_log))
+    // Admin-specific permission analytics - see /analytics/permissions endpoint
     // ============================================================================
     // CONSOLIDATED WALLET MANAGEMENT SYSTEM
     // Backend-centric wallet operations with comprehensive data and analytics
@@ -257,9 +255,12 @@ pub fn create_admin_routes() -> Router<AppState> {
     // ============================================================================
 
     // Settings routes (require admin:settings:* permissions)
+    // MOVED to unified_router.rs as public routes for development
+    /*
     .route("/settings", get(get_all_settings_handler).put(update_settings_handler))
     .route("/settings/reset", post(reset_settings_handler))
     .route("/settings/{category}", get(get_settings_by_category_handler))
+    */
 
     // ============================================================================
     // DEVELOPER PORTAL MANAGEMENT

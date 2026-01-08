@@ -38,7 +38,7 @@ impl Default for TransactionMonitorConfig {
             contract_address: std::env::var("PAYMENT_ESCROW_ADDRESS")
                 .ok()
                 .and_then(|addr| addr.parse::<H160>().ok())
-                .unwrap_or_else(|| H160::zero()),
+                .unwrap_or_else(H160::zero),
             min_confirmations: 1,
             poll_interval_secs: 5,
         }

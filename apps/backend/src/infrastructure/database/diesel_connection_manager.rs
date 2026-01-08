@@ -19,6 +19,16 @@ static GLOBAL_NOTIFICATIONS_POOL: OnceLock<Pool<AsyncPgConnection>> = OnceLock::
 /// Global Payments database pool (separate database for financial transactions)
 static GLOBAL_PAYMENTS_POOL: OnceLock<Pool<AsyncPgConnection>> = OnceLock::new();
 
+/// Health status for all database pools
+#[derive(Debug, serde::Serialize, utoipa::ToSchema)]
+pub struct AllPoolsHealth {
+    pub primary: bool,
+    pub analytics: bool,
+    pub notifications: bool,
+    pub payments: bool,
+    pub healthy: bool,
+}
+
 /// Serverless-optimized Diesel connection configuration
 #[derive(Clone, Debug)]
 pub struct DieselServerlessConfig {
@@ -229,9 +239,33 @@ impl DieselConnectionManager {
         }
     }
 
-    /// Health check for the Diesel connection pool
+    /// Health check for the Diesel connection pool (primary)
     pub async fn health_check() -> bool {
-        match Self::get_pool().await {
+        Self::check_pool(Self::get_pool().await).await
+    }
+
+    /// Comprehensive health check for all pools
+    pub async fn health_check_all() -> AllPoolsHealth {
+        let primary = Self::check_pool(Self::get_pool().await).await;
+        // Only check other pools if they are configured or initialized, 
+        // but for now we try to get them (which initializes/fallback) and check.
+        // Falls back to primary pool if not configured, so it effectively checks primary again if not split.
+        let analytics = Self::check_pool(Self::get_analytics_pool().await).await;
+        let notifications = Self::check_pool(Self::get_notifications_pool().await).await;
+        let payments = Self::check_pool(Self::get_payments_pool().await).await;
+
+        AllPoolsHealth {
+            primary,
+            analytics,
+            notifications,
+            payments,
+            healthy: primary && analytics && notifications && payments,
+        }
+    }
+
+    /// Helper to check a specific pool health
+    async fn check_pool(pool_result: Result<&'static Pool<AsyncPgConnection>>) -> bool {
+        match pool_result {
             Ok(pool) => {
                 use diesel::prelude::*;
                 use diesel::sql_types::Integer;
@@ -314,4 +348,9 @@ pub async fn get_payments_pool() -> Result<&'static Pool<AsyncPgConnection>> {
 /// Health check function for health endpoints
 pub async fn diesel_health_check() -> bool {
     DieselConnectionManager::health_check().await
+}
+
+/// Comprehensive health check for all databases
+pub async fn diesel_health_check_all() -> AllPoolsHealth {
+    DieselConnectionManager::health_check_all().await
 }

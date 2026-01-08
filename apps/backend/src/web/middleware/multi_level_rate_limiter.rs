@@ -360,9 +360,9 @@ impl PlanRateLimiter {
         entry.last_updated = now;
 
         // Check limits
-        let allowed = config.requests_per_minute.map_or(true, |l| entry.minute_count <= l)
-            && config.requests_per_hour.map_or(true, |l| entry.hour_count <= l)
-            && config.requests_per_day.map_or(true, |l| entry.day_count <= l);
+        let allowed = config.requests_per_minute.is_none_or(|l| entry.minute_count <= l)
+            && config.requests_per_hour.is_none_or(|l| entry.hour_count <= l)
+            && config.requests_per_day.is_none_or(|l| entry.day_count <= l);
 
         // Save updated entry
         if let Ok(json) = serde_json::to_string(&entry) {

@@ -5,8 +5,8 @@ use axum::{response::Json, extract::State};
 use serde_json::{json, Value};
 use utoipa::ToSchema;
 use std::sync::Arc;
-use diesel::prelude::*;
-use diesel_async::{AsyncPgConnection, RunQueryDsl, pooled_connection::deadpool::Pool};
+// use diesel::prelude::*;
+use diesel_async::{AsyncPgConnection, pooled_connection::deadpool::Pool};
 use crate::infrastructure::cache::Cache;
 
 /// Health state for health endpoint
@@ -28,7 +28,7 @@ pub struct HealthCheckResponse {
 
 #[derive(serde::Serialize, ToSchema)]
 pub struct ServiceStatuses {
-    pub postgres: ServiceStatus,
+    pub database: crate::infrastructure::database::AllPoolsHealth,
     pub redis: ServiceStatus,
 }
 
@@ -50,38 +50,10 @@ pub struct ServiceStatus {
 pub async fn health_check_handler(
     State(state): State<HealthState>,
 ) -> Json<Value> {
-    let pool = state.pool;
     let cache = state.cache;
 
-    // Check PostgreSQL
-    let postgres_start = std::time::Instant::now();
-    let postgres_status = match pool.get().await {
-        Ok(mut conn) => {
-            #[derive(QueryableByName)]
-            struct HealthCheck {
-                #[diesel(sql_type = diesel::sql_types::Integer)]
-                _check: i32,
-            }
-
-            match diesel::sql_query("SELECT 1 as _check")
-                .get_result::<HealthCheck>(&mut conn)
-                .await
-            {
-                Ok(_) => ServiceStatus {
-                    status: "connected".to_string(),
-                    latency_ms: Some(postgres_start.elapsed().as_millis() as u64),
-                },
-                Err(_) => ServiceStatus {
-                    status: "disconnected".to_string(),
-                    latency_ms: None,
-                },
-            }
-        },
-        Err(_) => ServiceStatus {
-            status: "disconnected".to_string(),
-            latency_ms: None,
-        },
-    };
+    // Check PostgreSQL (All Pools)
+    let db_health = crate::infrastructure::database::diesel_health_check_all().await;
 
     // Check Redis
     let redis_start = std::time::Instant::now();
@@ -97,9 +69,9 @@ pub async fn health_check_handler(
     };
 
     // Overall status
-    let overall_status = if postgres_status.status == "connected" && redis_status.status == "connected" {
+    let overall_status = if db_health.healthy && redis_status.status == "connected" {
         "healthy"
-    } else if postgres_status.status == "connected" || redis_status.status == "connected" {
+    } else if db_health.primary { // If at least primary DB is up
         "degraded"
     } else {
         "unhealthy"
@@ -111,7 +83,7 @@ pub async fn health_check_handler(
         "service": "epsx-backend",
         "version": "1.0.0",
         "services": {
-            "postgres": postgres_status,
+            "database": db_health,
             "redis": redis_status,
         }
     }))

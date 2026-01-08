@@ -553,3 +553,46 @@ pub async fn revoke_permission_handler(
         }
     }
 }
+
+/// Get user permissions (both legacy and group-based)
+#[utoipa::path(
+    get,
+    path = "/api/auth/web3/groups/permissions/{wallet_address}",
+    params(
+        ("wallet_address" = String, Path, description = "Wallet address to get permissions for")
+    ),
+    responses(
+        (status = 200, description = "User permissions retrieved", body = Vec<String>),
+        (status = 404, description = "User not found", body = Value),
+        (status = 500, description = "Internal server error")
+    ),
+    tag = "auth"
+)]
+pub async fn get_user_permissions_handler(
+    State(app_state): State<AppState>,
+    axum::extract::Path(wallet_address): axum::extract::Path<String>,
+) -> Result<Json<Vec<String>>, StatusCode> {
+    // Validate wallet address format briefly (basic check)
+    if !wallet_address.starts_with("0x") || wallet_address.len() != 42 {
+        warn!("Invalid wallet address format for permission check: {}", wallet_address);
+        return Err(StatusCode::BAD_REQUEST);
+    }
+
+    info!("Getting permissions for wallet: {}", wallet_address);
+
+    let web3_permission_service = match app_state.domain_container.get_web3_permission_adapter() {
+        Some(service) => service,
+        None => {
+            error!("Web3 permission service not available");
+            return Err(StatusCode::INTERNAL_SERVER_ERROR);
+        }
+    };
+
+    match web3_permission_service.get_user_permissions(&wallet_address).await {
+        Ok(permissions) => Ok(Json(permissions)),
+        Err(e) => {
+            error!("Failed to get user permissions: {}", e);
+            Err(StatusCode::INTERNAL_SERVER_ERROR)
+        }
+    }
+}

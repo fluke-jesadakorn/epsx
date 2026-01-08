@@ -30,10 +30,6 @@ pub struct PaymentDb {
     pub expires_at: Option<DateTime<Utc>>,
     pub completed_at: Option<DateTime<Utc>>,
     pub metadata: Option<serde_json::Value>,
-    // New monitoring columns
-    pub last_checked_at: Option<DateTime<Utc>>,
-    pub error_message: Option<String>,
-    pub network: Option<String>,
 }
 
 /// Diesel Insertable model for creating new payments

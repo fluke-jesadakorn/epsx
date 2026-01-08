@@ -13,4 +13,6 @@ pub use diesel_connection_manager::{
     get_notifications_pool,
     get_payments_pool,
     diesel_health_check,
+    diesel_health_check_all,
+    AllPoolsHealth,
 };

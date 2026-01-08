@@ -27,7 +27,7 @@ const routeConfig: Record<string, BreadcrumbItem> = {
   '/plans': { label: 'Plans', href: '/plans', icon: '💳' },
   '/plans/new': { label: 'New Plan', href: '/plans/new' },
   '/settings': { label: 'Settings', href: '/settings', icon: '⚙️' },
-  '/system': { label: 'System', href: '/system', icon: '🖥️' },
+  '/audit-log': { label: 'Audit Log', href: '/audit-log', icon: '📜' },
   '/bulk-permissions': { label: 'Bulk Permissions', href: '/bulk-permissions', icon: '⚡' },
   '/developer-portal': { label: 'Developer Portal', href: '/developer-portal', icon: '👨‍💻' },
   '/docs': { label: 'Documentation', href: '/docs', icon: '📚' },

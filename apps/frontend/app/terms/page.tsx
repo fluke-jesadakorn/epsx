@@ -23,9 +23,24 @@ function SubscribeForm() {
     },
   });
 
-  const handleSubmit = (_values: SubscribeFormData) => {
-    // TODO: Implement actual email storage
-    // Email will be stored: values.email
+  const handleSubmit = async (values: SubscribeFormData) => {
+    try {
+      const response = await fetch('/api/public/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: values.email }),
+      });
+
+      if (response.ok) {
+        form.reset();
+        alert('Successfully subscribed to updates!');
+      } else {
+        alert('Failed to subscribe. Please try again.');
+      }
+    } catch (error) {
+      console.error('Subscription error:', error);
+      alert('An error occurred. Please try again.');
+    }
   };
 
   return (
@@ -37,7 +52,7 @@ function SubscribeForm() {
           render={({ field }) => (
             <FormItem>
               <FormControl asChild>
-                <InputWithIcon 
+                <InputWithIcon
                   placeholder="Enter your email"
                   icon={
                     <svg
@@ -62,7 +77,7 @@ function SubscribeForm() {
           )}
         />
 
-        <Button 
+        <Button
           type="submit"
           className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-bold flex items-center gap-2"
         >

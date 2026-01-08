@@ -275,7 +275,7 @@ export default function DashboardPage() {
               stats: `${dashboardStats.totalWallets} wallets`
             },
             {
-              href: "/permissions",
+              href: "/group-and-permission",
               title: "🔐 Permissions",
               description: "Grant and manage access permissions",
               gradient: "from-green-400 to-emerald-500",
@@ -283,12 +283,12 @@ export default function DashboardPage() {
               stats: `${dashboardStats.totalPermissions} permissions`
             },
             {
-              href: "/remote-config",
-              title: "🎛️ Remote Config",
-              description: "Manage user settings and feature flags",
-              gradient: "from-teal-400 to-cyan-500",
-              bgGradient: "from-teal-400/20 via-cyan-400/20 to-teal-400/20",
-              stats: "Dynamic settings"
+              href: "/audit-log",
+              title: "📜 Audit Log",
+              description: "Track admin actions and changes",
+              gradient: "from-indigo-400 to-purple-500",
+              bgGradient: "from-indigo-400/20 via-purple-400/20 to-indigo-400/20",
+              stats: "View history"
             },
             {
               href: "/notifications",
@@ -310,8 +310,8 @@ export default function DashboardPage() {
               href: "/developer-portal",
               title: "⚡ Developer",
               description: "API documentation and developer tools",
-              gradient: "from-indigo-400 to-purple-500",
-              bgGradient: "from-indigo-400/20 via-purple-400/20 to-indigo-400/20",
+              gradient: "from-orange-400 to-amber-500",
+              bgGradient: "from-orange-400/20 via-amber-400/20 to-orange-400/20",
               stats: "API & Tools"
             }
           ].map((action) => (

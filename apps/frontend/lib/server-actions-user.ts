@@ -129,21 +129,119 @@ export async function getPaymentHistory() {
 }
 
 export async function checkFeatureAccess(feature: string) {
-  // TODO: Implement when backend is ready
-  return {
-    hasAccess: true,
-    reason: 'Access granted',
-    limits: undefined
-  };
+  try {
+    const cookieStore = await cookies();
+    let token = cookieStore.get('epsx.client_session')?.value;
+    if (!token) {
+      token = cookieStore.get('epsx.access')?.value;
+    }
+
+    if (!token) {
+      return {
+        hasAccess: false,
+        reason: 'Not authenticated',
+        limits: undefined
+      };
+    }
+
+    const client = createFrontendApiClient({
+      token,
+      serverSide: true
+    });
+
+    const response = await client.get<{
+      has_permission: boolean;
+      reason?: string;
+      limits?: { daily?: number; monthly?: number };
+    }>(`/api/permissions/check?permission=${encodeURIComponent(feature)}`, undefined, {
+      cache: 'no-store'
+    });
+
+    if (!response.success || !response.data) {
+      return {
+        hasAccess: false,
+        reason: response.error || 'Permission check failed',
+        limits: undefined
+      };
+    }
+
+    return {
+      hasAccess: response.data.has_permission,
+      reason: response.data.reason || (response.data.has_permission ? 'Access granted' : 'Access denied'),
+      limits: response.data.limits
+    };
+  } catch (error) {
+    console.error('[checkFeatureAccess] Error:', error);
+    return {
+      hasAccess: false,
+      reason: 'Error checking permissions',
+      limits: undefined
+    };
+  }
 }
 
 export async function getPaymentStatus(paymentId?: string) {
-  // TODO: Implement when backend is ready
-  return {
-    status: 'none',
-    activeSubscription: null,
-    paymentHistory: []
-  };
+  try {
+    const cookieStore = await cookies();
+    let token = cookieStore.get('epsx.client_session')?.value;
+    if (!token) {
+      token = cookieStore.get('epsx.access')?.value;
+    }
+
+    if (!token) {
+      return {
+        status: 'unauthenticated',
+        activeSubscription: null,
+        paymentHistory: []
+      };
+    }
+
+    const client = createFrontendApiClient({
+      token,
+      serverSide: true
+    });
+
+    // Get subscription status
+    const subResponse = await client.get<{
+      subscriptions: Array<{
+        id: string;
+        plan_name: string;
+        status: string;
+        expires_at: string;
+      }>;
+    }>('/api/subscriptions/my', undefined, { cache: 'no-store' });
+
+    const activeSubscription = subResponse.success && subResponse.data?.subscriptions
+      ? subResponse.data.subscriptions.find(s => s.status === 'active') || null
+      : null;
+
+    // Get specific payment if ID provided
+    if (paymentId) {
+      const paymentResponse = await client.get<{ payment: { status: string } }>(
+        `/api/payments/${paymentId}`,
+        undefined,
+        { cache: 'no-store' }
+      );
+      return {
+        status: paymentResponse.data?.payment?.status || 'unknown',
+        activeSubscription,
+        paymentHistory: []
+      };
+    }
+
+    return {
+      status: activeSubscription ? 'subscribed' : 'none',
+      activeSubscription,
+      paymentHistory: []
+    };
+  } catch (error) {
+    console.error('[getPaymentStatus] Error:', error);
+    return {
+      status: 'error',
+      activeSubscription: null,
+      paymentHistory: []
+    };
+  }
 }
 
 export async function getBatchStocks(symbols: string[]) {

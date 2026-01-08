@@ -139,6 +139,7 @@ impl Payment {
     pub fn method(&self) -> &PaymentMethod { &self.method }
     pub fn status(&self) -> &PaymentStatus { &self.status }
     pub fn metadata(&self) -> &PaymentMetadata { &self.metadata }
+    pub fn metadata_mut(&mut self) -> &mut PaymentMetadata { &mut self.metadata }
     pub fn crypto_details(&self) -> Option<&CryptoPaymentDetails> { self.crypto_details.as_ref() }
     pub fn fiat_details(&self) -> Option<&FiatPaymentDetails> { self.fiat_details.as_ref() }
 

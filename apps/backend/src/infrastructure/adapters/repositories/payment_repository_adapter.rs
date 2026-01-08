@@ -1,11 +1,11 @@
-/// Payment Repository Adapter (Infrastructure Layer)
-/// PostgreSQL implementation of PaymentRepositoryPort using Diesel
+//! Payment Repository Adapter (Infrastructure Layer)
+//! PostgreSQL implementation of PaymentRepositoryPort using Diesel
 
 use crate::prelude::*;
 use tracing::{info, error, debug, warn};
 use diesel::prelude::*;
 use diesel_async::{AsyncPgConnection, RunQueryDsl, pooled_connection::deadpool::Pool};
-use diesel::sql_types::*;
+
 use uuid::Uuid;
 use chrono::{DateTime, Utc};
 use bigdecimal::BigDecimal;
@@ -13,17 +13,15 @@ use std::str::FromStr;
 
 use crate::domain::payment::{
     Payment, PaymentId, PaymentStatus, PaymentAmount, TransactionHash,
-    CryptoAddress, PaymentReference, PaymentStats, TransactionRecord
+    PaymentReference, PaymentStats
 };
 use crate::domain::wallet_management::value_objects::WalletAddress;
 use crate::domain::payment::repository_ports::PaymentRepositoryPort;
 
 use crate::infrastructure::models::payment::{
-    PaymentDb, NewPaymentDb, UpdatePaymentDb, SubscriptionDb, NewSubscriptionDb,
-    UpdateSubscriptionDb, PaymentAuditLogDb, NewPaymentAuditLogDb, PaymentStatsDb,
-    CreatePaymentRequest, UpdatePaymentRequest, CreateSubscriptionRequest, UpdateSubscriptionRequest
+    PaymentDb, NewPaymentDb,
 };
-use crate::schemas::primary::{payments, subscriptions, payment_audit_log, groups};
+use crate::schemas::payments::payments;
 
 /// PostgreSQL implementation of PaymentRepositoryPort using Diesel
 #[derive(Clone)]
@@ -93,7 +91,7 @@ impl PaymentRepositoryAdapter {
             .map_err(|e| AppError::validation_error(format!("Invalid wallet address: {}", e)))?;
 
         // Create payment aggregate with nullable created_at handling
-        let created_at = payment_db.created_at.unwrap_or_else(|| chrono::Utc::now());
+        let created_at = payment_db.created_at.unwrap_or_else(chrono::Utc::now);
         Payment::new(
             payment_id,
             payment_reference,
@@ -103,7 +101,7 @@ impl PaymentRepositoryAdapter {
             transaction_hash,
             payment_db.plan_id.to_string(),
             created_at,
-            payment_db.metadata.clone(),
+            payment_db.metadata.clone().unwrap_or(serde_json::json!({})),
         )
         .map_err(|e| AppError::validation_error(format!("Failed to create payment aggregate: {}", e)))
     }

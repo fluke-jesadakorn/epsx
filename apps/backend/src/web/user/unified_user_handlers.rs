@@ -335,7 +335,7 @@ pub async fn get_user_access_overview(
     } else {
         // Simple logic: Use the name of the first group found
         // Ideally should have a priority system
-        groups.get(0).map(|g| g.name.clone()).unwrap_or("Standard User".to_string())
+        groups.as_slice().first().map(|g| g.name.clone()).unwrap_or("Standard User".to_string())
     };
 
     let overview_data = AccessOverviewData {

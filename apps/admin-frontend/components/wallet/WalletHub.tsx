@@ -24,6 +24,7 @@ import { useSharedAuth } from '@/shared/components/auth/Provider';
 
 import { BulkActionsBar } from './BulkActionsBar';
 import { DisableWalletModal, type DisableWalletData } from './DisableWalletModal';
+import { EditWalletMetadataModal } from './EditWalletMetadataModal';
 import { ReenableWalletModal, type ReenableWalletData } from './ReenableWalletModal';
 import { WalletCard } from './WalletCard';
 import { WalletPlatformFilter } from './WalletPlatformFilter';
@@ -84,6 +85,7 @@ export function WalletHub({ className }: WalletHubProps) {
     // Modals
     const [disableModalWallet, setDisableModalWallet] = useState<string | null>(null);
     const [reenableModalWallet, setReenableModalWallet] = useState<WalletData | null>(null);
+    const [editMetadataWallet, setEditMetadataWallet] = useState<WalletData | null>(null);
     const [isActionLoading, setIsActionLoading] = useState(false);
 
     // Load data from API
@@ -147,7 +149,7 @@ export function WalletHub({ className }: WalletHubProps) {
     };
 
 
-    // Disable/Enable handlers
+    // Disable/Enable/Edit handlers
     const handleDisableWallet = async (data: DisableWalletData) => {
         setIsActionLoading(true);
         try {
@@ -187,6 +189,11 @@ export function WalletHub({ className }: WalletHubProps) {
         } finally {
             setIsActionLoading(false);
         }
+    };
+
+    const handleMetadataUpdateSuccess = async () => {
+        setEditMetadataWallet(null);
+        await loadData();
     };
 
     // Auth check
@@ -328,6 +335,11 @@ export function WalletHub({ className }: WalletHubProps) {
                             onManage={() => handleViewWallet(wallet)}
                             onDisable={() => setDisableModalWallet(wallet.walletAddress)}
                             onEnable={() => setReenableModalWallet(wallet)}
+                            onEdit={() => setEditMetadataWallet(wallet)}
+                            onUpdateMetadata={async (label, note) => {
+                                await walletMgmt.updateWalletMetadata(wallet.walletAddress, { label, note });
+                                await loadData();
+                            }}
                         />
                     ))
                 )}
@@ -364,6 +376,18 @@ export function WalletHub({ className }: WalletHubProps) {
                     onClose={() => setReenableModalWallet(null)}
                     onConfirm={handleReenableWallet}
                     isLoading={isActionLoading}
+                />
+            )}
+
+            {/* Edit Metadata Modal */}
+            {editMetadataWallet && (
+                <EditWalletMetadataModal
+                    walletAddress={editMetadataWallet.walletAddress}
+                    currentLabel={editMetadataWallet.label}
+                    currentNote={editMetadataWallet.note}
+                    isOpen={true}
+                    onClose={() => setEditMetadataWallet(null)}
+                    onSuccess={handleMetadataUpdateSuccess}
                 />
             )}
         </div>

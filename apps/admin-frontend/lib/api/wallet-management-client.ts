@@ -402,7 +402,7 @@ export const walletMgmt = {
         label?: string | null;
         note?: string | null;
     }): Promise<void> {
-        await adminApiClient.patch(`/api/admin/wallets/${walletAddress}`, {
+        await adminApiClient.put(`/api/admin/wallets/${walletAddress}`, {
             metadata: {
                 label: data.label ?? undefined,
                 note: data.note ?? undefined,

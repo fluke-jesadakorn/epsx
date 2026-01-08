@@ -65,13 +65,16 @@ impl WalletUserRepositoryPort for WalletUserRepositoryAdapter {
                 .with_component("wallet_user_repository")
                 .with_operation("find_by_wallet"))?;
 
+use diesel::SelectableHelper;
+
         // Diesel query: case-insensitive wallet address lookup
         let db_user = wallet_users::table
             .filter(sql::<diesel::sql_types::Bool>(&format!(
                 "LOWER(wallet_address) = LOWER('{}')",
                 wallet_address.as_str()
             )))
-            .first::<WalletUserDb>(&mut conn)
+            .select(WalletUserDb::as_select())
+            .first(&mut conn)
             .await
             .optional()
             .map_err(|e| {
@@ -140,7 +143,8 @@ impl WalletUserRepositoryPort for WalletUserRepositoryAdapter {
                     .join(",")
             )))
             .order(wallet_users::created_at.desc())
-            .load::<WalletUserDb>(&mut conn)
+            .select(WalletUserDb::as_select())
+            .load(&mut conn)
             .await
             .map_err(|e| {
                 error!("Failed to find wallet users by addresses: {}", e);
@@ -902,10 +906,92 @@ impl WalletUserAnalyticsPort for WalletUserRepositoryAdapter {
         info!("Generated Web3 analytics: {} permission types, {} chains",
               permission_type_distribution.len(), chain_distribution.len());
 
+        // Query wallet metadata for contract interactions (best effort without external indexer)
+        // In production, this would integrate with Alchemy, Moralis, or similar blockchain indexers
+        #[derive(diesel::QueryableByName)]
+        struct ContractRow {
+            #[diesel(sql_type = diesel::sql_types::Text)]
+            contract_address: String,
+            #[diesel(sql_type = diesel::sql_types::BigInt)]
+            user_count: i64,
+        }
+
+        // NFT contracts from wallet metadata
+        let nft_rows: Vec<ContractRow> = diesel::sql_query(
+            r#"
+            SELECT
+                jsonb_array_elements_text(wallet_metadata->'verified_networks') as contract_address,
+                COUNT(DISTINCT wallet_address) as user_count
+            FROM wallet_users
+            WHERE wallet_metadata ? 'nft_permissions_cache'
+              AND wallet_metadata->'nft_permissions_cache' IS NOT NULL
+              AND is_active = true
+            GROUP BY contract_address
+            ORDER BY user_count DESC
+            LIMIT 10
+            "#
+        )
+        .load::<ContractRow>(&mut conn)
+        .await
+        .unwrap_or_default();
+
+        let top_nft_contracts: Vec<(String, u64)> = nft_rows.into_iter()
+            .map(|row| (row.contract_address, row.user_count as u64))
+            .collect();
+
+        // Token contracts from wallet metadata
+        let token_rows: Vec<ContractRow> = diesel::sql_query(
+            r#"
+            SELECT
+                jsonb_array_elements_text(wallet_metadata->'verified_networks') as contract_address,
+                COUNT(DISTINCT wallet_address) as user_count
+            FROM wallet_users
+            WHERE wallet_metadata ? 'token_permissions_cache'
+              AND wallet_metadata->'token_permissions_cache' IS NOT NULL
+              AND is_active = true
+            GROUP BY contract_address
+            ORDER BY user_count DESC
+            LIMIT 10
+            "#
+        )
+        .load::<ContractRow>(&mut conn)
+        .await
+        .unwrap_or_default();
+
+        let top_token_contracts: Vec<(String, u64)> = token_rows.into_iter()
+            .map(|row| (row.contract_address, row.user_count as u64))
+            .collect();
+
+        // DAO contracts from wallet metadata
+        let dao_rows: Vec<ContractRow> = diesel::sql_query(
+            r#"
+            SELECT
+                jsonb_array_elements_text(wallet_metadata->'dao_memberships') as contract_address,
+                COUNT(DISTINCT wallet_address) as user_count
+            FROM wallet_users
+            WHERE wallet_metadata ? 'dao_memberships'
+              AND jsonb_array_length(wallet_metadata->'dao_memberships') > 0
+              AND is_active = true
+            GROUP BY contract_address
+            ORDER BY user_count DESC
+            LIMIT 10
+            "#
+        )
+        .load::<ContractRow>(&mut conn)
+        .await
+        .unwrap_or_default();
+
+        let top_dao_contracts: Vec<(String, u64)> = dao_rows.into_iter()
+            .map(|row| (row.contract_address, row.user_count as u64))
+            .collect();
+
+        info!("Web3 analytics: {} NFT contracts, {} token contracts, {} DAOs from wallet metadata",
+              top_nft_contracts.len(), top_token_contracts.len(), top_dao_contracts.len());
+
         Ok(Web3Analytics {
-            top_nft_contracts: Vec::new(), // TODO: Requires blockchain indexer integration
-            top_token_contracts: Vec::new(), // TODO: Requires blockchain indexer integration
-            top_dao_contracts: Vec::new(), // TODO: Requires blockchain indexer integration
+            top_nft_contracts,
+            top_token_contracts,
+            top_dao_contracts,
             chain_distribution,
             permission_type_distribution,
         })

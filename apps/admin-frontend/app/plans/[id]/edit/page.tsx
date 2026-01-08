@@ -631,7 +631,7 @@ export default function EditPlanPage() {
               Note: API limits configured above are automatically handled and shouldn't be added here manually.
             </p>
             <PermissionTransferList
-              available={availablePermissions.filter(p =>
+              available={(availablePermissions || []).filter(p =>
                 !p.startsWith('epsx:api:calls:') &&
                 !p.startsWith('epsx:rankings:view:') &&
                 !p.startsWith('epsx:analytics:queries:') &&
@@ -641,7 +641,7 @@ export default function EditPlanPage() {
               onChange={setCustomPermissions}
               isLoading={loadingPermissions}
               systemPermissions={new Set(
-                availablePermissions.filter(p => p.startsWith('system:') || p.startsWith('admin:'))
+                (availablePermissions || []).filter(p => p.startsWith('system:') || p.startsWith('admin:'))
               )}
             />
           </div>

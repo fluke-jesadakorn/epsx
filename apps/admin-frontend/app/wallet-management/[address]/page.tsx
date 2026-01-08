@@ -4,7 +4,7 @@
  */
 'use client';
 
-import { ArrowLeft, Clock, Copy, ExternalLink, Package, RefreshCw } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Clock, Copy, Edit, ExternalLink, Loader2, Package, RefreshCw, Save } from 'lucide-react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
@@ -12,7 +12,10 @@ import { toast } from 'sonner';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Textarea } from '@/components/ui/textarea';
 import { DisableWalletModal, type DisableWalletData } from '@/components/wallet/DisableWalletModal';
 import { ReenableWalletModal, type ReenableWalletData } from '@/components/wallet/ReenableWalletModal';
 import { WalletAccessManager } from '@/components/wallet/WalletAccessManager';
@@ -80,6 +83,11 @@ export default function WalletDetailPage() {
     const [activityEvents, setActivityEvents] = useState<WalletActivityEvent[]>([]);
     const [copied, setCopied] = useState(false);
 
+    // Metadata Editing State
+    const [isEditingMetadata, setIsEditingMetadata] = useState(false);
+    const [metadataForm, setMetadataForm] = useState({ label: '', note: '' });
+    const [isSavingMetadata, setIsSavingMetadata] = useState(false);
+
     // Modals
     const [showDisableModal, setShowDisableModal] = useState(false);
     const [showReenableModal, setShowReenableModal] = useState(false);
@@ -97,6 +105,14 @@ export default function WalletDetailPage() {
             ]);
             setWallet(walletData);
             setActivityEvents(events);
+
+            // Initial metadata form state
+            if (walletData) {
+                setMetadataForm({
+                    label: walletData.label || '',
+                    note: walletData.note || '',
+                });
+            }
 
         } catch (err) {
             console.error('Failed to load wallet:', err);
@@ -122,6 +138,46 @@ export default function WalletDetailPage() {
         setTimeout(() => setCopied(false), 2000);
     };
 
+    const handleSaveMetadata = async () => {
+        if (!wallet) return;
+
+        setIsSavingMetadata(true);
+        try {
+            await walletMgmt.updateWalletMetadata(wallet.walletAddress, {
+                label: metadataForm.label || null,
+                note: metadataForm.note || null,
+            });
+
+            toast.success('Wallet metadata updated');
+            setIsEditingMetadata(false);
+            await loadWallet();
+        } catch (err) {
+            console.error('Failed to update metadata:', err);
+            toast.error('Failed to save changes');
+        } finally {
+            setIsSavingMetadata(false);
+        }
+    };
+
+    const startEditing = () => {
+        if (wallet) {
+            setMetadataForm({
+                label: wallet.label || '',
+                note: wallet.note || '',
+            });
+            setIsEditingMetadata(true);
+        }
+    };
+
+    const cancelEditing = () => {
+        setIsEditingMetadata(false);
+        if (wallet) {
+            setMetadataForm({
+                label: wallet.label || '',
+                note: wallet.note || '',
+            });
+        }
+    };
 
 
     const handleDisableWallet = async (data: DisableWalletData) => {
@@ -392,37 +448,132 @@ export default function WalletDetailPage() {
                     onSaveComplete={loadWallet}
                 />
 
-                {/* Quick Actions */}
-                <div className="rounded-xl bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-gray-200 dark:border-gray-700 p-5">
-                    <h3 className="font-semibold text-gray-900 dark:text-white mb-4">
-                        Quick Actions
-                    </h3>
-                    <div className="flex flex-wrap gap-3">
-                        {isDisabled ? (
-                            <Button
-                                variant="outline"
-                                onClick={() => setShowReenableModal(true)}
-                                className="border-green-300 text-green-700 hover:bg-green-50 dark:border-green-700 dark:text-green-400 dark:hover:bg-green-900/20"
-                            >
-                                🔓 Re-enable Access
-                            </Button>
-                        ) : (
-                            <Button
-                                variant="outline"
-                                onClick={() => setShowDisableModal(true)}
-                                className="border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-400 dark:hover:bg-amber-900/20"
-                            >
-                                ⚠️ Disable Wallet
-                            </Button>
+                {/* Quick Actions & Metadata */}
+                <div className="rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-6 flex items-center justify-between">
+                    <div className="flex flex-col gap-1">
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                            Quick Actions & Metadata
+                        </h3>
+
+                        {/* Metadata Display */}
+                        {!isEditingMetadata && (
+                            <div className="flex items-center gap-4 mt-1">
+                                <div className="flex items-center gap-3 bg-gray-50 dark:bg-gray-900/50 rounded-full px-4 py-1.5 border border-gray-100 dark:border-gray-800">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-sm text-gray-500 font-medium">Label</span>
+                                        {wallet.label ? (
+                                            <span className="px-2 py-0.5 bg-white dark:bg-gray-800 rounded-full text-sm border border-gray-200 dark:border-gray-700 shadow-sm">
+                                                {wallet.label}
+                                            </span>
+                                        ) : (
+                                            <span className="text-sm text-gray-400 italic">None</span>
+                                        )}
+                                    </div>
+                                    <div className="w-px h-4 bg-gray-300 dark:bg-gray-700" />
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-sm text-gray-500 font-medium">Note</span>
+                                        <span className="text-sm text-gray-700 dark:text-gray-300 max-w-[300px] truncate">
+                                            {wallet.note || <span className="text-gray-400 italic">No notes</span>}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
                         )}
-                        <Button
-                            variant="outline"
-                            onClick={() => window.open(`https://bscscan.com/address/${wallet.walletAddress}`, '_blank')}
-                        >
-                            <ExternalLink className="h-4 w-4 mr-2" />
-                            View on BSCScan
-                        </Button>
+
+                        {/* Inline Metadata Editor */}
+                        {isEditingMetadata && (
+                            <div className="mt-2 bg-gray-50 dark:bg-gray-900/40 p-4 rounded-lg border border-gray-200 dark:border-gray-700 space-y-4 animate-in fade-in slide-in-from-top-2 w-full max-w-2xl">
+                                <div className="space-y-2">
+                                    <Label htmlFor="edit-label">Wallet Label</Label>
+                                    <Input
+                                        id="edit-label"
+                                        placeholder="e.g. VIP, Whale (max 20 chars)"
+                                        value={metadataForm.label}
+                                        onChange={(e) => setMetadataForm(prev => ({ ...prev, label: e.target.value.slice(0, 20) }))}
+                                        className="bg-white dark:bg-gray-800"
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="edit-note">Internal Note</Label>
+                                    <Textarea
+                                        id="edit-note"
+                                        placeholder="Add details about this wallet..."
+                                        value={metadataForm.note}
+                                        onChange={(e) => setMetadataForm(prev => ({ ...prev, note: e.target.value.slice(0, 500) }))}
+                                        className="bg-white dark:bg-gray-800 resize-none h-24"
+                                    />
+                                    <p className="text-xs text-right text-gray-500">
+                                        {metadataForm.note.length}/500
+                                    </p>
+                                </div>
+                                <div className="flex justify-end gap-2 pt-2">
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={cancelEditing}
+                                        disabled={isSavingMetadata}
+                                        className="h-8"
+                                    >
+                                        Cancel
+                                    </Button>
+                                    <Button
+                                        size="sm"
+                                        onClick={handleSaveMetadata}
+                                        disabled={isSavingMetadata}
+                                        className="h-8 gap-2"
+                                    >
+                                        {isSavingMetadata ? (
+                                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                        ) : (
+                                            <Save className="h-3.5 w-3.5" />
+                                        )}
+                                        Save Changes
+                                    </Button>
+                                </div>
+                            </div>
+                        )}
                     </div>
+
+                    {!isEditingMetadata && (
+                        <div className="flex items-center gap-3">
+                            <Button
+                                variant="outline"
+                                onClick={startEditing}
+                                className="h-10 px-4 border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-200"
+                            >
+                                <Edit className="h-4 w-4 mr-2 text-blue-500" />
+                                Edit Label/Note
+                            </Button>
+
+                            {isDisabled ? (
+                                <Button
+                                    variant="outline"
+                                    onClick={() => setShowReenableModal(true)}
+                                    className="h-10 px-4 border-green-200 dark:border-green-800 hover:bg-green-50 dark:hover:bg-green-900/20 text-green-700 dark:text-green-400"
+                                >
+                                    🔓 Re-enable Wallet
+                                </Button>
+                            ) : (
+                                <Button
+                                    variant="outline"
+                                    onClick={() => setShowDisableModal(true)}
+                                    className="h-10 px-4 border-amber-200 dark:border-amber-800 hover:bg-amber-50 dark:hover:bg-amber-900/20 text-amber-700 dark:text-amber-400"
+                                >
+                                    <AlertTriangle className="h-4 w-4 mr-2" />
+                                    Disable Wallet
+                                </Button>
+                            )}
+
+                            <Button
+                                variant="outline"
+                                onClick={() => window.open(`https://bscscan.com/address/${wallet.walletAddress}`, '_blank')}
+                                className="h-10 px-4 border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-200"
+                            >
+                                <ExternalLink className="h-4 w-4 mr-2" />
+                                View on BSCScan
+                            </Button>
+                        </div>
+                    )}
                 </div>
 
                 {/* Activity History */}

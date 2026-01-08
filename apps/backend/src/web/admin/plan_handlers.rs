@@ -323,6 +323,7 @@ pub async fn list_plans_handler(
     use diesel::prelude::*;
     use diesel_async::RunQueryDsl;
     use crate::schemas::payments::subscriptions;
+    use crate::infrastructure::database::get_payments_pool;
 
     // Get plans from database instead of hardcoded data
     let db_plans = match app_state.group_repo.get_subscription_plans().await {
@@ -333,16 +334,15 @@ pub async fn list_plans_handler(
         }
     };
 
-    // Get subscriber counts for all plans - subscriptions table is in PAYMENTS database
-    use crate::infrastructure::database::get_payments_pool;
+    // Get payments database pool
     let payments_pool = get_payments_pool().await.map_err(|err| {
-        tracing::error!(error = %err, "Failed to get payments database pool for subscriber count");
+        tracing::error!(error = %err, "Failed to get payments database pool");
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
     let mut conn = match payments_pool.get().await {
         Ok(c) => c,
         Err(err) => {
-            tracing::error!(error = %err, "Failed to get database connection for subscriber count");
+            tracing::error!(error = %err, "Failed to get database connection");
             return Err(StatusCode::INTERNAL_SERVER_ERROR);
         }
     };
@@ -356,8 +356,41 @@ pub async fn list_plans_handler(
         .await
         .unwrap_or_default();
 
-    // Create a map for quick lookup
+    // Create a map for quick subscriber lookup
     let count_map: std::collections::HashMap<Uuid, i64> = subscriber_counts.into_iter().collect();
+
+    // Query revenue per plan_id (last 30 days)
+    let thirty_days_ago = Utc::now() - chrono::Duration::days(30);
+    
+    // Define a struct to hold the query results
+    #[derive(QueryableByName)]
+    struct RevenueRow {
+        #[diesel(sql_type = diesel::sql_types::Uuid)]
+        plan_id: Uuid,
+        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Numeric>)]
+        revenue: Option<bigdecimal::BigDecimal>,
+    }
+
+    // Using raw SQL for aggregation as it's cleaner for this sum operation with filter
+    let revenue_query = r#"
+        SELECT plan_id, SUM(amount) as revenue
+        FROM payments
+        WHERE status IN ('completed', 'confirmed')
+        AND created_at >= $1
+        GROUP BY plan_id
+    "#;
+
+    let revenue_stats: Vec<RevenueRow> = diesel::sql_query(revenue_query)
+        .bind::<diesel::sql_types::Timestamptz, _>(thirty_days_ago)
+        .load(&mut conn)
+        .await
+        .unwrap_or_default();
+
+    // Create a map for quick revenue lookup
+    let revenue_map: std::collections::HashMap<Uuid, bigdecimal::BigDecimal> = revenue_stats
+        .into_iter()
+        .map(|row| (row.plan_id, row.revenue.unwrap_or_else(|| bigdecimal::BigDecimal::from(0))))
+        .collect();
 
     // Convert database plans to admin format (with additional fields for admin UI)
     let plans: Vec<serde_json::Value> = db_plans.into_iter().map(|plan| {
@@ -366,6 +399,10 @@ pub async fn list_plans_handler(
         // Get subscriber count from map
         let subscriber_count = count_map.get(&plan.id).copied().unwrap_or(0);
 
+        // Get revenue from map
+        let revenue = revenue_map.get(&plan.id).cloned().unwrap_or_else(|| bigdecimal::BigDecimal::from(0));
+        let revenue_decimal = Decimal::from_str(&revenue.to_string()).unwrap_or(Decimal::ZERO);
+
         // Extract permissions array from JSONB
         let permissions = plan.permissions().as_array()
             .map(|arr| arr.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect::<Vec<String>>())
@@ -373,12 +410,6 @@ pub async fn list_plans_handler(
 
         // Generate group type from permissions (for backward compatibility)
         let group_type = derive_group_from_permissions(&permissions);
-
-        // Extract metadata values
-        let target_audience = plan.group_metadata.get("target_audience")
-            .and_then(|v| v.as_str())
-            .unwrap_or("web_users")
-            .to_string();
 
         // Get price as string
         let price_str = plan.price.as_ref()
@@ -424,7 +455,6 @@ pub async fn list_plans_handler(
             "promotion_status": format!("{:?}", promotion_status).to_lowercase(),
             "promotion_discount": promotion_discount,
             "currency": plan.currency.unwrap_or_else(|| "USD".to_string()),
-            "target_audience": target_audience,
             "billing_model": plan.billing_cycle.unwrap_or_else(|| "pay_per_use".to_string()),
             "group_type": group_type,
             "permissions": permissions,
@@ -433,7 +463,7 @@ pub async fn list_plans_handler(
             "created_at": plan.created_at.to_rfc3339(),
             "updated_at": plan.updated_at.to_rfc3339(),
             "subscriber_count": subscriber_count,
-            "revenue_last_30_days": "0.00"
+            "revenue_last_30_days": revenue_decimal.to_string()
         })
     }).collect();
 
@@ -456,6 +486,9 @@ pub async fn get_plan_handler(
     Path(plan_id_str): Path<String>,
 ) -> Result<JsonResponse<serde_json::Value>, StatusCode> {
     use crate::domain::subscription_management::Promotion;
+    use diesel::prelude::*;
+    use diesel_async::RunQueryDsl;
+    use crate::infrastructure::database::get_payments_pool;
 
     // Parse plan ID as UUID (new format) or handle legacy integer IDs
     let plan_uuid = match Uuid::parse_str(&plan_id_str) {
@@ -471,7 +504,7 @@ pub async fn get_plan_handler(
                 }
             };
 
-            if let Some(plan) = db_plans.first() {
+            if let Some(plan) = db_plans.as_slice().first() {
                 plan.id
             } else {
                 return Err(StatusCode::NOT_FOUND);
@@ -489,6 +522,50 @@ pub async fn get_plan_handler(
         }
     };
 
+    // Get payments database pool for analytics
+    let payments_pool = get_payments_pool().await.map_err(|err| {
+        tracing::error!(error = %err, "Failed to get payments database pool");
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+    let mut conn = match payments_pool.get().await {
+        Ok(c) => c,
+        Err(err) => {
+            tracing::error!(error = %err, "Failed to get database connection");
+            return Err(StatusCode::INTERNAL_SERVER_ERROR);
+        }
+    };
+
+    // Calculate revenue last 30 days
+    let thirty_days_ago = Utc::now() - chrono::Duration::days(30);
+
+    #[derive(QueryableByName)]
+    struct RevenueSum {
+        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Numeric>)]
+        revenue: Option<bigdecimal::BigDecimal>,
+    }
+
+    let revenue_query = r#"
+        SELECT SUM(amount) as revenue
+        FROM payments
+        WHERE plan_id = $1
+        AND status IN ('completed', 'confirmed')
+        AND created_at >= $2
+    "#;
+
+    let revenue_result: Option<RevenueSum> = diesel::sql_query(revenue_query)
+        .bind::<diesel::sql_types::Uuid, _>(plan_uuid)
+        .bind::<diesel::sql_types::Timestamptz, _>(thirty_days_ago)
+        .get_result(&mut conn)
+        .await
+        .optional()
+        .unwrap_or(None);
+
+    let revenue = revenue_result
+        .and_then(|r| r.revenue)
+        .unwrap_or_else(|| bigdecimal::BigDecimal::from(0));
+    
+    let revenue_decimal = Decimal::from_str(&revenue.to_string()).unwrap_or(Decimal::ZERO);
+
     // Extract permissions array from JSONB
     let permissions = plan.permissions().as_array()
         .map(|arr| arr.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect::<Vec<String>>())
@@ -496,12 +573,6 @@ pub async fn get_plan_handler(
 
     // Generate group type from permissions
     let group_type = derive_group_from_permissions(&permissions);
-
-    // Extract metadata values
-    let target_audience = plan.group_metadata.get("target_audience")
-        .and_then(|v| v.as_str())
-        .unwrap_or("web_users")
-        .to_string();
 
     // Convert price to Decimal
     let price_decimal = plan.price.as_ref()
@@ -537,7 +608,6 @@ pub async fn get_plan_handler(
         "promotion_status": format!("{:?}", promotion_status).to_lowercase(),
         "promotion_discount": promotion_discount,
         "currency": plan.currency.unwrap_or_else(|| "USD".to_string()),
-        "target_audience": target_audience,
         "billing_model": plan.billing_cycle.unwrap_or_else(|| "pay_per_use".to_string()),
         "group_type": group_type,
         "is_active": plan.is_active.unwrap_or(true),
@@ -546,7 +616,7 @@ pub async fn get_plan_handler(
         "created_at": plan.created_at.to_rfc3339(),
         "updated_at": plan.updated_at.to_rfc3339(),
         "subscriber_count": 0,
-        "revenue_last_30_days": "0.00",
+        "revenue_last_30_days": revenue_decimal.to_string(),
     });
 
     Ok(JsonResponse(plan_response))

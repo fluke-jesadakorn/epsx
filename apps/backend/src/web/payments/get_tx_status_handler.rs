@@ -182,13 +182,13 @@ pub async fn get_transaction_status_handler(
                     status: payment.status.clone(),
                     confirmations: payment.confirmations.unwrap_or(0),
                     block_number: payment.block_number,
-                    error_message: payment.error_message,
+                    error_message: None,
                     payment_reference: Some(payment.payment_reference),
                     plan_name,
                     amount,
                     currency: Some(payment.currency),
                     completed_at: payment.completed_at,
-                    last_checked_at: payment.last_checked_at,
+                    last_checked_at: None,
                 },
             }))
         }

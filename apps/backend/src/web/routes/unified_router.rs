@@ -157,6 +157,7 @@ impl UnifiedRouteBuilder {
             check_permission_handler,
             grant_permission_handler,
             revoke_permission_handler,
+            get_user_permissions_handler,
         };
 
 
@@ -180,7 +181,10 @@ impl UnifiedRouteBuilder {
             // Permission management
             .route("/web3/permissions/check", post(check_permission_handler))
             .route("/web3/permissions/grant", post(grant_permission_handler))
+
             .route("/web3/permissions/revoke", delete(revoke_permission_handler))
+            // Group permissions route
+            .route("/web3/groups/permissions/{wallet_address}", get(get_user_permissions_handler))
 
             .with_state(app_state)
     }
@@ -199,11 +203,18 @@ impl UnifiedRouteBuilder {
 
         let app_state = crate::web::auth::AppState::new(
             self.container.db_pool.clone(),
-            cache,
+            cache.clone(),
             Arc::new((*self.container).clone()),
-            redis_pool,
-            redis_broadcaster,
+            redis_pool.clone(),
+            redis_broadcaster.clone(),
         );
+
+        // Create public admin routes (no auth required) - TEMPORARY for development
+        let public_admin_routes = Router::new()
+            .route("/settings", get(crate::web::admin::system_settings_handlers::get_all_settings_handler).put(crate::web::admin::system_settings_handlers::update_settings_handler))
+            .route("/settings/reset", post(crate::web::admin::system_settings_handlers::reset_settings_handler))
+            .route("/settings/{category}", get(crate::web::admin::system_settings_handlers::get_settings_by_category_handler))
+            .with_state(app_state.clone());
 
         // Create admin routes with permission validation middleware
         let admin_routes = crate::web::admin::routes::create_admin_routes()
@@ -229,6 +240,7 @@ impl UnifiedRouteBuilder {
             ));
 
         Router::new()
+            .merge(public_admin_routes)
             .merge(admin_routes)
             .merge(permission_authority_routes)
     }

@@ -10,6 +10,7 @@ pub mod session;
 pub mod group;
 pub mod permission;
 pub mod payment;
+pub mod notification;
 
 // Re-export common model structs for convenience
 pub use wallet_user::{

@@ -92,13 +92,13 @@ impl TransactionHistoryProvider for ScannerTransactionHistoryProvider {
                 let log: BscScanLog = serde_json::from_value(log_val)
                     .map_err(|e| format!("Invalid log format: {}", e))?;
                 
-                let block_number = u64::from_str_radix(&log.block_number.trim_start_matches("0x"), 16)
+                let block_number = u64::from_str_radix(log.block_number.trim_start_matches("0x"), 16)
                     .unwrap_or(0);
-                let timestamp_secs = i64::from_str_radix(&log.time_stamp.trim_start_matches("0x"), 16)
+                let timestamp_secs = i64::from_str_radix(log.time_stamp.trim_start_matches("0x"), 16)
                     .unwrap_or(0);
                 
                 let timestamp = DateTime::<Utc>::from_timestamp(timestamp_secs, 0)
-                    .unwrap_or_else(|| Utc::now());
+                    .unwrap_or_else(Utc::now);
 
                 let amount_wei = log.data.trim_start_matches("0x");
                 let amount = u128::from_str_radix(amount_wei, 16)

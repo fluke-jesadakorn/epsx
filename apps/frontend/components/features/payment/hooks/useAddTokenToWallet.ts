@@ -53,6 +53,12 @@ export function useAddTokenToWallet() {
             const tokenAddress = getTokenAddress(symbol, chainId);
             const tokenInfo = TOKEN_INFO[symbol];
 
+            devLog(`📝 Adding token ${symbol} to wallet:`, {
+                address: tokenAddress,
+                chainId,
+                decimals: tokenInfo.decimals,
+            });
+
             const provider = await connector.getProvider();
 
             const wasAdded = await (provider as any).request({
@@ -69,8 +75,10 @@ export function useAddTokenToWallet() {
             });
 
             if (wasAdded) {
-                devLog(`✅ Token ${symbol} added to wallet`);
+                devLog(`✅ Token ${symbol} added to wallet successfully`);
                 setAddedTokens(prev => new Set(prev).add(tokenKey));
+                // Small delay to allow MetaMask to refresh balances
+                await new Promise(resolve => setTimeout(resolve, 500));
                 return true;
             } else {
                 devLog(`❌ User rejected adding ${symbol} token`);
@@ -78,6 +86,7 @@ export function useAddTokenToWallet() {
             }
         } catch (error) {
             console.error('Failed to add token to wallet:', error);
+            devLog(`❌ Error adding token: ${error instanceof Error ? error.message : String(error)}`);
             return false;
         } finally {
             setIsAdding(false);

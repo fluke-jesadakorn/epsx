@@ -16,7 +16,7 @@ import type {
 } from '@/shared/types/payment';
 
 interface AdminPayment extends PaymentResponse {
-    user_wallet_address: string;
+    wallet_address: string;
     transaction_hash?: string;
     block_number?: number;
     confirmations: number;
@@ -119,7 +119,7 @@ export function PaymentsManagement() {
             headers.join(','),
             ...payments.map(p => [
                 new Date(p.created_at).toISOString(),
-                p.user_wallet_address || '',
+                p.wallet_address || '',
                 p.plan_name || '',
                 p.amount?.toString() || '',
                 p.currency || 'USDT',
@@ -501,7 +501,7 @@ export function PaymentsManagement() {
                                                         </td>
                                                         <td className="px-4 py-4 whitespace-nowrap">
                                                             <div className="text-xs font-mono text-gray-500 dark:text-gray-400">
-                                                                {payment.user_wallet_address?.substring(0, 10)}...
+                                                                {payment.wallet_address || 'N/A'}
                                                             </div>
                                                         </td>
                                                         <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">

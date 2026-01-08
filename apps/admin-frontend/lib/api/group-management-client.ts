@@ -504,8 +504,9 @@ export const groupMgmt = {
   },
 
   async getAvailablePermissions(): Promise<string[]> {
-    const res = await adminApiClient.get<string[]>('/api/admin/permissions/available');
-    return res.data!;
+    const res = await adminApiClient.get<any>('/api/admin/permissions/available');
+    const data = res.data?.data || res.data;
+    return Array.isArray(data) ? data : [];
   },
 
   /**

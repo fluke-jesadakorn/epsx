@@ -187,39 +187,8 @@ impl BlockchainMonitor {
         let now = Utc::now();
         let standard_duration_days: i64 = 30;
 
-        if user_row.is_none() {
-            // Create new wallet user with plan access
-            info!("Creating new wallet user: {}", wallet_addr.as_str());
-            let metadata = WalletMetadata::default();
-            let metadata_json = serde_json::to_value(&metadata)
-                .map_err(|e| AppError::infrastructure_error(format!("Failed to serialize metadata: {}", e)))?;
-
-            let new_expiry = now + Duration::days(standard_duration_days);
-
-            diesel::sql_query(
-                r#"
-                INSERT INTO wallet_users (wallet_address, is_active, wallet_metadata, plan_expires_at, current_plan_id, created_at, updated_at)
-                VALUES ($1, $2, $3, $4, $5, $6, $7)
-                "#
-            )
-            .bind::<diesel::sql_types::Text, _>(wallet_addr.as_str().to_lowercase())
-            .bind::<diesel::sql_types::Bool, _>(true)
-            .bind::<diesel::sql_types::Jsonb, _>(&metadata_json)
-            .bind::<diesel::sql_types::Timestamptz, _>(new_expiry)
-            .bind::<diesel::sql_types::Integer, _>(event.plan_id as i32)
-            .bind::<diesel::sql_types::Timestamptz, _>(now)
-            .bind::<diesel::sql_types::Timestamptz, _>(now)
-            .execute(&mut conn)
-            .await
-            .map_err(|e| {
-                error!("Failed to create user: {}", e);
-                AppError::database_error(format!("Failed to create user: {}", e))
-            })?;
-
-            info!("✅ Created new user {} with plan {} (expires: {})", wallet_addr.as_str(), event.plan_id, new_expiry);
-        } else {
+        if let Some(user) = user_row {
             // Update existing user's plan access
-            let user = user_row.unwrap();
             let current_expiry = user.plan_expires_at.unwrap_or(now);
             
             // Calculate new expiry: extend from current expiry if still active, otherwise from now
@@ -268,6 +237,36 @@ impl BlockchainMonitor {
 
                 info!("✅ Extended user {} access until {}", user.wallet_address, new_expiry);
             }
+        } else {
+            // Create new wallet user with plan access
+            info!("Creating new wallet user: {}", wallet_addr.as_str());
+            let metadata = WalletMetadata::default();
+            let metadata_json = serde_json::to_value(&metadata)
+                .map_err(|e| AppError::infrastructure_error(format!("Failed to serialize metadata: {}", e)))?;
+
+            let new_expiry = now + Duration::days(standard_duration_days);
+
+            diesel::sql_query(
+                r#"
+                INSERT INTO wallet_users (wallet_address, is_active, wallet_metadata, plan_expires_at, current_plan_id, created_at, updated_at)
+                VALUES ($1, $2, $3, $4, $5, $6, $7)
+                "#
+            )
+            .bind::<diesel::sql_types::Text, _>(wallet_addr.as_str().to_lowercase())
+            .bind::<diesel::sql_types::Bool, _>(true)
+            .bind::<diesel::sql_types::Jsonb, _>(&metadata_json)
+            .bind::<diesel::sql_types::Timestamptz, _>(new_expiry)
+            .bind::<diesel::sql_types::Integer, _>(event.plan_id as i32)
+            .bind::<diesel::sql_types::Timestamptz, _>(now)
+            .bind::<diesel::sql_types::Timestamptz, _>(now)
+            .execute(&mut conn)
+            .await
+            .map_err(|e| {
+                error!("Failed to create user: {}", e);
+                AppError::database_error(format!("Failed to create user: {}", e))
+            })?;
+
+            info!("✅ Created new user {} with plan {} (expires: {})", wallet_addr.as_str(), event.plan_id, new_expiry);
         }
 
         // Step 4: Update event status to completed

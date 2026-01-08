@@ -61,10 +61,18 @@ export function NotificationBellClient() {
     router.push(`/notifications?id=${notificationId}`)
   }
 
-  // Delete notification functionality - to be implemented when backend supports it
-  const handleDeleteNotification = async (e: React.MouseEvent, _notificationId: string) => {
+  // Delete notification functionality
+  const handleDeleteNotification = async (e: React.MouseEvent, notificationId: string) => {
     e.stopPropagation()
-    // TODO: Implement when deleteNotification API is available
+    try {
+      const client = createFrontendApiClient()
+      const response = await client.delete(`/api/notifications/${notificationId}`)
+      if (response.success) {
+        fetchNotifications() // Refresh the list
+      }
+    } catch (error) {
+      console.error('Failed to delete notification:', error)
+    }
   }
 
   return (

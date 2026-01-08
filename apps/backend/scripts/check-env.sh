@@ -42,6 +42,27 @@ else
     echo -e "${RED}❌ DATABASE_URL${NC}: not set"
 fi
 
+# Check ANALYTICS_DATABASE_URL
+if [ -n "$ANALYTICS_DATABASE_URL" ]; then
+    echo -e "${GREEN}✅ ANALYTICS_DATABASE_URL${NC}: ${ANALYTICS_DATABASE_URL%%@*}@***"
+else
+    echo -e "${YELLOW}⚠️  ANALYTICS_DATABASE_URL${NC}: not set (will fallback to DATABASE_URL)"
+fi
+
+# Check NOTIFICATIONS_DATABASE_URL
+if [ -n "$NOTIFICATIONS_DATABASE_URL" ]; then
+    echo -e "${GREEN}✅ NOTIFICATIONS_DATABASE_URL${NC}: ${NOTIFICATIONS_DATABASE_URL%%@*}@***"
+else
+    echo -e "${YELLOW}⚠️  NOTIFICATIONS_DATABASE_URL${NC}: not set (will fallback to DATABASE_URL)"
+fi
+
+# Check PAYMENTS_DATABASE_URL
+if [ -n "$PAYMENTS_DATABASE_URL" ]; then
+    echo -e "${GREEN}✅ PAYMENTS_DATABASE_URL${NC}: ${PAYMENTS_DATABASE_URL%%@*}@***"
+else
+    echo -e "${YELLOW}⚠️  PAYMENTS_DATABASE_URL${NC}: not set (will fallback to DATABASE_URL)"
+fi
+
 # Check REDIS_URL
 if [ -n "$REDIS_URL" ]; then
     echo -e "${GREEN}✅ REDIS_URL${NC}: configured (required for notifications)"

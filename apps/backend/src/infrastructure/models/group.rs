@@ -29,14 +29,14 @@ pub struct GroupDb {
     pub max_members: Option<i32>,
     pub auto_assign_enabled: Option<bool>,
     pub assignment_rules: Option<serde_json::Value>,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
-    pub created_by: Option<String>,
-    pub last_modified_by: Option<String>,
     pub rate_limit_per_minute: i32,
     pub rate_limit_per_hour: i32,
     pub rate_limit_per_day: i32,
     pub burst_capacity: i32,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+    pub created_by: Option<String>,
+    pub last_modified_by: Option<String>,
 }
 
 /// Diesel Insertable model for creating new groups

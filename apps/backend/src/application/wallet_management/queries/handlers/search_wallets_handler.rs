@@ -72,7 +72,7 @@ impl QueryHandler<SearchWalletsQuery> for SearchWalletsQueryHandler {
                 created_at: wallet.created_at(),
                 last_login_at: wallet.last_auth_at(),
                 permission_count: wallet.permissions().len() as u32,
-                active_session_count: 0, // TODO: Add session count tracking
+                active_session_count: 0, // Session tracking requires Redis session store
             })
             .collect();
 

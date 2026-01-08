@@ -508,7 +508,7 @@ export function PlanManagement({ currentUser }: PlanManagementProps) {
                       <div className="h-px bg-gray-100 dark:bg-gray-700 my-4" />
 
                       {/* Bottom Row: Stats Grid */}
-                      <div className="grid grid-cols-4 gap-4">
+                      <div className="grid grid-cols-3 gap-4">
                         {/* Subscribers */}
                         <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-xl p-3">
                           <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 mb-1">
@@ -531,16 +531,7 @@ export function PlanManagement({ currentUser }: PlanManagementProps) {
                           </div>
                         </div>
 
-                        {/* Target Audience */}
-                        <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-3">
-                          <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400 mb-1">
-                            <span className="text-sm">🎯</span>
-                            <span className="text-xs font-medium uppercase tracking-wide">Target</span>
-                          </div>
-                          <div className="text-sm font-bold text-blue-700 dark:text-blue-300 capitalize">
-                            {plan.target_audience.replace('_', ' ')}
-                          </div>
-                        </div>
+
 
                         {/* Revenue */}
                         <div className="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-3">

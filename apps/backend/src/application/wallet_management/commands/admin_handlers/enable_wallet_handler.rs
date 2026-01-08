@@ -77,7 +77,7 @@ impl CommandHandler<EnableWalletCommand> for EnableWalletCommandHandler {
             "resolutionNote": command.resolution_note,
             "restoredPermissions": command.restore_permissions,
             "resumedSubscriptions": command.resume_subscriptions,
-            "enabledBy": "admin" // TODO: Get actual admin ID
+            "enabledBy": &command.admin_wallet_address
         });
 
         // 4. Update wallet

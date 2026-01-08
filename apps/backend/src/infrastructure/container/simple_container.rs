@@ -11,7 +11,8 @@ use crate::infrastructure::adapters::repositories::{
     wallet_user_repository_adapter::WalletUserRepositoryAdapter,
     session_repository_adapter::SessionRepositoryAdapter,
     group_repository_adapter::GroupRepositoryAdapter,
-    // payment_repository_adapter::PaymentRepositoryAdapter, // Temporarily disabled
+    payment_repository_adapter::PaymentRepositoryAdapter,
+    notification_repository_adapter::NotificationRepositoryAdapter,
 };
 use crate::infrastructure::adapters::services::{
     permission_adapter::{Web3PermissionServiceAdapter, BlockchainConfig},
@@ -32,13 +33,17 @@ use crate::infrastructure::cqrs::{EventStore, PostgresEventStore, TransactionalO
 #[derive(Clone)]
 pub struct SimpleContainer {
     pub db_pool: Arc<&'static Pool<AsyncPgConnection>>,
+    pub payments_pool: Option<Arc<&'static Pool<AsyncPgConnection>>>,
+    pub analytics_pool: Option<Arc<&'static Pool<AsyncPgConnection>>>,
+    pub notifications_pool: Option<Arc<&'static Pool<AsyncPgConnection>>>,
     pub cache: Option<Arc<dyn Cache>>,
 
     // NEW - Web3-first services (primary)
     pub wallet_user_repository: Option<Arc<WalletUserRepositoryAdapter>>,
     pub session_repository: Option<Arc<SessionRepositoryAdapter>>,
     pub group_repository: Option<Arc<GroupRepositoryAdapter>>,
-    // pub payment_repository: Option<Arc<PaymentRepositoryAdapter>>, // Temporarily disabled
+    pub payment_repository: Option<Arc<PaymentRepositoryAdapter>>,
+    pub notification_repository: Option<Arc<NotificationRepositoryAdapter>>,
     pub wallet_permission_service: Option<Arc<WalletPermissionService>>,
     pub web3_permission_adapter: Option<Arc<Web3PermissionServiceAdapter>>,
     pub auth_service: Option<Arc<UnifiedWeb3AuthService>>,
@@ -65,12 +70,16 @@ impl SimpleContainer {
     pub fn new(db_pool: Arc<&'static Pool<AsyncPgConnection>>) -> Self {
         Self {
             db_pool,
+            payments_pool: None,
+            analytics_pool: None,
+            notifications_pool: None,
             cache: None,
             // NEW - Web3-first services (initialized as None, configured via builder methods)
             wallet_user_repository: None,
             session_repository: None,
             group_repository: None,
-            // payment_repository: None, // Temporarily disabled - field removed from struct
+            payment_repository: None,
+            notification_repository: None,
             wallet_permission_service: None,
             web3_permission_adapter: None,
             auth_service: None,
@@ -137,7 +146,24 @@ impl SimpleContainer {
         let wallet_user_repository = Arc::new(WalletUserRepositoryAdapter::new(diesel_pool));
         let session_repository = Arc::new(SessionRepositoryAdapter::new(diesel_pool));
         let group_repository = Arc::new(GroupRepositoryAdapter::new(diesel_pool));
-        // let payment_repository = Arc::new(PaymentRepositoryAdapter::new(diesel_pool)); // Temporarily disabled
+
+        // Initialize dedicated pools
+        let payments_pool = crate::infrastructure::database::get_payments_pool().await.ok().map(Arc::new);
+        let analytics_pool = crate::infrastructure::database::get_analytics_pool().await.ok().map(Arc::new);
+        let notifications_pool = crate::infrastructure::database::get_notifications_pool().await.ok().map(Arc::new);
+        
+        // Payment Repository (uses payments_pool if available)
+        let payment_repository = payments_pool.as_ref().map(|pool| Arc::new(PaymentRepositoryAdapter::new(**pool)));
+
+        // Notification Repository (uses notifications_pool if available)
+        let notification_repository = if let Some(pool) = &notifications_pool {
+           Some(Arc::new(NotificationRepositoryAdapter::new(**pool)))
+        } else {
+           // If no dedicated pool, we could fallback to db_pool OR just return None/default
+           // Since we updated NotificationRepositoryAdapter::new to take a pool, we MUST provide one.
+           // Fallback to db_pool if notifications_pool is missing (e.g. single DB setup)
+           Some(Arc::new(NotificationRepositoryAdapter::new(*db_pool)))
+        };
 
         // Create domain services
         let wallet_permission_service = Arc::new(WalletPermissionService::new());
@@ -170,9 +196,28 @@ impl SimpleContainer {
         );
 
         // Create CQRS infrastructure (Event Sourcing)
-        let event_store: Arc<dyn EventStore> = Arc::new(PostgresEventStore::new(Arc::clone(&db_pool)));
+        // Use analytics_pool for event store if available, otherwise fallback to primary (legacy)
+        let event_store_pool = analytics_pool.as_ref().cloned().unwrap_or(Arc::clone(&db_pool));
+        let event_store: Arc<dyn EventStore> = Arc::new(PostgresEventStore::new(event_store_pool.clone()));
+        
+        // Outbox also needs to know which DB it's using? Usually Outbox is on the same DB as the aggregate changes...
+        // BUT here we have split DBs.
+        // If an aggregate (e.g. User) in Primary DB emits an event, the outbox MUST be in Primary DB?
+        // OR we use dual-write/saga. 
+        // Current impl of TransactionalOutbox takes `db_pool` and `event_store`.
+        // If event_store is in Analytics DB, ensuring atomicity is hard.
+        // For now, let's assume Outbox table is on Primary DB (where Aggregates are).
+        // Wait, I removed Outbox from Primary schema!
+        // So Outbox MUST be in Analytics DB or wherever EventStore is.
+        // Ideally, domain logic should write to Outbox in same transaction as Aggregate update.
+        // If Aggregate is in Primary and Outbox in Analytics, we cannot do atomic transaction.
+        // This is a known issue with split DBs. 
+        // For this refactor, let's point Outbox to Analytics DB (event_store_pool).
+        // This means we sacrifice atomicity unless we use 2PC (which we don't).
+        // Or maybe Outbox table was intended to be in Primary? 
+        // I removed `outbox_events` from Primary.
         let transactional_outbox = Arc::new(TransactionalOutbox::new(
-            Arc::clone(&db_pool),
+            event_store_pool.clone(), // Use same pool as EventStore (Analytics)
             Arc::clone(&event_store),
         ));
 
@@ -288,12 +333,16 @@ impl SimpleContainer {
 
         Self {
             db_pool,
+            payments_pool,
+            analytics_pool,
+            notifications_pool,
             cache,
             // Web3-first services
             wallet_user_repository: Some(wallet_user_repository),
             session_repository: Some(session_repository),
             group_repository: Some(group_repository),
-            // // payment_repository: None, // Temporarily disabled - field removed from struct // Temporarily disabled - field removed from struct
+            payment_repository,
+            notification_repository,
             wallet_permission_service: Some(wallet_permission_service),
             web3_permission_adapter: Some(web3_permission_adapter),
             auth_service: Some(auth_service),
@@ -317,12 +366,16 @@ impl SimpleContainer {
     pub fn with_cache(db_pool: Arc<&'static Pool<AsyncPgConnection>>, cache: Arc<dyn Cache>) -> Self {
         Self {
             db_pool,
+            payments_pool: None,
+            analytics_pool: None,
+            notifications_pool: None,
             cache: Some(cache),
             // Initialize Web3 services as None - use new_with_web3_services for full setup
             wallet_user_repository: None,
             session_repository: None,
             group_repository: None,
-            // payment_repository: None, // Temporarily disabled - field removed from struct
+            payment_repository: None,
+            notification_repository: None,
             wallet_permission_service: None,
             web3_permission_adapter: None,
             auth_service: None,
@@ -364,6 +417,19 @@ impl SimpleContainer {
     pub fn infra(&self) -> &Self {
         self
     }
+    
+    // Pool Getters
+    pub fn get_payments_pool(&self) -> Option<Arc<&'static Pool<AsyncPgConnection>>> {
+        self.payments_pool.as_ref().map(Arc::clone)
+    }
+
+    pub fn get_analytics_pool(&self) -> Option<Arc<&'static Pool<AsyncPgConnection>>> {
+        self.analytics_pool.as_ref().map(Arc::clone)
+    }
+
+    pub fn get_notifications_pool(&self) -> Option<Arc<&'static Pool<AsyncPgConnection>>> {
+        self.notifications_pool.as_ref().map(Arc::clone)
+    }
 
     // NEW - Web3-first service getters (primary)
     pub fn get_wallet_user_repository(&self) -> Option<Arc<WalletUserRepositoryAdapter>> {
@@ -378,13 +444,17 @@ impl SimpleContainer {
         self.wallet_user_repository.as_ref().map(|repo| Arc::clone(repo) as Arc<dyn WalletUserAnalyticsPort>)
     }
 
-    // pub fn get_payment_repository(&self) -> Option<Arc<PaymentRepositoryAdapter>> {
-    //     self.payment_repository.as_ref().map(Arc::clone)
-    // }
+    pub fn get_payment_repository(&self) -> Option<Arc<PaymentRepositoryAdapter>> {
+        self.payment_repository.as_ref().map(Arc::clone)
+    }
 
-    // pub fn get_payment_repository_port(&self) -> Option<Arc<dyn PaymentRepositoryPort>> {
-    //     self.payment_repository.as_ref().map(|repo| Arc::clone(repo) as Arc<dyn PaymentRepositoryPort>)
-    // }
+    pub fn get_payment_repository_port(&self) -> Option<Arc<dyn PaymentRepositoryPort>> {
+        self.payment_repository.as_ref().map(|repo| Arc::clone(repo) as Arc<dyn PaymentRepositoryPort>)
+    }
+
+    pub fn get_notification_repository(&self) -> Option<Arc<NotificationRepositoryAdapter>> {
+        self.notification_repository.as_ref().map(Arc::clone)
+    }
 
     pub fn get_wallet_permission_service(&self) -> Option<Arc<WalletPermissionService>> {
         self.wallet_permission_service.as_ref().map(Arc::clone)
@@ -424,7 +494,7 @@ impl SimpleContainer {
         Web3AppState {
             wallet_user_repository: self.get_wallet_user_repository_port(),
             wallet_user_analytics: self.get_wallet_user_analytics_port(),
-            payment_repository: None, // Temporarily disabled
+            payment_repository: self.get_payment_repository_port(),
             wallet_permission_service: self.get_wallet_permission_service(),
             web3_permission_adapter: self.get_web3_permission_adapter(),
             auth_service: self.get_auth_service(),

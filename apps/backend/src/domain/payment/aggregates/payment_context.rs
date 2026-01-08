@@ -181,7 +181,7 @@ impl PaymentContext {
     pub fn create(id: PaymentContextId, params: CreatePaymentContextParams) -> AppResult<Self> {
         // Generate slug if not provided
         let slug = params.slug.unwrap_or_else(|| {
-            format!("{}-{}", params.context_type.as_str(), Uuid::new_v4().to_string()[..8].to_string())
+            format!("{}-{}", params.context_type.as_str(), &Uuid::new_v4().to_string()[..8])
         });
 
         // Default expiration: 24 hours from now

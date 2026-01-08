@@ -77,9 +77,16 @@ impl QueryHandler<ListWalletsQuery> for ListWalletsQueryHandler {
                     .next().cloned()
                     .unwrap_or_else(|| "none".to_string());
 
+                // Try to get display_name from wallet metadata custom_data
+                let display_name = wallet.wallet_metadata()
+                    .custom_data
+                    .get("display_name")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string());
+
                 WalletSummary {
                     id: wallet.wallet_address().as_str().to_string(),
-                    display_name: None, // TODO: Add display name support
+                    display_name,
                     group,
                     status,
                     is_active: wallet.is_active(),

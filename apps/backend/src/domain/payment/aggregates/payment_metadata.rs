@@ -11,6 +11,10 @@ pub struct PaymentMetadata {
     pub expires_at: Option<DateTime<Utc>>,
     pub failure_reason: Option<String>,
     pub cancellation_reason: Option<String>,
+    /// Custom reference provided by user
+    pub custom_reference: Option<String>,
+    /// Custom metadata for additional context
+    pub custom_data: std::collections::HashMap<String, String>,
 }
 
 impl PaymentMetadata {
@@ -26,6 +30,8 @@ impl PaymentMetadata {
             expires_at: Some(expires_at),
             failure_reason: None,
             cancellation_reason: None,
+            custom_reference: None,
+            custom_data: std::collections::HashMap::new(),
         }
     }
 

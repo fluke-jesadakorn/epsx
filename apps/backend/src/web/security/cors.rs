@@ -16,9 +16,6 @@ pub fn get_cors_layer() -> CorsLayer {
     }
 }
 
-/// Custom AllowOrigin implementation that allows any origin while still supporting credentials
-
-
 /// Create production-ready CORS layer with origin restriction and credential support
 pub fn production_cors_layer() -> CorsLayer {
     let allowed_origins = super::get_allowed_origins();
@@ -60,6 +57,7 @@ fn production_cors_with_origins(allowed_origins: Vec<String>) -> CorsLayer {
                     HeaderName::from_static("x-request-id"),
                     HeaderName::from_static("x-client-version"),
                     HeaderName::from_static("x-access-level"),
+                    HeaderName::from_static("x-admin-context"),
                     // Next.js React Server Components header
                     HeaderName::from_static("rsc"),
                     // Next.js Router headers for prefetching
@@ -96,6 +94,7 @@ fn production_cors_fallback() -> CorsLayer {
             AUTHORIZATION,
             CONTENT_TYPE,
             HeaderName::from_static("x-access-level"),
+            HeaderName::from_static("x-admin-context"),
             HeaderName::from_static("rsc"),
             HeaderName::from_static("next-router-prefetch"),
             HeaderName::from_static("next-router-state-tree"),
@@ -140,6 +139,7 @@ fn development_cors() -> CorsLayer {
             HeaderName::from_static("x-request-id"),
             HeaderName::from_static("x-client-version"),
             HeaderName::from_static("x-access-level"),
+            HeaderName::from_static("x-admin-context"),
             HeaderName::from_static("x-admin-session"),
             // Next.js React Server Components header
             HeaderName::from_static("rsc"),
@@ -225,6 +225,7 @@ pub fn admin_cors_layer() -> CorsLayer {
                 HeaderName::from_static("x-admin-session"),
                 HeaderName::from_static("x-request-id"),
                 HeaderName::from_static("x-access-level"),
+                HeaderName::from_static("x-admin-context"),
                 HeaderName::from_static("rsc"),
                 HeaderName::from_static("next-router-prefetch"),
                 HeaderName::from_static("next-router-state-tree"),
@@ -271,6 +272,7 @@ pub fn admin_cors_layer() -> CorsLayer {
             HeaderName::from_static("x-admin-session"),
             HeaderName::from_static("x-request-id"),
             HeaderName::from_static("x-access-level"),
+            HeaderName::from_static("x-admin-context"),
             HeaderName::from_static("rsc"),
             HeaderName::from_static("next-router-prefetch"),
             HeaderName::from_static("next-router-state-tree"),

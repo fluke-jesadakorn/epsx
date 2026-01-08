@@ -4,7 +4,7 @@
 [print_schema]
 file = "src/schemas/payments.rs"
 import_types = ["diesel::sql_types::*"]
-filter = { except_tables = ["_sqlx_migrations", "__diesel_schema_migrations", "schema_migrations"] }
+filter = { only_tables = ["payments", "subscriptions", "stock_ranking_assignments", "payment_contexts", "payment_audit_log"] }
 with_docs = true
 
 [migrations_directory]

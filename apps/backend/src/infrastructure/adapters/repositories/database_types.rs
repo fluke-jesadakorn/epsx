@@ -152,22 +152,93 @@ impl NotificationMapper {
 
     #[allow(clippy::too_many_arguments)]
     pub fn create_ddd_notification_from_legacy(
-        _recipient_wallet_address: Option<Uuid>,
-        _fcm_topic_id: Option<String>,
-        _title: String,
-        _body: String,
-        _notification_type: crate::domain::notification::value_objects::user_preferences::NotificationType,
-        _priority: crate::domain::notification::aggregates::notification::NotificationPriority,
-        _channels: Vec<String>,
-        _scheduled_for: Option<chrono::DateTime<chrono::Utc>>,
-        _expires_at: Option<chrono::DateTime<chrono::Utc>>,
-        _action_url: Option<String>,
-        _image_url: Option<String>,
-        _data_payload: Option<serde_json::Value>,
+        recipient_wallet_address: Option<Uuid>,
+        fcm_topic_id: Option<String>,
+        title: String,
+        body: String,
+        notification_type: crate::domain::notification::value_objects::user_preferences::NotificationType,
+        priority: crate::domain::notification::aggregates::notification::NotificationPriority,
+        channels: Vec<String>,
+        scheduled_for: Option<chrono::DateTime<chrono::Utc>>,
+        expires_at: Option<chrono::DateTime<chrono::Utc>>,
+        action_url: Option<String>,
+        image_url: Option<String>,
+        data_payload: Option<serde_json::Value>,
     ) -> Result<crate::domain::notification::aggregates::notification::Notification, String> {
-        // TODO: Implement actual DDD notification creation 
-        // For now, return an error since we don't have the full implementation
-        Err("NotificationMapper::create_ddd_notification_from_legacy not yet implemented".to_string())
+        use crate::domain::notification::value_objects::*;
+        use crate::domain::notification::aggregates::notification::Notification;
+        
+        // Create content from title and body
+        let content = NotificationContent::new(title, body)?;
+        
+        // Parse channel configuration
+        let channel_configs: Vec<DeliveryChannelConfig> = channels.iter()
+            .filter_map(|ch| {
+                let channel_type = DeliveryChannelType::from_str(ch).ok()?;
+                Some(DeliveryChannelConfig::new(channel_type))
+            })
+            .collect();
+        
+        let multi_channel = if channel_configs.is_empty() {
+            // Default to in-app if no channels specified
+            MultiChannelConfig::single_channel(DeliveryChannelConfig::new(DeliveryChannelType::InApp))
+        } else {
+            MultiChannelConfig::new(channel_configs)
+        };
+        
+        // Create schedule info
+        let schedule = if let Some(scheduled_at) = scheduled_for {
+            let sched = if let Some(exp) = expires_at {
+                ScheduleInfo::scheduled_with_expiry(scheduled_at, exp)?
+            } else {
+                ScheduleInfo::scheduled(scheduled_at)?
+            };
+            sched
+        } else if let Some(exp) = expires_at {
+            ScheduleInfo::with_expiry(exp)?
+        } else {
+            ScheduleInfo::immediate()
+        };
+        
+        // Create the notification based on whether it's for a user or topic
+        let notification = if let Some(wallet_id) = recipient_wallet_address {
+            Notification::create_for_user(
+                wallet_id,
+                content,
+                notification_type,
+                priority,
+                multi_channel,
+                schedule,
+            )?
+        } else if let Some(topic_name) = fcm_topic_id {
+            // Use from_name which handles simple topic reconstruction
+            let topic = NotificationTopic::from_name(topic_name)?;
+            Notification::create_for_topic(
+                topic,
+                content,
+                notification_type,
+                priority,
+                multi_channel,
+                schedule,
+                None, // created_by
+            )?
+        } else {
+            return Err("Either recipient_wallet_address or fcm_topic_id must be provided".to_string());
+        };
+        
+        // Apply optional metadata
+        let mut notification = notification;
+        if let Some(url) = action_url {
+            notification.metadata_mut().set_action_url(url);
+        }
+        if let Some(url) = image_url {
+            notification.metadata_mut().set_image_url(url);
+        }
+        if let Some(payload) = data_payload {
+            notification.metadata_mut().set_data_payload(payload);
+        }
+        
+        Ok(notification)
     }
 }
 
@@ -263,14 +334,15 @@ pub struct PermissionGroup {
     pub max_members: Option<i32>,
     pub auto_assign_enabled: Option<bool>,
     pub assignment_rules: Option<serde_json::Value>,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
-    pub created_by: Option<String>,
-    pub last_modified_by: Option<String>,
+
     pub rate_limit_per_minute: i32,
     pub rate_limit_per_hour: i32,
     pub rate_limit_per_day: i32,
     pub burst_capacity: i32,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+    pub created_by: Option<String>,
+    pub last_modified_by: Option<String>,
 }
 
 // Helper to extract permissions from group_metadata
@@ -372,13 +444,13 @@ pub struct WalletUserDb {
     pub is_active: bool,
     pub tier_level: String,
     pub wallet_metadata: serde_json::Value,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
-    pub last_auth_at: Option<DateTime<Utc>>,
     pub permission_groups: Option<serde_json::Value>,
     pub disable_info: Option<serde_json::Value>,
     pub plan_expires_at: Option<DateTime<Utc>>,
     pub current_plan_id: Option<i32>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+    pub last_auth_at: Option<DateTime<Utc>>,
 }
 
 /// Diesel Insertable model for creating new wallet users
@@ -468,14 +540,15 @@ pub struct PermissionGroupDb {
     pub max_members: Option<i32>,
     pub auto_assign_enabled: Option<bool>,
     pub assignment_rules: Option<serde_json::Value>,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
-    pub created_by: Option<String>,
-    pub last_modified_by: Option<String>,
+
     pub rate_limit_per_minute: i32,
     pub rate_limit_per_hour: i32,
     pub rate_limit_per_day: i32,
     pub burst_capacity: i32,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+    pub created_by: Option<String>,
+    pub last_modified_by: Option<String>,
 }
 
 /// Diesel Insertable model for creating/updating permission groups

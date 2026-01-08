@@ -92,7 +92,7 @@ use utoipa::{
         crate::web::admin::permissions::groups::list_groups,
         crate::web::admin::permissions::groups::update_group,
         crate::web::admin::permissions::groups::delete_group,
-        // crate::web::admin::permissions::groups::get_group_members, // TODO: Migrate to Diesel
+        crate::web::admin::permissions::groups::get_group_members,
 
         // ============================================================================
         // ADMIN - PLAN MANAGEMENT

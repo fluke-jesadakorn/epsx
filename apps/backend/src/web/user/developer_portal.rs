@@ -556,7 +556,7 @@ pub async fn get_my_groups_handler(
         let wallet_assignment = wallet_assignments.iter().find(|a| a.group_id == group.id);
         
         // Use first API key for rate limits if available (use get(0) to avoid Diesel trait conflict)
-        let first_api_key = user_api_keys.get(0);
+        let first_api_key = user_api_keys.as_slice().first();
         
         result_groups.push(UserAssignedGroup {
             id: group.id.to_string(),

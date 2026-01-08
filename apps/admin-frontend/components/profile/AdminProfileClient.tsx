@@ -24,7 +24,7 @@ export function AdminProfileClient({ user }: AdminProfileClientProps) {
   const [activeTab, setActiveTab] = useState('account');
 
   const formatDate = (timestamp?: number) => {
-    if (!timestamp) {return 'Not available';}
+    if (!timestamp) { return 'Not available'; }
     return new Date(timestamp * 1000).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'long',
@@ -36,8 +36,8 @@ export function AdminProfileClient({ user }: AdminProfileClientProps) {
 
   const getAdminLevel = () => {
     const adminPermissions = user.permissions?.filter(p => p.startsWith('admin:')) || [];
-    if (adminPermissions.length >= 10) {return 'Super Admin';}
-    if (adminPermissions.length >= 5) {return 'Admin';}
+    if (adminPermissions.length >= 10) { return 'Super Admin'; }
+    if (adminPermissions.length >= 5) { return 'Admin'; }
     return 'Limited Admin';
   };
 
@@ -111,18 +111,18 @@ export function AdminProfileClient({ user }: AdminProfileClientProps) {
               </div>
 
               <div className="pt-4 border-t border-slate-200 dark:border-slate-700">
-                <Button 
-                  variant="outline" 
-                  size="sm" 
+                <Button
+                  variant="outline"
+                  size="sm"
                   className="w-full mb-2"
                   onClick={() => window.location.href = '/permissions'}
                 >
                   <Shield className="h-4 w-4 mr-2" />
                   Manage Permissions
                 </Button>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
+                <Button
+                  variant="outline"
+                  size="sm"
                   className="w-full"
                   onClick={() => window.location.href = '/settings'}
                 >
@@ -139,21 +139,21 @@ export function AdminProfileClient({ user }: AdminProfileClientProps) {
       <div className="lg:col-span-3">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="grid w-full grid-cols-3 bg-slate-100 dark:bg-slate-800">
-            <TabsTrigger 
-              value="account" 
+            <TabsTrigger
+              value="account"
               className="flex items-center gap-2 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700"
             >
               <User className="h-4 w-4" />
               <span className="hidden sm:inline">Account</span>
             </TabsTrigger>
-            <TabsTrigger 
+            <TabsTrigger
               value="permissions"
               className="flex items-center gap-2 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700"
             >
               <Shield className="h-4 w-4" />
               <span className="hidden sm:inline">Permissions</span>
             </TabsTrigger>
-            <TabsTrigger 
+            <TabsTrigger
               value="settings"
               className="flex items-center gap-2 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700"
             >
@@ -301,37 +301,37 @@ export function AdminProfileClient({ user }: AdminProfileClientProps) {
                       Quick Admin Actions
                     </h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      <Button 
-                        variant="outline" 
+                      <Button
+                        variant="outline"
                         onClick={() => window.location.href = '/users'}
                         className="justify-start"
                       >
                         <Database className="h-4 w-4 mr-2" />
                         Manage Users
                       </Button>
-                      <Button 
-                        variant="outline" 
+                      <Button
+                        variant="outline"
                         onClick={() => window.location.href = '/permissions'}
                         className="justify-start"
                       >
                         <Shield className="h-4 w-4 mr-2" />
                         Permission Center
                       </Button>
-                      <Button 
-                        variant="outline" 
+                      <Button
+                        variant="outline"
                         onClick={() => window.location.href = '/analytics'}
                         className="justify-start"
                       >
                         <Database className="h-4 w-4 mr-2" />
                         Analytics Dashboard
                       </Button>
-                      <Button 
-                        variant="outline" 
-                        onClick={() => window.location.href = '/system'}
+                      <Button
+                        variant="outline"
+                        onClick={() => window.location.href = '/settings'}
                         className="justify-start"
                       >
                         <Settings className="h-4 w-4 mr-2" />
-                        System Monitor
+                        System Settings
                       </Button>
                     </div>
                   </div>

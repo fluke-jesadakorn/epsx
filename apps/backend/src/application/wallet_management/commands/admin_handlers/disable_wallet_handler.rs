@@ -81,7 +81,7 @@ impl CommandHandler<DisableWalletCommand> for DisableWalletCommandHandler {
             "notifyUser": command.notify_user,
             "disabledAt": disabled_at,
             "expiresAt": disabled_until,
-            "disabledBy": "admin" // TODO: Get actual admin ID from context if possible
+            "disabledBy": &command.admin_wallet_address
         });
 
         // 4. Update wallet
