@@ -3,7 +3,7 @@
  * Simplified state store with storage utilities and middleware
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
 // ============================================================================
 // Types
@@ -88,7 +88,7 @@ export const storage = {
       return null;
     }
   },
-  
+
   set: (key: string, value: unknown, storageType: 'localStorage' | 'sessionStorage' = 'localStorage') => {
     if (typeof window === 'undefined') return;
     try {
@@ -97,7 +97,7 @@ export const storage = {
       console.warn('Failed to save to storage:', error instanceof Error ? error.message : error);
     }
   },
-  
+
   remove: (key: string, storageType: 'localStorage' | 'sessionStorage' = 'localStorage') => {
     if (typeof window === 'undefined') return;
     try {
@@ -121,20 +121,22 @@ export const storage = {
 // State Middleware
 // ============================================================================
 
-export const loggingMiddleware: StateMiddleware = (action, prevState, nextState, store) => {
+export const loggingMiddleware: StateMiddleware = (action, _prevState, _nextState, _store) => {
   if (process.env.NODE_ENV !== 'development') return;
 
   // Filter out noisy actions
   const noisyActions = ['SET_LOADING', 'UPDATE_STOCK_PRICE', 'ADD_TOAST', 'REMOVE_TOAST'];
   if (noisyActions.includes(action.type)) return;
 
-  const timestamp = new Date().toISOString();
+  // const timestamp = new Date().toISOString();
+  // eslint-disable-next-line no-console
   console.group(`%c${action.type}`, 'color: #2196F3; font-weight: bold;');
+  // eslint-disable-next-line no-console
   console.groupEnd();
 };
 
 export const persistenceMiddleware = (persistKey: string, storageType: 'localStorage' | 'sessionStorage' = 'localStorage'): StateMiddleware => {
-  return (action, prevState, nextState, store) => {
+  return (action, _prevState, nextState, _store) => {
     // Only persist certain action types
     const persistableActions = ['SET_THEME', 'UPDATE_PREFERENCES', 'SET_USER'];
     if (persistableActions.includes(action.type)) {
@@ -207,12 +209,12 @@ function stateReducer<T>(state: T, action: StateAction): T {
   switch (action.type) {
     case 'SET_STATE':
       // Ensure both state and payload are objects before spreading
-      if (typeof state === 'object' && state !== null && 
-          typeof action.payload === 'object' && action.payload !== null) {
+      if (typeof state === 'object' && state !== null &&
+        typeof action.payload === 'object' && action.payload !== null) {
         return { ...state, ...action.payload } as T;
       }
       return action.payload as T;
-    
+
     case 'RESET_STATE':
       return action.payload as T;
 
@@ -260,10 +262,10 @@ export interface SSRStateOptions {
 
 export async function getServerState(options: SSRStateOptions = {}): Promise<Partial<AppState>> {
   const {
-    includeAuth = true,
-    includeUserPreferences = true,
-    includeCache = false,
-    cacheKeys = []
+    includeAuth: _includeAuth = true,
+    includeUserPreferences: _includeUserPreferences = true,
+    includeCache: _includeCache = false,
+    cacheKeys: _cacheKeys = []
   } = options;
 
   const serverState: Partial<AppState> = {
@@ -322,27 +324,27 @@ export const validateState = {
     if (!state || typeof state !== 'object') return false;
     const s = state as Record<string, unknown>;
     return typeof s.theme === 'string' &&
-           typeof s.sidebar === 'object' &&
-           Array.isArray(s.toasts);
+      typeof s.sidebar === 'object' &&
+      Array.isArray(s.toasts);
   },
 
   user: (state: unknown): boolean => {
     if (!state || typeof state !== 'object') return false;
     const s = state as Record<string, unknown>;
     return (s.data === null || typeof s.data === 'object') &&
-           typeof s.loading === 'boolean' &&
-           Array.isArray(s.optimisticUpdates);
+      typeof s.loading === 'boolean' &&
+      Array.isArray(s.optimisticUpdates);
   },
 
   analytics: (state: unknown): boolean => {
     if (!state || typeof state !== 'object') return false;
     const s = state as Record<string, unknown>;
     return s.data !== undefined &&
-           typeof s.data === 'object' &&
-           s.data !== null &&
-           Array.isArray((s.data as Record<string, unknown>).rankings) &&
-           Array.isArray((s.data as Record<string, unknown>).metrics) &&
-           typeof s.filters === 'object';
+      typeof s.data === 'object' &&
+      s.data !== null &&
+      Array.isArray((s.data as Record<string, unknown>).rankings) &&
+      Array.isArray((s.data as Record<string, unknown>).metrics) &&
+      typeof s.filters === 'object';
   }
 };
 

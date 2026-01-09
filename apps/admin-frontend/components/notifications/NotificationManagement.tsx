@@ -1,10 +1,11 @@
 'use client';
 
-import { createNotificationsClient } from '@/shared/api/notifications';
-import { createAdminApiClient } from '@/shared/utils/api-client';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
+
+import { createNotificationsClient } from '@/shared/api/notifications';
+import { createAdminApiClient } from '@/shared/utils/api-client';
 
 type Notification = any;
 type NotificationStats = any;
@@ -13,6 +14,11 @@ interface NotificationManagementProps {
   currentUser: any;
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.currentUser
+ */
 export function NotificationManagement({ currentUser }: NotificationManagementProps) {
   const router = useRouter();
   const [notifications, setNotifications] = useState<Notification[]>([]);

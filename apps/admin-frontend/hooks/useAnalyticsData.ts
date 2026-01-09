@@ -79,7 +79,15 @@ export const SLOW_ANALYTICS_CONFIG = {
 };
 
 // Simple utilities for combining states
+/**
+ *
+ * @param {...any} states
+ */
 export const combineLoadingStates = (...states: boolean[]) => states.some(Boolean);
+/**
+ *
+ * @param {...any} errors
+ */
 export const combineErrorStates = (...errors: any[]) => errors.some(Boolean);
 
 // ============================================================================
@@ -116,6 +124,9 @@ const fetcher = async <T>(url: string): Promise<T> => {
 // INDIVIDUAL DATA HOOKS (using shared types)
 // ============================================================================
 
+/**
+ *
+ */
 export function useUserStats() {
   const { data, error, isLoading, mutate } = useSWR<UserStats>(
     '/api/admin/wallets/stats',
@@ -135,6 +146,9 @@ export function useUserStats() {
   };
 }
 
+/**
+ *
+ */
 export function usePermissionAnalytics() {
   const { data, error, isLoading, mutate } = useSWR<PermissionAnalytics>(
     '/api/admin/analytics/permissions',
@@ -150,6 +164,9 @@ export function usePermissionAnalytics() {
   };
 }
 
+/**
+ *
+ */
 export function useSystemMetrics() {
   const { data, error, isLoading, mutate } = useSWR<SystemMetrics>(
     '/api/admin/analytics/metrics',
@@ -165,7 +182,12 @@ export function useSystemMetrics() {
   };
 }
 
-export function useAnalyticsDashboard(dateRange: string = '7d', selectedModule: string = 'all') {
+/**
+ *
+ * @param dateRange
+ * @param selectedModule
+ */
+export function useAnalyticsDashboard(dateRange = '7d', selectedModule = 'all') {
   const { data, error, isLoading, mutate } = useSWR<DeveloperPortalStats>(
     '/api/admin/developer-portal/stats',
     fetcher,
@@ -189,6 +211,9 @@ export function useAnalyticsDashboard(dateRange: string = '7d', selectedModule: 
 }
 
 // API Key Management
+/**
+ *
+ */
 export function useApiKeys() {
   const { data, error, isLoading, mutate } = useSWR<ApiKeysResponse>(
     '/api/admin/developer-portal/api-keys',
@@ -208,6 +233,9 @@ export function useApiKeys() {
 // CONSOLIDATED HOOKS
 // ============================================================================
 
+/**
+ *
+ */
 export function useAnalyticsOverview() {
   const { userStats, isLoading: userStatsLoading, error: userStatsError } = useUserStats();
   const { permissionAnalytics, isLoading: permissionLoading, error: permissionError } = usePermissionAnalytics();
@@ -243,6 +271,9 @@ export function useAnalyticsOverview() {
 }
 
 // Real-time metrics utility hook
+/**
+ *
+ */
 export function useRealTimeMetrics() {
   const { systemMetrics, isLoading, error } = useSystemMetrics();
 

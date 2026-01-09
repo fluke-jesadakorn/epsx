@@ -15,6 +15,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getAddress, parseUnits } from 'viem';
 import { useAccount, useBalance, useChainId, useReadContract } from 'wagmi';
 
+import { createFrontendApiClient } from '@/shared/utils/api-client';
+
+
 import { ZERO_LINK_HASH } from '@/lib/contracts/PaymentEscrowABI';
 import {
     getExplorerTxUrl,
@@ -158,6 +161,7 @@ export function DynamicPaymentWidget({
 
     // Get backend URL from environment
     const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080';
+    const apiClient = createFrontendApiClient();
 
     // Fetch payment context data
     const fetchPaymentData = useCallback(async () => {
@@ -169,59 +173,57 @@ export function DynamicPaymentWidget({
 
             if (context.linkSlug) {
                 // Fetch by dynamic link slug
-                const response = await fetch(`${backendUrl}/api/public/payment-links/${context.linkSlug}`);
-                if (!response.ok) {
-                    if (response.status === 404) {
-                        throw new Error('Payment link not found');
-                    }
-                    if (response.status === 410) {
-                        throw new Error('Payment link has expired or reached max uses');
-                    }
+                const response = await apiClient.get<PaymentLinkData>(`/api/public/payment-links/${context.linkSlug}`);
+                if (response.success && response.data) {
+                    data = response.data;
+                } else {
+                    // 404/410 errors are often thrown by the client, checking just in case
                     throw new Error('Failed to fetch payment link');
                 }
-                data = await response.json();
             } else if (context.planId) {
-                // Fetch plan details - use backend URL with /api prefix
-                const response = await fetch(`${backendUrl}/api/public/plans/${context.planId}`);
-                if (!response.ok) {
+                // Fetch plan details
+                const response = await apiClient.get<any>(`/api/public/plans/${context.planId}`);
+                if (response.success && response.data) {
+                    const plan = response.data;
+                    data = {
+                        id: plan.id,
+                        context_type: 'plan',
+                        context_id: plan.id,
+                        slug: `plan-${plan.id}`,
+                        name: plan.name,
+                        description: plan.description,
+                        amount: plan.price,
+                        currency: 'USDT',
+                        is_active: true,
+                        is_usable: true,
+                        current_uses: 0,
+                        link_hash: ZERO_LINK_HASH,
+                    };
+                } else {
                     throw new Error('Plan not found');
                 }
-                const plan = await response.json();
-                data = {
-                    id: plan.id,
-                    context_type: 'plan',
-                    context_id: plan.id,
-                    slug: `plan-${plan.id}`,
-                    name: plan.name,
-                    description: plan.description,
-                    amount: plan.price,
-                    currency: 'USDT',
-                    is_active: true,
-                    is_usable: true,
-                    current_uses: 0,
-                    link_hash: ZERO_LINK_HASH,
-                };
             } else if (context.groupId) {
-                // Fetch group details - use backend URL
-                const response = await fetch(`${backendUrl}/api/permissions/groups/${context.groupId}`);
-                if (!response.ok) {
+                // Fetch group details
+                const response = await apiClient.get<any>(`/api/permissions/groups/${context.groupId}`);
+                if (response.success && response.data) {
+                    const group = response.data;
+                    data = {
+                        id: group.id,
+                        context_type: 'group',
+                        context_id: group.id,
+                        slug: `group-${group.id}`,
+                        name: group.name,
+                        description: group.description,
+                        amount: group.price || 0,
+                        currency: 'USDT',
+                        is_active: true,
+                        is_usable: true,
+                        current_uses: 0,
+                        link_hash: ZERO_LINK_HASH,
+                    };
+                } else {
                     throw new Error('Group not found');
                 }
-                const group = await response.json();
-                data = {
-                    id: group.id,
-                    context_type: 'group',
-                    context_id: group.id,
-                    slug: `group-${group.id}`,
-                    name: group.name,
-                    description: group.description,
-                    amount: group.price || 0,
-                    currency: 'USDT',
-                    is_active: true,
-                    is_usable: true,
-                    current_uses: 0,
-                    link_hash: ZERO_LINK_HASH,
-                };
             }
 
             setPaymentData(data);
@@ -231,13 +233,20 @@ export function DynamicPaymentWidget({
                 const defaultToken = supportedTokens.find(t => t.symbol === data?.currency) || supportedTokens[0];
                 setSelectedToken(defaultToken);
             }
-        } catch (err) {
-            setError(err instanceof Error ? err.message : 'Failed to load payment details');
+        } catch (err: any) {
+            // Handle specific status codes if the error object has them
+            if (err.status === 404) {
+                if (context.linkSlug) setError('Payment link not found');
+                else setError('Resource not found');
+            } else if (err.status === 410) {
+                setError('Payment link has expired or reached max uses');
+            } else {
+                setError(err.message || 'Failed to load payment details');
+            }
         } finally {
             setLoading(false);
         }
         // Only depend on context and backendUrl to prevent infinite loops
-        // selectedToken is set inside the callback, not a dependency  
     }, [context.linkSlug, context.planId, context.groupId, backendUrl]);
 
     useEffect(() => {
@@ -260,38 +269,38 @@ export function DynamicPaymentWidget({
     const pollBackendStatus = useCallback((hash: string) => {
         const intervalId = setInterval(async () => {
             try {
-                const statusUrl = `${backendUrl}/api/payments/status/${hash}`;
-                // console.log('🔍 [Debug] Polling status from:', statusUrl);
+                // Use apiClient
+                // Backend returns wrapped response: { success: boolean, data: { status: string, ... } }
+                const response = await apiClient.get<{ success: boolean; data: { status: string; error_message?: string } }>(`/api/payments/status/${hash}`);
 
-                const response = await fetch(statusUrl, {
-                    credentials: 'include',
-                });
+                if (response.success && response.data) {
+                    // Access nested data from backend wrapper
+                    const statusData = response.data.data;
 
-                if (!response.ok) {
-                    if (response.status === 404) {
-                        devLog('⏳ [Debug] Transaction not yet processed by backend (404)');
-                        return;
+                    if (statusData) {
+                        if (statusData.status === 'confirmed') {
+                            clearInterval(intervalId);
+                            setSubmissionStep('confirmed');
+                            devLog('✅ Payment confirmed by backend!');
+                            onPaymentSuccess?.(hash);
+                        } else if (statusData.status === 'failed') {
+                            clearInterval(intervalId);
+                            setError(statusData.error_message || 'Payment failed verification');
+                        }
                     }
-                    return; // Ignore other errors
                 }
-
-                const result = await response.json();
-                if (result.success && result.data.status === 'confirmed') {
-                    clearInterval(intervalId);
-                    setSubmissionStep('confirmed');
-                    devLog('✅ Payment confirmed by backend!');
-                    onPaymentSuccess?.(hash);
-                } else if (result.success && result.data.status === 'failed') {
-                    clearInterval(intervalId);
-                    setError(result.data.error_message || 'Payment failed verification');
+            } catch (e: any) {
+                // Check for 404 which means not yet processed
+                if (e.status === 404) {
+                    devLog('⏳ [Debug] Transaction not yet processed by backend (404)');
+                    return;
                 }
-            } catch (e) {
                 console.error('Polling error:', e);
             }
         }, 3000);
 
         return () => clearInterval(intervalId);
-    }, [backendUrl, onPaymentSuccess]);
+    }, [onPaymentSuccess]);
 
     // Submit to backend when payment is confirmed on-chain
     useEffect(() => {
@@ -303,7 +312,6 @@ export function DynamicPaymentWidget({
                 try {
                     console.log('🚀 [Debug] Submitting payment to backend:', txHash);
 
-                    const submitUrl = `${backendUrl}/api/payments/submit`;
                     const requestBody = {
                         transaction_hash: txHash,
                         // context_id is the plan/group ID to pass to backend
@@ -315,33 +323,22 @@ export function DynamicPaymentWidget({
 
                     console.log('📦 [Debug] Request body:', JSON.stringify(requestBody));
 
-                    const response = await fetch(submitUrl, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        credentials: 'include',
-                        body: JSON.stringify(requestBody),
-                    });
+                    // Use apiClient.post
+                    const response = await apiClient.post('/api/payments/submit', requestBody);
 
                     console.log('📥 [Debug] Submit response:', response.status);
 
-                    if (response.ok) {
-                        const result = await response.json();
-                        if (result.success) {
-                            setSubmissionStep('submitted');
-                            // Start polling
-                            pollBackendStatus(txHash);
-                        } else {
-                            console.error('❌ Failed to submit:', result);
-                            setError(result.message || 'Failed to submit payment to backend');
-                        }
+                    if (response.success) {
+                        setSubmissionStep('submitted');
+                        // Start polling
+                        pollBackendStatus(txHash);
                     } else {
-                        const text = await response.text();
-                        console.error('❌ HTTP Error:', text);
-                        setError(`Backend submission failed: ${response.status}`);
+                        console.error('❌ Failed to submit:', response);
+                        setError(response.message || 'Failed to submit payment to backend');
                     }
-                } catch (err) {
+                } catch (err: any) {
                     console.error('❌ Submission error:', err);
-                    setError('Failed to connect to backend');
+                    setError(`Backend submission failed: ${err.message || 'Unknown error'}`);
                 }
             };
 
@@ -360,7 +357,7 @@ export function DynamicPaymentWidget({
         address: tokenAddress as `0x${string}`,
         abi: [{ name: 'symbol', type: 'function', inputs: [], outputs: [{ type: 'string' }] }] as const,
         functionName: 'symbol',
-        chainId: chainId,
+        chainId,
         query: {
             enabled: !!tokenAddress && chainId === 31337, // Only verify on local Anvil
             retry: 1,
@@ -395,9 +392,9 @@ export function DynamicPaymentWidget({
 
     // Check token balance (Wallet)
     const { data: balanceData, refetch: refetchBalance } = useBalance({
-        address: address,
+        address,
         token: tokenAddress as `0x${string}`,
-        chainId: chainId,
+        chainId,
         query: {
             enabled: !!address && !!tokenAddress,
         },

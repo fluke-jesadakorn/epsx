@@ -11,6 +11,9 @@ import { logger } from '@/lib/logger'
 import { createPlansClient, type CreateSubscriptionRequest, isApiSuccess } from '@/shared/api/plans'
 import { createAdminApiClient } from '@/shared/utils/api-client'
 
+/**
+ *
+ */
 export default function NewSubscriptionPage() {
     const router = useRouter()
     const [loading, setLoading] = useState(false)

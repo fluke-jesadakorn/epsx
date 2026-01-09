@@ -1,10 +1,11 @@
 'use client'
 
-import { cn } from '@/lib/utils'
-import { Input } from '@/shared/components'
 import { ChevronLeft, ChevronRight, GripVertical, Loader2, Plus, Search, Shield, Trash2, X } from 'lucide-react'
 import React, { useCallback, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
+
+import { cn } from '@/lib/utils'
+import { Input } from '@/shared/components'
 
 interface PermissionTransferListProps {
     available: string[]
@@ -31,17 +32,29 @@ interface TouchDragState {
 /**
  * Validates permission string format: platform:resource:action
  * Allows wildcards (*) and multi-segment resources (e.g., epsx:analytics:view)
+ * @param permission
  */
 const isValidPermissionFormat = (permission: string): boolean => {
     // Basic format check: at least 2 colons, non-empty segments
     const parts = permission.split(':')
-    if (parts.length < 3) return false
+    if (parts.length < 3) {return false}
     // Each part should be either a valid identifier, wildcard, or dash-separated words
     return parts.every(part =>
         part === '*' || /^[a-zA-Z0-9_-]+$/.test(part)
     )
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.available
+ * @param root0.selected
+ * @param root0.onChange
+ * @param root0.onCreatePermission
+ * @param root0.onDeletePermission
+ * @param root0.systemPermissions
+ * @param root0.isLoading
+ */
 export const PermissionTransferList: React.FC<PermissionTransferListProps> = ({
     available: allAvailable,
     selected,
@@ -155,7 +168,7 @@ export const PermissionTransferList: React.FC<PermissionTransferListProps> = ({
                 return false
             }
             const match = item.toLowerCase().includes(leftSearch.toLowerCase())
-            if (match) console.log('Match found:', item)
+            if (match) {console.log('Match found:', item)}
             return match
         })
     }, [availableItems, leftSearch])
@@ -201,7 +214,7 @@ export const PermissionTransferList: React.FC<PermissionTransferListProps> = ({
     // Touch handlers for mobile drag and drop
     const handleTouchStart = useCallback((e: React.TouchEvent, item: string, source: 'available' | 'selected') => {
         const touch = e.touches[0]
-        if (!touch) return
+        if (!touch) {return}
 
         const element = e.currentTarget as HTMLElement
 
@@ -226,7 +239,7 @@ export const PermissionTransferList: React.FC<PermissionTransferListProps> = ({
 
     const handleTouchMove = useCallback((e: React.TouchEvent) => {
         const touch = e.touches[0]
-        if (!touch) return
+        if (!touch) {return}
 
         if (!touchDrag) {
             // If not dragging yet, cancel the long press timer on significant movement

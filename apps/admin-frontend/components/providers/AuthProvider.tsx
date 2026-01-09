@@ -87,7 +87,7 @@ export async function AuthProvider({
           </ClientProviders>
         );
       } catch (_error) {
-        // eslint-disable-next-line no-console
+         
         console.error('Critical AuthProvider error:', _error);
         return <AuthError />;
       }

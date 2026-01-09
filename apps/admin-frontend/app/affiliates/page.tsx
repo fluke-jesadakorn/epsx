@@ -6,7 +6,7 @@ import { UnifiedAuth } from '@/lib/auth/auth'
 
 export const dynamic = 'force-dynamic'
 
-function AffiliatesHubSkeleton() {
+function AffiliatesHubSkeleton(): React.JSX.Element {
   return (
     <div className="min-h-screen bg-gradient-to-br from-yellow-50 via-orange-50 to-pink-50 dark:from-gray-900 dark:via-gray-900 dark:to-purple-900 p-6">
       <div className="max-w-7xl mx-auto">
@@ -64,7 +64,7 @@ function AffiliatesHubSkeleton() {
   )
 }
 
-async function AffiliatesDataWrapper() {
+async function AffiliatesDataWrapper(): Promise<React.JSX.Element> {
   const session = await UnifiedAuth.getSession()
 
   if (!session?.user) {
@@ -223,7 +223,7 @@ async function AffiliatesDataWrapper() {
 /**
  *
  */
-export default function AdminAffiliatesPage() {
+export default function AdminAffiliatesPage(): React.JSX.Element {
   return (
     <Suspense fallback={<AffiliatesHubSkeleton />}>
       <AffiliatesDataWrapper />

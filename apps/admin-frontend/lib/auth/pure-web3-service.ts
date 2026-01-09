@@ -36,8 +36,8 @@ class AdminWeb3ApiClient extends BaseApiClient {
 
   async listWallets(params: { limit?: number; offset?: number } = {}) {
     const q = new URLSearchParams();
-    if (params.limit) q.set('limit', params.limit.toString());
-    if (params.offset) q.set('offset', params.offset.toString());
+    if (params.limit) {q.set('limit', params.limit.toString());}
+    if (params.offset) {q.set('offset', params.offset.toString());}
     return this.get(`/api/admin/wallets?${q}`);
   }
 

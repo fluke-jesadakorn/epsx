@@ -1,16 +1,15 @@
 'use client';
 
+import {
+  BarChart,
+  Code,
+  File,
+  LineChart,
+  Shield,
+  TrendingUp
+} from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { 
-  LineChart, 
-  BarChart, 
-  File, 
-  Settings, 
-  TrendingUp,
-  Shield,
-  Code
-} from 'lucide-react';
 
 const iconMap = {
   docs: <File className="h-4 w-4" />,
@@ -43,9 +42,8 @@ export function NavigationItems({ items }: NavigationItemsProps) {
         <Link
           key={item.key}
           href={item.href}
-          className={`flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 hover:bg-primary/10 hover:text-accent-foreground active:scale-[0.98] ${
-            pathname === item.href ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:text-primary'
-          }`}
+          className={`flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 hover:bg-primary/10 hover:text-accent-foreground active:scale-[0.98] ${pathname === item.href ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:text-primary'
+            }`}
         >
           <span className="flex items-center justify-center">
             {iconMap[item.key as keyof typeof iconMap]}

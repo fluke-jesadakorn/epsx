@@ -7,9 +7,9 @@
 import { AlertTriangle, Package, TrendingDown, TrendingUp, Users, Wallet } from 'lucide-react';
 import React from 'react';
 
-import { cn } from '@/lib/utils';
-
 import type { Platform, WalletStats } from './types';
+
+import { cn } from '@/lib/utils';
 
 interface WalletStatsBarProps {
     stats: WalletStats;
@@ -135,6 +135,13 @@ function StatsBarSkeleton() {
     );
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.stats
+ * @param root0.isLoading
+ * @param root0.className
+ */
 export function WalletStatsBar({
     stats,
     isLoading = false,

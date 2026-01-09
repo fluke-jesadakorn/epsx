@@ -327,7 +327,7 @@ export function useWeb3Auth() {
 
   return {
     // State
-    isConnected: isConnected,
+    isConnected,
     isAuthenticated,
     isAuthenticating,
     isLoading,

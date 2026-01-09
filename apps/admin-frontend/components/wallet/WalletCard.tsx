@@ -7,6 +7,9 @@
 import { BarChart3, Coins, Copy, CreditCard, Edit, Eye, Loader2, MoreHorizontal, Save, Settings, TrendingUp } from 'lucide-react';
 import React, { useState } from 'react';
 
+import type { Platform, WalletData, WalletStatus } from './types';
+import { WalletLabelBadge } from './WalletLabelBadge';
+
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -19,9 +22,6 @@ import {
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
-
-import type { Platform, WalletData, WalletStatus } from './types';
-import { WalletLabelBadge } from './WalletLabelBadge';
 
 interface WalletCardProps {
     wallet: WalletData;
@@ -68,6 +68,20 @@ const STATUS_CONFIG: Record<WalletStatus, { label: string; emoji: string; classN
     },
 };
 
+/**
+ *
+ * @param root0
+ * @param root0.wallet
+ * @param root0.isSelected
+ * @param root0.onSelect
+ * @param root0.onView
+ * @param root0.onManage
+ * @param root0.onDisable
+ * @param root0.onEnable
+ * @param root0.onEdit
+ * @param root0.onUpdateMetadata
+ * @param root0.className
+ */
 export function WalletCard({
     wallet,
     isSelected = false,
@@ -105,7 +119,7 @@ export function WalletCard({
 
     const handleSaveMetadata = async (e: React.MouseEvent) => {
         e.stopPropagation();
-        if (!onUpdateMetadata) return;
+        if (!onUpdateMetadata) {return;}
 
         setIsSaving(true);
         try {

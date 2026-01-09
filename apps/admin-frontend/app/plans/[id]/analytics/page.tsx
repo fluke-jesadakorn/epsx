@@ -1,13 +1,17 @@
 'use client'
 
-import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
+import { useState, useEffect } from 'react'
+
 import { PancakeCard } from '@/components/ui/PancakeCard'
 import { toast } from '@/hooks/use-toast'
 import { createPlansClient, type PlanAnalyticsResponse, isApiSuccess } from '@/shared/api/plans'
-import { createAdminApiClient } from '@/shared/utils/api-client'
 import { useSharedAuth } from '@/shared/components/auth/Provider'
+import { createAdminApiClient } from '@/shared/utils/api-client'
 
+/**
+ *
+ */
 export default function PlanAnalyticsPage() {
   const router = useRouter()
   const params = useParams()
@@ -27,7 +31,7 @@ export default function PlanAnalyticsPage() {
   }, [params.id, selectedPeriod])
 
   const loadAnalytics = async () => {
-    if (!params.id) return
+    if (!params.id) {return}
 
     const adminClient = createPlansClient(createAdminApiClient())
     try {

@@ -1,6 +1,7 @@
 'use client';
 
 import { Badge } from '@/components/ui';
+import { PermissionBadge } from '@/components/ui/PermissionBadge';
 import { useApiClient } from '@/shared/hooks/useApiClient';
 import { differenceInDays, format } from 'date-fns';
 import {
@@ -241,12 +242,11 @@ export function AccessOverview() {
 
                                     <div className="mt-auto space-y-2">
                                         <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Permissions</div>
-                                        {group.permissions.slice(0, 3).map((perm) => (
-                                            <div key={perm} className="flex items-center text-[11px] text-gray-600 dark:text-gray-300 font-mono bg-gray-50/50 dark:bg-gray-900/50 px-3 py-1.5 rounded-lg border border-gray-100 dark:border-gray-800 truncate">
-                                                <div className="h-1 w-1 rounded-full bg-indigo-500 mr-2 flex-shrink-0"></div>
-                                                {perm}
-                                            </div>
-                                        ))}
+                                        <div className="flex flex-wrap gap-1.5">
+                                            {group.permissions.slice(0, 3).map((perm) => (
+                                                <PermissionBadge key={perm} permission={perm} size="sm" showNote />
+                                            ))}
+                                        </div>
                                         {group.permissions.length > 3 && (
                                             <div className="text-[10px] text-indigo-500 font-bold ml-1">
                                                 + {group.permissions.length - 3} more permissions
@@ -287,11 +287,10 @@ export function AccessOverview() {
                                         : status.label;
                                     return (
                                         <div key={idx} className="flex items-center justify-between text-[11px] p-3 rounded-xl bg-gray-50/50 dark:bg-gray-900/40 border border-gray-100 dark:border-gray-800 group hover:border-indigo-200 dark:hover:border-indigo-800 transition-colors">
-                                            <div className="flex items-center font-mono text-gray-700 dark:text-gray-300 truncate mr-2">
-                                                <div className="h-1.5 w-1.5 rounded-full bg-indigo-500 mr-2.5 flex-shrink-0"></div>
-                                                {perm.permission}
+                                            <div className="flex items-center gap-2 truncate mr-2">
+                                                <PermissionBadge permission={perm.permission} size="sm" showNote />
                                                 {perm.source && (
-                                                    <span className={`ml-2 text-[8px] px-1 py-0.5 rounded ${perm.source === 'system' ? 'bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400' : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400'}`}>
+                                                    <span className={`text-[8px] px-1 py-0.5 rounded ${perm.source === 'system' ? 'bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400' : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400'}`}>
                                                         {perm.source === 'system' ? '⚙️' : '🔧'}
                                                     </span>
                                                 )}

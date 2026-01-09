@@ -1,11 +1,13 @@
 'use client';
 
-import { SharedOpenIDWeb3Provider } from '@/shared/components/auth/Provider';
-import { CommonProviders } from '@/shared/components/providers/CommonProviders';
 import dynamic from 'next/dynamic';
 import React from 'react';
 import { bsc, bscTestnet, foundry } from 'wagmi/chains';
+
 import { SettingsProvider } from './SettingsProvider';
+
+import { SharedOpenIDWeb3Provider } from '@/shared/components/auth/Provider';
+import { CommonProviders } from '@/shared/components/providers/CommonProviders';
 
 // Dynamic import with ssr: false to prevent WalletConnect localStorage errors during SSR
 // The @walletconnect/keyvaluestorage package tries to access localStorage during module init
@@ -14,6 +16,11 @@ const UnifiedWeb3Provider = dynamic(
   { ssr: false }
 );
 
+/**
+ *
+ * @param root0
+ * @param root0.children
+ */
 export function ClientProviders({ children }: { children: React.ReactNode }) {
   return (
     <CommonProviders>

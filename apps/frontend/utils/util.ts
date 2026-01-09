@@ -2,7 +2,7 @@
  * Utility functions for the EPSX frontend application
  */
 
-import { logger, devLog, safeError } from '@/lib/utils/logging';
+import { logger } from '@/lib/utils/logging';
 
 /**
  * Debounce function to limit the rate of function calls
@@ -11,10 +11,10 @@ export function debounce<T extends (...args: unknown[]) => unknown>(
   func: T,
   wait: number,
   immediate?: boolean
-): (...args: Parameters<T>) => void {
+): (..._args: Parameters<T>) => void {
   let timeout: NodeJS.Timeout | null = null;
 
-  return function(this: unknown, ...args: Parameters<T>) {
+  return function (this: unknown, ...args: Parameters<T>) {
     const callNow = immediate && !timeout;
 
     if (timeout) {
@@ -36,10 +36,10 @@ export function debounce<T extends (...args: unknown[]) => unknown>(
 export function throttle<T extends (...args: unknown[]) => unknown>(
   func: T,
   limit: number
-): (...args: Parameters<T>) => void {
+): (..._args: Parameters<T>) => void {
   let inThrottle: boolean;
 
-  return function(this: unknown, ...args: Parameters<T>) {
+  return function (this: unknown, ...args: Parameters<T>) {
     if (!inThrottle) {
       func.apply(this, args);
       inThrottle = true;
@@ -228,7 +228,7 @@ export const array = {
     return [...arr].sort((a, b) => {
       const aVal = a[key];
       const bVal = b[key];
-      
+
       if (aVal < bVal) return direction === 'asc' ? -1 : 1;
       if (aVal > bVal) return direction === 'asc' ? 1 : -1;
       return 0;
@@ -366,11 +366,11 @@ export const object = {
  */
 export function formatFileSize(bytes: number): string {
   if (bytes === 0) return '0 Bytes';
-  
+
   const k = 1024;
   const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
-  
+
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }
 
@@ -442,11 +442,11 @@ export function isMobile(): boolean {
  */
 export async function copyToClipboard(text: string): Promise<boolean> {
   if (!isBrowser()) return false;
-  
+
   try {
     await navigator.clipboard.writeText(text);
     return true;
-  } catch (error) {
+  } catch (_error) {
     // Fallback for older browsers
     try {
       const textArea = document.createElement('textarea');

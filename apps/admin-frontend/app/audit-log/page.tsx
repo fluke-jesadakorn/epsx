@@ -4,9 +4,9 @@
  */
 'use client';
 
-import { ChevronLeft, ChevronRight, Download, RefreshCw, Search } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Download, FileText, RefreshCw, Search } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 
 import { useSharedAuth } from '@/shared/components/auth/Provider';
 import { API_ROUTES } from '@/shared/config/route-constants';
@@ -19,19 +19,19 @@ interface AuditLogEntry {
     actor_address: string;
     target_type: string;
     target_id: string;
-    details: Record<string, any>;
+    details: Record<string, unknown>;
     ip_address?: string;
     user_agent?: string;
     created_at: string;
 }
 
-interface AuditLogFilters {
-    action?: string;
-    actor?: string;
-    target_type?: string;
-    from_date?: string;
-    to_date?: string;
-}
+// interface AuditLogFilters {
+//     action?: string;
+//     actor?: string;
+//     target_type?: string;
+//     from_date?: string;
+//     to_date?: string;
+// }
 
 type ActionType = 'all' | 'permission' | 'wallet' | 'plan' | 'system';
 
@@ -43,7 +43,9 @@ const ACTION_CATEGORIES: Record<ActionType, { label: string; icon: string; color
     system: { label: 'System', icon: '⚙️', color: 'orange' },
 };
 
-function AuditLogSkeleton() {
+
+
+function AuditLogSkeleton(): React.JSX.Element {
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-50 via-gray-50 to-zinc-50 dark:from-gray-900 dark:via-slate-900 dark:to-gray-900 p-6">
             <div className="max-w-7xl mx-auto">
@@ -80,7 +82,10 @@ function AuditLogSkeleton() {
     );
 }
 
-export default function AuditLogPage() {
+/**
+ *
+ */
+export default function AuditLogPage(): React.JSX.Element {
     const { isAuthenticated, isLoading } = useSharedAuth();
     const router = useRouter();
 
@@ -107,8 +112,8 @@ export default function AuditLogPage() {
     }, [isAuthenticated, isLoading, router]);
 
     // Fetch audit logs
-    const fetchLogs = useCallback(async () => {
-        if (!isAuthenticated) return;
+    const fetchLogs = useCallback(async (): Promise<void> => {
+        if (!isAuthenticated) { return; }
 
         setIsLoadingLogs(true);
         setError(null);
@@ -120,10 +125,10 @@ export default function AuditLogPage() {
             params.set('page', page.toString());
             params.set('page_size', pageSize.toString());
 
-            if (searchQuery) params.set('search', searchQuery);
-            if (selectedCategory !== 'all') params.set('category', selectedCategory);
-            if (dateFrom) params.set('from_date', dateFrom);
-            if (dateTo) params.set('to_date', dateTo);
+            if (searchQuery) { params.set('search', searchQuery); }
+            if (selectedCategory !== 'all') { params.set('category', selectedCategory); }
+            if (dateFrom) { params.set('from_date', dateFrom); }
+            if (dateTo) { params.set('to_date', dateTo); }
 
             const response = await client.get(`${API_ROUTES.ADMIN.AUDIT_LOGS}?${params.toString()}`);
 
@@ -153,7 +158,7 @@ export default function AuditLogPage() {
     }, [fetchLogs]);
 
     // Export logs
-    const handleExport = async () => {
+    const handleExport = async (): Promise<void> => {
         const csvContent = [
             ['Date', 'Action', 'Actor', 'Target', 'Details'].join(','),
             ...logs.map(log => [
@@ -195,8 +200,13 @@ export default function AuditLogPage() {
                 {/* Header */}
                 <div className="mb-8 text-center sm:text-left">
                     <div className="relative inline-block">
-                        <h1 className="text-4xl sm:text-5xl font-bold bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent mb-4">
-                            📜 Audit Log
+                        <h1 className="flex items-center justify-center sm:justify-start gap-3 text-4xl sm:text-5xl font-bold mb-4">
+                            <span className="text-indigo-500">
+                                <FileText className="w-10 h-10 sm:w-12 sm:h-12" />
+                            </span>
+                            <span className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
+                                Audit Log
+                            </span>
                         </h1>
                         <div className="absolute -top-2 -right-2 w-4 h-4 bg-gradient-to-r from-indigo-400 to-purple-500 rounded-full"></div>
                     </div>
@@ -350,38 +360,38 @@ export default function AuditLogPage() {
 }
 
 // Audit Log Row Component
-function AuditLogRow({ log }: { log: AuditLogEntry }) {
+function AuditLogRow({ log }: { log: AuditLogEntry }): React.JSX.Element {
     const [isExpanded, setIsExpanded] = useState(false);
 
-    const getActionIcon = (action: string) => {
-        if (action.includes('permission')) return '🔐';
-        if (action.includes('wallet')) return '👛';
-        if (action.includes('plan')) return '💳';
-        if (action.includes('login') || action.includes('auth')) return '🔑';
-        if (action.includes('create')) return '➕';
-        if (action.includes('delete') || action.includes('remove')) return '🗑️';
-        if (action.includes('update') || action.includes('edit')) return '✏️';
-        if (action.includes('disable')) return '🚫';
-        if (action.includes('enable')) return '✅';
+    const getActionIcon = (action: string): string => {
+        if (action.includes('permission')) { return '🔐'; }
+        if (action.includes('wallet')) { return '👛'; }
+        if (action.includes('plan')) { return '💳'; }
+        if (action.includes('login') || action.includes('auth')) { return '🔑'; }
+        if (action.includes('create')) { return '➕'; }
+        if (action.includes('delete') || action.includes('remove')) { return '🗑️'; }
+        if (action.includes('update') || action.includes('edit')) { return '✏️'; }
+        if (action.includes('disable')) { return '🚫'; }
+        if (action.includes('enable')) { return '✅'; }
         return '📝';
     };
 
-    const getActionColor = (action: string) => {
-        if (action.includes('create') || action.includes('enable')) return 'text-emerald-600 bg-emerald-100 dark:bg-emerald-900/30';
-        if (action.includes('delete') || action.includes('disable') || action.includes('remove')) return 'text-red-600 bg-red-100 dark:bg-red-900/30';
-        if (action.includes('update') || action.includes('edit')) return 'text-blue-600 bg-blue-100 dark:bg-blue-900/30';
-        if (action.includes('permission')) return 'text-purple-600 bg-purple-100 dark:bg-purple-900/30';
+    const getActionColor = (action: string): string => {
+        if (action.includes('create') || action.includes('enable')) { return 'text-emerald-600 bg-emerald-100 dark:bg-emerald-900/30'; }
+        if (action.includes('delete') || action.includes('disable') || action.includes('remove')) { return 'text-red-600 bg-red-100 dark:bg-red-900/30'; }
+        if (action.includes('update') || action.includes('edit')) { return 'text-blue-600 bg-blue-100 dark:bg-blue-900/30'; }
+        if (action.includes('permission')) { return 'text-purple-600 bg-purple-100 dark:bg-purple-900/30'; }
         return 'text-gray-600 bg-gray-100 dark:bg-gray-700';
     };
 
-    const formatAddress = (address: string) => {
+    const formatAddress = (address: string): string => {
         if (address.length > 16) {
             return `${address.slice(0, 6)}...${address.slice(-4)}`;
         }
         return address;
     };
 
-    const formatTime = (dateStr: string) => {
+    const formatTime = (dateStr: string): string => {
         const date = new Date(dateStr);
         const now = new Date();
         const diffMs = now.getTime() - date.getTime();
@@ -389,10 +399,10 @@ function AuditLogRow({ log }: { log: AuditLogEntry }) {
         const diffHours = Math.floor(diffMs / 3600000);
         const diffDays = Math.floor(diffMs / 86400000);
 
-        if (diffMins < 1) return 'Just now';
-        if (diffMins < 60) return `${diffMins}m ago`;
-        if (diffHours < 24) return `${diffHours}h ago`;
-        if (diffDays < 7) return `${diffDays}d ago`;
+        if (diffMins < 1) { return 'Just now'; }
+        if (diffMins < 60) { return `${diffMins}m ago`; }
+        if (diffHours < 24) { return `${diffHours}h ago`; }
+        if (diffDays < 7) { return `${diffDays}d ago`; }
         return date.toLocaleDateString();
     };
 

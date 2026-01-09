@@ -44,6 +44,7 @@ impl UnifiedRouteBuilder {
         let cache = self.get_or_default_cache();
         let redis_pool = self.container.get_redis_pool();
         let redis_broadcaster = self.container.get_redis_broadcaster();
+        let analytics_pool = self.container.get_analytics_pool();
 
         crate::web::auth::AppState::new(
             self.container.db_pool(),
@@ -51,6 +52,7 @@ impl UnifiedRouteBuilder {
             Arc::new((*self.container).clone()),
             redis_pool,
             redis_broadcaster,
+            analytics_pool,
         )
     }
 
@@ -207,6 +209,7 @@ impl UnifiedRouteBuilder {
             Arc::new((*self.container).clone()),
             redis_pool.clone(),
             redis_broadcaster.clone(),
+            self.container.get_analytics_pool(),
         );
 
         // Create public admin routes (no auth required) - TEMPORARY for development
@@ -286,6 +289,7 @@ impl UnifiedRouteBuilder {
             Arc::new((*self.container).clone()),
             redis_pool,
             redis_broadcaster,
+            self.container.get_analytics_pool(),
         );
 
         // Create TradingView service and EPS ranking service for public analytics
@@ -441,6 +445,7 @@ impl UnifiedRouteBuilder {
             Arc::new((*self.container).clone()),
             redis_pool,
             redis_broadcaster,
+            self.container.get_analytics_pool(),
         );
 
         // Create SSE route with permissive CORS (EventSource cannot send credentials)
@@ -597,6 +602,7 @@ impl UnifiedRouteBuilder {
             Arc::new((*self.container).clone()),
             redis_pool,
             redis_broadcaster,
+            self.container.get_analytics_pool(),
         );
 
         crate::web::admin::routes::create_permission_authority_routes()

@@ -10,8 +10,21 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { useAuth } from '@/lib/auth';
 import { cn } from '@/lib/utils';
+import {
+  getPermissionNote,
+  getPermissionTitle,
+  loadPermissionDefinitions,
+  PermissionDefinition
+} from '@/shared/api/permission-definitions';
+import { useApiClient } from '@/shared/hooks/useApiClient';
 import { formatDistanceToNow } from 'date-fns';
 import {
   AlertTriangle,
@@ -40,7 +53,7 @@ import { useEffect, useState } from 'react';
 
 // TODO: Implement these functions when backend is ready
 const getPermissionAnalytics = async () => null;
-const getPermissionHistory = async (limit: number) => [];
+const getPermissionHistory = async (_limit: number) => [];
 const exportPermissionsData = async (format: string) => ({
   data: format === 'json' ? '[]' : '',
   filename: `permissions.${format}`
@@ -108,9 +121,27 @@ interface TimestampedPermission {
   timeRemaining?: number;
 }
 
-function PermissionCard({ permission }: { permission: TimestampedPermission }) {
+interface PermissionHistoryItem {
+  permission: string;
+  action: 'granted' | 'revoked' | 'expired' | 'default';
+  timestamp: string;
+  reason?: string;
+  grantedBy?: string;
+}
+
+interface AnalyticsData {
+  platformDistribution: Record<string, number>;
+  usageStats?: {
+    mostUsedPermissions?: { permission: string; usage: number }[];
+    recentlyGranted?: { permission: string; grantedAt: string }[];
+  };
+}
+
+function PermissionCard({ permission, definitions }: { permission: TimestampedPermission; definitions: Map<string, PermissionDefinition> }) {
   const platform = getPlatformFromPermission(permission.basePermission);
   const Icon = getPermissionIcon(permission.basePermission);
+  const title = getPermissionTitle(permission.basePermission, definitions);
+  const note = getPermissionNote(permission.basePermission, definitions);
 
   const expiryDate = permission.expiresAt
     ? new Date(permission.expiresAt * 1000)
@@ -118,7 +149,7 @@ function PermissionCard({ permission }: { permission: TimestampedPermission }) {
   const isExpiringSoon =
     permission.timeRemaining && permission.timeRemaining < 24 * 60 * 60 * 1000; // 24 hours
 
-  return (
+  const cardContent = (
     <Card
       data-testid="permission-card"
       data-permission={permission.basePermission}
@@ -189,12 +220,20 @@ function PermissionCard({ permission }: { permission: TimestampedPermission }) {
                 )}
               </div>
 
-              <h3 className="mb-1 text-sm font-medium text-gray-900">
-                {permission.basePermission}
+              <h3 className="mb-1 text-sm font-medium text-gray-900 dark:text-gray-100">
+                {title}
               </h3>
+              {note && (
+                <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2">
+                  {note}
+                </p>
+              )}
+              <code className="text-[10px] text-gray-400 dark:text-gray-500 font-mono">
+                {permission.basePermission}
+              </code>
 
               {expiryDate && (
-                <div className="space-y-1 text-xs text-gray-500">
+                <div className="space-y-1 text-xs text-gray-500 mt-2">
                   <div className="flex items-center space-x-1">
                     <Clock className="h-3 w-3" />
                     <span>
@@ -221,6 +260,25 @@ function PermissionCard({ permission }: { permission: TimestampedPermission }) {
       </CardContent>
     </Card>
   );
+
+  // Wrap in tooltip if we have a note
+  if (note) {
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            {cardContent}
+          </TooltipTrigger>
+          <TooltipContent className="max-w-sm">
+            <p className="font-medium">{title}</p>
+            <p className="text-sm text-muted-foreground">{note}</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  }
+
+  return cardContent;
 }
 
 function PermissionStats({
@@ -339,7 +397,7 @@ function PlatformDistributionChart({ distribution }: { distribution: Record<stri
   );
 }
 
-function PermissionHistory({ history }: { history: any[] }) {
+function PermissionHistory({ history }: { history: PermissionHistoryItem[] }) {
   if (history.length === 0) {
     return (
       <div className="text-center py-8 text-gray-500">
@@ -405,16 +463,23 @@ function PermissionHistory({ history }: { history: any[] }) {
 }
 
 export default function PermissionsPage() {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading: _isLoading } = useAuth();
+  const { base } = useApiClient({ platform: 'frontend' });
   const [activeTab, setActiveTab] = useState<
     'all' | 'active' | 'expiring' | 'expired' | 'analytics' | 'history'
   >('active');
   const [timestampedPermissions, setTimestampedPermissions] = useState<
     TimestampedPermission[]
   >([]);
-  const [analytics, setAnalytics] = useState<any>(null);
-  const [history, setHistory] = useState<any[]>([]);
+  const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
+  const [history, setHistory] = useState<PermissionHistoryItem[]>([]);
   const [isExporting, setIsExporting] = useState(false);
+  const [permissionDefinitions, setPermissionDefinitions] = useState<Map<string, PermissionDefinition>>(new Map());
+
+  // Load permission definitions
+  useEffect(() => {
+    loadPermissionDefinitions(base).then(setPermissionDefinitions);
+  }, [base]);
 
   // Parse all permissions with timestamp information
   useEffect(() => {
@@ -425,8 +490,8 @@ export default function PermissionsPage() {
 
     // Convert granular permissions to string array format
     const permissionStrings =
-      typeof user.permissions === 'object' && user.permissions !== null
-        ? Object.keys(user.permissions as Record<string, any>)
+      typeof user.permissions === 'object' && user.permissions !== null && !Array.isArray(user.permissions)
+        ? Object.keys(user.permissions as Record<string, unknown>)
         : Array.isArray(user.permissions)
           ? (user.permissions as string[])
           : [];
@@ -695,7 +760,7 @@ export default function PermissionsPage() {
                           </CardHeader>
                           <CardContent>
                             <div className="space-y-3">
-                              {analytics.usageStats?.mostUsedPermissions?.map((item: any, index: number) => (
+                              {analytics.usageStats?.mostUsedPermissions?.map((item, index: number) => (
                                 <div key={index} className="flex items-center justify-between">
                                   <span className="text-sm font-medium">{item.permission}</span>
                                   <Badge variant="secondary">{item.usage} uses</Badge>
@@ -715,7 +780,7 @@ export default function PermissionsPage() {
                         </CardHeader>
                         <CardContent>
                           <div className="space-y-3">
-                            {analytics.usageStats?.recentlyGranted?.map((item: any, index: number) => (
+                            {analytics.usageStats?.recentlyGranted?.map((item, index: number) => (
                               <div key={index} className="flex items-center justify-between">
                                 <span className="text-sm font-medium">{item.permission}</span>
                                 <span className="text-xs text-gray-500">
@@ -772,6 +837,7 @@ export default function PermissionsPage() {
                         <PermissionCard
                           key={`${perm.permission}-${index}`}
                           permission={perm}
+                          definitions={permissionDefinitions}
                         />
                       ))}
                     </div>

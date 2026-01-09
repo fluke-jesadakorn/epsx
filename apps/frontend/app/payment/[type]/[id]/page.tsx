@@ -1,11 +1,11 @@
 import { GlobalAuthGuard } from '@/components/auth/GlobalAuthGuard';
-import { PaymentStatusServer } from '@/components/sections/payment/PaymentStatusServer';
 import { getCurrentUser } from '@/lib/server-actions';
 import { getDebugSessionInfo } from '@/lib/server-actions-user';
-import { Suspense } from 'react';
-import { PaymentPageClient } from '../../PaymentPageClient';
+import { PaymentClient } from '../../PaymentClient';
 
 export const dynamic = 'force-dynamic';
+
+type PaymentType = 'plan' | 'group' | 'permission' | 'link';
 
 interface PaymentDynamicPageProps {
     params: Promise<{
@@ -14,30 +14,82 @@ interface PaymentDynamicPageProps {
     }>;
 }
 
+/**
+ * Get theme configuration based on payment type
+ */
+function getThemeConfig(type: PaymentType) {
+    switch (type) {
+        case 'plan':
+            return {
+                gradient: 'from-purple-50 via-indigo-50 to-blue-50 dark:from-gray-900 dark:via-purple-900/20 dark:to-gray-800',
+                decorGradient1: 'from-purple-400/30 to-indigo-500/30',
+                decorGradient2: 'from-blue-400/30 to-cyan-500/30',
+                decorGradient3: 'from-pink-400/30 to-purple-500/30',
+                headingGradient: 'from-purple-600 via-indigo-600 to-blue-600',
+                icon: '💎',
+                title: 'Upgrade Your Plan',
+                description: 'Unlock powerful analytics, API access, and premium features',
+            };
+        case 'group':
+            return {
+                gradient: 'from-emerald-50 via-teal-50 to-cyan-50 dark:from-gray-900 dark:via-emerald-900/20 dark:to-gray-800',
+                decorGradient1: 'from-emerald-400/30 to-teal-500/30',
+                decorGradient2: 'from-cyan-400/30 to-blue-500/30',
+                decorGradient3: 'from-teal-400/30 to-emerald-500/30',
+                headingGradient: 'from-emerald-600 via-teal-600 to-cyan-600',
+                icon: '👥',
+                title: 'Join Group',
+                description: 'Get access to shared permissions and group-exclusive features',
+            };
+        case 'permission':
+            return {
+                gradient: 'from-amber-50 via-orange-50 to-rose-50 dark:from-gray-900 dark:via-amber-900/20 dark:to-gray-800',
+                decorGradient1: 'from-amber-400/30 to-orange-500/30',
+                decorGradient2: 'from-rose-400/30 to-pink-500/30',
+                decorGradient3: 'from-orange-400/30 to-amber-500/30',
+                headingGradient: 'from-amber-600 via-orange-600 to-rose-600',
+                icon: '🔑',
+                title: 'Unlock Permission',
+                description: 'Purchase specific access rights for advanced features',
+            };
+        case 'link':
+        default:
+            return {
+                gradient: 'from-pink-50 via-purple-50 to-indigo-50 dark:from-gray-900 dark:via-pink-900/20 dark:to-gray-800',
+                decorGradient1: 'from-pink-400/30 to-purple-500/30',
+                decorGradient2: 'from-indigo-400/30 to-blue-500/30',
+                decorGradient3: 'from-purple-400/30 to-pink-500/30',
+                headingGradient: 'from-pink-600 via-purple-600 to-indigo-600',
+                icon: '🔗',
+                title: 'Complete Payment',
+                description: 'Secure blockchain-powered payment',
+            };
+    }
+}
+
 export default async function PaymentDynamicPage({ params }: PaymentDynamicPageProps) {
     const user = await getCurrentUser();
     const debugInfo = !user ? await getDebugSessionInfo() : null;
+    const { type, id } = await params;
 
-    const resolvedParams = await params;
-    const { type, id } = resolvedParams;
+    // Validate payment type
+    const validTypes: PaymentType[] = ['plan', 'group', 'permission', 'link'];
+    const paymentType = validTypes.includes(type as PaymentType)
+        ? (type as PaymentType)
+        : 'plan';
 
-    // Map route params to payment context
-    const paymentContext = {
-        planId: type === 'plan' ? id : null,
-        groupId: type === 'group' || type === 'permission' ? id : null,
-        linkSlug: type === 'link' ? id : null,
-    };
+    // Get theme configuration
+    const theme = getThemeConfig(paymentType);
 
-    const selectedPackageId = paymentContext.planId || '';
-    const isDynamicPayment = !!(paymentContext.planId || paymentContext.groupId || paymentContext.linkSlug);
-
+    // Show auth guard for unauthenticated users
     if (!user) {
         return (
-            <main className="min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-orange-50 dark:from-gray-900 dark:via-purple-900/20 dark:to-gray-800 flex items-center justify-center relative overflow-hidden">
+            <main className={`min-h-screen bg-gradient-to-br ${theme.gradient} flex items-center justify-center relative overflow-hidden`}>
+                {/* Decorative background */}
                 <div className="absolute inset-0 pointer-events-none">
-                    <div className="absolute top-10 left-10 w-32 h-32 bg-gradient-to-br from-pink-400/30 to-purple-500/30 rounded-full blur-xl"></div>
-                    <div className="absolute top-40 right-20 w-24 h-24 bg-gradient-to-br from-orange-400/30 to-yellow-500/30 rounded-full blur-xl"></div>
-                    <div className="absolute bottom-20 left-20 w-40 h-40 bg-gradient-to-br from-blue-400/30 to-cyan-500/30 rounded-full blur-xl"></div>
+                    <div className={`absolute top-10 left-10 w-32 h-32 bg-gradient-to-br ${theme.decorGradient1} rounded-full blur-xl`} />
+                    <div className={`absolute top-40 right-20 w-24 h-24 bg-gradient-to-br ${theme.decorGradient2} rounded-full blur-xl`} />
+                    <div className={`absolute bottom-20 left-20 w-40 h-40 bg-gradient-to-br ${theme.decorGradient3} rounded-full blur-xl`} />
                 </div>
                 <div className="container mx-auto p-6 relative z-10">
                     <GlobalAuthGuard title="Payment Portal" debugInfo={debugInfo} />
@@ -47,51 +99,54 @@ export default async function PaymentDynamicPage({ params }: PaymentDynamicPageP
     }
 
     return (
-        <main className="min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-orange-50 dark:from-gray-900 dark:via-purple-900/20 dark:to-gray-800 py-12 px-4 relative overflow-hidden">
+        <main className={`min-h-screen bg-gradient-to-br ${theme.gradient} py-12 px-4 relative overflow-hidden`}>
+            {/* Decorative background */}
             <div className="absolute inset-0 pointer-events-none">
-                <div className="absolute top-10 left-10 w-32 h-32 bg-gradient-to-br from-pink-400/30 to-purple-500/30 rounded-full blur-xl"></div>
-                <div className="absolute top-40 right-20 w-24 h-24 bg-gradient-to-br from-orange-400/30 to-yellow-500/30 rounded-full blur-xl"></div>
-                <div className="absolute bottom-20 left-20 w-40 h-40 bg-gradient-to-br from-blue-400/30 to-cyan-500/30 rounded-full blur-xl"></div>
+                <div className={`absolute top-10 left-10 w-32 h-32 bg-gradient-to-br ${theme.decorGradient1} rounded-full blur-xl`} />
+                <div className={`absolute top-40 right-20 w-24 h-24 bg-gradient-to-br ${theme.decorGradient2} rounded-full blur-xl`} />
+                <div className={`absolute bottom-20 left-20 w-40 h-40 bg-gradient-to-br ${theme.decorGradient3} rounded-full blur-xl`} />
             </div>
 
-            <div className="max-w-4xl mx-auto relative z-10">
+            <div className="max-w-6xl mx-auto relative z-10">
+                {/* Hero Header */}
                 <div className="text-center mb-12">
                     <div className="inline-block mb-6">
-                        <div className="bg-gradient-to-r from-pink-500 via-purple-500 to-orange-500 bg-clip-text text-transparent text-6xl font-black mb-2">
-                            💰
-                        </div>
+                        <span className="text-6xl">{theme.icon}</span>
                     </div>
-                    <h1 className="text-4xl lg:text-5xl font-black bg-gradient-to-r from-pink-600 via-purple-600 to-orange-600 bg-clip-text text-transparent mb-6">
-                        Quick & Secure Payment
+                    <h1 className={`text-4xl lg:text-5xl font-black bg-gradient-to-r ${theme.headingGradient} bg-clip-text text-transparent mb-4`}>
+                        {theme.title}
                     </h1>
-                    <p className="text-lg text-gray-700 dark:text-gray-300 max-w-2xl mx-auto leading-relaxed">
-                        Choose your plan and pay in seconds. All payments are secured with
-                        blockchain technology.
-                        <span className="inline-block ml-2">🚀</span>
+                    <p className="text-lg text-gray-700 dark:text-gray-300 max-w-2xl mx-auto">
+                        {theme.description}
                     </p>
                 </div>
 
-                <PaymentPageClient
-                    selectedPackageId={selectedPackageId}
-                    context={isDynamicPayment ? paymentContext : undefined}
+                {/* Payment Flow */}
+                <PaymentClient
+                    paymentType={paymentType === 'link' ? 'plan' : paymentType}
+                    preselectedId={id}
+                    title={theme.title}
+                    description={theme.description}
                 />
 
-                <div className="mb-12">
-                    <Suspense
-                        fallback={
-                            <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl p-6 shadow-xl border border-pink-200/50 dark:border-pink-700/50">
-                                <div>
-                                    <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-1/3 mb-4"></div>
-                                    <div className="space-y-3">
-                                        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded"></div>
-                                        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-5/6"></div>
-                                    </div>
-                                </div>
-                            </div>
-                        }
-                    >
-                        <PaymentStatusServer className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl p-6 shadow-xl border border-pink-200/50 dark:border-pink-700/50" />
-                    </Suspense>
+                {/* Security Footer */}
+                <div className="mt-16 text-center">
+                    <div className="inline-flex items-center gap-4 px-6 py-3 bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm rounded-xl border border-gray-200/50 dark:border-gray-700/50 shadow-lg">
+                        <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                            <span className="text-green-500">🔒</span>
+                            <span>Blockchain Secured</span>
+                        </div>
+                        <div className="w-px h-4 bg-gray-300 dark:bg-gray-600" />
+                        <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                            <span className="text-blue-500">⚡</span>
+                            <span>Instant Activation</span>
+                        </div>
+                        <div className="w-px h-4 bg-gray-300 dark:bg-gray-600" />
+                        <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                            <span className="text-purple-500">💳</span>
+                            <span>USDT/USDC</span>
+                        </div>
+                    </div>
                 </div>
             </div>
         </main>

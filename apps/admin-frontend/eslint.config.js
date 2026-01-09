@@ -79,17 +79,25 @@ module.exports = [
         // Performance API
         PerformanceNavigationTiming: 'readonly',
 
-        // Test framework (Jest/Vitest)
+        // Test framework (Jest/Vitest/Playwright)
         describe: 'readonly',
         test: 'readonly',
         expect: 'readonly',
         beforeEach: 'readonly',
+        afterEach: 'readonly',
+        beforeAll: 'readonly',
+        afterAll: 'readonly',
+        it: 'readonly',
         jest: 'readonly',
 
         // App-specific
         getAuthorizationUrl: 'readonly',
         canManageGroups: 'readonly',
         canManageWeb3Rules: 'readonly',
+        // Session storage
+        sessionStorage: 'readonly',
+        // Error handling
+        error: 'readonly',
       },
     },
     rules: {
@@ -120,49 +128,35 @@ module.exports = [
       'sonarjs/cognitive-complexity': 'warn',
       'sonarjs/no-duplicate-string': 'warn',
       'sonarjs/no-identical-functions': 'warn', // Downgrade - requires careful refactoring
-      'jsdoc/require-jsdoc': 'warn',
-      'jsdoc/require-param': 'warn',
-      'jsdoc/require-returns': 'warn',
-      'no-console': 'warn',
-      'max-params': 'warn',
-      'max-depth': 'warn', // Downgrade - requires code restructuring
-      'max-nested-callbacks': 'warn', // Downgrade - requires async/await refactoring
-
-      // Keep critical safety rules as errors (explicit-any downgraded to warn - 200 instances need gradual refactoring)
-      '@typescript-eslint/no-explicit-any': 'warn',
-      '@typescript-eslint/no-unused-vars': ['warn', {
-        varsIgnorePattern: '^_',
-        argsIgnorePattern: '^_',
-        caughtErrorsIgnorePattern: '^_',
-        destructuredArrayIgnorePattern: '^_',
-      }],
-      'security/detect-object-injection': 'warn', // Downgrade - too many false positives
-      // Accessibility rules downgraded to warnings - require comprehensive keyboard testing
-      'jsx-a11y/alt-text': 'warn',
-      'jsx-a11y/click-events-have-key-events': 'warn',
-      'jsx-a11y/no-static-element-interactions': 'warn',
-      'jsx-a11y/role-supports-aria-props': 'warn',
-      'no-undef': 'warn',
-      'no-unreachable': 'warn',
-      'curly': 'warn',
-      'no-alert': 'warn', // Allow alert/confirm/prompt in admin interface
-      'react-hooks/exhaustive-deps': 'warn', // Downgrade - developers know dependencies
-      '@typescript-eslint/no-non-null-assertion': 'warn', // Allow ! when safe
-      'promise/prefer-await-to-then': 'warn', // Both patterns are acceptable
-      'import/order': 'warn',
-      'import/first': 'warn',
-      'import/newline-after-import': 'warn',
-      'import/no-duplicates': 'warn',
-      'no-empty-pattern': 'warn',
-      'react-hooks/rules-of-hooks': 'warn',
-      'no-multiple-empty-lines': 'warn',
-      'no-empty': 'warn',
-      '@typescript-eslint/no-inferrable-types': 'warn',
-      'promise/catch-or-return': 'warn',
-      'sonarjs/prefer-immediate-return': 'warn',
-      '@typescript-eslint/no-redeclare': 'warn',
-      'prefer-const': 'warn',
-      'jsdoc/check-param-names': 'warn',
+      'jsdoc/require-jsdoc': 'off',
+      'jsdoc/require-param': 'off',
+      'jsdoc/require-returns': 'off',
+      'jsdoc/check-param-names': 'off',
+    },
+  },
+  {
+    files: ['**/*.spec.ts', '**/*.test.ts', '**/__test__/**'],
+    rules: {
+      'no-console': 'off',
+      '@typescript-eslint/no-unused-vars': 'off',
+      '@typescript-eslint/no-explicit-any': 'off',
+      'max-lines-per-function': 'off',
+      'complexity': 'off',
+      'sonarjs/cognitive-complexity': 'off',
+      'max-nested-callbacks': 'off',
+      'max-depth': 'off',
+      'jsdoc/require-*': 'off',
+      'no-empty': 'off',
+      'no-empty-pattern': 'off', // Playwright fixtures often have empty patterns
+      'sonarjs/no-duplicate-string': 'off',
+      'promise/prefer-await-to-then': 'off',
+      'react-hooks/rules-of-hooks': 'off', // Playwright `use` is not a React hook
+    },
+  },
+  {
+    files: ['**/*.js'],
+    rules: {
+      '@typescript-eslint/no-var-requires': 'off',
     },
   },
   {

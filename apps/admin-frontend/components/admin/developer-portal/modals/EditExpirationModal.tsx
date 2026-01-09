@@ -19,6 +19,12 @@ interface EditExpirationModalProps {
 
 /**
  * Modal dialog for editing API key expiration date
+ * @param root0
+ * @param root0.isOpen
+ * @param root0.onClose
+ * @param root0.apiKey
+ * @param root0.onUpdate
+ * @param root0.isLoading
  */
 export const EditExpirationModal: React.FC<EditExpirationModalProps> = ({
     isOpen,
@@ -35,7 +41,7 @@ export const EditExpirationModal: React.FC<EditExpirationModalProps> = ({
     const [removeExpiration, setRemoveExpiration] = useState(false);
     const [error, setError] = useState('');
 
-    if (!isOpen) return null;
+    if (!isOpen) {return null;}
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();

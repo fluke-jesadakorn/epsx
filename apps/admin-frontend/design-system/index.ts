@@ -14,30 +14,37 @@
 // DESIGN TOKENS
 // ============================================================================
 
-export {
-  type Color,
-  type Spacing,
-  type FontSize,
-  type FontWeight,
-  type BorderRadius,
-  type Shadow,
-  type ZIndex,
-  type AnimationDuration,
-  type AnimationEasing,
-  type Breakpoint,
-} from './tokens';
-
 // Import tokens for re-export
-import { 
+import {
+  adminBadgeVariants as _adminBadgeVariants,
+  adminButtonVariants as _adminButtonVariants,
+  adminCardVariants as _adminCardVariants,
+  adminInputVariants as _adminInputVariants,
+  adminLoadingVariants as _adminLoadingVariants,
+  adminModalVariants as _adminModalVariants,
+  adminTableVariants as _adminTableVariants,
+  cn as _cn,
+  getActionButtonVariant as _getActionButtonVariant,
+  getStatusBadgeVariant as _getStatusBadgeVariant,
+} from './components';
+import {
+  animation as _animation,
+  borderRadius as _borderRadius,
+  breakpoints as _breakpoints,
   colors as _colors,
+  semanticColors as _semanticColors,
+  shadows as _shadows,
   spacing as _spacing,
   typography as _typography,
-  borderRadius as _borderRadius,
-  shadows as _shadows,
-  zIndex as _zIndex,
-  animation as _animation,
-  breakpoints as _breakpoints,
-  semanticColors as _semanticColors
+  zIndex as _zIndex
+} from './tokens';
+
+// Import variants for internal use
+
+export {
+  type AnimationDuration,
+  type AnimationEasing, type BorderRadius, type Breakpoint, type Color, type FontSize,
+  type FontWeight, type Shadow, type Spacing, type ZIndex
 } from './tokens';
 
 // Re-export tokens safely
@@ -56,37 +63,9 @@ export const semanticColors = _semanticColors;
 // ============================================================================
 
 export {
-  adminButtonVariants,
-  adminCardVariants,
-  adminBadgeVariants,
-  adminTableVariants,
-  adminInputVariants,
-  adminModalVariants,
-  adminLoadingVariants,
-  cn,
-  getStatusBadgeVariant,
-  getActionButtonVariant,
-  type AdminButtonVariants,
-  type AdminCardVariants,
-  type AdminBadgeVariants,
-  type AdminTableVariants,
-  type AdminInputVariants,
-  type AdminModalVariants,
-  type AdminLoadingVariants,
-} from './components';
-
-// Import variants for internal use
-import {
-  adminButtonVariants as _adminButtonVariants,
-  adminCardVariants as _adminCardVariants,
-  adminBadgeVariants as _adminBadgeVariants,
-  adminTableVariants as _adminTableVariants,
-  adminInputVariants as _adminInputVariants,
-  adminModalVariants as _adminModalVariants,
-  adminLoadingVariants as _adminLoadingVariants,
-  cn as _cn,
-  getStatusBadgeVariant as _getStatusBadgeVariant,
-  getActionButtonVariant as _getActionButtonVariant,
+  adminBadgeVariants, adminButtonVariants,
+  adminCardVariants, adminInputVariants, adminLoadingVariants, adminModalVariants, adminTableVariants, cn, getActionButtonVariant, getStatusBadgeVariant, type AdminBadgeVariants, type AdminButtonVariants,
+  type AdminCardVariants, type AdminInputVariants, type AdminLoadingVariants, type AdminModalVariants, type AdminTableVariants
 } from './components';
 
 // Animation system removed for Zero Animation Policy compliance
@@ -121,14 +100,14 @@ export const designSystemMeta = {
   version: DESIGN_SYSTEM_VERSION,
   description: 'Type-safe design system for EPSX admin interfaces',
   author: 'EPSX Team',
-  
+
   // Component counts for tracking (calculated safely)
   components: {
     buttons: 8, // primary, secondary, success, destructive, warning, outline, ghost, link
     cards: 8,   // default, pancake, user, permission, billing, analytics, warning, error
     badges: 15, // active, inactive, pending, suspended, premium, granted, denied, inherited, paid, overdue, trial, enterprise, success, warning, error, info, default
   },
-  
+
   // Token counts (calculated safely)
   tokens: {
     colors: Object.keys(_colors || {}).length,
@@ -136,7 +115,7 @@ export const designSystemMeta = {
     typography: Object.keys(_typography?.fontSize || {}).length,
     animations: Object.keys(_animation || {}).length,
   },
-  
+
   // Migration support (removed - migration file not found)
   migration: {
     legacyClasses: 0,
@@ -165,20 +144,20 @@ export function validateDesignSystem(): {
 } {
   const errors: string[] = [];
   const warnings: string[] = [];
-  
+
   // Check if required tokens are available
   if (!colors?.primary) {
     errors.push('Primary color tokens not found');
   }
-  
+
   if (!spacing?.['4']) {
     errors.push('Spacing tokens not found');
   }
-  
+
   if (!typography?.fontSize) {
     errors.push('Typography tokens not found');
   }
-  
+
   // Check if component variants are available
   try {
     if (typeof _adminButtonVariants === 'function') {
@@ -189,7 +168,7 @@ export function validateDesignSystem(): {
   } catch (_error) {
     errors.push('Button variants not properly configured');
   }
-  
+
   try {
     if (typeof _adminCardVariants === 'function') {
       _adminCardVariants({ variant: 'default' });
@@ -199,7 +178,7 @@ export function validateDesignSystem(): {
   } catch (_error) {
     errors.push('Card variants not properly configured');
   }
-  
+
   // Performance warnings
   if (typeof window !== 'undefined') {
     const hasReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -207,7 +186,7 @@ export function validateDesignSystem(): {
       warnings.push('User prefers reduced motion - animations will be disabled');
     }
   }
-  
+
   return {
     isValid: errors.length === 0,
     errors,
@@ -219,26 +198,27 @@ export function validateDesignSystem(): {
  * Development helper to log design system status
  */
 export function debugDesignSystem(): void {
-  if (process.env.NODE_ENV !== 'development') return;
-  
+  if (process.env.NODE_ENV !== 'development') { return; }
+
   const info = getDesignSystemInfo();
   const validation = validateDesignSystem();
-  
+
   console.group('🎨 Admin Frontend Design System');
-  
+
   if (validation.errors.length > 0) {
-    // eslint-disable-next-line no-console
+     
     console.error('❌ Errors:', validation.errors);
   }
-  
+
   if (validation.warnings.length > 0) {
-    // eslint-disable-next-line no-console
+     
     console.warn('⚠️ Warnings:', validation.warnings);
   }
-  
+
   if (validation.isValid) {
+    // Design system is valid - no action needed
   }
-  
+
   console.groupEnd();
 }
 
@@ -265,9 +245,10 @@ export function getDesignSystemTokens() {
 
 /**
  * Check if a breakpoint matches (non-hook version)
+ * @param breakpoint
  */
 export function checkBreakpoint(breakpoint: keyof typeof breakpoints): boolean {
-  if (typeof window === 'undefined') return false;
+  if (typeof window === 'undefined') { return false; }
   const query = `(min-width: ${breakpoints[breakpoint]})`;
   return window.matchMedia(query).matches;
 }
@@ -286,10 +267,10 @@ export function getThemeColors() {
       },
     };
   }
-  
+
   const isDark = document.documentElement.classList.contains('dark') ||
-                 window.matchMedia('(prefers-color-scheme: dark)').matches;
-  
+    window.matchMedia('(prefers-color-scheme: dark)').matches;
+
   return {
     isDark,
     colors: {
@@ -306,6 +287,7 @@ export function getThemeColors() {
 
 /**
  * Type guard for valid button variants
+ * @param variant
  */
 export function isValidButtonVariant(variant: string): variant is 'primary' | 'secondary' | 'success' | 'destructive' | 'warning' | 'outline' | 'ghost' | 'link' {
   const validVariants = ['primary', 'secondary', 'success', 'destructive', 'warning', 'outline', 'ghost', 'link'];
@@ -314,6 +296,7 @@ export function isValidButtonVariant(variant: string): variant is 'primary' | 's
 
 /**
  * Type guard for valid card variants
+ * @param variant
  */
 export function isValidCardVariant(variant: string): variant is 'default' | 'pancake' | 'user' | 'permission' | 'billing' | 'analytics' | 'warning' | 'error' {
   const validVariants = ['default', 'pancake', 'user', 'permission', 'billing', 'analytics', 'warning', 'error'];
@@ -322,6 +305,7 @@ export function isValidCardVariant(variant: string): variant is 'default' | 'pan
 
 /**
  * Type guard for valid badge variants
+ * @param variant
  */
 export function isValidBadgeVariant(variant: string): variant is 'active' | 'inactive' | 'pending' | 'suspended' | 'premium' | 'granted' | 'denied' | 'inherited' | 'paid' | 'overdue' | 'trial' | 'enterprise' | 'success' | 'warning' | 'error' | 'info' | 'default' {
   const validVariants = [
@@ -356,7 +340,7 @@ const designSystem = {
     breakpoints,
     semanticColors,
   },
-  
+
   // Components
   components: {
     adminButtonVariants: _adminButtonVariants,
@@ -367,14 +351,14 @@ const designSystem = {
     adminModalVariants: _adminModalVariants,
     adminLoadingVariants: _adminLoadingVariants,
   },
-  
+
   // Animations (removed for Zero Animation Policy)
   animations: {
     // Animation system removed for performance and accessibility
   },
-  
+
   // Migration (removed - migration file not found)
-  
+
   // Utils
   utils: {
     cn: _cn,
@@ -382,7 +366,7 @@ const designSystem = {
     getActionButtonVariant: _getActionButtonVariant,
     // Animation utilities removed for Zero Animation Policy
   },
-  
+
   // Meta
   meta: designSystemMeta,
   validateDesignSystem,

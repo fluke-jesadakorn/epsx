@@ -1,9 +1,10 @@
 'use client';
 
-import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
 import { Calendar, Clock, X } from 'lucide-react';
 import { useState } from 'react';
+
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 interface ExpiryDatePickerProps {
     itemName: string;
@@ -20,6 +21,15 @@ const PRESETS = [
     { label: '1 year', days: 365 },
 ];
 
+/**
+ *
+ * @param root0
+ * @param root0.itemName
+ * @param root0.itemType
+ * @param root0.isOpen
+ * @param root0.onConfirm
+ * @param root0.onCancel
+ */
 export function ExpiryDatePicker({
     itemName,
     itemType,
@@ -30,7 +40,7 @@ export function ExpiryDatePicker({
     const [selectedDate, setSelectedDate] = useState<Date | null>(null);
     const [customDate, setCustomDate] = useState('');
 
-    if (!isOpen) return null;
+    if (!isOpen) {return null;}
 
     const handlePreset = (days: number) => {
         const date = new Date();

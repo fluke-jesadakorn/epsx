@@ -165,6 +165,10 @@ export const securityApi = {
 // UTILITY FUNCTIONS
 // ============================================================================
 
+/**
+ *
+ * @param severity
+ */
 export const getSeverityColor = (severity: string): string => {
   switch (severity.toLowerCase()) {
     case 'critical': return 'text-red-600'
@@ -175,6 +179,10 @@ export const getSeverityColor = (severity: string): string => {
   }
 }
 
+/**
+ *
+ * @param severity
+ */
 export const getSeverityBadgeColor = (severity: string): string => {
   switch (severity.toLowerCase()) {
     case 'critical': return 'bg-red-100 text-red-800 border-red-200'
@@ -185,13 +193,21 @@ export const getSeverityBadgeColor = (severity: string): string => {
   }
 }
 
+/**
+ *
+ * @param score
+ */
 export const formatThreatScore = (score: number): string => {
-  if (score >= 80) return `${score.toFixed(1)} (Critical)`
-  if (score >= 60) return `${score.toFixed(1)} (High)`
-  if (score >= 40) return `${score.toFixed(1)} (Medium)`
+  if (score >= 80) {return `${score.toFixed(1)} (Critical)`}
+  if (score >= 60) {return `${score.toFixed(1)} (High)`}
+  if (score >= 40) {return `${score.toFixed(1)} (Medium)`}
   return `${score.toFixed(1)} (Low)`
 }
 
+/**
+ *
+ * @param eventType
+ */
 export const getEventTypeIcon = (eventType: string): string => {
   switch (eventType.toLowerCase()) {
     case 'suspiciouslogin': return '🔒'

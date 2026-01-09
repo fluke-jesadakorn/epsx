@@ -63,7 +63,7 @@ export class AdminErrorBoundary extends Component<Props, State> {
    * @param errorInfo
    */
   override componentDidCatch(error: Error, errorInfo: any) {
-    // eslint-disable-next-line no-console
+     
     console.error('AdminErrorBoundary caught an error:', error, errorInfo);
 
     // Call optional error handler

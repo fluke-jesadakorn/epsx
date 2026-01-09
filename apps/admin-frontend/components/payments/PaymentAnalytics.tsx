@@ -1,8 +1,9 @@
 'use client';
 
-import { useApiClient } from '@/shared/hooks/useApiClient';
 import { ChartBarIcon } from '@heroicons/react/24/outline';
 import { useCallback, useEffect, useState } from 'react';
+
+import { useApiClient } from '@/shared/hooks/useApiClient';
 
 interface PaymentStats {
     total_payments: number;
@@ -15,6 +16,9 @@ interface PaymentStats {
     revenue_today: number;
 }
 
+/**
+ *
+ */
 export function PaymentAnalytics() {
     const { base } = useApiClient({ platform: 'admin' });
     const [stats, setStats] = useState<PaymentStats | null>(null);
@@ -44,7 +48,7 @@ export function PaymentAnalytics() {
         loadAnalytics();
     }, [loadAnalytics]);
 
-    const formatCurrency = (amount: number, currency: string = 'USD') => {
+    const formatCurrency = (amount: number, currency = 'USD') => {
         try {
             if (currency === 'USDT') {
                 return new Intl.NumberFormat('en-US', {

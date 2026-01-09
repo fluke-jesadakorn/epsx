@@ -1,7 +1,7 @@
 'use client';
 
-import { BarChart3, Users, Shield, Activity, AlertTriangle, RefreshCw } from 'lucide-react';
-import { Suspense } from 'react';
+import { Activity, AlertTriangle, BarChart3, RefreshCw, Shield, Users } from 'lucide-react';
+import React, { Suspense } from 'react';
 
 import UsageAnalyticsTab from '@/components/admin/UsageAnalyticsTab';
 import { GroupAnalyticsDashboard } from '@/components/groups/GroupAnalyticsDashboard';
@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAnalyticsOverview, useApiKeys, useRealTimeMetrics } from '@/hooks/useAnalyticsData';
 
-function LoadingCard() {
+function LoadingCard(): React.JSX.Element {
   return (
     <Card>
       <CardContent className="p-6">
@@ -25,7 +25,7 @@ function LoadingCard() {
   );
 }
 
-function ErrorCard({ error, onRetry }: { error: any; onRetry?: () => void }) {
+function ErrorCard({ error, onRetry }: { error: any; onRetry?: () => void }): React.JSX.Element {
   return (
     <Card className="border-red-200 dark:border-red-800">
       <CardContent className="p-6">
@@ -53,18 +53,18 @@ function ErrorCard({ error, onRetry }: { error: any; onRetry?: () => void }) {
 /**
  *
  */
-export default function AnalyticsPage() {
-  const { 
-    userStats, 
-    permissionAnalytics, 
-    systemMetrics, 
-    dashboardData, 
-    isLoading, 
-    hasError, 
+export default function AnalyticsPage(): React.JSX.Element {
+  const {
+    userStats,
+    permissionAnalytics,
+    systemMetrics,
+    dashboardData,
+    isLoading,
+    hasError,
     errors,
-    refreshAll 
+    refreshAll
   } = useAnalyticsOverview();
-  
+
   const { apiKeys, isLoading: apiKeysLoading, error: apiKeysError } = useApiKeys();
   const { responseTime, memoryUsage, activeUsers } = useRealTimeMetrics();
 
@@ -137,7 +137,7 @@ export default function AnalyticsPage() {
               subtitle="Currently online"
               iconName="users"
               trend="up"
-              trendValue={userStats?.recent_users_30_days ? `+${((userStats.recent_users_30_days / userStats.total_users) * 100).toFixed(1)}%` : 'N/A'}
+              trendValue={userStats?.new_users_30_days && userStats.total_users ? `+${((userStats.new_users_30_days / userStats.total_users) * 100).toFixed(1)}%` : 'N/A'}
               statusColor="green"
               rank={1}
             />
@@ -181,7 +181,7 @@ export default function AnalyticsPage() {
                   {userStats?.active_users?.toLocaleString() || '0'}
                 </p>
                 <p className="text-xs text-gray-500 dark:text-gray-400">
-                  {userStats?.recent_users_30_days ? `+${userStats.recent_users_30_days} this month` : 'No recent data'}
+                  {userStats?.new_users_30_days ? `+${userStats.new_users_30_days} this month` : 'No recent data'}
                 </p>
               </div>
             </div>
@@ -241,7 +241,7 @@ export default function AnalyticsPage() {
                   Memory Usage
                 </p>
                 <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                  {systemMetrics?.memory_usage || 0}%
+                  {memoryUsage || 0}%
                 </p>
                 <p className="text-xs text-gray-500 dark:text-gray-400">
                   System memory

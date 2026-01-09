@@ -1,7 +1,8 @@
 import { cookies } from 'next/headers';
+
+import { COOKIES } from '@/shared/auth/cookies';
 import { type User } from '@/shared/types/auth';
 import { getBackendUrl } from '@/shared/utils/url-resolver';
-import { COOKIES } from '@/shared/auth/cookies';
 
 export interface AdminSessionData {
   isAuthenticated: boolean;
@@ -54,7 +55,7 @@ export async function getServerSessionAdmin(): Promise<AdminSessionData | null> 
     };
 
   } catch (_error) {
-    // eslint-disable-next-line no-console
+     
     console.error('Failed to get admin server session:', _error);
     return { isAuthenticated: false };
   }

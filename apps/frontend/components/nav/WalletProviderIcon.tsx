@@ -61,6 +61,7 @@ const walletProviders: Record<string, WalletProviderInfo> = {
 
 export function WalletProviderIcon({ className = '', compact = false }: WalletProviderIconProps) {
   const [isHydrated, setIsHydrated] = useState(false);
+  const [isWagmiReady, setIsWagmiReady] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [isAuthenticating, setIsAuthenticating] = useState(false);
@@ -103,6 +104,32 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
       setCurrentTheme(themeUtils.getTheme());
     }
   }, [isConnected, address, connector, isInitialized, isAuthenticated, isHydrated]);
+
+  // Wait for wagmi to restore connection state from cookie storage
+  // This prevents the flash of "Connect" button during page refresh
+  useEffect(() => {
+    if (!isHydrated) return;
+
+    // If wagmi shows actually connected, mark as ready immediately
+    if (isConnected && address) {
+      setIsWagmiReady(true);
+      return;
+    }
+
+    // If still reconnecting or connecting, DO NOT mark as ready yet
+    // This keeps showing the loading state until connection is confirmed
+    if (accountStatus === 'reconnecting' || accountStatus === 'connecting') {
+      return; // Keep isWagmiReady as false, shows loading state
+    }
+
+    // Only when confirmed disconnected, give wagmi a bit more time 
+    // to potentially restore state, then mark as ready
+    const timer = setTimeout(() => {
+      setIsWagmiReady(true);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [isHydrated, isConnected, address, accountStatus]);
 
   // Sync disconnect state
   useEffect(() => {
@@ -195,8 +222,8 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
     setCurrentTheme(newTheme);
   };
 
-  // Loading state
-  if (!isHydrated || !isInitialized) {
+  // Loading state - wait for hydration, initialization, AND wagmi to restore state
+  if (!isHydrated || !isInitialized || !isWagmiReady) {
     return (
       <Button
         variant="ghost"

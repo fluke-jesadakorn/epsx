@@ -1,11 +1,14 @@
 'use client';
 
-import { useApiClient } from '@/shared/hooks/useApiClient';
 import { UserGroupIcon } from '@heroicons/react/24/outline';
 import { useCallback, useEffect, useState } from 'react';
 
+import { useApiClient } from '@/shared/hooks/useApiClient';
 import type { PlanAccessData } from '@/shared/types/payment';
 
+/**
+ *
+ */
 export function UserAccessManagement() {
     const { base } = useApiClient({ platform: 'admin' });
     const [userAccess, setUserAccess] = useState<PlanAccessData[]>([]);

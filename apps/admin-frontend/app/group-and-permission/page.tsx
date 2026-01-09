@@ -1,9 +1,25 @@
 'use client'
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Clock, Edit3, Plus, Shield, Trash2, UserPlus, Users } from 'lucide-react'
+import {
+  ArrowDown,
+  ArrowLeft,
+  ArrowUpDown,
+  CheckCircle2,
+  Clock,
+  Edit3,
+  Key,
+  Plus,
+  Settings,
+  Shield,
+  Trash2,
+  Trophy,
+  UserPlus,
+  Users,
+  Wallet
+} from 'lucide-react'
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 
 import { PermissionRegistry } from '@/components/permissions/PermissionRegistry'
@@ -34,6 +50,9 @@ export default function Web3AdminPermissionsPage() {
   const [isLoadingActivity, setIsLoadingActivity] = useState(false)
   const [recentActivity, setRecentActivity] = useState<any[]>([])
 
+  // Sorting state for permission groups
+  const [sortBy, setSortBy] = useState<'name' | 'members' | 'permissions'>('name')
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
 
   // Fetch permission groups
   const { data: permissionGroups = [], isLoading: groupsLoading, error: groupsError } = useQuery({
@@ -71,6 +90,25 @@ export default function Web3AdminPermissionsPage() {
     }
   })
 
+  // Sorted permission groups
+  const sortedGroups = useMemo(() => {
+    return [...permissionGroups].sort((a, b) => {
+      let comparison = 0
+      switch (sortBy) {
+        case 'name':
+          comparison = a.name.localeCompare(b.name)
+          break
+        case 'members':
+          comparison = (a.member_count ?? 0) - (b.member_count ?? 0)
+          break
+        case 'permissions':
+          comparison = a.permissions.length - b.permissions.length
+          break
+      }
+      return sortOrder === 'asc' ? comparison : -comparison
+    })
+  }, [permissionGroups, sortBy, sortOrder])
+
   const handleGroupCreated = () => {
     queryClient.invalidateQueries({ queryKey: ['permission-groups'] })
     queryClient.invalidateQueries({ queryKey: ['group-analytics'] })
@@ -104,11 +142,10 @@ export default function Web3AdminPermissionsPage() {
     setEditingGroup(null)
   }
 
-
   // Load recent activity
   useEffect(() => {
     const loadRecentActivity = async () => {
-      if (activeView !== 'main') return
+      if (activeView !== 'main') { return }
 
       setIsLoadingActivity(true)
       try {
@@ -141,7 +178,6 @@ export default function Web3AdminPermissionsPage() {
     }
   }, [activeView])
 
-
   // Show loading state
   if (groupsLoading || analyticsLoading) {
     return (
@@ -164,7 +200,6 @@ export default function Web3AdminPermissionsPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-yellow-50 via-orange-50 to-pink-50 dark:from-gray-900 dark:via-purple-900 dark:to-gray-900 p-3 sm:p-6">
       {/* Background Decorations */}
-
 
       <div className="relative max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 space-y-6 sm:space-y-8">
         {/* Page Header */}
@@ -198,7 +233,9 @@ export default function Web3AdminPermissionsPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6 mb-6 sm:mb-8">
               <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-xl sm:rounded-2xl lg:rounded-3xl p-3 sm:p-4 lg:p-6 shadow-xl border-2 border-blue-300/50 dark:border-blue-700/50 hover:shadow-2xl transition-shadow">
                 <div className="flex items-center justify-between mb-2 sm:mb-3 lg:mb-4">
-                  <div className="text-xl sm:text-2xl lg:text-3xl">👥</div>
+                  <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-xl text-blue-600 dark:text-blue-400">
+                    <Users className="w-6 h-6 sm:w-8 sm:h-8" />
+                  </div>
                   <span className="text-xs sm:text-xs lg:text-sm font-medium text-gray-600 dark:text-gray-300">Groups</span>
                 </div>
                 <div className="space-y-1">
@@ -209,7 +246,9 @@ export default function Web3AdminPermissionsPage() {
 
               <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-xl sm:rounded-2xl lg:rounded-3xl p-3 sm:p-4 lg:p-6 shadow-xl border-2 border-green-300/50 dark:border-green-700/50 hover:shadow-2xl transition-shadow">
                 <div className="flex items-center justify-between mb-2 sm:mb-3 lg:mb-4">
-                  <div className="text-xl sm:text-2xl lg:text-3xl">✅</div>
+                  <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-xl text-green-600 dark:text-green-400">
+                    <CheckCircle2 className="w-6 h-6 sm:w-8 sm:h-8" />
+                  </div>
                   <span className="text-xs sm:text-xs lg:text-sm font-medium text-gray-600 dark:text-gray-300">Active</span>
                 </div>
                 <div className="space-y-1">
@@ -220,7 +259,9 @@ export default function Web3AdminPermissionsPage() {
 
               <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-xl sm:rounded-2xl lg:rounded-3xl p-3 sm:p-4 lg:p-6 shadow-xl border-2 border-orange-300/50 dark:border-orange-700/50 hover:shadow-2xl transition-shadow">
                 <div className="flex items-center justify-between mb-2 sm:mb-3 lg:mb-4">
-                  <div className="text-xl sm:text-2xl lg:text-3xl">⏰</div>
+                  <div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-xl text-orange-600 dark:text-orange-400">
+                    <Clock className="w-6 h-6 sm:w-8 sm:h-8" />
+                  </div>
                   <span className="text-xs sm:text-xs lg:text-sm font-medium text-gray-600 dark:text-gray-300">Soon</span>
                 </div>
                 <div className="space-y-1">
@@ -231,7 +272,9 @@ export default function Web3AdminPermissionsPage() {
 
               <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-xl sm:rounded-2xl lg:rounded-3xl p-3 sm:p-4 lg:p-6 shadow-xl border-2 border-purple-300/50 dark:border-purple-700/50 hover:shadow-2xl transition-shadow">
                 <div className="flex items-center justify-between mb-2 sm:mb-3 lg:mb-4">
-                  <div className="text-xl sm:text-2xl lg:text-3xl">🏆</div>
+                  <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-xl text-purple-600 dark:text-purple-400">
+                    <Trophy className="w-6 h-6 sm:w-8 sm:h-8" />
+                  </div>
                   <span className="text-xs sm:text-xs lg:text-sm font-medium text-gray-600 dark:text-gray-300">Top</span>
                 </div>
                 <div className="space-y-1">
@@ -251,9 +294,12 @@ export default function Web3AdminPermissionsPage() {
                   <div className="relative bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-2xl sm:rounded-3xl h-full">
                     <div className="absolute top-4 right-4 w-4 h-4 bg-gradient-to-r from-purple-400 to-pink-500 rounded-full blur-sm opacity-60"></div>
                     <div className="p-4 sm:p-6">
-                      <h3 className="text-lg sm:text-xl font-bold bg-gradient-to-r from-purple-400 to-pink-500 bg-clip-text text-transparent mb-2">
-                        🔑 Permissions
-                      </h3>
+                      <div className="flex items-center gap-2 mb-2">
+                        <Key className="w-5 h-5 text-purple-500" />
+                        <h3 className="text-lg sm:text-xl font-bold bg-gradient-to-r from-purple-400 to-pink-500 bg-clip-text text-transparent">
+                          Permissions
+                        </h3>
+                      </div>
                       <p className="text-sm text-gray-700 dark:text-gray-300 mb-3">
                         Define global permissions
                       </p>
@@ -274,9 +320,12 @@ export default function Web3AdminPermissionsPage() {
                   <div className="relative bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-2xl sm:rounded-3xl h-full">
                     <div className="absolute top-4 right-4 w-4 h-4 bg-gradient-to-r from-blue-400 to-cyan-500 rounded-full blur-sm opacity-60"></div>
                     <div className="p-4 sm:p-6">
-                      <h3 className="text-lg sm:text-xl font-bold bg-gradient-to-r from-blue-400 to-cyan-500 bg-clip-text text-transparent mb-2">
-                        👥 Create Group
-                      </h3>
+                      <div className="flex items-center gap-2 mb-2">
+                        <Users className="w-5 h-5 text-blue-500" />
+                        <h3 className="text-lg sm:text-xl font-bold bg-gradient-to-r from-blue-400 to-cyan-500 bg-clip-text text-transparent">
+                          Create Group
+                        </h3>
+                      </div>
                       <p className="text-sm text-gray-700 dark:text-gray-300 mb-3">
                         Create a new permission group
                       </p>
@@ -297,9 +346,12 @@ export default function Web3AdminPermissionsPage() {
                   <div className="relative bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-2xl sm:rounded-3xl h-full">
                     <div className="absolute top-4 right-4 w-4 h-4 bg-gradient-to-r from-green-400 to-emerald-500 rounded-full blur-sm opacity-60"></div>
                     <div className="p-4 sm:p-6">
-                      <h3 className="text-lg sm:text-xl font-bold bg-gradient-to-r from-green-400 to-emerald-500 bg-clip-text text-transparent mb-2">
-                        💼 Assign Wallet
-                      </h3>
+                      <div className="flex items-center gap-2 mb-2">
+                        <Wallet className="w-5 h-5 text-green-500" />
+                        <h3 className="text-lg sm:text-xl font-bold bg-gradient-to-r from-green-400 to-emerald-500 bg-clip-text text-transparent">
+                          Assign Wallet
+                        </h3>
+                      </div>
                       <p className="text-sm text-gray-700 dark:text-gray-300 mb-3">
                         Assign wallet to a group
                       </p>
@@ -320,9 +372,12 @@ export default function Web3AdminPermissionsPage() {
                   <div className="relative bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-2xl sm:rounded-3xl h-full">
                     <div className="absolute top-4 right-4 w-4 h-4 bg-gradient-to-r from-orange-400 to-pink-500 rounded-full blur-sm opacity-60"></div>
                     <div className="p-4 sm:p-6">
-                      <h3 className="text-lg sm:text-xl font-bold bg-gradient-to-r from-orange-400 to-pink-500 bg-clip-text text-transparent mb-2">
-                        ⏰ Expiring Soon
-                      </h3>
+                      <div className="flex items-center gap-2 mb-2">
+                        <Clock className="w-5 h-5 text-orange-500" />
+                        <h3 className="text-lg sm:text-xl font-bold bg-gradient-to-r from-orange-400 to-pink-500 bg-clip-text text-transparent">
+                          Expiring Soon
+                        </h3>
+                      </div>
                       <p className="text-sm text-gray-700 dark:text-gray-300 mb-3">
                         View expiring assignments
                       </p>
@@ -338,13 +393,43 @@ export default function Web3AdminPermissionsPage() {
               </Link>
             </div>
 
-
             {/* Permission Groups Grid */}
             <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl border-2 border-indigo-300/50 dark:border-indigo-700/50">
-              <h2 className="text-2xl font-bold text-indigo-600 dark:text-indigo-400 mb-6 flex items-center gap-2">
-                <Shield className="w-6 h-6" />
-                Permission Groups
-              </h2>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+                <h2 className="text-2xl font-bold text-indigo-600 dark:text-indigo-400 flex items-center gap-2">
+                  <Shield className="w-6 h-6" />
+                  Permission Groups
+                </h2>
+                
+                {/* Sort Controls */}
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-gray-500 dark:text-gray-400">Sort by:</span>
+                  <Select value={sortBy} onValueChange={(v) => setSortBy(v as 'name' | 'members' | 'permissions')}>
+                    <SelectTrigger className="w-[140px] h-9">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="name">Name</SelectItem>
+                      <SelectItem value="members">Members</SelectItem>
+                      <SelectItem value="permissions">Permissions</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
+                    className="h-9 px-3 gap-1.5"
+                    title={sortOrder === 'asc' ? 'Ascending' : 'Descending'}
+                  >
+                    {sortOrder === 'asc' ? (
+                      <ArrowUpDown className="w-4 h-4" />
+                    ) : (
+                      <ArrowDown className="w-4 h-4" />
+                    )}
+                    {sortOrder === 'asc' ? 'Asc' : 'Desc'}
+                  </Button>
+                </div>
+              </div>
 
               {groupsError ? (
                 <div className="bg-red-50/50 dark:bg-red-900/20 border border-red-200/50 dark:border-red-700/50 rounded-2xl p-4">
@@ -354,7 +439,7 @@ export default function Web3AdminPermissionsPage() {
                 </div>
               ) : (
                 <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-                  {permissionGroups.map((group) => {
+                  {sortedGroups.map((group) => {
                     const isSystem = group.group_type === 'system' || group.is_system_group;
                     const borderColor = isSystem
                       ? 'border-purple-300/50 dark:border-purple-700/50'
@@ -364,7 +449,15 @@ export default function Web3AdminPermissionsPage() {
                       <div key={group.id} className={`bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-xl sm:rounded-2xl p-3 sm:p-4 lg:p-6 shadow-xl border-2 ${borderColor} hover:shadow-2xl transition-shadow`}>
                         <div className="flex items-center justify-between mb-3 sm:mb-4">
                           <div className="text-2xl sm:text-3xl">
-                            {isSystem ? '⚙️' : '👥'}
+                            {isSystem ? (
+                              <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-xl text-purple-600 dark:text-purple-400">
+                                <Settings className="w-6 h-6 sm:w-8 sm:h-8" />
+                              </div>
+                            ) : (
+                              <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-xl text-blue-600 dark:text-blue-400">
+                                <Users className="w-6 h-6 sm:w-8 sm:h-8" />
+                              </div>
+                            )}
                           </div>
                           <div className="flex items-center gap-2">
                             {isSystem && (
@@ -500,7 +593,6 @@ export default function Web3AdminPermissionsPage() {
         {activeView === 'edit-group' && editingGroup && (
           <EditGroupSection group={editingGroup} onSuccess={handleGroupUpdated} />
         )}
-
 
         {/* Expiring Assignments View */}
         {activeView === 'expiring' && (
@@ -977,7 +1069,7 @@ function EditGroupSection({ group, onSuccess }: { group: PermissionGroup; onSucc
 // Expiring Assignments Section Component
 function ExpiringAssignmentsSection({ assignments, isLoading, onUpdate }: { assignments: any[], isLoading: boolean, onUpdate: () => void }) {
   // Logic from original component or simplified for this context
-  if (isLoading) return <div>Loading...</div>
+  if (isLoading) { return <div>Loading...</div> }
   return (
     <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-6 shadow-xl border-2 border-orange-300/50 dark:border-orange-700/50">
       <h2 className="text-2xl font-bold text-orange-600 dark:text-orange-400 mb-6 flex items-center gap-2">

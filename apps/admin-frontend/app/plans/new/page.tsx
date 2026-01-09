@@ -1,5 +1,8 @@
 'use client'
 
+import { useRouter } from 'next/navigation'
+import { useState } from 'react'
+
 import { PermissionTransferList } from '@/components/groups/PermissionTransferList'
 import { PageLoadingSpinner } from '@/components/ui/LoadingSpinner'
 import { PancakeCard } from '@/components/ui/PancakeCard'
@@ -9,8 +12,6 @@ import { createPlansClient, isApiSuccess } from '@/shared/api/plans'
 import { useSharedAuth } from '@/shared/components/auth/Provider'
 import { createAdminApiClient } from '@/shared/utils/api-client'
 import { PERMISSION_TEMPLATE_CONFIGS, PermissionTemplateName } from '@/types/permission-templates'
-import { useRouter } from 'next/navigation'
-import { useState } from 'react'
 
 interface CreatePermissionTemplateRequest {
   name: string
@@ -25,6 +26,9 @@ interface CreatePermissionTemplateRequest {
   metadata: any
 }
 
+/**
+ *
+ */
 export default function NewPlanPage() {
   const router = useRouter()
   const { user, isLoading: authLoading, isAuthenticated } = useSharedAuth()
@@ -94,22 +98,15 @@ export default function NewPlanPage() {
       const planRequest = {
         name: formData.name,
         description: formData.description,
-        plan_type: 'subscription',
-        current_price: formData.current_price,
+        permission_group_name: formData.name, // Use plan name as group name
+        current_price: formData.current_price.toString(), // Convert to string for Decimal
         currency: formData.currency,
         target_audience: formData.target_audience,
         billing_model: formData.billing_model,
-        plan_category: 'permission_template',
-        features: formData.features.map(feature => ({
-          context_name: 'web_app',
-          feature_key: feature,
-          feature_config: {},
-          resource_cost: 1.0,
-          is_active: true
-        })),
+        permissions: formData.permissions, // Required direct permission array
         metadata: {
           permission_template: formData.template_name,
-          permissions: formData.permissions,
+          features: formData.features,
           ...formData.metadata
         }
       }
@@ -150,8 +147,6 @@ export default function NewPlanPage() {
       current_price: templateName === 'Free Template' ? 0 : formData.current_price
     })
   }
-
-
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-yellow-50 via-orange-50 to-pink-50 dark:from-gray-900 dark:via-purple-900 dark:to-gray-900 p-6">

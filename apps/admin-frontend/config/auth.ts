@@ -4,6 +4,8 @@
  * Provides admin-specific auth configuration and backward compatibility
  */
 
+import { ROUTES } from '../lib/route-compatibility';
+
 import {
   AuthFeatures,
   ProgressiveAuthState,
@@ -31,7 +33,6 @@ import {
   // Web3 Validation functions
   validateWeb3Signature
 } from '@/shared/config/auth';
-import { ROUTES } from '../lib/route-compatibility';
 
 // Extend Shared AuthConfig for backward compatibility
 export interface AuthConfig extends SharedAuthConfig {
@@ -89,6 +90,8 @@ export const ADMIN_SESSION_CONFIG = getSessionConfig('admin');
 
 /**
  * Check if current auth level meets admin requirements
+ * @param route
+ * @param authState
  */
 export function meetsAdminAuthRequirements(
   route: string,
@@ -99,6 +102,7 @@ export function meetsAdminAuthRequirements(
 
 /**
  * Get required auth level for admin route
+ * @param route
  */
 export function getAdminRequiredAuthLevel(route: string) {
   return getRequiredAuthLevel(route, 'admin');
@@ -106,6 +110,7 @@ export function getAdminRequiredAuthLevel(route: string) {
 
 /**
  * Build admin Web3 challenge URL
+ * @param walletAddress
  */
 export function buildAdminWeb3ChallengeUrl(walletAddress: string): string {
   // We use the shared builder but might need to adapt if specific config is needed
@@ -136,6 +141,9 @@ export function buildAdminWeb3LogoutUrl(): string {
 
 /**
  * Validate admin Web3 signature
+ * @param signature
+ * @param message
+ * @param address
  */
 export function validateAdminWeb3Signature(signature: string, message: string, address: string) {
   return validateWeb3Signature(message, signature, address);
@@ -157,6 +165,10 @@ export const ADMIN_AUTH_ERRORS = {
 
 /**
  * Admin auth state helpers
+ * @param isAuthenticated
+ * @param permissions
+ * @param walletAddress
+ * @param expiresAt
  */
 export function createAdminAuthState(
   isAuthenticated: boolean,
@@ -175,16 +187,15 @@ export function createAdminAuthState(
 
 /**
  * Check if user has admin authentication
+ * @param authState
  */
 export function hasAdminAuthentication(authState: ProgressiveAuthState): boolean {
-  if (!authState.isAuthenticated) return false;
+  if (!authState.isAuthenticated) {return false;}
 
   // Check for admin permissions
-  const hasAdminPermission = authState.permissions.some(permission =>
+  return authState.permissions.some(permission =>
     permission.startsWith('admin:') || permission === 'admin:*:*'
   );
-
-  return hasAdminPermission;
 }
 
 /**

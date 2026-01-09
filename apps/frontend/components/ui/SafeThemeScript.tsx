@@ -76,7 +76,7 @@ export const themeUtils = {
             document.documentElement.classList.remove('light', 'dark');
             document.documentElement.classList.add(theme);
         } catch (_error) {
-            // eslint-disable-next-line no-console
+             
             console.error('Failed to set theme:', _error);
         }
     },

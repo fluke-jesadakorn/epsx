@@ -1,39 +1,39 @@
 'use client';
 
-import { useState } from 'react';
-import { 
-  Crown, 
-  Star, 
-  TrendingUp, 
-  Zap, 
-  ArrowRight, 
-  X,
-  Sparkles,
-  CheckCircle
-} from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import {
+  ArrowRight,
+  CheckCircle,
+  Crown,
+  Sparkles,
+  Star,
+  TrendingUp,
+  X,
+  Zap
+} from 'lucide-react';
+import { useState } from 'react';
 
 interface UpgradePromptProps {
   // Required tier info
   requiredTier: 'BRONZE' | 'SILVER' | 'GOLD' | 'PLATINUM' | 'ENTERPRISE';
   currentTier?: 'FREE' | 'BRONZE' | 'SILVER' | 'GOLD' | 'PLATINUM' | 'ENTERPRISE';
-  
+
   // Feature context
   featureName?: string;
   description?: string;
-  
+
   // Display options
   variant?: 'banner' | 'card' | 'inline' | 'tooltip';
   size?: 'sm' | 'md' | 'lg';
   dismissible?: boolean;
   showFeatures?: boolean;
   showPricing?: boolean;
-  
+
   // Styling
   className?: string;
-  
+
   // Actions
   onUpgrade?: (targetTier: string) => void;
   onDismiss?: () => void;
@@ -90,11 +90,11 @@ const TIER_INFO = {
 
 export function UpgradePrompt({
   requiredTier,
-  currentTier = 'FREE',
+  currentTier: _currentTier = 'FREE',
   featureName,
   description,
   variant = 'card',
-  size = 'md',
+  size: _size = 'md',
   dismissible = true,
   showFeatures = true,
   showPricing = false,
@@ -124,7 +124,7 @@ export function UpgradePrompt({
     return (
       <div className={`relative overflow-hidden ${tierInfo.bgColor} ${tierInfo.borderColor} border rounded-lg p-4 ${className}`}>
         <div className={`absolute inset-0 bg-gradient-to-r ${tierInfo.color} opacity-5`} />
-        
+
         <div className="relative flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <div className={`p-2 rounded-full bg-gradient-to-r ${tierInfo.color}`}>
@@ -139,7 +139,7 @@ export function UpgradePrompt({
               </p>
             </div>
           </div>
-          
+
           <div className="flex items-center space-x-2">
             <Button onClick={handleUpgrade} size="sm">
               Upgrade Now
@@ -169,12 +169,12 @@ export function UpgradePrompt({
               <X className="h-4 w-4" />
             </button>
           )}
-          
+
           <div className="flex items-start space-x-4">
             <div className={`p-3 rounded-lg bg-gradient-to-br ${tierInfo.color}`}>
               <IconComponent className="h-6 w-6 text-white" />
             </div>
-            
+
             <div className="flex-1">
               <div className="flex items-center space-x-2 mb-2">
                 <Badge className={`${tierInfo.bgColor} ${tierInfo.textColor} border-0`}>
@@ -186,15 +186,15 @@ export function UpgradePrompt({
                   </Badge>
                 )}
               </div>
-              
+
               <h3 className="font-semibold mb-1">
                 {featureName ? `Unlock ${featureName}` : `Upgrade to ${requiredTier}`}
               </h3>
-              
+
               <p className="text-sm text-muted-foreground mb-3">
                 {description || `Get access to premium features and enhanced capabilities.`}
               </p>
-              
+
               {showFeatures && (
                 <div className="mb-4">
                   <p className="text-xs font-medium text-muted-foreground mb-2">
@@ -210,7 +210,7 @@ export function UpgradePrompt({
                   </div>
                 </div>
               )}
-              
+
               <div className="flex gap-2">
                 <Button onClick={handleUpgrade} size="sm" className="flex-1">
                   Upgrade to {requiredTier}
@@ -241,7 +241,7 @@ export function UpgradePrompt({
             </Badge>
           </span>
         </div>
-        
+
         <div className="flex items-center space-x-2">
           <Button onClick={handleUpgrade} size="sm" variant="outline">
             Upgrade

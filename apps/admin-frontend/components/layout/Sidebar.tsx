@@ -1,9 +1,10 @@
 'use client';
 
-import { useSharedAuth } from '@/shared/components/auth/Provider';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
+
+import { useSharedAuth } from '@/shared/components/auth/Provider';
 
 interface NavItem {
   id: string;

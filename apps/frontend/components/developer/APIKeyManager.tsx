@@ -58,15 +58,15 @@ export function APIKeyManager({ currentUser, onStatsChange }: APIKeyManagerProps
         // Load user's own API keys using user-facing endpoint
         const keysResponse = await client.listMyApiKeys({ limit: 100 });
         if (keysResponse.success && keysResponse.data) {
-          const keysRaw = keysResponse.data as any;
-          setApiKeys(keysRaw.data?.api_keys || keysRaw.api_keys || []);
+          const keysRaw = keysResponse.data as unknown as Record<string, unknown>;
+          setApiKeys(((keysRaw.data as any)?.api_keys || keysRaw.api_keys || []) as ApiKeyResponse[]);
         }
 
         // Load user's assigned groups and flatten permissions
         const groupsResponse = await client.getMyGroups();
         if (groupsResponse.success && groupsResponse.data) {
-          const rawData = groupsResponse.data as any;
-          const groups = rawData.data?.groups || rawData.groups || [];
+          const rawData = groupsResponse.data as unknown as Record<string, unknown>;
+          const groups = (rawData.data as any)?.groups || rawData.groups || [];
 
           // Flatten permissions from all groups into unique list
           const allPermissions = new Set<string>();
@@ -80,6 +80,7 @@ export function APIKeyManager({ currentUser, onStatsChange }: APIKeyManagerProps
           setAvailablePermissions(permissionsList);
           setHasGroups(groups.length > 0);
         } else {
+          // Handle cases where group response might be empty or failed without error
         }
       } catch (error) {
         console.error('Failed to load data:', error);
@@ -98,14 +99,14 @@ export function APIKeyManager({ currentUser, onStatsChange }: APIKeyManagerProps
       const client = getApiClient();
       const keysResponse = await client.listMyApiKeys({ limit: 100 });
       if (keysResponse.success && keysResponse.data) {
-        const keysRaw = keysResponse.data as any;
-        setApiKeys(keysRaw.data?.api_keys || keysRaw.api_keys || []);
+        const keysRaw = keysResponse.data as unknown as Record<string, unknown>;
+        setApiKeys(((keysRaw.data as any)?.api_keys || keysRaw.api_keys || []) as ApiKeyResponse[]);
       }
       // Also refresh available groups
       const groupsResponse = await client.getMyGroups();
       if (groupsResponse.success && groupsResponse.data) {
-        const rawData = groupsResponse.data as any;
-        const groups = rawData.data?.groups || rawData.groups || [];
+        const rawData = groupsResponse.data as unknown as Record<string, unknown>;
+        const groups = (rawData.data as any)?.groups || rawData.groups || [];
         setHasGroups(groups.length > 0);
         // Flatten permissions from groups
         const allPermissions = new Set<string>();
@@ -146,13 +147,13 @@ export function APIKeyManager({ currentUser, onStatsChange }: APIKeyManagerProps
 
       if (response.success && response.data) {
         // Handle potentially nested response: response.data may contain { data: { full_key, api_key: { id } } }
-        const rawData = response.data as any;
-        const newKey = rawData.data || rawData; // Handle both wrapped and unwrapped response
-        const fullKey = newKey.full_key || '';
-        const keyId = newKey.api_key?.id || newKey.id || '';
+        const rawData = response.data as unknown as Record<string, unknown>;
+        const newKey = (rawData.data as any) || rawData; // Handle both wrapped and unwrapped response
+        const fullKey = (newKey as any).full_key || '';
+        const _keyId = (newKey as any).api_key?.id || (newKey as any).id || '';
 
 
-        setGeneratedKey(fullKey || 'Key created - check your keys');
+        setGeneratedKey(fullKey as string || 'Key created - check your keys');
         setShowNewKey(true);
         setNewKeyName('');
         setSelectedPermissions([]);
@@ -189,16 +190,16 @@ export function APIKeyManager({ currentUser, onStatsChange }: APIKeyManagerProps
       } else {
         toast.error('Failed to revoke API key');
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to revoke API key:', error);
-      const errorMessage = error?.message || error?.error || 'Failed to revoke API key';
+      const errorMessage = (error as Record<string, unknown>)?.message || (error as Record<string, unknown>)?.error || 'Failed to revoke API key';
       toast.error(`Error: ${errorMessage}`);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const togglePermissionSelection = (permissionId: string) => {
+  const _togglePermissionSelection = (permissionId: string) => {
     setSelectedPermissions((prev: string[]) =>
       prev.includes(permissionId)
         ? prev.filter((id: string) => id !== permissionId)
@@ -535,13 +536,13 @@ export function APIKeyManager({ currentUser, onStatsChange }: APIKeyManagerProps
                       <div>
                         <div className="text-[10px] font-bold text-gray-500 dark:text-gray-500 uppercase tracking-widest mb-2">Permissions</div>
                         <div className="flex flex-wrap gap-1.5">
-                          {((apiKey as any).permissions?.length > 0) ? (
+                          {(apiKey as any).permissions?.length > 0 ? (
                             (apiKey as any).permissions.map((permission: string, idx: number) => (
                               <Badge key={idx} variant="outline" className="px-2 py-0.5 text-[11px] border-amber-500/50 text-amber-400 bg-amber-900/10 font-mono">
                                 {permission}
                               </Badge>
                             ))
-                          ) : ((apiKey as any).groups?.length > 0) ? (
+                          ) : (apiKey as any).groups?.length > 0 ? (
                             (apiKey as any).groups.map((group: { id: string; name: string; slug: string }, idx: number) => (
                               <Badge key={idx} variant="outline" className="px-3 py-1 text-xs border-blue-900/50 text-blue-400 bg-blue-900/10">
                                 {group.name}

@@ -20,6 +20,7 @@ const LABEL_COLORS = [
 
 /**
  * Simple hash function for consistent color assignment
+ * @param str
  */
 function hashString(str: string): number {
     let hash = 0;
@@ -33,6 +34,7 @@ function hashString(str: string): number {
 
 /**
  * Get color classes for a label based on its text
+ * @param label
  */
 export function getLabelColor(label: string) {
     const index = hashString(label.toLowerCase()) % LABEL_COLORS.length;
@@ -46,6 +48,14 @@ interface WalletLabelBadgeProps {
     onRemove?: () => void;
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.label
+ * @param root0.size
+ * @param root0.className
+ * @param root0.onRemove
+ */
 export function WalletLabelBadge({
     label,
     size = 'sm',

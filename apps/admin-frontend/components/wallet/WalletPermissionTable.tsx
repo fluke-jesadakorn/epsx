@@ -6,6 +6,8 @@
 
 import { Clock, Settings, Trash2 } from 'lucide-react';
 
+import type { PermissionSource, Platform, WalletPermission } from './types';
+
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -17,8 +19,6 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
-
-import type { PermissionSource, Platform, WalletPermission } from './types';
 
 interface WalletPermissionTableProps {
     permissions: WalletPermission[];
@@ -54,7 +54,7 @@ const SOURCE_CONFIG: Record<PermissionSource, { label: string; emoji: string; cl
 };
 
 function formatDate(dateString?: string): string {
-    if (!dateString) return 'Never';
+    if (!dateString) {return 'Never';}
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', {
         month: 'short',
@@ -64,7 +64,7 @@ function formatDate(dateString?: string): string {
 }
 
 function isExpiringSoon(dateString?: string): boolean {
-    if (!dateString) return false;
+    if (!dateString) {return false;}
     const date = new Date(dateString);
     const now = new Date();
     const daysUntilExpiry = (date.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
@@ -72,7 +72,7 @@ function isExpiringSoon(dateString?: string): boolean {
 }
 
 function isExpired(dateString?: string): boolean {
-    if (!dateString) return false;
+    if (!dateString) {return false;}
     return new Date(dateString) < new Date();
 }
 
@@ -194,6 +194,15 @@ function PermissionRow({
     );
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.permissions
+ * @param root0.groupByPlatform
+ * @param root0.showActions
+ * @param root0.onRevoke
+ * @param root0.className
+ */
 export function WalletPermissionTable({
     permissions,
     groupByPlatform = true,
@@ -214,7 +223,7 @@ export function WalletPermissionTable({
     if (groupByPlatform) {
         // Group permissions by platform
         const grouped = permissions.reduce((acc, perm) => {
-            if (!acc[perm.platform]) acc[perm.platform] = [];
+            if (!acc[perm.platform]) {acc[perm.platform] = [];}
             acc[perm.platform].push(perm);
             return acc;
         }, {} as Record<Platform, WalletPermission[]>);

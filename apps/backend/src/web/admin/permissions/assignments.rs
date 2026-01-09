@@ -165,6 +165,23 @@ pub async fn create_assignment(
             .execute(conn)
             .await?;
 
+            // Deactivate existing subscription plan assignments for this wallet
+            // Enforces single active plan per user (groups can still have multiple users)
+            diesel::sql_query(
+                r#"
+                UPDATE wallet_group_assignments 
+                SET is_active = false, updated_at = NOW()
+                WHERE wallet_address = $1 
+                  AND is_active = true
+                  AND group_id IN (SELECT id FROM groups WHERE group_type = 'subscription')
+                  AND group_id != $2
+                "#
+            )
+            .bind::<diesel::sql_types::Text, _>(&wallet_clone)
+            .bind::<diesel::sql_types::Uuid, _>(group_uuid)
+            .execute(conn)
+            .await?;
+
             // Insert or update assignment
             let assignment_id = diesel::sql_query(
                 r#"
@@ -789,7 +806,10 @@ pub async fn get_group_history(
     let page = query.limit.unwrap_or(20).clamp(1, 100);
     let offset = query.offset.unwrap_or(0);
 
-    let mut conn = match app_state.db_pool.get().await {
+    // Use analytics pool if available, otherwise fallback to primary pool (for dev)
+    let pool = app_state.analytics_db_pool.as_ref().unwrap_or(&app_state.db_pool);
+
+    let mut conn = match pool.get().await {
         Ok(conn) => conn,
         Err(e) => {
             tracing::error!("Failed to get database connection: {}", e);

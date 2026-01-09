@@ -7,7 +7,6 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 
-
 // ============================================================================
 // Core Types - Web3-First
 // ============================================================================
@@ -84,7 +83,7 @@ export async function getWeb3SessionFromCookies(): Promise<Web3SessionData | nul
       message: '',   // Not accessible (HttpOnly)
       nonce: '',     // Not accessible (HttpOnly)
       chainId: process.env['NEXT_PUBLIC_DEFAULT_CHAIN_ID'] ? parseInt(process.env['NEXT_PUBLIC_DEFAULT_CHAIN_ID']) : 56,    // BSC Mainnet - default for consistency
-      expiresAt: userData.auth_time ? parseInt(userData.auth_time) + 86400000 : now + 3600000, // 24 hours default
+      expiresAt: userData.auth_time ? parseInt(userData.auth_time) + 2592000000 : now + 2592000000, // 30 days default
     };
 
     // Check if session has expired using new expiresAt calculation
@@ -97,7 +96,7 @@ export async function getWeb3SessionFromCookies(): Promise<Web3SessionData | nul
     return sessionData;
 
   } catch (_error) {
-    // eslint-disable-next-line no-console
+
     console.error('❌ Failed to get Web3 session from cookies:', _error);
     return null;
   }
@@ -106,6 +105,7 @@ export async function getWeb3SessionFromCookies(): Promise<Web3SessionData | nul
 /**
  * Validate Web3 authentication with backend
  * @param sessionData
+ * @param _sessionData
  */
 export async function validateWeb3Session(_sessionData: Web3SessionData): Promise<Web3AdminUser | null> {
   try {
@@ -134,14 +134,14 @@ export async function validateWeb3Session(_sessionData: Web3SessionData): Promis
       permissions: userData.permissions || [],
       groups: userData.groups || [],
       isAdmin: userData.isAdmin || true, // Assume admin if user cookie exists
-      sessionExpiry: userData.auth_time ? parseInt(userData.auth_time) + 86400000 : Date.now() + 86400000,
+      sessionExpiry: userData.auth_time ? parseInt(userData.auth_time) + 2592000000 : Date.now() + 2592000000,
       lastVerified: Date.now()
     };
 
     return web3User;
 
   } catch (_error) {
-    // eslint-disable-next-line no-console
+
     console.error('❌ Web3 validation error:', _error);
     return null;
   }
@@ -264,23 +264,25 @@ export function checkAdminPermissions(permissions: string[]): boolean {
 /**
  * Shared wildcard permission matcher - SINGLE SOURCE OF TRUTH
  * Handles admin:*:*, platform:*:*, and platform:resource:* wildcards
+ * @param permissions
+ * @param required
  */
 function matchesPermission(permissions: string[], required: string): boolean {
-  if (!permissions || !Array.isArray(permissions)) return false;
+  if (!permissions || !Array.isArray(permissions)) { return false; }
 
   // Admin wildcard - grants all permissions
-  if (permissions.includes('admin:*:*')) return true;
+  if (permissions.includes('admin:*:*')) { return true; }
 
   // Exact match
-  if (permissions.includes(required)) return true;
+  if (permissions.includes(required)) { return true; }
 
   // Wildcard matching for structured permissions (platform:resource:action)
   const [platform, resource] = required.split(':');
   if (platform && resource) {
     // Platform wildcard: platform:*:*
-    if (permissions.includes(`${platform}:*:*`)) return true;
+    if (permissions.includes(`${platform}:*:*`)) { return true; }
     // Resource wildcard: platform:resource:*
-    if (permissions.includes(`${platform}:${resource}:*`)) return true;
+    if (permissions.includes(`${platform}:${resource}:*`)) { return true; }
   }
 
   return false;
@@ -288,15 +290,19 @@ function matchesPermission(permissions: string[], required: string): boolean {
 
 /**
  * Check specific permission for Web3 user
+ * @param user
+ * @param requiredPermission
  */
 export function hasPermission(user: Web3AdminUser | undefined, requiredPermission: string): boolean {
-  if (!user) return false;
-  if (user.isAdmin || hasAdminAccess(user)) return true;
+  if (!user) { return false; }
+  if (user.isAdmin || hasAdminAccess(user)) { return true; }
   return matchesPermission(user.permissions, requiredPermission);
 }
 
 /**
  * Check specific permission with permissions array
+ * @param userPermissions
+ * @param requiredPermission
  */
 export function checkPermission(userPermissions: string[], requiredPermission: string): boolean {
   return matchesPermission(userPermissions, requiredPermission);
@@ -324,7 +330,7 @@ export function getExpiringPermissions(permissions: string[], withinDays = 7): s
   const threshold = now + (withinDays * 24 * 60 * 60);
 
   return permissions.filter(permission => {
-    if (!permission) return false;
+    if (!permission) { return false; }
     const parts = permission.split(':');
     if (parts.length === 4) {
       const expiryTimestamp = parseInt(parts[3] || '0', 10);
@@ -394,7 +400,7 @@ export async function getAdminSession(): Promise<AdminSession> {
     };
 
   } catch (_error) {
-    // eslint-disable-next-line no-console
+
     console.error('❌ Session validation error:', _error);
     return {
       isAuthenticated: false,

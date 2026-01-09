@@ -93,7 +93,7 @@ export function usePaymentTransaction({
                 transaction_hash: txHash,
                 plan_id: planId.toString(),
                 expected_amount: amount,
-                currency: currency,
+                currency,
             }
             console.log('📦 [Debug] Request body:', JSON.stringify(requestBody))
 
@@ -125,7 +125,7 @@ export function usePaymentTransaction({
             console.error('❌ [Debug] Error submitting to backend:', error)
             // Don't fail the payment - it was successful on-chain
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
+         
     }, [planId, amount, currency, onError])
 
     /**

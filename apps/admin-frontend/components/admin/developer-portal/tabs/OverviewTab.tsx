@@ -4,10 +4,10 @@ import { Activity, Key, Plus, Settings } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import React from 'react';
 
-import { Button } from '@/components/ui/button';
-
-import type { ApiKeyResponse, Module } from '@/shared/api/plans';
 import { StatsCard } from '../shared/StatsCard';
+
+import { Button } from '@/components/ui/button';
+import type { ApiKeyResponse, Module } from '@/shared/api/plans';
 
 interface OverviewTabProps {
     apiKeys: ApiKeyResponse[];
@@ -17,6 +17,7 @@ interface OverviewTabProps {
 
 /**
  * Get status badge color
+ * @param status
  */
 const getStatusColor = (status: string): string => {
     switch (status) {
@@ -33,6 +34,10 @@ const getStatusColor = (status: string): string => {
 
 /**
  * Overview tab component showing stats and recent API keys
+ * @param root0
+ * @param root0.apiKeys
+ * @param root0.modules
+ * @param root0.onCreateKey
  */
 export const OverviewTab: React.FC<OverviewTabProps> = ({
     apiKeys,

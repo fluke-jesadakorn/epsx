@@ -16,8 +16,29 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 // @ts-ignore
 import { bsc, bscTestnet } from 'viem/chains';
 // @ts-ignore
-import { WagmiProvider } from 'wagmi';
+import { cookieStorage, createStorage, useAccount, useReconnect, WagmiProvider } from 'wagmi';
 import type { Chain } from 'wagmi/chains';
+
+/**
+ * Component that triggers wagmi reconnection on mount
+ * This ensures wallet state is restored from cookie storage after page refresh
+ */
+function WagmiReconnectProvider({ children }: { children: React.ReactNode }) {
+    const { reconnect } = useReconnect();
+    const { isConnected } = useAccount();
+    const [hasAttemptedReconnect, setHasAttemptedReconnect] = React.useState(false);
+
+    React.useEffect(() => {
+        // Only attempt reconnect once on mount if not already connected
+        if (!hasAttemptedReconnect && !isConnected) {
+            setHasAttemptedReconnect(true);
+            // Trigger reconnection to restore state from cookie storage
+            reconnect();
+        }
+    }, [reconnect, isConnected, hasAttemptedReconnect]);
+
+    return <>{children}</>;
+}
 
 // Singleton Query Client with common settings
 const queryClient = new QueryClient({
@@ -182,6 +203,9 @@ export function UnifiedWeb3Provider({
         projectId,
         chains: resolvedChains as any,
         ssr: true,
+        storage: createStorage({
+            storage: cookieStorage,
+        }),
     }), [appName, projectId, resolvedChains]);
 
     const customLightTheme = React.useMemo(() => lightTheme({
@@ -231,16 +255,18 @@ export function UnifiedWeb3Provider({
         <Web3Context.Provider value={contextValue}>
             <WagmiProvider config={config}>
                 <QueryClientProvider client={queryClient}>
-                    <RainbowKitProvider
-                        theme={theme}
-                        modalSize="compact"
-                        appInfo={{
-                            appName,
-                            learnMoreUrl,
-                        }}
-                    >
-                        {children}
-                    </RainbowKitProvider>
+                    <WagmiReconnectProvider>
+                        <RainbowKitProvider
+                            theme={theme}
+                            modalSize="compact"
+                            appInfo={{
+                                appName,
+                                learnMoreUrl,
+                            }}
+                        >
+                            {children}
+                        </RainbowKitProvider>
+                    </WagmiReconnectProvider>
                 </QueryClientProvider>
             </WagmiProvider>
         </Web3Context.Provider>

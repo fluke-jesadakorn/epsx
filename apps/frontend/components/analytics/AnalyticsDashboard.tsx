@@ -109,7 +109,7 @@ export default function AnalyticsDashboard({
         <FilterPanel
           filters={filters}
           options={{
-            countries: currentFilterOptions.countries.map(c => typeof c === 'string' ? c : (c as any).value),
+            countries: currentFilterOptions.countries.map((c: string | { value: string }) => typeof c === 'string' ? c : (c as { value: string }).value),
             sectors: currentFilterOptions.sectors,
             exchanges: currentFilterOptions.exchanges,
             stock_types: currentFilterOptions.stock_types
@@ -270,7 +270,7 @@ function QoQLeadersDisplay({ qoqLeaders, isLoading }: QoQLeadersDisplayProps) {
 // Leader Category Component
 interface LeaderCategoryProps {
   title: string;
-  leaders: any[];
+  leaders: unknown[];
   colorScheme: 'green' | 'blue';
   valueKey: string;
 }
@@ -292,7 +292,8 @@ function LeaderCategory({ title, leaders, colorScheme, valueKey }: LeaderCategor
         {title}
       </h3>
       <div className="space-y-2">
-        {leaders.map((leader) => {
+        {leaders.map((leaderItem) => {
+          const leader = leaderItem as Record<string, unknown>;
           let displayValue = '0.0%';
 
           if (valueKey === 'analytics.growth_factor') {

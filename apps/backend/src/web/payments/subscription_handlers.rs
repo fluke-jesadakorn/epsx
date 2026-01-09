@@ -21,6 +21,39 @@ use crate::{
 };
 
 // ============================================================================
+// HELPER FUNCTIONS
+// ============================================================================
+
+/// Extract rankings view limit from group metadata permissions
+/// Returns: Some(-1) for unlimited, Some(n) for specific limit, Some(3) as default
+fn extract_rankings_limit(metadata: &serde_json::Value) -> Option<i32> {
+    // Check permissions array in metadata
+    if let Some(permissions) = metadata.get("permissions").and_then(|p| p.as_array()) {
+        for perm in permissions {
+            if let Some(perm_str) = perm.as_str() {
+                // Look for "epsx:rankings:view:N" or "epsx:analytics:view:N" pattern
+                if let Some(limit_str) = perm_str.strip_prefix("epsx:rankings:view:")
+                    .or_else(|| perm_str.strip_prefix("epsx:analytics:view:")) {
+                    if limit_str == "unlimited" || limit_str == "-1" {
+                        return Some(-1);
+                    }
+                    if let Ok(limit) = limit_str.parse::<i32>() {
+                        return Some(limit);
+                    }
+                }
+                // Check for wildcard permission (enterprise access)
+                if perm_str == "epsx:*:*" || perm_str == "epsx:rankings:*" {
+                    return Some(-1); // Unlimited
+                }
+            }
+        }
+    }
+    
+    // Default to free tier limit
+    Some(3)
+}
+
+// ============================================================================
 // REQUEST/RESPONSE TYPES
 // ============================================================================
 
@@ -41,6 +74,9 @@ pub struct PlanAccessData {
     pub plan_expires_at: Option<DateTime<Utc>>,
     pub days_remaining: i64,
     pub status: String, // "active", "expiring_soon", "expired", "no_plan"
+    pub rankings_view_limit: Option<i32>, // -1 = unlimited, 0 = none, >0 = specific limit
+    pub can_upgrade: bool,
+    pub tier_level: i32, // Plan tier level for upgrade/downgrade logic
 }
 
 /// Plan expiry status response
@@ -69,6 +105,7 @@ pub struct CancelPlanResponse {
 // ============================================================================
 
 /// Get user's plan access status
+/// Get user's plan access status
 pub async fn get_user_plans_handler(
     State(app_state): State<crate::web::auth::AppState>,
     Extension(user_context): Extension<OpenIDUserContext>,
@@ -87,6 +124,79 @@ pub async fn get_user_plans_handler(
             },
         }))?;
 
+    let now = Utc::now();
+
+    // 1. Primary Check: Look for active subscription in wallet_group_assignments
+    // This is the source of truth for all new payments/plans
+    #[derive(diesel::QueryableByName)]
+    struct ActiveSubscriptionRow {
+        #[diesel(sql_type = diesel::sql_types::Text)]
+        name: String,
+        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
+        expires_at: Option<DateTime<Utc>>,
+        #[diesel(sql_type = diesel::sql_types::Jsonb)]
+        group_metadata: serde_json::Value,
+        #[diesel(sql_type = diesel::sql_types::Integer)]
+        tier_level: i32,
+    }
+
+    let active_sub: Option<ActiveSubscriptionRow> = diesel::sql_query(
+        r#"
+        SELECT g.name, wga.expires_at, g.group_metadata, g.tier_level
+        FROM wallet_group_assignments wga
+        JOIN groups g ON g.id = wga.group_id
+        WHERE LOWER(wga.wallet_address) = LOWER($1)
+          AND wga.is_active = true
+          AND (wga.expires_at IS NULL OR wga.expires_at > NOW())
+          AND (g.group_type = 'subscription' OR g.group_type = 'plan')
+        ORDER BY wga.assigned_at DESC
+        LIMIT 1
+        "#
+    )
+    .bind::<diesel::sql_types::Text, _>(&user_context.wallet_address)
+    .get_result(&mut conn)
+    .await
+    .optional()
+    .ok()
+    .flatten();
+
+    if let Some(sub) = active_sub {
+        // Found active subscription!
+        let days_remaining = sub.expires_at
+            .map(|exp| if exp > now { (exp - now).num_days() } else { 0 })
+            .unwrap_or(3650); // Effectively unlimited if NULL (permanent)
+
+        let status = if days_remaining <= 7 && sub.expires_at.is_some() {
+            "expiring_soon"
+        } else {
+            "active"
+        };
+        
+        // Extract ranking limit from metadata
+        let rankings_view_limit = extract_rankings_limit(&sub.group_metadata);
+        
+        // Check if user can upgrade (has non-enterprise plan)
+        let can_upgrade = rankings_view_limit.map(|l| l != -1).unwrap_or(true);
+
+        return Ok(Json(UserPlansResponse {
+            success: true,
+            message: "User plan access retrieved successfully".to_string(),
+            data: Some(PlanAccessData {
+                wallet_address: user_context.wallet_address.clone(),
+                current_plan_id: None, // No legacy integer ID for group-based plans
+                plan_name: Some(sub.name),
+                plan_expires_at: sub.expires_at,
+                days_remaining: days_remaining.max(0),
+                status: status.to_string(),
+                rankings_view_limit,
+                can_upgrade,
+                tier_level: sub.tier_level, // Use tier_level from group
+            }),
+        }));
+    }
+
+    // 2. Fallback: Check legacy wallet_users columns (Deprecated)
+    // Only used for users who haven't migrated to the new group system
     #[derive(diesel::QueryableByName)]
     struct UserRow {
         #[diesel(sql_type = diesel::sql_types::Text)]
@@ -117,8 +227,6 @@ pub async fn get_user_plans_handler(
         },
     }))?;
 
-    let now = Utc::now();
-    
     let data = match user {
         Some(u) => {
             let days_remaining = u.plan_expires_at
@@ -136,22 +244,23 @@ pub async fn get_user_plans_handler(
                 "active"
             };
 
-            // Get plan name if we have a plan ID
-            let plan_name = if let Some(plan_id) = u.current_plan_id {
+            // Legacy plan name lookup
+            let (plan_name, rankings_view_limit) = if let Some(plan_id) = u.current_plan_id {
                 #[derive(diesel::QueryableByName)]
                 struct PlanNameRow {
                     #[diesel(sql_type = diesel::sql_types::Text)]
                     name: String,
                 }
                 
-                diesel::sql_query("SELECT name FROM pricing_plans WHERE id = $1")
+                let name = diesel::sql_query("SELECT name FROM pricing_plans WHERE id = $1")
                     .bind::<diesel::sql_types::Integer, _>(plan_id)
                     .get_result::<PlanNameRow>(&mut conn)
                     .await
                     .ok()
-                    .map(|p| p.name)
+                    .map(|p| p.name);
+                (name, Some(3)) // Default to 3 rankings for legacy plans
             } else {
-                None
+                (None, Some(3)) // Default free tier limit
             };
 
             PlanAccessData {
@@ -161,6 +270,9 @@ pub async fn get_user_plans_handler(
                 plan_expires_at: u.plan_expires_at,
                 days_remaining: days_remaining.max(0),
                 status: status.to_string(),
+                rankings_view_limit,
+                can_upgrade: true,
+                tier_level: 0, // Legacy users default to tier 0
             }
         },
         None => PlanAccessData {
@@ -170,12 +282,15 @@ pub async fn get_user_plans_handler(
             plan_expires_at: None,
             days_remaining: 0,
             status: "no_plan".to_string(),
+            rankings_view_limit: Some(3), // Default free tier: 3 rankings
+            can_upgrade: true,
+            tier_level: 0, // No plan = tier 0
         },
     };
 
     Ok(Json(UserPlansResponse {
         success: true,
-        message: "User plan access retrieved successfully".to_string(),
+        message: "User plan access retrieved successfully (fallback)".to_string(),
         data: Some(data),
     }))
 }

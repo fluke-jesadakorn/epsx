@@ -7,6 +7,8 @@
 import { Plus } from 'lucide-react';
 import React, { useState } from 'react';
 
+import type { Platform } from './types';
+
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -18,8 +20,6 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
-
-import type { Platform } from './types';
 
 interface AssignPermissionFormProps {
     walletAddress: string;
@@ -79,6 +79,14 @@ const DURATION_OPTIONS = [
     { value: 'custom', label: 'Custom date' },
 ];
 
+/**
+ *
+ * @param root0
+ * @param root0.walletAddress
+ * @param root0.onAssign
+ * @param root0.isLoading
+ * @param root0.className
+ */
 export function AssignPermissionForm({
     walletAddress,
     onAssign,
@@ -100,8 +108,8 @@ export function AssignPermissionForm({
     };
 
     const calculateExpiresAt = (): string | undefined => {
-        if (duration === 'permanent') return undefined;
-        if (duration === 'custom') return customDate || undefined;
+        if (duration === 'permanent') {return undefined;}
+        if (duration === 'custom') {return customDate || undefined;}
 
         const days = parseInt(duration);
         const date = new Date();

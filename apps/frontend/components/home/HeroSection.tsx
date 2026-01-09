@@ -111,7 +111,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({ style, className }) => {
 
             <Button
               onClick={handleShare}
-              className="w-full sm:w-auto min-w-[220px] h-14 text-lg font-bold bg-white/10 backdrop-blur-sm border-2 border-orange-300/50 text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/20 rounded-2xl shadow-xl hover:shadow-orange-300/30 hover:scale-105 transition-all duration-300 group"
+              className="w-full sm:w-auto min-w-[220px] h-14 text-lg font-bold bg-gradient-to-r from-orange-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600 text-white border-2 border-orange-400/50 rounded-2xl shadow-xl hover:shadow-orange-300/30 hover:scale-105 transition-all duration-300 group"
             >
               <Share2 className="mr-3 h-6 w-6 group-hover:animate-wiggle" />
               📤 Share Platform

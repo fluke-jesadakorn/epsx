@@ -139,6 +139,7 @@ export { CACHE_CONFIG, IAM_ERROR_MESSAGES, PLATFORMS };
 
 /**
  * Check if user has admin permissions
+ * @param userPermissions
  */
 export function hasAdminPermissions(userPermissions: string[]): boolean {
   return isAdmin(userPermissions);
@@ -146,6 +147,8 @@ export function hasAdminPermissions(userPermissions: string[]): boolean {
 
 /**
  * Check if user can access admin route
+ * @param route
+ * @param userPermissions
  */
 export function canAccessAdminRoute(route: string, userPermissions: string[]): boolean {
   // All admin routes require admin permissions
@@ -165,6 +168,7 @@ export function canAccessAdminRoute(route: string, userPermissions: string[]): b
 
 /**
  * Get admin-specific effective permissions
+ * @param userPermissions
  */
 export function getAdminEffectivePermissions(userPermissions: string[]): string[] {
   const effectivePermissions = getUserEffectivePermissions(userPermissions);
@@ -177,6 +181,7 @@ export function getAdminEffectivePermissions(userPermissions: string[]): string[
 
 /**
  * Validate admin permission context
+ * @param permission
  */
 export function validateAdminPermission(permission: string): {
   valid: boolean;
@@ -210,6 +215,7 @@ export function validateAdminPermission(permission: string): {
 
 /**
  * Get user's admin permission tier
+ * @param userPermissions
  */
 export function getAdminPermissionTier(userPermissions: string[]): 'none' | 'basic' | 'manager' | 'super' {
   if (!hasAdminPermissions(userPermissions)) {

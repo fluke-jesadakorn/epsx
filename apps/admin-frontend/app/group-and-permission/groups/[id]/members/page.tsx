@@ -14,6 +14,9 @@ import { WalletAutocomplete } from '@/components/ui/WalletAutocomplete'
 import { useGroupMembers } from '@/hooks/useGroupPermissions'
 import { groupMgmt, PermissionGroup, UserGroupMembership } from '@/lib/api/group-management-client'
 
+/**
+ *
+ */
 export default function GroupMembersPage() {
     const params = useParams()
     const groupId = params['id'] as string

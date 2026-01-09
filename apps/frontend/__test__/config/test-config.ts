@@ -149,29 +149,29 @@ export const TEST_SELECTORS = {
 
   // Market Data
   market: {
-    interface: '[data-testid=\"market-interface\"]',
-    buyButton: '[data-testid=\"buy-button\"]',
-    sellButton: '[data-testid=\"sell-button\"]',
-    orderForm: '[data-testid=\"order-form\"]',
-    orderHistory: '[data-testid=\"order-history\"]',
-    priceChart: '[data-testid=\"price-chart\"]'
+    interface: '[data-testid="market-interface"]',
+    buyButton: '[data-testid="buy-button"]',
+    sellButton: '[data-testid="sell-button"]',
+    orderForm: '[data-testid="order-form"]',
+    orderHistory: '[data-testid="order-history"]',
+    priceChart: '[data-testid="price-chart"]'
   },
 
   // Portfolio
   portfolio: {
-    balance: '[data-testid=\"portfolio-balance\"]',
-    positions: '[data-testid=\"positions-table\"]',
-    performance: '[data-testid=\"performance-metrics\"]',
-    history: '[data-testid=\"portfolio-history\"]',
-    optimizer: '[data-testid=\"portfolio-optimizer\"]'
+    balance: '[data-testid="portfolio-balance"]',
+    positions: '[data-testid="positions-table"]',
+    performance: '[data-testid="performance-metrics"]',
+    history: '[data-testid="portfolio-history"]',
+    optimizer: '[data-testid="portfolio-optimizer"]'
   },
 
   // Analytics
   analytics: {
-    dashboard: '[data-testid=\"analytics-dashboard\"]',
-    charts: '[data-testid=\"analytics-charts\"]',
-    indicators: '[data-testid=\"technical-indicators\"]',
-    reports: '[data-testid=\"analytics-reports\"]'
+    dashboard: '[data-testid="analytics-dashboard"]',
+    charts: '[data-testid="analytics-charts"]',
+    indicators: '[data-testid="technical-indicators"]',
+    reports: '[data-testid="analytics-reports"]'
   },
 
   // Subscription

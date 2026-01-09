@@ -105,8 +105,13 @@ pub async fn get_user_notifications_handler(
         filter = filter.status(status);
     }
 
-    // Use repository for database operations
-    let repo = WalletNotificationRepository::new(app_state.db_pool.clone());
+    // Use repository for database operations - notifications table is in separate DB
+    let notifications_pool = if let Ok(p) = crate::infrastructure::database::get_notifications_pool().await {
+        std::sync::Arc::new(p)
+    } else {
+        app_state.db_pool.clone()
+    };
+    let repo = WalletNotificationRepository::new(notifications_pool.clone());
 
     // Fetch notifications for wallet
     let records = repo.find_for_wallet(&wallet_address, &filter, limit as i64, offset).await?;
@@ -180,7 +185,13 @@ pub async fn mark_notification_read_handler(
     let notif_uuid = uuid::Uuid::parse_str(&notification_id)
         .map_err(|e| AppError::new(ErrorKind::ValidationError, format!("Invalid notification ID: {}", e)))?;
 
-    let mut conn = app_state.db_pool.get().await
+    // Get notifications database connection
+    let notifications_pool = if let Ok(p) = crate::infrastructure::database::get_notifications_pool().await {
+        std::sync::Arc::new(p)
+    } else {
+        app_state.db_pool.clone()
+    };
+    let mut conn = notifications_pool.get().await
         .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to get database connection: {}", e)))?;
 
     let now = Utc::now();
@@ -241,7 +252,13 @@ pub async fn delete_notification_handler(
     let notif_uuid = uuid::Uuid::parse_str(&notification_id)
         .map_err(|e| AppError::new(ErrorKind::ValidationError, format!("Invalid notification ID: {}", e)))?;
 
-    let mut conn = app_state.db_pool.get().await
+    // Get notifications database connection
+    let notifications_pool = if let Ok(p) = crate::infrastructure::database::get_notifications_pool().await {
+        std::sync::Arc::new(p)
+    } else {
+        app_state.db_pool.clone()
+    };
+    let mut conn = notifications_pool.get().await
         .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to get database connection: {}", e)))?;
 
     // Soft delete: Only allow deleting if notification belongs to user or is broadcast
@@ -291,7 +308,13 @@ pub async fn get_unread_count_handler(
     // Authenticate from Authorization header
     let wallet_address = authenticate_from_headers(&headers).await?;
 
-    let mut conn = app_state.db_pool.get().await
+    // Get notifications database connection
+    let notifications_pool = if let Ok(p) = crate::infrastructure::database::get_notifications_pool().await {
+        std::sync::Arc::new(p)
+    } else {
+        app_state.db_pool.clone()
+    };
+    let mut conn = notifications_pool.get().await
         .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to get database connection: {}", e)))?;
 
     #[derive(QueryableByName)]
@@ -335,7 +358,13 @@ pub async fn mark_all_notifications_read_handler(
     // Mark all notifications for authenticated user as read
     let wallet_address = authenticate_from_headers(&headers).await?;
 
-    let mut conn = app_state.db_pool.get().await
+    // Get notifications database connection
+    let notifications_pool = if let Ok(p) = crate::infrastructure::database::get_notifications_pool().await {
+        std::sync::Arc::new(p)
+    } else {
+        app_state.db_pool.clone()
+    };
+    let mut conn = notifications_pool.get().await
         .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to get database connection: {}", e)))?;
 
     let now = Utc::now();
@@ -379,7 +408,13 @@ pub async fn clear_all_notifications_handler(
     // Clear all notifications for authenticated user
     let wallet_address = authenticate_from_headers(&headers).await?;
 
-    let mut conn = app_state.db_pool.get().await
+    // Get notifications database connection
+    let notifications_pool = if let Ok(p) = crate::infrastructure::database::get_notifications_pool().await {
+        std::sync::Arc::new(p)
+    } else {
+        app_state.db_pool.clone()
+    };
+    let mut conn = notifications_pool.get().await
         .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to get database connection: {}", e)))?;
 
     // Soft delete: Set deleted_at timestamp instead of removing rows
@@ -423,8 +458,15 @@ pub async fn acknowledge_notification_handler(
     _headers: HeaderMap,
     Path(notification_id): Path<String>,
 ) -> Result<impl IntoResponse, AppError> {
+    // Get notifications database pool
+    let notifications_pool = if let Ok(p) = crate::infrastructure::database::get_notifications_pool().await {
+        p
+    } else {
+        &**app_state.db_pool
+    };
+
     // Call the offline_queue module's mark_as_acknowledged function
-    crate::web::notifications::mark_as_acknowledged(&app_state.db_pool, &notification_id)
+    crate::web::notifications::mark_as_acknowledged(notifications_pool, &notification_id)
         .await?;
 
     Ok(Json(serde_json::json!({

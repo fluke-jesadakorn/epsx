@@ -5,9 +5,10 @@
 
 'use client';
 
+import { adminApiClient } from '../api-client';
+
 import type { SettingUpdate, SystemSettings } from '@/types/settings';
 import { DEFAULT_SETTINGS } from '@/types/settings';
-import { adminApiClient } from '../api-client';
 
 // ============================================================================
 // TYPES
@@ -94,6 +95,7 @@ export const settingsApi = {
 
     /**
      * Fetch settings for a specific category
+     * @param category
      */
     async getByCategory(category: string): Promise<Record<string, unknown>> {
         try {
@@ -108,6 +110,7 @@ export const settingsApi = {
 
     /**
      * Update multiple settings at once
+     * @param settings
      */
     async update(settings: SystemSettings): Promise<UpdateSettingsResponse> {
         // Convert frontend format to API format

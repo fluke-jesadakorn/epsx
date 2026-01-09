@@ -8,13 +8,15 @@ export interface AuthUser {
   wallet_address?: string;
   walletAddress?: string;
   emailVerified?: boolean;
-  permissions?: string[] | Record<string, any>;
+  permissions?: string[] | Record<string, unknown>;
   role?: string;
+  package_tier?: string;
+  name?: string;
 }
 
 import { createFrontendApiClient } from '@/shared/utils/api-client';
 
-export async function getCurrentUser() {
+export async function getCurrentUser(): Promise<AuthUser | null> {
   try {
     const cookieStore = await cookies();
 
@@ -23,6 +25,7 @@ export async function getCurrentUser() {
 
     if (!token) {
       token = cookieStore.get('epsx.access')?.value;
+      // eslint-disable-next-line no-console
       if (token) console.log('🔍 [Debug] getCurrentUser: Found epsx.access cookie');
     }
 
@@ -67,7 +70,10 @@ export async function getCurrentUser() {
       wallet_address: data.wallet_address,
       emailVerified: true, // Wallet is always verified
       permissions: perms,
-      role: role,
+      role,
+      name: (data as any).name || (data as any).email || '',
+      email: (data as any).email || '',
+      package_tier: (data as any).package_tier || 'FREE',
     };
 
   } catch (error) {
@@ -87,6 +93,7 @@ export async function getPaymentHistory() {
     }
 
     if (!token) {
+      // eslint-disable-next-line no-console
       console.log('[getPaymentHistory] No auth token found');
       return [];
     }
@@ -97,7 +104,7 @@ export async function getPaymentHistory() {
       serverSide: true
     });
 
-    const response = await client.get<{ payments: any[] }>('/api/payments/history', undefined, {
+    const response = await client.get<{ payments: Record<string, unknown>[] }>('/api/payments/history', undefined, {
       cache: 'no-store'
     });
 
@@ -108,14 +115,14 @@ export async function getPaymentHistory() {
 
     // Map backend response to Transaction format expected by PaymentStatusSection
     const payments = response.data.payments || [];
-    return payments.map((payment: any) => ({
-      orderNo: payment.payment_reference || payment.id || '',
-      actualAmount: payment.amount || 0,
-      currency: payment.currency || 'USD',
-      status: payment.status || 'pending',
-      finishTime: payment.completed_at || payment.created_at || new Date().toISOString(),
+    return payments.map((payment: Record<string, unknown>) => ({
+      orderNo: (payment.payment_reference as string) || (payment.id as string) || '',
+      actualAmount: (payment.amount as number) || 0,
+      currency: (payment.currency as string) || 'USD',
+      status: (payment.status as string) || 'pending',
+      finishTime: (payment.completed_at as string) || (payment.created_at as string) || new Date().toISOString(),
       blockchainData: {
-        txHash: payment.tx_hash || '',  // Backend returns 'tx_hash' not 'transaction_hash'
+        txHash: (payment.tx_hash as string) || '',  // Backend returns 'tx_hash' not 'transaction_hash'
         network: 'BSC'
       },
       blockExplorerUrl: payment.tx_hash
@@ -264,7 +271,7 @@ export async function checkStockCacheStatus(symbols: string[]) {
   return {
     cached: {},
     notCached: symbols,
-    symbols: symbols
+    symbols
   };
 }
 

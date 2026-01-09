@@ -29,6 +29,12 @@ const COMMON_REASONS = [
 
 /**
  * Modal dialog for revoking an API key with reason
+ * @param root0
+ * @param root0.isOpen
+ * @param root0.onClose
+ * @param root0.apiKey
+ * @param root0.onRevoke
+ * @param root0.isLoading
  */
 export const RevokeKeyModal: React.FC<RevokeKeyModalProps> = ({
     isOpen,
@@ -41,7 +47,7 @@ export const RevokeKeyModal: React.FC<RevokeKeyModalProps> = ({
     const [customReason, setCustomReason] = useState('');
     const [error, setError] = useState('');
 
-    if (!isOpen) return null;
+    if (!isOpen) {return null;}
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();

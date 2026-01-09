@@ -18,6 +18,8 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useAccount, useDisconnect } from 'wagmi';
 
+import { AdminNotificationBell } from './AdminNotificationBellClient';
+
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -28,7 +30,6 @@ import { themeUtils } from '@/components/ui/SafeThemeScript';
 import { useSharedAuth } from '@/shared/components/auth/Provider';
 import { ChainSelector } from '@/shared/components/navigation/ChainSelector';
 import { isProduction } from '@/shared/utils';
-import { AdminNotificationBell } from './AdminNotificationBellClient';
 
 interface User {
   id: string;
@@ -41,12 +42,15 @@ interface HeaderProps {
   user?: User;
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.user
+ */
 export function Header({ user }: HeaderProps) {
   const [mounted, setMounted] = useState(false);
   const [cookieWallet, setCookieWallet] = useState<string | null>(null);
   const { logout, isAuthenticated, user: authUser, isLoading: authLoading } = useSharedAuth();
-
-
 
   const { isConnected, address } = useAccount();
   const { disconnect } = useDisconnect();
@@ -79,8 +83,6 @@ export function Header({ user }: HeaderProps) {
 
   // Combined connection status: wagmi connected OR cookie-based auth OR have cookie wallet
   const isWalletConnected = isConnected || isAuthenticated || !!cookieWallet;
-
-
 
   const handleDisconnect = async () => {
     try {

@@ -1,10 +1,12 @@
 'use client'
 
-import { groupMgmt } from '@/lib/api/group-management-client'
 import { useQuery } from '@tanstack/react-query'
 import { Loader2, Wallet, X } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
+
 import { Input } from './input'
+
+import { groupMgmt } from '@/lib/api/group-management-client'
 
 interface WalletSuggestion {
     wallet_address: string
@@ -41,6 +43,17 @@ function useDebounce<T>(value: T, delay: number): T {
     return debouncedValue
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.value
+ * @param root0.onChange
+ * @param root0.onSelect
+ * @param root0.placeholder
+ * @param root0.className
+ * @param root0.disabled
+ * @param root0.excludeGroupId
+ */
 export function WalletAutocomplete({
     value,
     onChange,
@@ -63,13 +76,11 @@ export function WalletAutocomplete({
     const { data: suggestions = [], isLoading } = useQuery({
         queryKey: ['wallet-search', debouncedQuery, excludeGroupId],
         queryFn: async () => {
-            if (!shouldSearch) return []
-
+            if (!shouldSearch) {return []}
 
             try {
                 // Use the group management client to search users
                 const results = await groupMgmt.searchUsers(debouncedQuery, 10, excludeGroupId)
-
 
                 // Transform results to wallet suggestions
                 if (Array.isArray(results)) {

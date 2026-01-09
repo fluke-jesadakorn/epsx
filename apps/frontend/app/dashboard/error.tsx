@@ -1,7 +1,5 @@
 'use client';
 
-import { useRouter } from "next/navigation";
-
 export default function Error({
   error,
   reset,
@@ -9,7 +7,6 @@ export default function Error({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
-  const router = useRouter();
 
   const handleSignOut = async () => {
     try {
@@ -25,7 +22,7 @@ export default function Error({
       <div className="max-w-4xl mx-auto">
         <div className="bg-card rounded-lg shadow-sm p-6">
           <h1 className="text-2xl font-bold mb-4">Error</h1>
-          
+
           <div className="space-y-4">
             <div className="p-4 bg-destructive/10 text-destructive rounded-md">
               <h2 className="font-semibold mb-2">Something went wrong</h2>

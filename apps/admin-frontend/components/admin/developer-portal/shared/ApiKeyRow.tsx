@@ -6,7 +6,6 @@ import React from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { TableCell, TableRow } from '@/components/ui/table';
-
 import type { ApiKeyResponse } from '@/shared/api/plans';
 
 interface ApiKeyRowProps {
@@ -19,18 +18,20 @@ interface ApiKeyRowProps {
 
 /**
  * Truncate wallet address for display
+ * @param address
  */
 const truncateWallet = (address: string): string => {
-    if (!address || address.length < 12) return address || 'Unknown';
+    if (!address || address.length < 12) {return address || 'Unknown';}
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
 };
 
 /**
  * Mask API key prefix for display
+ * @param prefix
  */
 const maskKeyPrefix = (prefix: string): string => {
-    if (!prefix) return '***';
-    if (prefix.length <= 8) return `${prefix}...`;
+    if (!prefix) {return '***';}
+    if (prefix.length <= 8) {return `${prefix}...`;}
     const start = prefix.slice(0, 4);
     const end = prefix.slice(-3);
     return `${start}...${end}`;
@@ -38,6 +39,7 @@ const maskKeyPrefix = (prefix: string): string => {
 
 /**
  * Get status badge styling
+ * @param status
  */
 const getStatusBadgeClass = (status: string): string => {
     switch (status) {
@@ -54,6 +56,12 @@ const getStatusBadgeClass = (status: string): string => {
 
 /**
  * Reusable table row component for API key display
+ * @param root0
+ * @param root0.apiKey
+ * @param root0.onCopyWallet
+ * @param root0.onCopyKeyPrefix
+ * @param root0.onRevoke
+ * @param root0.onEditExpiration
  */
 export const ApiKeyRow: React.FC<ApiKeyRowProps> = ({
     apiKey,

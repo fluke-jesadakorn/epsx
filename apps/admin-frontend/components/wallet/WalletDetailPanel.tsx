@@ -7,6 +7,13 @@
 import { Check, ExternalLink, Package, Pencil, Shield, X } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 
+import { AssignPermissionForm, type AssignPermissionData } from './AssignPermissionForm';
+import type { WalletActivityEvent, WalletData } from './types';
+import { WalletActivityHistory } from './WalletActivityHistory';
+import { WalletHeader } from './WalletHeader';
+import { WalletLabelBadge } from './WalletLabelBadge';
+import { WalletPermissionTable } from './WalletPermissionTable';
+
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -20,13 +27,6 @@ import { Textarea } from '@/components/ui/textarea';
 import { walletMgmt } from '@/lib/api/wallet-management-client';
 import { formatDate } from '@/lib/utils/date';
 
-import { AssignPermissionForm, type AssignPermissionData } from './AssignPermissionForm';
-import { WalletActivityHistory } from './WalletActivityHistory';
-import { WalletHeader } from './WalletHeader';
-import { WalletLabelBadge } from './WalletLabelBadge';
-import { WalletPermissionTable } from './WalletPermissionTable';
-import type { WalletActivityEvent, WalletData } from './types';
-
 interface WalletDetailPanelProps {
     wallet: WalletData | null;
     isOpen: boolean;
@@ -39,6 +39,18 @@ interface WalletDetailPanelProps {
     isLoading?: boolean;
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.wallet
+ * @param root0.isOpen
+ * @param root0.onClose
+ * @param root0.onAssignPermission
+ * @param root0.onRevokePermission
+ * @param root0.onDisable
+ * @param root0.onEnable
+ * @param root0.activityEvents
+ */
 export function WalletDetailPanel({
     wallet,
     isOpen,
@@ -70,7 +82,7 @@ export function WalletDetailPanel({
     const activeSubscriptions = wallet?.subscriptions?.filter(s => s.status === 'active') ?? [];
 
     const handleAssignPermission = async (data: AssignPermissionData) => {
-        if (!onAssignPermission) return;
+        if (!onAssignPermission) {return;}
         setIsAssigning(true);
         try {
             await onAssignPermission(data);
@@ -81,7 +93,7 @@ export function WalletDetailPanel({
 
     // Save label
     const handleSaveLabel = useCallback(async () => {
-        if (!wallet) return;
+        if (!wallet) {return;}
         setIsSaving(true);
         try {
             await walletMgmt.updateWalletMetadata(wallet.walletAddress, {
@@ -97,7 +109,7 @@ export function WalletDetailPanel({
 
     // Save note
     const handleSaveNote = useCallback(async () => {
-        if (!wallet) return;
+        if (!wallet) {return;}
         setIsSaving(true);
         try {
             await walletMgmt.updateWalletMetadata(wallet.walletAddress, {

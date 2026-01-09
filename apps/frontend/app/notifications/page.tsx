@@ -1,26 +1,26 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
-import { useSearchParams } from 'next/navigation'
-import { Bell, Check, Trash2, Filter, X } from 'lucide-react'
-import { createNotificationsClient } from '@/shared/api/notifications'
-import { createFrontendApiClient } from '@/shared/utils/api-client'
+import { createNotificationsClient, type NotificationPriority, type NotificationType } from '@/shared/api/notifications'
 import { useSharedAuth } from '@/shared/components/auth/Provider'
+import { createFrontendApiClient } from '@/shared/utils/api-client'
+import { Bell, Check, Filter, Trash2 } from 'lucide-react'
+import { useSearchParams } from 'next/navigation'
+import { useEffect, useRef, useState } from 'react'
 
 interface Notification {
   id: string
   title: string
   message: string
-  type: string
-  priority: string
+  type: NotificationType
+  priority: NotificationPriority
   timestamp: string
   actionUrl?: string
   read: boolean
 }
 
-type FilterType = 'all' | 'unread' | 'read'
-type NotificationType = 'all' | 'system' | 'security' | 'permission' | 'wallet' | 'payment'
-type PriorityType = 'all' | 'low' | 'normal' | 'high' | 'urgent'
+type FilterStatus = 'all' | 'unread' | 'read'
+type FilterNotificationType = 'all' | 'system' | 'security' | 'permission' | 'wallet' | 'payment'
+type FilterNotificationPriority = 'all' | 'low' | 'normal' | 'high' | 'critical'
 
 export default function NotificationsPage() {
   const searchParams = useSearchParams()
@@ -32,14 +32,14 @@ export default function NotificationsPage() {
 
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [loading, setLoading] = useState(true)
-  const [filter, setFilter] = useState<FilterType>('all')
-  const [typeFilter, setTypeFilter] = useState<NotificationType>('all')
-  const [priorityFilter, setPriorityFilter] = useState<PriorityType>('all')
+  const [filter, setFilter] = useState<FilterStatus>('all')
+  const [typeFilter, setTypeFilter] = useState<FilterNotificationType>('all')
+  const [priorityFilter, setPriorityFilter] = useState<FilterNotificationPriority>('all')
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const [totalCount, setTotalCount] = useState(0)
   const [unreadCount, setUnreadCount] = useState(0)
-  const [focusedId, setFocusedId] = useState<string | null>(focusId)
+  const [focusedId, _setFocusedId] = useState<string | null>(focusId)
 
   useEffect(() => {
     if (isAuthenticated && user?.wallet_address) {
@@ -84,8 +84,8 @@ export default function NotificationsPage() {
         page,
         limit: 20,
         status: filter === 'all' ? undefined : filter,
-        type: typeFilter === 'all' ? undefined : typeFilter as any,
-        priority: priorityFilter === 'all' ? undefined : priorityFilter as any,
+        type: typeFilter === 'all' ? undefined : typeFilter as unknown as NotificationType,
+        priority: priorityFilter === 'all' ? undefined : priorityFilter as unknown as NotificationPriority,
       })
 
       const mappedNotifications = data.data.notifications.map(n => ({
@@ -104,7 +104,7 @@ export default function NotificationsPage() {
       setUnreadCount(data.data.unread_count)
       setTotalPages(data.data.total_pages)
     } catch (error) {
-      const apiError = error as any
+      const apiError = error as { status?: number }
       if (apiError?.status !== 401) {
         console.warn('Failed to fetch notifications:', error)
       }
@@ -274,15 +274,14 @@ export default function NotificationsPage() {
                 Status
               </label>
               <div className="flex gap-2">
-                {(['all', 'unread', 'read'] as FilterType[]).map((f) => (
+                {(['all', 'unread', 'read'] as FilterStatus[]).map((f) => (
                   <button
                     key={f}
                     onClick={() => setFilter(f)}
-                    className={`rounded-lg px-3 py-1.5 text-xs font-medium ${
-                      filter === f
-                        ? 'bg-orange-500 text-white'
-                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600'
-                    }`}
+                    className={`rounded-lg px-3 py-1.5 text-xs font-medium ${filter === f
+                      ? 'bg-orange-500 text-white'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600'
+                      }`}
                   >
                     {f.charAt(0).toUpperCase() + f.slice(1)}
                   </button>
@@ -297,7 +296,7 @@ export default function NotificationsPage() {
               </label>
               <select
                 value={typeFilter}
-                onChange={(e) => setTypeFilter(e.target.value as NotificationType)}
+                onChange={(e) => setTypeFilter(e.target.value as FilterNotificationType)}
                 className="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-300"
               >
                 <option value="all">All Types</option>
@@ -316,7 +315,7 @@ export default function NotificationsPage() {
               </label>
               <select
                 value={priorityFilter}
-                onChange={(e) => setPriorityFilter(e.target.value as PriorityType)}
+                onChange={(e) => setPriorityFilter(e.target.value as FilterNotificationPriority)}
                 className="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-300"
               >
                 <option value="all">All Priorities</option>
@@ -354,67 +353,66 @@ export default function NotificationsPage() {
                 <div
                   key={notification.id}
                   ref={(el) => { notificationRefs.current[notification.id] = el }}
-                  className={`rounded-2xl border p-4 ${
-                    isFocused
-                      ? 'border-blue-400 bg-blue-50 dark:border-blue-600 dark:bg-blue-950/30 ring-2 ring-blue-400/50'
-                      : notification.read
-                        ? 'border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800'
-                        : 'border-orange-200 bg-orange-50/50 dark:border-orange-900/30 dark:bg-orange-950/20'
-                  }`}
+                  className={`rounded-2xl border p-4 ${isFocused
+                    ? 'border-blue-400 bg-blue-50 dark:border-blue-600 dark:bg-blue-950/30 ring-2 ring-blue-400/50'
+                    : notification.read
+                      ? 'border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800'
+                      : 'border-orange-200 bg-orange-50/50 dark:border-orange-900/30 dark:bg-orange-950/20'
+                    }`}
                 >
 
-                <div className="flex items-start gap-4">
-                  <div className={`w-10 h-10 rounded-full ${getPriorityColor(notification.priority)} flex items-center justify-center flex-shrink-0`}>
-                    <span className="text-lg">{getNotificationIcon(notification.type)}</span>
-                  </div>
+                  <div className="flex items-start gap-4">
+                    <div className={`w-10 h-10 rounded-full ${getPriorityColor(notification.priority)} flex items-center justify-center flex-shrink-0`}>
+                      <span className="text-lg">{getNotificationIcon(notification.type)}</span>
+                    </div>
 
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex-1">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-semibold text-slate-900 dark:text-slate-100">
+                              {notification.title}
+                            </h3>
+                            {!notification.read && (
+                              <div className="w-2 h-2 rounded-full bg-orange-500 flex-shrink-0" />
+                            )}
+                          </div>
+                          <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+                            {notification.message}
+                          </p>
+                          <div className="mt-2 flex items-center gap-3 text-xs text-slate-500 dark:text-slate-500">
+                            <span className="capitalize">{notification.type}</span>
+                            <span>•</span>
+                            <span className="capitalize">{notification.priority}</span>
+                            <span>•</span>
+                            <span>{formatTimestamp(notification.timestamp)}</span>
+                          </div>
+                        </div>
+
                         <div className="flex items-center gap-2">
-                          <h3 className="font-semibold text-slate-900 dark:text-slate-100">
-                            {notification.title}
-                          </h3>
                           {!notification.read && (
-                            <div className="w-2 h-2 rounded-full bg-orange-500 flex-shrink-0" />
+                            <button
+                              onClick={() => markAsRead(notification.id)}
+                              className="rounded-lg p-2 text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950/30"
+                              title="Mark as read"
+                            >
+                              <Check className="h-4 w-4" />
+                            </button>
                           )}
-                        </div>
-                        <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-                          {notification.message}
-                        </p>
-                        <div className="mt-2 flex items-center gap-3 text-xs text-slate-500 dark:text-slate-500">
-                          <span className="capitalize">{notification.type}</span>
-                          <span>•</span>
-                          <span className="capitalize">{notification.priority}</span>
-                          <span>•</span>
-                          <span>{formatTimestamp(notification.timestamp)}</span>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        {!notification.read && (
                           <button
-                            onClick={() => markAsRead(notification.id)}
-                            className="rounded-lg p-2 text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950/30"
-                            title="Mark as read"
+                            onClick={() => deleteNotification(notification.id)}
+                            className="rounded-lg p-2 text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
+                            title="Delete"
                           >
-                            <Check className="h-4 w-4" />
+                            <Trash2 className="h-4 w-4" />
                           </button>
-                        )}
-                        <button
-                          onClick={() => deleteNotification(notification.id)}
-                          className="rounded-lg p-2 text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
-                          title="Delete"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            )
-          })}
+              )
+            })}
           </div>
         )}
 

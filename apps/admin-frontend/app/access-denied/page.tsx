@@ -2,6 +2,7 @@
 
 import { Home, RotateCcw, Shield } from 'lucide-react';
 import Link from 'next/link';
+import React from 'react';
 
 interface AccessDeniedPageProps {
   searchParams: {
@@ -17,7 +18,7 @@ interface AccessDeniedPageProps {
  * @param root0
  * @param root0.searchParams
  */
-export default function AccessDeniedPage({ searchParams }: AccessDeniedPageProps) {
+export default function AccessDeniedPage({ searchParams }: AccessDeniedPageProps): React.JSX.Element {
   const route = searchParams.route || '/';
   const reason = searchParams.reason || 'Access denied';
   const context = searchParams.context || 'unknown';

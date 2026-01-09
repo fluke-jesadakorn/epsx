@@ -3,13 +3,13 @@
 import { Crown, Database, Settings, Shield, User } from 'lucide-react';
 import { useState } from 'react';
 
-import { type User as UserType } from '@/shared/types/auth';
 import { AdminPermissions } from './AdminPermissions';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { type User as UserType } from '@/shared/types/auth';
 
 interface AdminProfileClientProps {
   user: UserType;

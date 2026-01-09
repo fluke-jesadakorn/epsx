@@ -13,6 +13,9 @@ Math.pow = function safePow(base: number | bigint, exponent: number | bigint): n
     return originalPow(safeBase, safeExponent);
 };
 
+/**
+ *
+ */
 export async function register() {
     // The polyfill is already applied at module load time above
     // This function is required for Next.js instrumentation hook
@@ -27,6 +30,9 @@ export async function register() {
 }
 
 // Also export for client-side if needed
+/**
+ *
+ */
 export function onRequestError() {
     // Optional: handle request errors
 }

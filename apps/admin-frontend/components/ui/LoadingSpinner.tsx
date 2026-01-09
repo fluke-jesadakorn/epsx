@@ -4,8 +4,9 @@
  * Provides consistent loading UX across the admin dashboard
  */
 
-import { cn } from '@/lib/utils'
 import { Loader2 } from 'lucide-react'
+
+import { cn } from '@/lib/utils'
 
 export interface LoadingSpinnerProps {
     /** Size of the spinner */
@@ -46,6 +47,11 @@ const variantClasses = {
 /**
  * Loading spinner component with optional label
  * @param props - LoadingSpinnerProps
+ * @param props.size
+ * @param props.label
+ * @param props.className
+ * @param props.labelPosition
+ * @param props.variant
  */
 export function LoadingSpinner({
     size = 'md',
@@ -84,6 +90,9 @@ export function LoadingSpinner({
 
 /**
  * Full-page centered loading spinner
+ * @param root0
+ * @param root0.label
+ * @param root0.className
  */
 export function PageLoadingSpinner({
     label = 'Loading...',
@@ -105,6 +114,8 @@ export function PageLoadingSpinner({
 
 /**
  * Button loading spinner - for use inside buttons
+ * @param root0
+ * @param root0.className
  */
 export function ButtonLoadingSpinner({
     className
@@ -123,6 +134,9 @@ export function ButtonLoadingSpinner({
 
 /**
  * Section loading state - centered spinner with optional label
+ * @param root0
+ * @param root0.label
+ * @param root0.className
  */
 export function SectionLoading({
     label = 'Loading...',
@@ -147,6 +161,8 @@ export function SectionLoading({
 
 /**
  * Inline loading indicator for lists, counts, etc.
+ * @param root0
+ * @param root0.className
  */
 export function InlineLoading({ className }: { className?: string }) {
     return (

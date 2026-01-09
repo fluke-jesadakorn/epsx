@@ -5,8 +5,6 @@
  */
 
 // Re-export everything from shared auth-separation types
-export * from '../../../shared/types/auth-separation';
-
 // Import for local re-export with legacy names (maintaining compatibility)
 import type {
   BaseJWTPayload as SharedBaseJWTPayload,
@@ -26,6 +24,8 @@ import type {
   LegacyJWTPayload as SharedLegacyJWTPayload,
   MigrationResult as SharedMigrationResult
 } from '../../../shared/types/auth-separation';
+
+export * from '../../../shared/types/auth-separation';
 
 // Re-export with exact same names for backward compatibility
 export type BaseJWTPayload = SharedBaseJWTPayload;

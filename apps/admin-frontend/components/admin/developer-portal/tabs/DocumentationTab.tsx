@@ -11,6 +11,8 @@ interface DocumentationTabProps {
 
 /**
  * API Documentation tab showing authentication, endpoints, and rate limits
+ * @param root0
+ * @param root0.modules
  */
 export const DocumentationTab: React.FC<DocumentationTabProps> = ({ modules }) => {
     return (

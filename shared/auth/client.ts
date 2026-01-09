@@ -468,8 +468,8 @@ export class SharedWeb3AuthClient {
       });
       this.accessToken = result.access_token;
       this.refreshToken = result.refresh_token;
-      // Default to 24 hour expiry if not provided
-      this.tokenExpiry = Date.now() + 24 * 60 * 60 * 1000;
+      // Default to 30 days expiry if not provided
+      this.tokenExpiry = Date.now() + 30 * 24 * 60 * 60 * 1000;
 
       // Create user object from response
       const user: UserInfoResponse = {

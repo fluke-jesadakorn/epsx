@@ -19,6 +19,7 @@ import {
   Star
 } from 'lucide-react'
 import React, { useCallback, useEffect, useState } from 'react'
+
 import { PermissionTransferList } from './PermissionTransferList'
 
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -70,6 +71,14 @@ interface GroupFormData {
   default_expiry_days: number | null;
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.group
+ * @param root0.onSave
+ * @param root0.onCancel
+ * @param root0.className
+ */
 export function GroupEditor({ group, onSave, onCancel, className }: GroupEditorProps) {
   const { toast } = useToast()
   const [loading, setLoading] = useState(false)

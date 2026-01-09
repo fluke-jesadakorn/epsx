@@ -51,6 +51,7 @@ export function PaymentPageClient({ selectedPackageId, context }: PaymentPageCli
           context={context}
           className="mb-12"
           onPaymentSuccess={(txHash) => {
+            // eslint-disable-next-line no-console
             console.log('Payment successful:', txHash);
             // Could redirect or show success state
           }}

@@ -4,9 +4,10 @@
  */
 'use client';
 
+import type { WalletStatus } from './types';
+
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import type { WalletStatus } from './types';
 
 export const STATUS_CONFIG: Record<WalletStatus, { label: string; emoji: string; className: string }> = {
     active: {
@@ -31,6 +32,12 @@ interface WalletStatusBadgeProps {
     className?: string;
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.status
+ * @param root0.className
+ */
 export function WalletStatusBadge({ status, className }: WalletStatusBadgeProps) {
     const config = STATUS_CONFIG[status] || STATUS_CONFIG.active;
 

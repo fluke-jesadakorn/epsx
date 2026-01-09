@@ -188,12 +188,12 @@ impl NotificationMapper {
         
         // Create schedule info
         let schedule = if let Some(scheduled_at) = scheduled_for {
-            let sched = if let Some(exp) = expires_at {
+            
+            if let Some(exp) = expires_at {
                 ScheduleInfo::scheduled_with_expiry(scheduled_at, exp)?
             } else {
                 ScheduleInfo::scheduled(scheduled_at)?
-            };
-            sched
+            }
         } else if let Some(exp) = expires_at {
             ScheduleInfo::with_expiry(exp)?
         } else {
@@ -343,6 +343,7 @@ pub struct PermissionGroup {
     pub updated_at: DateTime<Utc>,
     pub created_by: Option<String>,
     pub last_modified_by: Option<String>,
+    pub tier_level: i32,
 }
 
 // Helper to extract permissions from group_metadata
@@ -375,6 +376,7 @@ pub struct NewPermissionGroup {
     pub rate_limit_per_hour: i32,
     pub rate_limit_per_day: i32,
     pub burst_capacity: i32,
+    pub tier_level: i32,
 }
 
 // Helper method for backward compatibility
@@ -549,6 +551,7 @@ pub struct PermissionGroupDb {
     pub updated_at: DateTime<Utc>,
     pub created_by: Option<String>,
     pub last_modified_by: Option<String>,
+    pub tier_level: i32,
 }
 
 /// Diesel Insertable model for creating/updating permission groups
@@ -578,6 +581,7 @@ pub struct NewPermissionGroupDb {
     pub rate_limit_per_hour: i32,
     pub rate_limit_per_day: i32,
     pub burst_capacity: i32,
+    pub tier_level: i32,
 }
 
 /// Query result for permission data from JOIN query

@@ -11,6 +11,9 @@ import { createPlansClient, isApiSuccess, type SubscriptionResponse, type Update
 import { PancakeButton, PancakeCard } from '@/shared/components'
 import { createAdminApiClient } from '@/shared/utils/api-client'
 
+/**
+ *
+ */
 export default function SubscriptionDetailPage() {
     const router = useRouter()
     const params = useParams()
@@ -164,12 +167,12 @@ export default function SubscriptionDetailPage() {
     }
 
     const formatDate = (dateString?: string) => {
-        if (!dateString) return 'Never'
+        if (!dateString) {return 'Never'}
         return new Date(dateString).toLocaleString()
     }
 
     const formatUsage = (usage: Record<string, any>) => {
-        if (!usage || Object.keys(usage).length === 0) return 'No usage data'
+        if (!usage || Object.keys(usage).length === 0) {return 'No usage data'}
         return Object.entries(usage)
             .map(([key, value]) => `${key}: ${value}`)
             .join(', ')

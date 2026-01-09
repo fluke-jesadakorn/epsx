@@ -56,7 +56,7 @@ export const themeUtils = {
       // Try cookies first, then fallback to localStorage
       const cookies = document.cookie.split(';').reduce((acc, cookie) => {
         const [key, value] = cookie.trim().split('=');
-        if (key && value) acc[key] = value;
+        if (key && value) {acc[key] = value;}
         return acc;
       }, {} as Record<string, string>);
       
@@ -78,7 +78,7 @@ export const themeUtils = {
       document.documentElement.classList.remove('light', 'dark');
       document.documentElement.classList.add(theme);
     } catch (_error) {
-      // eslint-disable-next-line no-console
+       
       console.error('Failed to set theme:', _error);
     }
   },

@@ -22,6 +22,9 @@ export const ROUTES = {
 } as const;
 
 // Get standard routes from shared config
+/**
+ *
+ */
 export function getStandardRoutes() {
   return API_ROUTES;
 }

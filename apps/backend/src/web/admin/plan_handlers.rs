@@ -161,6 +161,7 @@ pub struct CreatePlanRequest {
     pub billing_model: String,
     pub permissions: Vec<String>, // Direct permission array
     pub metadata: Option<serde_json::Value>,
+    pub tier_level: Option<i32>, // Plan tier level for upgrade/downgrade logic
 }
 
 #[derive(Debug, Deserialize, ToSchema)]
@@ -191,6 +192,7 @@ pub struct PlanResponse {
     pub subscriber_count: u64,
     #[schema(value_type = String, example = "1499.85")]
     pub revenue_last_30_days: Decimal,
+    pub tier_level: i32, // Plan tier level for upgrade/downgrade logic
 }
 
 #[derive(Debug, Serialize)]
@@ -256,6 +258,7 @@ pub async fn create_plan_handler(
         rate_limit_per_hour: 0,
         rate_limit_per_day: 0,
         burst_capacity: 0,
+        tier_level: request.tier_level.unwrap_or(0),
     };
 
     let created_plan = match app_state.group_repo.create_group(new_group).await {
@@ -292,6 +295,7 @@ pub async fn create_plan_handler(
         updated_at: Some(created_plan.updated_at),
         subscriber_count: 0, // New plan has no subscribers yet
         revenue_last_30_days: Decimal::ZERO,
+        tier_level: created_plan.tier_level,
     };
 
     tracing::info!(
@@ -347,17 +351,35 @@ pub async fn list_plans_handler(
         }
     };
 
-    // Query subscriber counts per plan_id
-    let subscriber_counts: Vec<(Uuid, i64)> = subscriptions::table
-        .filter(subscriptions::status.eq("active"))
-        .group_by(subscriptions::plan_id)
-        .select((subscriptions::plan_id, diesel::dsl::count_star()))
-        .load(&mut conn)
-        .await
-        .unwrap_or_default();
+    // Get core database connection for subscriber counts (wallet_group_assignments is in core DB)
+    let mut core_conn = match app_state.db_pool.get().await {
+        Ok(c) => c,
+        Err(err) => {
+            tracing::error!(error = %err, "Failed to get core database connection");
+            return Err(StatusCode::INTERNAL_SERVER_ERROR);
+        }
+    };
+
+    #[derive(QueryableByName)]
+    struct SubscriberCountRow {
+        #[diesel(sql_type = diesel::sql_types::Uuid)]
+        group_id: Uuid,
+        #[diesel(sql_type = diesel::sql_types::BigInt)]
+        count: i64,
+    }
+
+    let subscriber_counts: Vec<SubscriberCountRow> = diesel::sql_query(
+        "SELECT group_id, COUNT(*)::bigint as count FROM wallet_group_assignments WHERE is_active = true GROUP BY group_id"
+    )
+    .load(&mut core_conn)
+    .await
+    .unwrap_or_default();
 
     // Create a map for quick subscriber lookup
-    let count_map: std::collections::HashMap<Uuid, i64> = subscriber_counts.into_iter().collect();
+    let count_map: std::collections::HashMap<Uuid, i64> = subscriber_counts
+        .into_iter()
+        .map(|row| (row.group_id, row.count))
+        .collect();
 
     // Query revenue per plan_id (last 30 days)
     let thirty_days_ago = Utc::now() - chrono::Duration::days(30);
@@ -463,7 +485,8 @@ pub async fn list_plans_handler(
             "created_at": plan.created_at.to_rfc3339(),
             "updated_at": plan.updated_at.to_rfc3339(),
             "subscriber_count": subscriber_count,
-            "revenue_last_30_days": revenue_decimal.to_string()
+            "revenue_last_30_days": revenue_decimal.to_string(),
+            "tier_level": plan.tier_level
         })
     }).collect();
 
@@ -534,6 +557,30 @@ pub async fn get_plan_handler(
             return Err(StatusCode::INTERNAL_SERVER_ERROR);
         }
     };
+
+    // Get core database connection for subscriber counts
+    let mut core_conn = match app_state.db_pool.get().await {
+        Ok(c) => c,
+        Err(err) => {
+            tracing::error!(error = %err, "Failed to get core database connection");
+            return Err(StatusCode::INTERNAL_SERVER_ERROR);
+        }
+    };
+
+    #[derive(QueryableByName)]
+    struct CountRow {
+        #[diesel(sql_type = diesel::sql_types::BigInt)]
+        count: i64,
+    }
+
+    let subscriber_count = diesel::sql_query(
+        "SELECT COUNT(*)::bigint as count FROM wallet_group_assignments WHERE group_id = $1 AND is_active = true"
+    )
+    .bind::<diesel::sql_types::Uuid, _>(plan_uuid)
+    .get_result::<CountRow>(&mut core_conn)
+    .await
+    .map(|row| row.count)
+    .unwrap_or(0);
 
     // Calculate revenue last 30 days
     let thirty_days_ago = Utc::now() - chrono::Duration::days(30);
@@ -615,8 +662,9 @@ pub async fn get_plan_handler(
         "metadata": plan.group_metadata,
         "created_at": plan.created_at.to_rfc3339(),
         "updated_at": plan.updated_at.to_rfc3339(),
-        "subscriber_count": 0,
+        "subscriber_count": subscriber_count,
         "revenue_last_30_days": revenue_decimal.to_string(),
+        "tier_level": plan.tier_level
     });
 
     Ok(JsonResponse(plan_response))
@@ -679,6 +727,7 @@ pub struct UpdatePlanRequest {
     pub is_active: Option<bool>,
     pub permissions: Option<Vec<String>>,
     pub metadata: Option<serde_json::Value>,
+    pub tier_level: Option<i32>, // Plan tier level for upgrade/downgrade logic
 }
 
 /// Update permission template-based plan
@@ -747,60 +796,100 @@ pub async fn update_plan_handler(
         }
     }
 
-    // Update plan in database
-    match app_state.group_repo.update_plan(plan.clone()).await {
-        Ok(_) => {
-            // Extract permissions array from JSONB
-            let permissions = plan.permissions().as_array()
-                .map(|arr| arr.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect::<Vec<String>>())
-                .unwrap_or_else(Vec::new);
+    // Update tier_level if provided
+    if let Some(tier_level) = request.tier_level {
+        plan.tier_level = tier_level;
+    }
 
-            // Generate group type from permissions
-            let group_type = derive_group_from_permissions(&permissions);
-
-            // Extract metadata values
-            let target_audience = plan.group_metadata.get("target_audience")
-                .and_then(|v| v.as_str())
-                .unwrap_or("web_users")
-                .to_string();
-
-            // Convert price to Decimal
-            let price_decimal = plan.price.as_ref()
-                .map(|p| rust_decimal::Decimal::from_str(&p.to_string()).unwrap_or(rust_decimal::Decimal::ZERO))
-                .unwrap_or_else(|| rust_decimal::Decimal::ZERO);
-
-            let plan_response = PlanResponse {
-                id: 0, // Legacy field
-                name: plan.name.clone(),
-                description: Some(plan.description),
-                permission_group_name: plan.name,
-                current_price: price_decimal,
-                currency: plan.currency.unwrap_or_else(|| "USD".to_string()),
-                target_audience,
-                billing_model: plan.billing_cycle.unwrap_or_else(|| "pay_per_use".to_string()),
-                group_type,
-                is_active: plan.is_active.unwrap_or(true),
-                permissions,
-                metadata: Some(plan.group_metadata),
-                created_at: plan.created_at,
-                updated_at: Some(plan.updated_at),
-                subscriber_count: 0,
-                revenue_last_30_days: Decimal::ZERO,
-            };
-
-            tracing::info!(
-                plan_id = %plan_uuid,
-                plan_name = %plan_response.name,
-                "Plan updated successfully"
-            );
-
-            Ok(JsonResponse(plan_response))
-        }
+    // Save changes to database
+    let updated_plan = match app_state.group_repo.update_plan(plan).await {
+        Ok(plan) => plan,
         Err(err) => {
             tracing::error!(error = %err, plan_id = %plan_uuid, "Failed to update plan in database");
-            Err(StatusCode::INTERNAL_SERVER_ERROR)
+            return Err(StatusCode::INTERNAL_SERVER_ERROR);
         }
+    };
+
+    // Convert to response format
+    let permissions = updated_plan.permissions().as_array()
+        .map(|arr| arr.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect::<Vec<String>>())
+        .unwrap_or_default();
+
+    let price_decimal = updated_plan.price.as_ref()
+        .map(|p| rust_decimal::Decimal::from_str(&p.to_string()).unwrap_or(rust_decimal::Decimal::ZERO))
+        .unwrap_or(rust_decimal::Decimal::ZERO);
+
+    let plan_response = PlanResponse {
+        id: 0, // Legacy field
+        name: updated_plan.name.clone(),
+        description: Some(updated_plan.description),
+        permission_group_name: updated_plan.name,
+        current_price: price_decimal,
+        currency: updated_plan.currency.unwrap_or_else(|| "USD".to_string()),
+        target_audience: "web_users".to_string(), // Default as not stored in group table yet
+        billing_model: updated_plan.billing_cycle.unwrap_or_else(|| "pay_per_use".to_string()),
+        group_type: derive_group_from_permissions(&permissions),
+        is_active: updated_plan.is_active.unwrap_or(true),
+        permissions,
+        metadata: Some(updated_plan.group_metadata),
+        created_at: updated_plan.created_at,
+        updated_at: Some(updated_plan.updated_at),
+        subscriber_count: 0, // Not available in update response
+        revenue_last_30_days: rust_decimal::Decimal::ZERO, // Not available in update response
+        tier_level: updated_plan.tier_level,
+    };
+
+    Ok(JsonResponse(plan_response))
+}
+
+/// Delete permission template-based plan
+#[utoipa::path(
+    delete,
+    path = "/admin/plans/{plan_id}",
+    responses(
+        (status = 200, description = "Plan deleted successfully"),
+        (status = 404, description = "Plan not found"),
+        (status = 500, description = "Internal server error")
+    ),
+    tag = "admin-plans",
+    security(("bearerAuth" = []))
+)]
+pub async fn delete_plan_handler(
+    State(app_state): State<AppState>,
+    Path(plan_id_str): Path<String>,
+) -> Result<JsonResponse<serde_json::Value>, StatusCode> {
+    // Parse plan ID as UUID
+    let plan_uuid = match Uuid::parse_str(&plan_id_str) {
+        Ok(uuid) => uuid,
+        Err(_) => {
+            tracing::error!(plan_id = %plan_id_str, "Invalid plan ID format");
+            return Err(StatusCode::BAD_REQUEST);
+        }
+    };
+
+    // Get existing plan to verify existence
+    let mut plan = match app_state.group_repo.get_plan_by_id(plan_uuid).await {
+        Ok(Some(plan)) => plan,
+        Ok(None) => return Err(StatusCode::NOT_FOUND),
+        Err(err) => {
+            tracing::error!(error = %err, plan_id = %plan_uuid, "Failed to fetch plan from database");
+            return Err(StatusCode::INTERNAL_SERVER_ERROR);
+        }
+    };
+
+    // Soft delete by setting is_active to false
+    // In a real implementation we might want to prevent deletion if there are active subscriptions
+    plan.is_active = Some(false);
+
+    if let Err(err) = app_state.group_repo.update_plan(plan).await {
+        tracing::error!(error = %err, plan_id = %plan_uuid, "Failed to soft delete plan from database");
+        return Err(StatusCode::INTERNAL_SERVER_ERROR);
     }
+
+    Ok(JsonResponse(serde_json::json!({
+        "success": true,
+        "message": "Plan deleted successfully"
+    })))
 }
 
 /// Create permission template-based subscription
@@ -848,6 +937,84 @@ pub async fn create_subscription_handler(
     
     // Calculate expiry (default 1 year for admin-assigned subscriptions)
     let expires_at = request.expires_at.unwrap_or_else(|| Utc::now() + chrono::Duration::days(365));
+    
+    // ============================================================================
+    // SINGLE PLAN PER USER CONSTRAINT
+    // Deactivate any existing group assignments for this wallet before assigning new plan
+    // ============================================================================
+    let deactivate_result = diesel::sql_query(
+        r#"
+        UPDATE wallet_group_assignments 
+        SET is_active = false, updated_at = NOW()
+        WHERE LOWER(wallet_address) = LOWER($1) 
+          AND is_active = true
+        "#
+    )
+    .bind::<diesel::sql_types::Text, _>(&request.wallet_address)
+    .execute(&mut primary_conn)
+    .await;
+    
+    match deactivate_result {
+        Ok(count) => {
+            if count > 0 {
+                tracing::info!(
+                    wallet = %request.wallet_address,
+                    deactivated_count = count,
+                    "Deactivated existing plan assignments (single-plan constraint)"
+                );
+            }
+        },
+        Err(e) => {
+            tracing::warn!(
+                wallet = %request.wallet_address,
+                error = %e,
+                "Failed to deactivate existing assignments, continuing with new assignment"
+            );
+        }
+    }
+    
+    // Also update wallet_users.current_plan_id if using legacy plan system
+    let _ = diesel::sql_query(
+        r#"
+        UPDATE wallet_users 
+        SET current_plan_id = NULL, updated_at = NOW()
+        WHERE LOWER(wallet_address) = LOWER($1) 
+          AND current_plan_id IS NOT NULL
+        "#
+    )
+    .bind::<diesel::sql_types::Text, _>(&request.wallet_address)
+    .execute(&mut primary_conn)
+    .await;
+    
+    // Create new group assignment for the new plan
+    let assignment_result = diesel::sql_query(
+        r#"
+        INSERT INTO wallet_group_assignments (
+            wallet_address, group_id, assigned_at, expires_at, 
+            assigned_by, assignment_reason, is_active, assignment_source
+        ) VALUES ($1, $2, NOW(), $3, 'admin', 'Admin assigned subscription', true, 'admin')
+        ON CONFLICT (wallet_address, group_id) 
+        DO UPDATE SET 
+            is_active = true, 
+            expires_at = EXCLUDED.expires_at,
+            updated_at = NOW(),
+            assignment_reason = 'Admin assigned subscription (updated)'
+        "#
+    )
+    .bind::<diesel::sql_types::Text, _>(&request.wallet_address)
+    .bind::<diesel::sql_types::Uuid, _>(plan_uuid)
+    .bind::<diesel::sql_types::Timestamptz, _>(expires_at)
+    .execute(&mut primary_conn)
+    .await;
+    
+    if let Err(e) = assignment_result {
+        tracing::error!(
+            wallet = %request.wallet_address,
+            plan_id = %plan_uuid,
+            error = %e,
+            "Failed to create wallet_group_assignment"
+        );
+    }
     
     // Create database record
     let new_subscription = NewSubscriptionDb {

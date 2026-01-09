@@ -29,7 +29,7 @@ export interface ExportResult {
 // CSV Export Utilities
 // ============================================================================
 
-export function arrayToCSV(data: any[], options: Partial<ExportOptions> = {}): string {
+export function arrayToCSV(data: Record<string, unknown>[], options: Partial<ExportOptions> = {}): string {
   if (!Array.isArray(data) || data.length === 0) {
     return '';
   }
@@ -57,28 +57,28 @@ export function arrayToCSV(data: any[], options: Partial<ExportOptions> = {}): s
 
 function escapeCSVField(field: string): string {
   if (field == null) return '';
-  
+
   const stringField = String(field);
-  
+
   // If field contains comma, newline, or quote, wrap in quotes and escape internal quotes
   if (stringField.includes(',') || stringField.includes('\n') || stringField.includes('"')) {
     return `"${stringField.replace(/"/g, '""')}"`;
   }
-  
+
   return stringField;
 }
 
-function formatValue(value: any): string {
+function formatValue(value: unknown): string {
   if (value == null) return '';
-  
+
   if (value instanceof Date) {
     return value.toISOString();
   }
-  
+
   if (typeof value === 'object') {
     return JSON.stringify(value);
   }
-  
+
   return String(value);
 }
 
@@ -86,11 +86,11 @@ function formatValue(value: any): string {
 // JSON Export Utilities
 // ============================================================================
 
-export function exportToJSON(data: any, options: Partial<ExportOptions> = {}): string {
+export function exportToJSON(data: unknown, _options: Partial<ExportOptions> = {}): string {
   try {
     return JSON.stringify(data, null, 2);
-  } catch (error) {
-    throw new Error(`JSON export failed: ${safeError(error).message}`);
+  } catch (_error) {
+    throw new Error(`JSON export failed: ${safeError(_error).message}`);
   }
 }
 
@@ -107,11 +107,11 @@ export function downloadBlob(blob: Blob, filename: string): void {
   const link = document.createElement('a');
   link.href = url;
   link.download = filename;
-  
+
   // Trigger download
   document.body.appendChild(link);
   link.click();
-  
+
   // Cleanup
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
@@ -122,12 +122,12 @@ export function downloadData(data: string, filename: string, mimeType: string = 
   downloadBlob(blob, filename);
 }
 
-export function downloadCSV(data: any[], filename: string = 'export.csv', options: Partial<ExportOptions> = {}): void {
+export function downloadCSV(data: Record<string, unknown>[], filename: string = 'export.csv', options: Partial<ExportOptions> = {}): void {
   const csv = arrayToCSV(data, options);
   downloadData(csv, filename, 'text/csv');
 }
 
-export function downloadJSON(data: any, filename: string = 'export.json'): void {
+export function downloadJSON(data: unknown, filename: string = 'export.json'): void {
   const json = exportToJSON(data);
   downloadData(json, filename, 'application/json');
 }
@@ -140,15 +140,15 @@ export interface AnalyticsDataPoint {
   timestamp: string;
   value: number;
   label?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
-export function processAnalyticsData(rawData: any[]): AnalyticsDataPoint[] {
+export function processAnalyticsData(rawData: Record<string, unknown>[]): AnalyticsDataPoint[] {
   return rawData.map(item => ({
-    timestamp: item.timestamp || new Date().toISOString(),
-    value: parseFloat(item.value) || 0,
-    label: item.label || item.name || '',
-    metadata: item.metadata || {}
+    timestamp: (item.timestamp as string) || new Date().toISOString(),
+    value: parseFloat(item.value as string) || 0,
+    label: (item.label as string) || (item.name as string) || '',
+    metadata: (item.metadata as Record<string, unknown>) || {}
   }));
 }
 
@@ -230,14 +230,14 @@ export class SimpleCache<T> {
     if (this.cache.size >= this.options.maxSize) {
       const leastAccessed = Array.from(this.cache.entries())
         .sort((a, b) => a[1].accessed - b[1].accessed)[0];
-      
+
       if (leastAccessed) {
         this.cache.delete(leastAccessed[0]);
       }
     }
 
     const processedValue = this.options.serialize ? JSON.parse(JSON.stringify(value)) : value;
-    
+
     this.cache.set(key, {
       value: processedValue,
       expires: Date.now() + this.options.ttl,
@@ -247,7 +247,7 @@ export class SimpleCache<T> {
 
   get(key: string): T | null {
     const entry = this.cache.get(key);
-    
+
     if (!entry) {
       return null;
     }
@@ -259,7 +259,7 @@ export class SimpleCache<T> {
 
     // Update access time
     entry.accessed = Date.now();
-    
+
     return entry.value;
   }
 
@@ -287,7 +287,7 @@ export class SimpleCache<T> {
 
   private cleanup(): void {
     const now = Date.now();
-    
+
     for (const [key, entry] of this.cache.entries()) {
       if (now > entry.expires) {
         this.cache.delete(key);
@@ -297,14 +297,14 @@ export class SimpleCache<T> {
 
   getStats(): { size: number; hitRate: number; avgAge: number } {
     this.cleanup();
-    
+
     const now = Date.now();
     let totalAge = 0;
-    
+
     for (const entry of this.cache.values()) {
       totalAge += (now - (entry.expires - this.options.ttl));
     }
-    
+
     return {
       size: this.cache.size,
       hitRate: 0, // Would need to track hits/misses
@@ -375,11 +375,11 @@ export function formatNumber(value: number, decimals: number = 0): string {
 
 export function formatBytes(bytes: number): string {
   if (bytes === 0) return '0 Bytes';
-  
+
   const k = 1024;
   const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
-  
+
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }
 

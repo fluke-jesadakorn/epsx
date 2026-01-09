@@ -3,9 +3,23 @@
  * OIDC token extraction and session management utilities
  */
 
-import { COOKIES } from '@/shared/auth/cookies'
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
+
+import { COOKIES } from '@/shared/auth/cookies'
+
+interface JWTPayload {
+  sub?: string
+  user_id?: string
+  email?: string
+  name?: string
+  display_name?: string
+  role?: string
+  permissions?: string[]
+  package_tier?: string
+  exp?: number
+  [key: string]: unknown
+}
 
 export interface AdminSession {
   user?: {
@@ -79,7 +93,7 @@ export class ServerAuth {
         idToken
       }
     } catch (_error) {
-      // eslint-disable-next-line no-console
+
       console.error('Error getting admin session:', _error)
       return { isLoggedIn: false }
     }
@@ -112,16 +126,24 @@ export class ServerAuth {
   }
 
   // Permission check stubs - Backend handles enforcement via JWT middleware
+  /**
+   *
+   * @param _permission
+   */
   static async hasPermission(_permission: string): Promise<boolean> {
     return true;
   }
 
+  /**
+   *
+   * @param _permission
+   */
   static async requirePermission(_permission: string): Promise<void> {
     // No-op - backend handles enforcement via 403 response
   }
 
   // Basic JWT decode (client-side safe, no verification)
-  private static decodeJWT(token: string): any {
+  private static decodeJWT(token: string): JWTPayload | null {
     try {
       const parts = token.split('.')
       if (parts.length !== 3) {
@@ -135,7 +157,7 @@ export class ServerAuth {
 
       return JSON.parse(decoded)
     } catch (_error) {
-      // eslint-disable-next-line no-console
+
       console.error('Error decoding JWT:', _error)
       return null
     }

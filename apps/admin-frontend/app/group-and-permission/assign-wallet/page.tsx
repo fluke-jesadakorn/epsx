@@ -15,6 +15,9 @@ import { Textarea } from '@/components/ui/textarea'
 import { WalletAutocomplete } from '@/components/ui/WalletAutocomplete'
 import { groupMgmt } from '@/lib/api/group-management-client'
 
+/**
+ *
+ */
 export default function AssignWalletPage() {
     const router = useRouter()
     const queryClient = useQueryClient()

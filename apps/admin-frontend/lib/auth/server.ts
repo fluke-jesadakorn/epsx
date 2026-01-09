@@ -58,7 +58,7 @@ export async function getServerSession(): Promise<ServerSession | null> {
       accessToken: jwt,
     };
   } catch (_error) {
-    // eslint-disable-next-line no-console
+     
     console.error('❌ Failed to get server session:', _error);
     return null;
   }
@@ -74,7 +74,7 @@ export async function getCurrentUser(): Promise<EnhancedAuthUser | null> {
 
     return createEnhancedAuthUser(session.user as EPSXJWTPayload);
   } catch (_error) {
-    // eslint-disable-next-line no-console
+     
     console.error('❌ Failed to get current user:', _error);
     return null;
   }
@@ -159,7 +159,7 @@ export async function getUserContext() {
       platform,
     };
   } catch (_error) {
-    // eslint-disable-next-line no-console
+     
     console.error('❌ Failed to get user context:', _error);
     return null;
   }

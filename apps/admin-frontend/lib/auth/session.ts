@@ -3,12 +3,11 @@
  * Clean utilities for JWT-based session handling
  */
 
-import { COOKIES } from '@/shared/auth/cookies';
 import { cookies } from 'next/headers';
 
-import type { EPSXJWTPayload } from '@/shared/auth/jwt';
-
 import { getJWTFromCookies, verifyJWTFromCookies } from '@/lib/server/token';
+import { COOKIES } from '@/shared/auth/cookies';
+import type { EPSXJWTPayload } from '@/shared/auth/jwt';
 
 export interface SessionData {
   isLoggedIn: boolean;
@@ -38,7 +37,7 @@ export async function getSession(): Promise<SessionData> {
       expiresAt: payload.exp * 1000, // Convert to milliseconds
     };
   } catch (_error) {
-    // eslint-disable-next-line no-console
+     
     console.error('❌ Failed to get session:', _error);
     return { isLoggedIn: false };
   }
@@ -57,7 +56,7 @@ export async function clearSession(): Promise<void> {
     cookieStore.delete(COOKIES.refresh);
 
   } catch (_error) {
-    // eslint-disable-next-line no-console
+     
     console.error('❌ Failed to clear session:', _error);
   }
 }

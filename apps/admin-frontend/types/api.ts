@@ -5,12 +5,13 @@
  */
 
 // Re-export everything from shared API types
-export * from '../../../shared/types/api';
-export type { Permission, PermissionAnalytics, User, UserStats } from './core';
-export type { PaginatedResponse };
-
 // Import for local re-export with legacy names (maintaining compatibility)
 import type {
+  EPSRanking as SharedEPSRanking,
+  AnalyticsRankingsResponse as SharedEPSRankingsResponse,
+} from '../../../shared/types/analytics';
+import type {
+  PaginatedResponse,
   ActionResult as SharedActionResult,
   ApiError as SharedApiError,
   ApiResponse as SharedApiResponse,
@@ -28,24 +29,24 @@ import type {
   RevokePermissionRequest as SharedRevokePermissionRequest,
   SystemRecommendation as SharedSystemRecommendation,
   UpdateUserRequest as SharedUpdateUserRequest,
-  UserSearchRequest as SharedUserSearchRequest,
+  UserSearchRequest as SharedUserSearchRequest
 } from '../../../shared/types/api';
-
 import type {
   BroadcastNotificationRequest as SharedBroadcastNotificationRequest,
   Notification as SharedNotification,
   NotificationCreateRequest as SharedNotificationCreateRequest,
 } from '../../../shared/types/notifications';
 
-import type {
-  EPSRanking as SharedEPSRanking,
-  AnalyticsRankingsResponse as SharedEPSRankingsResponse,
-} from '../../../shared/types/analytics';
+// Legacy compatibility (admin-frontend was importing from core types)
+
+export * from '../../../shared/types/api';
+// export type { Permission, PermissionAnalytics, User, UserStats } from './core';
+export type { PaginatedResponse };
 
 // Re-export with exact same names for backward compatibility
-export type ApiResponse<T = any> = SharedApiResponse<T>;
+export type ApiResponse<T = unknown> = SharedApiResponse<T>;
 export type ApiError = SharedApiError;
-export type ActionResult<T = any> = SharedActionResult<T>;
+export type ActionResult<T = unknown> = SharedActionResult<T>;
 
 // Authentication API Types
 export type LoginRequest = SharedLoginRequest;
@@ -76,6 +77,3 @@ export type EPSRanking = SharedEPSRanking;
 export type EPSRankingsResponse = SharedEPSRankingsResponse;
 export type PerformanceMetrics = SharedPerformanceMetrics;
 export type SystemRecommendation = SharedSystemRecommendation;
-
-// Legacy compatibility (admin-frontend was importing from core types)
-import type { PaginatedResponse } from '../../../shared/types/api';

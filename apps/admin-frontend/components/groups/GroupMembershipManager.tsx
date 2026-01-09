@@ -92,7 +92,7 @@ export function GroupMembershipManager({
     removeUserFromGroup,
     refreshMemberships
   } = useUserGroupMemberships(userId || null)
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+   
   const { history: _history } = useGroupAssignmentHistory()
 
   // Filter memberships

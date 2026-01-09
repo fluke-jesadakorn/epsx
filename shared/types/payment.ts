@@ -166,6 +166,10 @@ export interface PlanAccessData {
   plan_expires_at: string | null;
   days_remaining: number;
   status: 'active' | 'expiring_soon' | 'expired' | 'no_plan';
+  /** Rankings view limit: -1 = unlimited, 0 = none, >0 = specific limit */
+  rankings_view_limit: number | null;
+  /** Whether user can upgrade to a higher plan */
+  can_upgrade: boolean;
 }
 
 /**

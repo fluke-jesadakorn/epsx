@@ -18,7 +18,7 @@ interface AdminProfileErrorProps {
  */
 export default function AdminProfileError({ error, reset }: AdminProfileErrorProps) {
   useEffect(() => {
-    // eslint-disable-next-line no-console
+     
     console.error('Admin profile page error:', error);
   }, [error]);
 

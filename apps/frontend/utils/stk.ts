@@ -20,35 +20,44 @@ export interface StockData {
 }
 
 // Transform financial data
-export const xform = (data: any): StockData[] => 
+export const xform = (data: Record<string, unknown[]>): StockData[] =>
   Object.entries(data).map(([symbol, quarters]) => ({
     symbol,
-    quarters: (quarters as any[]).map(q => ({
-      price: q.price,
-      date: q.date,
-      eps: q.eps,
-      quarter: q.quarter,
-      eps_growth: q.eps_growth,
-      price_growth: q.price_growth,
-      last_eps_vs_current_price: q.last_eps_vs_current_price
-    }))
+    quarters: (quarters as unknown[]).map(q => {
+      const item = q as Record<string, unknown>;
+      return {
+        price: item.price as number | null,
+        date: item.date as string,
+        eps: item.eps as number,
+        quarter: item.quarter as string | number,
+        eps_growth: item.eps_growth as number | undefined,
+        price_growth: item.price_growth as number | undefined,
+        last_eps_vs_current_price: item.last_eps_vs_current_price as { lastEpsGrowth: number | null; currentPriceGrowth: number | null } | undefined
+      };
+    })
   }))
 
-export const xformPrice = (data: any): StockData[] => 
-  Object.entries(data).map(([symbol, d]) => ({
-    symbol,
-    quarters: (d as any).quarters.map((q: any) => ({
-      price: q.price,
-      date: q.date,
-      eps: q.eps,
-      quarter: q.quarter,
-      eps_growth: q.eps_growth,
-      price_growth: q.price_growth,
-      last_eps_vs_current_price: q.last_eps_vs_current_price
-    })),
-    currentPrice: (d as any).currentPrice,
-    currentPriceDate: (d as any).currentPriceDate
-  }))
+export const xformPrice = (data: Record<string, unknown>): StockData[] =>
+  Object.entries(data).map(([symbol, d]) => {
+    const stock = d as Record<string, unknown>;
+    return {
+      symbol,
+      quarters: (stock.quarters as unknown[]).map((q: unknown) => {
+        const item = q as Record<string, unknown>;
+        return {
+          price: item.price as number | null,
+          date: item.date as string,
+          eps: item.eps as number,
+          quarter: item.quarter as string | number,
+          eps_growth: item.eps_growth as number | undefined,
+          price_growth: item.price_growth as number | undefined,
+          last_eps_vs_current_price: item.last_eps_vs_current_price as { lastEpsGrowth: number | null; currentPriceGrowth: number | null } | undefined
+        };
+      }),
+      currentPrice: stock.currentPrice as number | null | undefined,
+      currentPriceDate: stock.currentPriceDate as string | null | undefined
+    };
+  })
 
 // Stock data helpers
 export const latest = (stock: StockData): Quarter => {
@@ -66,7 +75,7 @@ export const avgEps = (stock: StockData): number | null => {
 
 export const cmpLast = (stock: StockData) => stock.quarters[0]?.last_eps_vs_current_price || null
 
-export const align = (comp: any): 'pos' | 'neg' | 'neutral' | null => {
+export const align = (comp: { lastEpsGrowth: number | null; currentPriceGrowth: number | null } | null): 'pos' | 'neg' | 'neutral' | null => {
   if (!comp || comp.lastEpsGrowth === null || comp.currentPriceGrowth === null) return null
   const { lastEpsGrowth, currentPriceGrowth } = comp
   if ((lastEpsGrowth > 0 && currentPriceGrowth > 0) || (lastEpsGrowth < 0 && currentPriceGrowth < 0)) return 'pos'

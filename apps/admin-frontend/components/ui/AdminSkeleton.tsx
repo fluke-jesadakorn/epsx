@@ -16,6 +16,12 @@ interface SkeletonProps {
 
 /**
  * Base skeleton element
+ * @param root0
+ * @param root0.className
+ * @param root0.variant
+ * @param root0.width
+ * @param root0.height
+ * @param root0.style
  */
 export function Skeleton({ className, variant = 'rect', width, height, style }: SkeletonProps) {
   const variantStyles = {
@@ -41,6 +47,9 @@ export function Skeleton({ className, variant = 'rect', width, height, style }: 
 
 /**
  * Table skeleton loader
+ * @param root0
+ * @param root0.rows
+ * @param root0.columns
  */
 export function TableSkeleton({ rows = 5, columns = 6 }: { rows?: number; columns?: number }) {
   return (
@@ -66,6 +75,8 @@ export function TableSkeleton({ rows = 5, columns = 6 }: { rows?: number; column
 
 /**
  * Card skeleton loader
+ * @param root0
+ * @param root0.count
  */
 export function CardSkeleton({ count = 1 }: { count?: number }) {
   return (
@@ -84,6 +95,8 @@ export function CardSkeleton({ count = 1 }: { count?: number }) {
 
 /**
  * Stats card skeleton
+ * @param root0
+ * @param root0.count
  */
 export function StatsCardSkeleton({ count = 4 }: { count?: number }) {
   return (
@@ -104,6 +117,8 @@ export function StatsCardSkeleton({ count = 4 }: { count?: number }) {
 
 /**
  * List skeleton loader
+ * @param root0
+ * @param root0.items
  */
 export function ListSkeleton({ items = 5 }: { items?: number }) {
   return (

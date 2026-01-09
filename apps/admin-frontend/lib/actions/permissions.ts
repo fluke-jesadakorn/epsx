@@ -1,9 +1,10 @@
 'use server';
 
-import { COOKIES } from '@/shared/auth/cookies';
-import { API_ROUTES } from '@/shared/config/route-constants';
 import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
+
+import { COOKIES } from '@/shared/auth/cookies';
+import { API_ROUTES } from '@/shared/config/route-constants';
 
 // Batch permission operations for admin panel
 interface BatchPermissionRequest {
@@ -38,6 +39,10 @@ interface PermissionAuditLog {
 }
 
 // Grant multiple permissions to multiple wallets
+/**
+ *
+ * @param request
+ */
 export async function grantBatchPermissions(request: BatchPermissionRequest): Promise<{
   success: boolean;
   message: string;
@@ -84,6 +89,12 @@ export async function grantBatchPermissions(request: BatchPermissionRequest): Pr
 }
 
 // Revoke multiple permissions from multiple wallets
+/**
+ *
+ * @param walletAddresses
+ * @param permissions
+ * @param reason
+ */
 export async function revokeBatchPermissions(
   walletAddresses: string[],
   permissions: string[],
@@ -138,6 +149,10 @@ export async function revokeBatchPermissions(
 }
 
 // Create permission template
+/**
+ *
+ * @param template
+ */
 export async function createPermissionTemplate(template: Omit<PermissionTemplate, 'id' | 'created_at'>): Promise<{
   success: boolean;
   template?: PermissionTemplate;
@@ -181,6 +196,9 @@ export async function createPermissionTemplate(template: Omit<PermissionTemplate
 }
 
 // Get permission templates
+/**
+ *
+ */
 export async function getPermissionTemplates(): Promise<PermissionTemplate[]> {
   const cookieStore = await cookies();
   const token = cookieStore.get(COOKIES.access)?.value;
@@ -241,6 +259,13 @@ export async function getPermissionTemplates(): Promise<PermissionTemplate[]> {
 }
 
 // Apply permission template to wallets
+/**
+ *
+ * @param templateId
+ * @param walletAddresses
+ * @param expiresAt
+ * @param reason
+ */
 export async function applyPermissionTemplate(
   templateId: string,
   walletAddresses: string[],
@@ -296,9 +321,19 @@ export async function applyPermissionTemplate(
 }
 
 // Get permission audit log
+/**
+ *
+ * @param limit
+ * @param offset
+ * @param filters
+ * @param filters.wallet_address
+ * @param filters.action
+ * @param filters.date_from
+ * @param filters.date_to
+ */
 export async function getPermissionAuditLog(
-  limit: number = 50,
-  offset: number = 0,
+  limit = 50,
+  offset = 0,
   filters?: {
     wallet_address?: string;
     action?: string;
@@ -376,6 +411,16 @@ export async function getPermissionAuditLog(
 }
 
 // Export permissions data for reporting
+/**
+ *
+ * @param format
+ * @param filters
+ * @param filters.wallet_addresses
+ * @param filters.platforms
+ * @param filters.date_from
+ * @param filters.date_to
+ * @param filters.include_expired
+ */
 export async function exportPermissionsData(
   format: 'json' | 'csv' | 'xlsx' = 'csv',
   filters?: {
@@ -422,6 +467,10 @@ export async function exportPermissionsData(
 }
 
 // Validate permission strings
+/**
+ *
+ * @param permissions
+ */
 export async function validatePermissions(permissions: string[]): Promise<{
   valid: string[];
   invalid: string[];
@@ -466,6 +515,9 @@ export async function validatePermissions(permissions: string[]): Promise<{
 }
 
 // Get permission statistics for dashboard
+/**
+ *
+ */
 export async function getPermissionStatistics(): Promise<{
   total_permissions: number;
   active_permissions: number;

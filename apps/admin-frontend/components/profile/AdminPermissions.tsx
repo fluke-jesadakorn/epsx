@@ -3,13 +3,12 @@
 import { AlertCircle, ChevronDown, ChevronRight, Clock, Eye, Shield } from 'lucide-react';
 import { useState } from 'react';
 
-import { type User } from '@/shared/types/auth';
-
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { type User } from '@/shared/types/auth';
 
 interface AdminPermissionsProps {
   user: User;

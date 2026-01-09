@@ -185,7 +185,7 @@ export interface ActivityRecord {
   id: string
   action: string
   resource: string
-  details: Record<string, any>
+  details: Record<string, unknown>
   timestamp: Date
   ipAddress?: string
   userAgent?: string
@@ -295,10 +295,10 @@ export interface UserOperationError {
   code: string
   message: string
   field?: string
-  details?: Record<string, any>
+  details?: Record<string, unknown>
 }
 
-export interface UserOperationResult<T = any> {
+export interface UserOperationResult<T = unknown> {
   success: boolean
   data?: T
   error?: UserOperationError

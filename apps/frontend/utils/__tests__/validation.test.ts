@@ -2,7 +2,7 @@
 // Tests for validation utilities and business rules
 // Clean Architecture: Domain Layer - No external dependencies
 
-import { formatCurrency, calculatePercentageChange, isValidEmail } from '../index'
+import { calculatePercentageChange, formatCurrency, isValidEmail } from '../index'
 
 describe('Validation Utilities', () => {
   describe('Email Validation', () => {
@@ -93,8 +93,8 @@ describe('Formatting Utilities', () => {
     })
 
     test('formatCurrency should handle edge cases', () => {
-      expect(formatCurrency(null as any)).toBe('$0.00')
-      expect(formatCurrency(undefined as any)).toBe('$0.00')
+      expect(formatCurrency(null as unknown as number)).toBe('$0.00')
+      expect(formatCurrency(undefined as unknown as number)).toBe('$0.00')
       expect(formatCurrency(NaN)).toBe('$0.00')
       expect(formatCurrency(Infinity)).toBe('$0.00')
     })
@@ -150,7 +150,7 @@ describe('Input Validation Business Rules', () => {
   })
 
   describe('Amount Validation', () => {
-    const validateAmount = (amount: any): boolean => {
+    const validateAmount = (amount: unknown): boolean => {
       if (amount == null || amount === '') return false
       const num = Number(amount)
       return !isNaN(num) && isFinite(num) && num >= 0

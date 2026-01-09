@@ -97,7 +97,7 @@ export default function StockRankingPackageAssignment({
       const response = await fetch('/api/admin/users');
       
       if (!response.ok) {
-        // eslint-disable-next-line no-console
+         
         console.error('Users API error:', response.status, response.statusText);
         setUsers([]);
         return;
@@ -105,7 +105,7 @@ export default function StockRankingPackageAssignment({
       
       const contentType = response.headers.get('content-type');
       if (!contentType?.includes('application/json')) {
-        // eslint-disable-next-line no-console
+         
         console.error('Invalid users response type:', contentType);
         setUsers([]);
         return;
@@ -114,7 +114,7 @@ export default function StockRankingPackageAssignment({
       const data = await response.json();
       setUsers(data.users || []);
     } catch (_error) {
-      // eslint-disable-next-line no-console
+       
       console.error('Failed to load users:', _error);
       setUsers([]);
     } finally {
@@ -208,14 +208,14 @@ export default function StockRankingPackageAssignment({
         alert(`Successfully assigned ${result.summary.successful} users to ${selectedPackage} package`);
         
         if (result.failed && result.failed.length > 0) {
-          // eslint-disable-next-line no-console
+           
           console.warn('Some assignments failed:', result.failed);
         }
       } else {
         throw new Error(result.message || 'Assignment failed');
       }
     } catch (_error) {
-      // eslint-disable-next-line no-console
+       
       console.error('Assignment error:', _error);
       alert('Failed to assign packages. Please try again.');
     } finally {

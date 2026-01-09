@@ -1,8 +1,8 @@
 // Simplified state management exports
 import * as React from 'react';
 
-export * from './store';
 export * from './hooks';
+export * from './store';
 
 // Missing exports that are needed by context files
 export { useStateManager as useContextStore } from './store';
@@ -19,17 +19,21 @@ export function createAsyncState() {
 }
 
 // Analytics middleware for tracking state changes
-export const analyticsMiddleware = (action: any, prevState: any, nextState: any, store: string) => {
+export const analyticsMiddleware = (action: { type: string }, _prevState: unknown, _nextState: unknown, _store: string) => {
   // Only track specific analytics-related actions
   const trackableActions = ['UPDATE_ANALYTICS', 'SET_FILTERS', 'ADD_TO_ANALYTICS'];
-  
+  if (trackableActions.includes(action.type)) {
+    // Action is trackable, but we don't need to do anything here for now
+  }
+
   // External analytics tracking disabled for security
   // State changes are not sent to external services
 };
 
 // Logging middleware for debugging state changes
-export const loggingMiddleware = (action: any, prevState: any, nextState: any, store: string) => {
+export const loggingMiddleware = (_action: unknown, _prevState: unknown, _nextState: unknown, _store: string) => {
   if (process.env.NODE_ENV === 'development') {
+    // Debug logging could be enabled here
   }
 };
 

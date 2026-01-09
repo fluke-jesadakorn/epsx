@@ -4,11 +4,15 @@
  */
 'use client';
 
-import { useSharedAuth } from '@/shared/components/auth/Provider';
-import { AuthLevel, type AuthLevelType, type AuthState } from '@/types/progressive-auth';
 import { useMemo } from 'react';
 import { useAccount } from 'wagmi';
 
+import { useSharedAuth } from '@/shared/components/auth/Provider';
+import { AuthLevel, type AuthLevelType, type AuthState } from '@/types/progressive-auth';
+
+/**
+ *
+ */
 export function useAdminProgressiveAuth(): AuthState & {
   canAccess: (requiredLevel: AuthLevelType, requiredPermissions?: string[]) => boolean;
   getAuthMessage: (requiredLevel: AuthLevelType, actionName?: string) => string;
@@ -23,8 +27,8 @@ export function useAdminProgressiveAuth(): AuthState & {
 
   // Determine current authentication level
   const currentLevel = useMemo(() => {
-    if (isAuthenticated && permissions && permissions.length > 0) return AuthLevel.AUTHENTICATED;
-    if (isConnected && walletAddress) return AuthLevel.CONNECTED;
+    if (isAuthenticated && permissions && permissions.length > 0) {return AuthLevel.AUTHENTICATED;}
+    if (isConnected && walletAddress) {return AuthLevel.CONNECTED;}
     return AuthLevel.PUBLIC;
   }, [isAuthenticated, isConnected, walletAddress, permissions]);
 
@@ -42,7 +46,7 @@ export function useAdminProgressiveAuth(): AuthState & {
 
     // Check auth level requirement
     const hasRequiredLevel = levelHierarchy[currentLevel] >= levelHierarchy[requiredLevel];
-    if (!hasRequiredLevel) return false;
+    if (!hasRequiredLevel) {return false;}
 
     // Check permission requirement
     if (requiredPermissions && requiredPermissions.length > 0) {

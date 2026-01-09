@@ -168,7 +168,7 @@ export class UnifiedApiClient {
       };
 
       // Apply timeout if supported
-      if (timeout && 'signal' in requestConfig === false) {
+      if (timeout && !('signal' in requestConfig)) {
         const controller = new AbortController();
         setTimeout(() => controller.abort(), timeout);
         requestConfig.signal = controller.signal;

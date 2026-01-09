@@ -22,7 +22,7 @@ export async function getServerSession() {
     const { getSessionFromJWT } = await import('./token');
     return await getSessionFromJWT();
   } catch (_error) {
-    // eslint-disable-next-line no-console
+     
     console.error('❌ Admin: Failed to get server session:', _error);
     return { isAuthenticated: false, user: null };
   }
@@ -38,14 +38,14 @@ export async function getAuthUser() {
 
     // Validate admin permissions
     if (user && !user.permissions && user.role !== 'admin') {
-      // eslint-disable-next-line no-console
+       
       console.warn('⚠️  Admin: User lacks admin permissions');
       return null;
     }
 
     return user;
   } catch (_error) {
-    // eslint-disable-next-line no-console
+     
     console.error('❌ Admin: Failed to get auth user:', _error);
     return null;
   }
@@ -84,7 +84,7 @@ export async function exchangeCodeForTokens(code: string, codeVerifier: string, 
 
     if (!response.ok) {
       const errorText = await response.text()
-      // eslint-disable-next-line no-console
+       
       console.error('❌ Admin: Token exchange failed:', response.status, response.statusText, errorText)
       throw new Error(`Token exchange failed: ${response.status} ${response.statusText} - ${errorText}`)
     }
@@ -98,7 +98,7 @@ export async function exchangeCodeForTokens(code: string, codeVerifier: string, 
       expiresIn: tokens.expires_in || 3600, // Include expiry information
     }
   } catch (_error) {
-    // eslint-disable-next-line no-console
+     
     console.error('❌ Admin: Token exchange error:', _error)
     throw new Error(`Failed to exchange authorization code for tokens: ${_error instanceof Error ? _error.message : 'Unknown error'}`)
   }
@@ -122,7 +122,7 @@ export async function getUserInfo(accessToken: string) {
 
   if (!response.ok) {
     const errorText = await response.text();
-    // eslint-disable-next-line no-console
+     
     console.error('❌ Admin: UserInfo fetch failed:', response.status, response.statusText, errorText);
     throw new Error(`UserInfo fetch failed: ${response.status} ${response.statusText} - ${errorText}`);
   }
@@ -173,7 +173,7 @@ export async function redirectToBackendAdminLogin(callbackUrl?: string): Promise
 
     redirect(url);
   } catch (_error) {
-    // eslint-disable-next-line no-console
+     
     console.error('❌ Admin: Failed to setup PKCE redirect:', _error);
     // Fallback to simple redirect without PKCE using consolidated config
     const { authConfig } = await import('../../config/env');
@@ -224,17 +224,25 @@ export async function clearSession(): Promise<void> {
     // Also clear legacy cookie for migration compatibility
     cookieStore.delete('epsx_admin_jwt');
   } catch (_error) {
-    // eslint-disable-next-line no-console
+     
     console.error('❌ Admin: Failed to clear session:', _error);
     throw _error;
   }
 }
 
 // Permission check stubs - Backend handles all enforcement via JWT middleware
+/**
+ *
+ * @param _permission
+ */
 export async function hasAdminPermission(_permission: string): Promise<boolean> {
   return true;
 }
 
+/**
+ *
+ * @param _permission
+ */
 export async function hasPermission(_permission: string): Promise<boolean> {
   return true;
 }

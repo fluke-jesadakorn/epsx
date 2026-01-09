@@ -49,6 +49,13 @@ const iconComponents: IconComponents = {
   Zap,
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.error
+ * @param root0.open
+ * @param root0.onClose
+ */
 export function PermissionDeniedModal({ error, open, onClose }: PermissionDeniedModalProps) {
   return (
     <SharedPermissionDeniedModal

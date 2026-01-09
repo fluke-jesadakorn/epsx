@@ -103,7 +103,7 @@ export function Breadcrumb() {
   return (
     <div className="flex items-center gap-2 text-sm">
       {breadcrumbs.map((item, index) => {
-        if (!item) return null
+        if (!item) {return null}
         return (
           <div key={item.href} className="flex items-center gap-2">
             {index === 0 && (

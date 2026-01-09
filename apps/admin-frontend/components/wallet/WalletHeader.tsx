@@ -7,16 +7,23 @@
 import { Clock, Copy } from 'lucide-react';
 import { useState } from 'react';
 
+import type { WalletData } from './types';
+import { WalletStatusBadge } from './WalletStatusBadge';
+
 import { cn } from '@/lib/utils';
 import { formatDate, formatTimeAgo } from '@/lib/utils/date';
-import { WalletStatusBadge } from './WalletStatusBadge';
-import type { WalletData } from './types';
 
 interface WalletHeaderProps {
     wallet: WalletData;
     className?: string;
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.wallet
+ * @param root0.className
+ */
 export function WalletHeader({ wallet, className }: WalletHeaderProps) {
     const [copied, setCopied] = useState(false);
 

@@ -1,9 +1,10 @@
 'use client';
 
-import { settingsApi } from '@/lib/api/settings-client';
-import type { SystemSettings } from '@/types/settings';
 import { useTheme } from 'next-themes';
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
+
+import { settingsApi } from '@/lib/api/settings-client';
+import type { SystemSettings } from '@/types/settings';
 
 interface SettingsContextType {
     settings: SystemSettings | null;
@@ -16,6 +17,7 @@ const SettingsContext = createContext<SettingsContextType | undefined>(undefined
 
 /**
  * Apply accent color as CSS custom property on document root
+ * @param color
  */
 function applyAccentColor(color: string) {
     if (typeof document !== 'undefined') {
@@ -37,6 +39,8 @@ function applyAccentColor(color: string) {
  * - Applies theme mode via next-themes
  * - Applies accent color as CSS variable
  * - Provides context for components to access settings
+ * @param root0
+ * @param root0.children
  */
 export function SettingsProvider({ children }: { children: React.ReactNode }) {
     const [settings, setSettings] = useState<SystemSettings | null>(null);

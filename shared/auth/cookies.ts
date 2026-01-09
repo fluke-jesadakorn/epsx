@@ -82,16 +82,16 @@ export const COOKIE_OPTIONS = {
 
   maxAge: {
     // Auth tokens
-    access: 3600,                    // 1 hour
-    id: 3600,                        // 1 hour
-    refresh: 604800,                // 7 days (1 week)
+    access: 2592000,                 // 30 days
+    id: 2592000,                     // 30 days
+    refresh: 2592000,                // 30 days
     state: 600,                      // 10 minutes
     nonce: 600,                      // 10 minutes
 
     // Client-side data
-    user: 86400,                     // 24 hours (user data)
-    expires_at: 3600,                // 1 hour (same as access token)
-    auth_time: 86400,                // 24 hours
+    user: 2592000,                   // 30 days (user data)
+    expires_at: 2592000,             // 30 days (same as access token)
+    auth_time: 2592000,              // 30 days
     theme: 31536000,                 // 1 year
     browser_notifications: 31536000, // 1 year
     affiliate_attribution: 2592000, // 30 days

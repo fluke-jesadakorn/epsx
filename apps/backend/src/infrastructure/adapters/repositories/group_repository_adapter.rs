@@ -236,6 +236,11 @@ impl GroupRepositoryPort for GroupRepositoryAdapter {
             updated_at: group.updated_at(),
             created_by: None,
             last_modified_by: None,
+            rate_limit_per_minute: 0,
+            rate_limit_per_hour: 0,
+            rate_limit_per_day: 0,
+            burst_capacity: 0,
+            tier_level: 0, // Default to free tier
         };
 
         // Upsert permission group

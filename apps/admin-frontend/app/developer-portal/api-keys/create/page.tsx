@@ -3,9 +3,6 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { Suspense } from 'react'
 
-// Force dynamic rendering since we use cookies for auth
-export const dynamic = 'force-dynamic'
-
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -14,6 +11,9 @@ import { Textarea } from '@/components/ui/textarea'
 import { getServerSession } from '@/lib/server/auth'
 import { createPlansClient } from '@/shared/api/plans'
 import { createAdminApiClient } from '@/shared/utils/api-client'
+
+// Force dynamic rendering since we use cookies for auth
+export const dynamic = 'force-dynamic'
 
 interface CreateApiKeyFormData {
   client_name: string
@@ -95,7 +95,7 @@ async function CreateApiKeyForm() {
         redirect('/developer-portal/api-keys/create?error=api-creation-failed')
       }
     } catch (_error) {
-      // eslint-disable-next-line no-console
+       
       console.error('Failed to create API key:', _error)
       redirect('/developer-portal/api-keys/create?error=creation-failed')
     }

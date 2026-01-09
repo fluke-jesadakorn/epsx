@@ -5,11 +5,12 @@
 
 import { adminCardVariants } from '@/design-system'
 import { cn } from '@/lib/utils'
+import React from 'react'
 
 /**
  *
  */
-export function DashboardSkeleton() {
+export function DashboardSkeleton(): React.JSX.Element {
   return (
     <div className="space-y-8 p-6">
       {/* Header Skeleton */}

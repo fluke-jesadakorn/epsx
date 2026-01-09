@@ -132,7 +132,7 @@ export function AffiliateTracker({ children, onAffiliateDetected }: AffiliateTra
       const baseUrl = env.BACKEND_URL;
 
       // Get user's IP and other tracking info
-      const trackingData = {
+      const _trackingData = {
         affiliateCode: code,
         url: window.location.href,
         userAgent: navigator.userAgent,

@@ -13,6 +13,12 @@ interface StatsCardProps {
 
 /**
  * Reusable stats card component for dashboard metrics
+ * @param root0
+ * @param root0.title
+ * @param root0.value
+ * @param root0.icon
+ * @param root0.iconBgColor
+ * @param root0.iconColor
  */
 export const StatsCard: React.FC<StatsCardProps> = ({
     title,

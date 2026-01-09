@@ -7,6 +7,7 @@
 import { LucideIcon, Inbox, Users, FileText, AlertCircle, Database, Search } from 'lucide-react'
 
 import { Button } from './button'
+
 import { cn } from '@/lib/utils'
 
 interface EmptyStateProps {
@@ -50,6 +51,13 @@ const variantConfig = {
 
 /**
  * Empty state component with icon, title, description, and optional action
+ * @param root0
+ * @param root0.icon
+ * @param root0.title
+ * @param root0.description
+ * @param root0.action
+ * @param root0.variant
+ * @param root0.className
  */
 export function EmptyState({
   icon: Icon = Inbox,
@@ -101,6 +109,11 @@ export function EmptyState({
  * Predefined empty state variations
  */
 
+/**
+ *
+ * @param root0
+ * @param root0.onAction
+ */
 export function NoUsersState({ onAction }: { onAction?: () => void }) {
   return (
     <EmptyState
@@ -112,6 +125,12 @@ export function NoUsersState({ onAction }: { onAction?: () => void }) {
   )
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.title
+ * @param root0.description
+ */
 export function NoDataState({ title = 'No data available', description }: { title?: string; description?: string }) {
   return (
     <EmptyState
@@ -122,6 +141,12 @@ export function NoDataState({ title = 'No data available', description }: { titl
   )
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.query
+ * @param root0.onClear
+ */
 export function NoSearchResultsState({ query, onClear }: { query?: string; onClear?: () => void }) {
   return (
     <EmptyState
@@ -134,6 +159,9 @@ export function NoSearchResultsState({ query, onClear }: { query?: string; onCle
   )
 }
 
+/**
+ *
+ */
 export function NoActivityState() {
   return (
     <EmptyState
@@ -144,6 +172,12 @@ export function NoActivityState() {
   )
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.message
+ * @param root0.onRetry
+ */
 export function ErrorState({ message, onRetry }: { message: string; onRetry?: () => void }) {
   return (
     <EmptyState
@@ -158,6 +192,11 @@ export function ErrorState({ message, onRetry }: { message: string; onRetry?: ()
 
 /**
  * Table empty state - optimized for table contexts
+ * @param root0
+ * @param root0.message
+ * @param root0.action
+ * @param root0.action.label
+ * @param root0.action.onClick
  */
 export function TableEmptyState({
   message = 'No data available',

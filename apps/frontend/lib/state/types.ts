@@ -4,19 +4,12 @@
  */
 
 // Import types from store for local usage
-import type {
-  StateConfig,
-  StateMiddleware,
-  StateAction,
-  AsyncState
-} from './store';
+import type { AsyncState } from './store';
 
 // Re-export types from store
 export type {
-  StateConfig,
-  StateMiddleware,
-  StateAction,
-  AsyncState
+  AsyncState, StateAction, StateConfig,
+  StateMiddleware
 } from './store';
 
 // Additional types needed by app-state context
@@ -25,7 +18,7 @@ export interface UserProfile {
   email: string;
   name?: string;
   avatar?: string;
-  permissions: Record<string, any>;
+  permissions: Record<string, unknown>;
   tier?: string;
 }
 
@@ -82,7 +75,7 @@ export interface Toast {
   };
 }
 
-export interface OptimisticUpdate<T = any> {
+export interface OptimisticUpdate<T = unknown> {
   id: string;
   type: string;
   data: T;
@@ -97,8 +90,8 @@ export interface UIState {
     open: boolean;
     collapsed: boolean;
   };
-  modals: Record<string, any>;
-  toasts: any[];
+  modals: Record<string, unknown>;
+  toasts: unknown[];
   loading: {
     global: boolean;
     requests: Record<string, boolean>;
@@ -113,17 +106,17 @@ export interface UIState {
 
 export interface UserData {
   profile: UserProfile | null;
-  preferences: Record<string, any>;
+  preferences: Record<string, unknown>;
   subscription: UserSubscription | null;
   permissions: string[];
   permissionGroup: string;
 }
 
-export interface UserState extends AsyncState<UserData> {}
+export interface UserState extends AsyncState<UserData> { }
 
 export interface AnalyticsData {
   rankings: StockRanking[];
-  filters: Record<string, any>;
+  filters: Record<string, unknown>;
   recentSearches: string[];
   bookmarks: StockItem[];
 }
@@ -132,14 +125,14 @@ export interface AnalyticsState extends AsyncState<AnalyticsData> {
   realtime?: {
     connected: boolean;
     lastHeartbeat?: number;
-    [key: string]: any;
+    [key: string]: unknown;
   };
 }
 
 export interface NotificationState extends AsyncState<{
   unreadCount: number;
   notifications: Notification[];
-  preferences: Record<string, any>;
+  preferences: Record<string, unknown>;
 }> {
   realtime?: {
     connected: boolean;
@@ -149,7 +142,7 @@ export interface NotificationState extends AsyncState<{
 
 export interface CacheState {
   [key: string]: {
-    data: any;
+    data: unknown;
     timestamp: number;
     ttl: number;
   } | {};

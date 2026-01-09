@@ -87,7 +87,7 @@ const maskKeyPrefix = (prefix: string): string => {
 
 // Helper function to truncate wallet address
 const truncateWallet = (address: string): string => {
-  if (!address || address.length < 12) return address || 'Unknown';
+  if (!address || address.length < 12) {return address || 'Unknown';}
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
 };
 

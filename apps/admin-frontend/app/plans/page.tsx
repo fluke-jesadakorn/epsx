@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
 
-import { PlanManagement } from '@/components/plans/PlanManagement'
-import { PromotionManagement } from '@/components/promotions/PromotionManagement'
-import { useSharedAuth } from '@/shared/components/auth/Provider'
+import { PlanManagement } from '@/components/plans/PlanManagement';
+import { PromotionManagement } from '@/components/promotions/PromotionManagement';
+import { useSharedAuth } from '@/shared/components/auth/Provider';
 
 function PlansHubSkeleton() {
   return (
@@ -65,7 +65,6 @@ function PlansHubSkeleton() {
   )
 }
 
-
 /**
  *
  */
@@ -100,21 +99,19 @@ export default function AdminPlansPage() {
             <div className="grid grid-cols-2 gap-2">
               <button
                 onClick={() => setActiveTab('plans')}
-                className={`px-6 py-3 rounded-xl font-semibold text-base min-h-[44px] ${
-                  activeTab === 'plans'
-                    ? 'bg-gradient-to-r from-emerald-400 to-green-500 text-white shadow-lg'
-                    : 'bg-white/80 dark:bg-gray-800/80 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                }`}
+                className={`px-6 py-3 rounded-xl font-semibold text-base min-h-[44px] ${activeTab === 'plans'
+                  ? 'bg-gradient-to-r from-emerald-400 to-green-500 text-white shadow-lg'
+                  : 'bg-white/80 dark:bg-gray-800/80 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                  }`}
               >
                 💳 Plans
               </button>
               <button
                 onClick={() => setActiveTab('promotions')}
-                className={`px-6 py-3 rounded-xl font-semibold text-base min-h-[44px] ${
-                  activeTab === 'promotions'
-                    ? 'bg-gradient-to-r from-pink-400 to-rose-500 text-white shadow-lg'
-                    : 'bg-white/80 dark:bg-gray-800/80 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                }`}
+                className={`px-6 py-3 rounded-xl font-semibold text-base min-h-[44px] ${activeTab === 'promotions'
+                  ? 'bg-gradient-to-r from-pink-400 to-rose-500 text-white shadow-lg'
+                  : 'bg-white/80 dark:bg-gray-800/80 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                  }`}
               >
                 🎁 Promotions
               </button>

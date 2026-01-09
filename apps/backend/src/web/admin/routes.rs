@@ -10,6 +10,7 @@ use super::plan_handlers::{
   get_plan_handler,
   list_plans_handler,
   update_plan_handler,
+  delete_plan_handler,
   create_subscription_handler,
   admin_list_user_access_handler,
 };
@@ -136,8 +137,7 @@ pub fn create_admin_routes() -> Router<AppState> {
     // Dynamic Plan Management routes (require admin:plans:* permissions) - Simplified
     .route("/plans", get(list_plans_handler))
     .route("/plans", post(create_plan_handler))
-    .route("/plans/{plan_id}", get(get_plan_handler))
-    .route("/plans/{plan_id}", put(update_plan_handler))
+    .route("/plans/{plan_id}", get(get_plan_handler).put(update_plan_handler).delete(delete_plan_handler))
     // Promotion Management routes (require admin:promotions:* permissions)
     .route("/promotions", get(list_promotions_handler))
     .route("/promotions", post(create_promotion_handler))

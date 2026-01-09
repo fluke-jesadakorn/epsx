@@ -37,6 +37,12 @@ export const DEFAULT_POLLING_CONFIG: SmartPollingConfig = {
 export type TilePriority = PollingPriority;
 
 // Re-export with admin default config
+/**
+ *
+ * @param key
+ * @param fetcher
+ * @param options
+ */
 export function useSmartPolling<T = unknown>(
   key: string | null,
   fetcher: () => Promise<T>,

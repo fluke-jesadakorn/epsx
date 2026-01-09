@@ -3,8 +3,7 @@
  * React hooks for state management, persistence, and optimization
  */
 
-import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
-import { storage, useStateManager, StateConfig, StateAction, AppState } from './store';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 // ============================================================================
 // Persistent State Hook
@@ -46,13 +45,13 @@ export function usePersistentState<T>(options: PersistentStateOptions<T>) {
   const setPersistedState = useCallback((newState: T | ((prevState: T) => T)) => {
     setState(prevState => {
       const nextState = typeof newState === 'function' ? (newState as Function)(prevState) : newState;
-      
+
       try {
         window[storageType].setItem(key, serializer.serialize(nextState));
       } catch (error) {
         console.warn(`Failed to persist state for key "${key}":`, error);
       }
-      
+
       return nextState;
     });
   }, [key, storageType, serializer]);
@@ -92,14 +91,14 @@ export function useOptimisticState<T>(options: OptimisticStateOptions<T>) {
     try {
       // Execute async action
       const result = await asyncAction();
-      
+
       // Apply real result
       setState(result);
       setIsOptimistic(false);
     } catch (error) {
       // Rollback on error
       console.warn(`Optimistic update failed for ${key}, rolling back:`, error);
-      
+
       rollbackTimeoutRef.current = setTimeout(() => {
         setState(initialState);
         setIsOptimistic(false);
@@ -142,7 +141,7 @@ export function useAsyncAction<T>(
 
   const execute = useCallback(async () => {
     setState(prev => ({ ...prev, loading: true, error: null }));
-    
+
     try {
       const data = await asyncFn();
       setState({
@@ -193,13 +192,13 @@ export function useStateSelector<T, R>(
 ) {
   const selectedState = useMemo(() => selector(state), [state, selector]);
   const prevSelectedStateRef = useRef<R>(selectedState);
-  
+
   const isEqual = equalityFn || ((a, b) => a === b);
-  
+
   if (!isEqual(prevSelectedStateRef.current, selectedState)) {
     prevSelectedStateRef.current = selectedState;
   }
-  
+
   return prevSelectedStateRef.current;
 }
 
@@ -269,7 +268,7 @@ export function useOptimisticList<T extends { id: string }>(initialList: T[]) {
     if (!originalItem) return;
 
     // Update optimistically
-    setList(prev => prev.map(item => 
+    setList(prev => prev.map(item =>
       item.id === id ? { ...item, ...updates } : item
     ));
     setOptimisticItems(prev => new Set(prev).add(id));
@@ -284,7 +283,7 @@ export function useOptimisticList<T extends { id: string }>(initialList: T[]) {
       });
     } catch (error) {
       // Restore original on failure
-      setList(prev => prev.map(item => 
+      setList(prev => prev.map(item =>
         item.id === id ? originalItem : item
       ));
       setOptimisticItems(prev => {
@@ -310,7 +309,7 @@ export function useOptimisticList<T extends { id: string }>(initialList: T[]) {
 // User Preferences Hook
 // ============================================================================
 
-export function useUserPreferences<T = Record<string, any>>(defaultPreferences?: T) {
+export function useUserPreferences<T = Record<string, unknown>>(defaultPreferences?: T) {
   return usePersistentState({
     key: 'user-preferences',
     defaultValue: defaultPreferences || {} as T,

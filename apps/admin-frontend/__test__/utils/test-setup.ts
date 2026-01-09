@@ -12,6 +12,8 @@
  */
 
 import { test as base, expect, Page, APIRequestContext } from '@playwright/test';
+
+import { getBackendUrl } from '../../../../shared/utils/url-resolver';
 import {
   TEST_USERS,
   TEST_SESSIONS,
@@ -20,7 +22,6 @@ import {
   MockAPIClient,
   type TestUser
 } from '../fixtures/admin-test-fixtures';
-import { getBackendUrl } from '../../../../shared/utils/url-resolver';
 
 // ============================================================================
 // Extended Test Fixtures
@@ -103,10 +104,17 @@ export interface NetworkActivity {
   size: number;
 }
 
+/**
+ *
+ */
 export class PerformanceMonitor {
   private metrics: PerformanceMetrics[] = [];
   private currentMetric: Partial<PerformanceMetrics> | null = null;
 
+  /**
+   *
+   * @param identifier
+   */
   startMeasurement(identifier: string): void {
     this.currentMetric = {
       startTime: performance.now(),
@@ -114,9 +122,12 @@ export class PerformanceMonitor {
     };
   }
 
+  /**
+   *
+   */
   endMeasurement(): PerformanceMetrics | null {
     if (!this.currentMetric || !this.currentMetric.startTime) {
-      // eslint-disable-next-line no-console
+       
       console.warn('⚠️ No active measurement to end');
       return null;
     }
@@ -134,6 +145,10 @@ export class PerformanceMonitor {
     return completedMetric;
   }
 
+  /**
+   *
+   * @param page
+   */
   async measurePagePerformance(page: Page): Promise<PagePerformanceMetrics> {
     const performanceTiming = await page.evaluate(() => {
       const timing = performance.timing;
@@ -163,11 +178,17 @@ export class PerformanceMonitor {
     };
   }
 
+  /**
+   *
+   */
   getAverageResponseTime(): number {
-    if (this.metrics.length === 0) return 0;
+    if (this.metrics.length === 0) {return 0;}
     return this.metrics.reduce((sum, metric) => sum + metric.duration, 0) / this.metrics.length;
   }
 
+  /**
+   *
+   */
   getMetricsSummary(): PerformanceSummary {
     if (this.metrics.length === 0) {
       return { totalMeasurements: 0, averageDuration: 0, minDuration: 0, maxDuration: 0 };
@@ -190,6 +211,9 @@ export class PerformanceMonitor {
     return sorted[index] || 0;
   }
 
+  /**
+   *
+   */
   clearMetrics(): void {
     this.metrics = [];
     this.currentMetric = null;
@@ -216,17 +240,27 @@ export interface PerformanceSummary {
 // Authentication Test Helpers
 // ============================================================================
 
+/**
+ *
+ */
 export class AuthenticationHelper {
   private page: Page;
 
+  /**
+   *
+   * @param page
+   */
   constructor(page: Page) {
     this.page = page;
   }
 
+  /**
+   *
+   * @param userType
+   */
   async loginAsUser(userType: keyof typeof TEST_USERS): Promise<string | null> {
     const user = TEST_USERS[userType];
     const session = Object.values(TEST_SESSIONS).find(s => s.userId === user.id);
-    
 
     try {
       // Navigate to login page
@@ -274,17 +308,20 @@ export class AuthenticationHelper {
       if (token) {
         return token;
       } else {
-        // eslint-disable-next-line no-console
+         
         console.error(`❌ Failed to extract auth token for ${user.name}`);
         return null;
       }
     } catch (_error) {
-      // eslint-disable-next-line no-console
+       
       console.error(`❌ Login failed for ${user.name}:`, _error);
       return null;
     }
   }
 
+  /**
+   *
+   */
   async extractAuthToken(): Promise<string | null> {
     return await this.page.evaluate(() => {
       return localStorage.getItem('auth_token') || 
@@ -292,6 +329,10 @@ export class AuthenticationHelper {
     });
   }
 
+  /**
+   *
+   * @param token
+   */
   async validateSession(token: string): Promise<boolean> {
     try {
       const response = await this.page.request.get('/api/admin/auth/profile', {
@@ -303,6 +344,9 @@ export class AuthenticationHelper {
     }
   }
 
+  /**
+   *
+   */
   async logout(): Promise<void> {
     
     try {
@@ -329,7 +373,7 @@ export class AuthenticationHelper {
       });
 
     } catch (_error) {
-      // eslint-disable-next-line no-console
+       
       console.error('⚠️ Logout error:', _error);
     }
   }
@@ -339,15 +383,29 @@ export class AuthenticationHelper {
 // Security Testing Helpers
 // ============================================================================
 
+/**
+ *
+ */
 export class SecurityTestHelper {
   private request: APIRequestContext;
   private baseUrl: string;
 
+  /**
+   *
+   * @param request
+   * @param baseUrl
+   */
   constructor(request: APIRequestContext, baseUrl: string = getBackendUrl('server')) {
     this.request = request;
     this.baseUrl = baseUrl;
   }
 
+  /**
+   *
+   * @param endpoint
+   * @param payloads
+   * @param token
+   */
   async testSQLInjection(endpoint: string, payloads: string[], token?: string): Promise<SecurityTestResult[]> {
     
     const results: SecurityTestResult[] = [];
@@ -380,6 +438,12 @@ export class SecurityTestHelper {
     return results;
   }
 
+  /**
+   *
+   * @param endpoint
+   * @param payloads
+   * @param token
+   */
   async testXSS(endpoint: string, payloads: string[], token?: string): Promise<SecurityTestResult[]> {
     
     const results: SecurityTestResult[] = [];
@@ -429,6 +493,12 @@ export class SecurityTestHelper {
     return results;
   }
 
+  /**
+   *
+   * @param endpoint
+   * @param requestCount
+   * @param token
+   */
   async testRateLimiting(endpoint: string, requestCount: number, token?: string): Promise<RateLimitTestResult> {
     
     const startTime = performance.now();
@@ -458,6 +528,11 @@ export class SecurityTestHelper {
     };
   }
 
+  /**
+   *
+   * @param endpoint
+   * @param token
+   */
   async testCSRF(endpoint: string, token?: string): Promise<CSRFTestResult> {
 
     try {
@@ -519,7 +594,13 @@ export interface CSRFTestResult {
 // Environment Validation
 // ============================================================================
 
+/**
+ *
+ */
 export class EnvironmentValidator {
+  /**
+   *
+   */
   static async validateTestEnvironment(): Promise<ValidationResult> {
     
     const results: ValidationResult = {
@@ -536,7 +617,7 @@ export class EnvironmentValidator {
     } catch (_error) {
       results.database = false;
       results.errors.push(`Database validation failed: ${error}`);
-      // eslint-disable-next-line no-console
+       
       console.error('❌ Database validation failed:', _error);
     }
 
@@ -548,13 +629,13 @@ export class EnvironmentValidator {
       if (results.api) {
       } else {
         results.errors.push(`API health check failed: ${response.status}`);
-        // eslint-disable-next-line no-console
+         
         console.error('❌ API validation failed:', response.status);
       }
     } catch (_error) {
       results.api = false;
       results.errors.push(`API validation failed: ${error}`);
-      // eslint-disable-next-line no-console
+       
       console.error('❌ API validation failed:', _error);
     }
 
@@ -565,7 +646,7 @@ export class EnvironmentValidator {
     } catch (_error) {
       results.authentication = false;
       results.errors.push(`Authentication validation failed: ${error}`);
-      // eslint-disable-next-line no-console
+       
       console.error('❌ Authentication validation failed:', _error);
     }
 
@@ -573,15 +654,18 @@ export class EnvironmentValidator {
     
     if (allValid) {
     } else {
-      // eslint-disable-next-line no-console
+       
       console.error('❌ Test environment validation failed');
-      // eslint-disable-next-line no-console
+       
       console.error('Errors:', results.errors);
     }
 
     return results;
   }
 
+  /**
+   *
+   */
   static async validatePermissions(): Promise<boolean> {
     
     // Implementation: Validate that test users have correct permissions
@@ -602,13 +686,22 @@ export interface ValidationResult {
 // Test Data Management
 // ============================================================================
 
+/**
+ *
+ */
 export class TestDataManager {
   private dbUtils: TestDatabaseUtilities;
 
+  /**
+   *
+   */
   constructor() {
     this.dbUtils = TestDatabaseUtilities.getInstance();
   }
 
+  /**
+   *
+   */
   async setupTestData(): Promise<void> {
     
     try {
@@ -617,23 +710,29 @@ export class TestDataManager {
       await this.dbUtils.seedTestSessions();
       
     } catch (_error) {
-      // eslint-disable-next-line no-console
+       
       console.error('❌ Test data setup failed:', _error);
       throw _error;
     }
   }
 
+  /**
+   *
+   */
   async cleanupTestData(): Promise<void> {
     
     try {
       await this.dbUtils.cleanupTestData();
     } catch (_error) {
-      // eslint-disable-next-line no-console
+       
       console.error('❌ Test data cleanup failed:', _error);
       throw _error;
     }
   }
 
+  /**
+   *
+   */
   async resetTestData(): Promise<void> {
     
     await this.cleanupTestData();
@@ -641,6 +740,9 @@ export class TestDataManager {
     
   }
 
+  /**
+   *
+   */
   async verifyTestDataIntegrity(): Promise<boolean> {
     
     try {
@@ -648,13 +750,13 @@ export class TestDataManager {
       
       if (isValid) {
       } else {
-        // eslint-disable-next-line no-console
+         
         console.error('❌ Test data integrity check failed');
       }
       
       return isValid;
     } catch (_error) {
-      // eslint-disable-next-line no-console
+       
       console.error('❌ Test data integrity verification failed:', _error);
       return false;
     }
@@ -665,15 +767,24 @@ export class TestDataManager {
 // Global Test Setup and Teardown
 // ============================================================================
 
+/**
+ *
+ */
 export class GlobalTestSetup {
   private static instance: GlobalTestSetup;
   private dataManager: TestDataManager;
-  private isSetup: boolean = false;
+  private isSetup = false;
 
+  /**
+   *
+   */
   constructor() {
     this.dataManager = new TestDataManager();
   }
 
+  /**
+   *
+   */
   static getInstance(): GlobalTestSetup {
     if (!GlobalTestSetup.instance) {
       GlobalTestSetup.instance = new GlobalTestSetup();
@@ -681,11 +792,13 @@ export class GlobalTestSetup {
     return GlobalTestSetup.instance;
   }
 
+  /**
+   *
+   */
   async globalSetup(): Promise<void> {
     if (this.isSetup) {
       return;
     }
-
 
     // Validate environment
     const validation = await EnvironmentValidator.validateTestEnvironment();
@@ -702,11 +815,13 @@ export class GlobalTestSetup {
     this.isSetup = true;
   }
 
+  /**
+   *
+   */
   async globalTeardown(): Promise<void> {
     if (!this.isSetup) {
       return;
     }
-
 
     // Cleanup test data
     await this.dataManager.cleanupTestData();

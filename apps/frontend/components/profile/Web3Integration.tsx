@@ -1,25 +1,23 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useAccount } from 'wagmi';
-import { Wallet, Link, CheckCircle, AlertCircle, Shield, Eye, EyeOff, Key, Crown, Zap, Users, Settings } from 'lucide-react';
-import { type User } from '@/shared/types/auth';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
-import { WalletConnectAuth } from '@/components/auth/WalletConnectAuth';
-import { PermissionsDisplay } from '@/components/auth/PermissionsDisplay';
 import { ApiKeyManager } from '@/components/auth/ApiKeyManager';
+import { PermissionsDisplay } from '@/components/auth/PermissionsDisplay';
+import { WalletConnectAuth } from '@/components/auth/WalletConnectAuth';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import { useSharedAuth } from '@/shared/components/auth/Provider';
-import { UserWalletDisplay, UserTierBadge, UserAuthStatus, UserPermissionsDisplay } from '@/shared/components/display/UserDisplay';
+import { UserAuthStatus, UserPermissionsDisplay, UserTierBadge, UserWalletDisplay } from '@/shared/components/display/UserDisplay';
+import { AlertCircle, CheckCircle, Key, Settings, Shield, Users, Wallet } from 'lucide-react';
+import { useState } from 'react';
+import { useAccount } from 'wagmi';
 
 interface Web3IntegrationProps {
   // No props needed - uses shared authentication
 }
 
-interface WalletInfo {
+interface _WalletInfo {
   address: string;
   isLinked: boolean;
   linkedEmail?: string;
@@ -27,15 +25,15 @@ interface WalletInfo {
 }
 
 export function Web3Integration(_props: Web3IntegrationProps) {
-  const { address, isConnected } = useAccount();
-  const { isAuthenticated, user, refreshUser } = useSharedAuth();
+  const { address: _address, isConnected } = useAccount();
+  const { isAuthenticated: _isAuthenticated, user: _user, refreshUser } = useSharedAuth();
   const [activeTab, setActiveTab] = useState('overview');
-  const [showAddress, setShowAddress] = useState(false);
+  const [showAddress, _setShowAddress] = useState(false);
 
-  const formatAddress = (addr: string) => {
+  const _formatAddress = (addr: string) => {
     if (!addr) return '';
-    return showAddress 
-      ? addr 
+    return showAddress
+      ? addr
       : `${addr.slice(0, 6)}...${addr.slice(-4)}`;
   };
 
@@ -64,7 +62,7 @@ export function Web3Integration(_props: Web3IntegrationProps) {
                 Connect Your Web3 Wallet
               </h3>
               <p className="text-sm text-slate-600 dark:text-slate-400 mb-6 max-w-md mx-auto">
-                Unlock the full potential of EPSX with Web3 authentication. Get access to NFT-gated content, 
+                Unlock the full potential of EPSX with Web3 authentication. Get access to NFT-gated content,
                 token-based permissions, DAO governance, and enterprise API features.
               </p>
               <WalletConnectAuth className="max-w-md mx-auto" />
@@ -213,7 +211,7 @@ export function Web3Integration(_props: Web3IntegrationProps) {
                     <Alert>
                       <AlertCircle className="h-4 w-4" />
                       <AlertDescription>
-                        <strong>Security Tip:</strong> Web3 authentication is self-sovereign and secure. 
+                        <strong>Security Tip:</strong> Web3 authentication is self-sovereign and secure.
                         Your wallet controls your identity - keep your private keys safe and never share them.
                       </AlertDescription>
                     </Alert>

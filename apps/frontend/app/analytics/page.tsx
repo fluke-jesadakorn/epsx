@@ -1,3 +1,4 @@
+import { PlanGatedRankings } from '@/components/analytics/PlanGatedRankings';
 import ServerCardDashboard from '@/components/analytics/ServerCardDashboard';
 
 interface AnalyticsPageProps {
@@ -73,17 +74,8 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
               <div className="absolute -top-12 left-1/4 h-24 w-24 rotate-12 rounded-2xl bg-gradient-to-br from-blue-300/10 to-indigo-300/10 dark:from-blue-800/5 dark:to-indigo-800/5" />
               <div className="absolute right-1/4 -bottom-12 h-20 w-20 rounded-full bg-gradient-to-br from-purple-300/10 to-pink-300/10 dark:from-purple-800/5 dark:to-pink-800/5" />
 
-              {/* Simple Top 5 Overview - No full dashboard */}
-              <div className="space-y-6">
-                <div className="text-center">
-                  <h2 className="mb-4 text-2xl font-bold text-slate-800 dark:text-slate-200">
-                    Top 5 Market Leaders
-                  </h2>
-                  <p className="mb-8 text-slate-600 dark:text-slate-400">
-                    Quick overview of top performing stocks
-                  </p>
-                </div>
-
+              {/* Wrap with PlanGatedRankings for upgrade prompts */}
+              <PlanGatedRankings totalRankings={100}>
                 <ServerCardDashboard
                   searchParams={{
                     ...resolvedSearchParams,
@@ -91,11 +83,12 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
                     showFilters: 'false', // Hide filters
                   }}
                 />
-              </div>
+              </PlanGatedRankings>
             </div>
           </div>
         </div>
-      </div>
+      </div >
     </>
   );
 }
+

@@ -13,6 +13,9 @@ import { WalletAutocomplete } from '@/components/ui/WalletAutocomplete'
 import { createPlansClient, isApiSuccess, type PlanResponse, type SubscriptionResponse } from '@/shared/api/plans'
 import { createAdminApiClient } from '@/shared/utils/api-client'
 
+/**
+ *
+ */
 export default function PlanSubscribersPage() {
     const router = useRouter()
     const params = useParams()

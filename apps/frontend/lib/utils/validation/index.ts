@@ -73,23 +73,23 @@ export class EnvironmentValidator {
 
   generateTemplate(): string {
     const lines: string[] = ['# Environment Variables Configuration'];
-    
+
     for (const variable of this.variables) {
       lines.push('');
-      
+
       if (variable.description) {
         lines.push(`# ${variable.description}`);
       }
-      
+
       lines.push(`# Required: ${variable.required}`);
-      
+
       if (variable.defaultValue) {
         lines.push(`# Default: ${variable.defaultValue}`);
       }
-      
+
       lines.push(`${variable.key}=${variable.defaultValue || ''}`);
     }
-    
+
     return lines.join('\n');
   }
 }
@@ -105,18 +105,18 @@ export interface ValidationRule {
   min?: number;
   max?: number;
   pattern?: RegExp;
-  custom?: (value: any) => boolean | string;
+  custom?: (value: unknown) => boolean | string;
   type?: 'string' | 'number' | 'boolean' | 'email' | 'url' | 'date';
 }
 
 export interface ValidationResult {
   valid: boolean;
   errors: string[];
-  value?: any;
+  value?: unknown;
 }
 
 export class InputValidator {
-  validate(value: any, rules: ValidationRule): ValidationResult {
+  validate(value: unknown, rules: ValidationRule): ValidationResult {
     const errors: string[] = [];
 
     // Required check
@@ -181,22 +181,22 @@ export class InputValidator {
     };
   }
 
-  private validateType(value: any, type: ValidationRule['type']): string | null {
+  private validateType(value: unknown, type: ValidationRule['type']): string | null {
     switch (type) {
       case 'string':
         return typeof value !== 'string' ? 'Must be a string' : null;
-      
+
       case 'number':
         return isNaN(Number(value)) ? 'Must be a number' : null;
-      
+
       case 'boolean':
         return typeof value !== 'boolean' && value !== 'true' && value !== 'false' ? 'Must be a boolean' : null;
-      
+
       case 'email': {
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         return !emailRegex.test(String(value)) ? 'Must be a valid email address' : null;
       }
-      
+
       case 'url':
         try {
           new URL(String(value));
@@ -204,39 +204,39 @@ export class InputValidator {
         } catch {
           return 'Must be a valid URL';
         }
-      
+
       case 'date': {
-        const date = new Date(value);
+        const date = new Date(value as string | number | Date);
         return isNaN(date.getTime()) ? 'Must be a valid date' : null;
       }
-      
+
       default:
         return null;
     }
   }
 
-  private convertType(value: any, type?: ValidationRule['type']): any {
+  private convertType(value: unknown, type?: ValidationRule['type']): unknown {
     if (!type) return value;
 
     switch (type) {
       case 'number':
         return Number(value);
-      
+
       case 'boolean':
         if (typeof value === 'boolean') return value;
         return value === 'true' || value === true;
-      
+
       case 'date':
-        return new Date(value);
-      
+        return new Date(value as string | number | Date);
+
       default:
         return value;
     }
   }
 
-  validateObject(obj: Record<string, any>, schema: Record<string, ValidationRule>): ValidationResult {
+  validateObject(obj: Record<string, unknown>, schema: Record<string, ValidationRule>): ValidationResult {
     const errors: string[] = [];
-    const validatedValues: Record<string, any> = {};
+    const validatedValues: Record<string, unknown> = {};
 
     for (const [key, rules] of Object.entries(schema)) {
       const value = obj[key];
@@ -280,7 +280,7 @@ export const commonRules = {
     type: 'email' as const,
     maxLength: 254
   },
-  
+
   password: {
     required: true,
     type: 'string' as const,
@@ -294,7 +294,7 @@ export const commonRules = {
       return true;
     }
   },
-  
+
   username: {
     required: true,
     type: 'string' as const,
@@ -302,12 +302,12 @@ export const commonRules = {
     maxLength: 20,
     pattern: commonPatterns.username
   },
-  
+
   url: {
     required: false,
     type: 'url' as const
   },
-  
+
   phone: {
     required: false,
     type: 'string' as const,
@@ -335,11 +335,11 @@ export class FormValidator {
     delete this.schema[name];
   }
 
-  validate(formData: Record<string, any>): ValidationResult {
+  validate(formData: Record<string, unknown>): ValidationResult {
     return this.validator.validateObject(formData, this.schema);
   }
 
-  validateField(fieldName: string, value: any): ValidationResult {
+  validateField(fieldName: string, value: unknown): ValidationResult {
     const rules = this.schema[fieldName];
     if (!rules) {
       return { valid: true, errors: [] };

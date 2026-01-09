@@ -5,12 +5,13 @@ import '@rainbow-me/rainbowkit/styles.css';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useTheme } from 'next-themes';
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
-import { WagmiProvider } from 'wagmi';
+import { WagmiProvider, type Config } from 'wagmi';
 import { bscTestnet } from 'wagmi/chains';
 
 // Polyfill for SSR to prevent indexedDB errors
 if (typeof window === 'undefined') {
-  (global as any).indexedDB = undefined;
+  const globalObj = global as unknown as { indexedDB: unknown };
+  globalObj.indexedDB = undefined;
 }
 
 // Query client factory for admin-optimized settings
@@ -25,7 +26,7 @@ const createQueryClient = () => new QueryClient({
 });
 
 // Configure Wagmi for Admin with BSC testnet - Client-only
-let config: any = null;
+let config: Config | null = null;
 
 // Only create config on client side to prevent SSR issues
 if (typeof window !== 'undefined') {
@@ -48,6 +49,9 @@ const AdminWeb3Context = createContext<AdminWeb3ContextType>({
   isAdminMode: true,
 });
 
+/**
+ *
+ */
 export const useAdminWeb3Context = () => {
   const context = useContext(AdminWeb3Context);
   if (!context) {
@@ -118,6 +122,11 @@ function ThemedRainbowKitProvider({ children }: { children: ReactNode }) {
   );
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.children
+ */
 export function AdminWeb3Provider({ children }: AdminWeb3ProviderProps) {
   const [queryClient] = useState(() => createQueryClient());
   const [mounted, setMounted] = useState(false);

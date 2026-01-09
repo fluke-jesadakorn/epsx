@@ -3,12 +3,12 @@
  * Validates Web3 wallet authentication and enterprise tier access
  * Provides comprehensive security logging and performance monitoring
  */
-import { NextRequest, NextResponse } from 'next/server';
 import { enterpriseUrls } from '@/config/env';
 import { COOKIES } from '@/shared/auth/cookies';
+import { NextRequest, NextResponse } from 'next/server';
 
 // Middleware validation cache (5 seconds TTL)
-const validationCache = new Map<string, { valid: boolean; user: any; timestamp: number }>();
+const validationCache = new Map<string, { valid: boolean; user: EnterpriseUser | undefined; timestamp: number }>();
 const CACHE_TTL = 5000; // 5 seconds
 
 // Public routes that don't require Web3 authentication
@@ -229,16 +229,16 @@ async function validateWeb3Authentication(request: NextRequest): Promise<{
       return result;
     }
 
-    const data = await response.json();
+    const data = (await response.json()) as Record<string, unknown>;
 
     const user: EnterpriseUser = {
-      wallet_address: data.wallet_address,
-      enterprise_tier: data.enterprise_tier,
-      permissions: data.permissions || [],
-      has_api_access: data.has_api_access || false,
-      verified_tokens_usd: data.verified_tokens_usd || 0,
-      nft_collections: data.nft_collections || [],
-      dao_memberships: data.dao_memberships || []
+      wallet_address: data.wallet_address as string,
+      enterprise_tier: data.enterprise_tier as string,
+      permissions: (data.permissions as string[]) || [],
+      has_api_access: (data.has_api_access as boolean) || false,
+      verified_tokens_usd: (data.verified_tokens_usd as number) || 0,
+      nft_collections: (data.nft_collections as string[]) || [],
+      dao_memberships: (data.dao_memberships as string[]) || []
     };
 
     // Cache successful validation

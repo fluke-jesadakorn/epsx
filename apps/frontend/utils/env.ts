@@ -4,7 +4,7 @@ export function getCurrentEnvironment(): string {
   return process.env.NODE_ENV || 'development';
 }
 
-export function getAssetConfig(): any {
+export function getAssetConfig(): Record<string, unknown> {
   return {};
 }
 

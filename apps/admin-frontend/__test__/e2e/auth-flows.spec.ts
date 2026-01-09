@@ -1,5 +1,7 @@
 import { test, expect } from '@playwright/test';
 
+declare const sessionStorage: Storage;
+
 test.describe('Admin Authentication Flows - E2E', () => {
   const ADMIN_URL = process.env.ADMIN_URL || 'http://localhost:3001';
   const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8080';
@@ -68,8 +70,10 @@ test.describe('Admin Authentication Flows - E2E', () => {
     test('should handle session expiry gracefully', async ({ page }) => {
       await page.goto(ADMIN_URL);
 
+       
       await page.evaluate(() => {
         localStorage.removeItem('web3_session');
+         
         sessionStorage.clear();
       });
 
@@ -83,7 +87,7 @@ test.describe('Admin Authentication Flows - E2E', () => {
 
       await page.evaluate(() => {
         const isValidToken = (token: string): boolean => {
-          if (!token) return false;
+          if (!token) {return false;}
           const parts = token.split('.');
           return parts.length === 3;
         };

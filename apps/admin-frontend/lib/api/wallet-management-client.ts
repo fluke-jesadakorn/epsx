@@ -5,6 +5,8 @@
 
 'use client';
 
+import { adminApiClient } from '../api-client';
+
 import type {
     DisableReasonCategory,
     PermissionSource,
@@ -16,7 +18,6 @@ import type {
     WalletStats,
     WalletSubscription,
 } from '@/components/wallet/types';
-import { adminApiClient } from '../api-client';
 
 // ============================================================================
 // REQUEST/RESPONSE TYPES
@@ -224,6 +225,9 @@ function mapStatsToFrontend(dto: WalletStatsDto): WalletStats {
 export const walletMgmt = {
     /**
      * Fetch paginated list of wallets with filtering
+     * @param filters
+     * @param page
+     * @param limit
      */
     async fetchWallets(filters: WalletFilters, page = 1, limit = 20): Promise<{
         wallets: WalletData[];
@@ -290,6 +294,7 @@ export const walletMgmt = {
 
     /**
      * Fetch detailed wallet information
+     * @param walletAddress
      */
     async fetchWalletDetail(walletAddress: string): Promise<WalletData> {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -311,6 +316,11 @@ export const walletMgmt = {
 
     /**
      * Assign permissions to a wallet
+     * @param data
+     * @param data.walletAddress
+     * @param data.permissions
+     * @param data.expiresAt
+     * @param data.reason
      */
     async assignPermission(data: {
         walletAddress: string;
@@ -328,6 +338,9 @@ export const walletMgmt = {
 
     /**
      * Revoke permissions from a wallet
+     * @param data
+     * @param data.walletAddress
+     * @param data.permissions
      */
     async revokePermission(data: {
         walletAddress: string;
@@ -341,6 +354,8 @@ export const walletMgmt = {
 
     /**
      * Temporarily disable a wallet
+     * @param walletAddress
+     * @param data
      */
     async disableWallet(walletAddress: string, data: DisableWalletRequest): Promise<void> {
         await adminApiClient.post(`/api/admin/wallets/${walletAddress}/disable`, data);
@@ -348,6 +363,8 @@ export const walletMgmt = {
 
     /**
      * Re-enable a disabled wallet
+     * @param walletAddress
+     * @param data
      */
     async enableWallet(walletAddress: string, data: EnableWalletRequest): Promise<void> {
         await adminApiClient.post(`/api/admin/wallets/${walletAddress}/enable`, data);
@@ -355,6 +372,8 @@ export const walletMgmt = {
 
     /**
      * Fetch activity history for a wallet
+     * @param walletAddress
+     * @param limit
      */
     async fetchActivityHistory(walletAddress: string, limit = 20): Promise<WalletActivityEvent[]> {
         const res = await adminApiClient.get<{ events: WalletActivityEvent[] }>(
@@ -367,6 +386,7 @@ export const walletMgmt = {
 
     /**
      * Bulk operations on multiple wallets
+     * @param data
      */
     async bulkGrantPermissions(data: AssignPermissionRequest): Promise<void> {
         await adminApiClient.post('/api/admin/permissions/bulk/grant', data);
@@ -397,6 +417,10 @@ export const walletMgmt = {
 
     /**
      * Update wallet metadata (label and note)
+     * @param walletAddress
+     * @param data
+     * @param data.label
+     * @param data.note
      */
     async updateWalletMetadata(walletAddress: string, data: {
         label?: string | null;

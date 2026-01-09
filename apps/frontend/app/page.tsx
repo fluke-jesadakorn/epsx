@@ -2,6 +2,7 @@ import { StreamingWrapper } from '@/components/common/StreamingWrapper';
 import DynamicPricingSection from '@/components/home/DynamicPricingSection';
 import HeroSection from '@/components/home/HeroSection';
 import ServerTopPerformers from '@/components/home/ServerTopPerformers';
+import { Crown, Rocket } from 'lucide-react';
 import { Suspense } from 'react';
 
 // DISABLE ISR caching to show real Data Analytics data immediately
@@ -44,7 +45,7 @@ export default async function HomePage(props: {
   const refCode = (searchParams?.ref || searchParams?.affiliate || searchParams?.aff) as string | undefined;
 
   // Use empty data for PublicRankingPreview component (unused in simplified homepage)
-  const initialData: StockFinancialData[] = [];
+  const _initialData: StockFinancialData[] = [];
 
   return (
     <div>
@@ -110,8 +111,12 @@ export default async function HomePage(props: {
                         <span className="text-2xl">🚀</span>
                       </div>
 
-                      <h2 className="bg-gradient-to-r from-orange-500 via-yellow-500 to-orange-600 bg-clip-text text-5xl font-bold text-transparent sm:text-6xl dark:from-orange-400 dark:via-yellow-400 dark:to-orange-500">
-                        Get Full Analytics Power
+                      <h2 className="flex flex-col items-center justify-center gap-4 bg-clip-text text-5xl font-bold text-transparent sm:flex-row sm:text-6xl">
+                        <Crown className="h-12 w-12 text-yellow-500 sm:h-16 sm:w-16" />
+                        <span className="bg-gradient-to-r from-orange-500 via-yellow-500 to-orange-600 bg-clip-text text-transparent dark:from-orange-400 dark:via-yellow-400 dark:to-orange-500">
+                          Get Full Analytics Power
+                        </span>
+                        <Rocket className="h-12 w-12 text-orange-500 sm:h-16 sm:w-16" />
                       </h2>
 
                       <p className="mx-auto max-w-4xl text-xl leading-relaxed text-gray-600 dark:text-gray-300">

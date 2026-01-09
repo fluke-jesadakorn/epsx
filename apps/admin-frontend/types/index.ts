@@ -109,7 +109,7 @@ export interface StockRankingPermissionAssignment {
   expiresAt?: string;
   status: 'active' | 'expired' | 'revoked';
   assignedBy: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 /** @deprecated Use StockRankingPermissionAssignment instead */
@@ -124,7 +124,7 @@ export interface StockRankingPackageAssignment {
   expiresAt?: string;
   status: 'active' | 'expired' | 'revoked';
   assignedBy: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface BulkStockRankingPermissionAssignment {
@@ -132,7 +132,7 @@ export interface BulkStockRankingPermissionAssignment {
   permissionGroupId: string;
   stockRankingTypeId: string;
   expiresAt?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 /** @deprecated Use BulkStockRankingPermissionAssignment instead */
@@ -141,7 +141,7 @@ export interface BulkStockRankingAssignment {
   packageTierId: string;
   stockRankingTypeId: string;
   expiresAt?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface BulkStockRankingAssignmentResult {
@@ -175,12 +175,36 @@ export interface PermissionProfile {
   assignedUserCount?: number;
 }
 
-// Notification Types - Re-exported from shared
-export type {
-  Notification,
-  NotificationListParams, NotificationPriority, NotificationStats,
-  NotificationType
-} from '@/shared/types/notifications';
+// Notification Types - Local definition (avoids import resolution issues)
+export interface Notification {
+  id: string;
+  title: string;
+  message: string;
+  type: string;
+  priority: string;
+  read: boolean;
+  createdAt: string;
+  updatedAt?: string;
+  userId?: string;
+  actionUrl?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export type NotificationType = 'info' | 'warning' | 'error' | 'success' | 'system';
+export type NotificationPriority = 'low' | 'medium' | 'high' | 'critical';
+
+export interface NotificationStats {
+  total: number;
+  unread: number;
+  byType: Record<string, number>;
+}
+
+export interface NotificationListParams {
+  page?: number;
+  limit?: number;
+  unreadOnly?: boolean;
+  type?: string;
+}
 
 export interface NotificationListResponse {
   notifications: Notification[];
@@ -195,22 +219,22 @@ export interface NotificationListResponse {
 export interface NotificationCreateRequest {
   title: string;
   message: string;
-  type: any; // Use any or specific type if needed for compatibility
-  priority: any;
+  type: NotificationType | string; // Use any or specific type if needed for compatibility
+  priority: NotificationPriority | string;
   userId?: string;
   userIds?: string[];
   actionUrl?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface NotificationUpdateRequest {
   title?: string;
   message?: string;
-  type?: any;
-  priority?: any;
+  type?: NotificationType | string;
+  priority?: NotificationPriority | string;
   read?: boolean;
   actionUrl?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface NotificationPreferences {

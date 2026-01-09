@@ -54,7 +54,7 @@ export function AdminWalletAuth({
     try {
       await disconnectWallet();
     } catch (_error) {
-      // eslint-disable-next-line no-console
+       
       console.error('Disconnect error:', _error);
     }
   };
@@ -110,7 +110,7 @@ export function AdminWalletAuth({
                       try {
                         await useAuth.getState().authenticateAdmin();
                       } catch (_error) {
-                        // eslint-disable-next-line no-console
+                         
                         console.error('Admin authentication failed:', _error);
                         onAuthError?.(_error instanceof Error ? _error.message : 'Authentication failed');
                       }

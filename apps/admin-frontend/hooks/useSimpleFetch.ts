@@ -3,8 +3,12 @@
  * Uses Shared AdminApiClient for API access
  */
 import { useCallback } from 'react';
+
 import { adminApiClient } from '../lib/api-client';
 
+/**
+ *
+ */
 export function useSimpleFetch() {
   const fetchSimple = useCallback(async <T = any>(
     endpoint: string,

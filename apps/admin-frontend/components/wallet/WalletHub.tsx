@@ -8,6 +8,19 @@ import { RefreshCw, Search } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 
+import { BulkActionsBar } from './BulkActionsBar';
+import { DisableWalletModal, type DisableWalletData } from './DisableWalletModal';
+import { EditWalletMetadataModal } from './EditWalletMetadataModal';
+import { ReenableWalletModal, type ReenableWalletData } from './ReenableWalletModal';
+import type {
+    WalletData,
+    WalletFilters,
+    WalletStats
+} from './types';
+import { WalletCard } from './WalletCard';
+import { WalletPlatformFilter } from './WalletPlatformFilter';
+import { WalletStatsBar } from './WalletStatsBar';
+
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -21,19 +34,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { walletMgmt } from '@/lib/api/wallet-management-client';
 import { cn } from '@/lib/utils';
 import { useSharedAuth } from '@/shared/components/auth/Provider';
-
-import { BulkActionsBar } from './BulkActionsBar';
-import { DisableWalletModal, type DisableWalletData } from './DisableWalletModal';
-import { EditWalletMetadataModal } from './EditWalletMetadataModal';
-import { ReenableWalletModal, type ReenableWalletData } from './ReenableWalletModal';
-import { WalletCard } from './WalletCard';
-import { WalletPlatformFilter } from './WalletPlatformFilter';
-import { WalletStatsBar } from './WalletStatsBar';
-import type {
-    WalletData,
-    WalletFilters,
-    WalletStats
-} from './types';
 
 interface WalletHubProps {
     className?: string;
@@ -54,6 +54,11 @@ const DEFAULT_STATS: WalletStats = {
     },
 };
 
+/**
+ *
+ * @param root0
+ * @param root0.className
+ */
 export function WalletHub({ className }: WalletHubProps) {
     const router = useRouter();
     const { isAuthenticated, isLoading: authLoading } = useSharedAuth();
@@ -116,8 +121,6 @@ export function WalletHub({ className }: WalletHubProps) {
         }
     }, [isAuthenticated, authLoading, loadData]);
 
-
-
     // Filter wallets by platform (client-side since backend might not support yet)
     const filteredWallets = wallets.filter((wallet) => {
         if (filters.platform !== 'all' && !wallet.platforms.includes(filters.platform)) {
@@ -147,7 +150,6 @@ export function WalletHub({ className }: WalletHubProps) {
     const handleViewWallet = (wallet: WalletData) => {
         router.push(`/wallet-management/${encodeURIComponent(wallet.walletAddress)}`);
     };
-
 
     // Disable/Enable/Edit handlers
     const handleDisableWallet = async (data: DisableWalletData) => {
@@ -354,7 +356,6 @@ export function WalletHub({ className }: WalletHubProps) {
                 onDisable={() => { }}
                 onNotify={() => { }}
             />
-
 
             {/* Disable Modal */}
             {disableModalWallet && (

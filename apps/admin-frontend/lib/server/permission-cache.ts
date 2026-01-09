@@ -61,7 +61,7 @@ class ServerPermissionCache {
         client.release();
       }
     } catch (dbError) {
-      // eslint-disable-next-line no-console
+       
       console.error('❌ Server Cache: Database query failed:', dbError);
       walletPermissions = [];
     }

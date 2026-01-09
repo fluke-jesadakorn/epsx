@@ -19,7 +19,7 @@ export interface PermissionRule {
   platform: string;
   resource: string;
   action: string;
-  condition?: (context: any) => boolean;
+  condition?: (context: unknown) => boolean;
 }
 
 export interface SecurityHeaders {
@@ -100,12 +100,12 @@ export class PermissionValidator {
   }
 
   removeRule(platform: string, resource: string, action: string): void {
-    this.rules = this.rules.filter(rule => 
+    this.rules = this.rules.filter(rule =>
       !(rule.platform === platform && rule.resource === resource && rule.action === action)
     );
   }
 
-  validate(permissions: string[], requiredPermission: string, context?: any): boolean {
+  validate(permissions: string[], requiredPermission: string, context?: unknown): boolean {
     const parts = requiredPermission.split(':');
     if (parts.length !== 3) {
       throw new Error('Invalid permission format. Expected: platform:resource:action');
@@ -152,8 +152,8 @@ export class PermissionValidator {
     return false;
   }
 
-  private checkRuleConditions(platform: string, resource: string, action: string, context?: any): boolean {
-    const rule = this.rules.find(r => 
+  private checkRuleConditions(platform: string, resource: string, action: string, context?: unknown): boolean {
+    const rule = this.rules.find(r =>
       r.platform === platform && r.resource === resource && r.action === action
     );
 
@@ -164,14 +164,14 @@ export class PermissionValidator {
     return true;
   }
 
-  validateMultiple(permissions: string[], requiredPermissions: string[], context?: any): boolean {
-    return requiredPermissions.every(permission => 
+  validateMultiple(permissions: string[], requiredPermissions: string[], context?: unknown): boolean {
+    return requiredPermissions.every(permission =>
       this.validate(permissions, permission, context)
     );
   }
 
-  validateAny(permissions: string[], requiredPermissions: string[], context?: any): boolean {
-    return requiredPermissions.some(permission => 
+  validateAny(permissions: string[], requiredPermissions: string[], context?: unknown): boolean {
+    return requiredPermissions.some(permission =>
       this.validate(permissions, permission, context)
     );
   }
@@ -248,7 +248,7 @@ export class RateLimiter {
     }
 
     const userRequests = this.requests.get(identifier)!;
-    
+
     // Remove expired requests
     const validRequests = userRequests.filter(timestamp => timestamp > windowStart);
     this.requests.set(identifier, validRequests);
@@ -273,7 +273,7 @@ export class RateLimiter {
 
     const userRequests = this.requests.get(identifier)!;
     const validRequests = userRequests.filter(timestamp => timestamp > windowStart);
-    
+
     return Math.max(0, this.maxRequests - validRequests.length);
   }
 
@@ -296,7 +296,7 @@ export function generateCSRFToken(): string {
     window.crypto.getRandomValues(array);
     return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
   }
-  
+
   // Fallback for server-side or unsupported browsers
   return Math.random().toString(36).substring(2) + Math.random().toString(36).substring(2);
 }
@@ -319,7 +319,7 @@ export function generateNonce(): string {
     window.crypto.getRandomValues(array);
     return btoa(String.fromCharCode(...array));
   }
-  
+
   return btoa(Math.random().toString(36).substring(2));
 }
 
@@ -358,11 +358,11 @@ export function calculateLevel(points: number): number {
 
 export function getPointsForNextLevel(currentLevel: number): number {
   const levelThresholds = [0, 100, 500, 1000, 2500, 5000];
-  
+
   if (currentLevel < levelThresholds.length) {
     return levelThresholds[currentLevel];
   }
-  
+
   return (currentLevel - 4) * 1000;
 }
 
@@ -370,9 +370,9 @@ export function getLevelProgress(points: number): { level: number; progress: num
   const level = calculateLevel(points);
   const nextLevelPoints = getPointsForNextLevel(level);
   const previousLevelPoints = level > 1 ? getPointsForNextLevel(level - 1) : 0;
-  
+
   const progress = ((points - previousLevelPoints) / (nextLevelPoints - previousLevelPoints)) * 100;
-  
+
   return {
     level,
     progress: Math.min(100, Math.max(0, progress)),

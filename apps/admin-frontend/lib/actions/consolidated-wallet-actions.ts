@@ -157,7 +157,7 @@ export async function getWalletList(filters: WalletListFilters): Promise<ActionR
 
     return createSuccessResult(response);
   } catch (_error) {
-    // eslint-disable-next-line no-console
+     
     console.error('Failed to fetch user list:', _error);
     return createErrorResult(_error instanceof Error ? _error.message : 'Failed to fetch users');
   }
@@ -181,7 +181,7 @@ export async function searchWallets(query: string, filters?: Partial<WalletListF
 
     return createSuccessResult(response.users || []);
   } catch (_error) {
-    // eslint-disable-next-line no-console
+     
     console.error('Failed to search users:', _error);
     return createErrorResult(_error instanceof Error ? _error.message : 'Failed to search users');
   }
@@ -200,7 +200,7 @@ export async function getWalletStats(): Promise<ActionResult<{
     const response = await makeAuthenticatedRequest('/api/admin/wallets/stats');
     return createSuccessResult(response);
   } catch (_error) {
-    // eslint-disable-next-line no-console
+     
     console.error('Failed to fetch user stats:', _error);
     return createErrorResult(_error instanceof Error ? _error.message : 'Failed to fetch user statistics');
   }
@@ -219,7 +219,7 @@ export async function getWalletProfile(walletAddress: string): Promise<ActionRes
     const response = await makeAuthenticatedRequest(`/api/admin/wallets/${walletAddress}`);
     return createSuccessResult(response);
   } catch (_error) {
-    // eslint-disable-next-line no-console
+     
     console.error('Failed to fetch user profile:', _error);
     return createErrorResult(_error instanceof Error ? _error.message : 'Failed to fetch user profile');
   }
@@ -239,7 +239,7 @@ export async function createWallet(userData: CreateWalletRequest): Promise<Actio
     revalidatePath('/users');
     return createSuccessResult(response, 'User created successfully');
   } catch (_error) {
-    // eslint-disable-next-line no-console
+     
     console.error('Failed to create user:', _error);
     return createErrorResult(_error instanceof Error ? _error.message : 'Failed to create user');
   }
@@ -262,7 +262,7 @@ export async function updateWallet(userData: UpdateWalletRequest): Promise<Actio
     revalidatePath(`/users/${id}`);
     return createSuccessResult(response, 'User updated successfully');
   } catch (_error) {
-    // eslint-disable-next-line no-console
+     
     console.error('Failed to update user:', _error);
     return createErrorResult(_error instanceof Error ? _error.message : 'Failed to update user');
   }
@@ -281,7 +281,7 @@ export async function deleteWallet(walletAddress: string): Promise<ActionResult<
     revalidatePath('/users');
     return createSuccessResult(undefined, 'User deleted successfully');
   } catch (_error) {
-    // eslint-disable-next-line no-console
+     
     console.error('Failed to delete user:', _error);
     return createErrorResult(_error instanceof Error ? _error.message : 'Failed to delete user');
   }
@@ -302,7 +302,7 @@ export async function toggleWalletStatus(walletAddress: string): Promise<ActionR
     revalidatePath(`/users/${walletAddress}`);
     return createSuccessResult(response, 'User status updated successfully');
   } catch (_error) {
-    // eslint-disable-next-line no-console
+     
     console.error('Failed to toggle user status:', _error);
     return createErrorResult(_error instanceof Error ? _error.message : 'Failed to update user status');
   }
@@ -325,7 +325,7 @@ export async function getWalletPermissions(walletAddress: string): Promise<Actio
     const response = await makeAuthenticatedRequest(`/api/admin/permissions/wallets/${walletAddress}/permissions`);
     return createSuccessResult(response);
   } catch (_error) {
-    // eslint-disable-next-line no-console
+     
     console.error('Failed to fetch user permissions:', _error);
     return createErrorResult(_error instanceof Error ? _error.message : 'Failed to fetch user permissions');
   }
@@ -351,7 +351,7 @@ export async function updateWalletPermissions(change: WalletPermissionChange): P
     revalidatePath(`/users/${change.walletAddress}`);
     return createSuccessResult(undefined, 'User permissions updated successfully');
   } catch (_error) {
-    // eslint-disable-next-line no-console
+     
     console.error('Failed to update user permissions:', _error);
     return createErrorResult(_error instanceof Error ? _error.message : 'Failed to update user permissions');
   }
@@ -376,7 +376,7 @@ export async function bulkUpdateWalletPermissions(changes: WalletPermissionChang
     revalidatePath('/users');
     return createSuccessResult(response, 'Bulk permission update completed');
   } catch (_error) {
-    // eslint-disable-next-line no-console
+     
     console.error('Failed to perform bulk permission update:', _error);
     return createErrorResult(_error instanceof Error ? _error.message : 'Failed to update permissions');
   }
@@ -389,6 +389,7 @@ export async function bulkUpdateWalletPermissions(changes: WalletPermissionChang
 /**
  * Bulk delete users
  * @param walletAddresss
+ * @param walletAddresses
  */
 export async function bulkDeleteWallets(walletAddresses: string[]): Promise<ActionResult<{
   successful: number;
@@ -405,7 +406,7 @@ export async function bulkDeleteWallets(walletAddresses: string[]): Promise<Acti
     revalidatePath('/users');
     return createSuccessResult(response, 'Bulk delete completed');
   } catch (_error) {
-    // eslint-disable-next-line no-console
+     
     console.error('Failed to perform bulk delete:', _error);
     return createErrorResult(_error instanceof Error ? _error.message : 'Failed to delete users');
   }
@@ -430,7 +431,7 @@ export async function exportWallets(filters?: Partial<WalletListFilters>): Promi
     const response = await makeAuthenticatedRequest(`/api/admin/wallets/export?${params}`);
     return createSuccessResult(response);
   } catch (_error) {
-    // eslint-disable-next-line no-console
+     
     console.error('Failed to export users:', _error);
     return createErrorResult(_error instanceof Error ? _error.message : 'Failed to export users');
   }
@@ -512,7 +513,7 @@ export async function getUnifiedWalletData(walletAddress: string): Promise<Actio
 
     return createSuccessResult(userData as any);
   } catch (_error) {
-    // eslint-disable-next-line no-console
+     
     console.error('Failed to get unified user data:', _error);
     return createErrorResult(_error instanceof Error ? _error.message : 'Failed to fetch user data');
   }
@@ -535,7 +536,7 @@ export async function updateWalletProfile(walletAddress: string, data: WalletPro
     revalidatePath('/users');
     return createSuccessResult(undefined, 'Profile updated successfully');
   } catch (_error) {
-    // eslint-disable-next-line no-console
+     
     console.error('Failed to update user profile:', _error);
     return createErrorResult(_error instanceof Error ? _error.message : 'Failed to update profile');
   }
@@ -558,7 +559,7 @@ export async function updateWalletStatus(walletAddress: string, data: WalletStat
     revalidatePath('/users');
     return createSuccessResult(undefined, 'Status updated successfully');
   } catch (_error) {
-    // eslint-disable-next-line no-console
+     
     console.error('Failed to update user status:', _error);
     return createErrorResult(_error instanceof Error ? _error.message : 'Failed to update status');
   }
@@ -581,7 +582,7 @@ export async function updateWalletGroups(walletAddress: string, data: WalletGrou
     revalidatePath('/users');
     return createSuccessResult(undefined, 'Groups updated successfully');
   } catch (_error) {
-    // eslint-disable-next-line no-console
+     
     console.error('Failed to update user groups:', _error);
     return createErrorResult(_error instanceof Error ? _error.message : 'Failed to update groups');
   }
@@ -604,7 +605,7 @@ export async function updateModuleAccess(walletAddress: string, data: ModuleAcce
     revalidatePath('/users');
     return createSuccessResult(undefined, 'Module access updated successfully');
   } catch (_error) {
-    // eslint-disable-next-line no-console
+     
     console.error('Failed to update module access:', _error);
     return createErrorResult(_error instanceof Error ? _error.message : 'Failed to update module access');
   }
@@ -635,7 +636,7 @@ export async function assignWalletGroup(data: { walletAddress: string; group: st
     revalidatePath('/users');
     return createSuccessResult(undefined, 'Group assigned successfully');
   } catch (_error) {
-    // eslint-disable-next-line no-console
+     
     console.error('Failed to assign user group:', _error);
     return createErrorResult(_error instanceof Error ? _error.message : 'Failed to assign group');
   }
@@ -662,7 +663,7 @@ export async function removeWalletGroup(data: { walletAddress: string; group: st
     revalidatePath('/users');
     return createSuccessResult(undefined, 'Group removed successfully');
   } catch (_error) {
-    // eslint-disable-next-line no-console
+     
     console.error('Failed to remove user group:', _error);
     return createErrorResult(_error instanceof Error ? _error.message : 'Failed to remove group');
   }
@@ -693,7 +694,7 @@ export async function assignPermissionProfile(data: { walletAddress: string; pro
     revalidatePath('/users');
     return createSuccessResult(undefined, 'Permission profile assigned successfully');
   } catch (_error) {
-    // eslint-disable-next-line no-console
+     
     console.error('Failed to assign permission profile:', _error);
     return createErrorResult(_error instanceof Error ? _error.message : 'Failed to assign permission profile');
   }
@@ -726,7 +727,7 @@ export async function addCustomPermission(data: { walletAddress: string; resourc
     revalidatePath('/users');
     return createSuccessResult(undefined, 'Permission added successfully');
   } catch (_error) {
-    // eslint-disable-next-line no-console
+     
     console.error('Failed to add custom permission:', _error);
     return createErrorResult(_error instanceof Error ? _error.message : 'Failed to add permission');
   }
@@ -755,7 +756,7 @@ export async function removeCustomPermission(data: { walletAddress: string; reso
     revalidatePath('/users');
     return createSuccessResult(undefined, 'Permission removed successfully');
   } catch (_error) {
-    // eslint-disable-next-line no-console
+     
     console.error('Failed to remove custom permission:', _error);
     return createErrorResult(_error instanceof Error ? _error.message : 'Failed to remove permission');
   }
@@ -769,6 +770,7 @@ export async function removeCustomPermission(data: { walletAddress: string; reso
  * Bulk assign permissions to multiple users
  * @param data
  * @param data.walletAddresss
+ * @param data.walletAddresses
  * @param data.permissions
  * @param data.reason
  */
@@ -797,7 +799,7 @@ export async function bulkAssignPermissions(data: {
 
     return createSuccessResult(response, 'Bulk permission assignment completed');
   } catch (_error) {
-    // eslint-disable-next-line no-console
+     
     console.error('Failed to bulk assign permissions:', _error);
     return createErrorResult(_error instanceof Error ? _error.message : 'Failed to assign permissions');
   }
@@ -807,6 +809,7 @@ export async function bulkAssignPermissions(data: {
  * Bulk remove permissions from multiple users
  * @param data
  * @param data.walletAddresss
+ * @param data.walletAddresses
  * @param data.permissions
  * @param data.reason
  */
@@ -835,7 +838,7 @@ export async function bulkRemovePermissions(data: {
 
     return createSuccessResult(response, 'Bulk permission removal completed');
   } catch (_error) {
-    // eslint-disable-next-line no-console
+     
     console.error('Failed to bulk remove permissions:', _error);
     return createErrorResult(_error instanceof Error ? _error.message : 'Failed to remove permissions');
   }
@@ -877,7 +880,7 @@ export async function assignTemporaryPermission(data: {
     revalidatePath('/users');
     return createSuccessResult(undefined, 'Temporary permission assigned successfully');
   } catch (_error) {
-    // eslint-disable-next-line no-console
+     
     console.error('Failed to assign temporary permission:', _error);
     return createErrorResult(_error instanceof Error ? _error.message : 'Failed to assign temporary permission');
   }
@@ -892,7 +895,7 @@ export async function getExpiringPermissions(days = 7): Promise<ActionResult<any
     const response = await makeAuthenticatedRequest(`/api/admin/casbin/expiring-permissions?days=${days}`);
     return createSuccessResult(response.permissions || []);
   } catch (_error) {
-    // eslint-disable-next-line no-console
+     
     console.error('Failed to get expiring permissions:', _error);
     return createErrorResult(_error instanceof Error ? _error.message : 'Failed to fetch expiring permissions');
   }
@@ -926,7 +929,7 @@ export async function validatePermissionAssignment(data: {
 
     return createSuccessResult({ conflicts: response.conflicts || [], warnings: response.warnings || [] });
   } catch (_error) {
-    // eslint-disable-next-line no-console
+     
     console.error('Failed to validate permission assignment:', _error);
     return createErrorResult(_error instanceof Error ? _error.message : 'Failed to validate permission');
   }
@@ -942,7 +945,7 @@ export async function getPermissionImpact(walletAddress: string): Promise<Action
     const response = await makeAuthenticatedRequest(`/api/admin/wallets/${walletAddress}/permission-impact`);
     return createSuccessResult(response);
   } catch (_error) {
-    // eslint-disable-next-line no-console
+     
     console.error('Failed to get permission impact:', _error);
     return createErrorResult(_error instanceof Error ? _error.message : 'Failed to get permission impact');
   }
@@ -987,7 +990,7 @@ export async function getPermissionHistory(walletAddress: string, limit = 50): P
 
     return createSuccessResult(history);
   } catch (_error) {
-    // eslint-disable-next-line no-console
+     
     console.error('Failed to get permission history:', _error);
     return createErrorResult(_error instanceof Error ? _error.message : 'Failed to fetch permission history');
   }
@@ -1053,7 +1056,7 @@ export async function getWalletActivityLogs(walletAddress: string, params: Activ
       }
     });
   } catch (_error) {
-    // eslint-disable-next-line no-console
+     
     console.error('Failed to get user activity logs:', _error);
     return createErrorResult(_error instanceof Error ? _error.message : 'Failed to fetch activity logs');
   }
@@ -1102,7 +1105,7 @@ export async function searchWalletsAction(searchParams: {
     const response = await makeAuthenticatedRequest(`/api/admin/wallets/search?${queryParams.toString()}`);
     return createSuccessResult(response);
   } catch (_error) {
-    // eslint-disable-next-line no-console
+     
     console.error('Failed to search users:', _error);
     return createErrorResult(_error instanceof Error ? _error.message : 'Failed to search users');
   }

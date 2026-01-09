@@ -71,7 +71,7 @@ export class AdminErrorBoundary extends Component<Props, State> {
     const { context = 'component', featureName } = this.props;
     
     // Enhanced error logging for admin interface
-    // eslint-disable-next-line no-console
+     
     console.error('🚨 Admin Error Boundary caught an error:', {
       error: error.message,
       stack: error.stack,
@@ -110,7 +110,7 @@ export class AdminErrorBoundary extends Component<Props, State> {
 
   private reportCriticalError = (error: Error, errorInfo: React.ErrorInfo) => {
     // For critical admin errors, we might want special handling
-    // eslint-disable-next-line no-console
+     
     console.error('🔥 CRITICAL ADMIN ERROR:', {
       error: error.message,
       context: this.props.context,

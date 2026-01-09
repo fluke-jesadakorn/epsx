@@ -21,6 +21,10 @@ const publicRoutes = [
   '/manifest.json'
 ]
 
+/**
+ *
+ * @param request
+ */
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const startTime = performance.now();

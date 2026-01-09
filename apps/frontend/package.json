@@ -24,6 +24,7 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
     "clean": "rm -rf .next out dist node_modules/.cache"
   },
   "dependencies": {
@@ -41,6 +42,7 @@
     "@radix-ui/react-switch": "^1.2.6",
     "@radix-ui/react-toast": "^1.2.15",
     "@radix-ui/react-tooltip": "^1.2.8",
+    "@radix-ui/react-visually-hidden": "^1.2.4",
     "@rainbow-me/rainbowkit": "^2.2.10",
     "@tanstack/react-query": "^5.90.12",
     "class-variance-authority": "^0.7.1",
@@ -57,7 +59,7 @@
     "tailwind-merge": "^3.4.0",
     "viem": "^2.41.2",
     "wagmi": "^2.15.5",
-    "zod": "4.1.13",
+    "zod": "3.24.1",
     "zustand": "^5.0.9"
   },
   "devDependencies": {

@@ -8,7 +8,6 @@ import { toast } from '@/hooks/use-toast'
 import { createPlansClient, isApiSuccess, type SubscriptionResponse } from '@/shared/api/plans'
 import { createAdminApiClient } from '@/shared/utils/api-client'
 
-
 interface SubscriptionManagementProps {
   currentUser: any
 }
@@ -59,8 +58,6 @@ export function SubscriptionManagement({ currentUser: _currentUser }: Subscripti
       setLoading(false)
     }
   }
-
-
 
   const handleCancelSubscription = async (subscriptionId: string) => {
     if (!confirm('Are you sure you want to cancel this subscription?')) {

@@ -29,14 +29,14 @@ export interface PlanFeatureRequest {
 export interface CreatePlanRequest {
   name: string;
   description?: string;
-  plan_type: string;
-  current_price: number;
+  permission_group_name: string;
+  current_price: number | string;
   currency: string;
   target_audience: string; // "web_users", "api_developers", "enterprises"
   billing_model: string;   // Always "pay_per_use"
-  plan_category: string;   // "standard", "api", "enterprise", "custom"
-  features: PlanFeatureRequest[];
+  permissions: string[];
   metadata?: Record<string, any>;
+  tier_level?: number; // Plan tier level for upgrade/downgrade logic (higher = better)
 }
 
 export interface UpdatePlanRequest {
@@ -47,6 +47,7 @@ export interface UpdatePlanRequest {
   features?: PlanFeatureRequest[];
   permissions?: string[];
   metadata?: Record<string, any>;
+  tier_level?: number; // Plan tier level for upgrade/downgrade logic (higher = better)
 }
 
 export interface PlanFeatureResponse {
@@ -81,6 +82,7 @@ export interface PlanResponse {
   updated_at?: string;
   subscriber_count: number;
   revenue_last_30_days: number | string; // Support both number and decimal string
+  tier_level?: number; // Plan tier level for upgrade/downgrade logic (higher = better, 0 = free)
 }
 
 export interface PlanListResponse {
@@ -384,6 +386,62 @@ export class PlansAPIClient {
    */
   async cancelSubscription(subscriptionId: string): Promise<ApiResponse<void>> {
     return this.client.post(`/api/admin/subscriptions/${subscriptionId}/cancel`);
+  }
+
+  // ============================================================================
+  // USER-FACING PLAN ACCESS (for main frontend - authenticated users)
+  // ============================================================================
+
+  /**
+   * Get current user's plan access data including rankings limit
+   * Route: GET /api/payments/plans
+   */
+  async getMyPlanAccess(): Promise<ApiResponse<{
+    wallet_address: string;
+    current_plan_id: number | null;
+    plan_name: string | null;
+    plan_expires_at: string | null;
+    days_remaining: number;
+    status: 'active' | 'expiring_soon' | 'expired' | 'no_plan';
+    rankings_view_limit: number | null;
+    can_upgrade: boolean;
+  }>> {
+    return this.client.get('/api/payments/plans');
+  }
+
+  /**
+   * Get plan expiry status for current user
+   * Route: GET /api/payments/plans/expiry
+   */
+  async getMyPlanExpiry(): Promise<ApiResponse<{
+    plan_id: number | null;
+    plan_name: string | null;
+    expires_at: string | null;
+    days_remaining: number;
+    is_expired: boolean;
+    is_expiring_soon: boolean;
+  }>> {
+    return this.client.get('/api/payments/plans/expiry');
+  }
+
+  /**
+   * Cancel current user's plan subscription
+   * Route: POST /api/payments/plans/cancel/:id
+   */
+  async cancelMyPlan(planId: number | string): Promise<ApiResponse<{ success: boolean; message: string }>> {
+    return this.client.post(`/api/payments/plans/cancel/${planId}`);
+  }
+
+  /**
+   * Get upgrade preview for current user
+   * Route: GET /api/payments/plans/upgrade_preview
+   */
+  async getUpgradePreview(targetPlanId?: number): Promise<ApiResponse<{
+    current_plan: { id: number; name: string; price: number } | null;
+    target_plans: Array<{ id: number; name: string; price: number; features: string[] }>;
+    recommended_plan_id?: number;
+  }>> {
+    return this.client.get('/api/payments/plans/upgrade_preview', targetPlanId ? { target_plan_id: targetPlanId } : {});
   }
 
   // ============================================================================

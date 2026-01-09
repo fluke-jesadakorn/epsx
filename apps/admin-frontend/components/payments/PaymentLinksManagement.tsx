@@ -1,6 +1,5 @@
 'use client';
 
-import { useApiClient } from '@/shared/hooks/useApiClient';
 import {
     CheckCircleIcon,
     ClipboardDocumentIcon,
@@ -13,6 +12,8 @@ import {
     XMarkIcon,
 } from '@heroicons/react/24/outline';
 import React, { useCallback, useEffect, useState } from 'react';
+
+import { useApiClient } from '@/shared/hooks/useApiClient';
 
 type PaymentContextType = 'plan' | 'group' | 'product' | 'campaign' | 'custom';
 
@@ -60,6 +61,9 @@ const CONTEXT_TYPES: { value: PaymentContextType; label: string; description: st
 
 const CURRENCIES = ['USDT', 'USDC', 'BNB'];
 
+/**
+ *
+ */
 export function PaymentLinksManagement() {
     const { base } = useApiClient({ platform: 'admin' });
     const [paymentLinks, setPaymentLinks] = useState<PaymentLink[]>([]);
@@ -90,8 +94,8 @@ export function PaymentLinksManagement() {
             setError(null);
 
             const params: Record<string, string> = {};
-            if (filterType) params.context_type = filterType;
-            if (filterActive) params.is_active = filterActive;
+            if (filterType) {params.context_type = filterType;}
+            if (filterActive) {params.is_active = filterActive;}
 
             const response = await base.get<any>('/api/admin/payment-links', params);
 
@@ -151,7 +155,7 @@ export function PaymentLinksManagement() {
     };
 
     const handleDeleteLink = async (id: string) => {
-        if (!confirm('Are you sure you want to deactivate this payment link?')) return;
+        if (!confirm('Are you sure you want to deactivate this payment link?')) {return;}
 
         try {
             const response = await base.delete<any>(`/api/admin/payment-links/${id}`);
@@ -194,7 +198,7 @@ export function PaymentLinksManagement() {
     };
 
     const isExpired = (expiresAt?: string) => {
-        if (!expiresAt) return false;
+        if (!expiresAt) {return false;}
         return new Date(expiresAt) < new Date();
     };
 

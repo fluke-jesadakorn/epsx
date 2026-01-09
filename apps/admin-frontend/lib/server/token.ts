@@ -5,10 +5,9 @@
  */
 import { jwtVerify } from 'jose';
 
+import { env } from '@/config/env';
 import { COOKIES } from '@/shared/auth/cookies';
 import type { EPSXJWTPayload } from '@/shared/auth/jwt';
-
-import { env } from '@/config/env';
 
 export type { EPSXJWTPayload };
 
@@ -23,7 +22,7 @@ async function verifyJWT(token: string): Promise<EPSXJWTPayload | null> {
     const jwtSecret = env.WEB3_APP_SECRET || env.WEB3_APP_SECRET;
 
     if (!jwtSecret) {
-      // eslint-disable-next-line no-console
+       
       console.error('No WEB3_APP_SECRET or JWT_SECRET configured for JWT verification');
       return null;
     }
@@ -37,7 +36,7 @@ async function verifyJWT(token: string): Promise<EPSXJWTPayload | null> {
     );
     return payload as EPSXJWTPayload;
   } catch (_error) {
-    // eslint-disable-next-line no-console
+     
     console.error('JWT verification failed:', _error);
     return null;
   }
@@ -59,7 +58,7 @@ export async function getJWTFromCookies(): Promise<string | null> {
 
     return jwtCookie?.value || null;
   } catch (_error) {
-    // eslint-disable-next-line no-console
+     
     console.error('❌ Failed to get JWT from cookies:', _error);
     return null;
   }
@@ -75,7 +74,7 @@ export async function verifyJWTFromCookies(): Promise<EPSXJWTPayload | null> {
 
     return await verifyJWT(token);
   } catch (_error) {
-    // eslint-disable-next-line no-console
+     
     console.error('❌ Failed to verify JWT from cookies:', _error);
     return null;
   }
@@ -97,7 +96,7 @@ export async function getSessionFromJWT(): Promise<{
 
     return { isAuthenticated: true, user: payload };
   } catch (_error) {
-    // eslint-disable-next-line no-console
+     
     console.error('❌ Failed to get session from JWT:', _error);
     return { isAuthenticated: false, user: null };
   }

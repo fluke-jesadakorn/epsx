@@ -11,9 +11,12 @@ const nextConfig: NextConfig = {
   experimental: {
     // Fix WebSocket connection issues in Next.js 15
     webpackBuildWorker: true,
+    // @ts-expect-error allowedDevOrigins is valid but missing from types in this version
+    allowedDevOrigins: ['100.97.9.56', 'localhost:3000'],
   },
-  // Transpile shared packages for Web3 compatibility
-  transpilePackages: ['@/shared'],
+
+  // Transpile shared packages and metamask sdk to apply ignores
+  transpilePackages: ['@/shared', '@wagmi/connectors', 'wagmi'],
 
   // Improve HMR WebSocket reliability and fix module resolution
   webpack: (config, { dev, isServer, webpack }) => {
@@ -46,6 +49,7 @@ const nextConfig: NextConfig = {
       'pino-elasticsearch': stubPath,
       desm: stubPath,
       fastbench: stubPath,
+      'zod/mini': require.resolve('zod'),
     };
 
     // Standard Node.js polyfills for the browser (Client Component bundle)

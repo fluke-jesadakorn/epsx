@@ -4,10 +4,9 @@
  */
 'use client';
 
+import type { WalletActivityEvent } from './types';
 
 import { cn } from '@/lib/utils';
-
-import type { WalletActivityEvent } from './types';
 
 interface WalletActivityTimelineProps {
     events: WalletActivityEvent[];
@@ -108,6 +107,15 @@ function TimelineItem({ event, isLast }: { event: WalletActivityEvent; isLast: b
     );
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.events
+ * @param root0.maxItems
+ * @param root0.showAll
+ * @param root0.onViewAll
+ * @param root0.className
+ */
 export function WalletActivityTimeline({
     events,
     maxItems = 5,

@@ -43,7 +43,7 @@ interface NotificationPreferencesResponse {
 }
 
 export function AccountClient() {
-  const router = useRouter();
+  const _router = useRouter();
   const { base } = useApiClient({ platform: 'frontend' });
   const { address } = useAccount();
   const [notificationPrefs, setNotificationPrefs] = useState<NotificationPreferences>({
@@ -55,7 +55,7 @@ export function AccountClient() {
   });
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
 
-  const [prefsLoading, setPrefsLoading] = useState(true);
+  const [_prefsLoading, setPrefsLoading] = useState(true);
   const [prefsError, setPrefsError] = useState<string | null>(null);
   const [prefsSuccess, setPrefsSuccess] = useState<string | null>(null);
 
@@ -327,7 +327,7 @@ export function AccountClient() {
                       </div>
                       <input
                         type="checkbox"
-                        checked={notificationPrefs[item.id as keyof NotificationPreferences]}
+                        checked={notificationPrefs[item.id as keyof NotificationPreferences] ?? false}
                         onChange={(e) => updateNotificationPrefs({
                           ...notificationPrefs,
                           [item.id]: e.target.checked

@@ -1,8 +1,16 @@
 'use client'
 
+import {
+  Clock,
+  DollarSign,
+  Handshake,
+  LineChart,
+  Target,
+  Users,
+  Wallet
+} from 'lucide-react'
 import { useState } from 'react'
 
-import { PancakeCard } from '@/components/ui/PancakeCard'
 
 export interface Affiliate {
   id: number
@@ -42,7 +50,7 @@ export function AffiliateManagement({ affiliates, currentUser }: AffiliateManage
   const [selectedAffiliate, setSelectedAffiliate] = useState<Affiliate | null>(null)
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'pending' | 'inactive'>('all')
 
-  const filteredAffiliates = affiliates.filter(affiliate => 
+  const filteredAffiliates = affiliates.filter(affiliate =>
     filterStatus === 'all' || affiliate.status === filterStatus
   )
 
@@ -84,10 +92,10 @@ export function AffiliateManagement({ affiliates, currentUser }: AffiliateManage
   }
 
   const getPerformanceRating = (conversionRate: number) => {
-    if (conversionRate >= 20) {return { rating: 'Excellent', color: 'text-green-600 dark:text-green-400' }}
-    if (conversionRate >= 15) {return { rating: 'Great', color: 'text-blue-600 dark:text-blue-400' }}
-    if (conversionRate >= 10) {return { rating: 'Good', color: 'text-yellow-600 dark:text-yellow-400' }}
-    if (conversionRate > 0) {return { rating: 'Average', color: 'text-orange-600 dark:text-orange-400' }}
+    if (conversionRate >= 20) { return { rating: 'Excellent', color: 'text-green-600 dark:text-green-400' } }
+    if (conversionRate >= 15) { return { rating: 'Great', color: 'text-blue-600 dark:text-blue-400' } }
+    if (conversionRate >= 10) { return { rating: 'Good', color: 'text-yellow-600 dark:text-yellow-400' } }
+    if (conversionRate > 0) { return { rating: 'Average', color: 'text-orange-600 dark:text-orange-400' } }
     return { rating: 'New', color: 'text-gray-600 dark:text-gray-400' }
   }
 
@@ -104,8 +112,13 @@ export function AffiliateManagement({ affiliates, currentUser }: AffiliateManage
         {/* Hero Section */}
         <div className="text-center mb-8 sm:mb-12">
           <div className="relative inline-block">
-            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-yellow-600 via-orange-600 via-pink-600 to-purple-600 bg-clip-text text-transparent mb-4">
-              🤝 Affiliate Partners
+            <h1 className="flex items-center justify-center gap-3 text-3xl sm:text-4xl lg:text-5xl font-bold mb-4">
+              <span className="text-orange-500">
+                <Handshake className="w-10 h-10 sm:w-12 sm:h-12" />
+              </span>
+              <span className="bg-gradient-to-r from-yellow-600 via-orange-600 via-pink-600 to-purple-600 bg-clip-text text-transparent">
+                Affiliate Partners
+              </span>
             </h1>
             <div className="absolute -top-2 -right-2 w-4 h-4 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full"></div>
           </div>
@@ -120,7 +133,7 @@ export function AffiliateManagement({ affiliates, currentUser }: AffiliateManage
             <div className="relative bg-gradient-to-br from-indigo-400 via-violet-500 to-purple-500 text-white cursor-pointer rounded-2xl sm:rounded-3xl">
               <div className="p-6 sm:p-8">
                 <div className="bg-white/20 rounded-2xl w-12 h-12 flex items-center justify-center mb-4 sm:mb-6">
-                  <span className="text-xl sm:text-2xl">👥</span>
+                  <Users className="w-7 h-7" />
                 </div>
                 <h3 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4">Recruit Partners</h3>
                 <p className="text-white/80 mb-4 sm:mb-6 text-sm sm:text-base">Invite new affiliates and grow your partner network</p>
@@ -135,7 +148,7 @@ export function AffiliateManagement({ affiliates, currentUser }: AffiliateManage
             <div className="relative bg-gradient-to-br from-green-400 via-emerald-500 to-teal-500 text-white cursor-pointer rounded-2xl sm:rounded-3xl">
               <div className="p-6 sm:p-8">
                 <div className="bg-white/20 rounded-2xl w-12 h-12 flex items-center justify-center mb-4 sm:mb-6">
-                  <span className="text-xl sm:text-2xl">💰</span>
+                  <Wallet className="w-7 h-7" />
                 </div>
                 <h3 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4">Process Payments</h3>
                 <p className="text-white/80 mb-4 sm:mb-6 text-sm sm:text-base">Pay pending commissions to affiliate partners</p>
@@ -150,7 +163,7 @@ export function AffiliateManagement({ affiliates, currentUser }: AffiliateManage
             <div className="relative bg-gradient-to-br from-orange-400 via-red-500 to-pink-500 text-white cursor-pointer rounded-2xl sm:rounded-3xl">
               <div className="p-6 sm:p-8">
                 <div className="bg-white/20 rounded-2xl w-12 h-12 flex items-center justify-center mb-4 sm:mb-6">
-                  <span className="text-xl sm:text-2xl">📈</span>
+                  <LineChart className="w-7 h-7" />
                 </div>
                 <h3 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4">Performance</h3>
                 <p className="text-white/80 mb-4 sm:mb-6 text-sm sm:text-base">View detailed affiliate performance analytics</p>
@@ -166,7 +179,9 @@ export function AffiliateManagement({ affiliates, currentUser }: AffiliateManage
         <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 mb-6 sm:mb-8">
           <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl border-2 border-indigo-300/50 dark:border-indigo-700/50">
             <div className="flex items-center justify-between mb-3 sm:mb-4">
-              <div className="text-xl sm:text-2xl">👥</div>
+              <div className="p-2 bg-indigo-100 dark:bg-indigo-900/30 rounded-xl text-indigo-600 dark:text-indigo-400">
+                <Users className="w-6 h-6" />
+              </div>
               <span className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">Total</span>
             </div>
             <div className="space-y-1">
@@ -178,12 +193,14 @@ export function AffiliateManagement({ affiliates, currentUser }: AffiliateManage
 
           <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl border-2 border-green-300/50 dark:border-green-700/50">
             <div className="flex items-center justify-between mb-3 sm:mb-4">
-              <div className="text-xl sm:text-2xl">💰</div>
+              <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-xl text-green-600 dark:text-green-400">
+                <DollarSign className="w-6 h-6" />
+              </div>
               <span className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">Sales</span>
             </div>
             <div className="space-y-1">
               <div className="text-xl sm:text-3xl font-bold text-green-600 dark:text-green-400 truncate">
-                {totalSales > 999999 ? `$${Math.round(totalSales/1000000)}M` : `$${Math.round(totalSales/1000)}K`}
+                {totalSales > 999999 ? `$${Math.round(totalSales / 1000000)}M` : `$${Math.round(totalSales / 1000)}K`}
               </div>
               <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-300">Revenue</div>
               <div className="text-xs text-gray-500 dark:text-gray-400">From referrals</div>
@@ -192,12 +209,14 @@ export function AffiliateManagement({ affiliates, currentUser }: AffiliateManage
 
           <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl border-2 border-purple-300/50 dark:border-purple-700/50">
             <div className="flex items-center justify-between mb-3 sm:mb-4">
-              <div className="text-xl sm:text-2xl">🎯</div>
+              <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-xl text-purple-600 dark:text-purple-400">
+                <Target className="w-6 h-6" />
+              </div>
               <span className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">Earned</span>
             </div>
             <div className="space-y-1">
               <div className="text-xl sm:text-3xl font-bold text-purple-600 dark:text-purple-400 truncate">
-                {totalCommissions > 999999 ? `$${Math.round(totalCommissions/1000000)}M` : `$${Math.round(totalCommissions/1000)}K`}
+                {totalCommissions > 999999 ? `$${Math.round(totalCommissions / 1000000)}M` : `$${Math.round(totalCommissions / 1000)}K`}
               </div>
               <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-300">Commissions</div>
               <div className="text-xs text-gray-500 dark:text-gray-400">All time</div>
@@ -206,12 +225,14 @@ export function AffiliateManagement({ affiliates, currentUser }: AffiliateManage
 
           <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl border-2 border-orange-300/50 dark:border-orange-700/50">
             <div className="flex items-center justify-between mb-3 sm:mb-4">
-              <div className="text-xl sm:text-2xl">⏳</div>
+              <div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-xl text-orange-600 dark:text-orange-400">
+                <Clock className="w-6 h-6" />
+              </div>
               <span className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">Pending</span>
             </div>
             <div className="space-y-1">
               <div className="text-xl sm:text-3xl font-bold text-orange-600 dark:text-orange-400 truncate">
-                {totalPendingCommissions > 999999 ? `$${Math.round(totalPendingCommissions/1000000)}M` : `$${Math.round(totalPendingCommissions/1000)}K`}
+                {totalPendingCommissions > 999999 ? `$${Math.round(totalPendingCommissions / 1000000)}M` : `$${Math.round(totalPendingCommissions / 1000)}K`}
               </div>
               <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-300">To pay</div>
               <div className="text-xs text-gray-500 dark:text-gray-400">Outstanding</div>
@@ -225,41 +246,37 @@ export function AffiliateManagement({ affiliates, currentUser }: AffiliateManage
             <div className="flex flex-col sm:flex-row gap-2 sm:gap-4">
               <button
                 onClick={() => setFilterStatus('all')}
-                className={`px-4 sm:px-6 py-3 rounded-xl font-semibold text-sm sm:text-base min-h-[44px] ${
-                  filterStatus === 'all'
+                className={`px-4 sm:px-6 py-3 rounded-xl font-semibold text-sm sm:text-base min-h-[44px] ${filterStatus === 'all'
                     ? 'bg-gradient-to-r from-indigo-400 to-violet-500 text-white shadow-lg'
                     : 'bg-white/80 dark:bg-gray-800/80 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                }`}
+                  }`}
               >
                 All Partners ({affiliates.length})
               </button>
               <button
                 onClick={() => setFilterStatus('active')}
-                className={`px-4 sm:px-6 py-3 rounded-xl font-semibold text-sm sm:text-base min-h-[44px] ${
-                  filterStatus === 'active'
+                className={`px-4 sm:px-6 py-3 rounded-xl font-semibold text-sm sm:text-base min-h-[44px] ${filterStatus === 'active'
                     ? 'bg-gradient-to-r from-green-400 to-emerald-500 text-white shadow-lg'
                     : 'bg-white/80 dark:bg-gray-800/80 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                }`}
+                  }`}
               >
                 Active ({activeAffiliates.length})
               </button>
               <button
                 onClick={() => setFilterStatus('pending')}
-                className={`px-4 sm:px-6 py-3 rounded-xl font-semibold text-sm sm:text-base min-h-[44px] ${
-                  filterStatus === 'pending'
+                className={`px-4 sm:px-6 py-3 rounded-xl font-semibold text-sm sm:text-base min-h-[44px] ${filterStatus === 'pending'
                     ? 'bg-gradient-to-r from-yellow-400 to-orange-500 text-white shadow-lg'
                     : 'bg-white/80 dark:bg-gray-800/80 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                }`}
+                  }`}
               >
                 Pending ({pendingAffiliates.length})
               </button>
               <button
                 onClick={() => setFilterStatus('inactive')}
-                className={`px-4 sm:px-6 py-3 rounded-xl font-semibold text-sm sm:text-base min-h-[44px] ${
-                  filterStatus === 'inactive'
+                className={`px-4 sm:px-6 py-3 rounded-xl font-semibold text-sm sm:text-base min-h-[44px] ${filterStatus === 'inactive'
                     ? 'bg-gradient-to-r from-gray-400 to-gray-500 text-white shadow-lg'
                     : 'bg-white/80 dark:bg-gray-800/80 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                }`}
+                  }`}
               >
                 Inactive ({affiliates.filter(a => a.status === 'inactive').length})
               </button>
@@ -290,8 +307,8 @@ export function AffiliateManagement({ affiliates, currentUser }: AffiliateManage
                     onClick={() => setSelectedAffiliate(affiliate)}
                   >
                     <div className="flex items-center gap-3 mb-3">
-                      <div className="h-12 w-12 bg-gradient-to-br from-indigo-400 to-violet-500 rounded-2xl flex items-center justify-center text-xl">
-                        🤝
+                      <div className="h-12 w-12 bg-gradient-to-br from-indigo-400 to-violet-500 rounded-2xl flex items-center justify-center text-white">
+                        <Handshake className="w-6 h-6" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1 flex-wrap">
@@ -303,7 +320,7 @@ export function AffiliateManagement({ affiliates, currentUser }: AffiliateManage
                         <p className="text-sm text-gray-600 dark:text-gray-400 truncate">{affiliate.email}</p>
                       </div>
                     </div>
-                    
+
                     <div className="grid grid-cols-2 gap-3 mb-3">
                       <div className="bg-white/50 dark:bg-gray-600/30 rounded-xl p-3">
                         <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Sales</div>
@@ -314,7 +331,7 @@ export function AffiliateManagement({ affiliates, currentUser }: AffiliateManage
                         <div className="text-lg font-bold text-purple-600 dark:text-purple-400">{affiliate.commissionRate}%</div>
                       </div>
                     </div>
-                    
+
                     {affiliate.status === 'pending' && (
                       <div className="flex gap-2">
                         <button className="bg-gradient-to-r from-green-400 to-emerald-500 text-white px-4 py-2 rounded-xl font-semibold text-sm flex-1 min-h-[44px]">
@@ -342,8 +359,8 @@ export function AffiliateManagement({ affiliates, currentUser }: AffiliateManage
                   >
                     <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center gap-4">
-                        <div className="h-14 w-14 bg-gradient-to-br from-indigo-400 to-violet-500 rounded-2xl flex items-center justify-center text-2xl">
-                          🤝
+                        <div className="h-14 w-14 bg-gradient-to-br from-indigo-400 to-violet-500 rounded-2xl flex items-center justify-center text-white">
+                          <Handshake className="w-8 h-8" />
                         </div>
                         <div>
                           <div className="flex items-center gap-3 mb-1 flex-wrap">
@@ -455,14 +472,14 @@ export function AffiliateManagement({ affiliates, currentUser }: AffiliateManage
 
             {filteredAffiliates.length === 0 && (
               <div className="text-center py-12 sm:py-16">
-                <div className="h-20 w-20 bg-gradient-to-br from-indigo-200 to-violet-200 dark:from-indigo-800 dark:to-violet-800 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                  <span className="text-4xl">🤝</span>
+                <div className="h-20 w-20 bg-gradient-to-br from-indigo-200 to-violet-200 dark:from-indigo-800 dark:to-violet-800 rounded-2xl flex items-center justify-center mx-auto mb-4 text-gray-500 dark:text-gray-300">
+                  <Handshake className="w-10 h-10" />
                 </div>
                 <h3 className="text-xl font-semibold text-gray-600 dark:text-gray-400 mb-2">
                   No affiliates found
                 </h3>
                 <p className="text-gray-500 dark:text-gray-500">
-                  {filterStatus === 'all' 
+                  {filterStatus === 'all'
                     ? 'Start by recruiting your first affiliate partners'
                     : `No ${filterStatus} affiliates available. Try switching filters or recruit new partners.`
                   }

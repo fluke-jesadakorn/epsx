@@ -7,6 +7,8 @@
 import { Unlock } from 'lucide-react';
 import { useState } from 'react';
 
+import type { Platform, WalletDisableInfo } from './types';
+
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -21,8 +23,6 @@ import {
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
-
-import type { Platform, WalletDisableInfo } from './types';
 
 interface ReenableWalletModalProps {
     walletAddress: string;
@@ -66,6 +66,16 @@ function formatDate(timestamp: string): string {
     });
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.walletAddress
+ * @param root0.disableInfo
+ * @param root0.isOpen
+ * @param root0.onClose
+ * @param root0.onConfirm
+ * @param root0.isLoading
+ */
 export function ReenableWalletModal({
     walletAddress,
     disableInfo,

@@ -3,8 +3,12 @@
  * Uses Shared AdminApiClient for API requests
  */
 import { useCallback } from 'react';
+
 import { adminApiClient } from '../lib/api-client';
 
+/**
+ *
+ */
 export function useAuthenticatedFetch() {
   const fetchWithAuth = useCallback(async <T = any>(
     endpoint: string,

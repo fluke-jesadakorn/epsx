@@ -1,6 +1,20 @@
 'use client'
 
+import { useParams, useRouter } from 'next/navigation'
+import { useEffect, useState } from 'react'
+
 import { PermissionTransferList } from '@/components/groups/PermissionTransferList'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 import { PageLoadingSpinner } from '@/components/ui/LoadingSpinner'
 import { toast } from '@/hooks/use-toast'
 import { useAvailablePermissions } from '@/hooks/useGroupPermissions'
@@ -8,9 +22,10 @@ import { createPlansClient, isApiSuccess, type PlanResponse } from '@/shared/api
 import { useSharedAuth } from '@/shared/components/auth/Provider'
 import { createAdminApiClient } from '@/shared/utils/api-client'
 import * as Promo from '@/shared/utils/promo'
-import { useParams, useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
 
+/**
+ *
+ */
 export default function EditPlanPage() {
   const router = useRouter()
   const params = useParams()
@@ -49,7 +64,7 @@ export default function EditPlanPage() {
 
   useEffect(() => {
     const loadPlan = async () => {
-      if (!params.id) return
+      if (!params.id) { return }
 
       try {
         setLoading(true)
@@ -85,16 +100,15 @@ export default function EditPlanPage() {
               .filter((f: string) => f.length > 0)
           }
 
-
           // Parse limits with proper fallbacks
           // Returns: -1 for unlimited, 0 for not granted, >0 for specific limit
           const parseLimit = (permission: string | undefined, defaultValue: number): number => {
-            if (!permission) return defaultValue
+            if (!permission) { return defaultValue }
             const parts = permission.split(':')
             const lastPart = parts[parts.length - 1]
 
             // Check if it's "unlimited"
-            if (lastPart === 'unlimited') return -1
+            if (lastPart === 'unlimited') { return -1 }
 
             const parsed = parseInt(lastPart || '0')
             return isNaN(parsed) ? defaultValue : parsed
@@ -747,7 +761,79 @@ export default function EditPlanPage() {
             </button>
           </div>
         </form>
-      </div>
-    </div>
+
+        {/* Delete Section */}
+        <div className="mt-12 pt-8 border-t border-gray-200 dark:border-gray-700">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-6 bg-red-50 dark:bg-red-900/10 rounded-2xl border border-red-100 dark:border-red-900/30">
+            <div>
+              <h3 className="text-lg font-bold text-red-700 dark:text-red-400">Danger Zone</h3>
+              <p className="text-sm text-red-600/80 dark:text-red-400/70 mt-1">
+                Deleting this plan will remove it from the system. This action cannot be undone.
+              </p>
+            </div>
+            <div>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <button
+                    type="button"
+                    className="px-6 py-3 rounded-xl font-semibold bg-white border-2 border-red-200 text-red-600 hover:bg-red-50 dark:bg-transparent dark:border-red-800 dark:text-red-400 dark:hover:bg-red-900/20 transition-colors"
+                  >
+                    Delete Plan
+                  </button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This action cannot be undone. This will permanently delete the
+                      <span className="font-bold text-foreground"> "{plan.name}" </span>
+                      plan and remove it from our servers.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      className="bg-red-600 hover:bg-red-700 text-white"
+                      onClick={async () => {
+                        try {
+                          setSaving(true)
+                          const apiClient = createAdminApiClient()
+                          const plansClient = createPlansClient(apiClient)
+                          const response = await plansClient.deletePlan(params.id as string)
+
+                          if (isApiSuccess(response)) {
+                            toast({
+                              title: "Deleted",
+                              description: "Plan deleted successfully",
+                            })
+                            router.push('/plans')
+                          } else {
+                            toast({
+                              title: "Error",
+                              description: response.error || "Failed to delete plan",
+                              variant: "destructive"
+                            })
+                          }
+                        } catch (error) {
+                          toast({
+                            title: "Error",
+                            description: "Failed to delete plan",
+                            variant: "destructive"
+                          })
+                        } finally {
+                          setSaving(false)
+                        }
+                      }}
+                    >
+                      Delete Plan
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
+          </div>
+        </div>
+      </div >
+    </div >
   )
 }

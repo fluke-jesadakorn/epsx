@@ -3,8 +3,9 @@
  * Provides hooks for managing permission groups and available permissions
  */
 
-import { AssignUserToGroupRequest, CreateGroupRequest, Group, GroupAssignmentHistory, groupMgmt, UpdateGroupRequest, UserGroupMembership } from '@/lib/api/group-management-client';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+
+import { AssignUserToGroupRequest, CreateGroupRequest, Group, GroupAssignmentHistory, groupMgmt, UpdateGroupRequest, UserGroupMembership } from '@/lib/api/group-management-client';
 
 // ============================================================================
 // PERMISSION GROUPS HOOK
@@ -24,6 +25,9 @@ export type UsePermissionGroupsReturn = UseGroupsReturn;
 
 export const useGroupPermissions = useGroups;
 
+/**
+ *
+ */
 export function useGroups(): UseGroupsReturn {
   const [groups, setGroups] = useState<Group[]>([]);
   const [loading, setLoading] = useState(false);
@@ -112,6 +116,9 @@ interface UseAvailablePermissionsReturn {
   refreshPermissions: () => Promise<void>;
 }
 
+/**
+ *
+ */
 export function useAvailablePermissions(): UseAvailablePermissionsReturn {
   const [permissions, setPermissions] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -166,6 +173,9 @@ interface UseGroupAnalyticsReturn {
   refreshStats: () => Promise<void>;
 }
 
+/**
+ *
+ */
 export function useGroupAnalytics(): UseGroupAnalyticsReturn {
   const [stats, setStats] = useState<GroupAnalyticsStats>({
     totalGroups: 0,
@@ -240,6 +250,9 @@ interface UseWeb3AssignmentRulesReturn {
   refreshRules: () => Promise<void>;
 }
 
+/**
+ *
+ */
 export function useWeb3AssignmentRules(): UseWeb3AssignmentRulesReturn {
   const [rules, setRules] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -298,6 +311,10 @@ export function useWeb3AssignmentRules(): UseWeb3AssignmentRulesReturn {
 // Backward compatibility exports
 export const usePermissionGroups = useGroups;
 
+/**
+ *
+ * @param userId
+ */
 export function useUserGroupMemberships(userId: string | null) {
   const [memberships, setMemberships] = useState<UserGroupMembership[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -342,22 +359,14 @@ export function useUserGroupMemberships(userId: string | null) {
   }, [memberships]);
 
   const assignUserToGroup = useCallback(async (request: AssignUserToGroupRequest) => {
-    try {
-      await groupMgmt.assignUserToGroup(request);
-      await loadMemberships();
-    } catch (err) {
-      throw err;
-    }
+    await groupMgmt.assignUserToGroup(request);
+    await loadMemberships();
   }, [loadMemberships]);
 
   const removeUserFromGroup = useCallback(async (groupId: string) => {
-    if (!userId) return;
-    try {
-      await groupMgmt.removeUserFromGroup(userId, groupId);
-      await loadMemberships();
-    } catch (err) {
-      throw err;
-    }
+    if (!userId) {return;}
+    await groupMgmt.removeUserFromGroup(userId, groupId);
+    await loadMemberships();
   }, [userId, loadMemberships]);
 
   const refreshMemberships = loadMemberships;
@@ -378,6 +387,10 @@ export function useUserGroupMemberships(userId: string | null) {
 // GROUP MEMBERS HOOK
 // ============================================================================
 
+/**
+ *
+ * @param groupId
+ */
 export function useGroupMembers(groupId: string | null) {
   const [members, setMembers] = useState<UserGroupMembership[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -417,6 +430,9 @@ export function useGroupMembers(groupId: string | null) {
 // GROUP ASSIGNMENT HISTORY HOOK (STUB)
 // ============================================================================
 
+/**
+ *
+ */
 export function useGroupAssignmentHistory() {
   return {
     history: [] as GroupAssignmentHistory[],

@@ -146,9 +146,9 @@ export function PaymentHistoryTab() {
         try {
             return new Intl.NumberFormat('en-US', {
                 style: 'currency',
-                currency: currency,
+                currency,
             }).format(amount);
-        } catch (e) {
+        } catch (_e) {
             // Fallback for non-standard currencies (e.g. USDT)
             return `${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 6 })} ${currency}`;
         }

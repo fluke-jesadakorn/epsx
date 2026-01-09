@@ -5,6 +5,7 @@
 'use client';
 
 import { Calendar, Eye, RefreshCw, TrendingUp, Wallet } from 'lucide-react';
+import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -109,7 +110,7 @@ export function RecentWalletsPanel() {
   };
 
   const getTierColor = (tier?: string | null) => {
-    if (!tier) return 'outline';
+    if (!tier) {return 'outline';}
 
     switch (tier.toLowerCase()) {
       case 'admin':
@@ -266,12 +267,12 @@ export function RecentWalletsPanel() {
               <p className="font-medium">No recent wallet connections</p>
               <p className="text-sm mt-1">New wallets will appear here when users connect</p>
               <div className="mt-4">
-                <a
+                <Link
                   href="/wallet-management"
                   className="inline-flex items-center gap-2 rounded-md bg-blue-100 px-3 py-2 text-sm font-medium text-blue-800 hover:bg-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:hover:bg-blue-900/50"
                 >
                   View All Wallets
-                </a>
+                </Link>
               </div>
             </div>
           ) : (
@@ -332,12 +333,12 @@ export function RecentWalletsPanel() {
 
         {/* View All Link */}
         <div className="mt-4 border-t pt-4">
-          <a
+          <Link
             href="/wallet-management"
             className="text-sm font-medium text-blue-600 hover:text-blue-800"
           >
             View All Wallets →
-          </a>
+          </Link>
         </div>
       </div>
     </div>

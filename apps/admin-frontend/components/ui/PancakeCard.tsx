@@ -3,9 +3,11 @@
  * Legacy wrapper for shared Card component
  */
 
-import { cn } from "@/lib/utils"
 import * as React from "react"
+
 import { CardContent, CardDescription, CardFooter, CardHeader, CardTitle, Card as SharedCard } from "../../../../shared/components/ui/card"
+
+import { cn } from "@/lib/utils"
 
 const PancakeCard = React.forwardRef<HTMLDivElement, React.ComponentProps<typeof SharedCard>>(
   ({ className, variant = "pancake", ...props }, ref) => (

@@ -17,7 +17,7 @@ export interface LogEntry {
   level: LogLevel['level'];
   message: string;
   context?: string;
-  data?: any;
+  data?: unknown;
   userId?: string;
   sessionId?: string;
   requestId?: string;
@@ -62,7 +62,7 @@ export class Logger {
     return LOG_LEVELS[level.toUpperCase()].priority >= LOG_LEVELS[this.minLevel.toUpperCase()].priority;
   }
 
-  private createLogEntry(level: LogLevel['level'], message: string, data?: any): LogEntry {
+  private createLogEntry(level: LogLevel['level'], message: string, data?: unknown): LogEntry {
     return {
       timestamp: new Date().toISOString(),
       level,
@@ -90,7 +90,7 @@ export class Logger {
       .replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, '***@***.***');
   }
 
-  private sanitizeData(data: any): any {
+  private sanitizeData(data: unknown): unknown {
     if (!data) return data;
 
     // In production, limit data logging for security
@@ -115,11 +115,12 @@ export class Logger {
         } catch {
           // Fallback to safe field extraction
           const safeFields = ['status', 'code', 'type', 'category'];
-          const sanitized: any = {};
+          const sanitized: Record<string, unknown> = {};
 
           for (const field of safeFields) {
-            if (field in data && typeof data[field] !== 'object' && typeof data[field] !== 'bigint') {
-              sanitized[field] = data[field];
+            const dataObj = data as Record<string, unknown>;
+            if (field in dataObj && typeof dataObj[field] !== 'object' && typeof dataObj[field] !== 'bigint') {
+              sanitized[field] = dataObj[field];
             }
           }
 
@@ -161,7 +162,7 @@ export class Logger {
   }
 
 
-  private log(level: LogLevel['level'], message: string, data?: any): void {
+  private log(level: LogLevel['level'], message: string, data?: unknown): void {
     if (!this.shouldLog(level)) return;
 
     // Skip logging if console is not available (SSR/hydration safety)
@@ -176,9 +177,11 @@ export class Logger {
     const prefix = `[${timestamp}] [${level.toUpperCase()}] [${this.context}]`;
 
     // Safe console access with fallback to console.log
+    // eslint-disable-next-line no-console
     const logFunction = console[consoleMethod as keyof Console] || console.log;
     if (typeof logFunction !== 'function') {
       // Fallback to console.log if specific method doesn't exist
+      // eslint-disable-next-line no-console
       const fallbackLog = console.log;
       if (typeof fallbackLog === 'function') {
         if (safeData !== undefined) {
@@ -196,35 +199,38 @@ export class Logger {
       } else {
         (logFunction as Function)(prefix, message);
       }
-    } catch (error) {
+    } catch (_error) {
       // Fallback to console.log if specific method fails
-      if (console.log && typeof console.log === 'function') {
+      // eslint-disable-next-line no-console
+      if (typeof console.log === 'function') {
+        // eslint-disable-next-line no-console
+        console.log(prefix, message, safeData);
       }
     }
   }
 
-  private async sendToServer(entry: LogEntry): Promise<void> {
+  private async sendToServer(_entry: LogEntry): Promise<void> {
     // Server transmission disabled for performance and security
     // Logs are kept local only
   }
 
-  debug(message: string, data?: any): void {
+  debug(message: string, data?: unknown): void {
     this.log('debug', message, data);
   }
 
-  info(message: string, data?: any): void {
+  info(message: string, data?: unknown): void {
     this.log('info', message, data);
   }
 
-  warn(message: string, data?: any): void {
+  warn(message: string, data?: unknown): void {
     this.log('warn', message, data);
   }
 
-  error(message: string, data?: any): void {
+  error(message: string, data?: unknown): void {
     this.log('error', message, data);
   }
 
-  getEntries(level?: LogLevel['level']): LogEntry[] {
+  getEntries(_level?: LogLevel['level']): LogEntry[] {
     // Log buffering disabled - return empty array
     return [];
   }
@@ -289,12 +295,12 @@ export function safeError(error: unknown): SafeErrorResult {
   }
 
   if (error && typeof error === 'object') {
-    const obj = error as any;
+    const obj = error as Record<string, unknown>;
     return {
-      message: obj.message || obj.error || JSON.stringify(error),
-      stack: obj.stack,
-      code: obj.code || obj.status,
-      status: obj.status || obj.statusCode
+      message: (obj.message as string) || (obj.error as string) || JSON.stringify(error),
+      stack: obj.stack as string | undefined,
+      code: (obj.code as string | undefined) || (obj.status as string | undefined),
+      status: (obj.status as number | undefined) || (obj.statusCode as number | undefined)
     };
   }
 
@@ -334,21 +340,21 @@ export class PerformanceMonitor {
   private metrics: MonitoringMetrics[] = [];
   private maxMetrics = 100;
 
-  recordMetric(metric: Partial<MonitoringMetrics>): void {
+  recordMetric(_metric: Partial<MonitoringMetrics>): void {
     // Performance monitoring disabled for better user experience
   }
 
-  getMetrics(since?: number): MonitoringMetrics[] {
+  getMetrics(_since?: number): MonitoringMetrics[] {
     // Performance monitoring disabled - return empty array
     return [];
   }
 
-  getAverageResponseTime(since?: number): number {
+  getAverageResponseTime(_since?: number): number {
     // Performance monitoring disabled - return 0
     return 0;
   }
 
-  getErrorRate(since?: number): number {
+  getErrorRate(_since?: number): number {
     // Performance monitoring disabled - return 0
     return 0;
   }
@@ -376,7 +382,7 @@ export class StreamingLogger {
     // No initialization - streaming disabled
   }
 
-  log(entry: LogEntry): void {
+  log(_entry: LogEntry): void {
     // No-op - streaming disabled
   }
 

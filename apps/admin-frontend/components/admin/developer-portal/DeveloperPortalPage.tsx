@@ -5,17 +5,17 @@ import { useRouter } from 'next/navigation';
 import React, { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
-import { logger } from '@/lib/logger';
-import { createPlansClient, type ApiKeyResponse, type Module } from '@/shared/api/plans';
-import { useSharedAuth } from '@/shared/components/auth/Provider';
-import { createAdminApiClient } from '@/shared/utils/api-client';
-
 import { EditExpirationModal } from './modals/EditExpirationModal';
 import { RevokeKeyModal } from './modals/RevokeKeyModal';
 import { ApiKeysTab } from './tabs/ApiKeysTab';
 import { DocumentationTab } from './tabs/DocumentationTab';
 import { OverviewTab } from './tabs/OverviewTab';
 import { UsageAnalyticsTab } from './tabs/UsageAnalyticsTab';
+
+import { logger } from '@/lib/logger';
+import { createPlansClient, type ApiKeyResponse, type Module } from '@/shared/api/plans';
+import { useSharedAuth } from '@/shared/components/auth/Provider';
+import { createAdminApiClient } from '@/shared/utils/api-client';
 
 type TabType = 'overview' | 'keys' | 'docs' | 'usage';
 

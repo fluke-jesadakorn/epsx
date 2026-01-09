@@ -9,18 +9,20 @@ interface SelectorOptions<R> {
   debugName?: string;
 }
 
-const shallowEqual: EqualityFunction<any> = (prev, next) => {
+const shallowEqual: EqualityFunction<unknown> = (prev, next) => {
   if (prev === next) return true;
   if (typeof prev !== 'object' || typeof next !== 'object') return false;
   if (prev === null || next === null) return false;
 
-  const keysA = Object.keys(prev);
-  const keysB = Object.keys(next);
+  const objA = prev as Record<string, unknown>;
+  const objB = next as Record<string, unknown>;
+  const keysA = Object.keys(objA);
+  const keysB = Object.keys(objB);
 
   if (keysA.length !== keysB.length) return false;
 
   for (const key of keysA) {
-    if (!keysB.includes(key) || prev[key] !== next[key]) {
+    if (!keysB.includes(key) || objA[key] !== objB[key]) {
       return false;
     }
   }
@@ -33,7 +35,7 @@ const shallowEqual: EqualityFunction<any> = (prev, next) => {
  * Only re-renders when the selected portion of state changes
  */
 export function useStateSelector<R>(
-  selector: SelectorFunction<any, R>,
+  selector: SelectorFunction<unknown, R>,
   options: SelectorOptions<R> = {}
 ): R {
   const { state } = useAppState();
@@ -52,6 +54,7 @@ export function useStateSelector<R>(
 
     if (!equalityRef.current(selectedState, newSelectedState)) {
       if (debugName && process.env.NODE_ENV === 'development') {
+        // eslint-disable-next-line no-console
         console.log(`[Selector ${debugName}] State changed`, {
           prev: selectedState,
           next: newSelectedState
@@ -68,8 +71,8 @@ export function useStateSelector<R>(
  * Memoized state selector with dependency tracking
  */
 export function useMemoizedSelector<R>(
-  selector: SelectorFunction<any, R>,
-  deps: any[] = [],
+  selector: SelectorFunction<unknown, R>,
+  deps: unknown[] = [],
   options: SelectorOptions<R> = {}
 ): R {
   const memoizedSelector = useMemo(() => selector, deps);
@@ -79,11 +82,11 @@ export function useMemoizedSelector<R>(
 /**
  * Multi-selector hook for selecting multiple pieces of state efficiently
  */
-export function useMultiSelector<T extends Record<string, any>>(
-  selectors: { [K in keyof T]: SelectorFunction<any, T[K]> },
+export function useMultiSelector<T extends Record<string, unknown>>(
+  selectors: { [K in keyof T]: SelectorFunction<unknown, T[K]> },
   options: SelectorOptions<T> = {}
 ): T {
-  const combinedSelector = useCallback((state: any) => {
+  const combinedSelector = useCallback((state: unknown) => {
     const result = {} as T;
     for (const [key, selector] of Object.entries(selectors)) {
       result[key as keyof T] = selector(state);
@@ -100,65 +103,65 @@ export function useMultiSelector<T extends Record<string, any>>(
 
 // UI State Selectors
 export function useThemeSelector() {
-  return useStateSelector((state: any) => state.ui?.theme, {
+  return useStateSelector((state: unknown) => (state as any).ui?.theme, {
     debugName: 'theme'
   });
 }
 
 export function useToastsSelector() {
-  return useStateSelector((state: any) => state.ui?.toasts || [], {
+  return useStateSelector((state: unknown) => (state as any).ui?.toasts || [], {
     debugName: 'toasts'
   });
 }
 
 export function useModalSelector() {
-  return useStateSelector((state: any) => state.ui?.modal, {
+  return useStateSelector((state: unknown) => (state as any).ui?.modal, {
     debugName: 'modal'
   });
 }
 
 export function useSidebarSelector() {
-  return useStateSelector((state: any) => state.ui?.sidebar, {
+  return useStateSelector((state: unknown) => (state as any).ui?.sidebar, {
     debugName: 'sidebar'
   });
 }
 
 // User State Selectors
 export function useUserSelector() {
-  return useStateSelector((state: any) => state.user?.data, {
+  return useStateSelector((state: unknown) => (state as any).user?.data, {
     debugName: 'user'
   });
 }
 
 export function useUserLoadingSelector() {
-  return useStateSelector((state: any) => state.user?.loading || false, {
+  return useStateSelector((state: unknown) => (state as any).user?.loading || false, {
     equalityFn: (prev, next) => prev === next,
     debugName: 'userLoading'
   });
 }
 
 export function useUserPermissionsSelector() {
-  return useStateSelector((state: any) => state.user?.data?.permissions || [], {
+  return useStateSelector((state: unknown) => (state as any).user?.data?.permissions || [], {
     debugName: 'userPermissions'
   });
 }
 
 // Trading State Selectors
 export function useWatchlistSelector() {
-  return useStateSelector((state: any) => state.trading?.data?.watchlist || [], {
+  return useStateSelector((state: unknown) => (state as any).trading?.data?.watchlist || [], {
     debugName: 'watchlist'
   });
 }
 
 export function usePortfolioSelector() {
-  return useStateSelector((state: any) => state.trading?.data?.portfolio || [], {
+  return useStateSelector((state: unknown) => (state as any).trading?.data?.portfolio || [], {
     debugName: 'portfolio'
   });
 }
 
 export function usePortfolioTotalSelector() {
-  return useStateSelector((state: any) => {
-    const portfolio = state.trading?.data?.portfolio || [];
+  return useStateSelector((state: unknown) => {
+    const portfolio = (state as any).trading?.data?.portfolio || [];
     return portfolio.reduce((total: number, item: any) => total + (item.value || 0), 0);
   }, {
     equalityFn: (prev, next) => prev === next,
@@ -167,21 +170,21 @@ export function usePortfolioTotalSelector() {
 }
 
 export function useRealtimeDataSelector() {
-  return useStateSelector((state: any) => state.trading?.realtime, {
+  return useStateSelector((state: unknown) => (state as any).trading?.realtime, {
     debugName: 'realtimeData'
   });
 }
 
 // Notification Selectors
 export function useNotificationsSelector() {
-  return useStateSelector((state: any) => state.notifications?.list || [], {
+  return useStateSelector((state: unknown) => (state as any).notifications?.list || [], {
     debugName: 'notifications'
   });
 }
 
 export function useUnreadNotificationsSelector() {
-  return useStateSelector((state: any) => {
-    const notifications = state.notifications?.list || [];
+  return useStateSelector((state: unknown) => {
+    const notifications = (state as any).notifications?.list || [];
     return notifications.filter((n: any) => !n.read);
   }, {
     debugName: 'unreadNotifications'
@@ -189,8 +192,8 @@ export function useUnreadNotificationsSelector() {
 }
 
 export function useNotificationCountSelector() {
-  return useStateSelector((state: any) => {
-    const notifications = state.notifications?.list || [];
+  return useStateSelector((state: unknown) => {
+    const notifications = (state as any).notifications?.list || [];
     return notifications.filter((n: any) => !n.read).length;
   }, {
     equalityFn: (prev, next) => prev === next,
@@ -200,13 +203,13 @@ export function useNotificationCountSelector() {
 
 // Analytics Selectors
 export function useAnalyticsDataSelector() {
-  return useStateSelector((state: any) => state.analytics?.data, {
+  return useStateSelector((state: unknown) => (state as any).analytics?.data, {
     debugName: 'analyticsData'
   });
 }
 
 export function useRankingsSelector() {
-  return useStateSelector((state: any) => state.analytics?.rankings || [], {
+  return useStateSelector((state: unknown) => (state as any).analytics?.rankings || [], {
     debugName: 'rankings'
   });
 }
@@ -223,6 +226,7 @@ export function useSelectorPerformance(name: string) {
     lastRender.current = now;
 
     if (process.env.NODE_ENV === 'development') {
+      // Performance logging could be added here
     }
   });
 
@@ -237,17 +241,16 @@ export function createSelector<T, R>(
   selector: SelectorFunction<T, R>,
   options?: SelectorOptions<R>
 ) {
-  return () => useStateSelector(selector, options);
+  return () => useStateSelector(selector as SelectorFunction<unknown, R>, options);
 }
 
 // Batched selector updates
-export function useBatchedSelectors<T extends Record<string, any>>(
+export function useBatchedSelectors<T extends Record<string, unknown>>(
   selectors: { [K in keyof T]: () => T[K] }
 ): T {
   const results = {} as T;
 
   for (const [key, selector] of Object.entries(selectors)) {
-    // eslint-disable-next-line react-hooks/rules-of-hooks
     results[key as keyof T] = selector();
   }
 

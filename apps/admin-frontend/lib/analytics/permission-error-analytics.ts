@@ -43,7 +43,7 @@ class PermissionErrorAnalytics {
     }
     
     // Log to console for debugging
-    // eslint-disable-next-line no-console
+     
     console.warn('Permission Error:', permissionError);
   }
 

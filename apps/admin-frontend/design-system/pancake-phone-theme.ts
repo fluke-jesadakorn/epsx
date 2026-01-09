@@ -8,7 +8,7 @@ export const PancakePhoneTheme = {
     // PancakeSwap brand colors
     primary: {
       50: '#FFF8E1',
-      100: '#FFECB3', 
+      100: '#FFECB3',
       200: '#FFE082',
       300: '#FFD54F',
       400: '#FFCA28',
@@ -18,17 +18,17 @@ export const PancakePhoneTheme = {
       800: '#FF8F00',
       900: '#FF6F00'
     },
-    
+
     // Windows Phone accent colors
     accent: {
       blue: '#0078D4',
-      purple: '#8764B8', 
+      purple: '#8764B8',
       green: '#107C10',
       red: '#D13438',
       orange: '#FF8C00',
       pink: '#E3008C'
     },
-    
+
     // Dark theme (Windows Phone black)
     dark: {
       background: '#000000',
@@ -38,7 +38,7 @@ export const PancakePhoneTheme = {
       textSecondary: '#B3B3B3',
       border: '#404040'
     },
-    
+
     // PancakeSwap gradients
     gradients: {
       pancake: 'linear-gradient(135deg, #FFD800 0%, #FFA726 100%)',
@@ -47,7 +47,7 @@ export const PancakePhoneTheme = {
       error: 'linear-gradient(135deg, #FF6838 0%, #FF3838 100%)'
     }
   },
-  
+
   // Windows Phone typography
   typography: {
     // Light weight for Windows Phone aesthetic
@@ -58,7 +58,7 @@ export const PancakePhoneTheme = {
       semibold: 500,
       bold: 600
     },
-    
+
     sizes: {
       xs: '0.75rem',   // 12px
       sm: '0.875rem',  // 14px  
@@ -71,7 +71,7 @@ export const PancakePhoneTheme = {
       '5xl': '3rem'    // 48px (Hero text)
     }
   },
-  
+
   // Live Tile system
   tiles: {
     sizes: {
@@ -80,7 +80,7 @@ export const PancakePhoneTheme = {
       wide: 'w-40 h-40',       // 160x160px
       large: 'w-80 h-80'       // 320x320px
     },
-    
+
     states: {
       active: 'opacity-100',
       inactive: 'opacity-75',
@@ -88,7 +88,7 @@ export const PancakePhoneTheme = {
       hidden: 'opacity-0'
     }
   },
-  
+
   // Spacing (Windows Phone 8px grid)
   spacing: {
     xs: '0.5rem',  // 8px
@@ -98,7 +98,7 @@ export const PancakePhoneTheme = {
     xl: '3rem',    // 48px
     xxl: '4rem'    // 64px
   },
-  
+
   // Component styles
   components: {
     tile: {
@@ -106,14 +106,14 @@ export const PancakePhoneTheme = {
       padding: 'p-4',
       rounded: 'rounded-none' // Windows Phone sharp corners
     },
-    
+
     pivot: {
       base: 'flex overflow-x-auto gap-6 border-b border-gray-700',
       item: 'font-light text-lg pb-2 whitespace-nowrap',
       active: 'text-white border-b-2 border-primary-500',
       inactive: 'text-gray-400 hover:text-white'
     },
-    
+
     button: {
       primary: 'bg-gradient-to-r from-primary-500 to-primary-600 text-black font-medium hover:from-primary-400 hover:to-primary-500',
       secondary: 'bg-accent-blue text-white font-light hover:bg-blue-600',
@@ -122,4 +122,4 @@ export const PancakePhoneTheme = {
   }
 } as const
 
-export type PancakePhoneTheme = typeof PancakePhoneTheme
+export type PancakePhoneThemeType = typeof PancakePhoneTheme

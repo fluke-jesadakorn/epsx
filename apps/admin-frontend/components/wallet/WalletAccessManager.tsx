@@ -10,13 +10,13 @@ import { AlertTriangle, Check, CheckSquare, ChevronLeft, ChevronRight, Key, Load
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
+import { ExpiryDatePicker } from './ExpiryDatePicker';
+
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { cn } from '@/lib/utils';
-
 import { type AccessItem, useWalletAccess } from '@/hooks/useWalletAccess';
-import { ExpiryDatePicker } from './ExpiryDatePicker';
+import { cn } from '@/lib/utils';
 
 // ============================================================================
 // TYPES
@@ -156,6 +156,13 @@ function ItemCard({ item, onClick, isAuthorized, isSelected, onSelect, pendingCh
 // MAIN COMPONENT
 // ============================================================================
 
+/**
+ *
+ * @param root0
+ * @param root0.walletAddress
+ * @param root0.className
+ * @param root0.onSaveComplete
+ */
 export function WalletAccessManager({
     walletAddress,
     className,
@@ -271,7 +278,7 @@ export function WalletAccessManager({
         e.preventDefault();
         setDropTarget(null);
 
-        if (!draggedItem || !dragSource || dragSource === target) return;
+        if (!draggedItem || !dragSource || dragSource === target) {return;}
 
         if (target === 'authorized') {
             // Moving to authorized -> show expiry picker
@@ -317,7 +324,7 @@ export function WalletAccessManager({
 
     // Apply all pending changes
     const applyChanges = useCallback(async () => {
-        if (pendingChanges.size === 0) return;
+        if (pendingChanges.size === 0) {return;}
 
         setIsApplying(true);
         try {
@@ -377,8 +384,8 @@ export function WalletAccessManager({
             });
 
             // Remove operations
-            if (removePermissions.length > 0) operations.push(batchRevokePermissions(removePermissions));
-            if (removeGroups.length > 0) operations.push(batchRemoveGroups(removeGroups));
+            if (removePermissions.length > 0) {operations.push(batchRevokePermissions(removePermissions));}
+            if (removeGroups.length > 0) {operations.push(batchRemoveGroups(removeGroups));}
 
             await Promise.all(operations);
 
@@ -396,8 +403,8 @@ export function WalletAccessManager({
     const handleSelectAvailable = useCallback((item: AccessItem, selected: boolean) => {
         setSelectedAvailable(prev => {
             const next = new Set(prev);
-            if (selected) next.add(item.id);
-            else next.delete(item.id);
+            if (selected) {next.add(item.id);}
+            else {next.delete(item.id);}
             return next;
         });
     }, []);
@@ -405,8 +412,8 @@ export function WalletAccessManager({
     const handleSelectAuthorized = useCallback((item: AccessItem, selected: boolean) => {
         setSelectedAuthorized(prev => {
             const next = new Set(prev);
-            if (selected) next.add(item.id);
-            else next.delete(item.id);
+            if (selected) {next.add(item.id);}
+            else {next.delete(item.id);}
             return next;
         });
     }, []);
@@ -415,8 +422,8 @@ export function WalletAccessManager({
         setSelectedAvailable(prev => {
             const next = new Set(prev);
             items.forEach(item => {
-                if (selected) next.add(item.id);
-                else next.delete(item.id);
+                if (selected) {next.add(item.id);}
+                else {next.delete(item.id);}
             });
             return next;
         });
@@ -426,8 +433,8 @@ export function WalletAccessManager({
         setSelectedAuthorized(prev => {
             const next = new Set(prev);
             items.forEach(item => {
-                if (selected) next.add(item.id);
-                else next.delete(item.id);
+                if (selected) {next.add(item.id);}
+                else {next.delete(item.id);}
             });
             return next;
         });
@@ -488,7 +495,7 @@ export function WalletAccessManager({
                 .map(p => p.item)
         ].sort((a, b) => {
             // Sort by type then name
-            if (a.type !== b.type) return a.type.localeCompare(b.type);
+            if (a.type !== b.type) {return a.type.localeCompare(b.type);}
             return a.name.localeCompare(b.name);
         });
     }, [data.authorizedGroups, data.authorizedPermissions, authorizedSearch, pendingChanges]);
@@ -498,11 +505,11 @@ export function WalletAccessManager({
         let addPermissions = 0, removePermissions = 0, addGroups = 0, removeGroups = 0;
         pendingChanges.forEach(change => {
             if (change.action === 'add') {
-                if (change.item.type === 'permission') addPermissions++;
-                else addGroups++;
+                if (change.item.type === 'permission') {addPermissions++;}
+                else {addGroups++;}
             } else {
-                if (change.item.type === 'permission') removePermissions++;
-                else removeGroups++;
+                if (change.item.type === 'permission') {removePermissions++;}
+                else {removeGroups++;}
             }
         });
         return { addPermissions, removePermissions, addGroups, removeGroups };

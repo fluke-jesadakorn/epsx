@@ -140,6 +140,7 @@ module.exports = [
       
       // General rules
       'no-console': ['warn', { allow: ['warn', 'error'] }],
+      'jsdoc/require-*': 'off',
       'no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
       'no-var': 'warn',
       'object-shorthand': ['warn', 'properties'],
@@ -149,6 +150,20 @@ module.exports = [
       // React rules
       'react/jsx-uses-react': 'off',
       'react/react-in-jsx-scope': 'off',
+    },
+  },
+  {
+    files: ['**/*.spec.ts', '**/*.test.ts', '**/__test__/**'],
+    rules: {
+      'no-console': 'off',
+      '@typescript-eslint/no-unused-vars': 'off',
+      '@typescript-eslint/no-explicit-any': 'off',
+      'max-lines-per-function': 'off',
+      'complexity': 'off',
+      'sonarjs/cognitive-complexity': 'off',
+      'max-nested-callbacks': 'off',
+      'jsdoc/require-*': 'off',
+      'no-empty': 'off',
     },
   },
   {

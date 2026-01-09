@@ -41,6 +41,16 @@ interface EditWalletMetadataModalProps {
     onSuccess: () => void;
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.walletAddress
+ * @param root0.currentLabel
+ * @param root0.currentNote
+ * @param root0.isOpen
+ * @param root0.onClose
+ * @param root0.onSuccess
+ */
 export function EditWalletMetadataModal({
     walletAddress,
     currentLabel,

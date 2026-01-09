@@ -83,7 +83,7 @@ export default function StockRankingAssignmentList({
       const response = await fetch('/api/admin/stock-ranking/assignments');
 
       if (!response.ok) {
-        // eslint-disable-next-line no-console
+         
         console.error('Assignment API error:', response.status, response.statusText);
         setAssignments([]);
         return;
@@ -91,7 +91,7 @@ export default function StockRankingAssignmentList({
 
       const contentType = response.headers.get('content-type');
       if (!contentType?.includes('application/json')) {
-        // eslint-disable-next-line no-console
+         
         console.error('Invalid response type:', contentType);
         setAssignments([]);
         return;
@@ -100,7 +100,7 @@ export default function StockRankingAssignmentList({
       const data = await response.json();
       setAssignments(data.assignments || []);
     } catch (_error) {
-      // eslint-disable-next-line no-console
+       
       console.error('Failed to load assignments:', _error);
       setAssignments([]);
     } finally {
@@ -128,7 +128,7 @@ export default function StockRankingAssignmentList({
         throw new Error('Failed to revoke assignment');
       }
     } catch (_error) {
-      // eslint-disable-next-line no-console
+       
       console.error('Error revoking assignment:', _error);
       alert('Failed to revoke assignment');
     }
@@ -159,7 +159,7 @@ export default function StockRankingAssignmentList({
         throw new Error('Failed to extend assignment');
       }
     } catch (_error) {
-      // eslint-disable-next-line no-console
+       
       console.error('Error extending assignment:', _error);
       alert('Failed to extend assignment');
     }

@@ -104,16 +104,16 @@ function isValidUrl(url: string): boolean {
  */
 export function logValidationResults(results: ValidationResult, context = 'Environment'): void {
   if (!results.isValid) {
-    // eslint-disable-next-line no-console
+     
     console.error(`❌ ${context} validation failed:`);
-    // eslint-disable-next-line no-console
+     
     results.errors.forEach(error => console.error(`  - ${error}`));
   }
 
   if (results.warnings.length > 0) {
-    // eslint-disable-next-line no-console
+     
     console.warn(`⚠️ ${context} warnings:`);
-    // eslint-disable-next-line no-console
+     
     results.warnings.forEach(warning => console.warn(`  - ${warning}`));
   }
 }
@@ -129,25 +129,25 @@ export function validateAdminDevelopmentEnvironment(): void {
 
   // Additional development checks
   if (!process.env['BACKEND_URL']?.includes('localhost')) {
-    // eslint-disable-next-line no-console
+     
     console.warn('⚠️ Admin Development: NEXT_PUBLIC_BACKEND_URL should point to localhost for local development');
   }
 
   if (!process.env['ADMIN_URL']?.includes('localhost')) {
-    // eslint-disable-next-line no-console
+     
     console.warn('⚠️ Admin Development: ADMIN_URL should point to localhost for local development');
   }
 
   // Check that admin port is different from frontend port
   const adminUrl = process.env['NEXT_PUBLIC_ADMIN_URL'] || process.env['ADMIN_URL'];
   if (adminUrl && !adminUrl.includes(':3001')) {
-    // eslint-disable-next-line no-console
+     
     console.warn('⚠️ Admin Development: Admin should typically run on port 3001');
   }
 
   // Validate admin module configuration
   if (!process.env['NEXT_PUBLIC_OAUTH_CLIENT_ID']?.includes('admin')) {
-    // eslint-disable-next-line no-console
+     
     console.warn('⚠️ Admin Development: OAuth client ID should be admin-specific (e.g., "epsx-admin")');
   }
 }

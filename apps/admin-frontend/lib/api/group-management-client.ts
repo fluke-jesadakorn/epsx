@@ -5,8 +5,9 @@
 
 'use client';
 
-import { API_ROUTES } from '@/shared/config/route-constants';
 import { adminApiClient } from '../api-client';
+
+import { API_ROUTES } from '@/shared/config/route-constants';
 
 // ============================================================================
 // TYPES
@@ -156,7 +157,7 @@ export const groupMgmt = {
   async getPermissionGroups(): Promise<PermissionGroup[]> {
     const res = await adminApiClient.get<any>(API_ROUTES.PERMISSIONS.GROUPS);
     const groups = res.data?.data || res.data;
-    if (!Array.isArray(groups)) throw new Error('Invalid response');
+    if (!Array.isArray(groups)) {throw new Error('Invalid response');}
     return groups;
   },
 
@@ -210,7 +211,7 @@ export const groupMgmt = {
 
     // Handle pagination wrapper if present
     const assignments = res.data?.data || res.data || [];
-    if (!Array.isArray(assignments)) return [];
+    if (!Array.isArray(assignments)) {return [];}
 
     return assignments.map(mapAssignmentToMembership);
   },
@@ -262,7 +263,7 @@ export const groupMgmt = {
     });
 
     const assignments = res.data?.data || res.data || [];
-    if (!Array.isArray(assignments)) return [];
+    if (!Array.isArray(assignments)) {return [];}
 
     return assignments.map(mapAssignmentToMembership);
   },
@@ -360,6 +361,9 @@ export const groupMgmt = {
   /**
    * Used for autocomplete functionality
    * Uses the same /api/admin/wallets/search endpoint as Wallet Management page
+   * @param query
+   * @param limit
+   * @param excludeGroupId
    */
   async searchUsers(query: string, limit = 10, excludeGroupId?: string): Promise<Array<{
     wallet_address: string;
@@ -488,7 +492,7 @@ export const groupMgmt = {
     );
     // Handle response format: { assignments: [...], count: N }
     const assignments = res.data?.assignments || res.data || [];
-    if (!Array.isArray(assignments)) return [];
+    if (!Array.isArray(assignments)) {return [];}
     return assignments.map(mapAssignmentToMembership);
   },
 
@@ -516,24 +520,26 @@ export const groupMgmt = {
     const res = await adminApiClient.get<PermissionDefinitionDto[]>('/api/permissions/definitions');
     const data = res.data;
     // Handle nested response format
-    if (Array.isArray(data)) return data;
-    if ((data as any)?.data && Array.isArray((data as any).data)) return (data as any).data;
+    if (Array.isArray(data)) {return data;}
+    if ((data as any)?.data && Array.isArray((data as any).data)) {return (data as any).data;}
     return [];
   },
 
   /**
    * Create a new permission definition
+   * @param req
    */
   async createPermissionDefinition(req: CreatePermissionDefinitionRequest): Promise<PermissionDefinitionDto> {
     const res = await adminApiClient.post<PermissionDefinitionDto>('/api/permissions/definitions', req);
     const data = res.data;
     // Handle nested response format
-    if ((data as any)?.data) return (data as any).data;
+    if ((data as any)?.data) {return (data as any).data;}
     return data!;
   },
 
   /**
    * Delete a permission definition by ID
+   * @param id
    */
   async deletePermissionDefinition(id: string): Promise<void> {
     await adminApiClient.delete(`/api/permissions/definitions/${id}`);
@@ -541,6 +547,7 @@ export const groupMgmt = {
 
   /**
    * Delete a permission definition by permission string
+   * @param permission
    */
   async deletePermissionByName(permission: string): Promise<void> {
     const encoded = encodeURIComponent(permission);
@@ -554,20 +561,33 @@ export const groupMgmt = {
   /** Alias for getPermissionGroups */
   getGroups: function () { return this.getPermissionGroups(); },
 
-  /** Alias for getPermissionGroup */
+  /**
+   * Alias for getPermissionGroup
+   * @param groupId
+   */
   getGroup: function (groupId: string) { return this.getPermissionGroup(groupId); },
 
-  /** Alias for createPermissionGroup */
+  /**
+   * Alias for createPermissionGroup
+   * @param req
+   */
   createGroup: function (req: CreateGroupRequest) {
     return this.createPermissionGroup(req);
   },
 
-  /** Alias for updatePermissionGroup */
+  /**
+   * Alias for updatePermissionGroup
+   * @param groupId
+   * @param req
+   */
   updateGroup: function (groupId: string, req: UpdateGroupRequest) {
     return this.updatePermissionGroup(groupId, req);
   },
 
-  /** Alias for deletePermissionGroup */
+  /**
+   * Alias for deletePermissionGroup
+   * @param groupId
+   */
   deleteGroup: function (groupId: string) { return this.deletePermissionGroup(groupId); },
 };
 

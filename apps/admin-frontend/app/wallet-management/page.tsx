@@ -4,7 +4,6 @@
  */
 'use client';
 
-
 import { WalletHub } from '@/components/wallet/WalletHub';
 
 /**

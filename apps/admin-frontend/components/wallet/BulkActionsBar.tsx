@@ -19,6 +19,17 @@ interface BulkActionsBarProps {
     className?: string;
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.selectedCount
+ * @param root0.onClearSelection
+ * @param root0.onAddPermission
+ * @param root0.onRemovePermission
+ * @param root0.onDisable
+ * @param root0.onNotify
+ * @param root0.className
+ */
 export function BulkActionsBar({
     selectedCount,
     onClearSelection,
@@ -28,7 +39,7 @@ export function BulkActionsBar({
     onNotify,
     className,
 }: BulkActionsBarProps) {
-    if (selectedCount === 0) return null;
+    if (selectedCount === 0) {return null;}
 
     return (
         <div className={cn(

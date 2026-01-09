@@ -1,10 +1,11 @@
 'use client';
 
-import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useSharedAuth } from '@/shared/components/auth/Provider';
+import { useState } from 'react';
+
 import { NotificationManagement } from '@/components/notifications/NotificationManagement';
 import { SendNotificationForm } from '@/components/notifications/SendNotificationForm';
+import { useSharedAuth } from '@/shared/components/auth/Provider';
 
 function NotificationsSkeleton() {
   return (
@@ -40,6 +41,9 @@ function NotificationsSkeleton() {
   );
 }
 
+/**
+ *
+ */
 export default function NotificationsPage() {
   const { user, isLoading, isAuthenticated } = useSharedAuth();
   const router = useRouter();

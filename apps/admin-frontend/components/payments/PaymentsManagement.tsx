@@ -1,6 +1,5 @@
 'use client';
 
-import { useApiClient } from '@/shared/hooks/useApiClient';
 import {
     CheckCircleIcon,
     ClockIcon,
@@ -10,6 +9,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { useCallback, useEffect, useState } from 'react';
 
+import { useApiClient } from '@/shared/hooks/useApiClient';
 import type {
     PaymentResponse,
     PermissionTemplateName,
@@ -45,6 +45,9 @@ interface PaymentFilters {
     search: string;
 }
 
+/**
+ *
+ */
 export function PaymentsManagement() {
     const { base } = useApiClient({ platform: 'admin' });
     const [payments, setPayments] = useState<AdminPayment[]>([]);
@@ -175,7 +178,7 @@ export function PaymentsManagement() {
         }
     };
 
-    const formatCurrency = (amount: number, currency: string = 'USD') => {
+    const formatCurrency = (amount: number, currency = 'USD') => {
         try {
             if (currency === 'USDT') {
                 return new Intl.NumberFormat('en-US', {

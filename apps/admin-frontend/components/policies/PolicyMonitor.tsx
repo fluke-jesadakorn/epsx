@@ -23,6 +23,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
+import { adminApiClient } from '@/lib/api-client';
 
 interface PolicyEvaluation {
   id: string;
@@ -36,8 +37,6 @@ interface PolicyEvaluation {
   policy_id?: string;
   policy_name?: string;
 }
-
-import { adminApiClient } from '@/lib/api-client';
 
 interface PolicyStats {
   total_policies: number;
@@ -107,7 +106,7 @@ export default function PolicyMonitor() {
         loadRecentEvaluations(),
       ]);
     } catch (_error) {
-      // eslint-disable-next-line no-console
+       
       console.error('Error loading initial data:', _error);
       toast({
         title: "Error",
@@ -126,7 +125,7 @@ export default function PolicyMonitor() {
         setStats(response.data.stats);
       }
     } catch (_error) {
-      // eslint-disable-next-line no-console
+       
       console.error('Error loading policy stats:', _error);
     }
   };
@@ -172,7 +171,7 @@ export default function PolicyMonitor() {
 
       setLiveEvaluations(mockEvaluations);
     } catch (_error) {
-      // eslint-disable-next-line no-console
+       
       console.error('Error loading recent evaluations:', _error);
     }
   };
@@ -198,7 +197,7 @@ export default function PolicyMonitor() {
 
       setLastUpdate(new Date());
     } catch (_error) {
-      // eslint-disable-next-line no-console
+       
       console.error('Error refreshing live data:', _error);
     }
   };

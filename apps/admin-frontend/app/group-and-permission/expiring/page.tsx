@@ -11,6 +11,9 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { groupMgmt } from '@/lib/api/group-management-client'
 
+/**
+ *
+ */
 export default function ExpiringAssignmentsPage() {
     const queryClient = useQueryClient()
     const [assignments, setAssignments] = useState<any[]>([])

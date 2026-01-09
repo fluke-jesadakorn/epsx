@@ -4,9 +4,10 @@
  */
 'use client';
 
+import type { WalletActivityEvent } from './types';
+
 import { Button } from '@/components/ui/button';
 import { formatTimeAgo } from '@/lib/utils/date';
-import type { WalletActivityEvent } from './types';
 
 interface WalletActivityHistoryProps {
     events: WalletActivityEvent[];
@@ -55,6 +56,12 @@ function ActivityItem({ event }: { event: WalletActivityEvent }) {
     );
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.events
+ * @param root0.limit
+ */
 export function WalletActivityHistory({ events, limit = 5 }: WalletActivityHistoryProps) {
     if (events.length === 0) {
         return (

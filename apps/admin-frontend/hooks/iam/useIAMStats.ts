@@ -9,6 +9,9 @@ interface IAMStats {
   permissionProfileGrowth: { value: number; isPositive: boolean };
 }
 
+/**
+ *
+ */
 export const useIAMStats = () => {
   const [stats, setStats] = useState<IAMStats>({
     totalUsers: 0,
@@ -52,7 +55,7 @@ export const useIAMStats = () => {
 
         setStats(statsData);
       } catch (_error) {
-        // eslint-disable-next-line no-console
+         
         console.error('Failed to fetch IAM stats', {
           error: _error instanceof Error ? _error.message : String(_error),
         });

@@ -12,6 +12,7 @@
  */
 
 import { cva, type VariantProps } from 'class-variance-authority';
+
 import { cn } from '@/lib/utils';
 
 // Re-export cn utility
@@ -662,9 +663,9 @@ export type AdminLoadingVariants = VariantProps<typeof adminLoadingVariants>;
 // UTILITY FUNCTIONS
 // ============================================================================
 
-
 /**
  * Generate status-specific badge variant
+ * @param status
  */
 export function getStatusBadgeVariant(status: string): AdminBadgeVariants['variant'] {
   const statusMap: Record<string, AdminBadgeVariants['variant']> = {
@@ -687,6 +688,7 @@ export function getStatusBadgeVariant(status: string): AdminBadgeVariants['varia
 
 /**
  * Generate action-specific button variant
+ * @param action
  */
 export function getActionButtonVariant(action: string): AdminButtonVariants['variant'] {
   const actionMap: Record<string, AdminButtonVariants['variant']> = {

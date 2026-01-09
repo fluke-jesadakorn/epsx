@@ -1,7 +1,8 @@
 'use server';
 
-import { createAdminApiClient } from '@/lib/api-client';
 import { cookies } from 'next/headers';
+
+import { createAdminApiClient } from '@/lib/api-client';
 
 // ============================================================================
 // TYPES
@@ -44,6 +45,10 @@ async function getAdminClient() {
 // NOTIFICATION ACTIONS
 // ============================================================================
 
+/**
+ *
+ * @param params
+ */
 export async function createAdminNotification(
   params: CreateNotificationParams
 ): Promise<ActionResult> {
@@ -91,7 +96,7 @@ export async function createAdminNotification(
       data: response.data,
     };
   } catch (error) {
-    // eslint-disable-next-line no-console
+     
     console.error('Failed to create admin notification:', error);
     return {
       success: false,
@@ -100,6 +105,10 @@ export async function createAdminNotification(
   }
 }
 
+/**
+ *
+ * @param params
+ */
 export async function broadcastNotification(
   params: Omit<CreateNotificationParams, 'walletAddress' | 'broadcast'>
 ): Promise<ActionResult> {
@@ -109,12 +118,19 @@ export async function broadcastNotification(
   });
 }
 
+/**
+ *
+ * @param params
+ */
 export async function sendNotification(
   params: CreateNotificationParams
 ): Promise<ActionResult> {
   return createAdminNotification(params);
 }
 
+/**
+ *
+ */
 export async function cleanupExpiredPermissionsAction(): Promise<ActionResult> {
   try {
     const client = await getAdminClient();
@@ -133,7 +149,7 @@ export async function cleanupExpiredPermissionsAction(): Promise<ActionResult> {
       data: response.data,
     };
   } catch (error) {
-    // eslint-disable-next-line no-console
+     
     console.error('Failed to cleanup permissions:', error);
     return {
       success: false,

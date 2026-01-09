@@ -8,6 +8,9 @@
  * - Be a Client Component ('use client')
  * - Define its own <html> and <body> tags
  * - Be self-contained with no external dependencies
+ * @param root0
+ * @param root0.error
+ * @param root0.reset
  */
 export default function GlobalError({
     error,

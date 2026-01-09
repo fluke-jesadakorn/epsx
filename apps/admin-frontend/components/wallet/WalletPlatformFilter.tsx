@@ -7,9 +7,9 @@
 import { BarChart3, Coins, CreditCard, TrendingUp } from 'lucide-react';
 import React from 'react';
 
-import { cn } from '@/lib/utils';
-
 import type { Platform } from './types';
+
+import { cn } from '@/lib/utils';
 
 interface PlatformOption {
     value: Platform | 'all';
@@ -63,6 +63,13 @@ interface WalletPlatformFilterProps {
     className?: string;
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.value
+ * @param root0.onChange
+ * @param root0.className
+ */
 export function WalletPlatformFilter({
     value,
     onChange,

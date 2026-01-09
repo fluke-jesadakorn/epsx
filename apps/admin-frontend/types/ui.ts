@@ -5,6 +5,7 @@
  */
 
 import type { ReactNode } from 'react';
+
 import type { User, Permission } from './core';
 
 // Basic Notification interface for UI types

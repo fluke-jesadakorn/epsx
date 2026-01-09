@@ -37,6 +37,7 @@ pub struct GroupDb {
     pub updated_at: DateTime<Utc>,
     pub created_by: Option<String>,
     pub last_modified_by: Option<String>,
+    pub tier_level: i32,
 }
 
 /// Diesel Insertable model for creating new groups
@@ -62,6 +63,11 @@ pub struct NewGroupDb {
     pub updated_at: DateTime<Utc>,
     pub created_by: Option<String>,
     pub last_modified_by: Option<String>,
+    pub rate_limit_per_minute: i32,
+    pub rate_limit_per_hour: i32,
+    pub rate_limit_per_day: i32,
+    pub burst_capacity: i32,
+    pub tier_level: i32,
 }
 
 /// Diesel AsChangeset model for updating groups
@@ -84,6 +90,7 @@ pub struct UpdateGroupDb {
     pub assignment_rules: Option<serde_json::Value>,
     pub updated_at: Option<DateTime<Utc>>,
     pub last_modified_by: Option<String>,
+    pub tier_level: Option<i32>,
 }
 
 /// Form data for group creation from API requests

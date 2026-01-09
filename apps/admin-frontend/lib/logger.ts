@@ -41,11 +41,11 @@ class Logger {
       case 'info':
         break
       case 'warn':
-        // eslint-disable-next-line no-console
+         
         console.warn(formattedMessage)
         break
       case 'error':
-        // eslint-disable-next-line no-console
+         
         console.error(formattedMessage)
         break
     }

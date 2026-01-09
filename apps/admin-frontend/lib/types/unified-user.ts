@@ -113,7 +113,7 @@ export interface ActivityRecord {
   id: string
   action: string
   resource: string
-  details: Record<string, any>
+  details: Record<string, unknown>
   timestamp: Date
   ipAddress?: string
   userAgent?: string
@@ -147,18 +147,18 @@ export interface UnifiedUserData extends UserAccountInfo {
   roles: UserRole[]
   customPermissions: Permission[]
   permissionProfiles: PermissionProfile[]
-  
+
   // Modules & Access (consolidates module management)
   moduleAccess: ModuleAccess[]
   moduleQuotas: ModuleQuota[]
-  
+
   // Billing & Packages (consolidates billing + stock ranking)
   billing: BillingStatus
   stockRankingPackages: StockRankingPackage[]
-  
+
   // Developer Access
   apiKeys: ApiKey[]
-  
+
   // Activity & Analytics (new consolidated view)
   recentActivity: ActivityRecord[]
   loginHistory: LoginRecord[]
@@ -229,7 +229,7 @@ export interface UserOperationError {
   details?: Record<string, any>
 }
 
-export interface UserOperationResult<T = any> {
+export interface UserOperationResult<T = unknown> {
   success: boolean
   data?: T
   error?: UserOperationError

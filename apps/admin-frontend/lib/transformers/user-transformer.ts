@@ -3,7 +3,7 @@
  * Transforms backend UserSummary data to frontend User interface
  */
 
-import type { User } from '@/types/core';
+import type { User } from '../../../../shared/types/domain/User';
 
 // Backend response interface (matches backend UserSummary)
 export interface BackendUserSummary {
@@ -49,35 +49,36 @@ export function transformBackendUser(backendUser: BackendUserSummary): User {
   return {
     // Identity mapping
     id: backendUser.id,
-    wallet_address: backendUser.wallet_address,
-    email: backendUser.email || undefined,
-    displayName: backendUser.display_name || undefined,
-    name: backendUser.display_name || undefined,
-    firstName: backendUser.display_name?.split(' ')[0] || undefined,
-    lastName: backendUser.display_name?.split(' ').slice(1).join(' ') || undefined,
+    walletAddress: backendUser.wallet_address,
+    email: backendUser.email || '',
+    displayName: backendUser.display_name,
+    name: backendUser.display_name || 'User',
+    firstName: backendUser.display_name?.split(' ')[0],
+    lastName: backendUser.display_name?.split(' ').slice(1).join(' '),
+    role: (backendUser.group as unknown as 'user' | 'admin') || 'user',
+    phoneNumber: undefined,
+    timezone: undefined,
+    language: undefined,
+    twoFactorEnabled: false,
+    avatar: undefined,
+    lastActivityAt: undefined,
 
     // Group from backend (no client-side derivation)
-    group: group as 'admin' | 'user' | 'premium_user',
+    group: group as unknown as 'Basic Access Group',
+    permissionGroup: group as unknown as 'Basic Access Group',
     status: mapBackendStatus(backendUser.status, backendUser.is_active),
-    isActive: backendUser.is_active,
+    emailVerified: backendUser.email_verified || false,
 
     // Timestamps
-    createdAt: backendUser.created_at || new Date().toISOString(),
-    updatedAt: backendUser.updated_at || new Date().toISOString(),
-    lastLoginAt: backendUser.last_login_at,
+    createdAt: new Date(backendUser.created_at),
+    updatedAt: new Date(backendUser.updated_at),
+    lastLogin: backendUser.last_login_at ? new Date(backendUser.last_login_at) : undefined,
 
-    // Authentication context
-    sub: backendUser.id,
-
-    // Permissions from backend (no derivation)
-    permissions,
     // Platform context
+    permissions,
     platforms,
     primaryPlatform: platforms[0] || 'epsx',
     platformContext: 'epsx',
-
-    // Permission checking (local only - backend enforces)
-    hasAllPermissions: (requiredPermissions: string[]) => requiredPermissions.every(rp => permissions.includes(rp)),
   };
 }
 
@@ -99,22 +100,23 @@ export function transformBackendUsersResponse(
  * @param backendStatus
  * @param isActive
  */
-function mapBackendStatus(backendStatus?: string, isActive?: boolean): 'active' | 'inactive' | 'suspended' | 'deleted' {
+function mapBackendStatus(backendStatus?: string, isActive?: boolean): 'active' | 'disabled' | 'pending' | 'suspended' | 'trial' {
   if (backendStatus) {
-    switch (backendStatus.toLowerCase()) {
+    const status = backendStatus.toLowerCase();
+    switch (status) {
       case 'active':
         return 'active';
       case 'inactive':
-        return 'inactive';
+        return 'disabled';
       case 'suspended':
         return 'suspended';
       case 'deleted':
-        return 'deleted';
+        return 'disabled';
       default:
-        return isActive ? 'active' : 'inactive';
+        return isActive ? 'active' : 'disabled';
     }
   }
-  return isActive ? 'active' : 'inactive';
+  return isActive ? 'active' : 'disabled';
 }
 
 /**
@@ -165,17 +167,21 @@ export function createMockUser(overrides: Partial<BackendUserSummary> = {}): Use
  * Validate backend user data
  * @param data
  */
-export function validateBackendUser(data: any): data is BackendUserSummary {
+export function validateBackendUser(data: unknown): data is BackendUserSummary {
+  if (typeof data !== 'object' || data === null) {
+    return false;
+  }
+
+  const d = data as Record<string, unknown>;
+
   // Basic required fields
   const hasRequiredFields = (
-    typeof data === 'object' &&
-    data !== null &&
-    typeof data.id === 'string' &&
-    typeof data.wallet_address === 'string' &&
-    typeof data.is_active === 'boolean' &&
-    Array.isArray(data.permissions) &&
-    typeof data.created_at === 'string' &&
-    typeof data.updated_at === 'string'
+    typeof d.id === 'string' &&
+    typeof d.wallet_address === 'string' &&
+    typeof d.is_active === 'boolean' &&
+    Array.isArray(d.permissions) &&
+    typeof d.created_at === 'string' &&
+    typeof d.updated_at === 'string'
   );
 
   if (!hasRequiredFields) {
@@ -184,12 +190,12 @@ export function validateBackendUser(data: any): data is BackendUserSummary {
 
   // Allow optional fields to be missing or have correct types
   const optionalFieldsValid = (
-    (data.email === undefined || typeof data.email === 'string') &&
-    (data.display_name === undefined || typeof data.display_name === 'string') &&
-    (data.role === undefined || typeof data.role === 'string') &&
-    (data.status === undefined || typeof data.status === 'string') &&
-    (data.email_verified === undefined || typeof data.email_verified === 'boolean') &&
-    (data.last_login_at === undefined || typeof data.last_login_at === 'string')
+    (d.email === undefined || typeof d.email === 'string') &&
+    (d.display_name === undefined || typeof d.display_name === 'string') &&
+    (d.role === undefined || typeof d.role === 'string') &&
+    (d.status === undefined || typeof d.status === 'string') &&
+    (d.email_verified === undefined || typeof d.email_verified === 'boolean') &&
+    (d.last_login_at === undefined || typeof d.last_login_at === 'string')
   );
 
   if (!optionalFieldsValid) {

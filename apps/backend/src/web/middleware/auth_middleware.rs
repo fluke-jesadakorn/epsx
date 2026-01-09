@@ -351,7 +351,7 @@ async fn validate_siwe_signature(headers: &HeaderMap, app_state: &AppState) -> R
         chain_id,
         last_auth_at: Utc::now(),
         bearer_token: None, // Bearer tokens are only generated via the proper SIWE verify endpoint
-        token_expires_at: Some(Utc::now() + chrono::Duration::hours(24)), // 24 hour expiry
+        token_expires_at: Some(Utc::now() + chrono::Duration::days(30)), // 30 days expiry
         auth_method: AuthMethod::SiweSignature,
     };
 

@@ -1,12 +1,11 @@
 'use client';
 
 import { Activity, AlertTriangle, BarChart3, Clock, Download, TrendingUp } from 'lucide-react';
-import { memo, useCallback, useEffect, useState } from 'react';
+import React, { memo, useCallback, useEffect, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-
 import { ApiKey } from '@/hooks/useAnalyticsData';
 
 interface UsageData {
@@ -20,14 +19,14 @@ interface UsageAnalyticsTabProps {
   apiKeys: ApiKey[];
 }
 
-function UsageAnalyticsTab({ apiKeys }: UsageAnalyticsTabProps) {
+function UsageAnalyticsTab({ apiKeys }: UsageAnalyticsTabProps): React.JSX.Element {
   const [timeRange, setTimeRange] = useState('7d');
   const [selectedApiKey, setSelectedApiKey] = useState<string>('all');
   const [usageData, setUsageData] = useState<UsageData[]>([]);
   const [isLoadingUsage, setIsLoadingUsage] = useState(false);
 
   // Load usage data from API
-  const loadUsageData = useCallback(async () => {
+  const loadUsageData = useCallback(async (): Promise<void> => {
     try {
       setIsLoadingUsage(true);
       const client = await import('@/shared/utils/api-client').then(m => m.createAdminApiClient());
@@ -62,12 +61,12 @@ function UsageAnalyticsTab({ apiKeys }: UsageAnalyticsTabProps) {
   const totalApiRequests = apiKeys.reduce((sum, key) => sum + key.total_requests, 0);
 
   // Calculate real current usage from backend data instead of mocking
-  const getCurrentUsage = (key: ApiKey) => {
+  const getCurrentUsage = (key: ApiKey): number => {
     // In production, this would come from real-time usage metrics API
     return Math.min(key.total_requests % key.rate_limit_per_minute, key.rate_limit_per_minute);
   };
 
-  const exportData = useCallback(() => {
+  const exportData = useCallback((): void => {
     const csvContent = [
       ['Date', 'Requests', 'Errors', 'Latency (ms)'],
       ...usageData.map(day => [day.date, day.requests, day.errors, day.latency])

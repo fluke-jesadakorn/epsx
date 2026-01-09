@@ -15,7 +15,7 @@ export async function getBearerToken(): Promise<string | null> {
   try {
     return await getJWTFromCookies();
   } catch (_error) {
-    // eslint-disable-next-line no-console
+     
     console.error('❌ Failed to get bearer token:', _error);
     return null;
   }
@@ -28,7 +28,7 @@ export async function getCurrentUser() {
   try {
     return await getAuthUser();
   } catch (_error) {
-    // eslint-disable-next-line no-console
+     
     console.error('❌ Failed to get current user:', _error);
     return null;
   }
@@ -62,7 +62,7 @@ export async function validateAdminAccess(): Promise<boolean> {
     // No valid admin permissions found
     return false;
   } catch (_error) {
-    // eslint-disable-next-line no-console
+     
     console.error('❌ Failed to validate admin access:', _error);
     return false;
   }
@@ -102,7 +102,7 @@ export async function hasPermission(permission: string): Promise<boolean> {
 
     return false;
   } catch (_error) {
-    // eslint-disable-next-line no-console
+     
     console.error('❌ Failed to check permission:', _error);
     return false;
   }
@@ -131,7 +131,7 @@ export async function hasPlatformPermission(
 
     return hasPermission(permission);
   } catch (_error) {
-    // eslint-disable-next-line no-console
+     
     console.error('❌ Failed to check platform permission:', _error);
     return false;
   }

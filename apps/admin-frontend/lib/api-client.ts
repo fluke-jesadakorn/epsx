@@ -47,6 +47,10 @@ export { createAdminApiClient };
 
 /**
  * Create a new admin API client with custom options
+ * @param options
+ * @param options.baseURL
+ * @param options.token
+ * @param options.serverSide
  */
 export function createApiClient(options?: {
     baseURL?: string;

@@ -1,11 +1,11 @@
 'use client';
 
-import { useState } from 'react';
 import { Bell, Send, User, Users, AlertCircle } from 'lucide-react';
+import { useState } from 'react';
+
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
   SelectContent,
@@ -13,15 +13,22 @@ import {
   SelectTrigger,
   SelectValue
 } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 import { createNotificationsClient } from '@/shared/api/notifications';
-import { createAdminApiClient } from '@/shared/utils/api-client';
 import type { NotificationType, NotificationPriority } from '@/shared/api/notifications';
+import { createAdminApiClient } from '@/shared/utils/api-client';
 
 interface SendNotificationFormProps {
   onSuccess?: () => void;
   onCancel?: () => void;
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.onSuccess
+ * @param root0.onCancel
+ */
 export function SendNotificationForm({ onSuccess, onCancel }: SendNotificationFormProps) {
   const [recipientType, setRecipientType] = useState<'specific' | 'broadcast'>('specific');
   const [walletAddress, setWalletAddress] = useState('');
@@ -69,7 +76,6 @@ export function SendNotificationForm({ onSuccess, onCancel }: SendNotificationFo
         ...(actionUrl && { action_url: actionUrl }),
         ...(imageUrl && { image_url: imageUrl }),
       });
-
 
       // Reset form
       setRecipientType('specific');

@@ -3,6 +3,12 @@ import { defineConfig, devices } from '@playwright/test';
 // Simplified environment for testing
 const CI = process.env.CI === 'true';
 
+// Constants to avoid duplication
+const TEST_ID = 'data-testid';
+const AUTH_FLOWS_TEST = '**/auth-flows.spec.ts';
+const NAV_LAYOUT_TEST = '**/navigation-layout.spec.ts';
+const WALLET_MGMT_TEST = '**/wallet-management.spec.ts';
+
 export default defineConfig({
   testDir: './__test__/e2e',
   fullyParallel: true,
@@ -32,20 +38,20 @@ export default defineConfig({
     // Core Authentication and Authorization Tests
     {
       name: 'auth-flows',
-      testMatch: '**/auth-flows.spec.ts',
+      testMatch: AUTH_FLOWS_TEST,
       use: {
         ...devices['Desktop Chrome'],
-        testIdAttribute: 'data-testid',
+        testIdAttribute: TEST_ID,
       },
     },
 
     // Wallet Management Tests
     {
       name: 'wallet-management',
-      testMatch: '**/wallet-management.spec.ts',
+      testMatch: WALLET_MGMT_TEST,
       use: {
         ...devices['Desktop Chrome'],
-        testIdAttribute: 'data-testid',
+        testIdAttribute: TEST_ID,
       },
     },
 
@@ -55,7 +61,7 @@ export default defineConfig({
       testMatch: '**/group-management.spec.ts',
       use: {
         ...devices['Desktop Chrome'],
-        testIdAttribute: 'data-testid',
+        testIdAttribute: TEST_ID,
       },
     },
 
@@ -65,17 +71,17 @@ export default defineConfig({
       testMatch: '**/permission-management-comprehensive.spec.ts',
       use: {
         ...devices['Desktop Chrome'],
-        testIdAttribute: 'data-testid',
+        testIdAttribute: TEST_ID,
       },
     },
 
     // Navigation and Layout Tests
     {
       name: 'navigation-layout',
-      testMatch: '**/navigation-layout.spec.ts',
+      testMatch: NAV_LAYOUT_TEST,
       use: {
         ...devices['Desktop Chrome'],
-        testIdAttribute: 'data-testid',
+        testIdAttribute: TEST_ID,
       },
     },
 
@@ -85,7 +91,7 @@ export default defineConfig({
       testMatch: '**/api-documentation.spec.ts',
       use: {
         ...devices['Desktop Chrome'],
-        testIdAttribute: 'data-testid',
+        testIdAttribute: TEST_ID,
       },
     },
 
@@ -95,7 +101,7 @@ export default defineConfig({
       testMatch: '**/analytics-monitoring.spec.ts',
       use: {
         ...devices['Desktop Chrome'],
-        testIdAttribute: 'data-testid',
+        testIdAttribute: TEST_ID,
       },
     },
 
@@ -105,7 +111,7 @@ export default defineConfig({
       testMatch: '**/subscription-plan-management.spec.ts',
       use: {
         ...devices['Desktop Chrome'],
-        testIdAttribute: 'data-testid',
+        testIdAttribute: TEST_ID,
       },
     },
 
@@ -115,7 +121,7 @@ export default defineConfig({
       testMatch: '**/notifications-admin-complete.spec.ts',
       use: {
         ...devices['Desktop Chrome'],
-        testIdAttribute: 'data-testid',
+        testIdAttribute: TEST_ID,
       },
     },
 
@@ -125,7 +131,7 @@ export default defineConfig({
       testMatch: '**/stock-ranking-policies.spec.ts',
       use: {
         ...devices['Desktop Chrome'],
-        testIdAttribute: 'data-testid',
+        testIdAttribute: TEST_ID,
       },
     },
 
@@ -135,7 +141,7 @@ export default defineConfig({
       testMatch: '**/profile-settings.spec.ts',
       use: {
         ...devices['Desktop Chrome'],
-        testIdAttribute: 'data-testid',
+        testIdAttribute: TEST_ID,
       },
     },
 
@@ -145,7 +151,7 @@ export default defineConfig({
       testMatch: '**/error-edge-cases.spec.ts',
       use: {
         ...devices['Desktop Chrome'],
-        testIdAttribute: 'data-testid',
+        testIdAttribute: TEST_ID,
       },
     },
 
@@ -155,7 +161,7 @@ export default defineConfig({
       testMatch: '**/admin-login-test.spec.ts',
       use: {
         ...devices['Desktop Chrome'],
-        testIdAttribute: 'data-testid',
+        testIdAttribute: TEST_ID,
       },
     },
 
@@ -163,9 +169,9 @@ export default defineConfig({
     {
       name: 'firefox',
       testMatch: [
-        '**/auth-flows.spec.ts',
-        '**/wallet-management.spec.ts',
-        '**/navigation-layout.spec.ts',
+        AUTH_FLOWS_TEST,
+        WALLET_MGMT_TEST,
+        NAV_LAYOUT_TEST,
       ],
       use: { ...devices['Desktop Firefox'] },
     },
@@ -174,9 +180,9 @@ export default defineConfig({
     {
       name: 'webkit',
       testMatch: [
-        '**/auth-flows.spec.ts',
-        '**/wallet-management.spec.ts',
-        '**/navigation-layout.spec.ts',
+        AUTH_FLOWS_TEST,
+        WALLET_MGMT_TEST,
+        NAV_LAYOUT_TEST,
       ],
       use: { ...devices['Desktop Safari'] },
     },
@@ -185,8 +191,8 @@ export default defineConfig({
     {
       name: 'mobile-chrome',
       testMatch: [
-        '**/navigation-layout.spec.ts',
-        '**/auth-flows.spec.ts',
+        NAV_LAYOUT_TEST,
+        AUTH_FLOWS_TEST,
       ],
       use: { ...devices['Pixel 5'] },
     },
@@ -195,8 +201,8 @@ export default defineConfig({
     {
       name: 'mobile-safari',
       testMatch: [
-        '**/navigation-layout.spec.ts',
-        '**/auth-flows.spec.ts',
+        NAV_LAYOUT_TEST,
+        AUTH_FLOWS_TEST,
       ],
       use: { ...devices['iPhone 12'] },
     },

@@ -14,15 +14,19 @@ const nextConfig: NextConfig = {
   staticPageGenerationTimeout: 60,
 
   experimental: {
+    // @ts-expect-error allowedDevOrigins is valid but missing from types in this version
+    allowedDevOrigins: ['100.97.9.56', 'localhost:3000'],
   },
 
   // Transpile shared packages and metamask sdk to apply ignores
-  transpilePackages: ['@/shared',],
+  transpilePackages: ['@/shared', '@wagmi/connectors', 'wagmi'],
 
   // Silence Next.js 16 Turbopack warning (using webpack config for dev)
   turbopack: {},
   // Improve HMR WebSocket reliability and fix SSR issues
-  webpack: (config, { dev, isServer, webpack }: { dev: boolean; isServer: boolean; webpack: any }) => {
+  /* eslint-disable @typescript-eslint/no-explicit-any */
+  webpack: (config: any, { dev, isServer, webpack }: { dev: boolean; isServer: boolean; webpack: any }) => {
+    /* eslint-enable @typescript-eslint/no-explicit-any */
     if (dev && !isServer) {
       config.watchOptions = {
         poll: 1000,
@@ -48,6 +52,7 @@ const nextConfig: NextConfig = {
       tape: stubPath,
       'why-is-node-running': stubPath,
       'pino-pretty': stubPath,
+      'zod/mini': require.resolve('zod'),
     };
     // Standard Node.js polyfills for the browser (Client Component bundle)
     if (!isServer) {

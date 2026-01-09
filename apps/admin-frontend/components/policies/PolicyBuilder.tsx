@@ -154,7 +154,7 @@ export default function PolicyBuilder() {
         setTemplates(response.data.templates || []);
       }
     } catch (_error) {
-      // eslint-disable-next-line no-console
+       
       console.error('Error loading templates:', _error);
     }
   };
@@ -241,7 +241,7 @@ export default function PolicyBuilder() {
         });
       }
     } catch (_error) {
-      // eslint-disable-next-line no-console
+       
       console.error('Error testing policy:', _error);
       toast({
         title: "Test Failed",
@@ -292,7 +292,7 @@ export default function PolicyBuilder() {
         priority: 100,
       });
     } catch (_error) {
-      // eslint-disable-next-line no-console
+       
       console.error('Error saving policy:', _error);
       toast({
         title: "Error",

@@ -5,6 +5,9 @@
 
 import { BarChart3, Coins, Shield } from 'lucide-react';
 
+/**
+ *
+ */
 export function useCrossPlatformAuth() {
   return {
     user: {
@@ -24,6 +27,9 @@ export function useCrossPlatformAuth() {
   };
 }
 
+/**
+ *
+ */
 export function usePlatformContext() {
   return {
     currentPlatform: {
@@ -48,6 +54,9 @@ export function usePlatformContext() {
   };
 }
 
+/**
+ *
+ */
 export function usePlatformPermissions() {
   return {
     can: (permission: string) => false,

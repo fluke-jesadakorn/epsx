@@ -5,8 +5,9 @@
  * Wrapper using shared component with admin-specific fallback UI
  */
 
-import { SharedErrorBoundary } from '@/shared/components/errors/ErrorBoundary'
 import { Component, ReactNode } from 'react'
+
+import { SharedErrorBoundary } from '@/shared/components/errors/ErrorBoundary'
 
 interface ErrorBoundaryState {
   hasError: boolean
@@ -22,20 +23,36 @@ interface ErrorBoundaryProps {
  * Admin-specific Error Boundary with admin-themed fallback
  */
 export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  /**
+   *
+   * @param props
+   */
   constructor(props: ErrorBoundaryProps) {
     super(props)
     this.state = { hasError: false, error: undefined }
   }
 
+  /**
+   *
+   * @param error
+   */
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
     return { hasError: true, error }
   }
 
+  /**
+   *
+   * @param error
+   * @param errorInfo
+   */
   override componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    // eslint-disable-next-line no-console
+     
     console.error('ErrorBoundary caught an error:', error, errorInfo)
   }
 
+  /**
+   *
+   */
   override render() {
     if (this.state.hasError) {
       if (this.props.fallback) {

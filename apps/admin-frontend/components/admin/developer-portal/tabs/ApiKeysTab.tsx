@@ -3,6 +3,8 @@
 import { Plus, Search } from 'lucide-react';
 import React, { useMemo, useState } from 'react';
 
+import { ApiKeyRow } from '../shared/ApiKeyRow';
+
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -13,9 +15,7 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
-
 import type { ApiKeyResponse } from '@/shared/api/plans';
-import { ApiKeyRow } from '../shared/ApiKeyRow';
 
 interface ApiKeysTabProps {
     apiKeys: ApiKeyResponse[];
@@ -30,6 +30,13 @@ type StatusFilter = 'all' | 'active' | 'revoked' | 'expired';
 
 /**
  * API Keys management tab with filtering and actions
+ * @param root0
+ * @param root0.apiKeys
+ * @param root0.onCopyWallet
+ * @param root0.onCopyKeyPrefix
+ * @param root0.onRevoke
+ * @param root0.onEditExpiration
+ * @param root0.onCreateKey
  */
 export const ApiKeysTab: React.FC<ApiKeysTabProps> = ({
     apiKeys,
@@ -70,9 +77,9 @@ export const ApiKeysTab: React.FC<ApiKeysTabProps> = ({
     const statusCounts = useMemo(() => {
         const counts = { all: apiKeys.length, active: 0, revoked: 0, expired: 0 };
         apiKeys.forEach(key => {
-            if (key.status === 'active') counts.active++;
-            else if (key.status === 'revoked') counts.revoked++;
-            else if (key.status === 'expired') counts.expired++;
+            if (key.status === 'active') {counts.active++;}
+            else if (key.status === 'revoked') {counts.revoked++;}
+            else if (key.status === 'expired') {counts.expired++;}
         });
         return counts;
     }, [apiKeys]);

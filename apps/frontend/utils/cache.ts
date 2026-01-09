@@ -1,7 +1,7 @@
 // Cache utilities
-const cache = new Map<string, { value: any; expiry: number }>()
+const cache = new Map<string, { value: unknown; expiry: number }>()
 
-export const set = (key: string, val: any, ttl = 300000): void => {
+export const set = (key: string, val: unknown, ttl = 300000): void => {
   cache.set(key, { value: val, expiry: Date.now() + ttl })
 }
 
@@ -12,7 +12,7 @@ export const get = <T>(key: string): T | null => {
     cache.delete(key)
     return null
   }
-  return item.value
+  return item.value as T
 }
 
 export const stats = () => ({
@@ -32,9 +32,9 @@ export const clear = (key?: string): void => {
 }
 
 // Stock-specific cache helpers
-export const setStock = (symbol: string, data: any, ttl = 300000) => set(`stock:${symbol}`, data, ttl)
+export const setStock = (symbol: string, data: unknown, ttl = 300000) => set(`stock:${symbol}`, data, ttl)
 export const getStock = (symbol: string) => get(`stock:${symbol}`)
-export const setBulk = (stocks: any[], ttl = 300000) => stocks.forEach(s => setStock(s.symbol, s, ttl))
+export const setBulk = (stocks: { symbol: string }[], ttl = 300000) => stocks.forEach(s => setStock(s.symbol, s, ttl))
 export const getBulk = (symbols: string[]) => symbols.map(s => getStock(s)).filter(Boolean)
 
 // Backward compatibility

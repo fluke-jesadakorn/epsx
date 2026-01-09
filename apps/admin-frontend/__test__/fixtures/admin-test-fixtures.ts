@@ -481,9 +481,15 @@ export const PERFORMANCE_TEST_DATA = {
 // Database Utilities
 // ============================================================================
 
+/**
+ *
+ */
 export class TestDatabaseUtilities {
   private static instance: TestDatabaseUtilities;
   
+  /**
+   *
+   */
   static getInstance(): TestDatabaseUtilities {
     if (!TestDatabaseUtilities.instance) {
       TestDatabaseUtilities.instance = new TestDatabaseUtilities();
@@ -574,7 +580,7 @@ export class TestDatabaseUtilities {
       
       return true;
     } catch (_error) {
-      // eslint-disable-next-line no-console
+       
       console.error('❌ Database integrity check failed:', _error);
       return false;
     }
@@ -607,15 +613,13 @@ export class TestDatabaseUtilities {
    */
   async getDatabaseStats(): Promise<any> {
     
-    const stats = {
+    return {
       totalUsers: 0,
       totalSessions: 0,
       totalRoleProfiles: 0,
       totalSecurityEvents: 0,
       // Implementation: Query actual counts from database
     };
-    
-    return stats;
   }
 }
 
@@ -674,19 +678,31 @@ export const TEST_ENVIRONMENT_CONFIG: TestEnvironmentConfig = {
 // Mock API Client
 // ============================================================================
 
+/**
+ *
+ */
 export class MockAPIClient {
   private _baseUrl: string;
 
+  /**
+   *
+   */
   get baseUrl(): string {
     return this._baseUrl;
   }
   
+  /**
+   *
+   * @param baseUrl
+   */
   constructor(baseUrl: string = getBackendUrl('server')) {
     this._baseUrl = baseUrl;
   }
   
   /**
    * Mock successful API responses
+   * @param _endpoint
+   * @param _response
    */
   mockSuccessResponse(_endpoint: string, _response: any): void {
     // Implementation: Set up mock response
@@ -694,6 +710,9 @@ export class MockAPIClient {
   
   /**
    * Mock error API responses
+   * @param _endpoint
+   * @param _status
+   * @param _error
    */
   mockErrorResponse(_endpoint: string, _status: number, _error: any): void {
     // Implementation: Set up mock error response
@@ -701,8 +720,10 @@ export class MockAPIClient {
   
   /**
    * Mock rate limited responses
+   * @param _endpoint
+   * @param _retryAfter
    */
-  mockRateLimitedResponse(_endpoint: string, _retryAfter: number = 60): void {
+  mockRateLimitedResponse(_endpoint: string, _retryAfter = 60): void {
     this.mockErrorResponse(_endpoint, 429, API_RESPONSE_FIXTURES.ERROR.RATE_LIMITED);
   }
   
@@ -718,6 +739,9 @@ export class MockAPIClient {
 // Test Utilities
 // ============================================================================
 
+/**
+ *
+ */
 export class TestUtilities {
   /**
    * Generate random test data
@@ -739,6 +763,7 @@ export class TestUtilities {
   
   /**
    * Wait for specified duration
+   * @param ms
    */
   static async wait(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms));
@@ -746,6 +771,8 @@ export class TestUtilities {
   
   /**
    * Generate performance test metrics
+   * @param requestCount
+   * @param duration
    */
   static generatePerformanceMetrics(requestCount: number, duration: number) {
     return {
@@ -760,6 +787,8 @@ export class TestUtilities {
   
   /**
    * Validate response structure
+   * @param response
+   * @param expectedKeys
    */
   static validateResponseStructure(response: any, expectedKeys: string[]): boolean {
     return expectedKeys.every(key => key in response);

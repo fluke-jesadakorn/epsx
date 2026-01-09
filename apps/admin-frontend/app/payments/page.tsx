@@ -80,6 +80,9 @@ function PaymentsHubSkeleton() {
   );
 }
 
+/**
+ *
+ */
 export default function AdminPaymentsPage() {
   const { isAuthenticated, isLoading } = useSharedAuth();
   const router = useRouter();

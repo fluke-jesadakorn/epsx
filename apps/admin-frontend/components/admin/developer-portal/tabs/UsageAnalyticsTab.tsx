@@ -4,7 +4,6 @@ import { Activity, BarChart3, Download } from 'lucide-react';
 import React from 'react';
 
 import { Button } from '@/components/ui/button';
-
 import type { ApiKeyResponse } from '@/shared/api/plans';
 
 interface UsageAnalyticsTabProps {
@@ -13,6 +12,8 @@ interface UsageAnalyticsTabProps {
 
 /**
  * Usage Analytics tab showing API usage charts and statistics
+ * @param root0
+ * @param root0.apiKeys
  */
 export const UsageAnalyticsTab: React.FC<UsageAnalyticsTabProps> = ({ apiKeys }) => {
     return (

@@ -5,6 +5,12 @@
  * @see shared/utils/permission-error-handler.ts for implementation
  */
 
+import {
+  fetchWithPermissionHandling as sharedFetchWithPermissionHandling,
+  handlePermissionError as sharedHandlePermissionError,
+  type BackendPermissionError
+} from '@/shared/utils/permission-error-handler';
+
 export type {
   BackendPermissionError,
   PermissionErrorEvent,
@@ -15,14 +21,12 @@ export {
   extractPermissionError, getErrorMessage, isPermissionError, onPermissionError, PermissionDeniedError
 } from '@/shared/utils/permission-error-handler';
 
-import {
-  fetchWithPermissionHandling as sharedFetchWithPermissionHandling,
-  handlePermissionError as sharedHandlePermissionError,
-  type BackendPermissionError
-} from '@/shared/utils/permission-error-handler';
-
 /**
  * Handle permission error with admin context
+ * @param error
+ * @param context
+ * @param context.feature
+ * @param context.action
  */
 export function handlePermissionError(
   error: BackendPermissionError,
@@ -33,6 +37,11 @@ export function handlePermissionError(
 
 /**
  * Fetch with permission handling using admin context
+ * @param url
+ * @param options
+ * @param context
+ * @param context.feature
+ * @param context.action
  */
 export async function fetchWithPermissionHandling(
   url: string,

@@ -7,6 +7,8 @@
 import { AlertTriangle } from 'lucide-react';
 import { useState } from 'react';
 
+import type { DisableReasonCategory, Platform } from './types';
+
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -27,8 +29,6 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
-
-import type { DisableReasonCategory, Platform } from './types';
 
 interface DisableWalletModalProps {
     walletAddress: string;
@@ -72,6 +72,15 @@ const ALL_PLATFORMS: { value: Platform; label: string; emoji: string }[] = [
     { value: 'markets', label: 'EPSX Markets', emoji: '📈' },
 ];
 
+/**
+ *
+ * @param root0
+ * @param root0.walletAddress
+ * @param root0.isOpen
+ * @param root0.onClose
+ * @param root0.onConfirm
+ * @param root0.isLoading
+ */
 export function DisableWalletModal({
     walletAddress,
     isOpen,

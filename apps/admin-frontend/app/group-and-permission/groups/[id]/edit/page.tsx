@@ -16,6 +16,9 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
 import { groupMgmt, PermissionGroup } from '@/lib/api/group-management-client'
 
+/**
+ *
+ */
 export default function EditGroupPage() {
     const router = useRouter()
     const params = useParams()

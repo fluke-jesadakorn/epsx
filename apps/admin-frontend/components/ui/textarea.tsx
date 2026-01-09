@@ -1,6 +1,7 @@
+import * as React from "react"
+
 import type { TextareaProps as SharedTextareaProps } from "@/shared/components/ui/textarea"
 import { Textarea as SharedTextarea, textareaVariants } from "@/shared/components/ui/textarea"
-import * as React from "react"
 
 // Wrapper to preserve Admin 'wp' default variant
 const Textarea = React.forwardRef<HTMLTextAreaElement, SharedTextareaProps>(

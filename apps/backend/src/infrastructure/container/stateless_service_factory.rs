@@ -225,7 +225,7 @@ impl RequestServices {
     }
 
     /// Create app state for auth routes
-    pub fn create_auth_app_state(&self) -> crate::web::auth::AppState {
+    pub async fn create_auth_app_state(&self) -> crate::web::auth::AppState {
         // Redis is optional - notifications won't work if Redis is unavailable
         let redis_pool = self.redis_pool.clone();
         let redis_broadcaster = self.redis_broadcaster.clone();
@@ -241,6 +241,7 @@ impl RequestServices {
             Arc::new(crate::infrastructure::container::DomainContainer::new(self.db_pool.clone())),
             redis_pool,
             redis_broadcaster,
+            crate::infrastructure::database::get_analytics_pool().await.ok().map(Arc::new),
         )
     }
 

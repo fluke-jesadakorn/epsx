@@ -9,8 +9,8 @@ use diesel_async::RunQueryDsl;
 use ethers::prelude::*;
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::time::interval;
-use tracing::{debug, error, info, warn};
+use tokio::time::sleep;
+use tracing::{debug, error, info, trace, warn};
 use uuid::Uuid;
 
 use crate::{
@@ -70,13 +70,29 @@ impl TransactionMonitorService {
             self.config.poll_interval_secs
         );
 
-        let mut ticker = interval(Duration::from_secs(self.config.poll_interval_secs));
-
+        let mut error_count = 0;
+        // Use a simple loop with sleep instead of interval for dynamic backoff
         loop {
-            ticker.tick().await;
-
             if let Err(e) = self.check_pending_transactions().await {
-                error!("Error checking pending transactions: {}", e);
+                error_count += 1;
+                let backoff_secs = (self.config.poll_interval_secs * error_count.min(12) as u64).max(self.config.poll_interval_secs);
+                
+                error!("Error checking pending transactions (attempt {}): {}", error_count, e);
+                if e.contains("relation") && e.contains("does not exist") {
+                    error!("💡 HINT: The 'payments' table might be missing. Ensure migrations are run: `diesel migration run --config-file apps/backend/diesel_payments.toml` and PAYMENTS_DATABASE_URL is set correctly.");
+                }
+
+                // Sleep with backoff
+                tokio::time::sleep(Duration::from_secs(backoff_secs)).await;
+            } else {
+                // Reset error count on success
+                if error_count > 0 {
+                    info!("✅ Transaction monitor service checks recovered");
+                    error_count = 0;
+                }
+                
+                // Normal sleep
+                tokio::time::sleep(Duration::from_secs(self.config.poll_interval_secs)).await;
             }
         }
     }
@@ -111,7 +127,7 @@ impl TransactionMonitorService {
             .collect();
 
         if pending_payments.is_empty() {
-            debug!("No pending transactions to check");
+            trace!("No pending transactions to check");
             return Ok(());
         }
 
@@ -386,6 +402,22 @@ impl TransactionMonitorService {
             "📦 Assigning group '{}' ({}) to wallet {}",
             group_name, plan_uuid, wallet_address
         );
+
+        // 2.6 Deactivate all existing subscription plan assignments for this wallet
+        // Enforces single active plan per user (groups can still have multiple users)
+        diesel::sql_query(
+            r#"
+            UPDATE wallet_group_assignments 
+            SET is_active = false, updated_at = NOW()
+            WHERE wallet_address = $1 
+              AND is_active = true
+              AND group_id IN (SELECT id FROM groups WHERE group_type = 'subscription')
+            "#
+        )
+        .bind::<diesel::sql_types::Text, _>(&wallet_address)
+        .execute(&mut primary_conn)
+        .await
+        .ok();
 
         // 3. Assign wallet to plan's permission group
         let payment_reference = format!("PAY-{}", Uuid::new_v4());

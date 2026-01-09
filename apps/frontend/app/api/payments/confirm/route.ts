@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
         let user;
         try {
             user = JSON.parse(userCookie.value);
-        } catch (error) {
+        } catch (_error) {
             return NextResponse.json(
                 { success: false, message: 'Invalid authentication data: malformed user cookie' },
                 { status: 401 }
@@ -84,7 +84,7 @@ export async function POST(req: NextRequest) {
             console.error('[Payment Confirmation] Backend validation failed:', {
                 status: backendResponse.status,
                 statusText: backendResponse.statusText,
-                errorText: errorText,
+                errorText,
             });
 
             let errorData;

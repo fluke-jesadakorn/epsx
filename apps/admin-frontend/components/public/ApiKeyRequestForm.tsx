@@ -101,7 +101,7 @@ export const ApiKeyRequestForm: React.FC = () => {
       setIsSubmitted(true);
       toast.success('Your API key request has been submitted successfully!');
     } catch (_error) {
-      // eslint-disable-next-line no-console
+       
       console.error('Failed to submit request:', _error);
       toast.error('Failed to submit request. Please try again.');
     } finally {

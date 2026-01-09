@@ -6,6 +6,13 @@ interface PageHeaderProps {
     icon?: LucideIcon
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.title
+ * @param root0.description
+ * @param root0.icon
+ */
 export function PageHeader({ title, description, icon: Icon }: PageHeaderProps) {
     return (
         <div className="flex flex-col gap-2 mb-8 animate-in fade-in slide-in-from-top-4 duration-500">

@@ -23,6 +23,7 @@ pub struct AppState {
     pub redis_broadcaster: Option<Arc<RedisNotificationBroadcaster>>,
     pub group_repo: Arc<PermissionGroupRepositoryAdapter>,
     pub transaction_history_provider: Option<Arc<dyn TransactionHistoryProvider>>,
+    pub analytics_db_pool: Option<Arc<&'static Pool<AsyncPgConnection>>>,
     // pub payment_repository: Arc<PaymentRepositoryAdapter>, // Temporarily disabled
     // Stub for backwards compatibility with admin handlers
     pub user_repo: Option<String>,
@@ -37,6 +38,7 @@ impl AppState {
         domain_container: Arc<DomainContainer>,
         redis_pool: Option<Arc<RedisPool>>,
         redis_broadcaster: Option<Arc<RedisNotificationBroadcaster>>,
+        analytics_db_pool: Option<Arc<&'static Pool<AsyncPgConnection>>>,
     ) -> Self {
         // Diesel-based repository
         let group_repo = domain_container
@@ -56,6 +58,7 @@ impl AppState {
             redis_broadcaster,
             group_repo,
             transaction_history_provider,
+            analytics_db_pool,
             // payment_repository, // Temporarily disabled
             user_repo: None, // Placeholder for backwards compatibility
         }

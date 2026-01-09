@@ -1,5 +1,7 @@
 'use client'
 
+import { useEffect, useState } from 'react'
+
 import { toast } from '@/hooks/use-toast'
 import { createNotificationsClient } from '@/shared/api/notifications'
 import { MAX_DROPDOWN_NOTIFICATIONS } from '@/shared/components/notifications/constants'
@@ -11,8 +13,10 @@ import {
 } from '@/shared/components/notifications/utils'
 import { useSSENotifications } from '@/shared/hooks/useSSENotifications'
 import { createAdminApiClient } from '@/shared/utils/api-client'
-import { useEffect, useState } from 'react'
 
+/**
+ *
+ */
 export function AdminNotificationBell() {
   const [count, setCount] = useState(0)
   const [notifications, setNotifications] = useState<Notification[]>([])

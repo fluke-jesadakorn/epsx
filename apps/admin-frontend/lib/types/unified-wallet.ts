@@ -113,7 +113,7 @@ export interface ActivityRecord {
   id: string
   action: string
   resource: string
-  details: Record<string, any>
+  details?: Record<string, unknown>;
   timestamp: Date
   ipAddress?: string
   userAgent?: string
@@ -229,7 +229,7 @@ export interface WalletOperationError {
   details?: Record<string, any>
 }
 
-export interface WalletOperationResult<T = any> {
+export interface WalletOperationResult<T = unknown> {
   success: boolean
   data?: T
   error?: WalletOperationError

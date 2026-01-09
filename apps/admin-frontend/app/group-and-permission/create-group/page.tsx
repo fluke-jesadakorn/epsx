@@ -21,6 +21,9 @@ import {
     Textarea
 } from '@/shared/components'
 
+/**
+ *
+ */
 export default function CreateGroupPage() {
     const router = useRouter()
     const queryClient = useQueryClient()

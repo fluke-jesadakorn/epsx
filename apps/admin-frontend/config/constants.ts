@@ -46,35 +46,68 @@ export const UI_CONSTANTS = {
 } as const;
 
 // Stub utility functions for compatibility
+/**
+ *
+ * @param name
+ */
 export function getPermissionTemplate(name: PermissionTemplateName) {
   return PERMISSION_TEMPLATES[name];
 }
 
+/**
+ *
+ * @param type
+ */
 export function getAssetDefinition(type: AssetType) {
   return ASSET_DEFINITIONS[type];
 }
 
+/**
+ *
+ * @param method
+ */
 export function getPaymentConfig(method: PaymentMethod) {
   return PAYMENT_CONFIGS[method];
 }
 
+/**
+ *
+ * @param network
+ */
 export function getNetworkConfig(network: keyof typeof BLOCKCHAIN_NETWORKS): NetworkConfig {
   return BLOCKCHAIN_NETWORKS[network];
 }
 
+/**
+ *
+ * @param template
+ */
 export function calculatePermissionPrice(template: PermissionTemplateName): number {
   const prices = { basic: 10, advanced: 50, enterprise: 200 };
   return prices[template] || 0;
 }
 
+/**
+ *
+ * @param type
+ */
 export function validateAssetType(type: string): type is AssetType {
   return ['stock', 'crypto', 'commodity'].includes(type);
 }
 
+/**
+ *
+ * @param method
+ */
 export function isValidPaymentMethod(method: string): method is PaymentMethod {
   return ['crypto', 'fiat', 'token'].includes(method);
 }
 
+/**
+ *
+ * @param amount
+ * @param currency
+ */
 export function formatCurrency(amount: number, currency = 'USD'): string {
   return new Intl.NumberFormat('en-US', { 
     style: 'currency', 
@@ -246,6 +279,7 @@ export const Z_INDEX_LAYERS = {
 
 /**
  * Get admin role display name
+ * @param role
  */
 export function getAdminRoleDisplayName(role: keyof typeof ADMIN_CONSTANTS.ADMIN_ROLES): string {
   const roleDisplayNames: Record<string, string> = {
@@ -264,6 +298,7 @@ export function getAdminRoleDisplayName(role: keyof typeof ADMIN_CONSTANTS.ADMIN
 
 /**
  * Get notification type display name
+ * @param type
  */
 export function getNotificationTypeDisplayName(type: typeof ADMIN_CONSTANTS.NOTIFICATION_TYPES[number]): string {
   const typeDisplayNames: Record<string, string> = {
@@ -282,6 +317,7 @@ export function getNotificationTypeDisplayName(type: typeof ADMIN_CONSTANTS.NOTI
 
 /**
  * Validate bulk operation type
+ * @param operation
  */
 export function isValidBulkOperation(operation: string): operation is typeof ADMIN_CONSTANTS.BULK_OPERATIONS[number] {
   return ADMIN_CONSTANTS.BULK_OPERATIONS.includes(operation as any);
@@ -289,6 +325,7 @@ export function isValidBulkOperation(operation: string): operation is typeof ADM
 
 /**
  * Get bulk operation limits
+ * @param operation
  */
 export function getBulkOperationLimit(operation: string): number {
   const limits: Record<string, number> = {
