@@ -10,22 +10,11 @@
 // ============================================================================
 
 export {
-  UnifiedApiClient,
-  APIError,
-  createAdminApiClient,
-  createFrontendApiClient,
-  createApiClient,
-  handlePaginatedRequest,
-  handleSimpleRequest,
-  retryRequest,
-  isApiError,
+  APIError, createAdminApiClient, createApiClient, createFrontendApiClient, handlePaginatedRequest,
+  handleSimpleRequest, isApiError,
   isApiResponse,
-  isPaginatedResponse,
-  type ApiResponse,
-  type ApiError,
-  type RequestConfig,
-  type PaginatedResponse,
-  type Platform
+  isPaginatedResponse, retryRequest, UnifiedApiClient, type ApiError, type ApiResponse, type PaginatedResponse,
+  type Platform, type RequestConfig
 } from '../utils/api-client';
 
 // ============================================================================
@@ -33,82 +22,70 @@ export {
 // ============================================================================
 
 export {
-  UsersApi,
-  createUsersClient,
-  createAdminUsersClient,
-  type UserProfile,
-  type UserSettings,
-  type UpdateProfileRequest,
-  type UpdateSettingsRequest,
-  type SubscriptionInfo,
-  type UserApiKey
+  createAdminUsersClient, createUsersClient, UsersApi, type SubscriptionInfo, type UpdateProfileRequest,
+  type UpdateSettingsRequest, type UserApiKey, type UserProfile,
+  type UserSettings
 } from './users';
 
 export {
-  PermissionsApi,
-  createPermissionsClient,
-  createAdminPermissionsClient,
-  type Permission,
-  type PermissionEntry,
-  type GrantPermissionRequest,
-  type RevokePermissionRequest,
+  createAdminPermissionsClient, createPermissionsClient, PermissionsApi, type GrantPermissionRequest, type Permission,
+  type PermissionEntry, type RevokePermissionRequest,
   type UserPermissionsResponse
 } from './permissions';
 
 export {
-  GroupsApi,
-  createGroupsClient,
-  type Group,
-  type GroupMembership,
-  type AssignGroupRequest,
-  type RemoveGroupRequest
+  createGroupsClient, GroupsApi, type AssignGroupRequest, type Group,
+  type GroupMembership, type RemoveGroupRequest
 } from './groups';
 
 export {
-  WalletsApi,
-  createWalletsClient,
-  type WalletInfo,
+  createWalletsClient, WalletsApi, type RecentWallet, type WalletInfo,
   type WalletSearchFilters,
-  type WalletStats,
-  type RecentWallet
+  type WalletStats
 } from './wallets';
 
 export {
   ComplianceApi,
-  createComplianceClient,
-  type KYCStatus,
+  createComplianceClient, type ComplianceMetrics, type KYCStatus,
   type RiskAssessment,
-  type SuspiciousActivity,
-  type ComplianceMetrics
+  type SuspiciousActivity
 } from './compliance';
 
 export {
   AnalyticsAPIClient as AnalyticsApi,
-  createAnalyticsClient,
-  type EPSRanking,
-  type AnalyticsFilters,
-  type EPSRankingsResponse
+  createAnalyticsClient, type AnalyticsFilters, type EPSRanking, type EPSRankingsResponse
 } from './analytics';
 
 export {
   AuthAPIClient as AuthApi,
-  createAuthClient,
-  type Web3Challenge,
+  createAuthClient, type SessionInfo, type Web3Challenge,
   type Web3VerifyRequest,
-  type Web3VerifyResponse,
-  type SessionInfo
+  type Web3VerifyResponse
 } from './auth';
 
 export {
-  NotificationsAPIClient as NotificationsApi,
-  createNotificationsClient,
-  type NotificationsResponse as NotificationResponse,
+  createNotificationsClient, NotificationsAPIClient as NotificationsApi, type NotificationsResponse as NotificationResponse,
   type NotificationStats
 } from './notifications';
 
 export {
-  PlansAPIClient as PlansApi,
-  createPlansClient,
-  type PlanResponse as Plan,
+  createPlansClient, PlansAPIClient as PlansApi, type PlanResponse as Plan,
   type PlanFeatureResponse as PlanFeature
 } from './plans';
+
+export {
+  createSecurityClient, formatThreatScore,
+  getEventTypeIcon, getSeverityBadgeColor, getSeverityColor, SecurityApi, type SecurityAlert, type SecurityEvent, type SecurityEventFilters, type SecurityEventsResponse,
+  type SecurityMetrics, type SecurityMetricsResponse, type SecurityTrends, type SecurityTrendSummary, type UserThreatResponse
+} from './security';
+
+export {
+  createSettingsClient, DEFAULT_SETTINGS, SettingsApi, type AppearanceSettings, type GeneralSettings,
+  type NotificationSettings,
+  type SecuritySettings, type SettingUpdate, type SystemSettings, type UpdateSettingsResponse
+} from './settings';
+
+export {
+  createAdminPaymentsClient, createPaymentsClient, PaymentsApi, type PaymentConfirmRequest, type PaymentConfirmResult, type PaymentSubmitRequest, type PaymentValidateRequest, type PaymentValidationResult, type TransactionStatusData
+} from './payments';
+
