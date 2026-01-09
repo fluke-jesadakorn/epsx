@@ -1,8 +1,9 @@
+import { createPaymentsClient, type PaymentValidateRequest } from '@/shared/api/payments';
 import { COOKIES } from '@/shared/auth/cookies';
 import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
 
-// Payment confirmation request body
+// Payment confirmation request body (client format)
 interface PaymentConfirmRequest {
     plan_id: string;
     transaction_hash: string;
@@ -56,9 +57,13 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        // 2. Call backend API for payment validation
+        // 2. Call backend API for payment validation using shared client
+        const paymentsApi = createPaymentsClient({
+            serverSide: true,
+            token: accessCookie?.value,
+        });
 
-        const requestBody = {
+        const validateRequest: PaymentValidateRequest = {
             plan_id,
             transaction_hash,
             amount: Math.round(amount * 100), // Convert to cents (integer)
@@ -67,45 +72,27 @@ export async function POST(req: NextRequest) {
             wallet_address: user.wallet_address,
         };
 
-        const backendResponse = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/payments/validate`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                // Use wallet address as primary auth since access token is missing
-                'X-Wallet-Address': user.wallet_address || '',
-                // Try access token if available (fallback)
-                ...(accessCookie?.value ? { 'Authorization': `Bearer ${accessCookie.value}` } : {}),
-            },
-            body: JSON.stringify(requestBody),
-        });
+        const response = await paymentsApi.validatePayment(validateRequest);
 
-        if (!backendResponse.ok) {
-            const errorText = await backendResponse.text();
+        if (!response.success || !response.data) {
             console.error('[Payment Confirmation] Backend validation failed:', {
-                status: backendResponse.status,
-                statusText: backendResponse.statusText,
-                errorText,
+                success: response.success,
+                message: response.message,
+                error: response.error,
             });
-
-            let errorData;
-            try {
-                errorData = JSON.parse(errorText);
-            } catch {
-                errorData = { message: errorText || 'Backend validation failed' };
-            }
 
             return NextResponse.json(
                 {
                     success: false,
-                    message: errorData.message || 'Backend validation failed',
-                    details: errorData.details || errorText,
-                    status: backendResponse.status
+                    message: response.message || response.error || 'Backend validation failed',
+                    details: response.data,
+                    status: response.status
                 },
-                { status: backendResponse.status }
+                { status: response.status || 400 }
             );
         }
 
-        const validationResult = await backendResponse.json();
+        const validationResult = response.data;
 
         if (!validationResult.success) {
             return NextResponse.json(validationResult, { status: 400 });

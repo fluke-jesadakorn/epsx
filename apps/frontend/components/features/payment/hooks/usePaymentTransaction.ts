@@ -1,4 +1,5 @@
 import { PAYMENT_ESCROW_ABI } from '@/lib/contracts/PaymentEscrowABI'
+import type { TransactionStatusData } from '@/shared/api/payments'
 import { devLog } from '@/shared/utils'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { parseUnits } from 'viem'
@@ -15,15 +16,7 @@ interface UsePaymentTransactionProps {
     onError?: (error: string) => void
 }
 
-interface TransactionStatusData {
-    transaction_hash: string
-    status: 'pending' | 'confirming' | 'confirmed' | 'failed'
-    confirmations: number
-    block_number: number | null
-    error_message: string | null
-    payment_reference: string | null
-    plan_name: string | null
-}
+// Note: Using TransactionStatusData from @/shared/api/payments
 
 export function usePaymentTransaction({
     tokenAddress,
@@ -125,7 +118,7 @@ export function usePaymentTransaction({
             console.error('❌ [Debug] Error submitting to backend:', error)
             // Don't fail the payment - it was successful on-chain
         }
-         
+
     }, [planId, amount, currency, onError])
 
     /**
