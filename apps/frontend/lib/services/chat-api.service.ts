@@ -1,19 +1,32 @@
-import type {
-  ChatRequest,
-  ChatResponse,
-  Message,
-  ChatHistoryResponse,
-} from '@/types/chat.d';
+/**
+ * Chat API Service
+ *
+ * Re-exports from shared/api/chat for backward compatibility.
+ * @deprecated Import directly from @/shared/api/chat instead.
+ */
 
-export class ChatApiService {
-  private baseUrl: string;
+import {
+  ChatApi,
+  chatApi,
+  createChatClient,
+  type ChatHistoryResponse,
+  type ChatOptions,
+  type ChatRequest,
+  type ChatResponse,
+  type Message,
+} from '@/shared/api/chat';
 
+// Re-export types
+export type { ChatHistoryResponse, ChatOptions, ChatRequest, ChatResponse, Message };
+
+// ChatApiService class for backward compatibility
+export class ChatApiService extends ChatApi {
   constructor() {
-    // Use relative paths for client-side API calls through Next.js API routes
-    this.baseUrl = '/api';
+    super('/api');
   }
 
-  private buildReq(
+  // Alias methods for backward compatibility
+  buildReq(
     messages: Message[],
     opts?: { temp?: number; maxTokens?: number },
   ): ChatRequest {
@@ -28,81 +41,23 @@ export class ChatApiService {
     messages: Message[],
     opts?: { temp?: number; maxTokens?: number },
   ): Promise<ChatResponse> {
-    try {
-      const response = await fetch(`${this.baseUrl}/chat`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(this.buildReq(messages, opts)),
-      });
-
-      if (!response.ok) {
-        throw new Error(`API error: ${response.status}`);
-      }
-
-      const result = await response.json();
-      return {
-        message: {
-          role: 'assistant',
-          content: result.message.content,
-        },
-        usage: result.usage || {
-          totalTokens: 0,
-          promptTokens: 0,
-          completionTokens: 0,
-        },
-      };
-    } catch (error) {
-      // console.error("Chat API error:", error);
-      throw error;
-    }
+    return this.sendMessage(messages, opts);
   }
 
   async getHistory(convId: string): Promise<Message[]> {
-    try {
-      const response = await fetch(`${this.baseUrl}/chat/history/${convId}`);
-
-      if (!response.ok) {
-        throw new Error(`API error: ${response.status}`);
-      }
-
-      const data: ChatHistoryResponse = await response.json();
-      return data.messages;
-    } catch (error) {
-      // console.error("Chat history API error:", error);
-      throw error;
-    }
+    return super.getHistory(convId);
   }
 
   async streamMsg(
     messages: Message[],
     opts?: { temp?: number; maxTokens?: number },
   ): Promise<ReadableStream<Uint8Array>> {
-    try {
-      const response = await fetch(`${this.baseUrl}/chat/stream`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(this.buildReq(messages, opts)),
-      });
-
-      if (!response.ok) {
-        throw new Error(`API error: ${response.status}`);
-      }
-
-      if (!response.body) {
-        throw new Error('No response body received');
-      }
-
-      return response.body;
-    } catch (error) {
-      // console.error("Chat stream error:", error);
-      throw error;
-    }
+    return this.streamMessage(messages, opts);
   }
 }
 
 // Create a singleton instance
 export const chatApiService = new ChatApiService();
+
+// Also export shared client
+export { chatApi, createChatClient };

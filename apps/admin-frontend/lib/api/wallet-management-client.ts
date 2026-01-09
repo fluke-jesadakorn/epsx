@@ -1,12 +1,21 @@
 /**
- * Wallet Management API Client
- * API functions for the Wallet Management Hub
+ * ADMIN WALLET MANAGEMENT CLIENT
+ *
+ * Re-exports types from shared and provides admin-specific wallet operations.
+ * This wrapper adds admin-frontend specific functionality on top of the shared WalletsApi.
  */
 
 'use client';
 
 import { adminApiClient } from '../api-client';
 
+// Re-export shared types
+export {
+    createWalletsClient, WalletsApi, type RecentWallet, type WalletStats as SharedWalletStats, type WalletActivity, type WalletInfo,
+    type WalletSearchFilters
+} from '@/shared/api/wallets';
+
+// Import local types
 import type {
     DisableReasonCategory,
     PermissionSource,
@@ -18,6 +27,9 @@ import type {
     WalletStats,
     WalletSubscription,
 } from '@/components/wallet/types';
+
+// Re-export for consumers
+export type { WalletActivityEvent, WalletData, WalletFilters, WalletPermission, WalletStats, WalletSubscription };
 
 // ============================================================================
 // REQUEST/RESPONSE TYPES
@@ -81,7 +93,7 @@ export interface WalletStatsDto {
 }
 
 export interface DisableWalletRequest {
-    duration_days?: number | null; // null/undefined = until manual re-enable
+    duration_days?: number | null;
     reason_category: DisableReasonCategory;
     reason_details: string;
     affected_platforms: Platform[];
@@ -109,7 +121,6 @@ export interface AssignPermissionRequest {
 // ============================================================================
 
 function mapWalletDtoToData(dto: WalletSummaryDto): WalletData {
-    // Determine platforms from permissions (may be undefined)
     const platforms = new Set<Platform>();
     const dtoPermissions = dto.permissions || [];
     dtoPermissions.forEach(p => {
@@ -123,13 +134,8 @@ function mapWalletDtoToData(dto: WalletSummaryDto): WalletData {
             platforms.add('markets');
         }
     });
+    if (platforms.size === 0) platforms.add('analytics');
 
-    // Default to analytics if no specific platform detected
-    if (platforms.size === 0) {
-        platforms.add('analytics');
-    }
-
-    // Map permissions
     const permissions: WalletPermission[] = dtoPermissions.map((p, idx) => ({
         id: `perm-${idx}`,
         permission: p.permission,
@@ -140,28 +146,21 @@ function mapWalletDtoToData(dto: WalletSummaryDto): WalletData {
         createdAt: dto.created_at,
     }));
 
-    // Map subscriptions if available
     const subscriptions: WalletSubscription[] = (dto.subscriptions || []).map((s, idx) => ({
         id: `sub-${idx}`,
         planId: s.plan_id,
         planName: s.plan_name,
         status: s.status as 'active' | 'cancelled' | 'expired' | 'paused',
-        priceDisplay: '', // Not available from backend
+        priceDisplay: '',
         startedAt: s.started_at,
         expiresAt: s.expires_at,
-        grantedPermissions: [], // Would need to be fetched from plan
+        grantedPermissions: [],
     }));
 
-    // Determine status
     let status: 'active' | 'disabled' | 'pending' = 'active';
-    if (!dto.is_active) {
-        status = 'disabled';
-    }
+    if (!dto.is_active) status = 'disabled';
 
-    // Parse disable info from metadata if present
     const disableInfo = dto.metadata?.['disable_info'] as WalletData['disableInfo'] | undefined;
-
-    // Extract label and note from metadata
     const label = dto.metadata?.['label'] as string | undefined;
     const note = dto.metadata?.['note'] as string | undefined;
 
@@ -182,19 +181,11 @@ function mapWalletDtoToData(dto: WalletSummaryDto): WalletData {
 }
 
 function detectPlatform(permission: string): Platform {
-    if (permission.startsWith('epsx:analytics') || permission.startsWith('epsx:rankings')) {
-        return 'analytics';
-    }
-    if (permission.startsWith('epsx-pay:')) {
-        return 'pay';
-    }
-    if (permission.startsWith('epsx-token:')) {
-        return 'token';
-    }
-    if (permission.startsWith('epsx-markets:')) {
-        return 'markets';
-    }
-    return 'analytics'; // Default
+    if (permission.startsWith('epsx:analytics') || permission.startsWith('epsx:rankings')) return 'analytics';
+    if (permission.startsWith('epsx-pay:')) return 'pay';
+    if (permission.startsWith('epsx-token:')) return 'token';
+    if (permission.startsWith('epsx-markets:')) return 'markets';
+    return 'analytics';
 }
 
 function mapStatsToFrontend(dto: WalletStatsDto): WalletStats {
@@ -202,7 +193,7 @@ function mapStatsToFrontend(dto: WalletStatsDto): WalletStats {
         total: dto.total_users,
         active: dto.active_users,
         disabled: dto.inactive_users,
-        subscribed: 0, // TODO: Add to backend stats
+        subscribed: 0,
         changes: {
             total: dto.new_users_30_days,
             active: Math.round(dto.growth_rate * dto.active_users / 100),
@@ -210,7 +201,7 @@ function mapStatsToFrontend(dto: WalletStatsDto): WalletStats {
             subscribed: 0,
         },
         platformDistribution: {
-            analytics: dto.active_users, // TODO: Get real distribution from backend
+            analytics: dto.active_users,
             pay: 0,
             token: 0,
             markets: 0,
@@ -223,111 +214,41 @@ function mapStatsToFrontend(dto: WalletStatsDto): WalletStats {
 // ============================================================================
 
 export const walletMgmt = {
-    /**
-     * Fetch paginated list of wallets with filtering
-     * @param filters
-     * @param page
-     * @param limit
-     */
-    async fetchWallets(filters: WalletFilters, page = 1, limit = 20): Promise<{
-        wallets: WalletData[];
-        pagination: WalletListResponse['pagination'];
-    }> {
+    async fetchWallets(filters: WalletFilters, page = 1, limit = 20): Promise<{ wallets: WalletData[]; pagination: WalletListResponse['pagination'] }> {
         const params: Record<string, string> = {
             page: page.toString(),
             limit: limit.toString(),
             sort_by: filters.sortBy,
             sort_order: filters.sortOrder,
         };
-
-        if (filters.search) {
-            params['search'] = filters.search;
-        }
-
-        if (filters.status !== 'all') {
-            params['status'] = filters.status;
-        }
-
-        // Platform filter would need backend support
-        // if (filters.platform !== 'all') {
-        //   params.platform = filters.platform;
-        // }
+        if (filters.search) params['search'] = filters.search;
+        if (filters.status !== 'all') params['status'] = filters.status;
 
         const res = await adminApiClient.get<WalletListResponse>('/api/admin/wallets', params);
-
-        // Handle AdminApiResponse wrapper: { success, data: { wallets, pagination }, message }
         const responseData = res.data?.data || res.data;
         const rawWallets = responseData?.wallets || [];
         const wallets = rawWallets.map(mapWalletDtoToData);
-
         const rawPagination = responseData?.pagination || res.data?.pagination;
-        const pagination = rawPagination || {
-            page: 1,
-            limit: 20,
-            total: wallets.length,
-            total_pages: 1,
-            has_next_page: false,
-            has_previous_page: false,
-        };
-
+        const pagination = rawPagination || { page: 1, limit: 20, total: wallets.length, total_pages: 1, has_next_page: false, has_previous_page: false };
         return { wallets, pagination };
     },
 
-    /**
-     * Fetch wallet statistics
-     */
     async fetchWalletStats(): Promise<WalletStats> {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const res = await adminApiClient.get<any>('/api/admin/wallets/stats');
-        // Backend returns { success, data: { stats }, message, metadata }
         const responseData = res.data?.data || res.data;
-        const stats = responseData?.stats || responseData || {
-            total_users: 0,
-            active_users: 0,
-            inactive_users: 0,
-            new_users_30_days: 0,
-            active_users_30_days: 0,
-            growth_rate: 0,
-        };
+        const stats = responseData?.stats || responseData || { total_users: 0, active_users: 0, inactive_users: 0, new_users_30_days: 0, active_users_30_days: 0, growth_rate: 0 };
         return mapStatsToFrontend(stats);
     },
 
-    /**
-     * Fetch detailed wallet information
-     * @param walletAddress
-     */
     async fetchWalletDetail(walletAddress: string): Promise<WalletData> {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const res = await adminApiClient.get<any>(
-            `/api/admin/wallets/${walletAddress}`
-        );
-
-        // Handle AdminApiResponse wrapper: { success, data: { wallet: {...} }, message }
-        // Also handle direct response: { wallet: {...} }
+        const res = await adminApiClient.get<any>(`/api/admin/wallets/${walletAddress}`);
         const responseData = res.data?.data || res.data;
         const walletDto = responseData?.wallet || responseData;
-
-        if (!walletDto || !walletDto.wallet_address) {
-            throw new Error('Wallet not found');
-        }
-
+        if (!walletDto || !walletDto.wallet_address) throw new Error('Wallet not found');
         return mapWalletDtoToData(walletDto);
     },
 
-    /**
-     * Assign permissions to a wallet
-     * @param data
-     * @param data.walletAddress
-     * @param data.permissions
-     * @param data.expiresAt
-     * @param data.reason
-     */
-    async assignPermission(data: {
-        walletAddress: string;
-        permissions: string[];
-        expiresAt?: string;
-        reason?: string;
-    }): Promise<void> {
+    async assignPermission(data: { walletAddress: string; permissions: string[]; expiresAt?: string; reason?: string }): Promise<void> {
         await adminApiClient.post('/api/admin/permissions/bulk/grant', {
             wallet_addresses: [data.walletAddress],
             permission_strings: data.permissions,
@@ -336,71 +257,35 @@ export const walletMgmt = {
         });
     },
 
-    /**
-     * Revoke permissions from a wallet
-     * @param data
-     * @param data.walletAddress
-     * @param data.permissions
-     */
-    async revokePermission(data: {
-        walletAddress: string;
-        permissions: string[];
-    }): Promise<void> {
+    async revokePermission(data: { walletAddress: string; permissions: string[] }): Promise<void> {
         await adminApiClient.post('/api/admin/permissions/bulk/revoke', {
             wallet_addresses: [data.walletAddress],
             permission_strings: data.permissions,
         });
     },
 
-    /**
-     * Temporarily disable a wallet
-     * @param walletAddress
-     * @param data
-     */
     async disableWallet(walletAddress: string, data: DisableWalletRequest): Promise<void> {
         await adminApiClient.post(`/api/admin/wallets/${walletAddress}/disable`, data);
     },
 
-    /**
-     * Re-enable a disabled wallet
-     * @param walletAddress
-     * @param data
-     */
     async enableWallet(walletAddress: string, data: EnableWalletRequest): Promise<void> {
         await adminApiClient.post(`/api/admin/wallets/${walletAddress}/enable`, data);
     },
 
-    /**
-     * Fetch activity history for a wallet
-     * @param walletAddress
-     * @param limit
-     */
     async fetchActivityHistory(walletAddress: string, limit = 20): Promise<WalletActivityEvent[]> {
-        const res = await adminApiClient.get<{ events: WalletActivityEvent[] }>(
-            `/api/admin/wallets/${walletAddress}/activity`,
-            { limit: limit.toString() }
-        );
-
+        const res = await adminApiClient.get<{ events: WalletActivityEvent[] }>(`/api/admin/wallets/${walletAddress}/activity`, { limit: limit.toString() });
         return res.data?.events || [];
     },
 
-    /**
-     * Bulk operations on multiple wallets
-     * @param data
-     */
     async bulkGrantPermissions(data: AssignPermissionRequest): Promise<void> {
         await adminApiClient.post('/api/admin/permissions/bulk/grant', data);
     },
 
-    async bulkRevokePermissions(data: {
-        wallet_addresses: string[];
-        permission_strings: string[];
-    }): Promise<void> {
+    async bulkRevokePermissions(data: { wallet_addresses: string[]; permission_strings: string[] }): Promise<void> {
         await adminApiClient.post('/api/admin/permissions/bulk/revoke', data);
     },
 
     async bulkDisable(walletAddresses: string[], reason: string): Promise<void> {
-        // Note: Backend would need to support bulk disable
         await Promise.all(
             walletAddresses.map(addr =>
                 this.disableWallet(addr, {
@@ -415,22 +300,9 @@ export const walletMgmt = {
         );
     },
 
-    /**
-     * Update wallet metadata (label and note)
-     * @param walletAddress
-     * @param data
-     * @param data.label
-     * @param data.note
-     */
-    async updateWalletMetadata(walletAddress: string, data: {
-        label?: string | null;
-        note?: string | null;
-    }): Promise<void> {
+    async updateWalletMetadata(walletAddress: string, data: { label?: string | null; note?: string | null }): Promise<void> {
         await adminApiClient.put(`/api/admin/wallets/${walletAddress}`, {
-            metadata: {
-                label: data.label ?? undefined,
-                note: data.note ?? undefined,
-            },
+            metadata: { label: data.label ?? undefined, note: data.note ?? undefined },
         });
     },
 };
