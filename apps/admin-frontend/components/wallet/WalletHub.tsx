@@ -156,7 +156,7 @@ export function WalletHub({ className }: WalletHubProps) {
         setIsActionLoading(true);
         try {
             await walletMgmt.disableWallet(data.walletAddress, {
-                duration_days: data.duration === 'until_manual' ? undefined : data.duration,
+                duration_days: data.duration === 'until_manual' ? null : data.duration,
                 reason_category: data.reasonCategory,
                 reason_details: data.reasonDetails,
                 affected_platforms: data.affectedPlatforms,

@@ -81,7 +81,7 @@ export interface WalletStatsDto {
 }
 
 export interface DisableWalletRequest {
-    duration_days?: number; // undefined = until manual re-enable
+    duration_days?: number | null; // null/undefined = until manual re-enable
     reason_category: DisableReasonCategory;
     reason_details: string;
     affected_platforms: Platform[];

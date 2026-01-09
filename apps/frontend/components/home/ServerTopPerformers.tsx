@@ -1,3 +1,4 @@
+
 import { StockDataCard } from '@/shared/components';
 import { env } from '@/shared/env/schema';
 
@@ -48,7 +49,7 @@ const TopPerformersBox = ({ top3Data }: { top3Data: SymbolCardData[] }) => {
       </div>
 
       {/* Analytics-style card grid */}
-      <div className="grid grid-cols-1 justify-items-center gap-4 px-2 sm:grid-cols-2 sm:px-0 lg:grid-cols-3">
+      <div className="grid grid-cols-1 justify-items-center gap-6 px-4 sm:grid-cols-2 lg:grid-cols-3">
         {top3Data.map(cardData => {
           const latestQuarter = cardData.quarterly_performance?.[0];
 
@@ -61,6 +62,7 @@ const TopPerformersBox = ({ top3Data }: { top3Data: SymbolCardData[] }) => {
               price={latestQuarter?.price || 0}
               currency={cardData.currency}
               daysUntilNextAction={cardData.next_quarter_estimate?.days_until_announcement}
+              // Always use premium style for top performers on homepage
               variant="premium"
             />
           );

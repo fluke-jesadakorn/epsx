@@ -157,13 +157,16 @@ export const groupMgmt = {
   async getPermissionGroups(): Promise<PermissionGroup[]> {
     const res = await adminApiClient.get<any>(API_ROUTES.PERMISSIONS.GROUPS);
     const groups = res.data?.data || res.data;
-    if (!Array.isArray(groups)) {throw new Error('Invalid response');}
+    if (!Array.isArray(groups)) { throw new Error('Invalid response'); }
     return groups;
   },
 
   async getPermissionGroup(groupId: string): Promise<PermissionGroup> {
-    const res = await adminApiClient.get<PermissionGroup>(`/api/admin/permissions/groups/${groupId}`);
-    return res.data!;
+    const res = await adminApiClient.get<any>(`${API_ROUTES.PERMISSIONS.GROUPS}/${groupId}`);
+    // Handle nested response format { success: true, data: {...} }
+    const group = res.data?.data || res.data;
+    if (!group) { throw new Error('Group not found'); }
+    return group;
   },
 
   async createPermissionGroup(req: CreateGroupRequest): Promise<PermissionGroup> {
@@ -194,7 +197,7 @@ export const groupMgmt = {
     groupId: string,
     req: UpdateGroupRequest
   ): Promise<PermissionGroup> {
-    const res = await adminApiClient.put<PermissionGroup>(`/api/admin/permissions/groups/${groupId}`, req);
+    const res = await adminApiClient.put<PermissionGroup>(`${API_ROUTES.PERMISSIONS.GROUPS}/${groupId}`, req);
     return res.data!;
   },
 
@@ -211,7 +214,7 @@ export const groupMgmt = {
 
     // Handle pagination wrapper if present
     const assignments = res.data?.data || res.data || [];
-    if (!Array.isArray(assignments)) {return [];}
+    if (!Array.isArray(assignments)) { return []; }
 
     return assignments.map(mapAssignmentToMembership);
   },
@@ -263,7 +266,7 @@ export const groupMgmt = {
     });
 
     const assignments = res.data?.data || res.data || [];
-    if (!Array.isArray(assignments)) {return [];}
+    if (!Array.isArray(assignments)) { return []; }
 
     return assignments.map(mapAssignmentToMembership);
   },
@@ -492,7 +495,7 @@ export const groupMgmt = {
     );
     // Handle response format: { assignments: [...], count: N }
     const assignments = res.data?.assignments || res.data || [];
-    if (!Array.isArray(assignments)) {return [];}
+    if (!Array.isArray(assignments)) { return []; }
     return assignments.map(mapAssignmentToMembership);
   },
 
@@ -520,8 +523,8 @@ export const groupMgmt = {
     const res = await adminApiClient.get<PermissionDefinitionDto[]>('/api/permissions/definitions');
     const data = res.data;
     // Handle nested response format
-    if (Array.isArray(data)) {return data;}
-    if ((data as any)?.data && Array.isArray((data as any).data)) {return (data as any).data;}
+    if (Array.isArray(data)) { return data; }
+    if ((data as any)?.data && Array.isArray((data as any).data)) { return (data as any).data; }
     return [];
   },
 
@@ -533,7 +536,7 @@ export const groupMgmt = {
     const res = await adminApiClient.post<PermissionDefinitionDto>('/api/permissions/definitions', req);
     const data = res.data;
     // Handle nested response format
-    if ((data as any)?.data) {return (data as any).data;}
+    if ((data as any)?.data) { return (data as any).data; }
     return data!;
   },
 

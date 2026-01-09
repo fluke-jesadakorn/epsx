@@ -1,7 +1,8 @@
 'use client';
 'use client';
 
-import { PricingCard, PricingCardData } from '@/components/plans/PricingCard';
+import { PricingCard } from '@/shared/components/plans/PricingCard';
+import { PricingCardData } from '@/shared/types/plans';
 import { Star } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';

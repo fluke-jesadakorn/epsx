@@ -12,6 +12,7 @@ import {
   requestWalletChallenge,
   verifyWalletSignature,
 } from '@/shared/auth/api';
+import { clearClientSideCookies } from '@/shared/auth/cookies';
 import { OIDC_KEYS } from '@/shared/auth/storage';
 import { useSharedAuth } from '@/shared/components/auth/Provider';
 
@@ -26,6 +27,7 @@ export default function AuthPage() {
     hasPermissionForDisplay,
     isAuthenticated,
     user,
+    logout,
   } = useSharedAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -96,17 +98,27 @@ export default function AuthPage() {
 
   // Check if user is already authenticated with admin permissions and redirect
   useEffect(() => {
-    if (
-      mounted &&
-      isAuthenticated &&
-      user &&
-      hasPermissionForDisplay('admin:*:*')
-    ) {
+    // Check if user has ANY admin permission (starts with "admin:")
+    const hasAdminPermission =
+      hasPermissionForDisplay('admin:*:*') ||
+      user?.permissions?.some((p) => p.startsWith('admin:'));
+
+    console.log('🔐 Auth Redirect Check:', {
+      mounted,
+      isAuthenticated,
+      hasUser: !!user,
+      permissions: user?.permissions,
+      hasAdminPermission,
+      finalReturnUrl
+    });
+
+    if (mounted && isAuthenticated && user && hasAdminPermission) {
       setAuthStepGuarded('success');
 
       setTimeout(() => {
+        console.log('🚀 Redirecting to:', finalReturnUrl);
         window.location.href = finalReturnUrl;
-      }, 1000);
+      }, 100);
     }
   }, [
     mounted,
@@ -143,6 +155,63 @@ export default function AuthPage() {
       setAuthStepGuarded('success');
     }
   }, [isAuthenticated, authStep]);
+
+  // Track previous connection state to detect disconnect
+  const prevConnectedRef = useRef<boolean | null>(null);
+
+  // Wallet disconnect detection - CRITICAL FIX
+  // When wallet disconnects, reset auth state and clear cookies
+  useEffect(() => {
+    // Skip on initial mount (when prevConnectedRef is null)
+    if (prevConnectedRef.current === null) {
+      prevConnectedRef.current = isConnected;
+      return;
+    }
+
+    // Detect disconnect: was connected, now not connected
+    if (prevConnectedRef.current && !isConnected) {
+      console.log('🔌 Wallet disconnected - resetting auth state');
+
+      // Reset auth completed flag to allow state changes
+      authCompletedRef.current = false;
+
+      // Reset to connect step
+      setAuthStep('connect');
+      setChallenge(null);
+      setError('');
+
+      // Clear auth cookies to prevent stale session
+      try {
+        clearClientSideCookies();
+        // Also clear localStorage tokens
+        localStorage.removeItem(OIDC_KEYS.ACCESS_TOKEN);
+        console.log('🗑️ Cleared auth cookies and tokens on disconnect');
+      } catch (e) {
+        console.warn('Failed to clear cookies on disconnect:', e);
+      }
+
+      // Call logout to update provider state
+      logout().catch((e) => {
+        console.warn('Logout cleanup failed:', e);
+      });
+
+      toast.info('Wallet disconnected');
+    }
+
+    // Update previous state
+    prevConnectedRef.current = isConnected;
+  }, [isConnected, logout]);
+
+  // Step 4: Handle redirection when success state is reached
+  useEffect(() => {
+    if (authStep === 'success') {
+      console.log('✅ Auth success state reached, initiating redirect to:', finalReturnUrl);
+      const timer = setTimeout(() => {
+        window.location.href = finalReturnUrl;
+      }, 500); // Short delay to show success state
+      return () => clearTimeout(timer);
+    }
+  }, [authStep, finalReturnUrl]);
 
   // Step 2: Request challenge and sign message
   const handleSignMessage = async () => {
@@ -201,11 +270,11 @@ export default function AuthPage() {
 
           setTimeout(() => {
             window.location.href = finalReturnUrl;
-          }, 1000);
+          }, 100);
         } catch (authProviderError) {
           setTimeout(() => {
             window.location.href = finalReturnUrl;
-          }, 1000);
+          }, 100);
         }
       } else {
         throw new Error(result.error || 'Authentication failed');
@@ -248,8 +317,13 @@ export default function AuthPage() {
     );
   }
 
+  // Check if user has ANY admin permission (starts with "admin:")
+  const hasAdminPermission =
+    hasPermissionForDisplay('admin:*:*') ||
+    user?.permissions?.some((p) => p.startsWith('admin:'));
+
   // If user is already authenticated with admin permissions, show redirecting message
-  if (isAuthenticated && user && hasPermissionForDisplay('admin:*:*')) {
+  if (isAuthenticated && user && hasAdminPermission) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <div className="text-center">

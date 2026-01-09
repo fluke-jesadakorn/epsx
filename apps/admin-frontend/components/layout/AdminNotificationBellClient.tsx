@@ -1,5 +1,6 @@
 'use client'
 
+import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
 
 import { toast } from '@/hooks/use-toast'
@@ -18,15 +19,19 @@ import { createAdminApiClient } from '@/shared/utils/api-client'
  *
  */
 export function AdminNotificationBell() {
+  const pathname = usePathname()
   const [count, setCount] = useState(0)
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [showNotifications, setShowNotifications] = useState(false)
   const [loading, setLoading] = useState(true)
 
+  // Skip notification fetching on auth page to prevent 401 errors during login redirect
+  const isOnAuthPage = pathname === '/auth' || pathname?.startsWith('/auth')
+
   // SSE real-time notifications for admin
   const { isConnected: sseConnected, reconnect: reconnectSSE } = useSSENotifications({
     apiClient: createAdminApiClient(),
-    autoConnect: true, // Admin always connects to receive all notifications
+    autoConnect: !isOnAuthPage, // Don't auto-connect on auth page
     onNotification: (sseNotif) => {
       // Add to notifications list
       const newNotification: Notification = {
@@ -58,8 +63,13 @@ export function AdminNotificationBell() {
   })
 
   useEffect(() => {
+    // Skip fetching on auth page
+    if (isOnAuthPage) {
+      setLoading(false)
+      return
+    }
     fetchNotifications()
-  }, [])
+  }, [isOnAuthPage])
 
   const fetchNotifications = async () => {
     try {

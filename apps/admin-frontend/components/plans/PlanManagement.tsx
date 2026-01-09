@@ -214,10 +214,10 @@ export function PlanManagement({ currentUser }: PlanManagementProps) {
     setHasChanges(false)
   }
 
-  // Group plans for display
-  const standardPlans = plans.filter(p => p.plan_category === 'standard')
-  const apiPlans = plans.filter(p => p.plan_category === 'api')
-  const enterprisePlans = plans.filter(p => p.plan_category === 'enterprise')
+  // Group plans for display - only show active plans in the main lists
+  const standardPlans = plans.filter(p => p.plan_category === 'standard' && p.is_active)
+  const apiPlans = plans.filter(p => p.plan_category === 'api' && p.is_active)
+  const enterprisePlans = plans.filter(p => p.plan_category === 'enterprise' && p.is_active)
   // We can treat custom plans as enterprise or separate, grouping with enterprise for now
   const activePlans = plans.filter(p => p.is_active)
 

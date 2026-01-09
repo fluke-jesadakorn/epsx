@@ -130,33 +130,55 @@ export class SharedWeb3AuthClient {
   }
 
   // ============================================================================
-  // TOKEN STORAGE (cookies)
+  // TOKEN STORAGE (cookies + localStorage fallback)
   // ============================================================================
 
   private loadTokensFromStorage(): void {
     if (typeof window === 'undefined') return;
 
     try {
+      // 1. Try cookies first (primary storage)
       // Access token is HttpOnly usually, but we sync it to client_session for Server Actions & Refresh
-      const clientSession = getClientCookie(COOKIES.client_session);
-      if (clientSession) {
-        this.accessToken = clientSession;
+      let accessToken = getClientCookie(COOKIES.client_session);
+
+      // 2. Fallback to localStorage (oidc.access_token)
+      // This handles cases where cookies fail (e.g. size limits, browser restrictions)
+      if (!accessToken) {
+        accessToken = localStorage.getItem('oidc.access_token');
+        if (accessToken) {
+          console.log('🔄 Recovered access token from localStorage fallback');
+        }
       }
 
-      this.refreshToken = getClientCookie(COOKIES.refresh);
+      if (accessToken) {
+        this.accessToken = accessToken;
+      }
+
+      this.refreshToken = getClientCookie(COOKIES.refresh) || localStorage.getItem('oidc.refresh_token');
 
       // Access token is HttpOnly, so we can't access it directly
       // We'll check client-side cookies for expiry and user data
-      const expiry = getClientCookie(COOKIES.expires_at);
+      const expiry = getClientCookie(COOKIES.expires_at) || localStorage.getItem('oidc.expires_at');
       this.tokenExpiry = expiry ? parseInt(expiry, 10) : null;
 
-      // Restore user object from cookies
-      const storedUser = getClientCookieJSON<UserInfoResponse>(COOKIES.user);
+      // Restore user object from cookies or localStorage
+      let storedUser = getClientCookieJSON<UserInfoResponse>(COOKIES.user);
+      if (!storedUser) {
+        const storedUserStr = localStorage.getItem('oidc.user');
+        if (storedUserStr) {
+          try {
+            storedUser = JSON.parse(storedUserStr);
+          } catch (e) {
+            // Invalid JSON
+          }
+        }
+      }
+
       if (storedUser) {
         this.user = storedUser;
       }
     } catch (error) {
-      console.warn('Failed to load tokens from cookies', { error });
+      console.warn('Failed to load tokens from storage', { error });
     }
   }
 
@@ -174,33 +196,42 @@ export class SharedWeb3AuthClient {
       });
 
       // Access token is set by server as HttpOnly cookie
-      // Save expiry and user data to client-side cookies
+      // Save expiry and user data to client-side cookies AND localStorage
+
       if (this.tokenExpiry) {
         setClientCookie(COOKIES.expires_at, this.tokenExpiry.toString());
-        console.log('🍪 Set expires_at cookie');
+        localStorage.setItem('oidc.expires_at', this.tokenExpiry.toString());
+        console.log('🍪 Set expires_at cookie and localStorage');
       }
 
       // Sync access token to client_session for Server Components and persistence
       if (this.accessToken) {
         console.log('🍪 Setting client_session cookie with token of length:', this.accessToken.length);
         setClientCookie(COOKIES.client_session, this.accessToken);
-        console.log('🍪 client_session cookie SET');
+        localStorage.setItem('oidc.access_token', this.accessToken);
+        console.log('🍪 client_session cookie and localStorage SET');
       } else {
         console.warn('⚠️ No access token to save to client_session!');
       }
 
       if (this.refreshToken) {
         setClientCookie(COOKIES.refresh, this.refreshToken);
+        localStorage.setItem('oidc.refresh_token', this.refreshToken);
       }
 
-      // Save user object to cookies
+      // Save user object to cookies and localStorage
       if (this.user) {
         setClientCookieJSON(COOKIES.user, this.user);
-        setClientCookie(COOKIES.auth_time, Date.now().toString());
-        console.log('🍪 Set user and auth_time cookies');
+        localStorage.setItem('oidc.user', JSON.stringify(this.user));
+
+        const now = Date.now().toString();
+        setClientCookie(COOKIES.auth_time, now);
+        localStorage.setItem('oidc.auth_time', now);
+
+        console.log('🍪 Set user and auth_time cookies and localStorage');
       }
     } catch (error) {
-      console.warn('Failed to save tokens to cookies', { error });
+      console.warn('Failed to save tokens to storage', { error });
     }
   }
 
@@ -212,6 +243,13 @@ export class SharedWeb3AuthClient {
       clearClientSideCookies();
       // Explicitly clear client_session
       setClientCookie(COOKIES.client_session, '', 0);
+
+      // Clear localStorage
+      localStorage.removeItem('oidc.access_token');
+      localStorage.removeItem('oidc.refresh_token');
+      localStorage.removeItem('oidc.expires_at');
+      localStorage.removeItem('oidc.user');
+      localStorage.removeItem('oidc.auth_time');
     } catch (error) {
       console.warn('Failed to clear tokens from cookies', { error });
     }

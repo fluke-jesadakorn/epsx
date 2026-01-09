@@ -1,26 +1,12 @@
 'use client'
 
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { PricingCard } from '@/shared/components/plans/PricingCard'
 import { env } from '@/shared/env/schema'
+import { Plan, PricingCardData } from '@/shared/types/plans'
 import { AlertCircle, Star } from 'lucide-react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
-import { PricingCard, PricingCardData, PricingCardSkeleton } from './PricingCard'
-
-interface Plan {
-  id: number | string
-  name: string
-  description?: string
-  plan_type: string
-  current_price: number | string
-  currency: string
-  is_active: boolean
-  features: string[]
-  permissions?: string[]
-  display_order?: number
-  is_highlighted?: boolean
-  is_promoted?: boolean
-}
 
 interface PlanSelectionProps {
   currentUser?: any
@@ -115,27 +101,29 @@ export function PlanSelection({ currentUser, className }: PlanSelectionProps) {
       id: plan.id,
       title: plan.name,
       price: isFree ? 'Free' : `$${price.toFixed(2)} ${plan.currency || 'USD'}`,
-      features: (plan.features || []).map(f => ({ text: f, included: true })),
+      features: Array.isArray(plan.features)
+        ? plan.features.map(f => typeof f === 'string' ? { text: f, included: true } : f)
+        : [],
       highlight: plan.is_highlighted || plan.is_promoted || false,
       buttonText: isFree ? 'Start Free' : 'Get Started',
       promotions: [],
       badges: [],
+      tier_level: plan.tier_level,
+      plan_type: plan.plan_type,
+      description: plan.description
     }
   }
 
   // Handle plan selection - redirect to payment
   const handlePlanClick = (card: PricingCardData) => {
-    let paymentUrl = '/payment'
-    const params = new URLSearchParams()
+    // Direct navigation to dynamic route
+    const planId = card.id.toString()
+    let paymentUrl = ''
 
     if (affiliateCode) {
-      params.set('ref', affiliateCode)
-    }
-
-    params.set('plan', card.id.toString())
-
-    if (params.toString()) {
-      paymentUrl += `?${params.toString()}`
+      paymentUrl = `/payment/plan/${planId}?ref=${affiliateCode}`
+    } else {
+      paymentUrl = `/payment/plan/${planId}`
     }
 
     router.push(paymentUrl)
@@ -171,7 +159,9 @@ export function PlanSelection({ currentUser, className }: PlanSelectionProps) {
       {/* Pricing Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 md:gap-12 lg:gap-16 px-4 py-8">
         {loading
-          ? Array.from({ length: 3 }).map((_, i) => <PricingCardSkeleton key={i} />)
+          ? Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="animate-pulse bg-gray-200 dark:bg-gray-800 rounded-2xl h-[500px]" />
+          ))
           : pricingCards.map((card) => (
             <PricingCard
               key={card.id}

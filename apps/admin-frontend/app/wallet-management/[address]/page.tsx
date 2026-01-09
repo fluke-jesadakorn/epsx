@@ -59,12 +59,12 @@ function formatTimeAgo(timestamp: string): string {
     const now = new Date();
     const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));
 
-    if (diffInHours < 1) {return 'Just now';}
-    if (diffInHours < 24) {return `${diffInHours} hours ago`;}
+    if (diffInHours < 1) { return 'Just now'; }
+    if (diffInHours < 24) { return `${diffInHours} hours ago`; }
 
     const diffInDays = Math.floor(diffInHours / 24);
-    if (diffInDays === 1) {return 'Yesterday';}
-    if (diffInDays < 30) {return `${diffInDays} days ago`;}
+    if (diffInDays === 1) { return 'Yesterday'; }
+    if (diffInDays < 30) { return `${diffInDays} days ago`; }
 
     return date.toLocaleDateString();
 }
@@ -98,7 +98,7 @@ export default function WalletDetailPage() {
 
     // Load wallet data
     const loadWallet = useCallback(async () => {
-        if (!walletAddress) {return;}
+        if (!walletAddress) { return; }
 
         try {
             setIsRefreshing(true);
@@ -134,7 +134,7 @@ export default function WalletDetailPage() {
     }, [isAuthenticated, authLoading, loadWallet]);
 
     const handleCopyAddress = async () => {
-        if (!wallet) {return;}
+        if (!wallet) { return; }
         await navigator.clipboard.writeText(wallet.walletAddress);
         setCopied(true);
         toast.success('Address copied!');
@@ -142,7 +142,7 @@ export default function WalletDetailPage() {
     };
 
     const handleSaveMetadata = async () => {
-        if (!wallet) {return;}
+        if (!wallet) { return; }
 
         setIsSavingMetadata(true);
         try {
@@ -183,11 +183,11 @@ export default function WalletDetailPage() {
     };
 
     const handleDisableWallet = async (data: DisableWalletData) => {
-        if (!wallet) {return;}
+        if (!wallet) { return; }
         setIsActionLoading(true);
         try {
             await walletMgmt.disableWallet(wallet.walletAddress, {
-                duration_days: data.duration === 'until_manual' ? undefined : data.duration,
+                duration_days: data.duration === 'until_manual' ? null : data.duration,
                 reason_category: data.reasonCategory,
                 reason_details: data.reasonDetails,
                 affected_platforms: data.affectedPlatforms,
@@ -207,7 +207,7 @@ export default function WalletDetailPage() {
     };
 
     const handleReenableWallet = async (data: ReenableWalletData) => {
-        if (!wallet) {return;}
+        if (!wallet) { return; }
         setIsActionLoading(true);
         try {
             await walletMgmt.enableWallet(wallet.walletAddress, {

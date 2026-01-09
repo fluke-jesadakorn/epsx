@@ -1,10 +1,10 @@
 /**
  * Wallet Card Component
- * Compact wallet display for list view with action buttons
+ * Premium compact wallet display for list view with action buttons
  */
 'use client';
 
-import { BarChart3, Coins, Copy, CreditCard, Edit, Eye, Loader2, MoreHorizontal, Save, Settings, TrendingUp } from 'lucide-react';
+import { BarChart3, Coins, Copy, CreditCard, Edit, Eye, Loader2, MoreHorizontal, Save, Settings, Sparkles, TrendingUp } from 'lucide-react';
 import React, { useState } from 'react';
 
 import type { Platform, WalletData, WalletStatus } from './types';
@@ -31,7 +31,7 @@ interface WalletCardProps {
     onManage?: () => void;
     onDisable?: () => void;
     onEnable?: () => void;
-    onEdit?: () => void; // Keeping for backward compatibility or "Manage" menu
+    onEdit?: () => void;
     onUpdateMetadata?: (label: string | null, note: string | null) => Promise<void>;
     className?: string;
 }
@@ -50,26 +50,36 @@ const PLATFORM_LABELS: Record<Platform, string> = {
     markets: 'Markets',
 };
 
-const STATUS_CONFIG: Record<WalletStatus, { label: string; emoji: string; className: string }> = {
+const STATUS_CONFIG: Record<WalletStatus, { label: string; emoji: string; className: string; dotClass: string }> = {
     active: {
         label: 'Active',
         emoji: '🟢',
-        className: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
+        className: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800',
+        dotClass: 'bg-emerald-500',
     },
     disabled: {
         label: 'Disabled',
         emoji: '⚠️',
-        className: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400',
+        className: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800',
+        dotClass: 'bg-amber-500',
     },
     pending: {
         label: 'Pending',
         emoji: '⏳',
-        className: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
+        className: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800',
+        dotClass: 'bg-blue-500',
     },
 };
 
+// Generate a deterministic gradient based on wallet address
+function getAvatarGradient(address: string): string {
+    const hash = address.slice(2, 10);
+    const hue1 = parseInt(hash.slice(0, 4), 16) % 360;
+    const hue2 = (hue1 + 40) % 360;
+    return `linear-gradient(135deg, hsl(${hue1}, 70%, 60%) 0%, hsl(${hue2}, 80%, 50%) 100%)`;
+}
+
 /**
- *
  * @param root0
  * @param root0.wallet
  * @param root0.isSelected
@@ -106,9 +116,11 @@ export function WalletCard({
 
     const handleCopy = async (e: React.MouseEvent) => {
         e.stopPropagation();
-        await navigator.clipboard.writeText(wallet.walletAddress);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
+        if (navigator?.clipboard?.writeText) {
+            await navigator.clipboard.writeText(wallet.walletAddress);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        }
     };
 
     const handleStartEditing = () => {
@@ -119,7 +131,7 @@ export function WalletCard({
 
     const handleSaveMetadata = async (e: React.MouseEvent) => {
         e.stopPropagation();
-        if (!onUpdateMetadata) {return;}
+        if (!onUpdateMetadata) { return; }
 
         setIsSaving(true);
         try {
@@ -138,17 +150,34 @@ export function WalletCard({
     return (
         <div
             className={cn(
-                'group relative rounded-xl border bg-white transition-all duration-200',
-                isDisabled
-                    ? 'border-amber-200/50 bg-amber-50/30 dark:border-amber-800/30 dark:bg-amber-950/20 opacity-75'
-                    : 'border-gray-200 hover:border-blue-300 hover:shadow-md dark:border-gray-700 dark:hover:border-blue-600',
-                isSelected && 'ring-2 ring-blue-500 ring-offset-2 dark:ring-offset-gray-900',
+                // Base card styles with premium glassmorphism
+                'group relative rounded-2xl overflow-hidden',
+                'bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl',
+                'border border-gray-200/60 dark:border-gray-700/60',
+                // Smooth transitions
+                'transition-all duration-300 ease-out',
+                // Hover effects
+                'hover:shadow-xl hover:shadow-gray-200/40 dark:hover:shadow-black/20',
+                'hover:border-gray-300 dark:hover:border-gray-600',
+                'hover:scale-[1.01] hover:-translate-y-0.5',
+                // Disabled state
+                isDisabled && 'opacity-80',
+                // Selected state
+                isSelected && 'ring-2 ring-blue-500 ring-offset-2 dark:ring-offset-gray-900 border-blue-300 dark:border-blue-600',
                 className
             )}
         >
-            <div className="flex flex-col p-4 gap-4">
+            {/* Subtle gradient overlay on hover */}
+            <div className="absolute inset-0 bg-gradient-to-br from-blue-500/0 via-purple-500/0 to-pink-500/0 group-hover:from-blue-500/3 group-hover:via-purple-500/3 group-hover:to-pink-500/3 transition-all duration-500 pointer-events-none" />
+
+            {/* Shine effect on hover */}
+            <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none overflow-hidden">
+                <div className="absolute -inset-full top-0 w-1/2 h-full bg-gradient-to-r from-transparent via-white/10 to-transparent skew-x-12 group-hover:animate-[shimmer_2s_ease-in-out_infinite]" />
+            </div>
+
+            <div className="relative flex flex-col p-5 gap-4">
                 {/* Header: Checkbox + Avatar + Address + Status */}
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-4">
                     {/* Checkbox */}
                     {onSelect && (
                         <div className="flex items-center">
@@ -156,63 +185,86 @@ export function WalletCard({
                                 type="checkbox"
                                 checked={isSelected}
                                 onChange={(e) => onSelect(e.target.checked)}
-                                className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600"
+                                className="h-4 w-4 rounded-md border-gray-300 text-blue-600 focus:ring-blue-500 focus:ring-offset-0 transition-colors cursor-pointer dark:border-gray-600 dark:bg-gray-800"
                             />
                         </div>
                     )}
 
-                    {/* Avatar */}
-                    <div className={cn(
-                        'relative flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-sm font-semibold shadow-sm',
-                        isDisabled
-                            ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
-                            : 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'
-                    )}>
-                        {wallet.walletAddress.slice(2, 4).toUpperCase()}
-                        <div className={cn(
-                            'absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-white dark:border-gray-900',
-                            wallet.status === 'active' ? 'bg-green-500' :
-                                wallet.status === 'disabled' ? 'bg-amber-500' : 'bg-blue-500'
-                        )} />
+                    {/* Premium Avatar */}
+                    <div className="relative group/avatar">
+                        <div
+                            className={cn(
+                                'relative flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-sm font-bold shadow-lg',
+                                'text-white transition-all duration-300',
+                                'group-hover/avatar:scale-105 group-hover/avatar:shadow-xl',
+                            )}
+                            style={{ background: getAvatarGradient(wallet.walletAddress) }}
+                        >
+                            {wallet.walletAddress.slice(2, 4).toUpperCase()}
+
+                            {/* Animated status indicator */}
+                            <div className={cn(
+                                'absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-white dark:border-gray-900',
+                                statusConfig.dotClass,
+                                wallet.status === 'active' && 'animate-pulse',
+                            )}>
+                                <span className={cn(
+                                    'absolute inset-0 rounded-full',
+                                    statusConfig.dotClass,
+                                    'animate-ping opacity-40'
+                                )} />
+                            </div>
+                        </div>
                     </div>
 
                     {/* Address & Copy */}
                     <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                            <span className="font-mono text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                            <span className="font-mono text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
                                 {wallet.walletAddress}
                             </span>
                             <button
                                 onClick={handleCopy}
                                 className={cn(
-                                    'shrink-0 p-1 rounded transition-colors',
+                                    'shrink-0 p-1.5 rounded-lg transition-all duration-200',
                                     copied
-                                        ? 'bg-green-100 text-green-600 dark:bg-green-900/40 dark:text-green-400'
-                                        : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-300'
+                                        ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-400 scale-110'
+                                        : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-300 hover:scale-110'
                                 )}
                                 title="Copy address"
                             >
-                                <Copy className="h-3 w-3" />
+                                <Copy className="h-3.5 w-3.5" />
                             </button>
                         </div>
                     </div>
 
-                    {/* Status Badge (Desktop) */}
+                    {/* Status Badge */}
                     <div className="hidden sm:block">
-                        <Badge className={cn('text-xs px-2 py-0.5 font-medium', statusConfig.className)}>
+                        <Badge className={cn(
+                            'text-xs px-3 py-1 font-semibold border rounded-full',
+                            'transition-all duration-200 hover:scale-105',
+                            statusConfig.className
+                        )}>
                             {statusConfig.label}
                         </Badge>
                     </div>
 
                     {/* Actions Menu */}
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1.5">
                         <Button
                             variant="ghost"
                             size="sm"
                             onClick={onView}
-                            className="hidden sm:flex h-8 px-2.5 gap-1.5 text-xs hover:bg-blue-50 hover:text-blue-700 dark:hover:bg-blue-900/30 dark:hover:text-blue-400"
+                            className={cn(
+                                'hidden sm:flex h-9 px-4 gap-2 text-sm font-medium rounded-xl',
+                                'bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700',
+                                'hover:from-blue-100 hover:to-indigo-100 hover:text-blue-800',
+                                'dark:from-blue-900/30 dark:to-indigo-900/30 dark:text-blue-400',
+                                'dark:hover:from-blue-900/50 dark:hover:to-indigo-900/50',
+                                'transition-all duration-200 hover:scale-105 hover:shadow-md'
+                            )}
                         >
-                            <Eye className="h-3.5 w-3.5" />
+                            <Eye className="h-4 w-4" />
                             View
                         </Button>
 
@@ -221,17 +273,20 @@ export function WalletCard({
                                 <Button
                                     variant="ghost"
                                     size="sm"
-                                    className="h-8 w-8 p-0 hover:bg-gray-100 dark:hover:bg-gray-800"
+                                    className="h-9 w-9 p-0 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200 hover:scale-110"
                                 >
                                     <MoreHorizontal className="h-4 w-4" />
                                 </Button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-44">
-                                <DropdownMenuItem onClick={onUpdateMetadata ? (e) => { e.stopPropagation(); handleStartEditing(); } : onEdit}>
+                            <DropdownMenuContent align="end" className="w-48 rounded-xl p-1">
+                                <DropdownMenuItem
+                                    onClick={onUpdateMetadata ? handleStartEditing : onEdit}
+                                    className="rounded-lg"
+                                >
                                     <Edit className="h-4 w-4 mr-2" />
                                     <span className="text-sm">Edit Label/Note</span>
                                 </DropdownMenuItem>
-                                <DropdownMenuItem onClick={onManage}>
+                                <DropdownMenuItem onClick={onManage} className="rounded-lg">
                                     <Settings className="h-4 w-4 mr-2" />
                                     <span className="text-sm">Manage</span>
                                 </DropdownMenuItem>
@@ -239,7 +294,7 @@ export function WalletCard({
                                 {isDisabled ? (
                                     <DropdownMenuItem
                                         onClick={onEnable}
-                                        className="text-green-700 dark:text-green-400"
+                                        className="text-emerald-700 dark:text-emerald-400 rounded-lg"
                                     >
                                         <span className="mr-2">🔓</span>
                                         <span className="text-sm">Re-enable</span>
@@ -247,7 +302,7 @@ export function WalletCard({
                                 ) : (
                                     <DropdownMenuItem
                                         onClick={onDisable}
-                                        className="text-amber-700 dark:text-amber-400"
+                                        className="text-amber-700 dark:text-amber-400 rounded-lg"
                                     >
                                         <span className="mr-2">⚠️</span>
                                         <span className="text-sm">Disable</span>
@@ -258,39 +313,46 @@ export function WalletCard({
                     </div>
                 </div>
 
-                {/* Key Metrics Grid */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 py-2 border-t border-b border-gray-50 dark:border-gray-800">
-                    <div className="flex flex-col">
-                        <span className="text-[10px] uppercase text-gray-400 font-semibold tracking-wide mb-0.5">Plan</span>
-                        <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                {/* Key Metrics Grid - Enhanced */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    {/* Plan */}
+                    <div className="flex flex-col p-3 rounded-xl bg-gradient-to-br from-gray-50 to-gray-100/50 dark:from-gray-800/50 dark:to-gray-900/50 border border-gray-100 dark:border-gray-800 transition-all duration-200 hover:border-gray-200 dark:hover:border-gray-700">
+                        <span className="text-[10px] uppercase text-gray-500 font-semibold tracking-wider mb-1">Plan</span>
+                        <span className="text-sm font-bold text-gray-900 dark:text-gray-100">
                             {wallet.subscriptions[0]?.planName || 'Free'}
                         </span>
                     </div>
-                    <div className="flex flex-col">
-                        <span className="text-[10px] uppercase text-gray-400 font-semibold tracking-wide mb-0.5">Group</span>
-                        <div className="flex items-center gap-1">
-                            <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+
+                    {/* Group */}
+                    <div className="flex flex-col p-3 rounded-xl bg-gradient-to-br from-gray-50 to-gray-100/50 dark:from-gray-800/50 dark:to-gray-900/50 border border-gray-100 dark:border-gray-800 transition-all duration-200 hover:border-gray-200 dark:hover:border-gray-700">
+                        <span className="text-[10px] uppercase text-gray-500 font-semibold tracking-wider mb-1">Group</span>
+                        <div className="flex items-center gap-1.5">
+                            <span className="text-sm font-bold text-gray-900 dark:text-gray-100">
                                 {wallet.groups?.[0]?.groupName || 'User'}
                             </span>
                             {(wallet.groups?.length || 0) > 1 && (
-                                <span className="text-xs text-gray-500">+{wallet.groups!.length - 1}</span>
+                                <span className="text-xs text-gray-500 bg-gray-200 dark:bg-gray-700 px-1.5 py-0.5 rounded-full">+{wallet.groups!.length - 1}</span>
                             )}
                         </div>
                     </div>
-                    <div className="flex flex-col">
-                        <span className="text-[10px] uppercase text-gray-400 font-semibold tracking-wide mb-0.5">Perms</span>
-                        <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                            {activePermissions} <span className="text-gray-500 font-normal">active</span>
+
+                    {/* Permissions */}
+                    <div className="flex flex-col p-3 rounded-xl bg-gradient-to-br from-gray-50 to-gray-100/50 dark:from-gray-800/50 dark:to-gray-900/50 border border-gray-100 dark:border-gray-800 transition-all duration-200 hover:border-gray-200 dark:hover:border-gray-700">
+                        <span className="text-[10px] uppercase text-gray-500 font-semibold tracking-wider mb-1">Perms</span>
+                        <span className="text-sm font-bold text-gray-900 dark:text-gray-100">
+                            {activePermissions} <span className="text-gray-500 font-normal text-xs">active</span>
                         </span>
                     </div>
-                    <div className="flex flex-col">
-                        <span className="text-[10px] uppercase text-gray-400 font-semibold tracking-wide mb-0.5">Platforms</span>
+
+                    {/* Platforms */}
+                    <div className="flex flex-col p-3 rounded-xl bg-gradient-to-br from-gray-50 to-gray-100/50 dark:from-gray-800/50 dark:to-gray-900/50 border border-gray-100 dark:border-gray-800 transition-all duration-200 hover:border-gray-200 dark:hover:border-gray-700">
+                        <span className="text-[10px] uppercase text-gray-500 font-semibold tracking-wider mb-1">Platforms</span>
                         <div className="flex items-center gap-1.5 flex-wrap">
                             {wallet.platforms.map((platform) => (
                                 <div
                                     key={platform}
                                     title={PLATFORM_LABELS[platform]}
-                                    className="p-1 rounded bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400"
+                                    className="p-1.5 rounded-lg bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 shadow-sm border border-gray-100 dark:border-gray-700 transition-all duration-200 hover:scale-110 hover:text-blue-600 dark:hover:text-blue-400 cursor-default"
                                 >
                                     {PLATFORM_ICONS[platform]}
                                 </div>
@@ -299,28 +361,28 @@ export function WalletCard({
                     </div>
                 </div>
 
-                {/* Footer: Labels & Notes */}
+                {/* Footer: Labels & Notes - Enhanced */}
                 {(isEditing) ? (
-                    <div className="flex flex-col gap-2 bg-gray-50 dark:bg-gray-900/40 rounded-lg p-3 animate-in fade-in zoom-in-95 duration-200" onClick={(e) => e.stopPropagation()}>
-                        <div className="space-y-2">
+                    <div className="flex flex-col gap-3 bg-gradient-to-br from-blue-50/50 to-indigo-50/50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl p-4 border border-blue-100 dark:border-blue-900/50 animate-in fade-in zoom-in-95 duration-200" onClick={(e) => e.stopPropagation()}>
+                        <div className="space-y-3">
                             <Input
                                 placeholder="Label (max 20 chars)"
                                 value={labelInput}
                                 onChange={(e) => setLabelInput(e.target.value.slice(0, 20))}
-                                className="h-8 text-xs bg-white dark:bg-gray-800"
+                                className="h-9 text-sm bg-white dark:bg-gray-800 rounded-lg"
                                 autoFocus
                             />
                             <Textarea
                                 placeholder="Note (max 500 chars)"
                                 value={noteInput}
                                 onChange={(e) => setNoteInput(e.target.value.slice(0, 500))}
-                                className="min-h-[60px] text-xs bg-white dark:bg-gray-800 resize-none"
+                                className="min-h-[70px] text-sm bg-white dark:bg-gray-800 resize-none rounded-lg"
                             />
                             <div className="flex justify-end gap-2 pt-1">
                                 <Button
                                     size="sm"
                                     variant="ghost"
-                                    className="h-6 px-2 text-xs"
+                                    className="h-8 px-3 text-sm rounded-lg"
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         setIsEditing(false);
@@ -330,64 +392,67 @@ export function WalletCard({
                                 </Button>
                                 <Button
                                     size="sm"
-                                    className="h-6 px-2 text-xs"
+                                    className="h-8 px-4 text-sm rounded-lg bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600"
                                     onClick={handleSaveMetadata}
                                     disabled={isSaving}
                                 >
-                                    {isSaving ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Save className="h-3 w-3 mr-1" />}
+                                    {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : <Save className="h-3.5 w-3.5 mr-1.5" />}
                                     Save
                                 </Button>
                             </div>
                         </div>
                     </div>
                 ) : (wallet.label || wallet.note) ? (
-                    <div className="flex flex-col gap-2 bg-gray-50 dark:bg-gray-900/40 rounded-lg p-3 group/notes relative">
+                    <div className="flex flex-col gap-2 bg-gradient-to-br from-gray-50 to-gray-100/50 dark:from-gray-800/30 dark:to-gray-900/30 rounded-xl p-4 border border-gray-100 dark:border-gray-800 group/notes relative transition-all duration-200 hover:border-gray-200 dark:hover:border-gray-700">
                         {/* Edit Button overlay */}
                         <button
                             onClick={(e) => {
                                 e.stopPropagation();
                                 handleStartEditing();
                             }}
-                            className="absolute top-2 right-2 p-1 rounded-md bg-white/80 dark:bg-gray-800/80 hover:bg-white dark:hover:bg-gray-800 text-gray-400 hover:text-blue-500 shadow-sm opacity-0 group-hover/notes:opacity-100 transition-all duration-200"
+                            className="absolute top-3 right-3 p-1.5 rounded-lg bg-white/80 dark:bg-gray-800/80 hover:bg-white dark:hover:bg-gray-800 text-gray-400 hover:text-blue-500 shadow-sm border border-gray-100 dark:border-gray-700 opacity-0 group-hover/notes:opacity-100 transition-all duration-200 hover:scale-110"
                             title="Edit label/note"
                         >
-                            <Edit className="h-3 w-3" />
+                            <Edit className="h-3.5 w-3.5" />
                         </button>
 
                         {wallet.label && (
                             <div className="flex items-center justify-between">
-                                <span className="text-xs text-gray-500 font-medium">Label</span>
+                                <span className="text-xs text-gray-500 font-semibold">Label</span>
                                 <WalletLabelBadge label={wallet.label} size="sm" />
                             </div>
                         )}
                         {wallet.note && (
                             <div className="flex flex-col gap-1">
-                                <span className="text-xs text-gray-500 font-medium">Note</span>
-                                <p className="text-xs text-gray-700 dark:text-gray-300 line-clamp-2 leading-relaxed whitespace-pre-wrap">
+                                <span className="text-xs text-gray-500 font-semibold">Note</span>
+                                <p className="text-sm text-gray-700 dark:text-gray-300 line-clamp-2 leading-relaxed whitespace-pre-wrap">
                                     {wallet.note}
                                 </p>
                             </div>
                         )}
                     </div>
                 ) : (
-                    /* Empty State Placeholder - Encourages adding notes */
+                    /* Empty State Placeholder - Enhanced */
                     <button
                         onClick={(e) => {
                             e.stopPropagation();
                             handleStartEditing();
                         }}
-                        className="flex items-center gap-2 text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors px-1 py-1 rounded hover:bg-gray-50 dark:hover:bg-gray-800/50 w-full text-left"
+                        className="flex items-center gap-2 text-sm text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-all duration-200 px-3 py-2.5 rounded-xl hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 dark:hover:from-blue-900/20 dark:hover:to-indigo-900/20 border border-dashed border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-700 w-full text-left group/add"
                     >
-                        <Edit className="h-3 w-3" />
-                        <span>Add label or note...</span>
+                        <div className="p-1 rounded-md bg-gray-100 dark:bg-gray-800 group-hover/add:bg-blue-100 dark:group-hover/add:bg-blue-900/40 transition-colors duration-200">
+                            <Edit className="h-3.5 w-3.5" />
+                        </div>
+                        <span className="font-medium">Add label or note...</span>
+                        <Sparkles className="h-3.5 w-3.5 ml-auto opacity-0 group-hover/add:opacity-100 transition-opacity duration-200" />
                     </button>
                 )}
 
                 {/* Disable reason warning */}
                 {wallet.disableInfo && (
-                    <div className="text-xs text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 px-3 py-2 rounded-lg border border-amber-100 dark:border-amber-900/30">
-                        <span className="font-semibold block mb-0.5">⚠️ Disabled: {wallet.disableInfo.reasonCategory}</span>
-                        {wallet.disableInfo.reasonDetails}
+                    <div className="text-sm text-amber-700 dark:text-amber-400 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 px-4 py-3 rounded-xl border border-amber-200 dark:border-amber-900/40">
+                        <span className="font-semibold block mb-1">⚠️ Disabled: {wallet.disableInfo.reasonCategory}</span>
+                        <span className="text-amber-600 dark:text-amber-500">{wallet.disableInfo.reasonDetails}</span>
                     </div>
                 )}
             </div>

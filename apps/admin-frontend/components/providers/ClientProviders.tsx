@@ -6,6 +6,7 @@ import { bsc, bscTestnet, foundry } from 'wagmi/chains';
 
 import { SettingsProvider } from './SettingsProvider';
 
+import { AuthRedirectHandler } from '@/components/auth/AuthRedirectHandler';
 import { SharedOpenIDWeb3Provider } from '@/shared/components/auth/Provider';
 import { CommonProviders } from '@/shared/components/providers/CommonProviders';
 
@@ -35,6 +36,7 @@ export function ClientProviders({ children }: { children: React.ReactNode }) {
             clientId="epsx-admin"
             backendUrl={process.env.NEXT_PUBLIC_BACKEND_URL}
           >
+            <AuthRedirectHandler />
             {children}
           </SharedOpenIDWeb3Provider>
         </SettingsProvider>

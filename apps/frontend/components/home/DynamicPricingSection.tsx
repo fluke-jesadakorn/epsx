@@ -1,6 +1,6 @@
 
-import { PricingCardData } from '@/components/plans/PricingCard';
 import { env } from '@/shared/env/schema';
+import { PricingCardData } from '@/shared/types/plans';
 import { DynamicPricingClient } from './DynamicPricingClient';
 
 interface DynamicPricingSectionProps {

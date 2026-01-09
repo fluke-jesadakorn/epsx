@@ -178,8 +178,13 @@ export class UnifiedApiClient {
 
       // Handle authentication errors
       if (response.status === 401) {
-        // Don't redirect - let the application handle authentication state
-        // The auth provider will show wallet connection UI when needed
+        // Emit global event for 401 handling (client-side only)
+        // This allows applications to handle auth redirects globally
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('auth:unauthorized', {
+            detail: { returnUrl: window.location.pathname + window.location.search }
+          }));
+        }
         return {
           success: false,
           status: 401,

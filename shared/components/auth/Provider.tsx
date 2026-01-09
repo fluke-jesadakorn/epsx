@@ -173,12 +173,23 @@ export function SharedOpenIDWeb3Provider({
         let hasStoredAuth = false;
         if (typeof window !== 'undefined') {
           try {
-            const storedUser = getClientCookieJSON<UserInfoResponse>(COOKIES.user);
-            const authTime = getClientCookie(COOKIES.auth_time);
-            const accessToken = getClientCookie(COOKIES.access); // This will be null (HttpOnly) but we check other cookies
-            const tokenExpiry = getClientCookie(COOKIES.expires_at);
+            // Restore from cookies or localStorage
+            let storedUser = getClientCookieJSON<UserInfoResponse>(COOKIES.user);
+            if (!storedUser) {
+              // Fallback to localStorage
+              const userStr = localStorage.getItem('oidc.user');
+              if (userStr) {
+                try {
+                  storedUser = JSON.parse(userStr);
+                } catch (e) { }
+              }
+            }
 
-            console.log('🔍 Cookie restoration check', {
+            const authTime = getClientCookie(COOKIES.auth_time) || localStorage.getItem('oidc.auth_time');
+            const accessToken = getClientCookie(COOKIES.access) || getClientCookie(COOKIES.client_session) || localStorage.getItem('oidc.access_token');
+            const tokenExpiry = getClientCookie(COOKIES.expires_at) || localStorage.getItem('oidc.expires_at');
+
+            console.log('🔍 Cookie/Storage restoration check', {
               clientId,
               hasStoredUser: !!storedUser,
               hasAuthTime: !!authTime,
@@ -441,6 +452,7 @@ export function SharedOpenIDWeb3Provider({
       // Persist user data to cookies for page refresh survival
       if (typeof window !== 'undefined') {
         try {
+          // 1. Save to Cookies (Primary)
           setClientCookieJSON(COOKIES.user, user);
           setClientCookie(COOKIES.auth_time, Date.now().toString(), COOKIE_OPTIONS.maxAge.auth_time);
 
@@ -454,7 +466,17 @@ export function SharedOpenIDWeb3Provider({
             console.log('🔑 Set client_session cookie for server-side auth');
           }
 
-          console.log('💾 Persisted Web3 authentication to cookies', {
+          // 2. Save to localStorage (Fallback/Redundancy)
+          // This ensures session survives even if cookies are blocked/size-limited
+          localStorage.setItem('oidc.user', JSON.stringify(user));
+          localStorage.setItem('oidc.auth_time', Date.now().toString());
+          localStorage.setItem('oidc.expires_at', expiryTime.toString());
+
+          if (result.access_token) {
+            localStorage.setItem('oidc.access_token', result.access_token);
+          }
+
+          console.log('💾 Persisted Web3 authentication to storage (cookies + localStorage)', {
             clientId,
             keys: {
               user: COOKIES.user,
@@ -464,7 +486,7 @@ export function SharedOpenIDWeb3Provider({
             }
           });
         } catch (error) {
-          console.warn('⚠️ Failed to persist authentication data to cookies:', error);
+          console.warn('⚠️ Failed to persist authentication data to storage:', error);
         }
       }
 

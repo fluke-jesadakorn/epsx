@@ -118,14 +118,14 @@ export function Sidebar() {
   };
 
   return (
-    <div className="w-64 min-w-0 max-w-64 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 h-screen flex flex-col">
+    <div className="w-64 min-w-0 max-w-64 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 h-full flex flex-col z-20">
       {/* Header */}
       <div className="p-4 border-b border-gray-200 dark:border-gray-700">
         <h1 className="text-xl font-bold text-gray-900 dark:text-white truncate">Admin</h1>
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 p-4 space-y-2">
+      <nav className="flex-1 overflow-y-auto p-4 space-y-2">
         {navigationItems
           .filter(item => {
             // Hide auth item if already connected
@@ -221,25 +221,45 @@ export function Sidebar() {
           })}
       </nav>
 
-      {/* Footer - Wallet Connection Prompt */}
-      {!isWalletConnected && (
-        <div className="p-4 border-t border-gray-200 dark:border-gray-700">
-          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/30 dark:to-indigo-900/30 rounded-lg p-3 border border-blue-200 dark:border-blue-700">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-lg">🔗</span>
-              <span className="text-sm font-semibold text-blue-800 dark:text-blue-200">Connect Wallet</span>
-            </div>
-            <p className="text-xs text-blue-600 dark:text-blue-300 mb-2">
-              Connect your wallet to access all admin features and manage permissions.
-            </p>
-            <Link href="/auth" className="block">
-              <div className="w-full bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium py-2 px-3 rounded text-center">
-                Connect Now
+      {/* Footer Area */}
+      <div className="mt-auto">
+        {/* Wallet Connection Prompt - shown when not authenticated */}
+        {!isWalletConnected && (
+          <div className="p-4 border-t border-gray-200 dark:border-gray-700">
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/30 dark:to-indigo-900/30 rounded-lg p-3 border border-blue-200 dark:border-blue-700">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-lg">🔗</span>
+                <span className="text-sm font-semibold text-blue-800 dark:text-blue-200">Connect Wallet</span>
               </div>
-            </Link>
+              <p className="text-xs text-blue-600 dark:text-blue-300 mb-2">
+                Connect your wallet to access all admin features and manage permissions.
+              </p>
+              <Link href="/auth" className="block">
+                <div className="w-full bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium py-2 px-3 rounded text-center">
+                  Connect Now
+                </div>
+              </Link>
+            </div>
+          </div>
+        )}
+
+        {/* User Profile - Always visible at bottom */}
+        <div className="p-4 border-t border-gray-200 dark:border-gray-700">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold flex-shrink-0">
+              {isWalletConnected ? 'N' : '?'}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                {isWalletConnected ? 'Admin User' : 'Guest'}
+              </p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                {isWalletConnected ? 'Connected' : 'Not connected'}
+              </p>
+            </div>
           </div>
         </div>
-      )}
+      </div>
 
     </div>
   );

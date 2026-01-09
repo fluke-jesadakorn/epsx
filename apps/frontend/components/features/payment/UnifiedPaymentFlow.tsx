@@ -19,7 +19,6 @@ import {
     ArrowLeft,
     Check,
     CheckCircle2,
-    ChevronRight,
     Loader2,
     Lock,
     Shield,
@@ -39,9 +38,11 @@ import { supportedChains } from '@/shared/components/navigation/ChainSelector';
 
 import { ChainVerificationCard } from './ChainVerificationCard';
 import { CurrentAccessCard } from './CurrentAccessCard';
-import { PaymentPlanCard, PlanData } from './PaymentPlanCard';
 import { useAddTokenToWallet } from './hooks/useAddTokenToWallet';
 import { useDirectTokenTransfer } from './hooks/useDirectTokenTransfer';
+
+// Shared Components
+import { PricingCard, PricingCardData } from '@/shared/components/plans/PricingCard';
 
 // Types
 type PaymentType = 'plan' | 'group' | 'permission';
@@ -91,12 +92,15 @@ export function UnifiedPaymentFlow({
 
     // Payment flow state
     const [step, setStep] = useState<PaymentStep>('select');
-    const [plans, setPlans] = useState<PlanData[]>([]);
-    const [selectedPlan, setSelectedPlan] = useState<PlanData | null>(null);
+    const [plans, setPlans] = useState<PricingCardData[]>([]);
+    const [selectedPlan, setSelectedPlan] = useState<PricingCardData | null>(null);
     const [selectedToken, setSelectedToken] = useState<PaymentToken>(PAYMENT_TOKENS[0]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [txHash, setTxHash] = useState<string | null>(null);
+
+    // State to toggle between single view and grid view if user wants to change plan
+    const [showAllPlans, setShowAllPlans] = useState(false);
 
     // API client
     const apiClient = useMemo(() => createFrontendApiClient(), []);
@@ -130,7 +134,9 @@ export function UnifiedPaymentFlow({
     // Amount in token decimals
     const amountInDecimals = useMemo(() => {
         if (!selectedPlan) return 0n;
-        return parseUnits(selectedPlan.current_price.toString(), selectedToken.decimals);
+        // Parse price string (remove $, USD, etc)
+        const priceVal = selectedPlan.price.replace(/[^0-9.]/g, '');
+        return parseUnits(priceVal, selectedToken.decimals);
     }, [selectedPlan, selectedToken]);
 
     // Add token to wallet hook
@@ -161,6 +167,18 @@ export function UnifiedPaymentFlow({
     // Is current plan expired?
     const isExpired = planAccess?.status === 'expired';
 
+    // Helper to calculate action type for a plan
+    const getActionType = useCallback((plan: PricingCardData) => {
+        const planTier = plan.tier_level ?? 0;
+
+        if (planTier === currentPlanTier) return 'extend';
+        if (planTier > currentPlanTier) return 'upgrade';
+        if (planTier < currentPlanTier) {
+            return isExpired ? 'downgrade' : 'locked';
+        }
+        return 'select';
+    }, [currentPlanTier, isExpired]);
+
     // Fetch plans from API
     const fetchPlans = useCallback(async () => {
         try {
@@ -182,41 +200,49 @@ export function UnifiedPaymentFlow({
             const result = await response.json();
 
             if (result.success && result.data && Array.isArray(result.data)) {
-                const transformedPlans: PlanData[] = result.data
+                // Transform to PricingCardData
+                const transformedPlans: PricingCardData[] = result.data
                     .filter((plan: any) => plan.is_active)
                     .sort((a: any, b: any) => (a.display_order || 0) - (b.display_order || 0))
-                    .map((plan: any) => ({
-                        id: plan.id,
-                        name: plan.name,
-                        description: plan.description,
-                        plan_type: plan.plan_type,
-                        current_price: typeof plan.current_price === 'string'
+                    .map((plan: any) => {
+                        const price = typeof plan.current_price === 'string'
                             ? parseFloat(plan.current_price)
-                            : plan.current_price,
-                        base_price: plan.base_price
-                            ? typeof plan.base_price === 'string'
-                                ? parseFloat(plan.base_price)
-                                : plan.base_price
-                            : undefined,
-                        currency: plan.currency || 'USD',
-                        features: Array.isArray(plan.features)
-                            ? plan.features
-                            : typeof plan.features === 'string'
-                                ? JSON.parse(plan.features)
-                                : [],
-                        is_highlighted: plan.is_highlighted || plan.is_promoted,
-                        is_promoted: plan.is_promoted,
-                        display_order: plan.display_order,
-                        tier_level: plan.tier_level ?? 0, // Use API tier_level, default to 0 (free)
-                    }));
+                            : plan.current_price;
+
+                        const basePrice = plan.base_price
+                            ? (typeof plan.base_price === 'string' ? parseFloat(plan.base_price) : plan.base_price)
+                            : null;
+
+                        const isFree = price === 0;
+
+                        return {
+                            id: plan.id,
+                            title: plan.name,
+                            price: isFree ? 'Free' : `${price}`, // PricingCard handles formatting
+                            originalPrice: basePrice ? `$${basePrice}` : undefined,
+                            features: Array.isArray(plan.features)
+                                ? plan.features.map((f: any) => typeof f === 'string' ? { text: f, included: true } : f)
+                                : typeof plan.features === 'string'
+                                    ? JSON.parse(plan.features).map((f: any) => typeof f === 'string' ? { text: f, included: true } : f)
+                                    : [],
+                            highlight: plan.is_highlighted || plan.is_promoted,
+                            buttonText: isFree ? 'Start Free' : 'Select Plan',
+                            tier_level: plan.tier_level ?? 0,
+                            plan_type: plan.plan_type,
+                            description: plan.description
+                        };
+                    });
 
                 setPlans(transformedPlans);
 
-                // Auto-select preselected or first plan
+                // Auto-select preselected plan
                 if (preselectedId) {
                     const preselected = transformedPlans.find(p => String(p.id) === String(preselectedId));
                     if (preselected) {
                         setSelectedPlan(preselected);
+                        // If we have a preselection, we might want to stay in 'select' step but show Single Card UI
+                        // Or if it's a direct link, maybe go to confirm? 
+                        // For now let's stick to 'select' step but render specific UI
                     }
                 }
             } else {
@@ -236,9 +262,27 @@ export function UnifiedPaymentFlow({
     }, [fetchPlans]);
 
     // Handle plan selection
-    const handlePlanSelect = (plan: PlanData) => {
+    const handlePlanSelect = (plan: PricingCardData) => {
+        const action = getActionType(plan);
+        if (action === 'locked') return;
+
         setSelectedPlan(plan);
         setError(null);
+        // If clicking on a plan in grid, view details/confirm
+        // If clicking on single view, go to confirm
+        if (preselectedId && !showAllPlans && selectedPlan?.id === plan.id) {
+            setStep('confirm');
+        } else if (!preselectedId) {
+            // If no preselection (standard /plans page), maybe selecting keeps it there or goes to confirm?
+            // The old behavior was: select -> set state. Then click "Continue".
+            // With PricingCard, the button inside clicks 'onSelect'. 
+            // Let's go to confirm immediately for better UX
+            setStep('confirm');
+        } else {
+            // We successfully selected a plan (maybe changed from grid)
+            // Go to confirm
+            setStep('confirm');
+        }
     };
 
     // Proceed to confirmation
@@ -275,10 +319,13 @@ export function UnifiedPaymentFlow({
             // Submit to backend
             const submitPayment = async () => {
                 try {
+                    // Extract numeric price
+                    const priceVal = parseFloat(selectedPlan?.price.replace(/[^0-9.]/g, '') || '0');
+
                     const response = await apiClient.post('/api/payments/submit', {
                         transaction_hash: transferTxHash,
                         plan_id: selectedPlan?.id,
-                        expected_amount: selectedPlan?.current_price,
+                        expected_amount: priceVal,
                         currency: selectedToken.symbol,
                         network: supportedChains.find(c => c.id === chainId)?.name || 'unknown'
                     });
@@ -327,7 +374,7 @@ export function UnifiedPaymentFlow({
         return (
             <div className={cn('py-12', className)}>
                 <div className="flex flex-col items-center justify-center gap-4">
-                    <Loader2 className="w-12 h-12 text-purple-500 animate-spin" />
+                    <Loader2 className="w-12 h-12 text-blue-500 animate-spin" />
                     <p className="text-gray-600 dark:text-gray-400">Loading payment options...</p>
                 </div>
             </div>
@@ -338,7 +385,7 @@ export function UnifiedPaymentFlow({
     if (!isAuthenticated) {
         return (
             <div className={cn('max-w-lg mx-auto', className)}>
-                <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl p-8 shadow-xl border border-purple-200/50 dark:border-purple-700/50 text-center">
+                <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl p-8 shadow-xl border border-blue-200/50 dark:border-blue-700/50 text-center">
                     <div className="flex h-20 w-20 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900/30 mx-auto mb-6">
                         <Wallet className="h-10 w-10 text-amber-600 dark:text-amber-400" />
                     </div>
@@ -388,7 +435,7 @@ export function UnifiedPaymentFlow({
                     <p className="text-gray-600 dark:text-gray-400 mb-4">{error}</p>
                     <button
                         onClick={fetchPlans}
-                        className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                        className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                     >
                         Try Again
                     </button>
@@ -409,7 +456,7 @@ export function UnifiedPaymentFlow({
                         🎉 Payment Successful!
                     </h2>
                     <p className="text-gray-600 dark:text-gray-400 mb-6">
-                        Your {selectedPlan?.name} plan is now active.
+                        Your {selectedPlan?.title} plan is now active.
                     </p>
 
                     {txHash && (
@@ -424,14 +471,14 @@ export function UnifiedPaymentFlow({
                     <div className="flex flex-col sm:flex-row gap-3">
                         <Link
                             href="/account"
-                            className="flex-1 px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl font-bold hover:shadow-lg transition-all flex items-center justify-center gap-2"
+                            className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-bold hover:shadow-lg transition-all flex items-center justify-center gap-2"
                         >
                             <Wallet className="w-4 h-4" />
                             View Account
                         </Link>
                         <Link
                             href="/analytics"
-                            className="flex-1 px-6 py-3 border-2 border-purple-300 dark:border-purple-700 text-purple-600 dark:text-purple-400 rounded-xl font-bold hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all"
+                            className="flex-1 px-6 py-3 border-2 border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400 rounded-xl font-bold hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all"
                         >
                             Go to Analytics
                         </Link>
@@ -448,31 +495,31 @@ export function UnifiedPaymentFlow({
                 {/* Back button */}
                 <button
                     onClick={() => setStep('select')}
-                    className="flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 mb-6 transition-colors"
+                    className="flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 mb-6 transition-colors"
                 >
                     <ArrowLeft className="w-4 h-4" />
                     Back to plans
                 </button>
 
-                <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl p-8 shadow-xl border border-purple-200/50 dark:border-purple-700/50">
+                <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl p-8 shadow-xl border border-blue-200/50 dark:border-blue-700/50">
                     <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
                         Confirm Your Order
                     </h2>
 
                     {/* Order summary */}
-                    <div className="bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 rounded-xl p-6 mb-6">
+                    <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl p-6 mb-6">
                         <div className="flex items-center justify-between mb-4">
                             <div>
                                 <h3 className="text-lg font-bold text-gray-900 dark:text-white">
-                                    {selectedPlan.name}
+                                    {selectedPlan.title}
                                 </h3>
                                 <p className="text-sm text-gray-600 dark:text-gray-400">
                                     30 days access
                                 </p>
                             </div>
                             <div className="text-right">
-                                <p className="text-2xl font-black text-purple-600 dark:text-purple-400">
-                                    ${selectedPlan.current_price}
+                                <p className="text-2xl font-black text-blue-600 dark:text-blue-400">
+                                    ${selectedPlan.price.replace(/[^0-9.]/g, '')}
                                 </p>
                                 <p className="text-xs text-gray-500 dark:text-gray-400">
                                     {selectedToken.symbol}
@@ -481,7 +528,7 @@ export function UnifiedPaymentFlow({
                         </div>
 
                         {/* Features preview */}
-                        <div className="border-t border-purple-200 dark:border-purple-800 pt-4">
+                        <div className="border-t border-blue-200 dark:border-blue-800 pt-4">
                             <p className="text-xs font-bold text-gray-500 dark:text-gray-400 mb-2 uppercase">
                                 Included Features
                             </p>
@@ -489,7 +536,7 @@ export function UnifiedPaymentFlow({
                                 {selectedPlan.features.slice(0, 4).map((feature, idx) => (
                                     <div key={idx} className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
                                         <Check className="w-3 h-3 text-green-500" />
-                                        <span className="truncate">{feature}</span>
+                                        <span className="truncate">{feature.text}</span>
                                     </div>
                                 ))}
                             </div>
@@ -509,8 +556,8 @@ export function UnifiedPaymentFlow({
                                     className={cn(
                                         'flex-1 px-4 py-3 rounded-xl border-2 transition-all font-medium',
                                         selectedToken.symbol === token.symbol
-                                            ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400'
-                                            : 'border-gray-200 dark:border-gray-700 hover:border-purple-300'
+                                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
+                                            : 'border-gray-200 dark:border-gray-700 hover:border-blue-300'
                                     )}
                                 >
                                     {token.symbol}
@@ -553,7 +600,7 @@ export function UnifiedPaymentFlow({
                             'w-full py-4 rounded-xl font-bold text-lg transition-all',
                             isAddingToken || isTransferring || isConfirming
                                 ? 'bg-gray-300 dark:bg-gray-700 cursor-not-allowed'
-                                : 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white hover:shadow-xl shadow-lg shadow-purple-500/30'
+                                : 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:shadow-xl shadow-lg shadow-blue-500/30'
                         )}
                     >
                         {isAddingToken && (
@@ -577,7 +624,7 @@ export function UnifiedPaymentFlow({
                         {!isAddingToken && !isTransferring && !isConfirming && (
                             <span className="flex items-center justify-center gap-2">
                                 <Wallet className="w-5 h-5" />
-                                Pay ${selectedPlan.current_price} {selectedToken.symbol}
+                                Pay ${selectedPlan.price.replace(/[^0-9.]/g, '')} {selectedToken.symbol}
                             </span>
                         )}
                     </button>
@@ -590,7 +637,42 @@ export function UnifiedPaymentFlow({
         );
     }
 
-    // Main selection step
+    // Single Plan Selection Mode
+    if (preselectedId && selectedPlan && !showAllPlans && step === 'select') {
+        return (
+            <div className={cn('space-y-8', className)}>
+                <div className="text-center">
+                    <h2 className="text-3xl font-black text-gray-900 dark:text-white mb-2">
+                        {selectedPlan.title} Plan
+                    </h2>
+                    <p className="text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
+                        Review plan details before proceeding
+                    </p>
+                </div>
+
+                <div className="max-w-md mx-auto">
+                    <PricingCard
+                        card={{ ...selectedPlan, buttonText: "Proceed to Payment" }}
+                        onSelect={handlePlanSelect}
+                        isSelected={true}
+                        actionType="select"
+                        isDisabled={getActionType(selectedPlan) === 'locked'}
+                    />
+
+                    <div className="text-center mt-8">
+                        <button
+                            onClick={() => setShowAllPlans(true)}
+                            className="text-sm text-gray-500 dark:text-gray-400 hover:text-blue-500 underline transition-colors"
+                        >
+                            View other plans
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )
+    }
+
+    // Main selection step (Grid View)
     return (
         <div className={cn('space-y-8', className)}>
             {/* Current Access */}
@@ -604,6 +686,15 @@ export function UnifiedPaymentFlow({
                 <p className="text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
                     {getPageDescription()}
                 </p>
+                {showAllPlans && preselectedId && (
+                    <button
+                        onClick={() => setShowAllPlans(false)}
+                        className="mt-4 text-sm text-blue-500 hover:underline flex items-center gap-1 mx-auto"
+                    >
+                        <ArrowLeft className="w-3 h-3" />
+                        Back to selected plan
+                    </button>
+                )}
                 {!isExpired && currentPlanTier > 0 && (
                     <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
                         <Lock className="w-4 h-4 text-amber-600 dark:text-amber-400" />
@@ -617,29 +708,16 @@ export function UnifiedPaymentFlow({
             {/* Plan Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {plans.map((plan) => (
-                    <PaymentPlanCard
+                    <PricingCard
                         key={plan.id}
-                        plan={plan}
-                        currentPlanTier={currentPlanTier}
-                        isExpired={isExpired}
+                        card={plan}
+                        isDisabled={getActionType(plan) === 'locked'}
                         isSelected={selectedPlan?.id === plan.id}
                         onSelect={handlePlanSelect}
+                        actionType={getActionType(plan)}
                     />
                 ))}
             </div>
-
-            {/* Proceed button */}
-            {selectedPlan && (
-                <div className="flex justify-center">
-                    <button
-                        onClick={handleProceedToConfirm}
-                        className="px-8 py-4 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl font-bold text-lg hover:shadow-xl transition-all shadow-lg shadow-purple-500/30 flex items-center gap-2"
-                    >
-                        Continue with {selectedPlan.name}
-                        <ChevronRight className="w-5 h-5" />
-                    </button>
-                </div>
-            )}
 
             {/* Error */}
             {error && (

@@ -75,3 +75,6 @@ export {
     Tooltip, TooltipContent, TooltipProvider, TooltipTrigger
 } from './tooltip';
 
+
+// Transfer List
+export { TransferList, type TransferListProps } from './transfer-list';
