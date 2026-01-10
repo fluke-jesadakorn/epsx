@@ -11,7 +11,7 @@ use std::sync::Arc;
 use tracing::{debug, info, warn};
 
 use crate::core::errors::AppError;
-use crate::domain::shared_kernel::services::eps_ranking_service::{EPSRankingService, EPSRankingParams};
+use crate::domain::shared_kernel::services::eps_ranking_service::{EPSRankingService, EPSRankingParams, PermissionParser};
 use crate::auth::UnifiedPermissionService;
 use super::{types::*, enhancement::enhance_with_websocket_data};
 
@@ -32,14 +32,15 @@ pub async fn get_eps_rankings(
         .and_then(|h| h.to_str().ok())
         .map(|addr| addr.to_lowercase());
 
-    // Calculate rank_offset based on user permissions
-    let rank_offset = if let Some(ref wallet) = wallet_address {
-        calculate_rank_offset_from_permissions(&permission_service, wallet).await
+    // Calculate ranking configuration based on user permissions
+    let (rank_offset, limit_cap) = if let Some(ref wallet) = wallet_address {
+        calculate_ranking_config_from_permissions(&permission_service, wallet).await
     } else {
-        100 // Default free tier offset for anonymous users
+        (100, 3) // Default free tier offset and limit for anonymous users
     };
 
-    debug!("Calculated rank_offset: {} for wallet: {:?}", rank_offset, wallet_address);
+    debug!("Calculated ranking config: offset={}, limit={} for wallet: {:?}", 
+           rank_offset, limit_cap, wallet_address);
 
     // Convert query params to service params with defaults - FIXED: Use correct parameter structure
     let service_params = EPSRankingParams {
@@ -51,6 +52,7 @@ pub async fn get_eps_rankings(
         min_eps: params.min_eps, // FIXED: Use correct field name (not market_cap_min)
         min_growth: params.min_growth, // FIXED: Add missing min_growth parameter
         rank_offset, // SECURITY: Enforced from user permissions
+        limit_cap,   // SECURITY: Enforced from user permissions
     };
 
     debug!("Converted to service params: {:?}", service_params);
@@ -211,46 +213,26 @@ pub fn is_valid_eps_for_ranking(eps: f64) -> bool {
     true
 }
 
-/// Calculate rank offset based on user permissions
-/// Premium users get access to top-ranked stocks, free users see lower ranks
-async fn calculate_rank_offset_from_permissions(
+/// Calculate rank offset and limit based on user permissions
+async fn calculate_ranking_config_from_permissions(
     permission_service: &Arc<UnifiedPermissionService>,
     wallet_address: &str,
-) -> i32 {
-    // Check permission tiers (from highest to lowest)
-    // Premium tier: Full access to all ranks (offset = 1)
-    if permission_service
-        .has_permission(wallet_address, "epsx:analytics:premium")
-        .await
-        .unwrap_or(false)
-    {
-        debug!("User {} has premium access - full ranking access", wallet_address);
-        return 1; // Access to ranks 1+
+) -> (i32, i32) {
+    // Get all permission strings for the user
+    // Get all permission strings for the user
+    match permission_service.get_permission_strings(wallet_address).await {
+        Ok(permissions) => {
+            info!("User {} has permissions: {:?}", wallet_address, permissions);
+            // Use the parser to extract offset and limit
+            let (offset, limit) = PermissionParser::extract_ranking_config(&permissions);
+            info!("Parsed ranking config for {}: offset={}, limit={}", wallet_address, offset, limit);
+            (offset, limit)
+        },
+        Err(e) => {
+            warn!("Failed to fetch permissions for user {}: {}, using defaults", wallet_address, e);
+            (100, 3) // Default free tier
+        }
     }
-
-    // Pro tier: Access to top 50 ranks (offset = 1)
-    if permission_service
-        .has_permission(wallet_address, "epsx:analytics:pro")
-        .await
-        .unwrap_or(false)
-    {
-        debug!("User {} has pro access - top 50 ranking access", wallet_address);
-        return 1; // Access to ranks 1+
-    }
-
-    // Basic tier: Access from rank 25+ (offset = 25)
-    if permission_service
-        .has_permission(wallet_address, "epsx:analytics:basic")
-        .await
-        .unwrap_or(false)
-    {
-        debug!("User {} has basic access - rank 25+ access", wallet_address);
-        return 25; // Access to ranks 25+
-    }
-
-    // Free tier: Access from rank 100+ (default)
-    debug!("User {} has free tier access - rank 100+ access", wallet_address);
-    100 // Free tier offset
 }
 
 #[cfg(test)]
@@ -279,6 +261,7 @@ mod tests {
             min_eps: params.min_eps,
             min_growth: params.min_growth,
             rank_offset: 0,  // No rank restriction for test
+            limit_cap: 100,  // Default limit cap for test
         };
 
         assert_eq!(service_params.page, 1);

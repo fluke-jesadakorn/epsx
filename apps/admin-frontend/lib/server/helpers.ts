@@ -51,9 +51,9 @@ export class ServerAuth {
     const cookieStore = await cookies()
 
     return {
-      accessToken: cookieStore.get(COOKIES.access)?.value,
-      idToken: cookieStore.get(COOKIES.id)?.value,
-      refreshToken: cookieStore.get(COOKIES.refresh)?.value
+      accessToken: cookieStore.get(COOKIES.access_token)?.value,
+      idToken: cookieStore.get(COOKIES.id_token)?.value,
+      refreshToken: cookieStore.get(COOKIES.refresh_token)?.value
     }
   }
 

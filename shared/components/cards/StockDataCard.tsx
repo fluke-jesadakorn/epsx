@@ -110,7 +110,7 @@ export const StockDataCard = ({
               <div className={cn("p-1.5 rounded-md", isPositiveGrowth ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400")}>
                 <TrendingUp className="w-4 h-4" />
               </div>
-              <span className="text-sm text-gray-300 font-medium">EPS Growth</span>
+              <span className="text-sm text-gray-300 font-medium">Growth</span>
             </div>
             <span className={cn("font-bold text-sm", isPositiveGrowth ? "text-green-400" : "text-red-400")}>
               {formatPercentage(epsGrowth)}

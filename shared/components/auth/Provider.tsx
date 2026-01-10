@@ -179,7 +179,7 @@ export function SharedOpenIDWeb3Provider({
             let storedUser = getClientCookieJSON<UserInfoResponse>(COOKIES.user);
             if (!storedUser) {
               // Fallback to localStorage
-              const userStr = localStorage.getItem('oidc.user');
+              const userStr = localStorage.getItem('epsx.user');
               if (userStr) {
                 try {
                   storedUser = JSON.parse(userStr);
@@ -187,9 +187,9 @@ export function SharedOpenIDWeb3Provider({
               }
             }
 
-            const authTime = getClientCookie(COOKIES.auth_time) || localStorage.getItem('oidc.auth_time');
-            const accessToken = getClientCookie(COOKIES.access) || getClientCookie(COOKIES.client_session) || localStorage.getItem('oidc.access_token');
-            const tokenExpiry = getClientCookie(COOKIES.expires_at) || localStorage.getItem('oidc.expires_at');
+            const authTime = getClientCookie(COOKIES.auth_time) || localStorage.getItem('epsx.auth_time');
+            const accessToken = getClientCookie(COOKIES.access_token) || getClientCookie(COOKIES.session_id) || localStorage.getItem('epsx.access_token');
+            const tokenExpiry = getClientCookie(COOKIES.expires_at) || localStorage.getItem('epsx.expires_at');
 
             console.log('🔍 Cookie/Storage restoration check', {
               clientId,
@@ -459,23 +459,23 @@ export function SharedOpenIDWeb3Provider({
           setClientCookie(COOKIES.auth_time, Date.now().toString(), COOKIE_OPTIONS.maxAge.auth_time);
 
           // Set token expiry (same as access token)
-          const expiryTime = Date.now() + (COOKIE_OPTIONS.maxAge.access * 1000);
+          const expiryTime = Date.now() + (COOKIE_OPTIONS.maxAge.access_token * 1000);
           setClientCookie(COOKIES.expires_at, expiryTime.toString(), COOKIE_OPTIONS.maxAge.expires_at);
 
-          // CRITICAL: Set client_session cookie with access_token for server-side auth
+          // CRITICAL: Set session_id cookie with access_token for server-side auth
           if (result.access_token) {
-            setClientCookie(COOKIES.client_session, result.access_token, COOKIE_OPTIONS.maxAge.access);
-            console.log('🔑 Set client_session cookie for server-side auth');
+            setClientCookie(COOKIES.session_id, result.access_token, COOKIE_OPTIONS.maxAge.access_token);
+            console.log('🔑 Set session_id cookie for server-side auth');
           }
 
           // 2. Save to localStorage (Fallback/Redundancy)
           // This ensures session survives even if cookies are blocked/size-limited
-          localStorage.setItem('oidc.user', JSON.stringify(user));
-          localStorage.setItem('oidc.auth_time', Date.now().toString());
-          localStorage.setItem('oidc.expires_at', expiryTime.toString());
+          localStorage.setItem('epsx.user', JSON.stringify(user));
+          localStorage.setItem('epsx.auth_time', Date.now().toString());
+          localStorage.setItem('epsx.expires_at', expiryTime.toString());
 
           if (result.access_token) {
-            localStorage.setItem('oidc.access_token', result.access_token);
+            localStorage.setItem('epsx.access_token', result.access_token);
           }
 
           console.log('💾 Persisted Web3 authentication to storage (cookies + localStorage)', {
@@ -484,7 +484,7 @@ export function SharedOpenIDWeb3Provider({
               user: COOKIES.user,
               authTime: COOKIES.auth_time,
               expiresAt: COOKIES.expires_at,
-              clientSession: COOKIES.client_session
+              clientSession: COOKIES.session_id
             }
           });
         } catch (error) {

@@ -17,7 +17,7 @@ pub struct EPSRankingQueryParams {
 }
 
 /// Access information for rank-based permissions
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, utoipa::ToSchema)]
 pub struct AccessInfo {
     pub min_accessible_rank: i32,  // Minimum rank user can access
     pub locked_ranks_count: i32,    // How many ranks are locked (same as min_accessible_rank - 1)
@@ -189,6 +189,7 @@ pub struct CardDashboardResponse {
     pub data: Vec<SymbolCardData>,
     pub pagination: EPSPaginationResponse,
     pub metadata: CardDashboardMetadata,
+    pub access_info: Option<AccessInfo>, // NEW: Information about locked ranks
     pub message: Option<String>,
     pub processing_time_ms: u64,
 }
@@ -198,6 +199,7 @@ pub struct CardDashboardResponse {
 pub struct SymbolCardData {
     pub rank: i32,
     pub symbol: String,
+    pub company_name: Option<String>, // NEW: Company name for display
     pub latest_date: String,
     pub value: f64,                    // Current price
     pub active_status: String,         // Active or Non Active based on surplus

@@ -242,10 +242,9 @@ mod tests {
     // Mock event bus
     struct MockEventBus;
     
-    #[async_trait]
     impl DomainEventBus for MockEventBus {
-        async fn publish(&self, _event: &dyn crate::domain::shared_kernel::DomainEvent) -> Result<(), String> {
-            Ok(())
+        fn publish(&self, _event: &dyn crate::domain::shared_kernel::DomainEvent) {
+            // No-op
         }
     }
     

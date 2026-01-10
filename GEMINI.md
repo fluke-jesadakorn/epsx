@@ -61,11 +61,22 @@ bun lint && bun type-check && bun format  # QA
 
 ## Authentication
 
-### Web3-First System (SIWE)
-- **Wallet-Only**: No email/password - Sign-In with Ethereum
-- **Multi-Chain**: BSC Mainnet (56) and Testnet (97)
-- **Session**: Web3 tokens stored in HttpOnly cookies
-- **Flow**: Challenge → Sign → Verify → Bearer Token
+### Web3-First System (Strict Bearer Token)
+- **Method**: Strict `Authorization: Bearer <token>` for all API calls.
+- **Backend Policy**: NO cookie reading logic in backend. Frontend is 100% responsible for cookie management.
+- **Token Format**: Standard RS256 JWTs (OpenID Connect compliant Claims).
+- **Multi-Chain**: BSC Mainnet (56) and Testnet (97).
+
+### Cookie Standards
+All cookies MUST use the `epsx.` prefix. Legacy `oidc.` keys are deprecated and removed.
+
+| Name | Purpose | Scope |
+|------|---------|-------|
+| `epsx.access_token` | Access Token | HttpOnly / LocalStorage (fallback) |
+| `epsx.id_token` | OpenID Token | HttpOnly |
+| `epsx.refresh_token` | Refresh Token | HttpOnly |
+| `epsx.session_id` | Client Session | Client-Accessible |
+| `epsx.user` | User Metadata | JSON (parsed by frontend) |
 
 ### Permission System
 ```
@@ -287,5 +298,5 @@ diesel migration run
 
 ---
 
-**Status**: Production Live on Docker Compose + Cloudflare Tunnel. Web3-first auth. Shared DB infrastructure for resource optimization.
+**Status**: Production Live on Docker Compose + Cloudflare Tunnel. Strict Bearer-only Web3 auth. Shared DB infrastructure.
 

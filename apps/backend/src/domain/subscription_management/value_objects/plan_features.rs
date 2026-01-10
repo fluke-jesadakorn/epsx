@@ -5,6 +5,7 @@ use crate::prelude::*;
 pub struct PlanFeatures {
     api_calls_limit: Option<i32>,
     rankings_limit: Option<i32>,
+    ranking_offset: Option<i32>, // Added ranking offset
     analytics_enabled: bool,
     premium_support: bool,
     custom_features: serde_json::Value,
@@ -19,12 +20,14 @@ impl PlanFeatures {
     pub fn new(
         api_calls_limit: Option<i32>,
         rankings_limit: Option<i32>,
+        ranking_offset: Option<i32>,
         analytics_enabled: bool,
         premium_support: bool,
     ) -> Self {
         Self {
             api_calls_limit,
             rankings_limit,
+            ranking_offset,
             analytics_enabled,
             premium_support,
             custom_features: serde_json::json!({}),
@@ -62,6 +65,10 @@ impl PlanFeatures {
         self.rankings_limit
     }
 
+    pub fn ranking_offset(&self) -> Option<i32> {
+        self.ranking_offset
+    }
+
     pub fn analytics_enabled(&self) -> bool {
         self.analytics_enabled
     }
@@ -96,6 +103,7 @@ impl Default for PlanFeatures {
         Self {
             api_calls_limit: Some(100),
             rankings_limit: Some(3),
+            ranking_offset: Some(100), // Default offset for free tier
             analytics_enabled: false,
             premium_support: false,
             custom_features: serde_json::json!({}),

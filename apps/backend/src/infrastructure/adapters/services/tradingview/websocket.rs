@@ -37,7 +37,7 @@ impl TradingViewWebSocketHandler {
 
         // Placeholder - return error to trigger fallback to real quarterly data
         // WebSocket disabled to avoid 403 Forbidden errors
-        warn!("WebSocket EPS data not available (placeholder mode), using fallback");
+        debug!("WebSocket EPS data not available (placeholder mode), using fallback");
         Err(MarketDataError::ConnectionError("WebSocket disabled - use fallback calculation".to_string()))
     }
 

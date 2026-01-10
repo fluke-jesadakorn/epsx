@@ -508,6 +508,25 @@ export function CardDashboardView({ className = '' }: CardDashboardViewProps) {
               Next: {nextDate} {daysUntil > 0 && `(${daysUntil} days)`}
             </div>
           </div>
+
+          {/* Action Button - Same as StockDataCard */}
+          <div className="mt-4">
+            <a
+              href={`https://www.tradingview.com/symbols/${cardData.symbol}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block w-full"
+            >
+              <button
+                className="w-full py-3 rounded-xl font-bold text-sm transition-all duration-300 relative overflow-hidden bg-gradient-to-r from-blue-600 to-blue-700 text-white hover:shadow-lg hover:shadow-blue-500/25 group"
+              >
+                <span className="relative flex items-center justify-center gap-2">
+                  View Details
+                  <span className="w-4 h-4 group-hover:translate-x-1 transition-transform">→</span>
+                </span>
+              </button>
+            </a>
+          </div>
         </div>
       </div>
     );

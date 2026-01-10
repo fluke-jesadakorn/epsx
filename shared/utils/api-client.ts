@@ -112,7 +112,7 @@ export class UnifiedApiClient {
         const cookieStore = await cookies();
 
         // Get access token from unified cookies (no context separation)
-        const tokenCookie = cookieStore.get(COOKIES.access);
+        const tokenCookie = cookieStore.get(COOKIES.access_token);
 
         if (tokenCookie?.value) {
           headers['Authorization'] = `Bearer ${tokenCookie.value}`;
@@ -126,8 +126,8 @@ export class UnifiedApiClient {
       // Client-side: attempt to get token from accessible cookies
       // This is crucial for singleton clients that are initialized without tokens
       try {
-        // 1. Try client_session cookie (synced by SharedWeb3AuthClient)
-        const clientSession = getClientCookie(COOKIES.client_session);
+        // 1. Try session_id cookie (synced by SharedWeb3AuthClient)
+        const clientSession = getClientCookie(COOKIES.session_id);
         if (clientSession) {
           headers['Authorization'] = `Bearer ${clientSession}`;
           return headers;

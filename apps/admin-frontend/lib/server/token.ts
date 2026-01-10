@@ -51,7 +51,7 @@ export async function getJWTFromCookies(): Promise<string | null> {
     const cookieStore = await cookies();
 
     // Get access token from unified cookies (no context separation)
-    const jwtCookie = cookieStore.get(COOKIES.access);
+    const jwtCookie = cookieStore.get(COOKIES.access_token);
 
     return jwtCookie?.value || null;
   } catch (_error) {

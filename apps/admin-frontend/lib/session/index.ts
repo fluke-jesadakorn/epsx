@@ -16,7 +16,7 @@ export interface AdminSessionData {
 export async function getServerSessionAdmin(): Promise<AdminSessionData | null> {
   try {
     const cookieStore = await cookies();
-    const accessToken = cookieStore.get(COOKIES.access)?.value;
+    const accessToken = cookieStore.get(COOKIES.access_token)?.value;
 
     if (!accessToken) {
       return { isAuthenticated: false };
@@ -55,7 +55,7 @@ export async function getServerSessionAdmin(): Promise<AdminSessionData | null> 
     };
 
   } catch (_error) {
-     
+
     console.error('Failed to get admin server session:', _error);
     return { isAuthenticated: false };
   }

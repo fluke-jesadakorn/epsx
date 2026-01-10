@@ -40,6 +40,7 @@ pub struct EPSRankingParams {
     pub min_eps: Option<f64>,
     pub min_growth: Option<f64>,
     pub rank_offset: i32,  // Minimum accessible rank (from permissions)
+    pub limit_cap: i32,    // Maximum items viewable (from permissions), -1 for unlimited
 }
 
 impl Default for EPSRankingParams {
@@ -53,6 +54,7 @@ impl Default for EPSRankingParams {
             min_eps: None,
             min_growth: None,
             rank_offset: 100,  // Default: free tier
+            limit_cap: 3,      // Default: free tier limit
         }
     }
 }
@@ -99,32 +101,61 @@ impl CountryValidator {
 pub struct PermissionParser;
 
 impl PermissionParser {
-    /// Extract minimum rank offset from permissions
-    /// Format: "epsx:rankings:offset:{number}"
-    /// Returns the LOWEST offset = best access
+    /// Extract ranking configuration from permissions
+    /// Returns (rank_offset, rank_limit)
+    /// rank_offset: Lower is better (min rank accessible)
+    /// rank_limit: Higher is better (max items viewable), -1 for unlimited
+    pub fn extract_ranking_config(permissions: &[String]) -> (i32, i32) {
+        debug!("Extracting ranking config from {} permissions", permissions.len());
+
+        let mut min_offset = 100; // Default: free tier offset
+        let mut max_limit = 3;    // Default: free tier limit
+
+        for perm in permissions {
+            // Parse: "epsx:rankings:offset:{number}"
+            if let Some(val_str) = perm.strip_prefix("epsx:rankings:offset:") {
+                 if let Ok(val) = val_str.parse::<i32>() {
+                     if val < min_offset { // Take minimum = best access
+                         min_offset = val;
+                     }
+                 }
+            }
+            
+            // Parse: "epsx:rankings:limit:{number}"
+            // Also support "epsx:rankings:view:{number}" and "epsx:analytics:view:{number}" for backward compatibility
+            if let Some(val_str) = perm.strip_prefix("epsx:rankings:limit:")
+                .or_else(|| perm.strip_prefix("epsx:rankings:view:"))
+                .or_else(|| perm.strip_prefix("epsx:analytics:view:"))
+            {
+                 if val_str == "unlimited" || val_str == "-1" {
+                     max_limit = -1; // Unlimited
+                     min_offset = 1; // Explicit "unlimited" usually implies full access (offset 1)
+                 } else if let Ok(val) = val_str.parse::<i32>() {
+                     if max_limit != -1 && val > max_limit { // Take maximum = best access
+                         max_limit = val;
+                     }
+                     // Heuristic for legacy permissions: High limits (>10) usually imply paid plans with full access (offset 1)
+                     // Low limits (<=10) usually imply free/teaser plans with restricted access (offset stays 100)
+                     if val > 10 {
+                         min_offset = 1; 
+                     }
+                 }
+            }
+            
+            // Check for wildcard/admin permission
+            if perm == "epsx:*:*" || perm == "epsx:rankings:*" {
+                min_offset = 1;
+                max_limit = -1;
+            }
+        }
+
+        info!("Calculated ranking config: offset={}, limit={}", min_offset, max_limit);
+        (min_offset, max_limit)
+    }
+
+    /// Legacy method for backward compatibility
     pub fn extract_rank_offset(permissions: &[String]) -> i32 {
-        debug!("Extracting rank offset from {} permissions", permissions.len());
-
-        let offset = permissions
-            .iter()
-            .filter_map(|perm| {
-                // Parse: "epsx:rankings:offset:50"
-                if perm.starts_with("epsx:rankings:offset:") {
-                    let parts: Vec<&str> = perm.split(':').collect();
-                    if parts.len() >= 4 {
-                        if let Ok(offset) = parts[3].parse::<i32>() {
-                            debug!("Found rank offset: {} from permission: {}", offset, perm);
-                            return Some(offset);
-                        }
-                    }
-                }
-                None
-            })
-            .min() // Take minimum = best access
-            .unwrap_or(100); // Default: free tier offset
-
-        info!("Calculated rank offset: {}", offset);
-        offset
+        Self::extract_ranking_config(permissions).0
     }
 }
 
@@ -150,10 +181,16 @@ impl EPSRankingService {
 
         // Validate pagination parameters
         let page = params.page.max(1);
-        let limit = params.limit.clamp(1, 100); // Max 100 items per page
-
-        debug!("Validated params - Country: {:?}, Page: {}, Limit: {}, Rank Offset: {}",
-               validated_country, page, limit, params.rank_offset);
+        
+        // Apply limit cap from permissions
+        let effective_limit = if params.limit_cap >= 0 {
+            params.limit.clamp(1, params.limit_cap)
+        } else {
+            params.limit.clamp(1, 100) // Unlimited cap, but still bound by max page size
+        };
+        
+        debug!("Validated params - Country: {:?}, Page: {}, Limit: {} (requested: {}, cap: {}), Rank Offset: {}",
+               validated_country, page, effective_limit, params.limit, params.limit_cap, params.rank_offset);
 
         // Get rankings from repository with rank offset enforcement
         let rankings = self.eps_repo.get_rankings_filtered(
@@ -162,7 +199,7 @@ impl EPSRankingService {
             params.sector.clone(),
             params.sort_by.clone(),
             page,
-            limit,
+            effective_limit,
         ).await?;
 
         debug!("Found {} rankings from repository (offset: {})", rankings.len(), params.rank_offset);
@@ -172,7 +209,7 @@ impl EPSRankingService {
         debug!("Total count for pagination: {} (from rank {} onwards)", total_count, params.rank_offset);
 
         // Create pagination info
-        let pagination = EPSPagination::new(page, limit, total_count);
+        let pagination = EPSPagination::new(page, effective_limit, total_count);
 
         let response = EPSRankingsResponse {
             rankings,

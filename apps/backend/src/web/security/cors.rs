@@ -53,6 +53,7 @@ fn production_cors_with_origins(allowed_origins: Vec<String>) -> CorsLayer {
                     CONTENT_TYPE,
                     // Custom headers for OIDC and API
 
+                    HeaderName::from_static("x-wallet-address"),
                     HeaderName::from_static("x-api-version"),
                     HeaderName::from_static("x-request-id"),
                     HeaderName::from_static("x-client-version"),
@@ -135,6 +136,7 @@ fn development_cors() -> CorsLayer {
             ACCEPT,
             AUTHORIZATION,
             CONTENT_TYPE,
+            HeaderName::from_static("x-wallet-address"),
             HeaderName::from_static("x-api-version"),
             HeaderName::from_static("x-request-id"),
             HeaderName::from_static("x-client-version"),
@@ -222,6 +224,7 @@ pub fn admin_cors_layer() -> CorsLayer {
                 ACCEPT,
                 AUTHORIZATION,
                 CONTENT_TYPE,
+                HeaderName::from_static("x-wallet-address"),
                 HeaderName::from_static("x-admin-session"),
                 HeaderName::from_static("x-request-id"),
                 HeaderName::from_static("x-access-level"),

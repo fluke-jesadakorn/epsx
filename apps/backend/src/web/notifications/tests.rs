@@ -3,9 +3,7 @@
  *
  * Tests notification handlers, SSE connections, and database operations.
  * Uses Diesel for database operations instead of SQLx.
- */
-
-#[cfg(test)]
+ */#[cfg(test)]
 mod notification_tests {
     use crate::__test__::test_utils::*;
     use crate::infrastructure::database::get_diesel_pool;
@@ -22,7 +20,7 @@ mod notification_tests {
         let mut conn = pool.get().await?;
 
         // Use raw SQL for insertion to match original schema
-        diesel::sql_query(
+        diesel_async::RunQueryDsl::execute(diesel::sql_query(
             r#"
             INSERT INTO wallet_notifications
             (id, wallet_address, notification_type, title, message, priority, timestamp, created_at, updated_at)
@@ -35,8 +33,7 @@ mod notification_tests {
         .bind::<diesel::sql_types::Text, _>("Test Notification")
         .bind::<diesel::sql_types::Text, _>("This is a test notification")
         .bind::<diesel::sql_types::Text, _>("normal")
-        .bind::<diesel::sql_types::Timestamptz, _>(Utc::now())
-        .execute(&mut conn)
+        .bind::<diesel::sql_types::Timestamptz, _>(Utc::now()), &mut conn)
         .await?;
 
         Ok(id)
@@ -46,8 +43,7 @@ mod notification_tests {
         pool: &Pool<AsyncPgConnection>,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let mut conn = pool.get().await?;
-        diesel::sql_query("DELETE FROM wallet_notifications WHERE title = 'Test Notification'")
-            .execute(&mut conn)
+        diesel_async::RunQueryDsl::execute(diesel::sql_query("DELETE FROM wallet_notifications WHERE title = 'Test Notification'"), &mut conn)
             .await?;
         Ok(())
     }

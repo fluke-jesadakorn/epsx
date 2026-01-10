@@ -258,6 +258,10 @@ impl UnifiedRouteBuilder {
         let tradingview_service = Arc::new(crate::infrastructure::adapters::services::tradingview::TradingViewApiService::new(config));
         let eps_repository = Arc::new(crate::web::analytics::TradingViewEPSRepository::new(tradingview_service));
         let eps_ranking_service = Arc::new(crate::domain::shared_kernel::services::eps_ranking_service::EPSRankingService::new(eps_repository));
+        let permission_service = self.container.get_unified_permission_service()
+            .unwrap_or_else(|| Arc::new(crate::auth::UnifiedPermissionService::new_without_cache(*self.container.db_pool())));
+
+        let app_state = self.create_app_state();
 
         Router::new()
             .route("/rankings", get(crate::web::analytics::eps_handlers::get_unified_analytics_rankings_cached))
@@ -267,6 +271,11 @@ impl UnifiedRouteBuilder {
             .route("/sectors", get(crate::web::analytics::eps_handlers::get_sectors_by_country))
             .layer(Extension(self.get_or_default_cache()))
             .layer(Extension(eps_ranking_service))
+            .layer(Extension(permission_service))
+            .layer(axum_middleware::from_fn_with_state(
+                app_state,
+                crate::web::middleware::optional_bearer_middleware
+            ))
     }
 
     // ============================================================================

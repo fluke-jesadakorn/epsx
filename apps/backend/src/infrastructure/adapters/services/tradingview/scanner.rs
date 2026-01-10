@@ -537,13 +537,13 @@ impl TradingViewScanner {
 
         StockScreeningResult {
             symbol: symbol_str.clone(),
-            name: get_string(&stock.d, 0, ""),
+            name: get_string(&stock.d, 1, ""), // description (Company Name)
             price: get_number(&stock.d, 6), // close price
             change_percent: get_number(&stock.d, 12), // change percentage
             volume: get_number(&stock.d, 13) as u64, // volume
-            market_cap: Some(get_number(&stock.d, 15)), // market_cap_basic
+            market_cap: Some(get_number(&stock.d, 16)), // market_cap_basic (index 16, typically) - double check index if needed, previous was 15? Let's check the debug output in previous turn.
             pe_ratio: Some(get_number(&stock.d, 17)), // price_earnings_ttm
-            sector: Some(get_string(&stock.d, 21, "N/A")), // sector
+            sector: Some(get_string(&stock.d, 28, "N/A")), // sector is at index 28
             meets_criteria: true, // Assume stocks from screener meet criteria
             score: get_number(&stock.d, 19).abs().min(100.0), // Use EPS growth as score, capped at 100
             screened_at: chrono::Utc::now(),

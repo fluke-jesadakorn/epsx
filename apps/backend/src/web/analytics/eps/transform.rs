@@ -137,6 +137,7 @@ pub fn transform_unified_to_card_format(
   SymbolCardData {
     rank: unified_item.ranking_position,
     symbol: unified_item.symbol.clone(),
+    company_name: Some(unified_item.company_name.clone()), // NEW: Map company name from unified item
     latest_date: current_date.format("%b %-d, %-I:%M %p").to_string(),
     value: unified_item.current_price,
     active_status,

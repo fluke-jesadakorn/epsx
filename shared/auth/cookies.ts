@@ -40,22 +40,24 @@ const prefix = isProduction ? '__Host-' : '';
  */
 export const COOKIES = {
   // Server-side HttpOnly auth cookies
-  access: `${prefix}epsx.access`,
-  id: `${prefix}epsx.id`,
-  refresh: `${prefix}epsx.refresh`,
+  access_token: `${prefix}epsx.access_token`,
+  id_token: `${prefix}epsx.id_token`,
+  refresh_token: `${prefix}epsx.refresh_token`,
   state: `${prefix}epsx.state`,
   nonce: `${prefix}epsx.nonce`,
 
   // Client-side JavaScript accessible cookies
   user: `${prefix}epsx.user`,
+  session_id: `${prefix}epsx.session_id`, // Replaces client_session
   expires_at: `${prefix}epsx.expires_at`,
   auth_time: `${prefix}epsx.auth_time`,
+
+  // UX/State
   theme: `${prefix}epsx.theme`,
   browser_notifications: `${prefix}epsx.browser_notifications`,
   affiliate_attribution: `${prefix}epsx.affiliate_attribution`,
   affiliate_code: `${prefix}epsx.affiliate_code`,
   wallet_state: `${prefix}epsx.wallet_state`,
-  client_session: `${prefix}epsx.client_session`,
 } as const;
 
 /**
@@ -82,21 +84,22 @@ export const COOKIE_OPTIONS = {
 
   maxAge: {
     // Auth tokens
-    access: 2592000,                 // 30 days
-    id: 2592000,                     // 30 days
-    refresh: 2592000,                // 30 days
+    access_token: 2592000,           // 30 days
+    id_token: 2592000,               // 30 days
+    refresh_token: 2592000,          // 30 days
     state: 600,                      // 10 minutes
     nonce: 600,                      // 10 minutes
 
     // Client-side data
     user: 2592000,                   // 30 days (user data)
-    expires_at: 2592000,             // 30 days (same as access token)
+    session_id: 2592000,             // 30 days
+    expires_at: 2592000,             // 30 days
     auth_time: 2592000,              // 30 days
     theme: 31536000,                 // 1 year
     browser_notifications: 31536000, // 1 year
-    affiliate_attribution: 2592000, // 30 days
+    affiliate_attribution: 2592000,  // 30 days
     affiliate_code: 2592000,         // 30 days
-    wallet_state: null,              // Session cookie (expires when browser closes)
+    wallet_state: null,              // Session cookie
   },
 } as const;
 
@@ -104,7 +107,7 @@ export const COOKIE_OPTIONS = {
  * Get cookie name for type
  */
 export function getCookieName(
-  type: 'access' | 'id' | 'refresh' | 'state' | 'nonce'
+  type: 'access_token' | 'id_token' | 'refresh_token' | 'state' | 'nonce'
 ): string {
   return COOKIES[type];
 }
@@ -300,7 +303,7 @@ export function clearClientSideCookies(): void {
     'affiliate_attribution',
     'affiliate_code',
     'wallet_state',
-    'client_session'
+    'session_id'
   ] as const;
 
   clientCookieNames.forEach(cookieKey => {
@@ -327,16 +330,16 @@ export const CLIENT_SIDE_COOKIES = [
   'affiliate_attribution',
   'affiliate_code',
   'wallet_state',
-  'client_session'
+  'session_id'
 ] as const;
 
 /**
  * Server-side HttpOnly cookie names (auth tokens)
  */
 export const HTTP_ONLY_COOKIES = [
-  'access',
-  'id',
-  'refresh',
+  'access_token',
+  'id_token',
+  'refresh_token',
   'state',
   'nonce'
 ] as const;

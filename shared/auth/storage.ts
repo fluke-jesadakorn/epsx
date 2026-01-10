@@ -15,20 +15,7 @@
  * - Simpler architecture, less complexity
  */
 export const OIDC_KEYS = {
-  /** User information object (replaces epsx_web3_user) */
-  USER: 'oidc.user',
-
-  /** Access token for API authentication (replaces *_access_token variants) */
-  ACCESS_TOKEN: 'oidc.access_token',
-
-  /** Refresh token for token renewal */
-  REFRESH_TOKEN: 'oidc.refresh_token',
-
-  /** Token expiry timestamp in milliseconds (replaces *_token_expiry) */
-  EXPIRES_AT: 'oidc.expires_at',
-
-  /** Authentication timestamp in milliseconds (replaces epsx_web3_auth_timestamp) */
-  AUTH_TIME: 'oidc.auth_time',
+  // Deprecated: Use cookie management instead
 } as const;
 
 /**

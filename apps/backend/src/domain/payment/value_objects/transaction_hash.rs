@@ -493,7 +493,7 @@ mod tests {
 
         assert_eq!(tx_hash.confirmation_status(), ConfirmationStatus::Pending);
 
-        let tx_hash = tx_hash;
+        let mut tx_hash = tx_hash;
         tx_hash.update_confirmations(1);
         assert!(tx_hash.is_confirmed());
         assert_eq!(tx_hash.confirmation_status(), ConfirmationStatus::Confirmed);
@@ -534,7 +534,7 @@ mod tests {
             Network::Ethereum,
         ).unwrap();
 
-        let receipt = TransactionReceipt::new(
+        let mut receipt = TransactionReceipt::new(
             tx_hash,
             "0xfrom123456789".to_string(),
             "0xto987654321".to_string(),

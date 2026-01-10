@@ -50,6 +50,7 @@ impl CommandHandler<CreatePlanCommand> for CreatePlanCommandHandler {
         let features = PlanFeatures::new(
             command.api_calls_limit,
             command.rankings_limit,
+            None, // Default ranking offset when creating from command (will be updated via params if needed)
             command.analytics_enabled,
             command.premium_support,
         );

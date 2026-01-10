@@ -60,8 +60,13 @@ async fn enhance_symbols_batch(
     ).await {
         Ok(Ok(data)) => data,
         Ok(Err(e)) => {
-            warn!("❌ WebSocket data fetch failed: {}", e);
-            return Err(format!("WebSocket data fetch failed: {}", e));
+            if e.to_string().contains("WebSocket disabled") {
+                debug!("WebSocket enhancement skipped (disabled/placeholder)");
+                return Err(format!("WebSocket disabled: {}", e));
+            } else {
+                warn!("❌ WebSocket data fetch failed: {}", e);
+                return Err(format!("WebSocket data fetch failed: {}", e));
+            }
         }
         Err(_) => {
             warn!("⏱️ WebSocket data fetch timed out after 10s");

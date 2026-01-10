@@ -273,6 +273,7 @@ pub fn add_hours_to_timestamp(hours: i64) -> chrono::DateTime<chrono::Utc> {
 pub mod testing {
     use super::*;
     use diesel_async::pooled_connection::AsyncDieselConnectionManager;
+    use diesel_async::AsyncConnection;
 
     /// Create a mock connection pool for testing
     pub async fn create_test_pool() -> Arc<Pool<AsyncPgConnection>> {
@@ -312,36 +313,32 @@ pub mod testing {
                 .map_err(|e| AppError::database_error(e.to_string()))?;
 
             // Execute cleanup operations in a transaction
-            conn.transaction::<_, AppError, _>(|conn| {
-                // Clean up test data in dependency order
-                use diesel::prelude::*;
+                conn.transaction::<_, AppError, _>(|conn| Box::pin(async move {
+                    // Clean up test data in dependency order
 
-                // Clean up sessions first (foreign key dependencies)
-                diesel::sql_query("DELETE FROM user_sessions WHERE wallet_address LIKE 'test_%'")
-                    .execute(conn)
-                    .await
-                    .map_err(|e| AppError::database_error(e.to_string()))?;
 
-                // Clean up permission assignments
-                diesel::sql_query("DELETE FROM user_permissions WHERE user_id LIKE 'test_%'")
-                    .execute(conn)
-                    .await
-                    .map_err(|e| AppError::database_error(e.to_string()))?;
+                    // Clean up sessions first (foreign key dependencies)
+                    diesel_async::RunQueryDsl::execute(diesel::sql_query("DELETE FROM user_sessions WHERE wallet_address LIKE 'test_%'"), conn)
+                        .await
+                        .map_err(|e| AppError::database_error(e.to_string()))?;
 
-                // Clean up test users
-                diesel::sql_query("DELETE FROM users WHERE wallet_address LIKE 'test_%'")
-                    .execute(conn)
-                    .await
-                    .map_err(|e| AppError::database_error(e.to_string()))?;
+                    // Clean up permission assignments
+                    diesel_async::RunQueryDsl::execute(diesel::sql_query("DELETE FROM user_permissions WHERE user_id LIKE 'test_%'"), conn)
+                        .await
+                        .map_err(|e| AppError::database_error(e.to_string()))?;
 
-                // Clean up test permission groups
-                diesel::sql_query("DELETE FROM groups WHERE group_name LIKE 'test_%'")
-                    .execute(conn)
-                    .await
-                    .map_err(|e| AppError::database_error(e.to_string()))?;
+                    // Clean up test users
+                    diesel_async::RunQueryDsl::execute(diesel::sql_query("DELETE FROM users WHERE wallet_address LIKE 'test_%'"), conn)
+                        .await
+                        .map_err(|e| AppError::database_error(e.to_string()))?;
 
-                Ok(())
-            }).await?;
+                    // Clean up test permission groups
+                    diesel_async::RunQueryDsl::execute(diesel::sql_query("DELETE FROM groups WHERE group_name LIKE 'test_%'"), conn)
+                        .await
+                        .map_err(|e| AppError::database_error(e.to_string()))?;
+
+                    Ok(())
+                })).await?;
 
             info!("Test database cleanup completed successfully");
             Ok(())

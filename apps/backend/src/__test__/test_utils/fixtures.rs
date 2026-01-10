@@ -2,13 +2,13 @@
 // Provides common test data scenarios using Diesel
 
 use diesel::prelude::*;
-use diesel_async::RunQueryDsl;
+
+use diesel_async::AsyncPgConnection;
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
 use anyhow::Result;
 
 use crate::schemas::primary::*;
-use crate::domain::wallet_management::value_objects::WalletAddress;
 
 /// Test fixture builder for Web3 authentication nonces
 pub struct Web3NonceFixture {
@@ -39,13 +39,13 @@ impl Web3NonceFixture {
 
     /// Insert the fixture into the database
     pub async fn insert(&self, conn: &mut AsyncPgConnection) -> Result<()> {
-        diesel::insert_into(web3_auth_nonces::table)
+        diesel_async::RunQueryDsl::execute(
+            diesel::insert_into(web3_auth_nonces::table)
             .values((
                 web3_auth_nonces::nonce.eq(&self.nonce),
                 web3_auth_nonces::wallet_address.eq(&self.wallet_address),
                 web3_auth_nonces::expires_at.eq(&self.expires_at),
-            ))
-            .execute(conn)
+            )), conn)
             .await?;
 
         Ok(())
@@ -83,13 +83,13 @@ impl WalletUserFixture {
 
     /// Insert the fixture into the database
     pub async fn insert(&self, conn: &mut AsyncPgConnection) -> Result<()> {
-        diesel::insert_into(wallet_users::table)
+        diesel_async::RunQueryDsl::execute(
+            diesel::insert_into(wallet_users::table)
             .values((
                 wallet_users::wallet_address.eq(&self.wallet_address),
                 wallet_users::created_at.eq(&self.created_at),
                 wallet_users::updated_at.eq(&self.updated_at),
-            ))
-            .execute(conn)
+            )), conn)
             .await?;
 
         Ok(())
@@ -135,7 +135,8 @@ impl NotificationFixture {
 
     /// Insert the fixture into the database
     pub async fn insert(&self, conn: &mut AsyncPgConnection) -> Result<()> {
-        diesel::insert_into(wallet_notifications::table)
+        diesel_async::RunQueryDsl::execute(
+            diesel::insert_into(wallet_notifications::table)
             .values((
                 wallet_notifications::id.eq(&self.id),
                 wallet_notifications::wallet_address.eq(&self.wallet_address),
@@ -143,8 +144,7 @@ impl NotificationFixture {
                 wallet_notifications::message.eq(&self.message),
                 wallet_notifications::notification_type.eq(&self.notification_type),
                 wallet_notifications::created_at.eq(&self.created_at),
-            ))
-            .execute(conn)
+            )), conn)
             .await?;
 
         Ok(())

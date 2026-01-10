@@ -459,9 +459,9 @@ mod tests {
         let instructions = method.get_instructions();
         match &instructions {
             PaymentInstructions::Crypto { currency, network, estimated_confirmations } => {
-                assert_eq!(currency, Currency::USDT);
-                assert_eq!(network, Network::Ethereum);
-                assert_eq!(estimated_confirmations, 12);
+                assert_eq!(*currency, Currency::USDT);
+                assert_eq!(*network, Network::Ethereum);
+                assert_eq!(*estimated_confirmations, 12);
             }
             _ => panic!("Expected crypto instructions"),
         }

@@ -10,6 +10,9 @@ use tracing::{ debug, info, warn };
 use crate::core::errors::AppError;
 use crate::domain::shared_kernel::entities::eps_growth::EPSRanking;
 use crate::domain::shared_kernel::services::eps_cache_service::EPSCacheService;
+use crate::domain::shared_kernel::services::eps_ranking_service::PermissionParser;
+use crate::auth::UnifiedPermissionService;
+use crate::web::middleware::bearer_middleware::OpenIDUserContext;
 use crate::infrastructure::cache::Cache;
 use crate::web::analytics::convert_screening_result_to_eps_ranking;
 use super::{
@@ -44,17 +47,39 @@ use super::{
 )]
 pub async fn get_unified_analytics_rankings_cached(
   Query(params): Query<EPSRankingQueryParams>,
-  Extension(_cache): Extension<Arc<dyn Cache>>
+  Extension(_cache): Extension<Arc<dyn Cache>>,
+  Extension(permission_service): Extension<Arc<UnifiedPermissionService>>,
+  user_context_ext: Option<Extension<OpenIDUserContext>>,
 ) -> Result<Json<CardDashboardResponse>, AppError> {
   debug!(
     "Direct TradingView analytics rankings API called with params: {:?}",
     params
   );
 
+  let user_context = user_context_ext.map(|ext| ext.0);
+
+  // Extract wallet from secure user context (JWT)
+  let wallet_address = user_context.as_ref().map(|ctx| ctx.wallet_address.to_lowercase());
+
+  // Calculate ranking configuration based on user permissions
+  let (rank_offset, limit_cap) = if let Some(ref wallet) = wallet_address {
+    match permission_service.get_permission_strings(wallet).await {
+      Ok(permissions) => {
+        PermissionParser::extract_ranking_config(&permissions)
+      },
+      Err(_) => (100, 3)
+    }
+  } else {
+    // SECURITY: Anonymous/unverified users fall back to standard free tier limits
+    (100, 3) 
+  };
+ 
+  debug!("Rankings permission config: offset={}, limit_cap={} for secure_wallet={:?}", rank_offset, limit_cap, wallet_address);
+
   // Convert query params to service params with defaults
-  let limit = params.limit.unwrap_or(10);
+  let limit = params.limit.unwrap_or(10).min(limit_cap); // Enforce limit cap
   let page = params.page.unwrap_or(1).max(1); // Ensure page is at least 1
-  let skip = (page - 1) * limit; // Convert page to skip internally
+  let skip = rank_offset + (page - 1) * limit; // SECURITY: Start from rank_offset internally
 
   // Generate cache key for this request
   let cache_key = generate_cache_key(&params);
@@ -150,7 +175,11 @@ pub async fn get_unified_analytics_rankings_cached(
         info!("Direct endpoint: Enhanced {} rankings with WebSocket data in <5s", enhanced_count);
       }
       Ok(Err(e)) => {
-        warn!("Direct endpoint: WebSocket enhancement failed: {}, using Scanner API data", e);
+        if e.to_string().contains("WebSocket disabled") {
+            debug!("Direct endpoint: WebSocket enhancement skipped (disabled/placeholder), using Scanner API data");
+        } else {
+            warn!("Direct endpoint: WebSocket enhancement failed: {}, using Scanner API data", e);
+        }
       }
       Err(_) => {
         warn!("Direct endpoint: WebSocket enhancement timed out after 5s, using Scanner API data");
@@ -247,6 +276,10 @@ pub async fn get_unified_analytics_rankings_cached(
       has_prev,
     },
     metadata,
+    access_info: Some(AccessInfo {
+        min_accessible_rank: rank_offset,
+        locked_ranks_count: if rank_offset > 0 { rank_offset - 1 } else { 0 },
+    }),
     message: Some(
       format!("Fetched {} card dashboard rankings successfully from TradingView API", data_len)
     ),

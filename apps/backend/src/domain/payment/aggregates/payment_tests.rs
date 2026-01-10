@@ -12,7 +12,7 @@ mod tests {
 
     #[test]
     fn test_payment_creation() {
-        let wallet_address = UserId::generate();
+        let wallet_address = UserId::new();
         let amount = PaymentAmount::new(dec!(50.0), Currency::USDT).unwrap();
         let method = PaymentMethod::new(
             PaymentMethodType::Crypto,

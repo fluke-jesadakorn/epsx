@@ -16,12 +16,13 @@ use diesel::sql_types::Text;
 use diesel::QueryableByName;
 
 use crate::{
-    prelude::*,
     web::{
         auth::AppState,
         middleware::{OpenIDUserContext, UnifiedErrorResponse, ErrorDetails},
     },
+    auth::{UnifiedPermissionService, GrantPermissionRequest},
 };
+use std::sync::Arc;
 
 /// Helper struct for deduplication query
 #[derive(Debug, QueryableByName)]
@@ -163,9 +164,7 @@ pub async fn validate_payment_handler(
     }
 
     // Fetch plan details from database
-    let plan_info = fetch_plan_info(&app_state, &payload.plan_id).await?;
-    let plan_name = plan_info.0;
-    let plan_price = plan_info.1;
+    let (plan_name, plan_price, _metadata) = fetch_plan_info(&app_state, &payload.plan_id).await?;
 
     // For blockchain verification, we rely on the BlockchainMonitor service
     // which automatically detects PaymentReceived events and creates subscriptions
@@ -202,6 +201,7 @@ pub async fn validate_payment_handler(
 pub async fn activate_subscription_handler(
     State(app_state): State<AppState>,
     Extension(user_context): Extension<OpenIDUserContext>,
+    Extension(permission_service): Extension<Arc<UnifiedPermissionService>>,
     Json(payload): Json<ActivateSubscriptionRequest>,
 ) -> Result<Json<ActivateSubscriptionResponse>, Json<UnifiedErrorResponse>> {
     info!(
@@ -227,8 +227,46 @@ pub async fn activate_subscription_handler(
     }
 
     // Fetch plan details
-    let plan_info = fetch_plan_info(&app_state, &payload.plan_id).await?;
-    let plan_name = plan_info.0;
+    let (plan_name, _plan_price, metadata) = fetch_plan_info(&app_state, &payload.plan_id).await?;
+
+    // Grant ranking permissions based on plan metadata
+    if let Some(features) = metadata.as_object() {
+        // Extract offset
+        if let Some(offset) = features.get("ranking_offset").and_then(|v| v.as_i64()) {
+            let perm = format!("epsx:rankings:offset:{}", offset);
+            info!("Granting rank offset permission to {}: {}", user_context.wallet_address, perm);
+            
+            let request = GrantPermissionRequest {
+                wallet_address: user_context.wallet_address.clone(),
+                permission_string: perm.clone(),
+                granted_by: "system_activation".to_string(),
+                reason: Some("Plan activation".to_string()),
+                expires_at: None, // Permissions stick until revoked or plan expires (handled separately)
+            };
+            
+            if let Err(e) = permission_service.grant_permission(request).await {
+                error!("Failed to grant permission {}: {}", perm, e);
+            }
+        }
+        
+        // Extract limit
+        if let Some(limit) = features.get("rankings_limit").and_then(|v| v.as_i64()) {
+            let perm = format!("epsx:rankings:limit:{}", limit);
+            info!("Granting rank limit permission to {}: {}", user_context.wallet_address, perm);
+            
+            let request = GrantPermissionRequest {
+                wallet_address: user_context.wallet_address.clone(),
+                permission_string: perm.clone(),
+                granted_by: "system_activation".to_string(),
+                reason: Some("Plan activation".to_string()),
+                expires_at: None,
+            };
+            
+            if let Err(e) = permission_service.grant_permission(request).await {
+                 error!("Failed to grant permission {}: {}", perm, e);
+            }
+        }
+    }
 
     let duration_days = payload.duration_days.unwrap_or(30);
     let expires_at = Utc::now() + chrono::Duration::days(duration_days as i64);
@@ -413,7 +451,7 @@ pub async fn get_payment_details_handler(
 async fn fetch_plan_info(
     app_state: &AppState,
     plan_id: &Uuid,
-) -> Result<(String, f64), Json<UnifiedErrorResponse>> {
+) -> Result<(String, f64, serde_json::Value), Json<UnifiedErrorResponse>> {
     // Try to fetch from group repository using the plan ID
     let plan_id_str = plan_id.to_string();
     
@@ -427,7 +465,8 @@ async fn fetch_plan_info(
                         .as_ref()
                         .and_then(|p| p.to_string().parse::<f64>().ok())
                         .unwrap_or(0.0);
-                    return Ok((plan.name, price));
+                    let metadata = plan.group_metadata.clone();
+                    return Ok((plan.name, price, metadata));
                 }
             }
             // Plan not found, return not found error

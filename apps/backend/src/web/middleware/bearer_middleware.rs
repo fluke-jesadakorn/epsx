@@ -10,7 +10,7 @@
 
 use axum::{
     extract::{Request, State},
-    http::{header::{AUTHORIZATION, COOKIE}, StatusCode},
+    http::{header::AUTHORIZATION, StatusCode},
     middleware::Next,
     response::Response,
     Json,
@@ -72,28 +72,18 @@ pub async fn bearer_middleware(
         .get(AUTHORIZATION)
         .and_then(|header| header.to_str().ok());
 
-    // Try to get token from Authorization header first, then fallback to cookies
+    // Try to get token from Authorization header first
     let token = match auth_header {
         Some(header) if header.starts_with("Bearer ") => {
             header.strip_prefix("Bearer ").unwrap_or("").to_string()
         }
         _ => {
-            // Fallback: Try to extract token from cookies
-            // Cookie names: "epsx.access" (development) or "__Host-epsx.access" (production)
-            match extract_token_from_cookie(&request) {
-                Some(cookie_token) => {
-                    debug!("No Authorization header, using token from cookie");
-                    cookie_token
-                }
-                None => {
-                    debug!("No Bearer token found in Authorization header or cookies");
-                    return Err(create_auth_error(
-                        StatusCode::UNAUTHORIZED,
-                        "Bearer token required",
-                        "Authorization header or valid session cookie required"
-                    ));
-                }
-            }
+            debug!("No Bearer token found in Authorization header");
+            return Err(create_auth_error(
+                StatusCode::UNAUTHORIZED,
+                "Bearer token required",
+                "Authorization header with Bearer token required"
+            ));
         }
     };
 
@@ -197,121 +187,7 @@ fn create_auth_error(
     (status, Json(error_response))
 }
 
-/// Extract access token from cookie header
-/// Supports multiple cookie names:
-/// - Production: "__Host-epsx.access" (HttpOnly)
-/// - Development: "epsx.access" (HttpOnly)  
-/// - Client session: "epsx.client_session" or "__Host-epsx.client_session" (JS accessible)
-/// - User cookie: "epsx.user" or "__Host-epsx.user" (JSON with `access` field - this is where frontend stores token!)
-fn extract_token_from_cookie(request: &Request) -> Option<String> {
-    let cookie_header = request.headers().get(COOKIE)?;
-    let cookie_str = cookie_header.to_str().ok()?;
-    
-    // Log all cookie names for debugging
-    let cookie_names: Vec<&str> = cookie_str.split(';')
-        .filter_map(|c| c.trim().split('=').next())
-        .collect();
-    debug!("Available cookies: {:?}", cookie_names);
-    
-    for cookie in cookie_str.split(';') {
-        let cookie = cookie.trim();
-        // Try production cookie names first, then development
-        // HttpOnly access cookies
-        if let Some(token) = cookie.strip_prefix("__Host-epsx.access=") {
-            if !token.is_empty() {
-                debug!("Found token in __Host-epsx.access cookie");
-                return url_decode_token(token);
-            }
-        }
-        if let Some(token) = cookie.strip_prefix("epsx.access=") {
-            if !token.is_empty() {
-                debug!("Found token in epsx.access cookie");
-                return url_decode_token(token);
-            }
-        }
-        // Client session cookies (frontend JavaScript-accessible fallback)
-        if let Some(token) = cookie.strip_prefix("__Host-epsx.client_session=") {
-            if !token.is_empty() {
-                debug!("Found token in __Host-epsx.client_session cookie");
-                return url_decode_token(token);
-            }
-        }
-        if let Some(token) = cookie.strip_prefix("epsx.client_session=") {
-            if !token.is_empty() {
-                debug!("Found token in epsx.client_session cookie");
-                return url_decode_token(token);
-            }
-        }
-        // User JSON cookie - THIS IS WHERE FRONTEND ACTUALLY STORES THE TOKEN
-        // Format: {"sub":"0x...", "wallet_address":"0x...", "access":"eyJ...JWT..."}
-        if let Some(user_json) = cookie.strip_prefix("__Host-epsx.user=") {
-            if let Some(token) = extract_token_from_user_json(user_json) {
-                debug!("Found token in __Host-epsx.user cookie's access field");
-                return Some(token);
-            }
-        }
-        if let Some(user_json) = cookie.strip_prefix("epsx.user=") {
-            if let Some(token) = extract_token_from_user_json(user_json) {
-                debug!("Found token in epsx.user cookie's access field");
-                return Some(token);
-            }
-        }
-    }
-    debug!("No access token found in cookies. Checked: epsx.access, __Host-epsx.access, epsx.client_session, __Host-epsx.client_session, epsx.user.access");
-    None
-}
 
-/// Extract the `access` token from URL-decoded user JSON cookie
-fn extract_token_from_user_json(encoded_json: &str) -> Option<String> {
-    // URL decode the JSON first
-    let decoded = url_decode_token(encoded_json)?;
-    
-    // Parse as JSON and extract the "access" field
-    match serde_json::from_str::<serde_json::Value>(&decoded) {
-        Ok(value) => {
-            if let Some(access) = value.get("access").and_then(|v| v.as_str()) {
-                if !access.is_empty() && access.starts_with("eyJ") {
-                    // Looks like a JWT (starts with base64-encoded JSON header)
-                    return Some(access.to_string());
-                }
-            }
-            None
-        }
-        Err(e) => {
-            debug!("Failed to parse epsx.user cookie as JSON: {}", e);
-            None
-        }
-    }
-}
-
-/// URL decode a cookie token value (frontend may URL-encode the JWT)
-/// Note: JWT tokens use base64url encoding which typically doesn't need URL decoding
-fn url_decode_token(token: &str) -> Option<String> {
-    // JWTs use base64url encoding which only has alphanumeric, hyphen, underscore, and period
-    // These don't get percent-encoded, so we can just return the token as-is
-    // Only decode if we see percent signs
-    if token.contains('%') {
-        // Simple percent decoding for common cases
-        let mut result = String::with_capacity(token.len());
-        let mut chars = token.chars().peekable();
-        while let Some(c) = chars.next() {
-            if c == '%' {
-                let hex: String = chars.by_ref().take(2).collect();
-                if let Ok(byte) = u8::from_str_radix(&hex, 16) {
-                    result.push(byte as char);
-                } else {
-                    result.push('%');
-                    result.push_str(&hex);
-                }
-            } else {
-                result.push(c);
-            }
-        }
-        Some(result)
-    } else {
-        Some(token.to_string())
-    }
-}
 
 /// Optional Bearer Token Middleware (for public/optional auth endpoints)
 /// Does not fail if no token is present, but validates if token exists

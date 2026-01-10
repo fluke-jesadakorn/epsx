@@ -138,13 +138,15 @@ export class SharedWeb3AuthClient {
 
     try {
       // 1. Try cookies first (primary storage)
-      // Access token is HttpOnly usually, but we sync it to client_session for Server Actions & Refresh
-      let accessToken = getClientCookie(COOKIES.client_session);
+      this.cleanupLegacyStorage();
 
-      // 2. Fallback to localStorage (oidc.access_token)
+      // Access token is HttpOnly usually, but we sync it to session_id for Server Actions & Refresh
+      let accessToken = getClientCookie(COOKIES.session_id);
+
+      // 2. Fallback to localStorage (epsx.access_token)
       // This handles cases where cookies fail (e.g. size limits, browser restrictions)
       if (!accessToken) {
-        accessToken = localStorage.getItem('oidc.access_token');
+        accessToken = localStorage.getItem('epsx.access_token');
         if (accessToken) {
           console.log('🔄 Recovered access token from localStorage fallback');
         }
@@ -154,17 +156,17 @@ export class SharedWeb3AuthClient {
         this.accessToken = accessToken;
       }
 
-      this.refreshToken = getClientCookie(COOKIES.refresh) || localStorage.getItem('oidc.refresh_token');
+      this.refreshToken = getClientCookie(COOKIES.refresh_token) || localStorage.getItem('epsx.refresh_token');
 
       // Access token is HttpOnly, so we can't access it directly
       // We'll check client-side cookies for expiry and user data
-      const expiry = getClientCookie(COOKIES.expires_at) || localStorage.getItem('oidc.expires_at');
+      const expiry = getClientCookie(COOKIES.expires_at) || localStorage.getItem('epsx.expires_at');
       this.tokenExpiry = expiry ? parseInt(expiry, 10) : null;
 
       // Restore user object from cookies or localStorage
       let storedUser = getClientCookieJSON<UserInfoResponse>(COOKIES.user);
       if (!storedUser) {
-        const storedUserStr = localStorage.getItem('oidc.user');
+        const storedUserStr = localStorage.getItem('epsx.user');
         if (storedUserStr) {
           try {
             storedUser = JSON.parse(storedUserStr);
@@ -192,7 +194,7 @@ export class SharedWeb3AuthClient {
         accessTokenLength: this.accessToken?.length || 0,
         hasRefreshToken: !!this.refreshToken,
         hasUser: !!this.user,
-        cookieClientSession: COOKIES.client_session,
+        cookieClientSession: COOKIES.session_id,
       });
 
       // Access token is set by server as HttpOnly cookie
@@ -200,33 +202,33 @@ export class SharedWeb3AuthClient {
 
       if (this.tokenExpiry) {
         setClientCookie(COOKIES.expires_at, this.tokenExpiry.toString());
-        localStorage.setItem('oidc.expires_at', this.tokenExpiry.toString());
+        localStorage.setItem('epsx.expires_at', this.tokenExpiry.toString());
         console.log('🍪 Set expires_at cookie and localStorage');
       }
 
-      // Sync access token to client_session for Server Components and persistence
+      // Sync access token to session_id for Server Components and persistence
       if (this.accessToken) {
-        console.log('🍪 Setting client_session cookie with token of length:', this.accessToken.length);
-        setClientCookie(COOKIES.client_session, this.accessToken);
-        localStorage.setItem('oidc.access_token', this.accessToken);
-        console.log('🍪 client_session cookie and localStorage SET');
+        console.log('🍪 Setting session_id cookie with token of length:', this.accessToken.length);
+        setClientCookie(COOKIES.session_id, this.accessToken);
+        localStorage.setItem('epsx.access_token', this.accessToken);
+        console.log('🍪 session_id cookie and localStorage SET');
       } else {
-        console.warn('⚠️ No access token to save to client_session!');
+        console.warn('⚠️ No access token to save to session_id!');
       }
 
       if (this.refreshToken) {
-        setClientCookie(COOKIES.refresh, this.refreshToken);
-        localStorage.setItem('oidc.refresh_token', this.refreshToken);
+        setClientCookie(COOKIES.refresh_token, this.refreshToken);
+        localStorage.setItem('epsx.refresh_token', this.refreshToken);
       }
 
       // Save user object to cookies and localStorage
       if (this.user) {
         setClientCookieJSON(COOKIES.user, this.user);
-        localStorage.setItem('oidc.user', JSON.stringify(this.user));
+        localStorage.setItem('epsx.user', JSON.stringify(this.user));
 
         const now = Date.now().toString();
         setClientCookie(COOKIES.auth_time, now);
-        localStorage.setItem('oidc.auth_time', now);
+        localStorage.setItem('epsx.auth_time', now);
 
         console.log('🍪 Set user and auth_time cookies and localStorage');
       }
@@ -241,17 +243,39 @@ export class SharedWeb3AuthClient {
     try {
       // Clear client-side cookies
       clearClientSideCookies();
-      // Explicitly clear client_session
-      setClientCookie(COOKIES.client_session, '', 0);
+      // Explicitly clear session_id
+      setClientCookie(COOKIES.session_id, '', 0);
 
       // Clear localStorage
-      localStorage.removeItem('oidc.access_token');
-      localStorage.removeItem('oidc.refresh_token');
-      localStorage.removeItem('oidc.expires_at');
-      localStorage.removeItem('oidc.user');
-      localStorage.removeItem('oidc.auth_time');
+      localStorage.removeItem('epsx.access_token');
+      localStorage.removeItem('epsx.refresh_token');
+      localStorage.removeItem('epsx.expires_at');
+      localStorage.removeItem('epsx.user');
+      localStorage.removeItem('epsx.auth_time');
     } catch (error) {
       console.warn('Failed to clear tokens from cookies', { error });
+    }
+  }
+
+  private cleanupLegacyStorage(): void {
+    if (typeof window === 'undefined') return;
+    try {
+      const legacyKeys = [
+        'oidc.access_token', 'oidc.refresh_token', 'oidc.expires_at',
+        'oidc.user', 'oidc.auth_time', 'oidc.id_token'
+      ];
+      let cleaned = false;
+      legacyKeys.forEach(key => {
+        if (localStorage.getItem(key)) {
+          localStorage.removeItem(key);
+          cleaned = true;
+        }
+      });
+      if (cleaned) {
+        console.log('🧹 Cleaned up legacy OIDC storage keys');
+      }
+    } catch (e) {
+      // Ignore errors during cleanup
     }
   }
 

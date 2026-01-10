@@ -23,8 +23,8 @@ pub struct SessionVerificationRequest {
 }
 
 /// Session verification response
-#[derive(Debug, Serialize, ToSchema)]
-pub struct SessionVerificationResponse {
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+    pub struct SessionVerificationResponse {
     /// Whether the verification was successful
     pub success: bool,
     
@@ -612,7 +612,7 @@ mod tests {
     /// Helper function to decode base64url (used in JWT testing)
     fn base64_url_decode(input: &str) -> Result<Vec<u8>, base64::DecodeError> {
         // Replace base64url specific characters with base64 standard
-        let mut input = input.replace('-', '+').replace('_', '/');
+        let mut input = input.replace('-', "+").replace('_', "/");
 
         // Pad with '=' if necessary
         let padding_len = (4 - input.len() % 4) % 4;

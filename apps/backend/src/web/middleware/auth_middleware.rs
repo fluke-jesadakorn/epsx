@@ -42,7 +42,6 @@ pub struct Web3AuthContext {
 pub enum AuthMethod {
     SiweSignature,    // Sign-In with Ethereum signature
     BearerToken,      // JWT Bearer token
-    SessionCookie,    // Session-based authentication
 }
 
 /// Enhanced Web3 Authentication Errors
@@ -144,28 +143,9 @@ async fn authenticate_request(headers: &HeaderMap, app_state: &AppState) -> Resu
         }
     }
 
-    // Method 3: Try session cookie authentication
-    if let Some(cookie_header) = headers.get("cookie") {
-        if let Ok(cookie_str) = cookie_header.to_str() {
-            debug!("Cookie header found, attempting to extract token from: {}", 
-                   if cookie_str.len() > 100 { &cookie_str[..100] } else { cookie_str });
-            // Try to extract access token from cookies
-            // Cookie names: "epsx.access" (development) or "__Host-epsx.access" (production)
-            if let Some(token) = extract_token_from_cookie(cookie_str) {
-                debug!("Extracted token from cookie: {}...", &token[..std::cmp::min(20, token.len())]);
-                match validate_bearer_token(&token, app_state).await {
-                    Ok(mut context) => {
-                        context.auth_method = AuthMethod::SessionCookie;
-                        return Ok(context);
-                    },
-                    Err(e) => debug!("Session cookie token validation failed: {}", e),
-                }
-            } else {
-                debug!("No token found in cookies. Cookie names checked: epsx.access, __Host-epsx.access");
-            }
-        }
-    }
-
+    // Method 3: NO COOKIE AUTHENTICATION
+    // Backend is strict Bearer-only. Frontend must extract tokens from cookies and send as Bearer header.
+    
     Err(Web3AuthError::MissingCredentials)
 }
 
@@ -176,101 +156,7 @@ fn has_siwe_headers(headers: &HeaderMap) -> bool {
     headers.get("X-Signed-Message").is_some()
 }
 
-/// Extract access token from cookie string
-/// Supports multiple cookie names:
-/// - Production: "__Host-epsx.access" (HttpOnly)
-/// - Development: "epsx.access" (HttpOnly)
-/// - Client session: "epsx.client_session" or "__Host-epsx.client_session" (JS accessible)
-/// - User cookie: "epsx.user" or "__Host-epsx.user" (JSON with `access` field - this is where frontend stores token!)
-fn extract_token_from_cookie(cookie_str: &str) -> Option<String> {
-    for cookie in cookie_str.split(';') {
-        let cookie = cookie.trim();
-        // HttpOnly access cookies
-        if let Some(token) = cookie.strip_prefix("__Host-epsx.access=") {
-            if !token.is_empty() {
-                return Some(token.to_string());
-            }
-        }
-        if let Some(token) = cookie.strip_prefix("epsx.access=") {
-            if !token.is_empty() {
-                return Some(token.to_string());
-            }
-        }
-        // Client session cookies (frontend JavaScript-accessible fallback)
-        if let Some(token) = cookie.strip_prefix("__Host-epsx.client_session=") {
-            if !token.is_empty() {
-                return Some(token.to_string());
-            }
-        }
-        if let Some(token) = cookie.strip_prefix("epsx.client_session=") {
-            if !token.is_empty() {
-                return Some(token.to_string());
-            }
-        }
-        // User JSON cookie - THIS IS WHERE FRONTEND ACTUALLY STORES THE TOKEN
-        // Format: {"sub":"0x...", "wallet_address":"0x...", "access":"eyJ...JWT..."}
-        if let Some(user_json) = cookie.strip_prefix("__Host-epsx.user=") {
-            if let Some(token) = extract_token_from_user_json(user_json) {
-                debug!("Found token in __Host-epsx.user cookie's access field");
-                return Some(token);
-            }
-        }
-        if let Some(user_json) = cookie.strip_prefix("epsx.user=") {
-            if let Some(token) = extract_token_from_user_json(user_json) {
-                debug!("Found token in epsx.user cookie's access field");
-                return Some(token);
-            }
-        }
-    }
-    None
-}
 
-/// Extract the `access` token from URL-decoded user JSON cookie
-fn extract_token_from_user_json(encoded_json: &str) -> Option<String> {
-    // URL decode the JSON first
-    let decoded = url_decode_cookie_value(encoded_json)?;
-    
-    // Parse as JSON and extract the "access" field
-    match serde_json::from_str::<serde_json::Value>(&decoded) {
-        Ok(value) => {
-            if let Some(access) = value.get("access").and_then(|v| v.as_str()) {
-                if !access.is_empty() && access.starts_with("eyJ") {
-                    // Looks like a JWT (starts with base64-encoded JSON header)
-                    return Some(access.to_string());
-                }
-            }
-            None
-        }
-        Err(e) => {
-            debug!("Failed to parse epsx.user cookie as JSON: {}", e);
-            None
-        }
-    }
-}
-
-/// URL decode a cookie value
-fn url_decode_cookie_value(value: &str) -> Option<String> {
-    if value.contains('%') {
-        let mut result = String::with_capacity(value.len());
-        let mut chars = value.chars().peekable();
-        while let Some(c) = chars.next() {
-            if c == '%' {
-                let hex: String = chars.by_ref().take(2).collect();
-                if let Ok(byte) = u8::from_str_radix(&hex, 16) {
-                    result.push(byte as char);
-                } else {
-                    result.push('%');
-                    result.push_str(&hex);
-                }
-            } else {
-                result.push(c);
-            }
-        }
-        Some(result)
-    } else {
-        Some(value.to_string())
-    }
-}
 
 /// Validate SIWE signature-based authentication
 async fn validate_siwe_signature(headers: &HeaderMap, app_state: &AppState) -> Result<Web3AuthContext, Web3AuthError> {
