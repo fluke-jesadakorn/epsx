@@ -15,7 +15,7 @@
     "bun": ">=1.1.0"
   },
   "scripts": {
-    "dev": "dotenv -e ../../.env -- next dev -H 0.0.0.0 -p ${PORT:-3001} --webpack",
+    "dev": "dotenv -e ../../.env -- next dev -H 0.0.0.0 -p ${PORT:-3001} --turbo",
     "build": "NODE_ENV=production dotenv -e ../../.env -- next build --webpack",
     "start": "dotenv -e ../../.env -- next start -p ${PORT:-3001}",
     "lint": "eslint .",
@@ -113,8 +113,11 @@
   },
   "browserslist": {
     "production": [
-      ">0.2%",
-      "not dead",
+      "chrome >= 80",
+      "firefox >= 78",
+      "edge >= 80",
+      "safari >= 14",
+      "not ie 11",
       "not op_mini all"
     ],
     "development": [

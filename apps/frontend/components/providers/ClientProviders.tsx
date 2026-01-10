@@ -1,5 +1,7 @@
 'use client';
 
+import '@/lib/polyfills';
+
 import { OptimizedSuspenseBoundary } from '@/components/common/OptimizedSuspenseBoundary';
 import { PerformanceProvider } from '@/components/common/PerformanceProvider';
 import { Toaster } from '@/components/ui/toaster';

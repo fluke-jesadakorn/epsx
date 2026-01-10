@@ -1,6 +1,7 @@
 'use server';
 import { cookies } from 'next/headers';
 
+import { COOKIES } from '@/shared/auth/cookies';
 export interface AuthUser {
   id: string;
   email?: string;
@@ -21,12 +22,19 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
     const cookieStore = await cookies();
 
     // Check for our synced client session first, then fallback to httpOnly access token
-    let token = cookieStore.get('epsx.client_session')?.value;
+    let token = cookieStore.get(COOKIES.session_id)?.value;
 
     if (!token) {
-      token = cookieStore.get('epsx.access')?.value;
+      // Also check legacy/fallback names if needed, or strictly follow COOKIES
+      // Fallback to access_token (httpOnly)
+      token = cookieStore.get(COOKIES.access_token)?.value;
+
+      // Fallback to legacy names just in case (optional, but safer during migration)
+      if (!token) token = cookieStore.get('epsx.client_session')?.value;
+      if (!token) token = cookieStore.get('epsx.access')?.value;
+
       // eslint-disable-next-line no-console
-      if (token) console.log('🔍 [Debug] getCurrentUser: Found epsx.access cookie');
+      if (token) console.log('🔍 [Debug] getCurrentUser: Found token in fallback/secondary cookies');
     }
 
     if (!token) {
@@ -87,9 +95,12 @@ export async function getPaymentHistory() {
     const cookieStore = await cookies();
 
     // Get auth token
-    let token = cookieStore.get('epsx.client_session')?.value;
+    let token = cookieStore.get(COOKIES.session_id)?.value;
     if (!token) {
-      token = cookieStore.get('epsx.access')?.value;
+      token = cookieStore.get(COOKIES.access_token)?.value;
+      // Fallback to legacy names
+      if (!token) token = cookieStore.get('epsx.client_session')?.value;
+      if (!token) token = cookieStore.get('epsx.access')?.value;
     }
 
     if (!token) {
@@ -138,9 +149,12 @@ export async function getPaymentHistory() {
 export async function checkFeatureAccess(feature: string) {
   try {
     const cookieStore = await cookies();
-    let token = cookieStore.get('epsx.client_session')?.value;
+    let token = cookieStore.get(COOKIES.session_id)?.value;
     if (!token) {
-      token = cookieStore.get('epsx.access')?.value;
+      token = cookieStore.get(COOKIES.access_token)?.value;
+      // Fallback to legacy names
+      if (!token) token = cookieStore.get('epsx.client_session')?.value;
+      if (!token) token = cookieStore.get('epsx.access')?.value;
     }
 
     if (!token) {
@@ -190,9 +204,12 @@ export async function checkFeatureAccess(feature: string) {
 export async function getPaymentStatus(paymentId?: string) {
   try {
     const cookieStore = await cookies();
-    let token = cookieStore.get('epsx.client_session')?.value;
+    let token = cookieStore.get(COOKIES.session_id)?.value;
     if (!token) {
-      token = cookieStore.get('epsx.access')?.value;
+      token = cookieStore.get(COOKIES.access_token)?.value;
+      // Fallback to legacy names
+      if (!token) token = cookieStore.get('epsx.client_session')?.value;
+      if (!token) token = cookieStore.get('epsx.access')?.value;
     }
 
     if (!token) {
@@ -281,8 +298,8 @@ export async function getDebugSessionInfo() {
     const headerStore = await headers();
     const cookieStore = await cookies();
 
-    const clientSession = cookieStore.get('epsx.client_session')?.value;
-    const accessCookie = cookieStore.get('epsx.access')?.value;
+    const clientSession = cookieStore.get(COOKIES.session_id)?.value;
+    const accessCookie = cookieStore.get(COOKIES.access_token)?.value;
     const allCookies = cookieStore.getAll().map(c => `${c.name} (${c.value.length} chars)`);
     const rawHeader = headerStore.get('cookie');
 

@@ -3,7 +3,21 @@ import type { NextConfig } from 'next';
 const nextConfig: NextConfig = {
   output: 'standalone',
   // Empty turbopack config to disable it and use webpack
-  turbopack: {},
+  turbopack: {
+    resolveAlias: {
+      'thread-stream': '../../shared/stubs/empty.ts',
+      'pino-pretty': '../../shared/stubs/empty.ts',
+      'pino-elasticsearch': '../../shared/stubs/empty.ts',
+      'tap': '../../shared/stubs/empty.ts',
+      'tape': '../../shared/stubs/empty.ts',
+      'why-is-node-running': '../../shared/stubs/empty.ts',
+      'desm': '../../shared/stubs/empty.ts',
+      'fastbench': '../../shared/stubs/empty.ts',
+      'react-native': '../../shared/stubs/empty.ts',
+      'react-native-device-info': '../../shared/stubs/empty.ts',
+      'react-native-keychain': '../../shared/stubs/empty.ts',
+    },
+  },
   // Ignore TypeScript errors during Docker builds (errors should be fixed separately)
   typescript: {
     ignoreBuildErrors: true,
@@ -11,12 +25,10 @@ const nextConfig: NextConfig = {
   experimental: {
     // Fix WebSocket connection issues in Next.js 15
     webpackBuildWorker: true,
-    // @ts-expect-error allowedDevOrigins is valid but missing from types in this version
-    allowedDevOrigins: ['100.97.9.56', 'localhost:3000'],
   },
 
-  // Transpile shared packages and metamask sdk to apply ignores
-  transpilePackages: ['@/shared', '@wagmi/connectors', 'wagmi'],
+  // Transpile shared packages only
+  transpilePackages: ['@/shared'],
 
   // Improve HMR WebSocket reliability and fix module resolution
   webpack: (config, { dev, isServer, webpack }) => {
@@ -50,8 +62,8 @@ const nextConfig: NextConfig = {
       desm: stubPath,
       fastbench: stubPath,
       'zod/mini': require.resolve('zod'),
+      'zod/v4/core': require.resolve('zod'),
     };
-
     // Standard Node.js polyfills for the browser (Client Component bundle)
     if (!isServer) {
       config.resolve.fallback = {

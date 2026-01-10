@@ -13,16 +13,29 @@ const nextConfig: NextConfig = {
   // This is a known issue with Next.js 16 + React 19 + complex provider trees
   staticPageGenerationTimeout: 60,
 
-  experimental: {
-    // @ts-expect-error allowedDevOrigins is valid but missing from types in this version
-    allowedDevOrigins: ['100.97.9.56', 'localhost:3000'],
-  },
 
-  // Transpile shared packages and metamask sdk to apply ignores
-  transpilePackages: ['@/shared', '@wagmi/connectors', 'wagmi'],
+
+
+
+  // Transpile shared packages only
+  transpilePackages: ['@/shared'],
 
   // Silence Next.js 16 Turbopack warning (using webpack config for dev)
-  turbopack: {},
+  turbopack: {
+    resolveAlias: {
+      'thread-stream': '../../shared/stubs/empty.ts',
+      'pino-pretty': '../../shared/stubs/empty.ts',
+      'pino-elasticsearch': '../../shared/stubs/empty.ts',
+      'tap': '../../shared/stubs/empty.ts',
+      'tape': '../../shared/stubs/empty.ts',
+      'why-is-node-running': '../../shared/stubs/empty.ts',
+      'desm': '../../shared/stubs/empty.ts',
+      'fastbench': '../../shared/stubs/empty.ts',
+      'react-native': '../../shared/stubs/empty.ts',
+      'react-native-device-info': '../../shared/stubs/empty.ts',
+      'react-native-keychain': '../../shared/stubs/empty.ts',
+    },
+  },
   // Improve HMR WebSocket reliability and fix SSR issues
   /* eslint-disable @typescript-eslint/no-explicit-any */
   webpack: (config: any, { dev, isServer, webpack }: { dev: boolean; isServer: boolean; webpack: any }) => {
@@ -53,6 +66,7 @@ const nextConfig: NextConfig = {
       'why-is-node-running': stubPath,
       'pino-pretty': stubPath,
       'zod/mini': require.resolve('zod'),
+      'zod/v4/core': require.resolve('zod'),
     };
     // Standard Node.js polyfills for the browser (Client Component bundle)
     if (!isServer) {

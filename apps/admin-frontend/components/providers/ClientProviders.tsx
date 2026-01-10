@@ -1,5 +1,7 @@
 'use client';
 
+import '@/lib/polyfills';
+
 import dynamic from 'next/dynamic';
 import React from 'react';
 import { bsc, bscTestnet, foundry } from 'wagmi/chains';

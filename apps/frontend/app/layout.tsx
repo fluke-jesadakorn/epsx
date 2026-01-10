@@ -3,6 +3,7 @@ import { FrontendAuthRegistration } from '@/components/auth/FrontendAuthRegistra
 import { GlobalErrorBoundary } from '@/components/error-boundaries/GlobalErrorBoundary';
 import { NavigationClient } from '@/components/nav/NavigationClient';
 import { ClientProviders } from '@/components/providers/ClientProviders';
+import '@/lib/polyfills';
 import { SharedOpenIDWeb3Provider } from '@/shared/components/auth/Provider';
 import { initializeRuntimeEnvironment } from '@/shared/utils/runtime-env-validator';
 import { Kanit } from 'next/font/google';
