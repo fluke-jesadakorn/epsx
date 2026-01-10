@@ -7,8 +7,7 @@ use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
 
 /// Simple test to validate Diesel DSL compilation and basic functionality
-#[tokio::test]
-async fn test_basic_dsl_compilation() -> Result<(), Box<dyn std::error::Error>> {
+fn test_basic_dsl_compilation() -> Result<(), Box<dyn std::error::Error>> {
     println!("🧪 Testing basic Diesel DSL compilation...");
 
     // Test 1: Basic SELECT query structure
@@ -25,8 +24,7 @@ async fn test_basic_dsl_compilation() -> Result<(), Box<dyn std::error::Error>> 
 }
 
 /// Test to validate specific query patterns we converted
-#[tokio::test]
-async fn test_query_pattern_validation() -> Result<(), Box<dyn std::error::Error>> {
+fn test_query_pattern_validation() -> Result<(), Box<dyn std::error::Error>> {
     println!("🧪 Testing converted query patterns...");
 
     // This test validates that the patterns we used in the migration
@@ -52,14 +50,13 @@ async fn test_query_pattern_validation() -> Result<(), Box<dyn std::error::Error
 }
 
 /// Test database schema validation
-#[tokio::test]
-async fn test_database_schema_validation() -> Result<(), Box<dyn std::error::Error>> {
+fn test_database_schema_validation() -> Result<(), Box<dyn std::error::Error>> {
     println!("🧪 Testing database schema validation...");
 
     // Validate that our schema imports work correctly
-    use epsx::schema::{
+    use epsx::schemas::primary::{
         wallet_users,
-        permission_groups,
+        groups as permission_groups,
         wallet_group_assignments,
         permissions,
         sessions
@@ -79,7 +76,7 @@ async fn test_database_schema_validation() -> Result<(), Box<dyn std::error::Err
     let _permission_string_column = permissions::permission_string;
     let _platform_column = permissions::platform;
 
-    let _session_token_column = sessions::session_token;
+    let _session_token_column = sessions::access_token;
     let _expires_at_column = sessions::expires_at;
 
     println!("  ✅ Database schema validation completed");
@@ -93,8 +90,7 @@ async fn test_database_schema_validation() -> Result<(), Box<dyn std::error::Err
 }
 
 /// Test type safety and compilation
-#[tokio::test]
-async fn test_type_safety_validation() -> Result<(), Box<dyn std::error::Error>> {
+fn test_type_safety_validation() -> Result<(), Box<dyn std::error::Error>> {
     println!("🧪 Testing type safety validation...");
 
     use diesel::sql_types::*;
@@ -128,8 +124,7 @@ async fn test_type_safety_validation() -> Result<(), Box<dyn std::error::Error>>
 }
 
 /// Test error handling patterns
-#[tokio::test]
-async fn test_error_handling_patterns() -> Result<(), Box<dyn std::error::Error>> {
+fn test_error_handling_patterns() -> Result<(), Box<dyn std::error::Error>> {
     println!("🧪 Testing error handling patterns...");
 
     use diesel::result::{Error as DieselError, DatabaseErrorKind};
@@ -158,11 +153,11 @@ async fn run_simple_dsl_validation() -> Result<(), Box<dyn std::error::Error>> {
     println!("🎯 Running Simple Diesel DSL Validation Tests");
     println!("{}", "=".repeat(50));
 
-    test_basic_dsl_compilation().await?;
-    test_query_pattern_validation().await?;
-    test_database_schema_validation().await?;
-    test_type_safety_validation().await?;
-    test_error_handling_patterns().await?;
+    test_basic_dsl_compilation()?;
+    test_query_pattern_validation()?;
+    test_database_schema_validation()?;
+    test_type_safety_validation()?;
+    test_error_handling_patterns()?;
 
     println!("\n{}", "=".repeat(50));
     println!("🎉 All Simple DSL Validation Tests Completed Successfully!");

@@ -1,8 +1,10 @@
 use crate::prelude::*;
+use uuid::Uuid;
+use std::str::FromStr;
 
 /// Plan ID value object
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct PlanId(i32);
+pub struct PlanId(Uuid);
 
 impl Default for PlanId {
     fn default() -> Self {
@@ -11,23 +13,23 @@ impl Default for PlanId {
 }
 
 impl PlanId {
-    /// Create a new plan ID (placeholder for new plans before database insertion)
+    /// Create a new plan ID
     pub fn new() -> Self {
-        Self(0) // Placeholder - will be assigned by database auto-increment
+        Self(Uuid::new_v4())
     }
 
-    /// Create from existing ID (for loading from database)
-    pub fn from_i32(id: i32) -> Self {
+    /// Create from existing UUID
+    pub fn from_uuid(id: Uuid) -> Self {
         Self(id)
     }
 
-    /// Get the inner i32 value
-    pub fn as_i32(&self) -> i32 {
-        self.0
+    /// Get the inner Uuid value
+    pub fn value(&self) -> &Uuid {
+        &self.0
     }
 
-    pub fn value(&self) -> i32 {
-        self.0
+    pub fn as_str(&self) -> String {
+        self.0.to_string()
     }
 }
 
@@ -37,8 +39,19 @@ impl std::fmt::Display for PlanId {
     }
 }
 
-impl From<i32> for PlanId {
-    fn from(id: i32) -> Self {
-        Self(id)
+impl std::str::FromStr for PlanId {
+    type Err = AppError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let uuid = Uuid::parse_str(s)
+            .map_err(|e| AppError::validation_error(format!("Invalid plan ID format: {}", e)))?;
+        Ok(Self(uuid))
     }
 }
+
+impl From<Uuid> for PlanId {
+    fn from(uuid: Uuid) -> Self {
+        Self(uuid)
+    }
+}
+

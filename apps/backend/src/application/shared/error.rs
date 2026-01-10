@@ -152,7 +152,7 @@ impl ApplicationError {
     
     #[allow(non_snake_case)]
     pub fn DomainError(message: impl Into<String>) -> Self {
-        Self::Domain(crate::core::errors::AppError::business_rule_violation(message.into()))
+        Self::Domain(crate::core::errors::AppError::new(crate::core::errors::ErrorKind::BusinessRuleViolation, message.into()))
     }
 }
 

@@ -6,6 +6,7 @@ use diesel::prelude::*;
 use diesel_async::{AsyncPgConnection, RunQueryDsl, pooled_connection::deadpool::Pool};
 use chrono::{Utc, Duration};
 
+use uuid::Uuid;
 use crate::domain::shared_kernel::app_error::AppError;
 use crate::infrastructure::blockchain::{BscEventListener, PaymentEvent};
 use crate::domain::wallet_management::{
@@ -171,9 +172,25 @@ impl BlockchainMonitor {
             wallet_address: String,
             #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
             plan_expires_at: Option<chrono::DateTime<Utc>>,
-            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Integer>)]
-            current_plan_id: Option<i32>,
+            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Uuid>)]
+            current_plan_id: Option<Uuid>,
         }
+
+        #[derive(QueryableByName)]
+        struct IdResult {
+            #[diesel(sql_type = diesel::sql_types::Uuid)]
+            id: Uuid,
+        }
+
+        // Map contract plan_id (tier_level) to database group ID
+        let plan_uuid: Uuid = diesel::sql_query(
+            "SELECT id FROM groups WHERE tier_level = $1 LIMIT 1"
+        )
+        .bind::<diesel::sql_types::Integer, _>(event.plan_id as i32)
+        .get_result::<IdResult>(&mut conn)
+        .await
+        .map(|r| r.id)
+        .map_err(|_| AppError::entity_not_found("Subscription plan", event.plan_id.to_string()))?;
 
         let user_row = diesel::sql_query(
             "SELECT wallet_address, plan_expires_at, current_plan_id FROM wallet_users WHERE LOWER(wallet_address) = LOWER($1)"
@@ -196,10 +213,10 @@ impl BlockchainMonitor {
             let new_expiry = base_time + Duration::days(standard_duration_days);
 
             // Check for plan change (upgrade/switch)
-            let is_plan_change = user.current_plan_id.map(|id| id != event.plan_id as i32).unwrap_or(true);
+            let is_plan_change = user.current_plan_id.map(|id| id != plan_uuid).unwrap_or(true);
             
             if is_plan_change {
-                info!("🔄 Plan change detected: {:?} → {}", user.current_plan_id, event.plan_id);
+                info!("🔄 Plan change detected: {:?} → {}", user.current_plan_id, plan_uuid);
                 // For plan changes, start fresh from now (no carry-over)
                 let new_expiry = now + Duration::days(standard_duration_days);
                 
@@ -211,14 +228,14 @@ impl BlockchainMonitor {
                     "#
                 )
                 .bind::<diesel::sql_types::Timestamptz, _>(new_expiry)
-                .bind::<diesel::sql_types::Integer, _>(event.plan_id as i32)
+                .bind::<diesel::sql_types::Uuid, _>(plan_uuid)
                 .bind::<diesel::sql_types::Timestamptz, _>(now)
                 .bind::<diesel::sql_types::Text, _>(wallet_addr.as_str())
                 .execute(&mut conn)
                 .await
                 .map_err(|e| AppError::database_error(format!("Failed to update user plan: {}", e)))?;
 
-                info!("✅ Updated user {} to plan {} (expires: {})", user.wallet_address, event.plan_id, new_expiry);
+                info!("✅ Updated user {} to plan {} (expires: {})", user.wallet_address, plan_uuid, new_expiry);
             } else {
                 // Same plan - extend access
                 diesel::sql_query(
@@ -256,7 +273,7 @@ impl BlockchainMonitor {
             .bind::<diesel::sql_types::Bool, _>(true)
             .bind::<diesel::sql_types::Jsonb, _>(&metadata_json)
             .bind::<diesel::sql_types::Timestamptz, _>(new_expiry)
-            .bind::<diesel::sql_types::Integer, _>(event.plan_id as i32)
+            .bind::<diesel::sql_types::Uuid, _>(plan_uuid)
             .bind::<diesel::sql_types::Timestamptz, _>(now)
             .bind::<diesel::sql_types::Timestamptz, _>(now)
             .execute(&mut conn)
@@ -266,7 +283,7 @@ impl BlockchainMonitor {
                 AppError::database_error(format!("Failed to create user: {}", e))
             })?;
 
-            info!("✅ Created new user {} with plan {} (expires: {})", wallet_addr.as_str(), event.plan_id, new_expiry);
+            info!("✅ Created new user {} with plan {} (expires: {})", wallet_addr.as_str(), plan_uuid, new_expiry);
         }
 
         // Step 4: Update event status to completed

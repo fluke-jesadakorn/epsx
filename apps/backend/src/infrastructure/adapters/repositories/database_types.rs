@@ -449,7 +449,7 @@ pub struct WalletUserDb {
     pub permission_groups: Option<serde_json::Value>,
     pub disable_info: Option<serde_json::Value>,
     pub plan_expires_at: Option<DateTime<Utc>>,
-    pub current_plan_id: Option<i32>,
+    pub current_plan_id: Option<Uuid>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub last_auth_at: Option<DateTime<Utc>>,
@@ -473,6 +473,8 @@ pub struct UpdateWalletUserDb {
     pub tier_level: Option<String>,
     pub wallet_metadata: Option<serde_json::Value>,
     pub last_auth_at: Option<DateTime<Utc>>,
+    pub current_plan_id: Option<Option<Uuid>>,
+    pub plan_expires_at: Option<Option<DateTime<Utc>>>,
 }
 
 // Models for sessions table with Diesel support

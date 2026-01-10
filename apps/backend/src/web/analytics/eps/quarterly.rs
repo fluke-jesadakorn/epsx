@@ -5,7 +5,7 @@ use tracing::{debug, info, warn};
 use chrono::Datelike;
 
 use crate::domain::shared_kernel::entities::eps_growth::EPSRanking;
-use crate::infrastructure::adapters::services::tradingview::FrontendEPSData;
+use crate::infrastructure::adapters::tradingview_types::FrontendEPSData;
 use super::types::QuarterlyData;
 
 /// Generate quarterly data from WebSocket or fallback to scanner data

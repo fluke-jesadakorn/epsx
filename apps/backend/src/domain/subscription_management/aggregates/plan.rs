@@ -1,6 +1,7 @@
 use crate::prelude::*;
 use crate::domain::shared_kernel::{AggregateRoot, AggregateBase, DomainEvent};
 use crate::domain::subscription_management::{PlanId, Price, BillingCycle, PlanFeatures};
+use crate::domain::subscription_management::value_objects::quota::Quota;
 use crate::domain::permission_management::GroupId;
 
 /// Plan Aggregate Root
@@ -15,6 +16,10 @@ pub struct Plan {
     billing_cycle: BillingCycle,
     features: PlanFeatures,
     target_audience: String,
+    // New fields for permission-based logic
+    pub permissions: Vec<String>, 
+    pub quotas: std::collections::HashMap<String, Quota>,
+    
     is_active: bool,
     is_promoted: bool,
     display_order: i32,
@@ -22,10 +27,12 @@ pub struct Plan {
     base: AggregateBase,
 }
 
+
 pub struct CreatePlanParams {
     pub name: String,
     pub description: String,
     pub group_id: GroupId,
+    pub permissions: Vec<String>, // Added
     pub price: Price,
     pub billing_cycle: BillingCycle,
     pub features: PlanFeatures,
@@ -36,11 +43,14 @@ pub struct CreatePlanParams {
     pub metadata: Option<serde_json::Value>,
 }
 
+
 pub struct LoadPlanParams {
     pub id: PlanId,
     pub name: String,
     pub description: String,
     pub group_id: GroupId,
+    pub permissions: Vec<String>, // Added
+    pub quotas: std::collections::HashMap<String, Quota>, // Added
     pub price: Price,
     pub billing_cycle: BillingCycle,
     pub features: PlanFeatures,
@@ -62,6 +72,7 @@ pub struct UpdatePlanParams {
     pub billing_cycle: Option<BillingCycle>,
     pub features: Option<PlanFeatures>,
     pub target_audience: Option<String>,
+    pub permissions: Option<Vec<String>>, // Added
     pub is_active: Option<bool>,
     pub is_promoted: Option<bool>,
     pub display_order: Option<i32>,
@@ -70,9 +81,9 @@ pub struct UpdatePlanParams {
 
 impl Plan {
     /// Create a new plan
-    pub fn create(id: PlanId, params: CreatePlanParams) -> AppResult<Self> {
-        Ok(Self {
-            id,
+    pub fn create(params: CreatePlanParams) -> AppResult<Self> {
+        let mut plan = Self {
+            id: PlanId::new(),
             name: params.name,
             description: params.description,
             group_id: params.group_id,
@@ -80,16 +91,21 @@ impl Plan {
             billing_cycle: params.billing_cycle,
             features: params.features,
             target_audience: params.target_audience,
+            permissions: params.permissions,
+            quotas: std::collections::HashMap::new(),
             is_active: params.is_active.unwrap_or(true),
             is_promoted: params.is_promoted.unwrap_or(false),
             display_order: params.display_order.unwrap_or(0),
-            metadata: params.metadata.unwrap_or_else(|| serde_json::json!({})),
+            metadata: params.metadata.unwrap_or(serde_json::json!({})),
             base: AggregateBase::new(),
-        })
+        };
+
+        plan.calculate_quotas();
+        Ok(plan)
     }
 
-    /// Load existing plan from database
-    pub fn load(params: LoadPlanParams) -> Self {
+    /// Reconstruct plan from persistence
+    pub fn reconstruct(params: LoadPlanParams) -> Self {
         Self {
             id: params.id,
             name: params.name,
@@ -99,17 +115,33 @@ impl Plan {
             billing_cycle: params.billing_cycle,
             features: params.features,
             target_audience: params.target_audience,
+            permissions: params.permissions,
+            quotas: params.quotas,
             is_active: params.is_active,
             is_promoted: params.is_promoted,
             display_order: params.display_order,
             metadata: params.metadata,
-            base: AggregateBase {
-                version: params.version,
-                created_at: params.created_at,
-                updated_at: params.updated_at,
-                events: Vec::new(),
-            },
+            base: AggregateBase::from_persistence(params.version, params.created_at, params.updated_at),
         }
+    }
+
+    /// Calculate quotas based on permissions
+    pub fn calculate_quotas(&mut self) {
+        let mut quotas = std::collections::HashMap::new();
+        
+        for permission in &self.permissions {
+            if permission.contains("limit:") {
+                // Example logic to parse limit from permission string
+                // e.g. "epsx:analytics:view:100" -> quota of 100
+                if let Some(limit_str) = permission.split(':').last() {
+                    if let Ok(limit) = limit_str.parse::<i64>() {
+                        quotas.insert(permission.clone(), Quota::new(limit));
+                    }
+                }
+            }
+        }
+        
+        self.quotas = quotas;
     }
 
     /// Update plan details
@@ -132,6 +164,13 @@ impl Plan {
         if let Some(ta) = params.target_audience {
             self.target_audience = ta;
         }
+        
+        // Handle permissions update and recalculate quotas
+        if let Some(perms) = params.permissions {
+            self.permissions = perms;
+            self.calculate_quotas();
+        }
+        
         if let Some(active) = params.is_active {
             self.is_active = active;
         }
@@ -150,6 +189,7 @@ impl Plan {
 
         Ok(())
     }
+
 
     /// Activate plan
     pub fn activate(&mut self) {

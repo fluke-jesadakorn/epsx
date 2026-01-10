@@ -9,6 +9,7 @@ use uuid::Uuid;
 use anyhow::Result;
 
 use crate::schemas::primary::*;
+use crate::schemas::notifications::wallet_notifications;
 
 /// Test fixture builder for Web3 authentication nonces
 pub struct Web3NonceFixture {

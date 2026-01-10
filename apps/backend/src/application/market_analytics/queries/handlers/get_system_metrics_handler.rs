@@ -22,7 +22,7 @@ impl GetSystemMetricsQueryHandler {
 
     /// Collect cache metrics from TradingView cache
     async fn collect_cache_metrics(&self) -> Option<CacheMetrics> {
-        let cache_stats = self.tradingview_service.get_cache_stats();
+        let cache_stats = self.tradingview_service.get_cache_stats().await;
 
         Some(CacheMetrics {
             status: "healthy".to_string(),

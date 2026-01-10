@@ -4,7 +4,7 @@
 use crate::prelude::*;
 
 use std::collections::{HashMap, HashSet};
-use chrono::NaiveDate;
+use chrono::{NaiveDate, Utc};
 use tracing::{error, info, warn};
 
 // Diesel imports
@@ -18,6 +18,7 @@ use crate::domain::wallet_management::{
     value_objects::{WalletAddress, Permission, PermissionType},
     repository_ports::{
         WalletUserRepositoryPort,
+        WalletUserSearchPort,
         WalletUserAnalyticsPort,
         WalletUserSearchCriteria,
         WalletUserSearchResult,
@@ -65,8 +66,6 @@ impl WalletUserRepositoryPort for WalletUserRepositoryAdapter {
                 .with_component("wallet_user_repository")
                 .with_operation("find_by_wallet"))?;
 
-use diesel::SelectableHelper;
-
         // Diesel query: case-insensitive wallet address lookup
         let db_user = wallet_users::table
             .filter(sql::<diesel::sql_types::Bool>(&format!(
@@ -89,14 +88,9 @@ use diesel::SelectableHelper;
                 .map_err(|e| AppError::validation_error(format!("Invalid wallet address: {}", e))
                     .with_component("wallet_user_repository"))?;
 
-            // NOTE: Permissions now stored in normalized tables
-            // Use Web3PermissionService or query normalized tables directly:
-            // - wallet_group_memberships + group_permissions (group permissions)
-            // - wallet_direct_permissions (direct permissions)
             let permission_set: HashSet<Permission> = HashSet::new();
             let permission_group_set: HashSet<String> = HashSet::new();
 
-            // Parse wallet metadata
             let metadata = WalletMetadata::from_json(row.wallet_metadata)
                 .map_err(|e| AppError::validation_error(format!("Invalid wallet metadata: {}", e))
                     .with_component("wallet_user_repository"))?;
@@ -133,7 +127,6 @@ use diesel::SelectableHelper;
             .map(|w| w.as_str().to_lowercase())
             .collect();
 
-        // Diesel query: find wallets with case-insensitive matching
         let db_users = wallet_users::table
             .filter(diesel::dsl::sql::<diesel::sql_types::Bool>(&format!(
                 "LOWER(wallet_address) = ANY(ARRAY[{}])",
@@ -156,7 +149,6 @@ use diesel::SelectableHelper;
         let mut users = Vec::new();
         for row in db_users {
             if let Ok(wallet_addr) = WalletAddress::new(row.wallet_address) {
-                // NOTE: Permissions now in normalized tables
                 let permission_set: HashSet<Permission> = HashSet::new();
                 let permission_group_set: HashSet<String> = HashSet::new();
 
@@ -181,22 +173,15 @@ use diesel::SelectableHelper;
     }
 
     async fn save(&self, user: &WalletUser) -> AppResult<()> {
-        // NOTE: Permissions now stored in normalized tables
-        // Use separate APIs to manage permissions:
-        // - wallet_group_memberships (assign wallet to groups)
-        // - wallet_direct_permissions (grant direct permissions)
-
         let mut conn = self.db_pool.get().await
             .map_err(|e| AppError::database_error(e.to_string())
                 .with_component("wallet_user_repository")
                 .with_operation("save"))?;
 
-        // Serialize wallet metadata to JSON
         let metadata_json = user.wallet_metadata().to_json()
             .map_err(|e| AppError::validation_error(format!("Failed to serialize wallet metadata: {}", e))
                 .with_component("wallet_user_repository"))?;
 
-        // Create new record for insert
         let new_user = NewWalletUserDb {
             wallet_address: user.wallet_address().as_str().to_lowercase(),
             is_active: user.is_active(),
@@ -204,7 +189,6 @@ use diesel::SelectableHelper;
             wallet_metadata: metadata_json.clone(),
         };
 
-        // Diesel upsert: insert or update on conflict
         diesel::insert_into(wallet_users::table)
             .values(&new_user)
             .on_conflict(wallet_users::wallet_address)
@@ -234,7 +218,6 @@ use diesel::SelectableHelper;
                 .with_component("wallet_user_repository")
                 .with_operation("delete"))?;
 
-        // Diesel delete: case-insensitive wallet address match
         let rows_affected = diesel::delete(
             wallet_users::table.filter(
                 diesel::dsl::sql::<diesel::sql_types::Bool>(&format!(
@@ -260,6 +243,130 @@ use diesel::SelectableHelper;
         Ok(())
     }
 
+    async fn find_eligible_for_web3_permissions(&self, chain_id: u64) -> AppResult<Vec<WalletUser>> {
+        let mut conn = self.db_pool.get().await
+            .map_err(|e| AppError::database_error(e.to_string())
+                .with_component("wallet_user_repository")
+                .with_operation("find_eligible_for_web3_permissions"))?;
+
+        let query = format!(
+            r#"
+            SELECT
+                wallet_address, is_active, wallet_metadata,
+                created_at, updated_at, last_auth_at
+            FROM wallet_users
+            WHERE is_active = true
+            AND (wallet_metadata->>'primary_chain_id')::bigint = {}
+            "#,
+            chain_id
+        );
+
+        let rows = diesel::sql_query(query)
+            .load::<WalletUserQueryResult>(&mut conn)
+            .await
+            .map_err(|e| {
+                error!("Failed to find eligible users for chain {}: {}", chain_id, e);
+                AppError::database_error(e.to_string())
+                    .with_component("wallet_user_repository")
+            })?;
+
+        let mut users = Vec::new();
+        for row in rows {
+            if let Ok(wallet_addr) = WalletAddress::new(row.wallet_address) {
+                if let Ok(metadata) = WalletMetadata::from_json(row.wallet_metadata) {
+                    let wallet = WalletUser::load(crate::domain::wallet_management::aggregates::wallet_user::WalletUserLoadParams {
+                        wallet_address: wallet_addr,
+                        is_active: row.is_active,
+                        permissions: HashSet::new(),
+                        groups: HashSet::new(),
+                        wallet_metadata: metadata,
+                        created_at: row.created_at,
+                        updated_at: row.updated_at,
+                        last_auth_at: row.last_auth_at,
+                        version: 1,
+                    });
+                    users.push(wallet);
+                }
+            }
+        }
+
+        Ok(users)
+    }
+
+    async fn save_batch(&self, users: &[WalletUser]) -> AppResult<()> {
+        if users.is_empty() {
+            return Ok(());
+        }
+
+        let mut conn = self.db_pool.get().await
+            .map_err(|e| AppError::database_error(e.to_string())
+                .with_component("wallet_user_repository")
+                .with_operation(format!("save_batch({} users)", users.len())))?;
+
+        for user in users {
+            let metadata_json = user.wallet_metadata().to_json()
+                .map_err(|e| AppError::validation_error(format!("Failed to serialize wallet metadata: {}", e))
+                .with_component("wallet_user_repository"))?;
+
+            let new_user = NewWalletUserDb {
+                wallet_address: user.wallet_address().as_str().to_lowercase(),
+                is_active: user.is_active(),
+                tier_level: "free".to_string(),
+                wallet_metadata: metadata_json.clone(),
+            };
+
+            diesel::insert_into(wallet_users::table)
+                .values(&new_user)
+                .on_conflict(wallet_users::wallet_address)
+                .do_update()
+                .set((
+                    wallet_users::is_active.eq(user.is_active()),
+                    wallet_users::wallet_metadata.eq(metadata_json),
+                    wallet_users::updated_at.eq(user.updated_at()),
+                    wallet_users::last_auth_at.eq(user.last_auth_at()),
+                ))
+                .execute(&mut conn)
+                .await
+                .map_err(|e| {
+                    error!("Failed to save wallet user in batch {}: {}", user.wallet_address().as_str(), e);
+                    AppError::database_error(e.to_string())
+                        .with_component("wallet_user_repository")
+                })?;
+        }
+
+        info!("Saved batch of {} wallet users", users.len());
+        Ok(())
+    }
+
+    async fn health_check(&self) -> AppResult<()> {
+        let mut conn = self.db_pool.get().await
+            .map_err(|e| AppError::database_error(e.to_string())
+                .with_component("wallet_user_repository")
+                .with_operation("health_check"))?;
+
+        use diesel::dsl::sql;
+
+        let _: i32 = diesel::select(sql::<diesel::sql_types::Integer>("SELECT 1"))
+            .get_result(&mut conn)
+            .await
+            .map_err(|e| {
+                error!("Health check failed: {}", e);
+                AppError::database_error(format!("Database health check error: {}", e))
+                    .with_component("wallet_user_repository")
+                    .with_operation("health_check")
+            })?;
+
+        Ok(())
+    }
+
+    async fn cleanup_expired_permissions(&self) -> AppResult<u32> {
+        warn!("cleanup_expired_permissions not yet implemented");
+        Ok(0)
+    }
+}
+
+#[async_trait]
+impl WalletUserSearchPort for WalletUserRepositoryAdapter {
     async fn find_by_permission(&self, permission: &Permission) -> AppResult<Vec<WalletUser>> {
         let permission_str = permission.as_str();
         let mut conn = self.db_pool.get().await
@@ -267,7 +374,6 @@ use diesel::SelectableHelper;
                 .with_component("wallet_user_repository")
                 .with_operation("find_by_permission"))?;
 
-        // Query users with this permission from normalized tables
         let query = format!(
             r#"
             SELECT DISTINCT
@@ -397,7 +503,6 @@ use diesel::SelectableHelper;
                 .with_component("wallet_user_repository")
                 .with_operation("find_by_permission_group"))?;
 
-        // Use raw SQL to find users who belong to a specific permission group
         let query = format!(r#"
             SELECT DISTINCT
                 wu.wallet_address,
@@ -459,7 +564,6 @@ use diesel::SelectableHelper;
                 .with_component("wallet_user_repository")
                 .with_operation("find_by_criteria"))?;
 
-        // Build dynamic SQL query
         let mut where_clauses = vec!["1=1".to_string()];
 
         if let Some(ref pattern) = criteria.wallet_pattern {
@@ -507,7 +611,6 @@ use diesel::SelectableHelper;
                 .with_component("wallet_user_repository")
             })?;
 
-        // Convert rows to users
         let mut users = Vec::new();
         for row in rows {
             if let Ok(wallet_addr) = WalletAddress::new(row.wallet_address) {
@@ -528,8 +631,7 @@ use diesel::SelectableHelper;
             }
         }
 
-        // Get total count
-        let total_count = self.count_by_criteria(criteria).await?;
+        let total_count = WalletUserSearchPort::count_by_criteria(self, criteria).await?;
 
         Ok(WalletUserSearchResult::new(users, total_count, offset, limit))
     }
@@ -540,7 +642,6 @@ use diesel::SelectableHelper;
                 .with_component("wallet_user_repository")
                 .with_operation("count_by_criteria"))?;
 
-        // Build dynamic SQL query
         let mut where_clauses = vec!["1=1".to_string()];
 
         if let Some(ref pattern) = criteria.wallet_pattern {
@@ -574,139 +675,12 @@ use diesel::SelectableHelper;
         Ok(result[..].first().map(|r| r.count as u64).unwrap_or(0))
     }
 
-    async fn find_eligible_for_web3_permissions(&self, chain_id: u64) -> AppResult<Vec<WalletUser>> {
-        let mut conn = self.db_pool.get().await
-            .map_err(|e| AppError::database_error(e.to_string())
-                .with_component("wallet_user_repository")
-                .with_operation("find_eligible_for_web3_permissions"))?;
-
-        let query = format!(
-            r#"
-            SELECT
-                wallet_address, is_active, wallet_metadata,
-                created_at, updated_at, last_auth_at
-            FROM wallet_users
-            WHERE is_active = true
-            AND (wallet_metadata->>'primary_chain_id')::bigint = {}
-            "#,
-            chain_id
-        );
-
-        let rows = diesel::sql_query(query)
-            .load::<WalletUserQueryResult>(&mut conn)
-            .await
-            .map_err(|e| {
-                error!("Failed to find eligible users for chain {}: {}", chain_id, e);
-                AppError::database_error(e.to_string())
-                    .with_component("wallet_user_repository")
-            })?;
-
-        let mut users = Vec::new();
-        for row in rows {
-            if let Ok(wallet_addr) = WalletAddress::new(row.wallet_address) {
-                if let Ok(metadata) = WalletMetadata::from_json(row.wallet_metadata) {
-                    let wallet = WalletUser::load(crate::domain::wallet_management::aggregates::wallet_user::WalletUserLoadParams {
-                        wallet_address: wallet_addr,
-                        is_active: row.is_active,
-                        permissions: HashSet::new(),
-                        groups: HashSet::new(),
-                        wallet_metadata: metadata,
-                        created_at: row.created_at,
-                        updated_at: row.updated_at,
-                        last_auth_at: row.last_auth_at,
-                        version: 1,
-                    });
-                    users.push(wallet);
-                }
-            }
-        }
-
-        Ok(users)
-    }
-
-    async fn save_batch(&self, users: &[WalletUser]) -> AppResult<()> {
-        if users.is_empty() {
-            return Ok(());
-        }
-
-        let mut conn = self.db_pool.get().await
-            .map_err(|e| AppError::database_error(e.to_string())
-                .with_component("wallet_user_repository")
-                .with_operation(format!("save_batch({} users)", users.len())))?;
-
-        // Execute batch inserts without transaction for now
-        // Transaction support can be added later if needed for data consistency
-        for user in users {
-            let metadata_json = user.wallet_metadata().to_json()
-                .map_err(|e| AppError::validation_error(format!("Failed to serialize wallet metadata: {}", e))
-                .with_component("wallet_user_repository"))?;
-
-            let new_user = NewWalletUserDb {
-                wallet_address: user.wallet_address().as_str().to_lowercase(),
-                is_active: user.is_active(),
-                tier_level: "free".to_string(),
-                wallet_metadata: metadata_json.clone(),
-            };
-
-            diesel::insert_into(wallet_users::table)
-                .values(&new_user)
-                .on_conflict(wallet_users::wallet_address)
-                .do_update()
-                .set((
-                    wallet_users::is_active.eq(user.is_active()),
-                    wallet_users::wallet_metadata.eq(metadata_json),
-                    wallet_users::updated_at.eq(user.updated_at()),
-                    wallet_users::last_auth_at.eq(user.last_auth_at()),
-                ))
-                .execute(&mut conn)
-                .await
-                .map_err(|e| {
-                    error!("Failed to save wallet user in batch {}: {}", user.wallet_address().as_str(), e);
-                    AppError::database_error(e.to_string())
-                        .with_component("wallet_user_repository")
-                })?;
-        }
-
-        info!("Saved batch of {} wallet users", users.len());
-        Ok(())
-    }
-
-    async fn health_check(&self) -> AppResult<()> {
-        let mut conn = self.db_pool.get().await
-            .map_err(|e| AppError::database_error(e.to_string())
-                .with_component("wallet_user_repository")
-                .with_operation("health_check"))?;
-
-        use diesel::dsl::sql;
-
-        let _: i32 = diesel::select(sql::<diesel::sql_types::Integer>("SELECT 1"))
-            .get_result(&mut conn)
-            .await
-            .map_err(|e| {
-                error!("Health check failed: {}", e);
-                AppError::database_error(format!("Database health check error: {}", e))
-                    .with_component("wallet_user_repository")
-                    .with_operation("health_check")
-            })?;
-
-        Ok(())
-    }
-
-    async fn cleanup_expired_permissions(&self) -> AppResult<u32> {
-        // This would require parsing all permissions and removing expired ones
-        // For now, return 0 as cleanup count
-        warn!("cleanup_expired_permissions not yet implemented");
-        Ok(0)
-    }
-
-    // Web3-specific methods
     async fn find_by_nft_ownership(
         &self,
         contract_address: &str,
         _token_ids: Option<&[u64]>,
         chain_id: u64
     ) -> AppResult<Vec<WalletUser>> {
-        // This would require integration with blockchain indexing services
         warn!("find_by_nft_ownership not yet implemented for contract {} on chain {}", contract_address, chain_id);
         Ok(Vec::new())
     }
@@ -736,7 +710,6 @@ use diesel::SelectableHelper;
         wallet_address: &WalletAddress,
         permissions: &[Permission]
     ) -> AppResult<Vec<bool>> {
-        // For now, return true for all manual permissions, false for Web3 permissions (not implemented)
         let results = permissions.iter()
             .map(|p| p.is_manual())
             .collect();
@@ -752,7 +725,6 @@ use diesel::SelectableHelper;
         is_valid: bool,
         cache_duration_seconds: u64
     ) -> AppResult<()> {
-        // This would integrate with Redis or another cache
         info!(
             "Would cache validation result for wallet {} permission {}: {} (TTL: {}s)",
             wallet_address.as_str(),
@@ -808,18 +780,15 @@ impl WalletUserAnalyticsPort for WalletUserRepositoryAdapter {
                 .with_component("wallet_user_repository")
         })?;
 
-        // Tier system removed - permission groups tracked via wallet_user_groups table
-        let users_by_permission_group = HashMap::new();
-
         Ok(WalletUserStatistics {
             total_users: stats.total_users as u64,
             active_users: stats.active_users as u64,
-            users_by_permission_group,
-            users_by_chain: HashMap::new(), // Chain distribution to be implemented when needed
-            manual_permissions: 0, // Manual permissions count to be implemented
-            nft_gated_permissions: 0, // NFT-gated permissions count to be implemented
-            token_gated_permissions: 0, // Token-gated permissions count to be implemented
-            dao_governance_permissions: 0, // DAO governance permissions count to be implemented
+            users_by_permission_group: HashMap::new(),
+            users_by_chain: HashMap::new(),
+            manual_permissions: 0,
+            nft_gated_permissions: 0,
+            token_gated_permissions: 0,
+            dao_governance_permissions: 0,
             recent_authentications_24h: stats.recent_auth_24h as u64,
             new_wallets_24h: stats.new_wallets_24h as u64,
         })
@@ -831,7 +800,6 @@ impl WalletUserAnalyticsPort for WalletUserRepositoryAdapter {
                 .with_component("wallet_user_repository")
                 .with_operation("get_web3_analytics"))?;
 
-        // Query permission type distribution
         #[derive(diesel::QueryableByName)]
         struct PermissionTypeRow {
             #[diesel(sql_type = diesel::sql_types::Text)]
@@ -864,7 +832,6 @@ impl WalletUserAnalyticsPort for WalletUserRepositoryAdapter {
             permission_type_distribution.insert(row.permission_type, row.count as u64);
         }
 
-        // Query chain distribution from wallet metadata
         #[derive(diesel::QueryableByName)]
         struct ChainRow {
             #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
@@ -906,8 +873,6 @@ impl WalletUserAnalyticsPort for WalletUserRepositoryAdapter {
         info!("Generated Web3 analytics: {} permission types, {} chains",
               permission_type_distribution.len(), chain_distribution.len());
 
-        // Query wallet metadata for contract interactions (best effort without external indexer)
-        // In production, this would integrate with Alchemy, Moralis, or similar blockchain indexers
         #[derive(diesel::QueryableByName)]
         struct ContractRow {
             #[diesel(sql_type = diesel::sql_types::Text)]
@@ -916,7 +881,6 @@ impl WalletUserAnalyticsPort for WalletUserRepositoryAdapter {
             user_count: i64,
         }
 
-        // NFT contracts from wallet metadata
         let nft_rows: Vec<ContractRow> = diesel::sql_query(
             r#"
             SELECT
@@ -939,7 +903,6 @@ impl WalletUserAnalyticsPort for WalletUserRepositoryAdapter {
             .map(|row| (row.contract_address, row.user_count as u64))
             .collect();
 
-        // Token contracts from wallet metadata
         let token_rows: Vec<ContractRow> = diesel::sql_query(
             r#"
             SELECT
@@ -962,7 +925,6 @@ impl WalletUserAnalyticsPort for WalletUserRepositoryAdapter {
             .map(|row| (row.contract_address, row.user_count as u64))
             .collect();
 
-        // DAO contracts from wallet metadata
         let dao_rows: Vec<ContractRow> = diesel::sql_query(
             r#"
             SELECT
@@ -985,9 +947,6 @@ impl WalletUserAnalyticsPort for WalletUserRepositoryAdapter {
             .map(|row| (row.contract_address, row.user_count as u64))
             .collect();
 
-        info!("Web3 analytics: {} NFT contracts, {} token contracts, {} DAOs from wallet metadata",
-              top_nft_contracts.len(), top_token_contracts.len(), top_dao_contracts.len());
-
         Ok(Web3Analytics {
             top_nft_contracts,
             top_token_contracts,
@@ -1003,7 +962,6 @@ impl WalletUserAnalyticsPort for WalletUserRepositoryAdapter {
                 .with_component("wallet_user_repository")
                 .with_operation("get_permission_distribution"))?;
 
-        // Query permission usage across all active users
         #[derive(diesel::QueryableByName)]
         struct PermissionDistRow {
             #[diesel(sql_type = diesel::sql_types::Text)]
@@ -1158,7 +1116,6 @@ impl WalletUserAnalyticsPort for WalletUserRepositoryAdapter {
                 .with_component("wallet_user_repository")
                 .with_operation("get_group_progression"))?;
 
-        // Query historical group assignments from audit log
         #[derive(diesel::QueryableByName)]
         struct ProgressionRow {
             #[diesel(sql_type = diesel::sql_types::Text)]
@@ -1201,13 +1158,10 @@ impl WalletUserAnalyticsPort for WalletUserRepositoryAdapter {
     }
 
     async fn get_validation_success_rates(&self) -> AppResult<HashMap<String, f64>> {
-        // Placeholder implementation for Web3 validation success rates
         Ok(HashMap::new())
     }
 
     async fn get_cross_chain_analysis(&self) -> AppResult<HashMap<String, u64>> {
-        // Placeholder implementation for cross-chain analysis
         Ok(HashMap::new())
     }
 }
-

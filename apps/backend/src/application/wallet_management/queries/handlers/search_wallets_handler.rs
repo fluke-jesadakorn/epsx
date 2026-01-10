@@ -5,6 +5,7 @@ use crate::application::wallet_management::queries::models::{
     SearchWalletsQuery, SearchWalletsResponse
 };
 use crate::domain::wallet_management::WalletUserRepositoryPort;
+// Redundant import removed
 
 /// Query handler for searching wallets
 pub struct SearchWalletsQueryHandler {

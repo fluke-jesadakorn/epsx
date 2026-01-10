@@ -85,8 +85,8 @@ async fn fetch_realtime_estimate_async(
   unified_item: &UnifiedRankingItem,
 ) -> Option<EstimateData> {
   let fallback_config = super::system::get_simple_fallback_config();
-  let tradingview_config = crate::infrastructure::adapters::services::tradingview::TradingViewConfig::from(&fallback_config);
-  let websocket_handler = crate::infrastructure::adapters::services::tradingview::websocket::TradingViewWebSocketHandler::new(tradingview_config);
+  let tradingview_config = crate::infrastructure::adapters::tradingview_types::TradingViewConfig::from(&fallback_config);
+  let websocket_handler = crate::infrastructure::adapters::services::tradingview::TradingViewWebSocketHandler::new(tradingview_config);
 
   let enhanced_data_list = websocket_handler.fetch_enhanced_eps_data(vec![unified_item.symbol.clone()]).await.ok()?;
   let enhanced_data = enhanced_data_list.first()?;

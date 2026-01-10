@@ -32,7 +32,7 @@ async fn enhance_symbols_batch(
     rankings: &mut [EPSRanking]
 ) -> Result<usize, String> {
     // Create optimized WebSocket handler using the new implementation
-    let config = crate::infrastructure::adapters::services::tradingview::TradingViewConfig::from(&get_fallback_config());
+    let config = crate::infrastructure::adapters::tradingview_types::TradingViewConfig::from(&get_fallback_config());
     let ws_handler = TradingViewWebSocketHandler::new(config);
     
     // Add connection timeout and retry logic

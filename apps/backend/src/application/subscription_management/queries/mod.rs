@@ -1,7 +1,7 @@
 // Subscription Management Queries
 
-pub mod models;
-pub mod handlers;
+pub mod list_plans;
+pub mod get_plan;
 
-pub use models::*;
-pub use handlers::*;
+pub use list_plans::*;
+pub use get_plan::*;

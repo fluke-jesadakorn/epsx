@@ -1,10 +1,11 @@
 use crate::prelude::*;
 use crate::application::shared::Command;
+use crate::domain::subscription_management::PlanId;
 
 /// Command to delete a plan
 #[derive(Debug, Clone)]
 pub struct DeletePlanCommand {
-    pub plan_id: i32,
+    pub id: PlanId,
 }
 
 impl Command for DeletePlanCommand {
@@ -14,6 +15,6 @@ impl Command for DeletePlanCommand {
 /// Response for delete plan command
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DeletePlanResponse {
-    pub plan_id: i32,
+    pub plan_id: String,
     pub deleted: bool,
 }

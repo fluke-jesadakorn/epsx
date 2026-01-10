@@ -2,7 +2,7 @@
 // Focused module handling all data transfer objects and API structures
 
 use serde::{Deserialize, Serialize};
-use crate::domain::shared_kernel::services::eps_cache_service::CacheStats;
+use crate::domain::market_analytics::domain_services::eps_cache_service::CacheStats;
 
 /// Query parameters for EPS rankings endpoint
 #[derive(Debug, Deserialize)]

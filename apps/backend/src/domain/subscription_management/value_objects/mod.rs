@@ -2,6 +2,8 @@
 
 pub mod plan_id;
 pub mod price;
+pub mod quota;
+
 pub mod billing_cycle;
 pub mod plan_features;
 

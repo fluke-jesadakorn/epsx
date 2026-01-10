@@ -11,7 +11,7 @@ use crate::domain::wallet_management::{
 /// Repository port for WalletUser aggregate persistence
 /// This interface defines the contract for Web3 wallet-based user data access
 #[async_trait]
-pub trait WalletUserRepositoryPort: Send + Sync {
+pub trait WalletUserRepositoryPort: WalletUserSearchPort + Send + Sync {
     /// Find a user by their wallet address (primary key)
     async fn find_by_wallet(&self, wallet_address: &WalletAddress) -> AppResult<Option<WalletUser>>;
     
@@ -24,26 +24,6 @@ pub trait WalletUserRepositoryPort: Send + Sync {
     /// Delete a wallet user
     async fn delete(&self, wallet_address: &WalletAddress) -> AppResult<()>;
     
-    /// Find users with specific permissions
-    async fn find_by_permission(&self, permission: &Permission) -> AppResult<Vec<WalletUser>>;
-    
-    /// Find users by permission type (manual, NFT, token, DAO)
-    async fn find_by_permission_type(&self, permission_type: &PermissionType) -> AppResult<Vec<WalletUser>>;
-    
-    /// Find users by permission group  
-    async fn find_by_permission_group(&self, permission_group: &str) -> AppResult<Vec<WalletUser>>;
-    
-    /// Find users by multiple criteria with pagination
-    async fn find_by_criteria(
-        &self,
-        criteria: &WalletUserSearchCriteria,
-        limit: u32,
-        offset: u32
-    ) -> AppResult<WalletUserSearchResult>;
-    
-    /// Count users matching criteria
-    async fn count_by_criteria(&self, criteria: &WalletUserSearchCriteria) -> AppResult<u64>;
-    
     /// Find users eligible for automatic Web3 permission assignment
     async fn find_eligible_for_web3_permissions(&self, chain_id: u64) -> AppResult<Vec<WalletUser>>;
     
@@ -55,8 +35,31 @@ pub trait WalletUserRepositoryPort: Send + Sync {
     
     /// Clean up expired permissions across all users
     async fn cleanup_expired_permissions(&self) -> AppResult<u32>;
+}
 
-    /// Web3-specific methods
+/// Port for searching wallet users based on criteria
+#[async_trait]
+pub trait WalletUserSearchPort: Send + Sync {
+    /// Find users by multiple criteria with pagination
+    async fn find_by_criteria(
+        &self,
+        criteria: &WalletUserSearchCriteria,
+        limit: u32,
+        offset: u32
+    ) -> AppResult<WalletUserSearchResult>;
+    
+    /// Count users matching criteria
+    async fn count_by_criteria(&self, criteria: &WalletUserSearchCriteria) -> AppResult<u64>;
+
+    /// Find users with specific permissions
+    async fn find_by_permission(&self, permission: &Permission) -> AppResult<Vec<WalletUser>>;
+    
+    /// Find users by permission type (manual, NFT, token, DAO)
+    async fn find_by_permission_type(&self, permission_type: &PermissionType) -> AppResult<Vec<WalletUser>>;
+    
+    /// Find users by permission group  
+    async fn find_by_permission_group(&self, permission_group: &str) -> AppResult<Vec<WalletUser>>;
+
     /// Find users who own specific NFTs
     async fn find_by_nft_ownership(
         &self,
@@ -97,6 +100,7 @@ pub trait WalletUserRepositoryPort: Send + Sync {
         cache_duration_seconds: u64
     ) -> AppResult<()>;
 }
+
 
 /// Search criteria for finding wallet users
 #[derive(Debug, Clone, Default)]

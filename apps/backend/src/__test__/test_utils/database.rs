@@ -44,7 +44,8 @@ impl TestDatabase {
         let mut conn = self.get_connection().await?;
 
         // Clean up test data with LIKE patterns to avoid affecting production data
-        use crate::schemas::primary::{web3_auth_nonces, wallet_users, wallet_notifications};
+        use crate::schemas::primary::{web3_auth_nonces, wallet_users};
+        use crate::schemas::notifications::wallet_notifications;
 
         // Clean up test nonces
         diesel::delete(web3_auth_nonces::table.filter(web3_auth_nonces::nonce.like("test_%")))

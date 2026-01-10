@@ -3,7 +3,9 @@
 pub mod routes;
 pub mod setup_handlers;
 pub mod security_monitoring_handlers;
-pub mod plan_handlers;
+pub mod plans;
+
+pub use plans as plan_handlers;
 pub mod promotion_handlers;
 pub mod performance_handlers;
 pub mod auth_handlers;

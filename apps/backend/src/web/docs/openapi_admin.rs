@@ -162,7 +162,7 @@ use utoipa::{
             crate::web::analytics::eps::types::QuarterlyPerformanceData,
             crate::web::analytics::eps::types::NextQuarterEstimate,
             crate::web::analytics::eps::types::EPSQuarterlyData,
-            crate::domain::shared_kernel::services::eps_cache_service::CacheStats,
+            crate::domain::market_analytics::domain_services::eps_cache_service::CacheStats,
 
             // Notification schemas
             crate::web::notifications::sse_handlers::SSENotification,

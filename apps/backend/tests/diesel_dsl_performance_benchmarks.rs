@@ -8,7 +8,6 @@ use diesel::prelude::*;
 use diesel_async::{RunQueryDsl, pooled_connection::deadpool::Pool};
 
 // Test performance of basic CRUD operations
-#[tokio::test]
 async fn benchmark_basic_operations() -> Result<(), Box<dyn std::error::Error>> {
     println!("🚀 Running Diesel DSL Performance Benchmarks");
     println!("{}", "=".repeat(50));
@@ -29,8 +28,8 @@ async fn benchmark_basic_operations() -> Result<(), Box<dyn std::error::Error>> 
     println!("\n📊 Benchmark 1: Simple COUNT queries");
 
     let start = Instant::now();
-    let wallet_count = epsx::schema::wallet_users::table
-        .select(diesel::dsl::count(epsx::schema::wallet_users::wallet_address))
+    let wallet_count = epsx::schemas::primary::wallet_users::table
+        .select(diesel::dsl::count(epsx::schemas::primary::wallet_users::wallet_address))
         .first::<i64>(&mut conn)
         .await?;
     let count_duration = start.elapsed();
@@ -38,8 +37,8 @@ async fn benchmark_basic_operations() -> Result<(), Box<dyn std::error::Error>> 
     println!("  💰 Wallet count: {} (took {:?})", wallet_count, count_duration);
 
     let start = Instant::now();
-    let group_count = epsx::schema::permission_groups::table
-        .select(diesel::dsl::count(epsx::schema::permission_groups::id))
+    let group_count = epsx::schemas::primary::groups::table
+        .select(diesel::dsl::count(epsx::schemas::primary::groups::id))
         .first::<i64>(&mut conn)
         .await?;
     let group_duration = start.elapsed();
@@ -50,9 +49,9 @@ async fn benchmark_basic_operations() -> Result<(), Box<dyn std::error::Error>> 
     println!("\n🔍 Benchmark 2: Simple filtering queries");
 
     let start = Instant::now();
-    let active_wallets = epsx::schema::wallet_users::table
-        .filter(epsx::schema::wallet_users::is_active.eq(true))
-        .select(diesel::dsl::count(epsx::schema::wallet_users::wallet_address))
+    let active_wallets = epsx::schemas::primary::wallet_users::table
+        .filter(epsx::schemas::primary::wallet_users::is_active.eq(true))
+        .select(diesel::dsl::count(epsx::schemas::primary::wallet_users::wallet_address))
         .first::<i64>(&mut conn)
         .await?;
     let filter_duration = start.elapsed();
@@ -60,9 +59,9 @@ async fn benchmark_basic_operations() -> Result<(), Box<dyn std::error::Error>> 
     println!("  ✅ Active wallets: {} (took {:?})", active_wallets, filter_duration);
 
     let start = Instant::now();
-    let promoted_groups = epsx::schema::permission_groups::table
-        .filter(epsx::schema::permission_groups::is_promoted.eq(true))
-        .select(diesel::dsl::count(epsx::schema::permission_groups::id))
+    let promoted_groups = epsx::schemas::primary::groups::table
+        .filter(epsx::schemas::primary::groups::is_promoted.eq(true))
+        .select(diesel::dsl::count(epsx::schemas::primary::groups::id))
         .first::<i64>(&mut conn)
         .await?;
     let promoted_duration = start.elapsed();
@@ -73,12 +72,12 @@ async fn benchmark_basic_operations() -> Result<(), Box<dyn std::error::Error>> 
     println!("\n📈 Benchmark 3: ORDER BY and LIMIT queries");
 
     let start = Instant::now();
-    let recent_wallets = epsx::schema::wallet_users::table
-        .order_by(epsx::schema::wallet_users::created_at.desc())
+    let recent_wallets = epsx::schemas::primary::wallet_users::table
+        .order_by(epsx::schemas::primary::wallet_users::created_at.desc())
         .limit(10)
         .select((
-            epsx::schema::wallet_users::wallet_address,
-            epsx::schema::wallet_users::created_at,
+            epsx::schemas::primary::wallet_users::wallet_address,
+            epsx::schemas::primary::wallet_users::created_at,
         ))
         .load::<(String, chrono::DateTime<chrono::Utc>)>(&mut conn)
         .await?;
@@ -90,17 +89,17 @@ async fn benchmark_basic_operations() -> Result<(), Box<dyn std::error::Error>> 
     println!("\n🔗 Benchmark 4: JOIN query performance");
 
     let start = Instant::now();
-    let wallet_groups = epsx::schema::wallet_users::table
-        .inner_join(epsx::schema::wallet_group_assignments::table.on(
-            epsx::schema::wallet_users::wallet_address.eq(epsx::schema::wallet_group_assignments::wallet_address)
+    let wallet_groups = epsx::schemas::primary::wallet_users::table
+        .inner_join(epsx::schemas::primary::wallet_group_assignments::table.on(
+            epsx::schemas::primary::wallet_users::wallet_address.eq(epsx::schemas::primary::wallet_group_assignments::wallet_address)
         ))
-        .inner_join(epsx::schema::permission_groups::table.on(
-            epsx::schema::wallet_group_assignments::group_id.eq(epsx::schema::permission_groups::id)
+        .inner_join(epsx::schemas::primary::groups::table.on(
+            epsx::schemas::primary::wallet_group_assignments::group_id.eq(epsx::schemas::primary::groups::id)
         ))
-        .filter(epsx::schema::permission_groups::is_active.eq(true))
+        .filter(epsx::schemas::primary::groups::is_active.eq(true))
         .select((
-            epsx::schema::wallet_users::wallet_address,
-            epsx::schema::permission_groups::name,
+            epsx::schemas::primary::wallet_users::wallet_address,
+            epsx::schemas::primary::groups::name,
         ))
         .limit(50)
         .load::<(String, String)>(&mut conn)
@@ -137,7 +136,6 @@ async fn benchmark_basic_operations() -> Result<(), Box<dyn std::error::Error>> 
 }
 
 // Benchmark repository operations
-#[tokio::test]
 async fn benchmark_repository_operations() -> Result<(), Box<dyn std::error::Error>> {
     println!("🔧 Running Repository Performance Benchmarks");
     println!("{}", "=".repeat(50));
@@ -149,35 +147,37 @@ async fn benchmark_repository_operations() -> Result<(), Box<dyn std::error::Err
     }
 
     let db_pool = epsx::infrastructure::database::diesel_connection_manager::get_diesel_pool().await?;
+    let db_pool_static: &'static _ = Box::leak(Box::new(db_pool));
+    let wallet_repo = epsx::infrastructure::adapters::repositories::wallet_user_repository_adapter::WalletUserRepositoryAdapter::new(db_pool_static);
 
     // Test wallet user repository performance
-    println!("\n👛 Wallet User Repository Performance");
-    let wallet_repo = epsx::infrastructure::adapters::repositories::wallet_user_repository_adapter::WalletUserRepositoryAdapter::new(db_pool);
+    use epsx::domain::wallet_management::repository_ports::{WalletUserSearchPort, WalletUserAnalyticsPort};
 
     let start = Instant::now();
-    let stats = wallet_repo.get_wallet_statistics().await?;
+    let stats = WalletUserAnalyticsPort::get_statistics(&wallet_repo).await?;
     let stats_duration = start.elapsed();
 
-    println!("  📊 Statistics retrieved: {:?} (took {:?})", stats.total_wallets, stats_duration);
+    println!("  📊 Statistics retrieved: {:?} (took {:?})", stats.total_users, stats_duration);
 
     // Test search performance
-    let search_criteria = epsx::domain::wallet_management::WalletSearchCriteria {
-        search_term: Some("test".to_string()),
+    let search_criteria = epsx::domain::wallet_management::repository_ports::WalletUserSearchCriteria {
+        wallet_pattern: Some("test".to_string()),
         is_active: Some(true),
         created_after: None,
         created_before: None,
-        limit: Some(20),
-        offset: Some(0),
+        ..Default::default()
     };
 
     let start = Instant::now();
-    let search_results = wallet_repo.search_wallets(&search_criteria).await?;
+    let search_results = WalletUserSearchPort::find_by_criteria(&wallet_repo, &search_criteria, 20, 0).await?;
+    let search_duration = start.elapsed();
     let search_duration = start.elapsed();
 
-    println!("  🔍 Search results: {} wallets (took {:?})", search_results.wallets.len(), search_duration);
+    println!("  🔍 Search results: {} wallets (took {:?})", search_results.users.len(), search_duration);
 
     // Test permission group repository performance
     println!("\n🏷️  Permission Group Repository Performance");
+    use epsx::domain::permission_management::repository_ports::GroupRepositoryPort;
     let group_repo = epsx::infrastructure::adapters::repositories::permission_group_repository_adapter::PermissionGroupRepositoryAdapter::new(db_pool);
 
     let start = Instant::now();
@@ -204,7 +204,6 @@ async fn benchmark_repository_operations() -> Result<(), Box<dyn std::error::Err
 }
 
 // Memory usage validation
-#[tokio::test]
 async fn validate_memory_usage() -> Result<(), Box<dyn std::error::Error>> {
     println!("💾 Validating Memory Usage Patterns");
     println!("{}", "=".repeat(50));
@@ -228,14 +227,14 @@ async fn validate_memory_usage() -> Result<(), Box<dyn std::error::Error>> {
     let start = Instant::now();
 
     for page in 0..5 {
-        let page_results = epsx::schema::wallet_users::table
-            .order_by(epsx::schema::wallet_users::created_at.desc())
+        let page_results = epsx::schemas::primary::wallet_users::table
+            .order_by(epsx::schemas::primary::wallet_users::created_at.desc())
             .limit(100)
             .offset(page * 100)
             .select((
-                epsx::schema::wallet_users::wallet_address,
-                epsx::schema::wallet_users::is_active,
-                epsx::schema::wallet_users::created_at,
+                epsx::schemas::primary::wallet_users::wallet_address,
+                epsx::schemas::primary::wallet_users::is_active,
+                epsx::schemas::primary::wallet_users::created_at,
             ))
             .load::<(String, bool, chrono::DateTime<chrono::Utc>)>(&mut conn)
             .await?;
@@ -253,11 +252,11 @@ async fn validate_memory_usage() -> Result<(), Box<dyn std::error::Error>> {
     println!("  🎯 Testing selective column loading");
     let start = Instant::now();
 
-    let minimal_wallets = epsx::schema::wallet_users::table
+    let minimal_wallets = epsx::schemas::primary::wallet_users::table
         .limit(1000)
         .select((
-            epsx::schema::wallet_users::wallet_address,
-            epsx::schema::wallet_users::is_active,
+            epsx::schemas::primary::wallet_users::wallet_address,
+            epsx::schemas::primary::wallet_users::is_active,
         ))
         .load::<(String, bool)>(&mut conn)
         .await?;
@@ -288,7 +287,7 @@ async fn run_complete_performance_suite() -> Result<(), Box<dyn std::error::Erro
 
     let total_duration = start.elapsed();
 
-    println!("\n" + "=".repeat(60));
+    println!("\n{}", "=".repeat(60));
     println!("🏁 Complete Performance Suite Summary");
     println!("⏱️  Total suite duration: {:?}", total_duration);
 

@@ -9,7 +9,8 @@ use tracing::{ debug, info, warn };
 
 use crate::core::errors::AppError;
 use crate::domain::shared_kernel::entities::eps_growth::EPSRanking;
-use crate::domain::shared_kernel::services::eps_cache_service::EPSCacheService;
+// use crate::domain::shared_kernel::services::eps_cache_service::EPSCacheService; // REMOVED
+use crate::domain::market_analytics::domain_services::EPSCacheService; // ADDED
 use crate::domain::shared_kernel::services::eps_ranking_service::PermissionParser;
 use crate::auth::UnifiedPermissionService;
 use crate::web::middleware::bearer_middleware::OpenIDUserContext;

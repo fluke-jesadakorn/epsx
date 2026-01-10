@@ -19,16 +19,9 @@ pub use commands::{
 // Re-export command handlers (Plan only)
 pub use commands::{
     CreatePlanCommandHandler,
-    UpdatePlanCommandHandler,
-    DeletePlanCommandHandler,
-};
+// UpdatePlanCommandHandler,
+// DeletePlanCommandHandler,
 
-// Re-export query models (Plan only)
-pub use queries::{
-    GetPlanQuery,
-    GetPlanResponse,
-    ListPlansQuery,
-    ListPlansResponse,
 };
 
 // Re-export query handlers (Plan only)

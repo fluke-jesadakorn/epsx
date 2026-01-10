@@ -17,7 +17,7 @@ pub mod comprehensive_rate_limiting_service;
 pub mod notification_service_adapter;
 // pub mod payment_security_service; // File doesn't exist yet
 pub mod resilience_patterns;
-pub mod trading_view_market_data_adapter;
+// pub mod trading_view_market_data_adapter; // REMOVED
 
 // Re-export service adapters with explicit imports to avoid conflicts
 
@@ -70,4 +70,4 @@ pub use resilience_patterns::{
   RetryPolicy,
   RateLimiter,
 };
-pub use trading_view_market_data_adapter::TradingViewMarketDataAdapter;
+// pub use trading_view_market_data_adapter::TradingViewMarketDataAdapter; // REMOVED

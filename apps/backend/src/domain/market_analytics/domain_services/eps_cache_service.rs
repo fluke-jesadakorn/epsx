@@ -5,13 +5,14 @@ use tracing::{debug, info};
 use tokio::sync::RwLock;
 
 use crate::domain::shared_kernel::entities::eps_growth::{EPSGrowthData, EPSRanking, EPSRankingsResponse, EPSPagination};
-use crate::domain::shared_kernel::ports::MarketDataServicePort;
+// USE NEW PORT
+use crate::domain::market_analytics::repository_ports::MarketDataScannerPort;
 use crate::domain::shared_kernel::services::eps_ranking_service::EPSRepository;
 
 /// Cache-based EPS service for live data fetching
 pub struct EPSCacheService {
     cache: Arc<RwLock<EPSCache>>,
-    market_data_service: Arc<dyn MarketDataServicePort>,
+    market_data_service: Arc<dyn MarketDataScannerPort>, // Updated type
     eps_repository: Arc<dyn EPSRepository + Send + Sync>,
     config: EPSCacheConfig,
 }
@@ -97,7 +98,7 @@ impl Default for EPSCacheParams {
 
 impl EPSCacheService {
     pub fn new(
-        market_data_service: Arc<dyn MarketDataServicePort>,
+        market_data_service: Arc<dyn MarketDataScannerPort>, // Updated type
         eps_repository: Arc<dyn EPSRepository + Send + Sync>,
         config: Option<EPSCacheConfig>,
     ) -> Self {

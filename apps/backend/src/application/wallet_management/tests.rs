@@ -6,9 +6,12 @@ mod query_handler_tests {
     use super::super::*;
     use crate::domain::wallet_management::{
         WalletUser, WalletAddress, Permission,
-        WalletUserRepositoryPort, WalletUserSearchCriteria, WalletUserSearchResult,
+        WalletUserRepositoryPort,
+        repository_ports::{WalletUserSearchPort, WalletUserSearchCriteria, WalletUserSearchResult},
         SessionRepositoryPort, Session, SessionId, SessionSearchCriteria, SessionSearchResult, SessionStatistics,
     };
+    use crate::prelude::AppResult;
+    use crate::domain::wallet_management::value_objects::PermissionType;
     use crate::domain::shared_kernel::value_objects::UserId;
     use crate::application::shared::{PaginationParams, QueryHandler};
     use crate::core::errors::AppError;
@@ -39,19 +42,13 @@ mod query_handler_tests {
     }
 
     #[async_trait]
-    impl WalletUserRepositoryPort for MockWalletUserRepository {
-        async fn find_by_wallet(&self, wallet_addr: &WalletAddress) -> Result<Option<WalletUser>, AppError> {
-            Ok(self.wallets.iter()
-                .find(|w| w.wallet_address() == wallet_addr)
-                .cloned())
-        }
-
+    impl WalletUserSearchPort for MockWalletUserRepository {
         async fn find_by_criteria(
             &self,
             _criteria: &WalletUserSearchCriteria,
             _limit: u32,
             _offset: u32,
-        ) -> Result<WalletUserSearchResult, AppError> {
+        ) -> AppResult<WalletUserSearchResult> {
             Ok(WalletUserSearchResult::new(
                 self.wallets.clone(),
                 self.wallets.len() as u64,
@@ -60,71 +57,80 @@ mod query_handler_tests {
             ))
         }
 
-        async fn save(&self, _wallet: &WalletUser) -> Result<(), AppError> {
-            Ok(())
-        }
-
-        async fn delete(&self, _wallet_addr: &WalletAddress) -> Result<(), AppError> {
-            Ok(())
-        }
-
-        async fn find_by_permission(&self, _permission: &Permission) -> Result<Vec<WalletUser>, AppError> {
-            Ok(Vec::new())
-        }
-
-        async fn find_by_permission_type(&self, _permission_type: &crate::domain::wallet_management::value_objects::PermissionType) -> Result<Vec<WalletUser>, AppError> {
-            Ok(Vec::new())
-        }
-
-        async fn find_by_permission_group(&self, _permission_group: &str) -> Result<Vec<WalletUser>, AppError> {
-            Ok(Vec::new())
-        }
-
-        async fn count_by_criteria(&self, _criteria: &WalletUserSearchCriteria) -> Result<u64, AppError> {
+        async fn count_by_criteria(&self, _criteria: &WalletUserSearchCriteria) -> AppResult<u64> {
             Ok(self.wallets.len() as u64)
         }
 
-        async fn find_eligible_for_web3_permissions(&self, _chain_id: u64) -> Result<Vec<WalletUser>, AppError> {
+        async fn find_by_permission(&self, _permission: &Permission) -> AppResult<Vec<WalletUser>> {
             Ok(Vec::new())
         }
 
-        async fn save_batch(&self, _users: &[WalletUser]) -> Result<(), AppError> {
+        async fn find_by_permission_type(&self, _permission_type: &PermissionType) -> AppResult<Vec<WalletUser>> {
+            Ok(Vec::new())
+        }
+
+        async fn find_by_permission_group(&self, _permission_group: &str) -> AppResult<Vec<WalletUser>> {
+            Ok(Vec::new())
+        }
+
+        async fn find_by_nft_ownership(&self, _contract_address: &str, _token_ids: Option<&[u64]>, _chain_id: u64) -> AppResult<Vec<WalletUser>> {
+            Ok(Vec::new())
+        }
+
+        async fn find_by_token_balance(&self, _contract_address: &str, _min_balance: &str, _chain_id: u64) -> AppResult<Vec<WalletUser>> {
+            Ok(Vec::new())
+        }
+
+        async fn find_by_dao_membership(&self, _dao_contract: &str, _min_voting_power: &str, _chain_id: u64) -> AppResult<Vec<WalletUser>> {
+            Ok(Vec::new())
+        }
+
+        async fn validate_web3_permissions(&self, _wallet_address: &WalletAddress, _permissions: &[Permission]) -> AppResult<Vec<bool>> {
+            Ok(Vec::new())
+        }
+
+        async fn cache_web3_validation(&self, _wallet_address: &WalletAddress, _permission: &Permission, _is_valid: bool, _cache_duration_seconds: u64) -> AppResult<()> {
             Ok(())
         }
+    }
 
-        async fn health_check(&self) -> Result<(), AppError> {
-            Ok(())
+    #[async_trait]
+    impl WalletUserRepositoryPort for MockWalletUserRepository {
+        async fn find_by_wallet(&self, wallet_addr: &WalletAddress) -> AppResult<Option<WalletUser>> {
+            Ok(self.wallets.iter()
+                .find(|w| w.wallet_address() == wallet_addr)
+                .cloned())
         }
 
-        async fn cleanup_expired_permissions(&self) -> Result<u32, AppError> {
-            Ok(0)
-        }
-
-        async fn find_by_nft_ownership(&self, _contract_address: &str, _token_ids: Option<&[u64]>, _chain_id: u64) -> Result<Vec<WalletUser>, AppError> {
-            Ok(Vec::new())
-        }
-
-        async fn find_by_token_balance(&self, _contract_address: &str, _min_balance: &str, _chain_id: u64) -> Result<Vec<WalletUser>, AppError> {
-            Ok(Vec::new())
-        }
-
-        async fn find_by_dao_membership(&self, _dao_contract: &str, _min_voting_power: &str, _chain_id: u64) -> Result<Vec<WalletUser>, AppError> {
-            Ok(Vec::new())
-        }
-
-        async fn validate_web3_permissions(&self, _wallet_address: &WalletAddress, _permissions: &[Permission]) -> Result<Vec<bool>, AppError> {
-            Ok(Vec::new())
-        }
-
-        async fn cache_web3_validation(&self, _wallet_address: &WalletAddress, _permission: &Permission, _is_valid: bool, _cache_duration_seconds: u64) -> Result<(), AppError> {
-            Ok(())
-        }
-
-        async fn find_by_wallets(&self, wallet_addresses: &[WalletAddress]) -> Result<Vec<WalletUser>, AppError> {
+        async fn find_by_wallets(&self, wallet_addresses: &[WalletAddress]) -> AppResult<Vec<WalletUser>> {
             Ok(self.wallets.iter()
                 .filter(|w| wallet_addresses.contains(w.wallet_address()))
                 .cloned()
                 .collect())
+        }
+
+        async fn save(&self, _wallet: &WalletUser) -> AppResult<()> {
+            Ok(())
+        }
+
+        async fn delete(&self, _wallet_addr: &WalletAddress) -> AppResult<()> {
+            Ok(())
+        }
+
+        async fn find_eligible_for_web3_permissions(&self, _chain_id: u64) -> AppResult<Vec<WalletUser>> {
+            Ok(Vec::new())
+        }
+
+        async fn save_batch(&self, _users: &[WalletUser]) -> AppResult<()> {
+            Ok(())
+        }
+
+        async fn health_check(&self) -> AppResult<()> {
+            Ok(())
+        }
+
+        async fn cleanup_expired_permissions(&self) -> AppResult<u32> {
+            Ok(0)
         }
     }
 

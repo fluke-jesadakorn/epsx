@@ -2,7 +2,7 @@
 // Moved from web/analytics/eps/types.rs following Clean Architecture
 
 use serde::{Deserialize, Serialize};
-use crate::domain::shared_kernel::services::eps_cache_service::CacheStats;
+use crate::domain::market_analytics::domain_services::eps_cache_service::CacheStats;
 
 // ============================================================================
 // ACCESS & PAGINATION

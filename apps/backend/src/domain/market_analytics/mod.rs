@@ -29,6 +29,7 @@
 pub mod value_objects;
 pub mod aggregates;
 pub mod repository_ports;
+pub mod domain_services;
 
 // Public exports from value objects
 pub use value_objects::{

@@ -64,6 +64,9 @@ pub struct SimpleContainer {
     pub event_dispatcher: Option<Arc<crate::infrastructure::EventDispatcher>>,
     pub projection_manager: Option<Arc<crate::infrastructure::ProjectionManager>>,
     pub transaction_history_provider: Option<Arc<dyn TransactionHistoryProvider>>,
+
+    // Subscription Management
+    pub plan_repository: Option<Arc<crate::infrastructure::adapters::repositories::plan_repository_adapter::PostgresPlanRepositoryAdapter>>,
 }
 
 impl SimpleContainer {
@@ -97,6 +100,7 @@ impl SimpleContainer {
             event_dispatcher: None,
             projection_manager: None,
             transaction_history_provider: None,
+            plan_repository: None,
         }
     }
 
@@ -146,6 +150,8 @@ impl SimpleContainer {
         let wallet_user_repository = Arc::new(WalletUserRepositoryAdapter::new(diesel_pool));
         let session_repository = Arc::new(SessionRepositoryAdapter::new(diesel_pool));
         let group_repository = Arc::new(GroupRepositoryAdapter::new(diesel_pool));
+        let plan_repository = Arc::new(crate::infrastructure::adapters::repositories::plan_repository_adapter::PostgresPlanRepositoryAdapter::new(diesel_pool));
+        let plan_repository = Arc::new(crate::infrastructure::adapters::repositories::plan_repository_adapter::PostgresPlanRepositoryAdapter::new(diesel_pool));
 
         // Initialize dedicated pools
         let payments_pool = crate::infrastructure::database::get_payments_pool().await.ok().map(Arc::new);
@@ -348,6 +354,7 @@ impl SimpleContainer {
             web3_permission_adapter: Some(web3_permission_adapter),
             auth_service: Some(auth_service),
             token_service: Some(token_service),
+            plan_repository: Some(plan_repository),
             event_bus: Some(event_bus),
             // Unified Permission Service
             unified_permission_service: Some(unified_permission_service),
@@ -394,6 +401,7 @@ impl SimpleContainer {
             event_dispatcher: None,
             projection_manager: None,
             transaction_history_provider: None,
+            plan_repository: None,
         }
     }
 
@@ -488,6 +496,10 @@ impl SimpleContainer {
 
     pub fn get_transaction_history_provider(&self) -> Option<Arc<dyn TransactionHistoryProvider>> {
         self.transaction_history_provider.as_ref().map(Arc::clone)
+    }
+
+    pub fn get_plan_repository_port(&self) -> Option<Arc<dyn crate::domain::subscription_management::repository_ports::PlanRepositoryPort>> {
+         self.plan_repository.as_ref().map(|repo| Arc::clone(repo) as Arc<dyn crate::domain::subscription_management::repository_ports::PlanRepositoryPort>)
     }
 
     // Enhanced app state creation with Web3 services

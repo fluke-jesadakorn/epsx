@@ -8,7 +8,7 @@ use crate::prelude::*;
 use diesel_async::{AsyncPgConnection, RunQueryDsl, pooled_connection::deadpool::Pool};
 use std::pin::Pin;
 use std::future::Future;
-use tracing::error;
+use tracing::{error, info};
 
 // ============================================================================
 // DATABASE ERROR HANDLING MACROS

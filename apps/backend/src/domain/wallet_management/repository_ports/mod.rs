@@ -8,12 +8,14 @@ pub mod session_repository_port;
 // NEW - Web3 wallet user repository exports (primary)
 pub use wallet_user_repository_port::{
     WalletUserRepositoryPort,
+    WalletUserSearchPort,
     WalletUserAnalyticsPort,
     WalletUserSearchCriteria,
     WalletUserSearchResult,
     WalletUserStatistics,
     Web3Analytics,
 };
+
 
 
 pub use session_repository_port::{

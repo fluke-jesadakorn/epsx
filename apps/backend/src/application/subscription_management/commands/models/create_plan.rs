@@ -1,20 +1,19 @@
 use crate::prelude::*;
 use crate::application::shared::Command;
 
+use crate::domain::subscription_management::value_objects::PlanFeatures;
+
 /// Command to create a new plan
 #[derive(Debug, Clone)]
 pub struct CreatePlanCommand {
     pub name: String,
     pub description: String,
-    pub group_id: String,
-    pub price: f64,
+    pub price_amount: rust_decimal::Decimal,
     pub currency: String,
     pub billing_cycle: String,
+    pub permissions: Vec<String>,
+    pub features: PlanFeatures,
     pub target_audience: String,
-    pub api_calls_limit: Option<i32>,
-    pub rankings_limit: Option<i32>,
-    pub analytics_enabled: bool,
-    pub premium_support: bool,
     pub is_active: Option<bool>,
     pub is_promoted: Option<bool>,
     pub display_order: Option<i32>,
@@ -28,7 +27,6 @@ impl Command for CreatePlanCommand {
 /// Response for create plan command
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CreatePlanResponse {
-    pub plan_id: i32,
+    pub plan_id: String,
     pub name: String,
-    pub created_at: chrono::DateTime<chrono::Utc>,
 }

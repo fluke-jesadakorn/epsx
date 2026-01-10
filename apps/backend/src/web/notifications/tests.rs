@@ -10,7 +10,7 @@ mod notification_tests {
     use chrono::Utc;
     use uuid::Uuid;
     use diesel::prelude::*;
-    use diesel_async::{RunQueryDsl, pooled_connection::deadpool::Pool};
+    use diesel_async::{RunQueryDsl, pooled_connection::deadpool::Pool, AsyncPgConnection};
 
     async fn setup_test_notification(
         pool: &Pool<AsyncPgConnection>,

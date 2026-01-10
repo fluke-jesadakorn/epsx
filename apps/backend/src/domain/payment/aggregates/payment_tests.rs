@@ -3,16 +3,15 @@
 
 #[cfg(test)]
 mod tests {
-    use super::Payment;
+    use crate::domain::payment::{Payment, PaymentStatus};
     use crate::domain::payment::value_objects::{
         PaymentMethodType, Network, PaymentAmount, PaymentMethod, Currency
     };
-    use crate::domain::shared_kernel::value_objects::UserId;
     use rust_decimal_macros::dec;
 
     #[test]
     fn test_payment_creation() {
-        let wallet_address = UserId::new();
+        let wallet_address = crate::domain::wallet_management::WalletAddress::new("0x742d35Cc6634C0532925a3b8D369D7763F3c45c6".to_string()).unwrap();
         let amount = PaymentAmount::new(dec!(50.0), Currency::USDT).unwrap();
         let method = PaymentMethod::new(
             PaymentMethodType::Crypto,
