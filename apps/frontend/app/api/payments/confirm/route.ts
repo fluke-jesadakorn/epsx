@@ -22,9 +22,9 @@ export async function POST(req: NextRequest) {
         const userCookie = cookieStore.get(COOKIES.user);
         const accessCookie = cookieStore.get(COOKIES.access);
 
-        if (!userCookie?.value) {
+        if (!userCookie?.value || !accessCookie?.value) {
             return NextResponse.json(
-                { success: false, message: 'Authentication required: no user cookie found' },
+                { success: false, message: 'Authentication required' },
                 { status: 401 }
             );
         }
@@ -34,20 +34,20 @@ export async function POST(req: NextRequest) {
             user = JSON.parse(userCookie.value);
         } catch (_error) {
             return NextResponse.json(
-                { success: false, message: 'Invalid authentication data: malformed user cookie' },
+                { success: false, message: 'Invalid user session' },
                 { status: 401 }
             );
         }
 
         if (!user?.wallet_address) {
             return NextResponse.json(
-                { success: false, message: 'Invalid user authentication: missing wallet address' },
+                { success: false, message: 'Invalid user session: missing wallet' },
                 { status: 401 }
             );
         }
 
         const body: PaymentConfirmRequest = await req.json();
-        const { plan_id, transaction_hash, amount, currency, network = 'localhost' } = body;
+        const { plan_id, transaction_hash, amount, currency, network = process.env.NEXT_PUBLIC_DEFAULT_NETWORK || 'bsc-mainnet' } = body;
 
         // Validate required fields
         if (!plan_id || !transaction_hash || !amount) {

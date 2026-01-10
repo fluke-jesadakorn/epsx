@@ -136,9 +136,9 @@ impl OpenIDTokenService {
             issuer,
             audiences,
             key_manager,
-            access_token_expiry_hours: 1,    // 1 hour
+            access_token_expiry_hours: 720,  // 30 days (matches frontend cookies)
             refresh_token_expiry_days: 30,   // 30 days
-            id_token_expiry_hours: 1,        // 1 hour
+            id_token_expiry_hours: 720,      // 30 days (matches frontend cookies)
         }
     }
 

@@ -28,16 +28,16 @@ interface StatCardProps {
 function StatCard({ label, value, subLabel, icon, gradient }: StatCardProps) {
     return (
         <div className={cn(
-            'relative overflow-hidden rounded-2xl p-0.5',
+            'relative overflow-hidden rounded-2xl p-0.5 h-full',
             gradient
         )}>
-            <div className="relative bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-2xl p-5">
-                <div className="flex items-center justify-between">
+            <div className="relative bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-2xl p-5 h-full flex flex-col">
+                <div className="flex items-center justify-between mb-3">
                     <div className="text-gray-500 dark:text-gray-400">
                         {icon}
                     </div>
                 </div>
-                <div className="mt-3">
+                <div className="flex-1 flex flex-col">
                     <p className="text-3xl font-bold text-gray-900 dark:text-white">
                         {typeof value === 'number' ? value.toLocaleString() : value}
                     </p>

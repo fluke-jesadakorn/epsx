@@ -16,13 +16,16 @@ import { createAdminApiClient } from '@/shared/utils/api-client';
 interface AuditLogEntry {
     id: string;
     action: string;
-    actor_address: string;
-    target_type: string;
-    target_id: string;
-    details: Record<string, unknown>;
+    wallet_address: string | null;
+    resource_type: string;
+    resource_id: string | null;
+    result: string;
+    details: Record<string, unknown> | null;
+    additional_data?: Record<string, unknown> | null; // For backward compatibility if needed, but we should use one
     ip_address?: string;
     user_agent?: string;
-    created_at: string;
+    timestamp: string; // Backend sends timestamp
+    created_at?: string; // Legacy support
 }
 
 // interface AuditLogFilters {
@@ -162,10 +165,10 @@ export default function AuditLogPage(): React.JSX.Element {
         const csvContent = [
             ['Date', 'Action', 'Actor', 'Target', 'Details'].join(','),
             ...logs.map(log => [
-                new Date(log.created_at).toISOString(),
+                new Date(log.timestamp).toISOString(),
                 log.action,
-                log.actor_address,
-                `${log.target_type}:${log.target_id}`,
+                log.wallet_address || '',
+                `${log.resource_type}:${log.resource_id || ''}`,
                 JSON.stringify(log.details).replace(/,/g, ';')
             ].join(','))
         ].join('\n');
@@ -414,7 +417,7 @@ function AuditLogRow({ log }: { log: AuditLogEntry }): React.JSX.Element {
             {/* Desktop Layout */}
             <div className="hidden md:grid grid-cols-12 gap-4 items-center">
                 <div className="col-span-2 text-sm text-gray-500">
-                    {formatTime(log.created_at)}
+                    {formatTime(log.timestamp)}
                 </div>
                 <div className="col-span-2">
                     <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-sm font-medium ${getActionColor(log.action)}`}>
@@ -423,14 +426,14 @@ function AuditLogRow({ log }: { log: AuditLogEntry }): React.JSX.Element {
                 </div>
                 <div className="col-span-3">
                     <code className="text-sm bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded font-mono">
-                        {formatAddress(log.actor_address)}
+                        {formatAddress(log.wallet_address || 'System')}
                     </code>
                 </div>
                 <div className="col-span-3 text-sm text-gray-600 dark:text-gray-400">
-                    <span className="font-medium">{log.target_type}</span>
+                    <span className="font-medium">{log.resource_type}</span>
                     <span className="mx-1">→</span>
                     <code className="bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded text-xs">
-                        {formatAddress(log.target_id)}
+                        {formatAddress(log.resource_id || 'N/A')}
                     </code>
                 </div>
                 <div className="col-span-2 text-right">
@@ -444,12 +447,12 @@ function AuditLogRow({ log }: { log: AuditLogEntry }): React.JSX.Element {
                     <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-sm font-medium ${getActionColor(log.action)}`}>
                         {getActionIcon(log.action)} {log.action.replace(/_/g, ' ')}
                     </span>
-                    <span className="text-sm text-gray-500">{formatTime(log.created_at)}</span>
+                    <span className="text-sm text-gray-500">{formatTime(log.timestamp)}</span>
                 </div>
                 <div className="text-sm text-gray-600 dark:text-gray-400">
                     <span className="font-medium">Actor:</span>{' '}
                     <code className="bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded text-xs">
-                        {formatAddress(log.actor_address)}
+                        {formatAddress(log.wallet_address || 'System')}
                     </code>
                 </div>
             </div>
@@ -462,18 +465,18 @@ function AuditLogRow({ log }: { log: AuditLogEntry }): React.JSX.Element {
                             <div>
                                 <span className="text-gray-500 dark:text-gray-400">Full Actor Address:</span>
                                 <code className="block mt-1 bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded text-xs font-mono break-all">
-                                    {log.actor_address}
+                                    {log.wallet_address || 'System'}
                                 </code>
                             </div>
                             <div>
                                 <span className="text-gray-500 dark:text-gray-400">Full Target ID:</span>
                                 <code className="block mt-1 bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded text-xs font-mono break-all">
-                                    {log.target_id}
+                                    {log.resource_id || 'N/A'}
                                 </code>
                             </div>
                             <div>
                                 <span className="text-gray-500 dark:text-gray-400">Timestamp:</span>
-                                <p className="mt-1">{new Date(log.created_at).toLocaleString()}</p>
+                                <p className="mt-1">{new Date(log.timestamp).toLocaleString()}</p>
                             </div>
                             {log.ip_address && (
                                 <div>
@@ -482,7 +485,7 @@ function AuditLogRow({ log }: { log: AuditLogEntry }): React.JSX.Element {
                                 </div>
                             )}
                         </div>
-                        {Object.keys(log.details).length > 0 && (
+                        {log.details && Object.keys(log.details).length > 0 && (
                             <div>
                                 <span className="text-gray-500 dark:text-gray-400 text-sm">Details:</span>
                                 <pre className="mt-1 bg-gray-100 dark:bg-gray-700 px-3 py-2 rounded-lg text-xs overflow-x-auto">
@@ -510,16 +513,17 @@ function generateMockAuditLogs(): AuditLogEntry[] {
     return Array.from({ length: 20 }, (_, i) => ({
         id: `log-${Date.now()}-${i}`,
         action: actions[Math.floor(Math.random() * actions.length)] as string,
-        actor_address: `0x${Math.random().toString(16).slice(2, 42)}`,
-        target_type: targetTypes[Math.floor(Math.random() * targetTypes.length)] as string,
-        target_id: `0x${Math.random().toString(16).slice(2, 42)}`,
+        wallet_address: `0x${Math.random().toString(16).slice(2, 42)}`,
+        resource_type: targetTypes[Math.floor(Math.random() * targetTypes.length)] as string,
+        resource_id: `0x${Math.random().toString(16).slice(2, 42)}`,
+        result: 'Success',
         details: {
             reason: 'Admin action',
             previous_value: Math.random() > 0.5 ? 'enabled' : 'disabled',
             new_value: Math.random() > 0.5 ? 'enabled' : 'disabled',
         },
         ip_address: `192.168.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}`,
-        created_at: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString(),
-    })).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        timestamp: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString(),
+    })).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 }
 

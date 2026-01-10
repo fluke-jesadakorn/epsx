@@ -23,6 +23,7 @@ interface UseNotificationBellOptions {
   enableSSE?: boolean
   browserNotifications?: BrowserNotificationAPI
   onNotificationReceived?: (notification: Notification) => void
+  refreshSession?: () => Promise<boolean>
 }
 
 interface UseNotificationBellReturn {
@@ -62,6 +63,7 @@ export function useNotificationBell(
   const { isConnected: isSSEConnected, reconnect: reconnectSSE } = useSSENotifications({
     apiClient,
     walletAddress,
+    refreshSession: options.refreshSession,
     autoConnect: false, // We'll control it manually
     onNotification: useCallback(
       (sseNotif: { id: string; title: string; message: string; notification_type: string; priority: string; timestamp: string; expires_at?: string; wallet_address: string; data?: Record<string, any> }) => {

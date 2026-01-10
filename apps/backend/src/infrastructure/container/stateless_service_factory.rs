@@ -113,7 +113,7 @@ impl StatelessServiceFactory {
         let wallet_user_repository = WalletUserRepositoryAdapter::new(diesel_pool);
 
         // Create domain services (stateless by design)
-        let wallet_permission_service = WalletPermissionService::new();
+        let wallet_permission_service = WalletPermissionService::new()?;
 
         // Create infrastructure adapters using Diesel pool
         let web3_permission_adapter = Web3PermissionServiceAdapter::new(

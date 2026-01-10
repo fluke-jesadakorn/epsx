@@ -105,6 +105,20 @@ export interface AnalyticsRankingsResponse {
     pagination: AnalyticsPagination;
 }
 
+export interface CardDashboardResponse {
+    success: boolean;
+    data: SymbolCardData[];
+    pagination: AnalyticsPagination;
+    metadata: {
+        available_countries: string[];
+        available_sectors: string[];
+        request_timestamp: string;
+        data_source: string;
+    };
+    message?: string;
+    processing_time_ms: number;
+}
+
 export interface SymbolCardData {
     rank: number;
     symbol: string;
@@ -119,6 +133,8 @@ export interface SymbolCardData {
     next_earnings_date_formatted?: string;
     days_until_next_earnings?: number;
     progress_percentage?: number;
+    name?: string;
+    company_name?: string;
 }
 
 export interface QuarterlyPerformanceData {

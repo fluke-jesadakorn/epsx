@@ -45,7 +45,7 @@ class ServerPermissionCache {
     // Fetch from database
     const pool = this.getDbPool();
     let walletPermissions: any[] = [];
-    
+
     try {
       const client = await pool.connect();
       try {
@@ -55,17 +55,17 @@ class ServerPermissionCache {
           WHERE LOWER(wallet_address) = LOWER($1) 
             AND is_active = true
         `, [walletAddress]);
-        
+
         walletPermissions = result.rows;
       } finally {
         client.release();
       }
     } catch (dbError) {
-       
+
       console.error('❌ Server Cache: Database query failed:', dbError);
       walletPermissions = [];
     }
-    
+
     // Process permissions from JSONB format
     let allPermissions: string[] = [];
     if (walletPermissions.length > 0) {
@@ -73,31 +73,31 @@ class ServerPermissionCache {
       // Extract permissions from JSONB columns - permissions are objects with 'name' field
       const permissions = userData.permissions || [];
       const permissionGroups = userData.permission_groups || [];
-      
+
       // Extract permission names from JSONB objects
       const permissionNames = permissions
         .filter((p: any) => p?.name && p.is_active !== false)
         .map((p: any) => p.name);
-      
+
       // Extract group permissions 
       const groupPermissionNames = permissionGroups
         .flatMap((group: any) => group.permissions || [])
         .filter((p: any) => p && typeof p === 'string');
-      
+
       // Combine individual permissions and group-based permissions
       allPermissions = [
         ...permissionNames,
         ...groupPermissionNames
       ];
     }
-    
-    const adminPermissions = allPermissions.filter((permission: string) => 
-      permission === 'admin:*:*' || 
+
+    const adminPermissions = allPermissions.filter((permission) =>
+      permission === 'admin:*:*' ||
       permission.startsWith('admin:') ||
       permission === 'epsx:admin:*' ||
       permission === 'epsx:*:*'
     );
-    
+
     // Determine admin level
     let adminLevel = 'none';
     if (adminPermissions.includes('admin:*:*') || adminPermissions.includes('epsx:*:*')) {
@@ -120,12 +120,12 @@ class ServerPermissionCache {
 
     // Store in cache
     this.cache.set(key, entry);
-    
+
     // Clean up expired entries periodically
     if (this.cache.size > 10) {
       this.cleanup();
     }
-    
+
     return entry;
   }
 

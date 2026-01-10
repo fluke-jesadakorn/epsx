@@ -366,8 +366,9 @@ function RankingsList({ data, isLoading, onPageChange, onReset }: RankingsListPr
                   symbol={ranking.symbol as string}
                   rank={(ranking.rank as number) || index + 1}
                   epsGrowth={(ranking.epsGrowth as number) || 0}
-                  price={0} // Price not available in API
+                  price={(ranking as any).price || (ranking as any).price_current || (ranking as any).current_price || 0}
                   currency="USD"
+                  companyName={(ranking as any).name || (ranking as any).companyName}
                 />
               </div>
             ))}
@@ -389,8 +390,9 @@ function RankingsList({ data, isLoading, onPageChange, onReset }: RankingsListPr
             symbol={ranking.symbol as string}
             rank={(ranking.rank as number) || 0}
             epsGrowth={(ranking.epsGrowth as number) || 0}
-            price={0} // Price not available in API
+            price={(ranking as any).price || (ranking as any).price_current || (ranking as any).current_price || 0}
             currency="USD"
+            companyName={(ranking as any).name || (ranking as any).companyName}
           />
         ))}
       </div>

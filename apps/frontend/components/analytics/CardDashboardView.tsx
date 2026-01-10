@@ -11,9 +11,27 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { analyticsClient } from '@/lib/api-client';
+import {
+  closestCenter,
+  DndContext,
+  DragEndEvent,
+  DragOverlay,
+  DragStartEvent,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors
+} from '@dnd-kit/core';
+import {
+  rectSwappingStrategy,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { Download, Filter, RefreshCw } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { analyticsClient } from '@/lib/api-client';
 
 // Define types locally to avoid importing from api-client
 interface EPSQueryParams {
@@ -103,6 +121,18 @@ export function CardDashboardView({ className = '' }: CardDashboardViewProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showFilters, setShowFilters] = useState(false);
+  const [activeId, setActiveId] = useState<string | null>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   const [filters, setFilters] = useState<AdvancedFilters>({
     country: '',
@@ -136,7 +166,7 @@ export function CardDashboardView({ className = '' }: CardDashboardViewProps) {
           ],
           sectors: [
             'Technology',
-            'Healthcare', 
+            'Healthcare',
             'Financial Services',
             'Consumer Discretionary',
             'Industrials',
@@ -323,7 +353,7 @@ export function CardDashboardView({ className = '' }: CardDashboardViewProps) {
     return `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`;
   };
 
-  const SymbolCard = ({ cardData }: { cardData: SymbolCardData }) => {
+  const SymbolCard = ({ cardData, isOverlay = false }: { cardData: SymbolCardData; isOverlay?: boolean }) => {
     const quarters = cardData.quarterly_performance?.slice(0, 2) || [];
     const latestQuarter = quarters[0];
     const previousQuarter = quarters[1];
@@ -348,7 +378,8 @@ export function CardDashboardView({ className = '' }: CardDashboardViewProps) {
     const progressPercentage = cardData.progress_percentage || 0;
 
     return (
-      <div className="mx-auto w-full max-w-sm touch-manipulation overflow-hidden rounded-3xl border-2 border-transparent bg-white shadow-2xl shadow-pink-500/20 transition-all duration-300 hover:border-pink-200 dark:bg-slate-900 dark:shadow-cyan-500/20 dark:hover:border-cyan-400/50">
+      <div className={`mx-auto w-full max-w-sm touch-manipulation overflow-hidden rounded-3xl border-2 border-transparent bg-white shadow-2xl shadow-pink-500/20 transition-all duration-300 dark:bg-slate-900 dark:shadow-cyan-500/20 ${isOverlay ? 'scale-105 cursor-grabbing shadow-2xl' : 'hover:border-pink-200 dark:hover:border-cyan-400/50'
+        }`}>
         {/* Header with PancakeSwap gradient */}
         <div className="bg-gradient-to-r from-pink-400 via-purple-500 to-indigo-600 px-6 py-6">
           <div className="flex items-center justify-between">
@@ -409,11 +440,10 @@ export function CardDashboardView({ className = '' }: CardDashboardViewProps) {
         {/* Main Growth with enhanced styling */}
         <div className="bg-white py-6 text-center dark:bg-slate-900">
           <div
-            className={`inline-flex items-center gap-2 rounded-2xl px-4 py-2 shadow-lg ${
-              (latestQuarter?.eps_growth || 0) >= 0
-                ? 'bg-gradient-to-r from-green-400 to-emerald-500'
-                : 'bg-gradient-to-r from-red-400 to-red-500'
-            }`}
+            className={`inline-flex items-center gap-2 rounded-2xl px-4 py-2 shadow-lg ${(latestQuarter?.eps_growth || 0) >= 0
+              ? 'bg-gradient-to-r from-green-400 to-emerald-500'
+              : 'bg-gradient-to-r from-red-400 to-red-500'
+              }`}
           >
             <span className="text-2xl">
               {(latestQuarter?.eps_growth || 0) >= 0 ? '↗️' : '↘️'}
@@ -481,6 +511,60 @@ export function CardDashboardView({ className = '' }: CardDashboardViewProps) {
         </div>
       </div>
     );
+  };
+
+  const SortableSymbolCard = ({ cardData }: { cardData: SymbolCardData }) => {
+    const {
+      attributes,
+      listeners,
+      setNodeRef,
+      transform,
+      transition,
+      isDragging
+    } = useSortable({ id: cardData.symbol });
+
+    const style = {
+      transform: CSS.Transform.toString(transform),
+      transition,
+      opacity: isDragging ? 0.4 : 1,
+      zIndex: isDragging ? 50 : 'auto',
+    };
+
+    return (
+      <div ref={setNodeRef} style={style} {...attributes} {...listeners} className="touch-none">
+        <SymbolCard cardData={cardData} />
+      </div>
+    );
+  };
+
+  const handleDragStart = (event: DragStartEvent) => {
+    const { active } = event;
+    setActiveId(active.id as string);
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (active.id !== over?.id && data) {
+      setData((prev) => {
+        if (!prev) return null;
+
+        const oldIndex = prev.data.findIndex((item) => item.symbol === active.id);
+        const newIndex = prev.data.findIndex((item) => item.symbol === over?.id);
+
+        return {
+          ...prev,
+          // Use inline swap for direct 1-to-1 exchange
+          data: (() => {
+            const newArr = [...prev.data];
+            [newArr[oldIndex], newArr[newIndex]] = [newArr[newIndex], newArr[oldIndex]];
+            return newArr;
+          })()
+        };
+      });
+    }
+
+    setActiveId(null);
   };
 
   if (loading) {
@@ -700,13 +784,34 @@ export function CardDashboardView({ className = '' }: CardDashboardViewProps) {
 
       {/* Cards grid */}
       {data && data.data && data.data.length > 0 ? (
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {data.data.map(cardData =>
-            cardData && cardData.symbol ? (
-              <SymbolCard key={cardData.symbol} cardData={cardData} />
-            ) : null
-          )}
-        </div>
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+        >
+          <SortableContext
+            items={data.data.map(d => d.symbol)}
+            strategy={rectSwappingStrategy}
+          >
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {data.data.map(cardData =>
+                cardData && cardData.symbol ? (
+                  <SortableSymbolCard key={cardData.symbol} cardData={cardData} />
+                ) : null
+              )}
+            </div>
+          </SortableContext>
+
+          <DragOverlay>
+            {activeId && data.data.find(d => d.symbol === activeId) ? (
+              <SymbolCard
+                cardData={data.data.find(d => d.symbol === activeId)!}
+                isOverlay
+              />
+            ) : null}
+          </DragOverlay>
+        </DndContext>
       ) : (
         <div className="py-12 text-center">
           <p className="mb-4 text-gray-600 dark:text-gray-300">

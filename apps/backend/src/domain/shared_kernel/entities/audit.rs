@@ -19,6 +19,7 @@ pub struct AuditLogEntry {
 
 /// Types of audit actions
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum AuditAction {
     Create,
     Read,
@@ -35,6 +36,7 @@ pub enum AuditAction {
 
 /// Resource types being audited
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum ResourceType {
     User,
     Session,
@@ -46,6 +48,7 @@ pub enum ResourceType {
 
 /// Result of the audited action
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum AuditResult {
     Success,
     Failed,

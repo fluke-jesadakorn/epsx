@@ -62,6 +62,7 @@ const renderStockCard = (cardData: SymbolCardData) => {
       daysUntilNextAction={
         cardData.next_quarter_estimate?.days_until_announcement ?? 0
       }
+      companyName={cardData.name}
       variant={isPremium ? 'premium' : 'standard'}
     />
   );

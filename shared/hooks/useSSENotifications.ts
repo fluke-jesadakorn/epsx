@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { createNotificationsClient, SSENotification } from '../api/notifications'
+import { COOKIES, getClientCookie } from '../auth/cookies'
 import type { UnifiedApiClient } from '../utils/api-client'
 
 interface UseSSENotificationsOptions {
@@ -10,6 +11,7 @@ interface UseSSENotificationsOptions {
   onNotification?: (notification: SSENotification) => void
   onError?: (error: string) => void
   onConnect?: () => void
+  refreshSession?: () => Promise<boolean>
 }
 
 interface UseSSENotificationsReturn {
@@ -58,7 +60,7 @@ export function useSSENotifications(
   const optionsRef = useRef(options)
   optionsRef.current = options
 
-  const connect = useCallback(() => {
+  const connect = useCallback(async () => {
     // Atomic state check - prevent race conditions
     if (connectionStateRef.current !== ConnectionState.DISCONNECTED) {
       console.log(`⏭️ SSE: Already ${connectionStateRef.current}, skipping connection attempt`)
@@ -69,6 +71,28 @@ export function useSSENotifications(
     connectionStateRef.current = ConnectionState.CONNECTING
     const currentConnectionId = ++connectionIdRef.current
     console.log(`🔌 SSE: Initiating connection #${currentConnectionId}...`)
+
+    // Check for token expiry and refresh if needed
+    if (optionsRef.current.refreshSession) {
+      try {
+        const expiresAt = getClientCookie(COOKIES.expires_at) || localStorage.getItem('oidc.expires_at')
+        if (expiresAt) {
+          const expiryTime = parseInt(expiresAt, 10)
+          // If expired or expiring in less than 30 seconds
+          if (Date.now() > expiryTime - 30000) {
+            console.log('🔄 SSE: Session expired or expiring soon, refreshing...')
+            const refreshed = await optionsRef.current.refreshSession()
+            if (refreshed) {
+              console.log('✅ SSE: Session refreshed, proceeding with connection')
+            } else {
+              console.warn('⚠️ SSE: Session refresh failed, connection might fail')
+            }
+          }
+        }
+      } catch (e) {
+        console.error('❌ SSE: Error checking token expiry', e)
+      }
+    }
 
     try {
       const { apiClient, walletAddress, types } = optionsRef.current
@@ -98,7 +122,7 @@ export function useSSENotifications(
           optionsRef.current.onNotification?.(notification)
           reconnectAttempts.current = 0
         },
-        (err) => {
+        async (err) => {
           // Verify this callback is from the current connection
           if (!isMounted.current || connectionIdRef.current !== currentConnectionId) {
             console.log(`⚠️ SSE: Stale error from connection #${currentConnectionId}, ignoring`)
@@ -115,6 +139,22 @@ export function useSSENotifications(
             }
             optionsRef.current.onError?.('Connection lost. Reconnecting...')
 
+            // CRITICAL FIX: Attempt to refresh session if we encounter an error
+            // This handles the edge case where token expires but cookie is still valid
+            if (optionsRef.current.refreshSession) {
+              console.log('🔄 SSE: Connection dropped, attempting proactive session refresh...')
+              try {
+                const refreshed = await optionsRef.current.refreshSession()
+                if (refreshed) {
+                  console.log('✅ SSE: Session refreshed successfully after drop')
+                  // Reset reconnect attempts to give the new token a fair chance
+                  reconnectAttempts.current = 0
+                }
+              } catch (e) {
+                console.warn('⚠️ SSE: Session refresh failed during reconnect logic', e)
+              }
+            }
+
             reconnectAttempts.current++
             if (reconnectAttempts.current < maxReconnectAttempts) {
               // Attempt reconnection with exponential backoff
@@ -126,11 +166,11 @@ export function useSSENotifications(
                 }
               }, delay)
             } else {
-            if (isMounted.current) {
-              setError('Failed to connect after multiple attempts')
+              if (isMounted.current) {
+                setError('Failed to connect after multiple attempts')
+              }
+              optionsRef.current.onError?.('Failed to connect after multiple attempts')
             }
-            optionsRef.current.onError?.('Failed to connect after multiple attempts')
-          }
           }
         },
         () => {

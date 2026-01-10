@@ -3,7 +3,6 @@
 import { darkTheme, getDefaultConfig, lightTheme, RainbowKitProvider } from '@rainbow-me/rainbowkit';
 import '@rainbow-me/rainbowkit/styles.css';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { useTheme } from 'next-themes';
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { WagmiProvider, type Config } from 'wagmi';
 import { bscTestnet } from 'wagmi/chains';
@@ -52,7 +51,7 @@ const AdminWeb3Context = createContext<AdminWeb3ContextType>({
 /**
  *
  */
-export const useAdminWeb3Context = () => {
+export const useAdminWeb3Context = (): AdminWeb3ContextType => {
   const context = useContext(AdminWeb3Context);
   if (!context) {
     throw new Error('useAdminWeb3Context must be used within AdminWeb3Provider');
@@ -65,8 +64,7 @@ interface AdminWeb3ProviderProps {
 }
 
 // Theme-aware RainbowKit wrapper component
-function ThemedRainbowKitProvider({ children }: { children: ReactNode }) {
-  const { resolvedTheme } = useTheme();
+function ThemedRainbowKitProvider({ children }: { children: ReactNode }): React.ReactElement {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -127,7 +125,7 @@ function ThemedRainbowKitProvider({ children }: { children: ReactNode }) {
  * @param root0
  * @param root0.children
  */
-export function AdminWeb3Provider({ children }: AdminWeb3ProviderProps) {
+export function AdminWeb3Provider({ children }: AdminWeb3ProviderProps): React.ReactElement {
   const [queryClient] = useState(() => createQueryClient());
   const [mounted, setMounted] = useState(false);
 

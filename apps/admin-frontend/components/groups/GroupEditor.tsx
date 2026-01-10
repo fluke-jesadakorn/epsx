@@ -263,7 +263,7 @@ export function GroupEditor({ group, onSave, onCancel, className }: GroupEditorP
             {item.title}
           </p>
           <div className="flex items-center gap-2">
-            <span className="text-xs text-gray-500 dark:text-gray-400 font-mono bg-gray-100 dark:bg-gray-800 px-1 rounded">
+            <span className="text-xs text-gray-500 dark:text-gray-400 font-mono bg-gray-100 dark:bg-gray-800 px-1 rounded block truncate max-w-[200px]">
               {item.id}
             </span>
           </div>
@@ -319,9 +319,9 @@ export function GroupEditor({ group, onSave, onCancel, className }: GroupEditorP
                 value={formData.description}
                 onChange={(e) => handleInputChange('description', e.target.value)}
                 placeholder="Ideal for individual investors"
-                rows={1}
+                rows={3}
                 disabled={group?.group_type === 'system' || group?.group_type === 'admin'}
-                className="resize-none"
+                className="resize-y min-h-[80px]"
               />
             </div>
           </div>
@@ -364,7 +364,7 @@ export function GroupEditor({ group, onSave, onCancel, className }: GroupEditorP
               <Input
                 id="expiry"
                 type="number"
-                value={formData.default_expiry_days || ''}
+                value={formData.default_expiry_days ?? ''}
                 onChange={(e) => handleInputChange('default_expiry_days',
                   e.target.value ? parseInt(e.target.value) : null
                 )}

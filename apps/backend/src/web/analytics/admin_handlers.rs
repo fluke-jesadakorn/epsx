@@ -1,6 +1,6 @@
 // Admin analytics handlers (CQRS-based)
 use axum::{
-    extract::{Query, Extension},
+    extract::{Query, State},
     http::StatusCode,
     response::Json,
 };
@@ -21,12 +21,15 @@ use std::sync::Arc;
     security(("bearerAuth" = []))
 )]
 pub async fn system_metrics_handler(
-    Extension(db_pool): Extension<Arc<crate::infrastructure::adapters::repositories::database_types::DbPool>>,
+    State(state): State<crate::web::auth::AppState>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
     use crate::application::shared::QueryHandler;
     use crate::application::market_analytics::queries::{GetSystemMetricsQuery, GetSystemMetricsQueryHandler};
 
     tracing::info!("📊 System metrics request (CQRS)");
+
+    // Get DB pool from state
+    let db_pool = state.db_pool;
 
     // Create query with optional includes (default to all enabled)
     let query = GetSystemMetricsQuery {

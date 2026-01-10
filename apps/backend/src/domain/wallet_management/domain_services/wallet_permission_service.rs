@@ -20,17 +20,12 @@ pub struct WalletPermissionService {
 /// @deprecated Use WalletPermissionService instead
 pub struct Web3WalletPermissionService;
 
-impl Default for WalletPermissionService {
-    fn default() -> Self {
-        Self::new()
-    }
-}
 
 impl WalletPermissionService {
-    pub fn new() -> Self {
-        Self {
-            blockchain_client: Arc::new(BlockchainValidationClient::new()),
-        }
+    pub fn new() -> AppResult<Self> {
+        Ok(Self {
+            blockchain_client: Arc::new(BlockchainValidationClient::new().map_err(|e| crate::core::errors::AppError::blockchain_rpc_error(e.to_string()))?),
+        })
     }
 
     pub fn with_client(blockchain_client: Arc<BlockchainValidationClient>) -> Self {
@@ -658,7 +653,7 @@ mod tests {
     
     #[tokio::test]
     async fn generate_default_permissions_for_basic_wallet() {
-        let service = WalletPermissionService::new();
+        let service = WalletPermissionService::new().unwrap();
         let wallet = create_test_wallet_user();
         let context = Web3PermissionContext::default();
         
@@ -708,7 +703,7 @@ mod tests {
     
     #[test]
     fn temporary_web3_permissions_creation() {
-        let service = WalletPermissionService::new();
+        let service = WalletPermissionService::new().unwrap();
         let mut base_permissions = HashSet::new();
         
         let nft_perm = Permission::new_nft_gated(

@@ -64,6 +64,7 @@ export interface SharedAuthContextValue {
   }) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
+  refreshSession: () => Promise<boolean>;
 
   // Display helpers (NOT for authorization - backend decides everything)
   getWalletAddress: () => string | null;
@@ -101,6 +102,7 @@ const defaultContextValue: SharedAuthContextValue = {
   refreshUser: async () => {
     throw new Error('Not initialized');
   },
+  refreshSession: async () => false,
   getWalletAddress: () => null,
   getUserTier: () => 'free',
   getUserPermissions: () => [],
@@ -561,6 +563,25 @@ export function SharedOpenIDWeb3Provider({
     }
   }, [client, onAuthError]);
 
+  // Refresh session tokens
+  const refreshSession = useCallback(async () => {
+    try {
+      console.log('🔄 Refreshing session tokens...');
+      const success = await client.refreshTokens();
+      if (success) {
+        console.log('✅ Session tokens refreshed successfully');
+        // Force update user state from new tokens
+        await client.loadCurrentUser();
+      } else {
+        console.warn('⚠️ Session refresh failed');
+      }
+      return success;
+    } catch (err) {
+      console.error('❌ Session refresh error', err);
+      return false;
+    }
+  }, [client]);
+
   // Display helper functions (NOT for authorization)
   const getWalletAddress = useCallback(() => {
     return client.getWalletAddress();
@@ -633,6 +654,7 @@ export function SharedOpenIDWeb3Provider({
     authenticateWithDirectApi,
     logout,
     refreshUser,
+    refreshSession,
     getWalletAddress,
     getUserTier,
     getUserPermissions,
@@ -649,6 +671,7 @@ export function SharedOpenIDWeb3Provider({
     authenticateWithDirectApi,
     logout,
     refreshUser,
+    refreshSession,
     getWalletAddress,
     getUserTier,
     getUserPermissions,

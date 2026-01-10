@@ -465,6 +465,12 @@ export async function retryRequest<T>(
       lastError = error as ApiError;
 
       // Don't retry client errors (4xx) except 429 (rate limit)
+      // Don't retry client errors (4xx) except 429 (rate limit)
+      // Specific check for 401 to ensure it's handled as an auth error, not just a generic client error
+      if (lastError.status === 401) {
+        throw lastError;
+      }
+
       if (lastError.status >= 400 && lastError.status < 500 && lastError.status !== 429) {
         throw lastError;
       }

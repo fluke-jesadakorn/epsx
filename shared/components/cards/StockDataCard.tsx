@@ -14,6 +14,7 @@ export interface StockDataCardProps {
   price: number;
   currency?: string;
   daysUntilNextAction?: number;
+  companyName?: string;
   variant?: 'premium' | 'standard';
   className?: string;
 }
@@ -54,6 +55,7 @@ export const StockDataCard = ({
   price,
   currency = 'USD',
   daysUntilNextAction,
+  companyName,
   variant = 'standard',
   className,
 }: StockDataCardProps) => {
@@ -66,16 +68,16 @@ export const StockDataCard = ({
       glowColor={rankTheme.glow}
       className={cn('w-full max-w-[400px] hover:-translate-y-1 transition-transform', className)}
     >
-      {/* Top Rank Badge (Floating) */}
+      {/* Top Rank Badge sitting on the top border with more padding */}
       {rank <= 3 && (
-        <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 z-20">
-          <div className="bg-gradient-to-r from-blue-600 to-cyan-500 text-white text-[10px] font-bold px-3 py-0.5 rounded-full shadow-lg flex items-center gap-1 uppercase tracking-wider">
+        <div className="absolute top-8 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-20">
+          <div className="bg-gradient-to-r from-blue-600 to-cyan-500 text-white text-[10px] font-bold px-5 py-2.5 rounded-full shadow-lg flex items-center gap-1 uppercase tracking-wider">
             {rankTheme.label}
           </div>
         </div>
       )}
 
-      <div className="p-6 pt-10 flex flex-col h-full relative z-10">
+      <div className="p-6 pt-16 flex flex-col h-full relative z-10">
 
         {/* Header Section */}
         <div className="text-center mb-6">
@@ -88,6 +90,12 @@ export const StockDataCard = ({
               {symbol}
             </span>
           </div>
+
+          {companyName && (
+            <div className="text-sm font-semibold text-gray-300 mb-1 truncate max-w-[90%] mx-auto">
+              {companyName}
+            </div>
+          )}
 
           <div className="flex items-center justify-center gap-2 text-gray-400 text-sm font-medium">
             <span>{formatCurrency(price, currency)}</span>

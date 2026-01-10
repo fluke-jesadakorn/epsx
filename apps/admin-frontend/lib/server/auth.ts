@@ -9,7 +9,8 @@ import { generateCodeChallenge, generateCodeVerifier, generateRandomString } fro
 // OAuth authorization URL generation now handled by shared utilities
 async function getAuthorizationUrl(): Promise<{ url: string; codeVerifier: string; state: string }> {
   const codeVerifier = generateCodeVerifier();
-  const codeChallenge = await generateCodeChallenge(codeVerifier);
+  // codeChallenge generated but unused in current simplified flow
+  await generateCodeChallenge(codeVerifier);
   const state = generateRandomString(32);
   return { url: '/auth', codeVerifier, state };
 }
@@ -17,12 +18,12 @@ async function getAuthorizationUrl(): Promise<{ url: string; codeVerifier: strin
 /**
  * Get server session with JWT verification
  */
-export async function getServerSession() {
+export async function getServerSession(): Promise<{ isAuthenticated: boolean; user: any | null }> {
   try {
     const { getSessionFromJWT } = await import('./token');
     return await getSessionFromJWT();
   } catch (_error) {
-     
+
     console.error('❌ Admin: Failed to get server session:', _error);
     return { isAuthenticated: false, user: null };
   }
@@ -31,21 +32,21 @@ export async function getServerSession() {
 /**
  * Get authenticated admin user from JWT cookies
  */
-export async function getAuthUser() {
+export async function getAuthUser(): Promise<any | null> {
   try {
     const { verifyJWTFromCookies } = await import('./token');
     const user = await verifyJWTFromCookies();
 
     // Validate admin permissions
     if (user && !user.permissions && user.role !== 'admin') {
-       
+
       console.warn('⚠️  Admin: User lacks admin permissions');
       return null;
     }
 
     return user;
   } catch (_error) {
-     
+
     console.error('❌ Admin: Failed to get auth user:', _error);
     return null;
   }
@@ -57,7 +58,11 @@ export async function getAuthUser() {
  * @param codeVerifier
  * @param state
  */
-export async function exchangeCodeForTokens(code: string, codeVerifier: string, state: string) {
+export async function exchangeCodeForTokens(
+  code: string,
+  codeVerifier: string,
+  state: string
+): Promise<{ accessToken: string; idToken: string; refreshToken: string; expiresIn: number }> {
   try {
 
     // Use consolidated auth config for consistency
@@ -84,7 +89,7 @@ export async function exchangeCodeForTokens(code: string, codeVerifier: string, 
 
     if (!response.ok) {
       const errorText = await response.text()
-       
+
       console.error('❌ Admin: Token exchange failed:', response.status, response.statusText, errorText)
       throw new Error(`Token exchange failed: ${response.status} ${response.statusText} - ${errorText}`)
     }
@@ -98,7 +103,7 @@ export async function exchangeCodeForTokens(code: string, codeVerifier: string, 
       expiresIn: tokens.expires_in || 3600, // Include expiry information
     }
   } catch (_error) {
-     
+
     console.error('❌ Admin: Token exchange error:', _error)
     throw new Error(`Failed to exchange authorization code for tokens: ${_error instanceof Error ? _error.message : 'Unknown error'}`)
   }
@@ -108,7 +113,7 @@ export async function exchangeCodeForTokens(code: string, codeVerifier: string, 
  * Fetch user info from OAuth userinfo endpoint
  * @param accessToken
  */
-export async function getUserInfo(accessToken: string) {
+export async function getUserInfo(accessToken: string): Promise<any> {
   // Use consolidated auth config for consistency
   const { authConfig } = await import('../../config/env');
   const apiUrl = authConfig.apiUrl;
@@ -122,7 +127,7 @@ export async function getUserInfo(accessToken: string) {
 
   if (!response.ok) {
     const errorText = await response.text();
-     
+
     console.error('❌ Admin: UserInfo fetch failed:', response.status, response.statusText, errorText);
     throw new Error(`UserInfo fetch failed: ${response.status} ${response.statusText} - ${errorText}`);
   }
@@ -173,7 +178,7 @@ export async function redirectToBackendAdminLogin(callbackUrl?: string): Promise
 
     redirect(url);
   } catch (_error) {
-     
+
     console.error('❌ Admin: Failed to setup PKCE redirect:', _error);
     // Fallback to simple redirect without PKCE using consolidated config
     const { authConfig } = await import('../../config/env');
@@ -197,7 +202,7 @@ export async function redirectToBackendAdminLogin(callbackUrl?: string): Promise
  * Require authentication - redirect to login if not authenticated
  * @param redirectPath
  */
-export async function requireAuth(redirectPath?: string) {
+export async function requireAuth(redirectPath?: string): Promise<any> {
   const user = await getAuthUser();
 
   if (!user) {
@@ -224,7 +229,7 @@ export async function clearSession(): Promise<void> {
     // Also clear legacy cookie for migration compatibility
     cookieStore.delete('epsx_admin_jwt');
   } catch (_error) {
-     
+
     console.error('❌ Admin: Failed to clear session:', _error);
     throw _error;
   }
@@ -252,7 +257,7 @@ export async function hasPermission(_permission: string): Promise<boolean> {
  * @param permission
  * @param redirectPath
  */
-export async function requirePermission(permission: string, redirectPath?: string) {
+export async function requirePermission(permission: string, redirectPath?: string): Promise<any> {
   const { redirect } = await import('next/navigation');
   const user = await requireAuth(redirectPath);
 

@@ -15,7 +15,7 @@ export function NotificationBellClient() {
   const [isOpen, setIsOpen] = useState(false)
 
   // Get authentication state
-  const { isAuthenticated, user } = useSharedAuth()
+  const { isAuthenticated, user, refreshSession } = useSharedAuth()
 
   // Browser notifications integration
   const { showNotification: showBrowserNotification } = useBrowserNotifications()
@@ -34,6 +34,7 @@ export function NotificationBellClient() {
     apiClient: createFrontendApiClient(),
     walletAddress: user?.wallet_address,
     isAuthenticated,
+    refreshSession,
     enableSSE: true,
     browserNotifications: {
       showNotification: (type, title, message) => {

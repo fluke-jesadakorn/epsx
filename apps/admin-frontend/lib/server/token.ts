@@ -22,7 +22,7 @@ async function verifyJWT(token: string): Promise<EPSXJWTPayload | null> {
     const jwtSecret = env.WEB3_APP_SECRET || env.WEB3_APP_SECRET;
 
     if (!jwtSecret) {
-       
+
       console.error('No WEB3_APP_SECRET or JWT_SECRET configured for JWT verification');
       return null;
     }
@@ -36,7 +36,7 @@ async function verifyJWT(token: string): Promise<EPSXJWTPayload | null> {
     );
     return payload as EPSXJWTPayload;
   } catch (_error) {
-     
+
     console.error('JWT verification failed:', _error);
     return null;
   }
@@ -50,15 +50,12 @@ export async function getJWTFromCookies(): Promise<string | null> {
     const { cookies } = await import('next/headers');
     const cookieStore = await cookies();
 
-    // Debug: Log all cookies to see what's available
-    const allCookies = cookieStore.getAll();
-
     // Get access token from unified cookies (no context separation)
     const jwtCookie = cookieStore.get(COOKIES.access);
 
     return jwtCookie?.value || null;
   } catch (_error) {
-     
+
     console.error('❌ Failed to get JWT from cookies:', _error);
     return null;
   }
@@ -74,7 +71,7 @@ export async function verifyJWTFromCookies(): Promise<EPSXJWTPayload | null> {
 
     return await verifyJWT(token);
   } catch (_error) {
-     
+
     console.error('❌ Failed to verify JWT from cookies:', _error);
     return null;
   }
@@ -96,7 +93,7 @@ export async function getSessionFromJWT(): Promise<{
 
     return { isAuthenticated: true, user: payload };
   } catch (_error) {
-     
+
     console.error('❌ Failed to get session from JWT:', _error);
     return { isAuthenticated: false, user: null };
   }

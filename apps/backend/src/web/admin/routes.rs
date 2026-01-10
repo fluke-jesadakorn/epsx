@@ -231,6 +231,7 @@ pub fn create_admin_routes() -> Router<AppState> {
     .route("/analytics/users", get(get_user_analytics_handler))
     .route("/analytics/permissions", get(get_permission_analytics_handler))
     .route("/analytics/revenue", get(get_revenue_analytics_handler))
+    .route("/audit-logs", get(super::audit_log_handlers::get_audit_logs_handler))
 
     // CQRS-based admin analytics endpoints (from analytics module)
     .route("/analytics/metrics", get(crate::web::analytics::system_metrics_handler))

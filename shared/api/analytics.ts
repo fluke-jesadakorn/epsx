@@ -13,6 +13,7 @@
  */
 
 import { API_ROUTES } from '../config/route-constants';
+import { CardDashboardResponse } from '../types/analytics';
 import { UnifiedApiClient } from '../utils/api-client';
 
 // ============================================================================
@@ -139,7 +140,7 @@ export class AnalyticsAPIClient {
    * Get public analytics rankings with limited data access
    * Route: GET /api/public/analytics/rankings
    */
-  async getPublicRankings(filters: AnalyticsFilters = {}): Promise<EPSRankingsResponse> {
+  async getPublicRankings(filters: AnalyticsFilters = {}): Promise<CardDashboardResponse> {
     // Apply public API limits
     const publicFilters = {
       ...filters,
@@ -161,7 +162,7 @@ export class AnalyticsAPIClient {
       max_dividend_yield: undefined,
     };
 
-    const response = await this.client.get<EPSRankingsResponse>(
+    const response = await this.client.get<CardDashboardResponse>(
       API_ROUTES.ANALYTICS.PUBLIC_RANKINGS,
       publicFilters,
       {
@@ -212,8 +213,8 @@ export class AnalyticsAPIClient {
    * Get authenticated analytics rankings with full data access
    * Route: GET /api/analytics/rankings
    */
-  async getAuthenticatedRankings(filters: AnalyticsFilters = {}): Promise<EPSRankingsResponse> {
-    const response = await this.client.get<EPSRankingsResponse>(
+  async getAuthenticatedRankings(filters: AnalyticsFilters = {}): Promise<CardDashboardResponse> {
+    const response = await this.client.get<CardDashboardResponse>(
       API_ROUTES.ANALYTICS.RANKINGS,
       filters,
       {

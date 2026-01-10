@@ -102,6 +102,9 @@ export interface UnifiedRankingItem {
   sector?: string;
   country?: string;
   marketCap?: number;
+  current_price?: number;
+  price_current?: number;
+  price?: number;
   pe?: number;
   pb?: number;
   roe?: number;

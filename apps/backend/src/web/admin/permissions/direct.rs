@@ -11,6 +11,10 @@ use chrono::{DateTime, Utc};
 use uuid::Uuid;
 use diesel::prelude::*;
 use diesel_async::{AsyncConnection, RunQueryDsl};
+use crate::infrastructure::repositories::audit_log_repository::DieselAuditLogRepository;
+use crate::domain::shared_kernel::entities::audit::{AuditLogEntry, AuditAction, ResourceType, AuditResult};
+use crate::domain::audit::repository::AuditLogRepository;
+use crate::domain::shared_kernel::value_objects::UserId;
 
 use crate::web::auth::AppState;
 use crate::web::responses::AdminResponse;
@@ -60,6 +64,7 @@ pub struct AddPermissionToGroupRequest {
 /// POST /admin/permissions/direct
 pub async fn grant_permission(
     State(app_state): State<AppState>,
+    headers: axum::http::HeaderMap,
     Json(req): Json<GrantDirectPermissionRequest>,
 ) -> impl IntoResponse {
     let wallet = req.wallet_address.to_lowercase();
@@ -155,7 +160,7 @@ pub async fn grant_permission(
 
     let response = DirectPermissionResponse {
         id: grant_id.to_string(),
-        wallet_address: wallet,
+        wallet_address: wallet.clone(),
         permission_id: perm_id.to_string(),
         permission_string: req.permission_string.clone(),
         platform: parts_owned[0].clone(),
@@ -166,6 +171,39 @@ pub async fn grant_permission(
         is_active: true,
     };
 
+    // Audit Log
+    let admin_wallet = headers.get("x-wallet-address")
+        .and_then(|h| h.to_str().ok())
+        .map(|s| s.to_string());
+    
+    let log_req = GrantDirectPermissionRequest {
+        wallet_address: wallet.clone(),
+        permission_string: req.permission_string.clone(),
+        expires_at: req.expires_at,
+        reason: req.reason.clone(),
+    };
+
+    tokio::spawn(async move {
+        let repo = DieselAuditLogRepository::new();
+        let entry = AuditLogEntry::new(
+             admin_wallet.map(UserId::from_string_unchecked),
+             AuditAction::PermissionGranted,
+             ResourceType::User, 
+             AuditResult::Success,
+        )
+        .with_resource_id(log_req.wallet_address.clone())
+        .with_additional_data(serde_json::json!({
+            "permission": log_req.permission_string,
+            "target_wallet": log_req.wallet_address,
+            "reason": log_req.reason,
+            "expires_at": log_req.expires_at
+        }));
+        
+        if let Err(e) = repo.save(entry).await {
+            tracing::error!("Failed to save audit log: {}", e);
+        }
+    });
+
     AdminResponse::created(response, "Direct permission granted successfully").into_response()
 }
 
@@ -173,6 +211,7 @@ pub async fn grant_permission(
 /// DELETE /admin/permissions/direct
 pub async fn revoke_permission(
     State(app_state): State<AppState>,
+    headers: axum::http::HeaderMap,
     Json(req): Json<RevokeDirectPermissionRequest>,
 ) -> impl IntoResponse {
     let wallet = req.wallet_address.to_lowercase();
@@ -219,6 +258,32 @@ pub async fn revoke_permission(
                 req.permission_string,
                 wallet
             );
+            // Audit Log
+            let admin_wallet = headers.get("x-wallet-address")
+                .and_then(|h| h.to_str().ok())
+                .map(|s| s.to_string());
+            
+            let log_wallet = wallet.clone();
+            let log_perm = req.permission_string.clone();
+
+            tokio::spawn(async move {
+                let repo = DieselAuditLogRepository::new();
+                let entry = AuditLogEntry::new(
+                     admin_wallet.map(UserId::from_string_unchecked),
+                     AuditAction::PermissionRevoked,
+                     ResourceType::User,
+                     AuditResult::Success,
+                )
+                .with_resource_id(log_wallet)
+                .with_additional_data(serde_json::json!({
+                    "permission": log_perm,
+                }));
+                
+                if let Err(e) = repo.save(entry).await {
+                    tracing::error!("Failed to save audit log: {}", e);
+                }
+            });
+
             AdminResponse::success_with_message(
                 serde_json::json!({"deleted": true}),
                 "Direct permission revoked successfully"

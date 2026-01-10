@@ -39,8 +39,8 @@ export function SecurityContextProvider({
 }: {
   children: React.ReactNode;
   initialContext?: Partial<SecurityContext>;
-}) {
-  const [context, setContext] = useState<SecurityContext>({
+}): React.ReactElement {
+  const [context] = useState<SecurityContext>({
     permissions: [],
     lastValidated: new Date().toISOString(),
     securityScore: 100,
@@ -113,15 +113,14 @@ export function validatePermissionRequest(
 }
 
 /**
- *
- * @param context
+ * Detect permission escalation threats 
+ * @param permissions 
  */
-export function validateSecurityContext(context: SecurityContext): SecurityContext {
-  const threats: SecurityThreat[] = [...context.threats];
-  let securityScore = 100;
+function detectPermissionEscalation(permissions: string[]): { threats: SecurityThreat[], scoreReduction: number } {
+  const threats: SecurityThreat[] = [];
+  let scoreReduction = 0;
 
-  // Check for permission escalation
-  const adminPermissions = context.permissions.filter(p => p.startsWith('admin:'));
+  const adminPermissions = permissions.filter(p => p.startsWith('admin:'));
   if (adminPermissions.length > 0) {
     // Validate admin permissions are legitimate
     const suspiciousAdminPerms = adminPermissions.filter(p =>
@@ -137,12 +136,22 @@ export function validateSecurityContext(context: SecurityContext): SecurityConte
         timestamp: new Date().toISOString(),
         metadata: { permissions: suspiciousAdminPerms }
       });
-      securityScore -= 20;
+      scoreReduction = 20;
     }
   }
 
-  // Check session age
-  const lastValidated = new Date(context.lastValidated);
+  return { threats, scoreReduction };
+}
+
+/**
+ * Validate session age 
+ * @param lastValidatedStr 
+ */
+function validateSessionAge(lastValidatedStr: string): { threats: SecurityThreat[], scoreReduction: number } {
+  const threats: SecurityThreat[] = [];
+  let scoreReduction = 0;
+
+  const lastValidated = new Date(lastValidatedStr);
   const sessionAge = Date.now() - lastValidated.getTime();
   const maxSessionAge = 24 * 60 * 60 * 1000; // 24 hours
 
@@ -155,13 +164,23 @@ export function validateSecurityContext(context: SecurityContext): SecurityConte
       timestamp: new Date().toISOString(),
       metadata: { sessionAge, maxSessionAge }
     });
-    securityScore -= 15;
+    scoreReduction = 15;
   }
 
-  // Check for suspicious permission combinations
-  const hasWeb3Perms = context.permissions.some(p => p.includes('web3'));
-  const hasAdminPerms = context.permissions.some(p => p.startsWith('admin:'));
-  const hasUserMgmtPerms = context.permissions.some(p => p.includes('users:manage'));
+  return { threats, scoreReduction };
+}
+
+/**
+ * Detect suspicious permission combinations 
+ * @param permissions 
+ */
+function detectSuspiciousCombinations(permissions: string[]): { threats: SecurityThreat[], scoreReduction: number } {
+  const threats: SecurityThreat[] = [];
+  let scoreReduction = 0;
+
+  const hasWeb3Perms = permissions.some(p => p.includes('web3'));
+  const hasAdminPerms = permissions.some(p => p.startsWith('admin:'));
+  const hasUserMgmtPerms = permissions.some(p => p.includes('users:manage'));
 
   if (hasWeb3Perms && hasAdminPerms && hasUserMgmtPerms) {
     threats.push({
@@ -172,11 +191,37 @@ export function validateSecurityContext(context: SecurityContext): SecurityConte
       timestamp: new Date().toISOString(),
       metadata: {
         permissionTypes: ['web3', 'admin', 'user_management'],
-        totalPermissions: context.permissions.length
+        totalPermissions: permissions.length
       }
     });
-    securityScore -= 10;
+    scoreReduction = 10;
   }
+
+  return { threats, scoreReduction };
+}
+
+/**
+ *
+ * @param context
+ */
+export function validateSecurityContext(context: SecurityContext): SecurityContext {
+  let threats: SecurityThreat[] = [...context.threats];
+  let securityScore = 100;
+
+  // 1. Check for permission escalation
+  const escalation = detectPermissionEscalation(context.permissions);
+  threats = [...threats, ...escalation.threats];
+  securityScore -= escalation.scoreReduction;
+
+  // 2. Check session age
+  const session = validateSessionAge(context.lastValidated);
+  threats = [...threats, ...session.threats];
+  securityScore -= session.scoreReduction;
+
+  // 3. Check for suspicious permission combinations
+  const combinations = detectSuspiciousCombinations(context.permissions);
+  threats = [...threats, ...combinations.threats];
+  securityScore -= combinations.scoreReduction;
 
   // Remove old threats (older than 1 hour)
   const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);

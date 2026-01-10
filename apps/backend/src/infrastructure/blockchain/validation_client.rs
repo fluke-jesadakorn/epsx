@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::time::Duration;
 use anyhow::{Result, Context};
-use ethers::providers::{Provider, Http};
+use ethers::providers::{Provider, Http, Middleware};
 use ethers::types::{Address, U256};
 use crate::core::errors::AppError;
 
@@ -11,14 +11,10 @@ pub struct BlockchainValidationClient {
     timeout_ms: u64,
 }
 
-impl Default for BlockchainValidationClient {
-    fn default() -> Self {
-        Self::new()
-    }
-}
+
 
 impl BlockchainValidationClient {
-    pub fn new() -> Self {
+    pub fn new() -> Result<Self> {
         let mut providers = HashMap::new();
 
         // BSC Mainnet
@@ -33,15 +29,18 @@ impl BlockchainValidationClient {
         let eth_mainnet_url = std::env::var("ETH_MAINNET_RPC_URL")
             .unwrap_or_else(|_| "https://eth-mainnet.g.alchemy.com/v2/demo".to_string());
 
-        // Initialize providers (will be connected on first use)
-        providers.insert(56, Provider::<Http>::try_from(bsc_mainnet_url).unwrap());
-        providers.insert(97, Provider::<Http>::try_from(bsc_testnet_url).unwrap());
-        providers.insert(1, Provider::<Http>::try_from(eth_mainnet_url).unwrap());
+        // Initialize providers
+        providers.insert(56, Provider::<Http>::try_from(bsc_mainnet_url)
+            .map_err(|e| AppError::blockchain_rpc_error(format!("Failed to create BSC provider: {}", e)))?);
+        providers.insert(97, Provider::<Http>::try_from(bsc_testnet_url)
+            .map_err(|e| AppError::blockchain_rpc_error(format!("Failed to create BSC Testnet provider: {}", e)))?);
+        providers.insert(1, Provider::<Http>::try_from(eth_mainnet_url)
+            .map_err(|e| AppError::blockchain_rpc_error(format!("Failed to create ETH provider: {}", e)))?);
 
-        Self {
+        Ok(Self {
             providers,
             timeout_ms: 30000, // 30 seconds default
-        }
+        })
     }
 
     pub fn with_timeout(mut self, timeout_ms: u64) -> Self {
@@ -184,48 +183,127 @@ impl BlockchainValidationClient {
 
     async fn check_nft_ownership(
         &self,
-        _provider: Provider<Http>,
+        provider: Provider<Http>,
         contract_addr: Address,
         wallet_addr: Address,
         token_id: u64,
     ) -> Result<bool> {
-        // For now, return a placeholder to avoid complex contract interaction
-        // In production, this would use proper ethers contract calls
-        tracing::info!("Checking NFT ownership for wallet {} token {} on contract {}", wallet_addr, token_id, contract_addr);
-        Ok(false) // Conservative default
+        // ABI for ownerOf(uint256) -> address
+        // 0x6352211e
+        use ethers::abi::{Function, Param, ParamType, StateMutability, Token};
+        
+        // Manual ABI construction to avoid macro complexities/dependencies
+        // function ownerOf(uint256 tokenId) external view returns (address owner)
+        #[allow(deprecated)]
+        let function = Function {
+            name: "ownerOf".to_owned(),
+            inputs: vec![Param {
+                name: "tokenId".to_owned(),
+                kind: ParamType::Uint(256),
+                internal_type: None,
+            }],
+            outputs: vec![Param {
+                name: "owner".to_owned(),
+                kind: ParamType::Address,
+                internal_type: None,
+            }],
+
+            constant: None,
+            state_mutability: StateMutability::View,
+        };
+
+        let token_id_u256 = U256::from(token_id);
+        
+        // Encode calldata
+        let data = function.encode_input(&[Token::Uint(token_id_u256)])?;
+        
+        let tx = ethers::types::TransactionRequest::new()
+            .to(contract_addr)
+            .data(data);
+
+        let result = provider.call(&tx.into(), None).await?;
+        
+        let decoded = function.decode_output(&result)?;
+        let owner = decoded.get(0)
+            .ok_or_else(|| anyhow::anyhow!("Invalid response from ownerOf"))?
+            .clone()
+            .into_address()
+            .ok_or_else(|| anyhow::anyhow!("Invalid response type from ownerOf"))?;
+
+        Ok(owner == wallet_addr)
     }
 
     async fn check_nft_balance(
         &self,
-        _provider: Provider<Http>,
+        provider: Provider<Http>,
         contract_addr: Address,
         wallet_addr: Address,
     ) -> Result<U256> {
-        // For now, return a placeholder
-        tracing::info!("Checking NFT balance for wallet {} on contract {}", wallet_addr, contract_addr);
-        Ok(U256::zero())
+        // balanceOf(address) -> uint256
+        let function_selector = ethers::utils::id("balanceOf(address)");
+
+
+        // simpler: use ethers generic contract/middleware if possible, or build tx manually
+        // Let's use simple manual construction for reliability
+        
+        let mut data = function_selector[0..4].to_vec();
+        // Pack address to 32 bytes
+        let mut addr_bytes = [0u8; 32];
+        addr_bytes[12..32].copy_from_slice(wallet_addr.as_bytes());
+        data.extend_from_slice(&addr_bytes);
+
+        let tx = ethers::types::TransactionRequest::new()
+            .to(contract_addr)
+            .data(data);
+
+        let result = provider.call(&tx.into(), None).await?;
+        
+        if result.len() < 32 {
+            return Ok(U256::zero());
+        }
+        
+        Ok(U256::from_big_endian(&result))
     }
 
     async fn check_token_balance(
         &self,
-        _provider: Provider<Http>,
+        provider: Provider<Http>,
         contract_addr: Address,
         wallet_addr: Address,
     ) -> Result<U256> {
-        // For now, return a placeholder
-        tracing::info!("Checking token balance for wallet {} on contract {}", wallet_addr, contract_addr);
-        Ok(U256::zero())
+        // ERC20 balanceOf(address)
+        self.check_nft_balance(provider, contract_addr, wallet_addr).await
     }
 
     async fn try_get_voting_power(
         &self,
         contract_addr: Address,
         wallet_addr: Address,
-        _provider: &Provider<Http>,
+        provider: &Provider<Http>,
     ) -> Result<U256> {
-        // For now, return a placeholder
-        tracing::info!("Checking voting power for wallet {} on contract {}", wallet_addr, contract_addr);
-        Ok(U256::zero())
+        // Try getting votes(address) for Comp/Gov standard
+        // selector for votes(address) is usually 0x9852595c or getVotes(address) 0x9ab24eb0
+        
+        // Try getVotes(address) (OpenZeppelin Governor) - 0x9ab24eb0
+        let selector = ethers::utils::id("getVotes(address)");
+        let mut data = selector[0..4].to_vec();
+        let mut addr_bytes = [0u8; 32];
+        addr_bytes[12..32].copy_from_slice(wallet_addr.as_bytes());
+        data.extend_from_slice(&addr_bytes);
+
+        let tx = ethers::types::TransactionRequest::new()
+            .to(contract_addr)
+            .data(data);
+
+        match provider.call(&tx.into(), None).await {
+            Ok(result) if result.len() >= 32 => {
+                Ok(U256::from_big_endian(&result))
+            }
+            _ => {
+                // Fallback to balanceOf(address) if not a governance token
+                self.check_token_balance(provider.clone(), contract_addr, wallet_addr).await
+            }
+        }
     }
 }
 

@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 
 import { toast } from '@/hooks/use-toast'
 import { createNotificationsClient } from '@/shared/api/notifications'
+import { useSharedAuth } from '@/shared/components/auth/Provider'
 import { MAX_DROPDOWN_NOTIFICATIONS } from '@/shared/components/notifications/constants'
 import type { Notification } from '@/shared/components/notifications/types'
 import {
@@ -28,10 +29,14 @@ export function AdminNotificationBell() {
   // Skip notification fetching on auth page to prevent 401 errors during login redirect
   const isOnAuthPage = pathname === '/auth' || pathname?.startsWith('/auth')
 
+  // Get auth context for session refresh
+  const { refreshSession } = useSharedAuth()
+
   // SSE real-time notifications for admin
   const { isConnected: sseConnected, reconnect: reconnectSSE } = useSSENotifications({
     apiClient: createAdminApiClient(),
     autoConnect: !isOnAuthPage, // Don't auto-connect on auth page
+    refreshSession,
     onNotification: (sseNotif) => {
       // Add to notifications list
       const newNotification: Notification = {

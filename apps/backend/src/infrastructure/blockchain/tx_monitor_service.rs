@@ -9,7 +9,6 @@ use diesel_async::RunQueryDsl;
 use ethers::prelude::*;
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::time::sleep;
 use tracing::{debug, error, info, trace, warn};
 use uuid::Uuid;
 

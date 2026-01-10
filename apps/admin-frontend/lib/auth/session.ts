@@ -37,7 +37,7 @@ export async function getSession(): Promise<SessionData> {
       expiresAt: payload.exp * 1000, // Convert to milliseconds
     };
   } catch (_error) {
-     
+
     console.error('❌ Failed to get session:', _error);
     return { isLoggedIn: false };
   }
@@ -56,7 +56,7 @@ export async function clearSession(): Promise<void> {
     cookieStore.delete(COOKIES.refresh);
 
   } catch (_error) {
-     
+
     console.error('❌ Failed to clear session:', _error);
   }
 }
@@ -91,7 +91,7 @@ export function createUserSession(
     sub: userinfo.sub || userinfo.id || 'unknown',
     iss: 'epsx-backend',
     aud: 'epsx-admin',
-    exp: Math.floor(Date.now() / 1000) + (2 * 60 * 60), // 2 hours
+    exp: Math.floor(Date.now() / 1000) + (30 * 24 * 60 * 60), // 30 days (matches backend/cookies)
     iat: Math.floor(Date.now() / 1000),
     email: userinfo.email || '',
     name: userinfo.name || userinfo.display_name || 'Unknown User',

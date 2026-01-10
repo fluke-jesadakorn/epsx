@@ -2,6 +2,10 @@
 import { PermissionSource } from '@/shared/types/domain/Permission';
 import { Group } from '@/shared/types/domain/User';
 
+const POLICY_VERSION = '2012-10-17' as const;
+const ALLOW_EFFECT = 'Allow' as const;
+
+
 export interface UserWithPermissions extends User {
   group: Group;
   permissionGroup: Group; // Keep as alias
@@ -270,20 +274,20 @@ export interface GroupFormData {
 // Policy permission profiles
 export const POLICY_PERMISSION_PROFILES = {
   Bronze: {
-    Version: '2012-10-17' as const,
+    Version: POLICY_VERSION,
     Statement: [
       {
-        Effect: 'Allow' as const,
+        Effect: ALLOW_EFFECT,
         Action: ['dashboard:read', 'profile:read', 'profile:update'],
         Resource: ['user:self'],
       },
     ],
   },
   Silver: {
-    Version: '2012-10-17' as const,
+    Version: POLICY_VERSION,
     Statement: [
       {
-        Effect: 'Allow' as const,
+        Effect: ALLOW_EFFECT,
         Action: [
           'dashboard:read',
           'profile:read',
@@ -295,10 +299,10 @@ export const POLICY_PERMISSION_PROFILES = {
     ],
   },
   Gold: {
-    Version: '2012-10-17' as const,
+    Version: POLICY_VERSION,
     Statement: [
       {
-        Effect: 'Allow' as const,
+        Effect: ALLOW_EFFECT,
         Action: [
           'dashboard:read',
           'profile:read',
@@ -311,10 +315,10 @@ export const POLICY_PERMISSION_PROFILES = {
     ],
   },
   Platinum: {
-    Version: '2012-10-17' as const,
+    Version: POLICY_VERSION,
     Statement: [
       {
-        Effect: 'Allow' as const,
+        Effect: ALLOW_EFFECT,
         Action: [
           'dashboard:*',
           'profile:*',
@@ -327,10 +331,10 @@ export const POLICY_PERMISSION_PROFILES = {
     ],
   },
   Admin: {
-    Version: '2012-10-17' as const,
+    Version: POLICY_VERSION,
     Statement: [
       {
-        Effect: 'Allow' as const,
+        Effect: ALLOW_EFFECT,
         Action: ['*'],
         Resource: ['*'],
       },

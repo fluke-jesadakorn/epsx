@@ -99,11 +99,14 @@ export function GroupHub({ className }: GroupHubProps) {
             setGroups(groupsData.map(transformGroup));
 
             // Transform analytics to our stats format
+            const mostPopular = analyticsData.most_popular_groups?.[0];
             setStats({
                 totalGroups: analyticsData.total_groups,
                 activeMemberships: analyticsData.total_active_memberships,
                 expiringSoon: analyticsData.expiring_soon_count,
-                largestGroup: analyticsData.most_popular_groups?.[0] || { name: '', memberCount: 0 },
+                largestGroup: mostPopular
+                    ? { name: mostPopular.group_name, memberCount: mostPopular.member_count }
+                    : { name: '', memberCount: 0 },
             });
         } catch (err) {
             console.error('Failed to load group data:', err);
@@ -227,11 +230,11 @@ export function GroupHub({ className }: GroupHubProps) {
             {/* Quick Actions */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {/* Permission Registry */}
-                <Link href="/group-and-permission" className="block group">
-                    <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-purple-400/20 via-pink-400/20 to-purple-400/20 p-0.5 hover:scale-105 transition-all duration-300">
-                        <div className="relative bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-2xl h-full">
+                <Link href="/group-and-permission" className="block group h-full">
+                    <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-purple-400/20 via-pink-400/20 to-purple-400/20 p-0.5 hover:scale-105 transition-all duration-300 h-full">
+                        <div className="relative bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-2xl h-full flex flex-col">
                             <div className="absolute top-4 right-4 w-4 h-4 bg-gradient-to-r from-purple-400 to-pink-500 rounded-full blur-sm opacity-60"></div>
-                            <div className="p-4 sm:p-6">
+                            <div className="p-4 sm:p-6 flex-1 flex flex-col">
                                 <div className="flex items-center gap-2 mb-2">
                                     <Key className="w-5 h-5 text-purple-500" />
                                     <h3 className="text-lg font-bold bg-gradient-to-r from-purple-400 to-pink-500 bg-clip-text text-transparent">
@@ -253,11 +256,11 @@ export function GroupHub({ className }: GroupHubProps) {
                 </Link>
 
                 {/* Create Group */}
-                <Link href="/group-and-permission/create-group" className="block group">
-                    <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-blue-400/20 via-cyan-400/20 to-blue-400/20 p-0.5 hover:scale-105 transition-all duration-300">
-                        <div className="relative bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-2xl h-full">
+                <Link href="/group-and-permission/create-group" className="block group h-full">
+                    <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-blue-400/20 via-cyan-400/20 to-blue-400/20 p-0.5 hover:scale-105 transition-all duration-300 h-full">
+                        <div className="relative bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-2xl h-full flex flex-col">
                             <div className="absolute top-4 right-4 w-4 h-4 bg-gradient-to-r from-blue-400 to-cyan-500 rounded-full blur-sm opacity-60"></div>
-                            <div className="p-4 sm:p-6">
+                            <div className="p-4 sm:p-6 flex-1 flex flex-col">
                                 <div className="flex items-center gap-2 mb-2">
                                     <Plus className="w-5 h-5 text-blue-500" />
                                     <h3 className="text-lg font-bold bg-gradient-to-r from-blue-400 to-cyan-500 bg-clip-text text-transparent">
@@ -279,11 +282,11 @@ export function GroupHub({ className }: GroupHubProps) {
                 </Link>
 
                 {/* Assign Wallet */}
-                <Link href="/group-and-permission/assign-wallet" className="block group">
-                    <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-green-400/20 via-emerald-400/20 to-green-400/20 p-0.5 hover:scale-105 transition-all duration-300">
-                        <div className="relative bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-2xl h-full">
+                <Link href="/group-and-permission/assign-wallet" className="block group h-full">
+                    <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-green-400/20 via-emerald-400/20 to-green-400/20 p-0.5 hover:scale-105 transition-all duration-300 h-full">
+                        <div className="relative bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-2xl h-full flex flex-col">
                             <div className="absolute top-4 right-4 w-4 h-4 bg-gradient-to-r from-green-400 to-emerald-500 rounded-full blur-sm opacity-60"></div>
-                            <div className="p-4 sm:p-6">
+                            <div className="p-4 sm:p-6 flex-1 flex flex-col">
                                 <div className="flex items-center gap-2 mb-2">
                                     <Wallet className="w-5 h-5 text-green-500" />
                                     <h3 className="text-lg font-bold bg-gradient-to-r from-green-400 to-emerald-500 bg-clip-text text-transparent">
@@ -305,11 +308,11 @@ export function GroupHub({ className }: GroupHubProps) {
                 </Link>
 
                 {/* Expiring Soon */}
-                <Link href="/group-and-permission/expiring" className="block group">
-                    <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-orange-400/20 via-pink-400/20 to-orange-400/20 p-0.5 hover:scale-105 transition-all duration-300">
-                        <div className="relative bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-2xl h-full">
+                <Link href="/group-and-permission/expiring" className="block group h-full">
+                    <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-orange-400/20 via-pink-400/20 to-orange-400/20 p-0.5 hover:scale-105 transition-all duration-300 h-full">
+                        <div className="relative bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-2xl h-full flex flex-col">
                             <div className="absolute top-4 right-4 w-4 h-4 bg-gradient-to-r from-orange-400 to-pink-500 rounded-full blur-sm opacity-60"></div>
-                            <div className="p-4 sm:p-6">
+                            <div className="p-4 sm:p-6 flex-1 flex flex-col">
                                 <div className="flex items-center gap-2 mb-2">
                                     <Clock className="w-5 h-5 text-orange-500" />
                                     <h3 className="text-lg font-bold bg-gradient-to-r from-orange-400 to-pink-500 bg-clip-text text-transparent">

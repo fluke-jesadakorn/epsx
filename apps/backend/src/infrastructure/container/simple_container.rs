@@ -166,7 +166,8 @@ impl SimpleContainer {
         };
 
         // Create domain services
-        let wallet_permission_service = Arc::new(WalletPermissionService::new());
+        let wallet_permission_service = Arc::new(WalletPermissionService::new()
+            .expect("Failed to create WalletPermissionService"));
 
         // NOTE: UnifiedPermissionCache will be created after Redis initialization
         // Create initial web3_permission_adapter with None cache (will be updated after Redis init)

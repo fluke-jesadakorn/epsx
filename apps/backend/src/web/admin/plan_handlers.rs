@@ -326,7 +326,6 @@ pub async fn list_plans_handler(
 ) -> Result<JsonResponse<serde_json::Value>, StatusCode> {
     use diesel::prelude::*;
     use diesel_async::RunQueryDsl;
-    use crate::schemas::payments::subscriptions;
     use crate::infrastructure::database::get_payments_pool;
 
     // Get plans from database instead of hardcoded data

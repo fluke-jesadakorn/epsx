@@ -8,6 +8,24 @@ import { toast } from '@/hooks/use-toast'
 import { createPlansClient, isApiSuccess, type PlanResponse } from '@/shared/api/plans'
 import { useSharedAuth } from '@/shared/components/auth/Provider'
 import { createAdminApiClient } from '@/shared/utils/api-client'
+import {
+  closestCenter,
+  DndContext,
+  DragEndEvent,
+  DragOverlay,
+  DragStartEvent,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors
+} from '@dnd-kit/core'
+import {
+  rectSwappingStrategy,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 
 interface PlanManagementProps {
   currentUser?: any
@@ -31,10 +49,19 @@ export function PlanManagement({ currentUser }: PlanManagementProps) {
   // Drag and Drop State
   const [hasChanges, setHasChanges] = useState(false)
   const [originalOrder, setOriginalOrder] = useState<PlanResponse[]>([])
-  const [draggedItem, setDraggedItem] = useState<{ plan: PlanResponse, index: number } | null>(null)
-  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
+  const [activeId, setActiveId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
-  const [dragNodeRef, setDragNodeRef] = useState<HTMLDivElement | null>(null)
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   // Load plans on component mount
   useEffect(() => {
@@ -99,83 +126,52 @@ export function PlanManagement({ currentUser }: PlanManagementProps) {
     }
   }
 
-  // Drag Handlers
+  // Check for changes to enable save button
   const checkForChanges = (newPlans: PlanResponse[]) => {
     const hasChanged = newPlans.some((plan, index) => plan.id !== originalOrder[index]?.id)
     setHasChanges(hasChanged)
   }
 
-  // Helper to reorder within a specific group while preserving global tier spacing
-  const updateGroupOrder = (groupPlans: PlanResponse[], draggedPlan: PlanResponse, dropIndex: number) => {
-    const sortedTiers = groupPlans.map(p => p.tier_level ?? 0).sort((a, b) => a - b)
+  // Helper for swapping items
+  const arraySwap = <T,>(arr: T[], index1: number, index2: number): T[] => {
+    const newArr = [...arr];
+    const item1 = newArr[index1];
+    const item2 = newArr[index2];
 
-    // Create new list order
-    const currentGroupIndex = groupPlans.findIndex(p => p.id === draggedPlan.id)
-    const newGroupList = [...groupPlans]
-    newGroupList.splice(currentGroupIndex, 1)
-    newGroupList.splice(dropIndex, 0, draggedPlan)
-
-    // Assign sorted tiers back to the new order
-    const updatedGroup = newGroupList.map((p, idx) => ({
-      ...p,
-      tier_level: sortedTiers[idx]
-    }))
-
-    // Merge back into main plans list
-    const otherPlans = plans.filter(p => !updatedGroup.find(up => up.id === p.id))
-    const finalPlans = [...otherPlans, ...updatedGroup].sort((a, b) => (a.tier_level ?? 0) - (b.tier_level ?? 0))
-
-    setPlans(finalPlans)
-    checkForChanges(finalPlans)
-  }
-
-  const handleDragStart = (e: React.DragEvent, plan: PlanResponse, category: string) => {
-    setDraggedItem({ plan, index: -1 }) // Index relative to group is calculated safely later
-    e.dataTransfer.effectAllowed = 'move'
-    e.dataTransfer.setData('text/plain', JSON.stringify({ id: plan.id, category })) // Pass category to restrict drop
-
-    if (e.currentTarget instanceof HTMLElement) {
-      const node = e.currentTarget as HTMLDivElement
-      setDragNodeRef(node)
-      setTimeout(() => node.classList.add('opacity-50'), 0)
+    if (item1 !== undefined && item2 !== undefined) {
+      newArr[index1] = item2;
+      newArr[index2] = item1;
     }
-  }
 
-  const handleDragEnd = () => {
-    if (dragNodeRef) {
-      dragNodeRef.classList.remove('opacity-50')
-      setDragNodeRef(null)
+    return newArr;
+  };
+
+  const handleDragStart = (event: DragStartEvent) => {
+    const { active } = event;
+    setActiveId(active.id as string);
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (!over) {
+      setActiveId(null);
+      return;
     }
-    setDraggedItem(null)
-    setDragOverIndex(null)
-  }
 
-  const handleDragOver = (e: React.DragEvent, category: string) => {
-    e.preventDefault()
-    // Verify we are dragging within same category
-    if (!draggedItem || draggedItem.plan.plan_category !== category) {
-      e.dataTransfer.dropEffect = 'none'
-      return
+    if (active.id !== over.id) {
+      setPlans((items) => {
+        const oldIndex = items.findIndex((item) => item.id === active.id);
+        const newIndex = items.findIndex((item) => item.id === over.id);
+
+        const newPlans = arraySwap(items, oldIndex, newIndex);
+        checkForChanges(newPlans);
+        return newPlans;
+      });
     }
-    e.dataTransfer.dropEffect = 'move'
-  }
 
-  const handleDrop = (e: React.DragEvent, dropIndex: number, category: string, groupPlans: PlanResponse[]) => {
-    e.preventDefault()
-
-    if (!draggedItem || draggedItem.plan.plan_category !== category) return
-
-    // Find the index in the current group list (not global list)
-    updateGroupOrder(groupPlans, draggedItem.plan, dropIndex)
-
-    // Cleanup
-    if (dragNodeRef) {
-      dragNodeRef.classList.remove('opacity-50')
-      setDragNodeRef(null)
-    }
-    setDraggedItem(null)
-    setDragOverIndex(null)
-  }
+    setActiveId(null);
+  };
 
   const handleSaveOrder = async () => {
     if (!hasChanges) return
@@ -358,7 +354,7 @@ export function PlanManagement({ currentUser }: PlanManagementProps) {
               </div>
               <div className="space-y-1">
                 <div className="text-xl sm:text-3xl font-bold text-green-600 dark:text-green-400 truncate">
-                  ${avgRevenue.toFixed(0)}
+                  ${avgRevenue.toFixed(2)}
                 </div>
                 <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-300">Average</div>
                 <div className="text-xs text-gray-500 dark:text-gray-400">USD</div>
@@ -367,52 +363,48 @@ export function PlanManagement({ currentUser }: PlanManagementProps) {
           </div>
           {/* Plans Lists by Group */}
           <div className="space-y-8">
-
-            {/* 1. Standard Plans Group */}
-            <PlanGroupSection
-              title="Standard Plans"
-              category="standard"
-              plans={standardPlans}
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
               onDragStart={handleDragStart}
-              onDragOver={handleDragOver}
-              onDrop={handleDrop}
-              onDragEnd={() => { setDraggedItem(null); setDragOverIndex(null); }}
-              draggedItem={draggedItem}
-              dragOverIndex={dragOverIndex}
-              onSelect={setSelectedPlan}
-              router={router}
-            />
+              onDragEnd={handleDragEnd}
+            >
+              {/* 1. Standard Plans Group */}
+              <PlanGroupSection
+                title="Standard Plans"
+                category="standard"
+                plans={standardPlans}
+                onSelect={setSelectedPlan}
+                router={router}
+              />
 
-            {/* 2. API Plans Group */}
-            <PlanGroupSection
-              title="API Plans"
-              category="api"
-              plans={apiPlans}
-              onDragStart={handleDragStart}
-              onDragOver={handleDragOver}
-              onDrop={handleDrop}
-              onDragEnd={() => { setDraggedItem(null); setDragOverIndex(null); }}
-              draggedItem={draggedItem}
-              dragOverIndex={dragOverIndex}
-              onSelect={setSelectedPlan}
-              router={router}
-            />
+              {/* 2. API Plans Group */}
+              <PlanGroupSection
+                title="API Plans"
+                category="api"
+                plans={apiPlans}
+                onSelect={setSelectedPlan}
+                router={router}
+              />
 
-            {/* 3. Enterprise Plans Group */}
-            <PlanGroupSection
-              title="Enterprise Plans"
-              category="enterprise"
-              plans={enterprisePlans}
-              onDragStart={handleDragStart}
-              onDragOver={handleDragOver}
-              onDrop={handleDrop}
-              onDragEnd={() => { setDraggedItem(null); setDragOverIndex(null); }}
-              draggedItem={draggedItem}
-              dragOverIndex={dragOverIndex}
-              onSelect={setSelectedPlan}
-              router={router}
-            />
+              {/* 3. Enterprise Plans Group */}
+              <PlanGroupSection
+                title="Enterprise Plans"
+                category="enterprise"
+                plans={enterprisePlans}
+                onSelect={setSelectedPlan}
+                router={router}
+              />
 
+              <DragOverlay>
+                {activeId ? (
+                  <div className="opacity-80 scale-105 shadow-2xl cursor-grabbing">
+                    {/* Render a static version or clone of the card for overlay */}
+                    <PlanCard plan={plans.find(p => p.id === activeId)!} router={router} isOverlay />
+                  </div>
+                ) : null}
+              </DragOverlay>
+            </DndContext>
           </div>
         </div>
       </div>
@@ -460,9 +452,128 @@ export function PlanManagement({ currentUser }: PlanManagementProps) {
 
 export default PlanManagement;
 
+// Sortable Item Wrapper
+function SortablePlanItem({ plan, router }: { plan: PlanResponse, router: any }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging
+  } = useSortable({ id: plan.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.3 : 1,
+    zIndex: isDragging ? 50 : 'auto',
+  };
+
+  return (
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners} className="touch-none">
+      <PlanCard plan={plan} router={router} />
+    </div>
+  )
+}
+
+// Extracted Plan Card Component for reuse
+function PlanCard({ plan, router, isOverlay }: { plan: PlanResponse, router: any, isOverlay?: boolean }) {
+  // Popular Badge Logic
+  const isPopular = plan.subscriber_count > 10
+
+  // Extract simple features from permissions
+  const featureTags = (plan.permissions || [])
+    .slice(0, 3)
+    .map(p => p.split(':').pop()?.replace(/_/g, ' ') || p)
+    .map(s => s.charAt(0).toUpperCase() + s.slice(1))
+
+  return (
+    <div
+      className={`group relative flex items-stretch bg-white dark:bg-gray-800 rounded-2xl border transition-all duration-300 cursor-pointer overflow-hidden ${isOverlay ? 'border-emerald-500 shadow-2xl' : 'border-gray-200 dark:border-gray-700 hover:border-emerald-300 dark:hover:border-emerald-600 hover:shadow-lg'
+        }`}
+      onClick={() => router.push(`/plans/${plan.id}/edit`)}
+    >
+      {/* Popular Ribbon */}
+      {isPopular && (
+        <div className="absolute top-0 right-0">
+          <div className="bg-gradient-to-r from-orange-500 to-rose-500 text-white text-[10px] font-bold px-3 py-1 rounded-bl-xl shadow-sm z-10">
+            🔥 POPULAR
+          </div>
+        </div>
+      )}
+
+      {/* Enhanced Grip Handle */}
+      <div
+        className="flex items-center justify-center w-14 border-r border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 cursor-grab active:cursor-grabbing text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-200 transition-colors"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <GripVertical className="w-6 h-6" />
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+
+        {/* Main Info */}
+        <div className="flex flex-col gap-1 min-w-0 flex-1">
+          <div className="flex items-center gap-3">
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white truncate group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">{plan.name}</h3>
+            <span className="text-xs font-mono text-gray-400 bg-gray-100 dark:bg-gray-700/50 px-1.5 py-0.5 rounded">T{plan.tier_level}</span>
+          </div>
+
+          <div className="flex items-baseline gap-2">
+            <span className="text-2xl font-bold bg-gradient-to-br from-gray-900 to-gray-600 dark:from-white dark:to-gray-400 bg-clip-text text-transparent">
+              {Number(plan.current_price) === 0 ? 'Free' : `$${plan.current_price}`}
+            </span>
+            {Number(plan.current_price) > 0 && <span className="text-xs text-gray-500 uppercase">{plan.currency}</span>}
+          </div>
+
+          {/* Feature Tags */}
+          <div className="flex items-center gap-2 mt-2">
+            {featureTags.map((tag, i) => (
+              <span key={i} className="text-[10px] font-medium px-2 py-0.5 rounded-md bg-gray-100 dark:bg-gray-700/50 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-600/50">
+                {tag}
+              </span>
+            ))}
+            {(plan.permissions?.length || 0) > 3 && (
+              <span className="text-[10px] font-medium text-gray-400">+{plan.permissions!.length - 3} more</span>
+            )}
+          </div>
+        </div>
+
+        {/* Stats & Actions */}
+        <div className="flex items-center gap-6 sm:pl-6 sm:border-l border-gray-100 dark:border-gray-700">
+          <div className="flex flex-col gap-3 min-w-[120px]">
+            {/* Subscriber Stat */}
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-gray-500 uppercase font-bold tracking-wider">Users</span>
+              <span className="text-sm font-bold text-gray-700 dark:text-gray-200">{plan.subscriber_count}</span>
+            </div>
+            {/* Revenue Stat */}
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-gray-500 uppercase font-bold tracking-wider">Rev (30d)</span>
+              <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">${Number(plan.revenue_last_30_days).toFixed(2)}</span>
+            </div>
+          </div>
+
+          <button
+            className="hidden sm:block p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-purple-500 transition-colors"
+            onClick={(e) => {
+              e.stopPropagation();
+              router.push(`/plans/${plan.id}/edit`);
+            }}
+          >
+            <span className="text-xl">✎</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // Helper Component for Group Sections
 function PlanGroupSection({
-  title, category, plans, onDragStart, onDragOver, onDrop, onDragEnd, draggedItem, dragOverIndex, onSelect, router
+  title, category, plans, onSelect, router
 }: any) {
   if (plans.length === 0) return null
 
@@ -471,144 +582,52 @@ function PlanGroupSection({
   const groupSubscribers = plans.reduce((sum: number, p: any) => sum + (p.subscriber_count || 0), 0)
 
   return (
-    <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-r from-gray-100/50 to-gray-200/50 dark:from-gray-800/50 dark:to-gray-900/50 p-0.5">
-      <div className="relative bg-white/60 dark:bg-gray-900/60 backdrop-blur-xl rounded-2xl sm:rounded-3xl p-4 sm:p-6 lg:p-8">
-        {/* Header Section */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center gap-3">
-              <div className={`h-10 w-10 rounded-xl flex items-center justify-center text-xl shadow-sm ${category === 'standard' ? 'bg-gradient-to-br from-blue-400 to-purple-500 text-white' :
-                category === 'api' ? 'bg-gradient-to-br from-orange-400 to-red-500 text-white' :
-                  'bg-gradient-to-br from-purple-400 to-pink-500 text-white'
-                }`}>
-                {category === 'standard' ? '👤' : category === 'api' ? '🔧' : '🏢'}
+    <SortableContext
+      items={plans.map((p: any) => p.id)}
+      strategy={rectSwappingStrategy} // or verticalListSortingStrategy
+    >
+      <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-r from-gray-100/50 to-gray-200/50 dark:from-gray-800/50 dark:to-gray-900/50 p-0.5">
+        <div className="relative bg-white/60 dark:bg-gray-900/60 backdrop-blur-xl rounded-2xl sm:rounded-3xl p-4 sm:p-6 lg:p-8">
+          {/* Header Section */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center gap-3">
+                <div className={`h-10 w-10 rounded-xl flex items-center justify-center text-xl shadow-sm ${category === 'standard' ? 'bg-gradient-to-br from-blue-400 to-purple-500 text-white' :
+                  category === 'api' ? 'bg-gradient-to-br from-orange-400 to-red-500 text-white' :
+                    'bg-gradient-to-br from-purple-400 to-pink-500 text-white'
+                  }`}>
+                  {category === 'standard' ? '👤' : category === 'api' ? '🔧' : '🏢'}
+                </div>
+                <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">{title}</h2>
               </div>
-              <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">{title}</h2>
+              {/* Aggregate Stats */}
+              <div className="flex items-center gap-3 pl-[52px]">
+                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-100/50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800">
+                  <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">${groupRevenue.toFixed(2)}</span>
+                  <span className="text-[10px] uppercase font-semibold text-emerald-600/70 dark:text-emerald-400/70">MRR</span>
+                </div>
+                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-100/50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+                  <span className="text-xs font-bold text-blue-600 dark:text-blue-400">{groupSubscribers}</span>
+                  <span className="text-[10px] uppercase font-semibold text-blue-600/70 dark:text-blue-400/70">Subs</span>
+                </div>
+              </div>
             </div>
-            {/* Aggregate Stats */}
-            <div className="flex items-center gap-3 pl-[52px]">
-              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-100/50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800">
-                <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">${groupRevenue.toFixed(0)}</span>
-                <span className="text-[10px] uppercase font-semibold text-emerald-600/70 dark:text-emerald-400/70">MRR</span>
-              </div>
-              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-100/50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
-                <span className="text-xs font-bold text-blue-600 dark:text-blue-400">{groupSubscribers}</span>
-                <span className="text-[10px] uppercase font-semibold text-blue-600/70 dark:text-blue-400/70">Subs</span>
-              </div>
-            </div>
+
+            <button
+              className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-white dark:bg-gray-800 shadow-sm border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition"
+              onClick={() => router.push('/plans/new')}
+            >
+              <span>➕</span> New {title}
+            </button>
           </div>
 
-          <button
-            className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-white dark:bg-gray-800 shadow-sm border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition"
-            onClick={() => router.push('/plans/new')}
-          >
-            <span>➕</span> New {title}
-          </button>
-        </div>
-
-        <div className="space-y-4">
-          {plans.map((plan: PlanResponse, index: number) => {
-            // Popular Badge Logic
-            const isPopular = plan.subscriber_count > 10
-
-            // Extract simple features from permissions
-            const featureTags = (plan.permissions || [])
-              .slice(0, 3)
-              .map(p => p.split(':').pop()?.replace(/_/g, ' ') || p)
-              .map(s => s.charAt(0).toUpperCase() + s.slice(1))
-
-            return (
-              <div
-                key={plan.id}
-                draggable={true}
-                onDragStart={(e) => onDragStart(e, plan, category)}
-                onDragOver={(e) => onDragOver(e, category)}
-                onDrop={(e) => onDrop(e, index, category, plans)}
-                onDragEnd={onDragEnd}
-                className={`group relative flex items-stretch bg-white dark:bg-gray-800 rounded-2xl border transition-all duration-300 cursor-pointer overflow-hidden ${draggedItem?.plan.id === plan.id
-                  ? 'opacity-40 border-dashed border-gray-400 scale-[0.98]'
-                  : 'border-gray-200 dark:border-gray-700 hover:border-emerald-300 dark:hover:border-emerald-600 hover:shadow-lg'
-                  }`}
-                onClick={() => router.push(`/plans/${plan.id}/edit`)}
-              >
-                {/* Popular Ribbon */}
-                {isPopular && (
-                  <div className="absolute top-0 right-0">
-                    <div className="bg-gradient-to-r from-orange-500 to-rose-500 text-white text-[10px] font-bold px-3 py-1 rounded-bl-xl shadow-sm z-10">
-                      🔥 POPULAR
-                    </div>
-                  </div>
-                )}
-
-                {/* Enhanced Grip Handle */}
-                <div
-                  className="flex items-center justify-center w-14 border-r border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 cursor-grab active:cursor-grabbing text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-200 transition-colors"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <GripVertical className="w-6 h-6" />
-                </div>
-
-                {/* Content */}
-                <div className="flex-1 p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-
-                  {/* Main Info */}
-                  <div className="flex flex-col gap-1 min-w-0 flex-1">
-                    <div className="flex items-center gap-3">
-                      <h3 className="text-lg font-bold text-gray-900 dark:text-white truncate group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">{plan.name}</h3>
-                      <span className="text-xs font-mono text-gray-400 bg-gray-100 dark:bg-gray-700/50 px-1.5 py-0.5 rounded">T{plan.tier_level}</span>
-                    </div>
-
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-2xl font-bold bg-gradient-to-br from-gray-900 to-gray-600 dark:from-white dark:to-gray-400 bg-clip-text text-transparent">
-                        {Number(plan.current_price) === 0 ? 'Free' : `$${plan.current_price}`}
-                      </span>
-                      {Number(plan.current_price) > 0 && <span className="text-xs text-gray-500 uppercase">{plan.currency}</span>}
-                    </div>
-
-                    {/* Feature Tags */}
-                    <div className="flex items-center gap-2 mt-2">
-                      {featureTags.map((tag, i) => (
-                        <span key={i} className="text-[10px] font-medium px-2 py-0.5 rounded-md bg-gray-100 dark:bg-gray-700/50 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-600/50">
-                          {tag}
-                        </span>
-                      ))}
-                      {(plan.permissions?.length || 0) > 3 && (
-                        <span className="text-[10px] font-medium text-gray-400">+{plan.permissions!.length - 3} more</span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Stats & Actions */}
-                  <div className="flex items-center gap-6 sm:pl-6 sm:border-l border-gray-100 dark:border-gray-700">
-                    <div className="flex flex-col gap-3 min-w-[120px]">
-                      {/* Subscriber Stat */}
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-gray-500 uppercase font-bold tracking-wider">Users</span>
-                        <span className="text-sm font-bold text-gray-700 dark:text-gray-200">{plan.subscriber_count}</span>
-                      </div>
-                      {/* Revenue Stat */}
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-gray-500 uppercase font-bold tracking-wider">Rev (30d)</span>
-                        <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">${plan.revenue_last_30_days}</span>
-                      </div>
-                    </div>
-
-                    <button
-                      className="hidden sm:block p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-purple-500 transition-colors"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        router.push(`/plans/${plan.id}/edit`);
-                      }}
-                    >
-                      <span className="text-xl">✎</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )
-          })}
+          <div className="space-y-4">
+            {plans.map((plan: PlanResponse, index: number) => (
+              <SortablePlanItem key={plan.id} plan={plan} router={router} />
+            ))}
+          </div>
         </div>
       </div>
-    </div>
+    </SortableContext>
   )
 }
