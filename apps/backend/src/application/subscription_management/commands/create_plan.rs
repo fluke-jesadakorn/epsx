@@ -1,7 +1,6 @@
 use async_trait::async_trait;
-use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use crate::application::shared::command_bus::{Command, CommandHandler};
+use crate::application::shared::command_bus::CommandHandler;
 
 use crate::application::shared::ApplicationResult;
 use crate::application::shared::error::ApplicationError;
@@ -36,7 +35,7 @@ impl CommandHandler<CreatePlanCommand> for CreatePlanCommandHandler {
             command.price_amount,
             command.currency,
             command.billing_cycle,
-        ).map_err(|e| ApplicationError::business_rule(e))?;
+        ).map_err(ApplicationError::business_rule)?;
 
         self.plan_repository.save(&plan).await.map_err(|e| ApplicationError::infrastructure(e.to_string()))?;
 

@@ -1,13 +1,15 @@
 'use client'
 
+import '@/lib/polyfills';
+
 /**
  * Error Boundary (Admin Frontend)
  * Wrapper using shared component with admin-specific fallback UI
  */
 
-import { Component, ReactNode } from 'react'
+import { Component, ReactNode } from 'react';
 
-import { SharedErrorBoundary } from '@/shared/components/errors/ErrorBoundary'
+import { SharedErrorBoundary } from '@/shared/components/errors/ErrorBoundary';
 
 interface ErrorBoundaryState {
   hasError: boolean
@@ -46,7 +48,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
    * @param errorInfo
    */
   override componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-     
+
     console.error('ErrorBoundary caught an error:', error, errorInfo)
   }
 
@@ -104,4 +106,5 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 }
 
 // Re-export SharedErrorBoundary for cases where the shared version is preferred
-export { SharedErrorBoundary }
+export { SharedErrorBoundary };
+

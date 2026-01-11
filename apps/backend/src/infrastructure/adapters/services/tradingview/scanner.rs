@@ -760,7 +760,7 @@ mod tests {
         let scanner = TradingViewScanner::new(tv_config);
         
         let request = scanner.build_screener_request();
-        assert!(request["columns"].as_array().unwrap().len() > 0);
+        assert!(!request["columns"].as_array().unwrap().is_empty());
     }
 
     #[test]

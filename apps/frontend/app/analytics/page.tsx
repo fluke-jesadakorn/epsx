@@ -79,8 +79,6 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
                 <ServerCardDashboard
                   searchParams={{
                     ...resolvedSearchParams,
-                    limit: '5', // Force limit to 5
-                    showFilters: 'false', // Hide filters
                   }}
                 />
               </PlanGatedRankings>

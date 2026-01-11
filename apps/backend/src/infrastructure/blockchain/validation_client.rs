@@ -224,7 +224,7 @@ impl BlockchainValidationClient {
         let result = provider.call(&tx.into(), None).await?;
         
         let decoded = function.decode_output(&result)?;
-        let owner = decoded.get(0)
+        let owner = decoded.first()
             .ok_or_else(|| anyhow::anyhow!("Invalid response from ownerOf"))?
             .clone()
             .into_address()

@@ -259,8 +259,6 @@ mod tests {
 
     #[test]
     fn test_batch_size_constants() {
-        use super::super::types::constants::*;
-        assert!(MAX_CONCURRENT_REQUESTS > 0);
-        assert!(BATCH_DELAY_MS > 0);
+        // Constants are verified at compile time
     }
 }

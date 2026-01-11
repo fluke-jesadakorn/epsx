@@ -50,12 +50,12 @@ mod notification_tests {
 
     #[tokio::test]
     async fn test_notification_creation_and_cleanup() -> Result<(), Box<dyn std::error::Error>> {
-        let test_db = setup_test_database().await?;
+        let _test_db = setup_test_database().await?;
         let pool = get_diesel_pool().await?;
 
         // Create test notification
         let wallet = "0x1234567890abcdef1234567890abcdef12345678";
-        let id = setup_test_notification(&pool, wallet).await?;
+        let id = setup_test_notification(pool, wallet).await?;
 
         // Verify notification was created
         #[derive(QueryableByName)]
@@ -75,7 +75,7 @@ mod notification_tests {
         assert!(result.exists);
 
         // Clean up
-        cleanup_test_notifications(&pool).await?;
+        cleanup_test_notifications(pool).await?;
 
         // Verify cleanup worked
         let result: NotificationExists = diesel::sql_query(
@@ -92,15 +92,15 @@ mod notification_tests {
 
     #[tokio::test]
     async fn test_multiple_notifications_for_same_wallet() -> Result<(), Box<dyn std::error::Error>> {
-        let test_db = setup_test_database().await?;
+        let _test_db = setup_test_database().await?;
         let pool = get_diesel_pool().await?;
 
         let wallet = "0x1234567890abcdef1234567890abcdef12345678";
 
         // Create multiple notifications
-        let _id1 = setup_test_notification(&pool, wallet).await?;
-        let _id2 = setup_test_notification(&pool, wallet).await?;
-        let _id3 = setup_test_notification(&pool, wallet).await?;
+        let _id1 = setup_test_notification(pool, wallet).await?;
+        let _id2 = setup_test_notification(pool, wallet).await?;
+        let _id3 = setup_test_notification(pool, wallet).await?;
 
         // Verify all exist using a tuple
         #[derive(QueryableByName)]
@@ -119,28 +119,28 @@ mod notification_tests {
         assert!(result.count >= 3);
 
         // Clean up
-        cleanup_test_notifications(&pool).await?;
+        cleanup_test_notifications(pool).await?;
 
         Ok(())
     }
 
     #[tokio::test]
     async fn test_notification_different_wallets() -> Result<(), Box<dyn std::error::Error>> {
-        let test_db = setup_test_database().await?;
+        let _test_db = setup_test_database().await?;
         let pool = get_diesel_pool().await?;
 
         let wallet1 = "0x1234567890abcdef1234567890abcdef12345678";
         let wallet2 = "0x9876543210fedcba9876543210fedcba98765432";
 
         // Create notifications for different wallets
-        let _id1 = setup_test_notification(&pool, wallet1).await?;
-        let _id2 = setup_test_notification(&pool, wallet2).await?;
+        let _id1 = setup_test_notification(pool, wallet1).await?;
+        let _id2 = setup_test_notification(pool, wallet2).await?;
 
         // Verify they exist
         #[derive(QueryableByName)]
         struct WalletResult {
             #[diesel(sql_type = diesel::sql_types::Text)]
-            wallet_address: String,
+            _wallet_address: String,
         }
 
         let mut conn = pool.get().await?;
@@ -157,7 +157,7 @@ mod notification_tests {
         assert_eq!(results.len(), 2);
 
         // Clean up
-        cleanup_test_notifications(&pool).await?;
+        cleanup_test_notifications(pool).await?;
 
         Ok(())
     }

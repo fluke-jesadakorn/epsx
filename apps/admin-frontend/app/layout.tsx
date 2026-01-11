@@ -6,7 +6,6 @@
 
 import { Metadata, Viewport } from 'next';
 
-import '@/lib/polyfills';
 import './globals.css';
 
 import { LayoutWrapper } from '@/components/layout/LayoutWrapper';

@@ -145,11 +145,6 @@ mod query_handler_tests {
                 sessions: Vec::new(),
             }
         }
-
-        pub fn with_session(mut self, session: Session) -> Self {
-            self.sessions.push(session);
-            self
-        }
     }
 
     #[async_trait]

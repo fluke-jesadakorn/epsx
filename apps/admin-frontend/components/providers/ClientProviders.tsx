@@ -2,9 +2,9 @@
 
 import '@/lib/polyfills';
 
+import { bsc, bscTestnet, foundry } from '@/config/wagmi-chains';
 import dynamic from 'next/dynamic';
 import React from 'react';
-import { bsc, bscTestnet, foundry } from 'wagmi/chains';
 
 import { SettingsProvider } from './SettingsProvider';
 

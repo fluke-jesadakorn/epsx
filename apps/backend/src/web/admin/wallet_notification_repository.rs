@@ -623,6 +623,5 @@ mod tests {
     fn test_repository_creation() {
         // This is a placeholder test to ensure module compiles
         // Real tests would require a database connection
-        assert!(true);
     }
 }

@@ -6,7 +6,6 @@ use axum::{
 };
 use std::collections::HashMap;
 use std::str::FromStr;
-use std::sync::Arc;
 use rust_decimal::Decimal;
 use rust_decimal::prelude::ToPrimitive;
 use uuid::Uuid;
@@ -16,7 +15,7 @@ use crate::web::auth::AppState;
 use crate::application::shared::{CommandHandler, QueryHandler};
 use crate::domain::subscription_management::aggregates::Plan;
 use crate::domain::shared_kernel::aggregate_root::AggregateRoot;
-use crate::domain::subscription_management::value_objects::{PlanId, Price, BillingCycle, PlanFeatures};
+use crate::domain::subscription_management::value_objects::{PlanId, BillingCycle, PlanFeatures};
 use crate::domain::subscription_management::repository_ports::PlanSearchCriteria;
 use crate::application::subscription_management::{
     commands::{CreatePlanCommand, CreatePlanCommandHandler, UpdatePlanCommand, UpdatePlanCommandHandler, DeletePlanCommand, DeletePlanCommandHandler},
@@ -289,7 +288,7 @@ pub async fn update_plan_handler(
     };
 
     match command_handler.handle(command).await {
-        Ok(update_response) => {
+        Ok(_update_response) => {
             match repo.find_by_id(&plan_id).await {
                 Ok(Some(plan)) => Ok(JsonResponse(map_plan_to_response(plan, 0, Decimal::ZERO))),
                 _ => Err(StatusCode::INTERNAL_SERVER_ERROR),

@@ -770,7 +770,7 @@ mod tests {
         
         // Test stats
         let stats = limiter.get_stats().await;
-        assert!(stats.len() > 0, "Stats should be available");
+        assert!(!stats.is_empty(), "Stats should be available");
     }
     
     #[test]

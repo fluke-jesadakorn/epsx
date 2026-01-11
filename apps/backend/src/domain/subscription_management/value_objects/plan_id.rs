@@ -1,6 +1,5 @@
 use crate::prelude::*;
 use uuid::Uuid;
-use std::str::FromStr;
 
 /// Plan ID value object
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]

@@ -133,7 +133,7 @@ impl Plan {
             if permission.contains("limit:") {
                 // Example logic to parse limit from permission string
                 // e.g. "epsx:analytics:view:100" -> quota of 100
-                if let Some(limit_str) = permission.split(':').last() {
+                if let Some(limit_str) = permission.split(':').next_back() {
                     if let Ok(limit) = limit_str.parse::<i64>() {
                         quotas.insert(permission.clone(), Quota::new(limit));
                     }

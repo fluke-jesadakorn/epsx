@@ -36,7 +36,7 @@ pub async fn get_eps_rankings(
     let (rank_offset, limit_cap) = if let Some(ref wallet) = wallet_address {
         calculate_ranking_config_from_permissions(&permission_service, wallet).await
     } else {
-        (100, 3) // Default free tier offset and limit for anonymous users
+        (100, -1) // Default free tier offset and limit for anonymous users
     };
 
     debug!("Calculated ranking config: offset={}, limit={} for wallet: {:?}", 
@@ -230,7 +230,7 @@ async fn calculate_ranking_config_from_permissions(
         },
         Err(e) => {
             warn!("Failed to fetch permissions for user {}: {}, using defaults", wallet_address, e);
-            (100, 3) // Default free tier
+            (100, -1) // Default free tier
         }
     }
 }

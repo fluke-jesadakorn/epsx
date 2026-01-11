@@ -495,6 +495,10 @@ impl MultiChannelConfig {
   }
 }
 
+/// Alias for DeliveryChannel to maintain compatibility with existing code
+/// that expects DeliveryChannelConfig
+pub type DeliveryChannelConfig = DeliveryChannel;
+
 #[cfg(test)]
 mod tests {
   use super::*;
@@ -564,7 +568,3 @@ mod tests {
     assert_eq!(realtime.len(), 1); // Only FCM is enabled and realtime
   }
 }
-
-/// Alias for DeliveryChannel to maintain compatibility with existing code
-/// that expects DeliveryChannelConfig
-pub type DeliveryChannelConfig = DeliveryChannel;

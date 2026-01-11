@@ -49,18 +49,20 @@ mod tests {
         use crate::domain::shared_kernel::entities::eps_growth::EPSRanking;
 
         // Create proper EPSRanking using the correct constructor
-        let mut ranking = EPSRanking::default();
-        ranking.symbol = "AAPL".to_string();
-        ranking.name = "Apple Inc".to_string();
-        ranking.country = "america".to_string();
-        ranking.sector = "Technology".to_string();
-        ranking.exchange = "NASDAQ".to_string();
-        ranking.current_eps = Some(1.5);
-        ranking.growth_factor = Some(10.0);
-        ranking.price_current = Some(150.0);
-        ranking.market_cap = Some(2500000000);
-        ranking.volume = Some(50000000);
-        ranking.ranking_position = Some(1);
+        let ranking = EPSRanking {
+            symbol: "AAPL".to_string(),
+            name: "Apple Inc".to_string(),
+            country: "america".to_string(),
+            sector: "Technology".to_string(),
+            exchange: "NASDAQ".to_string(),
+            current_eps: Some(1.5),
+            growth_factor: Some(10.0),
+            price_current: Some(150.0),
+            market_cap: Some(2500000000),
+            volume: Some(50000000),
+            ranking_position: Some(1),
+            ..Default::default()
+        };
 
         // Test data transformation pipeline
         let unified = crate::web::analytics::eps::transform::transform_ranking_to_unified_format(ranking, 1);

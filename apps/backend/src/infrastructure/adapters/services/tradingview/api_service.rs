@@ -2,7 +2,7 @@ use std::sync::Arc;
 use crate::config::Config;
 use crate::domain::shared_kernel::entities::market_data::StockScreeningResult;
 use crate::domain::shared_kernel::entities::eps_growth::EPSGrowthData;
-use super::types::{TradingViewConfig, MarketDataError, FrontendEPSResponse};
+use super::types::{TradingViewConfig, MarketDataError};
 use super::rest::TradingViewRestClient;
 use super::scanner::TradingViewScanner;
 use super::websocket::TradingViewWebSocketHandler;

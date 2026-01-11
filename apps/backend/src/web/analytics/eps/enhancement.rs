@@ -139,7 +139,7 @@ mod tests {
 
     #[test]
     fn test_empty_rankings_enhancement() {
-        let _symbols = vec!["AAPL".to_string()];
+        let _symbols = ["AAPL".to_string()];
         let rankings: Vec<EPSRanking> = Vec::new();
         
         // Test with empty rankings - should not panic

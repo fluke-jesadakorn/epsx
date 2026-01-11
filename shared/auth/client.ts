@@ -703,7 +703,15 @@ export class SharedWeb3AuthClient {
 
     // Handle 401 with token refresh retry
     if (response.status === 401) {
-      // Web3-first: No refresh tokens, clear session and require re-authentication
+      // Attempt to refresh tokens
+      const refreshed = await this.refreshTokens();
+
+      if (refreshed) {
+        // Retry request with new token
+        return this.makeAuthenticatedRequest(endpoint, options);
+      }
+
+      // If refresh failed, clear session and require re-authentication
       this.clearTokens();
 
       return {

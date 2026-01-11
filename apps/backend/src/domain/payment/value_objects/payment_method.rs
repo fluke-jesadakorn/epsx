@@ -463,6 +463,7 @@ mod tests {
                 assert_eq!(*network, Network::Ethereum);
                 assert_eq!(*estimated_confirmations, 12);
             }
+            #[allow(unreachable_patterns)]
             _ => panic!("Expected crypto instructions"),
         }
 

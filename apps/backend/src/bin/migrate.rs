@@ -43,7 +43,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-async fn run_migrations(database_url: &str) -> Result<(), Box<dyn std::error::Error>> {
+async fn run_migrations(_database_url: &str) -> Result<(), Box<dyn std::error::Error>> {
     println!("🔄 Running database migrations...");
     println!("✅ Migrations system is now using Diesel!");
     println!("📝 Note: Actual migration files should be placed in the migrations/ directory");
@@ -51,7 +51,7 @@ async fn run_migrations(database_url: &str) -> Result<(), Box<dyn std::error::Er
     Ok(())
 }
 
-async fn show_status(database_url: &str) -> Result<(), Box<dyn std::error::Error>> {
+async fn show_status(_database_url: &str) -> Result<(), Box<dyn std::error::Error>> {
     println!("📊 Checking migration status...");
     println!("✅ Migration status check using Diesel!");
     println!("📝 Note: Use 'diesel migration list' to see migration status");

@@ -1,15 +1,12 @@
 use chrono::Utc;
 use async_trait::async_trait;
-use uuid::Uuid;
-use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use std::str::FromStr;
-use crate::application::shared::command_bus::{Command, CommandHandler};
+use crate::application::shared::command_bus::CommandHandler;
 use crate::application::shared::ApplicationResult;
 use crate::application::shared::error::ApplicationError;
 
 use crate::domain::subscription_management::aggregates::{UpdatePlanParams};
-use crate::domain::subscription_management::value_objects::{PlanId, Price, BillingCycle};
+use crate::domain::subscription_management::value_objects::Price;
 use crate::domain::subscription_management::repository_ports::PlanRepositoryPort;
 
 use crate::application::subscription_management::commands::models::update_plan::{UpdatePlanCommand, UpdatePlanResponse};
@@ -37,20 +34,25 @@ impl CommandHandler<UpdatePlanCommand> for UpdatePlanCommandHandler {
             .ok_or_else(|| ApplicationError::not_found("Plan", plan_id.to_string()))?;
 
         // 2. Prepare Update Params
-        let mut params = UpdatePlanParams::default();
-        params.name = command.name;
-        params.description = command.description;
-        
-        if let (Some(amount), Some(currency)) = (command.price, command.currency) {
-            params.price = Some(Price::new(amount, currency).map_err(|e| ApplicationError::validation("price", e.to_string()))?);
-        }
-        
-        params.billing_cycle = command.billing_cycle;
-        params.is_active = command.is_active;
-        params.is_promoted = command.is_promoted;
-        params.display_order = command.display_order;
-        params.permissions = command.permissions;
-        params.metadata = command.metadata;
+        let price = if let (Some(amount), Some(currency)) = (command.price, command.currency) {
+            Some(Price::new(amount, currency).map_err(|e| ApplicationError::validation("price", e.to_string()))?)
+        } else {
+            None
+        };
+
+        let params = UpdatePlanParams {
+            name: command.name,
+            description: command.description,
+            price,
+            billing_cycle: command.billing_cycle,
+            features: command.features,
+            target_audience: command.target_audience,
+            permissions: command.permissions,
+            is_active: command.is_active,
+            is_promoted: command.is_promoted,
+            display_order: command.display_order,
+            metadata: command.metadata,
+        };
 
         // 3. Update Plan (Domain Logic)
         plan.update(params).map_err(|e| ApplicationError::business_rule(e.to_string()))?;

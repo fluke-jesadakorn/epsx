@@ -4,13 +4,29 @@ use axum::{
     response::Response,
 };
 use std::sync::Arc;
-use tracing::{error, warn};
+use tracing::{error, warn, info};
 use chrono::Utc;
 use crate::infrastructure::container::DomainContainer;
 use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
 use crate::schemas::primary::api_keys;
 use crate::schemas::analytics::api_key_usage_logs;
+use crate::schemas::analytics::analytics_events; // Import the new table
+use crate::web::middleware::auth_middleware::Web3AuthContext;
+
+#[derive(Insertable)]
+#[diesel(table_name = analytics_events)]
+pub struct NewAnalyticsEvent {
+    pub id: uuid::Uuid,
+    pub event_type: String,
+    pub wallet_address: Option<String>,
+    pub resource_path: String,
+    pub method: String,
+    pub status_code: i32,
+    pub duration_ms: i32,
+    pub metadata: Option<serde_json::Value>,
+    pub created_at: chrono::DateTime<Utc>,
+}
 
 /// Middleware to track API key usage
 pub async fn usage_tracking_middleware(
@@ -22,16 +38,6 @@ pub async fn usage_tracking_middleware(
     let method = request.method().to_string();
     let path = request.uri().path().to_string();
     
-    // Extract API Key ID if present (usually set by auth middleware or rate limiter)
-    // For now, we'll try to extract from extensions or headers if not present
-    // Note: This relies on previous middleware identifying the API key
-    // Since we don't have a standardized "ApiKeyContext" yet, we'll look for "x-api-key" header 
-    // or try to find it from the Bearer token context if it relates to a specific key
-    
-    // For this implementation, we will look for the X-API-Key header directly 
-    // as that's the transparent way to track specific key usage.
-    // In a full implementation, this should be integrated with AuthContext.
-    
     let api_key_id_str = request.headers()
         .get("x-api-key")
         .and_then(|h| h.to_str().ok())
@@ -42,14 +48,23 @@ pub async fn usage_tracking_middleware(
     let duration = start_time.elapsed().as_millis() as i32;
     let status_code = response.status().as_u16() as i32;
 
-    // Log in background if we have an API key
+    // 1. EXTRACT WALLET CONTEXT
+    let wallet_address = response.extensions()
+        .get::<Web3AuthContext>()
+        .map(|ctx| ctx.wallet_address.clone())
+        .or_else(|| {
+             response.extensions()
+                .get::<String>()
+                .cloned()
+        });
+
+    // 2. LEGACY API KEY TRACKING (Backwards Compatibility)
     if let Some(key_id_str) = api_key_id_str {
         if let Ok(key_id) = uuid::Uuid::parse_str(&key_id_str) {
             let container_clone = container.clone();
             let method_clone = method.clone();
             let path_clone = path.clone();
             
-            // Spawn background task to avoid blocking response
             tokio::spawn(async move {
                 log_usage(
                     container_clone, 
@@ -63,6 +78,60 @@ pub async fn usage_tracking_middleware(
         }
     }
 
+    // 3. NEW ANALYTICS DB LOGGING
+    let container_for_db = container.clone();
+    let method_for_db = method.clone();
+    let path_for_db = path.clone();
+    let wallet_for_db = wallet_address.clone();
+    
+    tokio::spawn(async move {
+        // Construct the event
+        let event = NewAnalyticsEvent {
+            id: uuid::Uuid::new_v4(),
+            event_type: "API_REQUEST".to_string(),
+            wallet_address: wallet_for_db,
+            resource_path: path_for_db,
+            method: method_for_db,
+            status_code,
+            duration_ms: duration,
+            metadata: None, // Can populate with IP/User-Agent later if needed
+            created_at: Utc::now(),
+        };
+
+        // Get connection
+        let pool = container_for_db.get_analytics_pool()
+            .unwrap_or_else(|| container_for_db.db_pool());
+
+        if let Ok(mut conn) = pool.get().await {
+            let result = diesel::insert_into(analytics_events::table)
+                .values(&event)
+                .execute(&mut conn)
+                .await;
+                
+            if let Err(e) = result {
+                error!("Failed to insert analytics event: {}", e);
+            }
+        } else {
+             error!("Failed to get DB connection for analytics logging");
+        }
+    });
+
+    // 4. TRACING LOGGING (Operational Logs)
+    let event_name = format!("API_{}_{}", method, status_code); // e.g., API_GET_200
+    
+    // Structured logging for analytics ingestion
+    info!(
+        target: "analytics",
+        event = "api_request",
+        name = %event_name,
+        path = %path,
+        method = %method,
+        status = status_code,
+        duration_ms = duration,
+        wallet = ?wallet_address,
+        timestamp = ?Utc::now().to_rfc3339()
+    );
+
     response
 }
 
@@ -74,7 +143,11 @@ async fn log_usage(
     status_code: i32,
     duration_ms: i32,
 ) {
-    let pool = container.db_pool();
+    // Use analytics pool if available, otherwise fallback to primary usage logs
+    // ideally we should treat them separately, but for now this ensures we write to the right place
+    let pool = container.get_analytics_pool()
+        .unwrap_or_else(|| container.db_pool());
+
     let mut conn = match pool.get().await {
         Ok(c) => c,
         Err(e) => {

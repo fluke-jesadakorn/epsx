@@ -483,6 +483,24 @@ export class PermissionAwareAuthService {
     }
   }
 
+  // Explicitly refresh session using refresh token (bypassing expiry check)
+  async refreshSession(): Promise<boolean> {
+    try {
+      authLogger.info('Attempting to refresh session via refresh token');
+      const refreshed = await this.web3Client.refreshTokens();
+
+      if (refreshed) {
+        // Reload user derived data
+        await this.loadUser();
+        return true;
+      }
+      return false;
+    } catch (error) {
+      authLogger.error('Session refresh failed', { error: safeError(error).message });
+      return false;
+    }
+  }
+
   // Refresh only permissions (for permission health monitoring)
   async refreshPermissions(): Promise<void> {
     if (!this.currentUser) return;

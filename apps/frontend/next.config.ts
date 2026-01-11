@@ -13,10 +13,6 @@ const nextConfig: NextConfig = {
   // This is a known issue with Next.js 16 + React 19 + complex provider trees
   staticPageGenerationTimeout: 60,
 
-
-
-
-
   // Transpile shared packages only
   transpilePackages: ['@/shared'],
 

@@ -64,7 +64,7 @@ impl Default for WalletUserFixture {
     fn default() -> Self {
         let now = Utc::now();
         Self {
-            wallet_address: format!("0xtest{}", uuid::Uuid::new_v4().to_string().replace("-", "")[..40].to_string()),
+            wallet_address: format!("0xtest{}", &uuid::Uuid::new_v4().to_string().replace("-", "")[..40]),
             created_at: now,
             updated_at: now,
         }

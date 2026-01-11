@@ -1,6 +1,5 @@
 use crate::domain::subscription_management::aggregates::{Plan, CreatePlanParams};
 use crate::domain::subscription_management::value_objects::{
-    plan_id::PlanId,
     price::Price,
     billing_cycle::BillingCycle,
     plan_features::PlanFeatures,

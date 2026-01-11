@@ -10,7 +10,7 @@ pub fn log_tradingview_response(symbol: &str, response: &crate::infrastructure::
         "timestamp": Utc::now().to_rfc3339(),
         "symbol_focus": symbol,
         "total_stocks": response.data.len(),
-        "sample_stock_data": response.data.get(0).map(|stock| {
+        "sample_stock_data": response.data.first().map(|stock| {
             serde_json::json!({
                 "symbol": stock.s,
                 "raw_data_fields": stock.d.iter().enumerate().map(|(idx, field)| {

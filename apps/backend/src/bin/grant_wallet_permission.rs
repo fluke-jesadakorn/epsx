@@ -1,6 +1,5 @@
 use clap::{Arg, Command};
 use diesel::prelude::*;
-use epsx::infrastructure::models::wallet_user::WalletUserDb;
 use epsx::infrastructure::models::wallet_user::NewWalletUserDb;
 use epsx::infrastructure::models::permission::NewPermissionDb;
 use std::env;

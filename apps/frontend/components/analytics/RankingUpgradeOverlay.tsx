@@ -53,7 +53,7 @@ export function RankingUpgradeOverlay({
 
                 {/* Upgrade CTA */}
                 <Link
-                    href="/pricing"
+                    href="/plans"
                     className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-purple-500 via-pink-500 to-orange-500 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-purple-500/25 transition-all duration-300 hover:shadow-xl hover:shadow-purple-500/40 hover:-translate-y-0.5"
                 >
                     <Rocket className="h-4 w-4" />
@@ -109,7 +109,7 @@ export function UpgradeBannerInline({
                             Viewing {rankingsLimit} of {totalRankings} rankings
                         </h3>
                         <p className="text-sm text-slate-600 dark:text-slate-400">
-                            {planName ? `Your ${planName} includes ${rankingsLimit} rankings.` : 'Free tier includes 3 rankings.'}{' '}
+                            {planName ? `Your ${planName} includes ${rankingsLimit} rankings.` : `Free tier includes ${rankingsLimit} rankings.`}{' '}
                             Upgrade to unlock {moreRankings > 0 ? `${moreRankings} more` : 'unlimited'} rankings!
                         </p>
                     </div>
@@ -117,7 +117,7 @@ export function UpgradeBannerInline({
 
                 {/* CTA Button */}
                 <Link
-                    href="/pricing"
+                    href="/plans"
                     className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-gradient-to-r from-purple-500 via-pink-500 to-orange-500 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-purple-500/25 transition-all duration-300 hover:shadow-xl hover:shadow-purple-500/40 hover:-translate-y-0.5"
                 >
                     <Crown className="h-4 w-4" />

@@ -815,8 +815,8 @@ mod tests {
     #[test]
     fn test_domain_error_conversion() {
         let domain_error = AppError::business_rule_violation("Test rule");
-        let app_error: AppError = domain_error.into();
-        
+        let app_error = domain_error;
+
         matches!(app_error, AppError::BusinessRuleViolation { .. });
     }
 }

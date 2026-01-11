@@ -54,7 +54,7 @@ impl Default for EPSRankingParams {
             min_eps: None,
             min_growth: None,
             rank_offset: 100,  // Default: free tier
-            limit_cap: 3,      // Default: free tier limit
+            limit_cap: -1,     // Default: free tier (unlimited items, just offset)
         }
     }
 }
@@ -109,7 +109,7 @@ impl PermissionParser {
         debug!("Extracting ranking config from {} permissions", permissions.len());
 
         let mut min_offset = 100; // Default: free tier offset
-        let mut max_limit = 3;    // Default: free tier limit
+        let mut max_limit = -1;   // Default: free tier (unlimited items, just offset)
 
         for perm in permissions {
             // Parse: "epsx:rankings:offset:{number}"

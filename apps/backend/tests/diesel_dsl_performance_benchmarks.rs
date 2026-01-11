@@ -5,7 +5,6 @@
 
 use std::time::Instant;
 use diesel::prelude::*;
-use diesel_async::{RunQueryDsl, pooled_connection::deadpool::Pool};
 
 // Test performance of basic CRUD operations
 async fn benchmark_basic_operations() -> Result<(), Box<dyn std::error::Error>> {
@@ -170,7 +169,6 @@ async fn benchmark_repository_operations() -> Result<(), Box<dyn std::error::Err
 
     let start = Instant::now();
     let search_results = WalletUserSearchPort::find_by_criteria(&wallet_repo, &search_criteria, 20, 0).await?;
-    let search_duration = start.elapsed();
     let search_duration = start.elapsed();
 
     println!("  🔍 Search results: {} wallets (took {:?})", search_results.users.len(), search_duration);

@@ -110,9 +110,16 @@ pub async fn web3_auth_middleware(
             request.extensions_mut().insert(wallet_address);
 
             // Attach full Web3 context to request for handlers that need more info
-            request.extensions_mut().insert(auth_context);
+            request.extensions_mut().insert(auth_context.clone());
 
-            Ok(next.run(request).await)
+            let mut response = next.run(request).await;
+            
+            // ATTACH CONTEXT TO RESPONSE EXTENSIONS
+            // This is critical for outer middleware (like usage_tracking) to access auth info
+            response.extensions_mut().insert(auth_context.clone());
+            response.extensions_mut().insert(auth_context.wallet_address.clone());
+            
+            Ok(response)
         }
         Err(auth_error) => {
             warn!("Web3 authentication failed: {}", auth_error);

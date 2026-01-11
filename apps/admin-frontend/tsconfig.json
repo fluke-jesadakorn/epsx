@@ -49,7 +49,7 @@
         "../../shared/*"
       ]
     },
-    "target": "ES2022",
+    "target": "ESNext",
     "lib": [
       "dom",
       "dom.iterable",

@@ -625,7 +625,7 @@ mod tests {
         }
         
         // Should be roughly 50% (allow some variance)
-        assert!(stateless_count >= 40 && stateless_count <= 60);
+        assert!((40..=60).contains(&stateless_count));
     }
     
     #[test]

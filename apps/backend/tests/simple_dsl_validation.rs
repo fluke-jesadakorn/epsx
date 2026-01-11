@@ -3,9 +3,6 @@
 // Basic validation tests for converted queries
 // ============================================================================
 
-use diesel::prelude::*;
-use diesel_async::RunQueryDsl;
-
 /// Simple test to validate Diesel DSL compilation and basic functionality
 fn test_basic_dsl_compilation() -> Result<(), Box<dyn std::error::Error>> {
     println!("🧪 Testing basic Diesel DSL compilation...");
@@ -127,7 +124,7 @@ fn test_type_safety_validation() -> Result<(), Box<dyn std::error::Error>> {
 fn test_error_handling_patterns() -> Result<(), Box<dyn std::error::Error>> {
     println!("🧪 Testing error handling patterns...");
 
-    use diesel::result::{Error as DieselError, DatabaseErrorKind};
+    use diesel::result::DatabaseErrorKind;
 
     // Test that we can handle Diesel errors
     let _error_kind = DatabaseErrorKind::UnableToSendCommand;

@@ -47,7 +47,7 @@ async fn run_payment_verification_integration_tests() {
     #[derive(QueryableByName)]
     struct TestResult {
         #[diesel(sql_type = diesel::sql_types::Integer)]
-        test_value: i32,
+        _test_value: i32,
     }
 
     let pool = get_diesel_pool().await.expect("Failed to get database pool");
@@ -82,10 +82,7 @@ fn mask_connection_string(url: &str) -> String {
 #[tokio::test]
 async fn test_system_health_check() {
     println!("🏥 Running system health check...");
-    
-    // Basic compilation and module loading test
-    assert!(true, "System compiles and loads successfully");
-    
+
     println!("✅ System health check passed");
 }
 

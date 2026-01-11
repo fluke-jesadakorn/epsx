@@ -8,7 +8,7 @@ use crate::prelude::*;
 use diesel_async::{AsyncPgConnection, RunQueryDsl, pooled_connection::deadpool::Pool};
 use std::pin::Pin;
 use std::future::Future;
-use tracing::{error, info};
+use tracing::error;
 
 // ============================================================================
 // DATABASE ERROR HANDLING MACROS
@@ -274,6 +274,7 @@ pub mod testing {
     use super::*;
     use diesel_async::pooled_connection::AsyncDieselConnectionManager;
     use diesel_async::AsyncConnection;
+    use tracing::info;
 
     /// Create a mock connection pool for testing
     pub async fn create_test_pool() -> Arc<Pool<AsyncPgConnection>> {

@@ -1,5 +1,7 @@
 'use client';
 
+import '@/lib/polyfills';
+
 import { ReactNode } from 'react';
 
 import { AuthLayout } from './AuthLayout';

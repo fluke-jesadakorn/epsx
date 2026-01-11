@@ -393,7 +393,7 @@ mod tests {
         };
         
         let recommendations = CachePerformanceOptimizer::analyze_performance(&good_stats);
-        assert!(recommendations.len() >= 1);
+        assert!(!recommendations.is_empty());
     }
 
     #[test]

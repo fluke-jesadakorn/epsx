@@ -690,7 +690,7 @@ mod tests {
         let response = error.to_error_response();
         assert_eq!(response.error_type, "permission_denied");
         assert_eq!(response.status_code, 403);
-        assert!(response.suggested_actions.len() > 0);
+        assert!(!response.suggested_actions.is_empty());
         assert!(response.details.upgrade_info.is_some());
     }
     

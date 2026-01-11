@@ -405,6 +405,5 @@ mod tests {
     #[test]
     fn test_repository_creation() {
         // Placeholder test to ensure module compiles
-        assert!(true);
     }
 }

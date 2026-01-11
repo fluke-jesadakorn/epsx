@@ -21,7 +21,7 @@ export function PlanGatedRankings({
 }: PlanGatedRankingsProps): React.ReactElement {
     const { planAccess, loading } = usePlanAccess();
 
-    const rankingsLimit = planAccess?.rankings_view_limit ?? 3;
+    const rankingsLimit = planAccess?.rankings_view_limit ?? -1;
     const isUnlimited = rankingsLimit === -1;
     const canUpgrade = planAccess?.can_upgrade ?? true;
 
@@ -57,7 +57,7 @@ export function PlanGatedRankings({
 
                     <div className="flex flex-col items-center justify-center gap-3 sm:flex-row">
                         <Link
-                            href="/pricing"
+                            href="/plans"
                             className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-purple-500 via-pink-500 to-orange-500 px-8 py-3 text-base font-semibold text-white shadow-lg shadow-purple-500/25 transition-all duration-300 hover:shadow-xl hover:shadow-purple-500/40 hover:-translate-y-0.5"
                         >
                             <Rocket className="h-5 w-5" />

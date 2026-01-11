@@ -151,7 +151,6 @@ impl SimpleContainer {
         let session_repository = Arc::new(SessionRepositoryAdapter::new(diesel_pool));
         let group_repository = Arc::new(GroupRepositoryAdapter::new(diesel_pool));
         let plan_repository = Arc::new(crate::infrastructure::adapters::repositories::plan_repository_adapter::PostgresPlanRepositoryAdapter::new(diesel_pool));
-        let plan_repository = Arc::new(crate::infrastructure::adapters::repositories::plan_repository_adapter::PostgresPlanRepositoryAdapter::new(diesel_pool));
 
         // Initialize dedicated pools
         let payments_pool = crate::infrastructure::database::get_payments_pool().await.ok().map(Arc::new);

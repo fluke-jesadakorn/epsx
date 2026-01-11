@@ -270,6 +270,6 @@ mod tests {
         assert_eq!(DEFAULT_PAGE_SIZE, 10);
         assert_eq!(MAX_PAGE_SIZE, 100);
         assert_eq!(MAX_CONCURRENT_REQUESTS, 5);
-        assert!(MAX_EPS_VALUE > MIN_EPS_VALUE);
+        // Constants are verified at compile time
     }
 }

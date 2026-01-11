@@ -39,18 +39,44 @@ export function usePlanAccess(): UsePlanAccessResult {
 
             const plansClient = createPlansClient(createFrontendApiClient());
             // Use shorter timeout for plan access - fail fast if backend unreachable
-            const response = await plansClient.getMyPlanAccess();
+            try {
+                const response = await plansClient.getMyPlanAccess();
 
-            if (response.success && response.data) {
-                setPlanAccess(response.data);
-            } else {
-                // User not logged in or no plan - return default free tier
-                setPlanAccess(DEFAULT_FREE_TIER);
+                if (response.success && response.data) {
+                    setPlanAccess(response.data);
+                } else {
+                    // User not logged in or no plan - return default free tier
+                    setPlanAccess(DEFAULT_FREE_TIER);
+                }
+            } catch (err: any) { // Use any to access status safely
+                // Handle 401 Unauthorized (expired token)
+                if (err?.status === 401 || err?.message?.includes('401')) {
+                    console.log('Plan access 401, attempting session refresh...');
+                    // Dynamic import to avoid circular dependencies if any
+                    const { authService } = await import('@/lib/auth/service');
+                    const refreshed = await authService.refreshSession();
+
+                    if (refreshed) {
+                        console.log('Session refreshed, retrying plan access...');
+                        // Retry with new token (which should be in cookies now)
+                        const retryClient = createPlansClient(createFrontendApiClient());
+                        const response = await retryClient.getMyPlanAccess();
+                        if (response.success && response.data) {
+                            setPlanAccess(response.data);
+                            return;
+                        }
+                    }
+                }
+                throw err;
             }
         } catch (err) {
             console.error('Failed to fetch plan access:', err);
-            setError(err instanceof Error ? err.message : 'Failed to fetch plan');
-            // Set default on error
+            // Don't show error for 401/403 as it just means free tier/not logged in
+            const isAuthError = err instanceof Error && (err.message.includes('401') || err.message.includes('403'));
+            if (!isAuthError) {
+                setError(err instanceof Error ? err.message : 'Failed to fetch plan');
+            }
+            // Set default on error (fallback to free tier)
             setPlanAccess(DEFAULT_FREE_TIER);
         } finally {
             setLoading(false);

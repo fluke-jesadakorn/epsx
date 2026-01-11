@@ -19,7 +19,6 @@ if (!anyMath.pow.__isPolyfilled) {
                 return new Function('b', 'e', 'return b ** e')(base, exponent);
             } catch (e) {
                 // Fallback for CSP environments where new Function is blocked
-                console.error('BigInt Math.pow polyfill failed (CSP blocked new Function?)', e);
                 // Simple inefficient fallback just in case
                 let res = 1n;
                 for (let i = 0n; i < exponent; i++) {
@@ -28,6 +27,18 @@ if (!anyMath.pow.__isPolyfilled) {
                 return res;
             }
         }
+
+        // Handle mixed BigInt/Number cases which should throw but we can try to be helpful or let original throw
+        if (typeof base === 'bigint' || typeof exponent === 'bigint') {
+            // Using new Function to avoid transpiler issues even for mixed types where we expect failure
+            // This matches native behavior closer than letting it fall through to Math.pow which might panic differently
+            try {
+                return new Function('b', 'e', 'return b ** e')(base, exponent);
+            } catch (e) {
+                // let original handle it if dynamic eval fails, likely throws Type Error
+            }
+        }
+
         // @ts-expect-error - calling original with matched types
         return originalPow.call(Math, base, exponent);
     };
