@@ -515,7 +515,7 @@ export class BaseSessionValidator {
       return {
         valid: true,
         session: {
-          sessionId: result.session_id || `jwt_${Date.now()}`,
+          sessionId: result.sid || `jwt_${Date.now()}`,
           userId: user.id,
           user,
           appType: 'user' as const,
@@ -689,7 +689,7 @@ export class BaseSessionValidator {
       return {
         valid: true,
         session: {
-          sessionId: result.session_id || `oidc_${Date.now()}`,
+          sessionId: result.sid || `oidc_${Date.now()}`,
           userId: user.id,
           user: user as any,
           appType: resolvedAppType,

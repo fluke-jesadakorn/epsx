@@ -22,7 +22,7 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
     const cookieStore = await cookies();
 
     // Check for our synced client session first, then fallback to httpOnly access token
-    let token = cookieStore.get(COOKIES.session_id)?.value;
+    let token = cookieStore.get(COOKIES.sid)?.value;
 
     if (!token) {
       // Also check legacy/fallback names if needed, or strictly follow COOKIES
@@ -95,7 +95,7 @@ export async function getPaymentHistory() {
     const cookieStore = await cookies();
 
     // Get auth token
-    let token = cookieStore.get(COOKIES.session_id)?.value;
+    let token = cookieStore.get(COOKIES.sid)?.value;
     if (!token) {
       token = cookieStore.get(COOKIES.access_token)?.value;
       // Fallback to legacy names
@@ -149,7 +149,7 @@ export async function getPaymentHistory() {
 export async function checkFeatureAccess(feature: string) {
   try {
     const cookieStore = await cookies();
-    let token = cookieStore.get(COOKIES.session_id)?.value;
+    let token = cookieStore.get(COOKIES.sid)?.value;
     if (!token) {
       token = cookieStore.get(COOKIES.access_token)?.value;
       // Fallback to legacy names
@@ -204,7 +204,7 @@ export async function checkFeatureAccess(feature: string) {
 export async function getPaymentStatus(paymentId?: string) {
   try {
     const cookieStore = await cookies();
-    let token = cookieStore.get(COOKIES.session_id)?.value;
+    let token = cookieStore.get(COOKIES.sid)?.value;
     if (!token) {
       token = cookieStore.get(COOKIES.access_token)?.value;
       // Fallback to legacy names
@@ -298,7 +298,7 @@ export async function getDebugSessionInfo() {
     const headerStore = await headers();
     const cookieStore = await cookies();
 
-    const clientSession = cookieStore.get(COOKIES.session_id)?.value;
+    const clientSession = cookieStore.get(COOKIES.sid)?.value;
     const accessCookie = cookieStore.get(COOKIES.access_token)?.value;
     const allCookies = cookieStore.getAll().map(c => `${c.name} (${c.value.length} chars)`);
     const rawHeader = headerStore.get('cookie');

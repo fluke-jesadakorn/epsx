@@ -159,7 +159,13 @@ fn is_public_endpoint(path: &str) -> bool {
         "/web3/recent-wallets",
     ];
 
-    PUBLIC_PATHS.iter().any(|public_path| path.starts_with(public_path))
+    PUBLIC_PATHS.iter().any(|public_path| {
+        if *public_path == "/" {
+            path == "/"
+        } else {
+            path.starts_with(public_path)
+        }
+    })
 }
 
 /// Create authentication error response

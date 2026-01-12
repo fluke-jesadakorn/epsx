@@ -16,6 +16,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 // @ts-ignore
 import { bsc, bscTestnet } from 'viem/chains';
 // @ts-ignore
+import { useRouter } from 'next/navigation';
 import { cookieStorage, createStorage, useAccount, useReconnect, WagmiProvider } from 'wagmi';
 import type { Chain } from 'wagmi/chains';
 
@@ -137,8 +138,8 @@ interface Web3ContextType {
 const Web3Context = createContext<Web3ContextType>({
     isInitialized: false,
     isAdminMode: false,
-    forceReset: () => { if (typeof window !== 'undefined') window.location.reload(); },
-    forceRecreateConnectors: () => { if (typeof window !== 'undefined') window.location.reload(); },
+    forceReset: () => { },
+    forceRecreateConnectors: () => { },
 });
 
 export const useUnifiedWeb3 = () => useContext(Web3Context);
@@ -164,6 +165,7 @@ export function UnifiedWeb3Provider({
     const resolvedChains = chains ?? getDefaultChains();
     const [isHydrated, setIsHydrated] = useState(false);
     const { resolvedTheme } = useTheme();
+    const router = useRouter();
 
     useEffect(() => {
         setIsHydrated(true);
@@ -225,12 +227,12 @@ export function UnifiedWeb3Provider({
         [resolvedTheme, customDarkTheme, customLightTheme]);
 
     const forceReset = React.useCallback(() => {
-        if (typeof window !== 'undefined') window.location.reload();
-    }, []);
+        router.refresh();
+    }, [router]);
 
     const forceRecreateConnectors = React.useCallback(() => {
-        if (typeof window !== 'undefined') window.location.reload();
-    }, []);
+        router.refresh();
+    }, [router]);
 
     const contextValue = React.useMemo(() => ({
         isInitialized: isHydrated,

@@ -27,7 +27,7 @@ export interface JWTClaims {
   exp: number;                   // Expiry timestamp
   iat: number;                   // Issued at timestamp
   jti: string;                   // JWT ID
-  session_id: string;            // Session ID
+  sid: string;            // Session ID
 }
 
 // ============================================================================
@@ -141,7 +141,7 @@ export function parseJWTForUI(token: string): JWTClaims | null {
       exp: payload.exp,
       iat: payload.iat,
       jti: payload.jti || '',
-      session_id: payload.session_id || ''
+      sid: payload.sid || ''
     };
   } catch (error) {
     authLogger.warn('Failed to parse JWT for UI', { error: safeError(error).message });

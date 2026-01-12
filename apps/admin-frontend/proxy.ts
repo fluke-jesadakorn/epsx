@@ -16,7 +16,8 @@ export const proxy = createAuthMiddleware({
     '/manifest.json'
   ],
   loginPath: '/auth',
-  homePath: '/'
+  homePath: '/',
+  backendUrl: process.env.BACKEND_URL || 'http://localhost:8080'
 });
 
 export const config = {

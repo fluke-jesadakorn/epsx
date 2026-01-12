@@ -72,13 +72,14 @@ export function ApiKeyManager({ className = '' }: ApiKeyManagerProps) {
   const fetchApiKeys = async () => {
     try {
       setIsLoading(true);
-      const response = await fetch('/api/auth/web3/api-keys', {
-        credentials: 'include',
+      const response = await makeApiRequest('/api/auth/web3/api-keys', {
+        method: 'GET'
       });
 
-      if (response.ok) {
-        const { api_keys } = await response.json();
-        setApiKeys(api_keys || []);
+      if (response.success) {
+        setApiKeys(response.data?.api_keys || []);
+      } else {
+        throw new Error(response.error?.message || 'Failed to fetch API keys');
       }
     } catch (error) {
       console.error('Failed to fetch API keys:', error);
@@ -120,16 +121,15 @@ export function ApiKeyManager({ className = '' }: ApiKeyManagerProps) {
     }
 
     try {
-      const response = await fetch(`/api/auth/web3/api-keys/${keyId}`, {
-        method: 'DELETE',
-        credentials: 'include',
+      const response = await makeApiRequest(`/api/auth/web3/api-keys/${keyId}`, {
+        method: 'DELETE'
       });
 
-      if (response.ok) {
+      if (response.success) {
         await fetchApiKeys();
         toast.success('API key deleted successfully');
       } else {
-        throw new Error('Failed to delete API key');
+        throw new Error(response.error?.message || 'Failed to delete API key');
       }
     } catch (error) {
       console.error('Failed to delete API key:', error);

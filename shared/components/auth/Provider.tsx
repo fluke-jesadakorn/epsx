@@ -217,7 +217,7 @@ export function SharedOpenIDWeb3Provider({
             }
 
             const authTime = getClientCookie(COOKIES.auth_time) || localStorage.getItem('epsx.auth_time');
-            const accessToken = getClientCookie(COOKIES.session_id) || localStorage.getItem('epsx.access_token');
+            const accessToken = getClientCookie(COOKIES.sid) || localStorage.getItem('epsx.access_token');
             const tokenExpiry = getClientCookie(COOKIES.expires_at) || localStorage.getItem('epsx.expires_at');
 
             console.log('🔍 SharedOpenIDWeb3Provider: Storage restoration check', {
@@ -465,10 +465,10 @@ export function SharedOpenIDWeb3Provider({
           const expiryTime = Date.now() + (COOKIE_OPTIONS.maxAge.access_token * 1000);
           setClientCookie(COOKIES.expires_at, expiryTime.toString(), COOKIE_OPTIONS.maxAge.expires_at);
 
-          // CRITICAL: Set session_id cookie with access_token for server-side auth
+          // CRITICAL: Set sid cookie with access_token for server-side auth
           if (result.access_token) {
-            setClientCookie(COOKIES.session_id, result.access_token, COOKIE_OPTIONS.maxAge.access_token);
-            console.log('🔑 Set session_id cookie for server-side auth');
+            setClientCookie(COOKIES.sid, result.access_token, COOKIE_OPTIONS.maxAge.access_token);
+            console.log('🔑 Set sid cookie for server-side auth');
           }
 
           // 2. Save to localStorage (Fallback/Redundancy)
@@ -487,7 +487,7 @@ export function SharedOpenIDWeb3Provider({
               user: COOKIES.user,
               authTime: COOKIES.auth_time,
               expiresAt: COOKIES.expires_at,
-              clientSession: COOKIES.session_id
+              clientSession: COOKIES.sid
             }
           });
         } catch (error) {

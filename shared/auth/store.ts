@@ -74,9 +74,9 @@ export function createAuthStore<T extends AuthState>(
           lastRefreshTime: null,
         }),
 
-        login: async () => {
+        login: async (router?: any) => {
           try {
-            const currentUrl = window.location.href
+            const currentUrl = typeof window !== 'undefined' ? window.location.href : ''
 
             console.log('🔄 Initiating OAuth login with PKCE...')
 
@@ -104,7 +104,11 @@ export function createAuthStore<T extends AuthState>(
             console.log('✅ PKCE parameters set, redirecting to authorization...')
 
             // Redirect to authorization URL
-            window.location.href = data.authorizationUrl
+            if (router) {
+              router.push(data.authorizationUrl)
+            } else {
+              window.location.href = data.authorizationUrl
+            }
 
           } catch (error) {
             console.error('❌ Login initiation failed:', error)
@@ -114,14 +118,18 @@ export function createAuthStore<T extends AuthState>(
               response_type: 'code',
               scope: 'openid profile email',
               redirect_uri: config.redirectPath,
-              state: Buffer.from(JSON.stringify({ redirectTo: window.location.href })).toString('base64url'),
+              state: Buffer.from(JSON.stringify({ redirectTo: typeof window !== 'undefined' ? window.location.href : '' })).toString('base64url'),
             })
 
-            window.location.href = `${oidcUrls.authorize('client')}?${params.toString()}`
+            if (router) {
+              router.push(`${oidcUrls.authorize('client')}?${params.toString()}`)
+            } else {
+              window.location.href = `${oidcUrls.authorize('client')}?${params.toString()}`
+            }
           }
         },
 
-        logout: async () => {
+        logout: async (router?: any) => {
           set({ isLoading: true, error: null })
 
           try {
@@ -140,7 +148,11 @@ export function createAuthStore<T extends AuthState>(
               hasApiAccess: false
             })
 
-            window.location.href = config.logoutRedirectPath
+            if (router) {
+              router.push(config.logoutRedirectPath)
+            } else {
+              window.location.href = config.logoutRedirectPath
+            }
           } catch (error) {
             console.error('❌ Logout failed:', error)
             set({ error: 'Logout failed', isLoading: false })

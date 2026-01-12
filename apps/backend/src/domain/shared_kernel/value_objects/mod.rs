@@ -15,7 +15,7 @@ pub mod market;
 pub use user_id::UserId;
 pub use session_id::{ SessionId, SessId };
 pub use email::Email;
-pub use user_limits::{ResolvedUserLimits, UserDynamicLimit};
+pub use user_limits::{ ResolvedUserLimits, UserDynamicLimit };
 pub use common_types::*;
 pub use identifiers::*;
 pub use payments::{ Currency, Network };

@@ -8,7 +8,7 @@
  * Uses dependency injection for UI components to avoid cross-package imports
  */
 
-import React from 'react'
+import { useRouter } from 'next/navigation'
 import type { BackendPermissionError } from '../../utils/permission-error-handler'
 
 // Platform type for customization
@@ -82,12 +82,13 @@ export function SharedPermissionDeniedModal({
     } = components
     const { AlertTriangle, Lock, Shield, Zap } = icons
     const labels = getPlatformLabels(platform)
+    const router = useRouter()
 
     const handleUpgrade = () => {
         if (error.upgrade_url) {
-            window.location.href = error.upgrade_url
+            router.push(error.upgrade_url)
         } else {
-            window.location.href = '/plans'
+            router.push('/plans')
         }
     }
 
@@ -243,7 +244,7 @@ export function SharedPermissionDeniedModal({
                         </Button>
                     )}
                     {error.contact_support && (
-                        <Button variant="outline" onClick={() => window.location.href = '/support'}>
+                        <Button variant="outline" onClick={() => router.push('/support')}>
                             Contact Support
                         </Button>
                     )}

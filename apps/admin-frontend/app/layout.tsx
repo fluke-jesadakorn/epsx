@@ -1,3 +1,4 @@
+import '@/lib/polyfills';
 /**
  * EPSX Admin - Enhanced Root Layout
  * Features: Windows Phone + PancakeSwap design system integration
@@ -72,6 +73,35 @@ export default function RootLayout({
       suppressHydrationWarning
       className={`${kanit.variable} font-sans antialiased scroll-smooth`}
     >
+      <head>
+        {/* CRITICAL: Synchronous BigInt polyfill to prevent Math.pow crash in dependencies like viem */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                if (typeof Math.pow !== 'function' || Math.pow.__isPolyfilled) return;
+                var originalPow = Math.pow;
+                Math.pow = function(base, exponent) {
+                  if (typeof base === 'bigint' || typeof exponent === 'bigint') {
+                    try {
+                      return new Function('b', 'e', 'return b ** e')(base, exponent);
+                    } catch (e) {
+                      if (typeof base === 'bigint' && typeof exponent === 'number' && exponent >= 0 && Math.floor(exponent) === exponent) {
+                        var res = 1n;
+                        for (var i = 0; i < exponent; i++) res *= base;
+                        return res;
+                      }
+                      return NaN;
+                    }
+                  }
+                  return originalPow.call(Math, base, exponent);
+                };
+                Math.pow.__isPolyfilled = true;
+              })();
+            `,
+          }}
+        />
+      </head>
       <body
         className="min-h-screen bg-background text-foreground"
         suppressHydrationWarning

@@ -62,7 +62,10 @@ fn extract_bearer_token(headers: &HeaderMap) -> Option<String> {
         .get("authorization")
         .and_then(|value| value.to_str().ok())
         .and_then(|auth_header| {
-            auth_header.strip_prefix("Bearer ").map(|token| token.to_string())
+            if auth_header == "Bearer" {
+                return Some("".to_string());
+            }
+            auth_header.strip_prefix("Bearer ").map(|token| token.trim_start().to_string())
         })
 }
 

@@ -35,7 +35,7 @@ impl WalletAddress {
             .map_err(|_| WalletAddressError::InvalidFormat(value.clone()))?;
         
         Ok(Self {
-            value: address.to_string().to_lowercase(),
+            value: format!("{:?}", address).to_lowercase(),
         })
     }
 

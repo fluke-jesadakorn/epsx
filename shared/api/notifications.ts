@@ -838,13 +838,17 @@ export class NotificationsAPIClient {
 
     // Validate URL format
     try {
-      const urlObj = new URL(sseUrl);
+      // Use window.location.origin as base for relative URLs to ensure validation passes
+      const base = typeof window !== 'undefined' ? window.location.origin : 'http://localhost';
+      const urlObj = new URL(sseUrl, base);
+
       console.log('✅ SSE URL validated:', {
         protocol: urlObj.protocol,
         host: urlObj.host,
         pathname: urlObj.pathname,
         search: urlObj.search,
-        fullURL: sseUrl
+        fullURL: urlObj.toString(),
+        isRelative: !sseUrl.startsWith('http')
       });
     } catch (e) {
       const error = `Invalid SSE URL format: "${sseUrl}"`;

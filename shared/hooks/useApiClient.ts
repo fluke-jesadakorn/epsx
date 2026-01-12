@@ -7,22 +7,23 @@
 
 'use client';
 
+import { usePathname } from 'next/navigation';
 import { useMemo } from 'react';
 import {
-  UnifiedApiClient,
   createAdminApiClient,
-  createFrontendApiClient
+  createFrontendApiClient,
+  UnifiedApiClient
 } from '../utils/api-client';
 
-import { createUsersClient, UsersApi } from '../api/users';
-import { createPermissionsClient, PermissionsApi } from '../api/permissions';
+import { AnalyticsApi, createAnalyticsClient } from '../api/analytics';
+import { AuthApi, createAuthClient } from '../api/auth';
+import { ComplianceApi, createComplianceClient } from '../api/compliance';
 import { createGroupsClient, GroupsApi } from '../api/groups';
-import { createWalletsClient, WalletsApi } from '../api/wallets';
-import { createComplianceClient, ComplianceApi } from '../api/compliance';
-import { createAnalyticsClient, AnalyticsApi } from '../api/analytics';
-import { createAuthClient, AuthApi } from '../api/auth';
 import { createNotificationsClient, NotificationsApi } from '../api/notifications';
+import { createPermissionsClient, PermissionsApi } from '../api/permissions';
 import { createPlansClient, PlansApi } from '../api/plans';
+import { createUsersClient, UsersApi } from '../api/users';
+import { createWalletsClient, WalletsApi } from '../api/wallets';
 
 // ============================================================================
 // TYPES
@@ -47,27 +48,7 @@ export type Platform = 'admin' | 'frontend';
 // PLATFORM DETECTION
 // ============================================================================
 
-/**
- * Detect platform from URL or environment
- */
-function detectPlatform(): Platform {
-  if (typeof window === 'undefined') {
-    return 'frontend'; // Default for SSR
-  }
-
-  // Check URL path
-  const path = window.location.pathname;
-  if (path.startsWith('/admin') || window.location.port === '3001') {
-    return 'admin';
-  }
-
-  // Check environment variable
-  if (process.env.NEXT_PUBLIC_PLATFORM === 'admin') {
-    return 'admin';
-  }
-
-  return 'frontend';
-}
+// No longer using global detectPlatform that uses window.location.pathname
 
 // ============================================================================
 // HOOK
@@ -93,21 +74,42 @@ export function useApiClient(options?: {
   baseURL?: string;
   token?: string;
 }): ApiClients {
-  const platform = options?.platform || detectPlatform();
+  const pathname = usePathname();
+
+  const platform = useMemo(() => {
+    if (options?.platform) return options.platform;
+
+    // Check URL path via usePathname
+    if (pathname?.startsWith('/admin')) {
+      return 'admin';
+    }
+
+    // Fallback to window.location.port if available (next/navigation doesn't have port)
+    if (typeof window !== 'undefined' && window.location.port === '3001') {
+      return 'admin';
+    }
+
+    // Check environment variable
+    if (process.env.NEXT_PUBLIC_PLATFORM === 'admin') {
+      return 'admin';
+    }
+
+    return 'frontend';
+  }, [options?.platform, pathname]);
 
   return useMemo(() => {
     // Create base client
     const baseClient = platform === 'admin'
       ? createAdminApiClient({
-          baseURL: options?.baseURL,
-          token: options?.token,
-          serverSide: false
-        })
+        baseURL: options?.baseURL,
+        token: options?.token,
+        serverSide: false
+      })
       : createFrontendApiClient({
-          baseURL: options?.baseURL,
-          token: options?.token,
-          serverSide: false
-        });
+        baseURL: options?.baseURL,
+        token: options?.token,
+        serverSide: false
+      });
 
     // Create domain clients
     return {

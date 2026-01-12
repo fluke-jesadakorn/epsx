@@ -13,7 +13,7 @@
  * - Configurable request options and timeouts
  */
 
-import { COOKIES, getClientCookie, getClientCookieJSON } from '../auth/cookies';
+import { COOKIES } from '../auth/cookies';
 import { getBackendUrl } from './url-resolver';
 
 // ============================================================================
@@ -80,14 +80,19 @@ export class UnifiedApiClient {
     serverSide?: boolean;
   }) {
     this.platform = options.platform;
+    this.isServerSide = options.serverSide ?? typeof window === 'undefined';
     this.baseURL = options.baseURL || this.getDefaultBaseURL();
     this.token = options.token;
-    this.isServerSide = options.serverSide || typeof window === 'undefined';
   }
 
   private getDefaultBaseURL(): string {
-    // Use environment-specific URL resolution
-    return getBackendUrl('client');
+    // 1. Client-Side (Browser): Use local proxy path
+    if (!this.isServerSide) {
+      return '/api/proxy';
+    }
+
+    // 2. Server-Side: Use direct backend URL
+    return getBackendUrl('server');
   }
 
   private async getAuthHeaders(): Promise<HeadersInit> {
@@ -123,31 +128,10 @@ export class UnifiedApiClient {
         // console.debug(`[UnifiedApiClient] Server-side token retrieval skipped:`, error);
       }
     } else {
-      // Client-side: attempt to get token from accessible cookies
-      // This is crucial for singleton clients that are initialized without tokens
-      try {
-        // 1. Try session_id cookie (synced by SharedWeb3AuthClient)
-        let clientSession = getClientCookie(COOKIES.session_id);
-
-        // Fallback: Try localStorage if cookie is missing (critical for persistent auth)
-        if (!clientSession && typeof window !== 'undefined') {
-          clientSession = localStorage.getItem('epsx.access_token');
-        }
-
-        if (clientSession) {
-          headers['Authorization'] = `Bearer ${clientSession}`;
-          return headers;
-        }
-
-        // 2. Try user cookie (contains access token in JSON)
-        const user = getClientCookieJSON<{ access?: string }>(COOKIES.user);
-        if (user?.access) {
-          headers['Authorization'] = `Bearer ${user.access}`;
-          return headers;
-        }
-      } catch (error) {
-        // Silent failure on client side - simply won't have auth headers
-      }
+      // Client-side:
+      // We DO NOT manually attach the Authorization header anymore.
+      // The Next.js Middleware intercepts requests to /api/proxy and injects the token.
+      // This prevents exposing the token in client-side logs or managing manual headers.
     }
 
     return headers;

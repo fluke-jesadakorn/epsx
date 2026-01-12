@@ -5,6 +5,7 @@
 
 use std::time::Instant;
 use diesel::prelude::*;
+use diesel_async::RunQueryDsl;
 
 // Test performance of basic CRUD operations
 async fn benchmark_basic_operations() -> Result<(), Box<dyn std::error::Error>> {

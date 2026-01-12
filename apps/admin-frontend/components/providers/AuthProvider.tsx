@@ -5,20 +5,11 @@
  */
 
 import { headers } from 'next/headers';
-import { redirect } from 'next/navigation';
-import { ReactNode } from 'react';
 
 import { ClientProviders } from './ClientProviders';
 
+import { SessionMismatchCatcher } from '@/components/auth/SessionMismatchCatcher';
 import { MainLayout } from '@/components/layout/MainLayout';
-import { UnifiedAuth } from '@/lib/auth/auth';
-
-interface AuthProviderProps {
-  children: ReactNode;
-  requireAuth?: boolean;
-  requireAdmin?: boolean;
-  layout?: boolean;
-}
 
 /**
  * Unified Authentication Provider
@@ -70,9 +61,13 @@ export async function AuthProvider({
     const session = await UnifiedAuth.getSession();
 
     if (!session?.user) {
-      console.log('⛔ AuthProvider: No session user found, redirecting to /auth');
-      const returnUrl = encodeURIComponent(pathname);
-      redirect(`/auth?return_url=${returnUrl}&reason=no-session`);
+      console.log('⛔ AuthProvider: No session user found despite middleware allowing request.');
+      // Return Client Component to clear cookies and break the loop
+      return (
+        <ClientProviders>
+          <SessionMismatchCatcher />
+        </ClientProviders>
+      );
     }
 
     // Backend validates all permissions - don't check on frontend
@@ -140,36 +135,6 @@ function AuthError() {
       </div>
     </ClientProviders>
   );
-}
-
-/**
- * Higher-order component for protecting routes with admin access
- * @param Component
- * @deprecated Use AuthProvider with requireAdmin=true instead
- */
-export function withAdminAuth<T extends {}>(Component: React.ComponentType<T>) {
-  return async function AdminProtectedComponent(props: T) {
-    return (
-      <AuthProvider requireAuth={true} requireAdmin={true} layout={false}>
-        <Component {...props} />
-      </AuthProvider>
-    );
-  };
-}
-
-/**
- * Higher-order component for protecting routes with basic auth
- * @param Component
- * @deprecated Use AuthProvider with requireAuth=true instead  
- */
-export function withAuth<T extends {}>(Component: React.ComponentType<T>) {
-  return async function AuthProtectedComponent(props: T) {
-    return (
-      <AuthProvider requireAuth={true} requireAdmin={false} layout={false}>
-        <Component {...props} />
-      </AuthProvider>
-    );
-  };
 }
 
 export default AuthProvider;

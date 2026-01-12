@@ -2,10 +2,11 @@ import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
   output: 'standalone',
-  // Empty turbopack config to disable it and use webpack
+  // Enabled Turbopack for development
   turbopack: {
     resolveAlias: {
       'thread-stream': '../../shared/stubs/empty.ts',
+      'thread-stream/test': '../../shared/stubs/empty.ts',
       'pino-pretty': '../../shared/stubs/empty.ts',
       'pino-elasticsearch': '../../shared/stubs/empty.ts',
       'tap': '../../shared/stubs/empty.ts',
@@ -16,6 +17,8 @@ const nextConfig: NextConfig = {
       'react-native': '../../shared/stubs/empty.ts',
       'react-native-device-info': '../../shared/stubs/empty.ts',
       'react-native-keychain': '../../shared/stubs/empty.ts',
+      'zod/mini': 'zod',
+      'zod/v4/core': 'zod',
     },
   },
   // Ignore TypeScript errors during Docker builds (errors should be fixed separately)
@@ -23,8 +26,7 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: true,
   },
   experimental: {
-    // Fix WebSocket connection issues in Next.js 15
-    webpackBuildWorker: true,
+    // Other experimental features can go here
   },
 
   // Transpile shared packages only
@@ -32,6 +34,9 @@ const nextConfig: NextConfig = {
 
   // Improve HMR WebSocket reliability and fix module resolution
   webpack: (config, { dev, isServer, webpack }) => {
+    // Only apply heavy Webpack custom logic if not using Turbopack
+    // Note: Next.js 15+ will automatically prefer Turbopack if --turbo is used.
+
     if (dev && !isServer) {
       config.watchOptions = {
         poll: 1000,

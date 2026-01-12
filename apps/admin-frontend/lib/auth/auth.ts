@@ -188,7 +188,7 @@ export async function clearWeb3Session(): Promise<void> {
   cookieStore.delete(COOKIES.access_token);
   cookieStore.delete(COOKIES.id_token);
   cookieStore.delete(COOKIES.refresh_token);
-  cookieStore.delete(COOKIES.session_id);
+  cookieStore.delete(COOKIES.sid);
 
   // Clear old cookie names (backward compatibility)
   cookieStore.delete('epsx.admin.user');

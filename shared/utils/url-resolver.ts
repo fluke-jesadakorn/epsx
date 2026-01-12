@@ -151,7 +151,7 @@ function getDefaultBackendUrl(): string {
   if (typeof window !== 'undefined' && isDev) {
     const hostname = window.location.hostname;
     // Don't redirect localhost to localhost - that's the default anyway
-    if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
+    if (hostname !== 'localhost' && hostname !== '127.0.0.1' && !hostname.startsWith('100.')) {
       return `http://${hostname}:8080`;
     }
   }
@@ -170,7 +170,7 @@ function getDefaultFrontendUrl(): string {
   // In browser development, use the same host but port 3000
   if (typeof window !== 'undefined' && isDev) {
     const hostname = window.location.hostname;
-    if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
+    if (hostname !== 'localhost' && hostname !== '127.0.0.1' && !hostname.startsWith('100.')) {
       return `http://${hostname}:3000`;
     }
   }
@@ -189,7 +189,7 @@ function getDefaultAdminUrl(): string {
   // In browser development, use the same host but port 3001
   if (typeof window !== 'undefined' && isDev) {
     const hostname = window.location.hostname;
-    if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
+    if (hostname !== 'localhost' && hostname !== '127.0.0.1' && !hostname.startsWith('100.')) {
       return `http://${hostname}:3001`;
     }
   }

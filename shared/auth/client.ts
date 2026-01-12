@@ -140,8 +140,8 @@ export class SharedWeb3AuthClient {
       // 1. Clean up legacy storage
       this.cleanupLegacyStorage();
 
-      // 2. Load access token (Primary: session_id, Fallback: access_token)
-      let accessToken = getClientCookie(COOKIES.session_id);
+      // 2. Load access token (Primary: sid, Fallback: access_token)
+      let accessToken = getClientCookie(COOKIES.sid);
       if (!accessToken) {
         accessToken = localStorage.getItem('epsx.access_token');
         if (accessToken) {
@@ -212,7 +212,7 @@ export class SharedWeb3AuthClient {
       // CRITICAL FIX: If we recovered tokens from localStorage but cookies are missing,
       // we MUST restore the cookies immediately. Otherwise, Server Components (AuthProvider)
       // will fail to see the session and redirect back to /auth, causing a loop.
-      if (this.accessToken && !getClientCookie(COOKIES.session_id)) {
+      if (this.accessToken && !getClientCookie(COOKIES.sid)) {
         console.log('🍪 Restoring missing session cookie from localStorage');
         this.saveTokensToStorage();
       } else if (this.user && !getClientCookie(COOKIES.user)) {
@@ -241,9 +241,9 @@ export class SharedWeb3AuthClient {
         localStorage.setItem('epsx.expires_at', this.tokenExpiry.toString());
       }
 
-      // Sync access token to session_id for Server Components and persistence
+      // Sync access token to sid for Server Components and persistence
       if (this.accessToken) {
-        setClientCookie(COOKIES.session_id, this.accessToken);
+        setClientCookie(COOKIES.sid, this.accessToken);
         localStorage.setItem('epsx.access_token', this.accessToken);
       }
 
@@ -273,8 +273,8 @@ export class SharedWeb3AuthClient {
     try {
       // Clear client-side cookies
       clearClientSideCookies();
-      // Explicitly clear session_id
-      setClientCookie(COOKIES.session_id, '', 0);
+      // Explicitly clear sid
+      setClientCookie(COOKIES.sid, '', 0);
 
       // Clear localStorage
       localStorage.removeItem('epsx.access_token');

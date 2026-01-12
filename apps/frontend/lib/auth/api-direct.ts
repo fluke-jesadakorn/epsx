@@ -42,21 +42,12 @@ export interface VerifyRequest {
  * Direct Web3 API client for authentication flows
  */
 export class DirectWeb3Api {
-  private backendUrl: string;
   private client: UnifiedApiClient;
 
-  constructor(backendUrl?: string) {
-    // Enhanced backend URL resolution
-    this.backendUrl =
-      backendUrl ||
-      (typeof window !== 'undefined'
-        ? process.env.NEXT_PUBLIC_BACKEND_URL ||
-        window.location.origin.replace(/:300[0-9]/, ':8080')
-        : process.env.BACKEND_URL || 'http://localhost:8080');
-
-    // Initialize the unified API client
+  constructor() {
+    // Use default URL resolution which now points to /api/proxy on client
+    // and direct backend URL on server
     this.client = new UnifiedApiClient({
-      baseURL: this.backendUrl,
       platform: 'frontend',
       serverSide: typeof window === 'undefined',
     });

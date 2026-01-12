@@ -75,7 +75,7 @@ All cookies MUST use the `epsx.` prefix. Legacy `oidc.` keys are deprecated and 
 | `epsx.access_token` | Access Token | HttpOnly / LocalStorage (fallback) |
 | `epsx.id_token` | OpenID Token | HttpOnly |
 | `epsx.refresh_token` | Refresh Token | HttpOnly |
-| `epsx.session_id` | Client Session | Client-Accessible |
+| `epsx.sid` | Client Session | Client-Accessible |
 | `epsx.user` | User Metadata | JSON (parsed by frontend) |
 
 ### Permission System

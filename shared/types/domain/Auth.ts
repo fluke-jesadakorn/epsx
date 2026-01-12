@@ -5,14 +5,13 @@
  */
 
 import type { JWTPayload } from 'jose'
-import type { UserProfile, AdminUserProfile, PackageTier, UserRole } from './User'
 import type { EPSXPermission } from './Permission'
 import type { SessionData } from './Session'
+import type { AdminUserProfile, PackageTier, UserProfile, UserRole } from './User'
 
 // Re-export core auth types from shared system
 export type {
-  User,
-  AuthResponse
+  AuthResponse, User
 } from '../../types/auth'
 
 // ============================================================================
@@ -78,7 +77,7 @@ export interface AdminJWTPayload extends BaseJWTPayload {
  */
 export interface RefreshTokenPayload extends BaseJWTPayload {
   token_type: 'refresh'
-  session_id: string
+  sid: string
   device_id?: string
 }
 

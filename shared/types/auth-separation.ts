@@ -30,7 +30,7 @@ export interface AdminJWTPayload extends BaseJWTPayload {
   // Token identification
   token_type: 'admin_access';
   jti: string; // JWT ID for tracking
-  
+
   // Enhanced security context
   permissions: {
     system_access: {
@@ -43,10 +43,10 @@ export interface AdminJWTPayload extends BaseJWTPayload {
       device_verified: boolean;
       ip_address: string;
       user_agent: string;
-      session_id: string;
+      sid: string;
     };
   };
-  
+
   // Administrative context
   admin_context: {
     role: string;
@@ -54,7 +54,7 @@ export interface AdminJWTPayload extends BaseJWTPayload {
     supervisor?: string;
     clearance_level: number;
   };
-  
+
   // Security features
   mfa_verified: boolean;
   device_binding: {
@@ -62,7 +62,7 @@ export interface AdminJWTPayload extends BaseJWTPayload {
     device_fingerprint: string;
     trust_level: 'trusted' | 'verified' | 'unverified';
   };
-  
+
   // Platform information
   platforms: string[];
   primary_platform: 'admin';
@@ -73,21 +73,21 @@ export interface AdminUserProfile {
   email: string;
   name: string;
   role: string;
-  
+
   // Admin-specific permissions (structured)
   permissions: string[];
   securityLevel: 'standard' | 'elevated' | 'critical';
-  
+
   // Admin metadata
   department?: string;
   clearanceLevel: number;
   lastLoginAt?: string;
   mfaEnabled: boolean;
-  
+
   // Platform context
   platforms: string[];
   primaryPlatform: 'admin';
-  
+
   // Permission group (derived from permissions)
   permission_group: PermissionGroup;
 }
@@ -112,14 +112,14 @@ export interface AdminSessionData {
 export interface UserJWTPayload extends BaseJWTPayload {
   // Token identification
   token_type: 'user_access';
-  
+
   // Lightweight permissions structure
   permissions: {
     permissions: string[]; // Structured permissions: "epsx:resource:action"
     permission_group: PermissionGroup;
     expires_at?: number; // For time-limited permissions
   };
-  
+
   // User context (minimal for performance)
   user_context: {
     permission_group: PermissionGroup;
@@ -127,7 +127,7 @@ export interface UserJWTPayload extends BaseJWTPayload {
     firebase_uid?: string;
     platform_preferences: string[];
   };
-  
+
   // Platform information
   platforms: string[];
   primary_platform: string;
@@ -138,16 +138,16 @@ export interface UserProfile {
   email: string;
   name: string;
   role: 'user' | 'premium_user';
-  
+
   // User-specific permissions (structured)
   permissions: string[];
   permission_group: PermissionGroup;
-  
+
   // User metadata (lightweight)
   walletAddress?: string; // Web3 integration
   firebaseUid?: string;
   lastActivityAt?: string;
-  
+
   // Platform context
   platforms: string[];
   primaryPlatform: string;
@@ -302,8 +302,8 @@ export function hasValidSubscription(user: UserProfile): boolean {
 }
 
 export function canAccessFeature(user: UserProfile, feature: string): boolean {
-  return user.permissions.some(p => 
-    p.includes(feature) || 
+  return user.permissions.some(p =>
+    p.includes(feature) ||
     p.includes('*') ||
     p === 'epsx:*:*'
   );
@@ -340,7 +340,7 @@ export function getRequiredSecurityLevel(permission: string): 'standard' | 'elev
 }
 
 export function validateSecurityContext(
-  user: AdminUserProfile, 
+  user: AdminUserProfile,
   requiredLevel: 'standard' | 'elevated' | 'critical'
 ): boolean {
   const levelOrder = { 'standard': 0, 'elevated': 1, 'critical': 2 };

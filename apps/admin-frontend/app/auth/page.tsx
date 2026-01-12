@@ -193,7 +193,7 @@ export default function AuthPage() {
         localStorage.removeItem('epsx.access_token');
         localStorage.removeItem('epsx.user');
         localStorage.removeItem('epsx.refresh_token');
-        localStorage.removeItem('epsx.session_id');
+        localStorage.removeItem('epsx.sid');
         localStorage.removeItem('epsx.auth_time');
         localStorage.removeItem('epsx.expires_at');
         console.log('🗑️ Cleared auth cookies and tokens on disconnect');

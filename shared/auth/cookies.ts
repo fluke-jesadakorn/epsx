@@ -48,7 +48,7 @@ export const COOKIES = {
 
   // Client-side JavaScript accessible cookies
   user: `${prefix}epsx.user`,
-  session_id: `${prefix}epsx.session_id`, // Replaces client_session
+  sid: `${prefix}epsx.sid`, // Replaces client_session
   expires_at: `${prefix}epsx.expires_at`,
   auth_time: `${prefix}epsx.auth_time`,
 
@@ -92,7 +92,7 @@ export const COOKIE_OPTIONS = {
 
     // Client-side data
     user: 2592000,                   // 30 days (user data)
-    session_id: 2592000,             // 30 days
+    sid: 2592000,             // 30 days
     expires_at: 2592000,             // 30 days
     auth_time: 2592000,              // 30 days
     theme: 31536000,                 // 1 year
@@ -303,7 +303,7 @@ export function clearClientSideCookies(): void {
     'affiliate_attribution',
     'affiliate_code',
     'wallet_state',
-    'session_id'
+    'sid'
   ] as const;
 
   clientCookieNames.forEach(cookieKey => {
@@ -330,7 +330,7 @@ export const CLIENT_SIDE_COOKIES = [
   'affiliate_attribution',
   'affiliate_code',
   'wallet_state',
-  'session_id'
+  'sid'
 ] as const;
 
 /**
