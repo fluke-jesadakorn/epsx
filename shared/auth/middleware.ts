@@ -59,9 +59,11 @@ export function createAuthMiddleware(config: AuthMiddlewareConfig) {
         const isAuthenticated = !!token;
 
         // 3. Determine Route Type
-        const isPublicRoute = publicRoutes.some(route =>
-            pathname === route || pathname.startsWith(route)
-        );
+        const isPublicRoute = publicRoutes.some(route => {
+            if (pathname === route) return true;
+            if (route === '/') return false;
+            return pathname.startsWith(`${route}/`);
+        });
 
         // 4. Handle Redirects
 

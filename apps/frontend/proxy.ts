@@ -24,7 +24,7 @@ export const middleware = createAuthMiddleware({
     '/sitemap.xml',
     '/manifest.json'
   ],
-  loginPath: '/auth',
+  loginPath: '/connect-wallet',
   homePath: '/'
 });
 
