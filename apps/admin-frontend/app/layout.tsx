@@ -12,6 +12,14 @@ import { LayoutWrapper } from '@/components/layout/LayoutWrapper';
 import { ClientProviders } from '@/components/providers/ClientProviders';
 import { ErrorBoundary } from '@/components/providers/ErrorBoundary';
 import { ToastProvider } from '@/components/providers/ToastProvider';
+import { Kanit } from 'next/font/google';
+
+const kanit = Kanit({
+  subsets: ['latin'],
+  weight: ['200', '300', '400', '500', '600', '700', '800'],
+  display: 'swap',
+  variable: '--font-kanit',
+});
 
 // Force dynamic rendering to avoid context issues during static prerendering
 export const dynamic = 'force-dynamic';
@@ -38,8 +46,8 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: 'hsl(47 100% 63%)' },
-    { media: '(prefers-color-scheme: dark)', color: 'hsl(220 26% 3%)' }
+    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
+    { media: '(prefers-color-scheme: dark)', color: '#000000' }
   ],
   colorScheme: 'light dark',
   width: 'device-width',
@@ -62,7 +70,7 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className="font-sans antialiased scroll-smooth"
+      className={`${kanit.variable} font-sans antialiased scroll-smooth`}
     >
       <body
         className="min-h-screen bg-background text-foreground"

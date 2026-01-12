@@ -137,14 +137,11 @@ export class SharedWeb3AuthClient {
     if (typeof window === 'undefined') return;
 
     try {
-      // 1. Try cookies first (primary storage)
+      // 1. Clean up legacy storage
       this.cleanupLegacyStorage();
 
-      // Access token is HttpOnly usually, but we sync it to session_id for Server Actions & Refresh
+      // 2. Load access token (Primary: session_id, Fallback: access_token)
       let accessToken = getClientCookie(COOKIES.session_id);
-
-      // 2. Fallback to localStorage (epsx.access_token)
-      // This handles cases where cookies fail (e.g. size limits, browser restrictions)
       if (!accessToken) {
         accessToken = localStorage.getItem('epsx.access_token');
         if (accessToken) {
@@ -156,28 +153,71 @@ export class SharedWeb3AuthClient {
         this.accessToken = accessToken;
       }
 
+      // 3. Load refresh token
       this.refreshToken = getClientCookie(COOKIES.refresh_token) || localStorage.getItem('epsx.refresh_token');
 
-      // Access token is HttpOnly, so we can't access it directly
-      // We'll check client-side cookies for expiry and user data
+      // 4. Load expiry
       const expiry = getClientCookie(COOKIES.expires_at) || localStorage.getItem('epsx.expires_at');
       this.tokenExpiry = expiry ? parseInt(expiry, 10) : null;
 
-      // Restore user object from cookies or localStorage
+      // 5. Load user object
       let storedUser = getClientCookieJSON<UserInfoResponse>(COOKIES.user);
       if (!storedUser) {
+        // Try localStorage
         const storedUserStr = localStorage.getItem('epsx.user');
         if (storedUserStr) {
           try {
             storedUser = JSON.parse(storedUserStr);
+          } catch (e) { }
+        }
+
+        // DEEP PERSIST: If still no user, but we have a valid access token, decode it!
+        // This follows OpenID/JWT standards where the token carries the identity.
+        if (!storedUser && this.accessToken) {
+          try {
+            const payloadPart = this.accessToken.split('.')[1];
+            if (payloadPart) {
+              const payload = JSON.parse(atob(payloadPart));
+              if (payload.sub && payload.sub.startsWith('0x')) {
+                console.log('🔓 Decoded user identity from Access Token');
+                storedUser = {
+                  sub: payload.sub,
+                  wallet_address: payload.sub,
+                  tier_level: payload.package_tier || payload.tier_level || 'basic',
+                  auth_method: 'web3_siwe',
+                  permissions: payload.permissions || [],
+                  access: this.accessToken
+                };
+              }
+            }
           } catch (e) {
-            // Invalid JSON
+            console.warn('Failed to decode access token for user recovery', e);
           }
         }
       }
 
       if (storedUser) {
         this.user = storedUser;
+      }
+
+      console.log('🔍 SharedWeb3AuthClient: Initial storage state loaded', {
+        clientId: this.clientId,
+        hasAccessToken: !!this.accessToken,
+        hasUser: !!this.user,
+        wallet: this.user?.wallet_address?.slice(0, 8),
+        isExpired: this.isExpired(),
+        source: storedUser ? (getClientCookie(COOKIES.user) ? 'cookie' : 'storage/jwt') : 'none'
+      });
+
+      // CRITICAL FIX: If we recovered tokens from localStorage but cookies are missing,
+      // we MUST restore the cookies immediately. Otherwise, Server Components (AuthProvider)
+      // will fail to see the session and redirect back to /auth, causing a loop.
+      if (this.accessToken && !getClientCookie(COOKIES.session_id)) {
+        console.log('🍪 Restoring missing session cookie from localStorage');
+        this.saveTokensToStorage();
+      } else if (this.user && !getClientCookie(COOKIES.user)) {
+        console.log('🍪 Restoring missing user cookie from localStorage');
+        this.saveTokensToStorage();
       }
     } catch (error) {
       console.warn('Failed to load tokens from storage', { error });
@@ -188,40 +228,32 @@ export class SharedWeb3AuthClient {
     if (typeof window === 'undefined') return;
 
     try {
-      console.log('🍪 saveTokensToStorage called:', {
-        hasTokenExpiry: !!this.tokenExpiry,
+      console.log('🍪 SharedWeb3AuthClient: Saving tokens to storage', {
+        clientId: this.clientId,
         hasAccessToken: !!this.accessToken,
-        accessTokenLength: this.accessToken?.length || 0,
-        hasRefreshToken: !!this.refreshToken,
         hasUser: !!this.user,
-        cookieClientSession: COOKIES.session_id,
+        hasExpiry: !!this.tokenExpiry,
       });
 
-      // Access token is set by server as HttpOnly cookie
-      // Save expiry and user data to client-side cookies AND localStorage
-
+      // Update expiry
       if (this.tokenExpiry) {
         setClientCookie(COOKIES.expires_at, this.tokenExpiry.toString());
         localStorage.setItem('epsx.expires_at', this.tokenExpiry.toString());
-        console.log('🍪 Set expires_at cookie and localStorage');
       }
 
       // Sync access token to session_id for Server Components and persistence
       if (this.accessToken) {
-        console.log('🍪 Setting session_id cookie with token of length:', this.accessToken.length);
         setClientCookie(COOKIES.session_id, this.accessToken);
         localStorage.setItem('epsx.access_token', this.accessToken);
-        console.log('🍪 session_id cookie and localStorage SET');
-      } else {
-        console.warn('⚠️ No access token to save to session_id!');
       }
 
+      // Update refresh token
       if (this.refreshToken) {
         setClientCookie(COOKIES.refresh_token, this.refreshToken);
         localStorage.setItem('epsx.refresh_token', this.refreshToken);
       }
 
-      // Save user object to cookies and localStorage
+      // Save user object and auth time
       if (this.user) {
         setClientCookieJSON(COOKIES.user, this.user);
         localStorage.setItem('epsx.user', JSON.stringify(this.user));
@@ -229,8 +261,6 @@ export class SharedWeb3AuthClient {
         const now = Date.now().toString();
         setClientCookie(COOKIES.auth_time, now);
         localStorage.setItem('epsx.auth_time', now);
-
-        console.log('🍪 Set user and auth_time cookies and localStorage');
       }
     } catch (error) {
       console.warn('Failed to save tokens to storage', { error });
@@ -651,7 +681,9 @@ export class SharedWeb3AuthClient {
       return false;
     } catch (error) {
       console.error('Token refresh request failed', error);
-      this.clearTokens();
+      // Do NOT clear tokens on network error (might be temporary)
+      // Only clear if we know for sure it's invalid (handled above in !response.ok)
+      // this.clearTokens();
       return false;
     }
   }
@@ -711,8 +743,9 @@ export class SharedWeb3AuthClient {
         return this.makeAuthenticatedRequest(endpoint, options);
       }
 
-      // If refresh failed, clear session and require re-authentication
-      this.clearTokens();
+      // If refresh failed, do NOT clear session immediately if it's a background request (avoid logout loop)
+      // Only clear if we really want to enforce logout. Current logic was clearing cookies aggressively.
+      console.warn('Authentication failed (401) and refresh failed. Request:', endpoint);
 
       return {
         success: false,
@@ -765,61 +798,72 @@ export class SharedWeb3AuthClient {
 
       const user = await this.fetchCurrentUser();
       this.user = user;
+
+      // Sync user to storage
+      if (user) {
+        setClientCookieJSON(COOKIES.user, user);
+        localStorage.setItem('epsx.user', JSON.stringify(user));
+      }
+
       this.notifyListeners();
       return user;
     } catch (error) {
-      this.user = null;
-      this.notifyListeners();
+      console.warn('Failed to load current use', error);
+      // Don't auto-logout on network error, but do if 401
+      if (error instanceof Error && error.message.includes('401')) {
+        this.clearTokens();
+      }
       return null;
     }
   }
 
   private async fetchCurrentUser(): Promise<UserInfoResponse | null> {
-    // Use session verification endpoint to get current user info
-    const response = await this.makeAuthenticatedRequest<{
-      success: boolean;
-      authenticated: boolean;
-      wallet_address: string;
-      user_id: string;
-      permissions: string[];
-      is_admin: boolean;
-      expires: string;
-    }>('/api/auth/web3/session', {
-      method: 'POST',
-      body: JSON.stringify({ admin_context: false }),
-    });
+    // If we already have the user object in memory, return it (optimistic)
+    if (this.user) return this.user;
 
-    if (response.success && response.data?.authenticated) {
-      // Convert session verification response to UserInfoResponse format
-      return {
-        sub: response.data.wallet_address,
-        wallet_address: response.data.wallet_address,
-        auth_method: 'web3_siwe',
-        tier_level: 'basic', // Default tier level
-        permissions: response.data.permissions || [],
-      };
+    // Otherwise try to decode from token first (fastest)
+    if (this.accessToken) {
+      try {
+        const payloadPart = this.accessToken.split('.')[1];
+        if (payloadPart) {
+          const payload = JSON.parse(atob(payloadPart));
+          if (payload.sub) {
+            return {
+              sub: payload.sub,
+              wallet_address: payload.sub, // JWT 'sub' is wallet address
+              tier_level: payload.tier_level || 'free',
+              auth_method: 'web3_siwe',
+              permissions: payload.permissions || [],
+              access: this.accessToken
+            };
+          }
+        }
+      } catch (e) {
+        // Ignore decode errors
+      }
     }
 
+    // Fallback: This would be where you call /api/auth/me if needed
+    // For now we rely on the token payload as the source of truth
     return null;
   }
 
   async logout(): Promise<void> {
-    try {
-      // Web3-first: No server-side token revocation needed
-      console.log('🚪 Web3 logout - clearing local session only');
-    } catch (error) {
-      // Continue with local cleanup even if server revocation fails
-    }
-
-    // Clear local state
+    const wasAuthenticated = !!this.accessToken;
     this.clearTokens();
-    this.user = null;
-    this.notifyListeners();
 
-    // Trigger wallet disconnect event
-    if (typeof window !== 'undefined') {
-      const event = new CustomEvent('epsx:disconnect-wallet');
-      window.dispatchEvent(event);
+    if (wasAuthenticated) {
+      try {
+        // Attempt backend logout (best effort)
+        await fetch(`${this.backendUrl}/api/auth/session/logout`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+      } catch (e) {
+        // Ignore network errors during logout
+      }
     }
   }
 
@@ -832,31 +876,47 @@ export class SharedWeb3AuthClient {
    * Backend makes all authorization decisions
    */
 
+  getClientId(): string {
+    return this.clientId;
+  }
+
+  getBackendUrl(): string {
+    return this.backendUrl;
+  }
+
   getWalletAddress(): string | null {
     return this.user?.wallet_address || null;
+  }
+
+  getUserTier(): string {
+    return this.user?.tier_level || 'free';
   }
 
   getUserPermissions(): string[] {
     return this.user?.permissions || [];
   }
 
-  // Simple display helper - NOT for authorization
   hasPermissionForDisplay(permission: string): boolean {
-    return this.user?.permissions.includes(permission) || false;
+    if (!this.user) return false;
+
+    // Check specific permission
+    if (this.user.permissions.includes(permission)) return true;
+
+    // Check wildcards
+    if (this.user.permissions.includes('admin:*:*')) return true;
+
+    const parts = permission.split(':');
+    if (parts.length >= 2) {
+      const platform = parts[0];
+      const resource = parts[1];
+
+      if (this.user.permissions.includes(`${platform}:*:*`)) return true;
+      if (this.user.permissions.includes(`${platform}:${resource}:*`)) return true;
+    }
+
+    return false;
   }
 
-  // Public getters for debugging
-  getBackendUrl(): string {
-    return this.backendUrl;
-  }
-
-  getClientId(): string {
-    return this.clientId;
-  }
-
-  getUserTier(): string {
-    return this.user?.tier_level || 'free';
-  }
 
   // ============================================================================
   // OPENID CONNECT DISCOVERY (Compatibility)

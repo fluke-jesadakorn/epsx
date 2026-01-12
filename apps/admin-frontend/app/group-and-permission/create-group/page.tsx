@@ -11,12 +11,6 @@ import { PermissionTransferList } from '@/components/groups/PermissionTransferLi
 import { Label } from '@/components/ui/label'
 import { groupMgmt, PermissionDefinitionDto } from '@/lib/api/group-management-client'
 import {
-    PancakeButton as Button,
-    PancakeCard as Card,
-    PancakeCardContent as CardContent,
-    PancakeCardDescription as CardDescription,
-    PancakeCardHeader as CardHeader,
-    PancakeCardTitle as CardTitle,
     Input,
     Textarea
 } from '@/shared/components'
@@ -116,11 +110,11 @@ export default function CreateGroupPage() {
     }
 
     return (
-        <div className="min-h-screen bg-[#0a0a0c] text-white p-4 sm:p-8 relative overflow-hidden">
+        <div className="min-h-screen p-4 sm:p-8 relative overflow-hidden">
             {/* Ambient Background Effects */}
             <div className="absolute top-0 left-0 w-full h-full pointer-events-none">
-                <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-600/10 rounded-full blur-[120px]" />
-                <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-purple-600/10 rounded-full blur-[120px]" />
+                <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/10 rounded-full blur-[120px]" />
+                <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-secondary/10 rounded-full blur-[120px]" />
             </div>
 
             <div className="relative max-w-4xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -129,20 +123,20 @@ export default function CreateGroupPage() {
                     <div className="flex items-center gap-4">
                         <Link
                             href="/group-and-permission"
-                            className="group p-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all duration-300 backdrop-blur-md"
+                            className="group p-2.5 rounded-xl bg-card hover:bg-muted border border-border/50 transition-all duration-300 backdrop-blur-md"
                         >
-                            <ArrowLeft className="h-5 w-5 text-gray-400 group-hover:text-white group-hover:-translate-x-0.5 transition-all" />
+                            <ArrowLeft className="h-5 w-5 text-muted-foreground group-hover:text-primary group-hover:-translate-x-0.5 transition-all" />
                         </Link>
                         <div>
                             <div className="flex items-center gap-2 mb-1">
-                                <div className="p-1.5 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                                <div className="p-1.5 rounded-lg bg-primary/10 text-primary border border-primary/20">
                                     <Shield className="w-5 h-5" />
                                 </div>
-                                <h1 className="text-2xl font-bold bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">
+                                <h1 className="text-2xl font-bold bg-gradient-to-r from-primary via-secondary to-primary bg-clip-text text-transparent">
                                     Create Permission Group
                                 </h1>
                             </div>
-                            <p className="text-sm text-gray-500 font-medium">
+                            <p className="text-sm text-muted-foreground font-medium">
                                 Design custom access rules for your platform users
                             </p>
                         </div>
@@ -150,22 +144,22 @@ export default function CreateGroupPage() {
                 </div>
 
                 {/* Main Form Card */}
-                <Card className="border-white/10 bg-white/[0.02] backdrop-blur-xl shadow-2xl rounded-3xl overflow-hidden">
-                    <CardHeader className="border-b border-white/5 pb-6">
-                        <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                <div className="bg-card/50 backdrop-blur-xl border border-border/50 shadow-2xl rounded-3xl overflow-hidden">
+                    <div className="border-b border-border/50 p-6 sm:px-8">
+                        <h2 className="text-lg font-semibold flex items-center gap-2 text-foreground">
                             Group Configuration
-                        </CardTitle>
-                        <CardDescription className="text-gray-500">
+                        </h2>
+                        <p className="text-sm text-muted-foreground mt-1">
                             Provide the details and permissions for this new security group.
-                        </CardDescription>
-                    </CardHeader>
+                        </p>
+                    </div>
 
-                    <CardContent className="p-6 sm:p-8">
+                    <div className="p-6 sm:p-8">
                         <form onSubmit={handleSubmit} className="space-y-6">
                             {/* Group Name & Description */}
                             <div className="grid grid-cols-1 gap-6">
                                 <div className="space-y-2.5">
-                                    <Label htmlFor="name" className="text-gray-400 flex items-center gap-2 text-xs uppercase tracking-wider font-bold">
+                                    <Label htmlFor="name" className="text-muted-foreground flex items-center gap-2 text-xs uppercase tracking-wider font-bold">
                                         <Type className="w-3.5 h-3.5" /> Group Name
                                     </Label>
                                     <Input
@@ -173,13 +167,13 @@ export default function CreateGroupPage() {
                                         value={formData.name}
                                         onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                                         placeholder="e.g., Alpha Traders Elite"
-                                        className="bg-white/5 border-white/10 focus:border-blue-500/50 h-12 rounded-xl"
+                                        className="bg-muted/30 border-border focus:ring-2 focus:ring-primary h-12 rounded-xl"
                                         required
                                     />
                                 </div>
 
                                 <div className="space-y-2.5">
-                                    <Label htmlFor="description" className="text-gray-400 flex items-center gap-2 text-xs uppercase tracking-wider font-bold">
+                                    <Label htmlFor="description" className="text-muted-foreground flex items-center gap-2 text-xs uppercase tracking-wider font-bold">
                                         <FileText className="w-3.5 h-3.5" /> Description
                                     </Label>
                                     <Textarea
@@ -187,14 +181,14 @@ export default function CreateGroupPage() {
                                         value={formData.description}
                                         onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
                                         placeholder="Briefly describe the purpose of this group..."
-                                        className="bg-white/5 border-white/10 focus:border-blue-500/50 min-h-[100px] rounded-xl resize-none"
+                                        className="bg-muted/30 border-border focus:ring-2 focus:ring-primary min-h-[100px] rounded-xl resize-none"
                                     />
                                 </div>
                             </div>
 
                             {/* Permissions Selector */}
                             <div className="space-y-4 pt-2">
-                                <Label className="text-gray-400 flex items-center gap-2 text-xs uppercase tracking-wider font-bold px-1">
+                                <Label className="text-muted-foreground flex items-center gap-2 text-xs uppercase tracking-wider font-bold px-1">
                                     <Shield className="w-3.5 h-3.5" /> Access Permissions
                                 </Label>
                                 <PermissionTransferList
@@ -211,7 +205,7 @@ export default function CreateGroupPage() {
                             {/* Additional Settings Grid */}
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-2">
                                 <div className="space-y-2.5">
-                                    <Label htmlFor="expiry" className="text-gray-400 flex items-center gap-2 text-xs uppercase tracking-wider font-bold">
+                                    <Label htmlFor="expiry" className="text-muted-foreground flex items-center gap-2 text-xs uppercase tracking-wider font-bold">
                                         <Calendar className="w-3.5 h-3.5" /> Default Expiry (Days)
                                     </Label>
                                     <Input
@@ -220,11 +214,11 @@ export default function CreateGroupPage() {
                                         value={formData.default_expiry_days}
                                         onChange={(e) => setFormData(prev => ({ ...prev, default_expiry_days: e.target.value }))}
                                         placeholder="e.g., 30"
-                                        className="bg-white/5 border-white/10 focus:border-blue-500/50 h-12 rounded-xl"
+                                        className="bg-muted/30 border-border focus:ring-2 focus:ring-primary h-12 rounded-xl"
                                     />
                                 </div>
                                 <div className="space-y-2.5">
-                                    <Label htmlFor="priority" className="text-gray-400 flex items-center gap-2 text-xs uppercase tracking-wider font-bold">
+                                    <Label htmlFor="priority" className="text-muted-foreground flex items-center gap-2 text-xs uppercase tracking-wider font-bold">
                                         <Hash className="w-3.5 h-3.5" /> Priority Level
                                     </Label>
                                     <Input
@@ -233,26 +227,25 @@ export default function CreateGroupPage() {
                                         value={formData.priority_level}
                                         onChange={(e) => setFormData(prev => ({ ...prev, priority_level: parseInt(e.target.value) || 0 }))}
                                         placeholder="0"
-                                        className="bg-white/5 border-white/10 focus:border-blue-500/50 h-12 rounded-xl"
+                                        className="bg-muted/30 border-border focus:ring-2 focus:ring-primary h-12 rounded-xl"
                                     />
                                 </div>
                             </div>
 
                             {/* Action Buttons */}
-                            <div className="flex flex-col sm:flex-row gap-4 pt-6 border-t border-white/5">
+                            <div className="flex flex-col sm:flex-row gap-4 pt-6 border-t border-border/50">
                                 <Link href="/group-and-permission" className="flex-1">
-                                    <Button
+                                    <button
                                         type="button"
-                                        variant="outline"
-                                        className="w-full h-12 rounded-xl border-white/10 hover:bg-white/5 text-gray-400 hover:text-white transition-all"
+                                        className="w-full h-12 rounded-xl border border-border text-muted-foreground font-semibold hover:bg-muted transition-colors"
                                     >
                                         Cancel
-                                    </Button>
+                                    </button>
                                 </Link>
-                                <Button
+                                <button
                                     type="submit"
                                     disabled={createGroupMutation.isPending}
-                                    className="flex-1 h-12 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold shadow-lg shadow-blue-900/20 group relative overflow-hidden transition-all duration-300"
+                                    className="flex-1 h-12 rounded-xl bg-primary text-primary-foreground font-bold shadow-lg shadow-primary/20 group relative overflow-hidden transition-all duration-300 hover:opacity-90 disabled:opacity-50"
                                 >
                                     {createGroupMutation.isPending ? (
                                         <div className="flex items-center justify-center gap-2">
@@ -265,11 +258,11 @@ export default function CreateGroupPage() {
                                             <span>Initialize Group</span>
                                         </div>
                                     )}
-                                </Button>
+                                </button>
                             </div>
                         </form>
-                    </CardContent>
-                </Card>
+                    </div>
+                </div>
             </div>
         </div>
     )

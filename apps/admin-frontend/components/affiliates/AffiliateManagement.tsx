@@ -4,10 +4,8 @@ import {
   Clock,
   DollarSign,
   Handshake,
-  LineChart,
   Target,
-  Users,
-  Wallet
+  Users
 } from 'lucide-react'
 import { useState } from 'react'
 
@@ -74,38 +72,38 @@ export function AffiliateManagement({ affiliates, currentUser }: AffiliateManage
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'active': return 'bg-green-100 dark:bg-green-900/20 text-green-600 dark:text-green-400'
-      case 'pending': return 'bg-yellow-100 dark:bg-yellow-900/20 text-yellow-600 dark:text-yellow-400'
-      case 'inactive': return 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
-      case 'suspended': return 'bg-red-100 dark:bg-red-900/20 text-red-600 dark:text-red-400'
-      default: return 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
+      case 'active': return 'bg-success/10 text-success'
+      case 'pending': return 'bg-warning/10 text-warning'
+      case 'inactive': return 'bg-muted text-muted-foreground border border-border/50'
+      case 'suspended': return 'bg-destructive/10 text-destructive'
+      default: return 'bg-muted text-muted-foreground'
     }
   }
 
   const getTierColor = (tier: string) => {
     switch (tier) {
-      case 'Elite': return 'bg-gradient-to-r from-purple-400 to-pink-500 text-white'
-      case 'Premium': return 'bg-gradient-to-r from-blue-400 to-indigo-500 text-white'
-      case 'Standard': return 'bg-gradient-to-r from-gray-400 to-gray-500 text-white'
-      default: return 'bg-gray-400 text-white'
+      case 'Elite': return 'bg-primary text-primary-foreground shadow-sm'
+      case 'Premium': return 'bg-secondary text-secondary-foreground shadow-sm'
+      case 'Standard': return 'bg-muted text-muted-foreground border border-border/50'
+      default: return 'bg-muted text-muted-foreground'
     }
   }
 
   const getPerformanceRating = (conversionRate: number) => {
-    if (conversionRate >= 20) { return { rating: 'Excellent', color: 'text-green-600 dark:text-green-400' } }
-    if (conversionRate >= 15) { return { rating: 'Great', color: 'text-blue-600 dark:text-blue-400' } }
-    if (conversionRate >= 10) { return { rating: 'Good', color: 'text-yellow-600 dark:text-yellow-400' } }
-    if (conversionRate > 0) { return { rating: 'Average', color: 'text-orange-600 dark:text-orange-400' } }
-    return { rating: 'New', color: 'text-gray-600 dark:text-gray-400' }
+    if (conversionRate >= 20) { return { rating: 'Excellent', color: 'text-success' } }
+    if (conversionRate >= 15) { return { rating: 'Great', color: 'text-primary' } }
+    if (conversionRate >= 10) { return { rating: 'Good', color: 'text-warning' } }
+    if (conversionRate > 0) { return { rating: 'Average', color: 'text-secondary' } }
+    return { rating: 'New', color: 'text-muted-foreground' }
   }
 
   return (
     <div className="space-y-6 sm:space-y-8">
       {/* Background Decorations */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-20 left-20 w-32 h-32 bg-gradient-to-r from-yellow-400/20 to-orange-500/20 rounded-full blur-xl"></div>
-        <div className="absolute top-40 right-32 w-24 h-24 bg-gradient-to-r from-pink-400/20 to-purple-500/20 rounded-full blur-lg"></div>
-        <div className="absolute bottom-32 left-1/3 w-28 h-28 bg-gradient-to-r from-orange-400/15 to-yellow-500/15 rounded-full blur-xl"></div>
+        <div className="absolute top-20 left-20 w-32 h-32 bg-primary/10 rounded-full blur-xl animate-pulse"></div>
+        <div className="absolute top-40 right-32 w-24 h-24 bg-secondary/10 rounded-full blur-lg animate-pulse delay-700"></div>
+        <div className="absolute bottom-32 left-1/3 w-28 h-28 bg-primary/5 rounded-full blur-xl animate-pulse delay-1000"></div>
       </div>
 
       <div className="relative max-w-7xl mx-auto">
@@ -113,30 +111,30 @@ export function AffiliateManagement({ affiliates, currentUser }: AffiliateManage
         <div className="text-center mb-8 sm:mb-12">
           <div className="relative inline-block">
             <h1 className="flex items-center justify-center gap-3 text-3xl sm:text-4xl lg:text-5xl font-bold mb-4">
-              <span className="text-orange-500">
+              <span className="text-primary">
                 <Handshake className="w-10 h-10 sm:w-12 sm:h-12" />
               </span>
-              <span className="bg-gradient-to-r from-yellow-600 via-orange-600 via-pink-600 to-purple-600 bg-clip-text text-transparent">
+              <span className="bg-gradient-to-r from-primary via-secondary to-primary bg-clip-text text-transparent">
                 Affiliate Partners
               </span>
             </h1>
-            <div className="absolute -top-2 -right-2 w-4 h-4 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full"></div>
+            <div className="absolute -top-2 -right-2 w-4 h-4 bg-primary rounded-full"></div>
           </div>
-          <p className="text-base sm:text-lg text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
+          <p className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto">
             Manage affiliate partners, track commissions, and optimize your referral program
           </p>
         </div>
 
         {/* Action Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-8 sm:mb-12">
-          <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-r from-indigo-400/20 via-violet-500/20 to-purple-500/20 p-0.5">
-            <div className="relative bg-gradient-to-br from-indigo-400 via-violet-500 to-purple-500 text-white cursor-pointer rounded-2xl sm:rounded-3xl">
+          <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-secondary/10 p-0.5">
+            <div className="relative bg-secondary text-secondary-foreground cursor-pointer rounded-2xl sm:rounded-3xl hover:opacity-90 transition-opacity">
               <div className="p-6 sm:p-8">
                 <div className="bg-white/20 rounded-2xl w-12 h-12 flex items-center justify-center mb-4 sm:mb-6">
-                  <Users className="w-7 h-7" />
+                  <span className="text-2xl">👥</span>
                 </div>
                 <h3 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4">Recruit Partners</h3>
-                <p className="text-white/80 mb-4 sm:mb-6 text-sm sm:text-base">Invite new affiliates and grow your partner network</p>
+                <p className="text-secondary-foreground/80 mb-4 sm:mb-6 text-sm sm:text-base">Invite new affiliates and grow your partner network</p>
                 <div className="bg-white/20 rounded-2xl px-4 sm:px-6 py-2 sm:py-3 text-center font-semibold text-sm sm:text-base min-h-[44px] flex items-center justify-center">
                   Invite Affiliates
                 </div>
@@ -144,14 +142,14 @@ export function AffiliateManagement({ affiliates, currentUser }: AffiliateManage
             </div>
           </div>
 
-          <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-r from-green-400/20 via-emerald-500/20 to-teal-500/20 p-0.5">
-            <div className="relative bg-gradient-to-br from-green-400 via-emerald-500 to-teal-500 text-white cursor-pointer rounded-2xl sm:rounded-3xl">
+          <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-success/10 p-0.5">
+            <div className="relative bg-success text-success-foreground cursor-pointer rounded-2xl sm:rounded-3xl hover:opacity-90 transition-opacity">
               <div className="p-6 sm:p-8">
                 <div className="bg-white/20 rounded-2xl w-12 h-12 flex items-center justify-center mb-4 sm:mb-6">
-                  <Wallet className="w-7 h-7" />
+                  <span className="text-2xl">💰</span>
                 </div>
                 <h3 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4">Process Payments</h3>
-                <p className="text-white/80 mb-4 sm:mb-6 text-sm sm:text-base">Pay pending commissions to affiliate partners</p>
+                <p className="text-success-foreground/80 mb-4 sm:mb-6 text-sm sm:text-base">Pay pending commissions to affiliate partners</p>
                 <div className="bg-white/20 rounded-2xl px-4 sm:px-6 py-2 sm:py-3 text-center font-semibold text-sm sm:text-base min-h-[44px] flex items-center justify-center">
                   Pay Commissions
                 </div>
@@ -159,14 +157,14 @@ export function AffiliateManagement({ affiliates, currentUser }: AffiliateManage
             </div>
           </div>
 
-          <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-r from-orange-400/20 via-red-500/20 to-pink-500/20 p-0.5 sm:col-span-2 lg:col-span-1">
-            <div className="relative bg-gradient-to-br from-orange-400 via-red-500 to-pink-500 text-white cursor-pointer rounded-2xl sm:rounded-3xl">
+          <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-primary/10 p-0.5 sm:col-span-2 lg:col-span-1">
+            <div className="relative bg-primary text-primary-foreground cursor-pointer rounded-2xl sm:rounded-3xl hover:opacity-90 transition-opacity">
               <div className="p-6 sm:p-8">
                 <div className="bg-white/20 rounded-2xl w-12 h-12 flex items-center justify-center mb-4 sm:mb-6">
-                  <LineChart className="w-7 h-7" />
+                  <span className="text-2xl">📈</span>
                 </div>
                 <h3 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4">Performance</h3>
-                <p className="text-white/80 mb-4 sm:mb-6 text-sm sm:text-base">View detailed affiliate performance analytics</p>
+                <p className="text-primary-foreground/80 mb-4 sm:mb-6 text-sm sm:text-base">View detailed affiliate performance analytics</p>
                 <div className="bg-white/20 rounded-2xl px-4 sm:px-6 py-2 sm:py-3 text-center font-semibold text-sm sm:text-base min-h-[44px] flex items-center justify-center">
                   View Analytics
                 </div>
@@ -177,105 +175,105 @@ export function AffiliateManagement({ affiliates, currentUser }: AffiliateManage
 
         {/* Stats Grid */}
         <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 mb-6 sm:mb-8">
-          <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl border-2 border-indigo-300/50 dark:border-indigo-700/50">
+          <div className="bg-card/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-sm border border-primary/20">
             <div className="flex items-center justify-between mb-3 sm:mb-4">
-              <div className="p-2 bg-indigo-100 dark:bg-indigo-900/30 rounded-xl text-indigo-600 dark:text-indigo-400">
+              <div className="p-2 bg-primary/10 rounded-xl text-primary">
                 <Users className="w-6 h-6" />
               </div>
-              <span className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">Total</span>
+              <span className="text-xs sm:text-sm font-medium text-muted-foreground">Total</span>
             </div>
             <div className="space-y-1">
-              <div className="text-2xl sm:text-3xl font-bold text-indigo-600 dark:text-indigo-400">{affiliates.length}</div>
-              <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-300">Partners</div>
-              <div className="text-xs text-gray-500 dark:text-gray-400">{activeAffiliates.length} active</div>
+              <div className="text-2xl sm:text-3xl font-bold text-primary">{affiliates.length}</div>
+              <div className="text-xs sm:text-sm text-muted-foreground">Partners</div>
+              <div className="text-xs text-muted-foreground/60">{activeAffiliates.length} active</div>
             </div>
           </div>
 
-          <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl border-2 border-green-300/50 dark:border-green-700/50">
+          <div className="bg-card/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-sm border border-success/20">
             <div className="flex items-center justify-between mb-3 sm:mb-4">
-              <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-xl text-green-600 dark:text-green-400">
+              <div className="p-2 bg-success/10 rounded-xl text-success">
                 <DollarSign className="w-6 h-6" />
               </div>
-              <span className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">Sales</span>
+              <span className="text-xs sm:text-sm font-medium text-muted-foreground">Sales</span>
             </div>
             <div className="space-y-1">
-              <div className="text-xl sm:text-3xl font-bold text-green-600 dark:text-green-400 truncate">
+              <div className="text-xl sm:text-3xl font-bold text-success truncate">
                 {totalSales > 999999 ? `$${Math.round(totalSales / 1000000)}M` : `$${Math.round(totalSales / 1000)}K`}
               </div>
-              <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-300">Revenue</div>
-              <div className="text-xs text-gray-500 dark:text-gray-400">From referrals</div>
+              <div className="text-xs sm:text-sm text-muted-foreground">Revenue</div>
+              <div className="text-xs text-muted-foreground/60">From referrals</div>
             </div>
           </div>
 
-          <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl border-2 border-purple-300/50 dark:border-purple-700/50">
+          <div className="bg-card/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-sm border border-secondary/20">
             <div className="flex items-center justify-between mb-3 sm:mb-4">
-              <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-xl text-purple-600 dark:text-purple-400">
+              <div className="p-2 bg-secondary/10 rounded-xl text-secondary">
                 <Target className="w-6 h-6" />
               </div>
-              <span className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">Earned</span>
+              <span className="text-xs sm:text-sm font-medium text-muted-foreground">Earned</span>
             </div>
             <div className="space-y-1">
-              <div className="text-xl sm:text-3xl font-bold text-purple-600 dark:text-purple-400 truncate">
+              <div className="text-xl sm:text-3xl font-bold text-secondary truncate">
                 {totalCommissions > 999999 ? `$${Math.round(totalCommissions / 1000000)}M` : `$${Math.round(totalCommissions / 1000)}K`}
               </div>
-              <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-300">Commissions</div>
-              <div className="text-xs text-gray-500 dark:text-gray-400">All time</div>
+              <div className="text-xs sm:text-sm text-muted-foreground">Commissions</div>
+              <div className="text-xs text-muted-foreground/60">All time</div>
             </div>
           </div>
 
-          <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl border-2 border-orange-300/50 dark:border-orange-700/50">
+          <div className="bg-card/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-sm border border-warning/20">
             <div className="flex items-center justify-between mb-3 sm:mb-4">
-              <div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-xl text-orange-600 dark:text-orange-400">
+              <div className="p-2 bg-warning/10 rounded-xl text-warning">
                 <Clock className="w-6 h-6" />
               </div>
-              <span className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">Pending</span>
+              <span className="text-xs sm:text-sm font-medium text-muted-foreground">Pending</span>
             </div>
             <div className="space-y-1">
-              <div className="text-xl sm:text-3xl font-bold text-orange-600 dark:text-orange-400 truncate">
+              <div className="text-xl sm:text-3xl font-bold text-warning truncate">
                 {totalPendingCommissions > 999999 ? `$${Math.round(totalPendingCommissions / 1000000)}M` : `$${Math.round(totalPendingCommissions / 1000)}K`}
               </div>
-              <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-300">To pay</div>
-              <div className="text-xs text-gray-500 dark:text-gray-400">Outstanding</div>
+              <div className="text-xs sm:text-sm text-muted-foreground">To pay</div>
+              <div className="text-xs text-muted-foreground/60">Outstanding</div>
             </div>
           </div>
         </div>
 
         {/* Filter Tabs */}
-        <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-r from-purple-400/20 via-blue-400/20 to-green-400/20 p-0.5 mb-6">
-          <div className="relative bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-2xl sm:rounded-3xl p-4">
+        <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-primary/10 p-0.5 mb-6">
+          <div className="relative bg-card/95 backdrop-blur-xl rounded-2xl sm:rounded-3xl p-4">
             <div className="flex flex-col sm:flex-row gap-2 sm:gap-4">
               <button
                 onClick={() => setFilterStatus('all')}
-                className={`px-4 sm:px-6 py-3 rounded-xl font-semibold text-sm sm:text-base min-h-[44px] ${filterStatus === 'all'
-                    ? 'bg-gradient-to-r from-indigo-400 to-violet-500 text-white shadow-lg'
-                    : 'bg-white/80 dark:bg-gray-800/80 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                className={`px-4 sm:px-6 py-3 rounded-xl font-semibold text-sm sm:text-base min-h-[44px] transition-all ${filterStatus === 'all'
+                  ? 'bg-primary text-primary-foreground shadow-sm'
+                  : 'bg-muted/50 text-muted-foreground hover:bg-muted'
                   }`}
               >
                 All Partners ({affiliates.length})
               </button>
               <button
                 onClick={() => setFilterStatus('active')}
-                className={`px-4 sm:px-6 py-3 rounded-xl font-semibold text-sm sm:text-base min-h-[44px] ${filterStatus === 'active'
-                    ? 'bg-gradient-to-r from-green-400 to-emerald-500 text-white shadow-lg'
-                    : 'bg-white/80 dark:bg-gray-800/80 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                className={`px-4 sm:px-6 py-3 rounded-xl font-semibold text-sm sm:text-base min-h-[44px] transition-all ${filterStatus === 'active'
+                  ? 'bg-success text-success-foreground shadow-sm'
+                  : 'bg-muted/50 text-muted-foreground hover:bg-muted'
                   }`}
               >
                 Active ({activeAffiliates.length})
               </button>
               <button
                 onClick={() => setFilterStatus('pending')}
-                className={`px-4 sm:px-6 py-3 rounded-xl font-semibold text-sm sm:text-base min-h-[44px] ${filterStatus === 'pending'
-                    ? 'bg-gradient-to-r from-yellow-400 to-orange-500 text-white shadow-lg'
-                    : 'bg-white/80 dark:bg-gray-800/80 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                className={`px-4 sm:px-6 py-3 rounded-xl font-semibold text-sm sm:text-base min-h-[44px] transition-all ${filterStatus === 'pending'
+                  ? 'bg-warning text-warning-foreground shadow-sm'
+                  : 'bg-muted/50 text-muted-foreground hover:bg-muted'
                   }`}
               >
                 Pending ({pendingAffiliates.length})
               </button>
               <button
                 onClick={() => setFilterStatus('inactive')}
-                className={`px-4 sm:px-6 py-3 rounded-xl font-semibold text-sm sm:text-base min-h-[44px] ${filterStatus === 'inactive'
-                    ? 'bg-gradient-to-r from-gray-400 to-gray-500 text-white shadow-lg'
-                    : 'bg-white/80 dark:bg-gray-800/80 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                className={`px-4 sm:px-6 py-3 rounded-xl font-semibold text-sm sm:text-base min-h-[44px] transition-all ${filterStatus === 'inactive'
+                  ? 'bg-muted text-foreground border border-border/50'
+                  : 'bg-muted/50 text-muted-foreground hover:bg-muted'
                   }`}
               >
                 Inactive ({affiliates.filter(a => a.status === 'inactive').length})
@@ -285,13 +283,13 @@ export function AffiliateManagement({ affiliates, currentUser }: AffiliateManage
         </div>
 
         {/* Affiliates List */}
-        <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-r from-indigo-400/20 via-violet-400/20 to-purple-400/20 p-0.5">
-          <div className="relative bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-2xl sm:rounded-3xl p-4 sm:p-6 lg:p-8">
+        <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-border/50 p-0.5">
+          <div className="relative bg-card/95 backdrop-blur-xl rounded-2xl sm:rounded-3xl p-4 sm:p-6 lg:p-8">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-3">
-              <h2 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-indigo-600 via-violet-600 to-purple-600 bg-clip-text text-transparent">
+              <h2 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
                 Affiliate Partners
               </h2>
-              <div className="text-sm text-gray-500 dark:text-gray-400">
+              <div className="text-sm text-muted-foreground">
                 {filteredAffiliates.length} partners
               </div>
             </div>
@@ -303,41 +301,41 @@ export function AffiliateManagement({ affiliates, currentUser }: AffiliateManage
                 return (
                   <div
                     key={affiliate.id}
-                    className="p-4 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-800 rounded-2xl cursor-pointer"
+                    className="p-4 bg-muted/30 rounded-2xl cursor-pointer border border-border/50"
                     onClick={() => setSelectedAffiliate(affiliate)}
                   >
                     <div className="flex items-center gap-3 mb-3">
-                      <div className="h-12 w-12 bg-gradient-to-br from-indigo-400 to-violet-500 rounded-2xl flex items-center justify-center text-white">
+                      <div className="h-12 w-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary">
                         <Handshake className="w-6 h-6" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1 flex-wrap">
-                          <h3 className="text-lg font-bold text-gray-900 dark:text-white truncate">{affiliate.name}</h3>
+                          <h3 className="text-lg font-bold text-foreground truncate">{affiliate.name}</h3>
                           <div className={`text-xs px-2 py-1 rounded-full font-semibold ${getStatusColor(affiliate.status)}`}>
                             {affiliate.status.toUpperCase()}
                           </div>
                         </div>
-                        <p className="text-sm text-gray-600 dark:text-gray-400 truncate">{affiliate.email}</p>
+                        <p className="text-sm text-muted-foreground truncate">{affiliate.email}</p>
                       </div>
                     </div>
 
                     <div className="grid grid-cols-2 gap-3 mb-3">
-                      <div className="bg-white/50 dark:bg-gray-600/30 rounded-xl p-3">
-                        <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Sales</div>
-                        <div className="text-lg font-bold text-green-600 dark:text-green-400">{formatCurrency(affiliate.totalSales)}</div>
+                      <div className="bg-card/50 rounded-xl p-3 border border-border/50">
+                        <div className="text-sm font-medium text-muted-foreground">Sales</div>
+                        <div className="text-lg font-bold text-success">{formatCurrency(affiliate.totalSales)}</div>
                       </div>
-                      <div className="bg-white/50 dark:bg-gray-600/30 rounded-xl p-3">
-                        <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Commission</div>
-                        <div className="text-lg font-bold text-purple-600 dark:text-purple-400">{affiliate.commissionRate}%</div>
+                      <div className="bg-card/50 rounded-xl p-3 border border-border/50">
+                        <div className="text-sm font-medium text-muted-foreground">Commission</div>
+                        <div className="text-lg font-bold text-secondary">{affiliate.commissionRate}%</div>
                       </div>
                     </div>
 
                     {affiliate.status === 'pending' && (
                       <div className="flex gap-2">
-                        <button className="bg-gradient-to-r from-green-400 to-emerald-500 text-white px-4 py-2 rounded-xl font-semibold text-sm flex-1 min-h-[44px]">
+                        <button className="bg-success text-success-foreground px-4 py-2 rounded-xl font-semibold text-sm flex-1 min-h-[44px]">
                           Approve
                         </button>
-                        <button className="bg-gradient-to-r from-red-400 to-red-500 text-white px-4 py-2 rounded-xl font-semibold text-sm flex-1 min-h-[44px]">
+                        <button className="bg-destructive text-destructive-foreground px-4 py-2 rounded-xl font-semibold text-sm flex-1 min-h-[44px]">
                           Reject
                         </button>
                       </div>
@@ -354,20 +352,20 @@ export function AffiliateManagement({ affiliates, currentUser }: AffiliateManage
                 return (
                   <div
                     key={affiliate.id}
-                    className="p-6 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-800 rounded-2xl hover:from-indigo-50 hover:to-violet-50 dark:hover:from-gray-600 dark:hover:to-gray-700 cursor-pointer"
+                    className="p-6 bg-muted/20 rounded-2xl hover:bg-muted/40 transition-all border border-border/50 cursor-pointer"
                     onClick={() => setSelectedAffiliate(affiliate)}
                   >
                     <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center gap-4">
-                        <div className="h-14 w-14 bg-gradient-to-br from-indigo-400 to-violet-500 rounded-2xl flex items-center justify-center text-white">
+                        <div className="h-14 w-14 bg-primary/10 rounded-2xl flex items-center justify-center text-primary">
                           <Handshake className="w-8 h-8" />
                         </div>
                         <div>
                           <div className="flex items-center gap-3 mb-1 flex-wrap">
-                            <h3 className="text-xl font-bold text-gray-900 dark:text-white">
+                            <h3 className="text-xl font-bold text-foreground">
                               {affiliate.name}
                             </h3>
-                            <code className="bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 px-3 py-1 rounded-lg text-sm font-mono">
+                            <code className="bg-muted text-muted-foreground px-3 py-1 rounded-lg text-sm font-mono border border-border/50">
                               {affiliate.affiliateCode}
                             </code>
                             <div className={`text-xs px-3 py-1 rounded-full font-semibold ${getStatusColor(affiliate.status)}`}>
@@ -377,22 +375,22 @@ export function AffiliateManagement({ affiliates, currentUser }: AffiliateManage
                               {affiliate.tier}
                             </div>
                           </div>
-                          <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-400 mb-2 flex-wrap">
+                          <div className="flex items-center gap-3 text-sm text-muted-foreground mb-2 flex-wrap">
                             <span>{affiliate.email}</span>
-                            <span>•</span>
+                            <span className="text-border">•</span>
                             <span>{affiliate.commissionRate}% commission</span>
-                            <span>•</span>
+                            <span className="text-border">•</span>
                             <span>Joined {formatDate(affiliate.joinedAt)}</span>
                           </div>
-                          <p className="text-sm text-gray-600 dark:text-gray-400">{affiliate.notes}</p>
+                          <p className="text-sm text-muted-foreground/80">{affiliate.notes}</p>
                         </div>
                       </div>
 
                       <div className="text-right">
-                        <div className="text-2xl font-bold text-gray-900 dark:text-white mb-1">
+                        <div className="text-2xl font-bold text-foreground mb-1">
                           {formatCurrency(affiliate.totalSales)}
                         </div>
-                        <div className="text-sm text-gray-500 dark:text-gray-400 mb-2">
+                        <div className="text-sm text-muted-foreground mb-2">
                           {affiliate.totalReferrals} referrals
                         </div>
                         <div className={`text-sm font-semibold ${performance.color}`}>
@@ -403,45 +401,45 @@ export function AffiliateManagement({ affiliates, currentUser }: AffiliateManage
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                       {/* Commissions */}
-                      <div className="bg-white/50 dark:bg-gray-600/30 rounded-xl p-4">
-                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Commissions</span>
-                        <div className="text-lg font-bold text-green-600 dark:text-green-400">
+                      <div className="bg-card/50 rounded-xl p-4 border border-border/50">
+                        <span className="text-sm font-medium text-muted-foreground">Commissions</span>
+                        <div className="text-lg font-bold text-success">
                           {formatCurrency(affiliate.totalCommissions)}
                         </div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400">
+                        <div className="text-xs text-muted-foreground/60">
                           {formatCurrency(affiliate.pendingCommissions)} pending
                         </div>
                       </div>
 
                       {/* Performance */}
-                      <div className="bg-white/50 dark:bg-gray-600/30 rounded-xl p-4">
-                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Conversion</span>
-                        <div className="text-lg font-bold text-purple-600 dark:text-purple-400">
+                      <div className="bg-card/50 rounded-xl p-4 border border-border/50">
+                        <span className="text-sm font-medium text-muted-foreground">Conversion</span>
+                        <div className="text-lg font-bold text-secondary">
                           {affiliate.conversionRate.toFixed(1)}%
                         </div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400">
+                        <div className="text-xs text-muted-foreground/60">
                           Avg: {formatCurrency(affiliate.avgOrderValue)}
                         </div>
                       </div>
 
                       {/* Payment Method */}
-                      <div className="bg-white/50 dark:bg-gray-600/30 rounded-xl p-4">
-                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Payment</span>
-                        <div className="text-lg font-bold text-blue-600 dark:text-blue-400">
+                      <div className="bg-card/50 rounded-xl p-4 border border-border/50">
+                        <span className="text-sm font-medium text-muted-foreground">Payment</span>
+                        <div className="text-lg font-bold text-primary">
                           {affiliate.paymentMethod}
                         </div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                        <div className="text-xs text-muted-foreground/60 truncate">
                           {affiliate.paymentEmail || 'Bank details'}
                         </div>
                       </div>
 
                       {/* Last Active */}
-                      <div className="bg-white/50 dark:bg-gray-600/30 rounded-xl p-4">
-                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Last Active</span>
-                        <div className="text-lg font-bold text-orange-600 dark:text-orange-400">
+                      <div className="bg-card/50 rounded-xl p-4 border border-border/50">
+                        <span className="text-sm font-medium text-muted-foreground">Last Active</span>
+                        <div className="text-lg font-bold text-warning">
                           {formatDate(affiliate.lastActive)}
                         </div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400">
+                        <div className="text-xs text-muted-foreground/60">
                           Activity status
                         </div>
                       </div>
@@ -449,10 +447,10 @@ export function AffiliateManagement({ affiliates, currentUser }: AffiliateManage
 
                     {affiliate.status === 'pending' && (
                       <div className="mt-4 flex flex-col sm:flex-row gap-3">
-                        <button className="bg-gradient-to-r from-green-400 to-emerald-500 text-white px-6 py-3 rounded-xl font-semibold min-h-[44px]">
+                        <button className="bg-success text-success-foreground px-6 py-3 rounded-xl font-semibold min-h-[44px]">
                           Approve
                         </button>
-                        <button className="bg-gradient-to-r from-red-400 to-red-500 text-white px-6 py-3 rounded-xl font-semibold min-h-[44px]">
+                        <button className="bg-destructive text-destructive-foreground px-6 py-3 rounded-xl font-semibold min-h-[44px]">
                           Reject
                         </button>
                       </div>
@@ -460,7 +458,7 @@ export function AffiliateManagement({ affiliates, currentUser }: AffiliateManage
 
                     {affiliate.status === 'active' && affiliate.pendingCommissions > 0 && (
                       <div className="mt-4">
-                        <button className="bg-gradient-to-r from-blue-400 to-indigo-500 text-white px-6 py-3 rounded-xl font-semibold min-h-[44px]">
+                        <button className="bg-primary text-primary-foreground px-6 py-3 rounded-xl font-semibold min-h-[44px]">
                           Pay {formatCurrency(affiliate.pendingCommissions)}
                         </button>
                       </div>

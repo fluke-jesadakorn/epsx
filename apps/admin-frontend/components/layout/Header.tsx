@@ -133,7 +133,7 @@ export function Header({ user }: HeaderProps) {
               const newTheme = themeUtils.toggleTheme();
               setCurrentTheme(newTheme);
             }}
-            className="p-2 rounded-lg text-orange-500 hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors"
+            className="p-2 rounded-lg text-primary hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors"
             title={`Switch to ${currentTheme === 'dark' ? 'light' : 'dark'} mode`}
             aria-label={`Switch to ${currentTheme === 'dark' ? 'light' : 'dark'} mode`}
           >
@@ -153,7 +153,7 @@ export function Header({ user }: HeaderProps) {
           {isWalletConnected && walletAddress ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-orange-500 to-yellow-500 px-4 py-2 text-sm font-medium text-white hover:opacity-90 transition-opacity">
+                <button className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 transition-opacity">
                   <Wallet className="h-4 w-4" />
                   <span className="hidden md:inline">{formatAddress(walletAddress)}</span>
                   <ChevronDown className="h-3 w-3" />
@@ -181,7 +181,7 @@ export function Header({ user }: HeaderProps) {
               {({ openConnectModal }) => (
                 <button
                   onClick={openConnectModal}
-                  className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-orange-500 to-yellow-500 px-4 py-2 text-sm font-medium text-white hover:opacity-90 transition-opacity"
+                  className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 transition-opacity"
                 >
                   <Wallet className="h-4 w-4" />
                   <span className="hidden md:inline">Connect Wallet</span>

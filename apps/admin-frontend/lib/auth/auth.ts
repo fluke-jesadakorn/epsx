@@ -4,6 +4,7 @@
  * Uses SIWE (Sign-In with Ethereum) standard with group-based permissions
  */
 
+import { COOKIES } from '@/shared/auth/cookies';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 
@@ -59,18 +60,18 @@ export async function getWeb3SessionFromCookies(): Promise<Web3SessionData | nul
     const cookieStore = await cookies();
 
     // Use unified EPSX cookie naming (no context separation)
-    const walletAddress = cookieStore.get('epsx.user')?.value;
+    const userCookie = cookieStore.get(COOKIES.user)?.value;
     // Note: signature and other auth data are HttpOnly and handled by backend
     // We can extract user info from the user cookie
 
-    if (!walletAddress) {
+    if (!userCookie) {
       return null;
     }
 
     // Parse user data from cookie
     let userData = null;
     try {
-      userData = JSON.parse(decodeURIComponent(walletAddress));
+      userData = JSON.parse(decodeURIComponent(userCookie));
     } catch (parseError) {
       console.warn('Failed to parse user cookie:', parseError);
       return null;
@@ -113,7 +114,7 @@ export async function validateWeb3Session(_sessionData: Web3SessionData): Promis
     // we'll rely on the backend validation through HttpOnly cookies
     // Create basic Web3AdminUser from available data
     const cookieStore = await cookies();
-    const userCookie = cookieStore.get('epsx.user')?.value;
+    const userCookie = cookieStore.get(COOKIES.user)?.value;
 
     if (!userCookie) {
       return null;
@@ -165,7 +166,7 @@ export async function setWeb3Session(sessionData: Web3SessionData): Promise<void
   // Note: sessionData only contains accessible data
   // HttpOnly auth cookies are set by backend during authentication
 
-  cookieStore.set('epsx.user', JSON.stringify({
+  cookieStore.set(COOKIES.user, JSON.stringify({
     wallet_address: sessionData.walletAddress,
     sub: sessionData.walletAddress,
     auth_time: Date.now(),
@@ -183,10 +184,11 @@ export async function clearWeb3Session(): Promise<void> {
   const cookieStore = await cookies();
 
   // Clear unified EPSX session cookie
-  cookieStore.delete('epsx.user');
-  cookieStore.delete('epsx.access');
-  cookieStore.delete('epsx.id');
-  cookieStore.delete('epsx.refresh');
+  cookieStore.delete(COOKIES.user);
+  cookieStore.delete(COOKIES.access_token);
+  cookieStore.delete(COOKIES.id_token);
+  cookieStore.delete(COOKIES.refresh_token);
+  cookieStore.delete(COOKIES.session_id);
 
   // Clear old cookie names (backward compatibility)
   cookieStore.delete('epsx.admin.user');

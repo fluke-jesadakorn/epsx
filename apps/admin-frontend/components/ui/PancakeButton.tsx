@@ -47,32 +47,32 @@ export function PancakeButton({
 
   const variants = {
     pancake: {
-      bg: 'bg-gradient-to-r from-orange-500 to-yellow-500',
-      hover: 'hover:from-orange-600 hover:to-yellow-600',
-      text: 'text-white',
-      shadow: 'shadow-orange-300',
-      accent: 'border-orange-400'
+      bg: 'bg-primary',
+      hover: 'hover:opacity-90',
+      text: 'text-primary-foreground',
+      shadow: 'shadow-primary/20',
+      accent: 'border-primary/20'
     },
     admin: {
-      bg: 'bg-gradient-to-r from-blue-600 to-indigo-700',
-      hover: 'hover:from-blue-700 hover:to-indigo-800',
-      text: 'text-white',
-      shadow: 'shadow-blue-300',
-      accent: 'border-blue-500'
+      bg: 'bg-primary',
+      hover: 'hover:opacity-90',
+      text: 'text-primary-foreground',
+      shadow: 'shadow-primary/20',
+      accent: 'border-primary/20'
     },
     analytics: {
-      bg: 'bg-gradient-to-r from-slate-600 to-gray-700',
-      hover: 'hover:from-slate-700 hover:to-gray-800',
-      text: 'text-white',
-      shadow: 'shadow-gray-300',
-      accent: 'border-slate-500'
+      bg: 'bg-secondary',
+      hover: 'hover:opacity-90',
+      text: 'text-secondary-foreground',
+      shadow: 'shadow-secondary/20',
+      accent: 'border-secondary/20'
     },
     ghost: {
       bg: 'bg-transparent',
-      hover: 'hover:bg-gray-100',
-      text: 'text-gray-700',
+      hover: 'hover:bg-accent hover:text-accent-foreground',
+      text: 'text-foreground',
       shadow: '',
-      accent: 'border-gray-300'
+      accent: 'border-input'
     }
   };
 
@@ -89,29 +89,31 @@ export function PancakeButton({
         ${style.hover}
         ${style.text}
         font-bold
-        ${metro ? '' : 'rounded-xl'}
+        ${metro ? 'rounded-none' : 'rounded-xl'}
         ${style.shadow && 'shadow-lg'}
-        border-2 ${style.accent}
+        border ${style.accent}
         relative
         overflow-hidden
+        transition-all
+        duration-200
         ${disabled || loading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
       `}
     >
       {/* Windows Phone Static Metro Effect */}
       {metro && (
         <div
-          className="absolute inset-0 opacity-20"
+          className="absolute inset-0 opacity-10"
           style={{
-            background: 'linear-gradient(45deg, transparent 30%, rgba(255,255,255,0.1) 50%, transparent 70%)'
+            background: 'linear-gradient(45deg, transparent 30%, rgba(255,255,255,0.2) 50%, transparent 70%)'
           }}
         />
       )}
 
       {/* Button static shine effect */}
       <div
-        className="absolute inset-0 opacity-0 hover:opacity-100"
+        className="absolute inset-0 opacity-0 hover:opacity-100 transition-opacity"
         style={{
-          background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent)',
+          background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent)',
         }}
       />
 
@@ -135,7 +137,7 @@ export function PancakeButton({
 
       {/* Metro accent line */}
       {metro && (
-        <div className="absolute bottom-0 left-0 w-full h-1 bg-white/30" />
+        <div className="absolute bottom-0 left-0 w-full h-0.5 bg-white/20" />
       )}
     </button>
   );
@@ -175,9 +177,9 @@ export function PancakeIconButton({
   };
 
   const variants = {
-    pancake: 'bg-gradient-to-br from-orange-500 to-yellow-500',
-    admin: 'bg-gradient-to-br from-blue-600 to-indigo-700',
-    analytics: 'bg-gradient-to-br from-slate-600 to-gray-700'
+    pancake: 'bg-primary',
+    admin: 'bg-primary',
+    analytics: 'bg-secondary'
   };
 
   return (
@@ -187,17 +189,19 @@ export function PancakeIconButton({
       className={`
         ${sizeClasses[size]}
         ${variants[variant]}
-        text-white
+        text-primary-foreground
         relative
         overflow-hidden
         shadow-lg
-        hover:shadow-xl
+        shadow-primary/20
+        hover:opacity-90
+        transition-all
         ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
       `}
     >
       {/* Badge */}
       {badge && (
-        <div className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold z-10">
+        <div className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold z-10">
           {badge}
         </div>
       )}
@@ -238,9 +242,9 @@ export function PancakeFAB({
   };
 
   const variants = {
-    pancake: 'bg-gradient-to-br from-orange-500 to-yellow-500',
-    admin: 'bg-gradient-to-br from-blue-600 to-indigo-700',
-    analytics: 'bg-gradient-to-br from-slate-600 to-gray-700'
+    pancake: 'bg-primary',
+    admin: 'bg-primary',
+    analytics: 'bg-secondary'
   };
 
   return (
@@ -250,14 +254,16 @@ export function PancakeFAB({
         fixed ${positions[position]}
         w-16 h-16
         ${variants[variant]}
-        text-white text-2xl
+        text-primary-foreground text-2xl
         shadow-2xl
-        hover:shadow-3xl
+        shadow-primary/30
+        hover:opacity-90
+        transition-all
         z-50
         overflow-hidden
       `}
     >
-      <div>{icon}</div>
+      <div className="flex items-center justify-center h-full">{icon}</div>
     </button>
   );
 }

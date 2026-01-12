@@ -136,7 +136,24 @@ export function SharedOpenIDWeb3Provider({
   backendUrl,
   onAuthError,
 }: SharedOpenIDWeb3ProviderProps) {
-  const [user, setUser] = useState<UserInfoResponse | null>(null);
+  // Initialize user from client's stored state immediately
+  const [user, setUser] = useState<UserInfoResponse | null>(() => {
+    // Attempt to get user from client if it was initialized synchronously
+    // This prevents the flicker to "unauthenticated" on refresh
+    if (typeof window !== 'undefined') {
+      try {
+        // Create a temporary client to read storage if needed
+        // but since client is created in same render, we might need to access storage directly
+        // or check if client has it already
+        const storedUser = getClientCookieJSON<UserInfoResponse>(COOKIES.user);
+        if (storedUser) return storedUser;
+
+        const userStr = localStorage.getItem('epsx.user');
+        if (userStr) return JSON.parse(userStr);
+      } catch (e) { }
+    }
+    return null;
+  });
   const [isLoading, setIsLoading] = useState(true);
   const [isSigningChallenge, setIsSigningChallenge] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -171,14 +188,26 @@ export function SharedOpenIDWeb3Provider({
         setIsLoading(true);
         setError(null);
 
-        // First try to restore Web3 authentication from cookies
+        // First try to restore Web3 authentication from cookies/storage
         let hasStoredAuth = false;
         if (typeof window !== 'undefined') {
           try {
-            // Restore from cookies or localStorage
+            // Priority 1: Check if client already has it (it runs loadTokensFromStorage in constructor)
+            const clientUser = client.getCurrentUser();
+            const clientHasAuth = client.isAuthenticated();
+
+            if (clientUser && clientHasAuth) {
+              console.log('✅ Client successfully pre-loaded valid auth state');
+              setUser(clientUser);
+              hasStoredAuth = true;
+              return;
+            }
+
+            // Priority 2: Manual check if client hasn't loaded yet or is being strict
             let storedUser = getClientCookieJSON<UserInfoResponse>(COOKIES.user);
+
+            // Try localStorage if cookie missing
             if (!storedUser) {
-              // Fallback to localStorage
               const userStr = localStorage.getItem('epsx.user');
               if (userStr) {
                 try {
@@ -188,72 +217,46 @@ export function SharedOpenIDWeb3Provider({
             }
 
             const authTime = getClientCookie(COOKIES.auth_time) || localStorage.getItem('epsx.auth_time');
-            const accessToken = getClientCookie(COOKIES.access_token) || getClientCookie(COOKIES.session_id) || localStorage.getItem('epsx.access_token');
+            const accessToken = getClientCookie(COOKIES.session_id) || localStorage.getItem('epsx.access_token');
             const tokenExpiry = getClientCookie(COOKIES.expires_at) || localStorage.getItem('epsx.expires_at');
 
-            console.log('🔍 Cookie/Storage restoration check', {
+            console.log('🔍 SharedOpenIDWeb3Provider: Storage restoration check', {
               clientId,
               hasStoredUser: !!storedUser,
-              hasAuthTime: !!authTime,
+              hasAccessToken: !!accessToken,
               hasTokenExpiry: !!tokenExpiry,
-              tokenExpiryValue: tokenExpiry,
-              storedUserPermissions: storedUser?.permissions,
-              isPermissionsArray: Array.isArray(storedUser?.permissions)
+              tokenExpiryValue: tokenExpiry ? new Date(parseInt(tokenExpiry)).toISOString() : 'none',
+              storageKeys: Object.keys(localStorage).filter(k => k.startsWith('epsx.')),
             });
 
-            if (storedUser && authTime) {
-              const authAge = Date.now() - parseInt(authTime);
-              const maxAge = 24 * 60 * 60 * 1000; // 24 hours
+            // CRITICAL FIX: Only restore session if we have BOTH user object AND a valid access token
+            // This prevents "zombie" sessions where we have user data but passed token expiry or missing token
+            if (storedUser && accessToken) {
               const isTokenValid = tokenExpiry
                 ? parseInt(tokenExpiry) > Date.now()
-                : false;
+                : true; // If no expiry, assume valid for now (backend will verify)
 
-              console.log('🔍 Auth validation check', {
-                authAge: Math.round(authAge / 1000 / 60) + 'min',
-                maxAge: '24h',
-                isTokenValid,
-                tokenExpiry: tokenExpiry
-                  ? new Date(parseInt(tokenExpiry)).toISOString()
-                  : 'none',
-                now: new Date().toISOString(),
-              });
-
-              console.log('🔍 Auth validation check', {
-                authAge: Math.round(authAge / 1000 / 60) + 'min',
-                maxAge: '24h',
-                isTokenValid,
-                tokenExpiry: tokenExpiry ? new Date(parseInt(tokenExpiry)).toISOString() : 'none',
-                now: new Date().toISOString()
-              });
-
-              if (authAge < maxAge && isTokenValid) {
-                console.log('✅ Restoring auth from cookies', {
+              if (isTokenValid) {
+                console.log('✅ Restoring auth from storage', {
                   clientId,
-                  wallet: storedUser.wallet_address?.slice(0, 8) + '...',
-                  permissions: storedUser.permissions?.length || 0,
-                  hasPermissions: Array.isArray(storedUser.permissions),
+                  wallet: storedUser.wallet_address?.slice(0, 8),
                 });
                 setUser(storedUser);
                 hasStoredAuth = true;
-                return; // Skip OpenID client loading
+                return;
               } else {
-                console.log('🗑️ Clearing expired auth from cookies', {
-                  clientId,
-                  authAge: Math.round(authAge / 1000 / 60) + 'min',
-                  tokenValid: isTokenValid,
-                  reason: authAge >= maxAge ? 'auth too old' : 'token expired'
-                });
-                // Clear expired or invalid authentication
+                console.log('🗑️ Clearing expired auth from storage');
                 clearClientSideCookies();
               }
-            } else {
-              console.log('⚠️ Missing required cookies', {
-                hasStoredUser: !!storedUser,
-                hasAuthTime: !!authTime
-              });
+            } else if (storedUser && !accessToken) {
+              // We have a zombie user (user data but no token) - KILL IT
+              console.log('🧟 Zombie user detected (no access token) - WOULD clear storage but checking first');
+              // clearClientSideCookies();
+              // localStorage.removeItem('epsx.user');
+              // localStorage.removeItem('epsx.access_token');
             }
           } catch (error) {
-            console.warn('Failed to restore authentication from cookies', error);
+            console.warn('Failed to restore authentication from storage', error);
           }
         }
 

@@ -8,7 +8,6 @@ import { useEffect, useState } from 'react'
 import { toast } from '@/hooks/use-toast'
 import { logger } from '@/lib/logger'
 import { createPlansClient, isApiSuccess, type SubscriptionResponse, type UpdateSubscriptionRequest } from '@/shared/api/plans'
-import { PancakeButton, PancakeCard } from '@/shared/components'
 import { createAdminApiClient } from '@/shared/utils/api-client'
 
 /**
@@ -154,25 +153,25 @@ export default function SubscriptionDetailPage() {
     }
 
     const getStatusColor = (status: string) => {
-        switch (status) {
+        switch (status.toLowerCase()) {
             case 'active':
-                return 'bg-green-100 text-green-600 dark:bg-green-900/20 dark:text-green-400'
+                return 'bg-success/10 text-success border border-success/20'
             case 'expired':
-                return 'bg-yellow-100 text-yellow-600 dark:bg-yellow-900/20 dark:text-yellow-400'
+                return 'bg-warning/10 text-warning border border-warning/20'
             case 'cancelled':
-                return 'bg-red-100 text-red-600 dark:bg-red-900/20 dark:text-red-400'
+                return 'bg-destructive/10 text-destructive border border-destructive/20'
             default:
-                return 'bg-gray-100 text-gray-600 dark:bg-gray-900/20 dark:text-gray-400'
+                return 'bg-muted text-muted-foreground border border-border/50'
         }
     }
 
     const formatDate = (dateString?: string) => {
-        if (!dateString) {return 'Never'}
+        if (!dateString) { return 'Never' }
         return new Date(dateString).toLocaleString()
     }
 
     const formatUsage = (usage: Record<string, any>) => {
-        if (!usage || Object.keys(usage).length === 0) {return 'No usage data'}
+        if (!usage || Object.keys(usage).length === 0) { return 'No usage data' }
         return Object.entries(usage)
             .map(([key, value]) => `${key}: ${value}`)
             .join(', ')
@@ -180,11 +179,11 @@ export default function SubscriptionDetailPage() {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-yellow-50 via-orange-50 to-pink-50 dark:from-gray-900 dark:via-purple-900 dark:to-gray-900 p-6">
+            <div className="min-h-screen p-6">
                 <div className="max-w-5xl mx-auto">
                     <div className="animate-pulse space-y-6">
-                        <div className="h-8 bg-gray-300 rounded w-1/3"></div>
-                        <div className="h-64 bg-gray-200 rounded-2xl"></div>
+                        <div className="h-8 bg-primary/20 rounded-2xl w-1/3"></div>
+                        <div className="h-64 bg-card rounded-3xl border border-border/50"></div>
                     </div>
                 </div>
             </div>
@@ -196,26 +195,26 @@ export default function SubscriptionDetailPage() {
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-yellow-50 via-orange-50 to-pink-50 dark:from-gray-900 dark:via-purple-900 dark:to-gray-900 p-6">
+        <div className="min-h-screen p-6">
             <div className="max-w-5xl mx-auto space-y-6">
                 {/* Header */}
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
                         <Link
                             href="/subscriptions"
-                            className="p-2 rounded-xl bg-white/80 dark:bg-gray-800/80 hover:bg-white dark:hover:bg-gray-800 transition-colors"
+                            className="p-2 rounded-xl bg-card border border-border/50 hover:border-primary/50 transition-colors"
                         >
                             <ArrowLeft className="h-5 w-5" />
                         </Link>
                         <div>
-                            <h1 className="text-2xl font-bold bg-gradient-to-r from-orange-600 to-yellow-600 bg-clip-text text-transparent">
+                            <h1 className="text-2xl font-bold bg-gradient-to-r from-primary via-secondary to-primary bg-clip-text text-transparent">
                                 Subscription Details
                             </h1>
                             <div className="flex items-center gap-3 mt-1">
-                                <span className="text-lg font-semibold text-gray-700 dark:text-gray-300">
+                                <span className="text-lg font-semibold text-foreground">
                                     {subscription.plan_name}
                                 </span>
-                                <span className={`px-3 py-1 text-sm rounded-full font-semibold ${getStatusColor(subscription.status)}`}>
+                                <span className={`px-3 py-1 text-sm rounded-full font-semibold border ${getStatusColor(subscription.status)}`}>
                                     {subscription.status.toUpperCase()}
                                 </span>
                             </div>
@@ -223,119 +222,119 @@ export default function SubscriptionDetailPage() {
                     </div>
                     <div className="flex gap-3">
                         {!isEditing && subscription.status !== 'cancelled' && (
-                            <PancakeButton
-                                variant="secondary"
+                            <button
                                 onClick={() => setIsEditing(true)}
+                                className="px-4 py-2 bg-secondary text-secondary-foreground rounded-xl font-semibold hover:opacity-90 transition-opacity"
                             >
                                 Edit
-                            </PancakeButton>
+                            </button>
                         )}
                     </div>
                 </div>
 
                 {/* Basic Information */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <PancakeCard variant="outlined" className="p-6">
-                        <h3 className="font-bold text-gray-900 dark:text-white mb-4">Basic Information</h3>
+                    <div className="bg-card rounded-3xl p-6 border border-border/50 shadow-sm">
+                        <h3 className="font-bold text-foreground mb-4">Basic Information</h3>
                         <div className="space-y-3">
                             <div className="flex justify-between">
-                                <span className="text-gray-600 dark:text-gray-400">Subscription ID:</span>
+                                <span className="text-muted-foreground">Subscription ID:</span>
                                 <span className="font-semibold font-mono text-sm">{subscription.id}</span>
                             </div>
                             <div className="flex justify-between">
-                                <span className="text-gray-600 dark:text-gray-400">User ID:</span>
+                                <span className="text-muted-foreground">User ID:</span>
                                 <span className="font-semibold font-mono text-sm">{subscription.user_id}</span>
                             </div>
                             <div className="flex justify-between">
-                                <span className="text-gray-600 dark:text-gray-400">Access Context:</span>
+                                <span className="text-muted-foreground">Access Context:</span>
                                 <span className="font-semibold">{subscription.access_context}</span>
                             </div>
                             {subscription.api_key_name && (
                                 <div className="flex justify-between">
-                                    <span className="text-gray-600 dark:text-gray-400">API Key Name:</span>
+                                    <span className="text-muted-foreground">API Key Name:</span>
                                     <span className="font-semibold">{subscription.api_key_name}</span>
                                 </div>
                             )}
                             {subscription.api_key && (
                                 <div className="flex justify-between">
-                                    <span className="text-gray-600 dark:text-gray-400">API Key:</span>
-                                    <span className="font-mono text-sm bg-gray-200 dark:bg-gray-600 px-2 py-1 rounded">
+                                    <span className="text-muted-foreground">API Key:</span>
+                                    <span className="font-mono text-sm bg-muted px-2 py-1 rounded">
                                         {subscription.api_key.substring(0, 8)}...
                                     </span>
                                 </div>
                             )}
                         </div>
-                    </PancakeCard>
+                    </div>
 
-                    <PancakeCard className="bg-gray-50 dark:bg-gray-700 p-6">
-                        <h3 className="font-bold text-gray-900 dark:text-white mb-4">Timeline</h3>
+                    <div className="bg-card rounded-3xl p-6 border border-border/50 shadow-sm">
+                        <h3 className="font-bold text-foreground mb-4">Timeline</h3>
                         <div className="space-y-3">
                             <div className="flex justify-between">
-                                <span className="text-gray-600 dark:text-gray-400">Started:</span>
+                                <span className="text-muted-foreground">Started:</span>
                                 <span className="font-semibold">{formatDate(subscription.started_at)}</span>
                             </div>
                             <div className="flex justify-between">
-                                <span className="text-gray-600 dark:text-gray-400">Created:</span>
+                                <span className="text-muted-foreground">Created:</span>
                                 <span className="font-semibold">{formatDate(subscription.created_at)}</span>
                             </div>
                             <div className="flex justify-between">
-                                <span className="text-gray-600 dark:text-gray-400">Expires:</span>
+                                <span className="text-muted-foreground">Expires:</span>
                                 <span className="font-semibold">{formatDate(subscription.expires_at)}</span>
                             </div>
                             <div className="flex justify-between">
-                                <span className="text-gray-600 dark:text-gray-400">Auto-renew:</span>
-                                <span className={`font-semibold ${subscription.auto_renew ? 'text-green-600' : 'text-red-600'}`}>
+                                <span className="text-muted-foreground">Auto-renew:</span>
+                                <span className={`font-semibold ${subscription.auto_renew ? 'text-success' : 'text-destructive'}`}>
                                     {subscription.auto_renew ? 'Yes' : 'No'}
                                 </span>
                             </div>
                             {subscription.last_billed_at && (
                                 <div className="flex justify-between">
-                                    <span className="text-gray-600 dark:text-gray-400">Last Billed:</span>
+                                    <span className="text-muted-foreground">Last Billed:</span>
                                     <span className="font-semibold">{formatDate(subscription.last_billed_at)}</span>
                                 </div>
                             )}
                             {subscription.next_billing_date && (
                                 <div className="flex justify-between">
-                                    <span className="text-gray-600 dark:text-gray-400">Next Billing:</span>
+                                    <span className="text-muted-foreground">Next Billing:</span>
                                     <span className="font-semibold">{formatDate(subscription.next_billing_date)}</span>
                                 </div>
                             )}
                         </div>
-                    </PancakeCard>
+                    </div>
                 </div>
 
                 {/* Current Usage */}
-                <PancakeCard className="bg-gray-50 dark:bg-gray-700 p-6">
-                    <h3 className="font-bold text-gray-900 dark:text-white mb-4">Current Usage & Quotas</h3>
+                <div className="bg-card rounded-3xl p-6 border border-border/50 shadow-sm">
+                    <h3 className="font-bold text-foreground mb-4">Current Usage & Quotas</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
-                            <h4 className="font-semibold text-gray-700 dark:text-gray-300 mb-2">Current Usage</h4>
-                            <p className="text-sm text-gray-600 dark:text-gray-400 font-mono bg-gray-200 dark:bg-gray-600 p-3 rounded">
+                            <h4 className="font-semibold text-muted-foreground mb-2">Current Usage</h4>
+                            <p className="text-sm text-foreground/80 font-mono bg-muted p-3 rounded-xl border border-border/50">
                                 {formatUsage(subscription.current_usage)}
                             </p>
                         </div>
                         <div>
-                            <h4 className="font-semibold text-gray-700 dark:text-gray-300 mb-2">Quota Limits</h4>
-                            <p className="text-sm text-gray-600 dark:text-gray-400 font-mono bg-gray-200 dark:bg-gray-600 p-3 rounded">
+                            <h4 className="font-semibold text-muted-foreground mb-2">Quota Limits</h4>
+                            <p className="text-sm text-foreground/80 font-mono bg-muted p-3 rounded-xl border border-border/50">
                                 {formatUsage(subscription.quota_limits)}
                             </p>
                         </div>
                     </div>
-                </PancakeCard>
+                </div>
 
                 {/* Edit Form */}
                 {isEditing && (
-                    <PancakeCard className="bg-blue-50 dark:bg-blue-900/20 p-6 border border-blue-200 dark:border-blue-800">
-                        <h3 className="font-bold text-gray-900 dark:text-white mb-4">Edit Subscription</h3>
+                    <div className="bg-primary/5 rounded-3xl p-6 border border-primary/20">
+                        <h3 className="font-bold text-foreground mb-4">Edit Subscription</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
-                                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                                <label className="block text-sm font-semibold text-muted-foreground mb-2">
                                     Status
                                 </label>
                                 <select
                                     value={editData.status}
                                     onChange={(e) => setEditData({ ...editData, status: e.target.value })}
-                                    className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500"
+                                    className="w-full px-4 py-3 rounded-xl border border-border bg-card text-foreground focus:ring-2 focus:ring-primary"
                                 >
                                     <option value="active">Active</option>
                                     <option value="expired">Expired</option>
@@ -344,13 +343,13 @@ export default function SubscriptionDetailPage() {
                             </div>
 
                             <div>
-                                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                                <label className="block text-sm font-semibold text-muted-foreground mb-2">
                                     Plan
                                 </label>
                                 <select
                                     value={editData.plan_id}
                                     onChange={(e) => setEditData({ ...editData, plan_id: parseInt(e.target.value) })}
-                                    className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500"
+                                    className="w-full px-4 py-3 rounded-xl border border-border bg-card text-foreground focus:ring-2 focus:ring-primary"
                                 >
                                     {plans.map(plan => (
                                         <option key={plan.id} value={plan.id}>
@@ -361,7 +360,7 @@ export default function SubscriptionDetailPage() {
                             </div>
 
                             <div>
-                                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                                <label className="block text-sm font-semibold text-muted-foreground mb-2">
                                     Expiry Date
                                 </label>
                                 <input
@@ -369,7 +368,7 @@ export default function SubscriptionDetailPage() {
                                     value={editData.expires_at}
                                     onChange={(e) => setEditData({ ...editData, expires_at: e.target.value })}
                                     min={new Date().toISOString().split('T')[0]}
-                                    className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500"
+                                    className="w-full px-4 py-3 rounded-xl border border-border bg-card text-foreground focus:ring-2 focus:ring-primary"
                                 />
                             </div>
 
@@ -379,9 +378,9 @@ export default function SubscriptionDetailPage() {
                                         type="checkbox"
                                         checked={editData.auto_renew}
                                         onChange={(e) => setEditData({ ...editData, auto_renew: e.target.checked })}
-                                        className="w-5 h-5 text-emerald-500 border-gray-300 rounded focus:ring-emerald-500"
+                                        className="w-5 h-5 text-primary border-border rounded focus:ring-primary"
                                     />
-                                    <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Auto-renew</span>
+                                    <span className="text-sm font-semibold text-muted-foreground">Auto-renew</span>
                                 </label>
                             </div>
                         </div>
@@ -389,48 +388,47 @@ export default function SubscriptionDetailPage() {
                         <div className="flex gap-4 mt-6">
                             <button
                                 onClick={() => setIsEditing(false)}
-                                className="flex-1 px-6 py-3 rounded-xl border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-semibold hover:bg-gray-50 dark:hover:bg-gray-700"
+                                className="flex-1 px-6 py-3 rounded-xl border border-border text-foreground font-semibold hover:bg-muted transition-colors"
                             >
                                 Cancel
                             </button>
                             <button
                                 onClick={handleUpdate}
                                 disabled={saving}
-                                className="flex-1 px-6 py-3 rounded-xl bg-gradient-to-r from-emerald-400 to-green-500 text-white font-semibold hover:from-emerald-500 hover:to-green-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="flex-1 px-6 py-3 rounded-xl bg-primary text-primary-foreground font-semibold hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
                             >
                                 {saving ? 'Updating...' : 'Update Subscription'}
                             </button>
                         </div>
-                    </PancakeCard>
+                    </div>
                 )}
 
                 {/* Metadata */}
                 {subscription.metadata && Object.keys(subscription.metadata).length > 0 && (
-                    <PancakeCard variant="outlined" className="p-6">
-                        <h3 className="font-bold text-gray-900 dark:text-white mb-4">Metadata</h3>
-                        <pre className="text-sm text-gray-600 dark:text-gray-400 bg-gray-200 dark:bg-gray-600 p-3 rounded font-mono overflow-x-auto">
+                    <div className="bg-card rounded-3xl p-6 border border-border/50 shadow-sm">
+                        <h3 className="font-bold text-foreground mb-4">Metadata</h3>
+                        <pre className="text-sm text-muted-foreground bg-muted p-4 rounded-xl border border-border/50 font-mono overflow-x-auto">
                             {JSON.stringify(subscription.metadata, null, 2)}
                         </pre>
-                    </PancakeCard>
+                    </div>
                 )}
 
                 {/* Footer Actions */}
                 <div className="flex gap-4 pt-4">
                     <Link href="/subscriptions" className="flex-1">
-                        <PancakeButton variant="outline" className="w-full">
+                        <button className="w-full px-6 py-3 rounded-xl border border-border text-foreground font-semibold hover:bg-muted transition-colors">
                             Back to Subscriptions
-                        </PancakeButton>
+                        </button>
                     </Link>
 
                     {subscription.status === 'active' && !isEditing && (
-                        <PancakeButton
-                            variant="destructive"
+                        <button
                             onClick={handleCancel}
                             disabled={saving}
-                            className="flex-1"
+                            className="flex-1 px-6 py-3 rounded-xl bg-destructive text-destructive-foreground font-semibold hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
                         >
                             {saving ? 'Cancelling...' : 'Cancel Subscription'}
-                        </PancakeButton>
+                        </button>
                     )}
                 </div>
             </div>

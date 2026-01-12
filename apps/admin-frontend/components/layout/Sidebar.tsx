@@ -152,8 +152,8 @@ export function Sidebar() {
                       <span className="text-lg flex-shrink-0">{item.icon}</span>
                       <span className="font-medium text-ellipsis whitespace-nowrap overflow-hidden hidden sm:inline" style={{ textOverflow: 'ellipsis' }}>{item.label}</span>
                       <span className="font-medium text-ellipsis whitespace-nowrap overflow-hidden sm:hidden" style={{ textOverflow: 'ellipsis' }}>{item.label.replace(/\s+(?:Management|Promotions|Analytics|Notifications)$/, '')}</span>
-                      <span className="text-xs flex-shrink-0 bg-orange-100 text-orange-600 px-2 py-1 rounded dark:bg-orange-900 dark:text-orange-300 hidden sm:inline">🔒</span>
-                      <span className="text-xs flex-shrink-0 bg-orange-100 text-orange-600 px-1 py-1 rounded dark:bg-orange-900 dark:text-orange-300 sm:hidden">🔒</span>
+                      <span className="text-xs flex-shrink-0 bg-muted text-muted-foreground px-2 py-1 rounded hidden sm:inline">🔒</span>
+                      <span className="text-xs flex-shrink-0 bg-muted text-muted-foreground px-1 py-1 rounded sm:hidden">🔒</span>
                     </div>
                   ) : (
                     <Link href={item.href}>
@@ -197,7 +197,7 @@ export function Sidebar() {
                               <span className="text-sm flex-shrink-0">{child.icon}</span>
                               <span className="text-sm font-medium text-ellipsis whitespace-nowrap overflow-hidden hidden sm:inline" style={{ textOverflow: 'ellipsis' }}>{child.label}</span>
                               <span className="text-sm font-medium text-ellipsis whitespace-nowrap overflow-hidden sm:hidden" style={{ textOverflow: 'ellipsis' }}>{child.label.replace(/\s+(?:Management|Promotions|Analytics|Notifications)$/, '')}</span>
-                              <span className="text-xs flex-shrink-0 bg-orange-100 text-orange-600 px-1 py-0.5 rounded dark:bg-orange-900 dark:text-orange-300">🔒</span>
+                              <span className="text-xs flex-shrink-0 bg-muted text-muted-foreground px-1 py-0.5 rounded">🔒</span>
                             </div>
                           ) : (
                             <Link href={child.href}>

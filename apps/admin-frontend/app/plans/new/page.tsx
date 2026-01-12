@@ -5,7 +5,6 @@ import { useState } from 'react'
 
 import { PermissionTransferList } from '@/components/groups/PermissionTransferList'
 import { PageLoadingSpinner } from '@/components/ui/LoadingSpinner'
-import { PancakeCard } from '@/components/ui/PancakeCard'
 import { toast } from '@/hooks/use-toast'
 import { useAvailablePermissions } from '@/hooks/useGroupPermissions'
 import { createPlansClient, isApiSuccess } from '@/shared/api/plans'
@@ -149,45 +148,52 @@ export default function NewPlanPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-yellow-50 via-orange-50 to-pink-50 dark:from-gray-900 dark:via-purple-900 dark:to-gray-900 p-6">
+    <div className="min-h-screen p-6">
       <div className="max-w-4xl mx-auto">
-        <PancakeCard className="bg-white dark:bg-gray-800">
+        <div className="bg-card rounded-3xl border border-border/50 shadow-sm overflow-hidden transition-all">
           <div className="p-8">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold bg-gradient-to-r from-emerald-600 to-green-600 bg-clip-text text-transparent">
-                Create Permission Template Plan
-              </h2>
+            <div className="flex items-center justify-between mb-8 pb-4 border-b border-border/30">
+              <div>
+                <h1 className="text-2xl font-bold bg-gradient-to-r from-primary via-secondary to-primary bg-clip-text text-transparent">
+                  Create Permission Template Plan
+                </h1>
+                <p className="text-sm text-muted-foreground mt-1 text-card-foreground/70">
+                  Define a new subscription offering with custom permissions.
+                </p>
+              </div>
               <button
                 onClick={() => router.push('/plans')}
-                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                className="p-2 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted transition-all"
               >
-                ✕
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-6">
+            <form onSubmit={handleSubmit} className="space-y-8">
               {/* Basic Info */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-2">
+                  <label className="block text-sm font-bold text-muted-foreground uppercase tracking-wider">
                     Plan Name *
                   </label>
                   <input
                     type="text"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500"
+                    className="w-full px-4 py-4 rounded-xl border border-border bg-card text-foreground focus:ring-2 focus:ring-primary outline-none transition-all placeholder:text-muted-foreground/50"
                     placeholder="e.g., Professional Plan"
                     required
                   />
                 </div>
 
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                <div className="space-y-2">
+                  <label className="block text-sm font-bold text-muted-foreground uppercase tracking-wider">
                     Price *
                   </label>
-                  <div className="flex">
-                    <span className="inline-flex items-center px-3 rounded-l-xl border border-r-0 border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-600 text-gray-500 dark:text-gray-400">
+                  <div className="relative group">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground font-bold transition-colors group-focus-within:text-primary">
                       $
                     </span>
                     <input
@@ -195,7 +201,7 @@ export default function NewPlanPage() {
                       step="0.01"
                       value={formData.current_price}
                       onChange={(e) => setFormData({ ...formData, current_price: parseFloat(e.target.value) || 0 })}
-                      className="flex-1 px-4 py-3 rounded-r-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500"
+                      className="w-full pl-10 pr-4 py-4 rounded-xl border border-border bg-card text-foreground focus:ring-2 focus:ring-primary outline-none transition-all font-mono"
                       placeholder="29.99"
                       required
                     />
@@ -204,14 +210,14 @@ export default function NewPlanPage() {
               </div>
 
               {/* Permission Template Selection */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+              <div className="space-y-3">
+                <label className="block text-sm font-bold text-muted-foreground uppercase tracking-wider">
                   Permission Template *
                 </label>
                 <select
                   value={formData.template_name}
                   onChange={(e) => handleTemplateChange(e.target.value as PermissionTemplateName)}
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500"
+                  className="w-full px-4 py-4 rounded-xl border border-border bg-card text-foreground focus:ring-2 focus:ring-primary outline-none transition-all appearance-none cursor-pointer"
                 >
                   {Object.keys(PERMISSION_TEMPLATE_CONFIGS).map(templateName => {
                     const template = PERMISSION_TEMPLATE_CONFIGS[templateName as PermissionTemplateName]
@@ -222,20 +228,21 @@ export default function NewPlanPage() {
                     )
                   })}
                 </select>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                  Selecting a template will automatically populate permissions and features
+                <p className="text-xs text-muted-foreground/70 italic bg-primary/5 p-3 rounded-lg border border-primary/10">
+                  <span className="font-bold text-primary mr-1">Tip:</span>
+                  Selecting a template will automatically populate the recommended permissions and features below.
                 </p>
               </div>
 
               {/* Categories */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+              <div className="space-y-2">
+                <label className="block text-sm font-bold text-muted-foreground uppercase tracking-wider">
                   Target Audience
                 </label>
                 <select
                   value={formData.target_audience}
                   onChange={(e) => setFormData({ ...formData, target_audience: e.target.value })}
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500"
+                  className="w-full px-4 py-4 rounded-xl border border-border bg-card text-foreground focus:ring-2 focus:ring-primary outline-none transition-all appearance-none cursor-pointer"
                 >
                   <option value="web_users">Web Users</option>
                   <option value="api_developers">API Developers</option>
@@ -244,27 +251,26 @@ export default function NewPlanPage() {
               </div>
 
               {/* Description */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+              <div className="space-y-2">
+                <label className="block text-sm font-bold text-muted-foreground uppercase tracking-wider">
                   Description
                 </label>
                 <textarea
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   rows={3}
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500"
+                  className="w-full px-4 py-4 rounded-xl border border-border bg-card text-foreground focus:ring-2 focus:ring-primary outline-none transition-all resize-none placeholder:text-muted-foreground/50"
                   placeholder="Describe your plan features and benefits..."
                 />
               </div>
 
               {/* Permissions Management */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4">
+              <div className="space-y-4">
+                <label className="block text-sm font-bold text-muted-foreground uppercase tracking-wider">
                   Plan Permissions
                 </label>
 
-                {/* Permission List - Drag & Drop */}
-                <div className="space-y-4">
+                <div className="bg-muted/30 rounded-2xl border border-border/50 p-6">
                   <PermissionTransferList
                     available={availablePermissions}
                     selected={formData.permissions}
@@ -278,11 +284,11 @@ export default function NewPlanPage() {
 
                 {/* Features Preview */}
                 {formData.features.length > 0 && (
-                  <div className="mt-4">
-                    <h4 className="font-medium text-gray-800 dark:text-gray-200 mb-2">Template Features</h4>
+                  <div className="animate-in fade-in slide-in-from-top-2 duration-300 bg-success/5 p-6 rounded-2xl border border-success/20">
+                    <h4 className="font-bold text-success/80 text-xs uppercase tracking-widest mb-3">Template Features</h4>
                     <div className="flex flex-wrap gap-2">
                       {formData.features.map((feature, index) => (
-                        <span key={index} className="px-3 py-1 bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-300 rounded-full text-sm">
+                        <span key={index} className="px-3 py-1.5 bg-success/10 text-success rounded-xl text-xs font-bold border border-success/20">
                           {feature}
                         </span>
                       ))}
@@ -292,25 +298,25 @@ export default function NewPlanPage() {
               </div>
 
               {/* Submit Buttons */}
-              <div className="flex gap-4 pt-6">
+              <div className="flex flex-col sm:flex-row gap-4 pt-8 border-t border-border/30">
                 <button
                   type="button"
                   onClick={() => router.push('/plans')}
-                  className="flex-1 px-6 py-3 rounded-xl border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-semibold hover:bg-gray-50 dark:hover:bg-gray-700"
+                  className="flex-1 px-8 py-4 rounded-xl border border-border text-foreground font-bold hover:bg-muted transition-all active:scale-[0.98]"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={loading}
-                  className="flex-1 px-6 py-3 rounded-xl bg-gradient-to-r from-emerald-400 to-green-500 text-white font-semibold hover:from-emerald-500 hover:to-green-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 px-8 py-4 rounded-xl bg-primary text-primary-foreground font-bold shadow-lg shadow-primary/20 hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-[0.98]"
                 >
                   {loading ? 'Creating...' : 'Create Permission Template Plan'}
                 </button>
               </div>
             </form>
           </div>
-        </PancakeCard>
+        </div>
       </div>
     </div>
   )

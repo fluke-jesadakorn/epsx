@@ -2,9 +2,17 @@
  * Shared Design System - Theme Configuration (Tailwind CSS v4)
  * 
  * Centralized configuration for both Frontend and Admin-Frontend apps.
- * Combines standard accessible colors with "Rich" PancakeSwap aesthetics.
+ * Source of Truth for:
+ * - Theme configuration (@theme)
+ * - Base element styles (@layer base)
+ * - Shared variables and utility classes
  */
 
+@import "tailwindcss";
+
+/* ============================================================================
+   TAILWIND V4 THEME CONFIGURATION
+   ============================================================================ */
 
 @theme {
   /* Container Configuration */
@@ -20,7 +28,7 @@
      COLOR SYSTEM - Tailwind v4 Format
      ======================================================================== */
   
-  /* Primary Color Scale (Professional Blue) */
+  /* Primary Color Scale */
   --color-primary-50: hsl(217 100% 95%);
   --color-primary-100: hsl(217 90% 90%);
   --color-primary-200: hsl(217 95% 85%);
@@ -46,175 +54,330 @@
   
   /* Success Color Scale */
   --color-success-50: hsl(142 76% 95%);
+  --color-success-100: hsl(142 71% 88%);
+  --color-success-200: hsl(142 71% 75%);
+  --color-success-300: hsl(142 71% 65%);
+  --color-success-400: hsl(142 71% 55%);
   --color-success-500: hsl(142 71% 45%);
   --color-success-600: hsl(142 66% 40%);
+  --color-success-700: hsl(142 61% 35%);
+  --color-success-800: hsl(142 56% 30%);
+  --color-success-900: hsl(142 51% 25%);
   
-  /* Warning Color Scale (Pancake-inspired) */
+  /* Warning Color Scale */
   --color-warning-50: hsl(45 98% 95%);
+  --color-warning-100: hsl(45 93% 88%);
+  --color-warning-200: hsl(45 93% 75%);
+  --color-warning-300: hsl(45 93% 65%);
+  --color-warning-400: hsl(45 93% 57%);
   --color-warning-500: hsl(45 93% 47%);
   --color-warning-600: hsl(45 88% 42%);
+  --color-warning-700: hsl(45 83% 37%);
+  --color-warning-800: hsl(45 78% 32%);
+  --color-warning-900: hsl(45 73% 27%);
   
   /* Error Color Scale */
   --color-error-50: hsl(0 90% 95%);
+  --color-error-100: hsl(0 85% 88%);
+  --color-error-200: hsl(0 85% 75%);
+  --color-error-300: hsl(0 85% 70%);
+  --color-error-400: hsl(0 85% 65%);
   --color-error-500: hsl(0 85% 60%);
   --color-error-600: hsl(0 80% 55%);
+  --color-error-700: hsl(0 75% 50%);
+  --color-error-800: hsl(0 70% 45%);
+  --color-error-900: hsl(0 65% 40%);
   
-  /* Semantic Colors (Shadcn/System) */
-  --color-background: hsl(var(--background));
-  --color-foreground: hsl(var(--foreground));
+  /* Info Color Scale */
+  --color-info-50: hsl(217 96% 95%);
+  --color-info-100: hsl(217 91% 88%);
+  --color-info-200: hsl(217 91% 75%);
+  --color-info-300: hsl(217 91% 70%);
+  --color-info-400: hsl(217 91% 65%);
+  --color-info-500: hsl(217 91% 60%);
+  --color-info-600: hsl(217 86% 55%);
+  --color-info-700: hsl(217 81% 50%);
+  --color-info-800: hsl(217 76% 45%);
+  --color-info-900: hsl(217 71% 40%);
   
-  --color-card: hsl(var(--card));
-  --color-card-foreground: hsl(var(--card-foreground));
-  --color-popover: hsl(var(--popover));
-  --color-popover-foreground: hsl(var(--popover-foreground));
+  /* Insight Colors (Analytics Theme) */
+  --color-insight-primary: hsl(217 91% 60%);
+  --color-insight-secondary: hsl(262 83% 58%);
+  --color-insight-success: hsl(142 71% 45%);
+  --color-insight-warning: hsl(45 93% 47%);
+  --color-insight-error: hsl(0 85% 60%);
+  --color-insight-info: hsl(184 93% 47%);
   
-  --color-primary: hsl(var(--primary));
-  --color-primary-foreground: hsl(var(--primary-foreground));
-  
-  --color-secondary: hsl(var(--secondary));
-  --color-secondary-foreground: hsl(var(--secondary-foreground));
-  
-  --color-muted: hsl(var(--muted));
-  --color-muted-foreground: hsl(var(--muted-foreground));
-  
-  --color-accent: hsl(var(--accent));
-  --color-accent-foreground: hsl(var(--accent-foreground));
-  
-  --color-destructive: hsl(var(--destructive));
-  --color-destructive-foreground: hsl(var(--destructive-foreground));
-  
-  --color-border: hsl(var(--border));
-  --color-input: hsl(var(--input));
-  --color-ring: hsl(var(--ring));
-  
-  --color-chart-1: hsl(var(--chart-1));
-  --color-chart-2: hsl(var(--chart-2));
-  --color-chart-3: hsl(var(--chart-3));
-  --color-chart-4: hsl(var(--chart-4));
-  --color-chart-5: hsl(var(--chart-5));
-
-  
-  /* Custom Animations (Performance Optimized) */
-  --animate-accordion-down: accordion-down 0.2s ease-out;
-  --animate-accordion-up: accordion-up 0.2s ease-out;
-
-  @keyframes accordion-down {
-    from { height: 0 }
-    to { height: var(--radix-accordion-content-height) }
-  }
-  @keyframes accordion-up {
-    from { height: var(--radix-accordion-content-height) }
-    to { height: 0 }
-  }
+  /* ========================================================================
+     REMOVED: Animation variables for performance optimization
+     All animations removed to improve mobile performance and accessibility
+     ======================================================================== */
 }
 
 /* ============================================================================
-   TAILWIND V4 DARK MODE VARIANT
+   REMOVED: All keyframe definitions for performance optimization
    
-   This directive tells Tailwind how to generate dark: prefixed classes.
-   Without this, dark mode classes won't work correctly.
+   All animations removed to improve:
+   - Mobile performance and battery life
+   - Low-end device compatibility  
+   - Accessibility for motion-sensitive users
+   - CSS bundle size optimization
    ============================================================================ */
-
-@custom-variant dark (&:is(.dark, .dark *));
 
 /* ============================================================================
-   SHARED VARIABLES & TOKENS
+   CSS CUSTOM PROPERTIES (Theme Variables) - For Backwards Compatibility
    ============================================================================ */
+
+@custom-variant dark (&:is(.dark *));
 
 @layer base {
   :root {
-    /* Core colors */
+    /* Light theme - Core colors */
     --background: 252 100% 99%;
     --foreground: 223 84% 10%;
-    
-    /* Card / Surface */
     --card: 0 0% 100%;
     --card-foreground: 223 84% 10%;
     --popover: 0 0% 100%;
     --popover-foreground: 223 84% 10%;
     
-    /* Primary (Blue) */
+    /* Primary colors (Analytics platform inspired) */
     --primary: 217 91% 60%;
     --primary-foreground: 0 0% 100%;
     
-    /* Secondary */
+    /* Secondary colors */
     --secondary: 42 100% 70%;
     --secondary-foreground: 223 84% 10%;
     
-    /* UI States */
+    /* Utility colors */
     --muted: 240 5% 96%;
     --muted-foreground: 240 4% 46%;
     --accent: 217 32% 95%;
     --accent-foreground: 217 91% 40%;
     --destructive: 0 85% 60%;
     --destructive-foreground: 0 0% 100%;
+    
+    /* Interactive elements */
     --border: 240 6% 90%;
     --input: 240 6% 90%;
     --ring: 217 91% 60%;
-    
-    /* Charts */
-    --chart-1: 12 76% 61%;
-    --chart-2: 173 58% 39%;
-    --chart-3: 197 37% 24%;
-    --chart-4: 43 74% 66%;
-    --chart-5: 27 87% 67%;
-    
-    /* Radius */
-    --radius: 0.5rem;
-    
-    /* Pancake Rich Design Tokens */
-    --pancake-orange-50: hsl(31 100% 95%);
-    --pancake-yellow-50: hsl(42 100% 95%);
-    --pancake-orange-950: hsl(31 80% 10%);
-    --pancake-yellow-950: hsl(42 70% 10%);
-    
-    /* Dynamic Accent Color (set by SettingsProvider) */
-    --accent-color: #00ff33;
-    --accent-color-rgb: 0, 255, 51;
   }
 
-  /* Dark Theme */
   .dark {
+    /* Dark theme - Core colors */
     --background: 240 10% 4%;
     --foreground: 0 0% 95%;
-    
     --card: 240 10% 6%;
     --card-foreground: 0 0% 95%;
     --popover: 240 10% 6%;
     --popover-foreground: 0 0% 95%;
     
+    /* Primary colors (slightly brighter for dark mode) */
     --primary: 217 91% 65%;
     --primary-foreground: 0 0% 100%;
     
+    /* Secondary colors */
     --secondary: 240 4% 16%;
     --secondary-foreground: 0 0% 95%;
     
+    /* Utility colors */
     --muted: 240 4% 16%;
     --muted-foreground: 240 5% 65%;
     --accent: 240 4% 16%;
     --accent-foreground: 0 0% 95%;
-    
-    --destructive: 0 62% 30%;
+    --destructive: 0 85% 60%;
     --destructive-foreground: 0 0% 95%;
     
+    /* Interactive elements */
     --border: 240 4% 16%;
     --input: 240 4% 16%;
     --ring: 217 91% 65%;
-    
-    --chart-1: 220 70% 50%;
-    --chart-2: 160 60% 45%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%;
   }
 }
 
-/* Reset */
+/* ============================================================================
+   BASE ELEMENT STYLES
+   ============================================================================ */
+
 @layer base {
+  /* Global reset and base styles */
   * {
-    @apply border-border;
+    @apply border-[hsl(var(--border))] ring-[hsl(var(--ring))]/50;
   }
+  
+  /* Body styles */
   body {
-    @apply bg-background text-foreground;
+    @apply bg-[hsl(var(--background))] text-[hsl(var(--foreground))];
+    @apply antialiased;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+  
+  /* Interactive elements */
+  button,
+  a {
+    @apply cursor-pointer;
+  }
+  
+  /* Focus management */
+  button:focus-visible,
+  a:focus-visible,
+  input:focus-visible,
+  textarea:focus-visible,
+  select:focus-visible {
+    @apply outline-none ring-2 ring-[hsl(var(--ring))] ring-offset-2;
+  }
+  
+  /* Disabled states */
+  button:disabled,
+  input:disabled,
+  textarea:disabled,
+  select:disabled {
+    @apply opacity-50 cursor-not-allowed;
+  }
+  
+  /* Selection colors */
+  ::selection {
+    @apply bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))];
+  }
+  
+  /* Scrollbar styling */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    @apply bg-[hsl(var(--muted))];
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    @apply bg-[hsl(var(--muted-foreground))]/30 rounded-md;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-[hsl(var(--muted-foreground))]/50;
+  }
+  
+  /* Ensure proper box-sizing */
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+  
+  /* Remove default margins */
+  h1, h2, h3, h4, h5, h6, p, figure, blockquote, dl, dd {
+    margin: 0;
+  }
+  
+  /* Improve list styling */
+  ul[role='list'],
+  ol[role='list'] {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  
+  /* Make images easier to work with */
+  img,
+  picture {
+    max-width: 100%;
+    display: block;
+  }
+  
+  /* Improve form styling */
+  input,
+  button,
+  textarea,
+  select {
+    font: inherit;
+  }
+  
+  /* Remove animations for users who prefer reduced motion */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+/* ============================================================================
+   LAYOUT FOUNDATIONS
+   ============================================================================ */
+
+@layer base {
+  /* Main layout container */
+  .main-container {
+    @apply min-h-screen flex flex-col;
+  }
+  
+  /* Skip link for accessibility */
+  .skip-link {
+    @apply sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4;
+    @apply bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))];
+    @apply px-4 py-2 rounded-md z-50;
+  }
+  
+  /* Screen reader only content */
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+}
+
+/* ============================================================================
+   PRINT STYLES
+   ============================================================================ */
+
+@media print {
+  * {
+    background: transparent !important;
+    color: black !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+  
+  a,
+  a:visited {
+    text-decoration: underline;
+  }
+  
+  a[href]:after {
+    content: " (" attr(href) ")";
+  }
+  
+  abbr[title]:after {
+    content: " (" attr(title) ")";
+  }
+  
+  img {
+    max-width: 100% !important;
+  }
+  
+  @page {
+    margin: 0.5cm;
+  }
+  
+  p,
+  h2,
+  h3 {
+    orphans: 3;
+    widows: 3;
+  }
+  
+  h2,
+  h3 {
+    page-break-after: avoid;
   }
 }

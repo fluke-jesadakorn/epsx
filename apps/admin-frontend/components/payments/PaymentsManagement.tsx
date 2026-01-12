@@ -148,16 +148,16 @@ export function PaymentsManagement() {
         switch (status.toLowerCase()) {
             case 'succeeded':
             case 'completed':
-                return 'bg-gradient-to-r from-emerald-400 to-green-500 text-white';
+                return 'bg-success/10 text-success border border-success/20';
             case 'failed':
             case 'cancelled':
             case 'expired':
-                return 'bg-gradient-to-r from-red-400 to-rose-500 text-white';
+                return 'bg-destructive/10 text-destructive border border-destructive/20';
             case 'pending':
             case 'processing':
-                return 'bg-gradient-to-r from-yellow-400 to-orange-500 text-white';
+                return 'bg-warning/10 text-warning border border-warning/20';
             default:
-                return 'bg-gray-200 text-gray-700';
+                return 'bg-muted text-muted-foreground border border-border/50';
         }
     };
 
@@ -207,15 +207,15 @@ export function PaymentsManagement() {
         return (
             <div className="max-w-7xl mx-auto space-y-8 animate-pulse">
                 <div className="text-center mb-12">
-                    <div className="h-16 bg-gradient-to-r from-blue-400 to-purple-500 rounded-2xl w-96 mx-auto mb-6"></div>
-                    <div className="h-6 bg-gray-300 rounded-full w-64 mx-auto"></div>
+                    <div className="h-16 bg-primary/20 rounded-2xl w-96 mx-auto mb-6"></div>
+                    <div className="h-6 bg-muted rounded-full w-64 mx-auto"></div>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
                     {Array.from({ length: 4 }).map((_, i) => (
-                        <div key={i} className="bg-gray-300 rounded-3xl h-32"></div>
+                        <div key={i} className="bg-card rounded-3xl h-32 border border-border/50"></div>
                     ))}
                 </div>
-                <div className="bg-gray-200 rounded-3xl h-96"></div>
+                <div className="bg-card rounded-3xl h-96 border border-border/50"></div>
             </div>
         );
     }
@@ -224,21 +224,21 @@ export function PaymentsManagement() {
         <div className="space-y-6 sm:space-y-8">
             {/* Background Decorations */}
             <div className="fixed inset-0 overflow-hidden pointer-events-none">
-                <div className="absolute top-20 left-20 w-32 h-32 bg-gradient-to-r from-blue-400/20 to-purple-500/20 rounded-full blur-xl"></div>
-                <div className="absolute top-40 right-32 w-24 h-24 bg-gradient-to-r from-pink-400/20 to-rose-500/20 rounded-full blur-lg"></div>
-                <div className="absolute bottom-32 left-1/3 w-28 h-28 bg-gradient-to-r from-emerald-400/15 to-teal-500/15 rounded-full blur-xl"></div>
+                <div className="absolute top-20 left-20 w-32 h-32 bg-primary/10 rounded-full blur-xl animate-pulse"></div>
+                <div className="absolute top-40 right-32 w-24 h-24 bg-secondary/10 rounded-full blur-lg animate-pulse delay-700"></div>
+                <div className="absolute bottom-32 left-1/3 w-28 h-28 bg-primary/5 rounded-full blur-xl animate-pulse delay-1000"></div>
             </div>
 
             <div className="relative max-w-7xl mx-auto">
                 {/* Hero Section */}
                 <div className="text-center mb-8 sm:mb-12">
                     <div className="relative inline-block">
-                        <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent mb-4">
+                        <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-primary via-secondary to-primary bg-clip-text text-transparent mb-4">
                             💳 Payment Transactions
                         </h1>
-                        <div className="absolute -top-2 -right-2 w-4 h-4 bg-gradient-to-r from-blue-400 to-purple-500 rounded-full"></div>
+                        <div className="absolute -top-2 -right-2 w-4 h-4 bg-primary/20 rounded-full animate-ping"></div>
                     </div>
-                    <p className="text-base sm:text-lg text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
+                    <p className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto">
                         Monitor and manage all payment transactions across the platform
                     </p>
                 </div>
@@ -246,39 +246,36 @@ export function PaymentsManagement() {
                 {/* Action Cards */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 mb-8 sm:mb-12">
                     <div
-                        className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-r from-blue-400/20 via-purple-500/20 to-pink-500/20 p-0.5 cursor-pointer"
+                        className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-primary/10 p-0.5 cursor-pointer"
                         onClick={() => loadPayments()}
                     >
-                        <div className="relative bg-gradient-to-br from-blue-400 via-purple-500 to-pink-500 text-white rounded-2xl sm:rounded-3xl">
+                        <div className="relative bg-primary text-primary-foreground rounded-2xl sm:rounded-3xl hover:opacity-90 transition-opacity">
                             <div className="p-6 sm:p-8">
                                 <div className="bg-white/20 rounded-2xl w-12 h-12 flex items-center justify-center mb-4 sm:mb-6">
                                     <span className="text-xl sm:text-2xl">🔄</span>
                                 </div>
                                 <h3 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4">Refresh Data</h3>
-                                <p className="text-white/80 mb-4 sm:mb-6 text-sm sm:text-base">Reload payment data from the server</p>
+                                <p className="text-primary-foreground/80 mb-4 sm:mb-6 text-sm sm:text-base">Reload payment data from the server</p>
                                 <div className="bg-white/20 rounded-2xl px-4 sm:px-6 py-2 sm:py-3 text-center font-semibold text-sm sm:text-base min-h-[44px] flex items-center justify-center">
-                                    Refresh
+                                    Refresh Now
                                 </div>
                             </div>
                         </div>
                     </div>
 
                     <div
-                        className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-r from-emerald-400/20 via-green-500/20 to-teal-500/20 p-0.5 cursor-pointer hover:opacity-90 transition-opacity"
+                        className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-secondary/10 p-0.5 cursor-pointer"
                         onClick={exportPaymentsToCSV}
-                        role="button"
-                        tabIndex={0}
-                        onKeyDown={(e) => e.key === 'Enter' && exportPaymentsToCSV()}
                     >
-                        <div className="relative bg-gradient-to-br from-emerald-400 via-green-500 to-teal-500 text-white rounded-2xl sm:rounded-3xl">
+                        <div className="relative bg-secondary text-secondary-foreground rounded-2xl sm:rounded-3xl hover:opacity-90 transition-opacity">
                             <div className="p-6 sm:p-8">
                                 <div className="bg-white/20 rounded-2xl w-12 h-12 flex items-center justify-center mb-4 sm:mb-6">
                                     <span className="text-xl sm:text-2xl">📊</span>
                                 </div>
-                                <h3 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4">Export Report</h3>
-                                <p className="text-white/80 mb-4 sm:mb-6 text-sm sm:text-base">Download payment data as CSV</p>
+                                <h3 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4">Export Analysis</h3>
+                                <p className="text-secondary-foreground/80 mb-4 sm:mb-6 text-sm sm:text-base">Download detailed report in CSV format</p>
                                 <div className="bg-white/20 rounded-2xl px-4 sm:px-6 py-2 sm:py-3 text-center font-semibold text-sm sm:text-base min-h-[44px] flex items-center justify-center">
-                                    Export CSV
+                                    Export CSV Files
                                 </div>
                             </div>
                         </div>
@@ -288,77 +285,77 @@ export function PaymentsManagement() {
                 {/* Stats Grid */}
                 {stats && (
                     <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 mb-6 sm:mb-8">
-                        <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl border-2 border-blue-300/50 dark:border-blue-700/50">
+                        <div className="bg-card/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-sm border border-primary/20">
                             <div className="flex items-center justify-between mb-3 sm:mb-4">
-                                <div className="text-xl sm:text-2xl">💰</div>
-                                <span className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">Revenue</span>
+                                <div className="p-2 bg-primary/10 rounded-xl text-primary text-xl sm:text-2xl">💰</div>
+                                <span className="text-xs sm:text-sm font-medium text-muted-foreground">Revenue</span>
                             </div>
                             <div className="space-y-1">
-                                <div className="text-xl sm:text-3xl font-bold text-blue-600 dark:text-blue-400 truncate">
+                                <div className="text-xl sm:text-3xl font-bold text-primary truncate">
                                     {formatCurrency(stats.total_amount)}
                                 </div>
-                                <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-300">Total</div>
+                                <div className="text-xs sm:text-sm text-muted-foreground">Total</div>
                             </div>
                         </div>
 
-                        <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl border-2 border-emerald-300/50 dark:border-emerald-700/50">
+                        <div className="bg-card/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-sm border border-success/20">
                             <div className="flex items-center justify-between mb-3 sm:mb-4">
-                                <div className="text-xl sm:text-2xl">✅</div>
-                                <span className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">Success</span>
+                                <div className="p-2 bg-success/10 rounded-xl text-success text-xl sm:text-2xl">✅</div>
+                                <span className="text-xs sm:text-sm font-medium text-muted-foreground">Success</span>
                             </div>
                             <div className="space-y-1">
-                                <div className="text-2xl sm:text-3xl font-bold text-emerald-600 dark:text-emerald-400">{stats.successful_payments}</div>
-                                <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-300">Completed</div>
+                                <div className="text-2xl sm:text-3xl font-bold text-success">{stats.successful_payments}</div>
+                                <div className="text-xs sm:text-sm text-muted-foreground">Completed</div>
                             </div>
                         </div>
 
-                        <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl border-2 border-yellow-300/50 dark:border-yellow-700/50">
+                        <div className="bg-card/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-sm border border-warning/20">
                             <div className="flex items-center justify-between mb-3 sm:mb-4">
-                                <div className="text-xl sm:text-2xl">⏳</div>
-                                <span className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">Pending</span>
+                                <div className="p-2 bg-warning/10 rounded-xl text-warning text-xl sm:text-2xl">⏳</div>
+                                <span className="text-xs sm:text-sm font-medium text-muted-foreground">Pending</span>
                             </div>
                             <div className="space-y-1">
-                                <div className="text-2xl sm:text-3xl font-bold text-yellow-600 dark:text-yellow-400">{stats.pending_payments}</div>
-                                <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-300">In Progress</div>
+                                <div className="text-2xl sm:text-3xl font-bold text-warning">{stats.pending_payments}</div>
+                                <div className="text-xs sm:text-sm text-muted-foreground">In Progress</div>
                             </div>
                         </div>
 
-                        <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl border-2 border-purple-300/50 dark:border-purple-700/50">
+                        <div className="bg-card/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-sm border border-secondary/20">
                             <div className="flex items-center justify-between mb-3 sm:mb-4">
-                                <div className="text-xl sm:text-2xl">📈</div>
-                                <span className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">Today</span>
+                                <div className="p-2 bg-secondary/10 rounded-xl text-secondary text-xl sm:text-2xl">📈</div>
+                                <span className="text-xs sm:text-sm font-medium text-muted-foreground">Today</span>
                             </div>
                             <div className="space-y-1">
-                                <div className="text-xl sm:text-3xl font-bold text-purple-600 dark:text-purple-400 truncate">
+                                <div className="text-xl sm:text-3xl font-bold text-secondary truncate">
                                     {formatCurrency(stats.revenue_today)}
                                 </div>
-                                <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-300">Revenue</div>
+                                <div className="text-xs sm:text-sm text-muted-foreground">Revenue</div>
                             </div>
                         </div>
                     </div>
                 )}
 
                 {/* Filter Section */}
-                <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-r from-blue-400/20 via-purple-400/20 to-pink-400/20 p-0.5 mb-6">
-                    <div className="relative bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-2xl sm:rounded-3xl p-4 sm:p-6">
+                <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-primary/10 p-0.5 mb-6">
+                    <div className="relative bg-card/95 backdrop-blur-xl rounded-2xl sm:rounded-3xl p-4 sm:p-6 border border-border/50">
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Search</label>
+                                <label className="block text-sm font-medium text-muted-foreground mb-2">Search</label>
                                 <input
                                     type="text"
                                     placeholder="Reference, wallet, hash..."
                                     value={filters.search}
                                     onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-                                    className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    className="w-full px-4 py-3 bg-muted/50 border border-border/50 rounded-xl text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
                                 />
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Status</label>
+                                <label className="block text-sm font-medium text-muted-foreground mb-2">Status</label>
                                 <select
                                     value={filters.status}
                                     onChange={(e) => setFilters({ ...filters, status: e.target.value })}
-                                    className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    className="w-full px-4 py-3 bg-muted/50 border border-border/50 rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
                                 >
                                     <option value="">All Status</option>
                                     <option value="succeeded">Succeeded</option>
@@ -369,11 +366,11 @@ export function PaymentsManagement() {
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Method</label>
+                                <label className="block text-sm font-medium text-muted-foreground mb-2">Method</label>
                                 <select
                                     value={filters.payment_method}
                                     onChange={(e) => setFilters({ ...filters, payment_method: e.target.value })}
-                                    className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    className="w-full px-4 py-3 bg-muted/50 border border-border/50 rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
                                 >
                                     <option value="">All Methods</option>
                                     <option value="on_chain">On Chain</option>
@@ -382,11 +379,11 @@ export function PaymentsManagement() {
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Plan</label>
+                                <label className="block text-sm font-medium text-muted-foreground mb-2">Plan</label>
                                 <select
                                     value={filters.plan_template}
                                     onChange={(e) => setFilters({ ...filters, plan_template: e.target.value as PermissionTemplateName })}
-                                    className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    className="w-full px-4 py-3 bg-muted/50 border border-border/50 rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
                                 >
                                     <option value="BASIC">Basic</option>
                                     <option value="PRO">Pro</option>
@@ -406,7 +403,7 @@ export function PaymentsManagement() {
                                             search: '',
                                         });
                                     }}
-                                    className="w-full px-4 py-3 font-semibold rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                                    className="w-full px-4 py-3 font-semibold rounded-xl bg-muted hover:bg-muted/80 text-muted-foreground transition-all border border-border/50"
                                 >
                                     Reset
                                 </button>
@@ -417,35 +414,35 @@ export function PaymentsManagement() {
 
                 {/* Error State */}
                 {error && (
-                    <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-red-400/20 to-rose-400/20 p-0.5 mb-6">
-                        <div className="bg-red-50 dark:bg-red-900/30 backdrop-blur-xl rounded-2xl p-4 text-red-700 dark:text-red-300">
+                    <div className="relative overflow-hidden rounded-2xl bg-destructive/10 p-0.5 mb-6">
+                        <div className="bg-destructive/5 backdrop-blur-xl rounded-2xl p-4 text-destructive border border-destructive/20">
                             {error}
                         </div>
                     </div>
                 )}
 
                 {/* Payments Table */}
-                <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-r from-blue-400/20 via-purple-400/20 to-pink-400/20 p-0.5">
-                    <div className="relative bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-2xl sm:rounded-3xl overflow-hidden">
+                <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-primary/10 p-0.5">
+                    <div className="relative bg-card/95 backdrop-blur-xl rounded-2xl sm:rounded-3xl overflow-hidden border border-border/50">
                         <div className="p-4 sm:p-6 lg:p-8">
                             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-3">
-                                <h2 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
+                                <h2 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-primary via-secondary to-primary bg-clip-text text-transparent">
                                     Recent Transactions
                                 </h2>
-                                <div className="text-sm text-gray-500 dark:text-gray-400">
+                                <div className="text-sm text-muted-foreground">
                                     {payments.length} payments
                                 </div>
                             </div>
 
                             {payments.length === 0 ? (
                                 <div className="text-center py-12 sm:py-16">
-                                    <div className="h-20 w-20 bg-gradient-to-br from-blue-200 to-purple-200 dark:from-blue-800 dark:to-purple-800 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                                        <CurrencyDollarIcon className="w-10 h-10 text-blue-600 dark:text-blue-400" />
+                                    <div className="h-20 w-20 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                                        <CurrencyDollarIcon className="w-10 h-10 text-primary" />
                                     </div>
-                                    <h3 className="text-xl font-semibold text-gray-600 dark:text-gray-400 mb-2">
+                                    <h3 className="text-xl font-semibold text-foreground mb-2">
                                         No payments found
                                     </h3>
-                                    <p className="text-gray-500 dark:text-gray-500">
+                                    <p className="text-muted-foreground">
                                         No payments match your current filters.
                                     </p>
                                 </div>
@@ -456,28 +453,28 @@ export function PaymentsManagement() {
                                         {payments.map((payment) => (
                                             <div
                                                 key={payment.id}
-                                                className="p-4 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-800 rounded-2xl"
+                                                className="p-4 bg-muted/30 border border-border/50 rounded-2xl"
                                             >
                                                 <div className="flex items-center justify-between mb-3">
-                                                    <span className="font-mono text-xs text-gray-500">{payment.payment_reference}</span>
+                                                    <span className="font-mono text-xs text-muted-foreground">{payment.payment_reference}</span>
                                                     <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${getStatusColor(payment.status)}`}>
                                                         {getStatusIcon(payment.status)}
                                                         <span className="ml-1">{payment.status}</span>
                                                     </span>
                                                 </div>
                                                 <div className="grid grid-cols-2 gap-3">
-                                                    <div className="bg-white/50 dark:bg-gray-600/30 rounded-xl p-3">
-                                                        <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Amount</div>
-                                                        <div className="text-lg font-bold text-blue-600 dark:text-blue-400">
+                                                    <div className="bg-card/50 rounded-xl p-3 border border-border/50">
+                                                        <div className="text-sm font-medium text-muted-foreground">Amount</div>
+                                                        <div className="text-lg font-bold text-primary">
                                                             {formatCurrency(payment.amount, payment.currency)}
                                                         </div>
                                                     </div>
-                                                    <div className="bg-white/50 dark:bg-gray-600/30 rounded-xl p-3">
-                                                        <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Plan</div>
-                                                        <div className="text-lg font-bold text-purple-600 dark:text-purple-400">{payment.plan_name}</div>
+                                                    <div className="bg-card/50 rounded-xl p-3 border border-border/50">
+                                                        <div className="text-sm font-medium text-muted-foreground">Plan</div>
+                                                        <div className="text-lg font-bold text-secondary">{payment.plan_name}</div>
                                                     </div>
                                                 </div>
-                                                <div className="mt-3 text-xs text-gray-500">{formatDate(payment.created_at)}</div>
+                                                <div className="mt-3 text-xs text-muted-foreground">{formatDate(payment.created_at)}</div>
                                             </div>
                                         ))}
                                     </div>
@@ -486,31 +483,31 @@ export function PaymentsManagement() {
                                     <div className="hidden sm:block overflow-x-auto">
                                         <table className="min-w-full">
                                             <thead>
-                                                <tr className="border-b border-gray-200 dark:border-gray-700">
-                                                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Reference</th>
-                                                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Wallet</th>
-                                                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Plan</th>
-                                                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Amount</th>
-                                                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
-                                                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Created</th>
-                                                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
+                                                <tr className="border-b border-border/50">
+                                                    <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Reference</th>
+                                                    <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Wallet</th>
+                                                    <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Plan</th>
+                                                    <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Amount</th>
+                                                    <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Status</th>
+                                                    <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Created</th>
+                                                    <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Actions</th>
                                                 </tr>
                                             </thead>
-                                            <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                                            <tbody className="divide-y divide-border/50">
                                                 {payments.map((payment) => (
-                                                    <tr key={payment.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
-                                                        <td className="px-4 py-4 whitespace-nowrap text-sm font-mono text-gray-900 dark:text-white">
+                                                    <tr key={payment.id} className="hover:bg-muted/30 transition-colors">
+                                                        <td className="px-4 py-4 whitespace-nowrap text-sm font-mono text-foreground">
                                                             {payment.payment_reference}
                                                         </td>
                                                         <td className="px-4 py-4 whitespace-nowrap">
-                                                            <div className="text-xs font-mono text-gray-500 dark:text-gray-400">
+                                                            <div className="text-xs font-mono text-muted-foreground">
                                                                 {payment.wallet_address || 'N/A'}
                                                             </div>
                                                         </td>
-                                                        <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
+                                                        <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-foreground">
                                                             {payment.plan_name}
                                                         </td>
-                                                        <td className="px-4 py-4 whitespace-nowrap text-sm font-semibold text-blue-600 dark:text-blue-400">
+                                                        <td className="px-4 py-4 whitespace-nowrap text-sm font-semibold text-primary">
                                                             {formatCurrency(payment.amount, payment.currency)}
                                                         </td>
                                                         <td className="px-4 py-4 whitespace-nowrap">
@@ -519,11 +516,11 @@ export function PaymentsManagement() {
                                                                 <span className="ml-1">{payment.status}</span>
                                                             </span>
                                                         </td>
-                                                        <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                                                        <td className="px-4 py-4 whitespace-nowrap text-sm text-muted-foreground">
                                                             {formatDate(payment.created_at)}
                                                         </td>
                                                         <td className="px-4 py-4 whitespace-nowrap">
-                                                            <button className="p-2 rounded-xl text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors">
+                                                            <button className="p-2 rounded-xl text-primary hover:bg-primary/10 transition-colors">
                                                                 <EyeIcon className="w-5 h-5" />
                                                             </button>
                                                         </td>
@@ -535,22 +532,22 @@ export function PaymentsManagement() {
 
                                     {/* Pagination */}
                                     {totalPages > 1 && (
-                                        <div className="mt-6 flex items-center justify-between border-t border-gray-200 dark:border-gray-700 pt-6">
-                                            <p className="text-sm text-gray-500 dark:text-gray-400">
-                                                Page <span className="font-semibold">{currentPage}</span> of <span className="font-semibold">{totalPages}</span>
+                                        <div className="mt-6 flex items-center justify-between border-t border-border/50 pt-6">
+                                            <p className="text-sm text-muted-foreground">
+                                                Page <span className="font-semibold text-foreground">{currentPage}</span> of <span className="font-semibold text-foreground">{totalPages}</span>
                                             </p>
                                             <div className="flex gap-2">
                                                 <button
                                                     onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
                                                     disabled={currentPage === 1}
-                                                    className="px-4 py-2 text-sm font-medium rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                                    className="px-4 py-2 text-sm font-medium rounded-xl bg-muted text-muted-foreground hover:bg-muted/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors border border-border/50"
                                                 >
                                                     Previous
                                                 </button>
                                                 <button
                                                     onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
                                                     disabled={currentPage === totalPages}
-                                                    className="px-4 py-2 text-sm font-medium rounded-xl bg-gradient-to-r from-blue-500 to-purple-500 text-white hover:from-blue-600 hover:to-purple-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                                    className="px-4 py-2 text-sm font-medium rounded-xl bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                                                 >
                                                     Next
                                                 </button>
@@ -565,6 +562,6 @@ export function PaymentsManagement() {
             </div>
         </div>
     );
-}
+};
 
 export default PaymentsManagement;

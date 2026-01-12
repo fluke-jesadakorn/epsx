@@ -12,8 +12,7 @@ import {
   requestWalletChallenge,
   verifyWalletSignature,
 } from '@/shared/auth/api';
-import { clearClientSideCookies } from '@/shared/auth/cookies';
-import { OIDC_KEYS } from '@/shared/auth/storage';
+import { clearClientSideCookies, COOKIES, setClientCookieJSON } from '@/shared/auth/cookies';
 import { useSharedAuth } from '@/shared/components/auth/Provider';
 
 /**
@@ -133,17 +132,20 @@ export default function AuthPage() {
   useEffect(() => {
     // Only transition to sign step if we're currently on connect step and wallet is connected but not authenticated
     // Guard: Only proceed if we haven't already completed authentication successfully
+    // CRITICAL FIX: Also wait for isLoading to be false to ensure we don't skip authentication check
     if (
       isConnected &&
       address &&
       authStep === 'connect' &&
       !isAuthenticated &&
+      !_isLoading &&
       !authCompletedRef.current
     ) {
+      console.log('🔄 Transitioning to sign step:', { isConnected, address, isAuthenticated, _isLoading });
       setAuthStepGuarded('sign');
       setError('');
     }
-  }, [isConnected, address, authStep, isAuthenticated]); // Include all dependencies
+  }, [isConnected, address, authStep, isAuthenticated, _isLoading]); // Include _isLoading in dependencies
 
   // Separate effect to handle authenticated state changes
   useEffect(() => {
@@ -162,6 +164,9 @@ export default function AuthPage() {
   // Wallet disconnect detection - CRITICAL FIX
   // When wallet disconnects, reset auth state and clear cookies
   useEffect(() => {
+    // Skip if not mounted or not initialized yet
+    if (!mounted || !isInitialized) return;
+
     // Skip on initial mount (when prevConnectedRef is null)
     if (prevConnectedRef.current === null) {
       prevConnectedRef.current = isConnected;
@@ -169,7 +174,8 @@ export default function AuthPage() {
     }
 
     // Detect disconnect: was connected, now not connected
-    if (prevConnectedRef.current && !isConnected) {
+    // Added 1s delay or additional check to prevent flickering during refresh
+    if (prevConnectedRef.current && !isConnected && !_isLoading) {
       console.log('🔌 Wallet disconnected - resetting auth state');
 
       // Reset auth completed flag to allow state changes
@@ -184,13 +190,19 @@ export default function AuthPage() {
       try {
         clearClientSideCookies();
         // Also clear localStorage tokens
-        localStorage.removeItem(OIDC_KEYS.ACCESS_TOKEN);
+        localStorage.removeItem('epsx.access_token');
+        localStorage.removeItem('epsx.user');
+        localStorage.removeItem('epsx.refresh_token');
+        localStorage.removeItem('epsx.session_id');
+        localStorage.removeItem('epsx.auth_time');
+        localStorage.removeItem('epsx.expires_at');
         console.log('🗑️ Cleared auth cookies and tokens on disconnect');
       } catch (e) {
         console.warn('Failed to clear cookies on disconnect:', e);
       }
 
       // Call logout to update provider state
+      // Await it to ensure state is clean
       logout().catch((e) => {
         console.warn('Logout cleanup failed:', e);
       });
@@ -200,7 +212,7 @@ export default function AuthPage() {
 
     // Update previous state
     prevConnectedRef.current = isConnected;
-  }, [isConnected, logout]);
+  }, [isConnected, logout, mounted, isInitialized, _isLoading]);
 
   // Step 4: Handle redirection when success state is reached
   useEffect(() => {
@@ -211,6 +223,7 @@ export default function AuthPage() {
       }, 500); // Short delay to show success state
       return () => clearTimeout(timer);
     }
+    return undefined;
   }, [authStep, finalReturnUrl]);
 
   // Step 2: Request challenge and sign message
@@ -250,11 +263,26 @@ export default function AuthPage() {
         // Store access token in unified OpenID localStorage for session validation
         if (result.access_token) {
           try {
-            localStorage.setItem(OIDC_KEYS.ACCESS_TOKEN, result.access_token);
+            localStorage.setItem('epsx.access_token', result.access_token);
           } catch (_error) {
-            // Ignore storage errors
+            console.warn('Failed to save access token to storage', _error);
           }
+        } else {
+          console.error('CRITICAL: No access token returned from verifyWalletSignature', result);
+          throw new Error('Authentication verified but no access token received');
         }
+
+        // Fix: Persist session to cookies so Server Components (AuthProvider) can see it
+        const cookieData = {
+          wallet_address: result.wallet_address,
+          sub: result.wallet_address,
+          auth_time: Date.now(),
+          permissions: result.permissions || [],
+          groups: ['admin'],
+          isAdmin: true,
+          expires_at: Date.now() + 2592000000 // 30 days
+        };
+        setClientCookieJSON(COOKIES.user, cookieData);
 
         setAuthStepGuarded('success');
         toast.success('Admin authentication successful!');

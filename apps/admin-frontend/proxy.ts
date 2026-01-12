@@ -1,11 +1,7 @@
-/**
- * Admin Frontend Proxy
- * Uses shared auth middleware for strict server-side protection.
- */
 import { createAuthMiddleware } from '@/shared/auth/middleware';
 
-// Configure middleware
-export const middleware = createAuthMiddleware({
+// Configure middleware for Admin Frontend
+export const proxy = createAuthMiddleware({
   publicRoutes: [
     '/login',
     '/auth',
@@ -22,12 +18,6 @@ export const middleware = createAuthMiddleware({
   loginPath: '/auth',
   homePath: '/'
 });
-
-// Rename export to match Next.js expectation if using middleware.ts, 
-// but for proxy.ts in Next 16 we need to check exact export.
-// Assuming "proxy" export as per previous file content, but using the middleware factory.
-// We'll export 'proxy' as the main function.
-export const proxy = middleware;
 
 export const config = {
   matcher: [

@@ -229,17 +229,17 @@ export function PlanManagement({ currentUser }: PlanManagementProps) {
     return (
       <div className="max-w-7xl mx-auto space-y-8 animate-pulse">
         <div className="text-center mb-12">
-          <div className="h-16 bg-gradient-to-r from-emerald-400 to-green-500 rounded-2xl w-96 mx-auto mb-6"></div>
-          <div className="h-6 bg-gray-300 rounded-full w-64 mx-auto"></div>
+          <div className="h-16 bg-primary/20 rounded-2xl w-96 mx-auto mb-6"></div>
+          <div className="h-6 bg-muted rounded-full w-64 mx-auto"></div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
           {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="bg-gradient-to-br from-gray-300 to-gray-400 rounded-3xl h-64"></div>
+            <div key={i} className="bg-card border border-border rounded-3xl h-64"></div>
           ))}
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="bg-gray-300 rounded-3xl h-32"></div>
+            <div key={i} className="bg-card border border-border rounded-3xl h-32"></div>
           ))}
         </div>
       </div>
@@ -251,21 +251,21 @@ export function PlanManagement({ currentUser }: PlanManagementProps) {
       <div className="space-y-6 sm:space-y-8">
         {/* Background Decorations */}
         <div className="fixed inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute top-20 left-20 w-32 h-32 bg-gradient-to-r from-yellow-400/20 to-orange-500/20 rounded-full blur-xl"></div>
-          <div className="absolute top-40 right-32 w-24 h-24 bg-gradient-to-r from-pink-400/20 to-purple-500/20 rounded-full blur-lg"></div>
-          <div className="absolute bottom-32 left-1/3 w-28 h-28 bg-gradient-to-r from-orange-400/15 to-yellow-500/15 rounded-full blur-xl"></div>
+          <div className="absolute top-20 left-20 w-32 h-32 bg-primary/10 rounded-full blur-3xl animate-pulse"></div>
+          <div className="absolute top-40 right-32 w-24 h-24 bg-secondary/10 rounded-full blur-2xl"></div>
+          <div className="absolute bottom-32 left-1/3 w-28 h-28 bg-primary/5 rounded-full blur-3xl"></div>
         </div>
 
         <div className="relative max-w-7xl mx-auto">
           {/* Hero Section */}
           <div className="text-center mb-8 sm:mb-12">
             <div className="relative inline-block">
-              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-yellow-600 via-orange-600 via-pink-600 to-purple-600 bg-clip-text text-transparent mb-4">
-                💳 Dynamic Plans
+              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-foreground mb-4">
+                💳 <span className="bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">Dynamic Plans</span>
               </h1>
-              <div className="absolute -top-2 -right-2 w-4 h-4 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full"></div>
+              <div className="absolute -top-2 -right-2 w-4 h-4 bg-primary rounded-full animate-ping"></div>
             </div>
-            <p className="text-base sm:text-lg text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
+            <p className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto">
               Create and manage unlimited plans with context-specific features for web app, API, and admin access
             </p>
           </div>
@@ -273,91 +273,83 @@ export function PlanManagement({ currentUser }: PlanManagementProps) {
           {/* Action Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 mb-8 sm:mb-12">
             <div
-              className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-r from-emerald-400/20 via-green-500/20 to-teal-500/20 p-0.5 cursor-pointer"
+              className="relative group overflow-hidden rounded-2xl sm:rounded-3xl border border-success/20 bg-success/5 p-6 sm:p-8 cursor-pointer hover:bg-success/10 transition-all duration-300 active:scale-[0.98]"
               onClick={() => router.push('/plans/new')}
             >
-              <div className="relative bg-gradient-to-br from-emerald-400 via-green-500 to-teal-500 text-white rounded-2xl sm:rounded-3xl">
-                <div className="p-6 sm:p-8">
-                  <div className="bg-white/20 rounded-2xl w-12 h-12 flex items-center justify-center mb-4 sm:mb-6">
-                    <span className="text-xl sm:text-2xl">➕</span>
-                  </div>
-                  <h3 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4">Create Dynamic Plan</h3>
-                  <p className="text-white/80 mb-4 sm:mb-6 text-sm sm:text-base">Create unlimited plans with context-specific features</p>
-                  <div className="bg-white/20 rounded-2xl px-4 sm:px-6 py-2 sm:py-3 text-center font-semibold text-sm sm:text-base min-h-[44px] flex items-center justify-center">
-                    New Plan
-                  </div>
-                </div>
+              <div className="bg-success/20 text-success rounded-2xl w-12 h-12 flex items-center justify-center mb-4 sm:mb-6 group-hover:scale-110 transition-transform">
+                <span className="text-xl sm:text-2xl">➕</span>
+              </div>
+              <h3 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4 text-foreground">Create Dynamic Plan</h3>
+              <p className="text-muted-foreground mb-4 sm:mb-6 text-sm sm:text-base">Create unlimited plans with context-specific features</p>
+              <div className="bg-success text-success-foreground rounded-2xl px-4 sm:px-6 py-2 sm:py-3 text-center font-bold text-sm sm:text-base min-h-[44px] flex items-center justify-center shadow-lg shadow-success/20">
+                New Plan
               </div>
             </div>
 
             <div
-              className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-r from-purple-400/20 via-pink-500/20 to-rose-500/20 p-0.5 cursor-pointer"
+              className="relative group overflow-hidden rounded-2xl sm:rounded-3xl border border-secondary/20 bg-secondary/5 p-6 sm:p-8 cursor-pointer hover:bg-secondary/10 transition-all duration-300 active:scale-[0.98]"
               onClick={() => loadPlans()}
             >
-              <div className="relative bg-gradient-to-br from-purple-400 via-pink-500 to-rose-500 text-white rounded-2xl sm:rounded-3xl">
-                <div className="p-6 sm:p-8">
-                  <div className="bg-white/20 rounded-2xl w-12 h-12 flex items-center justify-center mb-4 sm:mb-6">
-                    <span className="text-xl sm:text-2xl">🔄</span>
-                  </div>
-                  <h3 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4">Refresh Data</h3>
-                  <p className="text-white/80 mb-4 sm:mb-6 text-sm sm:text-base">Reload plan data and analytics from server</p>
-                  <div className="bg-white/20 rounded-2xl px-4 sm:px-6 py-2 sm:py-3 text-center font-semibold text-sm sm:text-base min-h-[44px] flex items-center justify-center">
-                    Refresh
-                  </div>
-                </div>
+              <div className="bg-secondary/20 text-secondary rounded-2xl w-12 h-12 flex items-center justify-center mb-4 sm:mb-6 group-hover:scale-110 transition-transform">
+                <span className="text-xl sm:text-2xl">🔄</span>
+              </div>
+              <h3 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4 text-foreground">Refresh Data</h3>
+              <p className="text-muted-foreground mb-4 sm:mb-6 text-sm sm:text-base">Reload plan data and analytics from server</p>
+              <div className="bg-secondary text-secondary-foreground rounded-2xl px-4 sm:px-6 py-2 sm:py-3 text-center font-bold text-sm sm:text-base min-h-[44px] flex items-center justify-center shadow-lg shadow-secondary/20">
+                Refresh
               </div>
             </div>
           </div>
 
           {/* Stats Grid */}
           <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 mb-6 sm:mb-8">
-            <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl border-2 border-emerald-300/50 dark:border-emerald-700/50">
+            <div className="bg-card/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl border border-primary/20">
               <div className="flex items-center justify-between mb-3 sm:mb-4">
                 <div className="text-xl sm:text-2xl">💳</div>
-                <span className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">Total</span>
+                <span className="text-xs sm:text-sm font-medium text-muted-foreground">Total</span>
               </div>
               <div className="space-y-1">
-                <div className="text-2xl sm:text-3xl font-bold text-emerald-600 dark:text-emerald-400">{plans.length}</div>
-                <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-300">Plans</div>
-                <div className="text-xs text-gray-500 dark:text-gray-400">All types</div>
+                <div className="text-2xl sm:text-3xl font-bold text-primary">{plans.length}</div>
+                <div className="text-xs sm:text-sm text-foreground/80">Plans</div>
+                <div className="text-xs text-muted-foreground">All time</div>
               </div>
             </div>
 
-            <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl border-2 border-blue-300/50 dark:border-blue-700/50">
+            <div className="bg-card/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl border border-secondary/20">
               <div className="flex items-center justify-between mb-3 sm:mb-4">
                 <div className="text-xl sm:text-2xl">✅</div>
-                <span className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">Active</span>
+                <span className="text-xs sm:text-sm font-medium text-muted-foreground">Active</span>
               </div>
               <div className="space-y-1">
-                <div className="text-2xl sm:text-3xl font-bold text-blue-600 dark:text-blue-400">{activePlans.length}</div>
-                <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-300">Active</div>
-                <div className="text-xs text-gray-500 dark:text-gray-400">Available</div>
+                <div className="text-2xl sm:text-3xl font-bold text-secondary">{activePlans.length}</div>
+                <div className="text-xs sm:text-sm text-foreground/80">Active</div>
+                <div className="text-xs text-muted-foreground">Available</div>
               </div>
             </div>
 
-            <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl border-2 border-purple-300/50 dark:border-purple-700/50">
+            <div className="bg-card/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl border border-secondary/20">
               <div className="flex items-center justify-between mb-3 sm:mb-4">
                 <div className="text-xl sm:text-2xl">🏢</div>
-                <span className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">Enterprise</span>
+                <span className="text-xs sm:text-sm font-medium text-muted-foreground">Enterprise</span>
               </div>
               <div className="space-y-1">
-                <div className="text-2xl sm:text-3xl font-bold text-purple-600 dark:text-purple-400">{enterprisePlans.length}</div>
-                <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-300">Enterprise</div>
-                <div className="text-xs text-gray-500 dark:text-gray-400">Premium</div>
+                <div className="text-2xl sm:text-3xl font-bold text-secondary">{enterprisePlans.length}</div>
+                <div className="text-xs sm:text-sm text-foreground/80">Enterprise</div>
+                <div className="text-xs text-muted-foreground">Premium</div>
               </div>
             </div>
 
-            <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl border-2 border-green-300/50 dark:border-green-700/50">
+            <div className="bg-card/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl border border-success/20">
               <div className="flex items-center justify-between mb-3 sm:mb-4">
                 <div className="text-xl sm:text-2xl">💵</div>
-                <span className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">Price</span>
+                <span className="text-xs sm:text-sm font-medium text-muted-foreground">Price</span>
               </div>
               <div className="space-y-1">
-                <div className="text-xl sm:text-3xl font-bold text-green-600 dark:text-green-400 truncate">
+                <div className="text-xl sm:text-3xl font-bold text-success truncate">
                   ${avgRevenue.toFixed(2)}
                 </div>
-                <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-300">Average</div>
-                <div className="text-xs text-gray-500 dark:text-gray-400">USD</div>
+                <div className="text-xs sm:text-sm text-foreground/80">Average</div>
+                <div className="text-xs text-muted-foreground">USD</div>
               </div>
             </div>
           </div>
@@ -411,18 +403,18 @@ export function PlanManagement({ currentUser }: PlanManagementProps) {
 
       {/* Unsaved Changes Bar */}
       {hasChanges && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-6 py-4 rounded-full shadow-2xl border border-gray-200 dark:border-gray-700 flex items-center gap-4 animate-in slide-in-from-bottom-10 fade-in duration-300">
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-card text-card-foreground px-6 py-4 rounded-full shadow-2xl border border-border flex items-center gap-4 animate-in slide-in-from-bottom-10 fade-in duration-300">
           <div className="flex items-center gap-2">
-            <span className="bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 p-1.5 rounded-full">
+            <span className="bg-warning/10 text-warning p-1.5 rounded-full">
               <span className="text-lg">⚠️</span>
             </span>
             <span className="font-semibold">Unsaved Tier Order</span>
           </div>
-          <div className="h-6 w-px bg-gray-200 dark:bg-gray-700" />
+          <div className="h-6 w-px bg-border" />
           <div className="flex items-center gap-2">
             <button
               onClick={handleDiscardChanges}
-              className="px-4 py-2 rounded-xl text-sm font-medium hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              className="px-4 py-2 rounded-xl text-sm font-medium hover:bg-muted transition-colors"
               disabled={saving}
             >
               Discard
@@ -430,7 +422,7 @@ export function PlanManagement({ currentUser }: PlanManagementProps) {
             <button
               onClick={handleSaveOrder}
               disabled={saving}
-              className="px-4 py-2 rounded-xl text-sm font-bold bg-gray-900 dark:bg-white text-white dark:text-gray-900 hover:bg-gray-800 dark:hover:bg-gray-100 transition-colors shadow-lg shadow-gray-900/10 flex items-center gap-2"
+              className="px-4 py-2 rounded-xl text-sm font-bold bg-primary text-primary-foreground hover:opacity-90 transition-colors shadow-lg shadow-primary/10 flex items-center gap-2"
             >
               {saving ? (
                 <>
@@ -490,14 +482,14 @@ function PlanCard({ plan, router, isOverlay }: { plan: PlanResponse, router: any
 
   return (
     <div
-      className={`group relative flex items-stretch bg-white dark:bg-gray-800 rounded-2xl border transition-all duration-300 cursor-pointer overflow-hidden ${isOverlay ? 'border-emerald-500 shadow-2xl' : 'border-gray-200 dark:border-gray-700 hover:border-emerald-300 dark:hover:border-emerald-600 hover:shadow-lg'
+      className={`group relative flex items-stretch bg-card text-card-foreground rounded-2xl border transition-all duration-300 cursor-pointer overflow-hidden ${isOverlay ? 'border-primary shadow-2xl scale-105 opacity-80' : 'border-border hover:border-primary/50 hover:shadow-lg'
         }`}
       onClick={() => router.push(`/plans/${plan.id}/edit`)}
     >
       {/* Popular Ribbon */}
       {isPopular && (
         <div className="absolute top-0 right-0">
-          <div className="bg-gradient-to-r from-orange-500 to-rose-500 text-white text-[10px] font-bold px-3 py-1 rounded-bl-xl shadow-sm z-10">
+          <div className="bg-primary text-primary-foreground text-[10px] font-bold px-3 py-1 rounded-bl-xl shadow-sm z-10 transition-transform group-hover:scale-110">
             🔥 POPULAR
           </div>
         </div>
@@ -505,7 +497,7 @@ function PlanCard({ plan, router, isOverlay }: { plan: PlanResponse, router: any
 
       {/* Enhanced Grip Handle */}
       <div
-        className="flex items-center justify-center w-14 border-r border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 cursor-grab active:cursor-grabbing text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-200 transition-colors"
+        className="flex items-center justify-center w-14 border-r border-border bg-muted/30 cursor-grab active:cursor-grabbing text-muted-foreground group-hover:text-foreground transition-colors"
         onClick={(e) => e.stopPropagation()}
       >
         <GripVertical className="w-6 h-6" />
@@ -517,47 +509,47 @@ function PlanCard({ plan, router, isOverlay }: { plan: PlanResponse, router: any
         {/* Main Info */}
         <div className="flex flex-col gap-1 min-w-0 flex-1">
           <div className="flex items-center gap-3">
-            <h3 className="text-lg font-bold text-gray-900 dark:text-white truncate group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">{plan.name}</h3>
-            <span className="text-xs font-mono text-gray-400 bg-gray-100 dark:bg-gray-700/50 px-1.5 py-0.5 rounded">T{plan.tier_level}</span>
+            <h3 className="text-lg font-bold text-foreground truncate group-hover:text-primary transition-colors">{plan.name}</h3>
+            <span className="text-xs font-mono text-muted-foreground bg-muted px-1.5 py-0.5 rounded">T{plan.tier_level}</span>
           </div>
 
           <div className="flex items-baseline gap-2">
-            <span className="text-2xl font-bold bg-gradient-to-br from-gray-900 to-gray-600 dark:from-white dark:to-gray-400 bg-clip-text text-transparent">
+            <span className="text-2xl font-bold text-foreground">
               {Number(plan.current_price) === 0 ? 'Free' : `$${plan.current_price}`}
             </span>
-            {Number(plan.current_price) > 0 && <span className="text-xs text-gray-500 uppercase">{plan.currency}</span>}
+            {Number(plan.current_price) > 0 && <span className="text-xs text-muted-foreground uppercase">{plan.currency}</span>}
           </div>
 
           {/* Feature Tags */}
           <div className="flex items-center gap-2 mt-2">
             {featureTags.map((tag, i) => (
-              <span key={i} className="text-[10px] font-medium px-2 py-0.5 rounded-md bg-gray-100 dark:bg-gray-700/50 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-600/50">
+              <span key={i} className="text-[10px] font-medium px-2 py-0.5 rounded-md bg-muted text-muted-foreground border border-border">
                 {tag}
               </span>
             ))}
             {(plan.permissions?.length || 0) > 3 && (
-              <span className="text-[10px] font-medium text-gray-400">+{plan.permissions!.length - 3} more</span>
+              <span className="text-[10px] font-medium text-muted-foreground">+{plan.permissions!.length - 3} more</span>
             )}
           </div>
         </div>
 
         {/* Stats & Actions */}
-        <div className="flex items-center gap-6 sm:pl-6 sm:border-l border-gray-100 dark:border-gray-700">
+        <div className="flex items-center gap-6 sm:pl-6 sm:border-l border-border">
           <div className="flex flex-col gap-3 min-w-[120px]">
             {/* Subscriber Stat */}
             <div className="flex items-center justify-between">
-              <span className="text-xs text-gray-500 uppercase font-bold tracking-wider">Users</span>
-              <span className="text-sm font-bold text-gray-700 dark:text-gray-200">{plan.subscriber_count}</span>
+              <span className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Users</span>
+              <span className="text-sm font-bold text-foreground">{plan.subscriber_count}</span>
             </div>
             {/* Revenue Stat */}
             <div className="flex items-center justify-between">
-              <span className="text-xs text-gray-500 uppercase font-bold tracking-wider">Rev (30d)</span>
-              <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">${Number(plan.revenue_last_30_days).toFixed(2)}</span>
+              <span className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Rev (30d)</span>
+              <span className="text-sm font-bold text-success">${Number(plan.revenue_last_30_days).toFixed(2)}</span>
             </div>
           </div>
 
           <button
-            className="hidden sm:block p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-purple-500 transition-colors"
+            className="hidden sm:block p-2 rounded-xl hover:bg-muted text-muted-foreground hover:text-primary transition-colors"
             onClick={(e) => {
               e.stopPropagation();
               router.push(`/plans/${plan.id}/edit`);
@@ -586,35 +578,35 @@ function PlanGroupSection({
       items={plans.map((p: any) => p.id)}
       strategy={rectSwappingStrategy} // or verticalListSortingStrategy
     >
-      <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-r from-gray-100/50 to-gray-200/50 dark:from-gray-800/50 dark:to-gray-900/50 p-0.5">
-        <div className="relative bg-white/60 dark:bg-gray-900/60 backdrop-blur-xl rounded-2xl sm:rounded-3xl p-4 sm:p-6 lg:p-8">
+      <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-border/20 p-0.5">
+        <div className="relative bg-card/60 backdrop-blur-xl rounded-2xl sm:rounded-3xl p-4 sm:p-6 lg:p-8">
           {/* Header Section */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
             <div className="flex flex-col gap-2">
               <div className="flex items-center gap-3">
-                <div className={`h-10 w-10 rounded-xl flex items-center justify-center text-xl shadow-sm ${category === 'standard' ? 'bg-gradient-to-br from-blue-400 to-purple-500 text-white' :
-                  category === 'api' ? 'bg-gradient-to-br from-orange-400 to-red-500 text-white' :
-                    'bg-gradient-to-br from-purple-400 to-pink-500 text-white'
+                <div className={`h-10 w-10 rounded-xl flex items-center justify-center text-xl shadow-sm ${category === 'standard' ? 'bg-primary text-primary-foreground' :
+                  category === 'api' ? 'bg-secondary text-secondary-foreground' :
+                    'bg-secondary text-secondary-foreground'
                   }`}>
                   {category === 'standard' ? '👤' : category === 'api' ? '🔧' : '🏢'}
                 </div>
-                <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">{title}</h2>
+                <h2 className="text-xl sm:text-2xl font-bold text-foreground">{title}</h2>
               </div>
               {/* Aggregate Stats */}
               <div className="flex items-center gap-3 pl-[52px]">
-                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-100/50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800">
-                  <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">${groupRevenue.toFixed(2)}</span>
-                  <span className="text-[10px] uppercase font-semibold text-emerald-600/70 dark:text-emerald-400/70">MRR</span>
+                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-success/10 border border-success/20">
+                  <span className="text-xs font-bold text-success">${groupRevenue.toFixed(2)}</span>
+                  <span className="text-[10px] uppercase font-semibold text-success/70">MRR</span>
                 </div>
-                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-100/50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
-                  <span className="text-xs font-bold text-blue-600 dark:text-blue-400">{groupSubscribers}</span>
-                  <span className="text-[10px] uppercase font-semibold text-blue-600/70 dark:text-blue-400/70">Subs</span>
+                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/10 border border-primary/20">
+                  <span className="text-xs font-bold text-primary">{groupSubscribers}</span>
+                  <span className="text-[10px] uppercase font-semibold text-primary/70">Subs</span>
                 </div>
               </div>
             </div>
 
             <button
-              className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-white dark:bg-gray-800 shadow-sm border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition"
+              className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-card text-card-foreground shadow-sm border border-border hover:bg-muted transition"
               onClick={() => router.push('/plans/new')}
             >
               <span>➕</span> New {title}

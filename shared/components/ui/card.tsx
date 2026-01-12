@@ -1,14 +1,13 @@
 import { cn } from '@/shared/utils/cn';
 import React, { HTMLAttributes, forwardRef } from 'react';
 
-const Card = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement> & { variant?: 'default' | 'pancake' }>(
-  ({ className, variant = 'pancake', ...props }, ref) => {
+const Card = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
+  ({ className, ...props }, ref) => {
     return (
       <div
         ref={ref}
         className={cn(
           "rounded-xl border bg-card text-card-foreground shadow",
-          variant === 'pancake' && "pancake-card",
           className
         )}
         {...props}

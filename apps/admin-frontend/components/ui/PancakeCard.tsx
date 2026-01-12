@@ -10,10 +10,9 @@ import { CardContent, CardDescription, CardFooter, CardHeader, CardTitle, Card a
 import { cn } from "@/lib/utils"
 
 const PancakeCard = React.forwardRef<HTMLDivElement, React.ComponentProps<typeof SharedCard>>(
-  ({ className, variant = "pancake", ...props }, ref) => (
+  ({ className, ...props }, ref) => (
     <SharedCard
       ref={ref}
-      variant={variant}
       className={className}
       {...props}
     />

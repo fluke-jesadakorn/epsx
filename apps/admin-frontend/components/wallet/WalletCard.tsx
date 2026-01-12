@@ -54,20 +54,20 @@ const STATUS_CONFIG: Record<WalletStatus, { label: string; emoji: string; classN
     active: {
         label: 'Active',
         emoji: '🟢',
-        className: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800',
-        dotClass: 'bg-emerald-500',
+        className: 'bg-success/10 text-success border-success/20',
+        dotClass: 'bg-success',
     },
     disabled: {
         label: 'Disabled',
         emoji: '⚠️',
-        className: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800',
-        dotClass: 'bg-amber-500',
+        className: 'bg-warning/10 text-warning border-warning/20',
+        dotClass: 'bg-warning',
     },
     pending: {
         label: 'Pending',
         emoji: '⏳',
-        className: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800',
-        dotClass: 'bg-blue-500',
+        className: 'bg-info/10 text-info border-info/20',
+        dotClass: 'bg-info',
     },
 };
 
@@ -151,19 +151,19 @@ export function WalletCard({
         <div
             className={cn(
                 // Base card styles with premium glassmorphism
-                'group relative rounded-2xl overflow-hidden',
-                'bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl',
-                'border border-gray-200/60 dark:border-gray-700/60',
+                'group relative rounded-2xl overflow-hidden text-card-foreground',
+                'bg-card/80 backdrop-blur-xl',
+                'border border-border/60',
                 // Smooth transitions
                 'transition-all duration-300 ease-out',
                 // Hover effects
-                'hover:shadow-xl hover:shadow-gray-200/40 dark:hover:shadow-black/20',
-                'hover:border-gray-300 dark:hover:border-gray-600',
+                'hover:shadow-xl hover:shadow-primary/5',
+                'hover:border-border',
                 'hover:scale-[1.01] hover:-translate-y-0.5',
                 // Disabled state
                 isDisabled && 'opacity-80',
                 // Selected state
-                isSelected && 'ring-2 ring-blue-500 ring-offset-2 dark:ring-offset-gray-900 border-blue-300 dark:border-blue-600',
+                isSelected && 'ring-2 ring-primary ring-offset-2 dark:ring-offset-background border-primary/50',
                 className
             )}
         >
@@ -185,7 +185,7 @@ export function WalletCard({
                                 type="checkbox"
                                 checked={isSelected}
                                 onChange={(e) => onSelect(e.target.checked)}
-                                className="h-4 w-4 rounded-md border-gray-300 text-blue-600 focus:ring-blue-500 focus:ring-offset-0 transition-colors cursor-pointer dark:border-gray-600 dark:bg-gray-800"
+                                className="h-4 w-4 rounded-md border-border text-primary focus:ring-primary focus:ring-offset-0 transition-colors cursor-pointer dark:bg-background"
                             />
                         </div>
                     )}
@@ -228,8 +228,8 @@ export function WalletCard({
                                 className={cn(
                                     'shrink-0 p-1.5 rounded-lg transition-all duration-200',
                                     copied
-                                        ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-400 scale-110'
-                                        : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-300 hover:scale-110'
+                                        ? 'bg-success/20 text-success scale-110'
+                                        : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground hover:scale-110'
                                 )}
                                 title="Copy address"
                             >
@@ -257,10 +257,8 @@ export function WalletCard({
                             onClick={onView}
                             className={cn(
                                 'hidden sm:flex h-9 px-4 gap-2 text-sm font-medium rounded-xl',
-                                'bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700',
-                                'hover:from-blue-100 hover:to-indigo-100 hover:text-blue-800',
-                                'dark:from-blue-900/30 dark:to-indigo-900/30 dark:text-blue-400',
-                                'dark:hover:from-blue-900/50 dark:hover:to-indigo-900/50',
+                                'bg-primary/10 text-primary',
+                                'hover:bg-primary/20 hover:text-primary',
                                 'transition-all duration-200 hover:scale-105 hover:shadow-md'
                             )}
                         >
@@ -363,20 +361,20 @@ export function WalletCard({
 
                 {/* Footer: Labels & Notes - Enhanced */}
                 {(isEditing) ? (
-                    <div className="flex flex-col gap-3 bg-gradient-to-br from-blue-50/50 to-indigo-50/50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl p-4 border border-blue-100 dark:border-blue-900/50 animate-in fade-in zoom-in-95 duration-200" onClick={(e) => e.stopPropagation()}>
+                    <div className="flex flex-col gap-3 bg-accent/50 rounded-xl p-4 border border-border animate-in fade-in zoom-in-95 duration-200" onClick={(e) => e.stopPropagation()}>
                         <div className="space-y-3">
                             <Input
                                 placeholder="Label (max 20 chars)"
                                 value={labelInput}
                                 onChange={(e) => setLabelInput(e.target.value.slice(0, 20))}
-                                className="h-9 text-sm bg-white dark:bg-gray-800 rounded-lg"
+                                className="h-9 text-sm bg-background rounded-lg"
                                 autoFocus
                             />
                             <Textarea
                                 placeholder="Note (max 500 chars)"
                                 value={noteInput}
                                 onChange={(e) => setNoteInput(e.target.value.slice(0, 500))}
-                                className="min-h-[70px] text-sm bg-white dark:bg-gray-800 resize-none rounded-lg"
+                                className="min-h-[70px] text-sm bg-background resize-none rounded-lg"
                             />
                             <div className="flex justify-end gap-2 pt-1">
                                 <Button
@@ -392,7 +390,7 @@ export function WalletCard({
                                 </Button>
                                 <Button
                                     size="sm"
-                                    className="h-8 px-4 text-sm rounded-lg bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600"
+                                    className="h-8 px-4 text-sm rounded-lg bg-primary text-primary-foreground hover:opacity-90"
                                     onClick={handleSaveMetadata}
                                     disabled={isSaving}
                                 >

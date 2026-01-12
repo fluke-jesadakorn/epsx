@@ -94,8 +94,8 @@ export function PaymentLinksManagement() {
             setError(null);
 
             const params: Record<string, string> = {};
-            if (filterType) {params.context_type = filterType;}
-            if (filterActive) {params.is_active = filterActive;}
+            if (filterType) { params.context_type = filterType; }
+            if (filterActive) { params.is_active = filterActive; }
 
             const response = await base.get<any>('/api/admin/payment-links', params);
 
@@ -155,7 +155,7 @@ export function PaymentLinksManagement() {
     };
 
     const handleDeleteLink = async (id: string) => {
-        if (!confirm('Are you sure you want to deactivate this payment link?')) {return;}
+        if (!confirm('Are you sure you want to deactivate this payment link?')) { return; }
 
         try {
             const response = await base.delete<any>(`/api/admin/payment-links/${id}`);
@@ -198,7 +198,7 @@ export function PaymentLinksManagement() {
     };
 
     const isExpired = (expiresAt?: string) => {
-        if (!expiresAt) {return false;}
+        if (!expiresAt) { return false; }
         return new Date(expiresAt) < new Date();
     };
 
@@ -209,7 +209,7 @@ export function PaymentLinksManagement() {
     const getLinkStatusBadge = (link: PaymentLink) => {
         if (!link.is_active) {
             return (
-                <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-200 text-gray-700">
+                <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-muted text-muted-foreground border border-border/50">
                     <XCircleIcon className="w-3 h-3 mr-1" />
                     Inactive
                 </span>
@@ -217,7 +217,7 @@ export function PaymentLinksManagement() {
         }
         if (isExpired(link.expires_at)) {
             return (
-                <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-gradient-to-r from-red-400 to-rose-500 text-white">
+                <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-destructive/10 text-destructive border border-destructive/20">
                     <ClockIcon className="w-3 h-3 mr-1" />
                     Expired
                 </span>
@@ -225,14 +225,14 @@ export function PaymentLinksManagement() {
         }
         if (link.max_uses && link.current_uses >= link.max_uses) {
             return (
-                <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-gradient-to-r from-yellow-400 to-orange-500 text-white">
+                <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-warning/10 text-warning border border-warning/20">
                     <CheckCircleIcon className="w-3 h-3 mr-1" />
                     Max Uses
                 </span>
             );
         }
         return (
-            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-gradient-to-r from-emerald-400 to-green-500 text-white">
+            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-success/10 text-success border border-success/20">
                 <CheckCircleIcon className="w-3 h-3 mr-1" />
                 Active
             </span>
@@ -243,10 +243,15 @@ export function PaymentLinksManagement() {
         return (
             <div className="max-w-7xl mx-auto space-y-8 animate-pulse">
                 <div className="text-center mb-12">
-                    <div className="h-16 bg-gradient-to-r from-purple-400 to-pink-500 rounded-2xl w-96 mx-auto mb-6"></div>
-                    <div className="h-6 bg-gray-300 rounded-full w-64 mx-auto"></div>
+                    <div className="h-16 bg-primary/20 rounded-2xl w-96 mx-auto mb-6"></div>
+                    <div className="h-6 bg-muted rounded-full w-64 mx-auto"></div>
                 </div>
-                <div className="bg-gray-200 rounded-3xl h-96"></div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    {Array.from({ length: 4 }).map((_, i) => (
+                        <div key={i} className="bg-card rounded-3xl h-32 border border-border/50"></div>
+                    ))}
+                </div>
+                <div className="bg-card rounded-3xl h-96 border border-border/50"></div>
             </div>
         );
     }
@@ -263,12 +268,12 @@ export function PaymentLinksManagement() {
                 {/* Hero Section */}
                 <div className="text-center mb-8 sm:mb-12">
                     <div className="relative inline-block">
-                        <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-purple-600 via-pink-600 to-rose-600 bg-clip-text text-transparent mb-4">
+                        <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-primary via-secondary to-primary bg-clip-text text-transparent mb-4">
                             🔗 Payment Links
                         </h1>
-                        <div className="absolute -top-2 -right-2 w-4 h-4 bg-gradient-to-r from-purple-400 to-pink-500 rounded-full"></div>
+                        <div className="absolute -top-2 -right-2 w-4 h-4 bg-primary/20 rounded-full animate-ping"></div>
                     </div>
-                    <p className="text-base sm:text-lg text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
+                    <p className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto">
                         Create and manage dynamic payment links for plans, products, and campaigns
                     </p>
                 </div>
@@ -276,16 +281,16 @@ export function PaymentLinksManagement() {
                 {/* Action Card */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 mb-8 sm:mb-12">
                     <div
-                        className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-r from-purple-400/20 via-pink-500/20 to-rose-500/20 p-0.5 cursor-pointer"
+                        className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-primary/10 p-0.5 cursor-pointer"
                         onClick={() => setIsModalOpen(true)}
                     >
-                        <div className="relative bg-gradient-to-br from-purple-400 via-pink-500 to-rose-500 text-white rounded-2xl sm:rounded-3xl">
+                        <div className="relative bg-primary text-primary-foreground rounded-2xl sm:rounded-3xl hover:opacity-90 transition-opacity">
                             <div className="p-6 sm:p-8">
                                 <div className="bg-white/20 rounded-2xl w-12 h-12 flex items-center justify-center mb-4 sm:mb-6">
                                     <PlusIcon className="w-6 h-6" />
                                 </div>
                                 <h3 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4">Create Payment Link</h3>
-                                <p className="text-white/80 mb-4 sm:mb-6 text-sm sm:text-base">Generate a new payment link for your products or services</p>
+                                <p className="text-primary-foreground/80 mb-4 sm:mb-6 text-sm sm:text-base">Generate a new payment link for your products or services</p>
                                 <div className="bg-white/20 rounded-2xl px-4 sm:px-6 py-2 sm:py-3 text-center font-semibold text-sm sm:text-base min-h-[44px] flex items-center justify-center">
                                     New Link
                                 </div>
@@ -294,16 +299,16 @@ export function PaymentLinksManagement() {
                     </div>
 
                     <div
-                        className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-r from-blue-400/20 via-indigo-500/20 to-purple-500/20 p-0.5 cursor-pointer"
+                        className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-secondary/10 p-0.5 cursor-pointer"
                         onClick={() => loadPaymentLinks()}
                     >
-                        <div className="relative bg-gradient-to-br from-blue-400 via-indigo-500 to-purple-500 text-white rounded-2xl sm:rounded-3xl">
+                        <div className="relative bg-secondary text-secondary-foreground rounded-2xl sm:rounded-3xl hover:opacity-90 transition-opacity">
                             <div className="p-6 sm:p-8">
                                 <div className="bg-white/20 rounded-2xl w-12 h-12 flex items-center justify-center mb-4 sm:mb-6">
                                     <span className="text-xl sm:text-2xl">🔄</span>
                                 </div>
                                 <h3 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4">Refresh Data</h3>
-                                <p className="text-white/80 mb-4 sm:mb-6 text-sm sm:text-base">Reload payment links from the server</p>
+                                <p className="text-secondary-foreground/80 mb-4 sm:mb-6 text-sm sm:text-base">Reload payment links from the server</p>
                                 <div className="bg-white/20 rounded-2xl px-4 sm:px-6 py-2 sm:py-3 text-center font-semibold text-sm sm:text-base min-h-[44px] flex items-center justify-center">
                                     Refresh
                                 </div>
@@ -313,15 +318,15 @@ export function PaymentLinksManagement() {
                 </div>
 
                 {/* Filter Section */}
-                <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-r from-purple-400/20 via-pink-400/20 to-rose-400/20 p-0.5 mb-6">
-                    <div className="relative bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-2xl sm:rounded-3xl p-4 sm:p-6">
+                <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-primary/10 p-0.5 mb-6">
+                    <div className="relative bg-card/95 backdrop-blur-xl rounded-2xl sm:rounded-3xl p-4 sm:p-6 border border-border/50">
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Context Type</label>
+                                <label className="block text-sm font-medium text-muted-foreground mb-2">Context Type</label>
                                 <select
                                     value={filterType}
                                     onChange={(e) => setFilterType(e.target.value)}
-                                    className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                    className="w-full px-4 py-3 bg-muted/50 border border-border/50 rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
                                 >
                                     <option value="">All Types</option>
                                     {CONTEXT_TYPES.map((type) => (
@@ -332,11 +337,11 @@ export function PaymentLinksManagement() {
                                 </select>
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Status</label>
+                                <label className="block text-sm font-medium text-muted-foreground mb-2">Status</label>
                                 <select
                                     value={filterActive}
                                     onChange={(e) => setFilterActive(e.target.value)}
-                                    className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                    className="w-full px-4 py-3 bg-muted/50 border border-border/50 rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
                                 >
                                     <option value="">All Status</option>
                                     <option value="true">Active</option>
@@ -349,7 +354,7 @@ export function PaymentLinksManagement() {
                                         setFilterType('');
                                         setFilterActive('');
                                     }}
-                                    className="w-full px-4 py-3 font-semibold rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                                    className="w-full px-4 py-3 font-semibold rounded-xl bg-muted hover:bg-muted/80 text-muted-foreground transition-all border border-border/50"
                                 >
                                     Reset
                                 </button>
@@ -360,35 +365,35 @@ export function PaymentLinksManagement() {
 
                 {/* Error State */}
                 {error && (
-                    <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-red-400/20 to-rose-400/20 p-0.5 mb-6">
-                        <div className="bg-red-50 dark:bg-red-900/30 backdrop-blur-xl rounded-2xl p-4 text-red-700 dark:text-red-300">
+                    <div className="relative overflow-hidden rounded-2xl bg-destructive/10 p-0.5 mb-6">
+                        <div className="bg-destructive/5 backdrop-blur-xl rounded-2xl p-4 text-destructive border border-destructive/20">
                             {error}
                         </div>
                     </div>
                 )}
 
                 {/* Payment Links Table */}
-                <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-r from-purple-400/20 via-pink-400/20 to-rose-400/20 p-0.5">
-                    <div className="relative bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-2xl sm:rounded-3xl overflow-hidden">
+                <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-primary/10 p-0.5">
+                    <div className="relative bg-card/95 backdrop-blur-xl rounded-2xl sm:rounded-3xl overflow-hidden border border-border/50">
                         <div className="p-4 sm:p-6 lg:p-8">
                             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-3">
-                                <h2 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-purple-600 via-pink-600 to-rose-600 bg-clip-text text-transparent">
+                                <h2 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-primary via-secondary to-primary bg-clip-text text-transparent">
                                     All Payment Links
                                 </h2>
-                                <div className="text-sm text-gray-500 dark:text-gray-400">
+                                <div className="text-sm text-muted-foreground">
                                     {paymentLinks.length} links
                                 </div>
                             </div>
 
                             {paymentLinks.length === 0 ? (
                                 <div className="text-center py-12 sm:py-16">
-                                    <div className="h-20 w-20 bg-gradient-to-br from-purple-200 to-pink-200 dark:from-purple-800 dark:to-pink-800 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                                        <LinkIcon className="w-10 h-10 text-purple-600 dark:text-purple-400" />
+                                    <div className="h-20 w-20 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                                        <LinkIcon className="w-10 h-10 text-primary" />
                                     </div>
-                                    <h3 className="text-xl font-semibold text-gray-600 dark:text-gray-400 mb-2">
+                                    <h3 className="text-xl font-semibold text-foreground mb-2">
                                         No payment links yet
                                     </h3>
-                                    <p className="text-gray-500 dark:text-gray-500">
+                                    <p className="text-muted-foreground">
                                         Create your first payment link to get started
                                     </p>
                                 </div>
@@ -399,25 +404,25 @@ export function PaymentLinksManagement() {
                                         {paymentLinks.map((link) => (
                                             <div
                                                 key={link.id}
-                                                className="p-4 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-800 rounded-2xl"
+                                                className="p-4 bg-muted/30 border border-border/50 rounded-2xl"
                                             >
                                                 <div className="flex items-center justify-between mb-3">
                                                     <div>
-                                                        <div className="font-semibold text-gray-900 dark:text-white">{link.name}</div>
-                                                        <div className="text-xs font-mono text-gray-500">{link.slug}</div>
+                                                        <div className="font-semibold text-foreground">{link.name}</div>
+                                                        <div className="text-xs font-mono text-muted-foreground">{link.slug}</div>
                                                     </div>
                                                     {getLinkStatusBadge(link)}
                                                 </div>
                                                 <div className="grid grid-cols-2 gap-3 mb-3">
-                                                    <div className="bg-white/50 dark:bg-gray-600/30 rounded-xl p-3">
-                                                        <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Amount</div>
-                                                        <div className="text-lg font-bold text-purple-600 dark:text-purple-400">
+                                                    <div className="bg-card/50 rounded-xl p-3 border border-border/50">
+                                                        <div className="text-sm font-medium text-muted-foreground">Amount</div>
+                                                        <div className="text-lg font-bold text-primary">
                                                             {link.amount} {link.currency}
                                                         </div>
                                                     </div>
-                                                    <div className="bg-white/50 dark:bg-gray-600/30 rounded-xl p-3">
-                                                        <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Usage</div>
-                                                        <div className="text-lg font-bold text-pink-600 dark:text-pink-400">
+                                                    <div className="bg-card/50 rounded-xl p-3 border border-border/50">
+                                                        <div className="text-sm font-medium text-muted-foreground">Usage</div>
+                                                        <div className="text-lg font-bold text-secondary">
                                                             {link.current_uses}{link.max_uses ? ` / ${link.max_uses}` : ' / ∞'}
                                                         </div>
                                                     </div>
@@ -425,14 +430,14 @@ export function PaymentLinksManagement() {
                                                 <div className="flex gap-2">
                                                     <button
                                                         onClick={() => handleCopyUrl(link)}
-                                                        className="flex-1 px-3 py-2 rounded-xl font-semibold bg-gradient-to-r from-purple-400 to-pink-500 text-white text-sm"
+                                                        className="flex-1 px-3 py-2 rounded-xl font-semibold bg-primary text-primary-foreground hover:opacity-90 transition-all text-sm"
                                                     >
                                                         {copiedSlug === link.slug ? '✓ Copied' : 'Copy URL'}
                                                     </button>
                                                     {link.is_active && (
                                                         <button
                                                             onClick={() => handleDeleteLink(link.id)}
-                                                            className="px-3 py-2 rounded-xl bg-red-100 text-red-600 hover:bg-red-200"
+                                                            className="px-3 py-2 rounded-xl bg-destructive/10 text-destructive hover:bg-destructive/20 border border-destructive/20 transition-colors"
                                                         >
                                                             <TrashIcon className="w-5 h-5" />
                                                         </button>
@@ -446,35 +451,35 @@ export function PaymentLinksManagement() {
                                     <div className="hidden sm:block overflow-x-auto">
                                         <table className="min-w-full">
                                             <thead>
-                                                <tr className="border-b border-gray-200 dark:border-gray-700">
-                                                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Name / Slug</th>
-                                                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Type</th>
-                                                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Amount</th>
-                                                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Usage</th>
-                                                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Expires</th>
-                                                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
-                                                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
+                                                <tr className="border-b border-border/50">
+                                                    <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Name / Slug</th>
+                                                    <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Type</th>
+                                                    <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Amount</th>
+                                                    <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Usage</th>
+                                                    <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Expires</th>
+                                                    <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Status</th>
+                                                    <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Actions</th>
                                                 </tr>
                                             </thead>
-                                            <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                                            <tbody className="divide-y divide-border/50">
                                                 {paymentLinks.map((link) => (
-                                                    <tr key={link.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                                                    <tr key={link.id} className="hover:bg-muted/30 transition-colors">
                                                         <td className="px-4 py-4">
-                                                            <div className="text-sm font-semibold text-gray-900 dark:text-white">{link.name}</div>
-                                                            <div className="text-xs font-mono text-gray-500">{link.slug}</div>
+                                                            <div className="text-sm font-semibold text-foreground">{link.name}</div>
+                                                            <div className="text-xs font-mono text-muted-foreground">{link.slug}</div>
                                                         </td>
                                                         <td className="px-4 py-4">
-                                                            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-gradient-to-r from-blue-400 to-indigo-500 text-white capitalize">
+                                                            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-primary text-primary-foreground capitalize">
                                                                 {link.context_type}
                                                             </span>
                                                         </td>
-                                                        <td className="px-4 py-4 text-sm font-semibold text-purple-600 dark:text-purple-400">
+                                                        <td className="px-4 py-4 text-sm font-semibold text-primary">
                                                             {link.amount} {link.currency}
                                                         </td>
-                                                        <td className="px-4 py-4 text-sm text-gray-900 dark:text-white">
+                                                        <td className="px-4 py-4 text-sm text-foreground">
                                                             {link.current_uses}{link.max_uses ? ` / ${link.max_uses}` : ' / ∞'}
                                                         </td>
-                                                        <td className="px-4 py-4 text-sm text-gray-500 dark:text-gray-400">
+                                                        <td className="px-4 py-4 text-sm text-muted-foreground">
                                                             {link.expires_at ? formatDate(link.expires_at) : 'Never'}
                                                         </td>
                                                         <td className="px-4 py-4">{getLinkStatusBadge(link)}</td>
@@ -482,17 +487,17 @@ export function PaymentLinksManagement() {
                                                             <div className="flex items-center gap-1">
                                                                 <button
                                                                     onClick={() => handleCopyUrl(link)}
-                                                                    className="p-2 rounded-xl text-gray-500 hover:text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/30 transition-colors"
+                                                                    className="p-2 rounded-xl text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
                                                                     title="Copy URL"
                                                                 >
                                                                     {copiedSlug === link.slug ? (
-                                                                        <CheckCircleIcon className="w-5 h-5 text-green-500" />
+                                                                        <CheckCircleIcon className="w-5 h-5 text-success" />
                                                                     ) : (
                                                                         <ClipboardDocumentIcon className="w-5 h-5" />
                                                                     )}
                                                                 </button>
                                                                 <button
-                                                                    className="p-2 rounded-xl text-gray-500 hover:text-pink-600 hover:bg-pink-50 dark:hover:bg-pink-900/30 transition-colors"
+                                                                    className="p-2 rounded-xl text-muted-foreground hover:text-secondary hover:bg-secondary/10 transition-colors"
                                                                     title="Show QR Code"
                                                                 >
                                                                     <QrCodeIcon className="w-5 h-5" />
@@ -500,7 +505,7 @@ export function PaymentLinksManagement() {
                                                                 {link.is_active && (
                                                                     <button
                                                                         onClick={() => handleDeleteLink(link.id)}
-                                                                        className="p-2 rounded-xl text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors"
+                                                                        className="p-2 rounded-xl text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
                                                                         title="Deactivate"
                                                                     >
                                                                         <TrashIcon className="w-5 h-5" />
@@ -524,14 +529,14 @@ export function PaymentLinksManagement() {
             {isModalOpen && (
                 <div className="fixed inset-0 z-50 overflow-y-auto">
                     <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
-                        <div className="fixed inset-0 transition-opacity" aria-hidden="true">
-                            <div className="absolute inset-0 bg-gray-900/75 backdrop-blur-sm"></div>
+                        <div className="fixed inset-0 transition-opacity" aria-hidden="true" onClick={() => setIsModalOpen(false)}>
+                            <div className="absolute inset-0 bg-background/80 backdrop-blur-sm"></div>
                         </div>
-                        <div className="inline-block align-bottom bg-white dark:bg-gray-900 rounded-3xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+                        <div className="inline-block align-bottom bg-card rounded-3xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full border border-border/50">
                             <form onSubmit={handleCreateLink}>
                                 <div className="px-6 pt-6 pb-4">
                                     <div className="flex items-center justify-between mb-6">
-                                        <h3 className="text-xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+                                        <h3 className="text-xl font-bold bg-gradient-to-r from-primary via-secondary to-primary bg-clip-text text-transparent">
                                             Create Payment Link
                                         </h3>
                                         <button
@@ -540,25 +545,25 @@ export function PaymentLinksManagement() {
                                                 setIsModalOpen(false);
                                                 resetForm();
                                             }}
-                                            className="p-2 rounded-xl text-gray-400 hover:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
+                                            className="p-2 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
                                         >
                                             <XMarkIcon className="w-6 h-6" />
                                         </button>
                                     </div>
 
                                     {formError && (
-                                        <div className="mb-4 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 px-4 py-3 rounded-xl text-sm">
+                                        <div className="mb-4 bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-xl text-sm">
                                             {formError}
                                         </div>
                                     )}
 
                                     <div className="space-y-4">
                                         <div>
-                                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Context Type *</label>
+                                            <label className="block text-sm font-medium text-muted-foreground mb-2">Context Type *</label>
                                             <select
                                                 value={form.context_type}
                                                 onChange={(e) => setForm({ ...form, context_type: e.target.value as PaymentContextType })}
-                                                className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                                className="w-full px-4 py-3 bg-muted/50 border border-border/50 rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
                                                 required
                                             >
                                                 {CONTEXT_TYPES.map((type) => (
@@ -571,7 +576,7 @@ export function PaymentLinksManagement() {
 
                                         {(form.context_type === 'plan' || form.context_type === 'group') && (
                                             <div>
-                                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                                <label className="block text-sm font-medium text-muted-foreground mb-2">
                                                     {form.context_type === 'plan' ? 'Plan ID' : 'Group ID'}
                                                 </label>
                                                 <input
@@ -579,37 +584,37 @@ export function PaymentLinksManagement() {
                                                     value={form.context_id}
                                                     onChange={(e) => setForm({ ...form, context_id: e.target.value })}
                                                     placeholder="UUID of the linked entity"
-                                                    className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                                    className="w-full px-4 py-3 bg-muted/50 border border-border/50 rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
                                                 />
                                             </div>
                                         )}
 
                                         <div>
-                                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Name *</label>
+                                            <label className="block text-sm font-medium text-muted-foreground mb-2">Name *</label>
                                             <input
                                                 type="text"
                                                 value={form.name}
                                                 onChange={(e) => setForm({ ...form, name: e.target.value })}
                                                 placeholder="e.g., Pro Plan Monthly"
-                                                className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                                className="w-full px-4 py-3 bg-muted/50 border border-border/50 rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
                                                 required
                                             />
                                         </div>
 
                                         <div>
-                                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Description</label>
+                                            <label className="block text-sm font-medium text-muted-foreground mb-2">Description</label>
                                             <textarea
                                                 value={form.description}
                                                 onChange={(e) => setForm({ ...form, description: e.target.value })}
                                                 placeholder="Optional description"
                                                 rows={2}
-                                                className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                                className="w-full px-4 py-3 bg-muted/50 border border-border/50 rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
                                             />
                                         </div>
 
                                         <div className="grid grid-cols-2 gap-4">
                                             <div>
-                                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Amount *</label>
+                                                <label className="block text-sm font-medium text-muted-foreground mb-2">Amount *</label>
                                                 <input
                                                     type="number"
                                                     step="0.01"
@@ -617,16 +622,16 @@ export function PaymentLinksManagement() {
                                                     value={form.amount}
                                                     onChange={(e) => setForm({ ...form, amount: e.target.value })}
                                                     placeholder="0.00"
-                                                    className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                                    className="w-full px-4 py-3 bg-muted/50 border border-border/50 rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
                                                     required
                                                 />
                                             </div>
                                             <div>
-                                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Currency</label>
+                                                <label className="block text-sm font-medium text-muted-foreground mb-2">Currency</label>
                                                 <select
                                                     value={form.currency}
                                                     onChange={(e) => setForm({ ...form, currency: e.target.value })}
-                                                    className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                                    className="w-full px-4 py-3 bg-muted/50 border border-border/50 rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
                                                 >
                                                     {CURRENCIES.map((c) => (
                                                         <option key={c} value={c}>{c}</option>
@@ -637,49 +642,49 @@ export function PaymentLinksManagement() {
 
                                         <div className="grid grid-cols-2 gap-4">
                                             <div>
-                                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Expires In (hours)</label>
+                                                <label className="block text-sm font-medium text-muted-foreground mb-2">Expires In (hours)</label>
                                                 <input
                                                     type="number"
                                                     min="1"
                                                     value={form.expires_in_hours}
                                                     onChange={(e) => setForm({ ...form, expires_in_hours: e.target.value })}
                                                     placeholder="24"
-                                                    className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                                    className="w-full px-4 py-3 bg-muted/50 border border-border/50 rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
                                                 />
-                                                <p className="text-xs text-gray-500 mt-1">Leave empty for no expiration</p>
+                                                <p className="text-xs text-muted-foreground mt-1">Leave empty for no expiration</p>
                                             </div>
                                             <div>
-                                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Max Uses</label>
+                                                <label className="block text-sm font-medium text-muted-foreground mb-2">Max Uses</label>
                                                 <input
                                                     type="number"
                                                     min="1"
                                                     value={form.max_uses}
                                                     onChange={(e) => setForm({ ...form, max_uses: e.target.value })}
                                                     placeholder="Unlimited"
-                                                    className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                                    className="w-full px-4 py-3 bg-muted/50 border border-border/50 rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
                                                 />
-                                                <p className="text-xs text-gray-500 mt-1">Leave empty for unlimited</p>
+                                                <p className="text-xs text-muted-foreground mt-1">Leave empty for unlimited</p>
                                             </div>
                                         </div>
 
                                         <div>
-                                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Custom Slug (optional)</label>
+                                            <label className="block text-sm font-medium text-muted-foreground mb-2">Custom Slug (optional)</label>
                                             <input
                                                 type="text"
                                                 value={form.slug}
                                                 onChange={(e) => setForm({ ...form, slug: e.target.value })}
                                                 placeholder="Auto-generated if empty"
-                                                className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                                className="w-full px-4 py-3 bg-muted/50 border border-border/50 rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
                                             />
                                         </div>
                                     </div>
                                 </div>
 
-                                <div className="px-6 py-4 bg-gray-50 dark:bg-gray-800/50 flex flex-row-reverse gap-3">
+                                <div className="px-6 py-4 bg-muted/30 flex flex-row-reverse gap-3 rounded-b-3xl">
                                     <button
                                         type="submit"
                                         disabled={formLoading}
-                                        className="px-6 py-3 font-semibold rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:from-purple-600 hover:to-pink-600 disabled:opacity-50 transition-colors"
+                                        className="px-6 py-3 font-semibold rounded-xl bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50 transition-all border border-border/50"
                                     >
                                         {formLoading ? 'Creating...' : 'Create Link'}
                                     </button>
@@ -689,7 +694,7 @@ export function PaymentLinksManagement() {
                                             setIsModalOpen(false);
                                             resetForm();
                                         }}
-                                        className="px-6 py-3 font-semibold rounded-xl bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                                        className="px-6 py-3 font-semibold rounded-xl bg-muted hover:bg-muted/80 text-muted-foreground transition-all border border-border/50"
                                     >
                                         Cancel
                                     </button>

@@ -70,7 +70,9 @@ export async function AuthProvider({
     const session = await UnifiedAuth.getSession();
 
     if (!session?.user) {
-      redirect('/auth');
+      console.log('⛔ AuthProvider: No session user found, redirecting to /auth');
+      const returnUrl = encodeURIComponent(pathname);
+      redirect(`/auth?return_url=${returnUrl}&reason=no-session`);
     }
 
     // Backend validates all permissions - don't check on frontend
@@ -87,7 +89,7 @@ export async function AuthProvider({
           </ClientProviders>
         );
       } catch (_error) {
-         
+
         console.error('Critical AuthProvider error:', _error);
         return <AuthError />;
       }

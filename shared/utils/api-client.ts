@@ -127,7 +127,13 @@ export class UnifiedApiClient {
       // This is crucial for singleton clients that are initialized without tokens
       try {
         // 1. Try session_id cookie (synced by SharedWeb3AuthClient)
-        const clientSession = getClientCookie(COOKIES.session_id);
+        let clientSession = getClientCookie(COOKIES.session_id);
+
+        // Fallback: Try localStorage if cookie is missing (critical for persistent auth)
+        if (!clientSession && typeof window !== 'undefined') {
+          clientSession = localStorage.getItem('epsx.access_token');
+        }
+
         if (clientSession) {
           headers['Authorization'] = `Bearer ${clientSession}`;
           return headers;
@@ -181,9 +187,11 @@ export class UnifiedApiClient {
         // Emit global event for 401 handling (client-side only)
         // This allows applications to handle auth redirects globally
         if (typeof window !== 'undefined') {
-          window.dispatchEvent(new CustomEvent('auth:unauthorized', {
-            detail: { returnUrl: window.location.pathname + window.location.search }
-          }));
+          // DISABLED: Aggressive redirect logic causes loops on refresh.
+          // Let the application/auth-provider handle the session state naturally.
+          // window.dispatchEvent(new CustomEvent('auth:unauthorized', {
+          //   detail: { returnUrl: window.location.pathname + window.location.search }
+          // }));
         }
         return {
           success: false,

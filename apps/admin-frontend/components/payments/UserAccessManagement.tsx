@@ -52,13 +52,13 @@ export function UserAccessManagement() {
     const getStatusColor = (status: string) => {
         switch (status) {
             case 'active':
-                return 'bg-gradient-to-r from-emerald-400 to-green-500 text-white';
+                return 'bg-success/10 text-success border border-success/20';
             case 'expiring_soon':
-                return 'bg-gradient-to-r from-yellow-400 to-orange-500 text-white';
+                return 'bg-warning/10 text-warning border border-warning/20';
             case 'expired':
-                return 'bg-gradient-to-r from-red-400 to-rose-500 text-white';
+                return 'bg-destructive/10 text-destructive border border-destructive/20';
             default:
-                return 'bg-gray-200 text-gray-700';
+                return 'bg-muted text-muted-foreground border border-border/50';
         }
     };
 
@@ -66,10 +66,10 @@ export function UserAccessManagement() {
         return (
             <div className="max-w-7xl mx-auto space-y-8 animate-pulse">
                 <div className="text-center mb-12">
-                    <div className="h-16 bg-gradient-to-r from-emerald-400 to-teal-500 rounded-2xl w-96 mx-auto mb-6"></div>
-                    <div className="h-6 bg-gray-300 rounded-full w-64 mx-auto"></div>
+                    <div className="h-16 bg-primary/20 rounded-2xl w-96 mx-auto mb-6"></div>
+                    <div className="h-6 bg-muted rounded-full w-64 mx-auto"></div>
                 </div>
-                <div className="bg-gray-200 rounded-3xl h-96"></div>
+                <div className="bg-card rounded-3xl h-96 border border-border/50"></div>
             </div>
         );
     }
@@ -86,12 +86,12 @@ export function UserAccessManagement() {
                 {/* Hero Section */}
                 <div className="text-center mb-8 sm:mb-12">
                     <div className="relative inline-block">
-                        <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-emerald-600 via-teal-600 to-green-600 bg-clip-text text-transparent mb-4">
+                        <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-primary via-secondary to-primary bg-clip-text text-transparent mb-4">
                             👥 User Plan Access
                         </h1>
-                        <div className="absolute -top-2 -right-2 w-4 h-4 bg-gradient-to-r from-emerald-400 to-teal-500 rounded-full"></div>
+                        <div className="absolute -top-2 -right-2 w-4 h-4 bg-primary/20 rounded-full animate-ping"></div>
                     </div>
-                    <p className="text-base sm:text-lg text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
+                    <p className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto">
                         View and manage user subscription access across all plans
                     </p>
                 </div>
@@ -99,16 +99,16 @@ export function UserAccessManagement() {
                 {/* Action Card */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 mb-8 sm:mb-12">
                     <div
-                        className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-r from-emerald-400/20 via-teal-500/20 to-green-500/20 p-0.5 cursor-pointer"
+                        className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-primary/10 p-0.5 cursor-pointer"
                         onClick={() => loadUserAccess()}
                     >
-                        <div className="relative bg-gradient-to-br from-emerald-400 via-teal-500 to-green-500 text-white rounded-2xl sm:rounded-3xl">
+                        <div className="relative bg-primary text-primary-foreground rounded-2xl sm:rounded-3xl hover:opacity-90 transition-opacity">
                             <div className="p-6 sm:p-8">
                                 <div className="bg-white/20 rounded-2xl w-12 h-12 flex items-center justify-center mb-4 sm:mb-6">
                                     <span className="text-xl sm:text-2xl">🔄</span>
                                 </div>
                                 <h3 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4">Refresh Data</h3>
-                                <p className="text-white/80 mb-4 sm:mb-6 text-sm sm:text-base">Reload user access data from the server</p>
+                                <p className="text-primary-foreground/80 mb-4 sm:mb-6 text-sm sm:text-base">Reload user access data from the server</p>
                                 <div className="bg-white/20 rounded-2xl px-4 sm:px-6 py-2 sm:py-3 text-center font-semibold text-sm sm:text-base min-h-[44px] flex items-center justify-center">
                                     Refresh
                                 </div>
@@ -116,14 +116,14 @@ export function UserAccessManagement() {
                         </div>
                     </div>
 
-                    <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-r from-blue-400/20 via-indigo-500/20 to-purple-500/20 p-0.5">
-                        <div className="relative bg-gradient-to-br from-blue-400 via-indigo-500 to-purple-500 text-white rounded-2xl sm:rounded-3xl">
+                    <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-secondary/10 p-0.5 cursor-pointer">
+                        <div className="relative bg-secondary text-secondary-foreground rounded-2xl sm:rounded-3xl hover:opacity-90 transition-opacity">
                             <div className="p-6 sm:p-8">
                                 <div className="bg-white/20 rounded-2xl w-12 h-12 flex items-center justify-center mb-4 sm:mb-6">
                                     <span className="text-xl sm:text-2xl">📊</span>
                                 </div>
                                 <h3 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4">Export Report</h3>
-                                <p className="text-white/80 mb-4 sm:mb-6 text-sm sm:text-base">Download user access data as CSV</p>
+                                <p className="text-secondary-foreground/80 mb-4 sm:mb-6 text-sm sm:text-base">Download user access data as CSV</p>
                                 <div className="bg-white/20 rounded-2xl px-4 sm:px-6 py-2 sm:py-3 text-center font-semibold text-sm sm:text-base min-h-[44px] flex items-center justify-center">
                                     Export
                                 </div>
@@ -134,35 +134,35 @@ export function UserAccessManagement() {
 
                 {/* Error State */}
                 {error && (
-                    <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-red-400/20 to-rose-400/20 p-0.5 mb-6">
-                        <div className="bg-red-50 dark:bg-red-900/30 backdrop-blur-xl rounded-2xl p-4 text-red-700 dark:text-red-300">
+                    <div className="relative overflow-hidden rounded-2xl bg-destructive/10 p-0.5 mb-6">
+                        <div className="bg-destructive/5 backdrop-blur-xl rounded-2xl p-4 text-destructive border border-destructive/20">
                             {error}
                         </div>
                     </div>
                 )}
 
                 {/* User Access Table */}
-                <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-r from-emerald-400/20 via-teal-400/20 to-green-400/20 p-0.5">
-                    <div className="relative bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-2xl sm:rounded-3xl overflow-hidden">
+                <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-primary/10 p-0.5">
+                    <div className="relative bg-card/95 backdrop-blur-xl rounded-2xl sm:rounded-3xl overflow-hidden border border-border/50">
                         <div className="p-4 sm:p-6 lg:p-8">
                             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-3">
-                                <h2 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-emerald-600 via-teal-600 to-green-600 bg-clip-text text-transparent">
+                                <h2 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-primary via-secondary to-primary bg-clip-text text-transparent">
                                     All Users with Plan Access
                                 </h2>
-                                <div className="text-sm text-gray-500 dark:text-gray-400">
+                                <div className="text-sm text-muted-foreground">
                                     {userAccess.length} users
                                 </div>
                             </div>
 
                             {userAccess.length === 0 ? (
                                 <div className="text-center py-12 sm:py-16">
-                                    <div className="h-20 w-20 bg-gradient-to-br from-emerald-200 to-teal-200 dark:from-emerald-800 dark:to-teal-800 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                                        <UserGroupIcon className="w-10 h-10 text-emerald-600 dark:text-emerald-400" />
+                                    <div className="h-20 w-20 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                                        <UserGroupIcon className="w-10 h-10 text-primary" />
                                     </div>
-                                    <h3 className="text-xl font-semibold text-gray-600 dark:text-gray-400 mb-2">
+                                    <h3 className="text-xl font-semibold text-foreground mb-2">
                                         No users with plan access found
                                     </h3>
-                                    <p className="text-gray-500 dark:text-gray-500">
+                                    <p className="text-muted-foreground">
                                         Users with active subscriptions will appear here
                                     </p>
                                 </div>
@@ -173,10 +173,10 @@ export function UserAccessManagement() {
                                         {userAccess.map((user) => (
                                             <div
                                                 key={user.wallet_address}
-                                                className="p-4 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-800 rounded-2xl"
+                                                className="p-4 bg-muted/30 border border-border/50 rounded-2xl"
                                             >
                                                 <div className="flex items-center justify-between mb-3">
-                                                    <div className="font-mono text-xs text-gray-500" title={user.wallet_address}>
+                                                    <div className="font-mono text-xs text-muted-foreground" title={user.wallet_address}>
                                                         {user.wallet_address.substring(0, 10)}...{user.wallet_address.substring(user.wallet_address.length - 4)}
                                                     </div>
                                                     <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${getStatusColor(user.status)}`}>
@@ -184,18 +184,18 @@ export function UserAccessManagement() {
                                                     </span>
                                                 </div>
                                                 <div className="grid grid-cols-2 gap-3">
-                                                    <div className="bg-white/50 dark:bg-gray-600/30 rounded-xl p-3">
-                                                        <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Plan</div>
-                                                        <div className="text-lg font-bold text-emerald-600 dark:text-emerald-400">{user.plan_name || 'None'}</div>
+                                                    <div className="bg-card/50 rounded-xl p-3 border border-border/50">
+                                                        <div className="text-sm font-medium text-muted-foreground">Plan</div>
+                                                        <div className="text-lg font-bold text-primary">{user.plan_name || 'None'}</div>
                                                     </div>
-                                                    <div className="bg-white/50 dark:bg-gray-600/30 rounded-xl p-3">
-                                                        <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Days Left</div>
-                                                        <div className="text-lg font-bold text-teal-600 dark:text-teal-400">
+                                                    <div className="bg-card/50 rounded-xl p-3 border border-border/50">
+                                                        <div className="text-sm font-medium text-muted-foreground">Days Left</div>
+                                                        <div className="text-lg font-bold text-secondary">
                                                             {user.days_remaining > 0 ? `${user.days_remaining} days` : '-'}
                                                         </div>
                                                     </div>
                                                 </div>
-                                                <div className="mt-3 text-xs text-gray-500">
+                                                <div className="mt-3 text-xs text-muted-foreground">
                                                     Expires: {user.plan_expires_at ? formatDate(user.plan_expires_at) : 'Never'}
                                                 </div>
                                             </div>
@@ -206,24 +206,24 @@ export function UserAccessManagement() {
                                     <div className="hidden sm:block overflow-x-auto">
                                         <table className="min-w-full">
                                             <thead>
-                                                <tr className="border-b border-gray-200 dark:border-gray-700">
-                                                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Wallet</th>
-                                                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Plan</th>
-                                                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
-                                                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Days Left</th>
-                                                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Expires</th>
-                                                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
+                                                <tr className="border-b border-border/50">
+                                                    <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Wallet</th>
+                                                    <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Plan</th>
+                                                    <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Status</th>
+                                                    <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Days Left</th>
+                                                    <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Expires</th>
+                                                    <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Actions</th>
                                                 </tr>
                                             </thead>
-                                            <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                                            <tbody className="divide-y divide-border/50">
                                                 {userAccess.map((user) => (
-                                                    <tr key={user.wallet_address} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                                                    <tr key={user.wallet_address} className="hover:bg-muted/30 transition-colors">
                                                         <td className="px-4 py-4 whitespace-nowrap">
-                                                            <div className="text-xs font-mono text-gray-500 dark:text-gray-400" title={user.wallet_address}>
+                                                            <div className="text-xs font-mono text-muted-foreground" title={user.wallet_address}>
                                                                 {user.wallet_address.substring(0, 10)}...{user.wallet_address.substring(user.wallet_address.length - 4)}
                                                             </div>
                                                         </td>
-                                                        <td className="px-4 py-4 whitespace-nowrap text-sm font-semibold text-gray-900 dark:text-white">
+                                                        <td className="px-4 py-4 whitespace-nowrap text-sm font-semibold text-foreground">
                                                             {user.plan_name || 'No Plan'}
                                                         </td>
                                                         <td className="px-4 py-4 whitespace-nowrap">
@@ -231,14 +231,14 @@ export function UserAccessManagement() {
                                                                 {user.status === 'no_plan' ? 'No Plan' : user.status}
                                                             </span>
                                                         </td>
-                                                        <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                                                        <td className="px-4 py-4 whitespace-nowrap text-sm text-secondary">
                                                             {user.days_remaining > 0 ? `${user.days_remaining} days` : '-'}
                                                         </td>
-                                                        <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                                                        <td className="px-4 py-4 whitespace-nowrap text-sm text-muted-foreground">
                                                             {user.plan_expires_at ? formatDate(user.plan_expires_at) : 'Never'}
                                                         </td>
                                                         <td className="px-4 py-4 whitespace-nowrap">
-                                                            <button className="px-3 py-1.5 text-sm font-medium rounded-xl text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-colors">
+                                                            <button className="px-3 py-1.5 text-sm font-semibold rounded-xl text-primary hover:bg-primary/10 border border-primary/20 transition-all">
                                                                 View
                                                             </button>
                                                         </td>
