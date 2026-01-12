@@ -68,19 +68,23 @@ pub async fn get_unified_analytics_rankings_cached(
       Ok(permissions) => {
         PermissionParser::extract_ranking_config(&permissions)
       },
-      Err(_) => (100, 3)
+      Err(_) => (100, -1) // -1 for unlimited (will be capped by global max)
     }
   } else {
-    // SECURITY: Anonymous/unverified users fall back to standard free tier limits
-    (100, 3) 
+    // SECURITY: Anonymous/unverified users fall back to standard free tier offset but no hardcoded small limit
+    (100, -1) 
   };
  
   debug!("Rankings permission config: offset={}, limit_cap={} for secure_wallet={:?}", rank_offset, limit_cap, wallet_address);
 
   // Convert query params to service params with defaults
-  let limit = params.limit.unwrap_or(10).min(limit_cap); // Enforce limit cap
+  // Global maximum limit to protect database and TradingView API
+  let global_max_limit = 1000;
+  let effective_limit_cap = if limit_cap == -1 { global_max_limit } else { limit_cap };
+  
+  let limit = params.limit.unwrap_or(10).clamp(1, effective_limit_cap);
   let page = params.page.unwrap_or(1).max(1); // Ensure page is at least 1
-  let skip = rank_offset + (page - 1) * limit; // SECURITY: Start from rank_offset internally
+  let skip = (rank_offset - 1).max(0) + (page - 1) * limit; // SECURITY: Start from rank_offset internally (0-based for API)
 
   // Generate cache key for this request
   let cache_key = generate_cache_key(&params);

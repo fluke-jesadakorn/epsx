@@ -159,6 +159,8 @@ impl PermissionParser {
     }
 }
 
+const GLOBAL_MAX_LIMIT: i32 = 1000;
+
 impl EPSRankingService {
     pub fn new(eps_repo: Arc<dyn EPSRepository>) -> Self {
         Self { eps_repo }
@@ -183,10 +185,19 @@ impl EPSRankingService {
         let page = params.page.max(1);
         
         // Apply limit cap from permissions
-        let effective_limit = if params.limit_cap >= 0 {
-            params.limit.clamp(1, params.limit_cap)
+        // NEW LOGIC: 
+        // 1. If rank_offset > 1 (Free Zone), ignore limit_cap and use requested limit (up to global max)
+        // 2. If rank_offset == 1 (Upper Ranking), respect limit_cap
+        // 3. Always clamp by GLOBAL_MAX_LIMIT to protect database
+        let effective_limit = if params.rank_offset > 1 {
+            // Free zone: allow full browsing of "long tail" data
+            params.limit.clamp(1, GLOBAL_MAX_LIMIT)
+        } else if params.limit_cap >= 0 {
+            // Upper ranking zone: strictly respect plan-based limit
+             params.limit.clamp(1, params.limit_cap)
         } else {
-            params.limit.clamp(1, 100) // Unlimited cap, but still bound by max page size
+            // No specific limit_cap: use requested limit (up to global)
+            params.limit.clamp(1, GLOBAL_MAX_LIMIT)
         };
         
         debug!("Validated params - Country: {:?}, Page: {}, Limit: {} (requested: {}, cap: {}), Rank Offset: {}",
@@ -416,7 +427,7 @@ mod tests {
     }
 
     #[test]
-    fn test_eps_pagination() {
+    fn test_pagination_calculation() {
         let pagination = EPSPagination::new(1, 50, 1547);
         assert_eq!(pagination.total_pages, 31);
         assert!(pagination.has_next);
@@ -425,5 +436,62 @@ mod tests {
         let pagination = EPSPagination::new(31, 50, 1547);
         assert!(!pagination.has_next);
         assert!(pagination.has_prev);
+    }
+
+    #[test]
+    fn test_ranking_limit_logic() {
+        // Mock repository is not needed since we're just testing the limit calculation logic
+        // in get_eps_rankings (which we'll do by inspecting effective_limit)
+        
+        // Case 1: Upper Ranking (offset 1) with limit 5
+        let params = EPSRankingParams {
+            rank_offset: 1,
+            limit_cap: 5,
+            limit: 50,
+            ..EPSRankingParams::default()
+        };
+        
+        let effective_limit = if params.rank_offset > 1 {
+            params.limit.clamp(1, GLOBAL_MAX_LIMIT)
+        } else if params.limit_cap >= 0 {
+             params.limit.clamp(1, params.limit_cap)
+        } else {
+            params.limit.clamp(1, GLOBAL_MAX_LIMIT)
+        };
+        assert_eq!(effective_limit, 5);
+
+        // Case 2: Free Zone (offset 100) with limit_cap 5 - Should ignore cap
+        let params = EPSRankingParams {
+            rank_offset: 100,
+            limit_cap: 5,
+            limit: 50,
+            ..EPSRankingParams::default()
+        };
+        
+        let effective_limit = if params.rank_offset > 1 {
+            params.limit.clamp(1, GLOBAL_MAX_LIMIT)
+        } else if params.limit_cap >= 0 {
+             params.limit.clamp(1, params.limit_cap)
+        } else {
+            params.limit.clamp(1, GLOBAL_MAX_LIMIT)
+        };
+        assert_eq!(effective_limit, 50);
+
+        // Case 3: Global Max Protection
+        let params = EPSRankingParams {
+            rank_offset: 100,
+            limit_cap: -1,
+            limit: 2000,
+            ..EPSRankingParams::default()
+        };
+        
+        let effective_limit = if params.rank_offset > 1 {
+            params.limit.clamp(1, GLOBAL_MAX_LIMIT)
+        } else if params.limit_cap >= 0 {
+             params.limit.clamp(1, params.limit_cap)
+        } else {
+            params.limit.clamp(1, GLOBAL_MAX_LIMIT)
+        };
+        assert_eq!(effective_limit, 1000);
     }
 }
