@@ -15,6 +15,7 @@ import {
   Wallet
 } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useAccount, useDisconnect } from 'wagmi';
 
@@ -51,6 +52,7 @@ export function Header({ user }: HeaderProps) {
   const [mounted, setMounted] = useState(false);
   const [cookieWallet, setCookieWallet] = useState<string | null>(null);
   const { logout, isAuthenticated, user: authUser, isLoading: authLoading } = useSharedAuth();
+  const router = useRouter();
 
   const { isConnected, address } = useAccount();
   const { disconnect } = useDisconnect();
@@ -86,8 +88,11 @@ export function Header({ user }: HeaderProps) {
 
   const handleDisconnect = async () => {
     try {
+      // Clear local state first to prevent UI flicker
+      setCookieWallet(null);
       await logout();
       disconnect();
+      router.push('/auth');
     } catch (error) {
       console.error('Disconnect error:', error);
     }

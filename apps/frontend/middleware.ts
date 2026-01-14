@@ -1,7 +1,7 @@
 import { createAuthMiddleware } from '@/shared/auth/middleware';
 
 // Configure middleware for Frontend (Hybrid Mode)
-export const proxy = createAuthMiddleware({
+export const middleware = createAuthMiddleware({
     publicRoutes: [
         '/', // Landing page
         '/auth',

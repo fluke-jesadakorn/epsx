@@ -7,6 +7,7 @@
 
 'use client';
 
+import { extractData } from '@/shared/api';
 import { adminApiClient } from '../api-client';
 
 // Re-export shared types
@@ -225,25 +226,24 @@ export const walletMgmt = {
         if (filters.status !== 'all') params['status'] = filters.status;
 
         const res = await adminApiClient.get<WalletListResponse>('/api/admin/wallets', params);
-        const responseData = res.data?.data || res.data;
-        const rawWallets = responseData?.wallets || [];
+        const responseData = extractData<{ wallets?: WalletSummaryDto[]; pagination?: WalletListResponse['pagination'] }>(res) || {};
+        const rawWallets = responseData.wallets || [];
         const wallets = rawWallets.map(mapWalletDtoToData);
-        const rawPagination = responseData?.pagination || res.data?.pagination;
-        const pagination = rawPagination || { page: 1, limit: 20, total: wallets.length, total_pages: 1, has_next_page: false, has_previous_page: false };
+        const pagination = responseData.pagination || { page: 1, limit: 20, total: wallets.length, total_pages: 1, has_next_page: false, has_previous_page: false };
         return { wallets, pagination };
     },
 
     async fetchWalletStats(): Promise<WalletStats> {
         const res = await adminApiClient.get<any>('/api/admin/wallets/stats');
-        const responseData = res.data?.data || res.data;
-        const stats = responseData?.stats || responseData || { total_users: 0, active_users: 0, inactive_users: 0, new_users_30_days: 0, active_users_30_days: 0, growth_rate: 0 };
+        const responseData = extractData<{ stats?: WalletStatsDto } | WalletStatsDto>(res);
+        const stats = (responseData as any)?.stats || responseData || { total_users: 0, active_users: 0, inactive_users: 0, new_users_30_days: 0, active_users_30_days: 0, growth_rate: 0 };
         return mapStatsToFrontend(stats);
     },
 
     async fetchWalletDetail(walletAddress: string): Promise<WalletData> {
         const res = await adminApiClient.get<any>(`/api/admin/wallets/${walletAddress}`);
-        const responseData = res.data?.data || res.data;
-        const walletDto = responseData?.wallet || responseData;
+        const responseData = extractData<{ wallet?: WalletSummaryDto } | WalletSummaryDto>(res);
+        const walletDto = (responseData as any)?.wallet || responseData;
         if (!walletDto || !walletDto.wallet_address) throw new Error('Wallet not found');
         return mapWalletDtoToData(walletDto);
     },

@@ -108,21 +108,9 @@
   --color-insight-error: hsl(0 85% 60%);
   --color-insight-info: hsl(184 93% 47%);
   
-  /* ========================================================================
-     REMOVED: Animation variables for performance optimization
-     All animations removed to improve mobile performance and accessibility
-     ======================================================================== */
 }
 
-/* ============================================================================
-   REMOVED: All keyframe definitions for performance optimization
-   
-   All animations removed to improve:
-   - Mobile performance and battery life
-   - Low-end device compatibility  
-   - Accessibility for motion-sensitive users
-   - CSS bundle size optimization
-   ============================================================================ */
+
 
 /* ============================================================================
    CSS CUSTOM PROPERTIES (Theme Variables) - For Backwards Compatibility

@@ -14,6 +14,7 @@
 
 import {
   clearClientSideCookies,
+  COOKIE_OPTIONS,
   COOKIES,
   getClientCookie,
   getClientCookieJSON,
@@ -130,69 +131,49 @@ export class SharedWeb3AuthClient {
   }
 
   // ============================================================================
-  // TOKEN STORAGE (cookies + localStorage fallback)
+  // TOKEN STORAGE (cookies only)
   // ============================================================================
 
   private loadTokensFromStorage(): void {
     if (typeof window === 'undefined') return;
 
     try {
-      // 1. Clean up legacy storage
-      this.cleanupLegacyStorage();
-
-      // 2. Load access token (Primary: sid, Fallback: access_token)
-      let accessToken = getClientCookie(COOKIES.sid);
-      if (!accessToken) {
-        accessToken = localStorage.getItem('epsx.access_token');
-        if (accessToken) {
-          console.log('🔄 Recovered access token from localStorage fallback');
-        }
-      }
-
+      // Load access token from cookies
+      const accessToken = getClientCookie(COOKIES.access_token);
       if (accessToken) {
         this.accessToken = accessToken;
       }
 
-      // 3. Load refresh token
-      this.refreshToken = getClientCookie(COOKIES.refresh_token) || localStorage.getItem('epsx.refresh_token');
+      // Load refresh token from cookies
+      this.refreshToken = getClientCookie(COOKIES.refresh_token);
 
-      // 4. Load expiry
-      const expiry = getClientCookie(COOKIES.expires_at) || localStorage.getItem('epsx.expires_at');
+      // Load expiry from cookies
+      const expiry = getClientCookie(COOKIES.expires_at);
       this.tokenExpiry = expiry ? parseInt(expiry, 10) : null;
 
-      // 5. Load user object
+      // Load user from cookies
       let storedUser = getClientCookieJSON<UserInfoResponse>(COOKIES.user);
-      if (!storedUser) {
-        // Try localStorage
-        const storedUserStr = localStorage.getItem('epsx.user');
-        if (storedUserStr) {
-          try {
-            storedUser = JSON.parse(storedUserStr);
-          } catch (e) { }
-        }
 
-        // DEEP PERSIST: If still no user, but we have a valid access token, decode it!
-        // This follows OpenID/JWT standards where the token carries the identity.
-        if (!storedUser && this.accessToken) {
-          try {
-            const payloadPart = this.accessToken.split('.')[1];
-            if (payloadPart) {
-              const payload = JSON.parse(atob(payloadPart));
-              if (payload.sub && payload.sub.startsWith('0x')) {
-                console.log('🔓 Decoded user identity from Access Token');
-                storedUser = {
-                  sub: payload.sub,
-                  wallet_address: payload.sub,
-                  tier_level: payload.package_tier || payload.tier_level || 'basic',
-                  auth_method: 'web3_siwe',
-                  permissions: payload.permissions || [],
-                  access: this.accessToken
-                };
-              }
+      // Fallback: decode user from JWT if cookie missing but token exists
+      if (!storedUser && this.accessToken) {
+        try {
+          const payloadPart = this.accessToken.split('.')[1];
+          if (payloadPart) {
+            const payload = JSON.parse(atob(payloadPart));
+            if (payload.sub && payload.sub.startsWith('0x')) {
+              console.log('🔓 Decoded user identity from Access Token');
+              storedUser = {
+                sub: payload.sub,
+                wallet_address: payload.sub,
+                tier_level: payload.package_tier || payload.tier_level || 'basic',
+                auth_method: 'web3_siwe',
+                permissions: payload.permissions || [],
+                access: this.accessToken
+              };
             }
-          } catch (e) {
-            console.warn('Failed to decode access token for user recovery', e);
           }
+        } catch (e) {
+          console.warn('Failed to decode access token for user recovery', e);
         }
       }
 
@@ -200,27 +181,16 @@ export class SharedWeb3AuthClient {
         this.user = storedUser;
       }
 
-      console.log('🔍 SharedWeb3AuthClient: Initial storage state loaded', {
+      console.log('🔍 SharedWeb3AuthClient: Initial cookie state loaded', {
         clientId: this.clientId,
         hasAccessToken: !!this.accessToken,
         hasUser: !!this.user,
         wallet: this.user?.wallet_address?.slice(0, 8),
         isExpired: this.isExpired(),
-        source: storedUser ? (getClientCookie(COOKIES.user) ? 'cookie' : 'storage/jwt') : 'none'
+        source: storedUser ? 'cookie' : (this.accessToken ? 'jwt' : 'none')
       });
-
-      // CRITICAL FIX: If we recovered tokens from localStorage but cookies are missing,
-      // we MUST restore the cookies immediately. Otherwise, Server Components (AuthProvider)
-      // will fail to see the session and redirect back to /auth, causing a loop.
-      if (this.accessToken && !getClientCookie(COOKIES.sid)) {
-        console.log('🍪 Restoring missing session cookie from localStorage');
-        this.saveTokensToStorage();
-      } else if (this.user && !getClientCookie(COOKIES.user)) {
-        console.log('🍪 Restoring missing user cookie from localStorage');
-        this.saveTokensToStorage();
-      }
     } catch (error) {
-      console.warn('Failed to load tokens from storage', { error });
+      console.warn('Failed to load tokens from cookies', { error });
     }
   }
 
@@ -228,42 +198,32 @@ export class SharedWeb3AuthClient {
     if (typeof window === 'undefined') return;
 
     try {
-      console.log('🍪 SharedWeb3AuthClient: Saving tokens to storage', {
+      console.log('🍪 SharedWeb3AuthClient: Saving tokens to cookies', {
         clientId: this.clientId,
         hasAccessToken: !!this.accessToken,
         hasUser: !!this.user,
         hasExpiry: !!this.tokenExpiry,
       });
 
-      // Update expiry
+      // Use proper maxAge values for cookie persistence
       if (this.tokenExpiry) {
-        setClientCookie(COOKIES.expires_at, this.tokenExpiry.toString());
-        localStorage.setItem('epsx.expires_at', this.tokenExpiry.toString());
+        setClientCookie(COOKIES.expires_at, this.tokenExpiry.toString(), COOKIE_OPTIONS.maxAge.expires_at);
       }
 
-      // Sync access token to sid for Server Components and persistence
       if (this.accessToken) {
-        setClientCookie(COOKIES.sid, this.accessToken);
-        localStorage.setItem('epsx.access_token', this.accessToken);
+        setClientCookie(COOKIES.access_token, this.accessToken, COOKIE_OPTIONS.maxAge.access_token);
       }
 
-      // Update refresh token
       if (this.refreshToken) {
-        setClientCookie(COOKIES.refresh_token, this.refreshToken);
-        localStorage.setItem('epsx.refresh_token', this.refreshToken);
+        setClientCookie(COOKIES.refresh_token, this.refreshToken, COOKIE_OPTIONS.maxAge.refresh_token);
       }
 
-      // Save user object and auth time
       if (this.user) {
-        setClientCookieJSON(COOKIES.user, this.user);
-        localStorage.setItem('epsx.user', JSON.stringify(this.user));
-
-        const now = Date.now().toString();
-        setClientCookie(COOKIES.auth_time, now);
-        localStorage.setItem('epsx.auth_time', now);
+        setClientCookieJSON(COOKIES.user, this.user, COOKIE_OPTIONS.maxAge.user);
+        setClientCookie(COOKIES.auth_time, Date.now().toString(), COOKIE_OPTIONS.maxAge.auth_time);
       }
     } catch (error) {
-      console.warn('Failed to save tokens to storage', { error });
+      console.warn('Failed to save tokens to cookies', { error });
     }
   }
 
@@ -271,43 +231,13 @@ export class SharedWeb3AuthClient {
     if (typeof window === 'undefined') return;
 
     try {
-      // Clear client-side cookies
       clearClientSideCookies();
-      // Explicitly clear sid
-      setClientCookie(COOKIES.sid, '', 0);
-
-      // Clear localStorage
-      localStorage.removeItem('epsx.access_token');
-      localStorage.removeItem('epsx.refresh_token');
-      localStorage.removeItem('epsx.expires_at');
-      localStorage.removeItem('epsx.user');
-      localStorage.removeItem('epsx.auth_time');
     } catch (error) {
       console.warn('Failed to clear tokens from cookies', { error });
     }
   }
 
-  private cleanupLegacyStorage(): void {
-    if (typeof window === 'undefined') return;
-    try {
-      const legacyKeys = [
-        'oidc.access_token', 'oidc.refresh_token', 'oidc.expires_at',
-        'oidc.user', 'oidc.auth_time', 'oidc.id_token'
-      ];
-      let cleaned = false;
-      legacyKeys.forEach(key => {
-        if (localStorage.getItem(key)) {
-          localStorage.removeItem(key);
-          cleaned = true;
-        }
-      });
-      if (cleaned) {
-        console.log('🧹 Cleaned up legacy OIDC storage keys');
-      }
-    } catch (e) {
-      // Ignore errors during cleanup
-    }
-  }
+
 
   // ============================================================================
   // WEB3 AUTHENTICATION FLOW
@@ -802,7 +732,6 @@ export class SharedWeb3AuthClient {
       // Sync user to storage
       if (user) {
         setClientCookieJSON(COOKIES.user, user);
-        localStorage.setItem('epsx.user', JSON.stringify(user));
       }
 
       this.notifyListeners();

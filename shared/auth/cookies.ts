@@ -330,7 +330,6 @@ export const CLIENT_SIDE_COOKIES = [
   'affiliate_attribution',
   'affiliate_code',
   'wallet_state',
-  'sid'
 ] as const;
 
 /**

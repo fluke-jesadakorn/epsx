@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
         // 1. Authenticate user using Web3 cookies
         const cookieStore = await cookies();
         const userCookie = cookieStore.get(COOKIES.user);
-        const accessCookie = cookieStore.get(COOKIES.access);
+        const accessCookie = cookieStore.get(COOKIES.access_token);
 
         if (!userCookie?.value || !accessCookie?.value) {
             return NextResponse.json(

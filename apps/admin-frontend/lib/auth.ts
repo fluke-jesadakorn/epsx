@@ -118,7 +118,7 @@ export const useAuth = create<Web3AdminAuthState & {
       set({ isConnecting: false });
 
     } catch (_error) {
-       
+
       console.error('❌ Admin: Wallet connection failed:', _error);
       set({
         error: _error instanceof Error ? _error.message : 'Wallet connection failed',
@@ -180,7 +180,7 @@ export const useAuth = create<Web3AdminAuthState & {
       set({ isAuthenticating: false });
 
     } catch (_error) {
-       
+
       console.error('❌ Admin: Authentication failed:', _error);
       set({
         error: _error instanceof Error ? _error.message : 'Authentication failed',
@@ -197,7 +197,7 @@ export const useAuth = create<Web3AdminAuthState & {
       return await adminWeb3Client.requestChallenge(walletAddress);
 
     } catch (_error) {
-       
+
       console.error('❌ Admin: Challenge request failed:', _error);
       throw _error;
     }
@@ -217,12 +217,10 @@ export const useAuth = create<Web3AdminAuthState & {
         expiresAt: null,
         walletAddress: undefined,
         isLoading: false,
-        error: null,
       });
 
-      window.location.href = '/auth';
     } catch (_error) {
-       
+
       console.error('❌ Admin: Disconnect failed:', _error);
       set({
         error: 'Disconnect failed. Please try again.',
@@ -263,7 +261,7 @@ export const useAuth = create<Web3AdminAuthState & {
         return adminWallet;
       }
     } catch (_error) {
-       
+
       console.error('❌ Failed to load admin wallet:', _error);
     }
 
@@ -282,7 +280,7 @@ export const useAuth = create<Web3AdminAuthState & {
     try {
       await get().getAdminWallet();
     } catch (_error) {
-       
+
       console.error('❌ Admin session refresh failed:', _error);
       get().disconnectWallet();
     }

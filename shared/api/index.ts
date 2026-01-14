@@ -18,6 +18,23 @@ export {
 } from '../utils/api-client';
 
 // ============================================================================
+// RESPONSE UTILITIES
+// ============================================================================
+
+export {
+  assertSuccess,
+  extractArray,
+  extractArrayOrEmpty,
+  extractData,
+  extractDataOrDefault,
+  extractError,
+  extractMessage,
+  extractObject,
+  extractPagination,
+  isSuccess
+} from '../utils/response-utils';
+
+// ============================================================================
 // DOMAIN API CLIENTS
 // ============================================================================
 

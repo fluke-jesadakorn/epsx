@@ -75,7 +75,7 @@ export function useSSENotifications(
     // Check for token expiry and refresh if needed
     if (optionsRef.current.refreshSession) {
       try {
-        const expiresAt = getClientCookie(COOKIES.expires_at) || localStorage.getItem('epsx.expires_at')
+        const expiresAt = getClientCookie(COOKIES.expires_at)
         if (expiresAt) {
           const expiryTime = parseInt(expiresAt, 10)
           // If expired or expiring in less than 30 seconds

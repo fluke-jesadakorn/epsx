@@ -7,6 +7,12 @@
 
 'use client';
 
+import {
+  extractArray,
+  extractArrayOrEmpty,
+  extractData,
+  extractObject,
+} from '@/shared/api';
 import { API_ROUTES } from '@/shared/config/route-constants';
 import { adminApiClient } from '../api-client';
 
@@ -181,16 +187,12 @@ function mapAssignmentToMembership(assignment: any): UserGroupMembership {
 export const groupMgmt = {
   async getPermissionGroups(): Promise<PermissionGroup[]> {
     const res = await adminApiClient.get<any>(API_ROUTES.PERMISSIONS.GROUPS);
-    const groups = res.data?.data || res.data;
-    if (!Array.isArray(groups)) { throw new Error('Invalid response'); }
-    return groups;
+    return extractArray<PermissionGroup>(res, 'getPermissionGroups');
   },
 
   async getPermissionGroup(groupId: string): Promise<PermissionGroup> {
     const res = await adminApiClient.get<any>(`${API_ROUTES.PERMISSIONS.GROUPS}/${groupId}`);
-    const group = res.data?.data || res.data;
-    if (!group) { throw new Error('Group not found'); }
-    return group;
+    return extractObject<PermissionGroup>(res, 'getPermissionGroup');
   },
 
   async createPermissionGroup(req: CreateGroupRequest): Promise<PermissionGroup> {
@@ -229,9 +231,7 @@ export const groupMgmt = {
       is_active: true,
       limit: 100,
     });
-    const assignments = res.data?.data || res.data || [];
-    if (!Array.isArray(assignments)) { return []; }
-    return assignments.map(mapAssignmentToMembership);
+    return extractArrayOrEmpty<any>(res).map(mapAssignmentToMembership);
   },
 
   async getUserPermissions(userId: string): Promise<string[]> {
@@ -265,9 +265,7 @@ export const groupMgmt = {
       limit: 100,
       is_active: true
     });
-    const assignments = res.data?.data || res.data || [];
-    if (!Array.isArray(assignments)) { return []; }
-    return assignments.map(mapAssignmentToMembership);
+    return extractArrayOrEmpty<any>(res).map(mapAssignmentToMembership);
   },
 
   async getWeb3AssignmentRules(): Promise<Web3AssignmentRule[]> {
@@ -387,7 +385,7 @@ export const groupMgmt = {
 
   async getGroupAnalytics(): Promise<GroupAnalytics> {
     const response = await adminApiClient.get<any>(API_ROUTES.ADMIN.ANALYTICS_PERMISSIONS);
-    const data = response.data?.data || response.data;
+    const data = extractData<any>(response) || {};
     return {
       total_groups: data.total_groups || 0,
       total_active_memberships: data.active_permissions || data.total_permissions || 0,
@@ -399,8 +397,9 @@ export const groupMgmt = {
 
   async getExpiringMemberships(days = 7): Promise<UserGroupMembership[]> {
     const res = await adminApiClient.get<any>('/api/permissions/assignments/expiring', { days });
-    const assignments = res.data?.assignments || res.data || [];
-    if (!Array.isArray(assignments)) { return []; }
+    // Note: This endpoint returns { assignments: [...] } directly, so use extractData
+    const data = extractData<{ assignments?: any[] }>(res);
+    const assignments = data?.assignments || [];
     return assignments.map(mapAssignmentToMembership);
   },
 
@@ -411,23 +410,17 @@ export const groupMgmt = {
 
   async getAvailablePermissions(): Promise<string[]> {
     const res = await adminApiClient.get<any>('/api/admin/permissions/available');
-    const data = res.data?.data || res.data;
-    return Array.isArray(data) ? data : [];
+    return extractArrayOrEmpty<string>(res);
   },
 
   async getPermissionDefinitions(): Promise<PermissionDefinitionDto[]> {
-    const res = await adminApiClient.get<PermissionDefinitionDto[]>('/api/permissions/definitions');
-    const data = res.data;
-    if (Array.isArray(data)) { return data; }
-    if ((data as any)?.data && Array.isArray((data as any).data)) { return (data as any).data; }
-    return [];
+    const res = await adminApiClient.get<any>('/api/permissions/definitions');
+    return extractArrayOrEmpty<PermissionDefinitionDto>(res);
   },
 
   async createPermissionDefinition(req: CreatePermissionDefinitionRequest): Promise<PermissionDefinitionDto> {
-    const res = await adminApiClient.post<PermissionDefinitionDto>('/api/permissions/definitions', req);
-    const data = res.data;
-    if ((data as any)?.data) { return (data as any).data; }
-    return data!;
+    const res = await adminApiClient.post<any>('/api/permissions/definitions', req);
+    return extractObject<PermissionDefinitionDto>(res, 'createPermissionDefinition');
   },
 
   async deletePermissionDefinition(id: string): Promise<void> {

@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { type User } from '@/shared/types/auth';
 import { AlertCircle, Bell, Check, Edit, Mail, X } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
@@ -34,6 +35,7 @@ export function EmailManagement({ user }: EmailManagementProps) {
     isSending: false,
     showVerification: false,
   });
+  const router = useRouter();
 
   const handleStartEdit = () => {
     setEmailState(prev => ({
@@ -132,7 +134,7 @@ export function EmailManagement({ user }: EmailManagementProps) {
       toast.success('Email address updated successfully');
 
       // Refresh page to update user data
-      window.location.reload();
+      router.refresh();
 
     } catch (error: any) {
       console.error('Email verification error:', error);

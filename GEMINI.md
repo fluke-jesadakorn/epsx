@@ -246,57 +246,8 @@ CLOUDFLARE_TUNNEL_TOKEN=ey...
 # ... (Same as before)
 ```
 
-# ... (Original content preserved) ...
 
-### Remote Server Deployment (Docker Compose)
-
-**1. Build & Package Locally (Mac)**
-```bash
-# Build images for server architecture (linux/amd64)
-export DOCKER_DEFAULT_PLATFORM=linux/amd64
-docker compose -f docker-compose.yml build frontend admin-frontend backend
-
-# Save images to a compressed tarball
-docker save epsx-frontend:latest epsx-admin-frontend:latest epsx-backend:latest | gzip > deploy.tar.gz
-```
-
-**2. Transfer to Server**
-```bash
-# Upload compressed images
-scp deploy.tar.gz USER@SERVER_IP:~/epsx/
-```
-
-**3. Deploy on Server**
-```bash
-ssh USER@SERVER_IP
-cd ~/epsx
-
-# Load images
-gzip -d -c deploy.tar.gz | docker load
-
-# Deploy Dev
-docker compose --env-file .env.docker up -d
-
-# Deploy Prod (Joined to same network)
-cd prod
-docker compose -f docker-compose.prod.yml --env-file .env.prod up -d
-```
-
-**4. Running Migrations (Important)**
-The Docker image currently does not contain the migration binary. Run migrations locally via SSH tunnel:
-```bash
-# 1. Open Tunnel to Remote DB
-ssh -L 5434:localhost:5433 USER@SERVER_IP -Nf
-
-# 2. Run Migration Locally
-export DATABASE_URL=postgres://epsx_user:password@localhost:5434/epsx_prod
-diesel migration run
-```
-
-## Backend Commands
-# ...
 
 ---
 
 **Status**: Production Live on Docker Compose + Cloudflare Tunnel. Strict Bearer-only Web3 auth. Shared DB infrastructure.
-

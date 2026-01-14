@@ -138,18 +138,12 @@ export function SharedOpenIDWeb3Provider({
 }: SharedOpenIDWeb3ProviderProps) {
   // Initialize user from client's stored state immediately
   const [user, setUser] = useState<UserInfoResponse | null>(() => {
-    // Attempt to get user from client if it was initialized synchronously
+    // Attempt to get user from cookies (single source of truth)
     // This prevents the flicker to "unauthenticated" on refresh
     if (typeof window !== 'undefined') {
       try {
-        // Create a temporary client to read storage if needed
-        // but since client is created in same render, we might need to access storage directly
-        // or check if client has it already
         const storedUser = getClientCookieJSON<UserInfoResponse>(COOKIES.user);
         if (storedUser) return storedUser;
-
-        const userStr = localStorage.getItem('epsx.user');
-        if (userStr) return JSON.parse(userStr);
       } catch (e) { }
     }
     return null;
@@ -204,29 +198,17 @@ export function SharedOpenIDWeb3Provider({
             }
 
             // Priority 2: Manual check if client hasn't loaded yet or is being strict
-            let storedUser = getClientCookieJSON<UserInfoResponse>(COOKIES.user);
+            const storedUser = getClientCookieJSON<UserInfoResponse>(COOKIES.user);
+            const authTime = getClientCookie(COOKIES.auth_time);
+            const accessToken = getClientCookie(COOKIES.access_token);
+            const tokenExpiry = getClientCookie(COOKIES.expires_at);
 
-            // Try localStorage if cookie missing
-            if (!storedUser) {
-              const userStr = localStorage.getItem('epsx.user');
-              if (userStr) {
-                try {
-                  storedUser = JSON.parse(userStr);
-                } catch (e) { }
-              }
-            }
-
-            const authTime = getClientCookie(COOKIES.auth_time) || localStorage.getItem('epsx.auth_time');
-            const accessToken = getClientCookie(COOKIES.sid) || localStorage.getItem('epsx.access_token');
-            const tokenExpiry = getClientCookie(COOKIES.expires_at) || localStorage.getItem('epsx.expires_at');
-
-            console.log('🔍 SharedOpenIDWeb3Provider: Storage restoration check', {
+            console.log('🔍 SharedOpenIDWeb3Provider: Cookie restoration check', {
               clientId,
               hasStoredUser: !!storedUser,
               hasAccessToken: !!accessToken,
               hasTokenExpiry: !!tokenExpiry,
               tokenExpiryValue: tokenExpiry ? new Date(parseInt(tokenExpiry)).toISOString() : 'none',
-              storageKeys: Object.keys(localStorage).filter(k => k.startsWith('epsx.')),
             });
 
             // CRITICAL FIX: Only restore session if we have BOTH user object AND a valid access token
@@ -237,7 +219,7 @@ export function SharedOpenIDWeb3Provider({
                 : true; // If no expiry, assume valid for now (backend will verify)
 
               if (isTokenValid) {
-                console.log('✅ Restoring auth from storage', {
+                console.log('✅ Restoring auth from cookies', {
                   clientId,
                   wallet: storedUser.wallet_address?.slice(0, 8),
                 });
@@ -245,15 +227,13 @@ export function SharedOpenIDWeb3Provider({
                 hasStoredAuth = true;
                 return;
               } else {
-                console.log('🗑️ Clearing expired auth from storage');
+                console.log('🗑️ Clearing expired auth from cookies');
                 clearClientSideCookies();
               }
             } else if (storedUser && !accessToken) {
-              // We have a zombie user (user data but no token) - KILL IT
-              console.log('🧟 Zombie user detected (no access token) - WOULD clear storage but checking first');
-              // clearClientSideCookies();
-              // localStorage.removeItem('epsx.user');
-              // localStorage.removeItem('epsx.access_token');
+              // Zombie user detected - clear stale cookies
+              console.log('🧟 Zombie user detected (no access token) - clearing cookies');
+              clearClientSideCookies();
             }
           } catch (error) {
             console.warn('Failed to restore authentication from storage', error);
@@ -457,7 +437,7 @@ export function SharedOpenIDWeb3Provider({
       // Persist user data to cookies for page refresh survival
       if (typeof window !== 'undefined') {
         try {
-          // 1. Save to Cookies (Primary)
+          // Save to Cookies (single source of truth)
           setClientCookieJSON(COOKIES.user, user);
           setClientCookie(COOKIES.auth_time, Date.now().toString(), COOKIE_OPTIONS.maxAge.auth_time);
 
@@ -465,33 +445,23 @@ export function SharedOpenIDWeb3Provider({
           const expiryTime = Date.now() + (COOKIE_OPTIONS.maxAge.access_token * 1000);
           setClientCookie(COOKIES.expires_at, expiryTime.toString(), COOKIE_OPTIONS.maxAge.expires_at);
 
-          // CRITICAL: Set sid cookie with access_token for server-side auth
+          // CRITICAL: Set access_token cookie for middleware auth
           if (result.access_token) {
-            setClientCookie(COOKIES.sid, result.access_token, COOKIE_OPTIONS.maxAge.access_token);
-            console.log('🔑 Set sid cookie for server-side auth');
+            setClientCookie(COOKIES.access_token, result.access_token, COOKIE_OPTIONS.maxAge.access_token);
+            console.log('🔑 Set access_token cookie for server-side auth');
           }
 
-          // 2. Save to localStorage (Fallback/Redundancy)
-          // This ensures session survives even if cookies are blocked/size-limited
-          localStorage.setItem('epsx.user', JSON.stringify(user));
-          localStorage.setItem('epsx.auth_time', Date.now().toString());
-          localStorage.setItem('epsx.expires_at', expiryTime.toString());
-
-          if (result.access_token) {
-            localStorage.setItem('epsx.access_token', result.access_token);
-          }
-
-          console.log('💾 Persisted Web3 authentication to storage (cookies + localStorage)', {
+          console.log('💾 Persisted Web3 authentication to cookies', {
             clientId,
             keys: {
               user: COOKIES.user,
               authTime: COOKIES.auth_time,
               expiresAt: COOKIES.expires_at,
-              clientSession: COOKIES.sid
+              accessToken: COOKIES.access_token
             }
           });
         } catch (error) {
-          console.warn('⚠️ Failed to persist authentication data to storage:', error);
+          console.warn('⚠️ Failed to persist authentication data to cookies:', error);
         }
       }
 

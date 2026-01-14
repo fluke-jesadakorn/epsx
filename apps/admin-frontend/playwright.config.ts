@@ -28,13 +28,26 @@ export default defineConfig({
   ],
   use: {
     baseURL: 'http://localhost:3001',
-    trace: 'on-first-retry',
-    screenshot: { mode: 'only-on-failure' },
-    video: 'retain-on-failure',
+    // Capture trace for all tests (on = always, retain-on-failure = only on fail)
+    trace: 'on',
+    // Capture screenshot for all tests (on = always, only-on-failure = only on fail)
+    screenshot: 'on',
+    // Capture video for all tests (on = always, retain-on-failure = only on fail)
+    video: 'on',
     actionTimeout: 15000,
     navigationTimeout: 30000,
   },
   projects: [
+    // Web3 Authentication E2E Tests (Mock-based)
+    {
+      name: 'web3-auth',
+      testMatch: '**/web3-auth-e2e.spec.ts',
+      use: {
+        ...devices['Desktop Chrome'],
+        testIdAttribute: TEST_ID,
+      },
+    },
+
     // Core Authentication and Authorization Tests
     {
       name: 'auth-flows',

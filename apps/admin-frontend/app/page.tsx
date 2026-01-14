@@ -139,9 +139,12 @@ export default function DashboardPage() {
           <p className="text-muted-foreground mb-8">
             Please connect your wallet to access the admin dashboard.
           </p>
-          <a href="/auth" className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-2xl font-semibold hover:opacity-90 transition-opacity">
+          <button
+            onClick={() => window.location.href = '/auth'}
+            className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-2xl font-semibold hover:opacity-90 transition-opacity cursor-pointer"
+          >
             Connect Wallet
-          </a>
+          </button>
         </div>
       </div>
     )
@@ -158,9 +161,12 @@ export default function DashboardPage() {
           <p className="text-muted-foreground mb-8">
             {accessError}
           </p>
-          <a href="/auth" className="inline-flex items-center gap-2 px-6 py-3 bg-destructive text-destructive-foreground rounded-2xl font-semibold hover:opacity-90 transition-opacity">
+          <button
+            onClick={() => window.location.href = '/auth'}
+            className="inline-flex items-center gap-2 px-6 py-3 bg-destructive text-destructive-foreground rounded-2xl font-semibold hover:opacity-90 transition-opacity cursor-pointer"
+          >
             Try Again
-          </a>
+          </button>
         </div>
       </div>
     )

@@ -8,6 +8,7 @@ import { useAccount } from 'wagmi';
 
 import { useAdminWeb3Context } from '../../providers/AuthProvider';
 
+import { loginAction } from '@/shared/auth/actions';
 import {
   requestWalletChallenge,
   verifyWalletSignature,
@@ -113,11 +114,9 @@ export default function AuthPage() {
 
     if (mounted && isAuthenticated && user && hasAdminPermission) {
       setAuthStepGuarded('success');
-
-      setTimeout(() => {
-        console.log('🚀 Redirecting to:', finalReturnUrl);
-        window.location.href = finalReturnUrl;
-      }, 100);
+      console.log('🚀 Redirecting to:', finalReturnUrl);
+      router.push(finalReturnUrl);
+      router.refresh();
     }
   }, [
     mounted,
@@ -189,14 +188,7 @@ export default function AuthPage() {
       // Clear auth cookies to prevent stale session
       try {
         clearClientSideCookies();
-        // Also clear localStorage tokens
-        localStorage.removeItem('epsx.access_token');
-        localStorage.removeItem('epsx.user');
-        localStorage.removeItem('epsx.refresh_token');
-        localStorage.removeItem('epsx.sid');
-        localStorage.removeItem('epsx.auth_time');
-        localStorage.removeItem('epsx.expires_at');
-        console.log('🗑️ Cleared auth cookies and tokens on disconnect');
+        console.log('🗑️ Cleared auth cookies on disconnect');
       } catch (e) {
         console.warn('Failed to clear cookies on disconnect:', e);
       }
@@ -218,13 +210,10 @@ export default function AuthPage() {
   useEffect(() => {
     if (authStep === 'success') {
       console.log('✅ Auth success state reached, initiating redirect to:', finalReturnUrl);
-      const timer = setTimeout(() => {
-        window.location.href = finalReturnUrl;
-      }, 500); // Short delay to show success state
-      return () => clearTimeout(timer);
+      router.push(finalReturnUrl);
+      router.refresh();
     }
-    return undefined;
-  }, [authStep, finalReturnUrl]);
+  }, [authStep, finalReturnUrl, router]);
 
   // Step 2: Request challenge and sign message
   const handleSignMessage = async () => {
@@ -260,14 +249,8 @@ export default function AuthPage() {
       });
 
       if (result.success) {
-        // Store access token in unified OpenID localStorage for session validation
-        if (result.access_token) {
-          try {
-            localStorage.setItem('epsx.access_token', result.access_token);
-          } catch (_error) {
-            console.warn('Failed to save access token to storage', _error);
-          }
-        } else {
+        // Verify access token is present
+        if (!result.access_token) {
           console.error('CRITICAL: No access token returned from verifyWalletSignature', result);
           throw new Error('Authentication verified but no access token received');
         }
@@ -282,7 +265,42 @@ export default function AuthPage() {
           isAdmin: true,
           expires_at: Date.now() + 2592000000 // 30 days
         };
+
+        // Call Server Action to set HttpOnly cookies
+        try {
+          const actionResult = await loginAction(
+            result.access_token,
+            cookieData,
+          );
+
+          if (!actionResult.success) {
+            console.error('❌ CRITICAL: Failed to set server-side session cookies:', actionResult.error);
+            toast.error('Failed to save session. Please try again.');
+            setAuthStepGuarded('sign');
+            return; // Don't proceed if cookie setting failed!
+          }
+          console.log('✅ Server-side cookies set successfully');
+        } catch (cookieError) {
+          console.error('❌ Error calling login action:', cookieError);
+          toast.error('Session error. Please try again.');
+          setAuthStepGuarded('sign');
+          return; // Don't proceed!
+        }
+
+        // Client-side cookie backup - ensures middleware can find the token
+        // Note: This is less secure than HttpOnly but provides a fallback
         setClientCookieJSON(COOKIES.user, cookieData);
+
+        // CRITICAL: Also set access_token client-side as backup for middleware
+        // The middleware looks for epsx.access_token in cookies
+        try {
+          const expiresAt = Date.now() + 2592000000; // 30 days
+          document.cookie = `${COOKIES.access_token}=${result.access_token}; path=/; max-age=2592000; SameSite=Lax`;
+          document.cookie = `${COOKIES.expires_at}=${expiresAt}; path=/; max-age=2592000; SameSite=Lax`;
+          console.log('🔑 Set access_token cookie client-side as backup:', COOKIES.access_token);
+        } catch (e) {
+          console.warn('Failed to set client-side access_token cookie:', e);
+        }
 
         setAuthStepGuarded('success');
         toast.success('Admin authentication successful!');
@@ -296,13 +314,13 @@ export default function AuthPage() {
             access_token: result.access_token,
           });
 
-          setTimeout(() => {
-            window.location.href = finalReturnUrl;
-          }, 100);
+          // Use Next.js router for proper navigation
+          router.push(finalReturnUrl);
+          router.refresh();
         } catch (authProviderError) {
-          setTimeout(() => {
-            window.location.href = finalReturnUrl;
-          }, 100);
+          // Still navigate even if provider update fails (cookies are already set)
+          router.push(finalReturnUrl);
+          router.refresh();
         }
       } else {
         throw new Error(result.error || 'Authentication failed');

@@ -107,11 +107,28 @@ export function createAuthMiddleware(config: AuthMiddlewareConfig) {
         const token = request.cookies.get(tokenCookieName)?.value;
         const isAuthenticated = !!token;
 
+        // DEBUG: Log authentication state
+        console.log('🔒 Middleware Auth Check:', {
+            pathname,
+            tokenCookieName,
+            hasToken: !!token,
+            isAuthenticated,
+            allCookies: request.cookies.getAll().map(c => c.name),
+        });
+
         // 4. Determine Route Type
         const isPublicRoute = publicRoutes.some(route => {
             if (pathname === route) return true;
             if (route === '/') return false;
             return pathname.startsWith(`${route}/`);
+        });
+
+        // DEBUG: Log route matching
+        console.log('🔒 Middleware Route Check:', {
+            pathname,
+            isPublicRoute,
+            loginPath,
+            homePath,
         });
 
         // 5. Handle Redirects

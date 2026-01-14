@@ -2,6 +2,7 @@
 
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { AlertTriangle, Crown, LogOut, Shield, Wallet } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import React from 'react';
 
 import { Button } from '@/components/ui/button';
@@ -33,6 +34,7 @@ export function AdminWalletAuth({
     error,
     disconnectWallet
   } = useAuth();
+  const router = useRouter();
 
   const walletAddress = wallet?.wallet_address;
 
@@ -53,8 +55,9 @@ export function AdminWalletAuth({
   const handleDisconnect = async () => {
     try {
       await disconnectWallet();
+      router.push('/auth');
     } catch (_error) {
-       
+
       console.error('Disconnect error:', _error);
     }
   };
@@ -110,7 +113,7 @@ export function AdminWalletAuth({
                       try {
                         await useAuth.getState().authenticateAdmin();
                       } catch (_error) {
-                         
+
                         console.error('Admin authentication failed:', _error);
                         onAuthError?.(_error instanceof Error ? _error.message : 'Authentication failed');
                       }

@@ -1,32 +1,7 @@
-'use client';
-
 import { useCallback, useEffect, useState } from 'react';
-import { useAccount, useDisconnect, useSignMessage } from 'wagmi';
-// import { useWeb3AuthStore } from './web3-store';
 import { toast } from 'sonner';
-
-// Mock store for build
-const useWeb3AuthStore = () => ({
-  // State
-  isAuthenticated: false,
-  isAuthenticating: false,
-  isLoading: false,
-  hasInitialized: false,
-  walletAddress: null,
-  permissions: [] as string[],
-  hasApiAccess: false,
-  error: null,
-  // Actions
-  setConnected: (connected: boolean) => {},
-  setWalletAddress: (address: string | undefined) => {},
-  setError: (error: any) => {},
-  authenticate: async () => {},
-  disconnect: () => {},
-  checkAuthStatus: async () => {},
-  generateApiKey: async () => '',
-  resetAuthState: () => {},
-  initializeAuth: () => {},
-});
+import { useAccount, useDisconnect, useSignMessage } from 'wagmi';
+import { useWeb3AuthStore } from './store';
 
 export function useWeb3Auth() {
   const [isHydrated, setIsHydrated] = useState(false);
@@ -57,11 +32,9 @@ export function useWeb3Auth() {
     setWalletAddress,
     setError,
     authenticate,
-    disconnect,
-    checkAuthStatus,
-    generateApiKey,
-    resetAuthState,
-    initializeAuth,
+    logout,
+    getUser,
+    clearError,
   } = useWeb3AuthStore();
 
   // Sync Wagmi state with store (only after hydration)
@@ -73,18 +46,18 @@ export function useWeb3Auth() {
       setConnected(true);
       setWalletAddress(address);
       setError(undefined);
-      
+
       // Initialize auth if not already done
       if (!hasInitialized) {
-        initializeAuth();
+        getUser();
       }
     } else {
       // Wallet disconnected - always clear state to prevent conflicts
       setConnected(false);
       setWalletAddress(undefined);
-      resetAuthState();
+      logout();
     }
-  }, [isHydrated, address, isConnected, hasInitialized, setConnected, setWalletAddress, setError, resetAuthState, initializeAuth, walletAddress]);
+  }, [isHydrated, address, isConnected, hasInitialized, setConnected, setWalletAddress, setError, logout, getUser, walletAddress]);
 
   // Cross-tab session invalidation (only after hydration)
   useEffect(() => {
@@ -102,7 +75,7 @@ export function useWeb3Auth() {
             event.data?.source === 'web3_disconnect'
           ) {
             if (!event.data.walletAddress || event.data.walletAddress === address) {
-              resetAuthState();
+              logout();
 
               try {
                 window.localStorage.removeItem('oidc_session');
@@ -133,9 +106,9 @@ export function useWeb3Auth() {
       };
     } catch (error) {
       console.warn('Failed to create cross-tab channel:', error);
-      return () => {};
+      return () => { };
     }
-  }, [isHydrated, address, resetAuthState]);
+  }, [isHydrated, address, logout]);
 
   // Enhanced authenticate function with Wagmi integration
   const authenticateWithWallet = useCallback(async () => {
@@ -282,8 +255,8 @@ export function useWeb3Auth() {
         }
       }
 
-      // Step 2: Call store disconnect function first to handle backend cleanup
-      await disconnect();
+      // Step 2: Call store logout function first to handle backend cleanup
+      await logout();
 
       // Step 3: Disconnect individual connector with enhanced clearing and null checks
       if (connector && typeof connector.disconnect === 'function') {
@@ -296,7 +269,7 @@ export function useWeb3Auth() {
         } catch (connectorError: any) {
           // Handle null reference errors gracefully
           if (!connectorError?.message?.includes('Cannot set properties of null') &&
-              !connectorError?.message?.includes('Cannot read properties of null')) {
+            !connectorError?.message?.includes('Cannot read properties of null')) {
             console.error('❌ Individual connector disconnect failed:', connectorError);
           }
         }
@@ -318,12 +291,12 @@ export function useWeb3Auth() {
     } catch (error) {
       console.error('❌ Error during wallet disconnect:', error);
       // Reset state manually if disconnect fails
-      resetAuthState();
+      logout();
       setConnected(false);
       setWalletAddress(undefined);
       toast.error('Wallet disconnected with errors');
     }
-  }, [connector, wagmiDisconnect, disconnect, resetAuthState, setConnected, setWalletAddress]);
+  }, [connector, wagmiDisconnect, logout, setConnected, setWalletAddress]);
 
   return {
     // State
@@ -340,9 +313,8 @@ export function useWeb3Auth() {
     // Actions
     authenticate: authenticateWithWallet,
     disconnect: disconnectWallet,
-    checkAuthStatus,
-    generateApiKey,
-    resetAuthState,
+    getUser,
+    clearError,
   };
 }
 
@@ -352,11 +324,11 @@ export function useWeb3Auth() {
 // Export permission hooks
 export function useWeb3Permission(permission: string): boolean {
   const { permissions, isAuthenticated } = useWeb3AuthStore(); // Using mock store
-  
+
   if (!isAuthenticated) return false;
-  
-  return permissions.some(p => 
-    p === permission || 
+
+  return permissions.some((p: string) =>
+    p === permission ||
     p.includes('*') ||
     permission.startsWith(p.replace('*', ''))
   );
@@ -364,7 +336,7 @@ export function useWeb3Permission(permission: string): boolean {
 
 export function useWeb3Tier(requiredTier: 'nft' | 'token' | 'dao' | 'enterprise'): boolean {
   const { isAuthenticated } = useWeb3AuthStore();
-  
+
   // Tier logic handled by backend - always return false to force backend validation
   return false;
 }

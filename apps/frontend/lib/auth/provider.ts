@@ -1,5 +1,6 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { useAccount, useDisconnect, useSignMessage } from 'wagmi';
@@ -39,6 +40,7 @@ export interface Web3AuthActions {
 }
 
 export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
+  const router = useRouter();
   const { address, isConnected, connector, chain } = useAccount();
   const { disconnect: wagmiDisconnect } = useDisconnect();
   const {
@@ -126,7 +128,7 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
       };
     } catch (error) {
       console.warn('Failed to create cross-tab channel:', error);
-      return () => {}; // No-op cleanup
+      return () => { }; // No-op cleanup
     }
   }, [address]);
 
@@ -658,8 +660,8 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
 
       toast.success('Wallet disconnected successfully');
 
-      // Refresh the page to ensure complete state reset
-      window.location.reload();
+      // Refresh page data without full reload
+      router.refresh();
     } catch (error) {
       console.error('❌ Error during wallet disconnect:', error);
 
@@ -688,8 +690,8 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
 
       toast.error('Wallet disconnected with some errors - refreshing page...');
 
-      // Refresh the page even on errors to ensure complete state reset
-      window.location.reload();
+      // Refresh page data without full reload
+      router.refresh();
     }
   }, [wagmiDisconnect, state.isAuthenticated, address, isConnected, connector]);
 
