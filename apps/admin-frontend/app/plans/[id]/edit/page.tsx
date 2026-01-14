@@ -42,7 +42,6 @@ export default function EditPlanPage() {
     analytics_queries: 0,
     premium_features: false,
     export_limit: 10,
-    feature_list: [] as string[],
     // Promotion fields
     promo_enabled: false,
     promo_type: 'percentage' as 'percentage' | 'fixed',
@@ -51,7 +50,6 @@ export default function EditPlanPage() {
     promo_start: '',
     promo_end: ''
   })
-  const [newFeature, setNewFeature] = useState('')
   const [saving, setSaving] = useState(false)
   const { permissions: availablePermissions, isLoading: loadingPermissions } = useAvailablePermissions()
   const [customPermissions, setCustomPermissions] = useState<string[]>([])
@@ -127,7 +125,6 @@ export default function EditPlanPage() {
             analytics_queries: parseLimit(analyticsPermission, 0),
             premium_features: planData.permissions?.some((p: string) => p.includes('premium')) || false,
             export_limit: 10,
-            feature_list: featureList,
             // Promotion fields
             promo_enabled: promo.enabled || false,
             promo_type: promo.type || 'percentage',
@@ -232,7 +229,6 @@ export default function EditPlanPage() {
         is_active: formData.is_active,
         permissions,
         metadata: {
-          features: formData.feature_list, // Backend expects 'features' not 'feature_list'
           api_limits: {
             api_calls: formData.api_calls_limit,
             rankings: formData.rankings_limit,
@@ -240,7 +236,6 @@ export default function EditPlanPage() {
             export_limit: formData.export_limit,
             premium_features: formData.premium_features
           },
-          feature_list: formData.feature_list, // Keep both for compatibility
           promotion: formData.promo_enabled ? {
             enabled: true,
             type: formData.promo_type,
@@ -577,7 +572,7 @@ export default function EditPlanPage() {
 
               <div>
                 <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                  Rankings View Limit
+                  Ranking Initial Can View
                 </label>
                 <input
                   type="number"
@@ -658,89 +653,6 @@ export default function EditPlanPage() {
                 (availablePermissions || []).filter(p => p.startsWith('system:') || p.startsWith('admin:'))
               )}
             />
-          </div>
-
-          {/* Feature List */}
-          <div className="bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-900/20 dark:to-yellow-900/20 rounded-2xl p-6">
-            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">✨ Plan Features</h3>
-
-            {/* Add Feature Input */}
-            <div className="mb-4">
-              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                Add Feature
-              </label>
-              <div className="flex gap-3">
-                <input
-                  type="text"
-                  value={newFeature}
-                  onChange={(e) => setNewFeature(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault()
-                      if (newFeature.trim() && !formData.feature_list.includes(newFeature.trim())) {
-                        setFormData({ ...formData, feature_list: [...formData.feature_list, newFeature.trim()] })
-                        setNewFeature('')
-                      }
-                    }
-                  }}
-                  placeholder="e.g., 50 stock rankings"
-                  className="flex-1 px-4 py-3 rounded-xl border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-amber-500 focus:ring-2 focus:ring-amber-500 focus:outline-none"
-                />
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (newFeature.trim() && !formData.feature_list.includes(newFeature.trim())) {
-                      setFormData({ ...formData, feature_list: [...formData.feature_list, newFeature.trim()] })
-                      setNewFeature('')
-                    }
-                  }}
-                  className="px-6 py-3 rounded-xl font-semibold bg-gradient-to-r from-amber-400 to-yellow-500 text-white hover:from-amber-500 hover:to-yellow-600 min-h-[44px] min-w-[44px]"
-                >
-                  ➕ Add
-                </button>
-              </div>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Press Enter or click Add to add a feature</p>
-            </div>
-
-            {/* Feature List */}
-            {formData.feature_list.length > 0 ? (
-              <div className="space-y-2">
-                <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                  Current Features ({formData.feature_list.length})
-                </p>
-                <div className="max-h-64 overflow-y-auto space-y-2 bg-white dark:bg-gray-800 rounded-xl p-4 border-2 border-gray-200 dark:border-gray-700">
-                  {formData.feature_list.map((feature, index) => (
-                    <div
-                      key={index}
-                      className="flex items-center justify-between p-3 bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-900/20 dark:to-yellow-900/20 rounded-xl border border-amber-200 dark:border-amber-700"
-                    >
-                      <div className="flex items-center gap-3">
-                        <span className="text-amber-600 dark:text-amber-400 font-bold">✓</span>
-                        <span className="text-gray-900 dark:text-white font-medium">{feature}</span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setFormData({
-                            ...formData,
-                            feature_list: formData.feature_list.filter((_, i) => i !== index)
-                          })
-                        }}
-                        className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 font-bold p-2 min-h-[44px] min-w-[44px] hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"
-                        title="Remove feature"
-                      >
-                        ✖
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-6 text-center border-2 border-dashed border-gray-300 dark:border-gray-600">
-                <p className="text-gray-500 dark:text-gray-400">No features added yet. Add features to describe what's included in this plan.</p>
-                <p className="text-sm text-gray-400 dark:text-gray-500 mt-2">Examples: "50 stock rankings", "Advanced analytics", "Export capabilities"</p>
-              </div>
-            )}
           </div>
 
           {/* Actions */}

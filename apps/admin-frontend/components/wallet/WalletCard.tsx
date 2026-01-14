@@ -21,7 +21,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { cn } from '@/lib/utils';
+import { cn, copyToClipboard } from '@/lib/utils';
 
 interface WalletCardProps {
     wallet: WalletData;
@@ -116,8 +116,8 @@ export function WalletCard({
 
     const handleCopy = async (e: React.MouseEvent) => {
         e.stopPropagation();
-        if (navigator?.clipboard?.writeText) {
-            await navigator.clipboard.writeText(wallet.walletAddress);
+        const success = await copyToClipboard(wallet.walletAddress);
+        if (success) {
             setCopied(true);
             setTimeout(() => setCopied(false), 2000);
         }

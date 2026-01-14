@@ -1,12 +1,13 @@
 'use client';
 
+import { Button } from '@/components/ui/button';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { cn } from '@/lib/utils';
+import { useSharedAuth } from '@/shared/components/auth/Provider';
+import { copyToClipboard as copyToClipboardUtil } from '@/utils/util';
+import { Check, Copy, ExternalLink, LogOut, Wallet } from 'lucide-react';
 import { useState } from 'react';
 import { useAccount } from 'wagmi';
-import { useSharedAuth } from '@/shared/components/auth/Provider';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Button } from '@/components/ui/button';
-import { Wallet, Copy, ExternalLink, LogOut, Check } from 'lucide-react';
-import { cn } from '@/lib/utils';
 
 interface ConnectedWalletDropdownProps {
   className?: string;
@@ -24,12 +25,10 @@ export function ConnectedWalletDropdown({ className }: ConnectedWalletDropdownPr
   };
 
   const copyToClipboard = async (text: string) => {
-    try {
-      await navigator.clipboard.writeText(text);
+    const success = await copyToClipboardUtil(text);
+    if (success) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    } catch (error) {
-      console.error('Failed to copy:', error);
     }
   };
 

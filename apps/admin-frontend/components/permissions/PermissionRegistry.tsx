@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { groupMgmt, type PermissionDefinitionDto } from '@/lib/api/group-management-client';
+import { copyToClipboard as copyToClipboardUtil } from '@/lib/utils';
 
 /**
  *
@@ -61,7 +62,7 @@ export function PermissionRegistry() {
     const handleCreate = (e: React.FormEvent) => {
         e.preventDefault();
         const trimmed = newPermission.trim();
-        if (!trimmed) {return;}
+        if (!trimmed) { return; }
 
         if (!/^[\w-]+:[\w-]+:[\w-*]+$/.test(trimmed)) {
             toast.error('Invalid format. Use: platform:resource:action');
@@ -71,9 +72,11 @@ export function PermissionRegistry() {
         createMutation.mutate(trimmed);
     };
 
-    const copyToClipboard = (text: string) => {
-        navigator.clipboard.writeText(text);
-        toast.success('Copied to clipboard');
+    const copyToClipboard = async (text: string) => {
+        const success = await copyToClipboardUtil(text);
+        if (success) {
+            toast.success('Copied to clipboard');
+        }
     };
 
     const filteredPermissions = permissions.filter(p =>
@@ -84,7 +87,7 @@ export function PermissionRegistry() {
     // Group by platform
     const groupedPermissions = filteredPermissions.reduce((acc, curr) => {
         const platform = curr.platform || 'other';
-        if (!acc[platform]) {acc[platform] = [];}
+        if (!acc[platform]) { acc[platform] = []; }
         acc[platform].push(curr);
         return acc;
     }, {} as Record<string, PermissionDefinitionDto[]>);

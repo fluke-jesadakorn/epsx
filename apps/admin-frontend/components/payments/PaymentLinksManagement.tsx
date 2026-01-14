@@ -13,6 +13,7 @@ import {
 } from '@heroicons/react/24/outline';
 import React, { useCallback, useEffect, useState } from 'react';
 
+import { copyToClipboard } from '@/lib/utils';
 import { useApiClient } from '@/shared/hooks/useApiClient';
 
 type PaymentContextType = 'plan' | 'group' | 'product' | 'campaign' | 'custom';
@@ -173,11 +174,11 @@ export function PaymentLinksManagement() {
     };
 
     const handleCopyUrl = async (link: PaymentLink) => {
-        try {
-            await navigator.clipboard.writeText(link.url);
+        const success = await copyToClipboard(link.url);
+        if (success) {
             setCopiedSlug(link.slug);
             setTimeout(() => setCopiedSlug(null), 2000);
-        } catch {
+        } else {
             alert('Failed to copy URL');
         }
     };

@@ -14,6 +14,7 @@ import { themeUtils } from '@/components/ui/SafeThemeScript';
 import { useWeb3AuthStore } from '@/lib/auth/store';
 import { formatAddress } from '@/shared/auth/utils';
 import { useSharedAuth } from '@/shared/components/auth/Provider';
+import { copyToClipboard } from '@/utils/util';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { Check, ChevronRight, Code, Copy, ExternalLink, LogOut, Moon, Settings, Sun, Wallet } from 'lucide-react';
 import Link from 'next/link';
@@ -150,12 +151,10 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
 
   const handleCopyAddress = async () => {
     if (!address) return;
-    try {
-      await navigator.clipboard.writeText(address);
+    const success = await copyToClipboard(address);
+    if (success) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    } catch (error) {
-      console.error('Failed to copy address:', error);
     }
   };
 

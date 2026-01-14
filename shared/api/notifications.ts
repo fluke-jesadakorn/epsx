@@ -929,15 +929,24 @@ export class NotificationsAPIClient {
       // Only log as error when connection is actually CLOSED
       // For CONNECTING (0) and OPEN (1) states, these are transient or spurious events
       if (currentState === EventSource.CLOSED) {
-        // Connection is actually closed - this is a real error worth logging
-        console.error('❌ SSE connection closed:', {
+        const timeSinceConnection = Date.now() - connectionStartTime;
+        const isImmediateFailure = timeSinceConnection < 1000;
+        const isExpectedFailure = isImmediateFailure || !token;
+
+        // Use debug level for expected failures (no auth, immediate close) to reduce console noise
+        // Use warn level for unexpected connection drops during active session
+        const logLevel = isExpectedFailure ? 'debug' : 'warn';
+        const logFn = console[logLevel];
+
+        logFn(`${isExpectedFailure ? 'ℹ️' : '⚠️'} SSE connection closed${isExpectedFailure ? ' (expected)' : ''}:`, {
           readyState: currentState,
           stateName: 'CLOSED',
           url: sseUrl,
           timestamp: new Date().toISOString(),
           platform: platform,
           hasToken: !!token,
-          timeSinceConnection: Date.now() - connectionStartTime
+          timeSinceConnection,
+          reason: !token ? 'No authentication token' : isImmediateFailure ? 'Immediate closure (endpoint may not exist)' : 'Connection dropped'
         });
       } else if (currentState === EventSource.CONNECTING) {
         // Connection is still connecting - this is likely a transient state event

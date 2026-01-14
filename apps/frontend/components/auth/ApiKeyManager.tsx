@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { useSharedAuth } from '@/shared/components/auth/Provider';
+import { copyToClipboard as copyToClipboardUtil } from '@/utils/util';
 import { formatDistanceToNow } from 'date-fns';
 import {
   AlertTriangle,
@@ -137,12 +138,13 @@ export function ApiKeyManager({ className = '' }: ApiKeyManagerProps) {
     }
   };
 
-  const copyToClipboard = (text: string, description: string) => {
-    navigator.clipboard.writeText(text).then(() => {
+  const copyToClipboard = async (text: string, description: string) => {
+    const success = await copyToClipboardUtil(text);
+    if (success) {
       toast.success(`${description} copied to clipboard`);
-    }).catch(() => {
+    } else {
       toast.error('Failed to copy to clipboard');
-    });
+    }
   };
 
   const toggleKeyVisibility = (keyId: string) => {

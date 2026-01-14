@@ -22,7 +22,7 @@ import type { WalletActivityEvent, WalletData, WalletStatus } from '@/components
 import { WalletAccessManager } from '@/components/wallet/WalletAccessManager';
 import { WalletActivityTimeline } from '@/components/wallet/WalletActivityTimeline';
 import { walletMgmt } from '@/lib/api/wallet-management-client';
-import { cn } from '@/lib/utils';
+import { cn, copyToClipboard } from '@/lib/utils';
 import { useSharedAuth } from '@/shared/components/auth/Provider';
 
 const STATUS_CONFIG: Record<WalletStatus, { label: string; emoji: string; className: string }> = {
@@ -135,10 +135,12 @@ export default function WalletDetailPage() {
 
     const handleCopyAddress = async () => {
         if (!wallet) { return; }
-        await navigator.clipboard.writeText(wallet.walletAddress);
-        setCopied(true);
-        toast.success('Address copied!');
-        setTimeout(() => setCopied(false), 2000);
+        const success = await copyToClipboard(wallet.walletAddress);
+        if (success) {
+            setCopied(true);
+            toast.success('Address copied!');
+            setTimeout(() => setCopied(false), 2000);
+        }
     };
 
     const handleSaveMetadata = async () => {

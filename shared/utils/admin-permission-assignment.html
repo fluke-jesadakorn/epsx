@@ -1257,11 +1257,15 @@ println!("Granted {} permissions to {}", permissions.len(), wallet_address);`;
     // Copy output
     function copyOutput() {
       const output = document.getElementById('output').textContent;
-      navigator.clipboard.writeText(output).then(() => {
-        showStatus('Copied to clipboard!', 'success');
-      }).catch(() => {
-        showStatus('Failed to copy', 'error');
-      });
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(output).then(() => {
+          showStatus('Copied to clipboard!', 'success');
+        }).catch(() => {
+          showStatus('Failed to copy', 'error');
+        });
+      } else {
+        showStatus('Clipboard API not available', 'error');
+      }
     }
 
     // Execute request (for testing)

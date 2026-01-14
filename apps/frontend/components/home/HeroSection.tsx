@@ -1,6 +1,7 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
+import { copyToClipboard } from '@/utils/util';
 import { LineChart, Share2, TrendingUp, Users, Zap } from 'lucide-react';
 import Link from 'next/link';
 import React, { useEffect, useState } from 'react';
@@ -26,12 +27,13 @@ const HeroSection: React.FC<HeroSectionProps> = ({ style, className }) => {
     return () => clearTimeout(timer);
   }, []);
 
-  const handleShare = () => {
+  const handleShare = async () => {
     if (typeof window !== 'undefined') {
       const url = window.location.href;
-      navigator.clipboard.writeText(url).then(() => {
+      const success = await copyToClipboard(url);
+      if (success) {
         toast.success('URL copied to clipboard!');
-      });
+      }
     }
   };
 

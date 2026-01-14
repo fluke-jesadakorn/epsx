@@ -26,7 +26,8 @@ export interface ChainInfo {
     testnet: boolean;
 }
 
-export const supportedChains: ChainInfo[] = [
+// All chains configuration - Anvil is filtered out in production
+const allChains: ChainInfo[] = [
     {
         id: bsc.id,
         name: bsc.name,
@@ -45,10 +46,15 @@ export const supportedChains: ChainInfo[] = [
         id: 31337,
         name: 'Anvil Local (BSC Fork)',
         displayName: 'Anvil Local (BSC)',
-        icon: '🟡',
+        icon: '🔧',
         testnet: true,
     },
 ];
+
+// Export filtered chains - Anvil (31337) only available in development
+export const supportedChains: ChainInfo[] = isProduction
+    ? allChains.filter(chain => chain.id !== 31337)
+    : allChains;
 
 export function ChainSelector({ className = '', compact = false }: ChainSelectorProps) {
     const [isHydrated, setIsHydrated] = useState(false);

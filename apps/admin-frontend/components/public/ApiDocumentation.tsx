@@ -16,6 +16,7 @@ import React, { useState } from 'react';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
+import { copyToClipboard as copyToClipboardUtil } from '@/lib/utils';
 
 interface EndpointExample {
   method: string;
@@ -285,10 +286,10 @@ export const ApiDocumentation: React.FC = () => {
   const [expandedEndpoint, setExpandedEndpoint] = useState<string | null>(null);
 
   const copyToClipboard = async (text: string, label: string) => {
-    try {
-      await navigator.clipboard.writeText(text);
+    const success = await copyToClipboardUtil(text);
+    if (success) {
       toast.success(`${label} copied to clipboard`);
-    } catch {
+    } else {
       toast.error('Failed to copy to clipboard');
     }
   };

@@ -3,6 +3,7 @@
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@/components/ui';
 import { Badge } from '@/components/ui/badge';
 import type { AuthUser } from '@/lib/server-actions';
+import { copyToClipboard as copyToClipboardUtil } from '@/utils/util';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
@@ -230,9 +231,11 @@ curl -X GET "${baseUrl}/api/developer-portal/my-keys" \\
     }
   };
 
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-    toast.success('Copied to clipboard!');
+  const copyToClipboard = async (text: string) => {
+    const success = await copyToClipboardUtil(text);
+    if (success) {
+      toast.success('Copied to clipboard!');
+    }
   };
 
   return (
@@ -300,8 +303,8 @@ curl -X GET "${baseUrl}/api/developer-portal/my-keys" \\
             key={section.id}
             onClick={() => setSelectedSection(section.id)}
             className={`flex-1 min-w-[150px] px-4 py-3 rounded-lg font-medium text-sm transition-all ${selectedSection === section.id
-                ? 'bg-white dark:bg-gray-700 shadow-lg text-emerald-600 dark:text-emerald-400'
-                : 'text-gray-600 dark:text-gray-400 hover:bg-white/50 dark:hover:bg-gray-700/50'
+              ? 'bg-white dark:bg-gray-700 shadow-lg text-emerald-600 dark:text-emerald-400'
+              : 'text-gray-600 dark:text-gray-400 hover:bg-white/50 dark:hover:bg-gray-700/50'
               }`}
           >
             <div className="flex items-center justify-center gap-2">

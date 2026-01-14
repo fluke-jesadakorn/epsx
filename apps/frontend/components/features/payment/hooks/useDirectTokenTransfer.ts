@@ -69,11 +69,22 @@ export function useDirectTokenTransfer({
         const error = writeError || receiptError
         if (error) {
             console.error('Transfer error:', error)
-            const isUserRejection = error.message.toLowerCase().includes('user rejected') ||
-                error.message.toLowerCase().includes('user denied')
+            const errorMessage = error.message.toLowerCase()
+
+            const isUserRejection = errorMessage.includes('user rejected') ||
+                errorMessage.includes('user denied')
+
+            // Detect RPC connection issues (common with local Anvil or rate-limited RPCs)
+            const isRpcUnavailable = errorMessage.includes('resource not available') ||
+                errorMessage.includes('rpc endpoint returned too many errors') ||
+                errorMessage.includes('resourceunavailable') ||
+                error.name === 'ResourceUnavailableRpcError'
 
             if (isUserRejection) {
                 devLog('👤 User cancelled transfer')
+            } else if (isRpcUnavailable) {
+                devLog('🔌 RPC connection issue detected')
+                onError?.('RPC connection failed. Ensure MetaMask RPC URL matches your network access (e.g., use Tailscale IP instead of localhost for remote access).')
             } else {
                 onError?.(`Transfer failed: ${error.message}`)
             }

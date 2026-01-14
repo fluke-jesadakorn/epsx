@@ -15,7 +15,7 @@ import { UsageAnalyticsTab } from './tabs/UsageAnalyticsTab';
 import { logger } from '@/lib/logger';
 import { createPlansClient, type ApiKeyResponse, type Module } from '@/shared/api/plans';
 import { useSharedAuth } from '@/shared/components/auth/Provider';
-import { createAdminApiClient } from '@/shared/utils/api-client';
+import { copyToClipboard, createAdminApiClient } from '@/shared/utils';
 
 type TabType = 'overview' | 'keys' | 'docs' | 'usage';
 
@@ -135,10 +135,10 @@ export const DeveloperPortalPage: React.FC = () => {
 
     // Handlers
     const handleCopyToClipboard = async (text: string, label: string) => {
-        try {
-            await navigator.clipboard.writeText(text);
+        const success = await copyToClipboard(text);
+        if (success) {
             toast.success(`${label} copied to clipboard`);
-        } catch {
+        } else {
             toast.error('Failed to copy to clipboard');
         }
     };
@@ -254,8 +254,8 @@ export const DeveloperPortalPage: React.FC = () => {
                 <button
                     onClick={() => setActiveTab('overview')}
                     className={`px-4 py-2 rounded-md font-medium transition-colors flex items-center ${activeTab === 'overview'
-                            ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
-                            : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100'
+                        ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
+                        : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100'
                         }`}
                 >
                     <BarChart3 className="w-4 h-4 mr-2" />
@@ -264,8 +264,8 @@ export const DeveloperPortalPage: React.FC = () => {
                 <button
                     onClick={() => setActiveTab('keys')}
                     className={`px-4 py-2 rounded-md font-medium transition-colors flex items-center ${activeTab === 'keys'
-                            ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
-                            : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100'
+                        ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
+                        : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100'
                         }`}
                 >
                     <Key className="w-4 h-4 mr-2" />
@@ -274,8 +274,8 @@ export const DeveloperPortalPage: React.FC = () => {
                 <button
                     onClick={() => setActiveTab('docs')}
                     className={`px-4 py-2 rounded-md font-medium transition-colors flex items-center ${activeTab === 'docs'
-                            ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
-                            : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100'
+                        ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
+                        : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100'
                         }`}
                 >
                     <BookOpen className="w-4 h-4 mr-2" />
@@ -284,8 +284,8 @@ export const DeveloperPortalPage: React.FC = () => {
                 <button
                     onClick={() => setActiveTab('usage')}
                     className={`px-4 py-2 rounded-md font-medium transition-colors flex items-center ${activeTab === 'usage'
-                            ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
-                            : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100'
+                        ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
+                        : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100'
                         }`}
                 >
                     <Activity className="w-4 h-4 mr-2" />

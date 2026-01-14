@@ -296,8 +296,21 @@ export function UnifiedPaymentFlow({
 
     // Handle payment
     const handlePayment = async () => {
-        if (!selectedPlan || !address || !receiverAddress || !tokenAddress) {
-            setError('Missing payment details');
+        // Validate requirements with specific error messages
+        if (!selectedPlan) {
+            setError('Please select a plan before proceeding');
+            return;
+        }
+        if (!address) {
+            setError('Wallet not connected. Please connect your wallet.');
+            return;
+        }
+        if (!receiverAddress) {
+            setError(`Payment receiver not configured for chain ${chainId}. Please switch to a supported network.`);
+            return;
+        }
+        if (!tokenAddress) {
+            setError(`${selectedToken.symbol} token not available on chain ${chainId}. Please switch to a supported network.`);
             return;
         }
 

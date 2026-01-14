@@ -10,7 +10,7 @@ import { useState } from 'react';
 import type { WalletData } from './types';
 import { WalletStatusBadge } from './WalletStatusBadge';
 
-import { cn } from '@/lib/utils';
+import { cn, copyToClipboard } from '@/lib/utils';
 import { formatDate, formatTimeAgo } from '@/lib/utils/date';
 
 interface WalletHeaderProps {
@@ -28,9 +28,11 @@ export function WalletHeader({ wallet, className }: WalletHeaderProps) {
     const [copied, setCopied] = useState(false);
 
     const handleCopyAddress = async () => {
-        await navigator.clipboard.writeText(wallet.walletAddress);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
+        const success = await copyToClipboard(wallet.walletAddress);
+        if (success) {
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        }
     };
 
     return (

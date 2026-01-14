@@ -148,6 +148,60 @@
     --border: 240 6% 90%;
     --input: 240 6% 90%;
     --ring: 217 91% 60%;
+    
+    /* ========================================================================
+       ADMIN-SPECIFIC SEMANTIC COLORS
+       ======================================================================== */
+    
+    /* Admin user status colors */
+    --admin-active: 142 71% 45%;
+    --admin-inactive: 215 16% 47%;
+    --admin-pending: 45 93% 47%;
+    --admin-suspended: 0 85% 60%;
+    --admin-premium: 250 84% 54%;
+    
+    /* Permission status colors */
+    --permission-granted: 142 71% 45%;
+    --permission-denied: 0 85% 60%;
+    --permission-pending: 45 93% 47%;
+    --permission-inherited: 217 91% 60%;
+    
+    /* Insight/Analytics colors */
+    --insight-primary: 217 91% 60%;
+    --insight-secondary: 262 83% 58%;
+    --insight-success: 142 71% 45%;
+    --insight-warning: 45 93% 47%;
+    --insight-error: 0 85% 60%;
+    --insight-info: 184 93% 47%;
+    --insight-accent: 217 91% 65%;
+    
+    /* PancakeSwap-inspired colors */
+    --pancake-primary: 31 100% 50%;
+    --pancake-secondary: 42 100% 70%;
+    --pancake-success: 142 71% 45%;
+    --pancake-warning: 45 93% 47%;
+    --pancake-info: 217 91% 60%;
+    --pancake-purple: 250 84% 54%;
+    
+    /* ========================================================================
+       GRADIENT DEFINITIONS
+       ======================================================================== */
+    
+    /* Primary gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(31 100% 50%) 0%, hsl(42 100% 70%) 100%);
+    --gradient-primary-hover: linear-gradient(135deg, hsl(31 95% 45%) 0%, hsl(42 95% 65%) 100%);
+    --gradient-secondary: linear-gradient(135deg, hsl(217 91% 60%) 0%, hsl(262 83% 58%) 100%);
+    --gradient-secondary-hover: linear-gradient(135deg, hsl(217 91% 65%) 0%, hsl(262 83% 63%) 100%);
+    
+    /* Admin-specific gradients */
+    --gradient-admin: linear-gradient(135deg, hsl(217 91% 60%) 0%, hsl(262 83% 58%) 100%);
+    --gradient-admin-hover: linear-gradient(135deg, hsl(217 91% 65%) 0%, hsl(262 83% 63%) 100%);
+    --gradient-analytics: linear-gradient(135deg, hsl(215 16% 47%) 0%, hsl(215 19% 35%) 100%);
+    --gradient-analytics-hover: linear-gradient(135deg, hsl(215 20% 52%) 0%, hsl(215 22% 40%) 100%);
+    
+    /* Card gradients */
+    --gradient-card: linear-gradient(135deg, hsl(var(--card)) 0%, hsl(var(--muted) / 0.3) 100%);
+    --gradient-soft-highlight: linear-gradient(135deg, hsl(31 95% 92%) 0%, hsl(42 90% 88%) 100%);
   }
 
   .dark {
@@ -179,6 +233,38 @@
     --border: 240 4% 16%;
     --input: 240 4% 16%;
     --ring: 217 91% 65%;
+    
+    /* Admin colors (same in dark mode for consistency) */
+    --admin-active: 142 71% 50%;
+    --admin-inactive: 215 16% 55%;
+    --admin-pending: 45 93% 52%;
+    --admin-suspended: 0 85% 65%;
+    --admin-premium: 250 84% 60%;
+    
+    --permission-granted: 142 71% 50%;
+    --permission-denied: 0 85% 65%;
+    --permission-pending: 45 93% 52%;
+    --permission-inherited: 217 91% 65%;
+    
+    /* Insight colors (brighter for dark mode) */
+    --insight-primary: 217 91% 65%;
+    --insight-secondary: 262 83% 63%;
+    --insight-success: 142 71% 50%;
+    --insight-warning: 45 93% 52%;
+    --insight-error: 0 85% 65%;
+    --insight-info: 184 93% 52%;
+    --insight-accent: 217 91% 70%;
+    
+    /* PancakeSwap colors (brighter for dark mode) */
+    --pancake-primary: 31 100% 55%;
+    --pancake-secondary: 42 100% 75%;
+    --pancake-success: 142 71% 50%;
+    --pancake-warning: 45 93% 52%;
+    --pancake-info: 217 91% 65%;
+    --pancake-purple: 250 84% 60%;
+    
+    /* Dark mode gradient variations */
+    --gradient-soft-highlight: linear-gradient(135deg, hsl(31 50% 20%) 0%, hsl(42 60% 18%) 100%);
   }
 }
 

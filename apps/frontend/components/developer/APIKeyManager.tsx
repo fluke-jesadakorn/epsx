@@ -16,6 +16,7 @@ import { Input } from '@/components/ui/input';
 import type { AuthUser } from '@/lib/server-actions';
 import { createPlansClient, type ApiKeyResponse } from '@/shared/api/plans';
 import { UnifiedApiClient } from '@/shared/utils/api-client';
+import { copyToClipboard as copyToClipboardUtil } from '@/utils/util';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { GroupTransferList } from './GroupTransferList';
@@ -399,9 +400,11 @@ export function APIKeyManager({ currentUser, onStatsChange }: APIKeyManagerProps
                       <Button
                         size="icon"
                         className="rounded-full bg-amber-500 hover:bg-amber-600 text-white shadow-lg shadow-amber-500/20 shrink-0 w-10 h-10 transition-transform hover:scale-105 active:scale-95"
-                        onClick={() => {
-                          navigator.clipboard.writeText(generatedKey);
-                          toast.success('API key copied to clipboard!');
+                        onClick={async () => {
+                          const success = await copyToClipboardUtil(generatedKey);
+                          if (success) {
+                            toast.success('API key copied to clipboard!');
+                          }
                         }}
                       >
                         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
@@ -516,11 +519,13 @@ export function APIKeyManager({ currentUser, onStatsChange }: APIKeyManagerProps
                         <Button
                           size="icon"
                           className="rounded-full bg-amber-500 hover:bg-amber-600 text-white shadow-lg shadow-amber-500/20 shrink-0 w-8 h-8 transition-transform hover:scale-105 active:scale-95 flex items-center justify-center p-0"
-                          onClick={() => {
+                          onClick={async () => {
                             const keyToCopy = apiKey.full_key || apiKey.key_preview;
                             if (keyToCopy) {
-                              navigator.clipboard.writeText(keyToCopy);
-                              toast.success(apiKey.full_key ? 'Full API key copied!' : 'Key preview copied');
+                              const success = await copyToClipboardUtil(keyToCopy);
+                              if (success) {
+                                toast.success(apiKey.full_key ? 'Full API key copied!' : 'Key preview copied');
+                              }
                             }
                           }}
                         >

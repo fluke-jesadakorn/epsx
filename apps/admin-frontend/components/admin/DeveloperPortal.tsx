@@ -32,7 +32,7 @@ import {
 import { logger } from '@/lib/logger';
 import { createPlansClient, type ApiKeyResponse as ApiKey, type Module } from '@/shared/api/plans';
 import { useSharedAuth } from '@/shared/components/auth/Provider';
-import { createAdminApiClient } from '@/shared/utils/api-client';
+import { copyToClipboard as copyToClipboardUtil, createAdminApiClient } from '@/shared/utils';
 
 // Access levels configuration
 interface AccessLevelConfig {
@@ -87,7 +87,7 @@ const maskKeyPrefix = (prefix: string): string => {
 
 // Helper function to truncate wallet address
 const truncateWallet = (address: string): string => {
-  if (!address || address.length < 12) {return address || 'Unknown';}
+  if (!address || address.length < 12) { return address || 'Unknown'; }
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
 };
 
@@ -282,10 +282,10 @@ export const DeveloperPortal: React.FC = () => {
 
   // Copy to clipboard
   const copyToClipboard = async (text: string, label: string) => {
-    try {
-      await navigator.clipboard.writeText(text);
+    const success = await copyToClipboardUtil(text);
+    if (success) {
       toast.success(`${label} copied to clipboard`);
-    } catch {
+    } else {
       toast.error('Failed to copy to clipboard');
     }
   };
@@ -504,7 +504,7 @@ export const DeveloperPortal: React.FC = () => {
                           {apiKey.client_name}
                         </h4>
                         <p className="text-sm text-gray-500 dark:text-gray-400">
-                          Key: {apiKey.key_prefix}...
+                          Key: {apiKey.key_preview || (apiKey as any).key_prefix}...
                         </p>
                       </div>
                     </div>
@@ -649,12 +649,12 @@ export const DeveloperPortal: React.FC = () => {
                       <TableCell>
                         <div className="flex items-center space-x-2">
                           <span className="font-mono text-sm text-gray-600 dark:text-gray-300">
-                            {showKeyValue === apiKey.id ? apiKey.key_prefix : maskKeyPrefix(apiKey.key_prefix)}
+                            {showKeyValue === apiKey.id ? (apiKey.key_preview || (apiKey as any).key_prefix) : maskKeyPrefix(apiKey.key_preview || (apiKey as any).key_prefix)}
                           </span>
                           <button
                             onClick={() =>
                               copyToClipboard(
-                                apiKey.key_prefix + '...', // We don't have the full key here usually
+                                (apiKey.key_preview || (apiKey as any).key_prefix) + '...', // We don't have the full key here usually
                                 'API Key Prefix'
                               )
                             }
