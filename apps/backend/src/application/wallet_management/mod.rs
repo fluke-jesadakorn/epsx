@@ -16,8 +16,7 @@ pub use commands::{
     DeleteWalletResponse,
     GrantPermissionCommand,
     GrantPermissionResponse,
-    CreateSessionCommand,
-    CreateSessionResponse,
+
 };
 
 pub use queries::{
@@ -30,14 +29,8 @@ pub use queries::{
     WalletSummary,
     GetWalletPermissionsQuery,
     GetWalletPermissionsResponse,
-    GetSessionQuery,
-    GetSessionResponse,
-    GetWalletSessionsQuery,
-    GetWalletSessionsResponse,
-    ListWalletSessionsQuery,
-    ListWalletSessionsResponse,
-    GetTokenInfoQuery,
-    GetTokenInfoResponse,
+
+
 };
 
 // Re-export command handlers
@@ -45,7 +38,7 @@ pub use commands::{
     UpdateWalletCommandHandler,
     DeleteWalletCommandHandler,
     GrantPermissionCommandHandler,
-    CreateSessionCommandHandler,
+
 };
 
 // Re-export query handlers
@@ -54,10 +47,8 @@ pub use queries::{
     ListWalletsQueryHandler,
     SearchWalletsQueryHandler,
     GetWalletPermissionsQueryHandler,
-    GetSessionQueryHandler,
-    GetWalletSessionsQueryHandler,
-    ListWalletSessionsQueryHandler,
-    GetTokenInfoQueryHandler,
+
+
 };
 
 // Tests module

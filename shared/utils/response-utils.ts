@@ -34,6 +34,11 @@ export function extractData<T>(response: ApiResponse<any>): T | undefined {
  * @param context - Context string for error messages (e.g., 'getPermissionGroups')
  */
 export function extractArray<T>(response: ApiResponse<any>, context: string): T[] {
+    if (!isSuccess(response)) {
+        const error = extractError(response);
+        throw new Error(`${context} failed: ${error}`);
+    }
+
     const data = extractData<T[]>(response);
     if (!Array.isArray(data)) {
         console.error(`[${context}] Expected array but got:`, typeof data, data);
@@ -47,6 +52,9 @@ export function extractArray<T>(response: ApiResponse<any>, context: string): T[
  * Use this when an empty result is acceptable.
  */
 export function extractArrayOrEmpty<T>(response: ApiResponse<any>): T[] {
+    if (!isSuccess(response)) {
+        return [];
+    }
     const data = extractData<T[]>(response);
     return Array.isArray(data) ? data : [];
 }
@@ -59,6 +67,11 @@ export function extractArrayOrEmpty<T>(response: ApiResponse<any>): T[] {
  * @param context - Context string for error messages
  */
 export function extractObject<T>(response: ApiResponse<any>, context: string): T {
+    if (!isSuccess(response)) {
+        const error = extractError(response);
+        throw new Error(`${context} failed: ${error}`);
+    }
+
     const data = extractData<T>(response);
     if (!data || typeof data !== 'object') {
         console.error(`[${context}] Expected object but got:`, typeof data, data);

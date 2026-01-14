@@ -144,8 +144,11 @@ impl UnifiedWeb3AuthService {
 
     /// Generate Web3 authentication challenge (SIWE)
     pub async fn generate_challenge(&self, wallet_address: &str) -> Result<Web3Challenge, Web3AuthError> {
+        // Normalize wallet address to lowercase for consistent storage
+        let wallet_address = wallet_address.to_lowercase();
+        
         // Validate wallet address format
-        let address = Address::from_str(wallet_address)
+        let address = Address::from_str(&wallet_address)
             .map_err(|e| Web3AuthError::InvalidWalletAddress(format!("Invalid format: {}", e)))?;
 
         // Generate secure nonce
@@ -164,7 +167,7 @@ impl UnifiedWeb3AuthService {
 
         diesel::insert_into(web3_auth_nonces::table)
             .values((
-                web3_auth_nonces::wallet_address.eq(wallet_address),
+                web3_auth_nonces::wallet_address.eq(&wallet_address),
                 web3_auth_nonces::nonce.eq(&nonce),
                 web3_auth_nonces::message.eq(&message),
                 web3_auth_nonces::expires_at.eq(&expires_at),
@@ -185,7 +188,7 @@ impl UnifiedWeb3AuthService {
         info!("Generated Web3 challenge for wallet: {}", wallet_address);
 
         Ok(Web3Challenge {
-            wallet_address: wallet_address.to_string(),
+            wallet_address,
             nonce,
             message,
             expires_at,
@@ -195,8 +198,11 @@ impl UnifiedWeb3AuthService {
 
     /// Verify Web3 signature and authenticate user
     pub async fn verify_and_authenticate(&self, request: Web3VerificationRequest) -> Result<Web3AuthResult, Web3AuthError> {
+        // Normalize wallet address to lowercase for consistent storage
+        let wallet_address = request.wallet_address.to_lowercase();
+        
         // Validate wallet address
-        let _address = Address::from_str(&request.wallet_address)
+        let _address = Address::from_str(&wallet_address)
             .map_err(|e| Web3AuthError::InvalidWalletAddress(e.to_string()))?;
 
         // Verify nonce exists and is valid
@@ -216,7 +222,7 @@ impl UnifiedWeb3AuthService {
         }
 
         let nonce_record = web3_auth_nonces::table
-            .filter(web3_auth_nonces::wallet_address.eq(&request.wallet_address))
+            .filter(web3_auth_nonces::wallet_address.eq(&wallet_address))
             .select((web3_auth_nonces::nonce, web3_auth_nonces::message, web3_auth_nonces::expires_at))
             .first::<NonceRecord>(&mut conn)
             .await
@@ -240,34 +246,34 @@ impl UnifiedWeb3AuthService {
             .await
             .map_err(|e| Web3AuthError::InvalidSignature(format!("Signature verification failed: {}", e)))?;
 
-        info!("Successfully verified SIWE signature for wallet: {}", request.wallet_address);
+        info!("Successfully verified SIWE signature for wallet: {}", wallet_address);
 
         // Clean up used nonce
-        self.cleanup_nonce(&request.wallet_address).await?;
+        self.cleanup_nonce(&wallet_address).await?;
 
         // Get or create user for wallet
-        let (_user_id, is_new_user) = self.get_or_create_user(&request.wallet_address).await?;
+        let (_user_id, is_new_user) = self.get_or_create_user(&wallet_address).await?;
 
         // Get user permissions
-        let permissions = self.get_wallet_permissions(&request.wallet_address).await?;
+        let permissions = self.get_wallet_permissions(&wallet_address).await?;
 
         // Generate Bearer token if OpenID service is available
         let (access_token, bearer_token, token_expires_at) = if let Some(ref openid_service) = self.openid_service {
-            match self.generate_bearer_token(&request.wallet_address, &permissions, openid_service).await {
+            match self.generate_bearer_token(&wallet_address, &permissions, openid_service).await {
                 Ok((token, expiry)) => (token.clone(), Some(token), Some(expiry)),
                 Err(e) => {
                     error!("Failed to generate Bearer token: {}", e);
                     // Fallback to simple token format if JWT generation fails
-                    (format!("web3_session_{}", request.wallet_address), None, None)
+                    (format!("web3_session_{}", wallet_address), None, None)
                 }
             }
         } else {
             // No OpenID service configured - use simple session token
-            (format!("web3_session_{}", request.wallet_address), None, None)
+            (format!("web3_session_{}", wallet_address), None, None)
         };
 
         Ok(Web3AuthResult {
-            wallet_address: request.wallet_address,
+            wallet_address,
             permissions,
             access_token,
             bearer_token,
@@ -278,6 +284,10 @@ impl UnifiedWeb3AuthService {
 
     /// Get wallet permissions (all 4 types)
     pub async fn get_wallet_permissions(&self, wallet_address: &str) -> Result<Vec<String>, Web3AuthError> {
+        // Normalize wallet address to lowercase
+        let wallet_address = wallet_address.to_lowercase();
+        let wallet_address = wallet_address.as_str();
+        
         let mut permissions = Vec::new();
 
         // 1. Manual permissions
@@ -306,11 +316,14 @@ impl UnifiedWeb3AuthService {
 
     /// Grant manual permission to wallet
     pub async fn grant_manual_permission(&self, wallet_address: &str, permission: &str, expires_at: Option<DateTime<Utc>>) -> Result<(), Web3AuthError> {
+        // Normalize wallet address to lowercase
+        let wallet_address = wallet_address.to_lowercase();
+        
         let mut conn = self.db_pool.get().await
             .map_err(|e| Web3AuthError::DatabaseError(format!("Pool error: {}", e)))?;
 
         diesel::sql_query("SELECT add_wallet_user_permission($1, $2, 'Manual', $3, '{}') AS success")
-            .bind::<diesel::sql_types::Text, _>(wallet_address)
+            .bind::<diesel::sql_types::Text, _>(&wallet_address)
             .bind::<diesel::sql_types::Text, _>(permission)
             .bind::<diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>, _>(expires_at)
             .execute(&mut conn)
@@ -400,6 +413,8 @@ impl UnifiedWeb3AuthService {
 
     /// Cleanup used nonce
     async fn cleanup_nonce(&self, wallet_address: &str) -> Result<(), Web3AuthError> {
+        // Normalize wallet address
+        let wallet_address = wallet_address.to_lowercase();
         use crate::schemas::primary::web3_auth_nonces;
 
         let mut conn = self.db_pool.get().await
@@ -416,6 +431,9 @@ impl UnifiedWeb3AuthService {
 
     /// Get or create user for wallet
     async fn get_or_create_user(&self, wallet_address: &str) -> Result<(String, bool), Web3AuthError> {
+        // Normalize wallet address
+        let wallet_address = wallet_address.to_lowercase();
+        let wallet_address = wallet_address.as_str();
         use crate::schemas::primary::wallet_users;
 
         let mut conn = self.db_pool.get().await
@@ -526,6 +544,9 @@ impl UnifiedWeb3AuthService {
 
     /// Get manual permissions from normalized tables
     async fn get_manual_permissions(&self, wallet_address: &str) -> Result<Vec<String>, Web3AuthError> {
+        // Normalize wallet address - strict safety check
+        let wallet_address = wallet_address.to_lowercase();
+        let wallet_address = wallet_address.as_str();
         let mut conn = self.db_pool.get().await
             .map_err(|e| Web3AuthError::DatabaseError(format!("Pool error: {}", e)))?;
         let now = Utc::now();

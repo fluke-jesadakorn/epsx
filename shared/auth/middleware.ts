@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { COOKIES } from './cookies';
 
 export interface AuthMiddlewareConfig {
     /**
@@ -45,7 +46,7 @@ export interface AuthMiddlewareConfig {
 export function createAuthMiddleware(config: AuthMiddlewareConfig) {
     const loginPath = config.loginPath || '/auth';
     const homePath = config.homePath || '/';
-    const tokenCookieName = config.tokenCookieName || 'epsx.access_token';
+    const tokenCookieName = config.tokenCookieName || COOKIES.access_token;
     const publicRoutes = config.publicRoutes || [];
     const backendUrl = config.backendUrl;
 
@@ -53,45 +54,7 @@ export function createAuthMiddleware(config: AuthMiddlewareConfig) {
         const { pathname, search } = request.nextUrl;
         const startTime = performance.now();
 
-        // 1. Virtual Proxy Handling (Client-Side Fetch Support)
-        // Intercepts requests to /api/proxy/* and rewrites them to the backend with auth headers
-        if (pathname.startsWith('/api/proxy') && backendUrl) {
-            // Extract the path after /api/proxy
-            // Example: /api/proxy/analytics/market-data -> /analytics/market-data
-            const targetPath = pathname.replace(/^\/api\/proxy/, '');
-
-            // Construct target URL
-            const targetUrl = new URL(targetPath + search, backendUrl);
-
-            // Create rewrite response
-            const response = NextResponse.rewrite(targetUrl);
-
-            // Copy headers from original request
-            const requestHeaders = new Headers(request.headers);
-
-            // Get token from cookies
-            const token = request.cookies.get(tokenCookieName)?.value;
-
-            // Inject Authorization header if token exists
-            if (token) {
-                requestHeaders.set('Authorization', `Bearer ${token}`);
-            }
-
-            // Set modified headers on the rewrite response
-            // Note: In Next.js middleware, setting headers on NextResponse.rewrite passes them to the upstream
-            // We need to pass the headers in the options of the rewrite, but NextResponse.rewrite takes a URL.
-            // Actually, to modify headers sent to the upstream in a rewrite, we must set them on the *request* passed to rewrite,
-            // or return a response with request headers modifed.
-            // Correct way for Middleware Rewrite with Header Modification:
-
-            return NextResponse.rewrite(targetUrl, {
-                request: {
-                    headers: requestHeaders,
-                },
-            });
-        }
-
-        // 2. Initialize Response with Security Headers
+        // Initialize Response with Security Headers
         const response = NextResponse.next();
 
         // Security Headers

@@ -7,6 +7,7 @@
 
 import { create } from 'zustand';
 
+import { loginAction, logoutAction } from '@/shared/auth/actions';
 import { createAdminClient, UserInfoResponse } from '@/shared/auth/client';
 
 // Web3 Admin Wallet interface (migrated from EnterpriseAdminUser)
@@ -146,6 +147,13 @@ export const useAuth = create<Web3AdminAuthState & {
           throw new Error(result.error || 'Authentication failed');
         }
 
+        // Call server action to set cookies
+        if (result.user.access) {
+          console.log('🔐 Admin: Calling loginAction to persist session...');
+          await loginAction(result.user.access, result.user);
+          console.log('✅ Admin: loginAction successful');
+        }
+
         const adminWallet = transformWeb3UserToAdminWallet(result.user);
 
         // Check admin permissions
@@ -208,6 +216,14 @@ export const useAuth = create<Web3AdminAuthState & {
     set({ isLoading: true });
 
     try {
+      // Call server action to clear HttpOnly cookies
+      try {
+        await logoutAction();
+        console.log('✅ Admin: Server session cleared');
+      } catch (e) {
+        console.error('❌ Admin: Failed to clear server session:', e);
+      }
+
       // Use Web3 client logout
       await adminWeb3Client.logout();
 

@@ -222,24 +222,22 @@ impl UnifiedRouteBuilder {
         // Create admin routes with permission validation middleware
         let admin_routes = crate::web::admin::routes::create_admin_routes()
             .with_state(app_state.clone())
-            .layer(axum_middleware::from_fn_with_state(
-                app_state.clone(),
-                crate::web::middleware::web3_auth_middleware
+            .layer(axum_middleware::from_fn(
+                crate::web::middleware::permission_validation_middleware
             ))
             .layer(axum_middleware::from_fn_with_state(
                 app_state.clone(),
-                crate::web::middleware::permission_validation_middleware
+                crate::web::middleware::bearer_middleware  // Use bearer_middleware to set OpenIDUserContext
             ));
 
         let permission_authority_routes = crate::web::admin::routes::create_permission_authority_routes()
             .with_state(app_state.clone())
-            .layer(axum_middleware::from_fn_with_state(
-                app_state.clone(),
-                crate::web::middleware::web3_auth_middleware
+            .layer(axum_middleware::from_fn(
+                crate::web::middleware::permission_validation_middleware
             ))
             .layer(axum_middleware::from_fn_with_state(
                 app_state.clone(),
-                crate::web::middleware::permission_validation_middleware
+                crate::web::middleware::bearer_middleware  // Use bearer_middleware to set OpenIDUserContext
             ));
 
         Router::new()
@@ -576,13 +574,12 @@ impl UnifiedRouteBuilder {
             .route("/admin/subscriptions", get(admin_list_subscriptions_handler))
             .route("/admin/analytics", get(admin_get_payment_analytics_handler))
             .with_state(app_state.clone())
-            .layer(axum_middleware::from_fn_with_state(
-                app_state.clone(),
-                crate::web::middleware::web3_auth_middleware
+            .layer(axum_middleware::from_fn(
+                crate::web::middleware::permission_validation_middleware
             ))
             .layer(axum_middleware::from_fn_with_state(
                 app_state.clone(),
-                crate::web::middleware::permission_validation_middleware
+                crate::web::middleware::bearer_middleware
             ));
 
         // Combine all payment routes
@@ -616,9 +613,12 @@ impl UnifiedRouteBuilder {
 
         crate::web::admin::routes::create_permission_authority_routes()
             .with_state(app_state.clone())
+            .layer(axum_middleware::from_fn(
+                crate::web::middleware::permission_validation_middleware
+            ))
             .layer(axum_middleware::from_fn_with_state(
                 app_state.clone(),
-                crate::web::middleware::permission_validation_middleware
+                crate::web::middleware::bearer_middleware
             ))
     }
 

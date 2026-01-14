@@ -6,23 +6,20 @@ use crate::application::wallet_management::queries::models::{
     GetWalletQuery, GetWalletResponse, WalletStats
 };
 use crate::domain::wallet_management::{
-    WalletUserRepositoryPort, SessionRepositoryPort, WalletAddress
+    WalletUserRepositoryPort, WalletAddress
 };
 
 /// Query handler for retrieving wallet information
 pub struct GetWalletQueryHandler {
     wallet_repository: Arc<dyn WalletUserRepositoryPort>,
-    session_repository: Arc<dyn SessionRepositoryPort>,
 }
 
 impl GetWalletQueryHandler {
     pub fn new(
         wallet_repository: Arc<dyn WalletUserRepositoryPort>,
-        session_repository: Arc<dyn SessionRepositoryPort>,
     ) -> Self {
         Self {
             wallet_repository,
-            session_repository,
         }
     }
 }
@@ -75,15 +72,8 @@ impl QueryHandler<GetWalletQuery> for GetWalletQueryHandler {
         };
 
         // 6. Optionally include session count
-        let active_session_count = if query.include_sessions {
-            let sessions = self.session_repository
-                .find_active_by_wallet_id(&wallet.wallet_address().to_user_id())
-                .await
-                .map_err(|e| ApplicationError::infrastructure(e.to_string()))?;
-            Some(sessions.len() as u32)
-        } else {
-            None
-        };
+        // Stateless: Always return None or 0. Since we don't store sessions anymore, we can't count them.
+        let active_session_count = None;
 
         // 7. Build response
         Ok(GetWalletResponse {

@@ -306,6 +306,9 @@ pub async fn grant_manual_permission(
     request.wallet_address
   );
 
+  // Normalize wallet address
+  let wallet_address = request.wallet_address.to_lowercase();
+
   // Parse expiration date if provided
   let expires_at = if let Some(expires_str) = &request.expires_at {
     match chrono::DateTime::parse_from_rfc3339(expires_str) {
@@ -350,7 +353,7 @@ pub async fn grant_manual_permission(
   for permission_str in &request.permissions {
     // Create the grant permission command
     let command = crate::application::wallet_management::commands::models::GrantPermissionCommand::new(
-      request.wallet_address.clone(),
+      wallet_address.clone(),
       permission_str.clone(),
     )
     .with_expiration(expires_at.unwrap_or_else(|| chrono::Utc::now() + chrono::Duration::days(365)))
@@ -360,7 +363,7 @@ pub async fn grant_manual_permission(
     // Execute the command
     match handler.handle(command).await {
       Ok(response) => {
-        info!("✅ Admin: Successfully granted permission {} to wallet {}", permission_str, request.wallet_address);
+        info!("✅ Admin: Successfully granted permission {} to wallet {}", permission_str, wallet_address);
         granted_permissions.push(serde_json::json!({
           "permission": permission_str,
           "granted_at": response.granted_at,
@@ -368,7 +371,7 @@ pub async fn grant_manual_permission(
         }));
       }
       Err(e) => {
-        error!("❌ Admin: Failed to grant permission {} to wallet {}: {}", permission_str, request.wallet_address, e);
+        error!("❌ Admin: Failed to grant permission {} to wallet {}: {}", permission_str, wallet_address, e);
         failed_permissions.push(serde_json::json!({
           "permission": permission_str,
           "error": e.to_string()
@@ -379,7 +382,7 @@ pub async fn grant_manual_permission(
 
   let success = !granted_permissions.is_empty();
   let response_data = serde_json::json!({
-    "wallet_address": request.wallet_address,
+    "wallet_address": wallet_address,
     "granted_permissions": granted_permissions,
     "failed_permissions": failed_permissions,
     "total_requested": request.permissions.len(),

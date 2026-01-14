@@ -11,26 +11,7 @@ use bigdecimal::BigDecimal;
 pub type DbPool = &'static Pool<AsyncPgConnection>;
 
 // Session Types
-#[derive(Clone)]
-pub struct SessionRepository {
-    _pool: Arc<DbPool>,
-}
 
-impl SessionRepository {
-    pub fn new(pool: Arc<DbPool>) -> Self {
-        Self { _pool: pool }
-    }
-    
-    pub async fn save_session(&self, _session_data: &str) -> Result<(), String> {
-        Ok(())
-    }
-    
-    pub async fn save(&self, _session: &crate::domain::wallet_management::aggregates::session::Session) -> Result<(), String> {
-        // Session storage placeholder
-        // Future: Insert into wallet_sessions table with session data
-        Ok(())
-    }
-}
 
 // User Repository Types
 #[derive(Clone)]
@@ -276,40 +257,7 @@ impl UserCreateResponse {
 // Database model types for mappers compatibility
 // Legacy User/NewUser/UpdateUser structs removed - Web3-first uses WalletUser only
 
-#[derive(Debug, Clone)]
-pub struct Session {
-    pub id: uuid::Uuid,
-    pub wallet_address: uuid::Uuid,
-    pub access_token: String,
-    pub expires_at: chrono::DateTime<chrono::Utc>,
-    pub created_at: chrono::DateTime<chrono::Utc>,
-    pub session_token: Option<String>,
-    pub user_agent: Option<String>,
-    pub ip_address: Option<IpAddr>,
-    pub is_active: bool,
-}
 
-#[derive(Debug, Clone)]
-pub struct NewSession {
-    pub id: uuid::Uuid,
-    pub wallet_address: uuid::Uuid,
-    pub access_token: String,
-    pub expires_at: chrono::DateTime<chrono::Utc>,
-    pub provider: Option<String>,
-    pub session_token: Option<String>,
-    pub user_agent: Option<String>,
-    pub ip_address: Option<IpAddr>,
-    pub is_active: bool,
-}
-
-#[derive(Debug, Clone)]
-pub struct UpdateSession {
-    pub access_token: Option<String>,
-    pub expires_at: Option<chrono::DateTime<chrono::Utc>>,
-}
-
-#[derive(Debug, Clone)]
-pub struct IpAddr(pub String);
 
 // Permission Group Types - Updated to match database schema exactly
 // Supports both SQLx (legacy) and Diesel (new) during migration
@@ -449,7 +397,7 @@ pub struct WalletUserDb {
     pub permission_groups: Option<serde_json::Value>,
     pub disable_info: Option<serde_json::Value>,
     pub plan_expires_at: Option<DateTime<Utc>>,
-    pub current_plan_id: Option<Uuid>,
+    pub current_plan_id: Option<i32>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub last_auth_at: Option<DateTime<Utc>>,
@@ -473,53 +421,11 @@ pub struct UpdateWalletUserDb {
     pub tier_level: Option<String>,
     pub wallet_metadata: Option<serde_json::Value>,
     pub last_auth_at: Option<DateTime<Utc>>,
-    pub current_plan_id: Option<Option<Uuid>>,
+    pub current_plan_id: Option<Option<i32>>,
     pub plan_expires_at: Option<Option<DateTime<Utc>>>,
 }
 
-// Models for sessions table with Diesel support
-// Note: Using CURRENT database schema (user_id, is_active) not future Web3 schema (wallet_address, is_revoked)
 
-/// Diesel Queryable model for sessions table
-/// Note: We use raw SQL with ip_address::TEXT casting to handle INET->String conversion
-#[derive(Debug, Clone, diesel::QueryableByName)]
-pub struct SessionDb {
-    #[diesel(sql_type = diesel::sql_types::Uuid)]
-    pub id: uuid::Uuid,
-    #[diesel(sql_type = diesel::sql_types::Uuid)]
-    pub user_id: uuid::Uuid,
-    #[diesel(sql_type = diesel::sql_types::Text)]
-    pub access_token: String,
-    #[diesel(sql_type = diesel::sql_types::Timestamptz)]
-    pub expires_at: DateTime<Utc>,
-    #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
-    pub provider: Option<String>,
-    #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
-    pub session_token: Option<String>,
-    #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
-    pub user_agent: Option<String>,
-    #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
-    pub ip_address: Option<String>,  // Cast from INET to TEXT in SQL queries
-    #[diesel(sql_type = diesel::sql_types::Bool)]
-    pub is_active: bool,
-    #[diesel(sql_type = diesel::sql_types::Timestamptz)]
-    pub created_at: DateTime<Utc>,
-}
-
-/// Model for creating new sessions (used with raw SQL, not Diesel DSL)
-#[derive(Debug, Clone)]
-pub struct NewSessionDb {
-    pub id: uuid::Uuid,
-    pub user_id: uuid::Uuid,
-    pub access_token: String,
-    pub expires_at: DateTime<Utc>,
-    pub provider: Option<String>,
-    pub session_token: Option<String>,
-    pub user_agent: Option<String>,
-    pub ip_address: Option<String>,  // Using String for IP, convert to/from IpAddr in adapter
-    pub is_active: bool,
-    pub created_at: DateTime<Utc>,
-}
 
 // ============================================================================
 // Permission Group Models (Diesel)

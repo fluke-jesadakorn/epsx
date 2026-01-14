@@ -6,6 +6,12 @@
  * with unified components that work across both admin-frontend and frontend applications.
  */
 
+// NEW: Premium Auth Modal and Status components
+export { AuthModal } from './AuthModal';
+export type { AuthModalProps, AuthResult } from './AuthModal';
+export { AuthStatus } from './AuthStatus';
+export type { AuthStatusProps } from './AuthStatus';
+
 // Main unified permission guard component
 export { default as UnifiedPermissionGuard } from './UnifiedPermissionGuard';
 
@@ -13,10 +19,8 @@ export { default as UnifiedPermissionGuard } from './UnifiedPermissionGuard';
 export { default as UnifiedProgressiveAuthGate } from './UnifiedProgressiveAuthGate';
 
 // Types and interfaces
-export type { 
-  Platform, 
-  AuthLevel, 
-  UnifiedPermissionGuardProps 
+export type {
+  AuthLevel, Platform, UnifiedPermissionGuardProps
 } from './UnifiedPermissionGuard';
 
 export type {
@@ -25,55 +29,42 @@ export type {
 
 // Convenience components - Platform agnostic
 export {
-  RequirePermission,
+  RequireAccess, RequirePermission,
   RequireRole,
-  RequireTier,
-  RequireAccess
+  RequireTier
 } from './UnifiedPermissionGuard';
 
 // Admin-specific convenience components  
 export {
-  RequireAdminPermission,
-  RequireUserManagement,
-  RequireSystemManagement,
-  RequireAnalyticsAccess,
+  RequireAdminPermission, RequireAnalyticsAccess,
   RequirePlatformManagement,
-  RequireSecurityAccess
+  RequireSecurityAccess, RequireSystemManagement, RequireUserManagement
 } from './UnifiedPermissionGuard';
 
 // Progressive auth gate convenience components
 export {
-  RequireSignIn,
-  RequireProgressiveAuth,
-  RequireFullAuth
+  RequireFullAuth, RequireProgressiveAuth, RequireSignIn
 } from './UnifiedProgressiveAuthGate';
 
 // Higher-order component and hooks
 export {
-  withUnifiedPermissions,
-  useUnifiedPermissionGuard
+  useUnifiedPermissionGuard, withUnifiedPermissions
 } from './UnifiedPermissionGuard';
 
 export {
-  withProgressiveAuth,
-  useProgressiveAuthStatus
+  useProgressiveAuthStatus, withProgressiveAuth
 } from './UnifiedProgressiveAuthGate';
 
 // Auth adapter for platform integration
 export {
-  registerAuthHook,
-  getAuthHook,
-  hasAuthHook,
   clearAuthHooks,
   createAdminAuthAdapter,
-  createFrontendAuthAdapter,
-  debugAuthHooks,
-  createMockAuthHook
+  createFrontendAuthAdapter, createMockAuthHook, debugAuthHooks, getAuthHook,
+  hasAuthHook, registerAuthHook
 } from './UnifiedAuthAdapter';
 
 export type {
-  UnifiedAuthInterface,
-  AuthContextValue
+  AuthContextValue, UnifiedAuthInterface
 } from './UnifiedAuthAdapter';
 
 // ============================================================================

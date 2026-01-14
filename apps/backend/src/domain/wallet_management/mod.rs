@@ -11,7 +11,7 @@ pub mod domain_services;
 
 // Re-export key types for easy access
 // Web3 wallet user types (primary)
-pub use aggregates::{WalletUser, WalletMetadata, Session};
+pub use aggregates::{WalletUser, WalletMetadata};
 
 pub use value_objects::{
     WalletAddress, // Primary Web3 wallet identity
@@ -27,11 +27,7 @@ pub use events::{
     WalletUserActivatedEvent,
     WalletUserDeactivatedEvent,
     WalletPermissionsUpdatedEvent,
-    // Session events
-    SessionCreatedEvent,
-    SessionInvalidatedEvent,
-    SessionExtendedEvent,
-    session_events::SessionInvalidationReason,
+
 };
 
 pub use repository_ports::{
@@ -43,11 +39,7 @@ pub use repository_ports::{
     WalletUserStatistics,
     Web3Analytics,
     // Session repository ports
-    SessionRepositoryPort,
-    SessionSearchCriteria,
-    SessionSearchResult,
-    SessionStatistics,
-    SessionAnalyticsPort
+
 };
 
 // Web3 wallet permission services
@@ -60,5 +52,5 @@ pub use domain_services::{
     IsWalletAdminSpecification,
     HasWalletPlatformAccessSpecification,
     HasChainAccessSpecification,
-    SessionSecurityService,
+
 };

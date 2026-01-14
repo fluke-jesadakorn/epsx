@@ -1,0 +1,1563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EPSX Admin Permission Assignment Tool</title>
+  <style>
+    :root {
+      --bg-primary: #0a0f1c;
+      --bg-secondary: #111827;
+      --bg-card: #1a2236;
+      --border-color: #2d3a4f;
+      --text-primary: #f8fafc;
+      --text-secondary: #94a3b8;
+      --text-muted: #64748b;
+      --accent-primary: #6366f1;
+      --accent-secondary: #818cf8;
+      --accent-glow: rgba(99, 102, 241, 0.2);
+      --success: #22c55e;
+      --warning: #f59e0b;
+      --error: #ef4444;
+      --font-mono: 'SF Mono', 'Monaco', 'Consolas', monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+      padding: 2rem;
+      line-height: 1.6;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 3rem;
+    }
+
+    h1 {
+      font-size: 2.5rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 0.5rem;
+    }
+
+    .subtitle {
+      color: var(--text-secondary);
+      font-size: 1.1rem;
+    }
+
+    .config-section {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 2rem;
+      margin-bottom: 2rem;
+    }
+
+    .section-title {
+      font-size: 1.3rem;
+      font-weight: 600;
+      margin-bottom: 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .input-group {
+      display: grid;
+      gap: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .input-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+    }
+
+    @media (max-width: 768px) {
+      .input-row { grid-template-columns: 1fr; }
+    }
+
+    label {
+      display: block;
+      font-size: 0.9rem;
+      font-weight: 500;
+      color: var(--text-secondary);
+      margin-bottom: 0.5rem;
+    }
+
+    input, select {
+      width: 100%;
+      padding: 0.875rem 1rem;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      color: var(--text-primary);
+      font-size: 1rem;
+      font-family: var(--font-mono);
+      transition: all 0.2s ease;
+    }
+
+    input:focus, select:focus {
+      outline: none;
+      border-color: var(--accent-primary);
+      box-shadow: 0 0 0 4px var(--accent-glow);
+    }
+
+    input::placeholder { color: var(--text-muted); }
+
+    .permission-grid {
+      display: grid;
+      gap: 1.5rem;
+    }
+
+    .permission-category {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .category-header {
+      background: linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(139, 92, 246, 0.1));
+      padding: 1rem 1.25rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .category-title {
+      font-weight: 600;
+      font-size: 1rem;
+    }
+
+    .category-badge {
+      font-size: 0.75rem;
+      color: var(--accent-secondary);
+      background: var(--accent-glow);
+      padding: 0.25rem 0.75rem;
+      border-radius: 100px;
+    }
+
+    .category-body {
+      padding: 1rem 1.25rem;
+    }
+
+    .permission-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+      padding: 0.75rem 0;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .permission-item:last-child { border-bottom: none; }
+
+    .permission-item input[type="checkbox"] {
+      width: 20px;
+      height: 20px;
+      margin-top: 0.1rem;
+      accent-color: var(--accent-primary);
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    .permission-info { flex: 1; }
+
+    .permission-name {
+      font-family: var(--font-mono);
+      font-size: 0.9rem;
+      color: var(--accent-secondary);
+      margin-bottom: 0.25rem;
+    }
+
+    .permission-desc {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    .actions {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      margin-top: 1.5rem;
+    }
+
+    button {
+      padding: 0.875rem 2rem;
+      font-size: 1rem;
+      font-weight: 600;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      border: none;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent-primary), #7c3aed);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(99, 102, 241, 0.35);
+    }
+
+    .btn-secondary {
+      background: var(--bg-secondary);
+      color: var(--text-primary);
+      border: 1px solid var(--border-color);
+    }
+
+    .btn-secondary:hover {
+      background: var(--bg-card);
+      border-color: var(--accent-primary);
+    }
+
+    .btn-danger {
+      background: var(--error);
+      color: white;
+    }
+
+    .output-section {
+      margin-top: 2rem;
+    }
+
+    .output-tabs {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
+
+    .tab-btn {
+      padding: 0.625rem 1.25rem;
+      font-size: 0.9rem;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      color: var(--text-secondary);
+      border-radius: 8px;
+    }
+
+    .tab-btn.active {
+      background: var(--accent-glow);
+      border-color: var(--accent-primary);
+      color: var(--accent-secondary);
+    }
+
+    pre {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 1.25rem;
+      overflow-x: auto;
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      line-height: 1.5;
+      color: var(--text-secondary);
+      max-height: 400px;
+      overflow-y: auto;
+    }
+
+    .status-message {
+      padding: 1rem 1.25rem;
+      border-radius: 10px;
+      margin-bottom: 1rem;
+      display: none;
+    }
+
+    .status-message.success {
+      display: block;
+      background: rgba(34, 197, 94, 0.1);
+      border: 1px solid var(--success);
+      color: var(--success);
+    }
+
+    .status-message.error {
+      display: block;
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid var(--error);
+      color: var(--error);
+    }
+
+    .quick-select {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      margin-bottom: 1rem;
+    }
+
+    .quick-btn {
+      font-size: 0.8rem;
+      padding: 0.4rem 0.75rem;
+      border-radius: 6px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      color: var(--text-secondary);
+    }
+
+    .quick-btn:hover {
+      background: var(--accent-glow);
+      border-color: var(--accent-primary);
+      color: var(--text-primary);
+    }
+
+    .copy-btn {
+      position: absolute;
+      top: 0.75rem;
+      right: 0.75rem;
+      padding: 0.4rem 0.75rem;
+      font-size: 0.8rem;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      color: var(--text-secondary);
+      border-radius: 6px;
+    }
+
+    .copy-btn:hover {
+      background: var(--accent-glow);
+      color: var(--text-primary);
+    }
+
+    .pre-container {
+      position: relative;
+    }
+
+    footer {
+      text-align: center;
+      margin-top: 3rem;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+    }
+
+    /* Token Minting Styles */
+    .info-banner {
+      background: rgba(99, 102, 241, 0.1);
+      border: 1px solid var(--accent-primary);
+      border-radius: 10px;
+      padding: 1rem 1.25rem;
+      margin-bottom: 1.5rem;
+      color: var(--text-secondary);
+    }
+
+    .info-banner code {
+      background: var(--bg-secondary);
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+    }
+
+    .link-btn {
+      background: none;
+      border: none;
+      color: var(--accent-secondary);
+      font-size: 0.8rem;
+      padding: 0.25rem 0;
+      cursor: pointer;
+      text-decoration: underline;
+    }
+
+    .link-btn:hover {
+      color: var(--accent-primary);
+    }
+
+    .token-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 1.5rem;
+    }
+
+    .token-card {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      overflow: hidden;
+      transition: all 0.2s ease;
+    }
+
+    .token-card:hover {
+      border-color: var(--accent-primary);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+    }
+
+    .token-header {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 1rem 1.25rem;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .token-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+      font-weight: 700;
+    }
+
+    .token-icon.usdt {
+      background: linear-gradient(135deg, #26a17b, #1a7a5e);
+      color: white;
+    }
+
+    .token-icon.usdc {
+      background: linear-gradient(135deg, #2775ca, #1a5490);
+      color: white;
+    }
+
+    .token-icon.bnb {
+      background: linear-gradient(135deg, #f3ba2f, #c9970d);
+      color: white;
+    }
+
+    .token-info {
+      flex: 1;
+    }
+
+    .token-name {
+      font-size: 1.1rem;
+      font-weight: 600;
+      margin-bottom: 0.25rem;
+    }
+
+    .token-address {
+      font-size: 0.75rem;
+      font-family: var(--font-mono);
+      color: var(--text-muted);
+    }
+
+    .token-body {
+      padding: 1rem 1.25rem;
+    }
+
+    .amount-input-group {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+      margin-bottom: 0.75rem;
+    }
+
+    .amount-input-group input {
+      flex: 1;
+    }
+
+    .currency-label {
+      color: var(--text-muted);
+      font-weight: 600;
+      font-size: 0.9rem;
+    }
+
+    .token-balance {
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      font-family: var(--font-mono);
+    }
+
+    .btn-mint {
+      width: 100%;
+      padding: 0.875rem;
+      font-size: 1rem;
+      font-weight: 600;
+      border: none;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      color: white;
+    }
+
+    .btn-mint.usdt {
+      background: linear-gradient(135deg, #26a17b, #1a7a5e);
+    }
+
+    .btn-mint.usdt:hover {
+      background: linear-gradient(135deg, #2ebc8e, #26a17b);
+    }
+
+    .btn-mint.usdc {
+      background: linear-gradient(135deg, #2775ca, #1a5490);
+    }
+
+    .btn-mint.usdc:hover {
+      background: linear-gradient(135deg, #3388e3, #2775ca);
+    }
+
+    .btn-mint.bnb {
+      background: linear-gradient(135deg, #f3ba2f, #c9970d);
+    }
+
+    .btn-mint.bnb:hover {
+      background: linear-gradient(135deg, #ffc94a, #f3ba2f);
+    }
+
+    .btn-mint:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>🔐 Admin Permission Assignment</h1>
+      <p class="subtitle">EPSX Granular Admin Permission Tool for Initial Admin Setup</p>
+    </header>
+
+    <div id="statusMessage" class="status-message"></div>
+
+    <!-- Configuration Section -->
+    <section class="config-section">
+      <h2 class="section-title">⚙️ Configuration</h2>
+      <div class="input-group">
+        <div class="input-row">
+          <div>
+            <label for="walletAddress">Wallet Address *</label>
+            <input type="text" id="walletAddress" placeholder="0x..." pattern="^0x[a-fA-F0-9]{40}$" required>
+          </div>
+          <div>
+            <label for="backendUrl">Backend URL</label>
+            <input type="text" id="backendUrl" value="https://api.epsx.io" placeholder="https://api.epsx.io">
+          </div>
+        </div>
+        <div class="input-row">
+          <div>
+            <label for="accessToken">Access Token (Bearer)</label>
+            <input type="text" id="accessToken" placeholder="Your JWT access token (for authenticated requests)">
+          </div>
+          <div>
+            <label for="environment">Environment</label>
+            <select id="environment">
+              <option value="production">Production (api.epsx.io)</option>
+              <option value="development">Development (dev-api.epsx.io)</option>
+              <option value="local">Local (localhost:8080)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Permission Selection Section -->
+    <section class="config-section">
+      <h2 class="section-title">🛡️ Select Granular Permissions</h2>
+      
+      <div class="quick-select">
+        <button class="quick-btn" onclick="selectPreset('minimal')">Minimal Admin</button>
+        <button class="quick-btn" onclick="selectPreset('moderate')">Moderate Admin</button>
+        <button class="quick-btn" onclick="selectPreset('senior')">Senior Admin</button>
+        <button class="quick-btn" onclick="selectAll()">Select All</button>
+        <button class="quick-btn" onclick="clearAll()">Clear All</button>
+      </div>
+
+      <div class="permission-grid">
+        <!-- Enterprise Management -->
+        <div class="permission-category">
+          <div class="category-header">
+            <span class="category-title">🏢 Enterprise Management</span>
+            <span class="category-badge">admin:enterprise:*</span>
+          </div>
+          <div class="category-body">
+            <div class="permission-item">
+              <input type="checkbox" id="perm-admin:enterprise:users:view" data-perm="admin:enterprise:users:view">
+              <div class="permission-info">
+                <div class="permission-name">admin:enterprise:users:view</div>
+                <div class="permission-desc">View enterprise users list and basic info</div>
+              </div>
+            </div>
+            <div class="permission-item">
+              <input type="checkbox" id="perm-admin:enterprise:users:manage" data-perm="admin:enterprise:users:manage">
+              <div class="permission-info">
+                <div class="permission-name">admin:enterprise:users:manage</div>
+                <div class="permission-desc">Create, update, and manage enterprise users</div>
+              </div>
+            </div>
+            <div class="permission-item">
+              <input type="checkbox" id="perm-admin:enterprise:analytics:view" data-perm="admin:enterprise:analytics:view">
+              <div class="permission-info">
+                <div class="permission-name">admin:enterprise:analytics:view</div>
+                <div class="permission-desc">View enterprise analytics and reports</div>
+              </div>
+            </div>
+            <div class="permission-item">
+              <input type="checkbox" id="perm-admin:enterprise:system:manage" data-perm="admin:enterprise:system:manage">
+              <div class="permission-info">
+                <div class="permission-name">admin:enterprise:system:manage</div>
+                <div class="permission-desc">Manage enterprise system settings</div>
+              </div>
+            </div>
+            <div class="permission-item">
+              <input type="checkbox" id="perm-admin:enterprise:tiers:manage" data-perm="admin:enterprise:tiers:manage">
+              <div class="permission-info">
+                <div class="permission-name">admin:enterprise:tiers:manage</div>
+                <div class="permission-desc">Manage enterprise tier configurations</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- User Management -->
+        <div class="permission-category">
+          <div class="category-header">
+            <span class="category-title">👥 User Management</span>
+            <span class="category-badge">admin:users:*</span>
+          </div>
+          <div class="category-body">
+            <div class="permission-item">
+              <input type="checkbox" id="perm-admin:users:view" data-perm="admin:users:view">
+              <div class="permission-info">
+                <div class="permission-name">admin:users:view</div>
+                <div class="permission-desc">View user profiles and info (read-only)</div>
+              </div>
+            </div>
+            <div class="permission-item">
+              <input type="checkbox" id="perm-admin:users:read" data-perm="admin:users:read">
+              <div class="permission-info">
+                <div class="permission-name">admin:users:read</div>
+                <div class="permission-desc">Read user data via admin API</div>
+              </div>
+            </div>
+            <div class="permission-item">
+              <input type="checkbox" id="perm-admin:users:create" data-perm="admin:users:create">
+              <div class="permission-info">
+                <div class="permission-name">admin:users:create</div>
+                <div class="permission-desc">Create new user accounts</div>
+              </div>
+            </div>
+            <div class="permission-item">
+              <input type="checkbox" id="perm-admin:users:update" data-perm="admin:users:update">
+              <div class="permission-info">
+                <div class="permission-name">admin:users:update</div>
+                <div class="permission-desc">Update existing user accounts</div>
+              </div>
+            </div>
+            <div class="permission-item">
+              <input type="checkbox" id="perm-admin:users:manage" data-perm="admin:users:manage">
+              <div class="permission-info">
+                <div class="permission-name">admin:users:manage</div>
+                <div class="permission-desc">Full user management (create, update, delete)</div>
+              </div>
+            </div>
+            <div class="permission-item">
+              <input type="checkbox" id="perm-admin:users:delete" data-perm="admin:users:delete">
+              <div class="permission-info">
+                <div class="permission-name">admin:users:delete</div>
+                <div class="permission-desc">Delete user accounts (dangerous)</div>
+              </div>
+            </div>
+            <div class="permission-item">
+              <input type="checkbox" id="perm-admin:users:bulk_manage" data-perm="admin:users:bulk_manage">
+              <div class="permission-info">
+                <div class="permission-name">admin:users:bulk_manage</div>
+                <div class="permission-desc">Bulk operations on users</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Permission Management -->
+        <div class="permission-category">
+          <div class="category-header">
+            <span class="category-title">🔑 Permission Management</span>
+            <span class="category-badge">admin:permissions:*</span>
+          </div>
+          <div class="category-body">
+            <div class="permission-item">
+              <input type="checkbox" id="perm-admin:permissions:read" data-perm="admin:permissions:read">
+              <div class="permission-info">
+                <div class="permission-name">admin:permissions:read</div>
+                <div class="permission-desc">View permission settings</div>
+              </div>
+            </div>
+            <div class="permission-item">
+              <input type="checkbox" id="perm-admin:permissions:manage" data-perm="admin:permissions:manage">
+              <div class="permission-info">
+                <div class="permission-name">admin:permissions:manage</div>
+                <div class="permission-desc">Full permission management</div>
+              </div>
+            </div>
+            <div class="permission-item">
+              <input type="checkbox" id="perm-admin:permissions:grant" data-perm="admin:permissions:grant">
+              <div class="permission-info">
+                <div class="permission-name">admin:permissions:grant</div>
+                <div class="permission-desc">Grant permissions to users</div>
+              </div>
+            </div>
+            <div class="permission-item">
+              <input type="checkbox" id="perm-admin:permissions:revoke" data-perm="admin:permissions:revoke">
+              <div class="permission-info">
+                <div class="permission-name">admin:permissions:revoke</div>
+                <div class="permission-desc">Revoke permissions from users</div>
+              </div>
+            </div>
+            <div class="permission-item">
+              <input type="checkbox" id="perm-admin:permissions:bulk_assign" data-perm="admin:permissions:bulk_assign">
+              <div class="permission-info">
+                <div class="permission-name">admin:permissions:bulk_assign</div>
+                <div class="permission-desc">Bulk permission assignment</div>
+              </div>
+            </div>
+            <div class="permission-item">
+              <input type="checkbox" id="perm-admin:permissions:bulk_validate" data-perm="admin:permissions:bulk_validate">
+              <div class="permission-info">
+                <div class="permission-name">admin:permissions:bulk_validate</div>
+                <div class="permission-desc">Bulk permission validation</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- System Management -->
+        <div class="permission-category">
+          <div class="category-header">
+            <span class="category-title">⚙️ System Management</span>
+            <span class="category-badge">admin:system:*</span>
+          </div>
+          <div class="category-body">
+            <div class="permission-item">
+              <input type="checkbox" id="perm-admin:system:view" data-perm="admin:system:view">
+              <div class="permission-info">
+                <div class="permission-name">admin:system:view</div>
+                <div class="permission-desc">View system status and metrics</div>
+              </div>
+            </div>
+            <div class="permission-item">
+              <input type="checkbox" id="perm-admin:system:manage" data-perm="admin:system:manage">
+              <div class="permission-info">
+                <div class="permission-name">admin:system:manage</div>
+                <div class="permission-desc">Manage system settings</div>
+              </div>
+            </div>
+            <div class="permission-item">
+              <input type="checkbox" id="perm-admin:system:bulk_operations" data-perm="admin:system:bulk_operations">
+              <div class="permission-info">
+                <div class="permission-name">admin:system:bulk_operations</div>
+                <div class="permission-desc">Perform bulk system operations</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Web3 Management -->
+        <div class="permission-category">
+          <div class="category-header">
+            <span class="category-title">🔗 Web3 Management</span>
+            <span class="category-badge">admin:web3:*</span>
+          </div>
+          <div class="category-body">
+            <div class="permission-item">
+              <input type="checkbox" id="perm-admin:web3:manage" data-perm="admin:web3:manage">
+              <div class="permission-info">
+                <div class="permission-name">admin:web3:manage</div>
+                <div class="permission-desc">Manage Web3 wallet permissions</div>
+              </div>
+            </div>
+            <div class="permission-item">
+              <input type="checkbox" id="perm-admin:web3:view" data-perm="admin:web3:view">
+              <div class="permission-info">
+                <div class="permission-name">admin:web3:view</div>
+                <div class="permission-desc">View Web3 wallets and transactions</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- DAO & Governance -->
+        <div class="permission-category">
+          <div class="category-header">
+            <span class="category-title">🏛️ DAO & Governance</span>
+            <span class="category-badge">admin:dao:* | admin:governance:*</span>
+          </div>
+          <div class="category-body">
+            <div class="permission-item">
+              <input type="checkbox" id="perm-admin:dao:manage" data-perm="admin:dao:manage">
+              <div class="permission-info">
+                <div class="permission-name">admin:dao:manage</div>
+                <div class="permission-desc">DAO administration</div>
+              </div>
+            </div>
+            <div class="permission-item">
+              <input type="checkbox" id="perm-admin:governance:manage" data-perm="admin:governance:manage">
+              <div class="permission-info">
+                <div class="permission-name">admin:governance:manage</div>
+                <div class="permission-desc">Governance management</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Compliance & KYC -->
+        <div class="permission-category">
+          <div class="category-header">
+            <span class="category-title">📋 Compliance & KYC</span>
+            <span class="category-badge">admin:compliance:* | admin:kyc:*</span>
+          </div>
+          <div class="category-body">
+            <div class="permission-item">
+              <input type="checkbox" id="perm-admin:compliance:manage" data-perm="admin:compliance:manage">
+              <div class="permission-info">
+                <div class="permission-name">admin:compliance:manage</div>
+                <div class="permission-desc">Compliance administration</div>
+              </div>
+            </div>
+            <div class="permission-item">
+              <input type="checkbox" id="perm-admin:kyc:manage" data-perm="admin:kyc:manage">
+              <div class="permission-info">
+                <div class="permission-name">admin:kyc:manage</div>
+                <div class="permission-desc">KYC verification management</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Marketplace -->
+        <div class="permission-category">
+          <div class="category-header">
+            <span class="category-title">🛒 Marketplace</span>
+            <span class="category-badge">admin:marketplace:* | admin:products:*</span>
+          </div>
+          <div class="category-body">
+            <div class="permission-item">
+              <input type="checkbox" id="perm-admin:marketplace:manage" data-perm="admin:marketplace:manage">
+              <div class="permission-info">
+                <div class="permission-name">admin:marketplace:manage</div>
+                <div class="permission-desc">Marketplace administration</div>
+              </div>
+            </div>
+            <div class="permission-item">
+              <input type="checkbox" id="perm-admin:products:manage" data-perm="admin:products:manage">
+              <div class="permission-info">
+                <div class="permission-name">admin:products:manage</div>
+                <div class="permission-desc">Product management</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- EPSX Platform Permissions -->
+        <div class="permission-category">
+          <div class="category-header">
+            <span class="category-title">📊 EPSX Platform</span>
+            <span class="category-badge">epsx:*</span>
+          </div>
+          <div class="category-body">
+            <div class="permission-item">
+              <input type="checkbox" id="perm-epsx:analytics:read" data-perm="epsx:analytics:read">
+              <div class="permission-info">
+                <div class="permission-name">epsx:analytics:read</div>
+                <div class="permission-desc">Read analytics data</div>
+              </div>
+            </div>
+            <div class="permission-item">
+              <input type="checkbox" id="perm-epsx:analytics:manage" data-perm="epsx:analytics:manage">
+              <div class="permission-info">
+                <div class="permission-name">epsx:analytics:manage</div>
+                <div class="permission-desc">Manage analytics configurations</div>
+              </div>
+            </div>
+            <div class="permission-item">
+              <input type="checkbox" id="perm-epsx:notifications:manage" data-perm="epsx:notifications:manage">
+              <div class="permission-info">
+                <div class="permission-name">epsx:notifications:manage</div>
+                <div class="permission-desc">Manage notification settings</div>
+              </div>
+            </div>
+            <div class="permission-item">
+              <input type="checkbox" id="perm-epsx:admin:view" data-perm="epsx:admin:view">
+              <div class="permission-info">
+                <div class="permission-name">epsx:admin:view</div>
+                <div class="permission-desc">View admin dashboard (read-only access)</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button class="btn-primary" onclick="generateRequest()">Generate API Request</button>
+        <button class="btn-secondary" onclick="executeRequest()">Execute Request</button>
+        <button class="btn-danger" onclick="clearAll()">Clear Selection</button>
+      </div>
+    </section>
+
+    <!-- Generated Output Section -->
+    <section class="config-section output-section">
+      <h2 class="section-title">📤 Generated Output</h2>
+      
+      <div class="output-tabs">
+        <button class="tab-btn active" onclick="showTab('curl')" id="tab-curl">cURL</button>
+        <button class="tab-btn" onclick="showTab('json')" id="tab-json">JSON Payload</button>
+        <button class="tab-btn" onclick="showTab('javascript')" id="tab-javascript">JavaScript</button>
+        <button class="tab-btn" onclick="showTab('rust')" id="tab-rust">Rust (diesel)</button>
+      </div>
+
+      <div class="pre-container">
+        <button class="copy-btn" onclick="copyOutput()">📋 Copy</button>
+        <pre id="output">Select permissions and click "Generate API Request" to see the output.</pre>
+      </div>
+    </section>
+
+    <!-- Token Minting Section -->
+    <section class="config-section">
+      <h2 class="section-title">💰 Mint Test Tokens (Local Anvil)</h2>
+      
+      <div class="info-banner">
+        <strong>ℹ️ Local Development Only</strong> - This mints mock tokens on local Anvil chain (Chain ID 31337). Ensure Anvil is running with <code>bun dev:anvil</code>.
+      </div>
+
+      <div class="input-group">
+        <div class="input-row">
+          <div>
+            <label for="mintWalletAddress">Target Wallet Address *</label>
+            <input type="text" id="mintWalletAddress" placeholder="0x..." pattern="^0x[a-fA-F0-9]{40}$" required>
+            <button class="link-btn" onclick="copyWalletToMint()">← Copy from Permission Section</button>
+          </div>
+          <div>
+            <label for="rpcUrl">RPC URL</label>
+            <select id="rpcUrl">
+              <option value="http://127.0.0.1:8545">Local Anvil (127.0.0.1:8545)</option>
+              <option value="http://localhost:8545">Local Anvil (localhost:8545)</option>
+              <option value="http://100.109.131.15:8545">Remote Anvil (Tailscale)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="token-grid">
+        <!-- USDT -->
+        <div class="token-card">
+          <div class="token-header">
+            <div class="token-icon usdt">₮</div>
+            <div class="token-info">
+              <div class="token-name">USDT</div>
+              <div class="token-address">0x55d398326f99059fF775485246999027B3197955</div>
+            </div>
+          </div>
+          <div class="token-body">
+            <label for="usdtAmount">Amount to Mint</label>
+            <div class="amount-input-group">
+              <input type="number" id="usdtAmount" value="100000" min="0" step="1000">
+              <span class="currency-label">USDT</span>
+            </div>
+            <div class="token-balance" id="usdtBalance">Balance: --</div>
+          </div>
+          <button class="btn-mint usdt" onclick="mintToken('USDT')">Mint USDT</button>
+        </div>
+
+        <!-- USDC -->
+        <div class="token-card">
+          <div class="token-header">
+            <div class="token-icon usdc">$</div>
+            <div class="token-info">
+              <div class="token-name">USDC</div>
+              <div class="token-address">0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d</div>
+            </div>
+          </div>
+          <div class="token-body">
+            <label for="usdcAmount">Amount to Mint</label>
+            <div class="amount-input-group">
+              <input type="number" id="usdcAmount" value="100000" min="0" step="1000">
+              <span class="currency-label">USDC</span>
+            </div>
+            <div class="token-balance" id="usdcBalance">Balance: --</div>
+          </div>
+          <button class="btn-mint usdc" onclick="mintToken('USDC')">Mint USDC</button>
+        </div>
+
+        <!-- BNB (Native) -->
+        <div class="token-card">
+          <div class="token-header">
+            <div class="token-icon bnb">◈</div>
+            <div class="token-info">
+              <div class="token-name">BNB (Native)</div>
+              <div class="token-address">Native Chain Token</div>
+            </div>
+          </div>
+          <div class="token-body">
+            <label for="bnbAmount">Amount to Set</label>
+            <div class="amount-input-group">
+              <input type="number" id="bnbAmount" value="1000" min="0" step="10">
+              <span class="currency-label">BNB</span>
+            </div>
+            <div class="token-balance" id="bnbBalance">Balance: --</div>
+          </div>
+          <button class="btn-mint bnb" onclick="setNativeBalance()">Set BNB Balance</button>
+        </div>
+      </div>
+
+      <div class="actions" style="margin-top: 1.5rem;">
+        <button class="btn-secondary" onclick="mintAllTokens()">🚀 Mint All (USDT + USDC + BNB)</button>
+        <button class="btn-secondary" onclick="checkAllBalances()">🔄 Refresh Balances</button>
+      </div>
+
+      <div class="pre-container" style="margin-top: 1rem;">
+        <pre id="mintOutput">Token minting logs will appear here...</pre>
+      </div>
+    </section>
+
+    <footer>
+      <p>EPSX Admin Permission Assignment Tool v1.0</p>
+      <p>⚠️ For authorized administrators only. All actions are logged.</p>
+    </footer>
+  </div>
+
+  <script>
+    // Environment URLs
+    const ENVIRONMENTS = {
+      production: 'https://api.epsx.io',
+      development: 'https://dev-api.epsx.io',
+      local: 'http://localhost:8080'
+    };
+
+    // Preset configurations
+    const PRESETS = {
+      minimal: [
+        'admin:users:view',
+        'admin:users:read',
+        'admin:permissions:read',
+        'admin:system:view',
+        'epsx:analytics:read',
+        'epsx:admin:view'
+      ],
+      moderate: [
+        'admin:users:view',
+        'admin:users:read',
+        'admin:users:manage',
+        'admin:permissions:read',
+        'admin:permissions:manage',
+        'admin:system:view',
+        'admin:enterprise:users:view',
+        'admin:enterprise:analytics:view',
+        'admin:web3:view',
+        'epsx:analytics:read',
+        'epsx:analytics:manage',
+        'epsx:admin:view'
+      ],
+      senior: [
+        'admin:enterprise:users:view',
+        'admin:enterprise:users:manage',
+        'admin:enterprise:analytics:view',
+        'admin:enterprise:system:manage',
+        'admin:enterprise:tiers:manage',
+        'admin:users:view',
+        'admin:users:read',
+        'admin:users:create',
+        'admin:users:update',
+        'admin:users:manage',
+        'admin:permissions:read',
+        'admin:permissions:manage',
+        'admin:permissions:grant',
+        'admin:permissions:revoke',
+        'admin:system:view',
+        'admin:system:manage',
+        'admin:web3:manage',
+        'admin:web3:view',
+        'admin:dao:manage',
+        'admin:governance:manage',
+        'epsx:analytics:read',
+        'epsx:analytics:manage',
+        'epsx:notifications:manage',
+        'epsx:admin:view'
+      ]
+    };
+
+    let currentTab = 'curl';
+
+    // Environment change handler
+    document.getElementById('environment').addEventListener('change', function() {
+      const backendUrl = ENVIRONMENTS[this.value];
+      document.getElementById('backendUrl').value = backendUrl;
+    });
+
+    // Select preset
+    function selectPreset(preset) {
+      clearAll();
+      const permissions = PRESETS[preset] || [];
+      permissions.forEach(perm => {
+        const checkbox = document.querySelector(`input[data-perm="${perm}"]`);
+        if (checkbox) checkbox.checked = true;
+      });
+      showStatus(`Applied "${preset}" preset: ${permissions.length} permissions selected`, 'success');
+    }
+
+    // Select all permissions
+    function selectAll() {
+      document.querySelectorAll('input[type="checkbox"][data-perm]').forEach(cb => cb.checked = true);
+      showStatus('All permissions selected', 'success');
+    }
+
+    // Clear all selections
+    function clearAll() {
+      document.querySelectorAll('input[type="checkbox"][data-perm]').forEach(cb => cb.checked = false);
+      showStatus('Selection cleared', 'success');
+    }
+
+    // Get selected permissions
+    function getSelectedPermissions() {
+      const permissions = [];
+      document.querySelectorAll('input[type="checkbox"][data-perm]:checked').forEach(cb => {
+        permissions.push(cb.dataset.perm);
+      });
+      return permissions;
+    }
+
+    // Show status message
+    function showStatus(message, type) {
+      const statusEl = document.getElementById('statusMessage');
+      statusEl.textContent = message;
+      statusEl.className = `status-message ${type}`;
+      setTimeout(() => {
+        statusEl.className = 'status-message';
+      }, 5000);
+    }
+
+    // Generate API request
+    function generateRequest() {
+      const walletAddress = document.getElementById('walletAddress').value.trim();
+      const backendUrl = document.getElementById('backendUrl').value.trim();
+      const accessToken = document.getElementById('accessToken').value.trim();
+      const permissions = getSelectedPermissions();
+
+      if (!walletAddress) {
+        showStatus('Please enter a wallet address', 'error');
+        return;
+      }
+
+      if (!walletAddress.match(/^0x[a-fA-F0-9]{40}$/)) {
+        showStatus('Invalid wallet address format (must be 0x + 40 hex characters)', 'error');
+        return;
+      }
+
+      if (permissions.length === 0) {
+        showStatus('Please select at least one permission', 'error');
+        return;
+      }
+
+      updateOutput(walletAddress, backendUrl, accessToken, permissions);
+      showStatus(`Generated request for ${permissions.length} permissions`, 'success');
+    }
+
+    // Update output based on current tab
+    function updateOutput(walletAddress, backendUrl, accessToken, permissions) {
+      const output = document.getElementById('output');
+      
+      const payload = {
+        wallet_address: walletAddress,
+        permissions: permissions,
+        reason: "Initial admin setup via permission assignment tool",
+        granted_by: "admin_tool"
+      };
+
+      switch (currentTab) {
+        case 'curl':
+          output.textContent = generateCurl(backendUrl, accessToken, payload);
+          break;
+        case 'json':
+          output.textContent = JSON.stringify(payload, null, 2);
+          break;
+        case 'javascript':
+          output.textContent = generateJavaScript(backendUrl, accessToken, payload);
+          break;
+        case 'rust':
+          output.textContent = generateRust(walletAddress, permissions);
+          break;
+      }
+    }
+
+    function generateCurl(backendUrl, accessToken, payload) {
+      const authHeader = accessToken ? `\n  -H "Authorization: Bearer ${accessToken}" \\` : '';
+      return `# Grant permissions to wallet
+curl -X POST "${backendUrl}/api/admin/permissions/grant" \\
+  -H "Content-Type: application/json" \\${authHeader}
+  -d '${JSON.stringify(payload, null, 2)}'
+
+# Alternative: Direct wallet permission endpoint
+curl -X POST "${backendUrl}/api/permissions/wallet/${payload.wallet_address}" \\
+  -H "Content-Type: application/json" \\${authHeader}
+  -d '${JSON.stringify({ permissions: payload.permissions }, null, 2)}'`;
+    }
+
+    function generateJavaScript(backendUrl, accessToken, payload) {
+      return `// Using fetch API
+const response = await fetch('${backendUrl}/api/admin/permissions/grant', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',${accessToken ? `\n    'Authorization': 'Bearer ${accessToken}',` : ''}
+  },
+  body: JSON.stringify(${JSON.stringify(payload, null, 2)})
+});
+
+const result = await response.json();
+console.log('Permissions granted:', result);
+
+// Using the EPSX admin API client
+import { createAdminApiClient } from '@shared/utils/api-client';
+
+const adminClient = createAdminApiClient();
+const result = await adminClient.post('/api/admin/permissions/grant', ${JSON.stringify(payload, null, 2)});`;
+    }
+
+    function generateRust(walletAddress, permissions) {
+      const permStrings = permissions.map(p => `        "${p}".to_string(),`).join('\n');
+      return `// Diesel migration or seed script
+use diesel::prelude::*;
+use crate::schema::wallet_permissions;
+
+// Insert permissions for wallet
+let wallet_address = "${walletAddress}";
+let permissions = vec![
+${permStrings}
+];
+
+for permission in permissions {
+    diesel::insert_into(wallet_permissions::table)
+        .values((
+            wallet_permissions::wallet_address.eq(&wallet_address),
+            wallet_permissions::permission.eq(&permission),
+            wallet_permissions::granted_at.eq(chrono::Utc::now()),
+            wallet_permissions::granted_by.eq("admin_tool"),
+        ))
+        .on_conflict((wallet_permissions::wallet_address, wallet_permissions::permission))
+        .do_nothing()
+        .execute(&mut conn)?;
+}
+
+println!("Granted {} permissions to {}", permissions.len(), wallet_address);`;
+    }
+
+    // Show tab
+    function showTab(tab) {
+      currentTab = tab;
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+      document.getElementById(`tab-${tab}`).classList.add('active');
+      
+      // Re-generate output if we have data
+      const walletAddress = document.getElementById('walletAddress').value.trim();
+      const permissions = getSelectedPermissions();
+      if (walletAddress && permissions.length > 0) {
+        generateRequest();
+      }
+    }
+
+    // Copy output
+    function copyOutput() {
+      const output = document.getElementById('output').textContent;
+      navigator.clipboard.writeText(output).then(() => {
+        showStatus('Copied to clipboard!', 'success');
+      }).catch(() => {
+        showStatus('Failed to copy', 'error');
+      });
+    }
+
+    // Execute request (for testing)
+    async function executeRequest() {
+      const walletAddress = document.getElementById('walletAddress').value.trim();
+      const backendUrl = document.getElementById('backendUrl').value.trim();
+      const accessToken = document.getElementById('accessToken').value.trim();
+      const permissions = getSelectedPermissions();
+
+      if (!walletAddress || !accessToken || permissions.length === 0) {
+        showStatus('Please fill wallet address, access token, and select permissions', 'error');
+        return;
+      }
+
+      const payload = {
+        wallet_address: walletAddress,
+        permissions: permissions,
+        reason: "Initial admin setup via permission assignment tool",
+        granted_by: "admin_tool"
+      };
+
+      try {
+        const response = await fetch(`${backendUrl}/api/admin/permissions/grant`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${accessToken}`
+          },
+          body: JSON.stringify(payload)
+        });
+
+        const result = await response.json();
+        
+        if (response.ok) {
+          showStatus(`Success! Granted ${permissions.length} permissions to ${walletAddress}`, 'success');
+          document.getElementById('output').textContent = JSON.stringify(result, null, 2);
+        } else {
+          showStatus(`Error: ${result.message || result.error || 'Request failed'}`, 'error');
+          document.getElementById('output').textContent = JSON.stringify(result, null, 2);
+        }
+      } catch (error) {
+        showStatus(`Network error: ${error.message}`, 'error');
+      }
+    }
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', () => {
+      // Set default backend URL
+      document.getElementById('backendUrl').value = ENVIRONMENTS.production;
+    });
+
+    // ============================================================================
+    // TOKEN MINTING FUNCTIONS (Local Anvil)
+    // ============================================================================
+
+    // Token contract addresses (BSC Mainnet format - used by local Anvil mocks)
+    const TOKEN_CONFIG = {
+      USDT: {
+        address: '0x55d398326f99059fF775485246999027B3197955',
+        decimals: 18,
+        symbol: 'USDT'
+      },
+      USDC: {
+        address: '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d',
+        decimals: 18,
+        symbol: 'USDC'
+      }
+    };
+
+    // Default Anvil private key (Account #0)
+    const ANVIL_PRIVATE_KEY = '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80';
+    const ANVIL_ACCOUNT_0 = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266';
+
+    // Copy wallet from permission section
+    function copyWalletToMint() {
+      const permWallet = document.getElementById('walletAddress').value.trim();
+      if (permWallet) {
+        document.getElementById('mintWalletAddress').value = permWallet;
+        logMint(`Copied wallet address: ${permWallet}`);
+      } else {
+        logMint('No wallet address in permission section');
+      }
+    }
+
+    // Log to mint output
+    function logMint(message, isError = false) {
+      const output = document.getElementById('mintOutput');
+      const timestamp = new Date().toLocaleTimeString();
+      const prefix = isError ? '❌' : '✅';
+      output.textContent = `[${timestamp}] ${prefix} ${message}\n` + output.textContent;
+    }
+
+    // JSON-RPC call helper
+    async function rpcCall(method, params = []) {
+      const rpcUrl = document.getElementById('rpcUrl').value;
+      try {
+        const response = await fetch(rpcUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            jsonrpc: '2.0',
+            method,
+            params,
+            id: Date.now()
+          })
+        });
+        const data = await response.json();
+        if (data.error) {
+          throw new Error(data.error.message || JSON.stringify(data.error));
+        }
+        return data.result;
+      } catch (error) {
+        if (error.message.includes('Failed to fetch')) {
+          throw new Error(`Cannot connect to RPC. Is Anvil running at ${rpcUrl}?`);
+        }
+        throw error;
+      }
+    }
+
+    // Encode function call data for ERC20 mint(address,uint256)
+    function encodeMintData(toAddress, amount) {
+      // Function selector for mint(address,uint256)
+      const selector = '0x40c10f19';
+      // Pad address to 32 bytes (remove 0x, pad left)
+      const addressPadded = toAddress.slice(2).toLowerCase().padStart(64, '0');
+      // Convert amount to hex and pad to 32 bytes
+      const amountHex = BigInt(amount).toString(16).padStart(64, '0');
+      return selector + addressPadded + amountHex;
+    }
+
+    // Encode function call data for ERC20 balanceOf(address)
+    function encodeBalanceOfData(address) {
+      const selector = '0x70a08231';
+      const addressPadded = address.slice(2).toLowerCase().padStart(64, '0');
+      return selector + addressPadded;
+    }
+
+    // Get ERC20 token balance
+    async function getTokenBalance(tokenAddress, walletAddress) {
+      try {
+        const data = encodeBalanceOfData(walletAddress);
+        const result = await rpcCall('eth_call', [{
+          to: tokenAddress,
+          data
+        }, 'latest']);
+        // Convert hex result to decimal and format
+        const balance = BigInt(result || '0x0');
+        return Number(balance / BigInt(10 ** 18));
+      } catch (error) {
+        return 0;
+      }
+    }
+
+    // Get native BNB balance
+    async function getNativeBalance(walletAddress) {
+      try {
+        const result = await rpcCall('eth_getBalance', [walletAddress, 'latest']);
+        const balance = BigInt(result || '0x0');
+        return Number(balance) / 1e18;
+      } catch (error) {
+        return 0;
+      }
+    }
+
+    // Check all balances
+    async function checkAllBalances() {
+      const walletAddress = document.getElementById('mintWalletAddress').value.trim();
+      if (!walletAddress) {
+        logMint('Please enter a wallet address first', true);
+        return;
+      }
+
+      logMint(`Checking balances for ${walletAddress.slice(0, 10)}...`);
+
+      try {
+        // Get USDT balance
+        const usdtBalance = await getTokenBalance(TOKEN_CONFIG.USDT.address, walletAddress);
+        document.getElementById('usdtBalance').textContent = `Balance: ${usdtBalance.toLocaleString()} USDT`;
+
+        // Get USDC balance
+        const usdcBalance = await getTokenBalance(TOKEN_CONFIG.USDC.address, walletAddress);
+        document.getElementById('usdcBalance').textContent = `Balance: ${usdcBalance.toLocaleString()} USDC`;
+
+        // Get BNB balance
+        const bnbBalance = await getNativeBalance(walletAddress);
+        document.getElementById('bnbBalance').textContent = `Balance: ${bnbBalance.toLocaleString()} BNB`;
+
+        logMint(`Balances: ${usdtBalance.toLocaleString()} USDT, ${usdcBalance.toLocaleString()} USDC, ${bnbBalance.toLocaleString()} BNB`);
+      } catch (error) {
+        logMint(`Balance check failed: ${error.message}`, true);
+      }
+    }
+
+    // Mint ERC20 token
+    async function mintToken(tokenSymbol) {
+      const walletAddress = document.getElementById('mintWalletAddress').value.trim();
+      if (!walletAddress || !walletAddress.match(/^0x[a-fA-F0-9]{40}$/)) {
+        logMint('Please enter a valid wallet address', true);
+        return;
+      }
+
+      const token = TOKEN_CONFIG[tokenSymbol];
+      if (!token) {
+        logMint(`Unknown token: ${tokenSymbol}`, true);
+        return;
+      }
+
+      const amountInput = document.getElementById(`${tokenSymbol.toLowerCase()}Amount`);
+      const amount = parseFloat(amountInput.value) || 100000;
+      const amountWei = BigInt(amount) * BigInt(10 ** token.decimals);
+
+      logMint(`Minting ${amount.toLocaleString()} ${tokenSymbol} to ${walletAddress.slice(0, 10)}...`);
+
+      try {
+        // Use impersonation to call mint as account 0 (owner)
+        // First, set code if needed (in case mocks aren't deployed)
+        
+        // Build transaction
+        const data = encodeMintData(walletAddress, amountWei);
+        
+        // Send transaction from Anvil account 0
+        const txHash = await rpcCall('eth_sendTransaction', [{
+          from: ANVIL_ACCOUNT_0,
+          to: token.address,
+          data,
+          gas: '0x100000'
+        }]);
+
+        logMint(`${tokenSymbol} mint tx: ${txHash.slice(0, 20)}...`);
+
+        // Check new balance
+        setTimeout(async () => {
+          const newBalance = await getTokenBalance(token.address, walletAddress);
+          document.getElementById(`${tokenSymbol.toLowerCase()}Balance`).textContent = 
+            `Balance: ${newBalance.toLocaleString()} ${tokenSymbol}`;
+          logMint(`✅ Minted! New ${tokenSymbol} balance: ${newBalance.toLocaleString()}`);
+        }, 1500);
+
+      } catch (error) {
+        logMint(`${tokenSymbol} mint failed: ${error.message}`, true);
+      }
+    }
+
+    // Set native BNB balance using Anvil's anvil_setBalance
+    async function setNativeBalance() {
+      const walletAddress = document.getElementById('mintWalletAddress').value.trim();
+      if (!walletAddress || !walletAddress.match(/^0x[a-fA-F0-9]{40}$/)) {
+        logMint('Please enter a valid wallet address', true);
+        return;
+      }
+
+      const amount = parseFloat(document.getElementById('bnbAmount').value) || 1000;
+      const amountWei = BigInt(Math.floor(amount * 1e18));
+      const amountHex = '0x' + amountWei.toString(16);
+
+      logMint(`Setting BNB balance to ${amount} for ${walletAddress.slice(0, 10)}...`);
+
+      try {
+        await rpcCall('anvil_setBalance', [walletAddress, amountHex]);
+        
+        // Check new balance
+        setTimeout(async () => {
+          const newBalance = await getNativeBalance(walletAddress);
+          document.getElementById('bnbBalance').textContent = `Balance: ${newBalance.toLocaleString()} BNB`;
+          logMint(`✅ Set! New BNB balance: ${newBalance.toLocaleString()}`);
+        }, 500);
+
+      } catch (error) {
+        logMint(`BNB set failed: ${error.message}`, true);
+      }
+    }
+
+    // Mint all tokens
+    async function mintAllTokens() {
+      const walletAddress = document.getElementById('mintWalletAddress').value.trim();
+      if (!walletAddress || !walletAddress.match(/^0x[a-fA-F0-9]{40}$/)) {
+        logMint('Please enter a valid wallet address', true);
+        return;
+      }
+
+      logMint('🚀 Starting batch mint for all tokens...');
+
+      // Mint USDT
+      await mintToken('USDT');
+      await new Promise(r => setTimeout(r, 500));
+
+      // Mint USDC
+      await mintToken('USDC');
+      await new Promise(r => setTimeout(r, 500));
+
+      // Set BNB
+      await setNativeBalance();
+
+      logMint('🎉 Batch mint complete!');
+    }
+  </script>
+</body>
+</html>
+

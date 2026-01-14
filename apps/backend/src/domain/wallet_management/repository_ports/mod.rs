@@ -3,7 +3,7 @@
 
 // Web3 wallet-based repository
 pub mod wallet_user_repository_port;
-pub mod session_repository_port;
+
 
 // NEW - Web3 wallet user repository exports (primary)
 pub use wallet_user_repository_port::{
@@ -17,11 +17,3 @@ pub use wallet_user_repository_port::{
 };
 
 
-
-pub use session_repository_port::{
-    SessionRepositoryPort,
-    SessionSearchCriteria,
-    SessionSearchResult,
-    SessionStatistics,
-    SessionAnalyticsPort
-};

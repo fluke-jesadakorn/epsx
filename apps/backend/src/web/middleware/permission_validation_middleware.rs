@@ -119,15 +119,22 @@ fn get_required_permission(method: &str, path: &str) -> Option<String> {
     // Route permission mapping (static, fast lookup)
     match (method, path) {
         // Admin routes - require admin permissions
-        ("GET", p) if p.starts_with("/admin/wallets") => Some("admin:users:read".to_string()),
-        ("POST", p) if p.starts_with("/admin/wallets") => Some("admin:users:create".to_string()),
-        ("PUT", p) if p.starts_with("/admin/wallets") => Some("admin:users:update".to_string()),
-        ("DELETE", p) if p.starts_with("/admin/wallets") => Some("admin:users:delete".to_string()),
+        ("GET", p) if p.contains("/admin/wallets") => Some("admin:users:read".to_string()),
+        ("POST", p) if p.contains("/admin/wallets") => Some("admin:users:create".to_string()),
+        ("PUT", p) if p.contains("/admin/wallets") => Some("admin:users:update".to_string()),
+        ("DELETE", p) if p.contains("/admin/wallets") => Some("admin:users:delete".to_string()),
 
-        ("GET", p) if p.starts_with("/admin/permissions") => Some("admin:permissions:read".to_string()),
-        ("POST", p) if p.starts_with("/admin/permissions") => Some("admin:permissions:manage".to_string()),
-        ("PUT", p) if p.starts_with("/admin/permissions") => Some("admin:permissions:manage".to_string()),
-        ("DELETE", p) if p.starts_with("/admin/permissions") => Some("admin:permissions:manage".to_string()),
+        ("GET", p) if p.contains("/admin/permissions") => Some("admin:permissions:read".to_string()),
+        ("POST", p) if p.contains("/admin/permissions") => Some("admin:permissions:manage".to_string()),
+        ("PUT", p) if p.contains("/admin/permissions") => Some("admin:permissions:manage".to_string()),
+        ("DELETE", p) if p.contains("/admin/permissions") => Some("admin:permissions:manage".to_string()),
+
+        // Payment Admin routes (Phase 1.2)
+        ("GET", p) if p.contains("/admin/list") => Some("admin:payments:read".to_string()),
+        ("GET", p) if p.contains("/admin/analytics") => Some("admin:payments:read".to_string()),
+        ("GET", p) if p.contains("/admin/subscriptions") => Some("admin:payments:read".to_string()),
+        ("PUT", p) if p.contains("/admin/") && p.contains("/status") => Some("admin:payments:manage".to_string()),
+        ("POST", p) if p.contains("/admin/") && p.contains("/refund") => Some("admin:payments:manage".to_string()),
 
         // Analytics routes
         ("GET", p) if p.starts_with("/api/auth/analytics") => Some("epsx:analytics:read".to_string()),
@@ -293,6 +300,14 @@ mod tests {
         assert_eq!(
             get_required_permission("GET", "/api/auth/analytics"),
             Some("epsx:analytics:read".to_string())
+        );
+        assert_eq!(
+            get_required_permission("GET", "/admin/list"),
+            Some("admin:payments:read".to_string())
+        );
+        assert_eq!(
+            get_required_permission("PUT", "/admin/abc/status"),
+            Some("admin:payments:manage".to_string())
         );
         assert_eq!(
             get_required_permission("GET", "/some/random/path"),

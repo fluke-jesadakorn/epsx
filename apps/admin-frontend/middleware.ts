@@ -6,6 +6,7 @@ export const middleware = createAuthMiddleware({
         '/login',
         '/auth',
         '/api/auth', // Web3 auth endpoints
+        '/api/debug', // Debug endpoints
         '/api/public',
         '/unauthorized',
         '/access-denied',

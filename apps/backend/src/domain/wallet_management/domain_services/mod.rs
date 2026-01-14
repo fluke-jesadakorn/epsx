@@ -4,7 +4,7 @@
 
 // Web3 wallet-based services
 pub mod wallet_permission_service;
-pub mod session_security_service;
+
 
 // NEW - Web3 wallet permission service (primary)
 pub use wallet_permission_service::{
@@ -18,5 +18,3 @@ pub use wallet_permission_service::{
     HasChainAccessSpecification,
 };
 
-
-pub use session_security_service::SessionSecurityService;

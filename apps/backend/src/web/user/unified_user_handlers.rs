@@ -619,7 +619,7 @@ pub async fn get_user_by_wallet_address(
     let user_data = diesel::sql_query(
         "SELECT wallet_address, is_active, created_at, last_auth_at FROM wallet_users WHERE wallet_address = $1"
     )
-    .bind::<diesel::sql_types::Text, _>(&wallet_address)
+    .bind::<diesel::sql_types::Text, _>(&wallet_address.to_lowercase())
     .get_result::<WalletUserRow>(&mut conn)
     .await
     .optional();

@@ -22,18 +22,19 @@ import React, {
   useState,
 } from 'react';
 import {
+  loginAction,
+  logoutAction
+} from '../../auth/actions';
+import {
   SharedWeb3AuthClient,
   UnifiedApiResponse,
   UserInfoResponse,
 } from '../../auth/client';
 import {
   COOKIES,
-  COOKIE_OPTIONS,
   clearClientSideCookies,
   getClientCookie,
-  getClientCookieJSON,
-  setClientCookie,
-  setClientCookieJSON,
+  getClientCookieJSON
 } from '../../auth/cookies';
 
 // Shared authentication context value
@@ -213,7 +214,9 @@ export function SharedOpenIDWeb3Provider({
 
             // CRITICAL FIX: Only restore session if we have BOTH user object AND a valid access token
             // This prevents "zombie" sessions where we have user data but passed token expiry or missing token
-            if (storedUser && accessToken) {
+            // NOTE: access_token is HttpOnly so we can't read it from JavaScript
+            // If we have stored user data, trust it - middleware does the real auth check
+            if (storedUser) {
               const isTokenValid = tokenExpiry
                 ? parseInt(tokenExpiry) > Date.now()
                 : true; // If no expiry, assume valid for now (backend will verify)
@@ -230,11 +233,9 @@ export function SharedOpenIDWeb3Provider({
                 console.log('🗑️ Clearing expired auth from cookies');
                 clearClientSideCookies();
               }
-            } else if (storedUser && !accessToken) {
-              // Zombie user detected - clear stale cookies
-              console.log('🧟 Zombie user detected (no access token) - clearing cookies');
-              clearClientSideCookies();
             }
+            // NOTE: Removed "zombie user" detection since access_token is HttpOnly
+            // and cannot be read by JavaScript. Middleware handles actual auth.
           } catch (error) {
             console.warn('Failed to restore authentication from storage', error);
           }
@@ -367,12 +368,28 @@ export function SharedOpenIDWeb3Provider({
           nonce,
         });
 
-        if (result.success) {
+        if (result.success && result.user) {
           console.log(
-            'Web3 authentication successful - backend handles session storage'
+            'Web3 authentication successful - initiating server session'
           );
-          // Backend already stored the session when it authenticated the signature
-          // No need to store session on frontend
+
+          // Call server action to set cookies
+          // client.accessToken should be populated by authenticateWithSignature
+          const accessToken = result.user.access;
+
+          if (accessToken) {
+            console.log('🔐 Calling loginAction to persist session...');
+            const loginResult = await loginAction(accessToken, result.user);
+
+            if (!loginResult.success) {
+              console.error('❌ loginAction failed:', loginResult.error);
+              throw new Error('Failed to create server session');
+            }
+            console.log('✅ loginAction successful');
+          } else {
+            console.warn('⚠️ No access token returned from authentication, session might be incomplete');
+          }
+
         } else {
           const errorMsg = result.error || 'Authentication failed';
           console.error('Web3 authentication failed', {
@@ -434,35 +451,13 @@ export function SharedOpenIDWeb3Provider({
         access: result.access_token, // JWT for SSE authentication
       };
 
-      // Persist user data to cookies for page refresh survival
+      // Cookies are set by loginAction server action
+      // Only update in-memory React state here
       if (typeof window !== 'undefined') {
-        try {
-          // Save to Cookies (single source of truth)
-          setClientCookieJSON(COOKIES.user, user);
-          setClientCookie(COOKIES.auth_time, Date.now().toString(), COOKIE_OPTIONS.maxAge.auth_time);
-
-          // Set token expiry (same as access token)
-          const expiryTime = Date.now() + (COOKIE_OPTIONS.maxAge.access_token * 1000);
-          setClientCookie(COOKIES.expires_at, expiryTime.toString(), COOKIE_OPTIONS.maxAge.expires_at);
-
-          // CRITICAL: Set access_token cookie for middleware auth
-          if (result.access_token) {
-            setClientCookie(COOKIES.access_token, result.access_token, COOKIE_OPTIONS.maxAge.access_token);
-            console.log('🔑 Set access_token cookie for server-side auth');
-          }
-
-          console.log('💾 Persisted Web3 authentication to cookies', {
-            clientId,
-            keys: {
-              user: COOKIES.user,
-              authTime: COOKIES.auth_time,
-              expiresAt: COOKIES.expires_at,
-              accessToken: COOKIES.access_token
-            }
-          });
-        } catch (error) {
-          console.warn('⚠️ Failed to persist authentication data to cookies:', error);
-        }
+        console.log('✅ Session established via server action', {
+          clientId,
+          wallet: user.wallet_address?.slice(0, 8),
+        });
       }
 
       // Update user state directly
@@ -494,7 +489,15 @@ export function SharedOpenIDWeb3Provider({
       setError(null);
       console.log('Logging out user');
 
-      // Clear all client-side cookies
+      // 1. Call server action to clear HttpOnly cookies
+      try {
+        await logoutAction();
+        console.log('✅ Server session cleared');
+      } catch (e) {
+        console.error('❌ Failed to clear server session:', e);
+      }
+
+      // 2. Clear all client-side cookies (legacy/fallback)
       if (typeof window !== 'undefined') {
         try {
           clearClientSideCookies();

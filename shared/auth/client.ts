@@ -14,12 +14,10 @@
 
 import {
   clearClientSideCookies,
-  COOKIE_OPTIONS,
   COOKIES,
   getClientCookie,
   getClientCookieJSON,
-  setClientCookie,
-  setClientCookieJSON,
+  setClientCookieJSON
 } from './cookies';
 
 // Web3 JWT Token Response (from backend)
@@ -197,34 +195,12 @@ export class SharedWeb3AuthClient {
   private saveTokensToStorage(): void {
     if (typeof window === 'undefined') return;
 
-    try {
-      console.log('🍪 SharedWeb3AuthClient: Saving tokens to cookies', {
-        clientId: this.clientId,
-        hasAccessToken: !!this.accessToken,
-        hasUser: !!this.user,
-        hasExpiry: !!this.tokenExpiry,
-      });
-
-      // Use proper maxAge values for cookie persistence
-      if (this.tokenExpiry) {
-        setClientCookie(COOKIES.expires_at, this.tokenExpiry.toString(), COOKIE_OPTIONS.maxAge.expires_at);
-      }
-
-      if (this.accessToken) {
-        setClientCookie(COOKIES.access_token, this.accessToken, COOKIE_OPTIONS.maxAge.access_token);
-      }
-
-      if (this.refreshToken) {
-        setClientCookie(COOKIES.refresh_token, this.refreshToken, COOKIE_OPTIONS.maxAge.refresh_token);
-      }
-
-      if (this.user) {
-        setClientCookieJSON(COOKIES.user, this.user, COOKIE_OPTIONS.maxAge.user);
-        setClientCookie(COOKIES.auth_time, Date.now().toString(), COOKIE_OPTIONS.maxAge.auth_time);
-      }
-    } catch (error) {
-      console.warn('Failed to save tokens to cookies', { error });
-    }
+    // All cookie persistence is now handled by loginAction server action
+    // This method only updates in-memory state; cookies are set server-side
+    console.log('🍪 Client: Session state updated (cookies set by server action)', {
+      clientId: this.clientId,
+      hasUser: !!this.user,
+    });
   }
 
   private clearTokensFromStorage(): void {
@@ -574,8 +550,9 @@ export class SharedWeb3AuthClient {
   // Refresh tokens using backend refresh endpoint
   async refreshTokens(): Promise<boolean> {
     if (!this.refreshToken) {
-      console.log('No refresh token available, user needs to re-authenticate');
-      this.clearTokens();
+      // refresh_token is HttpOnly, so we can't read it from JS
+      // Don't clear cookies here - just return false and let the server handle it
+      console.log('No refresh token available in JS (may be HttpOnly)');
       return false;
     }
 

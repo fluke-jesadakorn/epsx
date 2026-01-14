@@ -6,7 +6,7 @@
  */
 // Re-export all model modules
 pub mod wallet_user;
-pub mod session;
+
 pub mod group;
 pub mod permission;
 pub mod payment;
@@ -18,9 +18,6 @@ pub use wallet_user::{
     WalletUserDb, NewWalletUserDb, UpdateWalletUserDb, UpdateWalletUserRequest
 };
 
-pub use session::{
-    SessionDb, NewSessionDb
-};
 
 // Primary exports (new names)
 pub use group::{

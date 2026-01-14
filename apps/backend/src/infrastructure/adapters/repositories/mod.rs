@@ -12,7 +12,7 @@ pub mod payment_repository_adapter;
 pub mod mappers;
 
 pub mod wallet_user_repository_adapter;
-pub mod session_repository_adapter;
+
 pub mod group_repository_adapter;
 pub use group_repository_adapter as permission_group_repository_adapter;
 pub mod plan_repository_adapter; // NEW

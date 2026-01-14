@@ -813,15 +813,18 @@ export class NotificationsAPIClient {
     if (options.priority) params.append('priority', options.priority);
 
     // Get token from cookies (EventSource doesn't support Authorization header)
+    // NOTE: access_token is HttpOnly, so we can't read it here.
+    // The middleware proxy at /api/proxy will inject the Authorization header for us.
     const token = this.getTokenFromCookies();
     const platform = this.client['platform'] as 'admin' | 'frontend' | undefined;
 
     if (token) {
       params.append('token', token);
-      console.log(`🔑 SSE [${platform}]: User wallet found and added to connection URL: ${token}`);
+      console.log(`🔑 SSE [${platform}]: Client-side token found and added to URL`);
     } else {
-      console.warn(`⚠️ SSE [${platform}]: No authenticated user found in cookies, only broadcast notifications will be received`);
-      console.warn(`Available cookies: ${document.cookie ? document.cookie.split(';').map(c => c.trim().split('=')[0]).join(', ') : 'none'}`);
+      // access_token is HttpOnly, so this is expected.
+      // The proxy middleware will handle injecting the bearer token.
+      console.log(`ℹ️ SSE [${platform}]: No client-side token found (expected for HttpOnly cookies). Relying on Proxy Middleware injection.`);
     }
 
     // Only append query string if there are parameters

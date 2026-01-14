@@ -9,7 +9,7 @@ use crate::infrastructure::redis::RedisPool;
 use crate::web::notifications::RedisNotificationBroadcaster;
 use crate::infrastructure::adapters::repositories::{
     wallet_user_repository_adapter::WalletUserRepositoryAdapter,
-    session_repository_adapter::SessionRepositoryAdapter,
+
     group_repository_adapter::GroupRepositoryAdapter,
     payment_repository_adapter::PaymentRepositoryAdapter,
     notification_repository_adapter::NotificationRepositoryAdapter,
@@ -40,7 +40,7 @@ pub struct SimpleContainer {
 
     // NEW - Web3-first services (primary)
     pub wallet_user_repository: Option<Arc<WalletUserRepositoryAdapter>>,
-    pub session_repository: Option<Arc<SessionRepositoryAdapter>>,
+
     pub group_repository: Option<Arc<GroupRepositoryAdapter>>,
     pub payment_repository: Option<Arc<PaymentRepositoryAdapter>>,
     pub notification_repository: Option<Arc<NotificationRepositoryAdapter>>,
@@ -79,7 +79,7 @@ impl SimpleContainer {
             cache: None,
             // NEW - Web3-first services (initialized as None, configured via builder methods)
             wallet_user_repository: None,
-            session_repository: None,
+
             group_repository: None,
             payment_repository: None,
             notification_repository: None,
@@ -148,7 +148,7 @@ impl SimpleContainer {
 
         // Create repository adapters
         let wallet_user_repository = Arc::new(WalletUserRepositoryAdapter::new(diesel_pool));
-        let session_repository = Arc::new(SessionRepositoryAdapter::new(diesel_pool));
+
         let group_repository = Arc::new(GroupRepositoryAdapter::new(diesel_pool));
         let plan_repository = Arc::new(crate::infrastructure::adapters::repositories::plan_repository_adapter::PostgresPlanRepositoryAdapter::new(diesel_pool));
 
@@ -345,7 +345,7 @@ impl SimpleContainer {
             cache,
             // Web3-first services
             wallet_user_repository: Some(wallet_user_repository),
-            session_repository: Some(session_repository),
+
             group_repository: Some(group_repository),
             payment_repository,
             notification_repository,
@@ -379,7 +379,7 @@ impl SimpleContainer {
             cache: Some(cache),
             // Initialize Web3 services as None - use new_with_web3_services for full setup
             wallet_user_repository: None,
-            session_repository: None,
+
             group_repository: None,
             payment_repository: None,
             notification_repository: None,
