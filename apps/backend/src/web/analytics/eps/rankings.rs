@@ -4,7 +4,6 @@
 
 use axum::{
     extract::{Query, Extension},
-    http::HeaderMap,
     response::Json,
 };
 use std::sync::Arc;
@@ -18,19 +17,15 @@ use super::{types::*, enhancement::enhance_with_websocket_data};
 /// GET /api/analytics/eps-rankings
 /// Returns top EPS growth stocks with filtering and pagination
 pub async fn get_eps_rankings(
-    headers: HeaderMap,
+    wallet_ext: Option<Extension<String>>,  // Wallet from Bearer token (injected by auth middleware)
     Query(params): Query<EPSRankingQueryParams>,
     Extension(service): Extension<Arc<EPSRankingService>>,
     Extension(permission_service): Extension<Arc<UnifiedPermissionService>>,
 ) -> Result<Json<EPSRankingsApiResponse>, AppError> {
     debug!("EPS Rankings API called with params: {:?}", params);
 
-    // Extract wallet address from headers
-    let wallet_address = headers
-        .get("x-wallet-address")
-        .or_else(|| headers.get("X-Wallet-Address"))
-        .and_then(|h| h.to_str().ok())
-        .map(|addr| addr.to_lowercase());
+    // Wallet address from Bearer token (injected by auth middleware after JWT validation)
+    let wallet_address = wallet_ext.map(|Extension(addr)| addr.to_lowercase());
 
     // Calculate ranking configuration based on user permissions
     let (rank_offset, limit_cap) = if let Some(ref wallet) = wallet_address {
@@ -41,6 +36,7 @@ pub async fn get_eps_rankings(
 
     debug!("Calculated ranking config: offset={}, limit={} for wallet: {:?}", 
            rank_offset, limit_cap, wallet_address);
+
 
     // Convert query params to service params with defaults - FIXED: Use correct parameter structure
     let service_params = EPSRankingParams {

@@ -81,7 +81,12 @@ pub struct UpdatePlanParams {
 
 impl Plan {
     /// Create a new plan
-    pub fn create(params: CreatePlanParams) -> AppResult<Self> {
+    pub fn create(mut params: CreatePlanParams) -> AppResult<Self> {
+        // Sync permissions from metadata if present
+        if let Some(meta) = &params.metadata {
+            Self::sync_permissions_vec(&mut params.permissions, meta);
+        }
+
         let mut plan = Self {
             id: PlanId::new(),
             name: params.name,
@@ -125,6 +130,41 @@ impl Plan {
         }
     }
 
+    /// Helper to sync permissions vector with metadata
+    fn sync_permissions_vec(permissions: &mut Vec<String>, metadata: &serde_json::Value) {
+        // Remove existing dynamic permissions to avoid duplicates
+        permissions.retain(|p| 
+            !p.starts_with("epsx:rankings:offset:") && 
+            !p.starts_with("epsx:rankings:limit:") &&
+            !p.starts_with("epsx:analytics:view:")
+        );
+
+        if let Some(features) = metadata.get("features").and_then(|f| f.as_object()) {
+            // Handle ranking offset
+            if let Some(offset) = features.get("ranking_offset").and_then(|v| v.as_i64()) {
+                permissions.push(format!("epsx:rankings:offset:{}", offset));
+            }
+            
+            // Handle ranking limit
+            if let Some(limit) = features.get("rankings_limit").and_then(|v| v.as_i64()) {
+                permissions.push(format!("epsx:rankings:limit:{}", limit));
+                // Add legacy compatibility
+                permissions.push(format!("epsx:analytics:view:{}", limit));
+            }
+        }
+        // Also check top-level if not in features object (fallback)
+        else {
+             if let Some(offset) = metadata.get("ranking_offset").and_then(|v| v.as_i64()) {
+                permissions.push(format!("epsx:rankings:offset:{}", offset));
+            }
+            
+            if let Some(limit) = metadata.get("rankings_limit").and_then(|v| v.as_i64()) {
+                permissions.push(format!("epsx:rankings:limit:{}", limit));
+                permissions.push(format!("epsx:analytics:view:{}", limit));
+            }
+        }
+    }
+
     /// Calculate quotas based on permissions
     pub fn calculate_quotas(&mut self) {
         let mut quotas = std::collections::HashMap::new();
@@ -165,11 +205,27 @@ impl Plan {
             self.target_audience = ta;
         }
         
-        // Handle permissions update and recalculate quotas
+        // Handle permissions update
+        let permissions_updated = params.permissions.is_some();
         if let Some(perms) = params.permissions {
             self.permissions = perms;
-            self.calculate_quotas();
         }
+        
+        // Handle metadata update and sync permissions
+        if let Some(meta) = params.metadata {
+            self.metadata = meta;
+            // Always resync when metadata changes (or if new permissions were just set)
+            Self::sync_permissions_vec(&mut self.permissions, &self.metadata);
+        } else if permissions_updated {
+             // If only permissions changed but metadata didn't, we should still ensure metadata-derived permissions are present
+             // (unless we want to allow manual override?) 
+             // Logic decision: Metadata constraints should usually override or be additive.
+             // Let's re-run sync to ensure metadata constraints are enforced.
+             Self::sync_permissions_vec(&mut self.permissions, &self.metadata);
+        }
+
+        // Recalculate quotas after all permission changes
+        self.calculate_quotas();
         
         if let Some(active) = params.is_active {
             self.is_active = active;
@@ -179,9 +235,6 @@ impl Plan {
         }
         if let Some(order) = params.display_order {
             self.display_order = order;
-        }
-        if let Some(meta) = params.metadata {
-            self.metadata = meta;
         }
 
         self.base.touch();

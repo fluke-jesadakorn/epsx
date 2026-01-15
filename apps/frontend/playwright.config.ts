@@ -19,13 +19,13 @@ export default defineConfig({
     ['json', { outputFile: 'test-results/results.json' }],
     ['junit', { outputFile: 'test-results/results.xml' }],
     ['list'],
-    ['./test-results/coverage-reporter.js'] // Custom coverage reporter
+    ['./scripts/coverage-reporter.js'] // Custom coverage reporter
   ],
   outputDir: 'test-results',
   use: {
     baseURL: getFrontendUrl('client'),
     trace: 'on-first-retry',
-    screenshot: 'only-on-failure',
+    screenshot: 'on',
     video: 'retain-on-failure',
     actionTimeout: 15000,
     navigationTimeout: 30000,
@@ -36,7 +36,7 @@ export default defineConfig({
       name: 'setup',
       testMatch: /global\.setup\.ts/,
     },
-    
+
     // Analytics Platform Complete Flow Tests - 100% Coverage
     {
       name: 'analytics-complete',
@@ -44,7 +44,7 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
       dependencies: ['setup'],
     },
-    
+
     // Core functionality tests
     {
       name: 'core',
@@ -57,7 +57,7 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
       dependencies: ['setup'],
     },
-    
+
     // Embedded Permissions System Tests
     {
       name: 'embedded-permissions',
@@ -65,7 +65,7 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
       dependencies: ['setup'],
     },
-    
+
     // Complete coverage tests
     {
       name: 'coverage',
@@ -86,7 +86,7 @@ export default defineConfig({
     {
       name: 'web3-complete-coverage',
       testMatch: '**/web3-complete-coverage.spec.ts',
-      use: { 
+      use: {
         ...devices['Desktop Chrome'],
         // Enable coverage collection
         contextOptions: {
@@ -104,7 +104,7 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
       dependencies: ['setup'],
     },
-    
+
     // Enhanced auth flow tests
     {
       name: 'auth-enhanced',
@@ -119,14 +119,14 @@ export default defineConfig({
       testMatch: '**/production-deployment-check.spec.ts',
       use: { ...devices['Desktop Chrome'] },
     },
-    
+
     // Localhost connection resolution verification
     {
       name: 'localhost-resolution',
       testMatch: '**/localhost-connection-resolution-test.spec.ts',
       use: { ...devices['Desktop Chrome'] },
     },
-    
+
     // User journey tests
     {
       name: 'journeys',
@@ -161,17 +161,17 @@ export default defineConfig({
       use: { ...devices['Desktop Firefox'] },
       dependencies: ['setup'],
     },
-    
+
     {
       name: 'web3-webkit',
       testMatch: [
         '**/web3-complete-coverage.spec.ts',
         '**/web3-wallet-comprehensive.spec.ts'
-      ], 
+      ],
       use: { ...devices['Desktop Safari'] },
       dependencies: ['setup'],
     },
-    
+
     // Mobile Web3 testing
     {
       name: 'web3-mobile-chrome',
@@ -183,7 +183,7 @@ export default defineConfig({
       use: { ...devices['Pixel 5'] },
       dependencies: ['setup'],
     },
-    
+
     {
       name: 'web3-mobile-safari',
       testMatch: [
@@ -202,14 +202,14 @@ export default defineConfig({
       use: { ...devices['Desktop Firefox'] },
       dependencies: ['setup'],
     },
-    
+
     {
       name: 'webkit',
-      testMatch: '**/complete-coverage.spec.ts', 
+      testMatch: '**/complete-coverage.spec.ts',
       use: { ...devices['Desktop Safari'] },
       dependencies: ['setup'],
     },
-    
+
     {
       name: 'mobile-chrome',
       testMatch: [
@@ -219,7 +219,7 @@ export default defineConfig({
       use: { ...devices['Pixel 5'] },
       dependencies: ['setup'],
     },
-    
+
     {
       name: 'mobile-safari',
       testMatch: [
@@ -228,6 +228,17 @@ export default defineConfig({
       ],
       use: { ...devices['iPhone 12'] },
       dependencies: ['setup'],
+    },
+
+    // Plan Upgrade & Analytics Offset Verification
+    {
+      name: 'plan-upgrade-analytics',
+      testMatch: '**/plan-upgrade-analytics.spec.ts',
+      use: {
+        ...devices['Desktop Chrome'],
+        screenshot: 'on',
+        actionTimeout: 30000,
+      },
     },
   ],
   // webServer: {

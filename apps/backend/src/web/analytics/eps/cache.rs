@@ -48,7 +48,7 @@ use super::{
 )]
 pub async fn get_unified_analytics_rankings_cached(
   Query(params): Query<EPSRankingQueryParams>,
-  Extension(_cache): Extension<Arc<dyn Cache>>,
+  Extension(cache): Extension<Arc<dyn Cache>>,
   Extension(permission_service): Extension<Arc<UnifiedPermissionService>>,
   user_context_ext: Option<Extension<OpenIDUserContext>>,
 ) -> Result<Json<CardDashboardResponse>, AppError> {
@@ -62,13 +62,28 @@ pub async fn get_unified_analytics_rankings_cached(
   // Extract wallet from secure user context (JWT)
   let wallet_address = user_context.as_ref().map(|ctx| ctx.wallet_address.to_lowercase());
 
+  if let Some(ref w) = wallet_address {
+      // DEBUG: Log wallet detection
+      info!("Analytics API: processing request for wallet: {}", w);
+  } else {
+      info!("Analytics API: processing request for anonymous user");
+  }
+
   // Calculate ranking configuration based on user permissions
   let (rank_offset, limit_cap) = if let Some(ref wallet) = wallet_address {
     match permission_service.get_permission_strings(wallet).await {
       Ok(permissions) => {
-        PermissionParser::extract_ranking_config(&permissions)
+        // DEBUG: Log raw permissions
+        info!("Analytics API: Permissions for {}: {:?}", wallet, permissions);
+        let config = PermissionParser::extract_ranking_config(&permissions);
+        // DEBUG: Log calculated config
+        info!("Analytics API: Calculated config for {}: offset={}, limit={}", wallet, config.0, config.1);
+        config
       },
-      Err(_) => (100, -1) // -1 for unlimited (will be capped by global max)
+      Err(e) => {
+        warn!("Analytics API: Failed to fetch permissions for {}: {}, defaulting to free tier", wallet, e);
+        (100, -1) // -1 for unlimited (will be capped by global max)
+      }
     }
   } else {
     // SECURITY: Anonymous/unverified users fall back to standard free tier offset but no hardcoded small limit
@@ -90,19 +105,22 @@ pub async fn get_unified_analytics_rankings_cached(
   let cache_key = generate_cache_key(&params);
   debug!("Generated cache key: {}", cache_key);
 
-  /* DISABLED CACHE: Force fresh data fetch
-  // FIXED: Check cache first (1-hour TTL) - restored cache functionality
-  if let Some(cached_data) = cache.get(&cache_key) {
-    if
-      let Ok(cached_response) = serde_json::from_str::<CardDashboardResponse>(
-        &cached_data
-      )
-    {
-      info!("Cache hit for analytics rankings - returning cached data");
-      return Ok(Json(cached_response));
-    }
+  // Check cache first (1-hour TTL) unless in development
+  // Bypass cache in development to ensure experimental changes are reflected immediately
+  if !crate::config::env::is_development() {
+      if let Some(cached_data) = cache.get(&cache_key) {
+        if
+          let Ok(cached_response) = serde_json::from_str::<CardDashboardResponse>(
+            &cached_data
+          )
+        {
+          info!("Cache hit for analytics rankings - returning cached data");
+          return Ok(Json(cached_response));
+        }
+      }
+  } else {
+      debug!("Development environment detected - skipping cache lookup");
   }
-  */
 
   debug!("Cache miss for analytics rankings - fetching fresh data");
 
@@ -297,13 +315,14 @@ pub async fn get_unified_analytics_rankings_cached(
     data_len
   );
 
-  /* DISABLED CACHE: Force fresh data fetch
   // Store response in cache with 1-hour TTL (3600 seconds)
-  if let Ok(serialized_response) = serde_json::to_string(&card_response) {
-    cache.set(&cache_key, serialized_response, Some(3600));
-    debug!("Successfully cached analytics rankings with key: {}", cache_key);
+  // Only cache in non-development environments
+  if !crate::config::env::is_development() {
+    if let Ok(serialized_response) = serde_json::to_string(&card_response) {
+      cache.set(&cache_key, serialized_response, Some(3600));
+      debug!("Successfully cached analytics rankings with key: {}", cache_key);
+    }
   }
-  */
 
   Ok(Json(card_response))
 }

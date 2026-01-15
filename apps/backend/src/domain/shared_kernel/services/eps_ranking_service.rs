@@ -109,7 +109,7 @@ impl PermissionParser {
         debug!("Extracting ranking config from {} permissions", permissions.len());
 
         let mut min_offset = 100; // Default: free tier offset
-        let mut max_limit = -1;   // Default: free tier (unlimited items, just offset)
+        let mut max_limit = -2;   // Default: not set (will defer to free tier -1)
 
         for perm in permissions {
             // Parse: "epsx:rankings:offset:{number}"
@@ -127,13 +127,18 @@ impl PermissionParser {
                 .or_else(|| perm.strip_prefix("epsx:rankings:view:"))
                 .or_else(|| perm.strip_prefix("epsx:analytics:view:"))
             {
-                 if val_str == "unlimited" || val_str == "-1" {
+                if val_str == "unlimited" || val_str == "-1" {
                      max_limit = -1; // Unlimited
                      min_offset = 1; // Explicit "unlimited" usually implies full access (offset 1)
                  } else if let Ok(val) = val_str.parse::<i32>() {
-                     if max_limit != -1 && val > max_limit { // Take maximum = best access
+                     // If still default (-2), set specific limit
+                     // If specific limit exists, take the higher one (ignore if we have unlimited/-1)
+                     if max_limit == -2 {
+                         max_limit = val;
+                     } else if max_limit != -1 && val > max_limit { 
                          max_limit = val;
                      }
+                     
                      // Heuristic for legacy permissions: High limits (>10) usually imply paid plans with full access (offset 1)
                      // Low limits (<=10) usually imply free/teaser plans with restricted access (offset stays 100)
                      if val > 10 {
@@ -143,10 +148,17 @@ impl PermissionParser {
             }
             
             // Check for wildcard/admin permission
-            if perm == "epsx:*:*" || perm == "epsx:rankings:*" {
+            // Include admin:*:* (Super Admin) and admin:analytics:* (Analytics Admin)
+            if perm == "epsx:*:*" || perm == "epsx:rankings:*" || 
+               perm == "admin:*:*" || perm == "admin:analytics:*" {
                 min_offset = 1;
                 max_limit = -1;
             }
+        }
+
+        // If max_limit is still -2 (not set), revert to default -1 (free tier default)
+        if max_limit == -2 {
+            max_limit = -1;
         }
 
         info!("Calculated ranking config: offset={}, limit={}", min_offset, max_limit);
@@ -493,5 +505,21 @@ mod tests {
             params.limit.clamp(1, GLOBAL_MAX_LIMIT)
         };
         assert_eq!(effective_limit, 1000);
+    }
+    #[test]
+    fn test_starter_plan_permissions() {
+        // Starter Plan permissions from seed_plans_handler.rs
+        let permissions = vec![
+            "epsx:analytics:view:25".to_string(),
+            "epsx:rankings:view:25".to_string(),
+            "epsx:analytics:export".to_string(),
+            "epsx:alerts:create".to_string()
+        ];
+
+        let (offset, limit) = PermissionParser::extract_ranking_config(&permissions);
+        
+        // Should unlock rankings (offset 1) because limit (25) > 10
+        assert_eq!(offset, 1, "Starter plan should have offset 1");
+        assert_eq!(limit, 25, "Starter plan should have limit 25");
     }
 }

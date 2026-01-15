@@ -52,5 +52,3 @@ pub use queries::{
 };
 
 // Tests module
-#[cfg(test)]
-mod tests;

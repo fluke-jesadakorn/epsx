@@ -146,7 +146,7 @@ export function GroupEditor({ group, onSave, onCancel, className }: GroupEditorP
       setFormData({
         name: group.name || '', // Ensure never undefined
         description: group.description || '',
-        permissions: [...(group.permissions || [])], // Safe fallback
+        permissions: Array.from(new Set(group.permissions || [])), // Safe fallback with deduplication
         priority_level: group.priority_level ?? group.display_order ?? 0,
         // Backend might return expiry in different fields, prioritizing default_expiry_days
         default_expiry_days: group.default_expiry_days ?? null

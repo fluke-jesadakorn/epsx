@@ -287,39 +287,21 @@ impl UnifiedPermissionService {
         &self,
         wallet_address: &str,
     ) -> Result<Vec<String>, AppError> {
-        let wallet_lower = wallet_address.to_lowercase();
-
-        // Query database using optimized function
-        let mut conn = self.db_pool.get().await
-            .map_err(|e| {
-                error!("Pool error: {}", e);
-                AppError::database_error(format!("Pool error: {}", e))
-            })?;
-
-        #[derive(QueryableByName)]
-        struct PermissionsJson {
-            #[diesel(sql_type = diesel::sql_types::Jsonb)]
-            get_wallet_effective_permissions: serde_json::Value,
-        }
-
-        let permissions_json = diesel::sql_query("SELECT get_wallet_effective_permissions($1)")
-            .bind::<diesel::sql_types::Text, _>(&wallet_lower)
-            .get_result::<PermissionsJson>(&mut conn)
-            .await
-            .map_err(|e| {
-                error!("Database error fetching permission strings: {}", e);
-                AppError::database_error(format!("Failed to fetch permission strings: {}", e))
-            })?;
-
-        let permission_strings: Vec<String> = if let serde_json::Value::Array(arr) = permissions_json.get_wallet_effective_permissions {
-            arr.into_iter()
-                .filter_map(|v| v.as_str().map(String::from))
-                .collect()
-        } else {
-            vec![]
-        };
-
-        Ok(permission_strings)
+        // Use the detailed permission fetcher which is known to work correctly
+        // and return the list of permission strings. This bypasses the potentially
+        // broken/divergent 'get_wallet_effective_permissions' SQL function.
+        let permissions = self.get_wallet_permissions(wallet_address).await?;
+        
+        // Extract unique strings
+        let mut strings: Vec<String> = permissions.into_iter()
+            .map(|p| p.permission_string)
+            .collect();
+            
+        // Sort and deduplicate
+        strings.sort();
+        strings.dedup();
+        
+        Ok(strings)
     }
 
     /// Batch check multiple permissions at once
@@ -683,6 +665,15 @@ impl UnifiedPermissionService {
         })
     }
 
+    /// Invalidate cache for a specific wallet
+    pub async fn invalidate_wallet_cache(&self, wallet_address: &str) {
+        let wallet_lower = wallet_address.to_lowercase();
+        if let Some(ref cache) = self.cache {
+            info!("Invalidating cache for wallet: {}", wallet_lower);
+            cache.invalidate_wallet(&wallet_lower).await;
+        }
+    }
+
     // ========================================================================
     // HELPER METHODS
     // ========================================================================
@@ -691,9 +682,9 @@ impl UnifiedPermissionService {
     fn validate_permission_format(permission: &str) -> Result<(), AppError> {
         let parts: Vec<&str> = permission.split(':').collect();
 
-        if parts.len() != 3 {
+        if parts.len() < 3 {
             return Err(AppError::validation_error(
-                "Permission must be in format 'platform:resource:action'"
+                "Permission must be in format 'platform:resource:action' or 'platform:resource:action:value'"
             ));
         }
 

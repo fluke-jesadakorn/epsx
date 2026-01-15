@@ -137,13 +137,26 @@ pub async fn create_plan_handler(
     
     let command_handler = CreatePlanCommandHandler::new(repo.clone());
 
+
+
+    // Inject ranking_offset permission if present in metadata
+    let mut permissions = request.permissions;
+    if let Some(meta) = &request.metadata {
+        if let Some(offset) = meta.get("ranking_offset").and_then(|v| v.as_i64()) {
+             let perm = format!("epsx:rankings:offset:{}", offset);
+             if !permissions.contains(&perm) {
+                 permissions.push(perm);
+             }
+        }
+    }
+    
     let command = CreatePlanCommand {
         name: request.name,
         description: request.description.unwrap_or_default(),
         price_amount: request.current_price,
         currency: request.currency,
         billing_cycle: request.billing_model,
-        permissions: request.permissions,
+        permissions: permissions,
         features: PlanFeatures::default(),
         target_audience: request.target_audience,
         is_active: Some(true),
@@ -267,6 +280,21 @@ pub async fn update_plan_handler(
     let command_handler = UpdatePlanCommandHandler::new(repo.clone());
     let plan_id = PlanId::from_str(&id).map_err(|_| StatusCode::BAD_REQUEST)?;
     
+
+    
+    // Inject ranking_offset permission if present in metadata
+    let mut permissions = request.permissions;
+    if let Some(perms) = &mut permissions {
+        if let Some(meta) = &request.metadata {
+            if let Some(offset) = meta.get("ranking_offset").and_then(|v| v.as_i64()) {
+                 let perm = format!("epsx:rankings:offset:{}", offset);
+                 if !perms.contains(&perm) {
+                     perms.push(perm);
+                 }
+            }
+        }
+    }
+
     let command = UpdatePlanCommand {
         id: plan_id.clone(),
         name: request.name,
@@ -280,7 +308,7 @@ pub async fn update_plan_handler(
         }),
         features: None,
         target_audience: None,
-        permissions: request.permissions,
+        permissions: permissions,
         is_active: request.is_active,
         is_promoted: None,
         display_order: request.tier_level,

@@ -55,8 +55,7 @@ fn test_database_schema_validation() -> Result<(), Box<dyn std::error::Error>> {
         wallet_users,
         groups as permission_groups,
         wallet_group_assignments,
-        permissions,
-        sessions
+        permissions
     };
 
     // Test that we can access table columns
@@ -73,15 +72,12 @@ fn test_database_schema_validation() -> Result<(), Box<dyn std::error::Error>> {
     let _permission_string_column = permissions::permission_string;
     let _platform_column = permissions::platform;
 
-    let _session_token_column = sessions::access_token;
-    let _expires_at_column = sessions::expires_at;
 
     println!("  ✅ Database schema validation completed");
     println!("    - wallet_users table: accessible");
     println!("    - permission_groups table: accessible");
     println!("    - wallet_group_assignments table: accessible");
     println!("    - permissions table: accessible");
-    println!("    - sessions table: accessible");
 
     Ok(())
 }

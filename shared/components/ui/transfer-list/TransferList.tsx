@@ -74,12 +74,26 @@ export function TransferList<T>({
     const activeFilter = filterItem || defaultFilter
 
     const filteredAvailable = useMemo(() => {
-        return allAvailable.filter(item => activeFilter(item, leftSearch))
-    }, [allAvailable, leftSearch, activeFilter])
+        const filtered = allAvailable.filter(item => activeFilter(item, leftSearch))
+        const seen = new Set<string>()
+        return filtered.filter(item => {
+            const key = keyExtractor(item)
+            if (seen.has(key)) return false
+            seen.add(key)
+            return true
+        })
+    }, [allAvailable, leftSearch, activeFilter, keyExtractor])
 
     const filteredSelected = useMemo(() => {
-        return selected.filter(item => activeFilter(item, rightSearch))
-    }, [selected, rightSearch, activeFilter])
+        const filtered = selected.filter(item => activeFilter(item, rightSearch))
+        const seen = new Set<string>()
+        return filtered.filter(item => {
+            const key = keyExtractor(item)
+            if (seen.has(key)) return false
+            seen.add(key)
+            return true
+        })
+    }, [selected, rightSearch, activeFilter, keyExtractor])
 
     // Move item from available to selected
     const moveRight = useCallback((item: T) => {
