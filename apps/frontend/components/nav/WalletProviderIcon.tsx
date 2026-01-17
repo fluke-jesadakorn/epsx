@@ -125,12 +125,15 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
 
     // Only when confirmed disconnected, give wagmi a bit more time 
     // to potentially restore state, then mark as ready
+    // If authenticated, give more time (1.5s) to prevent "Connect" flash while wallet reconnects
+    const timeoutDuration = isAuthenticated ? 1500 : 300;
+
     const timer = setTimeout(() => {
       setIsWagmiReady(true);
-    }, 300);
+    }, timeoutDuration);
 
     return () => clearTimeout(timer);
-  }, [isHydrated, isConnected, address, accountStatus]);
+  }, [isHydrated, isConnected, address, accountStatus, isAuthenticated]);
 
   // Sync disconnect state
   useEffect(() => {

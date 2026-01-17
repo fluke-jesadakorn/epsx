@@ -41,11 +41,8 @@ export function DeveloperStatsCards({ currentUser }: DeveloperStatsCardsProps) {
                 const plansClient = createPlansClient(client);
                 const response = await plansClient.getMyGroups();
                 if (response.success && response.data) {
-                    // Handle nested response: backend returns { success, data: { groups, total_api_keys, ... } }
-                    // UnifiedApiClient wraps this, so actual data is in response.data.data or response.data
-                    const rawData = response.data as any;
-                    const actualData = rawData.data || rawData;
-                    setUserGroupData(actualData as UserGroupData);
+                    // UnifiedApiClient response.data is already the unwrapped payload T
+                    setUserGroupData(response.data as unknown as UserGroupData);
                 }
             } catch (error) {
                 console.error('Failed to fetch user groups:', error);

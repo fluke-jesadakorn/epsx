@@ -17,6 +17,8 @@ import {
   COOKIES,
   getClientCookie,
   getClientCookieJSON,
+  removeClientCookie,
+  setClientCookie,
   setClientCookieJSON
 } from './cookies';
 
@@ -195,18 +197,43 @@ export class SharedWeb3AuthClient {
   private saveTokensToStorage(): void {
     if (typeof window === 'undefined') return;
 
-    // All cookie persistence is now handled by loginAction server action
-    // This method only updates in-memory state; cookies are set server-side
-    console.log('🍪 Client: Session state updated (cookies set by server action)', {
-      clientId: this.clientId,
-      hasUser: !!this.user,
-    });
+    try {
+      if (this.accessToken) {
+        setClientCookie(COOKIES.access_token, this.accessToken, this.tokenExpiry ? Math.floor((this.tokenExpiry - Date.now()) / 1000) : 3600);
+      }
+
+      if (this.refreshToken) {
+        setClientCookie(COOKIES.refresh_token, this.refreshToken, 2592000); // 30 days
+      }
+
+      if (this.tokenExpiry) {
+        setClientCookie(COOKIES.expires_at, this.tokenExpiry.toString(), 2592000);
+      }
+
+      if (this.user) {
+        setClientCookieJSON(COOKIES.user, this.user, 2592000);
+      }
+
+      console.log('🍪 Client: Session state updated and cookies set', {
+        clientId: this.clientId,
+        hasUser: !!this.user,
+      });
+    } catch (error) {
+      console.warn('Failed to save tokens to cookies', { error });
+    }
   }
 
   private clearTokensFromStorage(): void {
     if (typeof window === 'undefined') return;
 
     try {
+      // Clear auth tokens specific to this client
+      removeClientCookie(COOKIES.access_token);
+      removeClientCookie(COOKIES.refresh_token);
+      removeClientCookie(COOKIES.expires_at);
+      removeClientCookie(COOKIES.user);
+
+      // Also clear shared cookies
       clearClientSideCookies();
     } catch (error) {
       console.warn('Failed to clear tokens from cookies', { error });

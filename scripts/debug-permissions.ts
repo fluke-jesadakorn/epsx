@@ -1,7 +1,7 @@
 
 import { Client } from 'pg';
 
-const walletAddress = '0x9Dd4Db1aA7826A94E479f3387A464772f1E2C4B7';
+const walletAddress = '0x2aE367c0b689153954d8e099782D61037bb423be';
 const normalizedAddress = walletAddress.toLowerCase();
 
 // Use fallback config URL or environment variable
@@ -74,6 +74,8 @@ async function checkPermissions() {
         console.log('\n--- Effective Permissions ---');
         console.log(permissions);
 
+
+
         // Analyze for ranking config
         let minOffset = 100;
         let maxLimit = -1;
@@ -92,7 +94,6 @@ async function checkPermissions() {
                     const val = parseInt(valStr);
                     if (!isNaN(val)) {
                         if (maxLimit !== -1 && val > maxLimit) maxLimit = val;
-                        if (val > 10) minOffset = 1;
                     }
                 }
             }

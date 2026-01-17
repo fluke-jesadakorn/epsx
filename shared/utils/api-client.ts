@@ -13,52 +13,19 @@
  * - Configurable request options and timeouts
  */
 
-import { COOKIES } from '../auth/cookies';
+import { COOKIES, setClientCookie } from '../auth/cookies';
 import { getBackendUrl } from './url-resolver';
 
 // ============================================================================
 // CORE TYPES AND INTERFACES
 // ============================================================================
 
-import type { AdminMetadata } from '../types/api';
-
-export interface ApiResponse<T = any> {
-  success: boolean;
-  data?: T;
-  error?: string;
-  message?: string;
-  status: number;
-  timestamp?: string;
-  /** Admin-specific metadata for operations */
-  admin_meta?: AdminMetadata;
-}
-
-export interface ApiError {
-  status: number;
-  message: string;
-  code?: string;
-  details?: any;
-}
+import type { ApiError as ApiErrorResult, ApiResponse, PaginatedResponse } from '../types/api';
 
 export interface RequestConfig extends RequestInit {
   timeout?: number;
   serverSide?: boolean;
   platform?: 'admin' | 'frontend';
-}
-
-export interface PaginatedResponse<T> {
-  data: T[];
-  pagination: {
-    page: number;
-    per_page: number;
-    total_pages: number;
-    total_items: number;
-  };
-  metadata?: {
-    query_time: number;
-    cached: boolean;
-    last_updated: string;
-  };
 }
 
 export type Platform = 'admin' | 'frontend';
@@ -168,21 +135,68 @@ export class UnifiedApiClient {
 
       // Handle authentication errors
       if (response.status === 401) {
-        // Emit global event for 401 handling (client-side only)
-        // This allows applications to handle auth redirects globally
-        if (typeof window !== 'undefined') {
-          // DISABLED: Aggressive redirect logic causes loops on refresh.
-          // Let the application/auth-provider handle the session state naturally.
-          // window.dispatchEvent(new CustomEvent('auth:unauthorized', {
-          //   detail: { returnUrl: window.location.pathname + window.location.search }
-          // }));
+        // Attempt to refresh token IF not already retrying (avoid infinite loop)
+        // And IF this is not the refresh endpoint itself
+        // And specific check for client-side execution to leverage proxy cookie injection
+        if (!this.isServerSide && !endpoint.includes('/api/auth/session/refresh') && !(headers as any)['x-retry']) {
+          try {
+            console.debug('[UnifiedApiClient] 401 detected, attempting token refresh...');
+
+            // Call refresh endpoint via proxy (which injects the refresh_token cookie)
+            const refreshResponse = await fetch(`${this.baseURL}/api/auth/session/refresh`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({}) // Empty body allowed because proxy injects token
+            });
+
+            if (refreshResponse.ok) {
+              const refreshData = await refreshResponse.json();
+
+              if (refreshData.access_token) {
+                console.debug('[UnifiedApiClient] Token refreshed successfully, retrying request');
+
+                // Update internal token
+                this.setAuthToken(refreshData.access_token);
+
+                // CRITICAL: Update cookies so Proxy uses new token
+                if (!this.isServerSide) {
+                  setClientCookie(COOKIES.access_token, refreshData.access_token, refreshData.expires_in || 3600);
+                  if (refreshData.refresh_token) {
+                    setClientCookie(COOKIES.refresh_token, refreshData.refresh_token, 2592000);
+                  }
+                }
+
+                // Retry original request with new token
+                // We recursively call request() but need to ensure headers are updated
+                return this.request<T>(endpoint, {
+                  ...config,
+                  // token property removed as it's not in RequestConfig
+                  headers: {
+                    ...options.headers,
+                    'x-retry': 'true' // Flag to prevent infinite recursion
+                  }
+                });
+              }
+            } else {
+              console.warn('[UnifiedApiClient] Token refresh attempt failed');
+            }
+          } catch (refreshError) {
+            console.error('[UnifiedApiClient] Error during token refresh:', refreshError);
+          }
         }
+
+        // Return error if refresh failed or not attempted
         return {
           success: false,
-          status: 401,
-          error: 'Unauthorized - please log in again',
-          message: 'Unauthorized - please log in again',
-          data: null as any
+          data: null,
+          error: {
+            code: 'UNAUTHORIZED',
+            message: 'Unauthorized - please log in again',
+            requestId: (headers as any)['x-request-id'],
+          },
+          meta: {
+            timestamp: new Date().toISOString(),
+          }
         };
       }
 
@@ -201,36 +215,113 @@ export class UnifiedApiClient {
           console.error(`[UnifiedApiClient] Error ${response.status} ${requestConfig.method || 'GET'} ${url}:`, errorMessage);
         }
         throw new APIError(
-          response.status,
           errorMessage,
           data?.code || 'HTTP_ERROR',
+          response.status,
           data?.details
         );
       }
 
-      return {
-        success: true,
-        data,
-        status: response.status,
-        timestamp: new Date().toISOString()
-      };
+      return this.normalizeResponse(response, data);
 
     } catch (error) {
       // Handle AbortError (timeout)
       if (error instanceof Error && error.name === 'AbortError') {
-        throw new APIError(408, `Request timeout after ${timeout}ms`, 'TIMEOUT');
+        return {
+          success: false,
+          data: null,
+          error: {
+            code: 'TIMEOUT',
+            message: `Request timeout after ${timeout}ms`,
+            requestId: options.headers ? (options.headers as any)['x-request-id'] : undefined
+          }
+        };
       }
 
-      // Re-throw API errors (already proper Error instances)
-      if (error instanceof APIError) {
-        throw error;
+      // Re-throw if it's already a handled response (shouldn't happen with this design, but for safety)
+      if (this.isApiSuccess(error as any) || (error as any).success === false) {
+        return error as any;
       }
 
-      // Handle network and other errors
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      throw new APIError(0, errorMessage, 'NETWORK_ERROR');
+      // Handle network and other unexpected errors
+      const errorMessage = error instanceof Error ? error.message : 'Unknown network error';
+      return {
+        success: false,
+        data: null,
+        error: {
+          code: 'NETWORK_ERROR',
+          message: errorMessage,
+          details: { originalError: error }
+        }
+      };
     }
   }
+
+  /**
+   * Normalizes the response to ensure it adheres to the ApiResponse<T> contract.
+   * Handles legacy responses, double-wrapping, and error conversion.
+   */
+  private normalizeResponse<T>(response: Response, data: any): ApiResponse<T> {
+    const status = response.status;
+    const isSuccess = response.ok;
+
+    // 1. If it's a known API Error (status >= 400)
+    if (!isSuccess) {
+      // Try to extract structured error from data
+      let apiError: ApiErrorResult = {
+        code: 'HTTP_ERROR',
+        message: `HTTP ${status}: ${response.statusText}`,
+      };
+
+      if (data && typeof data === 'object') {
+        if (data.error && typeof data.error === 'object') {
+          // Already has strict error structure
+          apiError = data.error as ApiErrorResult;
+        } else if (data.message) {
+          // Simple message format
+          apiError.message = data.message;
+          apiError.code = data.code || `HTTP_${status}`;
+          apiError.details = data.details || data;
+        } else if (data.error) {
+          // String error
+          apiError.message = typeof data.error === 'string' ? data.error : JSON.stringify(data.error);
+          apiError.code = data.code || `HTTP_${status}`;
+        }
+      }
+
+      return {
+        success: false,
+        data: null,
+        error: apiError,
+        meta: {
+          timestamp: new Date().toISOString(),
+          trace_id: response.headers.get('x-request-id') || undefined
+        }
+      };
+    }
+
+    // 2. Success Case - Check for Double Wrapping or Legacy Formats
+    // If the data itself IS an ApiResponse (has success, data, error keys), return it directly.
+    if (this.isApiResponse<T>(data)) {
+      return data;
+    }
+
+    // 3. Fallback: Wrap raw data in standard success response
+    return {
+      success: true,
+      data: data as T,
+      error: null,
+      meta: {
+        timestamp: new Date().toISOString(),
+        trace_id: response.headers.get('x-request-id') || undefined
+      }
+    };
+  }
+
+  private isApiResponse<T>(data: any): data is ApiResponse<T> {
+    return data && typeof data === 'object' && 'success' in data && 'data' in data;
+  }
+
 
   // ============================================================================
   // GENERIC HTTP METHODS
@@ -303,14 +394,14 @@ export class UnifiedApiClient {
   // UTILITY METHODS
   // ============================================================================
 
-  isApiError(error: any): error is ApiError {
+  isApiError(error: any): error is ApiErrorResult {
     return error &&
-      typeof error.status === 'number' &&
+      typeof error.code === 'string' &&
       typeof error.message === 'string';
   }
 
   isApiSuccess<T>(response: ApiResponse<T>): response is ApiResponse<T> & { success: true; data: T } {
-    return response.success && response.data !== undefined;
+    return response.success && response.data !== null;
   }
 
   // Create a new client with different configuration
@@ -377,23 +468,29 @@ export function createApiClient(baseURL?: string, token?: string): UnifiedApiCli
 // ERROR CLASSES
 // ============================================================================
 
-export class APIError extends Error implements ApiError {
-  public status: number;
-  public code?: string;
-  public details?: any;
+// ============================================================================
+// ERROR CLASSES
+// ============================================================================
 
-  constructor(status: number, message: string, code?: string, details?: any) {
+export class APIError extends Error implements ApiErrorResult {
+  public code: string;
+  public details?: any;
+  public status?: number; // Optional status for compatibility
+  public requestId?: string;
+
+  constructor(message: string, code: string = 'UNKNOWN_ERROR', status?: number, details?: any) {
     super(message);
     this.name = 'APIError';
-    this.status = status;
     this.code = code;
+    this.status = status;
     this.details = details;
   }
 
   static fromResponse(response: { status: number; statusText: string; data?: any }): APIError {
-    const message = response.data?.message || response.data?.error || `HTTP ${response.status}: ${response.statusText}`;
-    const code = response.data?.code || 'HTTP_ERROR';
-    return new APIError(response.status, message, code, response.data?.details);
+    const message = response.data?.message || response.data?.error?.message || `HTTP ${response.status}: ${response.statusText}`;
+    const code = response.data?.code || response.data?.error?.code || 'HTTP_ERROR';
+    const details = response.data?.details || response.data?.error?.details;
+    return new APIError(message, code, response.status, details);
   }
 }
 
@@ -411,8 +508,13 @@ export async function handlePaginatedRequest<T>(
 ): Promise<PaginatedResponse<T>> {
   const response = await client.get<PaginatedResponse<T>>(endpoint, params);
 
-  if (!client.isApiSuccess(response)) {
-    throw new APIError(response.status, response.error || 'Failed to fetch data');
+  if (!response.success || !response.data) {
+    throw new APIError(
+      response.error?.message || 'Failed to fetch data',
+      response.error?.code || 'FETCH_ERROR',
+      0,
+      response.error?.details
+    );
   }
 
   return response.data;
@@ -432,9 +534,14 @@ export async function handleSimpleRequest<T>(
 
   const response = await client[method]<T>(endpoint, data);
 
-  if (!client.isApiSuccess(response)) {
-    console.error(`[UnifiedApiClient] handleSimpleRequest failed: ${response.status} ${response.error || 'Unknown Error'}`);
-    throw new APIError(response.status, response.error || 'Request failed');
+  if (!response.success || !response.data) {
+    console.error(`[UnifiedApiClient] handleSimpleRequest failed: ${response.error?.message || 'Unknown Error'}`);
+    throw new APIError(
+      response.error?.message || 'Request failed',
+      response.error?.code || 'REQUEST_FAILED',
+      0,
+      response.error?.details
+    );
   }
 
   return response.data;
@@ -448,61 +555,64 @@ export async function retryRequest<T>(
   maxRetries: number = 3,
   baseDelay: number = 1000
 ): Promise<ApiResponse<T>> {
-  let lastError: ApiError;
+  let lastResult: ApiResponse<T> | undefined;
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
-      return await requestFn();
-    } catch (error) {
-      lastError = error as ApiError;
+      const result = await requestFn();
 
-      // Don't retry client errors (4xx) except 429 (rate limit)
-      // Don't retry client errors (4xx) except 429 (rate limit)
-      // Specific check for 401 to ensure it's handled as an auth error, not just a generic client error
-      if (lastError.status === 401) {
-        throw lastError;
+      if (result.success) {
+        return result;
       }
 
-      if (lastError.status >= 400 && lastError.status < 500 && lastError.status !== 429) {
-        throw lastError;
+      lastResult = result;
+
+      // Retry on network errors or 5xx (implied by code conventions)
+      const errorCode = result.error?.code || '';
+      const shouldRetry =
+        errorCode === 'NETWORK_ERROR' ||
+        errorCode === 'TIMEOUT' ||
+        errorCode.includes('HTTP_5') || // e.g. HTTP_500
+        errorCode === 'HTTP_429';
+
+      if (!shouldRetry) {
+        return result;
       }
 
-      // Don't retry on last attempt
       if (attempt === maxRetries) {
-        throw lastError;
+        return result;
       }
 
-      // Wait with exponential backoff
       const delay = baseDelay * Math.pow(2, attempt);
       await new Promise(resolve => setTimeout(resolve, delay));
+
+    } catch (error) {
+      throw error;
     }
   }
 
-  throw lastError!;
+  return lastResult!;
 }
 
 // ============================================================================
 // TYPE GUARDS AND HELPERS
 // ============================================================================
 
-export function isApiError(error: any): error is ApiError {
+export function isApiError(error: any): error is ApiErrorResult {
   return error &&
-    typeof error.status === 'number' &&
+    typeof error.code === 'string' &&
     typeof error.message === 'string';
 }
 
 export function isApiResponse<T>(response: any): response is ApiResponse<T> {
   return response &&
+    typeof response === 'object' &&
     typeof response.success === 'boolean' &&
-    typeof response.status === 'number';
+    (response.data !== undefined || response.error !== undefined);
 }
 
-export function isPaginatedResponse<T>(response: any): response is PaginatedResponse<T> {
-  return response &&
-    Array.isArray(response.data) &&
-    response.pagination &&
-    typeof response.pagination.page === 'number' &&
-    typeof response.pagination.total_items === 'number';
+export function isPaginatedResponse<T>(data: any): data is PaginatedResponse<T> {
+  return data && typeof data === 'object' && Array.isArray(data.data) && 'pagination' in data;
 }
 
 // ============================================================================

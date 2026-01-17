@@ -8,57 +8,42 @@
 // BASE API RESPONSE TYPES
 // ============================================================================
 
+// ============================================================================
+// BASE API RESPONSE TYPES
+// ============================================================================
+
+/**
+ * Standard API Response Wrapper
+ * All API endpoints must return this structure.
+ */
 export interface ApiResponse<T = any> {
-  success: boolean;
-  data?: T;
-  error?: string;
-  message?: string;
-  status: number;
-  timestamp?: string;
-  requestId?: string;
-  /** Admin-specific metadata for operations */
-  admin_meta?: AdminMetadata;
+  success: boolean;       // Check this first
+  data: T | null;         // Payload if success=true, null if error
+  error: ApiError | null; // Error details if success=false, null if success
+  meta?: ApiMeta;         // Optional metadata (pagination, trace_id, execution time)
 }
 
 /**
- * Admin-specific metadata for operations
+ * Standard API Error Structure
  */
-export interface AdminMetadata {
-  operation: string;
-  performed_by?: string;
-  pagination?: PaginationInfo;
-  permissions?: AdminPermissionContext;
-  metadata?: Record<string, unknown>;
-}
-
-/**
- * Pagination information for list responses
- */
-export interface PaginationInfo {
-  page: number;
-  limit: number;
-  total: number;
-  total_pages: number;
-  has_next_page: boolean;
-  has_previous_page: boolean;
-}
-
-/**
- * Admin permission context for the current user
- */
-export interface AdminPermissionContext {
-  admin_role: string;
-  available_actions: string[];
-  restricted_actions?: string[];
-}
-
 export interface ApiError {
-  message: string;
-  status: number;
-  code?: string;
-  details?: ApiErrorDetail[];
+  code: string;           // Machine-parsable (e.g., "VALIDATION_ERROR", "UNAUTHORIZED")
+  message: string;        // Human-readable message
+  details?: Record<string, any>; // detailed validation errors or context
+  requestId?: string;     // Optional trace ID for debugging
+}
+
+/**
+ * Standard API Metadata
+ */
+export interface ApiMeta {
+  page?: number;
+  per_page?: number;
+  total?: number;
+  total_pages?: number;
+  trace_id?: string;
   timestamp?: string;
-  requestId?: string;
+  [key: string]: any;     // Allow extensibility
 }
 
 export interface ApiErrorDetail {

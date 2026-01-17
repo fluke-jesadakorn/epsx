@@ -183,7 +183,9 @@ export default function UnifiedPermissionGuard({
   // Legacy role check (converted to permission check)
   if (role) {
     if (role.toLowerCase() === 'admin') {
-      requiredPermissions.push('admin:*:*');
+      // PROPOSAL: Map legacy 'admin' role to basic admin view permission
+      // Strict separation: 'admin' no longer implies '*:*'
+      requiredPermissions.push('admin:users:view');
     }
   }
 
@@ -467,7 +469,7 @@ export function RequireUserManagement({
   return (
     <UnifiedPermissionGuard
       platform="admin"
-      permissions={['admin:users:manage', 'admin:users:*', 'admin:*:*']}
+      permissions={['admin:users:manage', 'admin:users:*']}
       fallback={fallback}
       actionName="manage users"
       showPermissionDetails={true}
@@ -487,7 +489,7 @@ export function RequireSystemManagement({
   return (
     <UnifiedPermissionGuard
       platform="admin"
-      permissions={['admin:system:manage', 'admin:system:*', 'admin:*:*']}
+      permissions={['admin:system:manage', 'admin:system:*']}
       fallback={fallback}
       actionName="manage system settings"
       showPermissionDetails={true}
@@ -507,7 +509,7 @@ export function RequireAnalyticsAccess({
   return (
     <UnifiedPermissionGuard
       platform="admin"
-      permissions={['admin:analytics:view', 'admin:analytics:*', 'admin:*:*']}
+      permissions={['admin:analytics:view', 'admin:analytics:*']}
       fallback={fallback}
       actionName="view analytics"
       showPermissionDetails={true}
@@ -527,7 +529,7 @@ export function RequirePlatformManagement({
   return (
     <UnifiedPermissionGuard
       platform="admin"
-      permissions={['admin:platforms:manage', 'admin:platforms:*', 'admin:*:*']}
+      permissions={['admin:platforms:manage', 'admin:platforms:*']}
       fallback={fallback}
       actionName="manage platforms"
       showPermissionDetails={true}
@@ -547,7 +549,7 @@ export function RequireSecurityAccess({
   return (
     <UnifiedPermissionGuard
       platform="admin"
-      permissions={['admin:security:*', 'admin:*:*']}
+      permissions={['admin:security:*']}
       fallback={fallback}
       actionName="access security features"
       showPermissionDetails={true}

@@ -9,7 +9,7 @@
  * So the actual payload is at: response.data.data
  */
 
-import type { ApiResponse, PaginatedResponse } from './api-client';
+import type { ApiResponse, PaginatedResponse } from '../types/api';
 
 // ============================================================================
 // DATA EXTRACTION
@@ -21,9 +21,8 @@ import type { ApiResponse, PaginatedResponse } from './api-client';
  * and res.data.data contains the actual payload.
  */
 export function extractData<T>(response: ApiResponse<any>): T | undefined {
-    // The backend response is in res.data
-    // The actual payload is in res.data.data
-    return response.data?.data as T | undefined;
+    // UnifiedApiClient returns the payload directly in response.data
+    return response.data as T | undefined;
 }
 
 /**
@@ -94,17 +93,17 @@ export function extractDataOrDefault<T>(response: ApiResponse<any>, defaultValue
 
 /**
  * Extract pagination metadata from API response.
- * Backend includes this in response.data.meta.pagination
+ * Backend includes this in response.meta.pagination
  */
 export function extractPagination(response: ApiResponse<any>): PaginatedResponse<any>['pagination'] | undefined {
-    return response.data?.meta?.pagination;
+    return response.meta?.pagination;
 }
 
 /**
  * Extract the message from API response metadata.
  */
 export function extractMessage(response: ApiResponse<any>): string | undefined {
-    return response.data?.meta?.message;
+    return response.meta?.message;
 }
 
 // ============================================================================
@@ -125,7 +124,7 @@ export function isSuccess(response: ApiResponse<any>): boolean {
  */
 export function extractError(response: ApiResponse<any>): string {
     return (
-        response.error ||
+        response.error?.message ||
         response.data?.error?.message ||
         response.data?.error?.reason ||
         'Unknown error'

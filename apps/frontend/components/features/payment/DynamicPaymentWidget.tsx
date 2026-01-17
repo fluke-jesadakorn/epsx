@@ -271,11 +271,11 @@ export function DynamicPaymentWidget({
             try {
                 // Use apiClient
                 // Backend returns wrapped response: { success: boolean, data: { status: string, ... } }
-                const response = await apiClient.get<{ success: boolean; data: { status: string; error_message?: string } }>(`/api/payments/status/${hash}`);
+                const response = await apiClient.get<{ status: string; error_message?: string }>(`/api/payments/status/${hash}`);
 
                 if (response.success && response.data) {
                     // Access nested data from backend wrapper
-                    const statusData = response.data.data;
+                    const statusData = response.data;
 
                     if (statusData) {
                         if (statusData.status === 'confirmed') {
@@ -326,7 +326,7 @@ export function DynamicPaymentWidget({
                     // Use apiClient.post
                     const response = await apiClient.post('/api/payments/submit', requestBody);
 
-                    console.log('📥 [Debug] Submit response:', response.status);
+                    console.log('📥 [Debug] Submit response success:', response.success);
 
                     if (response.success) {
                         setSubmissionStep('submitted');
@@ -334,7 +334,7 @@ export function DynamicPaymentWidget({
                         pollBackendStatus(txHash);
                     } else {
                         console.error('❌ Failed to submit:', response);
-                        setError(response.message || 'Failed to submit payment to backend');
+                        setError(response.error?.message || 'Failed to submit payment to backend');
                     }
                 } catch (err: any) {
                     console.error('❌ Submission error:', err);

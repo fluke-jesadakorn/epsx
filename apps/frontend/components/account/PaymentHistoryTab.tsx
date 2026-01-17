@@ -64,20 +64,20 @@ export function PaymentHistoryTab() {
             // Don't clear error on silent updates to avoid flickering if it was already showing error
             if (!silent) setError(null);
 
-            const response = await base.get<PaymentHistoryBody>('/api/payments/history', {
+            const response = await base.get<PaymentHistoryData>('/api/payments/history', {
                 page: page.toString(),
                 per_page: '10'
             });
 
-            if (response && response.success && response.data?.success && response.data.data) {
-                setPayments(response.data.data.payments);
-                setTotalPages(response.data.data.pagination.total_pages);
-                setTotalItems(response.data.data.pagination.total);
+            if (response && response.success && response.data) {
+                setPayments(response.data.payments);
+                setTotalPages(response.data.pagination.total_pages);
+                setTotalItems(response.data.pagination.total);
             } else {
-                if (response?.data?.success === false) {
-                    throw new Error('API reported failure');
+                if (!response.success) {
+                    throw new Error(response.error?.message || 'API reported failure');
                 }
-                if (response && response.success && response.data?.success && !response.data.data) {
+                if (response.success && !response.data) {
                     setPayments([]);
                     setTotalPages(1);
                     setTotalItems(0);
