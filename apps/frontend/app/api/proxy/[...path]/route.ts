@@ -64,9 +64,23 @@ async function handleProxy(req: NextRequest, ctx: { params: Promise<{ path: stri
         }
 
         // Prepare body (for non-GET/HEAD requests)
-        const body = (req.method !== 'GET' && req.method !== 'HEAD')
+        // Prepare body (for non-GET/HEAD requests)
+        let body = (req.method !== 'GET' && req.method !== 'HEAD')
             ? await req.blob()
             : undefined;
+
+        // Special handling for token refresh: inject refresh token from HttpOnly cookie
+        if (targetPath === '/api/auth/session/refresh' && req.method === 'POST') {
+            const refreshToken = cookieStore.get(COOKIES.refresh_token)?.value;
+            if (refreshToken) {
+                console.log('🔄 API Proxy: Injecting refresh token from cookie');
+                body = new Blob([JSON.stringify({ refresh_token: refreshToken })], { type: 'application/json' });
+                forwardHeaders.set('content-type', 'application/json');
+                // Ensure content-length is updated or handled by fetch automatically (blob handles it)
+            } else {
+                console.warn('⚠️ API Proxy: No refresh token cookie found for refresh request');
+            }
+        }
 
         // Forward request to backend
         const response = await fetch(targetUrl, {

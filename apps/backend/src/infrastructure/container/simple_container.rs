@@ -22,6 +22,9 @@ use crate::domain::wallet_management::{
     WalletUserRepositoryPort,
     WalletUserAnalyticsPort,
 };
+use crate::domain::auth::ports::IdentityProviderPort;
+use crate::infrastructure::adapters::auth::google_identity_adapter::GoogleIdentityAdapter;
+
 use crate::domain::payment::repository_ports::{PaymentRepositoryPort, TransactionHistoryProvider};
 use crate::auth::auth_service::UnifiedWeb3AuthService;
 use crate::auth::token_service::OpenIDTokenService;
@@ -48,6 +51,8 @@ pub struct SimpleContainer {
     pub web3_permission_adapter: Option<Arc<Web3PermissionServiceAdapter>>,
     pub auth_service: Option<Arc<UnifiedWeb3AuthService>>,
     pub token_service: Option<Arc<OpenIDTokenService>>,
+    pub identity_provider: Option<Arc<dyn IdentityProviderPort>>,
+
     pub event_bus: Option<Arc<dyn crate::domain::DomainEventBus>>,
 
     // Unified Permission Service (single source of truth for permissions)
@@ -77,7 +82,9 @@ impl SimpleContainer {
             analytics_pool: None,
             notifications_pool: None,
             cache: None,
+            identity_provider: None,
             // NEW - Web3-first services (initialized as None, configured via builder methods)
+
             wallet_user_repository: None,
 
             group_repository: None,
@@ -141,6 +148,10 @@ impl SimpleContainer {
         cache: Option<Arc<dyn Cache>>,
         blockchain_config: Option<BlockchainConfig>,
     ) -> Self {
+        // Initialize Identity Provider
+        let identity_provider: Arc<dyn IdentityProviderPort> = Arc::new(GoogleIdentityAdapter::new());
+
+
         // Get Diesel pool
         let diesel_pool = crate::infrastructure::database::get_diesel_pool().await
             .expect("Failed to get Diesel pool");
@@ -353,6 +364,8 @@ impl SimpleContainer {
             web3_permission_adapter: Some(web3_permission_adapter),
             auth_service: Some(auth_service),
             token_service: Some(token_service),
+            identity_provider: Some(identity_provider),
+
             plan_repository: Some(plan_repository),
             event_bus: Some(event_bus),
             // Unified Permission Service
@@ -377,7 +390,9 @@ impl SimpleContainer {
             analytics_pool: None,
             notifications_pool: None,
             cache: Some(cache),
+            identity_provider: None,
             // Initialize Web3 services as None - use new_with_web3_services for full setup
+
             wallet_user_repository: None,
 
             group_repository: None,
@@ -479,6 +494,11 @@ impl SimpleContainer {
     pub fn get_token_service(&self) -> Option<Arc<OpenIDTokenService>> {
         self.token_service.as_ref().map(Arc::clone)
     }
+
+    pub fn get_identity_provider(&self) -> Option<Arc<dyn IdentityProviderPort>> {
+        self.identity_provider.as_ref().map(Arc::clone)
+    }
+
 
     /// Get the unified permission service (single source of truth)
     pub fn get_unified_permission_service(&self) -> Option<Arc<UnifiedPermissionService>> {

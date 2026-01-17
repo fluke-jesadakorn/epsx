@@ -172,7 +172,21 @@ impl OpenIDTokenService {
             return Err(OpenIDTokenError::InvalidClient(request.client_id));
         }
 
-        // 4. Issue OpenID Connect tokens
+        // 4. Issue tokens
+        self.issue_tokens_for_user(
+            &request.wallet_address,
+            &user_profile.permissions,
+            &request.client_id
+        ).await
+    }
+
+    /// Issue OpenID Connect tokens for a verified user
+    pub async fn issue_tokens_for_user(
+        &self,
+        wallet_address: &str,
+        permissions: &[String],
+        client_id: &str,
+    ) -> Result<OpenIDTokenResponse, OpenIDTokenError> {
         let now = Utc::now();
         let auth_time = now.timestamp();
 
@@ -181,26 +195,26 @@ impl OpenIDTokenService {
 
         // Create access token (for API authorization)
         let access_token = self.create_access_token(
-            &request.wallet_address,
-            &user_profile.permissions,
+            wallet_address,
+            permissions,
             auth_time,
             &jti,
         )?;
 
         // Create ID token (for user identity)
         let id_token = self.create_id_token(
-            &request.wallet_address,
-            &request.client_id,
+            wallet_address,
+            client_id,
             auth_time,
             None, // nonce
         )?;
 
         // Create refresh token
-        let refresh_token = self.create_refresh_token(&request.wallet_address).await?;
+        let refresh_token = self.create_refresh_token(wallet_address).await?;
 
         info!(
             "Issued OpenID tokens for wallet: {} (client: {})",
-            request.wallet_address, request.client_id
+            wallet_address, client_id
         );
 
         Ok(OpenIDTokenResponse {

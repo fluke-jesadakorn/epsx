@@ -12,7 +12,8 @@ pub mod auth_handlers;
 pub mod responses;
 pub mod wallet_management_handlers;
 pub mod wallet_disable_handlers;
-pub mod analytics_handlers;
+pub mod analytics;
+
 pub mod notification_handlers;
 pub mod notification_query_helper;
 pub mod wallet_notification_repository;

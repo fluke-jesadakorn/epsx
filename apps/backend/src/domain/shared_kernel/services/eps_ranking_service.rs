@@ -138,12 +138,6 @@ impl PermissionParser {
                      } else if max_limit != -1 && val > max_limit { 
                          max_limit = val;
                      }
-                     
-                     // Heuristic for legacy permissions: High limits (>10) usually imply paid plans with full access (offset 1)
-                     // Low limits (<=10) usually imply free/teaser plans with restricted access (offset stays 100)
-                     if val > 10 {
-                         min_offset = 1; 
-                     }
                  }
             }
             
@@ -518,8 +512,8 @@ mod tests {
 
         let (offset, limit) = PermissionParser::extract_ranking_config(&permissions);
         
-        // Should unlock rankings (offset 1) because limit (25) > 10
-        assert_eq!(offset, 1, "Starter plan should have offset 1");
+        // Should NOT unlock rankings (offset 100) just because of limit 25
+        assert_eq!(offset, 100, "Starter plan should have default offset 100 without explicit offset permission");
         assert_eq!(limit, 25, "Starter plan should have limit 25");
     }
 }

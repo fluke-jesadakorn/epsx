@@ -9,6 +9,8 @@ use crate::infrastructure::container::DomainContainer;
 use crate::infrastructure::redis::RedisPool;
 use crate::web::notifications::RedisNotificationBroadcaster;
 use crate::domain::payment::repository_ports::{TransactionHistoryProvider};
+use crate::domain::auth::ports::IdentityProviderPort;
+
 use crate::infrastructure::adapters::repositories::group_repository_adapter::PermissionGroupRepositoryAdapter;
 // use crate::infrastructure::adapters::repositories::payment_repository_adapter::PaymentRepositoryAdapter; // Temporarily disabled
 
@@ -23,6 +25,8 @@ pub struct AppState {
     pub redis_broadcaster: Option<Arc<RedisNotificationBroadcaster>>,
     pub group_repo: Arc<PermissionGroupRepositoryAdapter>,
     pub transaction_history_provider: Option<Arc<dyn TransactionHistoryProvider>>,
+    pub identity_provider: Option<Arc<dyn IdentityProviderPort>>,
+
     pub analytics_db_pool: Option<Arc<&'static Pool<AsyncPgConnection>>>,
     // pub payment_repository: Arc<PaymentRepositoryAdapter>, // Temporarily disabled
     // Stub for backwards compatibility with admin handlers
@@ -49,6 +53,8 @@ impl AppState {
         // let _payment_repository = domain_container.payment_repository.clone(); // Temporarily disabled - field removed
 
         let transaction_history_provider = domain_container.transaction_history_provider.clone();
+        let identity_provider = domain_container.identity_provider.clone();
+
 
         Self {
             db_pool,
@@ -58,6 +64,8 @@ impl AppState {
             redis_broadcaster,
             group_repo,
             transaction_history_provider,
+            identity_provider,
+
             analytics_db_pool,
             // payment_repository, // Temporarily disabled
             user_repo: None, // Placeholder for backwards compatibility

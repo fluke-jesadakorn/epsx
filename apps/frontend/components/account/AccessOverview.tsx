@@ -68,10 +68,10 @@ export function AccessOverview() {
         const fetchData = async () => {
             try {
                 setLoading(true);
-                const response = await base.get<AccessOverviewBody>('/api/users/access-overview');
+                const response = await base.get<AccessOverviewData>('/api/users/access-overview');
 
-                if (response && response.success && response.data?.success && response.data.data) {
-                    setData(response.data.data);
+                if (response && response.success && response.data) {
+                    setData(response.data);
                 } else {
                     // Show empty state instead of mock data - users should see their real access level
                     setData({

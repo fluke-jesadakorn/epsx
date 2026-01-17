@@ -11,7 +11,9 @@ pub mod notification; // Multi-channel notification system with scheduling
 pub mod realtime_events; // Real-time event delivery and retry system
 pub mod resource_management; // Resource usage tracking and billing
 pub mod payment;
+pub mod admin;
 pub mod ports;
+
 
 // Re-export commonly used types
 pub use shared::{

@@ -96,12 +96,13 @@ use super::wallet_disable_handlers::{
   get_wallet_activity_handler,
 };
 // Analytics and business intelligence handlers
-use super::analytics_handlers::{
+use super::analytics::{
   get_platform_overview_handler,
   get_user_analytics_handler,
   get_permission_analytics_handler,
   get_revenue_analytics_handler,
 };
+
 // Notification management handlers
 use super::notification_handlers::{
   send_notification_handler,

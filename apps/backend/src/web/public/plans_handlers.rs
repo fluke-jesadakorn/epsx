@@ -3,8 +3,32 @@ use axum::{
     http::StatusCode,
     extract::{State, Path},
 };
-use serde_json::{json, Value};
+
 use crate::web::auth::AppState;
+
+use crate::web::api_response::ApiResponse;
+
+use utoipa::ToSchema;
+use serde::Serialize; // Ensure Serialize is available
+
+#[derive(Debug, Serialize, ToSchema, Clone)]
+pub struct PublicPlanResponse {
+    pub id: String,
+    pub name: String,
+    pub plan_type: String,
+    pub current_price: String,
+    pub effective_price: f64,
+    pub promotion_active: bool,
+    pub promotion_status: String,
+    pub promotion_discount: f64,
+    pub promotion_ends_at: Option<String>,
+    pub currency: String,
+    pub billing_cycle: String,
+    pub features: Vec<String>,
+    pub permissions: Vec<String>,
+    pub is_active: bool,
+    pub display_order: i32,
+}
 
 /// Get public pricing plans (no authentication required)
 /// GET /api/public/plans
@@ -13,11 +37,11 @@ use crate::web::auth::AppState;
     path = "/api/public/plans",
     tag = "public",
     responses(
-        (status = 200, description = "Successfully retrieved subscription plans"),
+        (status = 200, description = "Successfully retrieved subscription plans", body = ApiResponse<Vec<PublicPlanResponse>>),
         (status = 500, description = "Internal server error")
     )
 )]
-pub async fn get_public_plans(State(app_state): State<AppState>) -> Result<Json<Value>, StatusCode> {
+pub async fn get_public_plans(State(app_state): State<AppState>) -> (StatusCode, Json<ApiResponse<Vec<PublicPlanResponse>>>) {
     tracing::info!("📊 Fetching public subscription plans");
 
     // Get plans from database instead of hardcoded data
@@ -28,22 +52,24 @@ pub async fn get_public_plans(State(app_state): State<AppState>) -> Result<Json<
         },
         Err(err) => {
             tracing::error!(error = %err, "❌ Failed to fetch subscription plans from database");
-            return Err(StatusCode::INTERNAL_SERVER_ERROR);
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ApiResponse::error("DB_ERROR", "Failed to fetch plans"))
+            );
         }
     };
 
     // If no plans found, return empty array (not an error)
     if db_plans.is_empty() {
         tracing::warn!("⚠️ No subscription plans found in database - returning empty array");
-        return Ok(Json(json!({
-            "success": true,
-            "data": [],
-            "message": "No subscription plans available. Please contact support or use fallback plans."
-        })));
+        return (
+            StatusCode::OK,
+            Json(ApiResponse::success(vec![]))
+        );
     }
 
     // Convert database plans to frontend format
-    let plans: Vec<Value> = db_plans.into_iter().map(|plan| {
+    let plans: Vec<PublicPlanResponse> = db_plans.into_iter().map(|plan| {
         use crate::domain::subscription_management::Promotion;
 
         // Extract permissions array from JSONB
@@ -86,30 +112,29 @@ pub async fn get_public_plans(State(app_state): State<AppState>) -> Result<Json<
             (base_price, false, crate::domain::subscription_management::PromotionStatus::Disabled, 0.0, None)
         };
 
-        json!({
-            "id": plan.id.to_string(),
-            "name": plan.name,
-            "plan_type": plan_type,
-            "current_price": price_str,
-            "effective_price": effective_price,
-            "promotion_active": promotion_active,
-            "promotion_status": format!("{:?}", promotion_status).to_lowercase(),
-            "promotion_discount": promotion_discount,
-            "promotion_ends_at": promotion_ends_at,
-            "currency": plan.currency.unwrap_or_else(|| "USD".to_string()),
-            "billing_cycle": plan.billing_cycle.unwrap_or_else(|| "monthly".to_string()),
-            "features": features,
-            "permissions": permissions,
-            "is_active": plan.is_active.unwrap_or(true),
-            "display_order": plan.display_order.unwrap_or(0)
-        })
+        PublicPlanResponse {
+            id: plan.id.to_string(),
+            name: plan.name,
+            plan_type,
+            current_price: price_str,
+            effective_price,
+            promotion_active,
+            promotion_status: format!("{:?}", promotion_status).to_lowercase(),
+            promotion_discount,
+            promotion_ends_at,
+            currency: plan.currency.unwrap_or_else(|| "USD".to_string()),
+            billing_cycle: plan.billing_cycle.unwrap_or_else(|| "monthly".to_string()),
+            features,
+            permissions,
+            is_active: plan.is_active.unwrap_or(true),
+            display_order: plan.display_order.unwrap_or(0),
+        }
     }).collect();
 
-    Ok(Json(json!({
-        "success": true,
-        "data": plans,
-        "message": "Public pricing plans retrieved successfully"
-    })))
+    (
+        StatusCode::OK,
+        Json(ApiResponse::success(plans))
+    )
 }
 
 /// Get a single public plan by ID (no authentication required)
@@ -122,7 +147,7 @@ pub async fn get_public_plans(State(app_state): State<AppState>) -> Result<Json<
         ("id" = String, Path, description = "Plan UUID")
     ),
     responses(
-        (status = 200, description = "Successfully retrieved plan"),
+        (status = 200, description = "Successfully retrieved plan", body = ApiResponse<PublicPlanResponse>),
         (status = 404, description = "Plan not found"),
         (status = 500, description = "Internal server error")
     )
@@ -130,7 +155,7 @@ pub async fn get_public_plans(State(app_state): State<AppState>) -> Result<Json<
 pub async fn get_public_plan_by_id(
     State(app_state): State<AppState>,
     Path(plan_id): Path<String>,
-) -> Result<Json<Value>, StatusCode> {
+) -> (StatusCode, Json<ApiResponse<PublicPlanResponse>>) {
     tracing::info!(plan_id = %plan_id, "📊 Fetching public plan by ID");
 
     // Parse UUID
@@ -138,7 +163,10 @@ pub async fn get_public_plan_by_id(
         Ok(id) => id,
         Err(_) => {
             tracing::warn!(plan_id = %plan_id, "⚠️ Invalid plan ID format");
-            return Err(StatusCode::BAD_REQUEST);
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(ApiResponse::error("INVALID_ID", "Invalid plan ID format"))
+            );
         }
     };
 
@@ -147,7 +175,10 @@ pub async fn get_public_plan_by_id(
         Ok(plans) => plans,
         Err(err) => {
             tracing::error!(error = %err, "❌ Failed to fetch subscription plans");
-            return Err(StatusCode::INTERNAL_SERVER_ERROR);
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ApiResponse::error("DB_ERROR", "Failed to fetch plans"))
+            );
         }
     };
 
@@ -156,7 +187,10 @@ pub async fn get_public_plan_by_id(
         Some(p) => p,
         None => {
             tracing::warn!(plan_id = %plan_id, "⚠️ Plan not found");
-            return Err(StatusCode::NOT_FOUND);
+            return (
+                StatusCode::NOT_FOUND,
+                Json(ApiResponse::error("NOT_FOUND", "Plan not found"))
+            );
         }
     };
 
@@ -202,28 +236,29 @@ pub async fn get_public_plan_by_id(
         (base_price, false, crate::domain::subscription_management::PromotionStatus::Disabled, 0.0, None)
     };
 
-    let plan_data = json!({
-        "id": plan.id.to_string(),
-        "name": plan.name,
-        "description": plan.description.clone(),
-        "plan_type": plan_type,
-        "price": base_price,
-        "current_price": price_str,
-        "effective_price": effective_price,
-        "promotion_active": promotion_active,
-        "promotion_status": format!("{:?}", promotion_status).to_lowercase(),
-        "promotion_discount": promotion_discount,
-        "promotion_ends_at": promotion_ends_at,
-        "currency": plan.currency.unwrap_or_else(|| "USD".to_string()),
-        "billing_cycle": plan.billing_cycle.unwrap_or_else(|| "monthly".to_string()),
-        "features": features,
-        "permissions": permissions,
-        "is_active": plan.is_active.unwrap_or(true),
-        "display_order": plan.display_order.unwrap_or(0)
-    });
+    let plan_data = PublicPlanResponse {
+        id: plan.id.to_string(),
+        name: plan.name,
+        plan_type,
+        current_price: price_str,
+        effective_price,
+        promotion_active,
+        promotion_status: format!("{:?}", promotion_status).to_lowercase(),
+        promotion_discount,
+        promotion_ends_at,
+        currency: plan.currency.unwrap_or_else(|| "USD".to_string()),
+        billing_cycle: plan.billing_cycle.unwrap_or_else(|| "monthly".to_string()),
+        features,
+        permissions,
+        is_active: plan.is_active.unwrap_or(true),
+        display_order: plan.display_order.unwrap_or(0),
+    };
 
     tracing::info!(plan_id = %plan_id, "✅ Plan retrieved successfully");
-    Ok(Json(plan_data))
+    (
+        StatusCode::OK,
+        Json(ApiResponse::success(plan_data))
+    )
 }
 
 /// Generate user-friendly features from permission list

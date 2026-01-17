@@ -3,7 +3,9 @@
 
 pub mod repositories;
 pub mod services;
+pub mod auth;
 // pub mod cache; // Removed - empty module with only a comment
+
 
 // Re-export with explicit imports to avoid conflicts
 // Repository adapters use SQLx for database operations

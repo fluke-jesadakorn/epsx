@@ -16,8 +16,9 @@ export function useSimpleFetch() {
   ): Promise<T> => {
     const response = await adminApiClient.get<T>(endpoint, options as any);
 
-    if (!response.success && response.status !== 404) {
-      throw new Error(response.error || 'Request failed');
+    if (!response.success && (response as any).status !== 404) {
+      const errorMessage = response.error?.message || 'Request failed';
+      throw new Error(errorMessage);
     }
 
     return response.data as T;

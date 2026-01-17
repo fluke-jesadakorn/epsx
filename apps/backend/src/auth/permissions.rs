@@ -172,13 +172,6 @@ pub fn check_permission_access(user_permissions: &[String], required_permission:
         return is_permission_valid_with_time_check(required_permission);
     }
     
-    // Fast path: Check for wildcard admin permissions early
-    for perm_str in user_permissions {
-        if perm_str == "admin:*:*" || perm_str.starts_with("admin:*:") {
-            return is_permission_valid_with_time_check(perm_str);
-        }
-    }
-    
     // Standard path: Validate each permission with optimized parsing
     let mut valid_permissions = Vec::with_capacity(user_permissions.len());
     
@@ -232,8 +225,19 @@ pub struct PermissionSets;
 
 impl PermissionSets {
     // Admin permissions - full access to everything
+    // Admin permissions - full access to ADMIN features only
+    // NO implicit access to platform features (analytics, etc.)
     pub fn admin() -> Vec<String> {
-        vec!["admin:*:*".to_string()]
+        vec![
+            "admin:users:view".to_string(),
+            "admin:users:manage".to_string(),
+            "admin:permissions:view".to_string(),
+            "admin:permissions:manage".to_string(),
+            "admin:payments:view".to_string(),
+            "admin:payments:manage".to_string(),
+            "admin:system:view".to_string(),
+            "admin:system:manage".to_string(),
+        ]
     }
     
     // Premium user permissions (replaces "user" group)
@@ -318,57 +322,48 @@ pub fn can_view_ranking_position(user_permissions: &[String], position: i32) -> 
 // PERMISSION VALIDATION HELPERS
 // ============================================================================
 
-pub fn has_admin_access(user_permissions: &[String]) -> bool {
-    check_permission_access(user_permissions, "admin:*:*")
-}
+
 
 pub fn can_view_analytics(user_permissions: &[String]) -> bool {
-    check_permission_access(user_permissions, "epsx:analytics:view") ||
-    has_admin_access(user_permissions)
+    check_permission_access(user_permissions, "epsx:analytics:view")
 }
 
 pub fn can_export_data(user_permissions: &[String]) -> bool {
-    check_permission_access(user_permissions, "epsx:analytics:export") ||
-    has_admin_access(user_permissions)
+    check_permission_access(user_permissions, "epsx:analytics:export")
 }
 
 pub fn can_access_realtime(user_permissions: &[String]) -> bool {
-    check_permission_access(user_permissions, "epsx:realtime:access") ||
-    has_admin_access(user_permissions)
+    check_permission_access(user_permissions, "epsx:realtime:access")
 }
 
 pub fn can_manage_profile(user_permissions: &[String]) -> bool {
-    check_permission_access(user_permissions, "epsx:profile:manage") ||
-    has_admin_access(user_permissions)
+    check_permission_access(user_permissions, "epsx:profile:manage")
 }
 
 pub fn can_receive_notifications(user_permissions: &[String]) -> bool {
-    check_permission_access(user_permissions, "epsx:notifications:receive") ||
-    has_admin_access(user_permissions)
+    check_permission_access(user_permissions, "epsx:notifications:receive")
 }
 
 pub fn can_manage_billing(user_permissions: &[String]) -> bool {
-    check_permission_access(user_permissions, "epsx:billing:manage") ||
-    has_admin_access(user_permissions)
+    check_permission_access(user_permissions, "epsx:billing:manage")
 }
 
 pub fn can_use_advanced_filters(user_permissions: &[String]) -> bool {
-    check_permission_access(user_permissions, "epsx:filters:advanced") ||
-    has_admin_access(user_permissions)
+    check_permission_access(user_permissions, "epsx:filters:advanced")
 }
 
 // Platform access checks
 pub fn can_access_pay_platform(user_permissions: &[String]) -> bool {
     check_any_permission(user_permissions, &[
         "epsx-pay:*:*".to_string(),
-        "admin:*:*".to_string(),
+        "admin:payments:view".to_string(), // Explicit admin permission
     ])
 }
 
 pub fn can_access_token_platform(user_permissions: &[String]) -> bool {
     check_any_permission(user_permissions, &[
         "epsx-token:*:*".to_string(),
-        "admin:*:*".to_string(),
+        "admin:system:view".to_string(), // Explicit admin permission
     ])
 }
 
@@ -740,9 +735,26 @@ mod tests {
     fn test_admin_access() {
         let admin_permissions = vec!["admin:*:*".to_string()];
         
-        assert!(check_permission_access(&admin_permissions, "epsx:analytics:view"));
-        assert!(check_permission_access(&admin_permissions, "epsx-pay:payments:process"));
+        // UPDATE: admin:*:* no longer grants implicit access to platform features
+        assert!(!check_permission_access(&admin_permissions, "epsx:analytics:view"));
+        assert!(!check_permission_access(&admin_permissions, "epsx-pay:payments:process"));
+        
+        // It should still access admin features via wildcard matching (admin matches admin)
         assert!(check_permission_access(&admin_permissions, "admin:users:manage"));
+    }
+
+    #[test]
+    fn test_strict_admin_separation() {
+        // Test with the new granular admin permission set
+        let admin_perms = PermissionSets::admin();
+        
+        // Should have access to admin features
+        assert!(check_permission_access(&admin_perms, "admin:users:view"));
+        assert!(check_permission_access(&admin_perms, "admin:payments:manage"));
+        
+        // Should NOT have access to platform features
+        assert!(!check_permission_access(&admin_perms, "epsx:analytics:view"));
+        assert!(!check_permission_access(&admin_perms, "epsx:trading:execute"));
     }
 
     #[test]
@@ -804,8 +816,8 @@ mod tests {
         // Expired timed permission should not work
         assert!(!check_permission_access(&permissions, "admin:users:delete"));
         
-        // Admin wildcard should work with valid permissions
-        assert!(check_permission_access(&permissions, "admin:users:create"));
+        // Admin wildcard should work with valid permissions (REMOVED implicit match)
+        // assert!(check_permission_access(&permissions, "admin:users:create"));
     }
     
     #[test]

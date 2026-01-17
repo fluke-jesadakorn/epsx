@@ -45,17 +45,19 @@ export function NotificationManagement({ currentUser }: NotificationManagementPr
         client.getNotificationStats()
       ]);
 
-      setNotifications(notificationsResponse.data.notifications);
+      setNotifications(notificationsResponse?.data?.notifications || []);
 
-      const backendStats = statsResponse.data;
-      setStats({
-        total: backendStats.total_notifications,
-        unread: 0,
-        last24Hours: backendStats.sent_today,
-        lastWeek: backendStats.sent_this_week,
-        byType: backendStats.by_type || {},
-        byPriority: backendStats.by_priority || {},
-      });
+      const backendStats = statsResponse?.data;
+      if (backendStats) {
+        setStats({
+          total: backendStats.total_notifications,
+          unread: 0,
+          last24Hours: backendStats.sent_today,
+          lastWeek: backendStats.sent_this_week,
+          byType: backendStats.by_type || {},
+          byPriority: backendStats.by_priority || {},
+        });
+      }
     } catch (err) {
       console.error('Failed to load notifications:', err);
     } finally {
@@ -267,9 +269,9 @@ export function NotificationManagement({ currentUser }: NotificationManagementPr
                         </div>
                         <div className="flex items-center gap-2">
                           <div className={`px-3 py-1 rounded-full text-xs font-semibold ${notification.priority === 'critical' ? 'bg-destructive/10 text-destructive' :
-                              notification.priority === 'high' ? 'bg-warning/10 text-warning' :
-                                notification.priority === 'normal' ? 'bg-primary/10 text-primary' :
-                                  'bg-success/10 text-success'
+                            notification.priority === 'high' ? 'bg-warning/10 text-warning' :
+                              notification.priority === 'normal' ? 'bg-primary/10 text-primary' :
+                                'bg-success/10 text-success'
                             }`}>
                             {notification.priority}
                           </div>

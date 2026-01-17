@@ -68,8 +68,8 @@ pub async fn permission_validation_middleware(
         next.run(request).await
     } else {
         warn!(
-            "❌ Permission denied (JWT): wallet={}, permission={}, route={} {}",
-            user_context.wallet_address, required_permission, method, path
+            "❌ Permission denied (JWT): wallet={}, permission={}, route={} {}\nCurrent Permissions: {:?}",
+            user_context.wallet_address, required_permission, method, path, user_context.permissions
         );
         create_permission_denied_error(
             &required_permission,
@@ -87,11 +87,6 @@ pub async fn permission_validation_middleware(
 fn check_jwt_permission(user_context: &OpenIDUserContext, required: &str) -> bool {
     // Direct permission match
     if user_context.permissions.contains(&required.to_string()) {
-        return true;
-    }
-
-    // Admin wildcard: admin:*:*
-    if user_context.permissions.iter().any(|p| p == "admin:*:*") {
         return true;
     }
 
@@ -130,9 +125,9 @@ fn get_required_permission(method: &str, path: &str) -> Option<String> {
         ("DELETE", p) if p.contains("/admin/permissions") => Some("admin:permissions:manage".to_string()),
 
         // Payment Admin routes (Phase 1.2)
-        ("GET", p) if p.contains("/admin/list") => Some("admin:payments:read".to_string()),
-        ("GET", p) if p.contains("/admin/analytics") => Some("admin:payments:read".to_string()),
-        ("GET", p) if p.contains("/admin/subscriptions") => Some("admin:payments:read".to_string()),
+        ("GET", p) if p.contains("/admin/list") => Some("admin:payments:view".to_string()),
+        ("GET", p) if p.contains("/admin/analytics") => Some("admin:payments:view".to_string()),
+        ("GET", p) if p.contains("/admin/subscriptions") => Some("admin:payments:view".to_string()),
         ("PUT", p) if p.contains("/admin/") && p.contains("/status") => Some("admin:payments:manage".to_string()),
         ("POST", p) if p.contains("/admin/") && p.contains("/refund") => Some("admin:payments:manage".to_string()),
 

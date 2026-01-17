@@ -71,7 +71,7 @@ export function RecentWalletsPanel() {
       const result = await fetchSimple<RecentWalletsData>('/api/admin/web3/recent-wallets?limit=10&days=30');
       setData(result);
     } catch (err) {
-      logger.error('Error fetching recent wallets', { error: err instanceof Error ? err.message : String(err) });
+      logger.error('Error fetching recent wallets', { error: err instanceof Error ? err.message : JSON.stringify(err) });
       setError(
         err instanceof Error ? err.message : 'Failed to load recent wallets'
       );
@@ -107,24 +107,6 @@ export function RecentWalletsPanel() {
 
   const formatWalletAddress = (address: string) => {
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
-  };
-
-  const getTierColor = (tier?: string | null) => {
-    if (!tier) {return 'outline';}
-
-    switch (tier.toLowerCase()) {
-      case 'admin':
-        return 'destructive';
-      case 'platinum':
-      case 'diamond':
-        return 'default';
-      case 'gold':
-        return 'secondary';
-      case 'silver':
-        return 'outline';
-      default:
-        return 'outline';
-    }
   };
 
   if (loading) {

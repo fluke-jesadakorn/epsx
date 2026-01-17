@@ -67,9 +67,9 @@ export function AccountClient() {
 
   const loadUserInfo = async () => {
     try {
-      const response = await base.get<{ success: boolean, data: UserProfile }>('/api/users/profile');
-      if (response && response.success && response.data?.success && response.data.data) {
-        setUserProfile(response.data.data);
+      const response = await base.get<UserProfile>('/api/users/profile');
+      if (response && response.success && response.data) {
+        setUserProfile(response.data);
       }
     } catch (error) {
       console.error('Error loading user info:', error);
@@ -79,9 +79,9 @@ export function AccountClient() {
   const loadNotificationPreferences = async () => {
     try {
       setPrefsLoading(true);
-      const response = await base.get<{ success: boolean, data: NotificationPreferencesResponse }>('/api/notifications/preferences');
-      if (response && response.success && response.data?.success && response.data.data?.preferences) {
-        setNotificationPrefs(response.data.data.preferences);
+      const response = await base.get<NotificationPreferencesResponse>('/api/notifications/preferences');
+      if (response && response.success && response.data?.preferences) {
+        setNotificationPrefs(response.data.preferences);
       }
     } catch (error) {
       console.error('Error loading notification preferences:', error);

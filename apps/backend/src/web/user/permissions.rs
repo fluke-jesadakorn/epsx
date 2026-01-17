@@ -212,7 +212,7 @@ pub async fn get_user_permissions(
   // Check if user has admin access
   let has_admin_access = user.permissions
     .iter()
-    .any(|p| p.starts_with("admin:") || p == "admin:*:*");
+    .any(|p| p.starts_with("admin:"));
 
   let status = UserPermissionStatus {
     wallet_address: user.id.clone(),

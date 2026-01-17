@@ -1,16 +1,27 @@
-use axum::{
-    response::Json,
-    http::StatusCode,
-    extract::State,
-};
-use diesel::prelude::*;
-use diesel_async::RunQueryDsl;
-use serde_json::{json, Value};
-use crate::web::auth::AppState;
+use crate::web::api_response::ApiResponse;
+use serde::Serialize;
+use utoipa::ToSchema;
+use diesel::QueryableByName;
+use serde_json::json;
 use bigdecimal::BigDecimal;
 use std::str::FromStr;
+use axum::{
+    extract::State,
+    http::StatusCode,
+    Json,
+};
+use crate::web::auth::AppState;
+use diesel_async::RunQueryDsl; // Ensure async execute is used
 
-/// Seed subscription plans (development/testing only)
+#[derive(Serialize, ToSchema)]
+pub struct SeedPlansResponse {
+    pub plans_inserted: i32,
+    pub total_plans: i64,
+    pub errors: Vec<String>,
+}
+
+
+
 /// POST /api/public/plans/seed
 ///
 /// SAFETY: Should be disabled in production or require admin auth
@@ -19,18 +30,21 @@ use std::str::FromStr;
     path = "/api/public/plans/seed",
     tag = "public",
     responses(
-        (status = 200, description = "Successfully seeded subscription plans"),
+        (status = 200, description = "Successfully seeded subscription plans", body = ApiResponse<SeedPlansResponse>),
         (status = 500, description = "Internal server error")
     )
 )]
-pub async fn seed_subscription_plans(State(app_state): State<AppState>) -> Result<Json<Value>, StatusCode> {
+pub async fn seed_subscription_plans(State(app_state): State<AppState>) -> (StatusCode, Json<ApiResponse<SeedPlansResponse>>) {
     tracing::info!("🌱 Seeding subscription plans...");
 
     let mut conn = match app_state.db_pool.get().await {
         Ok(c) => c,
         Err(e) => {
             tracing::error!("Failed to get database connection: {}", e);
-            return Err(StatusCode::INTERNAL_SERVER_ERROR);
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ApiResponse::error("DB_CONNECTION_ERROR", "Failed to connect to database"))
+            );
         }
     };
 
@@ -432,11 +446,11 @@ pub async fn seed_subscription_plans(State(app_state): State<AppState>) -> Resul
     let mut inserted = 0;
     let mut errors = Vec::new();
 
-    if free_plan_result.is_ok() { inserted += 1; } else { errors.push("Free Plan"); }
-    if starter_plan_result.is_ok() { inserted += 1; } else { errors.push("Starter Plan"); }
-    if pro_plan_result.is_ok() { inserted += 1; } else { errors.push("Pro Plan"); }
-    if enterprise_plan_result.is_ok() { inserted += 1; } else { errors.push("Enterprise Plan"); }
-    if api_plan_result.is_ok() { inserted += 1; } else { errors.push("API Developer"); }
+    if free_plan_result.is_ok() { inserted += 1; } else { errors.push("Free Plan".to_string()); }
+    if starter_plan_result.is_ok() { inserted += 1; } else { errors.push("Starter Plan".to_string()); }
+    if pro_plan_result.is_ok() { inserted += 1; } else { errors.push("Pro Plan".to_string()); }
+    if enterprise_plan_result.is_ok() { inserted += 1; } else { errors.push("Enterprise Plan".to_string()); }
+    if api_plan_result.is_ok() { inserted += 1; } else { errors.push("API Developer".to_string()); }
 
     // Get total count
     #[derive(QueryableByName)]
@@ -455,14 +469,13 @@ pub async fn seed_subscription_plans(State(app_state): State<AppState>) -> Resul
 
     tracing::info!("✅ Seeded {} subscription plans. Total in database: {}", inserted, total_plans);
 
-    Ok(Json(json!({
-        "success": true,
-        "message": format!("Seeded {} subscription plans (Total: {})", inserted, total_plans),
-        "data": {
-            "plans_inserted": inserted,
-            "total_plans": total_plans,
-            "errors": errors
-        }
-    })))
+    (
+        StatusCode::OK,
+        Json(ApiResponse::success(SeedPlansResponse {
+            plans_inserted: inserted,
+            total_plans,
+            errors,
+        }))
+    )
 }
 

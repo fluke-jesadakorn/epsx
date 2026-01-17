@@ -380,7 +380,7 @@ export function getAdminDisplayName(wallet: AdminWallet | null): string {
 export function getEnterprisePermissionLabels(permissions: string[]): string[] {
   const permissionLabels: Record<string, string> = {
     // Enterprise Admin permissions
-    'admin:*:*': 'Global Enterprise Administrator',
+    // 'admin:*:*': 'Global Enterprise Administrator', // REMOVED: Strict separation
     'admin:enterprise:*:*': 'Enterprise Management',
     'admin:enterprise:users:manage': 'Enterprise User Management',
     'admin:enterprise:system:manage': 'Enterprise System Management',

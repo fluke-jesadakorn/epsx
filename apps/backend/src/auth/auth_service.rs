@@ -61,6 +61,7 @@ pub struct Web3AuthResult {
     pub access_token: String,
     pub bearer_token: Option<String>,
     pub token_expires_at: Option<DateTime<Utc>>,
+    pub refresh_token: Option<String>,
     pub is_new_user: bool,
 }
 
@@ -258,18 +259,27 @@ impl UnifiedWeb3AuthService {
         let permissions = self.get_wallet_permissions(&wallet_address).await?;
 
         // Generate Bearer token if OpenID service is available
-        let (access_token, bearer_token, token_expires_at) = if let Some(ref openid_service) = self.openid_service {
-            match self.generate_bearer_token(&wallet_address, &permissions, openid_service).await {
-                Ok((token, expiry)) => (token.clone(), Some(token), Some(expiry)),
+        let (access_token, bearer_token, token_expires_at, refresh_token) = if let Some(ref openid_service) = self.openid_service {
+            // Use standard OpenID issuance which includes refresh token
+            match openid_service.issue_tokens_for_user(&wallet_address, &permissions, "epsx-frontend").await {
+                Ok(tokens) => {
+                    let expiry = Utc::now() + Duration::seconds(tokens.expires_in);
+                    (
+                        tokens.access_token.clone(), 
+                        Some(tokens.access_token), 
+                        Some(expiry),
+                        Some(tokens.refresh_token)
+                    )
+                },
                 Err(e) => {
-                    error!("Failed to generate Bearer token: {}", e);
+                    error!("Failed to generate OpenID tokens: {}", e);
                     // Fallback to simple token format if JWT generation fails
-                    (format!("web3_session_{}", wallet_address), None, None)
+                    (format!("web3_session_{}", wallet_address), None, None, None)
                 }
             }
         } else {
             // No OpenID service configured - use simple session token
-            (format!("web3_session_{}", wallet_address), None, None)
+            (format!("web3_session_{}", wallet_address), None, None, None)
         };
 
         Ok(Web3AuthResult {
@@ -278,6 +288,7 @@ impl UnifiedWeb3AuthService {
             access_token,
             bearer_token,
             token_expires_at,
+            refresh_token,
             is_new_user,
         })
     }
@@ -885,6 +896,19 @@ impl UnifiedWeb3AuthService {
         match jsonwebtoken::encode(&header, &claims, &key_manager.current_key().encoding_key) {
             Ok(token) => Ok((token, expiry)),
             Err(e) => Err(Web3AuthError::InvalidSignature(format!("Bearer token generation failed: {}", e))),
+        }
+    }
+
+    /// Refresh tokens using refresh token
+    pub async fn refresh_tokens(&self, refresh_token: &str) -> Result<super::token_service::OpenIDTokenResponse, Web3AuthError> {
+        if let Some(ref openid_service) = self.openid_service {
+            // Use default frontend client_id
+            match openid_service.refresh_tokens(refresh_token, "epsx-frontend").await {
+                Ok(response) => Ok(response),
+                Err(e) => Err(Web3AuthError::InvalidSignature(format!("Token refresh failed: {}", e))),
+            }
+        } else {
+            Err(Web3AuthError::DatabaseError("OpenID service not configured".to_string()))
         }
     }
 }

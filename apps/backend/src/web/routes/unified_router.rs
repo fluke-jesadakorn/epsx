@@ -160,6 +160,7 @@ impl UnifiedRouteBuilder {
             grant_permission_handler,
             revoke_permission_handler,
             get_user_permissions_handler,
+            refresh_token_handler,
         };
 
 
@@ -179,6 +180,7 @@ impl UnifiedRouteBuilder {
             .route("/web3/verify", post(verify_signature_handler))
             .route("/web3/logout", delete(logout_handler))
             .route("/web3/session", get(get_session_handler))
+            .route("/session/refresh", post(refresh_token_handler))
 
             // Permission management
             .route("/web3/permissions/check", post(check_permission_handler))

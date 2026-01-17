@@ -222,7 +222,8 @@ pub async fn verify_signature_handler(
                 "wallet_address": auth_result.wallet_address,
                 "permissions": user_permissions,
                 "permissions_granted": permissions_granted,
-                "access_token": auth_result.bearer_token.clone().unwrap_or(auth_result.access_token)
+                "access_token": auth_result.bearer_token.clone().unwrap_or(auth_result.access_token),
+                "refresh_token": auth_result.refresh_token
             })))
         }
         Err(Web3AuthError::ExpiredNonce(_)) => {
@@ -285,6 +286,56 @@ pub async fn logout_handler(
         "message": "Logged out successfully",
         "wallet_address": request.wallet_address
     })))
+}
+
+/// Token refresh request body
+#[derive(Debug, Deserialize, Serialize, ToSchema)]
+pub struct TokenRefreshRequest {
+    /// Refresh token
+    pub refresh_token: String,
+}
+
+/// Refresh access token using refresh token
+#[utoipa::path(
+    post,
+    path = "/api/auth/session/refresh",
+    request_body = TokenRefreshRequest,
+    responses(
+        (status = 200, description = "Token refreshed successfully", body = Value),
+        (status = 401, description = "Invalid refresh token", body = Value),
+        (status = 500, description = "Internal server error")
+    ),
+    tag = "auth"
+)]
+pub async fn refresh_token_handler(
+    State(app_state): State<AppState>,
+    Json(request): Json<TokenRefreshRequest>,
+) -> Result<Json<Value>, StatusCode> {
+    info!("Processing token refresh request");
+
+    let web3_auth_service = match app_state.domain_container.get_auth_service() {
+        Some(service) => service,
+        None => {
+            error!("Auth service not available");
+            return Err(StatusCode::INTERNAL_SERVER_ERROR);
+        }
+    };
+
+    match web3_auth_service.refresh_tokens(&request.refresh_token).await {
+        Ok(tokens) => {
+            Ok(Json(json!({
+                "success": true,
+                "authenticated": true,
+                "access_token": tokens.access_token,
+                "refresh_token": tokens.refresh_token,
+                "expires_in": tokens.expires_in
+            })))
+        },
+        Err(e) => {
+            tracing::warn!("Token refresh failed: {}", e);
+            Err(StatusCode::UNAUTHORIZED)
+        }
+    }
 }
 
 /// Get current Web3 session status
