@@ -85,9 +85,6 @@ export interface PermissionAuthContextValue {
   hasAnyPermission: (permissions: string[]) => Promise<boolean>;
   hasAllPermissions: (permissions: string[]) => Promise<boolean>;
 
-  // Legacy synchronous methods (DEPRECATED - use async versions)
-  hasPermissionSync: (permission: string) => boolean; // Local fallback only
-
   // Feature access helpers
   canAccessAnalytics: () => boolean;
   canExportData: () => boolean;
@@ -121,9 +118,6 @@ const defaultAuthContext: PermissionAuthContextValue = {
   hasPermission: async () => false, // Fail closed for security
   hasAnyPermission: async () => false, // Fail closed for security
   hasAllPermissions: async () => false, // Fail closed for security
-
-  // Legacy synchronous fallback (DEPRECATED)
-  hasPermissionSync: () => false, // Fail closed for security
 
   canAccessAnalytics: () => false,
   canExportData: () => false,
@@ -590,53 +584,6 @@ export class PermissionAwareAuthService {
     return false; // Fail closed for security
   }
 
-  // 🔒 DEPRECATED: Legacy synchronous permission checking (local fallback only)
-  // ⚠️  WARNING: This method is INSECURE and should not be used for security decisions
-  // Use async hasPermission() method instead for secure backend validation
-  hasPermissionSync(permission: string): boolean {
-    if (!this.currentUser) return false;
-
-    console.warn(`
-⚠️  SECURITY WARNING: Using DEPRECATED synchronous permission checking!
-
-Permission: ${permission}
-User: ${this.currentUser.id}
-
-PROBLEM: 
-- Local validation is HACKABLE
-- Client-side permission checks are INSECURE
-- This method bypasses backend permission authority
-
-SOLUTION:
-- Use async hasPermission() method instead
-- All security decisions should use backend validation
-- Update your code to handle async permission checking
-
-This warning will be removed when local validation is fully deprecated.
-`);
-
-    // Return based on existing local permissions (cached from backend)
-    // This is still insecure but provides temporary compatibility
-    try {
-      // Use existing feature access as fallback
-      const featureMap: Record<string, boolean> = {
-        'epsx:analytics:view': this.currentUser.featureAccess.analytics,
-        'epsx:analytics:basic': this.currentUser.featureAccess.analytics,
-        'epsx:analytics:premium': this.currentUser.featureAccess.analytics,
-        'epsx:export:csv': this.currentUser.featureAccess.export,
-        'epsx:export:excel': this.currentUser.featureAccess.export,
-        'epsx:realtime:access': this.currentUser.featureAccess.realtime,
-        'epsx:filters:advanced': this.currentUser.featureAccess.advancedFilters,
-        'admin:users:manage': this.currentUser.featureAccess.admin,
-        'admin:system:manage': this.currentUser.featureAccess.admin,
-      };
-
-      return featureMap[permission] || false;
-    } catch (error) {
-      authLogger.error('Legacy permission fallback failed', { permission, error: safeError(error).message });
-      return false; // Fail closed
-    }
-  }
 
   // Feature access helpers (the core value proposition)
   canAccessAnalytics(): boolean {
@@ -802,9 +749,6 @@ export function PermissionAuthProvider({ children }: { children: React.ReactNode
     hasPermission: (permission: string) => permissionAuthService.hasPermission(permission),
     hasAnyPermission: (permissions: string[]) => permissionAuthService.hasAnyPermission(permissions),
     hasAllPermissions: (permissions: string[]) => permissionAuthService.hasAllPermissions(permissions),
-
-    // 🔒 DEPRECATED: Legacy synchronous permission checking (INSECURE - use only for compatibility)
-    hasPermissionSync: (permission: string) => permissionAuthService.hasPermissionSync(permission),
 
     // Feature access methods (the core value proposition)
     canAccessAnalytics: () => permissionAuthService.canAccessAnalytics(),

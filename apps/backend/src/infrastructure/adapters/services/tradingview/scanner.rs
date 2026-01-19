@@ -11,6 +11,55 @@ use super::types::{
 };
 use super::types::{TradingViewConfig, FrontendEPSResponse, FrontendPagination};
 use super::rest::TradingViewRestClient;
+use super::utils::{get_number, get_string, extract_symbol};
+
+// ============================================================================
+// TRADINGVIEW FIELD INDICES
+// ============================================================================
+// These constants map to the column indices in the TradingView API response
+// Position in columns array: ["name", "description", "logoid", "update_mode", "type", "typespecs",
+//                             "close", "pricescale", "minmov", "fractional", "minmove2", "currency",
+//                             "change", "volume", "earnings_per_share_fq", "relative_volume_10d_calc", "market_cap_basic",
+//                             "fundamental_currency_code", "price_earnings_ttm", "earnings_per_share_diluted_ttm",
+//                             "earnings_per_share_diluted_yoy_growth_ttm", "dividends_yield_current",
+//                             "earnings_per_share_forecast_fq", "earnings_per_share_forecast_next_fq",
+//                             "earnings_per_share_forecast_next_fh", "earnings_per_share_forecast_next_fy",
+//                             "sector.tr", "market", "sector", "AnalystRating", "AnalystRating.tr", "exchange",
+//                             "earnings_release_date", "earnings_release_next_date", "earnings_release_trading_date_fy",
+//                             "earnings_per_share_diluted_qoq_growth_fq"]
+
+/// Field index for company description/name
+const TV_FIELD_DESCRIPTION: usize = 1;
+/// Field index for close price
+const TV_FIELD_CLOSE_PRICE: usize = 6;
+/// Field index for change percentage
+const TV_FIELD_CHANGE_PERCENT: usize = 12;
+/// Field index for volume
+const TV_FIELD_VOLUME: usize = 13;
+/// Field index for earnings per share (fiscal quarter)
+const TV_FIELD_EPS_FQ: usize = 14;
+/// Field index for market cap basic
+const TV_FIELD_MARKET_CAP: usize = 16;
+/// Field index for price/earnings ratio (TTM)
+const TV_FIELD_PE_RATIO: usize = 17;
+/// Field index for earnings per share diluted (TTM)
+const TV_FIELD_EPS_DILUTED_TTM: usize = 19;
+/// Field index for earnings per share diluted YoY growth (TTM)
+const TV_FIELD_EPS_YOY_GROWTH: usize = 20;
+/// Field index for earnings per share forecast (fiscal quarter)
+const TV_FIELD_EPS_FORECAST_FQ: usize = 22;
+/// Field index for earnings per share forecast next (fiscal quarter)
+const TV_FIELD_EPS_FORECAST_NEXT_FQ: usize = 23;
+/// Field index for earnings per share forecast next (fiscal half year)
+const TV_FIELD_EPS_FORECAST_NEXT_FH: usize = 24;
+/// Field index for sector
+const TV_FIELD_SECTOR: usize = 28;
+/// Field index for earnings release date
+const TV_FIELD_EARNINGS_RELEASE_DATE: usize = 32;
+/// Field index for earnings release next date
+const TV_FIELD_EARNINGS_RELEASE_NEXT_DATE: usize = 33;
+/// Field index for earnings per share diluted QoQ growth (fiscal quarter)
+const TV_FIELD_EPS_QOQ_GROWTH: usize = 35;
 
 /// Stock scanner for TradingView API requests
 pub struct TradingViewScanner {
@@ -397,11 +446,21 @@ impl TradingViewScanner {
         
         // Add symbol filters to the request
         if !symbols.is_empty() {
-            request_payload["filter"].as_array_mut().unwrap().push(json!({
-                "left": "name",
-                "operation": "in_range",
-                "right": symbols
-            }));
+            if let Some(filter_array) = request_payload["filter"].as_array_mut() {
+                filter_array.push(json!({
+                    "left": "name",
+                    "operation": "in_range",
+                    "right": symbols
+                }));
+            } else {
+                debug!("Warning: filter field is not an array in request payload");
+                // If filter is not an array, initialize it as an array with the symbol filter
+                request_payload["filter"] = json!([{
+                    "left": "name",
+                    "operation": "in_range",
+                    "right": symbols
+                }]);
+            }
         }
         
         request_payload
@@ -472,34 +531,12 @@ impl TradingViewScanner {
 
     /// Convert TradingView stock data to stock screening result
     fn convert_to_stock_screening_result(&self, stock: TradingViewStock) -> StockScreeningResult {
-        // Extract symbol early for logging
-        let symbol_str = stock.s.split(':').nth(1).unwrap_or(&stock.s).to_string();
+        // Extract symbol early for logging using shared utility
+        let symbol_str = extract_symbol(&stock.s);
 
-        let get_number = |data: &[StockDataField], idx: usize| -> f64 {
-            match data.get(idx) {
-                Some(StockDataField::Number(n)) => *n,
-                Some(StockDataField::Integer(i)) => *i as f64,
-                _ => 0.0
-            }
-        };
-
-        let get_string = |data: &[StockDataField], idx: usize, default: &str| -> String {
-            data.get(idx)
-                .map(|field| match field {
-                    StockDataField::String(s) => s.clone(),
-                    StockDataField::Number(n) => n.to_string(),
-                    StockDataField::Integer(i) => i.to_string(),
-                    StockDataField::Boolean(b) => b.to_string(),
-                    StockDataField::Array(_) => "Array".to_string(),
-                    StockDataField::Object(_) => "Object".to_string(),
-                    StockDataField::Null => default.to_string(),
-                })
-                .unwrap_or_else(|| default.to_string())
-        };
-
-        // Extract earnings release dates (correct indices based on TradingView API with new fields)
-        let last = get_number(&stock.d, 32); // earnings_release_date (index 32 after adding new forecast fields)
-        let next = get_number(&stock.d, 33); // earnings_release_next_date (index 33 after adding new forecast fields)
+        // Extract earnings release dates
+        let last = get_number(&stock.d, TV_FIELD_EARNINGS_RELEASE_DATE);
+        let next = get_number(&stock.d, TV_FIELD_EARNINGS_RELEASE_NEXT_DATE);
 
         // DEBUG: Enhanced logging to verify we're getting real timestamps
         if !stock.s.is_empty() {
@@ -537,36 +574,36 @@ impl TradingViewScanner {
 
         StockScreeningResult {
             symbol: symbol_str.clone(),
-            name: get_string(&stock.d, 1, ""), // description (Company Name)
-            price: get_number(&stock.d, 6), // close price
-            change_percent: get_number(&stock.d, 12), // change percentage
-            volume: get_number(&stock.d, 13) as u64, // volume
-            market_cap: Some(get_number(&stock.d, 16)), // market_cap_basic (index 16, typically) - double check index if needed, previous was 15? Let's check the debug output in previous turn.
-            pe_ratio: Some(get_number(&stock.d, 17)), // price_earnings_ttm
-            sector: Some(get_string(&stock.d, 28, "N/A")), // sector is at index 28
+            name: get_string(&stock.d, TV_FIELD_DESCRIPTION, ""),
+            price: get_number(&stock.d, TV_FIELD_CLOSE_PRICE),
+            change_percent: get_number(&stock.d, TV_FIELD_CHANGE_PERCENT),
+            volume: get_number(&stock.d, TV_FIELD_VOLUME) as u64,
+            market_cap: Some(get_number(&stock.d, TV_FIELD_MARKET_CAP)),
+            pe_ratio: Some(get_number(&stock.d, TV_FIELD_PE_RATIO)),
+            sector: Some(get_string(&stock.d, TV_FIELD_SECTOR, "N/A")),
             meets_criteria: true, // Assume stocks from screener meet criteria
-            score: get_number(&stock.d, 19).abs().min(100.0), // Use EPS growth as score, capped at 100
+            score: get_number(&stock.d, TV_FIELD_EPS_DILUTED_TTM).abs().min(100.0), // Use EPS growth as score, capped at 100
             screened_at: chrono::Utc::now(),
             // Extract real EPS data from TradingView response - Legacy fields (kept for compatibility)
             current_eps: {
-                let eps_fq = get_number(&stock.d, 14); // earnings_per_share_fq
-                let eps_ttm = get_number(&stock.d, 19); // earnings_per_share_diluted_ttm (Corrected index 19)
+                let eps_fq = get_number(&stock.d, TV_FIELD_EPS_FQ);
+                let eps_ttm = get_number(&stock.d, TV_FIELD_EPS_DILUTED_TTM);
                 if eps_fq > 0.0 { Some(eps_fq) } else if eps_ttm != 0.0 { Some(eps_ttm) } else { None }
             },
             eps_growth_yoy: {
-                // Use QoQ growth if available (Index 35), fallback to YoY (Index 20)
-                let qoq_growth = get_number(&stock.d, 35); // earnings_per_share_diluted_qoq_growth_fq
-                let yoy_growth = get_number(&stock.d, 20); // earnings_per_share_diluted_yoy_growth_ttm
+                // Use QoQ growth if available, fallback to YoY
+                let qoq_growth = get_number(&stock.d, TV_FIELD_EPS_QOQ_GROWTH);
+                let yoy_growth = get_number(&stock.d, TV_FIELD_EPS_YOY_GROWTH);
                 if qoq_growth != 0.0 { Some(qoq_growth) } else if yoy_growth != 0.0 { Some(yoy_growth) } else { None }
             },
             earnings_forecast_fq: {
-                let forecast = get_number(&stock.d, 22); // earnings_per_share_forecast_fq (index 22)
+                let forecast = get_number(&stock.d, TV_FIELD_EPS_FORECAST_FQ);
                 if forecast > 0.0 { Some(forecast) } else { None }
             },
             earnings_forecast_next_fq: {
                 // Try multiple forecast fields to find estimate data
-                let next_fq = get_number(&stock.d, 23); // earnings_per_share_forecast_next_fq
-                let next_fh = get_number(&stock.d, 24); // earnings_per_share_forecast_next_fh (half year)
+                let next_fq = get_number(&stock.d, TV_FIELD_EPS_FORECAST_NEXT_FQ);
+                let next_fh = get_number(&stock.d, TV_FIELD_EPS_FORECAST_NEXT_FH);
                 let next_fy = get_number(&stock.d, 25); // earnings_per_share_forecast_next_fy (full year)
                 
                 // Return first non-zero value

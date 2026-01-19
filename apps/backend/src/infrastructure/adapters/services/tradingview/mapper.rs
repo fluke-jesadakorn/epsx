@@ -7,6 +7,7 @@ use tracing::{ debug, error, info, warn };
 use super::types::{ TradingViewStock, StockDataField };
 use crate::domain::shared_kernel::entities::eps_growth::EPSGrowthData;
 use super::types::{ FrontendEPSData, StockDataResult };
+use super::utils::{get_number_opt, get_string, extract_symbol};
 
 /// Data mapper for TradingView API responses
 pub struct TradingViewMapper;
@@ -18,37 +19,8 @@ impl TradingViewMapper {
   ) -> StockDataResult<EPSGrowthData> {
     debug!("Converting TradingView stock to EPS data: {}", stock.s);
 
-    let get_number = |data: &[StockDataField], idx: usize| -> Option<f64> {
-      match data.get(idx) {
-        Some(StockDataField::Number(n)) => Some(*n),
-        Some(StockDataField::Integer(i)) => Some(*i as f64),
-        _ => None,
-      }
-    };
-
-    let get_string = |
-      data: &[StockDataField],
-      idx: usize,
-      default: &str
-    | -> String {
-      data
-        .get(idx)
-        .map(|field| {
-          match field {
-            StockDataField::String(s) => s.clone(),
-            StockDataField::Number(n) => n.to_string(),
-            StockDataField::Integer(i) => i.to_string(),
-            StockDataField::Boolean(b) => b.to_string(),
-            StockDataField::Array(_) => "Array".to_string(),
-            StockDataField::Object(_) => "Object".to_string(),
-            StockDataField::Null => default.to_string(),
-          }
-        })
-        .unwrap_or_else(|| default.to_string())
-    };
-
-    // Extract symbol from full symbol (e.g., "NASDAQ:AAPL" -> "AAPL")
-    let symbol = stock.s.split(':').nth(1).unwrap_or(&stock.s).to_string();
+    // Extract symbol from full symbol (e.g., "NASDAQ:AAPL" -> "AAPL") using shared utility
+    let symbol = extract_symbol(&stock.s);
     let name = get_string(&stock.d, 0, ""); // name
     let country = get_string(&stock.d, 27, "unknown"); // market (index 27)
     let sector = get_string(&stock.d, 28, ""); // sector (index 28)
@@ -59,8 +31,8 @@ impl TradingViewMapper {
 
     // QoQ growth will be calculated dynamically from quarterly data, not from TTM fields
     let qoq_growth = None; // Remove TTM-based growth calculation
-    let price_current = get_number(&stock.d, 6); // close
-    let market_cap = get_number(&stock.d, 16).map(|mc| mc as i64); // market_cap_basic (index 16)
+    let price_current = get_number_opt(&stock.d, 6); // close
+    let market_cap = get_number_opt(&stock.d, 16).map(|mc| mc as i64); // market_cap_basic (index 16)
     let volume = get_number(&stock.d, 13).map(|vol| vol as i64); // volume
 
     debug!(

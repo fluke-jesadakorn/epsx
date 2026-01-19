@@ -24,8 +24,6 @@ pub mod cache;
 pub mod key_manager;
 pub mod permissions;
 pub mod granular_permissions;
-pub mod hierarchy_resolver;
-pub mod policy_engine;
 pub mod cleanup;
 pub mod types;
 
@@ -69,14 +67,6 @@ pub use permissions::{Permission as LegacyPermission, UserClaims, check_permissi
 pub use granular_permissions::{
     GranularPermissionClaim, PermissionSource as GranularPermissionSource, GranularPermissionSet, 
     PermissionValidationResult, ValidationContext as GranularValidationContext, GranularPermissionError
-};
-pub use hierarchy_resolver::{
-    HierarchyResolver, PermissionHierarchy, InheritanceType, HierarchyResolution, 
-    InheritanceChain, PermissionCache as HierarchyPermissionCache, HierarchyStats
-};
-pub use policy_engine::{
-    PolicyEngine, DynamicPolicy, PolicyCondition, PolicyAction, PolicyDecision,
-    PolicyEvaluationContext, PolicyTemplate, PolicyEvaluationResult
 };
 
 pub use cleanup::{TokenCleanupService, CleanupConfig, CleanupResult, CleanupError, start_cleanup_service, manual_cleanup, get_cleanup_stats};

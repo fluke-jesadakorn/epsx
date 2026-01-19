@@ -558,8 +558,6 @@ impl UnifiedRouteBuilder {
             .route("/plans", get(get_user_plans_handler)) // Changed from /subscriptions
             .route("/plans/expiry", get(get_plan_expiry_status_handler)) // Changed from /subscriptions/{id}
             .route("/plans/cancel/{id}", post(cancel_plan_handler)) // Changed from /subscriptions/{id}/cancel
-            // .route("/subscriptions/{id}/renew", post(renew_subscription_handler)) // Disabled
-            // .route("/subscriptions/check/{plan_id}", get(check_subscription_status_handler)) // Disabled
             .route("/plans/upgrade_preview", get(get_upgrade_preview_handler)) // Changed from /subscriptions/upgrade-preview
             .with_state(app_state.clone())
             .layer(axum_middleware::from_fn_with_state(
