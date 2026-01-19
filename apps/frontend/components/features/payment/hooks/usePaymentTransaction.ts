@@ -18,6 +18,12 @@ interface UsePaymentTransactionProps {
 
 // Note: Using TransactionStatusData from @/shared/api/payments
 
+/** Polling interval for transaction status checks (ms) */
+const STATUS_POLL_INTERVAL_MS = 3000
+
+/** Token decimals for USDT/USDC on BSC */
+const TOKEN_DECIMALS = 6
+
 export function usePaymentTransaction({
     tokenAddress,
     escrowAddress,
@@ -50,9 +56,9 @@ export function usePaymentTransaction({
         hash: paymentHash,
     })
 
-    // Debug: Log wagmi state changes
+    // Log wagmi state changes in development
     useEffect(() => {
-        console.log('🔄 WAGMI STATE CHANGED:', {
+        devLog('🔄 WAGMI STATE CHANGED:', {
             paymentHash,
             paymentError: paymentError?.message,
             isPaying,
@@ -70,16 +76,13 @@ export function usePaymentTransaction({
      */
     const submitToBackend = useCallback(async (txHash: string) => {
         if (hasSubmittedRef.current) {
-            console.log('⚠️ [Debug] Already submitted, skipping:', txHash)
+            devLog('⚠️ Already submitted, skipping:', txHash)
             return
         }
 
-        console.log('🚀 [Debug] submitToBackend called with:', txHash)
-
         try {
             const submitUrl = `${env.BACKEND_URL}/api/payments/submit`;
-            console.log('📤 [Debug] Submitting to:', submitUrl, { txHash, planId, amount, currency })
-            devLog('📤 Submitting transaction to backend for monitoring...', { txHash })
+            devLog('📤 Submitting transaction to backend for monitoring...', { txHash, planId, amount, currency })
             hasSubmittedRef.current = true
 
             const requestBody = {
@@ -88,7 +91,6 @@ export function usePaymentTransaction({
                 expected_amount: amount,
                 currency,
             }
-            console.log('📦 [Debug] Request body:', JSON.stringify(requestBody))
 
             const response = await fetch(submitUrl, {
                 method: 'POST',
@@ -99,23 +101,19 @@ export function usePaymentTransaction({
                 body: JSON.stringify(requestBody),
             })
 
-            console.log('📥 [Debug] Response status:', response.status)
             const result = await response.json()
-            console.log('📥 [Debug] Response body:', result)
+            devLog('📥 Backend response:', { status: response.status, result })
 
             if (result.success) {
-                console.log('✅ [Debug] Transaction submitted to backend', result.data)
                 devLog('✅ Transaction submitted to backend', result.data)
                 setStep('submitted')
-                // Start polling for status
                 startPolling(txHash)
             } else {
-                console.error('❌ [Debug] Failed to submit to backend:', result.message || result.error)
-                // Continue anyway - the old confirm flow will handle it
+                devLog('❌ Failed to submit to backend:', result.message || result.error)
                 onError?.(`Failed to submit transaction: ${result.message || JSON.stringify(result.error)}`)
             }
         } catch (error) {
-            console.error('❌ [Debug] Error submitting to backend:', error)
+            devLog('❌ Error submitting to backend:', error)
             // Don't fail the payment - it was successful on-chain
         }
 
@@ -132,7 +130,6 @@ export function usePaymentTransaction({
         const pollStatus = async () => {
             try {
                 const statusUrl = `${env.BACKEND_URL}/api/payments/status/${txHash}`;
-                console.log('🔍 [Debug] Polling status from:', statusUrl);
 
                 const response = await fetch(statusUrl, {
                     credentials: 'include',
@@ -140,14 +137,13 @@ export function usePaymentTransaction({
 
                 if (!response.ok) {
                     if (response.status === 404) {
-                        devLog('⏳ [Debug] Transaction not yet processed by backend (404)')
+                        devLog('⏳ Transaction not yet processed by backend')
                         return
                     }
                     throw new Error(`Status check failed: ${response.status}`)
                 }
 
                 const result = await response.json()
-                // console.log('📊 [Debug] Poll result:', result)
 
                 if (result.success) {
                     const status = result.data as TransactionStatusData
@@ -157,7 +153,6 @@ export function usePaymentTransaction({
 
                     if (status.status === 'confirmed') {
                         devLog('✅ Payment confirmed by backend!')
-                        console.log('✅ [Debug] Payment confirmed! calling onSuccess')
                         setStep('complete')
                         stopPolling()
                         onSuccess?.(txHash)
@@ -171,13 +166,12 @@ export function usePaymentTransaction({
                     }
                 }
             } catch (error) {
-                console.error('Error polling status:', error)
+                devLog('Error polling status:', error)
             }
         }
 
-        // Poll immediately, then every 3 seconds
         pollStatus()
-        pollingRef.current = setInterval(pollStatus, 3000)
+        pollingRef.current = setInterval(pollStatus, STATUS_POLL_INTERVAL_MS)
     }, [onSuccess, onError])
 
     const stopPolling = useCallback(() => {
@@ -194,17 +188,7 @@ export function usePaymentTransaction({
 
     // Submit to backend when the payment is confirmed ON-CHAIN (not just sent)
     useEffect(() => {
-        console.log('🔍 Checking on-chain confirmation state:', {
-            paymentHash,
-            isPaymentOnChainConfirmed,
-            isWaitingForReceipt,
-            step,
-            hasSubmitted: hasSubmittedRef.current
-        })
-
-        // Only submit to backend AFTER the transaction is confirmed on-chain
         if (paymentHash && isPaymentOnChainConfirmed && !hasSubmittedRef.current) {
-            console.log('🎉 Payment confirmed on-chain! Submitting to backend:', paymentHash)
             devLog('🎉 Payment confirmed on-chain! Submitting to backend:', paymentHash)
             submitToBackend(paymentHash)
         }
@@ -213,7 +197,7 @@ export function usePaymentTransaction({
     // Handle errors from writeContract
     useEffect(() => {
         if (paymentError) {
-            console.error('Payment error:', paymentError)
+            devLog('Payment error:', paymentError)
             const isUserRejection = paymentError.message.toLowerCase().includes('user rejected') ||
                 paymentError.message.toLowerCase().includes('user denied')
 
@@ -257,11 +241,11 @@ export function usePaymentTransaction({
                 return numericId
             }
         } catch (e) {
-            console.error('Failed to convert planId to numeric ID:', e)
+            devLog('Failed to convert planId to numeric ID:', e)
         }
 
-        console.warn('Using fallback random plan ID')
-        return BigInt(Math.floor(Math.random() * 1000000) + 1)
+        // Throw error instead of using random ID - random IDs could cause payment tracking issues
+        throw new Error(`Invalid plan ID format: ${uuidOrId}`)
     }
 
     const pay = async () => {
@@ -273,8 +257,7 @@ export function usePaymentTransaction({
         try {
             setStep('paying')
             hasSubmittedRef.current = false
-            const decimals = 6
-            const transferAmount = parseUnits(amount.toString(), decimals)
+            const transferAmount = parseUnits(amount.toString(), TOKEN_DECIMALS)
             const numericPlanId = getNumericPlanId(planId)
 
             devLog('💸 Executing payment...', {
@@ -290,7 +273,7 @@ export function usePaymentTransaction({
                 args: [numericPlanId, tokenAddress as `0x${string}`, transferAmount],
             })
         } catch (error) {
-            console.error('Payment execution failed:', error)
+            devLog('Payment execution failed:', error)
             setStep('idle')
             onError?.(`Payment execution failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
         }

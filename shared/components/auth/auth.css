@@ -41,6 +41,12 @@
   }
 }
 
+/* Enforce dark mode for admin modal regardless of system preference */
+.auth-modal-admin {
+  background: linear-gradient(135deg, rgba(30, 30, 40, 0.95), rgba(20, 20, 30, 0.9)) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
 /* Modal Header */
 .auth-modal-header {
   position: relative;

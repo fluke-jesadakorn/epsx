@@ -28,6 +28,7 @@ export async function getAnalyticsData(params: EPSQueryParams) {
         const sort_by = params.sort_by as any;
 
         // Use the unified rankings endpoint which returns CardDashboardResponse
+        // NOTE: The backend returns EPSRanking format which needs to be mapped to SymbolCardData
         const response = await analyticsClient.getAuthenticatedRankings({
             page: params.page,
             limit: params.limit,
@@ -36,7 +37,7 @@ export async function getAnalyticsData(params: EPSQueryParams) {
             sort_by: sort_by,
             min_eps: params.min_eps,
             min_growth: params.min_growth,
-        });
+        }) as any;
 
         if (!response || (response.success === false)) {
             console.warn('⚠️ Analytics data fetch failed or returned empty:', response?.message);
@@ -53,8 +54,52 @@ export async function getAnalyticsData(params: EPSQueryParams) {
             };
         }
 
+        // Map backend EPSRanking data to frontend SymbolCardData
+        // The backend returns loose structure that needs to be normalized
+        const rawRankings = response.data || [];
+        const mappedRankings: SymbolCardData[] = rawRankings.map((item: any, index: number) => {
+            // Determine rank (use existing or calculate)
+            const rank = item.ranking_position || item.rank || ((params.page - 1) * params.limit) + index + 1;
+
+            // Map quarterly data if available
+            const quarterlyPerformance = (item.quarterly_data || item.quarterly_performance || []).map((q: any) => ({
+                quarter: q.quarter,
+                date: q.date,
+                price: q.price,
+                eps: q.eps,
+                eps_growth: q.eps_growth,
+                price_growth: q.price_growth,
+                is_estimated: false
+            }));
+
+            // Get latest data point for display
+            const latestData = quarterlyPerformance[0] || {};
+
+            return {
+                rank: rank,
+                symbol: item.symbol,
+                company_name: item.name || item.company_name,
+                latest_date: latestData.date || new Date().toISOString(),
+                value: item.price_current || latestData.price || 0,
+                active_status: item.active_status || 'Active',
+                quarterly_performance: quarterlyPerformance,
+                currency: item.currency || 'USD',
+
+                // Mapped fields
+                current_eps: item.current_eps,
+                growth_factor: item.growth_factor,
+                price_current: item.price_current,
+
+                // Defaults for missing data
+                next_quarter_estimate: item.next_quarter_estimate,
+                next_earnings_date: item.next_earnings_date,
+                days_until_next_earnings: item.days_until_next_earnings,
+                progress_percentage: item.progress_percentage
+            };
+        });
+
         return {
-            rankings: response.data,
+            rankings: mappedRankings,
             pagination: response.pagination,
             processing_time_ms: response.processing_time_ms
         };

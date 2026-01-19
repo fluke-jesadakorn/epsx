@@ -342,3 +342,24 @@ export const HTTP_ONLY_COOKIES = [
   'state',
   'nonce'
 ] as const;
+
+/**
+ * Server-side utility to get auth token from cookies with fallback support.
+ * This consolidates the token fetching logic used across server actions.
+ * 
+ * @param cookieStore - The Next.js cookies() store
+ * @returns The auth token if found, null otherwise
+ */
+export function getServerAuthToken(
+  cookieStore: { get: (name: string) => { value: string } | undefined }
+): string | null {
+  // Primary: Check session ID cookie
+  let token = cookieStore.get(COOKIES.sid)?.value;
+  if (token) return token;
+
+  // Secondary: Check access token
+  token = cookieStore.get(COOKIES.access_token)?.value;
+  if (token) return token;
+
+  return null;
+}

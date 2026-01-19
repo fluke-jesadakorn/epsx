@@ -1,6 +1,48 @@
 import { useAppState } from '@/context/app-state';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+type Theme = 'light' | 'dark' | 'system'
+
+interface UiSlice {
+  theme?: Theme
+  toasts?: unknown[]
+  modal?: unknown
+  sidebar?: unknown
+}
+
+interface UserSlice {
+  data?: {
+    permissions?: unknown
+    [key: string]: unknown
+  } | null
+  loading?: boolean
+}
+
+interface TradingSlice {
+  data?: {
+    watchlist?: unknown[]
+    portfolio?: Array<{ value?: number }>
+  }
+  realtime?: unknown
+}
+
+interface NotificationsSlice {
+  list?: Array<{ read?: boolean }>
+}
+
+interface AnalyticsSlice {
+  data?: unknown
+  rankings?: unknown[]
+}
+
+type RootState = {
+  ui?: UiSlice
+  user?: UserSlice
+  trading?: TradingSlice
+  notifications?: NotificationsSlice
+  analytics?: AnalyticsSlice
+}
+
 type SelectorFunction<T, R> = (state: T) => R;
 type EqualityFunction<R> = (prev: R, next: R) => boolean;
 
@@ -35,10 +77,10 @@ const shallowEqual: EqualityFunction<unknown> = (prev, next) => {
  * Only re-renders when the selected portion of state changes
  */
 export function useStateSelector<R>(
-  selector: SelectorFunction<unknown, R>,
+  selector: SelectorFunction<RootState, R>,
   options: SelectorOptions<R> = {}
 ): R {
-  const { state } = useAppState();
+  const { state } = useAppState() as { state: RootState };
   const { equalityFn = shallowEqual, debugName } = options;
 
   const selectorRef = useRef(selector);
@@ -71,7 +113,7 @@ export function useStateSelector<R>(
  * Memoized state selector with dependency tracking
  */
 export function useMemoizedSelector<R>(
-  selector: SelectorFunction<unknown, R>,
+  selector: SelectorFunction<RootState, R>,
   deps: unknown[] = [],
   options: SelectorOptions<R> = {}
 ): R {
@@ -83,10 +125,10 @@ export function useMemoizedSelector<R>(
  * Multi-selector hook for selecting multiple pieces of state efficiently
  */
 export function useMultiSelector<T extends Record<string, unknown>>(
-  selectors: { [K in keyof T]: SelectorFunction<unknown, T[K]> },
+  selectors: { [K in keyof T]: SelectorFunction<RootState, T[K]> },
   options: SelectorOptions<T> = {}
 ): T {
-  const combinedSelector = useCallback((state: unknown) => {
+  const combinedSelector = useCallback((state: RootState) => {
     const result = {} as T;
     for (const [key, selector] of Object.entries(selectors)) {
       result[key as keyof T] = selector(state);
@@ -103,66 +145,69 @@ export function useMultiSelector<T extends Record<string, unknown>>(
 
 // UI State Selectors
 export function useThemeSelector() {
-  return useStateSelector((state: unknown) => (state as any).ui?.theme, {
+  return useStateSelector((state) => state.ui?.theme, {
     debugName: 'theme'
   });
 }
 
 export function useToastsSelector() {
-  return useStateSelector((state: unknown) => (state as any).ui?.toasts || [], {
+  return useStateSelector((state) => state.ui?.toasts || [], {
     debugName: 'toasts'
   });
 }
 
 export function useModalSelector() {
-  return useStateSelector((state: unknown) => (state as any).ui?.modal, {
+  return useStateSelector((state) => state.ui?.modal, {
     debugName: 'modal'
   });
 }
 
 export function useSidebarSelector() {
-  return useStateSelector((state: unknown) => (state as any).ui?.sidebar, {
+  return useStateSelector((state) => state.ui?.sidebar, {
     debugName: 'sidebar'
   });
 }
 
 // User State Selectors
 export function useUserSelector() {
-  return useStateSelector((state: unknown) => (state as any).user?.data, {
+  return useStateSelector((state) => state.user?.data, {
     debugName: 'user'
   });
 }
 
 export function useUserLoadingSelector() {
-  return useStateSelector((state: unknown) => (state as any).user?.loading || false, {
+  return useStateSelector((state) => state.user?.loading || false, {
     equalityFn: (prev, next) => prev === next,
     debugName: 'userLoading'
   });
 }
 
 export function useUserPermissionsSelector() {
-  return useStateSelector((state: unknown) => (state as any).user?.data?.permissions || [], {
+  return useStateSelector((state) => {
+    const perms = state.user?.data?.permissions
+    return Array.isArray(perms) ? perms : []
+  }, {
     debugName: 'userPermissions'
   });
 }
 
 // Trading State Selectors
 export function useWatchlistSelector() {
-  return useStateSelector((state: unknown) => (state as any).trading?.data?.watchlist || [], {
+  return useStateSelector((state) => state.trading?.data?.watchlist || [], {
     debugName: 'watchlist'
   });
 }
 
 export function usePortfolioSelector() {
-  return useStateSelector((state: unknown) => (state as any).trading?.data?.portfolio || [], {
+  return useStateSelector((state) => state.trading?.data?.portfolio || [], {
     debugName: 'portfolio'
   });
 }
 
 export function usePortfolioTotalSelector() {
-  return useStateSelector((state: unknown) => {
-    const portfolio = (state as any).trading?.data?.portfolio || [];
-    return portfolio.reduce((total: number, item: any) => total + (item.value || 0), 0);
+  return useStateSelector((state) => {
+    const portfolio = state.trading?.data?.portfolio || [];
+    return portfolio.reduce((total, item) => total + (item.value || 0), 0);
   }, {
     equalityFn: (prev, next) => prev === next,
     debugName: 'portfolioTotal'
@@ -170,31 +215,31 @@ export function usePortfolioTotalSelector() {
 }
 
 export function useRealtimeDataSelector() {
-  return useStateSelector((state: unknown) => (state as any).trading?.realtime, {
+  return useStateSelector((state) => state.trading?.realtime, {
     debugName: 'realtimeData'
   });
 }
 
 // Notification Selectors
 export function useNotificationsSelector() {
-  return useStateSelector((state: unknown) => (state as any).notifications?.list || [], {
+  return useStateSelector((state) => state.notifications?.list || [], {
     debugName: 'notifications'
   });
 }
 
 export function useUnreadNotificationsSelector() {
-  return useStateSelector((state: unknown) => {
-    const notifications = (state as any).notifications?.list || [];
-    return notifications.filter((n: any) => !n.read);
+  return useStateSelector((state) => {
+    const notifications = state.notifications?.list || [];
+    return notifications.filter((n) => !n.read);
   }, {
     debugName: 'unreadNotifications'
   });
 }
 
 export function useNotificationCountSelector() {
-  return useStateSelector((state: unknown) => {
-    const notifications = (state as any).notifications?.list || [];
-    return notifications.filter((n: any) => !n.read).length;
+  return useStateSelector((state) => {
+    const notifications = state.notifications?.list || [];
+    return notifications.filter((n) => !n.read).length;
   }, {
     equalityFn: (prev, next) => prev === next,
     debugName: 'notificationCount'
@@ -203,13 +248,13 @@ export function useNotificationCountSelector() {
 
 // Analytics Selectors
 export function useAnalyticsDataSelector() {
-  return useStateSelector((state: unknown) => (state as any).analytics?.data, {
+  return useStateSelector((state) => state.analytics?.data, {
     debugName: 'analyticsData'
   });
 }
 
 export function useRankingsSelector() {
-  return useStateSelector((state: unknown) => (state as any).analytics?.rankings || [], {
+  return useStateSelector((state) => state.analytics?.rankings || [], {
     debugName: 'rankings'
   });
 }
@@ -241,7 +286,7 @@ export function createSelector<T, R>(
   selector: SelectorFunction<T, R>,
   options?: SelectorOptions<R>
 ) {
-  return () => useStateSelector(selector as SelectorFunction<unknown, R>, options);
+  return () => useStateSelector(selector as unknown as SelectorFunction<RootState, R>, options);
 }
 
 // Batched selector updates

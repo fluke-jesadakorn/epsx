@@ -211,7 +211,7 @@ export function AuthModal({
 
     return (
         <div className="auth-modal-overlay" onClick={onClose}>
-            <div className="auth-modal-card" onClick={(e) => e.stopPropagation()}>
+            <div className={`auth-modal-card ${variant === 'admin' ? 'auth-modal-admin' : ''}`} onClick={(e) => e.stopPropagation()}>
                 {/* Header */}
                 <div className="auth-modal-header">
                     <h2 className="auth-modal-title">{title}</h2>

@@ -17,7 +17,7 @@ use diesel_async::{AsyncPgConnection, pooled_connection::deadpool::Pool, RunQuer
 use diesel::prelude::*;
 use std::str::FromStr;
 use tracing::{debug, error, info, warn};
-use jsonwebtoken;
+
 use serde_json;
 
 use super::token_service::OpenIDTokenService;
@@ -857,47 +857,7 @@ impl UnifiedWeb3AuthService {
         Ok(permissions)
     }
     
-    /// Generate Bearer token for API access using OpenID service
-    async fn generate_bearer_token(
-        &self,
-        wallet_address: &str,
-        permissions: &[String],
-        _openid_service: &OpenIDTokenService,
-    ) -> Result<(String, DateTime<Utc>), Web3AuthError> {
-        use super::AccessTokenClaims;
 
-        let now = Utc::now();
-        let expiry = now + Duration::hours(1); // 1 hour token expiry
-
-        // Convert permissions to OIDC scope format
-        let scope = format!("openid profile {}", permissions.join(" "));
-
-        let claims = AccessTokenClaims {
-            // Standard OIDC claims
-            iss: "https://api.epsx.io".to_string(),
-            sub: wallet_address.to_string(),
-            aud: vec!["epsx-api".to_string()],
-            exp: expiry.timestamp(),
-            iat: now.timestamp(),
-            jti: uuid::Uuid::new_v4().to_string(),
-            scope,
-
-            // EPSX custom claims
-            wallet_address: wallet_address.to_string(),
-            auth_method: "web3_siwe".to_string(),
-            auth_time: now.timestamp(),
-        };
-
-        // Use KeyManager from OpenID service for proper RS256 signing
-        let key_manager = _openid_service.get_key_manager();
-        let mut header = jsonwebtoken::Header::new(jsonwebtoken::Algorithm::RS256);
-        header.kid = Some(key_manager.current_key().kid.clone());
-
-        match jsonwebtoken::encode(&header, &claims, &key_manager.current_key().encoding_key) {
-            Ok(token) => Ok((token, expiry)),
-            Err(e) => Err(Web3AuthError::InvalidSignature(format!("Bearer token generation failed: {}", e))),
-        }
-    }
 
     /// Refresh tokens using refresh token
     pub async fn refresh_tokens(&self, refresh_token: &str) -> Result<super::token_service::OpenIDTokenResponse, Web3AuthError> {

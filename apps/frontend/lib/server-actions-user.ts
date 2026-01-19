@@ -1,7 +1,7 @@
 'use server';
 import { cookies } from 'next/headers';
 
-import { COOKIES } from '@/shared/auth/cookies';
+import { COOKIES, getServerAuthToken } from '@/shared/auth/cookies';
 export interface AuthUser {
   id: string;
   email?: string;
@@ -20,22 +20,7 @@ import { createFrontendApiClient } from '@/shared/utils/api-client';
 export async function getCurrentUser(): Promise<AuthUser | null> {
   try {
     const cookieStore = await cookies();
-
-    // Check for our synced client session first, then fallback to httpOnly access token
-    let token = cookieStore.get(COOKIES.sid)?.value;
-
-    if (!token) {
-      // Also check legacy/fallback names if needed, or strictly follow COOKIES
-      // Fallback to access_token (httpOnly)
-      token = cookieStore.get(COOKIES.access_token)?.value;
-
-      // Fallback to legacy names just in case (optional, but safer during migration)
-      if (!token) token = cookieStore.get('epsx.client_session')?.value;
-      if (!token) token = cookieStore.get('epsx.access')?.value;
-
-      // eslint-disable-next-line no-console
-      if (token) console.log('🔍 [Debug] getCurrentUser: Found token in fallback/secondary cookies');
-    }
+    const token = getServerAuthToken(cookieStore);
 
     if (!token) {
       return null;
@@ -79,9 +64,9 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
       emailVerified: true, // Wallet is always verified
       permissions: perms,
       role,
-      name: (data as any).name || (data as any).email || '',
-      email: (data as any).email || '',
-      package_tier: (data as any).package_tier || 'FREE',
+      name: (data as Record<string, unknown>).name as string || (data as Record<string, unknown>).email as string || '',
+      email: (data as Record<string, unknown>).email as string || '',
+      package_tier: (data as Record<string, unknown>).package_tier as string || 'FREE',
     };
 
   } catch (error) {
@@ -93,19 +78,9 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
 export async function getPaymentHistory() {
   try {
     const cookieStore = await cookies();
-
-    // Get auth token
-    let token = cookieStore.get(COOKIES.sid)?.value;
-    if (!token) {
-      token = cookieStore.get(COOKIES.access_token)?.value;
-      // Fallback to legacy names
-      if (!token) token = cookieStore.get('epsx.client_session')?.value;
-      if (!token) token = cookieStore.get('epsx.access')?.value;
-    }
+    const token = getServerAuthToken(cookieStore);
 
     if (!token) {
-      // eslint-disable-next-line no-console
-      console.log('[getPaymentHistory] No auth token found');
       return [];
     }
 
@@ -149,13 +124,7 @@ export async function getPaymentHistory() {
 export async function checkFeatureAccess(feature: string) {
   try {
     const cookieStore = await cookies();
-    let token = cookieStore.get(COOKIES.sid)?.value;
-    if (!token) {
-      token = cookieStore.get(COOKIES.access_token)?.value;
-      // Fallback to legacy names
-      if (!token) token = cookieStore.get('epsx.client_session')?.value;
-      if (!token) token = cookieStore.get('epsx.access')?.value;
-    }
+    const token = getServerAuthToken(cookieStore);
 
     if (!token) {
       return {
@@ -204,13 +173,7 @@ export async function checkFeatureAccess(feature: string) {
 export async function getPaymentStatus(paymentId?: string) {
   try {
     const cookieStore = await cookies();
-    let token = cookieStore.get(COOKIES.sid)?.value;
-    if (!token) {
-      token = cookieStore.get(COOKIES.access_token)?.value;
-      // Fallback to legacy names
-      if (!token) token = cookieStore.get('epsx.client_session')?.value;
-      if (!token) token = cookieStore.get('epsx.access')?.value;
-    }
+    const token = getServerAuthToken(cookieStore);
 
     if (!token) {
       return {
