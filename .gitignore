@@ -82,3 +82,4 @@ secrets/
 
 # Debug and Test Files
 .debug/
+docs/privatekey.txt
