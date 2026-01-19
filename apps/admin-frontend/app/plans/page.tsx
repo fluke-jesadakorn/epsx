@@ -32,7 +32,7 @@ function PlansHubSkeleton() {
         {/* Stats grid skeleton */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="bg-card/80 backdrop-blur-sm rounded-3xl p-6 border border-border/50 ">
+            <div key={i} className="bg-card rounded-3xl p-6 border border-border/50 ">
               <div className="h-6 bg-primary/10 rounded-lg mb-4 w-1/2"></div>
               <div className="h-12 bg-muted rounded-xl mb-2 w-3/4"></div>
               <div className="h-4 bg-muted/60 rounded-lg w-1/3"></div>
@@ -41,7 +41,7 @@ function PlansHubSkeleton() {
         </div>
 
         {/* Plans table skeleton */}
-        <div className="bg-card/90 backdrop-blur-sm rounded-3xl border border-border/30 overflow-hidden">
+        <div className="bg-card rounded-3xl border border-border/30 overflow-hidden">
           <div className="p-8">
             <div className="h-8 bg-primary/10 rounded-xl mb-6 w-1/3 "></div>
             <div className="space-y-4">

@@ -5,7 +5,7 @@ import { Loader2 } from 'lucide-react';
  */
 export default function AdminProfileLoading() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-yellow-50 via-orange-50 to-pink-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
+    <div className="min-h-screen bg-background">
       <div className="container mx-auto px-6 py-8">
         <div className="max-w-6xl mx-auto">
           {/* Header Skeleton */}

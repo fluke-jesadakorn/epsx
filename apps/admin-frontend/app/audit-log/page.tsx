@@ -50,7 +50,7 @@ const ACTION_CATEGORIES: Record<ActionType, { label: string; icon: string; color
 
 function AuditLogSkeleton(): React.JSX.Element {
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-gray-50 to-zinc-50 dark:from-gray-900 dark:via-slate-900 dark:to-gray-900 p-6">
+        <div className="min-h-screen bg-background p-6">
             <div className="max-w-7xl mx-auto">
                 {/* Header skeleton */}
                 <div className="mb-8">
@@ -191,7 +191,7 @@ export default function AuditLogPage(): React.JSX.Element {
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-gray-50 to-zinc-50 dark:from-gray-900 dark:via-slate-900 dark:to-gray-900 p-3 sm:p-6">
+        <div className="min-h-screen bg-background p-3 sm:p-6">
             {/* Background Decorations */}
             <div className="fixed inset-0 overflow-hidden pointer-events-none">
                 <div className="absolute top-20 left-20 w-32 h-32 bg-gradient-to-r from-indigo-400/20 to-purple-500/20 rounded-full blur-xl"></div>
@@ -219,7 +219,7 @@ export default function AuditLogPage(): React.JSX.Element {
                 </div>
 
                 {/* Filters Bar */}
-                <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl p-4 mb-6 shadow-xl border border-white/20">
+                <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 mb-6 shadow-xl border border-white/20">
                     <div className="flex flex-col lg:flex-row gap-4">
                         {/* Search */}
                         <div className="relative flex-1">
@@ -291,7 +291,7 @@ export default function AuditLogPage(): React.JSX.Element {
                 </div>
 
                 {/* Audit Log Table */}
-                <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-2xl shadow-xl border border-white/20 overflow-hidden">
+                <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-white/20 overflow-hidden">
                     {isLoadingLogs ? (
                         <div className="p-8 text-center">
                             <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-4 text-indigo-500" />

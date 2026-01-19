@@ -49,8 +49,9 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
 
     const applySettings = useCallback((newSettings: SystemSettings) => {
         // Apply theme mode
-        const themeMode = newSettings.appearance?.theme || 'dark';
-        setTheme(themeMode === 'auto' ? 'system' : themeMode);
+        // NOTE: Commented out to prevent conflict with next-themes user selection
+        // const themeMode = newSettings.appearance?.theme || 'dark';
+        // setTheme(themeMode === 'auto' ? 'system' : themeMode);
 
         // Apply accent color
         const accentColor = newSettings.appearance?.primaryColor || '#00ff33';

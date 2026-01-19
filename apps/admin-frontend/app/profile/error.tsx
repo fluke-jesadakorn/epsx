@@ -18,12 +18,12 @@ interface AdminProfileErrorProps {
  */
 export default function AdminProfileError({ error, reset }: AdminProfileErrorProps) {
   useEffect(() => {
-     
+
     console.error('Admin profile page error:', error);
   }, [error]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-yellow-50 via-orange-50 to-pink-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
+    <div className="min-h-screen bg-background">
       <div className="container mx-auto px-6 py-8">
         <div className="max-w-2xl mx-auto">
           <div className="bg-white dark:bg-slate-800 rounded-2xl border border-yellow-200 dark:border-slate-700 p-8 text-center">
@@ -59,8 +59,8 @@ export default function AdminProfileError({ error, reset }: AdminProfileErrorPro
                 <RefreshCw className="h-4 w-4" />
                 Try Again
               </Button>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={() => window.location.href = '/'}
               >
                 Go to Dashboard

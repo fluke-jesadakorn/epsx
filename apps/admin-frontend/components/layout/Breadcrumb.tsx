@@ -89,11 +89,11 @@ export function Breadcrumb() {
 
   if (breadcrumbs.length <= 1) {
     return (
-      <div className="flex items-center gap-2 text-sm">
-        <span className="text-gray-600 dark:text-gray-300">
+      <div className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm min-w-0">
+        <span className="text-gray-600 dark:text-gray-300 flex-shrink-0">
           {breadcrumbs[0]?.icon || '🏠'}
         </span>
-        <span className="font-semibold bg-gradient-to-r from-yellow-600 to-orange-600 dark:from-purple-400 dark:to-pink-400 bg-clip-text text-transparent">
+        <span className="font-semibold bg-gradient-to-r from-yellow-600 to-orange-600 dark:from-purple-400 dark:to-pink-400 bg-clip-text text-transparent truncate">
           {breadcrumbs[0]?.label || 'Dashboard'}
         </span>
       </div>
@@ -101,29 +101,33 @@ export function Breadcrumb() {
   }
 
   return (
-    <div className="flex items-center gap-2 text-sm">
+    <div className="flex items-center gap-1 sm:gap-1.5 lg:gap-2 text-xs sm:text-sm min-w-0 overflow-hidden">
       {breadcrumbs.map((item, index) => {
         if (!item) {return null}
+        const isLast = index === breadcrumbs.length - 1
+        const isFirst = index === 0
+        
         return (
-          <div key={item.href} className="flex items-center gap-2">
-            {index === 0 && (
-              <span className="text-gray-600 dark:text-gray-300">
+          <div key={item.href} className="flex items-center gap-1 sm:gap-1.5 lg:gap-2 flex-shrink-0">
+            {isFirst && (
+              <span className="text-gray-600 dark:text-gray-300 flex-shrink-0">
                 {item.icon || '🏠'}
               </span>
             )}
 
-            {index < breadcrumbs.length - 1 ? (
+            {!isLast ? (
               <>
                 <Link
                   href={item.href}
-                  className="text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100"
+                  className="text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100 truncate max-w-[100px] sm:max-w-[150px] lg:max-w-none"
+                  title={item.label}
                 >
                   {item.label}
                 </Link>
-                <span className="text-gray-400 dark:text-gray-500">/</span>
+                <span className="text-gray-400 dark:text-gray-500 flex-shrink-0">/</span>
               </>
             ) : (
-              <span className="font-semibold bg-gradient-to-r from-yellow-600 to-orange-600 dark:from-purple-400 dark:to-pink-400 bg-clip-text text-transparent">
+              <span className="font-semibold bg-gradient-to-r from-yellow-600 to-orange-600 dark:from-purple-400 dark:to-pink-400 bg-clip-text text-transparent truncate max-w-[150px] sm:max-w-[200px] lg:max-w-none" title={item.label}>
                 {item.label}
               </span>
             )}

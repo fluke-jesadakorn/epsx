@@ -31,7 +31,7 @@ function StatCard({ label, value, subLabel, icon, gradient }: StatCardProps) {
             'relative overflow-hidden rounded-2xl p-0.5 h-full',
             gradient
         )}>
-            <div className="relative bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-2xl p-5 h-full flex flex-col">
+            <div className="relative bg-white dark:bg-gray-900 rounded-2xl p-5 h-full flex flex-col">
                 <div className="flex items-center justify-between mb-3">
                     <div className="text-gray-500 dark:text-gray-400">
                         {icon}

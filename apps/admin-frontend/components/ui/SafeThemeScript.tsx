@@ -56,33 +56,34 @@ export const themeUtils = {
       // Try cookies first, then fallback to localStorage
       const cookies = document.cookie.split(';').reduce((acc, cookie) => {
         const [key, value] = cookie.trim().split('=');
-        if (key && value) {acc[key] = value;}
+        if (key && value) { acc[key] = value; }
         return acc;
       }, {} as Record<string, string>);
-      
+
       const stored = cookies.theme || localStorage.getItem(THEME_CONFIG.storageKey);
-      if (stored === 'light' || stored === 'dark') {return stored;}
-      
-      return window.matchMedia('(prefers-color-scheme: dark)').matches 
-        ? 'dark' 
+      if (stored === 'light' || stored === 'dark') { return stored; }
+
+      return window.matchMedia('(prefers-color-scheme: dark)').matches
+        ? 'dark'
         : 'light';
     } catch {
       return THEME_CONFIG.defaultTheme;
     }
   },
-  
+
   setTheme: (theme: ValidTheme): void => {
     try {
-      // Store theme in cookie instead of localStorage
+      // Store theme in cookie and localStorage
       document.cookie = `theme=${theme}; path=/; max-age=31536000; SameSite=lax`;
+      localStorage.setItem('theme', theme);
+
       document.documentElement.classList.remove('light', 'dark');
       document.documentElement.classList.add(theme);
     } catch (_error) {
-       
       console.error('Failed to set theme:', _error);
     }
   },
-  
+
   toggleTheme: (): ValidTheme => {
     const current = themeUtils.getTheme();
     const next = current === 'light' ? 'dark' : 'light';

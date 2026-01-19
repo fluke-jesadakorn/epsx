@@ -285,7 +285,7 @@ export function PaymentsManagement() {
                 {/* Stats Grid */}
                 {stats && (
                     <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 mb-6 sm:mb-8">
-                        <div className="bg-card/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-sm border border-primary/20">
+                        <div className="bg-card rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-sm border border-primary/20">
                             <div className="flex items-center justify-between mb-3 sm:mb-4">
                                 <div className="p-2 bg-primary/10 rounded-xl text-primary text-xl sm:text-2xl">💰</div>
                                 <span className="text-xs sm:text-sm font-medium text-muted-foreground">Revenue</span>
@@ -337,7 +337,7 @@ export function PaymentsManagement() {
 
                 {/* Filter Section */}
                 <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-primary/10 p-0.5 mb-6">
-                    <div className="relative bg-card/95 backdrop-blur-xl rounded-2xl sm:rounded-3xl p-4 sm:p-6 border border-border/50">
+                    <div className="relative bg-card rounded-2xl sm:rounded-3xl p-4 sm:p-6 border border-border/50">
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
                             <div>
                                 <label className="block text-sm font-medium text-muted-foreground mb-2">Search</label>
@@ -463,13 +463,13 @@ export function PaymentsManagement() {
                                                     </span>
                                                 </div>
                                                 <div className="grid grid-cols-2 gap-3">
-                                                    <div className="bg-card/50 rounded-xl p-3 border border-border/50">
+                                                    <div className="bg-card rounded-xl p-3 border border-border/50">
                                                         <div className="text-sm font-medium text-muted-foreground">Amount</div>
                                                         <div className="text-lg font-bold text-primary">
                                                             {formatCurrency(payment.amount, payment.currency)}
                                                         </div>
                                                     </div>
-                                                    <div className="bg-card/50 rounded-xl p-3 border border-border/50">
+                                                    <div className="bg-card rounded-xl p-3 border border-border/50">
                                                         <div className="text-sm font-medium text-muted-foreground">Plan</div>
                                                         <div className="text-lg font-bold text-secondary">{payment.plan_name}</div>
                                                     </div>

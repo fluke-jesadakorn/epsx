@@ -10,6 +10,8 @@ import { Kanit } from 'next/font/google';
 import { Toaster } from 'sonner';
 import './globals.css';
 
+import { SafeThemeScript } from '@/components/ui/SafeThemeScript';
+
 // Initialize runtime environment validation
 initializeRuntimeEnvironment();
 
@@ -91,6 +93,7 @@ export default function RootLayout({
         className={`${kanit.variable} bg-background text-foreground overflow-x-hidden font-sans antialiased`}
         suppressHydrationWarning
       >
+        <SafeThemeScript />
         <GlobalErrorBoundary level="global">
           <ClientProviders>
             <SharedOpenIDWeb3Provider

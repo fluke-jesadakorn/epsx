@@ -152,7 +152,7 @@ export function WalletCard({
             className={cn(
                 // Base card styles with premium glassmorphism
                 'group relative rounded-2xl overflow-hidden text-card-foreground',
-                'bg-card/80 backdrop-blur-xl',
+                'bg-card',
                 'border border-border/60',
                 // Smooth transitions
                 'transition-all duration-300 ease-out',

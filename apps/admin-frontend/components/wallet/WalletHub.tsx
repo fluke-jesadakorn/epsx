@@ -238,7 +238,7 @@ export function WalletHub({ className }: WalletHubProps) {
             <WalletStatsBar stats={stats} isLoading={isLoading && stats.total === 0} />
 
             {/* Search & Filters */}
-            <div className="rounded-2xl bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border border-gray-200 dark:border-gray-700 p-4">
+            <div className="rounded-2xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 p-4">
                 <div className="flex flex-col sm:flex-row gap-4">
                     {/* Search */}
                     <div className="flex-1">

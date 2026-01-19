@@ -95,7 +95,7 @@ async function CreateApiKeyForm() {
         redirect('/developer-portal/api-keys/create?error=api-creation-failed')
       }
     } catch (_error) {
-       
+
       console.error('Failed to create API key:', _error)
       redirect('/developer-portal/api-keys/create?error=creation-failed')
     }
@@ -203,7 +203,7 @@ export default async function CreateApiKeyPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12">
+    <div className="min-h-screen bg-background py-12">
       <div className="container mx-auto px-4">
         <Suspense fallback={<div>Loading form...</div>}>
           <CreateApiKeyForm />

@@ -8,7 +8,7 @@
 const THEME_CONFIG = {
     validThemes: ['light', 'dark'] as const,
     storageKey: 'theme',
-    defaultTheme: 'light' as const
+    defaultTheme: 'system' as const
 } as const;
 
 type ValidTheme = typeof THEME_CONFIG.validThemes[number];
@@ -18,9 +18,7 @@ type ValidTheme = typeof THEME_CONFIG.validThemes[number];
  * Uses compile-time constants to minimize injection risk
  */
 export function SafeThemeScript() {
-    // Generate script with compile-time constants (no user input)
-    // Updated to use cookies with localStorage fallback
-    const script = `(function(){try{var c={};if(document.cookie){var p=document.cookie.split(';');for(var i=0;i<p.length;i++){var k=p[i].trim().split('=')[0];var v=p[i].trim().split('=')[1];if(k&&v)c[k]=v}var t=c.theme||localStorage.getItem('${THEME_CONFIG.storageKey}');if(t!=='light'&&t!=='dark'){t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'}document.documentElement.classList.add(t)}catch(e){document.documentElement.classList.add('${THEME_CONFIG.defaultTheme}')}})();`;
+    const script = `(function(){try{var s=localStorage.getItem('${THEME_CONFIG.storageKey}');var h=document.documentElement;var m=window.matchMedia('(prefers-color-scheme: dark)');if(s==='dark'||s==='light'){h.classList.add(s);h.style.colorScheme=s}else{var d=m.matches?'dark':'light';h.classList.add(d);h.style.colorScheme=d;localStorage.removeItem('${THEME_CONFIG.storageKey}')}}catch(e){}})();`;
 
     return (
         <script
@@ -51,21 +49,14 @@ export function SafeThemeScriptWithNonce({ nonce }: { nonce?: string }) {
 export const themeUtils = {
     getTheme: (): ValidTheme => {
         try {
-            // Try cookies first, then fallback to localStorage
-            const cookies = document.cookie.split(';').reduce((acc, cookie) => {
-                const [key, value] = cookie.trim().split('=');
-                if (key && value) acc[key] = value;
-                return acc;
-            }, {} as Record<string, string>);
-
-            const stored = cookies.theme || localStorage.getItem(THEME_CONFIG.storageKey);
+            const stored = localStorage.getItem(THEME_CONFIG.storageKey);
             if (stored === 'light' || stored === 'dark') { return stored; }
 
             return window.matchMedia('(prefers-color-scheme: dark)').matches
                 ? 'dark'
                 : 'light';
         } catch {
-            return THEME_CONFIG.defaultTheme;
+            return 'light'; // Fallback to light if everything fails
         }
     },
 
@@ -76,7 +67,7 @@ export const themeUtils = {
             document.documentElement.classList.remove('light', 'dark');
             document.documentElement.classList.add(theme);
         } catch (_error) {
-             
+
             console.error('Failed to set theme:', _error);
         }
     },

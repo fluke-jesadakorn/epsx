@@ -85,7 +85,7 @@ export default function ExpiringAssignmentsPage() {
     })
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-yellow-50 via-orange-50 to-pink-50 dark:from-gray-900 dark:via-purple-900 dark:to-gray-900 p-3 sm:p-6">
+        <div className="min-h-screen bg-background p-3 sm:p-6">
             {/* Background Decorations */}
             <div className="fixed inset-0 overflow-hidden pointer-events-none">
                 <div className="absolute top-20 left-20 w-32 h-32 bg-gradient-to-r from-orange-400/20 to-pink-500/20 rounded-full blur-xl"></div>

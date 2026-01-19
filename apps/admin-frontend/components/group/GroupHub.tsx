@@ -232,7 +232,7 @@ export function GroupHub({ className }: GroupHubProps) {
                 {/* Permission Registry */}
                 <Link href="/group-and-permission" className="block group h-full">
                     <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-purple-400/20 via-pink-400/20 to-purple-400/20 p-0.5 hover:scale-105 transition-all duration-300 h-full">
-                        <div className="relative bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-2xl h-full flex flex-col">
+                        <div className="relative bg-white dark:bg-gray-900 rounded-2xl h-full flex flex-col">
                             <div className="absolute top-4 right-4 w-4 h-4 bg-gradient-to-r from-purple-400 to-pink-500 rounded-full blur-sm opacity-60"></div>
                             <div className="p-4 sm:p-6 flex-1 flex flex-col">
                                 <div className="flex items-center gap-2 mb-2">
@@ -258,7 +258,7 @@ export function GroupHub({ className }: GroupHubProps) {
                 {/* Create Group */}
                 <Link href="/group-and-permission/create-group" className="block group h-full">
                     <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-blue-400/20 via-cyan-400/20 to-blue-400/20 p-0.5 hover:scale-105 transition-all duration-300 h-full">
-                        <div className="relative bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-2xl h-full flex flex-col">
+                        <div className="relative bg-white dark:bg-gray-900 rounded-2xl h-full flex flex-col">
                             <div className="absolute top-4 right-4 w-4 h-4 bg-gradient-to-r from-blue-400 to-cyan-500 rounded-full blur-sm opacity-60"></div>
                             <div className="p-4 sm:p-6 flex-1 flex flex-col">
                                 <div className="flex items-center gap-2 mb-2">
@@ -284,7 +284,7 @@ export function GroupHub({ className }: GroupHubProps) {
                 {/* Assign Wallet */}
                 <Link href="/group-and-permission/assign-wallet" className="block group h-full">
                     <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-green-400/20 via-emerald-400/20 to-green-400/20 p-0.5 hover:scale-105 transition-all duration-300 h-full">
-                        <div className="relative bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-2xl h-full flex flex-col">
+                        <div className="relative bg-white dark:bg-gray-900 rounded-2xl h-full flex flex-col">
                             <div className="absolute top-4 right-4 w-4 h-4 bg-gradient-to-r from-green-400 to-emerald-500 rounded-full blur-sm opacity-60"></div>
                             <div className="p-4 sm:p-6 flex-1 flex flex-col">
                                 <div className="flex items-center gap-2 mb-2">
@@ -310,7 +310,7 @@ export function GroupHub({ className }: GroupHubProps) {
                 {/* Expiring Soon */}
                 <Link href="/group-and-permission/expiring" className="block group h-full">
                     <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-orange-400/20 via-pink-400/20 to-orange-400/20 p-0.5 hover:scale-105 transition-all duration-300 h-full">
-                        <div className="relative bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-2xl h-full flex flex-col">
+                        <div className="relative bg-white dark:bg-gray-900 rounded-2xl h-full flex flex-col">
                             <div className="absolute top-4 right-4 w-4 h-4 bg-gradient-to-r from-orange-400 to-pink-500 rounded-full blur-sm opacity-60"></div>
                             <div className="p-4 sm:p-6 flex-1 flex flex-col">
                                 <div className="flex items-center gap-2 mb-2">
@@ -335,7 +335,7 @@ export function GroupHub({ className }: GroupHubProps) {
             </div>
 
             {/* Search & Filters */}
-            <div className="rounded-2xl bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border border-gray-200 dark:border-gray-700 p-4">
+            <div className="rounded-2xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 p-4">
                 <div className="flex flex-col sm:flex-row gap-4">
                     {/* Search */}
                     <div className="flex-1">
@@ -439,7 +439,7 @@ export function GroupHub({ className }: GroupHubProps) {
 
             {/* Delete Confirmation Modal */}
             {deleteConfirm && (
-                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+                <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
                     <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-md w-full mx-4 shadow-2xl border border-gray-200 dark:border-gray-700">
                         <div className="flex items-center gap-3 mb-4">
                             <div className="p-3 bg-red-100 dark:bg-red-900/30 rounded-full">

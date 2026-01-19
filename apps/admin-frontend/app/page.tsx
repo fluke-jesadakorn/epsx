@@ -202,7 +202,7 @@ export default function DashboardPage() {
         {/* Stats Dashboard */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 mb-6 sm:mb-8">
           {/* Total Wallets */}
-          <div className="bg-card/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-sm border-2 border-primary/20">
+          <div className="bg-card rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-sm border-2 border-primary/20">
             <div className="flex items-center justify-between mb-3 sm:mb-4">
               <div className="p-2 bg-primary/10 rounded-xl text-primary">
                 <Wallet className="w-6 h-6" />
@@ -361,7 +361,7 @@ export default function DashboardPage() {
               className="block group focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
             >
               <div className={`relative overflow-hidden rounded-2xl sm:rounded-3xl ${action.bgGradient} p-0.5 border border-border/50 hover:border-primary/50 transition-colors`}>
-                <div className="relative bg-card/95 backdrop-blur-xl rounded-2xl sm:rounded-3xl">
+                <div className="relative bg-card rounded-2xl sm:rounded-3xl">
                   {/* Floating decoration */}
                   <div className={`absolute top-4 right-4 w-4 h-4 bg-gradient-to-r ${action.gradient} rounded-full blur-sm opacity-60`}></div>
 

@@ -118,14 +118,14 @@ export function Sidebar() {
   };
 
   return (
-    <div className="w-64 min-w-0 max-w-64 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 h-full flex flex-col z-20">
+    <div className="w-56 sm:w-64 min-w-0 max-w-64 bg-card border-r border-border h-full flex flex-col z-20">
       {/* Header */}
-      <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-        <h1 className="text-xl font-bold text-gray-900 dark:text-white truncate">Admin</h1>
+      <div className="p-3 sm:p-4 border-b border-border">
+        <h1 className="text-lg sm:text-xl font-bold text-foreground truncate">Admin</h1>
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto p-4 space-y-2">
+      <nav className="flex-1 overflow-y-auto p-2 sm:p-3 lg:p-4 space-y-1 sm:space-y-2">
         {navigationItems
           .filter(item => {
             // Hide auth item if already connected
@@ -159,7 +159,7 @@ export function Sidebar() {
                     <Link href={item.href}>
                       <div className={`flex items-center gap-3 px-3 py-2 rounded-lg min-w-0 overflow-hidden ${isActive || hasActiveChild
                         ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200'
-                        : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800'
+                        : 'text-foreground dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800'
                         }`}>
                         <span className="text-lg flex-shrink-0">{item.icon}</span>
                         <span className="font-medium text-ellipsis whitespace-nowrap overflow-hidden hidden sm:inline" style={{ textOverflow: 'ellipsis' }}>{item.label}</span>
@@ -203,7 +203,7 @@ export function Sidebar() {
                             <Link href={child.href}>
                               <div className={`flex items-center gap-3 px-3 py-2 rounded-lg min-w-0 overflow-hidden ${childIsActive
                                 ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/50 dark:text-blue-300'
-                                : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/50'
+                                : 'text-foreground/80 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/50'
                                 }`}>
                                 <span className="text-sm flex-shrink-0">{child.icon}</span>
                                 <span className="text-sm font-medium text-ellipsis whitespace-nowrap overflow-hidden hidden sm:inline" style={{ textOverflow: 'ellipsis' }}>{child.label}</span>
@@ -225,17 +225,17 @@ export function Sidebar() {
       <div className="mt-auto">
         {/* Wallet Connection Prompt - shown when not authenticated */}
         {!isWalletConnected && (
-          <div className="p-4 border-t border-gray-200 dark:border-gray-700">
-            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/30 dark:to-indigo-900/30 rounded-lg p-3 border border-blue-200 dark:border-blue-700">
-              <div className="flex items-center gap-2 mb-2">
-                <span className="text-lg">🔗</span>
-                <span className="text-sm font-semibold text-blue-800 dark:text-blue-200">Connect Wallet</span>
+          <div className="p-2 sm:p-3 lg:p-4 border-t border-border">
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/30 dark:to-indigo-900/30 rounded-lg p-2 sm:p-3 border border-blue-200 dark:border-blue-700">
+              <div className="flex items-center gap-1.5 sm:gap-2 mb-1.5 sm:mb-2">
+                <span className="text-base sm:text-lg flex-shrink-0">🔗</span>
+                <span className="text-xs sm:text-sm font-semibold text-blue-800 dark:text-blue-200 truncate">Connect Wallet</span>
               </div>
-              <p className="text-xs text-blue-600 dark:text-blue-300 mb-2">
+              <p className="text-[10px] sm:text-xs text-blue-600 dark:text-blue-300 mb-1.5 sm:mb-2 line-clamp-2">
                 Connect your wallet to access all admin features and manage permissions.
               </p>
               <Link href="/auth" className="block">
-                <div className="w-full bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium py-2 px-3 rounded text-center">
+                <div className="w-full bg-blue-600 hover:bg-blue-700 text-white text-[10px] sm:text-xs font-medium py-1.5 sm:py-2 px-2 sm:px-3 rounded text-center">
                   Connect Now
                 </div>
               </Link>
@@ -244,16 +244,16 @@ export function Sidebar() {
         )}
 
         {/* User Profile - Always visible at bottom */}
-        <div className="p-4 border-t border-gray-200 dark:border-gray-700">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold flex-shrink-0">
+        <div className="p-2 sm:p-3 lg:p-4 border-t border-border">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-xs sm:text-sm font-semibold flex-shrink-0">
               {isWalletConnected ? 'N' : '?'}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+              <p className="text-xs sm:text-sm font-medium text-foreground truncate">
                 {isWalletConnected ? 'Admin User' : 'Guest'}
               </p>
-              <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+              <p className="text-[10px] sm:text-xs text-muted-foreground truncate">
                 {isWalletConnected ? 'Connected' : 'Not connected'}
               </p>
             </div>

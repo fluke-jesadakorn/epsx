@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic'
 
 function AffiliatesHubSkeleton(): React.JSX.Element {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-yellow-50 via-orange-50 to-pink-50 dark:from-gray-900 dark:via-gray-900 dark:to-purple-900 p-6">
+    <div className="min-h-screen bg-background p-6">
       <div className="max-w-7xl mx-auto">
         {/* Hero section skeleton */}
         <div className="text-center mb-12">

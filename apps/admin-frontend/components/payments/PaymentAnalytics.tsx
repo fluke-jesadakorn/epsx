@@ -156,7 +156,7 @@ export function PaymentAnalytics() {
                     <div className="space-y-6">
                         {/* Main Stats Grid */}
                         <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
-                            <div className="bg-card/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-sm border-2 border-primary/20">
+                            <div className="bg-card rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-sm border-2 border-primary/20">
                                 <div className="flex items-center justify-between mb-3 sm:mb-4">
                                     <div className="text-xl sm:text-2xl">💰</div>
                                     <span className="text-xs sm:text-sm font-medium text-muted-foreground">Total</span>
@@ -207,7 +207,7 @@ export function PaymentAnalytics() {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             {/* Transaction Overview */}
                             <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-primary/10 p-0.5">
-                                <div className="relative bg-card/95 backdrop-blur-xl rounded-2xl sm:rounded-3xl p-6 sm:p-8 border border-border/50">
+                                <div className="relative bg-card rounded-2xl sm:rounded-3xl p-6 sm:p-8 border border-border/50">
                                     <h3 className="text-xl font-bold bg-gradient-to-r from-primary via-secondary to-primary bg-clip-text text-transparent mb-6">
                                         Transaction Overview
                                     </h3>
@@ -236,7 +236,7 @@ export function PaymentAnalytics() {
 
                             {/* Revenue Overview */}
                             <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-secondary/10 p-0.5">
-                                <div className="relative bg-card/95 backdrop-blur-xl rounded-2xl sm:rounded-3xl p-6 sm:p-8 border border-border/50">
+                                <div className="relative bg-card rounded-2xl sm:rounded-3xl p-6 sm:p-8 border border-border/50">
                                     <h3 className="text-xl font-bold bg-gradient-to-r from-secondary via-primary to-secondary bg-clip-text text-transparent mb-6">
                                         Revenue Overview
                                     </h3>

@@ -49,7 +49,7 @@ export default function NewPlanPage() {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-yellow-50 via-orange-50 to-pink-50 dark:from-gray-900 dark:via-purple-900 dark:to-gray-900">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <PageLoadingSpinner label="Loading..." />
       </div>
     )

@@ -1,165 +1,21 @@
-/**
- * Admin Frontend - Modular CSS Architecture
- *
- * This file orchestrates the modular CSS structure for the admin frontend,
- * mirroring the modern architecture implemented in the main frontend app.
- * 
- * Architecture:
- * - base.css: Core themes, variables, and element resets
- * - critical.css: Above-the-fold styles for optimal loading
- * - components.css: Complex component styling 
- * - utilities.css: Custom Tailwind extensions and admin utilities
- * 
- * Benefits:
- * - Modular structure for better maintainability
- * - Performance optimization through critical CSS
- * - Consistent design system across admin interfaces
- * - Enhanced admin-specific functionality
- */
 @import "tailwindcss";
+@source "../../../shared";
 
-/* Note: @custom-variant dark is defined in shared/design-system/theme.css */
-
-/* ============================================================================
-   CORE FOUNDATION
-   ============================================================================ */
-
-/* Import Tailwind's base styles and our enhanced theme system */
 /* Shared Design System (Unified Theme) */
 @import '../../../shared/design-system/index.css';
-/* Local base styles replaced by shared system */
-/* @import './base.css'; */
-
-/* ============================================================================
-   PERFORMANCE-CRITICAL STYLES
-   ============================================================================ */
-
-/* Above-the-fold styles for immediate rendering */
-@import './critical.css';
-
-/* ============================================================================
-   COMPONENT LIBRARY
-   ============================================================================ */
-
-/* Complex component styling that requires custom CSS */
-@import './components.css';
-
-/* ============================================================================
-   UTILITY EXTENSIONS
-   ============================================================================ */
-
-/* Custom Tailwind utilities and admin-specific helpers */
-@import './utilities.css';
-
-/* ============================================================================
-   ANALYTICS THEME
-   ============================================================================ */
-
-/* Analytics theme matching frontend design system */
-/* Theme is now included in base.css */
-
-/* ============================================================================
-   PERMISSION VISUAL INDICATORS
-   ============================================================================ */
-
-/* Visual permission restriction styles */
-@import './permission-indicators.css';
-
-/* ============================================================================
-   VISUAL STATE CLASSES (Animation-Free)
-   ============================================================================ */
-
-/* Static visual feedback classes for admin interface */
-.permission-granted-state {
-  background-color: hsl(var(--permission-granted) / 0.1);
-}
-
-.permission-denied-state {
-  background-color: hsl(var(--permission-denied) / 0.1);
-}
-
-.data-refresh-state {
-  opacity: 0.7;
-}
-
-/* Loading states without animation */
-.shimmer-state {
-  background: linear-gradient(90deg, 
-    rgba(255,255,255,0.1) 0%, 
-    rgba(255,255,255,0.2) 50%, 
-    rgba(255,255,255,0.1) 100%);
-}
-
-.pulse-state {
-  opacity: 0.5;
-}
-
-/* ============================================================================
-   PERFORMANCE OPTIMIZATIONS
-   ============================================================================ */
 
 /* Optimized rendering for admin components */
-.admin-optimized,
-.submenu-item {
-  /* Remove GPU acceleration properties for zero animation policy */
-}
-
-/* Optimize font rendering */
 body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
 }
 
-/* ============================================================================
-   ACCESSIBILITY ENHANCEMENTS
-   ============================================================================ */
-
 /* Reduced motion preferences */
 @media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
+  *, *::before, *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
-  }
-}
-
-/* High contrast mode support */
-@media (prefers-contrast: high) {
-  .admin-btn-primary,
-  .admin-btn-secondary {
-    border: 2px solid hsl(var(--foreground));
-  }
-}
-
-/* ============================================================================
-   DARK MODE OPTIMIZATIONS
-   ============================================================================ */
-
-/* Enhanced dark mode performance */
-@media (prefers-color-scheme: dark) {
-  img {
-    opacity: 0.9;
-  }
-  
-  /* Reduce blue light for better readability */
-  .admin-card-dashboard {
-    color-scheme: dark;
-  }
-}
-
-/* ============================================================================
-   PRINT STYLES
-   ============================================================================ */
-
-/* Optimize admin reports for printing */
-@media print {
-  .admin-btn-primary,
-  .admin-btn-secondary {
-    background: transparent !important;
-    color: #000 !important;
-    border: 1px solid #000 !important;
   }
 }

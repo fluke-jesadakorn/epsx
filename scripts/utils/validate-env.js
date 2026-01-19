@@ -7,7 +7,8 @@ const path = require('path');
 
 // Load .env if exists
 try {
-  require('dotenv').config();
+  const envPath = path.resolve(__dirname, '../../.env');
+  require('dotenv').config({ path: envPath });
 } catch (e) {
   // dotenv may not be installed; ignore if not needed
 }
@@ -26,7 +27,7 @@ for (const line of lines) {
   const eqIdx = trimmed.indexOf('=');
   if (eqIdx === -1) continue;
   const key = trimmed.substring(0, eqIdx).trim();
-  if (key ) requiredVars.push(key);
+  if (key) requiredVars.push(key);
 }
 
 let missing = [];

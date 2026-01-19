@@ -303,7 +303,7 @@ export function PlanManagement({ currentUser }: PlanManagementProps) {
 
           {/* Stats Grid */}
           <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 mb-6 sm:mb-8">
-            <div className="bg-card/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl border border-primary/20">
+            <div className="bg-card rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl border border-primary/20">
               <div className="flex items-center justify-between mb-3 sm:mb-4">
                 <div className="text-xl sm:text-2xl">💳</div>
                 <span className="text-xs sm:text-sm font-medium text-muted-foreground">Total</span>
@@ -579,7 +579,7 @@ function PlanGroupSection({
       strategy={rectSwappingStrategy} // or verticalListSortingStrategy
     >
       <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-border/20 p-0.5">
-        <div className="relative bg-card/60 backdrop-blur-xl rounded-2xl sm:rounded-3xl p-4 sm:p-6 lg:p-8">
+        <div className="relative bg-card rounded-2xl sm:rounded-3xl p-4 sm:p-6 lg:p-8">
           {/* Header Section */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
             <div className="flex flex-col gap-2">

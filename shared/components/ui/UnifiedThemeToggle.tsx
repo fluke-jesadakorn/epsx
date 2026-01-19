@@ -156,24 +156,19 @@ export function UnifiedThemeToggle({
     const handleToggle = () => {
         if (!mounted) return;
 
-        // Special handling for simple variant (admin style - direct DOM manipulation)
-        if (variant === 'simple') {
-            const html = document.documentElement;
-            const newTheme = html.classList.contains('dark') ? 'light' : 'dark';
-
-            if (newTheme === 'light') {
-                html.classList.remove('dark');
-            } else {
-                html.classList.add('dark');
-            }
-
-            // Save theme preference to cookie
-            document.cookie = `theme=${newTheme}; path=/; max-age=31536000; SameSite=lax`;
-            return;
-        }
+        const newTheme = isDark ? 'light' : 'dark';
 
         // Standard next-themes approach
-        setTheme(isDark ? 'light' : 'dark');
+        setTheme(newTheme);
+
+        // ALWAYS sync with the manual system (cookie and localStorage) 
+        // to ensure consistency across different implementations
+        try {
+            document.cookie = `theme=${newTheme}; path=/; max-age=31536000; SameSite=lax`;
+            localStorage.setItem('theme', newTheme);
+        } catch (e) {
+            console.warn('Failed to sync theme to storage:', e);
+        }
     };
 
     const buttonContent = (

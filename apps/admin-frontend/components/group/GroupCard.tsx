@@ -100,7 +100,7 @@ export function GroupCard({
             className={cn(
                 // Base card styles with premium glassmorphism
                 'group relative rounded-2xl overflow-hidden',
-                'bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl',
+                'bg-white dark:bg-gray-900',
                 'border border-gray-200/60 dark:border-gray-700/60',
                 // Smooth transitions
                 'transition-all duration-300 ease-out',

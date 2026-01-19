@@ -62,7 +62,7 @@
     "clean:root": "rm -rf node_modules .turbo",
     "clean:cache": "turbo daemon stop && rm -rf .turbo node_modules/.cache",
     "env:setup": "cp .env.example .env && echo '✅ Created .env file. Please edit with your values.'",
-    "env:validate": "node scripts/utils/validate-env.js",
+    "env:validate": "bun scripts/utils/validate-env.js",
     "docker:prod": "docker-compose -f infrastructure/docker/docker-compose.yml --env-file .env.docker up -d --build",
     "docker:prod:down": "docker-compose -f infrastructure/docker/docker-compose.yml --env-file .env.docker down",
     "docker:prod:logs": "docker-compose -f infrastructure/docker/docker-compose.yml --env-file .env.docker logs -f",

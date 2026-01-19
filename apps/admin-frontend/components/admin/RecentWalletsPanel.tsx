@@ -111,7 +111,7 @@ export function RecentWalletsPanel() {
 
   if (loading) {
     return (
-      <div className="h-full bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl shadow-xl border-2 border-indigo-300/50 dark:border-indigo-700/50 p-6">
+      <div className="h-full bg-card/80 dark:bg-card/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl shadow-xl border-2 border-primary/20 p-6">
         <div className="flex items-center justify-between mb-6">
           <div>
             <div className="flex items-center gap-2 mb-2">
@@ -144,7 +144,7 @@ export function RecentWalletsPanel() {
 
   if (error) {
     return (
-      <div className="h-full bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl shadow-xl border-2 border-indigo-300/50 dark:border-indigo-700/50 p-6">
+      <div className="h-full bg-card/80 dark:bg-card/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl shadow-xl border-2 border-primary/20 p-6">
         <div className="flex items-center justify-between mb-6">
           <div>
             <div className="flex items-center gap-2 mb-2">
@@ -177,7 +177,7 @@ export function RecentWalletsPanel() {
     : data.recent_wallets.slice(0, 5);
 
   return (
-    <div className="h-full bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl shadow-xl border-2 border-indigo-300/50 dark:border-indigo-700/50 p-6">
+    <div className="h-full bg-card/80 dark:bg-card/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl shadow-xl border-2 border-primary/20 p-6">
       <div className="flex items-center justify-between mb-6">
         <div>
           <div className="flex items-center gap-2 mb-2">

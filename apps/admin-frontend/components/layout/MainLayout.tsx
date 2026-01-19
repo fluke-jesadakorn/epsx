@@ -31,7 +31,7 @@ interface MainLayoutProps {
  */
 export function MainLayout({ children, user }: MainLayoutProps) {
   return (
-    <div className="flex h-screen w-full overflow-hidden bg-gray-50 dark:bg-gray-900">
+    <div className="flex h-screen w-full overflow-hidden bg-background">
       {/* Sidebar Navigation - Fixed height handled by parent h-screen */}
       <Sidebar />
 
@@ -43,7 +43,7 @@ export function MainLayout({ children, user }: MainLayoutProps) {
         {/* Scrollable Content Wrapper */}
         <div className="flex-1 overflow-y-auto overflow-x-hidden">
           {/* Breadcrumb */}
-          <div className="border-b border-gray-200 bg-white px-6 py-3 dark:border-gray-700 dark:bg-gray-800 sticky top-0 z-30">
+          <div className="border-b border-border bg-card px-3 sm:px-4 lg:px-6 py-2 sm:py-3 sticky top-0 z-30">
             <Breadcrumb />
           </div>
 
@@ -51,15 +51,15 @@ export function MainLayout({ children, user }: MainLayoutProps) {
           <main className="p-0">{children}</main>
 
           {/* Footer */}
-          <footer className="border-t border-gray-200 bg-white px-6 py-4 dark:border-gray-700 dark:bg-gray-800">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span>⚡</span>
-                <span className="text-sm font-semibold text-gray-900 dark:text-white">
+          <footer className="border-t border-border bg-card px-3 sm:px-4 lg:px-6 py-3 sm:py-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-4">
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <span className="text-sm sm:text-base">⚡</span>
+                <span className="text-xs sm:text-sm font-semibold text-gray-900 dark:text-white">
                   EPSX Admin Dashboard
                 </span>
               </div>
-              <div className="text-sm text-gray-500 dark:text-gray-400">
+              <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">
                 Version 2.0
               </div>
             </div>

@@ -315,7 +315,7 @@ export default function WalletDetailPage() {
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 dark:from-gray-900 dark:via-purple-900 dark:to-gray-900 p-3 sm:p-6">
+        <div className="min-h-screen bg-background p-3 sm:p-6">
             <div className="max-w-4xl mx-auto space-y-6">
                 {/* Header */}
                 <div className="flex items-center gap-4">
@@ -346,7 +346,7 @@ export default function WalletDetailPage() {
                 </div>
 
                 {/* Address Card */}
-                <div className="rounded-xl bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 p-5 border border-blue-200 dark:border-blue-800 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm">
+                <div className="rounded-xl bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/40 dark:to-purple-900/40 p-5 border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800">
                     {/* Address */}
                     <div className="flex items-center gap-2 mb-3">
                         <code className="text-sm sm:text-base font-mono font-semibold text-gray-900 dark:text-white break-all">
@@ -399,7 +399,7 @@ export default function WalletDetailPage() {
 
                 {/* Active Subscriptions */}
                 {activeSubscriptions.length > 0 && (
-                    <div className="rounded-xl bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-gray-200 dark:border-gray-700 p-5">
+                    <div className="rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-5">
                         <h3 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
                             <Package className="h-5 w-5 text-purple-600" />
                             Active Subscriptions
@@ -582,7 +582,7 @@ export default function WalletDetailPage() {
 
                 {/* Activity History */}
                 {activityEvents.length > 0 && (
-                    <div className="rounded-xl bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-gray-200 dark:border-gray-700 p-5">
+                    <div className="rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-5">
                         <h3 className="font-semibold text-gray-900 dark:text-white mb-4">
                             📜 Activity History
                         </h3>

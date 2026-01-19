@@ -320,7 +320,7 @@ export function PaymentLinksManagement() {
 
                 {/* Filter Section */}
                 <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-primary/10 p-0.5 mb-6">
-                    <div className="relative bg-card/95 backdrop-blur-xl rounded-2xl sm:rounded-3xl p-4 sm:p-6 border border-border/50">
+                    <div className="relative bg-card rounded-2xl sm:rounded-3xl p-4 sm:p-6 border border-border/50">
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                             <div>
                                 <label className="block text-sm font-medium text-muted-foreground mb-2">Context Type</label>
@@ -415,13 +415,13 @@ export function PaymentLinksManagement() {
                                                     {getLinkStatusBadge(link)}
                                                 </div>
                                                 <div className="grid grid-cols-2 gap-3 mb-3">
-                                                    <div className="bg-card/50 rounded-xl p-3 border border-border/50">
+                                                    <div className="bg-card rounded-xl p-3 border border-border/50">
                                                         <div className="text-sm font-medium text-muted-foreground">Amount</div>
                                                         <div className="text-lg font-bold text-primary">
                                                             {link.amount} {link.currency}
                                                         </div>
                                                     </div>
-                                                    <div className="bg-card/50 rounded-xl p-3 border border-border/50">
+                                                    <div className="bg-card rounded-xl p-3 border border-border/50">
                                                         <div className="text-sm font-medium text-muted-foreground">Usage</div>
                                                         <div className="text-lg font-bold text-secondary">
                                                             {link.current_uses}{link.max_uses ? ` / ${link.max_uses}` : ' / ∞'}
@@ -531,7 +531,7 @@ export function PaymentLinksManagement() {
                 <div className="fixed inset-0 z-50 overflow-y-auto">
                     <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
                         <div className="fixed inset-0 transition-opacity" aria-hidden="true" onClick={() => setIsModalOpen(false)}>
-                            <div className="absolute inset-0 bg-background/80 backdrop-blur-sm"></div>
+                            <div className="absolute inset-0 bg-background/95"></div>
                         </div>
                         <div className="inline-block align-bottom bg-card rounded-3xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full border border-border/50">
                             <form onSubmit={handleCreateLink}>

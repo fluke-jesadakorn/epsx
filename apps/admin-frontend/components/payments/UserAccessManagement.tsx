@@ -143,7 +143,7 @@ export function UserAccessManagement() {
 
                 {/* User Access Table */}
                 <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-primary/10 p-0.5">
-                    <div className="relative bg-card/95 backdrop-blur-xl rounded-2xl sm:rounded-3xl overflow-hidden border border-border/50">
+                    <div className="relative bg-card rounded-2xl sm:rounded-3xl overflow-hidden border border-border/50">
                         <div className="p-4 sm:p-6 lg:p-8">
                             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-3">
                                 <h2 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-primary via-secondary to-primary bg-clip-text text-transparent">
@@ -184,11 +184,11 @@ export function UserAccessManagement() {
                                                     </span>
                                                 </div>
                                                 <div className="grid grid-cols-2 gap-3">
-                                                    <div className="bg-card/50 rounded-xl p-3 border border-border/50">
+                                                    <div className="bg-card rounded-xl p-3 border border-border/50">
                                                         <div className="text-sm font-medium text-muted-foreground">Plan</div>
                                                         <div className="text-lg font-bold text-primary">{user.plan_name || 'None'}</div>
                                                     </div>
-                                                    <div className="bg-card/50 rounded-xl p-3 border border-border/50">
+                                                    <div className="bg-card rounded-xl p-3 border border-border/50">
                                                         <div className="text-sm font-medium text-muted-foreground">Days Left</div>
                                                         <div className="text-lg font-bold text-secondary">
                                                             {user.days_remaining > 0 ? `${user.days_remaining} days` : '-'}

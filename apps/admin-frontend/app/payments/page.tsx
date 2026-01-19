@@ -13,7 +13,7 @@ type TabType = 'payments' | 'user-access' | 'payment-links' | 'analytics';
 
 function PaymentsHubSkeleton() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-yellow-50 via-orange-50 to-pink-50 dark:from-gray-900 dark:via-gray-900 dark:to-purple-900 p-6">
+    <div className="min-h-screen bg-background p-6">
       <div className="max-w-7xl mx-auto">
         {/* Hero section skeleton */}
         <div className="text-center mb-12">
@@ -23,7 +23,7 @@ function PaymentsHubSkeleton() {
 
         {/* Tab navigation skeleton */}
         <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-blue-400/20 via-purple-400/20 to-pink-400/20 p-0.5 mb-8">
-          <div className="relative bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-2xl p-2">
+          <div className="relative bg-white dark:bg-gray-900 rounded-2xl p-2">
             <div className="grid grid-cols-4 gap-2">
               {Array.from({ length: 4 }, (_, i) => `tab-${i}`).map((tabId) => (
                 <div key={tabId} className="h-12 bg-gray-200 dark:bg-gray-700 rounded-xl animate-pulse"></div>
@@ -47,7 +47,7 @@ function PaymentsHubSkeleton() {
         {/* Stats grid skeleton */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           {Array.from({ length: 4 }, (_, i) => `stats-card-${i}`).map((cardId) => (
-            <div key={cardId} className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-3xl p-6 shadow-xl border border-white/20 animate-pulse">
+            <div key={cardId} className="bg-white dark:bg-gray-800 rounded-3xl p-6 shadow-xl border border-white/20 animate-pulse">
               <div className="h-6 bg-gradient-to-r from-blue-300 to-purple-400 rounded-lg mb-4 w-1/2"></div>
               <div className="h-12 bg-gradient-to-r from-gray-200 to-gray-300 rounded-xl mb-2 w-3/4"></div>
               <div className="h-4 bg-gray-200 rounded-lg w-1/3"></div>
@@ -56,7 +56,7 @@ function PaymentsHubSkeleton() {
         </div>
 
         {/* Content skeleton */}
-        <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-3xl shadow-2xl border border-white/30 overflow-hidden animate-pulse">
+        <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl border border-white/30 overflow-hidden animate-pulse">
           <div className="p-8">
             <div className="h-8 bg-gradient-to-r from-blue-400 to-purple-500 rounded-xl mb-6 w-1/3"></div>
             <div className="space-y-4">
@@ -113,19 +113,19 @@ export default function AdminPaymentsPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-yellow-50 via-orange-50 to-pink-50 dark:from-gray-900 dark:via-purple-900 dark:to-gray-900 p-6">
+    <div className="min-h-screen bg-background p-6">
       <div className="max-w-7xl mx-auto mb-6">
         {/* Tab Navigation */}
         <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-blue-400/20 via-purple-400/20 to-pink-400/20 p-0.5">
-          <div className="relative bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-2xl p-2">
+          <div className="relative bg-white dark:bg-gray-900 rounded-2xl p-2">
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {tabs.map((tab) => (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
                   className={`px-4 sm:px-6 py-3 rounded-xl font-semibold text-sm sm:text-base min-h-[44px] transition-all duration-200 ${activeTab === tab.id
-                      ? `bg-gradient-to-r ${tab.gradient} text-white shadow-lg`
-                      : 'bg-white/80 dark:bg-gray-800/80 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                    ? `bg-gradient-to-r ${tab.gradient} text-white shadow-lg`
+                    : 'bg-white/80 dark:bg-gray-800/80 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
                     }`}
                 >
                   {tab.label}

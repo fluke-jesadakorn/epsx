@@ -7,7 +7,7 @@
     "test": "forge test",
     "deploy:testnet": "forge script script/Deploy.s.sol --rpc-url $BSC_TESTNET_RPC --broadcast",
     "deploy:mainnet": "forge script script/Deploy.s.sol --rpc-url $BSC_MAINNET_RPC --broadcast",
-    "clean": "forge clean"
+    "clean": "rm -rf out cache"
   },
   "devDependencies": {},
   "dependencies": {

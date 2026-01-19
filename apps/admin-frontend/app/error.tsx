@@ -5,7 +5,7 @@
 
 'use client'
 
-import { AlertTriangle, RefreshCw, Home, ArrowLeft } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, Home, RefreshCw } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 
 /**
@@ -26,10 +26,10 @@ export default function Error({
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-black flex items-center justify-center p-6">
       {/* Windows Phone style error tile */}
-      <div className="bg-gradient-to-br from-red-600 to-red-800 text-white p-8 max-w-lg w-full shadow-2xl relative overflow-hidden">
+      <div className="bg-background text-foreground p-8 max-w-lg w-full shadow-2xl relative overflow-hidden">
         {/* PancakeSwap corner accent */}
         <div className="absolute top-0 right-0 w-8 h-8 bg-gradient-to-bl from-yellow-400 to-transparent opacity-60"></div>
-        
+
         {/* Error icon */}
         <div className="flex items-center gap-3 mb-6">
           <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center">
@@ -62,7 +62,7 @@ export default function Error({
             <RefreshCw className="h-4 w-4 group-hover:rotate-180 transition-transform duration-500" />
             try again
           </button>
-          
+
           <button
             onClick={() => router.push('/users')}
             className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-yellow-400/20 hover:bg-yellow-400/30 rounded-lg transition-all font-light text-sm"
@@ -70,7 +70,7 @@ export default function Error({
             <Home className="h-4 w-4" />
             back to users
           </button>
-          
+
           <button
             onClick={() => router.back()}
             className="w-full flex items-center justify-center gap-2 py-2 px-4 text-white/70 hover:text-white transition-colors font-light text-sm"

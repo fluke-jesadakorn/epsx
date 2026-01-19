@@ -78,7 +78,7 @@ export default function AssignWalletPage() {
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-yellow-50 via-orange-50 to-pink-50 dark:from-gray-900 dark:via-purple-900 dark:to-gray-900 p-3 sm:p-6">
+        <div className="min-h-screen bg-background p-3 sm:p-6">
             {/* Background Decorations */}
             <div className="fixed inset-0 overflow-hidden pointer-events-none">
                 <div className="absolute top-20 left-20 w-32 h-32 bg-gradient-to-r from-green-400/20 to-emerald-500/20 rounded-full blur-xl"></div>
@@ -109,7 +109,7 @@ export default function AssignWalletPage() {
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     {/* Left Column: Wallet & Settings */}
                     <div className="lg:col-span-1 space-y-6">
-                        <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-6 shadow-xl border-2 border-green-300/50 dark:border-green-700/50 h-full">
+                        <div className="bg-white dark:bg-gray-800 rounded-2xl sm:rounded-3xl p-6 shadow-xl border-2 border-green-300/50 dark:border-green-700/50 h-full">
                             <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">Assignment Details</h3>
                             <form id="assignment-form" onSubmit={handleSubmit} className="space-y-4">
                                 <div>
@@ -162,7 +162,7 @@ export default function AssignWalletPage() {
 
                     {/* Right Column: Group Selection */}
                     <div className="lg:col-span-2">
-                        <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-6 shadow-xl border-2 border-blue-300/50 dark:border-blue-700/50 h-full">
+                        <div className="bg-white dark:bg-gray-800 rounded-2xl sm:rounded-3xl p-6 shadow-xl border-2 border-blue-300/50 dark:border-blue-700/50 h-full">
                             <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100 flex justify-between items-center">
                                 <span>Select Groups</span>
                                 <span className="text-sm font-normal text-gray-500">

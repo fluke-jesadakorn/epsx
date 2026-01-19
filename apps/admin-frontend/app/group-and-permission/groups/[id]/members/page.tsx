@@ -110,7 +110,7 @@ export default function GroupMembersPage() {
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-yellow-50 via-orange-50 to-pink-50 dark:from-gray-900 dark:via-purple-900 dark:to-gray-900 p-3 sm:p-6">
+        <div className="min-h-screen bg-background p-3 sm:p-6">
             {/* Background Decorations */}
             <div className="fixed inset-0 overflow-hidden pointer-events-none">
                 <div className="absolute top-20 left-20 w-32 h-32 bg-gradient-to-r from-indigo-400/20 to-purple-500/20 rounded-full blur-xl"></div>
@@ -138,7 +138,7 @@ export default function GroupMembersPage() {
                 </div>
 
                 {/* Main Content */}
-                <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-6 shadow-xl border-2 border-indigo-300/50 dark:border-indigo-700/50">
+                <div className="bg-white dark:bg-gray-800 rounded-2xl sm:rounded-3xl p-6 shadow-xl border-2 border-indigo-300/50 dark:border-indigo-700/50">
                     <div className="space-y-4">
                         {/* Add Member Section */}
                         <div className="border-b pb-4">
