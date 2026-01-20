@@ -1,4 +1,5 @@
 
+import { logger } from '@/lib/logger';
 import { COOKIES } from '@/shared/auth/cookies';
 import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
@@ -37,7 +38,7 @@ async function handleProxy(req: NextRequest, ctx: { params: Promise<{ path: stri
         const targetPath = '/' + path.join('/');
         const targetUrl = `${BACKEND_URL}${targetPath}${req.nextUrl.search}`;
 
-        console.log(`🔄 API Proxy: ${req.method} ${targetPath}`, {
+        logger.debug(`🔄 API Proxy: ${req.method} ${targetPath}`, {
             targetUrl,
             hasToken: !!token
         });
@@ -60,7 +61,7 @@ async function handleProxy(req: NextRequest, ctx: { params: Promise<{ path: stri
         if (token) {
             forwardHeaders.set('Authorization', `Bearer ${token}`);
         } else {
-            console.warn('⚠️ API Proxy: No token found for restricted endpoint');
+            logger.warn('⚠️ API Proxy: No token found for restricted endpoint', { targetPath });
         }
 
         // Prepare body (for non-GET/HEAD requests)
@@ -84,7 +85,7 @@ async function handleProxy(req: NextRequest, ctx: { params: Promise<{ path: stri
         });
 
     } catch (error) {
-        console.error('❌ API Proxy Error:', error);
+        logger.error('❌ API Proxy Error:', { error: String(error) });
         return NextResponse.json(
             { error: 'Proxy implementation failed', details: String(error) },
             { status: 500 }

@@ -20,7 +20,8 @@ import { revalidatePath } from 'next/cache';
 import { makeAuthenticatedRequest } from './shared-utils';
 
 import { createErrorResult, createSuccessResult, type ActionResult } from '@/lib/action-utils';
-import type { UnifiedWalletData } from '@/lib/types/unified-wallet';
+import { logger } from '@/lib/logger';
+import type { Permission, UnifiedWalletData } from '@/lib/types/unified-wallet';
 
 // ============================================================================
 // TYPES AND INTERFACES
@@ -70,21 +71,6 @@ export interface WalletProfileUpdateData {
   language?: string;
 }
 
-export interface WalletStatusUpdateData {
-  status: 'active' | 'inactive' | 'suspended';
-  reason?: string;
-}
-
-export interface WalletGroupUpdateData {
-  groups: string[];
-  reason?: string;
-}
-
-export interface ModuleAccessUpdateData {
-  modules: string[];
-  quotas?: Record<string, number>;
-  reason?: string;
-}
 
 export interface PermissionHistoryEntry {
   id: string;
@@ -101,32 +87,6 @@ export interface PermissionHistoryEntry {
   expires?: Date;
 }
 
-export interface ActivityLogEntry {
-  id: string;
-  action: string;
-  resource_type: string;
-  resource_id: string;
-  result: 'success' | 'failure' | 'partial_success' | 'denied' | 'error';
-  timestamp: Date;
-  client_ip?: string;
-  user_agent?: string;
-  sid?: string;
-  metadata: {
-    previous_values?: Record<string, string>;
-    new_values?: Record<string, string>;
-    error_message?: string;
-    duration_ms?: number;
-    additional_data?: Record<string, string>;
-  };
-}
-
-export interface ActivityLogParams {
-  limit?: number;
-  offset?: number;
-  start_date?: string;
-  end_date?: string;
-  action_type?: string;
-}
 
 // ============================================================================
 // USER LIST OPERATIONS
@@ -158,7 +118,7 @@ export async function getWalletList(filters: WalletListFilters): Promise<ActionR
     return createSuccessResult(response);
   } catch (_error) {
 
-    console.error('Failed to fetch user list:', _error);
+    logger.error('Failed to fetch user list:', { error: _error });
     return createErrorResult(_error instanceof Error ? _error.message : 'Failed to fetch users');
   }
 }
@@ -182,7 +142,7 @@ export async function searchWallets(query: string, filters?: Partial<WalletListF
     return createSuccessResult(response.users || []);
   } catch (_error) {
 
-    console.error('Failed to search users:', _error);
+    logger.error('Failed to search users:', { error: _error });
     return createErrorResult(_error instanceof Error ? _error.message : 'Failed to search users');
   }
 }
@@ -201,7 +161,7 @@ export async function getWalletStats(): Promise<ActionResult<{
     return createSuccessResult(response);
   } catch (_error) {
 
-    console.error('Failed to fetch user stats:', _error);
+    logger.error('Failed to fetch user stats:', { error: _error });
     return createErrorResult(_error instanceof Error ? _error.message : 'Failed to fetch user statistics');
   }
 }
@@ -220,7 +180,7 @@ export async function getWalletProfile(walletAddress: string): Promise<ActionRes
     return createSuccessResult(response);
   } catch (_error) {
 
-    console.error('Failed to fetch user profile:', _error);
+    logger.error('Failed to fetch user profile:', { error: _error });
     return createErrorResult(_error instanceof Error ? _error.message : 'Failed to fetch user profile');
   }
 }
@@ -240,7 +200,7 @@ export async function createWallet(userData: CreateWalletRequest): Promise<Actio
     return createSuccessResult(response, 'User created successfully');
   } catch (_error) {
 
-    console.error('Failed to create user:', _error);
+    logger.error('Failed to create user:', { error: _error });
     return createErrorResult(_error instanceof Error ? _error.message : 'Failed to create user');
   }
 }
@@ -263,7 +223,7 @@ export async function updateWallet(userData: UpdateWalletRequest): Promise<Actio
     return createSuccessResult(response, 'User updated successfully');
   } catch (_error) {
 
-    console.error('Failed to update user:', _error);
+    logger.error('Failed to update user:', { error: _error });
     return createErrorResult(_error instanceof Error ? _error.message : 'Failed to update user');
   }
 }
@@ -282,31 +242,11 @@ export async function deleteWallet(walletAddress: string): Promise<ActionResult<
     return createSuccessResult(undefined, 'User deleted successfully');
   } catch (_error) {
 
-    console.error('Failed to delete user:', _error);
+    logger.error('Failed to delete user:', { error: _error });
     return createErrorResult(_error instanceof Error ? _error.message : 'Failed to delete user');
   }
 }
 
-/**
- * Toggle user active status
- * @param walletAddress
- */
-export async function toggleWalletStatus(walletAddress: string): Promise<ActionResult<UnifiedWalletData>> {
-  try {
-    // NOTE: Backend does not implement /wallets/:wallet_address/toggle-status - DEAD CODE
-    const response = await makeAuthenticatedRequest(`/api/admin/wallets/${walletAddress}/toggle-status`, {
-      method: 'PATCH'
-    });
-
-    revalidatePath('/users');
-    revalidatePath(`/users/${walletAddress}`);
-    return createSuccessResult(response, 'User status updated successfully');
-  } catch (_error) {
-
-    console.error('Failed to toggle user status:', _error);
-    return createErrorResult(_error instanceof Error ? _error.message : 'Failed to update user status');
-  }
-}
 
 // ============================================================================
 // USER PERMISSION OPERATIONS
@@ -326,7 +266,7 @@ export async function getWalletPermissions(walletAddress: string): Promise<Actio
     return createSuccessResult(response);
   } catch (_error) {
 
-    console.error('Failed to fetch user permissions:', _error);
+    logger.error('Failed to fetch user permissions:', { error: _error });
     return createErrorResult(_error instanceof Error ? _error.message : 'Failed to fetch user permissions');
   }
 }
@@ -352,7 +292,7 @@ export async function updateWalletPermissions(change: WalletPermissionChange): P
     return createSuccessResult(undefined, 'User permissions updated successfully');
   } catch (_error) {
 
-    console.error('Failed to update user permissions:', _error);
+    logger.error('Failed to update user permissions:', { error: _error });
     return createErrorResult(_error instanceof Error ? _error.message : 'Failed to update user permissions');
   }
 }
@@ -377,7 +317,7 @@ export async function bulkUpdateWalletPermissions(changes: WalletPermissionChang
     return createSuccessResult(response, 'Bulk permission update completed');
   } catch (_error) {
 
-    console.error('Failed to perform bulk permission update:', _error);
+    logger.error('Failed to perform bulk permission update:', { error: _error });
     return createErrorResult(_error instanceof Error ? _error.message : 'Failed to update permissions');
   }
 }
@@ -386,230 +326,7 @@ export async function bulkUpdateWalletPermissions(changes: WalletPermissionChang
 // BULK USER OPERATIONS
 // ============================================================================
 
-/**
- * Bulk delete users
- * @param walletAddresss
- * @param walletAddresses
- */
-export async function bulkDeleteWallets(walletAddresses: string[]): Promise<ActionResult<{
-  successful: number;
-  failed: number;
-  errors: string[];
-}>> {
-  try {
-    // NOTE: Backend does not implement /wallets/bulk-delete - DEAD CODE
-    const response = await makeAuthenticatedRequest('/api/admin/wallets/bulk-delete', {
-      method: 'DELETE',
-      body: JSON.stringify({ walletAddresses })
-    });
 
-    revalidatePath('/users');
-    return createSuccessResult(response, 'Bulk delete completed');
-  } catch (_error) {
-
-    console.error('Failed to perform bulk delete:', _error);
-    return createErrorResult(_error instanceof Error ? _error.message : 'Failed to delete users');
-  }
-}
-
-/**
- * Export users to CSV
- * @param filters
- */
-export async function exportWallets(filters?: Partial<WalletListFilters>): Promise<ActionResult<{
-  downloadUrl: string;
-  filename: string;
-}>> {
-  try {
-    const params = filters ? new URLSearchParams(
-      Object.fromEntries(
-        Object.entries(filters).map(([key, value]) => [key, String(value)])
-      )
-    ).toString() : '';
-
-    // NOTE: Backend does not implement /wallets/export - DEAD CODE
-    const response = await makeAuthenticatedRequest(`/api/admin/wallets/export?${params}`);
-    return createSuccessResult(response);
-  } catch (_error) {
-
-    console.error('Failed to export users:', _error);
-    return createErrorResult(_error instanceof Error ? _error.message : 'Failed to export users');
-  }
-}
-
-// ============================================================================
-// DETAILED USER PROFILE OPERATIONS
-// ============================================================================
-
-/**
- * Get unified detailed user data by ID
- * @param walletAddress
- */
-export async function getUnifiedWalletData(walletAddress: string): Promise<ActionResult<UnifiedWalletData>> {
-  try {
-    // NOTE: Backend does not implement /wallets/:wallet_address/unified - DEAD CODE
-    const response = await makeAuthenticatedRequest(`/api/admin/wallets/${walletAddress}/unified`);
-
-    // Transform backend response to match frontend interface
-    const userData = {
-      id: response.user.id,
-      email: response.user.email,
-      displayName: response.user.display_name || response.user.email.split('@')[0],
-      firstName: null,
-      lastName: null,
-      avatar: response.user.profile_picture,
-      emailVerified: true,
-      createdAt: new Date(response.user.created_at),
-      updatedAt: new Date(response.user.updated_at),
-      lastLogin: response.user.last_login ? new Date(response.user.last_login) : undefined,
-
-      status: response.user.is_active ? 'active' : 'inactive' as const,
-      phoneNumber: null,
-      timezone: null,
-      language: 'en',
-      twoFactorEnabled: false,
-
-      groups: [],
-      customPermissions: response.permissions?.individual_permissions || [],
-      permissionProfiles: response.permissions?.permission_profiles?.map((profile: any) => ({
-        id: profile.id,
-        name: profile.name,
-        description: profile.description,
-        permissions: profile.permissions,
-        assignedAt: new Date(profile.assigned_at),
-        expiresAt: profile.expires_at ? new Date(profile.expires_at) : null
-      })) || [],
-
-      moduleAccess: response.modules?.enabled_modules || [],
-      moduleQuotas: response.modules?.quotas ? [
-        {
-          moduleId: 'api',
-          quotaType: 'api_calls',
-          limit: response.modules.quotas.api_calls_per_day || 1000,
-          used: response.modules.quotas.api_calls_used || 0,
-          period: 'daily'
-        }
-      ] : [],
-      stockRankingPackages: [],
-
-      apiKeys: [],
-      recentActivity: [],
-      loginHistory: [],
-      usageMetrics: {
-        apiCallsThisMonth: response.modules?.quotas?.api_calls_used || 0,
-        storageUsed: 0,
-        lastActiveDate: response.activity?.last_activity ? new Date(response.activity.last_activity) : new Date(),
-        sessionsThisMonth: response.activity?.total_logins || 0,
-        averageSessionDuration: 0
-      },
-
-      billing: {
-        tier: response.billing?.tier || response.user?.subscription_tier || 'free',
-        status: response.billing?.status || 'active',
-        monthlySpend: response.billing?.monthly_spend || 0,
-        nextBillingDate: response.billing?.next_billing_date ? new Date(response.billing.next_billing_date) : null
-      }
-    };
-
-    return createSuccessResult(userData as any);
-  } catch (_error) {
-
-    console.error('Failed to get unified user data:', _error);
-    return createErrorResult(_error instanceof Error ? _error.message : 'Failed to fetch user data');
-  }
-}
-
-/**
- * Update user profile information
- * @param walletAddress
- * @param data
- */
-export async function updateWalletProfile(walletAddress: string, data: WalletProfileUpdateData): Promise<ActionResult<void>> {
-  try {
-    // NOTE: Backend does not implement /wallets/:wallet_address/profile - DEAD CODE
-    await makeAuthenticatedRequest(`/api/admin/wallets/${walletAddress}/profile`, {
-      method: 'PUT',
-      body: JSON.stringify(data)
-    });
-
-    revalidatePath(`/users/${walletAddress}`);
-    revalidatePath('/users');
-    return createSuccessResult(undefined, 'Profile updated successfully');
-  } catch (_error) {
-
-    console.error('Failed to update user profile:', _error);
-    return createErrorResult(_error instanceof Error ? _error.message : 'Failed to update profile');
-  }
-}
-
-/**
- * Update user status
- * @param walletAddress
- * @param data
- */
-export async function updateWalletStatus(walletAddress: string, data: WalletStatusUpdateData): Promise<ActionResult<void>> {
-  try {
-    // NOTE: Backend does not implement /wallets/:wallet_address/status - DEAD CODE
-    await makeAuthenticatedRequest(`/api/admin/wallets/${walletAddress}/status`, {
-      method: 'PUT',
-      body: JSON.stringify(data)
-    });
-
-    revalidatePath(`/users/${walletAddress}`);
-    revalidatePath('/users');
-    return createSuccessResult(undefined, 'Status updated successfully');
-  } catch (_error) {
-
-    console.error('Failed to update user status:', _error);
-    return createErrorResult(_error instanceof Error ? _error.message : 'Failed to update status');
-  }
-}
-
-/**
- * Update user groups
- * @param walletAddress
- * @param data
- */
-export async function updateWalletGroups(walletAddress: string, data: WalletGroupUpdateData): Promise<ActionResult<void>> {
-  try {
-    // NOTE: Backend does not implement /wallets/:wallet_address/groups - DEAD CODE
-    await makeAuthenticatedRequest(`/api/admin/wallets/${walletAddress}/groups`, {
-      method: 'PUT',
-      body: JSON.stringify(data)
-    });
-
-    revalidatePath(`/users/${walletAddress}`);
-    revalidatePath('/users');
-    return createSuccessResult(undefined, 'Groups updated successfully');
-  } catch (_error) {
-
-    console.error('Failed to update user groups:', _error);
-    return createErrorResult(_error instanceof Error ? _error.message : 'Failed to update groups');
-  }
-}
-
-/**
- * Update module access
- * @param walletAddress
- * @param data
- */
-export async function updateModuleAccess(walletAddress: string, data: ModuleAccessUpdateData): Promise<ActionResult<void>> {
-  try {
-    // NOTE: Backend does not implement /wallets/:wallet_address/modules - DEAD CODE
-    await makeAuthenticatedRequest(`/api/admin/wallets/${walletAddress}/modules`, {
-      method: 'PUT',
-      body: JSON.stringify(data)
-    });
-
-    revalidatePath(`/users/${walletAddress}`);
-    revalidatePath('/users');
-    return createSuccessResult(undefined, 'Module access updated successfully');
-  } catch (_error) {
-
-    console.error('Failed to update module access:', _error);
-    return createErrorResult(_error instanceof Error ? _error.message : 'Failed to update module access');
-  }
-}
 
 // ============================================================================
 // GROUP MANAGEMENT OPERATIONS
@@ -637,7 +354,7 @@ export async function assignWalletGroup(data: { walletAddress: string; group: st
     return createSuccessResult(undefined, 'Group assigned successfully');
   } catch (_error) {
 
-    console.error('Failed to assign user group:', _error);
+    logger.error('Failed to assign user group:', { error: _error });
     return createErrorResult(_error instanceof Error ? _error.message : 'Failed to assign group');
   }
 }
@@ -664,7 +381,7 @@ export async function removeWalletGroup(data: { walletAddress: string; group: st
     return createSuccessResult(undefined, 'Group removed successfully');
   } catch (_error) {
 
-    console.error('Failed to remove user group:', _error);
+    logger.error('Failed to remove user group:', { error: _error });
     return createErrorResult(_error instanceof Error ? _error.message : 'Failed to remove group');
   }
 }
@@ -695,7 +412,7 @@ export async function assignPermissionProfile(data: { walletAddress: string; pro
     return createSuccessResult(undefined, 'Permission profile assigned successfully');
   } catch (_error) {
 
-    console.error('Failed to assign permission profile:', _error);
+    logger.error('Failed to assign permission profile:', { error: _error });
     return createErrorResult(_error instanceof Error ? _error.message : 'Failed to assign permission profile');
   }
 }
@@ -728,7 +445,7 @@ export async function addCustomPermission(data: { walletAddress: string; resourc
     return createSuccessResult(undefined, 'Permission added successfully');
   } catch (_error) {
 
-    console.error('Failed to add custom permission:', _error);
+    logger.error('Failed to add custom permission:', { error: _error });
     return createErrorResult(_error instanceof Error ? _error.message : 'Failed to add permission');
   }
 }
@@ -757,7 +474,7 @@ export async function removeCustomPermission(data: { walletAddress: string; reso
     return createSuccessResult(undefined, 'Permission removed successfully');
   } catch (_error) {
 
-    console.error('Failed to remove custom permission:', _error);
+    logger.error('Failed to remove custom permission:', { error: _error });
     return createErrorResult(_error instanceof Error ? _error.message : 'Failed to remove permission');
   }
 }
@@ -800,7 +517,7 @@ export async function bulkAssignPermissions(data: {
     return createSuccessResult(response, 'Bulk permission assignment completed');
   } catch (_error) {
 
-    console.error('Failed to bulk assign permissions:', _error);
+    logger.error('Failed to bulk assign permissions:', { error: _error });
     return createErrorResult(_error instanceof Error ? _error.message : 'Failed to assign permissions');
   }
 }
@@ -839,7 +556,7 @@ export async function bulkRemovePermissions(data: {
     return createSuccessResult(response, 'Bulk permission removal completed');
   } catch (_error) {
 
-    console.error('Failed to bulk remove permissions:', _error);
+    logger.error('Failed to bulk remove permissions:', { error: _error });
     return createErrorResult(_error instanceof Error ? _error.message : 'Failed to remove permissions');
   }
 }
@@ -881,7 +598,7 @@ export async function assignTemporaryPermission(data: {
     return createSuccessResult(undefined, 'Temporary permission assigned successfully');
   } catch (_error) {
 
-    console.error('Failed to assign temporary permission:', _error);
+    logger.error('Failed to assign temporary permission:', { error: _error });
     return createErrorResult(_error instanceof Error ? _error.message : 'Failed to assign temporary permission');
   }
 }
@@ -890,13 +607,13 @@ export async function assignTemporaryPermission(data: {
  * Get all permissions that are expiring soon
  * @param days
  */
-export async function getExpiringPermissions(days = 7): Promise<ActionResult<any[]>> {
+export async function getExpiringPermissions(days = 7): Promise<ActionResult<Permission[]>> {
   try {
     const response = await makeAuthenticatedRequest(`/api/admin/casbin/expiring-permissions?days=${days}`);
     return createSuccessResult(response.permissions || []);
   } catch (_error) {
 
-    console.error('Failed to get expiring permissions:', _error);
+    logger.error('Failed to get expiring permissions', { error: _error });
     return createErrorResult(_error instanceof Error ? _error.message : 'Failed to fetch expiring permissions');
   }
 }
@@ -916,7 +633,7 @@ export async function validatePermissionAssignment(data: {
   walletAddress: string;
   resource: string;
   action: string;
-}): Promise<ActionResult<{ conflicts: any[]; warnings: string[] }>> {
+}): Promise<ActionResult<{ conflicts: Permission[]; warnings: string[] }>> {
   try {
     const response = await makeAuthenticatedRequest('/api/admin/casbin/validate-assignment', {
       method: 'POST',
@@ -930,137 +647,17 @@ export async function validatePermissionAssignment(data: {
     return createSuccessResult({ conflicts: response.conflicts || [], warnings: response.warnings || [] });
   } catch (_error) {
 
-    console.error('Failed to validate permission assignment:', _error);
+    logger.error('Failed to validate permission assignment:', { error: _error });
     return createErrorResult(_error instanceof Error ? _error.message : 'Failed to validate permission');
   }
 }
 
-/**
- * Get permission impact analysis for a user
- * @param walletAddress
- */
-export async function getPermissionImpact(walletAddress: string): Promise<ActionResult<{ canAccess: string[]; cannotAccess: string[]; totalResources: number }>> {
-  try {
-    // NOTE: Backend does not implement /wallets/:wallet_address/permission-impact - DEAD CODE
-    const response = await makeAuthenticatedRequest(`/api/admin/wallets/${walletAddress}/permission-impact`);
-    return createSuccessResult(response);
-  } catch (_error) {
-
-    console.error('Failed to get permission impact:', _error);
-    return createErrorResult(_error instanceof Error ? _error.message : 'Failed to get permission impact');
-  }
-}
 
 // ============================================================================
 // ACTIVITY & HISTORY OPERATIONS
 // ============================================================================
 
-/**
- * Get permission history for a user
- * @param walletAddress
- * @param limit
- */
-export async function getPermissionHistory(walletAddress: string, limit = 50): Promise<ActionResult<PermissionHistoryEntry[]>> {
-  try {
-    // NOTE: Backend does not implement /wallets/:wallet_address/activity - DEAD CODE
-    const response = await makeAuthenticatedRequest(`/api/admin/wallets/${walletAddress}/activity?limit=${limit}`);
 
-    const history: PermissionHistoryEntry[] = (response.activities || [])
-      .filter((activity: any) =>
-        activity.action?.includes('permission') ||
-        activity.action?.includes('role') ||
-        activity.action?.includes('profile')
-      )
-      .map((activity: any) => ({
-        id: activity.id,
-        walletAddress,
-        action: activity.action?.includes('granted') ? 'granted' :
-          activity.action?.includes('revoked') ? 'revoked' : 'modified',
-        type: activity.action?.includes('role') ? 'role' :
-          activity.action?.includes('profile') ? 'profile' : 'permission',
-        resource: activity.resource || '',
-        permission: activity.details?.permission || '',
-        role: activity.details?.role || '',
-        profileId: activity.details?.profile_id || '',
-        reason: activity.details?.reason || '',
-        grantedBy: activity.performed_by || 'System',
-        grantedAt: new Date(activity.created_at || activity.timestamp),
-        expires: activity.expires_at ? new Date(activity.expires_at) : undefined
-      }));
-
-    return createSuccessResult(history);
-  } catch (_error) {
-
-    console.error('Failed to get permission history:', _error);
-    return createErrorResult(_error instanceof Error ? _error.message : 'Failed to fetch permission history');
-  }
-}
-
-/**
- * Get comprehensive activity logs for a user
- * @param walletAddress
- * @param params
- */
-export async function getWalletActivityLogs(walletAddress: string, params: ActivityLogParams = {}): Promise<ActionResult<{
-  activities: ActivityLogEntry[];
-  statistics: {
-    total_activities: number;
-    login_activities: number;
-    failed_activities: number;
-    recent_activities: number;
-    activity_breakdown: Record<string, number>;
-  };
-  pagination: {
-    limit: number;
-    offset: number;
-    total: number;
-  };
-}>> {
-  try {
-    const queryParams = new URLSearchParams();
-    if (params.limit) { queryParams.append('limit', params.limit.toString()); }
-    if (params.offset) { queryParams.append('offset', params.offset.toString()); }
-    if (params.start_date) { queryParams.append('start_date', params.start_date); }
-    if (params.end_date) { queryParams.append('end_date', params.end_date); }
-    if (params.action_type) { queryParams.append('action_type', params.action_type); }
-
-    // NOTE: Backend does not implement /wallets/:wallet_address/activity - DEAD CODE
-    const response = await makeAuthenticatedRequest(`/api/admin/wallets/${walletAddress}/activity?${queryParams.toString()}`);
-
-    const activities: ActivityLogEntry[] = (response.activities || []).map((activity: any) => ({
-      id: activity.id,
-      action: activity.action,
-      resource_type: activity.resource_type,
-      resource_id: activity.resource_id,
-      result: activity.result,
-      timestamp: new Date(activity.timestamp),
-      client_ip: activity.client_ip,
-      user_agent: activity.user_agent,
-      sid: activity.sid,
-      metadata: activity.metadata || {}
-    }));
-
-    return createSuccessResult({
-      activities,
-      statistics: {
-        total_activities: response.statistics?.total_activities || activities.length,
-        login_activities: response.statistics?.login_activities || 0,
-        failed_activities: response.statistics?.failed_activities || 0,
-        recent_activities: response.statistics?.recent_activities || 0,
-        activity_breakdown: response.statistics?.activity_breakdown || {}
-      },
-      pagination: {
-        limit: params.limit || 50,
-        offset: params.offset || 0,
-        total: response.statistics?.total_activities || activities.length
-      }
-    });
-  } catch (_error) {
-
-    console.error('Failed to get user activity logs:', _error);
-    return createErrorResult(_error instanceof Error ? _error.message : 'Failed to fetch activity logs');
-  }
-}
 
 // ============================================================================
 // USER SEARCH OPERATIONS
@@ -1088,7 +685,7 @@ export async function searchWalletsAction(searchParams: {
   sort_by?: string;
   sort_order?: string;
 }): Promise<ActionResult<{
-  users: any[];
+  users: UnifiedWalletData[];
   total: number;
   page: number;
   per_page: number;
@@ -1106,7 +703,7 @@ export async function searchWalletsAction(searchParams: {
     return createSuccessResult(response);
   } catch (_error) {
 
-    console.error('Failed to search users:', _error);
+    logger.error('Failed to search users:', { error: _error });
     return createErrorResult(_error instanceof Error ? _error.message : 'Failed to search users');
   }
 }
