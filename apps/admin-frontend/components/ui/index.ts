@@ -1,17 +1,71 @@
-// UI Components Index (Refactored to Shared)
-// Shared UI components (primary exports)
+/**
+ * ADMIN FRONTEND UI COMPONENTS INDEX
+ * Re-exports from shared components where possible
+ * Keeps admin-specific components local
+ */
+
+// ============================================================================
+// BASIC PRIMITIVES - Re-export from shared
+// ============================================================================
 export * from '@/shared/components/ui/alert'
+export * from '@/shared/components/ui/alert-dialog'
+export * from '@/shared/components/ui/avatar'
 export * from '@/shared/components/ui/badge'
 export * from '@/shared/components/ui/button'
 export * from '@/shared/components/ui/card'
 export * from '@/shared/components/ui/dialog'
+export * from '@/shared/components/ui/dropdown-menu'
 export * from '@/shared/components/ui/input'
+export * from '@/shared/components/ui/popover'
 export * from '@/shared/components/ui/progress'
+export * from '@/shared/components/ui/scroll-area'
 export * from '@/shared/components/ui/skeleton'
 export * from '@/shared/components/ui/table'
 export * from '@/shared/components/ui/tabs'
+export * from '@/shared/components/ui/toast'
+export * from '@/shared/components/ui/toaster'
+export * from '@/shared/components/ui/tooltip'
 
-// Admin-specific local components - avoid conflicting names
+// ============================================================================
+// UNIFIED COMPONENTS - Re-export from shared
+// ============================================================================
+export {
+    AdminCard, EPSXCard, EPSXCardContent,
+    EPSXCardFooter, EPSXCardHeader, GlassCard,
+    // Legacy aliases
+    MetroCard, MetroListCard, MetroStatsCard, PremiumCard, ProfessionalCard, ProfessionalFeatureCard, ProfessionalListCard, ProfessionalStatsCard, AnalyticsCard as UnifiedAnalyticsCard,
+    // Main UnifiedCard
+    UnifiedCard, UnifiedCardContent,
+    UnifiedCardFooter, UnifiedCardHeader, UnifiedFeatureCard, UnifiedListCard,
+    // Specialized variants
+    PancakeCard as UnifiedPancakeCard,
+    // Specialized cards
+    UnifiedStatsCard, type AccentPosition, type UnifiedCardPadding,
+    // Types
+    type UnifiedCardProps,
+    type UnifiedCardSectionProps, type UnifiedCardSize, type UnifiedCardVariant, type UnifiedFeatureCardProps, type UnifiedListCardProps,
+    type UnifiedListItem, type UnifiedStatsCardProps
+} from '@/shared/components/cards/CardVariants'
+
+export {
+    UnifiedLoader, UnifiedLoading, UnifiedProgressBar, UnifiedSkeleton,
+    type UnifiedLoaderProps, type UnifiedLoadingProps, type UnifiedProgressBarProps, type UnifiedSkeletonProps
+} from '@/shared/components/loaders/UnifiedLoader'
+
+export {
+    AdminThemeToggle, AnimatedThemeToggle, GradientThemeToggle,
+    MinimalThemeToggle, OptimizedThemeToggle, SimpleThemeToggle, ThemeToggle,
+    ThemeToggleCSS, UnifiedThemeToggle, type ThemeToggleIconType,
+    type ThemeToggleSize, type ThemeToggleVariant, type UnifiedThemeToggleProps
+} from '@/shared/components/ui/UnifiedThemeToggle'
+
+export {
+    MetroNotification, ProfessionalAlert, ProfessionalNotification, UnifiedAlert, UnifiedNotification, useAdminToast, useAnalyticsToast, useMetroToast, usePancakeToast, useProfessionalToast, useUnifiedToast, type UnifiedAlertProps, type UnifiedNotificationProps
+} from '@/shared/components/notifications/UnifiedNotification'
+
+// ============================================================================
+// ADMIN-SPECIFIC LOCAL COMPONENTS
+// ============================================================================
 // Note: Checkbox from FormComponents, Select from select are used in admin
 export { Checkbox, Textarea } from './FormComponents'
 export {
@@ -31,5 +85,4 @@ export * from './AnalyticsCard'
 export * from './PancakeButton'
 export * from './PancakeCard'
 export * from './StatsCard'
-export * from './ThemeToggle'
 

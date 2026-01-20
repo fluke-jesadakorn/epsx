@@ -1,5 +1,5 @@
-import { PlanGatedRankings } from '@/components/analytics/PlanGatedRankings';
 import ServerCardDashboard from '@/components/analytics/ServerCardDashboard';
+import { BarChart3, Sparkles, TrendingUp } from 'lucide-react';
 
 interface AnalyticsPageProps {
   searchParams: Promise<{
@@ -18,75 +18,83 @@ interface AnalyticsPageProps {
 export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps) {
   const resolvedSearchParams = await searchParams;
   return (
-    <>
-      <div className="relative min-h-screen overflow-hidden">
-        {/* PancakeSwap-style vibrant background */}
-        <div className="fixed inset-0 z-0">
-          {/* Main gradient background */}
-          <div className="absolute inset-0 bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900" />
+    <div className="relative min-h-screen overflow-hidden bg-slate-950">
+      {/* Premium dark gradient background */}
+      <div className="fixed inset-0 z-0">
+        {/* Base gradient */}
+        <div className="absolute inset-0 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950" />
 
-          {/* Floating gradient orbs - Analytics theme (dimmed in dark mode) */}
-          <div className="absolute -top-40 -left-40 h-96 w-96 rounded-full bg-gradient-to-br from-blue-400/30 to-indigo-400/30 dark:from-blue-700/10 dark:to-indigo-700/10 blur-3xl" />
-          <div className="absolute top-20 -right-32 h-80 w-80 rounded-full bg-gradient-to-br from-purple-400/25 to-pink-400/25 dark:from-purple-700/10 dark:to-pink-700/10 blur-3xl" />
-          <div className="absolute bottom-20 left-20 h-72 w-72 rounded-full bg-gradient-to-br from-cyan-400/20 to-teal-400/20 dark:from-cyan-700/10 dark:to-teal-700/10 blur-3xl" />
-          <div className="absolute top-1/2 right-1/4 h-64 w-64 rounded-full bg-gradient-to-br from-indigo-400/15 to-blue-400/15 dark:from-indigo-700/8 dark:to-blue-700/8 blur-3xl" />
+        {/* Animated gradient orbs */}
+        <div className="absolute -top-40 -left-40 h-[500px] w-[500px] rounded-full bg-gradient-to-br from-purple-600/20 to-pink-600/10 blur-3xl animate-pulse" />
+        <div className="absolute top-1/4 -right-32 h-[400px] w-[400px] rounded-full bg-gradient-to-br from-blue-600/15 to-cyan-600/10 blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
+        <div className="absolute bottom-0 left-1/3 h-[350px] w-[350px] rounded-full bg-gradient-to-br from-indigo-600/15 to-purple-600/10 blur-3xl animate-pulse" style={{ animationDelay: '2s' }} />
+        
+        {/* Grid pattern overlay */}
+        <div 
+          className="absolute inset-0 opacity-[0.03]"
+          style={{
+            backgroundImage: `linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px),
+                              linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)`,
+            backgroundSize: '50px 50px'
+          }}
+        />
 
-          {/* Mesh gradient overlays for depth (hidden in dark mode) */}
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_25%_25%,_rgba(59,130,246,0.1)_0%,_transparent_50%)] dark:bg-none" />
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_75%_75%,_rgba(168,85,247,0.08)_0%,_transparent_50%)] dark:bg-none" />
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,_rgba(99,102,241,0.06)_0%,_transparent_60%)] dark:bg-none" />
+        {/* Radial gradient overlay for depth */}
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_transparent_0%,_rgba(0,0,0,0.4)_100%)]" />
+      </div>
 
-          {/* Decorative geometric shapes (dimmed in dark mode) */}
-          <div className="absolute top-1/4 left-1/4 h-32 w-32 rotate-45 rounded-2xl bg-gradient-to-br from-blue-300/10 to-indigo-300/10 dark:from-blue-800/5 dark:to-indigo-800/5" />
-          <div className="absolute right-1/3 bottom-1/3 h-24 w-24 rounded-full bg-gradient-to-br from-purple-300/10 to-pink-300/10 dark:from-purple-800/5 dark:to-pink-800/5" />
-        </div>
+      {/* Main content */}
+      <div className="relative z-10">
+        <div className="container mx-auto max-w-7xl px-4 py-8">
+          {/* Header Section */}
+          <div className="mb-10">
+            <div className="relative rounded-3xl border border-white/5 bg-slate-900/50 backdrop-blur-xl p-8 overflow-hidden">
+              {/* Header background decorations */}
+              <div className="absolute top-0 right-0 h-32 w-32 bg-gradient-to-br from-purple-500/10 to-pink-500/10 blur-2xl" />
+              <div className="absolute bottom-0 left-0 h-24 w-24 bg-gradient-to-br from-blue-500/10 to-cyan-500/10 blur-2xl" />
 
-        {/* Main content */}
-        <div className="relative z-10">
-          <div className="container mx-auto max-w-7xl px-4 py-8">
-            <div className="mb-12">
-              <div className="p-8 text-center">
-                <div className="relative">
-                  {/* Background decorative elements */}
-                  <div className="absolute -top-8 -left-8 h-16 w-16 rounded-full bg-gradient-to-br from-blue-400/20 to-indigo-400/20 dark:from-blue-700/10 dark:to-indigo-700/10 blur-xl" />
-                  <div className="absolute -top-4 -right-8 h-20 w-20 rounded-full bg-gradient-to-br from-purple-400/20 to-pink-400/20 dark:from-purple-700/10 dark:to-pink-700/10 blur-xl" />
+              <div className="relative flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+                {/* Title and description */}
+                <div className="flex items-start gap-4">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-purple-500 via-pink-500 to-orange-500 shadow-lg shadow-purple-500/25">
+                    <BarChart3 className="h-7 w-7 text-white" />
+                  </div>
+                  <div>
+                    <h1 className="text-3xl font-bold text-white sm:text-4xl">
+                      Analytics Hub
+                    </h1>
+                    <p className="mt-1 text-slate-400 max-w-xl">
+                      Discover top-performing stocks with real-time EPS growth analytics
+                    </p>
+                  </div>
+                </div>
 
-                  <h1 className="insight-gradient-text mb-4 text-4xl font-bold tracking-wide sm:text-5xl">
-                    Analytics Hub
-                  </h1>
-                  <p className="insight-gradient-secondary-text mx-auto max-w-2xl text-lg font-medium">
-                    Sweet DeFi analytics with delicious insights and powerful
-                    data
-                  </p>
-
-                  {/* Decorative dots */}
-                  <div className="mt-6 flex items-center justify-center gap-4">
-                    <div className="h-2 w-2 rounded-full bg-blue-400" />
-                    <div className="h-3 w-3 rounded-full bg-purple-400" />
-                    <div className="h-2 w-2 rounded-full bg-indigo-400" />
+                {/* Quick stats badges */}
+                <div className="flex flex-wrap gap-3">
+                  <div className="flex items-center gap-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 px-4 py-2">
+                    <TrendingUp className="h-4 w-4 text-emerald-400" />
+                    <span className="text-sm font-medium text-emerald-400">Live Data</span>
+                  </div>
+                  <div className="flex items-center gap-2 rounded-xl bg-purple-500/10 border border-purple-500/20 px-4 py-2">
+                    <Sparkles className="h-4 w-4 text-purple-400" />
+                    <span className="text-sm font-medium text-purple-400">AI-Powered</span>
                   </div>
                 </div>
               </div>
             </div>
+          </div>
 
-            <div className="relative">
-              {/* Dashboard background decorations */}
-              <div className="absolute -top-12 left-1/4 h-24 w-24 rotate-12 rounded-2xl bg-gradient-to-br from-blue-300/10 to-indigo-300/10 dark:from-blue-800/5 dark:to-indigo-800/5" />
-              <div className="absolute right-1/4 -bottom-12 h-20 w-20 rounded-full bg-gradient-to-br from-purple-300/10 to-pink-300/10 dark:from-purple-800/5 dark:to-pink-800/5" />
-
-              {/* Wrap with PlanGatedRankings for upgrade prompts */}
-              <PlanGatedRankings totalRankings={100}>
-                <ServerCardDashboard
-                  searchParams={{
-                    ...resolvedSearchParams,
-                  }}
-                />
-              </PlanGatedRankings>
-            </div>
+          {/* Dashboard Section */}
+          <div className="relative">
+            <ServerCardDashboard
+              searchParams={{
+                ...resolvedSearchParams,
+              }}
+            />
           </div>
         </div>
-      </div >
-    </>
+      </div>
+    </div>
   );
 }
 

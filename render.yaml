@@ -1,0 +1,32 @@
+services:
+  - type: web
+    name: epsx-backend
+    runtime: docker
+    dockerfilePath: apps/backend/Dockerfile
+    dockerContext: .
+    region: singapore
+    plan: starter
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: RUST_ENV
+        value: production
+      - key: RUST_LOG
+        value: info
+      - key: HOST
+        value: 0.0.0.0
+      - key: PORT
+        value: 8080
+      - key: FRONTEND_URL
+        value: https://epsx.io
+      - key: ADMIN_FRONTEND_URL
+        value: https://admin.epsx.io
+      - key: WEB3_APP_SECRET
+        sync: false
+      - key: WALLET_SIGNATURE_SECRET
+        sync: false
+      - key: BACKEND_URL
+        sync: false

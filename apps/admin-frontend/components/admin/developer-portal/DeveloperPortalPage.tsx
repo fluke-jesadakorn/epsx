@@ -1,9 +1,11 @@
 'use client';
 
-import { Activity, BarChart3, BookOpen, Key, Shield } from 'lucide-react';
+import { Activity, BarChart3, BookOpen, Code, Key, Shield } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import React, { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
+
+import { PageHeader } from '@/components/shared';
 
 import { EditExpirationModal } from './modals/EditExpirationModal';
 import { RevokeKeyModal } from './modals/RevokeKeyModal';
@@ -238,16 +240,14 @@ export const DeveloperPortalPage: React.FC = () => {
     }
 
     return (
-        <div className="p-6 max-w-7xl mx-auto">
+        <>
             {/* Header */}
-            <div className="mb-6">
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">
-                    Developer Portal
-                </h1>
-                <p className="text-gray-600 dark:text-gray-300">
-                    Manage user API keys and third-party integrations
-                </p>
-            </div>
+            <PageHeader
+                title="Developer Portal"
+                subtitle="Manage API keys, documentation, and third-party integrations"
+                icon={Code}
+                gradient="warning"
+            />
 
             {/* Tab Navigation */}
             <div className="flex space-x-1 mb-6 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg w-fit">
@@ -408,6 +408,6 @@ export const DeveloperPortalPage: React.FC = () => {
                     </div>
                 </div>
             )}
-        </div>
+        </>
     );
 };

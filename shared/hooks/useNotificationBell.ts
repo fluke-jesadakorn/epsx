@@ -235,6 +235,14 @@ export function useNotificationBell(
 
         if (!isMounted) return
 
+        // Safety check: ensure response has expected structure
+        if (!data?.data?.notifications) {
+          console.warn('Unexpected notification response format:', data)
+          setNotifications([])
+          setCount(0)
+          return
+        }
+
         const mappedNotifications: Notification[] = data.data.notifications.map((n) => ({
           id: n.id,
           title: n.title,
@@ -250,7 +258,7 @@ export function useNotificationBell(
         }))
 
         setNotifications(mappedNotifications)
-        setCount(data.data.unread_count)
+        setCount(data.data.unread_count ?? 0)
       } catch (err) {
         if (!isMounted) return
 

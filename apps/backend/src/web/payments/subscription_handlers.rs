@@ -24,33 +24,36 @@ use crate::{
 // HELPER FUNCTIONS
 // ============================================================================
 
-/// Extract rankings view limit from group metadata permissions
-/// Returns: Some(-1) for unlimited, Some(n) for specific limit, Some(3) as default
-fn extract_rankings_limit(metadata: &serde_json::Value) -> Option<i32> {
-    // Check permissions array in metadata
+/// Extract ranking offset from group metadata
+/// Returns: 0 for top ranks access, higher values for lower tier access
+fn extract_ranking_offset(metadata: &serde_json::Value) -> i32 {
+    // Check for ranking_offset in metadata root or features
+    if let Some(offset) = metadata.get("ranking_offset").and_then(|v| v.as_i64()) {
+        return offset as i32;
+    }
+    if let Some(features) = metadata.get("features").and_then(|f| f.as_object()) {
+        if let Some(offset) = features.get("ranking_offset").and_then(|v| v.as_i64()) {
+            return offset as i32;
+        }
+    }
+    // Check permissions for offset pattern
     if let Some(permissions) = metadata.get("permissions").and_then(|p| p.as_array()) {
         for perm in permissions {
             if let Some(perm_str) = perm.as_str() {
-                // Look for "epsx:rankings:view:N" or "epsx:analytics:view:N" pattern
-                if let Some(limit_str) = perm_str.strip_prefix("epsx:rankings:view:")
-                    .or_else(|| perm_str.strip_prefix("epsx:analytics:view:")) {
-                    if limit_str == "unlimited" || limit_str == "-1" {
-                        return Some(-1);
-                    }
-                    if let Ok(limit) = limit_str.parse::<i32>() {
-                        return Some(limit);
+                if let Some(offset_str) = perm_str.strip_prefix("epsx:rankings:offset:") {
+                    if let Ok(offset) = offset_str.parse::<i32>() {
+                        return offset;
                     }
                 }
-                // Check for wildcard permission (enterprise access)
+                // Wildcard = full access (offset 0)
                 if perm_str == "epsx:*:*" || perm_str == "epsx:rankings:*" {
-                    return Some(-1); // Unlimited
+                    return 0;
                 }
             }
         }
     }
-    
-    // Default to free tier limit
-    Some(3)
+    // Default: free tier sees ranks 101+ (offset 100)
+    100
 }
 
 // ============================================================================
@@ -74,7 +77,7 @@ pub struct PlanAccessData {
     pub plan_expires_at: Option<DateTime<Utc>>,
     pub days_remaining: i64,
     pub status: String, // "active", "expiring_soon", "expired", "no_plan"
-    pub rankings_view_limit: Option<i32>, // -1 = unlimited, 0 = none, >0 = specific limit
+    pub ranking_offset: i32, // Starting rank position (0 = top ranks, 100 = ranks 101+)
     pub can_upgrade: bool,
     pub tier_level: i32, // Plan tier level for upgrade/downgrade logic
 }
@@ -172,11 +175,11 @@ pub async fn get_user_plans_handler(
             "active"
         };
         
-        // Extract ranking limit from metadata
-        let rankings_view_limit = extract_rankings_limit(&sub.group_metadata);
+        // Extract ranking offset from metadata
+        let ranking_offset = extract_ranking_offset(&sub.group_metadata);
         
-        // Check if user can upgrade (has non-enterprise plan)
-        let can_upgrade = rankings_view_limit.map(|l| l != -1).unwrap_or(true);
+        // Check if user can upgrade (ranking_offset > 0 means not full access)
+        let can_upgrade = ranking_offset > 0;
 
         return Ok(Json(UserPlansResponse {
             success: true,
@@ -188,7 +191,7 @@ pub async fn get_user_plans_handler(
                 plan_expires_at: sub.expires_at,
                 days_remaining: days_remaining.max(0),
                 status: status.to_string(),
-                rankings_view_limit,
+                ranking_offset,
                 can_upgrade,
                 tier_level: sub.tier_level, // Use tier_level from group
             }),
@@ -245,22 +248,21 @@ pub async fn get_user_plans_handler(
             };
 
             // Legacy plan name lookup
-            let (plan_name, rankings_view_limit) = if let Some(plan_id) = u.current_plan_id {
+            let plan_name = if let Some(plan_id) = u.current_plan_id {
                 #[derive(diesel::QueryableByName)]
                 struct PlanNameRow {
                     #[diesel(sql_type = diesel::sql_types::Text)]
                     name: String,
                 }
                 
-                let name = diesel::sql_query("SELECT name FROM pricing_plans WHERE id = $1")
+                diesel::sql_query("SELECT name FROM pricing_plans WHERE id = $1")
                     .bind::<diesel::sql_types::Integer, _>(plan_id)
                     .get_result::<PlanNameRow>(&mut conn)
                     .await
                     .ok()
-                    .map(|p| p.name);
-                (name, Some(3)) // Default to 3 rankings for legacy plans
+                    .map(|p| p.name)
             } else {
-                (None, Some(3)) // Default free tier limit
+                None
             };
 
             PlanAccessData {
@@ -270,7 +272,7 @@ pub async fn get_user_plans_handler(
                 plan_expires_at: u.plan_expires_at,
                 days_remaining: days_remaining.max(0),
                 status: status.to_string(),
-                rankings_view_limit,
+                ranking_offset: 100, // Legacy users default to free tier offset
                 can_upgrade: true,
                 tier_level: 0, // Legacy users default to tier 0
             }
@@ -282,7 +284,7 @@ pub async fn get_user_plans_handler(
             plan_expires_at: None,
             days_remaining: 0,
             status: "no_plan".to_string(),
-            rankings_view_limit: Some(3), // Default free tier: 3 rankings
+            ranking_offset: 100, // Free tier sees ranks 101+
             can_upgrade: true,
             tier_level: 0, // No plan = tier 0
         },

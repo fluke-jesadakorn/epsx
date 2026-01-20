@@ -21,16 +21,17 @@ export function PlanGatedRankings({
 }: PlanGatedRankingsProps): React.ReactElement {
     const { planAccess, loading } = usePlanAccess();
 
-    const rankingsLimit = planAccess?.rankings_view_limit ?? -1;
-    const isUnlimited = rankingsLimit === -1;
+    // ranking_offset: 0 = full access, >0 = number of top ranks locked
+    const rankingOffset = planAccess?.ranking_offset ?? 100;
+    const hasFullAccess = rankingOffset === 0;
     const canUpgrade = planAccess?.can_upgrade ?? true;
 
     return (
         <div className="space-y-6">
             {/* Show upgrade banner for limited plans */}
-            {!loading && !isUnlimited && canUpgrade && (
+            {!loading && !hasFullAccess && canUpgrade && (
                 <UpgradeBannerInline
-                    rankingsLimit={rankingsLimit}
+                    rankingsLimit={rankingOffset}
                     totalRankings={totalRankings}
                     planName={planAccess?.plan_name}
                     className="mb-6"
@@ -41,18 +42,17 @@ export function PlanGatedRankings({
             {children}
 
             {/* Bottom upgrade prompt for limited users */}
-            {!loading && !isUnlimited && canUpgrade && (
+            {!loading && !hasFullAccess && canUpgrade && (
                 <div className="mt-8 rounded-2xl bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6 text-center">
                     <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-purple-500 via-pink-500 to-orange-500 shadow-lg shadow-purple-500/30">
                         <Crown className="h-8 w-8 text-white" />
                     </div>
 
                     <h3 className="mb-2 text-xl font-bold text-white">
-                        Unlock More Rankings
+                        Unlock Premium Rankings
                     </h3>
                     <p className="mb-6 text-slate-400">
-                        You&apos;re viewing {rankingsLimit} of {totalRankings}+ stocks.
-                        Upgrade to access the full rankings list with advanced analytics.
+                        Ranks 1-{rankingOffset} are premium. Upgrade to unlock top performers and advanced analytics.
                     </p>
 
                     <div className="flex flex-col items-center justify-center gap-3 sm:flex-row">

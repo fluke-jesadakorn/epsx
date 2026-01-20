@@ -44,7 +44,7 @@ export function BulkActionsBar({
     return (
         <div className={cn(
             'fixed bottom-6 left-1/2 -translate-x-1/2 z-50',
-            'bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700',
+            'bg-card rounded-2xl shadow-2xl border border-border',
             'px-6 py-4 flex items-center gap-4',
             className
         )}>
@@ -52,16 +52,16 @@ export function BulkActionsBar({
             <div className="flex items-center gap-3">
                 <button
                     onClick={onClearSelection}
-                    className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500"
+                    className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground"
                 >
                     <X className="h-4 w-4" />
                 </button>
-                <span className="font-semibold text-gray-900 dark:text-white">
+                <span className="font-semibold text-foreground">
                     {selectedCount} selected
                 </span>
             </div>
 
-            <div className="h-6 w-px bg-gray-200 dark:bg-gray-700" />
+            <div className="h-6 w-px bg-border" />
 
             {/* Actions */}
             <div className="flex items-center gap-2">

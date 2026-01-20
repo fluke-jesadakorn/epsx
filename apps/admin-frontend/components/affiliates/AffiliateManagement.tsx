@@ -1,4 +1,4 @@
-'use client'
+'use client';
 
 import {
   Clock,
@@ -6,8 +6,11 @@ import {
   Handshake,
   Target,
   Users
-} from 'lucide-react'
-import { useState } from 'react'
+} from 'lucide-react';
+import { useState } from 'react';
+
+import { PageHeader } from '@/components/shared';
+
 
 
 export interface Affiliate {
@@ -99,6 +102,12 @@ export function AffiliateManagement({ affiliates, currentUser }: AffiliateManage
 
   return (
     <div className="space-y-6 sm:space-y-8">
+      <PageHeader
+        title="Affiliate Program"
+        subtitle="Manage affiliate partners, track referrals, and process commissions"
+        icon={Users}
+        gradient="purple"
+      />
       {/* Background Decorations */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-20 left-20 w-32 h-32 bg-primary/10 rounded-full blur-xl animate-pulse"></div>

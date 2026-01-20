@@ -6,13 +6,14 @@
  * Modal auto-opens on page load for admin authentication
  */
 
+import { PageLayout, PageSkeleton } from '@/components/shared';
 import { AuthModal } from '@/shared/components/auth';
 import { useSharedAuth } from '@/shared/components/auth/Provider';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useAccount } from 'wagmi';
 
-export default function AuthPage() {
+function AuthPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [showModal, setShowModal] = useState(true);
@@ -62,12 +63,7 @@ export default function AuthPage() {
   };
 
   if (!mounted) {
-    return (
-      <div className="auth-page-loading">
-        <div className="auth-page-spinner" />
-        <p>Loading...</p>
-      </div>
-    );
+    return <PageSkeleton showHeader={false} stats={0} rows={0} />;
   }
 
   // Check if already authenticated
@@ -77,17 +73,23 @@ export default function AuthPage() {
 
   if (isAuthenticated && user && hasAdminPermission) {
     return (
-      <div className="auth-page-loading">
-        <p>✅ Admin Access Granted! Redirecting...</p>
-      </div>
+      <PageLayout>
+        <div className="flex flex-col items-center justify-center py-16">
+          <div className="w-16 h-16 bg-success/10 rounded-2xl flex items-center justify-center mb-4">
+            <span className="text-3xl">✅</span>
+          </div>
+          <p className="text-lg font-medium text-foreground">Admin Access Granted!</p>
+          <p className="text-muted-foreground">Redirecting...</p>
+        </div>
+      </PageLayout>
     );
   }
 
   return (
-    <div className="auth-page-bg">
+    <PageLayout>
       {/* Reason message display */}
       {reason && (
-        <div className="auth-reason-banner">
+        <div className="fixed top-0 left-0 right-0 p-3 bg-destructive text-destructive-foreground text-center text-sm z-50">
           {reason === 'no-session' && 'Your session has expired. Please sign in again.'}
           {reason === 'no-admin-permissions' && 'Admin permissions required.'}
         </div>
@@ -99,49 +101,14 @@ export default function AuthPage() {
         variant="admin"
         onSuccess={handleAuthSuccess}
       />
+    </PageLayout>
+  );
+}
 
-      {/* Background styling */}
-      <style jsx>{`
-        .auth-page-bg {
-          min-height: 100vh;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          background: linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 50%, #16162a 100%);
-        }
-        .auth-page-loading {
-          min-height: 100vh;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          color: #fff;
-          gap: 1rem;
-        }
-        .auth-page-spinner {
-          width: 40px;
-          height: 40px;
-          border: 3px solid rgba(245, 158, 11, 0.3);
-          border-top-color: #f59e0b;
-          border-radius: 50%;
-          animation: spin 0.8s linear infinite;
-        }
-        @keyframes spin {
-          to { transform: rotate(360deg); }
-        }
-        .auth-reason-banner {
-          position: fixed;
-          top: 0;
-          left: 0;
-          right: 0;
-          padding: 0.75rem;
-          background: rgba(239, 68, 68, 0.9);
-          color: #fff;
-          text-align: center;
-          font-size: 0.875rem;
-          z-index: 100;
-        }
-      `}</style>
-    </div>
+export default function AuthPage() {
+  return (
+    <Suspense fallback={<PageSkeleton showHeader={false} stats={0} rows={0} />}>
+      <AuthPageContent />
+    </Suspense>
   );
 }

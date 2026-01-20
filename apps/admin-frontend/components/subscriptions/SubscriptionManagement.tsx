@@ -1,11 +1,14 @@
-'use client'
+'use client';
 
-import { useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { CreditCard } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
 
-import { toast } from '@/hooks/use-toast'
-import { createPlansClient, isApiSuccess, type SubscriptionResponse } from '@/shared/api/plans'
-import { createAdminApiClient } from '@/shared/utils/api-client'
+import { PageHeader } from '@/components/shared';
+
+import { toast } from '@/hooks/use-toast';
+import { createPlansClient, isApiSuccess, type SubscriptionResponse } from '@/shared/api/plans';
+import { createAdminApiClient } from '@/shared/utils/api-client';
 
 interface SubscriptionManagementProps {
   currentUser: any
@@ -131,6 +134,12 @@ export function SubscriptionManagement({ currentUser: _currentUser }: Subscripti
 
   return (
     <>
+      <PageHeader
+        title="Subscriptions"
+        subtitle="Manage user subscriptions and billing across the platform"
+        icon={CreditCard}
+        gradient="purple"
+      />
       <div className="max-w-7xl mx-auto space-y-8">
         {/* Hero Section */}
         <div className="text-center mb-12">

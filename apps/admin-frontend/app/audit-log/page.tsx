@@ -8,6 +8,7 @@ import { ChevronLeft, ChevronRight, Download, FileText, RefreshCw, Search } from
 import { useRouter } from 'next/navigation';
 import React, { useCallback, useEffect, useState } from 'react';
 
+import { PageAuthRequired, PageHeader, PageLayout, PageSkeleton } from '@/components/shared';
 import { useSharedAuth } from '@/shared/components/auth/Provider';
 import { API_ROUTES } from '@/shared/config/route-constants';
 import { createAdminApiClient } from '@/shared/utils/api-client';
@@ -21,20 +22,12 @@ interface AuditLogEntry {
     resource_id: string | null;
     result: string;
     details: Record<string, unknown> | null;
-    additional_data?: Record<string, unknown> | null; // For backward compatibility if needed, but we should use one
+    additional_data?: Record<string, unknown> | null;
     ip_address?: string;
     user_agent?: string;
-    timestamp: string; // Backend sends timestamp
-    created_at?: string; // Legacy support
+    timestamp: string;
+    created_at?: string;
 }
-
-// interface AuditLogFilters {
-//     action?: string;
-//     actor?: string;
-//     target_type?: string;
-//     from_date?: string;
-//     to_date?: string;
-// }
 
 type ActionType = 'all' | 'permission' | 'wallet' | 'plan' | 'system';
 
@@ -46,47 +39,8 @@ const ACTION_CATEGORIES: Record<ActionType, { label: string; icon: string; color
     system: { label: 'System', icon: '⚙️', color: 'orange' },
 };
 
-
-
-function AuditLogSkeleton(): React.JSX.Element {
-    return (
-        <div className="min-h-screen bg-background p-6">
-            <div className="max-w-7xl mx-auto">
-                {/* Header skeleton */}
-                <div className="mb-8">
-                    <div className="h-12 bg-gray-200 dark:bg-gray-700 rounded-xl w-64 mb-4 animate-pulse"></div>
-                    <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded-lg w-96 animate-pulse"></div>
-                </div>
-
-                {/* Filters skeleton */}
-                <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
-                    {Array.from({ length: 5 }).map((_, i) => (
-                        <div key={i} className="h-12 bg-gray-200 dark:bg-gray-700 rounded-xl animate-pulse"></div>
-                    ))}
-                </div>
-
-                {/* Table skeleton */}
-                <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl overflow-hidden">
-                    <div className="p-6 space-y-4">
-                        {Array.from({ length: 10 }).map((_, i) => (
-                            <div key={i} className="flex items-center gap-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl animate-pulse">
-                                <div className="w-10 h-10 bg-gray-200 dark:bg-gray-600 rounded-full"></div>
-                                <div className="flex-1 space-y-2">
-                                    <div className="h-4 bg-gray-200 dark:bg-gray-600 rounded w-1/3"></div>
-                                    <div className="h-3 bg-gray-200 dark:bg-gray-600 rounded w-1/2"></div>
-                                </div>
-                                <div className="h-4 bg-gray-200 dark:bg-gray-600 rounded w-24"></div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
-}
-
 /**
- *
+ * Audit Log Page Component
  */
 export default function AuditLogPage(): React.JSX.Element {
     const { isAuthenticated, isLoading } = useSharedAuth();
@@ -139,16 +93,13 @@ export default function AuditLogPage(): React.JSX.Element {
                 setLogs(response.data.entries || []);
                 setTotalPages(response.data.total_pages || 1);
             } else {
-                // Mock data for development when backend doesn't have this endpoint yet
                 setLogs(generateMockAuditLogs());
                 setTotalPages(5);
             }
         } catch (err) {
-            // Only log errors that aren't 404s (expected when endpoint not yet implemented)
             if (err && typeof err === 'object' && 'status' in err && err.status !== 404) {
                 console.error('Failed to fetch audit logs:', err);
             }
-            // Use mock data when API is not available
             setLogs(generateMockAuditLogs());
             setTotalPages(5);
         } finally {
@@ -183,182 +134,163 @@ export default function AuditLogPage(): React.JSX.Element {
     };
 
     if (isLoading) {
-        return <AuditLogSkeleton />;
+        return <PageSkeleton showHeader showTabs={false} stats={0} rows={10} />;
     }
 
     if (!isAuthenticated) {
-        return <AuditLogSkeleton />;
+        return <PageAuthRequired />;
     }
 
     return (
-        <div className="min-h-screen bg-background p-3 sm:p-6">
-            {/* Background Decorations */}
-            <div className="fixed inset-0 overflow-hidden pointer-events-none">
-                <div className="absolute top-20 left-20 w-32 h-32 bg-gradient-to-r from-indigo-400/20 to-purple-500/20 rounded-full blur-xl"></div>
-                <div className="absolute top-40 right-32 w-24 h-24 bg-gradient-to-r from-emerald-400/20 to-teal-500/20 rounded-full blur-lg"></div>
-                <div className="absolute bottom-32 left-1/3 w-28 h-28 bg-gradient-to-r from-orange-400/15 to-yellow-500/15 rounded-full blur-xl"></div>
-            </div>
+        <PageLayout>
+            {/* Header */}
+            <PageHeader
+                title="Audit Log"
+                subtitle="Track all admin actions, permission changes, and system events"
+                icon={FileText}
+                gradient="indigo"
+            />
 
-            <div className="relative max-w-7xl mx-auto">
-                {/* Header */}
-                <div className="mb-8 text-center sm:text-left">
-                    <div className="relative inline-block">
-                        <h1 className="flex items-center justify-center sm:justify-start gap-3 text-4xl sm:text-5xl font-bold mb-4">
-                            <span className="text-indigo-500">
-                                <FileText className="w-10 h-10 sm:w-12 sm:h-12" />
-                            </span>
-                            <span className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
-                                Audit Log
-                            </span>
-                        </h1>
-                        <div className="absolute -top-2 -right-2 w-4 h-4 bg-gradient-to-r from-indigo-400 to-purple-500 rounded-full"></div>
+            {/* Filters Bar */}
+            <div className="bg-card rounded-2xl p-4 shadow-xl border border-border/20">
+                <div className="flex flex-col lg:flex-row gap-4">
+                    {/* Search */}
+                    <div className="relative flex-1">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                        <input
+                            type="text"
+                            placeholder="Search by actor, action, or target..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="w-full pl-10 pr-4 py-3 bg-muted border border-border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                        />
                     </div>
-                    <p className="text-base sm:text-lg text-gray-600 dark:text-gray-400 max-w-2xl">
-                        Track all admin actions, permission changes, and system events
-                    </p>
+
+                    {/* Category Filter */}
+                    <div className="flex gap-2 overflow-x-auto pb-2 lg:pb-0">
+                        {Object.entries(ACTION_CATEGORIES).map(([key, { label, icon }]) => (
+                            <button
+                                key={key}
+                                onClick={() => setSelectedCategory(key as ActionType)}
+                                className={`px-4 py-2 rounded-xl font-medium whitespace-nowrap transition-all ${selectedCategory === key
+                                    ? 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-lg'
+                                    : 'bg-muted text-foreground hover:bg-muted/80'
+                                    }`}
+                            >
+                                {icon} {label}
+                            </button>
+                        ))}
+                    </div>
                 </div>
 
-                {/* Filters Bar */}
-                <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 mb-6 shadow-xl border border-white/20">
-                    <div className="flex flex-col lg:flex-row gap-4">
-                        {/* Search */}
-                        <div className="relative flex-1">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                            <input
-                                type="text"
-                                placeholder="Search by actor, action, or target..."
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                className="w-full pl-10 pr-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                            />
+                {/* Date Range & Actions */}
+                <div className="flex flex-col sm:flex-row gap-4 mt-4">
+                    <div className="flex gap-2 flex-1">
+                        <input
+                            type="date"
+                            value={dateFrom}
+                            onChange={(e) => setDateFrom(e.target.value)}
+                            className="flex-1 px-4 py-2 bg-muted border border-border rounded-xl"
+                            placeholder="From"
+                        />
+                        <span className="self-center text-muted-foreground">to</span>
+                        <input
+                            type="date"
+                            value={dateTo}
+                            onChange={(e) => setDateTo(e.target.value)}
+                            className="flex-1 px-4 py-2 bg-muted border border-border rounded-xl"
+                            placeholder="To"
+                        />
+                    </div>
+
+                    <div className="flex gap-2">
+                        <button
+                            onClick={fetchLogs}
+                            disabled={isLoadingLogs}
+                            className="px-4 py-2 bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-300 rounded-xl hover:bg-indigo-200 dark:hover:bg-indigo-900 transition-colors flex items-center gap-2"
+                        >
+                            <RefreshCw className={`w-4 h-4 ${isLoadingLogs ? 'animate-spin' : ''}`} />
+                            Refresh
+                        </button>
+                        <button
+                            onClick={handleExport}
+                            className="px-4 py-2 bg-emerald-100 dark:bg-emerald-900/50 text-emerald-600 dark:text-emerald-300 rounded-xl hover:bg-emerald-200 dark:hover:bg-emerald-900 transition-colors flex items-center gap-2"
+                        >
+                            <Download className="w-4 h-4" />
+                            Export
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            {/* Audit Log Table */}
+            <div className="bg-card rounded-2xl shadow-xl border border-border/20 overflow-hidden">
+                {isLoadingLogs ? (
+                    <div className="p-8 text-center">
+                        <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-4 text-indigo-500" />
+                        <p className="text-muted-foreground">Loading audit logs...</p>
+                    </div>
+                ) : error ? (
+                    <div className="p-8 text-center">
+                        <p className="text-red-500 mb-4">{error}</p>
+                        <button
+                            onClick={fetchLogs}
+                            className="px-4 py-2 bg-indigo-500 text-white rounded-xl hover:bg-indigo-600"
+                        >
+                            Retry
+                        </button>
+                    </div>
+                ) : logs.length === 0 ? (
+                    <div className="p-8 text-center">
+                        <div className="text-6xl mb-4">📭</div>
+                        <p className="text-muted-foreground">No audit logs found</p>
+                    </div>
+                ) : (
+                    <>
+                        {/* Table Header */}
+                        <div className="hidden md:grid grid-cols-12 gap-4 p-4 bg-muted/50 border-b border-border font-medium text-sm text-muted-foreground">
+                            <div className="col-span-2">Time</div>
+                            <div className="col-span-2">Action</div>
+                            <div className="col-span-3">Actor</div>
+                            <div className="col-span-3">Target</div>
+                            <div className="col-span-2">Details</div>
                         </div>
 
-                        {/* Category Filter */}
-                        <div className="flex gap-2 overflow-x-auto pb-2 lg:pb-0">
-                            {Object.entries(ACTION_CATEGORIES).map(([key, { label, icon }]) => (
-                                <button
-                                    key={key}
-                                    onClick={() => setSelectedCategory(key as ActionType)}
-                                    className={`px-4 py-2 rounded-xl font-medium whitespace-nowrap transition-all ${selectedCategory === key
-                                        ? 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-lg'
-                                        : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                                        }`}
-                                >
-                                    {icon} {label}
-                                </button>
+                        {/* Log Entries */}
+                        <div className="divide-y divide-border">
+                            {logs.map((log) => (
+                                <AuditLogRow key={log.id} log={log} />
                             ))}
                         </div>
-                    </div>
+                    </>
+                )}
 
-                    {/* Date Range & Actions */}
-                    <div className="flex flex-col sm:flex-row gap-4 mt-4">
-                        <div className="flex gap-2 flex-1">
-                            <input
-                                type="date"
-                                value={dateFrom}
-                                onChange={(e) => setDateFrom(e.target.value)}
-                                className="flex-1 px-4 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl"
-                                placeholder="From"
-                            />
-                            <span className="self-center text-gray-400">to</span>
-                            <input
-                                type="date"
-                                value={dateTo}
-                                onChange={(e) => setDateTo(e.target.value)}
-                                className="flex-1 px-4 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl"
-                                placeholder="To"
-                            />
-                        </div>
-
+                {/* Pagination */}
+                {logs.length > 0 && (
+                    <div className="p-4 bg-muted/50 border-t border-border flex items-center justify-between">
+                        <span className="text-sm text-muted-foreground">
+                            Page {page} of {totalPages}
+                        </span>
                         <div className="flex gap-2">
                             <button
-                                onClick={fetchLogs}
-                                disabled={isLoadingLogs}
-                                className="px-4 py-2 bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-300 rounded-xl hover:bg-indigo-200 dark:hover:bg-indigo-900 transition-colors flex items-center gap-2"
+                                onClick={() => setPage(p => Math.max(1, p - 1))}
+                                disabled={page === 1}
+                                className="p-2 rounded-lg bg-card border border-border disabled:opacity-50 hover:bg-muted"
                             >
-                                <RefreshCw className={`w-4 h-4 ${isLoadingLogs ? 'animate-spin' : ''}`} />
-                                Refresh
+                                <ChevronLeft className="w-5 h-5" />
                             </button>
                             <button
-                                onClick={handleExport}
-                                className="px-4 py-2 bg-emerald-100 dark:bg-emerald-900/50 text-emerald-600 dark:text-emerald-300 rounded-xl hover:bg-emerald-200 dark:hover:bg-emerald-900 transition-colors flex items-center gap-2"
+                                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                                disabled={page === totalPages}
+                                className="p-2 rounded-lg bg-card border border-border disabled:opacity-50 hover:bg-muted"
                             >
-                                <Download className="w-4 h-4" />
-                                Export
+                                <ChevronRight className="w-5 h-5" />
                             </button>
                         </div>
                     </div>
-                </div>
-
-                {/* Audit Log Table */}
-                <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-white/20 overflow-hidden">
-                    {isLoadingLogs ? (
-                        <div className="p-8 text-center">
-                            <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-4 text-indigo-500" />
-                            <p className="text-gray-500">Loading audit logs...</p>
-                        </div>
-                    ) : error ? (
-                        <div className="p-8 text-center">
-                            <p className="text-red-500 mb-4">{error}</p>
-                            <button
-                                onClick={fetchLogs}
-                                className="px-4 py-2 bg-indigo-500 text-white rounded-xl hover:bg-indigo-600"
-                            >
-                                Retry
-                            </button>
-                        </div>
-                    ) : logs.length === 0 ? (
-                        <div className="p-8 text-center">
-                            <div className="text-6xl mb-4">📭</div>
-                            <p className="text-gray-500">No audit logs found</p>
-                        </div>
-                    ) : (
-                        <>
-                            {/* Table Header */}
-                            <div className="hidden md:grid grid-cols-12 gap-4 p-4 bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700 font-medium text-sm text-gray-600 dark:text-gray-400">
-                                <div className="col-span-2">Time</div>
-                                <div className="col-span-2">Action</div>
-                                <div className="col-span-3">Actor</div>
-                                <div className="col-span-3">Target</div>
-                                <div className="col-span-2">Details</div>
-                            </div>
-
-                            {/* Log Entries */}
-                            <div className="divide-y divide-gray-100 dark:divide-gray-700">
-                                {logs.map((log) => (
-                                    <AuditLogRow key={log.id} log={log} />
-                                ))}
-                            </div>
-                        </>
-                    )}
-
-                    {/* Pagination */}
-                    {logs.length > 0 && (
-                        <div className="p-4 bg-gray-50 dark:bg-gray-700/50 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
-                            <span className="text-sm text-gray-500">
-                                Page {page} of {totalPages}
-                            </span>
-                            <div className="flex gap-2">
-                                <button
-                                    onClick={() => setPage(p => Math.max(1, p - 1))}
-                                    disabled={page === 1}
-                                    className="p-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 disabled:opacity-50 hover:bg-gray-50 dark:hover:bg-gray-700"
-                                >
-                                    <ChevronLeft className="w-5 h-5" />
-                                </button>
-                                <button
-                                    onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                                    disabled={page === totalPages}
-                                    className="p-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 disabled:opacity-50 hover:bg-gray-50 dark:hover:bg-gray-700"
-                                >
-                                    <ChevronRight className="w-5 h-5" />
-                                </button>
-                            </div>
-                        </div>
-                    )}
-                </div>
+                )}
             </div>
-        </div>
+        </PageLayout>
     );
 }
 
@@ -384,7 +316,7 @@ function AuditLogRow({ log }: { log: AuditLogEntry }): React.JSX.Element {
         if (action.includes('delete') || action.includes('disable') || action.includes('remove')) { return 'text-red-600 bg-red-100 dark:bg-red-900/30'; }
         if (action.includes('update') || action.includes('edit')) { return 'text-blue-600 bg-blue-100 dark:bg-blue-900/30'; }
         if (action.includes('permission')) { return 'text-purple-600 bg-purple-100 dark:bg-purple-900/30'; }
-        return 'text-gray-600 bg-gray-100 dark:bg-gray-700';
+        return 'text-muted-foreground bg-muted';
     };
 
     const formatAddress = (address: string): string => {
@@ -411,12 +343,12 @@ function AuditLogRow({ log }: { log: AuditLogEntry }): React.JSX.Element {
 
     return (
         <div
-            className="p-4 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors cursor-pointer"
+            className="p-4 hover:bg-muted/50 transition-colors cursor-pointer"
             onClick={() => setIsExpanded(!isExpanded)}
         >
             {/* Desktop Layout */}
             <div className="hidden md:grid grid-cols-12 gap-4 items-center">
-                <div className="col-span-2 text-sm text-gray-500">
+                <div className="col-span-2 text-sm text-muted-foreground">
                     {formatTime(log.timestamp)}
                 </div>
                 <div className="col-span-2">
@@ -425,19 +357,19 @@ function AuditLogRow({ log }: { log: AuditLogEntry }): React.JSX.Element {
                     </span>
                 </div>
                 <div className="col-span-3">
-                    <code className="text-sm bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded font-mono">
+                    <code className="text-sm bg-muted px-2 py-1 rounded font-mono">
                         {formatAddress(log.wallet_address || 'System')}
                     </code>
                 </div>
-                <div className="col-span-3 text-sm text-gray-600 dark:text-gray-400">
+                <div className="col-span-3 text-sm text-muted-foreground">
                     <span className="font-medium">{log.resource_type}</span>
                     <span className="mx-1">→</span>
-                    <code className="bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded text-xs">
+                    <code className="bg-muted px-1.5 py-0.5 rounded text-xs">
                         {formatAddress(log.resource_id || 'N/A')}
                     </code>
                 </div>
                 <div className="col-span-2 text-right">
-                    <span className="text-gray-400 text-sm">{isExpanded ? '▼' : '▶'}</span>
+                    <span className="text-muted-foreground text-sm">{isExpanded ? '▼' : '▶'}</span>
                 </div>
             </div>
 
@@ -447,11 +379,11 @@ function AuditLogRow({ log }: { log: AuditLogEntry }): React.JSX.Element {
                     <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-sm font-medium ${getActionColor(log.action)}`}>
                         {getActionIcon(log.action)} {log.action.replace(/_/g, ' ')}
                     </span>
-                    <span className="text-sm text-gray-500">{formatTime(log.timestamp)}</span>
+                    <span className="text-sm text-muted-foreground">{formatTime(log.timestamp)}</span>
                 </div>
-                <div className="text-sm text-gray-600 dark:text-gray-400">
+                <div className="text-sm text-muted-foreground">
                     <span className="font-medium">Actor:</span>{' '}
-                    <code className="bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded text-xs">
+                    <code className="bg-muted px-1.5 py-0.5 rounded text-xs">
                         {formatAddress(log.wallet_address || 'System')}
                     </code>
                 </div>
@@ -459,36 +391,36 @@ function AuditLogRow({ log }: { log: AuditLogEntry }): React.JSX.Element {
 
             {/* Expanded Details */}
             {isExpanded && (
-                <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
-                    <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 space-y-3">
+                <div className="mt-4 pt-4 border-t border-border">
+                    <div className="bg-muted/50 rounded-xl p-4 space-y-3">
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                             <div>
-                                <span className="text-gray-500 dark:text-gray-400">Full Actor Address:</span>
-                                <code className="block mt-1 bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded text-xs font-mono break-all">
+                                <span className="text-muted-foreground">Full Actor Address:</span>
+                                <code className="block mt-1 bg-muted px-2 py-1 rounded text-xs font-mono break-all">
                                     {log.wallet_address || 'System'}
                                 </code>
                             </div>
                             <div>
-                                <span className="text-gray-500 dark:text-gray-400">Full Target ID:</span>
-                                <code className="block mt-1 bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded text-xs font-mono break-all">
+                                <span className="text-muted-foreground">Full Target ID:</span>
+                                <code className="block mt-1 bg-muted px-2 py-1 rounded text-xs font-mono break-all">
                                     {log.resource_id || 'N/A'}
                                 </code>
                             </div>
                             <div>
-                                <span className="text-gray-500 dark:text-gray-400">Timestamp:</span>
+                                <span className="text-muted-foreground">Timestamp:</span>
                                 <p className="mt-1">{new Date(log.timestamp).toLocaleString()}</p>
                             </div>
                             {log.ip_address && (
                                 <div>
-                                    <span className="text-gray-500 dark:text-gray-400">IP Address:</span>
+                                    <span className="text-muted-foreground">IP Address:</span>
                                     <p className="mt-1">{log.ip_address}</p>
                                 </div>
                             )}
                         </div>
                         {log.details && Object.keys(log.details).length > 0 && (
                             <div>
-                                <span className="text-gray-500 dark:text-gray-400 text-sm">Details:</span>
-                                <pre className="mt-1 bg-gray-100 dark:bg-gray-700 px-3 py-2 rounded-lg text-xs overflow-x-auto">
+                                <span className="text-muted-foreground text-sm">Details:</span>
+                                <pre className="mt-1 bg-muted px-3 py-2 rounded-lg text-xs overflow-x-auto">
                                     {JSON.stringify(log.details, null, 2)}
                                 </pre>
                             </div>
@@ -526,4 +458,3 @@ function generateMockAuditLogs(): AuditLogEntry[] {
         timestamp: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString(),
     })).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 }
-

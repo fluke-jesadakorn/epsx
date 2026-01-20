@@ -46,6 +46,18 @@ contract PaymentEscrow is AccessControl, Pausable, ReentrancyGuard {
     /// @notice Total number of payments processed
     uint256 public totalPayments;
 
+    /// @notice Minimum payment amount (to prevent dust attacks)
+    uint256 public minPaymentAmount;
+
+    /// @notice Maximum payment amount (safety limit)
+    uint256 public maxPaymentAmount;
+
+    /// @notice Daily spending limit per user (0 = unlimited)
+    uint256 public dailyLimitPerUser;
+
+    /// @notice Mapping of user => day => amount spent
+    mapping(address => mapping(uint256 => uint256)) public userDailySpent;
+
     // ============ Events ============
 
     /**
@@ -96,11 +108,21 @@ contract PaymentEscrow is AccessControl, Pausable, ReentrancyGuard {
      */
     event NativeFundsWithdrawn(uint256 amount, address indexed recipient);
 
+    /**
+     * @notice Emitted when payment limits are updated
+     * @param minAmount Minimum payment amount
+     * @param maxAmount Maximum payment amount
+     * @param dailyLimit Daily limit per user
+     */
+    event PaymentLimitsUpdated(uint256 minAmount, uint256 maxAmount, uint256 dailyLimit);
+
     // ============ Constructor ============
 
     constructor(address initialAdmin) {
         _grantRole(DEFAULT_ADMIN_ROLE, initialAdmin);
         _grantRole(MANAGER_ROLE, initialAdmin);
+        // Default limits: no minimum, 1M tokens max, no daily limit
+        maxPaymentAmount = 1_000_000 * 1e18;
         // Contract starts unpaused and ready to receive payments
     }
 
@@ -123,12 +145,11 @@ contract PaymentEscrow is AccessControl, Pausable, ReentrancyGuard {
         address token,
         uint256 amount
     ) external whenNotPaused nonReentrant {
-        // Validate inputs
-        require(supportedTokens[token], "Token not supported");
-        require(amount > 0, "Amount must be greater than 0");
+        // Validate inputs and limits
+        _validatePayment(token, amount);
 
-        // Increment payment counter
-        totalPayments++;
+        // Increment payment counter (gas optimized)
+        unchecked { ++totalPayments; }
 
         // Transfer tokens from user to this contract
         IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
@@ -163,12 +184,11 @@ contract PaymentEscrow is AccessControl, Pausable, ReentrancyGuard {
         address token,
         uint256 amount
     ) external payable whenNotPaused nonReentrant {
-        // Validate inputs
-        require(supportedTokens[token], "Token not supported");
-        require(amount > 0, "Amount must be greater than 0");
+        // Validate inputs and limits
+        _validatePayment(token, amount);
 
-        // Increment payment counter
-        totalPayments++;
+        // Increment payment counter (gas optimized)
+        unchecked { ++totalPayments; }
 
         // Transfer tokens from user to this contract
         IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
@@ -203,10 +223,9 @@ contract PaymentEscrow is AccessControl, Pausable, ReentrancyGuard {
         address token,
         uint256 amount
     ) external whenNotPaused nonReentrant {
-        require(supportedTokens[token], "Token not supported");
-        require(amount > 0, "Amount must be greater than 0");
+        _validatePayment(token, amount);
 
-        totalPayments++;
+        unchecked { ++totalPayments; }
         IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
 
         emit PaymentWithContext(
@@ -232,10 +251,9 @@ contract PaymentEscrow is AccessControl, Pausable, ReentrancyGuard {
         address token,
         uint256 amount
     ) external whenNotPaused nonReentrant {
-        require(supportedTokens[token], "Token not supported");
-        require(amount > 0, "Amount must be greater than 0");
+        _validatePayment(token, amount);
 
-        totalPayments++;
+        unchecked { ++totalPayments; }
         IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
 
         emit PaymentWithContext(
@@ -266,11 +284,10 @@ contract PaymentEscrow is AccessControl, Pausable, ReentrancyGuard {
         address token,
         uint256 amount
     ) external whenNotPaused nonReentrant {
-        require(supportedTokens[token], "Token not supported");
-        require(amount > 0, "Amount must be greater than 0");
+        _validatePayment(token, amount);
         require(linkHash != bytes32(0), "Link hash required");
 
-        totalPayments++;
+        unchecked { ++totalPayments; }
         IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
 
         emit PaymentWithContext(
@@ -298,6 +315,26 @@ contract PaymentEscrow is AccessControl, Pausable, ReentrancyGuard {
         supportedTokens[token] = enabled;
 
         emit TokenStatusUpdated(token, enabled);
+    }
+
+    /**
+     * @notice Set payment limits for security
+     * @param minAmount Minimum payment amount (0 = no minimum)
+     * @param maxAmount Maximum payment amount (0 = unlimited)
+     * @param dailyLimit Daily limit per user (0 = unlimited)
+     */
+    function setPaymentLimits(
+        uint256 minAmount,
+        uint256 maxAmount,
+        uint256 dailyLimit
+    ) external onlyRole(MANAGER_ROLE) {
+        require(maxAmount == 0 || maxAmount > minAmount, "Max must be > min");
+        
+        minPaymentAmount = minAmount;
+        maxPaymentAmount = maxAmount;
+        dailyLimitPerUser = dailyLimit;
+
+        emit PaymentLimitsUpdated(minAmount, maxAmount, dailyLimit);
     }
 
     /**
@@ -395,6 +432,51 @@ contract PaymentEscrow is AccessControl, Pausable, ReentrancyGuard {
         if (contextType == ContextType.CAMPAIGN) return "CAMPAIGN";
         if (contextType == ContextType.CUSTOM) return "CUSTOM";
         return "UNKNOWN";
+    }
+
+    /**
+     * @notice Get current day number (for daily limit tracking)
+     * @return Current day number since epoch
+     */
+    function getCurrentDay() public view returns (uint256) {
+        return block.timestamp / 1 days;
+    }
+
+    /**
+     * @notice Get user's remaining daily limit
+     * @param user Address of the user
+     * @return Remaining amount user can spend today (type(uint256).max if unlimited)
+     */
+    function getUserRemainingDailyLimit(address user) external view returns (uint256) {
+        if (dailyLimitPerUser == 0) return type(uint256).max;
+        
+        uint256 today = getCurrentDay();
+        uint256 spent = userDailySpent[user][today];
+        
+        if (spent >= dailyLimitPerUser) return 0;
+        return dailyLimitPerUser - spent;
+    }
+
+    // ============ Internal Functions ============
+
+    /**
+     * @notice Validate payment against all limits
+     * @param token Token address
+     * @param amount Payment amount
+     */
+    function _validatePayment(address token, uint256 amount) internal {
+        require(supportedTokens[token], "Token not supported");
+        require(amount > 0, "Amount must be greater than 0");
+        require(amount >= minPaymentAmount, "Amount below minimum");
+        require(maxPaymentAmount == 0 || amount <= maxPaymentAmount, "Amount exceeds maximum");
+
+        // Check daily limit
+        if (dailyLimitPerUser > 0) {
+            uint256 today = getCurrentDay();
+            uint256 newSpent = userDailySpent[msg.sender][today] + amount;
+            require(newSpent <= dailyLimitPerUser, "Daily limit exceeded");
+            userDailySpent[msg.sender][today] = newSpent;
+        }
     }
 
     /**

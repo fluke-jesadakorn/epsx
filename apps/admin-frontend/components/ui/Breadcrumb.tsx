@@ -80,7 +80,7 @@ export function Breadcrumb({
                     <div
                       className={cn(
                         "flex items-center gap-2 px-4 py-3 rounded-lg",
-                        "bg-gradient-to-r from-yellow-400 to-orange-500 text-black",
+                        "bg-gradient-to-r from-yellow-400 to-orange-500 text-gray-900 dark:text-gray-900",
                         "font-medium tracking-wide shadow-lg",
                         "relative overflow-hidden"
                       )}

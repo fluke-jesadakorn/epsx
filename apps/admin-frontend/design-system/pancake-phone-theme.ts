@@ -115,7 +115,7 @@ export const PancakePhoneTheme = {
     },
 
     button: {
-      primary: 'bg-gradient-to-r from-primary-500 to-primary-600 text-black font-medium hover:from-primary-400 hover:to-primary-500',
+      primary: 'bg-gradient-to-r from-primary-500 to-primary-600 text-gray-900 font-medium hover:from-primary-400 hover:to-primary-500',
       secondary: 'bg-accent-blue text-white font-light hover:bg-blue-600',
       ghost: 'text-primary-500 hover:bg-primary-50 dark:hover:bg-primary-900'
     }

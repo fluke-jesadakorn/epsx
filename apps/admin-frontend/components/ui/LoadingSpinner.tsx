@@ -167,8 +167,8 @@ export function SectionLoading({
 export function InlineLoading({ className }: { className?: string }) {
     return (
         <span className={cn('inline-flex items-center gap-1.5', className)}>
-            <Loader2 className="h-3 w-3 animate-spin text-gray-400" />
-            <span className="text-gray-400 text-xs">Loading...</span>
+            <Loader2 className="h-3 w-3 animate-spin text-gray-400 dark:text-gray-500" />
+            <span className="text-gray-400 dark:text-gray-500 text-xs">Loading...</span>
         </span>
     )
 }

@@ -151,13 +151,13 @@ export function CurrentAccessCard({ className, paymentType = 'plan' }: CurrentAc
                             <span>Expires {expiryDate}</span>
                         </div>
                     )}
-                    {planAccess?.rankings_view_limit !== null && planAccess?.rankings_view_limit !== undefined && (
+                    {planAccess?.ranking_offset !== undefined && (
                         <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
                             <TrendingUp className="w-4 h-4" />
                             <span>
-                                {planAccess.rankings_view_limit === -1
-                                    ? 'Unlimited rankings'
-                                    : `${planAccess.rankings_view_limit} rankings`}
+                                {planAccess.ranking_offset === 0
+                                    ? 'Full rankings access'
+                                    : `Ranks ${planAccess.ranking_offset + 1}+`}
                             </span>
                         </div>
                     )}

@@ -166,10 +166,12 @@ export interface PlanAccessData {
   plan_expires_at: string | null;
   days_remaining: number;
   status: 'active' | 'expiring_soon' | 'expired' | 'no_plan';
-  /** Rankings view limit: -1 = unlimited, 0 = none, >0 = specific limit */
-  rankings_view_limit: number | null;
+  /** Starting rank position: 0 = top ranks (full access), 100 = ranks 101+ (free tier) */
+  ranking_offset: number;
   /** Whether user can upgrade to a higher plan */
   can_upgrade: boolean;
+  /** Plan tier level for styling hierarchy (admin-configured) */
+  tier_level: number;
 }
 
 /**

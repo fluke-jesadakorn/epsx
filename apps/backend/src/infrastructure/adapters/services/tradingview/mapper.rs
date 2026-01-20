@@ -7,7 +7,7 @@ use tracing::{ debug, error, info, warn };
 use super::types::{ TradingViewStock, StockDataField };
 use crate::domain::shared_kernel::entities::eps_growth::EPSGrowthData;
 use super::types::{ FrontendEPSData, StockDataResult };
-use super::utils::{get_number_opt, get_string, extract_symbol};
+use super::utils::{get_number, get_number_opt, get_string, extract_symbol};
 
 /// Data mapper for TradingView API responses
 pub struct TradingViewMapper;
@@ -33,7 +33,7 @@ impl TradingViewMapper {
     let qoq_growth = None; // Remove TTM-based growth calculation
     let price_current = get_number_opt(&stock.d, 6); // close
     let market_cap = get_number_opt(&stock.d, 16).map(|mc| mc as i64); // market_cap_basic (index 16)
-    let volume = get_number(&stock.d, 13).map(|vol| vol as i64); // volume
+    let volume = get_number_opt(&stock.d, 13).map(|vol| vol as i64); // volume
 
     debug!(
       "Extracted EPS data for {}: EPS={:?}, QoQ Growth={:?}, Price={:?}",
@@ -81,13 +81,7 @@ impl TradingViewMapper {
     data: &[StockDataField],
     symbol: &str
   ) -> Option<f64> {
-    let get_number = |data: &[StockDataField], idx: usize| -> Option<f64> {
-      match data.get(idx) {
-        Some(StockDataField::Number(n)) => Some(*n),
-        Some(StockDataField::Integer(i)) => Some(*i as f64),
-        _ => None,
-      }
-    };
+
 
     // Candidate quarterly EPS fields only - NO TTM fields per user request
     let candidates = vec![
@@ -98,7 +92,7 @@ impl TradingViewMapper {
 
     let mut field_values = Vec::new();
     for (idx, name, field_type) in candidates {
-      if let Some(value) = get_number(data, idx) {
+      if let Some(value) = get_number_opt(data, idx) {
         field_values.push((idx, name, field_type, value));
       }
     }
@@ -161,34 +155,7 @@ impl TradingViewMapper {
 
   /// Map TradingView stock to frontend EPS data format
   pub fn map_to_frontend_eps_data(stock: TradingViewStock) -> FrontendEPSData {
-    let get_number = |data: &[StockDataField], idx: usize| -> f64 {
-      match data.get(idx) {
-        Some(StockDataField::Number(n)) => *n,
-        Some(StockDataField::Integer(i)) => *i as f64,
-        _ => 0.0,
-      }
-    };
 
-    let get_string = |
-      data: &[StockDataField],
-      idx: usize,
-      default: &str
-    | -> String {
-      data
-        .get(idx)
-        .map(|field| {
-          match field {
-            StockDataField::String(s) => s.clone(),
-            StockDataField::Number(n) => n.to_string(),
-            StockDataField::Integer(i) => i.to_string(),
-            StockDataField::Boolean(b) => b.to_string(),
-            StockDataField::Array(_) => "Array".to_string(),
-            StockDataField::Object(_) => "Object".to_string(),
-            StockDataField::Null => default.to_string(),
-          }
-        })
-        .unwrap_or_else(|| default.to_string())
-    };
 
     let symbol = stock.s.split(':').nth(1).unwrap_or(&stock.s).to_string();
     let company_name = get_string(&stock.d, 0, "");

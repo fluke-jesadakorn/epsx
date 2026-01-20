@@ -335,7 +335,7 @@ export function GroupHub({ className }: GroupHubProps) {
             </div>
 
             {/* Search & Filters */}
-            <div className="rounded-2xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 p-4">
+            <div className="rounded-2xl bg-card border border-border p-4">
                 <div className="flex flex-col sm:flex-row gap-4">
                     {/* Search */}
                     <div className="flex-1">
@@ -407,7 +407,7 @@ export function GroupHub({ className }: GroupHubProps) {
                 {isLoading ? (
                     // Loading skeleton
                     Array.from({ length: 5 }).map((_, i) => (
-                        <div key={i} className="rounded-2xl bg-gray-100 dark:bg-gray-800 p-6 animate-pulse">
+                        <div key={i} className="rounded-2xl bg-muted p-6 animate-pulse">
                             <div className="flex items-center gap-4">
                                 <Skeleton className="h-12 w-12 rounded-xl" />
                                 <div className="space-y-2 flex-1">

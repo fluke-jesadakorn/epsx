@@ -35,9 +35,9 @@ function StatCard({ label, value, change, changeLabel = '7d', icon, gradient }: 
             'relative overflow-hidden rounded-2xl p-0.5',
             gradient
         )}>
-            <div className="relative bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-2xl p-5">
+            <div className="relative bg-card/95 backdrop-blur-xl rounded-2xl p-5">
                 <div className="flex items-center justify-between">
-                    <div className="text-gray-500 dark:text-gray-400">
+                    <div className="text-muted-foreground">
                         {icon}
                     </div>
                     {change !== undefined && (
@@ -45,7 +45,7 @@ function StatCard({ label, value, change, changeLabel = '7d', icon, gradient }: 
                             'flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full',
                             hasPositiveChange && 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
                             hasNegativeChange && 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
-                            !hasPositiveChange && !hasNegativeChange && 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
+                            !hasPositiveChange && !hasNegativeChange && 'bg-muted text-muted-foreground'
                         )}>
                             {hasPositiveChange && <TrendingUp className="h-3 w-3" />}
                             {hasNegativeChange && <TrendingDown className="h-3 w-3" />}
@@ -55,10 +55,10 @@ function StatCard({ label, value, change, changeLabel = '7d', icon, gradient }: 
                     )}
                 </div>
                 <div className="mt-3">
-                    <p className="text-3xl font-bold text-gray-900 dark:text-white">
+                    <p className="text-3xl font-bold text-foreground">
                         {value.toLocaleString()}
                     </p>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                    <p className="text-sm text-muted-foreground mt-1">
                         {label}
                     </p>
                 </div>
@@ -82,9 +82,9 @@ function PlatformDistribution({
     ];
 
     return (
-        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-700 p-0.5">
-            <div className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-2xl p-5">
-                <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4">
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-muted/60 to-muted/80 p-0.5">
+            <div className="bg-card/95 backdrop-blur-xl rounded-2xl p-5">
+                <h4 className="text-sm font-semibold text-foreground/80 mb-4">
                     Platform Distribution
                 </h4>
                 <div className="space-y-3">
@@ -95,15 +95,15 @@ function PlatformDistribution({
                         return (
                             <div key={platform.key}>
                                 <div className="flex items-center justify-between text-sm mb-1">
-                                    <span className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+                                    <span className="flex items-center gap-2 text-muted-foreground">
                                         <span>{platform.emoji}</span>
                                         {platform.label}
                                     </span>
-                                    <span className="font-medium text-gray-900 dark:text-white">
+                                    <span className="font-medium text-foreground">
                                         {count.toLocaleString()} ({percentage}%)
                                     </span>
                                 </div>
-                                <div className="h-2 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
+                                <div className="h-2 bg-muted rounded-full overflow-hidden">
                                     <div
                                         className={cn('h-full rounded-full transition-all duration-500', platform.color)}
                                         style={{ width: `${percentage}%` }}
@@ -122,13 +122,13 @@ function StatsBarSkeleton() {
     return (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
             {Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="rounded-2xl bg-gray-100 dark:bg-gray-800 p-5 animate-pulse">
+                <div key={i} className="rounded-2xl bg-muted p-5 animate-pulse">
                     <div className="flex items-center justify-between mb-3">
-                        <div className="h-6 w-6 rounded bg-gray-200 dark:bg-gray-700" />
-                        <div className="h-5 w-16 rounded-full bg-gray-200 dark:bg-gray-700" />
+                        <div className="h-6 w-6 rounded bg-muted/80" />
+                        <div className="h-5 w-16 rounded-full bg-muted/80" />
                     </div>
-                    <div className="h-8 w-20 rounded bg-gray-200 dark:bg-gray-700 mb-2" />
-                    <div className="h-4 w-24 rounded bg-gray-200 dark:bg-gray-700" />
+                    <div className="h-8 w-20 rounded bg-muted/80 mb-2" />
+                    <div className="h-4 w-24 rounded bg-muted/80" />
                 </div>
             ))}
         </div>

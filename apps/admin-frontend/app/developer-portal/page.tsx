@@ -1,6 +1,7 @@
 import { Metadata } from 'next';
 
 import { DeveloperPortalPage } from '@/components/admin/developer-portal';
+import { PageLayout } from '@/components/shared';
 
 export const metadata: Metadata = {
   title: 'Developer Portal | Admin',
@@ -8,13 +9,13 @@ export const metadata: Metadata = {
 };
 
 /**
- * Developer Portal Page - Manages user API keys
+ * Developer Portal Page
+ * Uses unified page components for consistent design
  */
 export default function DeveloperPortalRoute() {
   return (
-    <div className="min-h-screen bg-background">
+    <PageLayout>
       <DeveloperPortalPage />
-    </div>
+    </PageLayout>
   );
 }
-

@@ -2,12 +2,10 @@ import {
   getAnalyticsData,
   getPortfolioData,
   type EPSQueryParams,
-  type SymbolCardData,
 } from '@/lib/unified-server-data';
-import { StockDataCard } from '@/shared/components';
 import { Suspense } from 'react';
+import { AnalyticsDashboardWrapper } from './AnalyticsDashboardWrapper';
 import ServerFilters from './ServerFilters';
-import ServerPagination from './ServerPagination';
 
 interface ServerCardDashboardProps {
   searchParams: {
@@ -45,40 +43,6 @@ function parseSearchParams(
 
 
 
-// Helper to render a stock card from SymbolCardData
-const renderStockCard = (cardData: SymbolCardData) => {
-  const latestQuarter = cardData.quarterly_performance?.[0];
-  const isPremium = cardData.rank <= 5;
-
-
-  return (
-    <StockDataCard
-      key={cardData.symbol}
-      symbol={cardData.symbol}
-      rank={cardData.rank}
-      epsGrowth={latestQuarter?.eps_growth || 0}
-      price={latestQuarter?.price || 0}
-      currency={cardData.currency}
-      daysUntilNextAction={
-        cardData.next_quarter_estimate?.days_until_announcement ?? 0
-      }
-      companyName={cardData.company_name || cardData.name}
-      variant={isPremium ? 'premium' : 'standard'}
-    />
-  );
-};
-
-const Top5SpecialBox = ({ top5Data }: { top5Data: SymbolCardData[] }) => {
-  return (
-    <div className="mb-8">
-      {/* Top 5 cards grid using shared StockDataCard */}
-      <div className="grid grid-cols-1 justify-items-center gap-4 px-2 sm:grid-cols-2 sm:px-0 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-5 overflow-visible">
-        {top5Data.map(cardData => renderStockCard(cardData))}
-      </div>
-    </div>
-  );
-};
-
 async function CardGrid({ params, isPortfolio }: { params: EPSQueryParams; isPortfolio?: boolean }) {
   // On the first page, fetch extra items to account for Top 5 special section
   const adjustedParams = {
@@ -98,52 +62,31 @@ async function CardGrid({ params, isPortfolio }: { params: EPSQueryParams; isPor
     );
   }
 
-  const isFirstPage = params.page === 1;
-  const hasTopRanks = data.rankings.some(card => card.rank <= 5);
-  const top5Data = data.rankings.filter(card => card.rank <= 5);
+  // Build current params string for pagination
+  const currentParams = new URLSearchParams({
+    page: String(params.page),
+    limit: String(params.limit),
+    ...(params.country && { country: params.country }),
+    ...(params.sector && { sector: params.sector }),
+    ...(params.sort_by && { sort_by: params.sort_by }),
+    ...(params.min_eps !== undefined && { min_eps: String(params.min_eps) }),
+    ...(params.min_growth !== undefined && { min_growth: String(params.min_growth) }),
+    ...(params.search && { search: params.search }),
+  }).toString();
+
+  // Adjust pagination for display
+  const adjustedPagination = data.pagination ? {
+    ...data.pagination,
+    limit: params.limit,
+    totalPages: Math.ceil(data.pagination.total / params.limit)
+  } : null;
 
   return (
-    <>
-      {/* Show special Top 5 box only on first page with top 5 ranks */}
-      {isFirstPage && hasTopRanks && top5Data.length > 0 && (
-        <Top5SpecialBox top5Data={top5Data} />
-      )}
-
-      <div className="grid grid-cols-1 justify-items-center gap-4 px-2 sm:grid-cols-2 sm:gap-6 sm:px-0 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-5">
-        {data.rankings
-          .filter(cardData => cardData.rank > 5) // Skip ranks 1-5 to avoid duplication with Top 5 section
-          .map(cardData =>
-            cardData && cardData.symbol ? renderStockCard(cardData) : null
-          )}
-      </div>
-
-      {data.pagination && data.pagination.totalPages > 1 && (
-        <div className="mt-8">
-          <ServerPagination
-            pagination={{
-              ...data.pagination,
-              // Adjust pagination for original limit, not the adjusted one
-              limit: params.limit,
-              totalPages: Math.ceil(data.pagination.total / params.limit)
-            }}
-            currentParams={new URLSearchParams({
-              page: String(params.page),
-              limit: String(params.limit),
-              ...(params.country && { country: params.country }),
-              ...(params.sector && { sector: params.sector }),
-              ...(params.sort_by && { sort_by: params.sort_by }),
-              ...(params.min_eps !== undefined && {
-                min_eps: String(params.min_eps),
-              }),
-              ...(params.min_growth !== undefined && {
-                min_growth: String(params.min_growth),
-              }),
-              ...(params.search && { search: params.search }),
-            }).toString()}
-          />
-        </div>
-      )}
-    </>
+    <AnalyticsDashboardWrapper
+      rankings={data.rankings}
+      pagination={adjustedPagination}
+      currentParams={currentParams}
+    />
   );
 }
 

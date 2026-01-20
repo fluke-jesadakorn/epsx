@@ -178,7 +178,9 @@ export class AnalyticsAPIClient {
       throw new Error(`Failed to fetch public rankings: ${response.error}`);
     }
 
-    return response.data;
+    // The API client normalizes responses - response IS the full backend response
+    // with { success, data, pagination, ... }
+    return response as unknown as CardDashboardResponse;
   }
 
   /**
@@ -202,7 +204,8 @@ export class AnalyticsAPIClient {
       throw new Error(`Failed to fetch public filters: ${response.error}`);
     }
 
-    return response.data;
+    // The API client normalizes responses - response IS the full backend response
+    return response as unknown as AnalyticsFiltersResponse;
   }
 
   // ============================================================================
@@ -230,7 +233,8 @@ export class AnalyticsAPIClient {
       throw new Error(`Failed to fetch authenticated rankings: ${response.error}`);
     }
 
-    return response.data;
+    // The API client normalizes responses - response IS the full backend response
+    return response as unknown as CardDashboardResponse;
   }
 
   /**
@@ -254,7 +258,8 @@ export class AnalyticsAPIClient {
       throw new Error(`Failed to fetch authenticated filters: ${response.error}`);
     }
 
-    return response.data;
+    // The API client normalizes responses - response IS the full backend response
+    return response as unknown as AnalyticsFiltersResponse;
   }
 
   /**

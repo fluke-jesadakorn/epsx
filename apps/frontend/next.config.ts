@@ -1,10 +1,10 @@
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
+  // Enable standalone output for Docker deployment
   output: 'standalone',
-  // outputFileTracingRoot: process.env.NODE_ENV === 'production' ? '/app' : process.cwd(),
 
-  // Ignore TypeScript errors during Docker builds (errors should be fixed separately)
+  // Ignore TypeScript errors during builds (errors should be fixed separately)
   typescript: {
     ignoreBuildErrors: true,
   },

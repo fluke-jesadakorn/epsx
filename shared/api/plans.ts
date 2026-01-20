@@ -393,7 +393,7 @@ export class PlansAPIClient {
   // ============================================================================
 
   /**
-   * Get current user's plan access data including rankings limit
+   * Get current user's plan access data including ranking offset
    * Route: GET /api/payments/plans
    */
   async getMyPlanAccess(): Promise<ApiResponse<{
@@ -403,8 +403,9 @@ export class PlansAPIClient {
     plan_expires_at: string | null;
     days_remaining: number;
     status: 'active' | 'expiring_soon' | 'expired' | 'no_plan';
-    rankings_view_limit: number | null;
+    ranking_offset: number;
     can_upgrade: boolean;
+    tier_level: number;
   }>> {
     return this.client.get('/api/payments/plans');
   }

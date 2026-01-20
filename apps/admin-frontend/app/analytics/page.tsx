@@ -5,6 +5,7 @@ import React, { Suspense } from 'react';
 
 import UsageAnalyticsTab from '@/components/admin/UsageAnalyticsTab';
 import { GroupAnalyticsDashboard } from '@/components/groups/GroupAnalyticsDashboard';
+import { PageHeader, PageLayout, PageSkeleton } from '@/components/shared';
 import { AnalyticsStatsCard, AnalyticsSummaryCard } from '@/components/ui/AnalyticsCard';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,10 +16,10 @@ function LoadingCard(): React.JSX.Element {
     <Card>
       <CardContent className="p-6">
         <div className="animate-pulse space-y-3">
-          <div className="w-10 h-10 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
-          <div className="w-20 h-4 bg-gray-200 dark:bg-gray-700 rounded"></div>
-          <div className="w-24 h-8 bg-gray-200 dark:bg-gray-700 rounded"></div>
-          <div className="w-32 h-3 bg-gray-200 dark:bg-gray-700 rounded"></div>
+          <div className="w-10 h-10 bg-muted rounded-lg"></div>
+          <div className="w-20 h-4 bg-muted rounded"></div>
+          <div className="w-24 h-8 bg-muted rounded"></div>
+          <div className="w-32 h-3 bg-muted rounded"></div>
         </div>
       </CardContent>
     </Card>
@@ -51,7 +52,8 @@ function ErrorCard({ error, onRetry }: { error: any; onRetry?: () => void }): Re
 }
 
 /**
- *
+ * Analytics Page
+ * Uses unified page components for consistent design
  */
 export default function AnalyticsPage(): React.JSX.Element {
   const {
@@ -68,31 +70,28 @@ export default function AnalyticsPage(): React.JSX.Element {
   const { apiKeys, isLoading: apiKeysLoading, error: apiKeysError } = useApiKeys();
   const { responseTime, memoryUsage, activeUsers } = useRealTimeMetrics();
 
+  if (isLoading) {
+    return <PageSkeleton showHeader stats={4} rows={6} />;
+  }
+
   return (
-    <div className="container mx-auto p-6 space-y-8">
+    <PageLayout>
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-4">
-          <div className="p-3 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg">
-            <BarChart3 className="w-8 h-8 text-white" />
-          </div>
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
-              Analytics Dashboard
-            </h1>
-            <p className="text-gray-600 dark:text-gray-300">
-              Real-time system performance and user activity
-            </p>
-          </div>
-        </div>
-        <Button onClick={refreshAll} variant="outline" disabled={isLoading}>
-          <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-          Refresh Data
-        </Button>
-      </div>
+      <PageHeader
+        title="Analytics Dashboard"
+        subtitle="Real-time system performance and user activity"
+        icon={BarChart3}
+        gradient="info"
+        actions={
+          <Button onClick={refreshAll} variant="outline" disabled={isLoading}>
+            <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+            Refresh Data
+          </Button>
+        }
+      />
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
         {isLoading ? (
           Array.from({ length: 4 }).map((_, i) => <LoadingCard key={i} />)
         ) : hasError ? (
@@ -126,7 +125,7 @@ export default function AnalyticsPage(): React.JSX.Element {
       </div>
 
       {/* Real-time Stats Cards Row */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
         {isLoading ? (
           Array.from({ length: 3 }).map((_, i) => <LoadingCard key={i} />)
         ) : (
@@ -166,7 +165,7 @@ export default function AnalyticsPage(): React.JSX.Element {
       </div>
 
       {/* Key Metrics Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center">
@@ -174,13 +173,13 @@ export default function AnalyticsPage(): React.JSX.Element {
                 <Users className="w-6 h-6 text-blue-600" />
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600 dark:text-gray-300">
+                <p className="text-sm font-medium text-muted-foreground">
                   Active Users
                 </p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                <p className="text-2xl font-bold text-foreground">
                   {userStats?.active_users?.toLocaleString() || '0'}
                 </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
+                <p className="text-xs text-muted-foreground">
                   {userStats?.new_users_30_days ? `+${userStats.new_users_30_days} this month` : 'No recent data'}
                 </p>
               </div>
@@ -195,13 +194,13 @@ export default function AnalyticsPage(): React.JSX.Element {
                 <Shield className="w-6 h-6 text-green-600" />
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600 dark:text-gray-300">
+                <p className="text-sm font-medium text-muted-foreground">
                   Security Score
                 </p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                <p className="text-2xl font-bold text-foreground">
                   {permissionAnalytics?.health_score ? `${permissionAnalytics.health_score}%` : 'N/A'}
                 </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
+                <p className="text-xs text-muted-foreground">
                   Permission health
                 </p>
               </div>
@@ -216,13 +215,13 @@ export default function AnalyticsPage(): React.JSX.Element {
                 <Activity className="w-6 h-6 text-purple-600" />
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600 dark:text-gray-300">
+                <p className="text-sm font-medium text-muted-foreground">
                   DB Query Time
                 </p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                <p className="text-2xl font-bold text-foreground">
                   {systemMetrics?.database_query_time || 0}ms
                 </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
+                <p className="text-xs text-muted-foreground">
                   Database latency
                 </p>
               </div>
@@ -237,13 +236,13 @@ export default function AnalyticsPage(): React.JSX.Element {
                 <BarChart3 className="w-6 h-6 text-orange-600" />
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600 dark:text-gray-300">
+                <p className="text-sm font-medium text-muted-foreground">
                   Memory Usage
                 </p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                <p className="text-2xl font-bold text-foreground">
                   {memoryUsage || 0}%
                 </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
+                <p className="text-xs text-muted-foreground">
                   System memory
                 </p>
               </div>
@@ -277,6 +276,6 @@ export default function AnalyticsPage(): React.JSX.Element {
       <Suspense fallback={<div>Loading group analytics...</div>}>
         <GroupAnalyticsDashboard />
       </Suspense>
-    </div>
+    </PageLayout>
   );
 }

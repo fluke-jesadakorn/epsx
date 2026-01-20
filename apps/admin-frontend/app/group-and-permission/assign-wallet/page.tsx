@@ -78,7 +78,7 @@ export default function AssignWalletPage() {
     }
 
     return (
-        <div className="min-h-screen bg-background p-3 sm:p-6">
+        <div className="p-3 sm:p-6">
             {/* Background Decorations */}
             <div className="fixed inset-0 overflow-hidden pointer-events-none">
                 <div className="absolute top-20 left-20 w-32 h-32 bg-gradient-to-r from-green-400/20 to-emerald-500/20 rounded-full blur-xl"></div>
@@ -90,7 +90,7 @@ export default function AssignWalletPage() {
                 <div className="flex items-center gap-4 mb-6">
                     <Link
                         href="/group-and-permission"
-                        className="p-2 rounded-xl bg-white/80 dark:bg-gray-800/80 hover:bg-white dark:hover:bg-gray-800 transition-colors border border-gray-200 dark:border-gray-700"
+                        className="p-2 rounded-xl bg-card/80 hover:bg-card transition-colors border border-border"
                     >
                         <ArrowLeft className="h-5 w-5" />
                     </Link>
@@ -99,7 +99,7 @@ export default function AssignWalletPage() {
                             <UserPlus className="w-6 h-6" />
                             Assign Wallet to Groups
                         </h1>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                        <p className="text-sm text-muted-foreground">
                             Add a wallet to one or more permission groups
                         </p>
                     </div>
@@ -109,8 +109,8 @@ export default function AssignWalletPage() {
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     {/* Left Column: Wallet & Settings */}
                     <div className="lg:col-span-1 space-y-6">
-                        <div className="bg-white dark:bg-gray-800 rounded-2xl sm:rounded-3xl p-6 shadow-xl border-2 border-green-300/50 dark:border-green-700/50 h-full">
-                            <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">Assignment Details</h3>
+                        <div className="bg-card rounded-2xl sm:rounded-3xl p-6 shadow-xl border-2 border-green-300/50 dark:border-green-700/50 h-full">
+                            <h3 className="text-lg font-semibold mb-4 text-foreground">Assignment Details</h3>
                             <form id="assignment-form" onSubmit={handleSubmit} className="space-y-4">
                                 <div>
                                     <Label htmlFor="wallet_address">Wallet Address</Label>
@@ -162,10 +162,10 @@ export default function AssignWalletPage() {
 
                     {/* Right Column: Group Selection */}
                     <div className="lg:col-span-2">
-                        <div className="bg-white dark:bg-gray-800 rounded-2xl sm:rounded-3xl p-6 shadow-xl border-2 border-blue-300/50 dark:border-blue-700/50 h-full">
-                            <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100 flex justify-between items-center">
+                        <div className="bg-card rounded-2xl sm:rounded-3xl p-6 shadow-xl border-2 border-blue-300/50 dark:border-blue-700/50 h-full">
+                            <h3 className="text-lg font-semibold mb-4 text-foreground flex justify-between items-center">
                                 <span>Select Groups</span>
-                                <span className="text-sm font-normal text-gray-500">
+                                <span className="text-sm font-normal text-muted-foreground">
                                     {selectedGroups.length} selected
                                 </span>
                             </h3>

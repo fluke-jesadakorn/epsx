@@ -1,6 +1,8 @@
+import { Key } from 'lucide-react';
 import { Metadata } from 'next';
 
 import { ApiKeyRequestForm } from '@/components/public/ApiKeyRequestForm';
+import { PageHeader, PageLayout } from '@/components/shared';
 
 export const metadata: Metadata = {
   title: 'Request API Access | EPSX',
@@ -8,12 +10,21 @@ export const metadata: Metadata = {
 };
 
 /**
- *
+ * Request Access Page
+ * Uses unified page components for consistent design
  */
 export default function RequestAccessPage() {
   return (
-    <div className="min-h-screen bg-background py-8">
+    <PageLayout maxWidth="5xl">
+      <PageHeader
+        title="Request API Access"
+        subtitle="Submit your request to access the EPSX API platform for financial data integration"
+        icon={Key}
+        gradient="info"
+        centered
+      />
+
       <ApiKeyRequestForm />
-    </div>
+    </PageLayout>
   );
 }

@@ -111,14 +111,14 @@ export function RecentWalletsPanel() {
 
   if (loading) {
     return (
-      <div className="h-full bg-card/80 dark:bg-card/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl shadow-xl border-2 border-primary/20 p-6">
+      <div className="h-full bg-card backdrop-blur-sm rounded-2xl sm:rounded-3xl shadow-xl border border-border p-6">
         <div className="flex items-center justify-between mb-6">
           <div>
             <div className="flex items-center gap-2 mb-2">
               <Wallet className="h-5 w-5" />
               <h3 className="text-lg font-semibold">Recent Wallets</h3>
             </div>
-            <p className="text-sm text-gray-600 dark:text-gray-400">Recently connected wallet addresses</p>
+            <p className="text-sm text-muted-foreground">Recently connected wallet addresses</p>
           </div>
         </div>
         <div className="space-y-3">
@@ -144,7 +144,7 @@ export function RecentWalletsPanel() {
 
   if (error) {
     return (
-      <div className="h-full bg-card/80 dark:bg-card/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl shadow-xl border-2 border-primary/20 p-6">
+      <div className="h-full bg-card backdrop-blur-sm rounded-2xl sm:rounded-3xl shadow-xl border border-border p-6">
         <div className="flex items-center justify-between mb-6">
           <div>
             <div className="flex items-center gap-2 mb-2">
@@ -177,7 +177,7 @@ export function RecentWalletsPanel() {
     : data.recent_wallets.slice(0, 5);
 
   return (
-    <div className="h-full bg-card/80 dark:bg-card/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl shadow-xl border-2 border-primary/20 p-6">
+    <div className="h-full bg-card backdrop-blur-sm rounded-2xl sm:rounded-3xl shadow-xl border border-border p-6">
       <div className="flex items-center justify-between mb-6">
         <div>
           <div className="flex items-center gap-2 mb-2">
@@ -189,7 +189,7 @@ export function RecentWalletsPanel() {
               </Badge>
             )}
           </div>
-          <p className="text-sm text-gray-600 dark:text-gray-400">
+          <p className="text-sm text-muted-foreground">
             Wallets connected in the last 30 days
           </p>
         </div>
@@ -217,7 +217,7 @@ export function RecentWalletsPanel() {
             <div className="text-lg font-bold">
               {data.analytics.total_in_period}
             </div>
-            <div className="text-xs text-gray-500">connections</div>
+            <div className="text-xs text-muted-foreground">connections</div>
           </div>
           <div className="rounded-lg bg-green-50 p-3 text-center dark:bg-green-900/20">
             <div className="mb-1 flex items-center justify-center gap-1 text-green-600">
@@ -227,7 +227,7 @@ export function RecentWalletsPanel() {
             <div className="text-lg font-bold">
               {data.analytics.avg_daily.toFixed(1)}
             </div>
-            <div className="text-xs text-gray-500">per day</div>
+            <div className="text-xs text-muted-foreground">per day</div>
           </div>
           <div className="rounded-lg bg-purple-50 p-3 text-center dark:bg-purple-900/20">
             <div className="mb-1 flex items-center justify-center gap-1 text-purple-600">
@@ -237,14 +237,14 @@ export function RecentWalletsPanel() {
             <div className="text-lg font-bold">
               {data.recent_wallets.filter(w => w.is_active).length}
             </div>
-            <div className="text-xs text-gray-500">wallets</div>
+            <div className="text-xs text-muted-foreground">wallets</div>
           </div>
         </div>
 
         {/* Wallet List */}
         <div className="space-y-2">
           {displayedWallets.length === 0 ? (
-            <div className="py-8 text-center text-gray-500">
+            <div className="py-8 text-center text-muted-foreground">
               <Wallet className="mx-auto mb-2 h-8 w-8 opacity-50" />
               <p className="font-medium">No recent wallet connections</p>
               <p className="text-sm mt-1">New wallets will appear here when users connect</p>
@@ -261,7 +261,7 @@ export function RecentWalletsPanel() {
             displayedWallets.map((wallet, index) => (
               <div
                 key={wallet.wallet_address}
-                className="flex items-center justify-between rounded border p-3 hover:bg-gray-50 dark:hover:bg-gray-800/50"
+                className="flex items-center justify-between rounded border border-border p-3 hover:bg-muted/50"
               >
                 <div className="flex items-center gap-3">
                   <div className="relative">

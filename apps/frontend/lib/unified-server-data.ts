@@ -4,6 +4,7 @@
  */
 
 import { createPlatformAnalyticsClient } from '@/shared/api/analytics';
+import { COOKIES } from '@/shared/auth/cookies';
 import type { FilterOptions, SymbolCardData } from '@/shared/types/analytics';
 
 export type EPSQueryParams = {
@@ -17,6 +18,16 @@ export type EPSQueryParams = {
     search?: string;
 };
 
+async function hasServerAccessToken(): Promise<boolean> {
+    try {
+        const { cookies } = await import('next/headers');
+        const cookieStore = await cookies();
+        return Boolean(cookieStore.get(COOKIES.access_token)?.value);
+    } catch {
+        return false;
+    }
+}
+
 /**
  * Get analytics rankings data for the dashboard
  */
@@ -27,9 +38,7 @@ export async function getAnalyticsData(params: EPSQueryParams) {
         // Sort by type in shared/api/analytics is restricted, so we cast to the expected type
         const sort_by = params.sort_by as any;
 
-        // Use the unified rankings endpoint which returns CardDashboardResponse
-        // NOTE: The backend returns EPSRanking format which needs to be mapped to SymbolCardData
-        const response = await analyticsClient.getAuthenticatedRankings({
+        const filters = {
             page: params.page,
             limit: params.limit,
             country: params.country === 'all' ? undefined : params.country,
@@ -37,7 +46,38 @@ export async function getAnalyticsData(params: EPSQueryParams) {
             sort_by: sort_by,
             min_eps: params.min_eps,
             min_growth: params.min_growth,
-        }) as any;
+        };
+
+        // Use authenticated rankings when possible, fallback to public for guests
+        // NOTE: The backend returns EPSRanking format which needs to be mapped to SymbolCardData
+        let response: any | null = null;
+        const hasToken = await hasServerAccessToken();
+        if (hasToken) {
+            try {
+                response = await analyticsClient.getAuthenticatedRankings(filters);
+            } catch (error) {
+                console.warn('⚠️ Authenticated analytics failed, falling back to public data:', error);
+            }
+        }
+
+        if (!response) {
+            try {
+                response = await analyticsClient.getPublicRankings(filters);
+            } catch (error) {
+                console.warn('⚠️ Public analytics fetch failed:', error);
+                return {
+                    rankings: [],
+                    pagination: {
+                        page: params.page || 1,
+                        limit: params.limit || 10,
+                        total: 0,
+                        totalPages: 0,
+                        hasNext: false,
+                        hasPrev: false,
+                    }
+                };
+            }
+        }
 
         if (!response || (response.success === false)) {
             console.warn('⚠️ Analytics data fetch failed or returned empty:', response?.message);
@@ -135,7 +175,20 @@ export async function getPortfolioData(params: EPSQueryParams) {
 export async function getServerFilterOptions(): Promise<FilterOptions> {
     try {
         const analyticsClient = createPlatformAnalyticsClient('frontend');
-        const response = await analyticsClient.getAuthenticatedFilters();
+        let response: any | null = null;
+        const hasToken = await hasServerAccessToken();
+
+        if (hasToken) {
+            try {
+                response = await analyticsClient.getAuthenticatedFilters();
+            } catch (error) {
+                console.warn('⚠️ Authenticated filters failed, falling back to public filters:', error);
+            }
+        }
+
+        if (!response) {
+            response = await analyticsClient.getPublicFilters();
+        }
 
         if (!response || !response.success) {
             throw new Error('No filter options returned from API');
@@ -143,7 +196,7 @@ export async function getServerFilterOptions(): Promise<FilterOptions> {
 
         // Transform from AnalyticsFiltersResponse to the expected FilterOptions format
         return {
-            countries: (response.data.countries || []).map(c => ({ value: c, label: c })),
+            countries: (response.data.countries || []).map((c: string) => ({ value: c, label: c })),
             sectors: response.data.sectors || [],
             exchanges: response.data.exchanges || [],
             stock_types: [], // Backend doesn't return this yet in the unified client

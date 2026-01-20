@@ -204,7 +204,7 @@ export function WalletCard({
 
                             {/* Animated status indicator */}
                             <div className={cn(
-                                'absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-white dark:border-gray-900',
+                                'absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-background',
                                 statusConfig.dotClass,
                                 wallet.status === 'active' && 'animate-pulse',
                             )}>
@@ -220,7 +220,7 @@ export function WalletCard({
                     {/* Address & Copy */}
                     <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                            <span className="font-mono text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
+                            <span className="font-mono text-sm font-semibold text-foreground truncate">
                                 {wallet.walletAddress}
                             </span>
                             <button
@@ -271,7 +271,7 @@ export function WalletCard({
                                 <Button
                                     variant="ghost"
                                     size="sm"
-                                    className="h-9 w-9 p-0 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200 hover:scale-110"
+                                    className="h-9 w-9 p-0 rounded-xl hover:bg-muted transition-all duration-200 hover:scale-110"
                                 >
                                     <MoreHorizontal className="h-4 w-4" />
                                 </Button>
@@ -314,43 +314,43 @@ export function WalletCard({
                 {/* Key Metrics Grid - Enhanced */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                     {/* Plan */}
-                    <div className="flex flex-col p-3 rounded-xl bg-gradient-to-br from-gray-50 to-gray-100/50 dark:from-gray-800/50 dark:to-gray-900/50 border border-gray-100 dark:border-gray-800 transition-all duration-200 hover:border-gray-200 dark:hover:border-gray-700">
-                        <span className="text-[10px] uppercase text-gray-500 font-semibold tracking-wider mb-1">Plan</span>
-                        <span className="text-sm font-bold text-gray-900 dark:text-gray-100">
+                    <div className="flex flex-col p-3 rounded-xl bg-gradient-to-br from-muted/60 to-muted/30 border border-border transition-all duration-200 hover:border-border/80">
+                        <span className="text-[10px] uppercase text-muted-foreground font-semibold tracking-wider mb-1">Plan</span>
+                        <span className="text-sm font-bold text-foreground">
                             {wallet.subscriptions[0]?.planName || 'Free'}
                         </span>
                     </div>
 
                     {/* Group */}
-                    <div className="flex flex-col p-3 rounded-xl bg-gradient-to-br from-gray-50 to-gray-100/50 dark:from-gray-800/50 dark:to-gray-900/50 border border-gray-100 dark:border-gray-800 transition-all duration-200 hover:border-gray-200 dark:hover:border-gray-700">
-                        <span className="text-[10px] uppercase text-gray-500 font-semibold tracking-wider mb-1">Group</span>
+                    <div className="flex flex-col p-3 rounded-xl bg-gradient-to-br from-muted/60 to-muted/30 border border-border transition-all duration-200 hover:border-border/80">
+                        <span className="text-[10px] uppercase text-muted-foreground font-semibold tracking-wider mb-1">Group</span>
                         <div className="flex items-center gap-1.5">
-                            <span className="text-sm font-bold text-gray-900 dark:text-gray-100">
+                            <span className="text-sm font-bold text-foreground">
                                 {wallet.groups?.[0]?.groupName || 'User'}
                             </span>
                             {(wallet.groups?.length || 0) > 1 && (
-                                <span className="text-xs text-gray-500 bg-gray-200 dark:bg-gray-700 px-1.5 py-0.5 rounded-full">+{wallet.groups!.length - 1}</span>
+                                <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded-full">+{wallet.groups!.length - 1}</span>
                             )}
                         </div>
                     </div>
 
                     {/* Permissions */}
-                    <div className="flex flex-col p-3 rounded-xl bg-gradient-to-br from-gray-50 to-gray-100/50 dark:from-gray-800/50 dark:to-gray-900/50 border border-gray-100 dark:border-gray-800 transition-all duration-200 hover:border-gray-200 dark:hover:border-gray-700">
-                        <span className="text-[10px] uppercase text-gray-500 font-semibold tracking-wider mb-1">Perms</span>
-                        <span className="text-sm font-bold text-gray-900 dark:text-gray-100">
-                            {activePermissions} <span className="text-gray-500 font-normal text-xs">active</span>
+                    <div className="flex flex-col p-3 rounded-xl bg-gradient-to-br from-muted/60 to-muted/30 border border-border transition-all duration-200 hover:border-border/80">
+                        <span className="text-[10px] uppercase text-muted-foreground font-semibold tracking-wider mb-1">Perms</span>
+                        <span className="text-sm font-bold text-foreground">
+                            {activePermissions} <span className="text-muted-foreground font-normal text-xs">active</span>
                         </span>
                     </div>
 
                     {/* Platforms */}
-                    <div className="flex flex-col p-3 rounded-xl bg-gradient-to-br from-gray-50 to-gray-100/50 dark:from-gray-800/50 dark:to-gray-900/50 border border-gray-100 dark:border-gray-800 transition-all duration-200 hover:border-gray-200 dark:hover:border-gray-700">
-                        <span className="text-[10px] uppercase text-gray-500 font-semibold tracking-wider mb-1">Platforms</span>
+                    <div className="flex flex-col p-3 rounded-xl bg-gradient-to-br from-muted/60 to-muted/30 border border-border transition-all duration-200 hover:border-border/80">
+                        <span className="text-[10px] uppercase text-muted-foreground font-semibold tracking-wider mb-1">Platforms</span>
                         <div className="flex items-center gap-1.5 flex-wrap">
                             {wallet.platforms.map((platform) => (
                                 <div
                                     key={platform}
                                     title={PLATFORM_LABELS[platform]}
-                                    className="p-1.5 rounded-lg bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 shadow-sm border border-gray-100 dark:border-gray-700 transition-all duration-200 hover:scale-110 hover:text-blue-600 dark:hover:text-blue-400 cursor-default"
+                                    className="p-1.5 rounded-lg bg-card text-muted-foreground shadow-sm border border-border transition-all duration-200 hover:scale-110 hover:text-primary cursor-default"
                                 >
                                     {PLATFORM_ICONS[platform]}
                                 </div>
@@ -401,14 +401,14 @@ export function WalletCard({
                         </div>
                     </div>
                 ) : (wallet.label || wallet.note) ? (
-                    <div className="flex flex-col gap-2 bg-gradient-to-br from-gray-50 to-gray-100/50 dark:from-gray-800/30 dark:to-gray-900/30 rounded-xl p-4 border border-gray-100 dark:border-gray-800 group/notes relative transition-all duration-200 hover:border-gray-200 dark:hover:border-gray-700">
+                    <div className="flex flex-col gap-2 bg-muted/50 rounded-xl p-4 border border-border group/notes relative transition-all duration-200 hover:border-border">
                         {/* Edit Button overlay */}
                         <button
                             onClick={(e) => {
                                 e.stopPropagation();
                                 handleStartEditing();
                             }}
-                            className="absolute top-3 right-3 p-1.5 rounded-lg bg-white/80 dark:bg-gray-800/80 hover:bg-white dark:hover:bg-gray-800 text-gray-400 hover:text-blue-500 shadow-sm border border-gray-100 dark:border-gray-700 opacity-0 group-hover/notes:opacity-100 transition-all duration-200 hover:scale-110"
+                            className="absolute top-3 right-3 p-1.5 rounded-lg bg-card/80 hover:bg-card text-muted-foreground hover:text-primary shadow-sm border border-border opacity-0 group-hover/notes:opacity-100 transition-all duration-200 hover:scale-110"
                             title="Edit label/note"
                         >
                             <Edit className="h-3.5 w-3.5" />
@@ -416,14 +416,14 @@ export function WalletCard({
 
                         {wallet.label && (
                             <div className="flex items-center justify-between">
-                                <span className="text-xs text-gray-500 font-semibold">Label</span>
+                                <span className="text-xs text-muted-foreground font-semibold">Label</span>
                                 <WalletLabelBadge label={wallet.label} size="sm" />
                             </div>
                         )}
                         {wallet.note && (
                             <div className="flex flex-col gap-1">
-                                <span className="text-xs text-gray-500 font-semibold">Note</span>
-                                <p className="text-sm text-gray-700 dark:text-gray-300 line-clamp-2 leading-relaxed whitespace-pre-wrap">
+                                <span className="text-xs text-muted-foreground font-semibold">Note</span>
+                                <p className="text-sm text-foreground line-clamp-2 leading-relaxed whitespace-pre-wrap">
                                     {wallet.note}
                                 </p>
                             </div>
@@ -436,9 +436,9 @@ export function WalletCard({
                             e.stopPropagation();
                             handleStartEditing();
                         }}
-                        className="flex items-center gap-2 text-sm text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-all duration-200 px-3 py-2.5 rounded-xl hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 dark:hover:from-blue-900/20 dark:hover:to-indigo-900/20 border border-dashed border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-700 w-full text-left group/add"
+                        className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-all duration-200 px-3 py-2.5 rounded-xl hover:bg-muted/50 border border-dashed border-border hover:border-primary w-full text-left group/add"
                     >
-                        <div className="p-1 rounded-md bg-gray-100 dark:bg-gray-800 group-hover/add:bg-blue-100 dark:group-hover/add:bg-blue-900/40 transition-colors duration-200">
+                        <div className="p-1 rounded-md bg-muted group-hover/add:bg-primary/10 transition-colors duration-200">
                             <Edit className="h-3.5 w-3.5" />
                         </div>
                         <span className="font-medium">Add label or note...</span>

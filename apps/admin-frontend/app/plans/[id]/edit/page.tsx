@@ -38,7 +38,7 @@ export default function EditPlanPage() {
     current_price: 0,
     is_active: true,
     api_calls_limit: 100,
-    rankings_limit: 3,
+    ranking_offset: 100, // Number of top ranks locked (e.g. 24 = ranks 1-24 locked)
     analytics_queries: 0,
     premium_features: false,
     export_limit: 10,
@@ -77,8 +77,10 @@ export default function EditPlanPage() {
 
           // Extract API limits from permissions
           const apiCallsPermission = planData.permissions?.find((p: string) => p.startsWith('epsx:api:calls:'))
-          const rankingsPermission = planData.permissions?.find((p: string) => p.startsWith('epsx:rankings:view:'))
           const analyticsPermission = planData.permissions?.find((p: string) => p.startsWith('epsx:analytics:queries:'))
+          
+          // Extract ranking_offset from metadata (default to 100 for free tier)
+          const rankingOffset = planData.metadata?.ranking_offset ?? 100
 
           // Extract feature list from metadata
           let featureList: string[] = []
@@ -121,7 +123,7 @@ export default function EditPlanPage() {
             current_price: typeof planData.current_price === 'string' ? parseFloat(planData.current_price) : (planData.current_price || 0),
             is_active: planData.is_active,
             api_calls_limit: parseLimit(apiCallsPermission, 100),
-            rankings_limit: parseLimit(rankingsPermission, 3),
+            ranking_offset: rankingOffset,
             analytics_queries: parseLimit(analyticsPermission, 0),
             premium_features: planData.permissions?.some((p: string) => p.includes('premium')) || false,
             export_limit: 10,
@@ -162,7 +164,7 @@ export default function EditPlanPage() {
       // Filter out permission strings that are handled by the UI inputs (limits)
       const managedPrefixes = [
         'epsx:api:calls:',
-        'epsx:rankings:view:',
+        'epsx:rankings:offset:',
         'epsx:analytics:queries:',
         'epsx:export:limit:',
         'epsx:trading:premium',
@@ -190,13 +192,6 @@ export default function EditPlanPage() {
         permissions.push('epsx:api:calls:unlimited')
       } else if (formData.api_calls_limit > 0) {
         permissions.push(`epsx:api:calls:${formData.api_calls_limit}`)
-      }
-
-      // Rankings permission
-      if (formData.rankings_limit === -1) {
-        permissions.push('epsx:rankings:view:unlimited')
-      } else if (formData.rankings_limit > 0) {
-        permissions.push(`epsx:rankings:view:${formData.rankings_limit}`)
       }
 
       // Analytics permission
@@ -229,9 +224,9 @@ export default function EditPlanPage() {
         is_active: formData.is_active,
         permissions,
         metadata: {
+          ranking_offset: formData.ranking_offset, // Top-level for easy access
           api_limits: {
             api_calls: formData.api_calls_limit,
-            rankings: formData.rankings_limit,
             analytics_queries: formData.analytics_queries,
             export_limit: formData.export_limit,
             premium_features: formData.premium_features
@@ -572,17 +567,19 @@ export default function EditPlanPage() {
 
               <div>
                 <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                  Ranking Initial Can View
+                  Ranking Offset (Premium Ranks)
                 </label>
                 <input
                   type="number"
-                  min="-1"
-                  value={formData.rankings_limit}
-                  onChange={(e) => setFormData({ ...formData, rankings_limit: parseInt(e.target.value) || 0 })}
+                  min="0"
+                  value={formData.ranking_offset}
+                  onChange={(e) => setFormData({ ...formData, ranking_offset: parseInt(e.target.value) || 0 })}
                   className="w-full px-4 py-3 rounded-xl border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-purple-500 focus:ring-2 focus:ring-purple-500 focus:outline-none"
-                  placeholder="-1 = unlimited, 0 = not granted"
+                  placeholder="0 = full access, 24 = ranks 1-24 locked"
                 />
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">-1 = unlimited, 0 = not granted</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  Number of top ranks locked. e.g. 24 = ranks 1-24 locked, user sees 25+. 0 = full access.
+                </p>
               </div>
 
               <div>
@@ -642,7 +639,7 @@ export default function EditPlanPage() {
             <PermissionTransferList
               available={(availablePermissions || []).filter(p =>
                 !p.startsWith('epsx:api:calls:') &&
-                !p.startsWith('epsx:rankings:view:') &&
+                !p.startsWith('epsx:rankings:offset:') &&
                 !p.startsWith('epsx:analytics:queries:') &&
                 !p.startsWith('epsx:export:limit:')
               )}

@@ -86,9 +86,9 @@ export function StatsCard({
 
   // Use standard Tailwind classes instead of design system
   const getCardClasses = () => {
-    const baseClasses = 'bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700';
+    const baseClasses = 'bg-card text-card-foreground rounded-2xl border border-border shadow-lg';
     const paddingClasses = variant === 'inline' ? 'p-4' : 'p-6';
-    const hoverClasses = 'hover:shadow-lg transition-shadow duration-200';
+    const hoverClasses = 'hover:shadow-xl transition-shadow duration-200';
     
     return cn(baseClasses, paddingClasses, hoverClasses);
   };
@@ -124,7 +124,7 @@ export function StatsCard({
                     'inline-flex items-center rounded-full px-2 py-1 text-xs font-medium',
                     trend === 'up' ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400' : 
                     trend === 'down' ? 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400' : 
-                    'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400'
+                    'bg-muted text-muted-foreground'
                   )}>
                     {trend === 'up' ? '↗' : trend === 'down' ? '↘' : '→'} {change}
                   </span>

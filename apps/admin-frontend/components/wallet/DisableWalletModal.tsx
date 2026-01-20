@@ -158,7 +158,7 @@ export function DisableWalletModal({
                     </DialogTitle>
                     <DialogDescription>
                         Disable access for wallet{' '}
-                        <code className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-sm font-mono">
+                        <code className="px-1.5 py-0.5 bg-muted rounded text-sm font-mono">
                             {walletAddress.slice(0, 10)}...{walletAddress.slice(-6)}
                         </code>
                     </DialogDescription>
@@ -177,7 +177,7 @@ export function DisableWalletModal({
                                         'px-3 py-2 text-sm rounded-lg border transition-colors',
                                         duration === option.value
                                             ? 'border-amber-500 bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400'
-                                            : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+                                            : 'border-border hover:border-border/80'
                                     )}
                                 >
                                     {option.label}
@@ -197,7 +197,7 @@ export function DisableWalletModal({
                                         'flex items-center gap-3 px-3 py-2 rounded-lg border cursor-pointer',
                                         affectedPlatforms.includes(platform.value)
                                             ? 'border-amber-500 bg-amber-50 dark:bg-amber-900/20'
-                                            : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
+                                            : 'border-border hover:border-border/80'
                                     )}
                                 >
                                     <Checkbox
@@ -271,7 +271,7 @@ export function DisableWalletModal({
                     </div>
 
                     {error && (
-                        <p className="text-sm text-red-600 dark:text-red-400">
+                        <p className="text-sm text-destructive">
                             ⚠️ {error}
                         </p>
                     )}

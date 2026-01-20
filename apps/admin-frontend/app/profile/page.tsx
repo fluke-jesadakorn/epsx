@@ -1,8 +1,8 @@
-import { Loader2 } from 'lucide-react';
 import { redirect } from 'next/navigation';
 import { Suspense } from 'react';
 
 import { AdminProfileClient } from '@/components/profile/AdminProfileClient';
+import { PageLayout } from '@/components/shared';
 import { getServerSessionAdmin } from '@/lib/session';
 
 // Force dynamic rendering since we use cookies for auth
@@ -14,7 +14,8 @@ export const metadata = {
 };
 
 /**
- *
+ * Admin Profile Page
+ * Uses unified page components for consistent design
  */
 export default async function AdminProfilePage() {
   const session = await getServerSessionAdmin();
@@ -25,32 +26,29 @@ export default async function AdminProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="container mx-auto px-6 py-8">
-        <div className="max-w-6xl mx-auto">
-          {/* Header */}
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100 mb-2">
-              Admin Profile
-            </h1>
-            <p className="text-slate-600 dark:text-slate-400">
-              Manage your administrative account and permissions
-            </p>
-          </div>
+    <PageLayout maxWidth="6xl">
+      <Suspense fallback={<ProfileLoadingFallback />}>
+        <AdminProfileClient user={session.user} />
+      </Suspense>
+    </PageLayout>
+  );
+}
 
-          {/* Profile Content */}
-          <Suspense
-            fallback={
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
-                <span className="ml-2 text-slate-600 dark:text-slate-400">
-                  Loading admin profile...
-                </span>
-              </div>
-            }
-          >
-            <AdminProfileClient user={session.user} />
-          </Suspense>
+function ProfileLoadingFallback() {
+  return (
+    <div className="animate-pulse space-y-6">
+      <div className="bg-card rounded-2xl p-6 border border-border/30">
+        <div className="flex items-center gap-4 mb-6">
+          <div className="w-20 h-20 bg-muted rounded-full" />
+          <div className="space-y-2">
+            <div className="h-6 bg-muted rounded-lg w-48" />
+            <div className="h-4 bg-muted/60 rounded-lg w-64" />
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="h-16 bg-muted/30 rounded-xl" />
+          ))}
         </div>
       </div>
     </div>

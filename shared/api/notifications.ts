@@ -339,14 +339,17 @@ export class NotificationsAPIClient {
         handleNotificationError(response, 'fetch notifications', { filters });
       }
 
-      // Validate response schema
-      const validatedResponse = NotificationsResponseSchema.safeParse(response.data);
+      // The API client normalizes responses - response IS the full backend response
+      // with { success, data, api_version, access_level }
+      // Validate the full response against the schema
+      const validatedResponse = NotificationsResponseSchema.safeParse(response);
       if (!validatedResponse.success) {
         console.warn('API response validation failed:', validatedResponse.error);
         // Continue with unvalidated data but log the issue
       }
 
-      return response.data;
+      // Return the full response structure (with success, data, etc.)
+      return response as unknown as NotificationsResponse;
     } catch (error) {
       if (error instanceof NotificationAPIError) throw error;
       handleNotificationError(error, 'fetch notifications', { filters });
@@ -733,7 +736,8 @@ export class NotificationsAPIClient {
         handleNotificationError(response, 'fetch all notifications (admin)', { filters });
       }
 
-      return response.data;
+      // Return the full response structure (with success, data, etc.)
+      return response as unknown as NotificationsResponse;
     } catch (error) {
       if (error instanceof NotificationAPIError) throw error;
       handleNotificationError(error, 'fetch all notifications (admin)', { filters });

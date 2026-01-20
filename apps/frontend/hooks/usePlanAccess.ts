@@ -19,8 +19,9 @@ const DEFAULT_FREE_TIER: PlanAccessData = {
     plan_expires_at: null,
     days_remaining: 0,
     status: 'no_plan',
-    rankings_view_limit: 3,
+    ranking_offset: 100, // Free tier sees ranks 101+
     can_upgrade: true,
+    tier_level: 0, // Free tier uses tier 0 styling
 };
 
 /**

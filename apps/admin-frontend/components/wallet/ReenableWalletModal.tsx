@@ -143,7 +143,7 @@ export function ReenableWalletModal({
                     </DialogTitle>
                     <DialogDescription>
                         Restore access for wallet{' '}
-                        <code className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-sm font-mono">
+                        <code className="px-1.5 py-0.5 bg-muted rounded text-sm font-mono">
                             {walletAddress.slice(0, 10)}...{walletAddress.slice(-6)}
                         </code>
                     </DialogDescription>
@@ -190,7 +190,7 @@ export function ReenableWalletModal({
                                             'flex items-center gap-3 px-3 py-2 rounded-lg border cursor-pointer',
                                             platformsToEnable.includes(platform.value)
                                                 ? 'border-green-500 bg-green-50 dark:bg-green-900/20'
-                                                : 'border-gray-200 dark:border-gray-700 hover:border-gray-300',
+                                                : 'border-border hover:border-border/80',
                                             !wasAffected && 'opacity-50'
                                         )}
                                     >
@@ -243,7 +243,7 @@ export function ReenableWalletModal({
                     </div>
 
                     {error && (
-                        <p className="text-sm text-red-600 dark:text-red-400">
+                        <p className="text-sm text-destructive">
                             ⚠️ {error}
                         </p>
                     )}

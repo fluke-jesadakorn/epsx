@@ -1,63 +1,134 @@
 'use client';
 
-import { Crown, Lock, Rocket, Sparkles } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { Crown, Lock, Rocket, Sparkles, TrendingUp } from 'lucide-react';
 import Link from 'next/link';
 
 interface RankingUpgradeOverlayProps {
     /** Current rank being viewed */
     rank: number;
-    /** User's ranking limit (-1 = unlimited, 0 = none, positive = limit) */
-    rankingsLimit: number;
+    /** User's ranking offset (0 = top ranks, 100 = ranks 101+) */
+    rankingOffset: number;
     /** Total available rankings */
     totalRankings?: number;
     /** Current plan name for display */
     planName?: string | null;
+    /** Size variant */
+    variant?: 'compact' | 'full';
 }
 
 /**
- * Overlay component shown on locked ranking cards
- * Displays upgrade prompt when user exceeds their plan's ranking limit
+ * Redesigned overlay component for locked ranking cards
+ * Shows rank number prominently with glass-morphism effect
  */
 export function RankingUpgradeOverlay({
     rank,
-    rankingsLimit,
+    rankingOffset,
     totalRankings = 100,
     planName,
+    variant = 'full',
 }: RankingUpgradeOverlayProps): React.ReactElement | null {
-    // Don't show overlay for unlimited access or if within limit
-    if (rankingsLimit === -1 || rank <= rankingsLimit) {
+    // Don't show overlay for unlocked ranks (offset 0 = full access)
+    if (rankingOffset === 0 || rank > rankingOffset) {
         return null;
     }
 
+    const isTopTier = rank <= 3;
+    const isCompact = variant === 'compact';
+
     return (
-        <div className="absolute inset-0 z-10 flex items-center justify-center rounded-2xl backdrop-blur-[6px] bg-gradient-to-br from-slate-900/80 via-slate-800/70 to-slate-900/80">
-            {/* Decorative gradient border effect */}
-            <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-purple-500/20 via-pink-500/20 to-orange-500/20 opacity-50" />
+        <div className={cn(
+            "absolute inset-0 z-20 flex items-center justify-center rounded-2xl overflow-hidden",
+            "group transition-all duration-300"
+        )}>
+            {/* Glass-morphism background with animated gradient */}
+            <div className="absolute inset-0 backdrop-blur-md bg-slate-900/60" />
+            
+            {/* Animated gradient border */}
+            <div className="absolute inset-0 rounded-2xl">
+                <div className="absolute inset-0 bg-gradient-to-br from-purple-500/30 via-transparent to-pink-500/30 animate-pulse" />
+                <div className="absolute inset-[1px] rounded-2xl bg-slate-900/80" />
+            </div>
 
-            <div className="relative z-10 p-6 text-center">
-                {/* Lock icon with glow */}
-                <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-purple-500 to-pink-500 shadow-lg shadow-purple-500/30">
-                    <Lock className="h-7 w-7 text-white" />
+            {/* Decorative particles */}
+            <div className="absolute inset-0 overflow-hidden">
+                <div className="absolute top-1/4 left-1/4 h-2 w-2 rounded-full bg-purple-400/40 animate-ping" style={{ animationDuration: '2s' }} />
+                <div className="absolute top-3/4 right-1/4 h-1.5 w-1.5 rounded-full bg-pink-400/40 animate-ping" style={{ animationDuration: '2.5s', animationDelay: '0.5s' }} />
+                <div className="absolute top-1/2 right-1/3 h-1 w-1 rounded-full bg-orange-400/40 animate-ping" style={{ animationDuration: '3s', animationDelay: '1s' }} />
+            </div>
+
+            {/* Content */}
+            <div className={cn(
+                "relative z-10 flex flex-col items-center text-center",
+                isCompact ? "p-3" : "p-5"
+            )}>
+                {/* Rank number - prominently displayed */}
+                <div className={cn(
+                    "relative mb-3",
+                    isCompact ? "mb-2" : "mb-3"
+                )}>
+                    {/* Glow effect behind rank */}
+                    <div className={cn(
+                        "absolute inset-0 rounded-2xl blur-xl",
+                        isTopTier 
+                            ? "bg-gradient-to-br from-amber-400/50 to-orange-500/50" 
+                            : "bg-gradient-to-br from-purple-500/40 to-pink-500/40"
+                    )} />
+                    
+                    <div className={cn(
+                        "relative flex items-center justify-center rounded-2xl font-black",
+                        isTopTier 
+                            ? "bg-gradient-to-br from-amber-400 via-yellow-500 to-orange-500" 
+                            : "bg-gradient-to-br from-purple-500 via-pink-500 to-rose-500",
+                        "shadow-lg text-white",
+                        isCompact ? "h-12 w-16 text-xl" : "h-16 w-20 text-2xl"
+                    )}>
+                        #{rank}
+                    </div>
                 </div>
 
-                {/* Premium badge */}
-                <div className="mb-3 inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-amber-500/20 to-orange-500/20 px-3 py-1 text-xs font-semibold text-amber-400">
-                    <Crown className="h-3 w-3" />
-                    Premium Content
+                {/* Lock indicator with premium badge */}
+                <div className={cn(
+                    "flex items-center gap-1.5 rounded-full px-3 py-1 mb-2",
+                    "bg-gradient-to-r from-slate-800/80 to-slate-700/80 border border-white/10"
+                )}>
+                    <Lock className={cn("text-slate-400", isCompact ? "h-3 w-3" : "h-3.5 w-3.5")} />
+                    <span className={cn(
+                        "font-semibold text-slate-300",
+                        isCompact ? "text-[10px]" : "text-xs"
+                    )}>
+                        Premium Rank
+                    </span>
+                    {isTopTier && (
+                        <Crown className={cn("text-amber-400", isCompact ? "h-3 w-3" : "h-3.5 w-3.5")} />
+                    )}
                 </div>
 
-                {/* Message */}
-                <p className="mb-4 text-sm text-slate-300">
-                    Rank #{rank} requires a higher plan
-                </p>
+                {/* Performance teaser */}
+                {!isCompact && (
+                    <div className="flex items-center gap-1 mb-3 text-emerald-400">
+                        <TrendingUp className="h-3.5 w-3.5" />
+                        <span className="text-xs font-semibold">High Growth Potential</span>
+                    </div>
+                )}
 
                 {/* Upgrade CTA */}
                 <Link
                     href="/plans"
-                    className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-purple-500 via-pink-500 to-orange-500 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-purple-500/25 transition-all duration-300 hover:shadow-xl hover:shadow-purple-500/40 hover:-translate-y-0.5"
+                    className={cn(
+                        "inline-flex items-center gap-1.5 font-semibold text-white",
+                        "bg-gradient-to-r from-purple-500 via-pink-500 to-orange-500",
+                        "shadow-lg shadow-purple-500/25",
+                        "transition-all duration-300",
+                        "hover:shadow-xl hover:shadow-purple-500/40 hover:-translate-y-0.5",
+                        "group-hover:scale-105",
+                        isCompact 
+                            ? "rounded-lg px-3 py-1.5 text-[10px]" 
+                            : "rounded-xl px-4 py-2 text-xs"
+                    )}
                 >
-                    <Rocket className="h-4 w-4" />
-                    Upgrade Now
+                    <Rocket className={cn(isCompact ? "h-3 w-3" : "h-3.5 w-3.5")} />
+                    Unlock
                 </Link>
             </div>
         </div>
@@ -65,10 +136,10 @@ export function RankingUpgradeOverlay({
 }
 
 interface UpgradeBannerInlineProps {
-    /** User's ranking limit */
-    rankingsLimit: number;
+    /** User's ranking offset (0 = top ranks, higher = locked top ranks) */
+    rankingOffset: number;
     /** Total rankings available */
-    totalRankings: number;
+    totalRankings?: number;
     /** Current plan name */
     planName?: string | null;
     /** Custom class name */
@@ -77,22 +148,28 @@ interface UpgradeBannerInlineProps {
 
 /**
  * Inline banner shown at top of rankings page indicating upgrade availability
+ * Updated to use offset-based logic
  */
 export function UpgradeBannerInline({
-    rankingsLimit,
-    totalRankings,
+    rankingOffset,
+    totalRankings = 100,
     planName,
     className = '',
 }: UpgradeBannerInlineProps): React.ReactElement | null {
-    // Don't show for unlimited access
-    if (rankingsLimit === -1) {
+    // Don't show for full access (offset 0)
+    if (rankingOffset === 0) {
         return null;
     }
 
-    const moreRankings = totalRankings - rankingsLimit;
+    const visibleRankStart = rankingOffset + 1;
+    const lockedRanks = rankingOffset;
 
     return (
-        <div className={`relative overflow-hidden rounded-2xl bg-gradient-to-r from-purple-500/10 via-pink-500/10 to-orange-500/10 border border-purple-500/20 ${className}`}>
+        <div className={cn(
+            "relative overflow-hidden rounded-2xl border border-purple-500/20",
+            "bg-gradient-to-r from-purple-500/10 via-pink-500/10 to-orange-500/10",
+            className
+        )}>
             {/* Animated gradient background */}
             <div className="absolute inset-0 bg-gradient-to-r from-purple-500/5 via-pink-500/5 to-orange-500/5 animate-pulse" />
 
@@ -106,11 +183,13 @@ export function UpgradeBannerInline({
                     {/* Text content */}
                     <div>
                         <h3 className="text-base font-bold text-slate-800 dark:text-white">
-                            Viewing {rankingsLimit} of {totalRankings} rankings
+                            Viewing ranks {visibleRankStart}+ of {totalRankings}
                         </h3>
                         <p className="text-sm text-slate-600 dark:text-slate-400">
-                            {planName ? `Your ${planName} includes ${rankingsLimit} rankings.` : `Free tier includes ${rankingsLimit} rankings.`}{' '}
-                            Upgrade to unlock {moreRankings > 0 ? `${moreRankings} more` : 'unlimited'} rankings!
+                            {planName 
+                                ? `Your ${planName} shows ranks ${visibleRankStart}+.` 
+                                : `Free tier shows ranks ${visibleRankStart}+.`}{' '}
+                            Upgrade to unlock the top {lockedRanks} premium rankings!
                         </p>
                     </div>
                 </div>
@@ -118,10 +197,17 @@ export function UpgradeBannerInline({
                 {/* CTA Button */}
                 <Link
                     href="/plans"
-                    className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-gradient-to-r from-purple-500 via-pink-500 to-orange-500 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-purple-500/25 transition-all duration-300 hover:shadow-xl hover:shadow-purple-500/40 hover:-translate-y-0.5"
+                    className={cn(
+                        "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl",
+                        "bg-gradient-to-r from-purple-500 via-pink-500 to-orange-500",
+                        "px-6 py-3 text-sm font-semibold text-white",
+                        "shadow-lg shadow-purple-500/25",
+                        "transition-all duration-300",
+                        "hover:shadow-xl hover:shadow-purple-500/40 hover:-translate-y-0.5"
+                    )}
                 >
                     <Crown className="h-4 w-4" />
-                    Upgrade Plan
+                    Unlock Ranks 1-{lockedRanks}
                 </Link>
             </div>
         </div>

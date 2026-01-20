@@ -1,36 +1,132 @@
-// UI Component exports
-export { Alert, AlertDescription } from './alert';
-export { Badge, type BadgeProps } from './badge';
-export { Button, type ButtonProps } from './button';
-export { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './card';
-export { Collapsible, CollapsibleContent, CollapsibleTrigger } from './collapsible';
-export { Input } from './input';
-export { InputWithIcon } from './input-with-icon';
-export { Label } from './label';
-export {
-  Select,
-  SelectContent, SelectGroup, SelectItem, SelectLabel, SelectScrollDownButton, SelectScrollUpButton, SelectSeparator, SelectTrigger,
-  SelectValue
-} from './select';
-export { Separator } from './separator';
-export { Skeleton } from './skeleton';
-export { Switch } from './switch';
-export { Tabs, TabsContent, TabsList, TabsTrigger } from './Tabs';
-export { Textarea } from './textarea';
+/**
+ * FRONTEND UI COMPONENTS INDEX
+ * Re-exports from shared components where possible
+ * Keeps app-specific components local
+ */
 
-// Navigation and overlay components
+import React from 'react';
+
+// ============================================================================
+// BASIC PRIMITIVES - Re-export from shared
+// ============================================================================
+export { Alert, AlertDescription, type AlertProps, type AlertDescriptionProps } from '@/shared/components/ui/alert';
+export { Badge, badgeVariants, type BadgeProps } from '@/shared/components/ui/badge';
+export { Button, buttonVariants, type ButtonProps } from '@/shared/components/ui/button';
+export { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/shared/components/ui/card';
+export { Input, inputVariants, type InputProps } from '@/shared/components/ui/input';
+export { Label } from '@/shared/components/ui/label';
+export { Skeleton, type SkeletonProps } from '@/shared/components/ui/skeleton';
+export { Switch } from '@/shared/components/ui/switch';
+export { Tabs, TabsContent, TabsList, TabsTrigger, type TabsContentProps, type TabsListProps, type TabsTriggerProps } from '@/shared/components/ui/tabs';
+export { Textarea } from '@/shared/components/ui/textarea';
+export { Progress, type ProgressProps } from '@/shared/components/ui/progress';
+export { Table, TableBody, TableCaption, TableCell, TableFooter, TableHead, TableHeader, TableRow } from '@/shared/components/ui/table';
+export { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogOverlay, DialogPortal, DialogTitle, DialogTrigger } from '@/shared/components/ui/dialog';
+export { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/shared/components/ui/tooltip';
+export { Avatar } from '@/shared/components/ui/avatar';
+export { Popover, PopoverContent, PopoverTrigger } from '@/shared/components/ui/popover';
+export { ScrollArea, ScrollBar } from '@/shared/components/ui/scroll-area';
+export { Toast, ToastAction, ToastClose, ToastDescription, ToastProvider, ToastTitle, ToastViewport, type ToastProps } from '@/shared/components/ui/toast';
+export { Toaster } from '@/shared/components/ui/toaster';
+export { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/shared/components/ui/alert-dialog';
+
+// ============================================================================
+// NAVIGATION AND OVERLAY - Re-export from shared
+// ============================================================================
 export {
   DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuPortal, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator,
   DropdownMenuShortcut, DropdownMenuSub,
   DropdownMenuSubContent,
   DropdownMenuSubTrigger, DropdownMenuTrigger
-} from './dropdown-menu';
+} from '@/shared/components/ui/dropdown-menu';
 export {
   Sheet, SheetClose,
   SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetOverlay, SheetPortal, SheetTitle, SheetTrigger
-} from './sheet';
+} from '@/shared/components/ui/sheet';
+export {
+  Select,
+  SelectContent, SelectGroup, SelectItem, SelectLabel, SelectScrollDownButton, SelectScrollUpButton, SelectSeparator, SelectTrigger,
+  SelectValue
+} from '@/shared/components/ui/select';
 
-// Form components
+// ============================================================================
+// UNIFIED COMPONENTS - Re-export from shared
+// ============================================================================
+export {
+  AdminCard,
+  AnalyticsCard, EPSXCard, EPSXCardContent,
+  EPSXCardFooter, EPSXCardHeader, GlassCard,
+  // Legacy aliases
+  MetroCard, MetroListCard, MetroStatsCard,
+  // Specialized variants
+  PancakeCard, PremiumCard, ProfessionalCard, ProfessionalFeatureCard, ProfessionalListCard, ProfessionalStatsCard,
+  // Main UnifiedCard
+  UnifiedCard, UnifiedCardContent,
+  UnifiedCardFooter, UnifiedCardHeader, UnifiedFeatureCard, UnifiedListCard,
+  // Specialized cards
+  UnifiedStatsCard, type AccentPosition, type UnifiedCardPadding,
+  // Types
+  type UnifiedCardProps,
+  type UnifiedCardSectionProps, type UnifiedCardSize, type UnifiedCardVariant, type UnifiedFeatureCardProps, type UnifiedListCardProps,
+  type UnifiedListItem, type UnifiedStatsCardProps
+} from '@/shared/components/cards/CardVariants';
+
+import {
+  UnifiedLoader,
+  UnifiedLoading,
+  UnifiedProgressBar,
+  UnifiedSkeleton,
+  type UnifiedLoaderProps,
+  type UnifiedLoadingProps,
+  type UnifiedProgressBarProps,
+  type UnifiedSkeletonProps
+} from '@/shared/components/loaders/UnifiedLoader';
+
+export {
+  UnifiedLoader, UnifiedLoading, UnifiedProgressBar, UnifiedSkeleton,
+  type UnifiedLoaderProps, type UnifiedLoadingProps, type UnifiedProgressBarProps, type UnifiedSkeletonProps
+} from '@/shared/components/loaders/UnifiedLoader';
+
+// Frontend-specific loader aliases for backward compatibility
+export const PancakeSwapLoader: React.FC<Omit<UnifiedLoaderProps, 'variant'> & { variant?: 'pancake' | 'admin' | 'analytics' }> = ({ variant = 'pancake' as const, ...props }) => {
+  return React.createElement(UnifiedLoader, { variant, type: 'stack', ...props });
+};
+export const EPSXLoader = UnifiedLoader;
+export const ProfessionalLoader = UnifiedLoader;
+export const MetroProgressBar = UnifiedProgressBar;
+export const ProfessionalProgressBar = UnifiedProgressBar;
+export const PancakeFlip: React.FC<{ variant?: 'pancake' | 'admin' | 'analytics', size?: any }> = ({ variant = 'pancake' as const, size = 'md' as const }) => {
+  return React.createElement(UnifiedLoader, { variant, size, type: 'stack' });
+};
+export const ProfessionalSkeleton = UnifiedSkeleton;
+export const ProfessionalLoading = UnifiedLoading;
+
+export {
+  AnimatedThemeToggle, GradientThemeToggle,
+  MinimalThemeToggle, OptimizedThemeToggle, ThemeToggle,
+  ThemeToggleCSS, UnifiedThemeToggle, type ThemeToggleIconType,
+  type ThemeToggleSize, type ThemeToggleVariant, type UnifiedThemeToggleProps
+} from '@/shared/components/ui/UnifiedThemeToggle';
+
+export {
+  MetroNotification, ProfessionalAlert, ProfessionalNotification, UnifiedAlert, UnifiedNotification, useAdminToast,
+  useAnalyticsToast, useMetroToast, usePancakeToast, useProfessionalToast, useUnifiedToast,
+  type UnifiedNotificationProps, type UnifiedAlertProps, type ToastNotification, type UseUnifiedToastProps
+} from '@/shared/components/notifications/UnifiedNotification';
+
+// ============================================================================
+// FRONTEND-SPECIFIC COMPONENTS - Keep local
+// ============================================================================
+export { Collapsible, CollapsibleContent, CollapsibleTrigger } from './collapsible';
+export { Separator } from './separator';
+export { Checkbox } from './checkbox';
+export { InputWithIcon } from './input-with-icon';
+export { LoadingButton } from './loading-button';
+export { PermissionBadge } from './PermissionBadge';
+
+// ============================================================================
+// FORM COMPONENTS - Keep local wrapper for React Hook Form integration
+// ============================================================================
 export {
   Form, FormControl,
   FormDescription, FormField,
@@ -38,32 +134,3 @@ export {
   FormLabel, FormMessage,
   useFormField
 } from './form';
-
-// Additional UI components that might be needed
-export { LoadingButton } from './loading-button';
-
-// Unified Card System (New - consolidates all card types)
-export {
-  AdminCard,
-  AnalyticsCard, GlassCard, PancakeCard, PremiumCard, UnifiedCard, UnifiedCardContent,
-  UnifiedCardFooter, UnifiedCardHeader, UnifiedFeatureCard, UnifiedListCard, UnifiedStatsCard
-} from './UnifiedCard';
-
-// Unified Loader System (New - consolidates all loader types)
-export {
-  EPSXLoader, MetroProgressBar, PancakeFlip, PancakeSwapLoader, ProfessionalLoader, ProfessionalLoading, ProfessionalProgressBar, ProfessionalSkeleton, UnifiedLoader, UnifiedLoading, UnifiedProgressBar,
-  UnifiedSkeleton
-} from './UnifiedLoader';
-
-// Unified Theme System (New - consolidates all theme toggles)
-export {
-  AnimatedThemeToggle, GradientThemeToggle,
-  MinimalThemeToggle, OptimizedThemeToggle, ThemeToggle,
-  ThemeToggleCSS, UnifiedThemeToggle
-} from './UnifiedThemeToggle';
-
-// Unified Notification System (New - consolidates all notification types)
-export {
-  MetroNotification, ProfessionalAlert, ProfessionalNotification, UnifiedAlert, UnifiedNotification, useAdminToast,
-  useAnalyticsToast, useMetroToast, usePancakeToast, useProfessionalToast, useUnifiedToast
-} from './UnifiedNotification';

@@ -1,29 +1,27 @@
-'use client'
+'use client';
 
+import { ShieldCheck } from 'lucide-react';
 
-import { GroupHub } from '@/components/group/GroupHub'
+import { GroupHub } from '@/components/group/GroupHub';
+import { PageHeader, PageLayout } from '@/components/shared';
 
-export const dynamic = 'force-dynamic'
+export const dynamic = 'force-dynamic';
 
 /**
  * Group and Permission Management Page
- * Uses the same card-based UX/UI as the Wallet Management page
+ * Uses unified page components for consistent design
  */
 export default function GroupAndPermissionPage() {
   return (
-    <div className="p-3 sm:p-6 space-y-6">
-      {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold bg-gradient-to-r from-yellow-600 via-orange-600 to-pink-600 bg-clip-text text-transparent flex items-center gap-2">
-          <span>🔑</span> Group & Permission Hub
-        </h1>
-        <p className="text-muted-foreground mt-2">
-          Manage permission groups, assignments, and wallet memberships
-        </p>
-      </div>
+    <PageLayout>
+      <PageHeader
+        title="Group & Permission Hub"
+        subtitle="Manage permission groups, assignments, and wallet memberships"
+        icon={ShieldCheck}
+        gradient="warning"
+      />
 
-      {/* Group Hub */}
       <GroupHub />
-    </div>
-  )
+    </PageLayout>
+  );
 }

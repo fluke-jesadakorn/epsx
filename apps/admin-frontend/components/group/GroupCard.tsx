@@ -100,16 +100,16 @@ export function GroupCard({
             className={cn(
                 // Base card styles with premium glassmorphism
                 'group relative rounded-2xl overflow-hidden',
-                'bg-white dark:bg-gray-900',
-                'border border-gray-200/60 dark:border-gray-700/60',
+                'bg-card text-card-foreground',
+                'border border-border',
                 // Smooth transitions
                 'transition-all duration-300 ease-out',
                 // Hover effects
-                'hover:shadow-xl hover:shadow-gray-200/40 dark:hover:shadow-black/20',
-                'hover:border-gray-300 dark:hover:border-gray-600',
+                'hover:shadow-xl hover:shadow-primary/5',
+                'hover:border-border',
                 'hover:scale-[1.01] hover:-translate-y-0.5',
                 // Selected state
-                isSelected && 'ring-2 ring-blue-500 ring-offset-2 dark:ring-offset-gray-900 border-blue-300 dark:border-blue-600',
+                isSelected && 'ring-2 ring-primary ring-offset-2 dark:ring-offset-background border-primary/50',
                 className
             )}
         >
@@ -131,7 +131,7 @@ export function GroupCard({
                                 type="checkbox"
                                 checked={isSelected}
                                 onChange={(e) => onSelect(e.target.checked)}
-                                className="h-4 w-4 rounded-md border-gray-300 text-blue-600 focus:ring-blue-500 focus:ring-offset-0 transition-colors cursor-pointer dark:border-gray-600 dark:bg-gray-800"
+                                className="h-4 w-4 rounded-md border-border text-primary focus:ring-primary focus:ring-offset-0 transition-colors cursor-pointer bg-card"
                             />
                         </div>
                     )}
@@ -218,7 +218,7 @@ export function GroupCard({
                                 <Button
                                     variant="ghost"
                                     size="sm"
-                                    className="h-9 w-9 p-0 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200 hover:scale-110"
+                                    className="h-9 w-9 p-0 rounded-xl hover:bg-muted transition-all duration-200 hover:scale-110"
                                 >
                                     <MoreHorizontal className="h-4 w-4" />
                                 </Button>

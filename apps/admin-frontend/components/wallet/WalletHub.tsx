@@ -203,8 +203,8 @@ export function WalletHub({ className }: WalletHubProps) {
         return (
             <div className="flex items-center justify-center p-8">
                 <div className="text-center">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4" />
-                    <p className="text-gray-600 dark:text-gray-400">Checking authentication...</p>
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4" />
+                    <p className="text-muted-foreground">Checking authentication...</p>
                 </div>
             </div>
         );
@@ -215,10 +215,10 @@ export function WalletHub({ className }: WalletHubProps) {
             <div className="flex items-center justify-center p-8">
                 <div className="text-center max-w-md">
                     <div className="text-4xl mb-4">🔐</div>
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                    <h3 className="text-lg font-semibold text-foreground mb-2">
                         Authentication Required
                     </h3>
-                    <p className="text-gray-600 dark:text-gray-400">
+                    <p className="text-muted-foreground">
                         Please connect your wallet to access the wallet management hub.
                     </p>
                 </div>
@@ -238,12 +238,12 @@ export function WalletHub({ className }: WalletHubProps) {
             <WalletStatsBar stats={stats} isLoading={isLoading && stats.total === 0} />
 
             {/* Search & Filters */}
-            <div className="rounded-2xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 p-4">
+            <div className="rounded-2xl bg-card border border-border p-4">
                 <div className="flex flex-col sm:flex-row gap-4">
                     {/* Search */}
                     <div className="flex-1">
                         <div className="relative">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                             <Input
                                 placeholder="Search wallet address..."
                                 value={filters.search}
@@ -299,7 +299,7 @@ export function WalletHub({ className }: WalletHubProps) {
 
             {/* Error */}
             {error && (
-                <div className="p-4 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400">
+                <div className="p-4 rounded-xl bg-destructive/10 border border-destructive/30 text-destructive">
                     ⚠️ {error}
                 </div>
             )}
@@ -309,7 +309,7 @@ export function WalletHub({ className }: WalletHubProps) {
                 {isLoading ? (
                     // Loading skeleton
                     Array.from({ length: 5 }).map((_, i) => (
-                        <div key={i} className="rounded-2xl bg-gray-100 dark:bg-gray-800 p-6 animate-pulse">
+                        <div key={i} className="rounded-2xl bg-muted p-6 animate-pulse">
                             <div className="flex items-center gap-4">
                                 <Skeleton className="h-12 w-12 rounded-xl" />
                                 <div className="space-y-2 flex-1">
@@ -321,7 +321,7 @@ export function WalletHub({ className }: WalletHubProps) {
                         </div>
                     ))
                 ) : filteredWallets.length === 0 ? (
-                    <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+                    <div className="text-center py-12 text-muted-foreground">
                         <Search className="h-12 w-12 mx-auto mb-4 opacity-30" />
                         <p className="font-medium">No wallets found</p>
                         <p className="text-sm mt-1">Try adjusting your filters</p>

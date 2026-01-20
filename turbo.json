@@ -12,13 +12,11 @@
     "RUST_ENV",
     "CI",
     "VERCEL",
-    "GOOGLE_CLIENT_ID",
-    "GOOGLE_CLIENT_SECRET",
-    "FIREBASE_*",
     "NEXT_PUBLIC_*",
     "DATABASE_URL",
-    "NEXTAUTH_SECRET",
-    "OIDC_*"
+    "WEB3_APP_SECRET",
+    "WALLET_SIGNATURE_SECRET",
+    "REDIS_URL"
   ],
   "tasks": {
     "build": {
@@ -52,7 +50,7 @@
     },
     "build:frontend": {
       "outputs": [".next/**"],
-      "env": ["FIREBASE_*"],
+      "env": ["NEXT_PUBLIC_*"],
       "inputs": [
         "app/**",
         "components/**",
@@ -66,7 +64,7 @@
     },
     "build:admin": {
       "outputs": [".next/**"],
-      "env": [],
+      "env": ["NEXT_PUBLIC_*"],
       "inputs": [
         "app/**",
         "components/**",
@@ -90,12 +88,12 @@
     "dev:frontend": {
       "cache": false,
       "persistent": true,
-      "env": ["NEXT_PUBLIC_*", "FIREBASE_*"]
+      "env": ["NEXT_PUBLIC_*"]
     },
     "dev:admin": {
       "cache": false,
       "persistent": true,
-      "env": []
+      "env": ["NEXT_PUBLIC_*"]
     },
     "dev:backend": {
       "cache": false,
@@ -106,11 +104,11 @@
     },
     "start:frontend": {
       "cache": false,
-      "env": ["NEXT_PUBLIC_*", "FIREBASE_*"]
+      "env": ["NEXT_PUBLIC_*"]
     },
     "start:admin": {
       "cache": false,
-      "env": []
+      "env": ["NEXT_PUBLIC_*"]
     },
     "start:backend": {
       "cache": false

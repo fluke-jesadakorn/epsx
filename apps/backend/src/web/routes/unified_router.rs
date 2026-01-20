@@ -306,6 +306,9 @@ impl UnifiedRouteBuilder {
         let tradingview_service = Arc::new(crate::infrastructure::adapters::services::tradingview::TradingViewApiService::new(config));
         let eps_repository = Arc::new(crate::web::analytics::TradingViewEPSRepository::new(tradingview_service));
         let eps_ranking_service = Arc::new(crate::domain::shared_kernel::services::eps_ranking_service::EPSRankingService::new(eps_repository));
+        // Permission service is required by the rankings handler even for public access
+        let permission_service = self.container.get_unified_permission_service()
+            .unwrap_or_else(|| Arc::new(crate::auth::UnifiedPermissionService::new_without_cache(*self.container.db_pool())));
 
         Router::new()
             .nest("/analytics", Router::new()
@@ -314,6 +317,7 @@ impl UnifiedRouteBuilder {
                 .route("/countries", get(crate::web::analytics::eps_handlers::get_all_valid_countries))
                 .layer(Extension(self.get_or_default_cache()))
                 .layer(Extension(eps_ranking_service))
+                .layer(Extension(permission_service))
             )
             .route("/plans", get(crate::web::public::plans_handlers::get_public_plans))
             .route("/plans/{id}", get(crate::web::public::plans_handlers::get_public_plan_by_id))
