@@ -9,7 +9,7 @@ import React from 'react';
  */
 export function CommonProviders({ children }: { children: React.ReactNode }) {
     return (
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false} disableTransitionOnChange>
             {/* 
           NOTE: These components are currently app-specific. 
           Long term they should be moved to @shared/components/providers/ 

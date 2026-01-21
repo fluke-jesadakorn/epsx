@@ -45,7 +45,7 @@ export default function AdminPaymentsPage() {
       <PageHeader
         title="Payments Hub"
         subtitle="Manage payments, user access, and payment links"
-        icon={CreditCard}
+        icon="CreditCard"
         gradient="info"
       />
 

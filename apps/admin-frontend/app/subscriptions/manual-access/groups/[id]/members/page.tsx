@@ -15,7 +15,8 @@ import { useGroupMembers } from '@/hooks/useGroupPermissions'
 import { groupMgmt, PermissionGroup, UserGroupMembership } from '@/lib/api/group-management-client'
 
 /**
- *
+ * Group Members Page
+ * Part of the Subscription & Access hub > Manual Access
  */
 export default function GroupMembersPage() {
     const params = useParams()
@@ -85,7 +86,7 @@ export default function GroupMembersPage() {
 
     if (groupLoading) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-yellow-50 via-orange-50 to-pink-50 dark:from-gray-900 dark:via-purple-900 dark:to-gray-900 p-3 sm:p-6">
+            <div className="min-h-screen bg-background p-3 sm:p-6">
                 <div className="relative max-w-4xl mx-auto space-y-6">
                     <Skeleton className="h-10 w-64" />
                     <Skeleton className="h-96 w-full rounded-3xl" />
@@ -96,12 +97,12 @@ export default function GroupMembersPage() {
 
     if (groupError || !group) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-yellow-50 via-orange-50 to-pink-50 dark:from-gray-900 dark:via-purple-900 dark:to-gray-900 p-3 sm:p-6">
+            <div className="min-h-screen bg-background p-3 sm:p-6">
                 <div className="relative max-w-4xl mx-auto space-y-6">
                     <div className="text-center py-12">
-                        <p className="text-red-600 mb-4">Group not found or failed to load.</p>
-                        <Link href="/group-and-permission">
-                            <Button variant="outline">Back to Permissions</Button>
+                        <p className="text-destructive mb-4">Group not found or failed to load.</p>
+                        <Link href="/subscriptions/manual-access">
+                            <Button variant="outline">Back to Manual Access</Button>
                         </Link>
                     </div>
                 </div>
@@ -121,8 +122,8 @@ export default function GroupMembersPage() {
                 {/* Header */}
                 <div className="flex items-center gap-4 mb-6">
                     <Link
-                        href="/group-and-permission"
-                        className="p-2 rounded-xl bg-white/80 dark:bg-gray-800/80 hover:bg-white dark:hover:bg-gray-800 transition-colors border border-gray-200 dark:border-gray-700"
+                        href="/subscriptions/manual-access"
+                        className="p-2 rounded-xl bg-card hover:bg-muted transition-colors border border-border"
                     >
                         <ArrowLeft className="h-5 w-5" />
                     </Link>
@@ -131,19 +132,19 @@ export default function GroupMembersPage() {
                             <Users className="w-6 h-6" />
                             Members of &quot;{group.name}&quot;
                         </h1>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                        <p className="text-sm text-muted-foreground">
                             Total members: {members.length} {membersLoading && '(Loading...)'}
                         </p>
                     </div>
                 </div>
 
                 {/* Main Content */}
-                <div className="bg-white dark:bg-gray-800 rounded-2xl sm:rounded-3xl p-6 shadow-xl border-2 border-indigo-300/50 dark:border-indigo-700/50">
+                <div className="bg-card rounded-2xl sm:rounded-3xl p-6 shadow-xl border-2 border-indigo-500/20">
                     <div className="space-y-4">
                         {/* Add Member Section */}
-                        <div className="border-b pb-4">
+                        <div className="border-b border-border pb-4">
                             <div className="flex justify-between items-center mb-3">
-                                <h3 className="font-semibold">Manage Members</h3>
+                                <h3 className="font-semibold text-foreground">Manage Members</h3>
                                 <Button
                                     onClick={() => setShowAddMember(!showAddMember)}
                                     variant="outline"
@@ -187,32 +188,32 @@ export default function GroupMembersPage() {
 
                         {/* Members List */}
                         <div className="space-y-3">
-                            <h3 className="font-semibold">Current Members</h3>
+                            <h3 className="font-semibold text-foreground">Current Members</h3>
 
                             {membersLoading ? (
                                 <div className="text-center py-8">
                                     <div className="h-8 w-8 border-b-2 border-indigo-600 mx-auto mb-4 animate-spin rounded-full"></div>
-                                    <p className="text-gray-500">Loading members...</p>
+                                    <p className="text-muted-foreground">Loading members...</p>
                                 </div>
                             ) : members.length === 0 ? (
-                                <div className="text-center py-8 text-gray-500">
-                                    <Users className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                                <div className="text-center py-8 text-muted-foreground">
+                                    <Users className="w-12 h-12 mx-auto mb-4 opacity-30" />
                                     <p className="text-lg font-medium">No members in this group</p>
                                     <p className="text-sm">Add members to grant them the group&apos;s permissions</p>
                                 </div>
                             ) : (
                                 <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2">
                                     {members.map((member: UserGroupMembership) => (
-                                        <div key={member.id} className="flex items-center justify-between p-3 bg-white dark:bg-gray-900 border rounded-lg hover:shadow-sm transition-shadow">
+                                        <div key={member.id} className="flex items-center justify-between p-3 bg-muted/50 border border-border rounded-lg hover:shadow-sm transition-shadow">
                                             <div className="flex items-center gap-3">
-                                                <div className="h-8 w-8 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-mono text-xs">
+                                                <div className="h-8 w-8 rounded-full bg-indigo-500/10 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-mono text-xs">
                                                     {member.user_id.substring(2, 4)}
                                                 </div>
                                                 <div>
-                                                    <div className="font-medium font-mono text-sm">
+                                                    <div className="font-medium font-mono text-sm text-foreground">
                                                         {member.user_id}
                                                     </div>
-                                                    <div className="text-xs text-gray-500 flex gap-2">
+                                                    <div className="text-xs text-muted-foreground flex gap-2">
                                                         <span>Added: {new Date(member.granted_at).toLocaleDateString()}</span>
                                                         {member.expires_at && (
                                                             <span className="text-orange-600">
@@ -225,7 +226,7 @@ export default function GroupMembersPage() {
                                             <Button
                                                 variant="ghost"
                                                 size="sm"
-                                                className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/10"
+                                                className="text-destructive hover:text-destructive hover:bg-destructive/10"
                                                 onClick={() => {
                                                     if (confirm('Remove this user from the group?')) {
                                                         removeMemberMutation.mutate(member.user_id)
@@ -242,8 +243,8 @@ export default function GroupMembersPage() {
                         </div>
 
                         {/* Group Info */}
-                        <div className="border-t pt-4">
-                            <h3 className="font-semibold mb-2">Group Permissions</h3>
+                        <div className="border-t border-border pt-4">
+                            <h3 className="font-semibold mb-2 text-foreground">Group Permissions</h3>
                             <div className="flex flex-wrap gap-2">
                                 {group.permissions.map((permission: string) => (
                                     <Badge key={permission} variant="secondary">
@@ -256,10 +257,10 @@ export default function GroupMembersPage() {
                 </div>
 
                 {/* Back Button */}
-                <Link href="/group-and-permission">
+                <Link href="/subscriptions/manual-access">
                     <Button variant="outline" className="w-full">
                         <ArrowLeft className="h-4 w-4 mr-2" />
-                        Back to Permission Management
+                        Back to Manual Access
                     </Button>
                 </Link>
             </div>

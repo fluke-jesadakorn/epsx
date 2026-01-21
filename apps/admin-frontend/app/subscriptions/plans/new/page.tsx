@@ -26,7 +26,8 @@ interface CreatePermissionTemplateRequest {
 }
 
 /**
- *
+ * Create New Plan Page
+ * Part of the Subscription & Access hub
  */
 export default function NewPlanPage() {
   const router = useRouter()
@@ -56,7 +57,7 @@ export default function NewPlanPage() {
   }
 
   if (!isAuthenticated || !user) {
-    router.push('/plans')
+    router.push('/subscriptions/plans')
     return null
   }
 
@@ -97,12 +98,12 @@ export default function NewPlanPage() {
       const planRequest = {
         name: formData.name,
         description: formData.description,
-        permission_group_name: formData.name, // Use plan name as group name
-        current_price: formData.current_price.toString(), // Convert to string for Decimal
+        permission_group_name: formData.name,
+        current_price: formData.current_price.toString(),
         currency: formData.currency,
         target_audience: formData.target_audience,
         billing_model: formData.billing_model,
-        permissions: formData.permissions, // Required direct permission array
+        permissions: formData.permissions,
         metadata: {
           permission_template: formData.template_name,
           features: formData.features,
@@ -117,7 +118,7 @@ export default function NewPlanPage() {
           title: "Success",
           description: "Permission template plan created successfully",
         })
-        router.push('/plans')
+        router.push('/subscriptions/plans')
       } else {
         toast({
           title: "Error",
@@ -162,7 +163,7 @@ export default function NewPlanPage() {
                 </p>
               </div>
               <button
-                onClick={() => router.push('/plans')}
+                onClick={() => router.push('/subscriptions/plans')}
                 className="p-2 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted transition-all"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -301,7 +302,7 @@ export default function NewPlanPage() {
               <div className="flex flex-col sm:flex-row gap-4 pt-8 border-t border-border/30">
                 <button
                   type="button"
-                  onClick={() => router.push('/plans')}
+                  onClick={() => router.push('/subscriptions/plans')}
                   className="flex-1 px-8 py-4 rounded-xl border border-border text-foreground font-bold hover:bg-muted transition-all active:scale-[0.98]"
                 >
                   Cancel

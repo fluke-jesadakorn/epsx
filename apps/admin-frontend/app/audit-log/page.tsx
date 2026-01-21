@@ -147,7 +147,7 @@ export default function AuditLogPage(): React.JSX.Element {
             <PageHeader
                 title="Audit Log"
                 subtitle="Track all admin actions, permission changes, and system events"
-                icon={FileText}
+                icon="FileText"
                 gradient="indigo"
             />
 

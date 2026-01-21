@@ -17,7 +17,7 @@ export default function SettingsPage() {
       <PageHeader
         title="Settings"
         subtitle="Configure system settings, notifications, and security options"
-        icon={Settings}
+        icon="Settings"
         gradient="default"
       />
 

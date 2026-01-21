@@ -15,17 +15,10 @@ const routeConfig: Record<string, BreadcrumbItem> = {
   '/users': { label: 'Users', href: '/users', icon: '👥' },
   '/users/create': { label: 'Create User', href: '/users/create' },
   '/users/bulk': { label: 'Bulk Operations', href: '/users/bulk' },
-  '/permissions': { label: 'Permissions', href: '/permissions', icon: '🔑' },
-  '/permissions/grant': { label: 'Grant Permissions', href: '/permissions/grant' },
-  '/permissions/request': { label: 'Request Permissions', href: '/permissions/request' },
   '/analytics': { label: 'Analytics', href: '/analytics', icon: '📊' },
   '/analytics/eps': { label: 'EPS Analytics', href: '/analytics/eps' },
   '/notifications': { label: 'Notifications', href: '/notifications', icon: '🔔' },
   '/notifications/create': { label: 'Create Notification', href: '/notifications/create' },
-  '/subscriptions': { label: 'Subscriptions', href: '/subscriptions', icon: '📋' },
-  '/subscriptions/new': { label: 'New Subscription', href: '/subscriptions/new' },
-  '/plans': { label: 'Plans', href: '/plans', icon: '💳' },
-  '/plans/new': { label: 'New Plan', href: '/plans/new' },
   '/settings': { label: 'Settings', href: '/settings', icon: '⚙️' },
   '/audit-log': { label: 'Audit Log', href: '/audit-log', icon: '📜' },
   '/bulk-permissions': { label: 'Bulk Permissions', href: '/bulk-permissions', icon: '⚡' },
@@ -33,12 +26,17 @@ const routeConfig: Record<string, BreadcrumbItem> = {
   '/docs': { label: 'Documentation', href: '/docs', icon: '📚' },
   '/docs/api': { label: 'API Docs', href: '/docs/api' },
   '/wallet-management': { label: 'Wallet Management', href: '/wallet-management', icon: '👛' },
-  '/group-management': { label: 'Group Management', href: '/group-management', icon: '👥' },
-  '/permissions/create-group': { label: 'Create Group', href: '/permissions/create-group' },
-  '/permissions/assign-wallet': { label: 'Assign Wallet', href: '/permissions/assign-wallet' },
-  '/permissions/expiring': { label: 'Expiring Assignments', href: '/permissions/expiring' },
-  '/permissions/groups': { label: 'Groups', href: '/permissions/groups' },
-  '/permissions/groups/edit': { label: 'Edit Group', href: '/permissions/groups/edit' },
+  '/payments': { label: 'Payments', href: '/payments', icon: '💰' },
+
+  // Access Management Routes (unified single page)
+  '/subscriptions': { label: 'Access Management', href: '/subscriptions', icon: '🛡️' },
+  '/subscriptions/plans': { label: 'Plans', href: '/subscriptions/plans' },
+  '/subscriptions/plans/new': { label: 'New Plan', href: '/subscriptions/plans/new' },
+  '/subscriptions/manual-access': { label: 'Manual Access', href: '/subscriptions/manual-access' },
+  '/subscriptions/manual-access/assign': { label: 'Assign Wallet', href: '/subscriptions/manual-access/assign' },
+  '/subscriptions/manual-access/expiring': { label: 'Expiring', href: '/subscriptions/manual-access/expiring' },
+  '/subscriptions/manual-access/create-group': { label: 'Create Group', href: '/subscriptions/manual-access/create-group' },
+  '/subscriptions/manual-access/groups': { label: 'Groups', href: '/subscriptions/manual-access/groups' },
 }
 
 function generateBreadcrumbs(pathname: string): BreadcrumbItem[] {
@@ -103,10 +101,10 @@ export function Breadcrumb() {
   return (
     <div className="flex items-center gap-1 sm:gap-1.5 lg:gap-2 text-xs sm:text-sm min-w-0 overflow-hidden">
       {breadcrumbs.map((item, index) => {
-        if (!item) {return null}
+        if (!item) { return null }
         const isLast = index === breadcrumbs.length - 1
         const isFirst = index === 0
-        
+
         return (
           <div key={item.href} className="flex items-center gap-1 sm:gap-1.5 lg:gap-2 flex-shrink-0">
             {isFirst && (

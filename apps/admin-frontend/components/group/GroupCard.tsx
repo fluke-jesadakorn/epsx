@@ -195,7 +195,7 @@ export function GroupCard({
 
                     {/* Actions Menu */}
                     <div className="flex items-center gap-1.5">
-                        <Link href={`/group-and-permission/groups/${group.id}/edit`}>
+                        <Link href={`/subscriptions/manual-access/groups/${group.id}/edit`}>
                             <Button
                                 variant="ghost"
                                 size="sm"
@@ -224,13 +224,13 @@ export function GroupCard({
                                 </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="w-48 rounded-xl p-1">
-                                <Link href={`/group-and-permission/groups/${group.id}/edit`}>
+                                <Link href={`/subscriptions/manual-access/groups/${group.id}/edit`}>
                                     <DropdownMenuItem className="rounded-lg">
                                         <Edit className="h-4 w-4 mr-2" />
                                         <span className="text-sm">Edit Group</span>
                                     </DropdownMenuItem>
                                 </Link>
-                                <Link href={`/group-and-permission/groups/${group.id}/members`}>
+                                <Link href={`/subscriptions/manual-access/groups/${group.id}/members`}>
                                     <DropdownMenuItem className="rounded-lg">
                                         <Users className="h-4 w-4 mr-2" />
                                         <span className="text-sm">Manage Members</span>

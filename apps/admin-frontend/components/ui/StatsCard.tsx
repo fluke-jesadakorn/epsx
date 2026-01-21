@@ -58,11 +58,11 @@ export function StatsCard({
   cardVariant,
   trend,
 }: StatsCardProps) {
-  
+
   // Map legacy variants to card variants
   const getCardVariant = () => {
-    if (cardVariant) {return cardVariant;}
-    
+    if (cardVariant) { return cardVariant; }
+
     // Legacy mapping
     switch (variant) {
       case 'enhanced': return 'pancake';
@@ -80,16 +80,17 @@ export function StatsCard({
       inline: { bg: 'bg-neutral-100', text: 'text-neutral-600' },
       default: { bg: 'bg-primary-100', text: 'text-primary-600' },
     };
-    
+
     return variantMap[variant] || variantMap.default;
   };
 
   // Use standard Tailwind classes instead of design system
   const getCardClasses = () => {
-    const baseClasses = 'bg-card text-card-foreground rounded-2xl border border-border shadow-lg';
+    // Use shared premium card styles to match Frontend
+    const baseClasses = 'card-insight-enhanced text-card-foreground';
     const paddingClasses = variant === 'inline' ? 'p-4' : 'p-6';
     const hoverClasses = 'hover:shadow-xl transition-shadow duration-200';
-    
+
     return cn(baseClasses, paddingClasses, hoverClasses);
   };
 
@@ -122,9 +123,9 @@ export function StatsCard({
                 <div className="mt-1">
                   <span className={cn(
                     'inline-flex items-center rounded-full px-2 py-1 text-xs font-medium',
-                    trend === 'up' ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400' : 
-                    trend === 'down' ? 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400' : 
-                    'bg-muted text-muted-foreground'
+                    trend === 'up' ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400' :
+                      trend === 'down' ? 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400' :
+                        'bg-muted text-muted-foreground'
                   )}>
                     {trend === 'up' ? '↗' : trend === 'down' ? '↘' : '→'} {change}
                   </span>
@@ -254,9 +255,9 @@ export interface StatsGridProps {
  * @param root0.columns
  * @param root0.className
  */
-export function StatsGrid({ 
-  stats, 
-  variant = 'default', 
+export function StatsGrid({
+  stats,
+  variant = 'default',
   columns = { default: 1, md: 2, lg: 4 },
   className = ''
 }: StatsGridProps) {

@@ -24,7 +24,8 @@ import { createAdminApiClient } from '@/shared/utils/api-client'
 import * as Promo from '@/shared/utils/promo'
 
 /**
- *
+ * Edit Plan Page
+ * Part of the Subscription & Access hub
  */
 export default function EditPlanPage() {
   const router = useRouter()
@@ -38,11 +39,10 @@ export default function EditPlanPage() {
     current_price: 0,
     is_active: true,
     api_calls_limit: 100,
-    ranking_offset: 100, // Number of top ranks locked (e.g. 24 = ranks 1-24 locked)
+    ranking_offset: 100,
     analytics_queries: 0,
     premium_features: false,
     export_limit: 10,
-    // Promotion fields
     promo_enabled: false,
     promo_type: 'percentage' as 'percentage' | 'fixed',
     promo_value: 0,
@@ -56,7 +56,7 @@ export default function EditPlanPage() {
 
   useEffect(() => {
     if (!authLoading && (!isAuthenticated || !user)) {
-      router.push('/plans')
+      router.push('/subscriptions/plans')
     }
   }, [authLoading, isAuthenticated, user, router])
 
@@ -75,46 +75,30 @@ export default function EditPlanPage() {
           const planData = backendResponse?.data || backendResponse
           setPlan(planData)
 
-          // Extract API limits from permissions
           const apiCallsPermission = planData.permissions?.find((p: string) => p.startsWith('epsx:api:calls:'))
           const analyticsPermission = planData.permissions?.find((p: string) => p.startsWith('epsx:analytics:queries:'))
-          
-          // Extract ranking_offset from metadata (default to 100 for free tier)
           const rankingOffset = planData.metadata?.ranking_offset ?? 100
 
-          // Extract feature list from metadata
           let featureList: string[] = []
-
-          // Try metadata.features (backend structure)
           if (planData.metadata?.features && Array.isArray(planData.metadata.features)) {
             featureList = planData.metadata.features.filter((f: any) => typeof f === 'string')
-          }
-          // Fallback to metadata.feature_list (our custom field)
-          else if (planData.metadata?.feature_list && Array.isArray(planData.metadata.feature_list)) {
+          } else if (planData.metadata?.feature_list && Array.isArray(planData.metadata.feature_list)) {
             featureList = planData.metadata.feature_list
-          }
-          // Fallback to top-level features array
-          else if (planData.features && Array.isArray(planData.features) && planData.features.length > 0) {
+          } else if (planData.features && Array.isArray(planData.features) && planData.features.length > 0) {
             featureList = planData.features
               .map((f: any) => typeof f === 'string' ? f : f.name || f.feature_key || '')
               .filter((f: string) => f.length > 0)
           }
 
-          // Parse limits with proper fallbacks
-          // Returns: -1 for unlimited, 0 for not granted, >0 for specific limit
           const parseLimit = (permission: string | undefined, defaultValue: number): number => {
             if (!permission) { return defaultValue }
             const parts = permission.split(':')
             const lastPart = parts[parts.length - 1]
-
-            // Check if it's "unlimited"
             if (lastPart === 'unlimited') { return -1 }
-
             const parsed = parseInt(lastPart || '0')
             return isNaN(parsed) ? defaultValue : parsed
           }
 
-          // Extract promotion data from metadata
           const promo = planData.metadata?.promotion || {}
 
           setFormData({
@@ -127,7 +111,6 @@ export default function EditPlanPage() {
             analytics_queries: parseLimit(analyticsPermission, 0),
             premium_features: planData.permissions?.some((p: string) => p.includes('premium')) || false,
             export_limit: 10,
-            // Promotion fields
             promo_enabled: promo.enabled || false,
             promo_type: promo.type || 'percentage',
             promo_value: promo.value || 0,
@@ -136,20 +119,12 @@ export default function EditPlanPage() {
             promo_end: promo.end_date || ''
           })
         } else {
-          toast({
-            title: "Error",
-            description: "Failed to load plan",
-            variant: "destructive"
-          })
-          router.push('/plans')
+          toast({ title: "Error", description: "Failed to load plan", variant: "destructive" })
+          router.push('/subscriptions/plans')
         }
       } catch (error) {
-        toast({
-          title: "Error",
-          description: "Failed to load plan",
-          variant: "destructive"
-        })
-        router.push('/plans')
+        toast({ title: "Error", description: "Failed to load plan", variant: "destructive" })
+        router.push('/subscriptions/plans')
       } finally {
         setLoading(false)
       }
@@ -158,10 +133,8 @@ export default function EditPlanPage() {
     loadPlan()
   }, [params.id, router])
 
-  // Sync custom permissions from plan data
   useEffect(() => {
     if (plan && plan.permissions) {
-      // Filter out permission strings that are handled by the UI inputs (limits)
       const managedPrefixes = [
         'epsx:api:calls:',
         'epsx:rankings:offset:',
@@ -177,44 +150,35 @@ export default function EditPlanPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-
     const adminClient = createPlansClient(createAdminApiClient())
 
     try {
       setSaving(true)
-
-      // Build permissions array from limits
-      // -1 = unlimited, 0 = not granted/disabled, >0 = specific limit
       const permissions = []
 
-      // API calls permission
       if (formData.api_calls_limit === -1) {
         permissions.push('epsx:api:calls:unlimited')
       } else if (formData.api_calls_limit > 0) {
         permissions.push(`epsx:api:calls:${formData.api_calls_limit}`)
       }
 
-      // Analytics permission
       if (formData.analytics_queries === -1) {
         permissions.push('epsx:analytics:queries:unlimited')
       } else if (formData.analytics_queries > 0) {
         permissions.push(`epsx:analytics:queries:${formData.analytics_queries}`)
       }
 
-      // Premium features
       if (formData.premium_features) {
         permissions.push('epsx:trading:premium')
         permissions.push('epsx:analytics:premium')
       }
 
-      // Export limit
       if (formData.export_limit === -1) {
         permissions.push('epsx:export:limit:unlimited')
       } else if (formData.export_limit > 0) {
         permissions.push(`epsx:export:limit:${formData.export_limit}`)
       }
 
-      // Add custom permissions from TransferList
       permissions.push(...customPermissions)
 
       const response = await adminClient.updatePlan(params.id as string, {
@@ -224,7 +188,7 @@ export default function EditPlanPage() {
         is_active: formData.is_active,
         permissions,
         metadata: {
-          ranking_offset: formData.ranking_offset, // Top-level for easy access
+          ranking_offset: formData.ranking_offset,
           api_limits: {
             api_calls: formData.api_calls_limit,
             analytics_queries: formData.analytics_queries,
@@ -243,24 +207,13 @@ export default function EditPlanPage() {
       })
 
       if (isApiSuccess(response)) {
-        toast({
-          title: "Success",
-          description: "Plan updated successfully",
-        })
-        router.push('/plans')
+        toast({ title: "Success", description: "Plan updated successfully" })
+        router.push('/subscriptions/plans')
       } else {
-        toast({
-          title: "Error",
-          description: response.error || "Failed to update plan",
-          variant: "destructive"
-        })
+        toast({ title: "Error", description: response.error || "Failed to update plan", variant: "destructive" })
       }
     } catch (_error) {
-      toast({
-        title: "Error",
-        description: "Failed to update plan",
-        variant: "destructive"
-      })
+      toast({ title: "Error", description: "Failed to update plan", variant: "destructive" })
     } finally {
       setSaving(false)
     }
@@ -283,9 +236,9 @@ export default function EditPlanPage() {
       {/* Header */}
       <div className="bg-gradient-to-r from-emerald-400 via-green-500 to-teal-500 p-6">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <h2 className="text-2xl font-bold text-white">✏️ Edit Plan: {plan.name}</h2>
+          <h2 className="text-2xl font-bold text-white">Edit Plan: {plan.name}</h2>
           <button
-            onClick={() => router.push('/plans')}
+            onClick={() => router.push('/subscriptions/plans')}
             className="text-white hover:bg-white/20 rounded-xl p-2 min-h-[44px] min-w-[44px]"
           >
             ✖
@@ -298,13 +251,10 @@ export default function EditPlanPage() {
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Basic Info */}
           <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-2xl p-6">
-            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">📋 Basic Information</h3>
-
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Basic Information</h3>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                  Plan Name
-                </label>
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Plan Name</label>
                 <input
                   type="text"
                   value={formData.name}
@@ -313,11 +263,8 @@ export default function EditPlanPage() {
                   required
                 />
               </div>
-
               <div>
-                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                  Description
-                </label>
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Description</label>
                 <textarea
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
@@ -330,13 +277,10 @@ export default function EditPlanPage() {
 
           {/* Pricing */}
           <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-2xl p-6">
-            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">💰 Pricing</h3>
-
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Pricing</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                  Price (USD)
-                </label>
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Price (USD)</label>
                 <input
                   type="number"
                   step="0.01"
@@ -347,11 +291,8 @@ export default function EditPlanPage() {
                   required
                 />
               </div>
-
               <div>
-                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                  Status
-                </label>
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Status</label>
                 <div className="flex items-center gap-3 p-4 bg-white dark:bg-gray-800 rounded-xl border-2 border-gray-300 dark:border-gray-600">
                   <input
                     type="checkbox"
@@ -371,28 +312,16 @@ export default function EditPlanPage() {
           {/* Promotions */}
           <div className="bg-gradient-to-r from-rose-50 to-red-50 dark:from-rose-900/20 dark:to-red-900/20 rounded-2xl p-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-gray-900 dark:text-white">🎁 Promotion & Discounts</h3>
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white">Promotion & Discounts</h3>
               {formData.promo_enabled && formData.promo_start && formData.promo_end && (
-                <div className={`px-4 py-2 rounded-xl font-semibold ${Promo.getStatusColor(Promo.getStatus(formData.promo_enabled, formData.promo_start, formData.promo_end))
-                  }`}>
+                <div className={`px-4 py-2 rounded-xl font-semibold ${Promo.getStatusColor(Promo.getStatus(formData.promo_enabled, formData.promo_start, formData.promo_end))}`}>
                   {Promo.getStatusIcon(Promo.getStatus(formData.promo_enabled, formData.promo_start, formData.promo_end))}
                   {' '}
                   {Promo.getStatusText(Promo.getStatus(formData.promo_enabled, formData.promo_start, formData.promo_end))}
-                  {Promo.getStatus(formData.promo_enabled, formData.promo_start, formData.promo_end) === 'active' && (
-                    <span className="ml-2 text-xs">
-                      ({Promo.getTimeRemaining(formData.promo_end)})
-                    </span>
-                  )}
-                  {Promo.getStatus(formData.promo_enabled, formData.promo_start, formData.promo_end) === 'upcoming' && (
-                    <span className="ml-2 text-xs">
-                      ({Promo.getTimeUntilStart(formData.promo_start)})
-                    </span>
-                  )}
                 </div>
               )}
             </div>
 
-            {/* Enable Promotion Toggle */}
             <div className="mb-6">
               <label className="flex items-center gap-3 cursor-pointer">
                 <input
@@ -401,44 +330,32 @@ export default function EditPlanPage() {
                   onChange={(e) => setFormData({ ...formData, promo_enabled: e.target.checked })}
                   className="w-6 h-6 rounded border-2 border-gray-300 dark:border-gray-600 text-rose-500 focus:ring-2 focus:ring-rose-500"
                 />
-                <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                  Enable Promotion
-                </span>
+                <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Enable Promotion</span>
               </label>
             </div>
 
             {formData.promo_enabled && (
               <div className="space-y-4">
-                {/* Discount Type */}
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                    Discount Type
-                  </label>
+                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Discount Type</label>
                   <div className="grid grid-cols-2 gap-4">
                     <button
                       type="button"
                       onClick={() => setFormData({ ...formData, promo_type: 'percentage' })}
-                      className={`p-4 rounded-xl border-2 font-semibold ${formData.promo_type === 'percentage'
-                        ? 'border-rose-500 bg-rose-50 dark:bg-rose-900/20 text-rose-700 dark:text-rose-300'
-                        : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300'
-                        }`}
+                      className={`p-4 rounded-xl border-2 font-semibold ${formData.promo_type === 'percentage' ? 'border-rose-500 bg-rose-50 dark:bg-rose-900/20 text-rose-700 dark:text-rose-300' : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300'}`}
                     >
                       % Percentage
                     </button>
                     <button
                       type="button"
                       onClick={() => setFormData({ ...formData, promo_type: 'fixed' })}
-                      className={`p-4 rounded-xl border-2 font-semibold ${formData.promo_type === 'fixed'
-                        ? 'border-rose-500 bg-rose-50 dark:bg-rose-900/20 text-rose-700 dark:text-rose-300'
-                        : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300'
-                        }`}
+                      className={`p-4 rounded-xl border-2 font-semibold ${formData.promo_type === 'fixed' ? 'border-rose-500 bg-rose-50 dark:bg-rose-900/20 text-rose-700 dark:text-rose-300' : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300'}`}
                     >
                       $ Fixed Amount
                     </button>
                   </div>
                 </div>
 
-                {/* Discount Value */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
@@ -456,14 +373,10 @@ export default function EditPlanPage() {
                         setFormData({ ...formData, promo_value: newValue })
                       }}
                       className="w-full px-4 py-3 rounded-xl border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-rose-500 focus:ring-2 focus:ring-rose-500 focus:outline-none"
-                      placeholder={formData.promo_type === 'percentage' ? '20' : '5.00'}
                     />
                   </div>
-
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                      Final Promotional Price ($)
-                    </label>
+                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Final Promotional Price ($)</label>
                     <input
                       type="number"
                       step="0.01"
@@ -471,24 +384,16 @@ export default function EditPlanPage() {
                       value={formData.promo_price}
                       onChange={(e) => setFormData({ ...formData, promo_price: parseFloat(e.target.value) || 0 })}
                       className="w-full px-4 py-3 rounded-xl border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-rose-500 focus:ring-2 focus:ring-rose-500 focus:outline-none"
-                      placeholder="Auto-calculated or custom"
                     />
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      Auto: ${Promo.calcPrice(
-                        formData.current_price,
-                        formData.promo_type,
-                        formData.promo_value
-                      ).toFixed(2)}
+                      Auto: ${Promo.calcPrice(formData.current_price, formData.promo_type, formData.promo_value).toFixed(2)}
                     </p>
                   </div>
                 </div>
 
-                {/* Promotion Period */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                      Start Date
-                    </label>
+                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Start Date</label>
                     <input
                       type="datetime-local"
                       value={formData.promo_start}
@@ -496,11 +401,8 @@ export default function EditPlanPage() {
                       className="w-full px-4 py-3 rounded-xl border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-rose-500 focus:ring-2 focus:ring-rose-500 focus:outline-none"
                     />
                   </div>
-
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                      End Date
-                    </label>
+                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">End Date</label>
                     <input
                       type="datetime-local"
                       value={formData.promo_end}
@@ -509,111 +411,60 @@ export default function EditPlanPage() {
                     />
                   </div>
                 </div>
-
-                {/* Promotion Preview */}
-                <div className="mt-4 p-4 bg-gradient-to-r from-rose-100 to-red-100 dark:from-rose-900/30 dark:to-red-900/30 rounded-xl border-2 border-rose-200 dark:border-rose-700">
-                  <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Preview:</p>
-                  <div className="space-y-1">
-                    <p className="text-gray-900 dark:text-white">
-                      <span className="line-through text-gray-500">${formData.current_price.toFixed(2)}</span>
-                      {' → '}
-                      <span className="font-bold text-rose-600 dark:text-rose-400">
-                        ${Promo.calcPrice(
-                          formData.current_price,
-                          formData.promo_type,
-                          formData.promo_value,
-                          formData.promo_price > 0 ? formData.promo_price : undefined
-                        ).toFixed(2)}
-                      </span>
-                      <span className="ml-2 text-sm text-rose-600 dark:text-rose-400 font-semibold">
-                        {Promo.formatBadge(formData.promo_type, formData.promo_value, 'active')}
-                      </span>
-                    </p>
-                    {formData.promo_start && formData.promo_end && (
-                      <>
-                        <p className="text-xs text-gray-600 dark:text-gray-400">
-                          Valid: {new Date(formData.promo_start).toLocaleDateString()} - {new Date(formData.promo_end).toLocaleDateString()}
-                        </p>
-                        <p className="text-xs font-semibold text-gray-700 dark:text-gray-300">
-                          Status: {Promo.getStatusText(Promo.getStatus(formData.promo_enabled, formData.promo_start, formData.promo_end))}
-                        </p>
-                      </>
-                    )}
-                  </div>
-                </div>
               </div>
             )}
           </div>
 
           {/* API Limitations */}
           <div className="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-2xl p-6">
-            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">🔧 API Limitations</h3>
-
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">API Limitations</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                  API Calls Limit (per month)
-                </label>
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">API Calls Limit (per month)</label>
                 <input
                   type="number"
                   min="-1"
                   value={formData.api_calls_limit}
                   onChange={(e) => setFormData({ ...formData, api_calls_limit: parseInt(e.target.value) || 0 })}
                   className="w-full px-4 py-3 rounded-xl border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-purple-500 focus:ring-2 focus:ring-purple-500 focus:outline-none"
-                  placeholder="-1 = unlimited, 0 = not granted"
                 />
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">-1 = unlimited, 0 = not granted, &gt;0 = specific limit</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">-1 = unlimited, 0 = not granted</p>
               </div>
-
               <div>
-                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                  Ranking Offset (Premium Ranks)
-                </label>
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Ranking Offset (Premium Ranks)</label>
                 <input
                   type="number"
                   min="0"
                   value={formData.ranking_offset}
                   onChange={(e) => setFormData({ ...formData, ranking_offset: parseInt(e.target.value) || 0 })}
                   className="w-full px-4 py-3 rounded-xl border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-purple-500 focus:ring-2 focus:ring-purple-500 focus:outline-none"
-                  placeholder="0 = full access, 24 = ranks 1-24 locked"
                 />
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  Number of top ranks locked. e.g. 24 = ranks 1-24 locked, user sees 25+. 0 = full access.
-                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Number of top ranks locked. 0 = full access.</p>
               </div>
-
               <div>
-                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                  Analytics Queries (per month)
-                </label>
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Analytics Queries (per month)</label>
                 <input
                   type="number"
                   min="-1"
                   value={formData.analytics_queries}
                   onChange={(e) => setFormData({ ...formData, analytics_queries: parseInt(e.target.value) || 0 })}
                   className="w-full px-4 py-3 rounded-xl border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-purple-500 focus:ring-2 focus:ring-purple-500 focus:outline-none"
-                  placeholder="-1 = unlimited, 0 = not granted"
                 />
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">-1 = unlimited, 0 = not granted</p>
               </div>
-
               <div>
-                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                  Export Limit (per day)
-                </label>
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Export Limit (per day)</label>
                 <input
                   type="number"
                   min="-1"
                   value={formData.export_limit}
                   onChange={(e) => setFormData({ ...formData, export_limit: parseInt(e.target.value) || 0 })}
                   className="w-full px-4 py-3 rounded-xl border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-purple-500 focus:ring-2 focus:ring-purple-500 focus:outline-none"
-                  placeholder="-1 = unlimited, 0 = not granted"
                 />
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">-1 = unlimited, 0 = not granted</p>
               </div>
             </div>
 
-            {/* Premium Features Toggle */}
             <div className="mt-4">
               <label className="flex items-center gap-3 cursor-pointer">
                 <input
@@ -629,12 +480,11 @@ export default function EditPlanPage() {
             </div>
           </div>
 
-          {/* Advanced Permissions (Drag & Drop) */}
+          {/* Advanced Permissions */}
           <div className="bg-gradient-to-r from-gray-50 to-slate-50 dark:from-gray-900/30 dark:to-slate-900/30 rounded-2xl p-6">
-            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">🔐 Advanced Permissions</h3>
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Advanced Permissions</h3>
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-              Manage specific permissions directly. Drag and drop permissions to assign them to this plan.
-              Note: API limits configured above are automatically handled and shouldn't be added here manually.
+              Manage specific permissions directly. API limits configured above are automatically handled.
             </p>
             <PermissionTransferList
               available={(availablePermissions || []).filter(p =>
@@ -656,7 +506,7 @@ export default function EditPlanPage() {
           <div className="flex gap-4 pt-4">
             <button
               type="button"
-              onClick={() => router.push('/plans')}
+              onClick={() => router.push('/subscriptions/plans')}
               className="flex-1 px-6 py-3 rounded-xl font-semibold bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600 min-h-[44px]"
             >
               Cancel
@@ -711,24 +561,13 @@ export default function EditPlanPage() {
                           const response = await plansClient.deletePlan(params.id as string)
 
                           if (isApiSuccess(response)) {
-                            toast({
-                              title: "Deleted",
-                              description: "Plan deleted successfully",
-                            })
-                            router.push('/plans')
+                            toast({ title: "Deleted", description: "Plan deleted successfully" })
+                            router.push('/subscriptions/plans')
                           } else {
-                            toast({
-                              title: "Error",
-                              description: response.error || "Failed to delete plan",
-                              variant: "destructive"
-                            })
+                            toast({ title: "Error", description: response.error || "Failed to delete plan", variant: "destructive" })
                           }
                         } catch (error) {
-                          toast({
-                            title: "Error",
-                            description: "Failed to delete plan",
-                            variant: "destructive"
-                          })
+                          toast({ title: "Error", description: "Failed to delete plan", variant: "destructive" })
                         } finally {
                           setSaving(false)
                         }
@@ -742,7 +581,7 @@ export default function EditPlanPage() {
             </div>
           </div>
         </div>
-      </div >
-    </div >
+      </div>
+    </div>
   )
 }

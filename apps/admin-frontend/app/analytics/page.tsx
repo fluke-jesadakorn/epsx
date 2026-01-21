@@ -80,7 +80,7 @@ export default function AnalyticsPage(): React.JSX.Element {
       <PageHeader
         title="Analytics Dashboard"
         subtitle="Real-time system performance and user activity"
-        icon={BarChart3}
+        icon="BarChart3"
         gradient="info"
         actions={
           <Button onClick={refreshAll} variant="outline" disabled={isLoading}>

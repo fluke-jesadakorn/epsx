@@ -34,7 +34,7 @@ export default function NotificationsPage() {
       <PageHeader
         title="Notifications"
         subtitle="Send notifications and manage user alerts across the platform"
-        icon={Bell}
+        icon="Bell"
         gradient="info"
       />
 

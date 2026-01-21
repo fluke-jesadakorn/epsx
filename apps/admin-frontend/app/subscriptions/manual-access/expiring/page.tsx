@@ -12,7 +12,8 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { groupMgmt } from '@/lib/api/group-management-client'
 
 /**
- *
+ * Expiring Assignments Page
+ * Part of the Subscription & Access hub > Manual Access
  */
 export default function ExpiringAssignmentsPage() {
     const queryClient = useQueryClient()
@@ -96,8 +97,8 @@ export default function ExpiringAssignmentsPage() {
                 {/* Header */}
                 <div className="flex items-center gap-4 mb-6">
                     <Link
-                        href="/group-and-permission"
-                        className="p-2 rounded-xl bg-white/80 dark:bg-gray-800/80 hover:bg-white dark:hover:bg-gray-800 transition-colors border border-gray-200 dark:border-gray-700"
+                        href="/subscriptions/manual-access"
+                        className="p-2 rounded-xl bg-card hover:bg-muted transition-colors border border-border"
                     >
                         <ArrowLeft className="h-5 w-5" />
                     </Link>
@@ -106,7 +107,7 @@ export default function ExpiringAssignmentsPage() {
                             <Clock className="w-6 h-6" />
                             Expiring Assignments
                         </h1>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                        <p className="text-sm text-muted-foreground">
                             Assignments expiring in the next 7 days
                         </p>
                     </div>
@@ -120,7 +121,7 @@ export default function ExpiringAssignmentsPage() {
                 </div>
 
                 {/* Main Content */}
-                <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-6 shadow-xl border-2 border-orange-300/50 dark:border-orange-700/50">
+                <div className="bg-card rounded-2xl sm:rounded-3xl p-6 shadow-xl border-2 border-orange-500/20">
                     <div className="space-y-4">
                         {isLoading ? (
                             <div className="space-y-4">
@@ -134,7 +135,7 @@ export default function ExpiringAssignmentsPage() {
                         ) : assignments.length > 0 ? (
                             <>
                                 <div className="flex justify-between items-center pb-2">
-                                    <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    <p className="text-sm font-medium text-foreground">
                                         Found {assignments.length} expiring assignment{assignments.length !== 1 ? 's' : ''}
                                     </p>
                                 </div>
@@ -144,7 +145,7 @@ export default function ExpiringAssignmentsPage() {
                                         Math.ceil((new Date(assignment.expires_at).getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : null
 
                                     return (
-                                        <div key={index} className="p-4 border-orange-200 bg-orange-50/50 dark:bg-orange-900/10 rounded-lg border">
+                                        <div key={index} className="p-4 border-orange-500/20 bg-orange-500/5 rounded-lg border">
                                             <div className="flex justify-between items-start">
                                                 <div className="space-y-2">
                                                     <div className="font-mono text-sm font-medium">
@@ -162,7 +163,7 @@ export default function ExpiringAssignmentsPage() {
                                                             </span>
                                                         )}
                                                     </div>
-                                                    <div className="text-xs text-gray-500">
+                                                    <div className="text-xs text-muted-foreground">
                                                         Granted: {new Date(assignment.granted_at).toLocaleDateString()}
                                                         {assignment.expires_at && (
                                                             <> • Expires: {new Date(assignment.expires_at).toLocaleDateString()}</>
@@ -192,7 +193,7 @@ export default function ExpiringAssignmentsPage() {
                                                     <Button
                                                         size="sm"
                                                         variant="outline"
-                                                        className="text-red-600 hover:text-red-700"
+                                                        className="text-destructive hover:text-destructive"
                                                         onClick={() => {
                                                             if (confirm('Remove this assignment?')) {
                                                                 removeAssignmentMutation.mutate({ userId: assignment.user_id, groupId: assignment.group_id })
@@ -209,8 +210,8 @@ export default function ExpiringAssignmentsPage() {
                                 })}
                             </>
                         ) : (
-                            <div className="text-center py-12 text-gray-500">
-                                <Clock className="w-16 h-16 mx-auto mb-4 text-gray-300" />
+                            <div className="text-center py-12 text-muted-foreground">
+                                <Clock className="w-16 h-16 mx-auto mb-4 opacity-30" />
                                 <p className="text-lg font-medium">No expiring assignments</p>
                                 <p className="text-sm">All assignments are valid for more than 7 days</p>
                             </div>
@@ -219,10 +220,10 @@ export default function ExpiringAssignmentsPage() {
                 </div>
 
                 {/* Back Button */}
-                <Link href="/group-and-permission">
+                <Link href="/subscriptions/manual-access">
                     <Button variant="outline" className="w-full">
                         <ArrowLeft className="h-4 w-4 mr-2" />
-                        Back to Permission Management
+                        Back to Manual Access
                     </Button>
                 </Link>
             </div>

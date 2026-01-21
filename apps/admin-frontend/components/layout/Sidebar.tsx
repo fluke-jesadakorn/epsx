@@ -38,18 +38,12 @@ const navigationItems: NavItem[] = [
     requiresAuth: true,
   },
   {
-    id: 'permissions',
-    label: 'Group & Permission',
-    href: '/group-and-permission',
-    icon: '🔑',
+    id: 'subscriptions',
+    label: 'Access Management',
+    href: '/subscriptions',
+    icon: '🛡️',
     requiresAuth: true,
-  },
-  {
-    id: 'plans',
-    label: 'Plans & Promotions',
-    href: '/plans',
-    icon: '💳',
-    requiresAuth: true,
+    // Single page - no children (unified view with policies, promotions, permissions)
   },
   {
     id: 'payments',
@@ -100,7 +94,7 @@ const navigationItems: NavItem[] = [
  */
 export function Sidebar() {
   const pathname = usePathname();
-  const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set(['permissions']));
+  const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set(['subscriptions']));
   const { isAuthenticated } = useSharedAuth();
 
   // Use isAuthenticated from SharedAuth - it already tracks wallet connection state

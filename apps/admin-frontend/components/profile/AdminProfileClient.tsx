@@ -56,7 +56,7 @@ export function AdminProfileClient({ user }: AdminProfileClientProps) {
       <PageHeader
         title="Admin Profile"
         subtitle="Manage your administrative account and permissions"
-        icon={User}
+        icon="User"
         gradient="purple"
       />
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">

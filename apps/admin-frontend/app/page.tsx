@@ -146,7 +146,7 @@ export default function DashboardPage() {
       <PageHeader
         title="EPSX Admin Center"
         subtitle={`Welcome back, ${user?.wallet_address ? `${user.wallet_address.slice(0, 6)}...${user.wallet_address.slice(-4)}` : 'Admin'}`}
-        icon={Home}
+        icon="Home"
         gradient="primary"
         centered
       />

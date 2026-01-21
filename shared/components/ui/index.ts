@@ -75,6 +75,13 @@ export {
     Tooltip, TooltipContent, TooltipProvider, TooltipTrigger
 } from './tooltip';
 
+// Safe Theme Script (for preventing FOUC)
+export {
+    SafeThemeScript,
+    SafeThemeScriptWithNonce,
+    themeUtils,
+    type ValidTheme
+} from './SafeThemeScript';
 
 // Transfer List
 export { TransferList, type TransferListProps } from './transfer-list';

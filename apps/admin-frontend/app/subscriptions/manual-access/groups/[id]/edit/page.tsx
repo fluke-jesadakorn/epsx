@@ -13,7 +13,7 @@ import { groupMgmt, PermissionGroup } from '@/lib/api/group-management-client'
 
 /**
  * Edit Group Page
- * Uses the shared GroupEditor component
+ * Part of the Subscription & Access hub > Manual Access
  */
 export default function EditGroupPage() {
     const router = useRouter()
@@ -25,12 +25,9 @@ export default function EditGroupPage() {
     const { data: group, isLoading: groupLoading, error: groupError } = useQuery({
         queryKey: ['permission-group', groupId],
         queryFn: async () => {
-            // In a real app we would have a specific endpoint or use getGroup(id)
-            // But existing code fetched all and found one, lets try getPermissionGroup if available or keep existing
             try {
                 return await groupMgmt.getPermissionGroup(groupId)
             } catch (e) {
-                // Fallback to finding in list if specific endpoint fails or for safety
                 const groups = await groupMgmt.getPermissionGroups()
                 return groups.find((g: PermissionGroup) => g.id === groupId) || null
             }
@@ -43,16 +40,16 @@ export default function EditGroupPage() {
         queryClient.invalidateQueries({ queryKey: ['permission-groups'] })
         queryClient.invalidateQueries({ queryKey: ['permission-group', groupId] })
         queryClient.invalidateQueries({ queryKey: ['group-analytics'] })
-        router.push('/permissions')
+        router.push('/subscriptions/manual-access')
     }
 
     const handleCancel = () => {
-        router.push('/permissions')
+        router.push('/subscriptions/manual-access')
     }
 
     if (groupLoading) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-yellow-50 via-orange-50 to-pink-50 dark:from-gray-900 dark:via-purple-900 dark:to-gray-900 p-3 sm:p-6">
+            <div className="min-h-screen bg-background p-3 sm:p-6">
                 <div className="relative max-w-4xl mx-auto space-y-6">
                     <Skeleton className="h-10 w-64" />
                     <Skeleton className="h-96 w-full rounded-3xl" />
@@ -63,12 +60,12 @@ export default function EditGroupPage() {
 
     if (groupError || !group) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-yellow-50 via-orange-50 to-pink-50 dark:from-gray-900 dark:via-purple-900 dark:to-gray-900 p-3 sm:p-6">
+            <div className="min-h-screen bg-background p-3 sm:p-6">
                 <div className="relative max-w-4xl mx-auto space-y-6">
                     <div className="text-center py-12">
-                        <p className="text-red-600 mb-4">Group not found or failed to load.</p>
-                        <Link href="/group-and-permission">
-                            <Button variant="outline">Back to Permissions</Button>
+                        <p className="text-destructive mb-4">Group not found or failed to load.</p>
+                        <Link href="/subscriptions/manual-access">
+                            <Button variant="outline">Back to Manual Access</Button>
                         </Link>
                     </div>
                 </div>
@@ -88,8 +85,8 @@ export default function EditGroupPage() {
                 {/* Header */}
                 <div className="flex items-center gap-4 mb-6">
                     <Link
-                        href="/group-and-permission"
-                        className="p-2 rounded-xl bg-white/80 dark:bg-gray-800/80 hover:bg-white dark:hover:bg-gray-800 transition-colors border border-gray-200 dark:border-gray-700"
+                        href="/subscriptions/manual-access"
+                        className="p-2 rounded-xl bg-card hover:bg-muted transition-colors border border-border"
                     >
                         <ArrowLeft className="h-5 w-5" />
                     </Link>
@@ -98,7 +95,7 @@ export default function EditGroupPage() {
                             <Edit3 className="w-6 h-6" />
                             Edit Permission Group
                         </h1>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                        <p className="text-sm text-muted-foreground">
                             Editing: {group.name}
                         </p>
                     </div>
@@ -112,10 +109,10 @@ export default function EditGroupPage() {
                 />
 
                 {/* Back Button */}
-                <Link href="/group-and-permission">
+                <Link href="/subscriptions/manual-access">
                     <Button variant="outline" className="w-full">
                         <ArrowLeft className="h-4 w-4 mr-2" />
-                        Back to Permission Management
+                        Back to Manual Access
                     </Button>
                 </Link>
             </div>

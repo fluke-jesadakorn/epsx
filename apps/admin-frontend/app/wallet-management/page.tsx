@@ -27,7 +27,7 @@ export default function WalletManagementPage() {
       <PageHeader
         title="Wallet Management Hub"
         subtitle="Unified management for EPSX ecosystem wallets, permissions, and subscriptions"
-        icon={Wallet}
+        icon="Wallet"
         gradient="info"
       />
 

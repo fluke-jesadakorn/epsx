@@ -16,7 +16,8 @@ import { WalletAutocomplete } from '@/components/ui/WalletAutocomplete'
 import { groupMgmt, PermissionGroup } from '@/lib/api/group-management-client'
 
 /**
- *
+ * Assign Wallet Page
+ * Part of the Subscription & Access hub > Manual Access
  */
 export default function AssignWalletPage() {
     const router = useRouter()
@@ -30,14 +31,17 @@ export default function AssignWalletPage() {
 
     const [selectedGroups, setSelectedGroups] = useState<PermissionGroup[]>([])
 
+    // Filter out subscription groups - they're managed via Plans
     const { data: permissionGroups = [], isLoading: groupsLoading } = useQuery({
         queryKey: ['permission-groups'],
-        queryFn: () => groupMgmt.getPermissionGroups()
+        queryFn: async () => {
+            const groups = await groupMgmt.getPermissionGroups()
+            return groups.filter(g => g.group_type !== 'subscription')
+        }
     })
 
     const assignWalletMutation = useMutation({
         mutationFn: async (data: typeof formData & { groups: PermissionGroup[] }) => {
-            // Assign user to all selected groups
             const promises = data.groups.map(group =>
                 groupMgmt.assignUserToGroup({
                     user_id: data.wallet_address,
@@ -52,8 +56,7 @@ export default function AssignWalletPage() {
             toast.success(`Wallet assigned to ${selectedGroups.length} groups successfully`)
             queryClient.invalidateQueries({ queryKey: ['group-analytics'] })
             queryClient.invalidateQueries({ queryKey: ['permission-groups'] })
-            // Wait a bit before redirecting so user can see success message
-            setTimeout(() => router.push('/permissions'), 1000)
+            setTimeout(() => router.push('/subscriptions/manual-access'), 1000)
         },
         onError: (error: any) => {
             toast.error(error.message || 'Failed to assign wallet to groups')
@@ -89,8 +92,8 @@ export default function AssignWalletPage() {
                 {/* Header */}
                 <div className="flex items-center gap-4 mb-6">
                     <Link
-                        href="/group-and-permission"
-                        className="p-2 rounded-xl bg-card/80 hover:bg-card transition-colors border border-border"
+                        href="/subscriptions/manual-access"
+                        className="p-2 rounded-xl bg-card hover:bg-muted transition-colors border border-border"
                     >
                         <ArrowLeft className="h-5 w-5" />
                     </Link>
@@ -109,7 +112,7 @@ export default function AssignWalletPage() {
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     {/* Left Column: Wallet & Settings */}
                     <div className="lg:col-span-1 space-y-6">
-                        <div className="bg-card rounded-2xl sm:rounded-3xl p-6 shadow-xl border-2 border-green-300/50 dark:border-green-700/50 h-full">
+                        <div className="bg-card rounded-2xl sm:rounded-3xl p-6 shadow-xl border-2 border-green-500/20 h-full">
                             <h3 className="text-lg font-semibold mb-4 text-foreground">Assignment Details</h3>
                             <form id="assignment-form" onSubmit={handleSubmit} className="space-y-4">
                                 <div>
@@ -143,7 +146,7 @@ export default function AssignWalletPage() {
                                 </div>
 
                                 <div className="pt-4 flex gap-3">
-                                    <Link href="/group-and-permission" className="flex-1">
+                                    <Link href="/subscriptions/manual-access" className="flex-1">
                                         <Button type="button" variant="outline" className="w-full">
                                             Cancel
                                         </Button>
@@ -162,7 +165,7 @@ export default function AssignWalletPage() {
 
                     {/* Right Column: Group Selection */}
                     <div className="lg:col-span-2">
-                        <div className="bg-card rounded-2xl sm:rounded-3xl p-6 shadow-xl border-2 border-blue-300/50 dark:border-blue-700/50 h-full">
+                        <div className="bg-card rounded-2xl sm:rounded-3xl p-6 shadow-xl border-2 border-blue-500/20 h-full">
                             <h3 className="text-lg font-semibold mb-4 text-foreground flex justify-between items-center">
                                 <span>Select Groups</span>
                                 <span className="text-sm font-normal text-muted-foreground">

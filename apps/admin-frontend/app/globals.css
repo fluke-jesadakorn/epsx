@@ -14,58 +14,17 @@
  * - Glass morphism effects preserved
  * 
  * Design System: PancakeSwap + Modern Admin
+ * 
+ * NOTE: Theme variables (CSS custom properties) are now defined in
+ * @shared/design-system/theme.css - DO NOT duplicate them here.
  */
  
 /* ============================================================================
    IMPORT MODULAR CSS STRUCTURE
    ============================================================================ */
 
-/* Import the new modular CSS architecture */
+/* Import the new modular CSS architecture (includes shared design system) */
 @import '../styles/index.css';
-
-:root {
-  --background: 252 100% 99%;
-  --foreground: 223 84% 10%;
-  --card: 0 0% 100%;
-  --card-foreground: 223 84% 10%;
-  --popover: 0 0% 100%;
-  --popover-foreground: 223 84% 10%;
-  --primary: 217 91% 60%;
-  --primary-foreground: 0 0% 100%;
-  --secondary: 42 100% 70%;
-  --secondary-foreground: 223 84% 10%;
-  --muted: 240 5% 96%;
-  --muted-foreground: 240 4% 46%;
-  --accent: 217 32% 95%;
-  --accent-foreground: 217 91% 40%;
-  --destructive: 0 85% 60%;
-  --destructive-foreground: 0 0% 100%;
-  --border: 240 6% 90%;
-  --input: 240 6% 90%;
-  --ring: 217 91% 60%;
-}
-
-.dark {
-  --background: 240 10% 4%;
-  --foreground: 0 0% 95%;
-  --card: 240 10% 6%;
-  --card-foreground: 0 0% 95%;
-  --popover: 240 10% 6%;
-  --popover-foreground: 0 0% 95%;
-  --primary: 217 91% 65%;
-  --primary-foreground: 0 0% 100%;
-  --secondary: 240 4% 16%;
-  --secondary-foreground: 0 0% 95%;
-  --muted: 240 4% 16%;
-  --muted-foreground: 240 5% 75%;
-  --accent: 240 4% 16%;
-  --accent-foreground: 0 0% 95%;
-  --destructive: 0 85% 60%;
-  --destructive-foreground: 0 0% 95%;
-  --border: 240 4% 25%;
-  --input: 240 4% 25%;
-  --ring: 217 91% 65%;
-}
 
 /* ============================================================================
    TEMPORARY COMPATIBILITY BRIDGE

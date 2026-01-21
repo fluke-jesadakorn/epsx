@@ -274,7 +274,7 @@ export function PlanManagement({ currentUser }: PlanManagementProps) {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 mb-8 sm:mb-12">
             <div
               className="relative group overflow-hidden rounded-2xl sm:rounded-3xl border border-success/20 bg-success/5 p-6 sm:p-8 cursor-pointer hover:bg-success/10 transition-all duration-300 active:scale-[0.98]"
-              onClick={() => router.push('/plans/new')}
+              onClick={() => router.push('/subscriptions/plans/new')}
             >
               <div className="bg-success/20 text-success rounded-2xl w-12 h-12 flex items-center justify-center mb-4 sm:mb-6 group-hover:scale-110 transition-transform">
                 <span className="text-xl sm:text-2xl">➕</span>
@@ -484,7 +484,7 @@ function PlanCard({ plan, router, isOverlay }: { plan: PlanResponse, router: any
     <div
       className={`group relative flex items-stretch bg-card text-card-foreground rounded-2xl border transition-all duration-300 cursor-pointer overflow-hidden ${isOverlay ? 'border-primary shadow-2xl scale-105 opacity-80' : 'border-border hover:border-primary/50 hover:shadow-lg'
         }`}
-      onClick={() => router.push(`/plans/${plan.id}/edit`)}
+      onClick={() => router.push(`/subscriptions/plans/${plan.id}/edit`)}
     >
       {/* Popular Ribbon */}
       {isPopular && (
@@ -552,7 +552,7 @@ function PlanCard({ plan, router, isOverlay }: { plan: PlanResponse, router: any
             className="hidden sm:block p-2 rounded-xl hover:bg-muted text-muted-foreground hover:text-primary transition-colors"
             onClick={(e) => {
               e.stopPropagation();
-              router.push(`/plans/${plan.id}/edit`);
+              router.push(`/subscriptions/plans/${plan.id}/edit`);
             }}
           >
             <span className="text-xl">✎</span>
@@ -607,7 +607,7 @@ function PlanGroupSection({
 
             <button
               className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-card text-card-foreground shadow-sm border border-border hover:bg-muted transition"
-              onClick={() => router.push('/plans/new')}
+              onClick={() => router.push('/subscriptions/plans/new')}
             >
               <span>➕</span> New {title}
             </button>

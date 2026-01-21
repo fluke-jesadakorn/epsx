@@ -19,7 +19,7 @@ export default function RequestAccessPage() {
       <PageHeader
         title="Request API Access"
         subtitle="Submit your request to access the EPSX API platform for financial data integration"
-        icon={Key}
+        icon="Key"
         gradient="info"
         centered
       />

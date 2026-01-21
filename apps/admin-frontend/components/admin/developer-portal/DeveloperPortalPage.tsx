@@ -245,7 +245,7 @@ export const DeveloperPortalPage: React.FC = () => {
             <PageHeader
                 title="Developer Portal"
                 subtitle="Manage API keys, documentation, and third-party integrations"
-                icon={Code}
+                icon="Code"
                 gradient="warning"
             />
 

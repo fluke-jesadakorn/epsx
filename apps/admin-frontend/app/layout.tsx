@@ -13,6 +13,7 @@ import { LayoutWrapper } from '@/components/layout/LayoutWrapper';
 import { ClientProviders } from '@/components/providers/ClientProviders';
 import { ErrorBoundary } from '@/components/providers/ErrorBoundary';
 import { ToastProvider } from '@/components/providers/ToastProvider';
+import { SafeThemeScript } from '@/shared/components/ui/SafeThemeScript';
 import { Kanit } from 'next/font/google';
 
 const kanit = Kanit({
@@ -101,12 +102,21 @@ export default function RootLayout({
             `,
           }}
         />
+        {/* Theme initialization script - prevents FOUC */}
+        <SafeThemeScript />
       </head>
       <body
         className="min-h-screen bg-background text-foreground"
         suppressHydrationWarning
       >
         {/* Theme handled by CommonProviders (inside ClientProviders) */}
+
+        {/* Enhanced Background Mesh - Matches Frontend */}
+        <div className="fixed inset-0 -z-10 bg-background">
+          <div className="absolute inset-0 bg-grid-pattern opacity-[0.03] dark:opacity-[0.05]" />
+          <div className="absolute top-0 -left-1/4 w-1/2 h-1/2 bg-blue-500/10 blur-[120px] rounded-full mix-blend-screen dark:mix-blend-screen" />
+          <div className="absolute bottom-0 -right-1/4 w-1/2 h-1/2 bg-indigo-500/10 blur-[120px] rounded-full mix-blend-screen dark:mix-blend-screen" />
+        </div>
 
         {/* Main application wrapper with consistent spacing */}
         <div className="flex min-h-screen flex-col">

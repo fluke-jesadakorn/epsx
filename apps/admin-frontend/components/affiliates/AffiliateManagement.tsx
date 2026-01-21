@@ -105,7 +105,7 @@ export function AffiliateManagement({ affiliates, currentUser }: AffiliateManage
       <PageHeader
         title="Affiliate Program"
         subtitle="Manage affiliate partners, track referrals, and process commissions"
-        icon={Users}
+        icon="Users"
         gradient="purple"
       />
       {/* Background Decorations */}

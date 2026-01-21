@@ -1,8 +1,11 @@
 'use client';
 
 import { cn } from '@/design-system';
-import { LucideIcon } from 'lucide-react';
+import * as LucideIcons from 'lucide-react';
 import React from 'react';
+
+// Type helper for Lucide icon names
+type LucideIconName = keyof typeof LucideIcons;
 
 /**
  * Unified Page Layout Component
@@ -71,8 +74,8 @@ const iconColorClasses: Record<GradientPreset, string> = {
 interface PageHeaderProps {
   title: string;
   subtitle?: string;
-  /** Lucide icon component */
-  icon?: LucideIcon;
+  /** Lucide icon name (as string) - e.g., 'ShieldCheck', 'Users', etc. */
+  icon?: LucideIconName;
   /** Emoji alternative to icon */
   emoji?: string;
   /** Gradient color preset */
@@ -87,13 +90,16 @@ interface PageHeaderProps {
 export function PageHeader({
   title,
   subtitle,
-  icon: Icon,
+  icon: iconName,
   emoji,
   gradient = 'default',
   centered = false,
   actions,
   className,
 }: PageHeaderProps) {
+  // Dynamically get the icon component from the icon name
+  const Icon = iconName ? (LucideIcons[iconName] as React.ComponentType<{ className?: string }>) : null;
+
   return (
     <div className={cn(
       'mb-6 sm:mb-8',
@@ -326,7 +332,7 @@ interface PageEmptyProps {
   title?: string;
   message?: string;
   emoji?: string;
-  icon?: LucideIcon;
+  icon?: LucideIconName;
   action?: React.ReactNode;
   className?: string;
 }
@@ -335,10 +341,13 @@ export function PageEmpty({
   title = 'No data found',
   message = 'There are no items to display',
   emoji = '📭',
-  icon: Icon,
+  icon: iconName,
   action,
   className,
 }: PageEmptyProps) {
+  // Dynamically get the icon component from the icon name
+  const Icon = iconName ? (LucideIcons[iconName] as React.ComponentType<{ className?: string }>) : null;
+
   return (
     <div className={cn(
       'flex flex-col items-center justify-center py-12 sm:py-16 text-center',
