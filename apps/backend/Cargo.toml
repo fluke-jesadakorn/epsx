@@ -11,27 +11,13 @@ keywords = ["trading", "finance", "api", "backend"]
 categories = ["web-programming"]
 
 [[bin]]
-name = "epsx"
-path = "src/main.rs"
-
-[[bin]]
-name = "migrate"
-path = "src/bin/migrate.rs"
-required-features = ["cli-tools"]
-
-[[bin]]
-name = "grant_wallet_permission"
-path = "src/bin/grant_wallet_permission.rs"
-required-features = ["cli-tools"]
-
-[[bin]]
-name = "blockchain-monitor"
-path = "src/bin/blockchain_monitor.rs"
-required-features = []
+name = "index"
+path = "api/index.rs"
 
 # Feature flags optimized for production
 [features]
 default = ["production"]
+vercel = ["dep:vercel_runtime"]
 
 # Core component features
 websockets = ["dep:tokio-tungstenite", "dep:futures-util"]
@@ -70,7 +56,7 @@ thiserror = "1.0"
 tokio = { version = "1.0", features = ["full"] }
 tokio-stream = { version = "0.1", features = ["sync"] }
 async-stream = "0.3"
-tower = { version = "0.5", features = ["util", "timeout"] }
+tower = { version = "0.5", features = ["util", "timeout", "full"] }
 tower-http = { version = "0.5", features = ["cors", "compression-gzip", "trace", "timeout", "limit", "request-id", "set-header", "util"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
@@ -111,6 +97,9 @@ utoipa = { version = "5.1", features = ["axum_extras", "chrono", "uuid"] }
 
 # Input validation
 validator = { version = "0.18", features = ["derive"] }
+
+# Vercel Runtime
+vercel_runtime = { version = "1.1.0", optional = true }
 
 # Database access with Diesel ORM - Type-safe async PostgreSQL driver
 bigdecimal = { version = "0.4", features = ["serde"] }
@@ -155,22 +144,22 @@ codegen-units = 256
 overflow-checks = false
 incremental = false
 
-[profile.release-small]
-# Ultra-optimized for minimal binary size (production containers)
-inherits = "release"
-opt-level = "z"          # Optimize for size over speed
-lto = "fat"             # Full link-time optimization (aggressive)
-panic = "abort"         # Remove panic unwinding code (saves ~10-20%)
-strip = "symbols"       # Remove all debug symbols
-codegen-units = 1       # Single compilation unit for best optimization
-overflow-checks = false # Disable runtime overflow checks
-incremental = false     # Disable incremental compilation for size
-rpath = false          # Don't include rpath (container-friendly)
-
-[profile.release-fast]
-# Optimized for maximum performance
-inherits = "release"
-opt-level = 3
-lto = "thin"
-panic = "abort"
-codegen-units = 1
+# [profile.release-small]
+# # Ultra-optimized for minimal binary size (production containers)
+# inherits = "release"
+# opt-level = "z"          # Optimize for size over speed
+# lto = "fat"             # Full link-time optimization (aggressive)
+# panic = "abort"         # Remove panic unwinding code (saves ~10-20%)
+# strip = "symbols"       # Remove all debug symbols
+# codegen-units = 1       # Single compilation unit for best optimization
+# overflow-checks = false # Disable runtime overflow checks
+# incremental = false     # Disable incremental compilation for size
+# rpath = false          # Don't include rpath (container-friendly)
+# 
+# [profile.release-fast]
+# # Optimized for maximum performance
+# inherits = "release"
+# opt-level = 3
+# lto = "thin"
+# panic = "abort"
+# codegen-units = 1

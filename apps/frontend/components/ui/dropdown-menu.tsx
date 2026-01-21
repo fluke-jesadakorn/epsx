@@ -1,2 +1,2 @@
 // Direct export from shared
-export * from '../../../../shared/components/ui/dropdown-menu';
+export * from '@/shared/components/ui/dropdown-menu';

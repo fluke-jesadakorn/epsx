@@ -24,7 +24,7 @@ import type {
   UserProfile as SharedUserProfile,
   UserSubscription as SharedUserSubscription,
   WebSocketMessage as SharedWebSocketMessage
-} from '../../../shared/types/api';
+} from '@/shared/types/api';
 
 import type {
   AnalyticsQueryParams as SharedAnalyticsQueryParams,
@@ -32,11 +32,11 @@ import type {
   CountryOption as SharedCountryOption,
   FilterOptions as SharedFilterOptions,
   QuarterlyEPSData as SharedQuarterlyEPSData,
-} from '../../../shared/types/analytics';
+} from '@/shared/types/analytics';
 
 import type {
   NotificationWSMessage as SharedNotificationMessage,
-} from '../../../shared/types/notifications';
+} from '@/shared/types/notifications';
 
 // Re-export with exact same names for backward compatibility
 export type ApiResponse<T = unknown> = SharedApiResponse<T>;

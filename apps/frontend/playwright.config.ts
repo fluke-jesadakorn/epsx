@@ -1,5 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
-import { getFrontendUrl } from '../../shared/utils/url-resolver';
+import { getFrontendUrl } from '@/shared/utils/url-resolver';
 
 // Simplified environment for testing
 const CI = process.env.CI === 'true';

@@ -1,0 +1,8 @@
+{
+  "version": 2,
+  "functions": {
+    "api/index.rs": {
+      "runtime": "@vercel/rust@1.0.4"
+    }
+  }
+}

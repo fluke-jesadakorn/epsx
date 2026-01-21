@@ -22,6 +22,11 @@ export { BulkActionsBar } from './BulkActionsBar';
 export { WalletActivityTimeline } from './WalletActivityTimeline';
 export { WalletStatsBar } from './WalletStatsBar';
 
+// New Components (Redesign)
+export { AddResourceModal } from './AddResourceModal';
+export { WalletGroupSection } from './WalletGroupSection';
+export { WalletPermissionSection } from './WalletPermissionSection';
+
 // Types
 export type {
     PermissionSource, Platform, WalletActivityEvent, WalletData,

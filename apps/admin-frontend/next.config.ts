@@ -7,18 +7,18 @@ const nextConfig: NextConfig = {
   // Enabled Turbopack for development
   turbopack: {
     resolveAlias: {
-      'thread-stream': '../../shared/stubs/empty.ts',
-      'thread-stream/test': '../../shared/stubs/empty.ts',
-      'pino-pretty': '../../shared/stubs/empty.ts',
-      'pino-elasticsearch': '../../shared/stubs/empty.ts',
-      'tap': '../../shared/stubs/empty.ts',
-      'tape': '../../shared/stubs/empty.ts',
-      'why-is-node-running': '../../shared/stubs/empty.ts',
-      'desm': '../../shared/stubs/empty.ts',
-      'fastbench': '../../shared/stubs/empty.ts',
-      'react-native': '../../shared/stubs/empty.ts',
-      'react-native-device-info': '../../shared/stubs/empty.ts',
-      'react-native-keychain': '../../shared/stubs/empty.ts',
+      'thread-stream': './shared_deploy/stubs/empty.ts',
+      'thread-stream/test': './shared_deploy/stubs/empty.ts',
+      'pino-pretty': './shared_deploy/stubs/empty.ts',
+      'pino-elasticsearch': './shared_deploy/stubs/empty.ts',
+      'tap': './shared_deploy/stubs/empty.ts',
+      'tape': './shared_deploy/stubs/empty.ts',
+      'why-is-node-running': './shared_deploy/stubs/empty.ts',
+      'desm': './shared_deploy/stubs/empty.ts',
+      'fastbench': './shared_deploy/stubs/empty.ts',
+      'react-native': './shared_deploy/stubs/empty.ts',
+      'react-native-device-info': './shared_deploy/stubs/empty.ts',
+      'react-native-keychain': './shared_deploy/stubs/empty.ts',
       'zod/mini': 'zod',
       'zod/v4/core': 'zod',
     },
@@ -48,7 +48,7 @@ const nextConfig: NextConfig = {
 
     // Web3/Wagmi build fix: Explicitly stub out problematic modules
     const path = require('path');
-    const stubPath = path.join(process.cwd(), '../../shared/stubs/empty.ts');
+    const stubPath = path.join(process.cwd(), 'shared_deploy/stubs/empty.ts');
 
     // Ensure shared components can resolve modules from the app's node_modules
     const appNodeModules = path.resolve(process.cwd(), 'node_modules');

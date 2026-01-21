@@ -1,0 +1,281 @@
+/**
+ * CONSOLIDATED UTILS INDEX
+ * Unified export of all utility functions
+ */
+
+// ============================================================================
+// FORMATTING UTILITIES
+// ============================================================================
+import {
+  cur,
+  fmtCurrency,
+  formatBytes,
+  formatCurrency,
+  formatEPS,
+  formatFileSize,
+  formatLargeNumber,
+  formatPrice,
+  prc
+} from './formatting/currency'
+
+export {
+  cur, fmtCurrency, formatBytes, formatCurrency, formatEPS, formatFileSize, formatLargeNumber, formatPrice,
+  prc
+}
+
+import {
+  calculateDaysRemaining,
+  calculateHoursRemaining,
+  dt,
+  fmtDate,
+  fmtRelativeTime,
+  formatAnnouncementDate,
+  formatCompactDate,
+  formatCountdown,
+  formatDate,
+  formatDateTime,
+  formatQuarterDate,
+  formatRelativeTime,
+  formatTimeRemaining,
+  getQuarterLabel,
+  getRelativeTime,
+  isFutureDate
+} from './formatting/date'
+
+export {
+  calculateDaysRemaining,
+  calculateHoursRemaining, dt,
+  fmtDate, fmtRelativeTime, formatAnnouncementDate,
+  formatCompactDate, formatCountdown, formatDate, formatDateTime,
+  formatQuarterDate, formatRelativeTime, formatTimeRemaining,
+  getQuarterLabel, getRelativeTime, isFutureDate
+}
+
+import {
+  camelCase,
+  capitalize,
+  clamp,
+  copyToClipboard as copyToClipboardDisplay,
+  epsGr,
+  formatEPSGrowth,
+  formatPercentage,
+  generateId,
+  generateSimpleId,
+  getEPSPerformanceColor,
+  getGrowthIndicator,
+  isBrowser as isBrowserDisplay,
+  isEmpty,
+  isMobile as isMobileDisplay,
+  isValidEmail,
+  isValidPhone,
+  kebabCase,
+  parseJWT,
+  pct,
+  slugify,
+  truncate,
+  truncateText
+} from './formatting/display'
+
+export {
+  camelCase, capitalize, clamp, copyToClipboardDisplay, epsGr, formatEPSGrowth, formatPercentage, generateId,
+  generateSimpleId, getEPSPerformanceColor,
+  getGrowthIndicator, isBrowserDisplay, isEmpty, isMobileDisplay, isValidEmail,
+  isValidPhone, kebabCase, parseJWT, pct, slugify, truncate,
+  truncateText
+}
+
+// ============================================================================
+// BROWSER UTILITIES
+// ============================================================================
+export {
+  addEventListener, copyToClipboard, cssVariables, downloadFile, getBrowserInfo,
+  getColorSchemePreference, getDeviceType, getScrollPosition, getViewportSize,
+  isAndroid, isBrowser, isElementInViewport, isIOS, isMobile, onResize,
+  readFromClipboard, sessionStorage, smoothScrollTo,
+  storage, watchColorScheme
+} from './helpers/browser'
+
+// ============================================================================
+// BLOCKCHAIN ENVIRONMENT HELPERS
+// ============================================================================
+export {
+  getDefaultChainId,
+  getNetworkName, isDev, isDev as isDevNetwork, isLocal, isLocal as isLocalNetwork, isProduction, isProduction as isProductionNetwork, isTestnet, isTestnet as isTestnetNetwork
+} from './env-helpers'
+
+// ============================================================================
+// API CLIENT UTILITIES
+// ============================================================================
+import {
+  APIError,
+  createAdminApiClient,
+  createApiClient as createApiClientBase,
+  createFrontendApiClient,
+  handlePaginatedRequest,
+  handleSimpleRequest,
+  isApiError,
+  isApiResponse,
+  isPaginatedResponse,
+  retryRequest,
+  UnifiedApiClient,
+  type ApiError,
+  type ApiResponse,
+  type PaginatedResponse,
+  type Platform,
+  type RequestConfig
+} from './api-client'
+
+export {
+  APIError,
+  createAdminApiClient,
+  createFrontendApiClient,
+  handlePaginatedRequest,
+  handleSimpleRequest, isApiError,
+  isApiResponse,
+  isPaginatedResponse, retryRequest, UnifiedApiClient, type ApiError, type ApiResponse, type PaginatedResponse,
+  type Platform, type RequestConfig
+}
+
+// Legacy compatibility exports
+export const createAdminClient = createAdminApiClient;
+export const createServerAdminClient = (baseURL?: string, token?: string) =>
+  createAdminApiClient({ baseURL, token, serverSide: true });
+export const apiClient = createFrontendApiClient();
+export const createClient = createFrontendApiClient;
+export const createApiClient = createApiClientBase;
+
+// ============================================================================
+// TAILWIND CLASS UTILITY
+// ============================================================================
+import clsx from 'clsx'
+import { twMerge } from 'tailwind-merge'
+
+export function cn(...inputs: any[]) {
+  return twMerge(clsx(inputs));
+}
+
+// ============================================================================
+// SIMPLE HELPER UTILITIES (inline implementations)
+// ============================================================================
+
+/** Simple debounce implementation */
+export function debounce<T extends (...args: any[]) => any>(
+  fn: T,
+  delay: number
+): (...args: Parameters<T>) => void {
+  let timeoutId: ReturnType<typeof setTimeout>;
+  return (...args: Parameters<T>) => {
+    clearTimeout(timeoutId);
+    timeoutId = setTimeout(() => fn(...args), delay);
+  };
+}
+
+/** Simple throttle implementation */
+export function throttle<T extends (...args: any[]) => any>(
+  fn: T,
+  limit: number
+): (...args: Parameters<T>) => void {
+  let inThrottle = false;
+  return (...args: Parameters<T>) => {
+    if (!inThrottle) {
+      fn(...args);
+      inThrottle = true;
+      setTimeout(() => (inThrottle = false), limit);
+    }
+  };
+}
+
+/** Simple sleep implementation */
+export function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/** Simple deep clone */
+export function deepClone<T>(obj: T): T {
+  return JSON.parse(JSON.stringify(obj));
+}
+
+// ============================================================================
+// CONVENIENCE RE-EXPORTS
+// ============================================================================
+export const utils = {
+  formatCurrency,
+  formatDate,
+  formatPercentage,
+  formatPrice,
+  formatEPSGrowth,
+  debounce,
+  throttle,
+  deepClone,
+  isEmpty,
+  generateId,
+  cn,
+  createAdminApiClient,
+  createFrontendApiClient,
+  handlePaginatedRequest,
+  handleSimpleRequest,
+  isApiError
+}
+
+// ============================================================================
+// QUARTER PRIORITY HELPER
+// ============================================================================
+export function getQuarterPriority(epsGrowth: number, daysUntilAnnouncement: number): 'high' | 'medium' | 'low' {
+  if (Math.abs(epsGrowth) > 20 || daysUntilAnnouncement <= 7) {
+    return 'high'
+  } else if (Math.abs(epsGrowth) > 10 || daysUntilAnnouncement <= 14) {
+    return 'medium'
+  }
+  return 'low'
+}
+
+// ============================================================================
+// LOGGING UTILITIES (from deleted core/logging)
+// ============================================================================
+
+/** Check if running in development environment */
+export const isDevEnvironment = typeof window !== 'undefined'
+  ? window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+  : process.env.NODE_ENV === 'development';
+
+/** Check if running in production environment */
+export const isProdEnvironment = !isDevEnvironment;
+
+/** Development-only logging (no-op in production) */
+export function devLog(...args: any[]): void {
+  if (isDevEnvironment) {
+    console.log('[DEV]', ...args);
+  }
+}
+
+/** Development-only warning (no-op in production) */
+export function devWarn(...args: any[]): void {
+  if (isDevEnvironment) {
+    console.warn('[DEV]', ...args);
+  }
+}
+
+/** Development-only info (no-op in production) */
+export function devInfo(...args: any[]): void {
+  if (isDevEnvironment) {
+    console.info('[DEV]', ...args);
+  }
+}
+
+/** Safe error handling */
+export function safeError(error: unknown): { message: string; stack?: string } {
+  if (error instanceof Error) {
+    return { message: error.message, stack: error.stack };
+  }
+  return { message: String(error) };
+}
+
+/** Simple logger object */
+export const logger = {
+  debug: (...args: any[]) => isDevEnvironment && console.debug(...args),
+  info: (...args: any[]) => console.info(...args),
+  warn: (...args: any[]) => console.warn(...args),
+  error: (...args: any[]) => console.error(...args),
+};
+
+export default utils

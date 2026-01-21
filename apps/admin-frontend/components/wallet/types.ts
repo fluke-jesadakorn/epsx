@@ -125,3 +125,14 @@ export interface WalletFilters {
     sortBy: 'created_at' | 'last_auth_at' | 'wallet_address';
     sortOrder: 'asc' | 'desc';
 }
+
+// DND Types
+export type DragItemType = 'permission' | 'group';
+
+export interface DragItem {
+    id: string;
+    type: DragItemType;
+    name: string;
+}
+
+export type DndAction = 'assign-permission' | 'reorder';

@@ -17,7 +17,7 @@ import {
   FormMessage as BaseFormMessage,
   useFormField as useBaseFormField,
   type BaseFormProps
-} from "../../../../shared/components"
+} from "@/shared/components"
 import { cn } from "@/lib/utils"
 import type {
   FieldPath,

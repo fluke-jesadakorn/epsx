@@ -13,7 +13,7 @@ import {
   passwordResetSchema,
   passwordChangeSchema,
   contactFormSchema
-} from '../../../shared/validators/schemas';
+} from '@/shared/validators/schemas';
 
 // Legacy compatibility schemas (will be migrated to shared)
 export const commonSchemas = {

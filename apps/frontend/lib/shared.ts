@@ -7,12 +7,12 @@
  */
 
 // Utilities
-export { cn, logger, safeError } from '../../../shared/utils';
+export { cn, logger, safeError } from '@/shared/utils';
 
 // Auth utilities
 export {
   getJWTTimeToExpiry, isJWTExpired, verifyJWT, type EPSXJWTPayload, type JWTUser
-} from '../../../shared/auth/jwt';
+} from '@/shared/auth/jwt';
 
 // PKCE functions removed - migrated to Web3 authentication (no OIDC PKCE needed)
 
@@ -22,5 +22,5 @@ export {
 export {
   Service, URLContext, callbackUrls, getAdminUrl, getBackendUrl,
   getFrontendUrl
-} from '../../../shared/utils/url-resolver';
+} from '@/shared/utils/url-resolver';
 

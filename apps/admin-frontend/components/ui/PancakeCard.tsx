@@ -5,7 +5,7 @@
 
 import * as React from "react"
 
-import { CardContent, CardDescription, CardFooter, CardHeader, CardTitle, Card as SharedCard } from "../../../../shared/components/ui/card"
+import { CardContent, CardDescription, CardFooter, CardHeader, CardTitle, Card as SharedCard } from "@/shared/components/ui/card"
 
 import { cn } from "@/lib/utils"
 

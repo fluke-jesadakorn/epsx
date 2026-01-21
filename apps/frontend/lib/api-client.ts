@@ -20,5 +20,5 @@ export {
   createFrontendApiClient, isApiError,
   isApiResponse,
   isPaginatedResponse
-} from '../../../shared/api';
+} from '@/shared/api';
 

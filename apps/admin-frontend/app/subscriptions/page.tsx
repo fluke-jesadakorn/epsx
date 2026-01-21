@@ -1,9 +1,9 @@
-import { Suspense } from 'react';
-import { ShieldCheck, Plus, Users, Wallet, Clock } from 'lucide-react';
+import { Clock, Plus, Wallet } from 'lucide-react';
 import Link from 'next/link';
+import { Suspense } from 'react';
 
-import { PageLayout, PageHeader, PageSkeleton } from '@/components/shared';
-import { PolicySection, PromotionSection, PermissionAccordion } from '@/components/subscriptions';
+import { PageHeader, PageLayout } from '@/components/shared';
+import { PermissionAccordion, PolicySection, PromotionSection } from '@/components/subscriptions';
 import { fetchAccessManagementData } from '@/lib/data/access-management';
 
 /**
@@ -78,19 +78,19 @@ export default async function AccessManagementPage() {
           color="primary"
         />
         <QuickActionCard
-          href="/subscriptions/manual-access/create-group"
-          icon={<Users className="h-4 w-4" />}
+          href="/wallet-management/groups/new"
+          icon={<Plus className="h-4 w-4" />}
           label="New Group"
           color="secondary"
         />
         <QuickActionCard
-          href="/subscriptions/manual-access/assign"
+          href="/wallet-management"
           icon={<Wallet className="h-4 w-4" />}
           label="Assign Access"
           color="info"
         />
         <QuickActionCard
-          href="/subscriptions/manual-access/expiring"
+          href="/wallet-management?filter=expiring"
           icon={<Clock className="h-4 w-4" />}
           label="Expiring Soon"
           color="warning"

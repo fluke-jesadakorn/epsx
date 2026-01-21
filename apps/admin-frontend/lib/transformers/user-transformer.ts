@@ -3,7 +3,7 @@
  * Transforms backend UserSummary data to frontend User interface
  */
 
-import type { User } from '../../../../shared/types/domain/User';
+import type { User } from '@/shared/types/domain/User';
 
 // Backend response interface (matches backend UserSummary)
 export interface BackendUserSummary {

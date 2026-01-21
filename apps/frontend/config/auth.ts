@@ -36,7 +36,7 @@ import {
   authConfig,
   web3Config,
   sessionConfig
-} from '../../../shared/config/auth';
+} from '@/shared/config/auth';
 import { env } from './env';
 
 // Re-export types (Web3-focused)

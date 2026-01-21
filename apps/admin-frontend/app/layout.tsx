@@ -106,7 +106,7 @@ export default function RootLayout({
         <SafeThemeScript />
       </head>
       <body
-        className="min-h-screen bg-background text-foreground"
+        className="h-screen bg-background text-foreground overflow-hidden"
         suppressHydrationWarning
       >
         {/* Theme handled by CommonProviders (inside ClientProviders) */}
@@ -119,10 +119,10 @@ export default function RootLayout({
         </div>
 
         {/* Main application wrapper with consistent spacing */}
-        <div className="flex min-h-screen flex-col">
+        <div className="flex h-screen flex-col overflow-hidden">
           <ErrorBoundary>
             <ClientProviders>
-              <main className="flex-1 relative">
+              <main className="flex-1 relative overflow-hidden">
                 <LayoutWrapper>
                   {children}
                 </LayoutWrapper>

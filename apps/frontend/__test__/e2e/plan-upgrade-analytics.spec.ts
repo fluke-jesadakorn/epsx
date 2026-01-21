@@ -1,6 +1,6 @@
 import { BrowserContext, expect, Page, test } from '@playwright/test';
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
-import { Service, URL, URLContext } from '../../../../shared/utils/url-resolver';
+import { Service, URL, URLContext } from '@/shared/utils/url-resolver';
 
 // Environment configuration
 const BASE_URL = URL.get(Service.FRONTEND, URLContext.CLIENT);

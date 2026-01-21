@@ -21,8 +21,8 @@ import {
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useAccount } from 'wagmi';
-import { API_ROUTES } from '../../../../../shared/config/route-constants';
-import { env } from '../../../../../shared/env/schema';
+import { API_ROUTES } from '@/shared/config/route-constants';
+import { env } from '@/shared/env/schema';
 import MetaMaskPayment from './MetaMaskPayment';
 import { UpgradeBanner } from './UpgradeBanner';
 

@@ -40,17 +40,19 @@ export function MainLayout({ children, user }: MainLayoutProps) {
         {/* Header - Sticky within the content area if needed, or just top block */}
         <Header user={user} />
 
-        {/* Scrollable Content Wrapper */}
-        <div className="flex-1 overflow-y-auto overflow-x-hidden">
-          {/* Breadcrumb */}
-          <div className="border-b border-border bg-card px-3 sm:px-4 lg:px-6 py-2 sm:py-3 sticky top-0 z-30">
+        {/* Content Wrapper - Fixed frame, internal main scrolls */}
+        <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+          {/* Breadcrumb - Fixed */}
+          <div className="border-b border-border bg-card px-3 sm:px-4 lg:px-6 py-2 sm:py-3 z-30">
             <Breadcrumb />
           </div>
 
-          {/* Main Content */}
-          <main className="p-0">{children}</main>
+          {/* Main Content - Scrollable */}
+          <main className="flex-1 overflow-y-auto overflow-x-hidden p-0">
+            {children}
+          </main>
 
-          {/* Footer */}
+          {/* Footer - Fixed */}
           <footer className="border-t border-border bg-card px-3 sm:px-4 lg:px-6 py-3 sm:py-4">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-4">
               <div className="flex items-center gap-1.5 sm:gap-2">

@@ -2,7 +2,7 @@
  * Admin Frontend Shared Barrel Export  
  * Eliminates deep import paths by re-exporting shared utilities
  * 
- * BEFORE: import { cn } from '../../../../../shared/utils'
+ * BEFORE: import { cn } from '@/shared/utils'
  * AFTER:  import { cn } from '@/lib/shared'
  */
 

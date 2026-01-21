@@ -1,8 +1,8 @@
 @import "tailwindcss";
-@source "../../../shared";
+@source "@/shared";
 
 /* Shared Design System (Unified Theme) */
-@import '../../../shared/design-system/index.css';
+@import '@/shared/design-system/index.css';
 
 /* Optimized rendering for admin components */
 body {

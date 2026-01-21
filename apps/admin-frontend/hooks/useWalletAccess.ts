@@ -7,8 +7,8 @@
 
 import { useCallback, useEffect, useState } from 'react';
 
-import { groupMgmt } from '@/lib/api/group-management-client';
 import { adminApiClient } from '@/lib/api-client';
+import { groupMgmt } from '@/lib/api/group-management-client';
 
 // ============================================================================
 // TYPES
@@ -27,6 +27,7 @@ export interface AccessItem {
     category?: string;
     // Group-specific
     permissionCount?: number;
+    permissions?: string[]; // Added: List of permission IDs in the group
     memberCount?: number;
     // Assignment info
     expiresAt?: string | null;
@@ -82,7 +83,7 @@ export function useWalletAccess(walletAddress: string | null): UseWalletAccessRe
 
     // Load all data
     const loadData = useCallback(async () => {
-        if (!walletAddress) {return;}
+        if (!walletAddress) { return; }
 
         try {
             setIsLoading(true);
@@ -142,6 +143,7 @@ export function useWalletAccess(walletAddress: string | null): UseWalletAccessRe
                 name: g.name,
                 description: g.description,
                 permissionCount: g.permissions?.length || 0,
+                permissions: g.permissions || [],
                 memberCount: g.member_count,
             }));
 
@@ -179,11 +181,11 @@ export function useWalletAccess(walletAddress: string | null): UseWalletAccessRe
 
     // Assign permission
     const assignPermission = useCallback(async (permissionId: string, expiresAt?: string) => {
-        if (!walletAddress) {return;}
+        if (!walletAddress) { return; }
         try {
             await adminApiClient.post('/api/admin/permissions/direct/grant', {
                 wallet_address: walletAddress,
-                permission: permissionId,
+                permission_string: permissionId,
                 expires_at: expiresAt,
             });
             await loadData();
@@ -194,12 +196,12 @@ export function useWalletAccess(walletAddress: string | null): UseWalletAccessRe
 
     // Revoke permission
     const revokePermission = useCallback(async (permissionId: string) => {
-        if (!walletAddress) {return;}
+        if (!walletAddress) { return; }
         try {
             // Use POST with query params since DELETE doesn't support body in this client
             await adminApiClient.post('/api/admin/permissions/direct/revoke', {
                 wallet_address: walletAddress,
-                permission: permissionId,
+                permission_string: permissionId,
             });
             await loadData();
         } catch (err) {
@@ -209,7 +211,7 @@ export function useWalletAccess(walletAddress: string | null): UseWalletAccessRe
 
     // Assign group
     const assignGroup = useCallback(async (groupId: string, expiresAt?: string) => {
-        if (!walletAddress) {return;}
+        if (!walletAddress) { return; }
         try {
             await groupMgmt.assignUserToGroup({
                 user_id: walletAddress,
@@ -224,7 +226,7 @@ export function useWalletAccess(walletAddress: string | null): UseWalletAccessRe
 
     // Remove group
     const removeGroup = useCallback(async (groupId: string) => {
-        if (!walletAddress) {return;}
+        if (!walletAddress) { return; }
         try {
             await groupMgmt.removeUserFromGroup(walletAddress, groupId);
             await loadData();
@@ -235,13 +237,13 @@ export function useWalletAccess(walletAddress: string | null): UseWalletAccessRe
 
     // Batch assign permissions
     const batchAssignPermissions = useCallback(async (permissionIds: string[], expiresAt?: string) => {
-        if (!walletAddress || permissionIds.length === 0) {return;}
+        if (!walletAddress || permissionIds.length === 0) { return; }
         try {
             await Promise.all(
                 permissionIds.map(permissionId =>
                     adminApiClient.post('/api/admin/permissions/direct/grant', {
                         wallet_address: walletAddress,
-                        permission: permissionId,
+                        permission_string: permissionId,
                         expires_at: expiresAt,
                     })
                 )
@@ -254,13 +256,13 @@ export function useWalletAccess(walletAddress: string | null): UseWalletAccessRe
 
     // Batch revoke permissions
     const batchRevokePermissions = useCallback(async (permissionIds: string[]) => {
-        if (!walletAddress || permissionIds.length === 0) {return;}
+        if (!walletAddress || permissionIds.length === 0) { return; }
         try {
             await Promise.all(
                 permissionIds.map(permissionId =>
                     adminApiClient.post('/api/admin/permissions/direct/revoke', {
                         wallet_address: walletAddress,
-                        permission: permissionId,
+                        permission_string: permissionId,
                     })
                 )
             );
@@ -272,7 +274,7 @@ export function useWalletAccess(walletAddress: string | null): UseWalletAccessRe
 
     // Batch assign groups
     const batchAssignGroups = useCallback(async (groupIds: string[], expiresAt?: string) => {
-        if (!walletAddress || groupIds.length === 0) {return;}
+        if (!walletAddress || groupIds.length === 0) { return; }
         try {
             await Promise.all(
                 groupIds.map(groupId =>
@@ -291,7 +293,7 @@ export function useWalletAccess(walletAddress: string | null): UseWalletAccessRe
 
     // Batch remove groups
     const batchRemoveGroups = useCallback(async (groupIds: string[]) => {
-        if (!walletAddress || groupIds.length === 0) {return;}
+        if (!walletAddress || groupIds.length === 0) { return; }
         try {
             await Promise.all(
                 groupIds.map(groupId => groupMgmt.removeUserFromGroup(walletAddress, groupId))

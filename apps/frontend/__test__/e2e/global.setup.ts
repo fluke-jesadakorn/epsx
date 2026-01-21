@@ -5,7 +5,7 @@
 
 import { test as setup, expect, chromium } from '@playwright/test';
 import { initializeTestUsers } from '../fixtures/user-fixtures';
-import { URL, URLContext, Service } from '../../../../shared/utils/url-resolver';
+import { URL, URLContext, Service } from '@/shared/utils/url-resolver';
 
 const BASE_URL = URL.get(Service.FRONTEND, URLContext.CLIENT);
 const API_URL = URL.get(Service.BACKEND, URLContext.CLIENT);

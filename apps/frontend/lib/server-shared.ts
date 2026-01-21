@@ -19,4 +19,4 @@ export {
   callbackUrls,
   URLContext,
   Service
-} from '../../../shared/utils/url-resolver';
+} from '@/shared/utils/url-resolver';

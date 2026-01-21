@@ -46,7 +46,7 @@
         "./design-system/*"
       ],
       "@/shared/*": [
-        "../../shared/*"
+        "./shared_deploy/*"
       ]
     },
     "target": "ESNext",

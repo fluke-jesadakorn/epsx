@@ -10,7 +10,7 @@ import {
   isStaging,
   serverEnv,
   urls
-} from '../../../shared/env/schema';
+} from '@/shared/env/schema';
 
 /**
  * Type-safe Web3 enterprise configuration

@@ -1,2 +1,2 @@
 // Direct export from shared
-export * from '../../../../shared/components/ui/textarea';
+export * from '@/shared/components/ui/textarea';

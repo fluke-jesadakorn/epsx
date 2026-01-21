@@ -3,7 +3,7 @@
 import { cn } from '@/lib/utils';
 import { ArrowRight, Clock, Gift, TrendingUp } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { env } from '../../../../../shared/env/schema';
+import { env } from '@/shared/env/schema';
 
 export interface UpgradePreviewData {
     current_plan: {

@@ -4,7 +4,7 @@
  */
 
 // Import permission group types
-import { PermissionGroup } from '../../../shared/types/domain/User';
+import { PermissionGroup } from '@/shared/types/domain/User';
 
 // Re-export existing types
 export * from './permission-templates';

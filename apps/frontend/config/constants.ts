@@ -22,9 +22,9 @@ import {
   getPermissionTemplate,
   isFeatureEnabled,
   validatePayment
-} from '../../../shared/config/constants';
+} from '@/shared/config/constants';
 
-import type { PermissionTemplateName } from '../../../shared/types/payment';
+import type { PermissionTemplateName } from '@/shared/types/payment';
 
 // Re-export types
 export type { PermissionTemplateName };

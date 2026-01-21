@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "dotenv -e ../../.env -- cargo watch --why --exec 'run'",
-    "build": "dotenv -e ../../.env -- cargo build --release",
+    "build": "exit 0",
     "start": "dotenv -e ../../.env -- cargo run --release",
     "clean": "cargo clean",
     "test": "dotenv -e ../../.env -- cargo test",

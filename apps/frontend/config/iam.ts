@@ -22,7 +22,7 @@ import {
   isPublicRoute as sharedIsPublicRoute,
   isValidPermission as sharedIsValidPermission,
   parsePermission as sharedParsePermission
-} from '../../../shared/config/iam';
+} from '@/shared/config/iam';
 
 /**
  * Frontend-specific IAM configuration
@@ -73,14 +73,14 @@ export const IAM_CONFIG = {
 } as const;
 
 // Re-export all shared permissions for frontend use
-export { PERMISSIONS } from '../../../shared/config/iam';
+export { PERMISSIONS } from '@/shared/config/iam';
 
 // Re-export shared permission sets and add frontend-specific sets
 export {
   CACHE_CONFIG,
   IAM_ERROR_MESSAGES, PERMISSION_SETS,
   PLATFORMS
-} from '../../../shared/config/iam';
+} from '@/shared/config/iam';
 
 /**
  * Frontend-specific permission sets

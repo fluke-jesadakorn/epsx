@@ -35,7 +35,7 @@ export {
   type FontSize,
   type FontWeight, type InputVariants, type LoadingVariants, type ModalVariants, type Shadow,
   type Spacing, type TableVariants, type ZIndex
-} from '../../../shared/design-system';
+} from '@/shared/design-system';
 
 // ============================================================================
 // ADMIN-SPECIFIC EXTENSIONS
@@ -64,7 +64,7 @@ import {
   type LoadingVariants,
   type ModalVariants,
   type TableVariants,
-} from '../../../shared/design-system';
+} from '@/shared/design-system';
 
 // Admin-prefixed aliases (for backwards compatibility)
 export const adminButtonVariants = _buttonVariants;
@@ -98,7 +98,7 @@ import {
   spacing as _spacing,
   typography as _typography,
   zIndex as _zIndex,
-} from '../../../shared/design-system';
+} from '@/shared/design-system';
 
 /**
  * Get design system tokens (non-hook version)
@@ -268,6 +268,6 @@ export function isValidBadgeVariant(
 // DEFAULT EXPORT
 // ============================================================================
 
-import designSystem from '../../../shared/design-system';
+import designSystem from '@/shared/design-system';
 
 export default designSystem;

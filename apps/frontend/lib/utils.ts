@@ -5,9 +5,9 @@
  */
 
 // Re-export everything from shared utils
-export * from '../../../shared/utils';
+export * from '@/shared/utils';
 
 // Explicitly export cn from shared to override local if needed, or just let strict export handle it
 // If we remove local cn, the export * catches it if it's there.
 // But to be safe and explicit:
-export { cn } from '../../../shared/utils';
+export { cn } from '@/shared/utils';

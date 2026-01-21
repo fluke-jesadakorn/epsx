@@ -8,7 +8,7 @@
  * - Test environment configuration
  */
 
-import { getBackendUrl } from '../../../../shared/utils/url-resolver';
+import { getBackendUrl } from '@/shared/utils/url-resolver';
 
 // Define Role enum for test fixtures
 export enum Role {

@@ -5,7 +5,7 @@
  */
 
 import { test, expect, Page, BrowserContext } from '@playwright/test';
-import { URL, URLContext, Service } from '../../../../shared/utils/url-resolver';
+import { URL, URLContext, Service } from '@/shared/utils/url-resolver';
 
 // Test credentials - generic test account
 const TEST_CREDENTIALS = {

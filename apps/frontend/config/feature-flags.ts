@@ -9,7 +9,7 @@ import {
   createFeatureContext,
   featureFlags,
   FEATURE_FLAGS as SHARED_FEATURE_FLAGS
-} from '../../../shared/config/feature-flags';
+} from '@/shared/config/feature-flags';
 
 // User-specific feature flag context helper
 function createUserContext(userId?: string, userPermissions?: string[]) {
@@ -124,7 +124,7 @@ export {
   getAllFeatureFlags,
   getFeatureConfig,
   getEnabledFeatures
-} from '../../../shared/config/feature-flags';
+} from '@/shared/config/feature-flags';
 
 // Legacy compatibility object
 export const legacyFeatureFlags = {

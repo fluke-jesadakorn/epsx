@@ -129,7 +129,7 @@ pub async fn grant_permission(
                 INSERT INTO wallet_direct_permissions (wallet_address, permission_id, expires_at)
                 VALUES ($1, $2, $3)
                 ON CONFLICT (wallet_address, permission_id) DO UPDATE
-                SET expires_at = EXCLUDED.expires_at, is_active = true, updated_at = NOW()
+                SET expires_at = EXCLUDED.expires_at, is_active = true
                 RETURNING id
                 "#
             )

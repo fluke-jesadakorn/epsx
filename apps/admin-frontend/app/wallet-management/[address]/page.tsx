@@ -1,26 +1,39 @@
 /**
  * Wallet Detail Page
- * Full page view for comprehensive wallet information and management
+ * Unified view for wallet info, groups, and permissions with DND support
  */
 'use client';
 
-import { AlertTriangle, ArrowLeft, Clock, Copy, Edit, ExternalLink, Loader2, Package, RefreshCw, Save } from 'lucide-react';
+import { TrashDropZone } from '@/components/wallet/TrashDropZone';
+import {
+    DndContext,
+    DragEndEvent,
+    DragOverlay,
+    DragStartEvent,
+    MouseSensor,
+    TouchSensor,
+    useSensor,
+    useSensors
+} from '@dnd-kit/core';
+import { ArrowLeft, Copy, Key, Loader2, Package, RefreshCw, Save, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Textarea } from '@/components/ui/textarea';
 import { DisableWalletModal, type DisableWalletData } from '@/components/wallet/DisableWalletModal';
+import { ExpiryDatePicker } from '@/components/wallet/ExpiryDatePicker';
 import { ReenableWalletModal, type ReenableWalletData } from '@/components/wallet/ReenableWalletModal';
-import type { WalletActivityEvent, WalletData, WalletStatus } from '@/components/wallet/types';
-import { WalletAccessManager } from '@/components/wallet/WalletAccessManager';
-import { WalletActivityTimeline } from '@/components/wallet/WalletActivityTimeline';
+import type { WalletData, WalletStatus } from '@/components/wallet/types';
+import { DraggableGroupItem, DraggablePermissionItem, DroppableGroupList, DroppablePermissionList } from '@/components/wallet/WalletComponents';
+import { AccessItem, useWalletAccess } from '@/hooks/useWalletAccess';
+import { groupMgmt } from '@/lib/api/group-management-client';
 import { walletMgmt } from '@/lib/api/wallet-management-client';
 import { cn, copyToClipboard } from '@/lib/utils';
 import { useSharedAuth } from '@/shared/components/auth/Provider';
@@ -43,17 +56,6 @@ const STATUS_CONFIG: Record<WalletStatus, { label: string; emoji: string; classN
     },
 };
 
-function formatDate(timestamp: string): string {
-    const date = new Date(timestamp);
-    return date.toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-    });
-}
-
 function formatTimeAgo(timestamp: string): string {
     const date = new Date(timestamp);
     const now = new Date();
@@ -69,9 +71,6 @@ function formatTimeAgo(timestamp: string): string {
     return date.toLocaleDateString();
 }
 
-/**
- *
- */
 export default function WalletDetailPage() {
     const router = useRouter();
     const params = useParams();
@@ -79,22 +78,74 @@ export default function WalletDetailPage() {
 
     const { isAuthenticated, isLoading: authLoading } = useSharedAuth();
 
-    // State
+    // DND Sensors
+    const sensors = useSensors(
+        useSensor(MouseSensor, { activationConstraint: { distance: 10 } }),
+        useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } })
+    );
+
+    // Core Data State
     const [wallet, setWallet] = useState<WalletData | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isRefreshing, setIsRefreshing] = useState(false);
-    const [activityEvents, setActivityEvents] = useState<WalletActivityEvent[]>([]);
     const [copied, setCopied] = useState(false);
 
+    // Access Management Hook
+    const {
+        data: accessData,
+        isLoading: isAccessLoading,
+        assignGroup,
+        removeGroup,
+        assignPermission,
+        revokePermission,
+        refresh: refreshAccess
+    } = useWalletAccess(walletAddress);
+
+    // DND & Pending Changes State
+    const [activeDragItem, setActiveDragItem] = useState<AccessItem | null>(null);
+    const [pendingDrops, setPendingDrops] = useState<AccessItem[]>([]);
+    const [isSavingPending, setIsSavingPending] = useState(false);
+    const [editingItem, setEditingItem] = useState<{ item: AccessItem, type: 'group' | 'permission' } | null>(null);
+
     // Metadata Editing State
-    const [isEditingMetadata, setIsEditingMetadata] = useState(false);
     const [metadataForm, setMetadataForm] = useState({ label: '', note: '' });
     const [isSavingMetadata, setIsSavingMetadata] = useState(false);
+    const [hasMetadataChanges, setHasMetadataChanges] = useState(false);
+
+    // Filter State
+    const [searchQuery, setSearchQuery] = useState('');
+    const [assignedSearchQuery, setAssignedSearchQuery] = useState('');
+    const [groupBuilderSearchQuery, setGroupBuilderSearchQuery] = useState('');
+    const [permissionSearchQuery, setPermissionSearchQuery] = useState('');
 
     // Modals
     const [showDisableModal, setShowDisableModal] = useState(false);
     const [showReenableModal, setShowReenableModal] = useState(false);
     const [isActionLoading, setIsActionLoading] = useState(false);
+
+    // Group Builder State
+    const [builderSelectedGroupId, setBuilderSelectedGroupId] = useState<string | null>(null);
+    const [builderPermissions, setBuilderPermissions] = useState<string[]>([]);
+    const [builderForm, setBuilderForm] = useState({ name: '', description: '', priority: 0, expiryDays: 30 });
+    const [isSavingBuilder, setIsSavingBuilder] = useState(false);
+    const [hasBuilderChanges, setHasBuilderChanges] = useState(false);
+
+    // Derived Group Lists
+    const allGroups = useMemo(() => [...accessData.authorizedGroups, ...accessData.availableGroups], [accessData.authorizedGroups, accessData.availableGroups]);
+
+    // Available Permissions for Builder (All Permissions)
+    const filteredAvailablePermissions = useMemo(() => {
+        // In builder mode, we show ALL available permissions on the right (even if user already has them)
+        // We filter out ones already in the builder list
+        const assignedSet = new Set(builderPermissions);
+        const allSystemPermissions = [...accessData.availablePermissions, ...accessData.authorizedPermissions];
+
+        // Remove duplicates just in case, though sets should be disjoint
+        const uniqueSystemPermissions = Array.from(new Map(allSystemPermissions.map(item => [item.name, item])).values());
+
+        return uniqueSystemPermissions.filter(p => !assignedSet.has(p.name) && p.name.toLowerCase().includes(permissionSearchQuery.toLowerCase()));
+    }, [accessData.availablePermissions, accessData.authorizedPermissions, builderPermissions, permissionSearchQuery]);
+
 
     // Load wallet data
     const loadWallet = useCallback(async () => {
@@ -102,21 +153,16 @@ export default function WalletDetailPage() {
 
         try {
             setIsRefreshing(true);
-            const [walletData, events] = await Promise.all([
-                walletMgmt.fetchWalletDetail(walletAddress),
-                walletMgmt.fetchActivityHistory(walletAddress),
-            ]);
+            const walletData = await walletMgmt.fetchWalletDetail(walletAddress);
             setWallet(walletData);
-            setActivityEvents(events);
 
-            // Initial metadata form state
             if (walletData) {
                 setMetadataForm({
                     label: walletData.label || '',
                     note: walletData.note || '',
                 });
+                setHasMetadataChanges(false);
             }
-
         } catch (err) {
             console.error('Failed to load wallet:', err);
             toast.error('Failed to load wallet details');
@@ -133,28 +179,174 @@ export default function WalletDetailPage() {
         }
     }, [isAuthenticated, authLoading, loadWallet]);
 
-    const handleCopyAddress = async () => {
-        if (!wallet) { return; }
-        const success = await copyToClipboard(wallet.walletAddress);
-        if (success) {
-            setCopied(true);
-            toast.success('Address copied!');
-            setTimeout(() => setCopied(false), 2000);
+    // Computed
+    const filteredAvailableGroups = useMemo(() => {
+        const assignedIds = new Set(accessData.authorizedGroups.map(g => g.id));
+        const pendingIds = new Set(pendingDrops.map(g => g.id));
+
+        return accessData.availableGroups.filter(g =>
+            !assignedIds.has(g.id) &&
+            !pendingIds.has(g.id) &&
+            (g.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                g.description?.toLowerCase().includes(searchQuery.toLowerCase()))
+        );
+    }, [accessData.availableGroups, accessData.authorizedGroups, pendingDrops, searchQuery]);
+
+    // Builder Logic
+    const handleSelectGroupForBuilder = (groupId: string) => {
+        const group = allGroups.find(g => g.id === groupId);
+        if (group) {
+            setBuilderSelectedGroupId(groupId);
+            // In a real app, we might need to fetch the full group details to get permissions
+            // For now assuming group object has permissions. If not, we'd need a fetch call.
+            // Checking if 'permissions' property exists on AccessItem
+            setBuilderPermissions(group.permissions || []);
+            setBuilderForm({
+                name: group.name,
+                description: group.description || '',
+                // @ts-ignore - Assuming properties exist on group object for now or fallback
+                priority: (group as any).priority_level || 0,
+                // @ts-ignore
+                expiryDays: (group as any).default_expiry_days || 30
+            });
+            setHasBuilderChanges(false);
+        }
+    };
+
+    const handleSaveGroup = async () => {
+        if (!builderSelectedGroupId) return;
+        setIsSavingBuilder(true);
+        try {
+            // We need a method to update group permissions.
+            // Typically: groupMgmt.updateGroup(builderSelectedGroupId, { permissions: builderPermissions })
+            // Importing groupMgmt is needed.
+            // Since we don't have direct import here, we should ensure it's available or add it.
+            // Assuming we add `import { groupMgmt } from '@/lib/api/group-management-client';`
+            await groupMgmt.updateGroup(builderSelectedGroupId, {
+                name: builderForm.name,
+                description: builderForm.description,
+                permissions: builderPermissions,
+                priority_level: builderForm.priority,
+                default_expiry_days: builderForm.expiryDays
+            });
+            toast.success('Group updated successfully');
+            setHasBuilderChanges(false);
+            refreshAccess(); // Refresh to reflect changes if any
+        } catch (err) {
+            toast.error('Failed to save group details');
+            console.error(err);
+        } finally {
+            setIsSavingBuilder(false);
+        }
+    };
+
+
+    // DND Handlers
+    const handleDragStart = (event: DragStartEvent) => {
+        const { active } = event;
+        const allPermissions = [...accessData.availablePermissions, ...accessData.authorizedPermissions];
+        // Note: normalized items for dragging
+
+        const item = active.data.current?.type === 'group'
+            ? allGroups.find(p => p.id === active.id)
+            : allPermissions.find(p => p.id === active.id);
+
+        if (item) {
+            setActiveDragItem(item);
+        }
+    };
+
+    const handleDragEnd = (event: DragEndEvent) => {
+        const { active, over } = event;
+        setActiveDragItem(null);
+
+        if (!over) { return; }
+
+        // Dropped Group into Assigned List (Top Section)
+        if (active.data.current?.type === 'group' && over.id === 'assigned-group-list') {
+            const group = accessData.availableGroups.find(g => g.id === active.id);
+            if (group && !pendingDrops.find(p => p.id === group.id)) {
+                setPendingDrops(prev => [...prev, group]);
+                toast.success(`Staged "${group.name}" for assignment`);
+            }
+        }
+
+        // Dropped Permission into Builder List (Bottom Section)
+        if (active.data.current?.type === 'permission' && over.id === 'builder-group-permissions') {
+            const permissionName = active.data.current.name; // Use name as ID for permissions often
+            if (builderSelectedGroupId && !builderPermissions.includes(permissionName)) {
+                setBuilderPermissions(prev => [...prev, permissionName]);
+                setHasBuilderChanges(true);
+            }
+        }
+
+        // Dropped into Trash
+        if (over.id === 'trash') {
+            const itemId = active.id as string;
+            const type = active.data.current?.type;
+
+            if (type === 'group') {
+                // Check if pending
+                if (pendingDrops.find(p => p.id === itemId)) {
+                    setPendingDrops(prev => prev.filter(p => p.id !== itemId));
+                    toast.info('Removed from staging');
+                    return;
+                }
+                // Check if assigned (needs API call)
+                if (accessData.authorizedGroups.find(g => g.id === itemId)) {
+                    removeGroup(itemId).then(() => {
+                        toast.success('Group access revoked');
+                        refreshAccess();
+                    });
+                }
+            } else if (type === 'permission') {
+                // If dropping from builder list
+                if (builderSelectedGroupId && builderPermissions.includes(active.data.current?.name)) {
+                    setBuilderPermissions(prev => prev.filter(p => p !== active.data.current?.name));
+                    setHasBuilderChanges(true);
+                    return;
+                }
+
+                // If dropping from assigned list (Legacy/Global removal? - Disabled per request but logic exists)
+                /* 
+                if (accessData.authorizedPermissions.find(p => p.id === itemId)) {
+                    revokePermission(itemId).then(() => {
+                        toast.success('Permission revoked');
+                        refreshAccess();
+                    });
+                }
+                */
+            }
+        }
+    };
+
+    // Save Actions
+    const handleSavePendingChanges = async () => {
+        if (pendingDrops.length === 0) return;
+        setIsSavingPending(true);
+        try {
+            await Promise.all(pendingDrops.map(group => assignGroup(group.id)));
+            toast.success('Access groups assigned successfully');
+            setPendingDrops([]);
+            refreshAccess();
+        } catch (err) {
+            console.error('Failed to save changes:', err);
+            toast.error('Failed to assign groups');
+        } finally {
+            setIsSavingPending(false);
         }
     };
 
     const handleSaveMetadata = async () => {
         if (!wallet) { return; }
-
         setIsSavingMetadata(true);
         try {
             await walletMgmt.updateWalletMetadata(wallet.walletAddress, {
                 label: metadataForm.label || null,
                 note: metadataForm.note || null,
             });
-
             toast.success('Wallet metadata updated');
-            setIsEditingMetadata(false);
+            setHasMetadataChanges(false);
             await loadWallet();
         } catch (err) {
             console.error('Failed to update metadata:', err);
@@ -164,23 +356,13 @@ export default function WalletDetailPage() {
         }
     };
 
-    const startEditing = () => {
-        if (wallet) {
-            setMetadataForm({
-                label: wallet.label || '',
-                note: wallet.note || '',
-            });
-            setIsEditingMetadata(true);
-        }
-    };
-
-    const cancelEditing = () => {
-        setIsEditingMetadata(false);
-        if (wallet) {
-            setMetadataForm({
-                label: wallet.label || '',
-                note: wallet.note || '',
-            });
+    const handleCopyAddress = async () => {
+        if (!wallet) { return; }
+        const success = await copyToClipboard(wallet.walletAddress);
+        if (success) {
+            setCopied(true);
+            toast.success('Address copied!');
+            setTimeout(() => setCopied(false), 2000);
         }
     };
 
@@ -230,399 +412,565 @@ export default function WalletDetailPage() {
     };
 
     const statusConfig = wallet ? STATUS_CONFIG[wallet.status] : STATUS_CONFIG.active;
-    const isDisabled = wallet?.status === 'disabled';
-    const activeSubscriptions = wallet?.subscriptions?.filter(s => s.status === 'active') ?? [];
+    const hasPending = pendingDrops.length > 0;
 
-    // Auth check
-    if (authLoading) {
+    if (authLoading || isLoading) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 dark:from-gray-900 dark:via-purple-900 dark:to-gray-900 p-6">
-                <div className="max-w-4xl mx-auto">
-                    <div className="animate-pulse space-y-6">
-                        <div className="h-8 bg-gray-300 dark:bg-gray-700 rounded w-1/3"></div>
-                        <div className="h-64 bg-gray-200 dark:bg-gray-800 rounded-2xl"></div>
-                    </div>
-                </div>
-            </div>
-        );
-    }
-
-    if (!isAuthenticated) {
-        return (
-            <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 dark:from-gray-900 dark:via-purple-900 dark:to-gray-900 p-6">
-                <div className="flex items-center justify-center h-full">
-                    <div className="text-center max-w-md">
-                        <div className="text-4xl mb-4">🔐</div>
-                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-                            Authentication Required
-                        </h3>
-                        <p className="text-gray-600 dark:text-gray-400">
-                            Please connect your wallet to access wallet details.
-                        </p>
-                    </div>
-                </div>
-            </div>
-        );
-    }
-
-    if (isLoading) {
-        return (
-            <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 dark:from-gray-900 dark:via-purple-900 dark:to-gray-900 p-6">
-                <div className="max-w-4xl mx-auto space-y-6">
-                    {/* Back button skeleton */}
+            <div className="p-6">
+                <div className="max-w-6xl mx-auto space-y-6">
                     <Skeleton className="h-10 w-32" />
-
-                    {/* Header skeleton */}
-                    <div className="rounded-xl bg-white/80 dark:bg-gray-800/80 p-6">
-                        <Skeleton className="h-6 w-96 mb-3" />
-                        <div className="flex gap-3">
-                            <Skeleton className="h-6 w-20" />
-                            <Skeleton className="h-6 w-40" />
-                        </div>
-                    </div>
-
-                    {/* Content skeleton */}
-                    <div className="rounded-xl bg-white/80 dark:bg-gray-800/80 p-6">
-                        <Skeleton className="h-6 w-32 mb-4" />
-                        <div className="space-y-3">
-                            <Skeleton className="h-12 w-full" />
-                            <Skeleton className="h-12 w-full" />
-                            <Skeleton className="h-12 w-full" />
-                        </div>
-                    </div>
+                    <Skeleton className="h-48 w-full rounded-xl" />
+                    <Skeleton className="h-96 w-full rounded-xl" />
                 </div>
             </div>
         );
     }
 
-    if (!wallet) {
-        return (
-            <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 dark:from-gray-900 dark:via-purple-900 dark:to-gray-900 p-6">
-                <div className="max-w-4xl mx-auto text-center py-20">
-                    <div className="text-4xl mb-4">🔍</div>
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-                        Wallet Not Found
-                    </h3>
-                    <p className="text-gray-600 dark:text-gray-400 mb-4">
-                        The wallet address you're looking for doesn't exist.
-                    </p>
-                    <Link href="/wallet-management">
-                        <Button>Back to Wallet Management</Button>
-                    </Link>
-                </div>
-            </div>
-        );
-    }
+    if (!wallet) { return null; }
 
     return (
-        <div className="min-h-screen bg-background p-3 sm:p-6">
-            <div className="max-w-4xl mx-auto space-y-6">
-                {/* Header */}
-                <div className="flex items-center gap-4">
-                    <Link
-                        href="/wallet-management"
-                        className="p-2 rounded-xl bg-white/80 dark:bg-gray-800/80 hover:bg-white dark:hover:bg-gray-800 transition-colors border border-gray-200 dark:border-gray-700"
-                    >
-                        <ArrowLeft className="h-5 w-5" />
-                    </Link>
-                    <div className="flex-1">
-                        <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                            <span className="text-2xl">👛</span>
-                            Wallet Details
-                        </h1>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">
-                            View and manage wallet permissions
-                        </p>
-                    </div>
-                    <Button
-                        variant="outline"
-                        onClick={loadWallet}
-                        disabled={isRefreshing}
-                        className="gap-2"
-                    >
-                        <RefreshCw className={cn('h-4 w-4', isRefreshing && 'animate-spin')} />
-                        Refresh
-                    </Button>
-                </div>
+        <DndContext
+            sensors={sensors}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+        >
+            <div className="p-3 sm:p-6">
+                <div className="max-w-6xl mx-auto space-y-6">
 
-                {/* Address Card */}
-                <div className="rounded-xl bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/40 dark:to-purple-900/40 p-5 border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800">
-                    {/* Address */}
-                    <div className="flex items-center gap-2 mb-3">
-                        <code className="text-sm sm:text-base font-mono font-semibold text-gray-900 dark:text-white break-all">
-                            {wallet.walletAddress}
-                        </code>
-                        <button
-                            onClick={handleCopyAddress}
-                            className="p-1.5 rounded-lg hover:bg-white/50 dark:hover:bg-gray-800/50 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
-                            title="Copy address"
+                    {/* Header */}
+                    <div className="flex items-center gap-4">
+                        <Link
+                            href="/wallet-management"
+                            className="p-2 rounded-xl bg-white border hover:bg-gray-50 transition-colors"
                         >
-                            <Copy className="h-4 w-4" />
-                        </button>
-                        {copied && (
-                            <span className="text-xs text-green-600 dark:text-green-400">Copied!</span>
-                        )}
-                    </div>
-
-                    {/* Status & Info */}
-                    <div className="flex flex-wrap items-center gap-3">
-                        <Badge className={cn('px-3 py-1 border', statusConfig.className)}>
-                            {statusConfig.emoji} {statusConfig.label}
-                        </Badge>
-                        <span className="text-sm text-gray-600 dark:text-gray-400">
-                            <Clock className="h-3.5 w-3.5 inline mr-1" />
-                            Created {formatTimeAgo(wallet.createdAt)}
-                        </span>
-                        {wallet.lastAuthAt && (
-                            <span className="text-sm text-gray-600 dark:text-gray-400">
-                                Last active {formatTimeAgo(wallet.lastAuthAt)}
-                            </span>
-                        )}
-                    </div>
-
-                    {/* Disable Info */}
-                    {wallet.disableInfo && (
-                        <div className="mt-4 p-3 rounded-lg bg-amber-100/50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
-                            <p className="text-sm font-medium text-amber-800 dark:text-amber-300">
-                                ⚠️ This wallet is temporarily disabled
-                            </p>
-                            <p className="text-sm text-amber-700 dark:text-amber-400 mt-1">
-                                <strong>Reason:</strong> {wallet.disableInfo.reasonDetails}
-                            </p>
-                            <p className="text-xs text-amber-600 dark:text-amber-500 mt-1">
-                                Disabled by {wallet.disableInfo.disabledBy} on {formatDate(wallet.disableInfo.disabledAt)}
-                                {wallet.disableInfo.expiresAt && ` • Expires ${formatDate(wallet.disableInfo.expiresAt)}`}
+                            <ArrowLeft className="h-5 w-5" />
+                        </Link>
+                        <div className="flex-1">
+                            <h1 className="text-2xl font-bold flex items-center gap-2">
+                                <span>👛</span>
+                                Wallet Details
+                            </h1>
+                            <p className="text-sm text-gray-500">
+                                Manage wallet access and groups
                             </p>
                         </div>
-                    )}
-                </div>
-
-                {/* Active Subscriptions */}
-                {activeSubscriptions.length > 0 && (
-                    <div className="rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-5">
-                        <h3 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                            <Package className="h-5 w-5 text-purple-600" />
-                            Active Subscriptions
-                        </h3>
-                        <div className="space-y-3">
-                            {activeSubscriptions.map((sub) => (
-                                <div
-                                    key={sub.id}
-                                    className="p-4 rounded-xl border border-purple-200 dark:border-purple-800 bg-purple-50/50 dark:bg-purple-900/10"
-                                >
-                                    <div className="flex items-center justify-between">
-                                        <div>
-                                            <p className="font-medium text-gray-900 dark:text-white">
-                                                📦 {sub.planName}
-                                            </p>
-                                            <p className="text-sm text-gray-600 dark:text-gray-400">
-                                                {sub.priceDisplay} • Since {formatDate(sub.startedAt)}
-                                            </p>
-                                        </div>
-                                        <Badge className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
-                                            Active
-                                        </Badge>
-                                    </div>
-                                    {sub.grantedPermissions.length > 0 && (
-                                        <div className="mt-2 pt-2 border-t border-purple-200 dark:border-purple-700">
-                                            <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
-                                                Auto-grants:
-                                            </p>
-                                            <div className="flex flex-wrap gap-1">
-                                                {sub.grantedPermissions.map((perm) => (
-                                                    <code
-                                                        key={perm}
-                                                        className="text-xs px-1.5 py-0.5 bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700"
-                                                    >
-                                                        {perm}
-                                                    </code>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                )}
-
-                {/* Access Permissions - Unified Manager */}
-                <WalletAccessManager
-                    walletAddress={wallet.walletAddress}
-                    onSaveComplete={loadWallet}
-                />
-
-                {/* Quick Actions & Metadata */}
-                <div className="rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-6 flex items-center justify-between">
-                    <div className="flex flex-col gap-1">
-                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                            Quick Actions & Metadata
-                        </h3>
-
-                        {/* Metadata Display */}
-                        {!isEditingMetadata && (
-                            <div className="flex items-center gap-4 mt-1">
-                                <div className="flex items-center gap-3 bg-gray-50 dark:bg-gray-900/50 rounded-full px-4 py-1.5 border border-gray-100 dark:border-gray-800">
-                                    <div className="flex items-center gap-2">
-                                        <span className="text-sm text-gray-500 font-medium">Label</span>
-                                        {wallet.label ? (
-                                            <span className="px-2 py-0.5 bg-white dark:bg-gray-800 rounded-full text-sm border border-gray-200 dark:border-gray-700 shadow-sm">
-                                                {wallet.label}
-                                            </span>
-                                        ) : (
-                                            <span className="text-sm text-gray-400 italic">None</span>
-                                        )}
-                                    </div>
-                                    <div className="w-px h-4 bg-gray-300 dark:bg-gray-700" />
-                                    <div className="flex items-center gap-2">
-                                        <span className="text-sm text-gray-500 font-medium">Note</span>
-                                        <span className="text-sm text-gray-700 dark:text-gray-300 max-w-[300px] truncate">
-                                            {wallet.note || <span className="text-gray-400 italic">No notes</span>}
-                                        </span>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Inline Metadata Editor */}
-                        {isEditingMetadata && (
-                            <div className="mt-2 bg-gray-50 dark:bg-gray-900/40 p-4 rounded-lg border border-gray-200 dark:border-gray-700 space-y-4 animate-in fade-in slide-in-from-top-2 w-full max-w-2xl">
-                                <div className="space-y-2">
-                                    <Label htmlFor="edit-label">Wallet Label</Label>
-                                    <Input
-                                        id="edit-label"
-                                        placeholder="e.g. VIP, Whale (max 20 chars)"
-                                        value={metadataForm.label}
-                                        onChange={(e) => setMetadataForm(prev => ({ ...prev, label: e.target.value.slice(0, 20) }))}
-                                        className="bg-white dark:bg-gray-800"
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="edit-note">Internal Note</Label>
-                                    <Textarea
-                                        id="edit-note"
-                                        placeholder="Add details about this wallet..."
-                                        value={metadataForm.note}
-                                        onChange={(e) => setMetadataForm(prev => ({ ...prev, note: e.target.value.slice(0, 500) }))}
-                                        className="bg-white dark:bg-gray-800 resize-none h-24"
-                                    />
-                                    <p className="text-xs text-right text-gray-500">
-                                        {metadataForm.note.length}/500
-                                    </p>
-                                </div>
-                                <div className="flex justify-end gap-2 pt-2">
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={cancelEditing}
-                                        disabled={isSavingMetadata}
-                                        className="h-8"
-                                    >
-                                        Cancel
-                                    </Button>
-                                    <Button
-                                        size="sm"
-                                        onClick={handleSaveMetadata}
-                                        disabled={isSavingMetadata}
-                                        className="h-8 gap-2"
-                                    >
-                                        {isSavingMetadata ? (
-                                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                        ) : (
-                                            <Save className="h-3.5 w-3.5" />
-                                        )}
-                                        Save Changes
-                                    </Button>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-
-                    {!isEditingMetadata && (
-                        <div className="flex items-center gap-3">
-                            <Button
-                                variant="outline"
-                                onClick={startEditing}
-                                className="h-10 px-4 border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-200"
-                            >
-                                <Edit className="h-4 w-4 mr-2 text-blue-500" />
-                                Edit Label/Note
-                            </Button>
-
-                            {isDisabled ? (
-                                <Button
-                                    variant="outline"
-                                    onClick={() => setShowReenableModal(true)}
-                                    className="h-10 px-4 border-green-200 dark:border-green-800 hover:bg-green-50 dark:hover:bg-green-900/20 text-green-700 dark:text-green-400"
-                                >
-                                    🔓 Re-enable Wallet
-                                </Button>
-                            ) : (
-                                <Button
-                                    variant="outline"
-                                    onClick={() => setShowDisableModal(true)}
-                                    className="h-10 px-4 border-amber-200 dark:border-amber-800 hover:bg-amber-50 dark:hover:bg-amber-900/20 text-amber-700 dark:text-amber-400"
-                                >
-                                    <AlertTriangle className="h-4 w-4 mr-2" />
-                                    Disable Wallet
-                                </Button>
-                            )}
-
-                            <Button
-                                variant="outline"
-                                onClick={() => window.open(`https://bscscan.com/address/${wallet.walletAddress}`, '_blank')}
-                                className="h-10 px-4 border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-200"
-                            >
-                                <ExternalLink className="h-4 w-4 mr-2" />
-                                View on BSCScan
-                            </Button>
-                        </div>
-                    )}
-                </div>
-
-                {/* Activity History */}
-                {activityEvents.length > 0 && (
-                    <div className="rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-5">
-                        <h3 className="font-semibold text-gray-900 dark:text-white mb-4">
-                            📜 Activity History
-                        </h3>
-                        <WalletActivityTimeline events={activityEvents} maxItems={10} />
-                    </div>
-                )}
-
-                {/* Back Button */}
-                <div className="flex gap-4">
-                    <Link href="/wallet-management" className="flex-1">
-                        <Button variant="outline" className="w-full">
-                            <ArrowLeft className="h-4 w-4 mr-2" />
-                            Back to Wallet Management
+                        <Button
+                            variant="outline"
+                            onClick={() => { loadWallet(); refreshAccess(); }}
+                            disabled={isRefreshing}
+                            className="gap-2"
+                        >
+                            <RefreshCw className={cn('h-4 w-4', isRefreshing && 'animate-spin')} />
+                            Refresh
                         </Button>
-                    </Link>
+                    </div>
+
+                    {/* Wallet Identity & Access Management Section (Merged Metadata & Group Assignment) */}
+                    <div className="pt-4 border-t border-white/10 space-y-6">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                                    <ShieldCheck className="h-5 w-5 text-purple-400" />
+                                    Wallet Identity & Access Management
+                                </h2>
+                                <p className="text-sm text-slate-500 mt-1">Manage wallet identification, subscription plans, and access groups</p>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                            {/* LEFT COLUMN: Selection (Available Plans) */}
+                            <div className="lg:col-span-5 flex flex-col gap-4">
+                                <Card className="flex-1 flex flex-col h-full border border-white/10 bg-slate-900/50 shadow-lg">
+                                    <CardHeader className="pb-3 border-b border-white/5 bg-white/5">
+                                        <div className="flex items-center justify-between mb-3">
+                                            <div className="space-y-1">
+                                                <CardTitle className="text-sm font-semibold text-slate-200">Available Plans</CardTitle>
+                                                <p className="text-xs text-slate-500">Drag items to the right to assign</p>
+                                            </div>
+                                            <Badge variant="outline" className="text-xs border-blue-500/30 text-blue-400">
+                                                {filteredAvailableGroups.length} available
+                                            </Badge>
+                                        </div>
+                                        <Input
+                                            placeholder="Search plans..."
+                                            value={searchQuery}
+                                            onChange={e => setSearchQuery(e.target.value)}
+                                            className="h-8 text-xs bg-slate-950/50 border-white/10 text-slate-200 placeholder:text-slate-600 focus:border-blue-500/50"
+                                        />
+                                    </CardHeader>
+                                    <CardContent className="p-4 overflow-y-auto max-h-[600px]">
+                                        <div className="grid grid-cols-1 gap-3">
+                                            {filteredAvailableGroups.map(group => (
+                                                <DraggableGroupItem
+                                                    key={group.id}
+                                                    id={group.id}
+                                                    label={group.name}
+                                                    description={group.description}
+                                                />
+                                            ))}
+                                            {filteredAvailableGroups.length === 0 && (
+                                                <div className="flex flex-col items-center justify-center py-12 text-slate-500">
+                                                    <Package className="h-10 w-10 mb-3 opacity-20" />
+                                                    <p>No available plans found.</p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            </div>
+
+                            {/* RIGHT COLUMN: Management (Details, Current Plan, Assigned Plans) */}
+                            <div className="lg:col-span-7 flex flex-col gap-6">
+                                {/* Section 1: Wallet Details */}
+                                <Card className="border-0 shadow-lg bg-slate-900/80 ring-1 ring-white/10 overflow-hidden">
+                                    <div className="h-1 bg-gradient-to-r from-amber-500 to-orange-500" />
+                                    <CardHeader className="pb-4 border-b border-white/5 bg-white/5">
+                                        <CardTitle className="text-sm font-semibold uppercase tracking-wider text-amber-500 flex items-center justify-between">
+                                            <span>Wallet Details</span>
+                                            <div className="flex items-center gap-3">
+                                                <Badge className={cn('px-2 py-0.5 border text-[10px] font-bold shadow-sm', statusConfig.className)}>
+                                                    {statusConfig.label}
+                                                </Badge>
+                                                <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-black/20 border border-white/10 normal-case font-mono tracking-tight text-[10px]">
+                                                    <span className="text-slate-400">{walletAddress}</span>
+                                                    <button onClick={handleCopyAddress} className="text-slate-500 hover:text-white transition-colors">
+                                                        <Copy className="h-2.5 w-2.5" />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </CardTitle>
+                                    </CardHeader>
+                                    <CardContent className="pt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                            <Label className="text-slate-400 text-xs font-normal">Label</Label>
+                                            <Input
+                                                value={metadataForm.label}
+                                                onChange={(e) => { setMetadataForm(p => ({ ...p, label: e.target.value })); setHasMetadataChanges(true); }}
+                                                placeholder="e.g. Main Trading Wallet"
+                                                className="h-9 bg-slate-950/50 border-white/10 text-slate-200 text-sm placeholder:text-slate-600 focus:border-purple-500/50 focus:ring-purple-500/20"
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label className="text-slate-400 text-xs font-normal">Private Note</Label>
+                                            <Input
+                                                value={metadataForm.note}
+                                                onChange={(e) => { setMetadataForm(p => ({ ...p, note: e.target.value })); setHasMetadataChanges(true); }}
+                                                placeholder="Internal notes..."
+                                                className="h-9 bg-slate-950/50 border-white/10 text-slate-200 text-sm placeholder:text-slate-600 focus:border-purple-500/50 focus:ring-purple-500/20"
+                                            />
+                                        </div>
+                                    </CardContent>
+                                    <div className="px-6 pb-4 flex gap-2 justify-end pt-2">
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => {
+                                                if (wallet) {
+                                                    setMetadataForm({ label: wallet.label || '', note: wallet.note || '' });
+                                                    setHasMetadataChanges(false);
+                                                }
+                                            }}
+                                            disabled={!hasMetadataChanges}
+                                            className="text-slate-400 hover:text-white h-8 text-xs font-medium"
+                                        >
+                                            Discard
+                                        </Button>
+                                        <Button
+                                            size="sm"
+                                            onClick={handleSaveMetadata}
+                                            disabled={isSavingMetadata || !hasMetadataChanges}
+                                            className="bg-purple-600 hover:bg-purple-700 text-white h-8 text-xs font-medium"
+                                        >
+                                            {isSavingMetadata && <Loader2 className="mr-2 h-3 w-3 animate-spin" />}
+                                            <Save className="mr-2 h-3 w-3" />
+                                            Update Details
+                                        </Button>
+                                    </div>
+                                </Card>
+
+                                {/* Section 2: Current Subscription (Compressed from Card to Box) */}
+                                {wallet.subscriptions && wallet.subscriptions.some(s => s.status === 'active') && (
+                                    <div className="relative group">
+                                        <div className="absolute -inset-0.5 bg-gradient-to-br from-purple-500/10 to-blue-500/10 rounded-xl blur-sm opacity-75 group-hover:opacity-100 transition duration-1000"></div>
+                                        <div className="relative bg-slate-900 border border-white/10 rounded-xl p-4 flex items-center justify-between">
+                                            <div className="flex items-center gap-4">
+                                                <div className="w-10 h-10 rounded-lg bg-purple-500/10 flex items-center justify-center border border-purple-500/20">
+                                                    <Package className="h-5 w-5 text-purple-400" />
+                                                </div>
+                                                <div>
+                                                    <h4 className="text-sm font-bold text-white uppercase tracking-wider leading-none mb-1">Active Subscription</h4>
+                                                    <p className="text-xs text-slate-400">
+                                                        {wallet.subscriptions.find(s => s.status === 'active')?.planName} • Expires {wallet.subscriptions.find(s => s.status === 'active')?.expiresAt ? new Date(wallet.subscriptions.find(s => s.status === 'active')!.expiresAt!).toLocaleDateString() : 'Never'}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <Badge className="bg-green-500/10 text-green-400 border-green-500/20 uppercase text-[10px] font-bold">Active</Badge>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Section 3: Assigned Groups (Plans) */}
+                                <Card className="flex-1 flex flex-col h-full border border-white/10 bg-slate-900/50 shadow-lg min-h-0 overflow-hidden">
+                                    <div className="h-1 bg-gradient-to-r from-blue-500 to-cyan-500" />
+                                    <CardHeader className="pb-3 border-b border-white/5 bg-white/5">
+                                        <div className="flex items-center justify-between mb-3">
+                                            <div className="flex items-center gap-2">
+                                                <CardTitle className="text-sm font-semibold uppercase tracking-wider text-blue-400">Assigned Plans</CardTitle>
+                                                <Badge variant="outline" className="text-[10px] h-4 px-1 border-blue-500/30 text-blue-400 leading-none">
+                                                    {accessData.authorizedGroups.length + pendingDrops.length}
+                                                </Badge>
+                                            </div>
+                                            <Badge variant="outline" className="text-[10px] font-normal border-blue-500/20 text-blue-400/60 uppercase tracking-widest">
+                                                Drag here
+                                            </Badge>
+                                        </div>
+                                        <Input
+                                            placeholder="Search within assignments..."
+                                            value={assignedSearchQuery}
+                                            onChange={e => setAssignedSearchQuery(e.target.value)}
+                                            className="h-8 text-xs bg-slate-950/50 border-white/10 text-slate-200 placeholder:text-slate-600 focus:border-blue-500/50"
+                                        />
+                                    </CardHeader>
+                                    <CardContent className="p-0 flex flex-col min-h-0">
+                                        <div className="p-4 overflow-y-auto max-h-[400px]">
+                                            <DroppableGroupList
+                                                id="assigned-group-list"
+                                                items={accessData.authorizedGroups.filter(g =>
+                                                    g.name.toLowerCase().includes(assignedSearchQuery.toLowerCase())
+                                                )}
+                                                pendingItems={pendingDrops.filter(g =>
+                                                    g.name.toLowerCase().includes(assignedSearchQuery.toLowerCase())
+                                                )}
+                                                emptyMessage="Drag plans here from the left to assign access"
+                                                onEdit={(item) => setEditingItem({ item, type: 'group' })}
+                                                onDelete={(id) => {
+                                                    if (pendingDrops.find(p => p.id === id)) {
+                                                        setPendingDrops(prev => prev.filter(p => p.id !== id));
+                                                        toast.info('Removed from staging');
+                                                    } else {
+                                                        const group = accessData.authorizedGroups.find(g => g.id === id);
+                                                        if (confirm(`Are you sure you want to remove access to "${group?.name}"?`)) {
+                                                            removeGroup(id).then(() => {
+                                                                toast.success('Plan access revoked');
+                                                                refreshAccess();
+                                                            });
+                                                        }
+                                                    }
+                                                }}
+                                            />
+                                        </div>
+                                        {/* Action Button Bar */}
+                                        <div className="p-3 border-t border-white/5 bg-slate-950/50 flex gap-2 justify-end">
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => setPendingDrops([])}
+                                                disabled={!hasPending}
+                                                className="text-slate-400 hover:text-white h-8 text-xs font-medium"
+                                            >
+                                                Discard
+                                            </Button>
+                                            <Button
+                                                size="sm"
+                                                onClick={handleSavePendingChanges}
+                                                disabled={isSavingPending || !hasPending}
+                                                className="bg-purple-600 hover:bg-purple-700 text-white h-8 text-xs font-medium"
+                                            >
+                                                {isSavingPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Save className="h-3 w-3 mr-1" />}
+                                                Save Assignments
+                                            </Button>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            </div>
+                        </div>
+                    </div>
+
+
+                    {/* Group & Plan Management Builder */}
+                    <div className="pt-8 border-t border-white/10 mt-8 space-y-6">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                                    <Package className="h-5 w-5 text-purple-400" />
+                                    Group & Plan Management
+                                </h2>
+                                <p className="text-sm text-slate-500 mt-1">Edit group definitions and assign permissions</p>
+                            </div>
+                            <Button
+                                size="sm"
+                                onClick={() => {/* TODO: Create New Group Handler */ }}
+                                className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+                            >
+                                <Package className="h-4 w-4 mr-2" />
+                                New Group
+                            </Button>
+                        </div>
+
+                        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                            {/* LEFT COLUMN: Selection (Moved from right) */}
+                            <div className="lg:col-span-5">
+                                <div className="flex flex-col gap-4">
+                                    {/* Top: Group List - Collapsible height */}
+                                    <Card className="border border-white/10 bg-slate-900/50 shadow-lg">
+                                        <CardHeader className="py-3 px-4 border-b border-white/5 bg-white/5">
+                                            <div className="flex items-center justify-between mb-2">
+                                                <CardTitle className="text-sm font-semibold text-slate-200">Select Group</CardTitle>
+                                                <Badge variant="outline" className="text-xs border-purple-500/30 text-purple-400">
+                                                    {allGroups.length} groups
+                                                </Badge>
+                                            </div>
+                                            <Input
+                                                placeholder="Search groups..."
+                                                value={groupBuilderSearchQuery}
+                                                onChange={e => setGroupBuilderSearchQuery(e.target.value)}
+                                                className="h-8 text-xs bg-slate-950/50 border-white/10 text-slate-200 placeholder:text-slate-600"
+                                            />
+                                        </CardHeader>
+                                        <CardContent className="p-0 overflow-y-auto max-h-[300px]">
+                                            <div className="divide-y divide-white/5">
+                                                {allGroups
+                                                    .filter(g => g.name.toLowerCase().includes(groupBuilderSearchQuery.toLowerCase()))
+                                                    .map(group => (
+                                                        <div
+                                                            key={group.id}
+                                                            onClick={() => handleSelectGroupForBuilder(group.id)}
+                                                            className={cn(
+                                                                "p-3 flex items-center justify-between cursor-pointer hover:bg-white/5 transition-colors",
+                                                                builderSelectedGroupId === group.id ? "bg-purple-500/10 hover:bg-purple-500/20 border-l-4 border-l-purple-500" : "border-l-4 border-l-transparent"
+                                                            )}
+                                                        >
+                                                            <div className="min-w-0 flex-1">
+                                                                <p className="font-medium text-sm text-slate-200">{group.name}</p>
+                                                                <p className="text-xs text-slate-500 truncate">{group.description || 'No description'}</p>
+                                                            </div>
+                                                            <Button size="icon" variant="ghost" className="h-6 w-6 text-slate-500 hover:text-white flex-shrink-0">
+                                                                <span className="sr-only">Edit</span>
+                                                                <ArrowLeft className="h-3 w-3 rotate-180" />
+                                                            </Button>
+                                                        </div>
+                                                    ))}
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+
+                                    {/* Bottom: Available Permissions - Shows all inline */}
+                                    <Card className="border border-white/10 bg-slate-900/50 shadow-lg">
+                                        <CardHeader className="py-3 px-4 border-b border-white/5 bg-white/5">
+                                            <div className="flex items-center justify-between mb-2">
+                                                <CardTitle className="text-sm font-semibold text-slate-200">Available Permissions</CardTitle>
+                                                <Badge variant="outline" className="text-xs border-cyan-500/30 text-cyan-400">
+                                                    {filteredAvailablePermissions.length} available
+                                                </Badge>
+                                            </div>
+                                            <Input
+                                                placeholder="Search permissions..."
+                                                value={permissionSearchQuery}
+                                                onChange={e => setPermissionSearchQuery(e.target.value)}
+                                                className="h-8 text-xs bg-slate-950/50 border-white/10 text-slate-200 placeholder:text-slate-600"
+                                            />
+                                        </CardHeader>
+                                        <CardContent className="p-2 overflow-y-auto max-h-[450px]">
+                                            <div className="grid grid-cols-1 gap-2">
+                                                {filteredAvailablePermissions.map(perm => (
+                                                    <DraggablePermissionItem
+                                                        key={perm.id}
+                                                        id={perm.id}
+                                                        label={perm.name}
+                                                    />
+                                                ))}
+                                                {filteredAvailablePermissions.length === 0 && (
+                                                    <div className="flex flex-col items-center justify-center py-8 text-slate-500">
+                                                        <Key className="h-8 w-8 mb-2 opacity-20" />
+                                                        <p className="text-sm">No permissions found</p>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                </div>
+                            </div>
+
+                            {/* RIGHT COLUMN: Editor (Moved from left) */}
+                            <div className="lg:col-span-7 flex flex-col gap-4">
+                                {builderSelectedGroupId ? (
+                                    <>
+                                        {/* Edit Group Details */}
+                                        <Card className="border border-white/10 bg-slate-900/50 shadow-lg shrink-0">
+                                            <div className="h-1 bg-gradient-to-r from-amber-500 to-orange-500" />
+                                            <CardHeader className="pb-3 border-b border-white/5 bg-white/5">
+                                                <CardTitle className="text-sm font-semibold uppercase tracking-wider text-amber-400">
+                                                    Edit Group Details
+                                                </CardTitle>
+                                            </CardHeader>
+                                            <CardContent className="pt-4 grid grid-cols-2 gap-4">
+                                                <div className="col-span-2 md:col-span-1 space-y-2">
+                                                    <Label className="text-slate-400">Group Name</Label>
+                                                    <Input
+                                                        placeholder="e.g. Premium Plan"
+                                                        value={builderForm.name}
+                                                        onChange={e => { setBuilderForm(p => ({ ...p, name: e.target.value })); setHasBuilderChanges(true); }}
+                                                        className="bg-slate-950/50 border-white/10 text-slate-200 placeholder:text-slate-600"
+                                                    />
+                                                </div>
+                                                <div className="col-span-2 md:col-span-1 space-y-2">
+                                                    <Label className="text-slate-400">Priority Order</Label>
+                                                    <Input
+                                                        type="number"
+                                                        placeholder="0"
+                                                        value={builderForm.priority}
+                                                        onChange={e => { setBuilderForm(p => ({ ...p, priority: parseInt(e.target.value) || 0 })); setHasBuilderChanges(true); }}
+                                                        className="bg-slate-950/50 border-white/10 text-slate-200 placeholder:text-slate-600"
+                                                    />
+                                                </div>
+                                                <div className="col-span-2 md:col-span-1 space-y-2">
+                                                    <Label className="text-slate-400">Default Expiry (Days)</Label>
+                                                    <Input
+                                                        type="number"
+                                                        placeholder="30"
+                                                        value={builderForm.expiryDays}
+                                                        onChange={e => { setBuilderForm(p => ({ ...p, expiryDays: parseInt(e.target.value) || 0 })); setHasBuilderChanges(true); }}
+                                                        className="bg-slate-950/50 border-white/10 text-slate-200 placeholder:text-slate-600"
+                                                    />
+                                                </div>
+                                                <div className="col-span-2 md:col-span-1 space-y-2">
+                                                    <Label className="text-slate-400">Description</Label>
+                                                    <Input
+                                                        placeholder="Description of this group..."
+                                                        value={builderForm.description}
+                                                        onChange={e => { setBuilderForm(p => ({ ...p, description: e.target.value })); setHasBuilderChanges(true); }}
+                                                        className="bg-slate-950/50 border-white/10 text-slate-200 placeholder:text-slate-600"
+                                                    />
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+
+                                        {/* Assigned Permissions */}
+                                        <Card className="flex-1 flex flex-col border border-white/10 bg-slate-900/50 shadow-lg min-h-0">
+                                            <div className="h-1 bg-gradient-to-r from-blue-500 to-cyan-500" />
+                                            <CardHeader className="pb-3 border-b border-white/5 bg-white/5">
+                                                <CardTitle className="text-sm font-semibold uppercase tracking-wider text-blue-400 flex justify-between items-center">
+                                                    <span>Assigned Permissions ({builderPermissions.length})</span>
+                                                    <Badge variant="outline" className="text-xs normal-case font-normal border-blue-500/30 text-blue-400">
+                                                        Drag here
+                                                    </Badge>
+                                                </CardTitle>
+                                            </CardHeader>
+                                            <CardContent className="p-0 flex flex-col min-h-0 overflow-hidden">
+                                                <div className="p-4 overflow-y-auto max-h-[400px]">
+                                                    <DroppablePermissionList
+                                                        id="builder-group-permissions"
+                                                        items={builderPermissions}
+                                                        emptyMessage="Drag permissions here from the left"
+                                                    />
+                                                </div>
+                                                <div className="p-3 border-t border-white/5 bg-slate-950/50 flex gap-2 justify-end mt-auto">
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={() => setBuilderSelectedGroupId(null)}
+                                                        className="text-slate-400 hover:text-white"
+                                                    >
+                                                        Discard
+                                                    </Button>
+                                                    <Button
+                                                        variant="destructive"
+                                                        size="sm"
+                                                        onClick={() => {/* TODO: Delete Group */ }}
+                                                        className="bg-red-600/80 hover:bg-red-600"
+                                                    >
+                                                        Delete
+                                                    </Button>
+                                                    <Button
+                                                        size="sm"
+                                                        className="bg-purple-600 hover:bg-purple-700"
+                                                        disabled={!hasBuilderChanges || isSavingBuilder}
+                                                        onClick={handleSaveGroup}
+                                                    >
+                                                        {isSavingBuilder ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Save className="h-4 w-4 mr-1" />}
+                                                        Save
+                                                    </Button>
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+                                    </>
+                                ) : (
+                                    <div className="h-full flex flex-col items-center justify-center border-2 border-dashed border-white/10 rounded-xl bg-slate-900/30 text-slate-500 py-16">
+                                        <Package className="h-16 w-16 mb-4 opacity-20" />
+                                        <h3 className="text-lg font-semibold text-slate-400">No Group Selected</h3>
+                                        <p className="text-sm">Select a group from the left to edit details and permissions</p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
                 </div>
+
+                {/* DND Overlay */}
+                <DragOverlay>
+                    {activeDragItem && (
+                        <div className={cn(
+                            "flex items-center gap-2 px-3 py-2 bg-white dark:bg-gray-800 rounded-lg shadow-xl border opacity-90 scale-105 pointer-events-none",
+                            activeDragItem.type === 'permission' ? "border-blue-500" : "border-purple-500"
+                        )}>
+                            {activeDragItem.type === 'permission' ? (
+                                <Key className="h-4 w-4 text-purple-500" />
+                            ) : (
+                                <Package className="h-4 w-4 text-purple-500" />
+                            )}
+                            <span className="font-medium text-sm">{activeDragItem.name}</span>
+                        </div>
+                    )}
+                </DragOverlay>
+
+                {/* Trash Zone */}
+                <TrashDropZone isDragging={!!activeDragItem} />
+
+                {/* Disable/Re-enable Modals */}
+                {showDisableModal && (
+                    <DisableWalletModal
+                        walletAddress={wallet.walletAddress}
+                        isOpen={true}
+                        onClose={() => setShowDisableModal(false)}
+                        onConfirm={handleDisableWallet}
+                        isLoading={isActionLoading}
+                    />
+                )}
+                {showReenableModal && wallet.disableInfo && (
+                    <ReenableWalletModal
+                        walletAddress={wallet.walletAddress}
+                        disableInfo={wallet.disableInfo}
+                        isOpen={true}
+                        onClose={() => setShowReenableModal(false)}
+                        onConfirm={handleReenableWallet}
+                        isLoading={isActionLoading}
+                    />
+                )}
+
+                {/* Expiry Date Picker for Editing */}
+                {editingItem && (
+                    <ExpiryDatePicker
+                        itemName={editingItem.item.name}
+                        itemType={editingItem.type}
+                        isOpen={true}
+                        onConfirm={async (date) => {
+                            try {
+                                const expiry = date ? date.toISOString() : undefined;
+                                if (editingItem.type === 'group') {
+                                    await assignGroup(editingItem.item.id, expiry);
+                                    toast.success(`Updated expiry for "${editingItem.item.name}"`);
+                                    refreshAccess();
+                                }
+                                // Add permission edit logic here if needed
+                            } catch (err) {
+                                toast.error('Failed to update expiry');
+                            }
+                            setEditingItem(null);
+                        }}
+                        onCancel={() => setEditingItem(null)}
+                    />
+                )}
             </div>
-
-            {/* Disable Modal */}
-            {showDisableModal && (
-                <DisableWalletModal
-                    walletAddress={wallet.walletAddress}
-                    isOpen={true}
-                    onClose={() => setShowDisableModal(false)}
-                    onConfirm={handleDisableWallet}
-                    isLoading={isActionLoading}
-                />
-            )}
-
-            {/* Re-enable Modal */}
-            {showReenableModal && wallet.disableInfo && (
-                <ReenableWalletModal
-                    walletAddress={wallet.walletAddress}
-                    disableInfo={wallet.disableInfo}
-                    isOpen={true}
-                    onClose={() => setShowReenableModal(false)}
-                    onConfirm={handleReenableWallet}
-                    isLoading={isActionLoading}
-                />
-            )}
-        </div>
+        </DndContext>
     );
 }

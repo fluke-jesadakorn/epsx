@@ -4,7 +4,7 @@ import { devLog } from '@/shared/utils'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { parseUnits } from 'viem'
 import { useWaitForTransactionReceipt, useWriteContract } from 'wagmi'
-import { env } from '../../../../../../shared/env/schema'
+import { env } from '../@/shared/env/schema'
 
 interface UsePaymentTransactionProps {
     tokenAddress: string | null

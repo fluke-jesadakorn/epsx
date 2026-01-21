@@ -23,9 +23,9 @@ import type {
   TokenValidationOptions as SharedTokenValidationOptions,
   LegacyJWTPayload as SharedLegacyJWTPayload,
   MigrationResult as SharedMigrationResult
-} from '../../../shared/types/auth-separation';
+} from '@/shared/types/auth-separation';
 
-export * from '../../../shared/types/auth-separation';
+export * from '@/shared/types/auth-separation';
 
 // Re-export with exact same names for backward compatibility
 export type BaseJWTPayload = SharedBaseJWTPayload;

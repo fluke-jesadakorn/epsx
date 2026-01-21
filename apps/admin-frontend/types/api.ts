@@ -9,7 +9,7 @@
 import type {
   EPSRanking as SharedEPSRanking,
   AnalyticsRankingsResponse as SharedEPSRankingsResponse,
-} from '../../../shared/types/analytics';
+} from '@/shared/types/analytics';
 import type {
   PaginatedResponse,
   ActionResult as SharedActionResult,
@@ -30,16 +30,16 @@ import type {
   SystemRecommendation as SharedSystemRecommendation,
   UpdateUserRequest as SharedUpdateUserRequest,
   UserSearchRequest as SharedUserSearchRequest
-} from '../../../shared/types/api';
+} from '@/shared/types/api';
 import type {
   BroadcastNotificationRequest as SharedBroadcastNotificationRequest,
   Notification as SharedNotification,
   NotificationCreateRequest as SharedNotificationCreateRequest,
-} from '../../../shared/types/notifications';
+} from '@/shared/types/notifications';
 
 // Legacy compatibility (admin-frontend was importing from core types)
 
-export * from '../../../shared/types/api';
+export * from '@/shared/types/api';
 // export type { Permission, PermissionAnalytics, User, UserStats } from './core';
 export type { PaginatedResponse };
 

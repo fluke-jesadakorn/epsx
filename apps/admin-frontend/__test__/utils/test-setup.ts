@@ -13,7 +13,7 @@
 
 import { test as base, expect, Page, APIRequestContext } from '@playwright/test';
 
-import { getBackendUrl } from '../../../../shared/utils/url-resolver';
+import { getBackendUrl } from '@/shared/utils/url-resolver';
 import {
   TEST_USERS,
   TEST_SESSIONS,
