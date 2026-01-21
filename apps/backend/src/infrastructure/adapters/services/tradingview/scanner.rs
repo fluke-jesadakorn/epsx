@@ -6,7 +6,7 @@ use tracing::debug;
 
 use crate::domain::shared_kernel::entities::market_data::StockScreeningResult;
 use super::types::{
-    TradingViewResponse, TradingViewStock, StockDataField,
+    TradingViewResponse, TradingViewStock,
     PhaseInfo, PhaseStatus, PhaseType
 };
 use super::types::{TradingViewConfig, FrontendEPSResponse, FrontendPagination};

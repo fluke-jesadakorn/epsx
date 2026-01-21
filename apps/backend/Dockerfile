@@ -20,16 +20,19 @@ COPY apps/backend/Cargo.toml apps/backend/Cargo.lock ./
 # Create src directory and dummy files for all binaries (for dependency caching)
 RUN mkdir -p src/bin && \
     echo "fn main() {}" > src/main.rs && \
-    echo "fn main() {}" > src/bin/blockchain_monitor.rs
+    echo "fn main() {}" > src/bin/blockchain_monitor.rs && \
+    echo "fn main() {}" > src/bin/migrate.rs && \
+    echo "fn main() {}" > src/bin/grant_wallet_permission.rs
 
 # Build dependencies only for the main binary (for caching)
 RUN cargo build --release --bin epsx && rm -rf src
 
 # Copy source code
 COPY apps/backend/src/ ./src/
+COPY apps/backend/migrations/ ./migrations/
 
 # Build application with optimizations
-RUN cargo build --release --bin epsx
+RUN cargo build --release --features="cli-tools" --bin epsx --bin migrate
 
 # Stage 2: Runtime stage with minimal Debian
 FROM debian:bookworm-slim AS runtime
@@ -51,6 +54,7 @@ WORKDIR /app
 
 # Copy binary from builder stage
 COPY --from=builder --chown=nonroot:nonroot /app/target/release/epsx ./epsx
+COPY --from=builder --chown=nonroot:nonroot /app/target/release/migrate ./migrate
 
 # Switch to non-root user
 USER nonroot:nonroot

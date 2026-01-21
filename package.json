@@ -20,6 +20,8 @@
     "fund:wallet": "chmod +x scripts/dev/fund-wallet.sh && ./scripts/dev/fund-wallet.sh",
     "dev:up": "docker compose -f infrastructure/docker/docker-compose.yml up --build",
     "dev:down": "docker compose -f infrastructure/docker/docker-compose.yml down",
+    "dev:backend:docker": "docker compose -f infrastructure/docker/docker-compose.backend.yml up --build",
+    "dev:backend:docker:down": "docker compose -f infrastructure/docker/docker-compose.backend.yml down",
     "dev:logs": "docker compose -f infrastructure/docker/docker-compose.yml logs -f",
     "dev:all": "turbo run dev --filter='epsx-frontend' --filter='epsx-admin-frontend' --filter='@epsx/backend' --parallel",
     "dev:frontend": "turbo run dev --filter='epsx-frontend'",
