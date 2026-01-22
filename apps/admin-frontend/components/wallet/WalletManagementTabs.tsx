@@ -1,11 +1,13 @@
 'use client';
 
+import { PlanManagementView } from '@/components/access-control/PlanManagementView';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Activity, Shield, Wallet } from 'lucide-react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useCallback } from 'react';
 import { ActivityLogSection } from './ActivityLogSection';
 import { WalletSection } from './WalletSection';
+
 
 
 export function WalletManagementTabs() {
