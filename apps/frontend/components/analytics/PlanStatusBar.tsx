@@ -1,7 +1,9 @@
 'use client';
 
 import { usePlanAccess } from '@/hooks/usePlanAccess';
+import { useUpgradeOptions } from '@/hooks/useUpgradeOptions';
 import { cn } from '@/lib/utils';
+import { FREE_PLAN_NAME, FREE_PLAN_RANKING_OFFSET } from '@/shared/config/constants';
 import { Crown, Lock, Rocket, Shield, Sparkles, Star, Zap } from 'lucide-react';
 import Link from 'next/link';
 
@@ -55,6 +57,7 @@ function getTierConfig(tierLevel: number): TierConfig {
 
 export function PlanStatusBar({ className }: PlanStatusBarProps): React.ReactElement {
     const { planAccess, loading } = usePlanAccess();
+    const { nextPlan, loading: loadingUpgrade } = useUpgradeOptions();
 
     if (loading) {
         return (
@@ -73,7 +76,7 @@ export function PlanStatusBar({ className }: PlanStatusBarProps): React.ReactEle
         );
     }
 
-    const rankingOffset = planAccess?.ranking_offset ?? 100;
+    const rankingOffset = planAccess?.ranking_offset ?? FREE_PLAN_RANKING_OFFSET;
     const planName = planAccess?.plan_name;
     const canUpgrade = planAccess?.can_upgrade ?? true;
 
@@ -90,9 +93,21 @@ export function PlanStatusBar({ className }: PlanStatusBarProps): React.ReactEle
         : `Ranks ${visibleRankStart}+`;
 
     // Calculate locked ranks for upgrade prompt
-    const lockedRanksText = rankingOffset > 0
-        ? `Unlock ranks 1-${rankingOffset}`
-        : null;
+    // FIX: "1-1" display issue. If offset is 1, it means Rank 1 is locked.
+    // Display "Unlock Rank 1" instead of "Unlock ranks 1-1".
+    let lockedRanksText = null;
+    if (rankingOffset > 0) {
+        if (rankingOffset === 1) {
+            lockedRanksText = `Unlock Rank 1`;
+        } else {
+            lockedRanksText = `Unlock ranks 1-${rankingOffset}`;
+        }
+    }
+
+    // Dynamic Upgrade CTA
+    const upgradeButtonText = nextPlan
+        ? `${lockedRanksText} with ${nextPlan.name}`
+        : lockedRanksText;
 
     return (
         <div className={cn(
@@ -122,7 +137,7 @@ export function PlanStatusBar({ className }: PlanStatusBarProps): React.ReactEle
                     <div>
                         <div className="flex items-center gap-2">
                             <h3 className="text-base font-bold text-white">
-                                {planName || 'Free Plan'}
+                                {planName || FREE_PLAN_NAME}
                             </h3>
                             {tierLevel > 0 && (
                                 <span className={cn(
@@ -143,7 +158,12 @@ export function PlanStatusBar({ className }: PlanStatusBarProps): React.ReactEle
                                     <span className="text-slate-500">•</span>
                                     <div className="flex items-center gap-1 text-sm text-slate-400">
                                         <Lock className="h-3 w-3" />
-                                        <span>Ranks 1-{rankingOffset} locked</span>
+                                        <span>
+                                            {rankingOffset === 1
+                                                ? 'Rank 1 locked'
+                                                : `Ranks 1-${rankingOffset} locked`
+                                            }
+                                        </span>
                                     </div>
                                 </>
                             )}
@@ -161,7 +181,7 @@ export function PlanStatusBar({ className }: PlanStatusBarProps): React.ReactEle
                         )}
                     >
                         <Rocket className="h-4 w-4 transition-transform group-hover:-rotate-12" />
-                        {lockedRanksText}
+                        {upgradeButtonText}
                     </Link>
                 )}
 

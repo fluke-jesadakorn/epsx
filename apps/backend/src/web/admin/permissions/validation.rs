@@ -1,5 +1,5 @@
 // Permission Validation Logic
-// Consolidates validation operations from permission_group_handlers.rs and centralized_permission_handlers.rs
+// Consolidates validation operations from permission_plan_handlers.rs and centralized_permission_handlers.rs
 // Uses UnifiedPermissionService as the single source of truth for permissions
 
 use axum::{
@@ -37,7 +37,7 @@ pub struct PermissionValidationResponse {
     pub is_valid: bool,
     pub permission: String,
     pub wallet_address: String,
-    pub group_id: Option<String>,
+    pub plan_id: Option<String>,
     pub validation_result: PermissionValidationResult,
     pub error_details: Option<PermissionError>,
     pub suggestions: Option<Vec<PermissionSuggestion>>,
@@ -50,7 +50,7 @@ pub struct PermissionValidationResult {
     pub granted: bool,
     pub reason: String,
     pub expires_at: Option<DateTime<Utc>>,
-    pub source_group: Option<String>,
+    pub source_plan: Option<String>,
     pub next_refresh: Option<DateTime<Utc>>,
 }
 
@@ -75,7 +75,7 @@ pub struct PermissionSuggestion {
 
 #[derive(Debug, Serialize)]
 pub struct UpgradePath {
-    pub suggested_group: String,
+    pub suggested_plan: String,
     pub price_difference: f64,
     pub additional_permissions: Vec<String>,
     pub upgrade_url: String,
@@ -105,7 +105,7 @@ pub struct BulkPermissionValidationResponse {
 #[derive(Debug, Serialize)]
 pub struct WalletPermissionsResponse {
     pub wallet_address: String,
-    pub groups: Vec<PermissionGroupSummary>,
+    pub plans: Vec<PermissionPlanSummary>,
     pub effective_permissions: Vec<String>,
     pub permission_summary: PermissionSummary,
     pub audit_id: String,
@@ -113,10 +113,10 @@ pub struct WalletPermissionsResponse {
 }
 
 #[derive(Debug, Serialize)]
-pub struct PermissionGroupSummary {
+pub struct PermissionPlanSummary {
     pub id: String,
     pub name: String,
-    pub group_type: String,
+    pub plan_type: String,
     pub is_active: bool,
     pub assigned_at: DateTime<Utc>,
     pub expires_at: Option<DateTime<Utc>>,
@@ -128,7 +128,7 @@ pub struct PermissionSummary {
     pub active_permissions: i32,
     pub expiring_soon: i32,
     pub expired_permissions: i32,
-    pub highest_group: String,
+    pub highest_plan: String,
 }
 
 // ============================================================================
@@ -163,13 +163,13 @@ pub async fn validate_permission(
     };
 
     // Get permission details for source information
-    let source_group = if is_valid {
+    let source_plan = if is_valid {
         match permission_service.get_wallet_permissions(&wallet).await {
             Ok(perms) => perms
                 .iter()
                 .find(|p| p.permission_string == req.permission)
                 .and_then(|p| {
-                    if p.source_type == crate::auth::unified_permission_service::PermissionSource::Group {
+                    if p.source_type == crate::auth::unified_permission_service::PermissionSource::Plan {
                         Some(p.source_name.clone())
                     } else {
                         None
@@ -190,7 +190,7 @@ pub async fn validate_permission(
             "Insufficient permissions".to_string()
         },
         expires_at: None, // Can be enhanced if needed
-        source_group: source_group.clone(),
+        source_plan: source_plan.clone(),
         next_refresh: Some(Utc::now() + chrono::Duration::hours(1)),
     };
 
@@ -237,7 +237,7 @@ pub async fn validate_permission(
         is_valid,
         permission: req.permission,
         wallet_address: wallet,
-        group_id: source_group,
+        plan_id: source_plan,
         validation_result,
         error_details,
         suggestions,
@@ -329,13 +329,13 @@ pub async fn get_wallet_permissions(
     };
 
     #[derive(QueryableByName)]
-    struct GroupRow {
+    struct PlanRow {
         #[diesel(sql_type = diesel::sql_types::Uuid)]
         id: Uuid,
         #[diesel(sql_type = diesel::sql_types::Text)]
         name: String,
         #[diesel(sql_type = diesel::sql_types::Text)]
-        group_type: String,
+        plan_type: String,
         #[diesel(sql_type = diesel::sql_types::Bool)]
         is_active: bool,
         #[diesel(sql_type = diesel::sql_types::Timestamptz)]
@@ -344,34 +344,34 @@ pub async fn get_wallet_permissions(
         expires_at: Option<DateTime<Utc>>,
     }
 
-    // Get permission groups assigned to wallet
-    let groups = match diesel::sql_query(
+    // Get permission plans assigned to wallet
+    let plans = match diesel::sql_query(
         r#"
         SELECT
-            pg.id, pg.name, pg.group_type,
+            pg.id, pg.name, pg.plan_type,
             wga.is_active, wga.assigned_at, wga.expires_at
-        FROM wallet_group_assignments wga
-        JOIN groups pg ON wga.group_id = pg.id
+        FROM wallet_plan_assignments wga
+        JOIN plans pg ON wga.plan_id = pg.id
         WHERE wga.wallet_address = $1
         ORDER BY wga.assigned_at DESC
         "#
     )
     .bind::<diesel::sql_types::Text, _>(&wallet)
-    .load::<GroupRow>(&mut conn)
+    .load::<PlanRow>(&mut conn)
     .await
     {
         Ok(rows) => rows,
         Err(e) => {
-            tracing::error!("Failed to fetch permission groups: {}", e);
+            tracing::error!("Failed to fetch permission plans: {}", e);
             return AdminResponse::server_error("Database query failed").into_response();
         }
     };
 
-    let groups: Vec<PermissionGroupSummary> = groups.into_iter().map(|row| {
-        PermissionGroupSummary {
+    let plans: Vec<PermissionPlanSummary> = plans.into_iter().map(|row| {
+        PermissionPlanSummary {
             id: row.id.to_string(),
             name: row.name,
-            group_type: row.group_type,
+            plan_type: row.plan_type,
             is_active: row.is_active,
             assigned_at: row.assigned_at,
             expires_at: row.expires_at,
@@ -405,7 +405,7 @@ pub async fn get_wallet_permissions(
     let expiring_count = match diesel::sql_query(
         r#"
         SELECT COUNT(DISTINCT wga.id)::bigint as count
-        FROM wallet_group_assignments wga
+        FROM wallet_plan_assignments wga
         WHERE wga.wallet_address = $1
           AND wga.is_active = true
           AND wga.expires_at IS NOT NULL
@@ -424,7 +424,7 @@ pub async fn get_wallet_permissions(
     let expired_count = match diesel::sql_query(
         r#"
         SELECT COUNT(DISTINCT wga.id)::bigint as count
-        FROM wallet_group_assignments wga
+        FROM wallet_plan_assignments wga
         WHERE wga.wallet_address = $1
           AND wga.expires_at IS NOT NULL
           AND wga.expires_at < NOW()
@@ -438,7 +438,7 @@ pub async fn get_wallet_permissions(
         Err(_) => 0,
     };
 
-    let highest_group = groups[..]
+    let highest_plan = plans[..]
         .first()
         .map(|g| g.name.clone())
         .unwrap_or_else(|| "None".to_string());
@@ -448,7 +448,7 @@ pub async fn get_wallet_permissions(
         active_permissions: permissions.len() as i32,
         expiring_soon: expiring_count,
         expired_permissions: expired_count,
-        highest_group,
+        highest_plan,
     };
 
     tracing::info!(
@@ -460,7 +460,7 @@ pub async fn get_wallet_permissions(
 
     let response = WalletPermissionsResponse {
         wallet_address: wallet,
-        groups,
+        plans,
         effective_permissions: permissions,
         permission_summary,
         audit_id,

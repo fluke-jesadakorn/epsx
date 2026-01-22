@@ -351,20 +351,20 @@ impl OpenIDTokenService {
 
     /// Get wallet user profile from database
     /// CRITICAL: This is the ONLY place we query database for permissions
-    /// All permissions from permission groups are expanded here and stored in JWT
+    /// All permissions from permission plans are expanded here and stored in JWT
     async fn get_wallet_user_profile(&self, wallet_address: &str) -> Result<WalletUserProfile, OpenIDTokenError> {
-        // Expand permission groups into individual permissions
-        let expanded_permissions = self.expand_groups(wallet_address).await?;
+        // Expand permission plans into individual permissions
+        let expanded_permissions = self.expand_plans(wallet_address).await?;
 
         Ok(WalletUserProfile {
             wallet_address: wallet_address.to_string(),
-            permissions: expanded_permissions,  // All permissions (inherited from groups + direct)
+            permissions: expanded_permissions,  // All permissions (inherited from plans + direct)
         })
     }
 
     /// Get permissions from normalized permission tables
-    /// Queries: wallet_group_memberships + group_permissions + wallet_direct_permissions
-    async fn expand_groups(
+    /// Queries: wallet_plan_assignments + plan_permissions + wallet_direct_permissions
+    async fn expand_plans(
         &self,
         wallet_address: &str,
     ) -> Result<Vec<String>, OpenIDTokenError> {
@@ -400,10 +400,10 @@ impl OpenIDTokenService {
 
         let permission_records = diesel::sql_query(
             r#"
-            -- Permissions from groups (extract name from JSON VARCHAR)
+            -- Permissions from plans (extract name from JSON VARCHAR)
             SELECT DISTINCT (p.permission_string::jsonb)->>'name' as permission_string
-            FROM wallet_group_assignments wga
-            JOIN group_permissions pgm ON wga.group_id = pgm.group_id
+            FROM wallet_plan_assignments wga
+            JOIN plan_permissions pgm ON wga.plan_id = pgm.plan_id
             JOIN permissions p ON pgm.permission_id = p.id
             WHERE wga.wallet_address = $1
               AND wga.is_active = true
@@ -435,7 +435,7 @@ impl OpenIDTokenService {
             .collect();
 
         info!(
-            "Loaded {} permissions for wallet {} from normalized tables (groups + direct)",
+            "Loaded {} permissions for wallet {} from normalized tables (plans + direct)",
             permissions.len(),
             wallet_address
         );

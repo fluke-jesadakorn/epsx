@@ -620,4 +620,5 @@ export function isPaginatedResponse<T>(data: any): data is PaginatedResponse<T> 
 // ============================================================================
 
 // Types are already exported as interfaces above
-// Removing duplicate type exports to prevent TypeScript conflicts
+// Duplicate type exports removed, but we DO need to re-export imported types for consumers
+export type { ApiErrorResult, ApiResponse, PaginatedResponse };

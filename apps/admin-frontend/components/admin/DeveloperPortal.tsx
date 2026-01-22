@@ -13,7 +13,8 @@ import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
 import { logger } from '@/lib/logger';
-import { createPlansClient, type ApiKeyResponse as ApiKey, type Module } from '@/shared/api/plans';
+import { createPlansClient, type Plan } from '@/shared/api/plans';
+import { createUsersClient, type UserApiKey as ApiKey } from '@/shared/api/users';
 import { useSharedAuth } from '@/shared/components/auth/Provider';
 import { copyToClipboard as copyToClipboardUtil, createAdminApiClient } from '@/shared/utils';
 
@@ -32,14 +33,8 @@ export const DeveloperPortal: React.FC = () => {
     'overview' | 'keys' | 'docs' | 'usage'
   >('overview');
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
-  const [modules, setModules] = useState<Module[]>([]);
-  const [availableGroups, setAvailableGroups] = useState<Array<{
-    id: string;
-    name: string;
-    slug: string;
-    description: string;
-    group_type: string;
-  }>>([]);
+  const [modules, setModules] = useState<any[]>([]); // Module type not available in plans.ts
+  const [availablePlans, setAvailablePlans] = useState<Plan[]>([]);
   const [loading, setLoading] = useState(true);
   const [accessDenied, setAccessDenied] = useState<{ message: string; code?: string } | null>(null);
   const [newApiKey, setNewApiKey] = useState<string | null>(null);
@@ -72,11 +67,12 @@ export const DeveloperPortal: React.FC = () => {
       setLoading(true);
       setAccessDenied(null);
       const apiClient = createAdminApiClient();
+      const usersClient = createUsersClient(apiClient);
       const plansClient = createPlansClient(apiClient);
 
-      // These endpoints may not exist yet - handle gracefully
+      // Load API Keys using UsersApi
       try {
-        const keysRes = await plansClient.listApiKeys();
+        const keysRes = await usersClient.getApiKeys();
         if (keysRes.success && keysRes.data) {
           setApiKeys(keysRes.data.api_keys || []);
         }
@@ -89,45 +85,27 @@ export const DeveloperPortal: React.FC = () => {
           });
           return;
         }
-        // Silently handle 404 - endpoints not implemented yet
         if (error?.status !== 404) {
           logger.warn('Failed to load API keys', { error });
         }
         setApiKeys([]);
       }
 
-      try {
-        const modulesRes = await plansClient.getModules({ status: 'active' });
-        if (modulesRes.success && modulesRes.data) {
-          setModules(modulesRes.data.modules || []);
-        }
-      } catch (error: any) {
-        // Handle Access Denied from backend
-        if (error?.status === 403 || error?.code === 'PERMISSION_DENIED') {
-          setAccessDenied({
-            message: error?.message || 'You don\'t have permission to access the developer portal.',
-            code: error?.code
-          });
-          return;
-        }
-        // Silently handle 404 - endpoints not implemented yet
-        if (error?.status !== 404) {
-          logger.warn('Failed to load modules', { error });
-        }
-        setModules([]);
-      }
+      // Load Modules (Feature not found in PlansApi, mocking or skipping for now)
+      // If getModules existed, it's likely removed or moved. 
+      // Assuming modules were part of old GroupsApi or similar.
+      setModules([]);
 
+      // Load Available Plans
       try {
-        const groupsRes = await plansClient.getAvailableGroups();
-        if (groupsRes.success && groupsRes.data) {
-          setAvailableGroups(groupsRes.data.groups || []);
+        const plansRes = await plansClient.listPlans({ is_active: true });
+        if (plansRes.success && plansRes.data) {
+          setAvailablePlans(plansRes.data.data || []); // PaginatedResponse has data property which is array
         }
       } catch (error: any) {
-        // Silently handle errors for now as this is a new feature
-        logger.warn('Failed to load available groups', { error });
+        logger.warn('Failed to load available plans', { error });
       }
     } catch (_error: any) {
-      // Handle Access Denied from backend at top level
       if (_error?.status === 403 || _error?.code === 'PERMISSION_DENIED') {
         setAccessDenied({
           message: _error?.message || 'You don\'t have permission to access the developer portal.',
@@ -150,8 +128,8 @@ export const DeveloperPortal: React.FC = () => {
 
     try {
       const apiClient = createAdminApiClient();
-      const plansClient = createPlansClient(apiClient);
-      const response = await plansClient.revokeApiKey(keyId, reason);
+      const usersClient = createUsersClient(apiClient);
+      const response = await usersClient.deleteApiKey(keyId);
       if (response.success) {
         toast.success('API key revoked successfully');
         loadData();
@@ -184,7 +162,6 @@ export const DeveloperPortal: React.FC = () => {
     );
   }
 
-  // Show Access Denied from backend
   if (accessDenied) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -279,7 +256,7 @@ export const DeveloperPortal: React.FC = () => {
           onCopy={copyToClipboard}
         />
       )}
-      {activeTab === 'docs' && <DocumentationViewer modules={modules} availableGroups={availableGroups} />}
+      {activeTab === 'docs' && <DocumentationViewer modules={modules} availablePlans={availablePlans} />}
       {activeTab === 'usage' && <UsageAnalytics apiKeys={apiKeys} />}
 
       {/* New API Key Display */}

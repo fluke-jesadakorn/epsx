@@ -55,7 +55,7 @@ impl WalletUserRepositoryPort for PostgresWalletUserRepositoryAdapter {
                     .with_component("wallet_user_repository"))?;
 
             let permission_set: HashSet<Permission> = HashSet::new();
-            let permission_group_set: HashSet<String> = HashSet::new();
+            let permission_plan_set: HashSet<String> = HashSet::new();
 
             let metadata = WalletMetadata::from_json(row.wallet_metadata)
                 .map_err(|e| AppError::validation_error(format!("Invalid wallet metadata: {}", e))
@@ -65,7 +65,7 @@ impl WalletUserRepositoryPort for PostgresWalletUserRepositoryAdapter {
                 wallet_address: wallet_addr,
                 is_active: row.is_active,
                 permissions: permission_set,
-                groups: permission_group_set,
+                plans: permission_plan_set,
                 wallet_metadata: metadata,
                 created_at: row.created_at,
                 updated_at: row.updated_at,
@@ -116,14 +116,14 @@ impl WalletUserRepositoryPort for PostgresWalletUserRepositoryAdapter {
         for row in db_users {
             if let Ok(wallet_addr) = WalletAddress::new(row.wallet_address) {
                 let permission_set: HashSet<Permission> = HashSet::new();
-                let permission_group_set: HashSet<String> = HashSet::new();
+                let permission_plan_set: HashSet<String> = HashSet::new();
 
                 if let Ok(metadata) = WalletMetadata::from_json(row.wallet_metadata) {
                     let wallet = WalletUser::load(crate::domain::wallet_management::aggregates::wallet_user::WalletUserLoadParams {
                         wallet_address: wallet_addr,
                         is_active: row.is_active,
                         permissions: permission_set,
-                        groups: permission_group_set,
+                        plans: permission_plan_set,
                         wallet_metadata: metadata,
                         created_at: row.created_at,
                         updated_at: row.updated_at,

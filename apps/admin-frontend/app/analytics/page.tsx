@@ -4,7 +4,7 @@ import { Activity, AlertTriangle, BarChart3, RefreshCw, Shield, Users } from 'lu
 import React, { Suspense } from 'react';
 
 import UsageAnalyticsTab from '@/components/admin/UsageAnalyticsTab';
-import { GroupAnalyticsDashboard } from '@/components/groups/GroupAnalyticsDashboard';
+import { PlanAnalyticsDashboard } from '@/components/plans/PlanAnalyticsDashboard';
 import { PageHeader, PageLayout, PageSkeleton } from '@/components/shared';
 import { AnalyticsStatsCard, AnalyticsSummaryCard } from '@/components/ui/AnalyticsCard';
 import { Button } from '@/components/ui/button';
@@ -272,9 +272,9 @@ export default function AnalyticsPage(): React.JSX.Element {
         </CardContent>
       </Card>
 
-      {/* Group Analytics */}
-      <Suspense fallback={<div>Loading group analytics...</div>}>
-        <GroupAnalyticsDashboard />
+      {/* Plan Analytics */}
+      <Suspense fallback={<div>Loading plan analytics...</div>}>
+        <PlanAnalyticsDashboard />
       </Suspense>
     </PageLayout>
   );

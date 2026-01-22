@@ -491,7 +491,7 @@ impl UnifiedWeb3AuthService {
         });
 
         // Create new user in wallet_users table with enhanced metadata
-        // NOTE: Permissions managed separately via wallet_group_memberships and wallet_direct_permissions
+        // NOTE: Permissions managed separately via wallet_plan_assignments and wallet_direct_permissions
         use diesel::prelude::*;
 
         let now = chrono::Utc::now();
@@ -570,10 +570,10 @@ impl UnifiedWeb3AuthService {
 
         let permission_records = diesel::sql_query(
             r#"
-            -- Manual permissions from groups
+            -- Manual permissions from plans
             SELECT DISTINCT p.permission_string as permission
-            FROM wallet_group_assignments wga
-            JOIN group_permissions pgm ON wga.group_id = pgm.group_id
+            FROM wallet_plan_assignments wga
+            JOIN plan_permissions pgm ON wga.plan_id = pgm.plan_id
             JOIN permissions p ON pgm.permission_id = p.id
             WHERE wga.wallet_address = $1
               AND wga.is_active = true

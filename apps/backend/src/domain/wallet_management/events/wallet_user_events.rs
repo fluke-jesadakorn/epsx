@@ -11,15 +11,15 @@ use std::collections::HashSet;
 pub struct WalletUserCreatedEvent {
     pub metadata: EventMetadata,
     pub wallet_address: WalletAddress,
-    pub groups: HashSet<String>,
+    pub plans: HashSet<String>,
 }
 
 impl WalletUserCreatedEvent {
-    pub fn new(wallet_address: WalletAddress, groups: HashSet<String>, aggregate_version: u64) -> Self {
+    pub fn new(wallet_address: WalletAddress, plans: HashSet<String>, aggregate_version: u64) -> Self {
         Self {
             metadata: EventMetadata::new(wallet_address.to_string(), aggregate_version),
             wallet_address,
-            groups,
+            plans,
         }
     }
 }
@@ -226,4 +226,4 @@ impl DomainEvent for WalletPermissionsUpdatedEvent {
     }
 }
 
-// TierLevelChangedEvent removed - using permission groups instead
+// TierLevelChangedEvent removed - using permission plans instead

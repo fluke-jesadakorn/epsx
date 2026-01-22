@@ -30,9 +30,9 @@ pub async fn get_permission_analytics_handler(
     };
 
     #[derive(QueryableByName)]
-    struct GroupStatsRow {
+    struct PlanStatsRow {
         #[diesel(sql_type = diesel::sql_types::Text)]
-        group_name: String,
+        plan_name: String,
         #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::BigInt>)]
         member_count: Option<i64>,
         #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::BigInt>)]
@@ -42,43 +42,43 @@ pub async fn get_permission_analytics_handler(
     }
 
     #[derive(QueryableByName)]
-    struct TotalGroupsRow {
+    struct TotalPlansRow {
         #[diesel(sql_type = diesel::sql_types::BigInt)]
-        total_groups: i64,
+        total_plans: i64,
     }
 
-    // Get total groups count
-    let total_groups = match diesel::sql_query(
-        "SELECT COUNT(*)::bigint as total_groups FROM groups"
+    // Get total plans count
+    let total_plans = match diesel::sql_query(
+        "SELECT COUNT(*)::bigint as total_plans FROM plans"
     )
-    .get_result::<TotalGroupsRow>(&mut conn)
+    .get_result::<TotalPlansRow>(&mut conn)
     .await
     {
-        Ok(result) => result.total_groups as i32,
+        Ok(result) => result.total_plans as i32,
         Err(_) => 0,
     };
 
-    // Get permission group stats with revenue
-    let group_stats = match diesel::sql_query(
+    // Get permission plan stats with revenue
+    let plan_stats = match diesel::sql_query(
         r#"
         SELECT
-            pg.name as group_name,
+            pg.name as plan_name,
             COUNT(wga.id)::bigint as member_count,
             COUNT(wga.id) FILTER (WHERE wga.is_active = true)::bigint as active_members,
             COALESCE(SUM(CASE WHEN wga.is_active THEN pg.price ELSE 0 END), 0.0) as revenue
-         FROM groups pg
-         LEFT JOIN wallet_group_assignments wga ON pg.id = wga.group_id
+         FROM plans pg
+         LEFT JOIN wallet_plan_assignments wga ON pg.id = wga.plan_id
          GROUP BY pg.id, pg.name
          ORDER BY member_count DESC
         "#
     )
-    .load::<GroupStatsRow>(&mut conn)
+    .load::<PlanStatsRow>(&mut conn)
     .await
     {
         Ok(stats) => stats
             .into_iter()
-            .map(|stat| GroupMembershipStats {
-                group_name: stat.group_name,
+            .map(|stat| PlanAssignmentStats {
+                plan_name: stat.plan_name,
                 member_count: stat.member_count.unwrap_or(0) as i32,
                 active_members: stat.active_members.unwrap_or(0) as i32,
                 revenue_contribution: stat.revenue.map(|r| r.to_string().parse::<f64>().unwrap_or(0.0)).unwrap_or(0.0),
@@ -215,11 +215,11 @@ pub async fn get_permission_analytics_handler(
     };
 
     let response = PermissionAnalyticsResponse {
-        total_groups,
+        total_plans,
         total_permissions: permission_usage.iter().map(|p| p.users_count).sum(),
         active_permissions: permission_usage.iter().map(|p| p.active_count).sum(),
         permission_usage,
-        group_membership: group_stats,
+        plan_assignment: plan_stats,
         permission_trends,
         expiring_permissions,
     };

@@ -20,7 +20,7 @@ pub struct WalletUserLoadParams {
     pub wallet_address: WalletAddress,
     pub is_active: bool,
     pub permissions: HashSet<Permission>,
-    pub groups: HashSet<String>,
+    pub plans: HashSet<String>,
     pub wallet_metadata: WalletMetadata,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -42,8 +42,8 @@ pub struct WalletUser {
     // Web3 permissions system
     permissions: HashSet<Permission>,
     
-    // Permission groups the user belongs to
-    groups: HashSet<String>,
+    // Permission plans the user belongs to
+    plans: HashSet<String>,
     
     // Web3-specific metadata
     wallet_metadata: WalletMetadata,
@@ -58,7 +58,7 @@ pub struct WalletUser {
     base: AggregateBase,
 }
 
-// TierLevel enum removed - using permission groups instead
+// TierLevel enum removed - using permission plans instead
 
 /// Web3-specific metadata for wallet users
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -106,7 +106,7 @@ impl WalletUser {
     /// Create a new wallet user
     pub fn create(
         wallet_address: WalletAddress,
-        initial_groups: HashSet<String>,
+        initial_plans: HashSet<String>,
     ) -> AppResult<Self> {
         // Business rule: Wallet address must be valid  
         wallet_address.validate()
@@ -120,7 +120,7 @@ impl WalletUser {
             wallet_address: wallet_address.clone(),
             is_active: true, // New wallet users are active by default
             permissions: HashSet::new(),
-            groups: initial_groups.clone(),
+            plans: initial_plans.clone(),
             wallet_metadata: WalletMetadata::default(),
             created_at: now,
             updated_at: now,
@@ -131,9 +131,11 @@ impl WalletUser {
         // Raise domain event
         user.base.add_event(Box::new(WalletUserCreatedEvent::new(
             wallet_address,
-            initial_groups,
+            initial_plans.clone(),
             user.base.version
         )));
+        
+        user.plans = initial_plans;
         
         Ok(user)
     }
@@ -149,7 +151,7 @@ impl WalletUser {
             wallet_address: params.wallet_address,
             is_active: params.is_active,
             permissions: params.permissions,
-            groups: params.groups,
+            plans: params.plans,
             wallet_metadata: params.wallet_metadata,
             created_at: params.created_at,
             updated_at: params.updated_at,
@@ -173,9 +175,9 @@ impl WalletUser {
         &self.permissions
     }
     
-    /// Get user permission groups
-    pub fn groups(&self) -> &HashSet<String> {
-        &self.groups
+    /// Get user permission plans
+    pub fn plans(&self) -> &HashSet<String> {
+        &self.plans
     }
     
     /// Get wallet metadata
@@ -283,18 +285,18 @@ impl WalletUser {
         Ok(())
     }
     
-    /// Update permission groups
-    pub fn update_groups(&mut self, new_groups: HashSet<String>) -> AppResult<()> {
-        if self.groups == new_groups {
+    /// Update permission plans
+    pub fn update_plans(&mut self, new_plans: HashSet<String>) -> AppResult<()> {
+        if self.plans == new_plans {
             return Ok(()); // No change needed
         }
         
-        let _old_groups = self.groups.clone();
-        self.groups = new_groups.clone();
+        let _old_plans = self.plans.clone();
+        self.plans = new_plans.clone();
         self.updated_at = Utc::now();
         
-        // Permission groups changed - could raise an event here if needed
-        // self.base.add_event(Box::new(PermissionGroupsChangedEvent::new(...)));
+        // Permission plans changed - could raise an event here if needed
+        // self.base.add_event(Box::new(PermissionPlansChangedEvent::new(...)));
         
         Ok(())
     }
@@ -322,15 +324,19 @@ impl WalletUser {
     
     /// Check if user has any admin permissions
     pub fn is_admin(&self) -> bool {
-        self.groups.contains("Enterprise Access Group") ||
+        self.plans.contains("Enterprise Access Plan") ||
+        self.plans.contains("Enterprise Access Group") ||
         self.permissions.iter().any(|p| p.as_str().starts_with("admin:"))
     }
     
     /// Check if user has premium access
     pub fn is_premium(&self) -> bool {
-        self.groups.contains("Premium Access Group") ||
-        self.groups.contains("Professional Access Group") ||
-        self.groups.contains("Enterprise Access Group")
+        self.plans.contains("Premium Access Plan") ||
+        self.plans.contains("Premium Access Group") ||
+        self.plans.contains("Professional Access Plan") ||
+        self.plans.contains("Professional Access Group") ||
+        self.plans.contains("Enterprise Access Plan") ||
+        self.plans.contains("Enterprise Access Group")
     }
     
     /// Update permissions in batch
@@ -411,20 +417,20 @@ mod tests {
     #[test]
     fn test_create_wallet_user() {
         let wallet_address = WalletAddress::new("0x742d35Cc67C9c24d4D3A6A5c9B1c4D6F8F8c8B8d").unwrap();
-        let initial_groups = HashSet::from(["Basic Access Group".to_string()]);
-        let wallet = WalletUser::create(wallet_address.clone(), initial_groups.clone()).unwrap();
+        let initial_plans = HashSet::from(["Basic Access Plan".to_string()]);
+        let wallet = WalletUser::create(wallet_address.clone(), initial_plans.clone()).unwrap();
 
         assert_eq!(wallet.wallet_address(), &wallet_address);
         assert!(wallet.is_active());
-        assert_eq!(wallet.groups(), &initial_groups);
+        assert_eq!(wallet.plans(), &initial_plans);
         assert!(wallet.permissions().is_empty());
     }
     
     #[test]
     fn test_grant_revoke_permission() {
         let wallet_address = WalletAddress::new("0x742d35Cc67C9c24d4D3A6A5c9B1c4D6F8F8c8B8d").unwrap();
-        let initial_groups = HashSet::from(["Basic Access Group".to_string()]);
-        let mut user = WalletUser::create(wallet_address, initial_groups).unwrap();
+        let initial_plans = HashSet::from(["Basic Access Plan".to_string()]);
+        let mut user = WalletUser::create(wallet_address, initial_plans).unwrap();
         
         let permission = Permission::new("epsx:read").unwrap();
         user.grant_permission(permission.clone()).unwrap();
@@ -436,24 +442,24 @@ mod tests {
     }
     
     #[test]
-    fn test_permission_group_update() {
+    fn test_permission_plan_update() {
         let wallet_address = WalletAddress::new("0x742d35Cc67C9c24d4D3A6A5c9B1c4D6F8F8c8B8d").unwrap();
-        let initial_groups = HashSet::from(["Basic Access Group".to_string()]);
-        let mut user = WalletUser::create(wallet_address, initial_groups).unwrap();
+        let initial_plans = HashSet::from(["Basic Access Plan".to_string()]);
+        let mut user = WalletUser::create(wallet_address, initial_plans).unwrap();
         
         assert!(!user.is_premium());
         
-        let premium_groups = HashSet::from(["Premium Access Group".to_string()]);
-        user.update_groups(premium_groups.clone()).unwrap();
+        let premium_plans = HashSet::from(["Premium Access Plan".to_string()]);
+        user.update_plans(premium_plans.clone()).unwrap();
         assert!(user.is_premium());
-        assert_eq!(user.groups(), &premium_groups);
+        assert_eq!(user.plans(), &premium_plans);
     }
     
     #[test]
     fn test_deactivate_user_clears_permissions() {
         let wallet_address = WalletAddress::new("0x742d35Cc67C9c24d4D3A6A5c9B1c4D6F8F8c8B8d").unwrap();
-        let initial_groups = HashSet::from(["Basic Access Group".to_string()]);
-        let mut user = WalletUser::create(wallet_address, initial_groups).unwrap();
+        let initial_plans = HashSet::from(["Basic Access Plan".to_string()]);
+        let mut user = WalletUser::create(wallet_address, initial_plans).unwrap();
         
         let permission = Permission::new("epsx:read").unwrap();
         user.grant_permission(permission.clone()).unwrap();

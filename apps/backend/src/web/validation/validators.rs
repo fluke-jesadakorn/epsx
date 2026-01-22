@@ -165,28 +165,28 @@ pub fn validate_phone_number(phone: &str) -> Result<(), ValidationError> {
     Ok(())
 }
 
-/// Custom validator for group names in IAM system
-pub fn validate_group_name(group: &str) -> Result<(), ValidationError> {
-    if group.trim().is_empty() {
-        let mut error = ValidationError::new("empty_group");
-        error.message = Some("Group name cannot be empty".into());
+/// Custom validator for plan names in IAM system
+pub fn validate_plan_name(plan: &str) -> Result<(), ValidationError> {
+    if plan.trim().is_empty() {
+        let mut error = ValidationError::new("empty_plan");
+        error.message = Some("Plan name cannot be empty".into());
         return Err(error);
     }
 
-    if group.len() > 50 {
-        let mut error = ValidationError::new("group_too_long");
-        error.message = Some("Group name cannot exceed 50 characters".into());
+    if plan.len() > 50 {
+        let mut error = ValidationError::new("plan_too_long");
+        error.message = Some("Plan name cannot exceed 50 characters".into());
         return Err(error);
     }
 
-    // Group names should be alphanumeric with underscores and dashes
+    // Plan names should be alphanumeric with underscores and dashes
     static GROUP_REGEX: Lazy<Regex> = Lazy::new(|| {
         Regex::new(r"^[a-zA-Z0-9_-]+$").unwrap()
     });
 
-    if !GROUP_REGEX.is_match(group) {
-        let mut error = ValidationError::new("invalid_group_format");
-        error.message = Some("Group name can only contain letters, numbers, underscores, and dashes".into());
+    if !GROUP_REGEX.is_match(plan) {
+        let mut error = ValidationError::new("invalid_plan_format");
+        error.message = Some("Plan name can only contain letters, numbers, underscores, and dashes".into());
         return Err(error);
     }
 

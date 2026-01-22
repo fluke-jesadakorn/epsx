@@ -87,12 +87,12 @@ use utoipa::{
         // ============================================================================
         // ADMIN - PERMISSION GROUPS (Diesel-migrated handlers)
         // ============================================================================
-        crate::web::admin::permissions::groups::create_group,
-        crate::web::admin::permissions::groups::get_group,
-        crate::web::admin::permissions::groups::list_groups,
-        crate::web::admin::permissions::groups::update_group,
-        crate::web::admin::permissions::groups::delete_group,
-        crate::web::admin::permissions::groups::get_group_members,
+        crate::web::admin::permissions::plans::create_plan,
+        crate::web::admin::permissions::plans::get_plan,
+        crate::web::admin::permissions::plans::list_plans,
+        crate::web::admin::permissions::plans::update_plan,
+        crate::web::admin::permissions::plans::delete_plan,
+        crate::web::admin::permissions::plans::get_plan_members,
 
         // ============================================================================
         // ADMIN - PLAN MANAGEMENT
@@ -129,7 +129,7 @@ use utoipa::{
             // Admin Plan Management schemas
             crate::web::admin::plan_handlers::CreatePlanRequest,
             crate::web::admin::plan_handlers::PlanResponse,
-            crate::web::admin::plan_handlers::PermissionGroupRequest,
+            crate::web::admin::plan_handlers::PermissionPlanRequest,
 
             // Admin Wallet Management schemas
             crate::web::admin::wallet_management_handlers::UpdateWalletRequest,
@@ -139,14 +139,14 @@ use utoipa::{
             crate::web::admin::wallet_management_handlers::WalletSummaryResponse,
             crate::web::admin::wallet_management_handlers::WalletDetailResponse,
             crate::web::admin::wallet_management_handlers::WalletPermission,
-            crate::web::admin::wallet_management_handlers::WalletGroup,
+            crate::web::admin::wallet_management_handlers::WalletPlan,
             crate::web::admin::wallet_management_handlers::WalletActivitySummary,
             crate::web::admin::wallet_management_handlers::WalletListResponse,
             crate::web::admin::wallet_management_handlers::WalletStatsResponse,
 
-            // Admin Permission Group schemas
-            crate::web::admin::permissions::groups::CreateGroupRequest,
-            crate::web::admin::permissions::groups::UpdateGroupRequest,
+            // Admin Permission Plan schemas
+            crate::web::admin::permissions::plans::CreatePlanRequest,
+            crate::web::admin::permissions::plans::UpdatePlanRequest,
 
             // Analytics schemas
             crate::web::analytics::eps::types::CountriesResponse,
@@ -176,7 +176,7 @@ use utoipa::{
             crate::web::docs::schemas::HealthResponse,
             crate::web::docs::schemas::PaginationInfo,
             crate::web::docs::schemas::SessionInfo,
-            crate::web::docs::schemas::PermissionGroup,
+            crate::web::docs::schemas::PermissionPlan,
             crate::web::docs::schemas::PermissionCheckRequest,
             crate::web::docs::schemas::PermissionCheckResponse,
             crate::web::docs::schemas::Plan,
@@ -200,7 +200,7 @@ use utoipa::{
         (name = "health", description = "Health check and status endpoints"),
         (name = "auth", description = "Web3 authentication and authorization (SIWE-based)"),
         (name = "admin-plans", description = "Admin: Plan and subscription management"),
-        (name = "admin-permissions", description = "Admin: Permission group management and validation"),
+        (name = "admin-permissions", description = "Admin: Permission plan management and validation"),
         (name = "admin-wallets", description = "Admin: Wallet user management"),
         (name = "admin-analytics", description = "Admin: Platform analytics and business intelligence"),
         (name = "admin-security", description = "Admin: Security monitoring and threat detection"),

@@ -57,8 +57,8 @@ pub trait WalletUserSearchPort: Send + Sync {
     /// Find users by permission type (manual, NFT, token, DAO)
     async fn find_by_permission_type(&self, permission_type: &PermissionType) -> AppResult<Vec<WalletUser>>;
     
-    /// Find users by permission group  
-    async fn find_by_permission_group(&self, permission_group: &str) -> AppResult<Vec<WalletUser>>;
+    /// Find users by permission plan  
+    async fn find_by_permission_plan(&self, permission_plan: &str) -> AppResult<Vec<WalletUser>>;
 
     /// Find users who own specific NFTs
     async fn find_by_nft_ownership(
@@ -111,8 +111,8 @@ pub struct WalletUserSearchCriteria {
     /// Filter by active status
     pub is_active: Option<bool>,
     
-    /// Filter by permission group
-    pub permission_group: Option<String>,
+    /// Filter by permission plan
+    pub permission_plan: Option<String>,
     
     /// Filter by users who have specific permissions
     pub has_permissions: Vec<Permission>,
@@ -189,7 +189,7 @@ impl WalletUserSearchResult {
 pub struct WalletUserStatistics {
     pub total_users: u64,
     pub active_users: u64,
-    pub users_by_permission_group: HashMap<String, u64>,
+    pub users_by_permission_plan: HashMap<String, u64>,
     pub users_by_chain: HashMap<u64, u64>,
     pub manual_permissions: u64,
     pub nft_gated_permissions: u64,
@@ -240,8 +240,8 @@ pub trait WalletUserAnalyticsPort: Send + Sync {
     /// Find inactive users (haven't authenticated for specified days)
     async fn find_inactive_users(&self, days: u32) -> AppResult<Vec<WalletUser>>;
     
-    /// Get permission group progression analytics
-    async fn get_group_progression(&self) -> AppResult<HashMap<String, Vec<String>>>;
+    /// Get permission plan progression analytics
+    async fn get_plan_progression(&self) -> AppResult<HashMap<String, Vec<String>>>;
     
     /// Get Web3 permission validation success rates
     async fn get_validation_success_rates(&self) -> AppResult<HashMap<String, f64>>;
@@ -282,7 +282,7 @@ mod tests {
         let criteria = WalletUserSearchCriteria::default();
         assert!(criteria.wallet_pattern.is_none());
         assert!(criteria.is_active.is_none());
-        assert!(criteria.permission_group.is_none());
+        assert!(criteria.permission_plan.is_none());
         assert!(criteria.has_permissions.is_empty());
         assert!(criteria.custom_filters.is_empty());
     }

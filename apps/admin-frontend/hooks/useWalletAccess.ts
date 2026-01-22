@@ -1,6 +1,6 @@
 /**
  * Wallet Access Management Hook
- * Unified hook for managing wallet permissions and groups
+ * Unified hook for managing wallet permissions and plans
  */
 
 'use client';
@@ -8,13 +8,13 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { adminApiClient } from '@/lib/api-client';
-import { groupMgmt } from '@/lib/api/group-management-client';
+import { planMgmt } from '@/lib/api/plan-management-client';
 
 // ============================================================================
 // TYPES
 // ============================================================================
 
-export type AccessItemType = 'permission' | 'group';
+export type AccessItemType = 'permission' | 'plan';
 
 export interface AccessItem {
     id: string;
@@ -25,9 +25,9 @@ export interface AccessItem {
     // Permission-specific
     platform?: string;
     category?: string;
-    // Group-specific
+    // Plan-specific
     permissionCount?: number;
-    permissions?: string[]; // Added: List of permission IDs in the group
+    permissions?: string[]; // Added: List of permission IDs in the plan
     memberCount?: number;
     // Assignment info
     expiresAt?: string | null;
@@ -38,10 +38,10 @@ export interface AccessItem {
 export interface WalletAccessData {
     // Available items (can be assigned)
     availablePermissions: AccessItem[];
-    availableGroups: AccessItem[];
+    availablePlans: AccessItem[];
     // Authorized items (currently assigned to wallet)
     authorizedPermissions: AccessItem[];
-    authorizedGroups: AccessItem[];
+    authorizedPlans: AccessItem[];
 }
 
 export interface UseWalletAccessReturn {
@@ -52,13 +52,13 @@ export interface UseWalletAccessReturn {
     // Single Actions
     assignPermission: (permissionId: string, expiresAt?: string) => Promise<void>;
     revokePermission: (permissionId: string) => Promise<void>;
-    assignGroup: (groupId: string, expiresAt?: string) => Promise<void>;
-    removeGroup: (groupId: string) => Promise<void>;
+    assignPlan: (planId: string, expiresAt?: string) => Promise<void>;
+    removePlan: (planId: string) => Promise<void>;
     // Batch Actions
     batchAssignPermissions: (permissionIds: string[], expiresAt?: string) => Promise<void>;
     batchRevokePermissions: (permissionIds: string[]) => Promise<void>;
-    batchAssignGroups: (groupIds: string[], expiresAt?: string) => Promise<void>;
-    batchRemoveGroups: (groupIds: string[]) => Promise<void>;
+    batchAssignPlans: (planIds: string[], expiresAt?: string) => Promise<void>;
+    batchRemovePlans: (planIds: string[]) => Promise<void>;
     // Refresh
     refresh: () => Promise<void>;
 }
@@ -76,9 +76,9 @@ export function useWalletAccess(walletAddress: string | null): UseWalletAccessRe
     const [error, setError] = useState<string | null>(null);
     const [data, setData] = useState<WalletAccessData>({
         availablePermissions: [],
-        availableGroups: [],
+        availablePlans: [],
         authorizedPermissions: [],
-        authorizedGroups: [],
+        authorizedPlans: [],
     });
 
     // Load all data
@@ -92,29 +92,29 @@ export function useWalletAccess(walletAddress: string | null): UseWalletAccessRe
             // Fetch available items in parallel - ensure arrays with fallbacks
             const [
                 availablePermissionsRaw,
-                groupsRaw,
+                plansRaw,
             ] = await Promise.all([
-                groupMgmt.getAvailablePermissions().catch(() => []),
-                groupMgmt.getGroups().catch(() => []),
+                planMgmt.getAvailablePermissions().catch(() => []),
+                planMgmt.getPlans().catch(() => []),
             ]);
 
             // Ensure arrays (in case API returns non-array)
             const availablePermissions: string[] = Array.isArray(availablePermissionsRaw) ? availablePermissionsRaw : [];
-            const groups = Array.isArray(groupsRaw) ? groupsRaw : [];
+            const plans = Array.isArray(plansRaw) ? plansRaw : [];
 
             // Fetch wallet-specific data separately to handle 404 gracefully
-            let walletGroups: Awaited<ReturnType<typeof groupMgmt.getUserGroups>> = [];
+            let walletPlans: Awaited<ReturnType<typeof planMgmt.getUserPlans>> = [];
             let walletPermissions: string[] = [];
 
             try {
-                const result = await groupMgmt.getUserGroups(walletAddress);
-                walletGroups = Array.isArray(result) ? result : [];
+                const result = await planMgmt.getUserPlans(walletAddress);
+                walletPlans = Array.isArray(result) ? result : [];
             } catch {
-                // 404 means no groups assigned - treat as empty (expected behavior)
+                // 404 means no plans assigned - treat as empty (expected behavior)
             }
 
             try {
-                const result = await groupMgmt.getUserPermissions(walletAddress);
+                const result = await planMgmt.getUserPermissions(walletAddress);
                 walletPermissions = Array.isArray(result) ? result : [];
             } catch {
                 // 404 means no permissions assigned - treat as empty (expected behavior)
@@ -122,7 +122,7 @@ export function useWalletAccess(walletAddress: string | null): UseWalletAccessRe
 
             // Parse authorized permissions from wallet data
             const authorizedPermissionIds = new Set(walletPermissions);
-            const authorizedGroupIds = new Set(walletGroups.map(wg => wg.group_id));
+            const authorizedPlanIds = new Set(walletPlans.map(wg => wg.plan_id));
 
             // Convert permissions to AccessItems
             const permissionItems: AccessItem[] = availablePermissions.map(p => {
@@ -136,10 +136,10 @@ export function useWalletAccess(walletAddress: string | null): UseWalletAccessRe
                 };
             });
 
-            // Convert groups to AccessItems
-            const groupItems: AccessItem[] = groups.map(g => ({
+            // Convert plans to AccessItems
+            const planItems: AccessItem[] = plans.map(g => ({
                 id: g.id,
-                type: 'group' as const,
+                type: 'plan' as const,
                 name: g.name,
                 description: g.description,
                 permissionCount: g.permissions?.length || 0,
@@ -150,19 +150,19 @@ export function useWalletAccess(walletAddress: string | null): UseWalletAccessRe
             // Split into available/authorized
             setData({
                 availablePermissions: permissionItems.filter(p => !authorizedPermissionIds.has(p.id)),
-                availableGroups: groupItems.filter(g => !authorizedGroupIds.has(g.id)),
+                availablePlans: planItems.filter(g => !authorizedPlanIds.has(g.id)),
                 authorizedPermissions: permissionItems
                     .filter(p => authorizedPermissionIds.has(p.id))
                     .map(p => ({ ...p, source: 'direct' })),
-                authorizedGroups: groupItems
-                    .filter(g => authorizedGroupIds.has(g.id))
+                authorizedPlans: planItems
+                    .filter(g => authorizedPlanIds.has(g.id))
                     .map(g => {
-                        const membership = walletGroups.find(wg => wg.group_id === g.id);
+                        const membership = walletPlans.find(wg => wg.plan_id === g.id);
                         return {
                             ...g,
                             expiresAt: membership?.expires_at,
                             assignedAt: membership?.granted_at,
-                            source: 'group',
+                            source: 'plan',
                         };
                     }),
             });
@@ -209,29 +209,29 @@ export function useWalletAccess(walletAddress: string | null): UseWalletAccessRe
         }
     }, [walletAddress, loadData]);
 
-    // Assign group
-    const assignGroup = useCallback(async (groupId: string, expiresAt?: string) => {
+    // Assign plan
+    const assignPlan = useCallback(async (planId: string, expiresAt?: string) => {
         if (!walletAddress) { return; }
         try {
-            await groupMgmt.assignUserToGroup({
+            await planMgmt.assignUserToPlan({
                 user_id: walletAddress,
-                group_id: groupId,
+                plan_id: planId,
                 expires_at: expiresAt || null,
             });
             await loadData();
         } catch (err) {
-            throw new Error(err instanceof Error ? err.message : 'Failed to assign group');
+            throw new Error(err instanceof Error ? err.message : 'Failed to assign plan');
         }
     }, [walletAddress, loadData]);
 
-    // Remove group
-    const removeGroup = useCallback(async (groupId: string) => {
+    // Remove plan
+    const removePlan = useCallback(async (planId: string) => {
         if (!walletAddress) { return; }
         try {
-            await groupMgmt.removeUserFromGroup(walletAddress, groupId);
+            await planMgmt.removeUserFromPlan(walletAddress, planId);
             await loadData();
         } catch (err) {
-            throw new Error(err instanceof Error ? err.message : 'Failed to remove group');
+            throw new Error(err instanceof Error ? err.message : 'Failed to remove plan');
         }
     }, [walletAddress, loadData]);
 
@@ -272,35 +272,35 @@ export function useWalletAccess(walletAddress: string | null): UseWalletAccessRe
         }
     }, [walletAddress, loadData]);
 
-    // Batch assign groups
-    const batchAssignGroups = useCallback(async (groupIds: string[], expiresAt?: string) => {
-        if (!walletAddress || groupIds.length === 0) { return; }
+    // Batch assign plans
+    const batchAssignPlans = useCallback(async (planIds: string[], expiresAt?: string) => {
+        if (!walletAddress || planIds.length === 0) { return; }
         try {
             await Promise.all(
-                groupIds.map(groupId =>
-                    groupMgmt.assignUserToGroup({
+                planIds.map(planId =>
+                    planMgmt.assignUserToPlan({
                         user_id: walletAddress,
-                        group_id: groupId,
+                        plan_id: planId,
                         expires_at: expiresAt || null,
                     })
                 )
             );
             await loadData();
         } catch (err) {
-            throw new Error(err instanceof Error ? err.message : 'Failed to batch assign groups');
+            throw new Error(err instanceof Error ? err.message : 'Failed to batch assign plans');
         }
     }, [walletAddress, loadData]);
 
-    // Batch remove groups
-    const batchRemoveGroups = useCallback(async (groupIds: string[]) => {
-        if (!walletAddress || groupIds.length === 0) { return; }
+    // Batch remove plans
+    const batchRemovePlans = useCallback(async (planIds: string[]) => {
+        if (!walletAddress || planIds.length === 0) { return; }
         try {
             await Promise.all(
-                groupIds.map(groupId => groupMgmt.removeUserFromGroup(walletAddress, groupId))
+                planIds.map(planId => planMgmt.removeUserFromPlan(walletAddress, planId))
             );
             await loadData();
         } catch (err) {
-            throw new Error(err instanceof Error ? err.message : 'Failed to batch remove groups');
+            throw new Error(err instanceof Error ? err.message : 'Failed to batch remove plans');
         }
     }, [walletAddress, loadData]);
 
@@ -310,12 +310,12 @@ export function useWalletAccess(walletAddress: string | null): UseWalletAccessRe
         error,
         assignPermission,
         revokePermission,
-        assignGroup,
-        removeGroup,
+        assignPlan,
+        removePlan,
         batchAssignPermissions,
         batchRevokePermissions,
-        batchAssignGroups,
-        batchRemoveGroups,
+        batchAssignPlans,
+        batchRemovePlans,
         refresh: loadData,
     };
 }

@@ -55,7 +55,7 @@ pub struct WalletDetailDto {
     pub created_at: DateTime<Utc>,
     pub last_auth_at: Option<DateTime<Utc>>,
     pub permissions: Vec<WalletPermissionDto>,
-    pub groups: Vec<WalletGroupDto>,
+    pub plans: Vec<WalletPlanDto>,
     pub activity_summary: WalletActivitySummaryDto,
     pub metadata: Option<serde_json::Value>,
 }
@@ -70,10 +70,10 @@ pub struct WalletPermissionDto {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct WalletGroupDto {
-    pub group_id: String,
-    pub group_name: String,
-    pub group_type: String,
+pub struct WalletPlanDto {
+    pub plan_id: String,
+    pub plan_name: String,
+    pub plan_type: String,
     pub assigned_at: DateTime<Utc>,
     pub expires_at: Option<DateTime<Utc>>,
     pub is_active: bool,
@@ -86,5 +86,5 @@ pub struct WalletActivitySummaryDto {
     pub total_permissions: i32,
     pub active_permissions: i32,
     pub expired_permissions: i32,
-    pub groups_count: i32,
+    pub plans_count: i32,
 }

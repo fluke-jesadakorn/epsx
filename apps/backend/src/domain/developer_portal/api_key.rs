@@ -100,12 +100,12 @@ impl Default for RateLimits {
 
 /// Permission group information for an API key
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PermissionGroupInfo {
+pub struct PlanInfo {
     pub id: Uuid,
     pub name: String,
     pub slug: String,
     pub description: Option<String>,
-    pub group_type: String,
+    pub plan_type: String,
 }
 
 /// API Key domain entity
@@ -125,7 +125,7 @@ pub struct ApiKey {
     #[serde(default)]
     pub allowed_modules: Vec<ModuleAccess>,
     #[serde(default)]
-    pub permission_groups: Vec<PermissionGroupInfo>,
+    pub permission_plans: Vec<PlanInfo>,
     /// Individual permission strings selected by the user
     #[serde(default)]
     pub selected_permissions: Vec<String>,
@@ -150,8 +150,8 @@ pub struct CreateApiKeyRequest {
     pub allowed_modules: Vec<ModuleAccessRequest>,
     /// Permission group IDs to assign to this API key
     #[serde(default)]
-    pub group_ids: Vec<Uuid>,
-    /// Individual permission strings to assign (must be within user's groups)
+    pub plan_ids: Vec<Uuid>,
+    /// Individual permission strings to assign (must be within user's plans)
     #[serde(default)]
     pub permissions: Vec<String>,
     pub ip_restrictions: Option<Vec<String>>,

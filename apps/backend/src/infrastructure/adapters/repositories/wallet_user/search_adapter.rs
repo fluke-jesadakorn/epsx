@@ -92,7 +92,7 @@ impl WalletUserSearchPort for PostgresWalletUserSearchAdapter {
                         wallet_address: wallet_addr,
                         is_active: row.is_active,
                         permissions: HashSet::new(),
-                        groups: HashSet::new(),
+                        plans: HashSet::new(),
                         wallet_metadata: metadata,
                         created_at: row.created_at,
                         updated_at: row.updated_at,
@@ -156,7 +156,7 @@ impl WalletUserSearchPort for PostgresWalletUserSearchAdapter {
         Ok(Vec::new())
     }
     
-    async fn find_by_permission_group(&self, permission_group: &str) -> AppResult<Vec<WalletUser>> {
+    async fn find_by_permission_plan(&self, permission_plan: &str) -> AppResult<Vec<WalletUser>> {
         Ok(Vec::new())
     }
 

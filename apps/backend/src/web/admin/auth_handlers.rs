@@ -162,8 +162,8 @@ pub async fn get_user_permissions(
             AND (wdp.expires_at IS NULL OR wdp.expires_at > NOW())
           THEN p.id END), 0) as active_permissions_count
      FROM wallet_users wu
-     LEFT JOIN wallet_group_assignments wga ON wu.wallet_address = wga.wallet_address
-     LEFT JOIN group_permissions pgm ON wga.group_id = pgm.group_id
+     LEFT JOIN wallet_plan_assignments wga ON wu.wallet_address = wga.wallet_address
+     LEFT JOIN plan_permissions pgm ON wga.plan_id = pgm.plan_id
      LEFT JOIN permissions p ON pgm.permission_id = p.id
      LEFT JOIN wallet_direct_permissions wdp ON wu.wallet_address = wdp.wallet_address
      {}
@@ -223,9 +223,9 @@ pub async fn get_user_permissions(
 
     let primary_perm_query = diesel::sql_query(
       r#"
-      SELECT DISTINCT p.permission_string, 'group' as source
-      FROM wallet_group_assignments wga
-      JOIN group_permissions pgm ON wga.group_id = pgm.group_id
+      SELECT DISTINCT p.permission_string, 'plan' as source
+      FROM wallet_plan_assignments wga
+      JOIN plan_permissions pgm ON wga.plan_id = pgm.plan_id
       JOIN permissions p ON pgm.permission_id = p.id
       WHERE wga.wallet_address = $1
         AND wga.is_active = true
@@ -613,8 +613,8 @@ pub async fn get_recent_wallets(
       COALESCE(
         (
           SELECT COUNT(DISTINCT p.id)::int
-          FROM wallet_group_assignments wga
-          JOIN group_permissions pgm ON wga.group_id = pgm.group_id
+          FROM wallet_plan_assignments wga
+          JOIN plan_permissions pgm ON wga.plan_id = pgm.plan_id
           JOIN permissions p ON pgm.permission_id = p.id
           WHERE wga.wallet_address = wu.wallet_address
             AND wga.is_active = true
@@ -765,7 +765,7 @@ pub struct WalletSearchQuery {
   pub has_permissions: Option<String>,
   pub sort_by: Option<String>,
   pub sort_order: Option<String>,
-  pub exclude_group_id: Option<String>,
+  pub exclude_plan_id: Option<String>,
 }
 
 // Handler: Search wallets with advanced filtering
@@ -818,8 +818,8 @@ pub async fn search_wallets(
       wu.is_active,
       COALESCE((
         SELECT COUNT(DISTINCT p.id)::int
-        FROM wallet_group_assignments wga
-        JOIN group_permissions pgm ON wga.group_id = pgm.group_id
+        FROM wallet_plan_assignments wga
+        JOIN plan_permissions pgm ON wga.plan_id = pgm.plan_id
         JOIN permissions p ON pgm.permission_id = p.id
         WHERE wga.wallet_address = wu.wallet_address
           AND wga.is_active = true
@@ -861,7 +861,7 @@ pub async fn search_wallets(
     active_permissions_count: Option<i32>,
   }
 
-  // Build WHERE clause for search and exclude_group_id
+  // Build WHERE clause for search and exclude_plan_id
   let mut where_parts = Vec::new();
   
   if let Some(ref search_term) = query.search {
@@ -870,14 +870,14 @@ pub async fn search_wallets(
     where_parts.push(format!("wu.wallet_address ILIKE '%{}%'", escaped_search));
   }
   
-  if let Some(ref group_id) = query.exclude_group_id {
-    info!("🔍 Excluding members of group: {}", group_id);
-    let escaped_group_id = group_id.replace("'", "''");
+  if let Some(ref plan_id) = query.exclude_plan_id {
+    info!("🔍 Excluding members of plan: {}", plan_id);
+    let escaped_plan_id = plan_id.replace("'", "''");
     // Use LOWER() to ensure case-insensitive comparison since wallet addresses in 
-    // wallet_group_assignments are stored in lowercase
+    // wallet_plan_assignments are stored in lowercase
     where_parts.push(format!(
-      "LOWER(wu.wallet_address) NOT IN (SELECT LOWER(wallet_address) FROM wallet_group_assignments WHERE group_id = '{}' AND is_active = true)",
-      escaped_group_id
+      "LOWER(wu.wallet_address) NOT IN (SELECT LOWER(wallet_address) FROM wallet_plan_assignments WHERE plan_id = '{}' AND is_active = true)",
+      escaped_plan_id
     ));
   }
   
@@ -899,8 +899,8 @@ pub async fn search_wallets(
       wu.is_active,
       COALESCE((
         SELECT COUNT(DISTINCT p.id)::int
-        FROM wallet_group_assignments wga
-        JOIN group_permissions pgm ON wga.group_id = pgm.group_id
+        FROM wallet_plan_assignments wga
+        JOIN plan_permissions pgm ON wga.plan_id = pgm.plan_id
         JOIN permissions p ON pgm.permission_id = p.id
         WHERE wga.wallet_address = wu.wallet_address
           AND wga.is_active = true
@@ -956,18 +956,18 @@ pub async fn search_wallets(
     }
   };
 
-  // Format wallet data for response with group lookup
+  // Format wallet data for response with plan lookup
   let mut formatted_wallets: Vec<serde_json::Value> = Vec::new();
 
   for row in wallets {
     let metadata = serde_json::json!({});
     let permissions: Vec<serde_json::Value> = vec![];
 
-    // Get group memberships for this wallet
+    // Get plan memberships for this wallet
     #[derive(QueryableByName)]
-    struct GroupRow {
+    struct PlanRow {
       #[diesel(sql_type = diesel::sql_types::Text)]
-      group_name: String,
+      plan_name: String,
       #[diesel(sql_type = diesel::sql_types::Text)]
       slug: String,
       #[diesel(sql_type = diesel::sql_types::Timestamptz)]
@@ -978,22 +978,22 @@ pub async fn search_wallets(
       is_active: bool,
     }
 
-    let groups = match diesel::sql_query(
+    let plans = match diesel::sql_query(
       r#"
-      SELECT pg.name as group_name, pg.slug, wga.assigned_at, wga.expires_at, wga.is_active
-      FROM wallet_group_assignments wga
-      JOIN groups pg ON wga.group_id = pg.id
+      SELECT pg.name as plan_name, pg.slug, wga.assigned_at, wga.expires_at, wga.is_active
+      FROM wallet_plan_assignments wga
+      JOIN plans pg ON wga.plan_id = pg.id
       WHERE wga.wallet_address = $1
       ORDER BY wga.assigned_at DESC
       "#
     )
     .bind::<diesel::sql_types::Text, _>(&row.wallet_address)
-    .load::<GroupRow>(&mut conn)
+    .load::<PlanRow>(&mut conn)
     .await {
-      Ok(group_rows) => group_rows
+      Ok(plan_rows) => plan_rows
         .into_iter()
         .map(|g| serde_json::json!({
-          "name": g.group_name,
+          "name": g.plan_name,
           "slug": g.slug,
           "assigned_at": g.assigned_at,
           "expires_at": g.expires_at,
@@ -1010,7 +1010,7 @@ pub async fn search_wallets(
       "last_auth_at": row.last_auth_at,
       "is_active": row.is_active,
       "permissions": permissions,
-      "groups": groups,
+      "plans": plans,
       "active_permissions_count": row.active_permissions_count.unwrap_or(0)
     }));
   }

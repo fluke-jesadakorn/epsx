@@ -1,13 +1,13 @@
 // Permission Management Command Models
 
-pub mod create_group;
-pub mod update_group;
-pub mod delete_group;
+pub mod create_plan;
+pub mod update_plan;
+pub mod delete_plan;
 pub mod assign_wallet;
 pub mod remove_wallet;
 
-pub use create_group::*;
-pub use update_group::*;
-pub use delete_group::*;
+pub use create_plan::*;
+pub use update_plan::*;
+pub use delete_plan::*;
 pub use assign_wallet::*;
 pub use remove_wallet::*;

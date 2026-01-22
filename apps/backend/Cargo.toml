@@ -10,14 +10,21 @@ repository = "https://github.com/your-org/epsx"
 keywords = ["trading", "finance", "api", "backend"]
 categories = ["web-programming"]
 
+
+
 [[bin]]
-name = "index"
-path = "api/index.rs"
+name = "migrate"
+path = "src/bin/migrate.rs"
+required-features = ["cli-tools"]
+
+[[bin]]
+name = "grant_wallet_permission"
+path = "src/bin/grant_wallet_permission.rs"
+required-features = ["cli-tools"]
 
 # Feature flags optimized for production
 [features]
 default = ["production"]
-vercel = ["dep:vercel_runtime"]
 
 # Core component features
 websockets = ["dep:tokio-tungstenite", "dep:futures-util"]
@@ -98,8 +105,7 @@ utoipa = { version = "5.1", features = ["axum_extras", "chrono", "uuid"] }
 # Input validation
 validator = { version = "0.18", features = ["derive"] }
 
-# Vercel Runtime
-vercel_runtime = { version = "1.1.0", optional = true }
+
 
 # Database access with Diesel ORM - Type-safe async PostgreSQL driver
 bigdecimal = { version = "0.4", features = ["serde"] }

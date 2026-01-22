@@ -1,23 +1,23 @@
 // Permission Management Aggregates
 
-pub mod group;
+pub mod plan;
 pub mod policy;
 
-// Backward compatibility: re-export group as permission_group
-pub mod permission_group {
-    pub use super::group::*;
+// Backward compatibility: re-export plan as permission_plan
+pub mod permission_plan {
+    pub use super::plan::*;
 }
 
-// Re-export from new file (group.rs)
-pub use group::{
-    Group,
-    CreateGroupParams,
-    LoadGroupParams,
-    UpdateGroupParams,
+// Re-export from new file (plan.rs)
+pub use plan::{
+    Plan,
+    CreatePlanParams,
+    LoadPlanParams,
+    UpdatePlanParams,
     // Backward compatibility aliases
-    PermissionGroup,
-    CreatePermissionGroupParams,
-    LoadPermissionGroupParams,
-    UpdatePermissionGroupParams,
+    PermissionPlan,
+    CreatePermissionPlanParams,
+    LoadPermissionPlanParams,
+    UpdatePermissionPlanParams,
 };
 pub use policy::Policy;

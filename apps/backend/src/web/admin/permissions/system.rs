@@ -23,7 +23,7 @@ use crate::web::responses::AdminResponse;
 pub struct SystemHealthResponse {
     pub status: String,
     pub database_connected: bool,
-    pub total_groups: i64,
+    pub total_plans: i64,
     pub total_active_assignments: i64,
     pub total_wallets_with_permissions: i64,
     pub total_permissions: i64,
@@ -33,23 +33,23 @@ pub struct SystemHealthResponse {
 
 #[derive(Debug, Serialize)]
 pub struct PermissionStatisticsResponse {
-    pub total_groups: i64,
-    pub active_groups: i64,
+    pub total_plans: i64,
+    pub active_plans: i64,
     pub total_permissions: i64,
     pub total_wallet_assignments: i64,
     pub active_wallet_assignments: i64,
     pub expiring_assignments_7d: i64,
     pub total_direct_permissions: i64,
-    pub top_groups: Vec<TopGroupStats>,
+    pub top_plans: Vec<TopPlanStats>,
     pub permission_breakdown: PermissionBreakdown,
     pub timestamp: DateTime<Utc>,
 }
 
 #[derive(Debug, Serialize)]
-pub struct TopGroupStats {
+pub struct TopPlanStats {
     pub id: String,
     pub name: String,
-    pub group_type: String,
+    pub plan_type: String,
     pub member_count: i64,
     pub permission_count: i64,
 }
@@ -139,8 +139,8 @@ pub async fn get_health(
         .is_ok();
 
     // Get system statistics
-    let total_groups = match diesel::sql_query(
-        "SELECT COUNT(*)::bigint as count FROM groups"
+    let total_plans = match diesel::sql_query(
+        "SELECT COUNT(*)::bigint as count FROM plans"
     )
     .get_result::<CountRow>(&mut conn)
     .await
@@ -150,7 +150,7 @@ pub async fn get_health(
     };
 
     let active_assignments = match diesel::sql_query(
-        "SELECT COUNT(*)::bigint as count FROM wallet_group_assignments WHERE is_active = true"
+        "SELECT COUNT(*)::bigint as count FROM wallet_plan_assignments WHERE is_active = true"
     )
     .get_result::<CountRow>(&mut conn)
     .await
@@ -160,7 +160,7 @@ pub async fn get_health(
     };
 
     let total_wallets = match diesel::sql_query(
-        "SELECT COUNT(DISTINCT wallet_address)::bigint as count FROM wallet_group_assignments WHERE is_active = true"
+        "SELECT COUNT(DISTINCT wallet_address)::bigint as count FROM wallet_plan_assignments WHERE is_active = true"
     )
     .get_result::<CountRow>(&mut conn)
     .await
@@ -184,7 +184,7 @@ pub async fn get_health(
     let response = SystemHealthResponse {
         status: status.to_string(),
         database_connected: db_connected,
-        total_groups,
+        total_plans,
         total_active_assignments: active_assignments,
         total_wallets_with_permissions: total_wallets,
         total_permissions,
@@ -215,13 +215,13 @@ pub async fn get_statistics(
     }
 
     #[derive(QueryableByName)]
-    struct TopGroupRow {
+    struct TopPlanRow {
         #[diesel(sql_type = diesel::sql_types::Uuid)]
         id: Uuid,
         #[diesel(sql_type = diesel::sql_types::Text)]
         name: String,
         #[diesel(sql_type = diesel::sql_types::Text)]
-        group_type: String,
+        plan_type: String,
         #[diesel(sql_type = diesel::sql_types::BigInt)]
         member_count: i64,
         #[diesel(sql_type = diesel::sql_types::BigInt)]
@@ -244,9 +244,9 @@ pub async fn get_statistics(
         count: i64,
     }
 
-    // Total groups
-    let total_groups = match diesel::sql_query(
-        "SELECT COUNT(*)::bigint as count FROM groups"
+    // Total plans
+    let total_plans = match diesel::sql_query(
+        "SELECT COUNT(*)::bigint as count FROM plans"
     )
     .get_result::<CountRow>(&mut conn)
     .await
@@ -255,8 +255,8 @@ pub async fn get_statistics(
         Err(_) => 0,
     };
 
-    let active_groups = match diesel::sql_query(
-        "SELECT COUNT(*)::bigint as count FROM groups WHERE is_active = true"
+    let active_plans = match diesel::sql_query(
+        "SELECT COUNT(*)::bigint as count FROM plans WHERE is_active = true"
     )
     .get_result::<CountRow>(&mut conn)
     .await
@@ -278,7 +278,7 @@ pub async fn get_statistics(
 
     // Wallet assignments
     let total_assignments = match diesel::sql_query(
-        "SELECT COUNT(*)::bigint as count FROM wallet_group_assignments"
+        "SELECT COUNT(*)::bigint as count FROM wallet_plan_assignments"
     )
     .get_result::<CountRow>(&mut conn)
     .await
@@ -288,7 +288,7 @@ pub async fn get_statistics(
     };
 
     let active_assignments = match diesel::sql_query(
-        "SELECT COUNT(*)::bigint as count FROM wallet_group_assignments WHERE is_active = true"
+        "SELECT COUNT(*)::bigint as count FROM wallet_plan_assignments WHERE is_active = true"
     )
     .get_result::<CountRow>(&mut conn)
     .await
@@ -300,7 +300,7 @@ pub async fn get_statistics(
     // Expiring assignments (7 days)
     let expiring_7d = match diesel::sql_query(
         r#"
-        SELECT COUNT(*)::bigint as count FROM wallet_group_assignments
+        SELECT COUNT(*)::bigint as count FROM wallet_plan_assignments
         WHERE is_active = true
           AND expires_at IS NOT NULL
           AND expires_at BETWEEN NOW() AND NOW() + INTERVAL '7 days'
@@ -324,31 +324,31 @@ pub async fn get_statistics(
         Err(_) => 0,
     };
 
-    // Top groups by member count
-    let top_groups_rows = diesel::sql_query(
+    // Top plans by member count
+    let top_plans_rows = diesel::sql_query(
         r#"
         SELECT
-            pg.id, pg.name, pg.group_type,
+            pg.id, pg.name, pg.plan_type,
             COUNT(DISTINCT wga.wallet_address)::bigint as member_count,
             COUNT(DISTINCT pgm.permission_id)::bigint as permission_count
-        FROM groups pg
-        LEFT JOIN wallet_group_assignments wga ON pg.id = wga.group_id AND wga.is_active = true
-        LEFT JOIN group_permissions pgm ON pg.id = pgm.group_id
+        FROM plans pg
+        LEFT JOIN wallet_plan_assignments wga ON pg.id = wga.plan_id AND wga.is_active = true
+        LEFT JOIN plan_permissions pgm ON pg.id = pgm.plan_id
         WHERE pg.is_active = true
-        GROUP BY pg.id, pg.name, pg.group_type
+        GROUP BY pg.id, pg.name, pg.plan_type
         ORDER BY member_count DESC
         LIMIT 10
         "#
     )
-    .load::<TopGroupRow>(&mut conn)
+    .load::<TopPlanRow>(&mut conn)
     .await
     .unwrap_or_default();
 
-    let top_groups: Vec<TopGroupStats> = top_groups_rows.into_iter().map(|row| {
-        TopGroupStats {
+    let top_plans: Vec<TopPlanStats> = top_plans_rows.into_iter().map(|row| {
+        TopPlanStats {
             id: row.id.to_string(),
             name: row.name,
-            group_type: row.group_type,
+            plan_type: row.plan_type,
             member_count: row.member_count,
             permission_count: row.permission_count,
         }
@@ -385,14 +385,14 @@ pub async fn get_statistics(
     }).collect();
 
     let response = PermissionStatisticsResponse {
-        total_groups,
-        active_groups,
+        total_plans,
+        active_plans,
         total_permissions,
         total_wallet_assignments: total_assignments,
         active_wallet_assignments: active_assignments,
         expiring_assignments_7d: expiring_7d,
         total_direct_permissions: total_direct,
-        top_groups,
+        top_plans,
         permission_breakdown: PermissionBreakdown {
             by_platform,
             by_type,
@@ -415,7 +415,7 @@ pub async fn clear_caches(
         caches_cleared: vec![
             "permission_validation_cache".to_string(),
             "wallet_permissions_cache".to_string(),
-            "group_memberships_cache".to_string(),
+            "plan_memberships_cache".to_string(),
         ],
         timestamp: Utc::now(),
     };
@@ -442,10 +442,10 @@ pub async fn get_route_permissions(
         },
         RoutePermission {
             id: Uuid::new_v4().to_string(),
-            route_path: "/api/admin/permissions/groups".to_string(),
+            route_path: "/api/admin/permissions/plans".to_string(),
             http_method: "POST".to_string(),
             required_permissions: vec!["admin:permissions:manage".to_string()],
-            description: Some("Create permission group".to_string()),
+            description: Some("Create permission plan".to_string()),
             created_at: Utc::now(),
         },
         RoutePermission {

@@ -100,7 +100,7 @@ export const API_ROUTES = {
 
     // Permission management
     PERMISSIONS: '/api/admin/permissions',
-    PERMISSION_GROUPS: '/api/permissions/groups',
+    PERMISSION_PLANS: '/api/permissions/plans',
     PERMISSION_ASSIGNMENTS: '/api/permissions/assignments',
 
     // Wallet management
@@ -158,17 +158,17 @@ export const API_ROUTES = {
 
     // Wallet-specific permissions
     WALLET_PERMISSIONS: '/api/permissions/wallet/:wallet_address',
-    WALLET_GROUPS: '/api/permissions/wallet/:wallet_address/groups',
+    WALLET_PLANS: '/api/permissions/wallet/:wallet_address/plans',
 
-    // Permission group management
-    GROUPS: '/api/permissions/groups',
-    GROUP_DETAILS: '/api/permissions/groups/:id',
-    GROUP_PERMISSIONS: '/api/permissions/groups/:id/permissions',
+    // Permission plan management
+    PLANS: '/api/permissions/plans',
+    PLAN_DETAILS: '/api/permissions/plans/:id',
+    PLAN_PERMISSIONS: '/api/permissions/plans/:id/permissions',
 
     // Assignment management
     ASSIGNMENTS: '/api/permissions/assignments',
     WALLET_ASSIGNMENTS: '/api/permissions/assignments/wallet/:wallet_address',
-    GROUP_ASSIGNMENTS: '/api/permissions/assignments/group/:group_id',
+    PLAN_ASSIGNMENTS: '/api/permissions/assignments/plan/:plan_id',
 
     // Permission hierarchy and inheritance
     HIERARCHY: '/api/permissions/hierarchy',
@@ -183,8 +183,11 @@ export const API_ROUTES = {
     REVOKE_HISTORY: '/api/admin/permissions/history/revocations',
 
     // Bulk operations
-    BULK_GRANT: '/api/admin/users/bulk/permissions/grant',
-    BULK_REVOKE: '/api/admin/users/bulk/permissions/revoke',
+    BULK_GRANT: '/api/admin/permissions/bulk/grant',
+    BULK_REVOKE: '/api/admin/permissions/bulk/revoke',
+    BULK_ASSIGN_PLANS: '/api/admin/permissions/bulk/assign-plans',
+    BULK_APPLY_TEMPLATE: '/api/admin/permissions/bulk/apply-template',
+    BULK_VALIDATE: '/api/admin/permissions/bulk/validate',
 
     // Permission management
     ADMIN_PERMISSIONS: '/api/admin/permissions',
@@ -255,7 +258,7 @@ export const ADMIN_ROUTES = {
     USERS: '/admin/users',
     USER_DETAILS: '/admin/users/:id',
     PERMISSIONS: '/admin/permissions',
-    PERMISSION_GROUPS: '/admin/permissions/groups',
+    PERMISSION_PLANS: '/admin/permissions/plans',
     WALLET_MANAGEMENT: '/admin/wallets',
     WALLET_DETAILS: '/admin/wallets/:address',
 

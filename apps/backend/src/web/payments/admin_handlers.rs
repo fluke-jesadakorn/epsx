@@ -15,7 +15,7 @@ use tracing::{info, error};
 use crate::{
     prelude::*,
     web::middleware::UnifiedErrorResponse,
-    schemas::primary::{groups},
+    schemas::primary::{plans},
     schemas::payments::subscriptions,
 };
 
@@ -254,7 +254,7 @@ pub async fn admin_list_payments_handler(
     use crate::infrastructure::models::payment::PaymentDb;
     use crate::infrastructure::database::get_payments_pool;
     use crate::schemas::payments::payments;
-    use crate::schemas::primary::groups;
+    use crate::schemas::primary::plans;
 
     info!("Admin listing payments with params: {:?}", params);
 
@@ -350,10 +350,10 @@ pub async fn admin_list_payments_handler(
     // Map to response format with plan name lookup
     let mut payments_resp: Vec<AdminPaymentInfo> = Vec::new();
     for pay_db in payment_rows {
-        // Try to get plan name from groups table (PRIMARY DB)
-        let plan_name = groups::table
-            .filter(groups::id.eq(pay_db.plan_id))
-            .select(groups::name)
+        // Try to get plan name from plans table (PRIMARY DB)
+        let plan_name = plans::table
+            .filter(plans::id.eq(pay_db.plan_id))
+            .select(plans::name)
             .first::<String>(&mut primary_conn)
             .await
             .unwrap_or_else(|_| "Unknown Plan".to_string());
@@ -477,7 +477,7 @@ pub async fn admin_get_payment_details_handler(
     use crate::infrastructure::database::get_payments_pool;
     use crate::schemas::payments::payments;
 use crate::schemas::analytics::payment_audit_log;
-    use crate::schemas::primary::groups;
+    use crate::schemas::primary::plans;
 
     info!("Admin getting payment details for {}", payment_id);
 
@@ -507,10 +507,10 @@ use crate::schemas::analytics::payment_audit_log;
 
     let payment = match payment_result {
         Ok(pay_db) => {
-            // Try to get plan name from groups table (PRIMARY DB)
-            let plan_name = groups::table
-                .filter(groups::id.eq(pay_db.plan_id))
-                .select(groups::name)
+            // Try to get plan name from plans table (PRIMARY DB)
+            let plan_name = plans::table
+                .filter(plans::id.eq(pay_db.plan_id))
+                .select(plans::name)
                 .first::<String>(&mut primary_conn)
                 .await
                 .unwrap_or_else(|_| "Unknown Plan".to_string());
@@ -824,7 +824,7 @@ pub async fn admin_list_subscriptions_handler(
             Json(create_error_response(500, "Database connection failed", "Failed to establish payments database connection"))
         })?;
 
-    // Get PRIMARY database connection (groups table is in primary DB)
+    // Get PRIMARY database connection (plans table is in primary DB)
     let mut primary_conn = app_state.db_pool.get().await
         .map_err(|e| {
             error!("Failed to get primary database connection: {}", e);
@@ -876,10 +876,10 @@ pub async fn admin_list_subscriptions_handler(
     // Map to response format with plan name lookup from PRIMARY DB
     let mut subscriptions_resp: Vec<AdminSubscriptionInfo> = Vec::new();
     for sub_db in subscription_rows {
-        // Try to get plan name from groups table (PRIMARY DB)
-        let plan_name = groups::table
-            .filter(groups::id.eq(sub_db.plan_id))
-            .select(groups::name)
+        // Try to get plan name from plans table (PRIMARY DB)
+        let plan_name = plans::table
+            .filter(plans::id.eq(sub_db.plan_id))
+            .select(plans::name)
             .first::<String>(&mut primary_conn)
             .await
             .unwrap_or_else(|_| "Unknown Plan".to_string());
@@ -1091,10 +1091,10 @@ pub async fn admin_get_payment_analytics_handler(
 
     let mut plan_breakdown: Vec<PlanBreakdown> = Vec::new();
     for row in plan_rows {
-        // Get plan name from groups table
-        let plan_name = groups::table
-            .filter(groups::id.eq(row.plan_id))
-            .select(groups::name)
+        // Get plan name from plans table
+        let plan_name = plans::table
+            .filter(plans::id.eq(row.plan_id))
+            .select(plans::name)
             .first::<String>(&mut primary_conn)
             .await
             .unwrap_or_else(|_| "Unknown Plan".to_string());

@@ -188,7 +188,7 @@ pub async fn get_user_permissions(
     }
   });
 
-  // Group permissions by platform
+  // Plan permissions by platform
   let mut platform_permissions: HashMap<String, Vec<String>> = HashMap::new();
   for info in &permission_infos {
     if info.is_active {

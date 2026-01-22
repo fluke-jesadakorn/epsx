@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils';
 
 interface ExpiryDatePickerProps {
     itemName: string;
-    itemType: 'permission' | 'group';
+    itemType: 'permission' | 'group' | 'plan';
     isOpen: boolean;
     onConfirm: (expiresAt: Date | null) => void;
     onCancel: () => void;
@@ -40,7 +40,7 @@ export function ExpiryDatePicker({
     const [selectedDate, setSelectedDate] = useState<Date | null>(null);
     const [customDate, setCustomDate] = useState('');
 
-    if (!isOpen) {return null;}
+    if (!isOpen) { return null; }
 
     const handlePreset = (days: number) => {
         const date = new Date();

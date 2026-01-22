@@ -52,7 +52,7 @@ pub struct DirectPermissionResponse {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct AddPermissionToGroupRequest {
+pub struct AddPermissionToPlanRequest {
     pub permission_string: String,
 }
 
@@ -379,16 +379,16 @@ pub async fn list_wallet_permissions(
     })).into_response()
 }
 
-/// Add a permission to a group
-/// POST /admin/permissions/groups/:group_id/permissions
-pub async fn add_permission_to_group(
+/// Add a permission to a plan
+/// POST /admin/permissions/plans/:plan_id/permissions
+pub async fn add_permission_to_plan(
     State(app_state): State<AppState>,
-    Path(group_id): Path<String>,
-    Json(req): Json<AddPermissionToGroupRequest>,
+    Path(plan_id): Path<String>,
+    Json(req): Json<AddPermissionToPlanRequest>,
 ) -> impl IntoResponse {
-    let group_uuid = match Uuid::parse_str(&group_id) {
+    let plan_uuid = match Uuid::parse_str(&plan_id) {
         Ok(id) => id,
-        Err(_) => return AdminResponse::bad_request("Invalid group ID format").into_response(),
+        Err(_) => return AdminResponse::bad_request("Invalid plan ID format").into_response(),
     };
 
     // Parse permission string into owned parts for use in transaction
@@ -416,7 +416,7 @@ pub async fn add_permission_to_group(
         #[diesel(sql_type = diesel::sql_types::Uuid)]
         id: Uuid,
         #[diesel(sql_type = diesel::sql_types::Uuid)]
-        group_id: Uuid,
+        plan_id: Uuid,
         #[diesel(sql_type = diesel::sql_types::Uuid)]
         permission_id: Uuid,
         #[diesel(sql_type = diesel::sql_types::Timestamptz)]
@@ -449,16 +449,16 @@ pub async fn add_permission_to_group(
             .await?
             .id;
 
-            // Add permission to group
+            // Add permission to plan
             let membership = diesel::sql_query(
                 r#"
-                INSERT INTO group_permissions (group_id, permission_id)
+                INSERT INTO plan_permissions (plan_id, permission_id)
                 VALUES ($1, $2)
-                ON CONFLICT (group_id, permission_id) DO NOTHING
-                RETURNING id, group_id, permission_id, granted_at
+                ON CONFLICT (plan_id, permission_id) DO NOTHING
+                RETURNING id, plan_id, permission_id, granted_at
                 "#
             )
-            .bind::<diesel::sql_types::Uuid, _>(group_uuid)
+            .bind::<diesel::sql_types::Uuid, _>(plan_uuid)
             .bind::<diesel::sql_types::Uuid, _>(perm_id)
             .get_result::<MembershipRow>(conn)
             .await
@@ -472,42 +472,42 @@ pub async fn add_permission_to_group(
         Ok(m) => m,
         Err(e) => {
             tracing::error!("Transaction failed: {}", e);
-            return AdminResponse::server_error("Failed to add permission to group").into_response();
+            return AdminResponse::server_error("Failed to add permission to plan").into_response();
         }
     };
 
     if let Some(m) = membership {
         tracing::info!(
-            "Added permission '{}' to group {}",
+            "Added permission '{}' to plan {}",
             req.permission_string,
-            group_id
+            plan_id
         );
         AdminResponse::created(
             serde_json::json!({
                 "id": m.id.to_string(),
-                "group_id": m.group_id.to_string(),
+                "plan_id": m.plan_id.to_string(),
                 "permission_id": m.permission_id.to_string(),
                 "granted_at": m.granted_at,
             }),
-            "Permission added to group successfully"
+            "Permission added to plan successfully"
         ).into_response()
     } else {
         AdminResponse::success_with_message(
             serde_json::json!({"exists": true}),
-            "Permission already exists in group"
+            "Permission already exists in plan"
         ).into_response()
     }
 }
 
-/// Remove a permission from a group
-/// DELETE /admin/permissions/groups/:group_id/permissions/:permission_id
-pub async fn remove_permission_from_group(
+/// Remove a permission from a plan
+/// DELETE /admin/permissions/plans/:plan_id/permissions/:permission_id
+pub async fn remove_permission_from_plan(
     State(app_state): State<AppState>,
-    Path((group_id, permission_id)): Path<(String, String)>,
+    Path((plan_id, permission_id)): Path<(String, String)>,
 ) -> impl IntoResponse {
-    let group_uuid = match Uuid::parse_str(&group_id) {
+    let plan_uuid = match Uuid::parse_str(&plan_id) {
         Ok(id) => id,
-        Err(_) => return AdminResponse::bad_request("Invalid group ID format").into_response(),
+        Err(_) => return AdminResponse::bad_request("Invalid plan ID format").into_response(),
     };
 
     let perm_uuid = match Uuid::parse_str(&permission_id) {
@@ -523,27 +523,27 @@ pub async fn remove_permission_from_group(
         }
     };
 
-    match diesel::sql_query("DELETE FROM group_permissions WHERE group_id = $1 AND permission_id = $2")
-        .bind::<diesel::sql_types::Uuid, _>(group_uuid)
+    match diesel::sql_query("DELETE FROM plan_permissions WHERE plan_id = $1 AND permission_id = $2")
+        .bind::<diesel::sql_types::Uuid, _>(plan_uuid)
         .bind::<diesel::sql_types::Uuid, _>(perm_uuid)
         .execute(&mut conn)
         .await
     {
         Ok(rows) if rows > 0 => {
             tracing::info!(
-                "Removed permission {} from group {}",
+                "Removed permission {} from plan {}",
                 permission_id,
-                group_id
+                plan_id
             );
             AdminResponse::success_with_message(
                 serde_json::json!({"deleted": true}),
-                "Permission removed from group successfully"
+                "Permission removed from plan successfully"
             ).into_response()
         },
         Ok(_) => AdminResponse::not_found("Permission membership").into_response(),
         Err(e) => {
-            tracing::error!("Failed to remove permission from group: {}", e);
-            AdminResponse::server_error("Failed to remove permission from group").into_response()
+            tracing::error!("Failed to remove permission from plan: {}", e);
+            AdminResponse::server_error("Failed to remove permission from plan").into_response()
         }
     }
 }

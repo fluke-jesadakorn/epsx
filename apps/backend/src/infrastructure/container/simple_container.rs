@@ -10,7 +10,7 @@ use crate::web::notifications::RedisNotificationBroadcaster;
 use crate::infrastructure::adapters::repositories::{
     wallet_user_repository_adapter::WalletUserRepositoryAdapter,
 
-    group_repository_adapter::GroupRepositoryAdapter,
+    permission_plan_repository_adapter::PermissionPlanRepositoryAdapter,
     payment_repository_adapter::PaymentRepositoryAdapter,
     notification_repository_adapter::NotificationRepositoryAdapter,
 };
@@ -44,7 +44,7 @@ pub struct SimpleContainer {
     // NEW - Web3-first services (primary)
     pub wallet_user_repository: Option<Arc<WalletUserRepositoryAdapter>>,
 
-    pub group_repository: Option<Arc<GroupRepositoryAdapter>>,
+    pub permission_plan_repository: Option<Arc<PermissionPlanRepositoryAdapter>>,
     pub payment_repository: Option<Arc<PaymentRepositoryAdapter>>,
     pub notification_repository: Option<Arc<NotificationRepositoryAdapter>>,
     pub wallet_permission_service: Option<Arc<WalletPermissionService>>,
@@ -87,7 +87,7 @@ impl SimpleContainer {
 
             wallet_user_repository: None,
 
-            group_repository: None,
+            permission_plan_repository: None,
             payment_repository: None,
             notification_repository: None,
             wallet_permission_service: None,
@@ -160,7 +160,7 @@ impl SimpleContainer {
         // Create repository adapters
         let wallet_user_repository = Arc::new(WalletUserRepositoryAdapter::new(diesel_pool));
 
-        let group_repository = Arc::new(GroupRepositoryAdapter::new(diesel_pool));
+        let permission_plan_repository = Arc::new(PermissionPlanRepositoryAdapter::new(diesel_pool));
         let plan_repository = Arc::new(crate::infrastructure::adapters::repositories::plan_repository_adapter::PostgresPlanRepositoryAdapter::new(diesel_pool));
 
         // Initialize dedicated pools
@@ -357,7 +357,7 @@ impl SimpleContainer {
             // Web3-first services
             wallet_user_repository: Some(wallet_user_repository),
 
-            group_repository: Some(group_repository),
+            permission_plan_repository: Some(permission_plan_repository),
             payment_repository,
             notification_repository,
             wallet_permission_service: Some(wallet_permission_service),
@@ -395,7 +395,7 @@ impl SimpleContainer {
 
             wallet_user_repository: None,
 
-            group_repository: None,
+            permission_plan_repository: None,
             payment_repository: None,
             notification_repository: None,
             wallet_permission_service: None,

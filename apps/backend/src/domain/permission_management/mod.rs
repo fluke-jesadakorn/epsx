@@ -1,5 +1,5 @@
 // Permission Management Bounded Context
-// Handles groups, policies, and permission assignment rules
+// Handles plans, policies, and permission assignment rules
 
 pub mod aggregates;
 pub mod entities;
@@ -10,40 +10,52 @@ pub mod domain_services;
 
 // Re-export key types (new names)
 pub use aggregates::{
-    Group, CreateGroupParams, LoadGroupParams, UpdateGroupParams,
+    Plan, CreatePlanParams, LoadPlanParams, UpdatePlanParams,
     // Backward compatibility aliases
-    PermissionGroup, CreatePermissionGroupParams, LoadPermissionGroupParams, UpdatePermissionGroupParams,
+    Plan as PermissionGroup, CreatePlanParams as CreatePermissionGroupParams, 
+    LoadPlanParams as LoadPermissionGroupParams, UpdatePlanParams as UpdatePermissionGroupParams,
+    PermissionPlan, CreatePermissionPlanParams, LoadPermissionPlanParams, UpdatePermissionPlanParams,
     Policy,
 };
 
 pub use value_objects::{
-    GroupId, GroupSlug, PolicyId, PolicyRule, PermissionString
+    PlanId, PlanSlug, PolicyId, PolicyRule, PermissionString
+};
+
+pub use entities::{
+    PlanAssignment,
+    PlanAssignment as GroupAssignment,
 };
 
 pub use events::{
-    GroupCreatedEvent,
-    GroupUpdatedEvent,
-    GroupDeletedEvent,
-    WalletAssignedToGroupEvent,
-    WalletRemovedFromGroupEvent,
+    PlanCreatedEvent,
+    PlanUpdatedEvent,
+    PlanDeletedEvent,
+    WalletAssignedToPlanEvent,
+    WalletRemovedFromPlanEvent,
     // Backward compatibility aliases
-    PermissionGroupCreatedEvent,
-    PermissionGroupUpdatedEvent,
-    PermissionGroupDeletedEvent,
+    PlanCreatedEvent as PermissionPlanCreatedEvent,
+    PlanUpdatedEvent as PermissionPlanUpdatedEvent,
+    PlanDeletedEvent as PermissionPlanDeletedEvent,
     PolicyCreatedEvent,
     PolicyUpdatedEvent,
 };
 
 pub use repository_ports::{
-    GroupRepositoryPort,
-    PermissionGroupRepositoryPort,
+    PlanRepositoryPort,
+    PlanRepositoryPort as PermissionGroupRepositoryPort,
+    PlanRepositoryPort as PermissionPlanRepositoryPort,
     PolicyRepositoryPort,
-    GroupAssignmentRepositoryPort,
-    GroupSearchCriteria,
-    GroupStatistics,
+    PlanAssignmentRepositoryPort,
+    PlanAssignmentRepositoryPort as GroupAssignmentRepositoryPort,
+    PlanSearchCriteria,
+    PlanSearchCriteria as GroupSearchCriteria,
+    PlanStatistics,
+    PlanStatistics as GroupStatistics,
 };
 
 pub use domain_services::{
     PermissionValidationService,
-    GroupAssignmentService,
+    PlanAssignmentService,
+    PlanAssignmentService as GroupAssignmentService,
 };

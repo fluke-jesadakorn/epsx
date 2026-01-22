@@ -13,8 +13,7 @@ pub mod mappers;
 
 pub mod wallet_user_repository_adapter;
 
-pub mod group_repository_adapter;
-pub use group_repository_adapter as permission_group_repository_adapter;
+pub mod permission_plan_repository_adapter;
 pub mod plan_repository_adapter; // NEW
 pub mod subscription_repository_adapter; 
 pub mod developer_portal; // Developer portal API keys and modules
@@ -34,7 +33,7 @@ pub use subscription_repository_adapter::SubscriptionRepositoryAdapter;
 pub use payment_context_repository_adapter::{PaymentContextRepositoryAdapter, PaymentContextSearchCriteria};
 
 // Export both new and legacy names for backward compatibility
-pub use group_repository_adapter::{GroupRepositoryAdapter, PermissionGroupRepositoryAdapter};
+pub use permission_plan_repository_adapter::{PlanRepositoryAdapter, PermissionPlanRepositoryAdapter};
 
 use diesel_async::{AsyncPgConnection, pooled_connection::AsyncDieselConnectionManager, pooled_connection::deadpool::Pool};
 

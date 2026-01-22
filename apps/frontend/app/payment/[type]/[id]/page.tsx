@@ -5,7 +5,7 @@ import { PaymentClient } from '../../PaymentClient';
 
 export const dynamic = 'force-dynamic';
 
-type PaymentType = 'plan' | 'group' | 'permission' | 'link';
+type PaymentType = 'plan' | 'access-plan' | 'permission' | 'link';
 
 interface PaymentDynamicPageProps {
     params: Promise<{
@@ -30,7 +30,7 @@ function getThemeConfig(type: PaymentType) {
                 title: 'Upgrade Your Plan',
                 description: 'Unlock powerful analytics, API access, and premium features',
             };
-        case 'group':
+        case 'access-plan':
             return {
                 gradient: 'from-emerald-50 via-teal-50 to-cyan-50 dark:from-gray-900 dark:via-emerald-900/20 dark:to-gray-800',
                 decorGradient1: 'from-emerald-400/30 to-teal-500/30',
@@ -38,8 +38,8 @@ function getThemeConfig(type: PaymentType) {
                 decorGradient3: 'from-teal-400/30 to-emerald-500/30',
                 headingGradient: 'from-emerald-600 via-teal-600 to-cyan-600',
                 icon: '👥',
-                title: 'Join Group',
-                description: 'Get access to shared permissions and group-exclusive features',
+                title: 'Join Access Plan',
+                description: 'Get access to shared permissions and plan-exclusive features',
             };
         case 'permission':
             return {
@@ -73,10 +73,18 @@ export default async function PaymentDynamicPage({ params }: PaymentDynamicPageP
     const { type, id } = await params;
 
     // Validate payment type
-    const validTypes: PaymentType[] = ['plan', 'group', 'permission', 'link'];
-    const paymentType = validTypes.includes(type as PaymentType)
+    // Handle 'group' for legacy support by mapping to 'access-plan' if needed, 
+    // but the route itself is what matters. Since this is [type], 'group' will come in as type.
+
+    const validTypes: PaymentType[] = ['plan', 'access-plan', 'permission', 'link'];
+    let paymentType = validTypes.includes(type as PaymentType)
         ? (type as PaymentType)
         : 'plan';
+
+    // Legacy support for accessing via /payment/group/[id] directly if it wasn't redirected
+    if (type === 'group') {
+        paymentType = 'access-plan';
+    }
 
     // Get theme configuration
     const theme = getThemeConfig(paymentType);

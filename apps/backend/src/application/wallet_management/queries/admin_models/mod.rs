@@ -10,6 +10,6 @@ pub use get_wallet_list::{
 };
 pub use get_wallet_detail::{
     GetWalletDetailQuery, GetWalletDetailResponse, WalletActivitySummaryDto, WalletDetailDto,
-    WalletGroupDto, WalletPermissionDto,
+    WalletPlanDto, WalletPermissionDto,
 };
 pub use get_wallet_stats::{GetWalletStatsQuery, GetWalletStatsResponse, WalletStatsDto};

@@ -1,9 +1,10 @@
 'use client'
 
+import { FREE_PLAN_RANKING_OFFSET } from '@/shared/config/constants'
 import { useParams, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 
-import { PermissionTransferList } from '@/components/groups/PermissionTransferList'
+import { PermissionTransferList } from '@/components/plans/PermissionTransferList'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -17,7 +18,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { PageLoadingSpinner } from '@/components/ui/LoadingSpinner'
 import { toast } from '@/hooks/use-toast'
-import { useAvailablePermissions } from '@/hooks/useGroupPermissions'
+import { useAvailablePermissions } from '@/hooks/usePlanPermissions'
 import { createPlansClient, isApiSuccess, type PlanResponse } from '@/shared/api/plans'
 import { useSharedAuth } from '@/shared/components/auth/Provider'
 import { createAdminApiClient } from '@/shared/utils/api-client'
@@ -39,7 +40,7 @@ export default function EditPlanPage() {
     current_price: 0,
     is_active: true,
     api_calls_limit: 100,
-    ranking_offset: 100,
+    ranking_offset: FREE_PLAN_RANKING_OFFSET,
     analytics_queries: 0,
     premium_features: false,
     export_limit: 10,
@@ -77,7 +78,7 @@ export default function EditPlanPage() {
 
           const apiCallsPermission = planData.permissions?.find((p: string) => p.startsWith('epsx:api:calls:'))
           const analyticsPermission = planData.permissions?.find((p: string) => p.startsWith('epsx:analytics:queries:'))
-          const rankingOffset = planData.metadata?.ranking_offset ?? 100
+          const rankingOffset = planData.metadata?.ranking_offset ?? FREE_PLAN_RANKING_OFFSET
 
           let featureList: string[] = []
           if (planData.metadata?.features && Array.isArray(planData.metadata.features)) {
@@ -210,7 +211,7 @@ export default function EditPlanPage() {
         toast({ title: "Success", description: "Plan updated successfully" })
         router.push('/subscriptions/plans')
       } else {
-        toast({ title: "Error", description: response.error || "Failed to update plan", variant: "destructive" })
+        toast({ title: "Error", description: response.error?.message || "Failed to update plan", variant: "destructive" })
       }
     } catch (_error) {
       toast({ title: "Error", description: "Failed to update plan", variant: "destructive" })
@@ -564,7 +565,7 @@ export default function EditPlanPage() {
                             toast({ title: "Deleted", description: "Plan deleted successfully" })
                             router.push('/subscriptions/plans')
                           } else {
-                            toast({ title: "Error", description: response.error || "Failed to delete plan", variant: "destructive" })
+                            toast({ title: "Error", description: response.error?.message || "Failed to delete plan", variant: "destructive" })
                           }
                         } catch (error) {
                           toast({ title: "Error", description: "Failed to delete plan", variant: "destructive" })

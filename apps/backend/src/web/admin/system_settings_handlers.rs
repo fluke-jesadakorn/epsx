@@ -153,7 +153,7 @@ pub async fn get_all_settings_handler(
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
     
-    // Group settings by category
+    // Plan settings by category
     let mut settings: std::collections::HashMap<String, std::collections::HashMap<String, Value>> = 
         std::collections::HashMap::new();
     

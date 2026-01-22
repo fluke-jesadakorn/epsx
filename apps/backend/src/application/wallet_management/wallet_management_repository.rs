@@ -26,7 +26,7 @@ pub struct WalletSummary {
     pub created_at: DateTime<Utc>,
     pub last_auth_at: Option<DateTime<Utc>>,
     pub permissions_count: i32,
-    pub groups_count: i32,
+    pub plans_count: i32,
     pub wallet_metadata: Option<serde_json::Value>,
 }
 
@@ -49,7 +49,7 @@ pub struct WalletSearchCriteria {
     pub date_to: Option<String>,
     pub sort_by: Option<String>,
     pub sort_order: Option<String>,
-    pub exclude_group_id: Option<String>,
+    pub exclude_plan_id: Option<String>,
     pub limit: i32,
     pub offset: i32,
 }
@@ -109,7 +109,7 @@ impl WalletManagementRepository {
         }))
     }
 
-    /// Get wallet permissions (from groups + direct)
+    /// Get wallet permissions (from plans + direct)
     pub async fn get_wallet_permissions(
         &self,
         wallet_address: &str,
@@ -136,12 +136,12 @@ impl WalletManagementRepository {
             r#"
             SELECT
                 p.permission_string as permission,
-                'group' as source,
+                'plan' as source,
                 pgm.granted_at,
                 wgm.expires_at,
                 wgm.is_active
-            FROM wallet_group_assignments wgm
-            JOIN group_permissions pgm ON wgm.group_id = pgm.group_id
+            FROM wallet_plan_assignments wgm
+            JOIN plan_permissions pgm ON wgm.plan_id = pgm.plan_id
             JOIN permissions p ON pgm.permission_id = p.id
             WHERE wgm.wallet_address = $1
               AND p.is_active = true
@@ -213,8 +213,8 @@ impl WalletManagementRepository {
             }
         }
 
-        if let Some(ref group_id) = criteria.exclude_group_id {
-            where_parts.push(format!("wu.wallet_address NOT IN (SELECT wallet_address FROM wallet_group_assignments WHERE group_id = '{}' AND is_active = true)", group_id.replace("'", "''")));
+        if let Some(ref plan_id) = criteria.exclude_plan_id {
+            where_parts.push(format!("wu.wallet_address NOT IN (SELECT wallet_address FROM wallet_plan_assignments WHERE plan_id = '{}' AND is_active = true)", plan_id.replace("'", "''")));
         }
 
         let where_clause = if where_parts.is_empty() {
@@ -245,11 +245,11 @@ impl WalletManagementRepository {
                 wu.last_auth_at,
                 wu.wallet_metadata,
                 COALESCE(perms.count, 0)::int as permissions_count,
-                0 as groups_count
+                0 as plans_count
             FROM wallet_users wu
             LEFT JOIN (
                 SELECT wallet_address, COUNT(*)::int as count
-                FROM wallet_group_assignments
+                FROM wallet_plan_assignments
                 WHERE is_active = true
                 GROUP BY wallet_address
             ) perms ON wu.wallet_address = perms.wallet_address
@@ -273,7 +273,7 @@ impl WalletManagementRepository {
             #[diesel(sql_type = diesel::sql_types::Integer)]
             permissions_count: i32,
             #[diesel(sql_type = diesel::sql_types::Integer)]
-            groups_count: i32,
+            plans_count: i32,
             #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Jsonb>)]
             wallet_metadata: Option<serde_json::Value>,
         }
@@ -289,7 +289,7 @@ impl WalletManagementRepository {
             created_at: row.created_at,
             last_auth_at: row.last_auth_at,
             permissions_count: row.permissions_count,
-            groups_count: row.groups_count,
+            plans_count: row.plans_count,
             wallet_metadata: row.wallet_metadata,
         }).collect())
     }
@@ -331,8 +331,8 @@ impl WalletManagementRepository {
             }
         }
 
-        if let Some(ref group_id) = criteria.exclude_group_id {
-            where_parts.push(format!("wu.wallet_address NOT IN (SELECT wallet_address FROM wallet_group_assignments WHERE group_id = '{}' AND is_active = true)", group_id.replace("'", "''")));
+        if let Some(ref plan_id) = criteria.exclude_plan_id {
+            where_parts.push(format!("wu.wallet_address NOT IN (SELECT wallet_address FROM wallet_plan_assignments WHERE plan_id = '{}' AND is_active = true)", plan_id.replace("'", "''")));
         }
 
         let where_clause = if where_parts.is_empty() {
@@ -373,8 +373,8 @@ impl WalletManagementRepository {
             r#"
             SELECT COALESCE((
                 SELECT COUNT(DISTINCT p.id)::int
-                FROM wallet_group_assignments wgm
-                JOIN group_permissions pgm ON wgm.group_id = pgm.group_id
+                FROM wallet_plan_assignments wgm
+                JOIN plan_permissions pgm ON wgm.plan_id = pgm.plan_id
                 JOIN permissions p ON pgm.permission_id = p.id
                 WHERE wgm.wallet_address = $1
                   AND wgm.is_active = true

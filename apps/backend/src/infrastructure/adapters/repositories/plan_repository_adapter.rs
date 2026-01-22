@@ -1,6 +1,6 @@
 // Plan Repository Adapter
 // Implements PlanRepositoryPort using Diesel and PostgreSQL
-// Maps 'Plan' aggregate to 'groups' table (where group_type = 'subscription')
+// Maps 'Plan' aggregate to 'plans' table (where plan_type = 'subscription')
 
 use crate::prelude::*;
 use async_trait::async_trait;
@@ -16,8 +16,8 @@ use crate::domain::subscription_management::{
     value_objects::PlanId,
     repository_ports::{PlanRepositoryPort, PlanSearchCriteria},
 };
-use crate::schemas::primary::groups;
-use crate::infrastructure::models::group::{GroupDb, NewGroupDb};
+use crate::schemas::primary::plans;
+use crate::infrastructure::models::plan::{PlanDb, NewPlanDb};
 use crate::infrastructure::adapters::repositories::database_types::PermissionRow;
 
 #[derive(Clone)]
@@ -31,13 +31,13 @@ impl PostgresPlanRepositoryAdapter {
     }
 
     // Helper to map DB row to Aggregate
-    async fn map_row_to_plan(&self, conn: &mut AsyncPgConnection, row: GroupDb) -> AppResult<Plan> {
+    async fn map_row_to_plan(&self, conn: &mut AsyncPgConnection, row: PlanDb) -> AppResult<Plan> {
          // Fetch permissions
          let query = r#"
             SELECT p.permission_string, p.platform, p.resource, p.action
-            FROM group_permissions pgm
+            FROM plan_permissions pgm
             JOIN permissions p ON pgm.permission_id = p.id
-            WHERE pgm.group_id = $1
+            WHERE pgm.plan_id = $1
         "#;
 
         let permission_rows = diesel::sql_query(query)
@@ -55,10 +55,10 @@ impl PostgresPlanRepositoryAdapter {
 
         // Reconstruct Plan Aggregate
         use crate::domain::subscription_management::aggregates::plan::LoadPlanParams;
-        use crate::domain::permission_management::GroupId;
+        use crate::domain::permission_management::PlanId;
 
         let id_val = PlanId::from_uuid(row.id);
-        let group_id = GroupId::from_uuid(row.id);
+        let plan_id = PlanId::from_uuid(row.id);
         
         // Handle billing cycle string conversion
         use crate::domain::subscription_management::value_objects::BillingCycle;
@@ -79,7 +79,7 @@ impl PostgresPlanRepositoryAdapter {
             id: id_val,
             name: row.name,
             description: row.description,
-            group_id,
+            plan_id,
             permissions,
             quotas: std::collections::HashMap::new(), // Will be recalculated or fetched if needed
             price: price_val,
@@ -89,7 +89,7 @@ impl PostgresPlanRepositoryAdapter {
             is_active: row.is_active,
             is_promoted: row.is_promoted,
             display_order: row.display_order.unwrap_or(0),
-            metadata: row.group_metadata,
+            metadata: row.plan_metadata,
             created_at: row.created_at,
             updated_at: row.updated_at,
             version: 1, // Placeholder
@@ -103,10 +103,10 @@ impl PlanRepositoryPort for PostgresPlanRepositoryAdapter {
         let mut conn = self.db_pool.get().await
             .map_err(|e| AppError::database_error(e.to_string()))?;
 
-         let group_result = groups::table
-            .filter(groups::id.eq(id.value()))
-            .filter(groups::group_type.eq("subscription"))
-            .first::<GroupDb>(&mut conn)
+         let plan_result = plans::table
+            .filter(plans::id.eq(id.value()))
+            .filter(plans::plan_type.eq("subscription"))
+            .first::<PlanDb>(&mut conn)
             .await
             .optional()
             .map_err(|e| {
@@ -114,7 +114,7 @@ impl PlanRepositoryPort for PostgresPlanRepositoryAdapter {
                 AppError::database_error(e.to_string())
             })?;
         
-        if let Some(row) = group_result {
+        if let Some(row) = plan_result {
             let plan = self.map_row_to_plan(&mut conn, row).await?;
             Ok(Some(plan))
         } else {
@@ -126,30 +126,30 @@ impl PlanRepositoryPort for PostgresPlanRepositoryAdapter {
         let mut conn = self.db_pool.get().await
             .map_err(|e| AppError::database_error(e.to_string()))?;
 
-        let mut query = groups::table
-            .filter(groups::group_type.eq("subscription"))
+        let mut query = plans::table
+            .filter(plans::plan_type.eq("subscription"))
             .into_boxed();
 
         if let Some(is_active) = criteria.is_active {
-            query = query.filter(groups::is_active.eq(is_active));
+            query = query.filter(plans::is_active.eq(is_active));
         }
 
         if let Some(is_promoted) = criteria.is_promoted {
-            query = query.filter(groups::is_promoted.eq(is_promoted));
+            query = query.filter(plans::is_promoted.eq(is_promoted));
         }
 
         if let Some(search_term) = &criteria.search_term {
              let pattern = format!("%{}%", search_term);
              let p = pattern.clone();
              query = query.filter(
-                 groups::name.ilike(pattern)
-                     .or(groups::description.ilike(p))
+                 plans::name.ilike(pattern)
+                     .or(plans::description.ilike(p))
              );
         }
 
         query = query.order((
-            groups::display_order.asc(), // Assuming non-nullable, or we handle nulls
-            groups::price.asc(),
+            plans::display_order.asc(), // Assuming non-nullable, or we handle nulls
+            plans::price.asc(),
         ));
 
         if let Some(limit_val) = criteria.limit {
@@ -160,8 +160,8 @@ impl PlanRepositoryPort for PostgresPlanRepositoryAdapter {
             query = query.offset(offset_val);
         }
 
-        let group_rows = query
-            .load::<GroupDb>(&mut conn)
+        let plan_rows = query
+            .load::<PlanDb>(&mut conn)
             .await
             .map_err(|e| {
                  error!("Failed to find plans: {}", e);
@@ -169,7 +169,7 @@ impl PlanRepositoryPort for PostgresPlanRepositoryAdapter {
             })?;
 
         let mut plans = Vec::new();
-        for row in group_rows {
+        for row in plan_rows {
             // Need to fetch permissions for EACH plan. N+1 problem unless joined.
             // For now, simple loop is fine as plans are few (< 20).
             let plan = self.map_row_to_plan(&mut conn, row).await?;
@@ -187,13 +187,13 @@ impl PlanRepositoryPort for PostgresPlanRepositoryAdapter {
         let currency_str = Some(plan.price().currency().to_string());
         let billing_cycle_str = Some(plan.billing_cycle().to_string());
         
-        let new_group = NewGroupDb {
+        let new_plan = NewPlanDb {
              id: *plan.id().value(),
              name: plan.name().to_string(),
              slug: plan.name().to_lowercase().replace(" ", "-"), 
              description: plan.description().to_string(),
-             group_type: "subscription".to_string(),
-             group_metadata: serde_json::json!({
+             plan_type: "subscription".to_string(),
+             plan_metadata: serde_json::json!({
                  "permissions": plan.permissions
              }),
              price: price_bd,
@@ -216,35 +216,35 @@ impl PlanRepositoryPort for PostgresPlanRepositoryAdapter {
              tier_level: 0, 
         };
 
-        // 1. Upsert Group
-        diesel::insert_into(groups::table)
-            .values(&new_group)
-            .on_conflict(groups::id)
+        // 1. Upsert Plan
+        diesel::insert_into(plans::table)
+            .values(&new_plan)
+            .on_conflict(plans::id)
             .do_update()
             .set((
-                groups::name.eq(&new_group.name),
-                groups::description.eq(&new_group.description),
-                groups::price.eq(&new_group.price),
-                groups::currency.eq(&new_group.currency),
-                groups::billing_cycle.eq(&new_group.billing_cycle),
-                groups::is_active.eq(new_group.is_active),
-                groups::is_promoted.eq(new_group.is_promoted),
-                groups::display_order.eq(&new_group.display_order),
-                groups::group_metadata.eq(&new_group.group_metadata),
-                groups::updated_at.eq(new_group.updated_at),
+                plans::name.eq(&new_plan.name),
+                plans::description.eq(&new_plan.description),
+                plans::price.eq(&new_plan.price),
+                plans::currency.eq(&new_plan.currency),
+                plans::billing_cycle.eq(&new_plan.billing_cycle),
+                plans::is_active.eq(new_plan.is_active),
+                plans::is_promoted.eq(new_plan.is_promoted),
+                plans::display_order.eq(&new_plan.display_order),
+                plans::plan_metadata.eq(&new_plan.plan_metadata),
+                plans::updated_at.eq(new_plan.updated_at),
             ))
             .execute(&mut conn)
             .await
             .map_err(|e| {
-                error!("Failed to save plan/group {}: {}", plan.id(), e);
+                error!("Failed to save plan/plan {}: {}", plan.id(), e);
                 AppError::database_error(e.to_string())
             })?;
 
         // 2. Handle Permissions
-         use crate::schemas::primary::group_permissions;
+         use crate::schemas::primary::plan_permissions;
          
-         diesel::delete(group_permissions::table)
-            .filter(group_permissions::group_id.eq(plan.id().value()))
+         diesel::delete(plan_permissions::table)
+            .filter(plan_permissions::plan_id.eq(plan.id().value()))
             .execute(&mut conn)
             .await
             .map_err(|e| AppError::database_error(e.to_string()))?;
@@ -277,7 +277,7 @@ impl PlanRepositoryPort for PostgresPlanRepositoryAdapter {
 
                  diesel::sql_query(
                     r#"
-                    INSERT INTO group_permissions (group_id, permission_id)
+                    INSERT INTO plan_permissions (plan_id, permission_id)
                     VALUES ($1, $2)
                     "#
                 )
@@ -295,9 +295,9 @@ impl PlanRepositoryPort for PostgresPlanRepositoryAdapter {
         let mut conn = self.db_pool.get().await
             .map_err(|e| AppError::database_error(e.to_string()))?;
 
-        diesel::delete(groups::table)
-            .filter(groups::id.eq(id.value()))
-            .filter(groups::group_type.eq("subscription"))
+        diesel::delete(plans::table)
+            .filter(plans::id.eq(id.value()))
+            .filter(plans::plan_type.eq("subscription"))
             .execute(&mut conn)
             .await
             .map_err(|e| {
@@ -311,12 +311,12 @@ impl PlanRepositoryPort for PostgresPlanRepositoryAdapter {
         let mut conn = self.db_pool.get().await
              .map_err(|e| AppError::database_error(e.to_string()))?;
 
-        let mut query = groups::table
-            .filter(groups::group_type.eq("subscription"))
+        let mut query = plans::table
+            .filter(plans::plan_type.eq("subscription"))
             .into_boxed();
 
         if let Some(is_active) = criteria.is_active {
-            query = query.filter(groups::is_active.eq(is_active));
+            query = query.filter(plans::is_active.eq(is_active));
         }
         
          // ... same filters ...
@@ -324,8 +324,8 @@ impl PlanRepositoryPort for PostgresPlanRepositoryAdapter {
              let pattern = format!("%{}%", search_term);
              let p = pattern.clone();
              query = query.filter(
-                 groups::name.ilike(pattern)
-                     .or(groups::description.ilike(p))
+                 plans::name.ilike(pattern)
+                     .or(plans::description.ilike(p))
              );
         }
 

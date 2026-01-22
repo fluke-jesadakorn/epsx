@@ -11,7 +11,7 @@ use crate::web::notifications::RedisNotificationBroadcaster;
 use crate::domain::payment::repository_ports::{TransactionHistoryProvider};
 use crate::domain::auth::ports::IdentityProviderPort;
 
-use crate::infrastructure::adapters::repositories::group_repository_adapter::PermissionGroupRepositoryAdapter;
+use crate::infrastructure::adapters::repositories::permission_plan_repository_adapter::PermissionPlanRepositoryAdapter;
 // use crate::infrastructure::adapters::repositories::payment_repository_adapter::PaymentRepositoryAdapter; // Temporarily disabled
 
 /// Application State for Dependency Injection
@@ -23,7 +23,7 @@ pub struct AppState {
     pub domain_container: Arc<DomainContainer>,
     pub redis_pool: Option<Arc<RedisPool>>,
     pub redis_broadcaster: Option<Arc<RedisNotificationBroadcaster>>,
-    pub group_repo: Arc<PermissionGroupRepositoryAdapter>,
+    pub plan_repo: Arc<PermissionPlanRepositoryAdapter>,
     pub transaction_history_provider: Option<Arc<dyn TransactionHistoryProvider>>,
     pub identity_provider: Option<Arc<dyn IdentityProviderPort>>,
 
@@ -45,10 +45,10 @@ impl AppState {
         analytics_db_pool: Option<Arc<&'static Pool<AsyncPgConnection>>>,
     ) -> Self {
         // Diesel-based repository
-        let group_repo = domain_container
-            .group_repository
+        let plan_repo = domain_container
+            .permission_plan_repository
             .clone()
-            .expect("GroupRepository not initialized in DomainContainer");
+            .expect("PermissionPlanRepository not initialized in DomainContainer");
 
         // let _payment_repository = domain_container.payment_repository.clone(); // Temporarily disabled - field removed
 
@@ -62,7 +62,7 @@ impl AppState {
             domain_container,
             redis_pool,
             redis_broadcaster,
-            group_repo,
+            plan_repo,
             transaction_history_provider,
             identity_provider,
 

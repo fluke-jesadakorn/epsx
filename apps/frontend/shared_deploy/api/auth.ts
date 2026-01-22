@@ -397,7 +397,7 @@ export class AuthAPIClient {
       console.warn(`Logout request failed: ${response.error}`);
       return {
         success: false,
-        message: response.error || 'Logout request failed',
+        message: response.error?.message || 'Logout request failed',
         logged_out: true, // Still consider locally logged out
       };
     }

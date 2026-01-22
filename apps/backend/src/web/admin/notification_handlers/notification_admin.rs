@@ -21,7 +21,7 @@ use super::super::wallet_notification_repository::WalletNotificationRepository;
 // ADMIN HANDLERS
 // ============================================================================
 
-/// Send notification to specific user, group, or broadcast
+/// Send notification to specific user, plan, or broadcast
 #[utoipa::path(
     post,
     path = "/api/admin/notifications/send",
@@ -59,10 +59,10 @@ pub async fn send_notification_handler(
         vec!["all".to_string()]
     } else if let Some(addr) = request.recipient_wallet_address {
         vec![addr.to_lowercase()]
-    } else if let Some(group) = request.recipient_group {
-        // Fetch wallet addresses for group from database
+    } else if let Some(plan) = request.recipient_plan {
+        // Fetch wallet addresses for plan from database
         #[derive(QueryableByName)]
-        struct GroupMemberRow {
+        struct PlanMemberRow {
             #[diesel(sql_type = diesel::sql_types::Text)]
             wallet_address: String,
         }
@@ -70,34 +70,34 @@ pub async fn send_notification_handler(
         let mut conn = app_state.db_pool.get().await
             .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to get database connection: {}", e)))?;
 
-        let group_members = diesel::sql_query(
+        let plan_members = diesel::sql_query(
             r#"
             SELECT wallet_address
-            FROM wallet_group_assignments wga
-            INNER JOIN groups pg ON wga.group_id = pg.id
+            FROM wallet_plan_assignments wga
+            INNER JOIN plans pg ON wga.plan_id = pg.id
             WHERE pg.slug = $1 AND wga.is_active = true
             "#
         )
-        .bind::<diesel::sql_types::Text, _>(&group)
-        .load::<GroupMemberRow>(&mut conn)
+        .bind::<diesel::sql_types::Text, _>(&plan)
+        .load::<PlanMemberRow>(&mut conn)
         .await
-        .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to fetch group members: {}", e)))?
+        .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to fetch plan members: {}", e)))?
         .into_iter()
         .map(|r| r.wallet_address)
         .collect::<Vec<String>>();
 
-        if group_members.is_empty() {
+        if plan_members.is_empty() {
             return Err(AppError::new(
                 ErrorKind::ValidationError,
-                format!("No active members found in group: {}", group),
+                format!("No active members found in plan: {}", plan),
             ));
         }
 
-        group_members
+        plan_members
     } else {
         return Err(AppError::new(
             ErrorKind::ValidationError,
-            "Must specify recipient_wallet_address, recipient_group, or broadcast=true".to_string(),
+            "Must specify recipient_wallet_address, recipient_plan, or broadcast=true".to_string(),
         ));
     };
 
@@ -483,7 +483,7 @@ pub async fn get_notification_stats_handler(
         count: i64,
     }
 
-    // Get recent activity (last 24 hours, grouped by hour, exclude soft-deleted)
+    // Get recent activity (last 24 hours, planed by hour, exclude soft-deleted)
     let recent_activity_records = diesel::sql_query(
         r#"
         SELECT

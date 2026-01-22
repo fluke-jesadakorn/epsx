@@ -4,7 +4,7 @@
 use crate::application::shared::{ApplicationError, ApplicationResult, Query, QueryHandler};
 use crate::application::wallet_management::queries::admin_models::{
     GetWalletDetailQuery, GetWalletDetailResponse, WalletActivitySummaryDto, WalletDetailDto,
-    WalletGroupDto, WalletPermissionDto,
+    WalletPlanDto, WalletPermissionDto,
 };
 use crate::application::wallet_management::wallet_management_repository::WalletManagementRepository;
 use async_trait::async_trait;
@@ -66,12 +66,12 @@ impl QueryHandler<GetWalletDetailQuery> for GetWalletDetailQueryHandler {
         let permissions_result = diesel::sql_query(r#"
             SELECT
                 p.permission_string as permission,
-                'group' as source,
+                'plan' as source,
                 pgm.granted_at,
                 wgm.expires_at,
                 wgm.is_active
-            FROM wallet_group_assignments wgm
-            JOIN group_permissions pgm ON wgm.group_id = pgm.group_id
+            FROM wallet_plan_assignments wgm
+            JOIN plan_permissions pgm ON wgm.plan_id = pgm.plan_id
             JOIN permissions p ON pgm.permission_id = p.id
             WHERE wgm.wallet_address = $1
               AND p.is_active = true
@@ -111,8 +111,8 @@ impl QueryHandler<GetWalletDetailQuery> for GetWalletDetailQueryHandler {
             })
             .collect();
 
-        // 5. Get wallet groups (placeholder - can be implemented later)
-        let groups: Vec<WalletGroupDto> = Vec::new();
+        // 5. Get wallet plans (placeholder - can be implemented later)
+        let plans: Vec<WalletPlanDto> = Vec::new();
 
         // 6. Calculate activity summary with actual login tracking
         let active_permissions_count = permissions.iter().filter(|p| p.is_active).count();
@@ -156,7 +156,7 @@ impl QueryHandler<GetWalletDetailQuery> for GetWalletDetailQueryHandler {
             total_permissions: permissions.len() as i32,
             active_permissions: active_permissions_count as i32,
             expired_permissions: (permissions.len() - active_permissions_count) as i32,
-            groups_count: groups.len() as i32,
+            plans_count: plans.len() as i32,
         };
 
         // 7. Build wallet detail DTO
@@ -166,7 +166,7 @@ impl QueryHandler<GetWalletDetailQuery> for GetWalletDetailQueryHandler {
             created_at: wallet.created_at,
             last_auth_at: wallet.last_auth_at,
             permissions,
-            groups,
+            plans,
             activity_summary,
             metadata: wallet.wallet_metadata,
         };

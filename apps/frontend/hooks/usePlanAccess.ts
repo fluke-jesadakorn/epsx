@@ -12,6 +12,8 @@ interface UsePlanAccessResult {
     refetch: () => Promise<void>;
 }
 
+import { FREE_PLAN_RANKING_OFFSET, FREE_PLAN_TIER_LEVEL } from '@/shared/config/constants';
+
 const DEFAULT_FREE_TIER: PlanAccessData = {
     wallet_address: '',
     current_plan_id: null,
@@ -19,9 +21,9 @@ const DEFAULT_FREE_TIER: PlanAccessData = {
     plan_expires_at: null,
     days_remaining: 0,
     status: 'no_plan',
-    ranking_offset: 100, // Free tier sees ranks 101+
+    ranking_offset: FREE_PLAN_RANKING_OFFSET, // Free tier sees ranks 101+
     can_upgrade: true,
-    tier_level: 0, // Free tier uses tier 0 styling
+    tier_level: FREE_PLAN_TIER_LEVEL, // Free tier uses tier 0 styling
 };
 
 /**

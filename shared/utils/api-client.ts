@@ -20,7 +20,8 @@ import { getBackendUrl } from './url-resolver';
 // CORE TYPES AND INTERFACES
 // ============================================================================
 
-import type { ApiError as ApiErrorResult, ApiResponse, PaginatedResponse } from '../types/api';
+import type { ApiError, ApiResponse, PaginatedResponse } from '../types/api';
+export type { ApiError, ApiResponse, PaginatedResponse };
 
 export interface RequestConfig extends RequestInit {
   timeout?: number;
@@ -268,7 +269,7 @@ export class UnifiedApiClient {
     // 1. If it's a known API Error (status >= 400)
     if (!isSuccess) {
       // Try to extract structured error from data
-      let apiError: ApiErrorResult = {
+      let apiError: ApiError = {
         code: 'HTTP_ERROR',
         message: `HTTP ${status}: ${response.statusText}`,
       };
@@ -276,7 +277,7 @@ export class UnifiedApiClient {
       if (data && typeof data === 'object') {
         if (data.error && typeof data.error === 'object') {
           // Already has strict error structure
-          apiError = data.error as ApiErrorResult;
+          apiError = data.error as ApiError;
         } else if (data.message) {
           // Simple message format
           apiError.message = data.message;
@@ -394,7 +395,7 @@ export class UnifiedApiClient {
   // UTILITY METHODS
   // ============================================================================
 
-  isApiError(error: any): error is ApiErrorResult {
+  isApiError(error: any): error is ApiError {
     return error &&
       typeof error.code === 'string' &&
       typeof error.message === 'string';
@@ -472,7 +473,7 @@ export function createApiClient(baseURL?: string, token?: string): UnifiedApiCli
 // ERROR CLASSES
 // ============================================================================
 
-export class APIError extends Error implements ApiErrorResult {
+export class APIError extends Error implements ApiError {
   public code: string;
   public details?: any;
   public status?: number; // Optional status for compatibility
@@ -598,7 +599,7 @@ export async function retryRequest<T>(
 // TYPE GUARDS AND HELPERS
 // ============================================================================
 
-export function isApiError(error: any): error is ApiErrorResult {
+export function isApiError(error: any): error is ApiError {
   return error &&
     typeof error.code === 'string' &&
     typeof error.message === 'string';

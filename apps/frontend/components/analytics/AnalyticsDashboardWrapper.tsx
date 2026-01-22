@@ -2,7 +2,7 @@
 
 import type { AnalyticsPagination, SymbolCardData } from '@/shared/types/analytics';
 import { AnalyticsCardGrid } from './AnalyticsCardGrid';
-import { PlanStatusBar } from './PlanStatusBar';
+
 import ServerPagination from './ServerPagination';
 
 interface AnalyticsDashboardWrapperProps {
@@ -22,8 +22,7 @@ export function AnalyticsDashboardWrapper({
 }: AnalyticsDashboardWrapperProps): React.ReactElement {
     return (
         <div className="space-y-6">
-            {/* Plan Status Bar - Shows current plan and accessible ranks */}
-            <PlanStatusBar className="sticky top-4 z-30" />
+
 
             {/* Analytics Card Grid with plan-aware locking */}
             <AnalyticsCardGrid

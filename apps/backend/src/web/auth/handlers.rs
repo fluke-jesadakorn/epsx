@@ -1,5 +1,5 @@
 // Web3 Authentication Handlers
-// Complete Web3 authentication handlers integrating SIWE with group permissions
+// Complete Web3 authentication handlers integrating SIWE with plan permissions
 
 use axum::{
     extract::{Query, State},
@@ -167,7 +167,7 @@ pub async fn verify_signature_handler(
         }
     };
 
-    // Web3 group bridge functionality integrated into permission service
+    // Web3 plan bridge functionality integrated into permission service
 
     // Verify signature using Web3AuthService
     let verification_request = Web3VerificationRequest {
@@ -197,7 +197,7 @@ pub async fn verify_signature_handler(
                 }
             };
 
-            // Get user's current permissions (both legacy and group-based)
+            // Get user's current permissions (both legacy and plan-based)
             let user_permissions = match web3_permission_service
                 .get_user_permissions(&auth_result.wallet_address)
                 .await
@@ -605,10 +605,10 @@ pub async fn revoke_permission_handler(
     }
 }
 
-/// Get user permissions (both legacy and group-based)
+/// Get user permissions (both legacy and plan-based)
 #[utoipa::path(
     get,
-    path = "/api/auth/web3/groups/permissions/{wallet_address}",
+    path = "/api/auth/web3/plans/permissions/{wallet_address}",
     params(
         ("wallet_address" = String, Path, description = "Wallet address to get permissions for")
     ),

@@ -92,7 +92,7 @@ fn validate_permissions_list(permissions: &[String]) -> Result<(), ValidationErr
 
     if permissions.len() > 100 {
         let mut error = ValidationError::new("too_many_permissions");
-        error.message = Some("Cannot assign more than 100 permissions to a group".into());
+        error.message = Some("Cannot assign more than 100 permissions to a plan".into());
         return Err(error);
     }
 

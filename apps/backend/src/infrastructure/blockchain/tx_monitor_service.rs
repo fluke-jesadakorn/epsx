@@ -3,7 +3,7 @@
 //! Background service that monitors pending transactions on the blockchain.
 //! Polls RPC for transaction status and updates database when confirmed.
 
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
 use ethers::prelude::*;
@@ -376,14 +376,14 @@ impl TransactionMonitorService {
         }
 
         let group_check: Option<GroupCheck> = diesel::sql_query(
-            "SELECT id, name FROM groups WHERE id = $1 AND is_active = true",
+            "SELECT id, name FROM plans WHERE id = $1 AND is_active = true",
         )
         .bind::<diesel::sql_types::Uuid, _>(plan_uuid)
         .get_result(&mut primary_conn)
         .await
         .ok();
 
-        let group_name = match group_check {
+        let plan_name = match group_check {
             Some(g) => g.name,
             None => {
                 error!(
@@ -399,53 +399,104 @@ impl TransactionMonitorService {
 
         info!(
             "📦 Assigning group '{}' ({}) to wallet {}",
-            group_name, plan_uuid, wallet_address
+            plan_name, plan_uuid, wallet_address
         );
 
-        // 2.6 Deactivate all existing subscription plan assignments for this wallet
-        // Enforces single active plan per user (groups can still have multiple users)
-        diesel::sql_query(
-            r#"
-            UPDATE wallet_group_assignments 
-            SET is_active = false, updated_at = NOW()
-            WHERE wallet_address = $1 
-              AND is_active = true
-              AND group_id IN (SELECT id FROM groups WHERE group_type = 'subscription')
-            "#
-        )
-        .bind::<diesel::sql_types::Text, _>(&wallet_address)
-        .execute(&mut primary_conn)
-        .await
-        .ok();
+        // 2.6 Check for existing active assignment for this group (Plan Extension Logic)
+        #[derive(diesel::QueryableByName)]
+        struct ExistingAssignment {
+            #[diesel(sql_type = diesel::sql_types::Uuid)]
+            id: Uuid,
+            #[diesel(sql_type = diesel::sql_types::Timestamptz)]
+            expires_at: DateTime<Utc>,
+        }
 
-        // 3. Assign wallet to plan's permission group
-        let payment_reference = format!("PAY-{}", Uuid::new_v4());
-        diesel::sql_query(
-            r#"
-            INSERT INTO wallet_group_assignments (
-                wallet_address, group_id, assigned_at, expires_at, is_active,
-                assignment_source, assignment_reason, payment_reference,
-                auto_renew, assignment_metadata
-            )
-            VALUES ($1, $2, NOW(), $3, true, 'payment', 'Plan purchase via blockchain payment', $4, false, '{}')
-            ON CONFLICT (wallet_address, group_id) DO UPDATE
-            SET is_active = true, expires_at = EXCLUDED.expires_at, updated_at = NOW(),
-                payment_reference = EXCLUDED.payment_reference
-            "#,
+        let existing_assignment: Option<ExistingAssignment> = diesel::sql_query(
+            "SELECT id, expires_at FROM wallet_plan_assignments WHERE wallet_address = $1 AND plan_id = $2 AND is_active = true"
         )
         .bind::<diesel::sql_types::Text, _>(&wallet_address)
         .bind::<diesel::sql_types::Uuid, _>(plan_uuid)
-        .bind::<diesel::sql_types::Timestamptz, _>(expires_at)
-        .bind::<diesel::sql_types::Text, _>(&payment_reference)
-        .execute(&mut primary_conn)
+        .get_result(&mut primary_conn)
         .await
-        .map_err(|e| {
-            error!(
-                "❌ Failed to assign group {} to wallet {}: {}",
-                plan_uuid, wallet_address, e
-            );
-            format!("Failed to assign group: {}", e)
-        })?;
+        .optional()
+        .ok()
+        .flatten();
+
+        let payment_reference = format!("PAY-{}", Uuid::new_v4());
+
+        if let Some(existing) = existing_assignment {
+            // CASE 1: EXTEND EXISTING PLAN
+            // Calculate new expiry: If current expiry is in future, add 30 days to it. If passed, add 30 days to NOW.
+            let base_time = if existing.expires_at > Utc::now() { existing.expires_at } else { Utc::now() };
+            // Default 30 days, or use duration from payload if we had it (here hardcoded 30 for payment monitor)
+            let new_expiry = base_time + chrono::Duration::days(30);
+
+            info!("🔄 Extending existing plan {} for wallet {}. Old expiry: {}, New expiry: {}", 
+                plan_uuid, wallet_address, existing.expires_at, new_expiry);
+
+            diesel::sql_query(
+                r#"
+                UPDATE wallet_plan_assignments 
+                SET expires_at = $1, payment_reference = $2, updated_at = NOW(), is_active = true
+                WHERE id = $3
+                "#
+            )
+            .bind::<diesel::sql_types::Timestamptz, _>(new_expiry)
+            .bind::<diesel::sql_types::Text, _>(&payment_reference)
+            .bind::<diesel::sql_types::Uuid, _>(existing.id)
+            .execute(&mut primary_conn)
+            .await
+            .map_err(|e| {
+                error!("❌ Failed to extend plan: {}", e);
+                format!("Failed to extend plan: {}", e)
+            })?;
+
+        } else {
+            // CASE 2: NEW ASSIGNMENT (Upgrade/Switch/New)
+            
+            // Deactivate OTHER existing subscription plans
+            // NOTE: In Phase 3 (Downgrade), we will modify this to allow strictly higher tiers to remain active.
+            // For now, we keep strictly keeping only one active plan to match current behavior, 
+            // BUT we exclude the plan we are about to add (though it's not in DB yet, so safe).
+            diesel::sql_query(
+                r#"
+                UPDATE wallet_plan_assignments 
+                SET is_active = false, updated_at = NOW()
+                WHERE wallet_address = $1 
+                  AND is_active = true
+                  AND plan_id IN (SELECT id FROM plans WHERE plan_type = 'subscription')
+                "#
+            )
+            .bind::<diesel::sql_types::Text, _>(&wallet_address)
+            .execute(&mut primary_conn)
+            .await
+            .ok();
+
+            // Insert new assignment
+            diesel::sql_query(
+                r#"
+                INSERT INTO wallet_plan_assignments (
+                    wallet_address, plan_id, assigned_at, expires_at, is_active,
+                    assignment_source, assignment_reason, payment_reference,
+                    auto_renew, assignment_metadata
+                )
+                VALUES ($1, $2, NOW(), $3, true, 'payment', 'Plan purchase via blockchain payment', $4, false, '{}')
+                "#
+            )
+            .bind::<diesel::sql_types::Text, _>(&wallet_address)
+            .bind::<diesel::sql_types::Uuid, _>(plan_uuid)
+            .bind::<diesel::sql_types::Timestamptz, _>(expires_at) // This expires_at was calculated as NOW + 30 days at start of function
+            .bind::<diesel::sql_types::Text, _>(&payment_reference)
+            .execute(&mut primary_conn)
+            .await
+            .map_err(|e| {
+                error!(
+                    "❌ Failed to assign group {} to wallet {}: {}",
+                    plan_uuid, wallet_address, e
+                );
+                format!("Failed to assign group: {}", e)
+            })?;
+        }
 
         info!(
             "✅ Group assignment successful: wallet={}, group={}",
@@ -467,7 +518,7 @@ impl TransactionMonitorService {
 
         info!(
             "✅ Payment finalized: wallet={}, plan='{}' ({}), expires={}, ref={}",
-            wallet_address, group_name, plan_uuid, expires_at, payment_reference
+            wallet_address, plan_name, plan_uuid, expires_at, payment_reference
         );
 
         Ok(())

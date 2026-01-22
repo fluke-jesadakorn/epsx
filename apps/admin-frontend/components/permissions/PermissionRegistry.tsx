@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { groupMgmt, type PermissionDefinitionDto } from '@/lib/api/group-management-client';
+import { type PermissionDefinitionDto } from '@/lib/api/plan-management-client';
 import { copyToClipboard as copyToClipboardUtil } from '@/lib/utils';
 
 /**
@@ -24,13 +24,13 @@ export function PermissionRegistry() {
     // Fetch permissions
     const { data: permissions = [], isLoading, error } = useQuery({
         queryKey: ['permission-definitions'],
-        queryFn: () => groupMgmt.getPermissionDefinitions(),
+        queryFn: () => planMgmt.getPermissionDefinitions(),
     });
 
     // Create permission mutation
     const createMutation = useMutation({
         mutationFn: async (permission: string) => {
-            return groupMgmt.createPermissionDefinition({
+            return planMgmt.createPermissionDefinition({
                 permission,
                 platform: permission.split(':')[0],
                 category: permission.split(':')[1],
@@ -49,7 +49,7 @@ export function PermissionRegistry() {
 
     // Delete permission mutation
     const deleteMutation = useMutation({
-        mutationFn: (id: string) => groupMgmt.deletePermissionDefinition(id),
+        mutationFn: (id: string) => planMgmt.deletePermissionDefinition(id),
         onSuccess: () => {
             toast.success('Permission deleted successfully');
             queryClient.invalidateQueries({ queryKey: ['permission-definitions'] });

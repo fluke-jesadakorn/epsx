@@ -46,7 +46,7 @@ pub struct Web3VerifyResponse {
     pub wallet_address: String,
     pub token: String,
     pub permissions: Vec<String>,
-    pub groups: Vec<String>,
+    pub plans: Vec<String>,
     pub expires_at: String,
 }
 

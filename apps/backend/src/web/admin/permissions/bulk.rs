@@ -35,9 +35,9 @@ pub struct BulkRevokeRequest {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct BulkAssignGroupsRequest {
+pub struct BulkAssignPlansRequest {
     pub wallet_addresses: Vec<String>,
-    pub group_id: String,
+    pub plan_id: String,
     pub expires_at: Option<DateTime<Utc>>,
     pub assignment_source: Option<String>,
 }
@@ -69,7 +69,7 @@ pub struct BulkWalletResult {
     pub wallet_address: String,
     pub permissions_added: Vec<String>,
     pub permissions_removed: Vec<String>,
-    pub groups_assigned: Vec<String>,
+    pub plans_assigned: Vec<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -231,7 +231,7 @@ pub async fn bulk_grant(
                     wallet_address: wallet,
                     permissions_added: added_permissions,
                     permissions_removed: vec![],
-                    groups_assigned: vec![],
+                    plans_assigned: vec![],
                 });
             }
             Err(e) => {
@@ -338,7 +338,7 @@ pub async fn bulk_revoke(
             wallet_address: wallet,
             permissions_added: vec![],
             permissions_removed: removed_permissions,
-            groups_assigned: vec![],
+            plans_assigned: vec![],
         });
     }
 
@@ -366,15 +366,15 @@ pub async fn bulk_revoke(
     }).into_response()
 }
 
-/// Bulk assign wallets to a permission group
-/// POST /admin/permissions/bulk/assign-groups
-pub async fn bulk_assign_groups(
+/// Bulk assign wallets to a permission plan
+/// POST /admin/permissions/bulk/assign-plans
+pub async fn bulk_assign_plans(
     State(app_state): State<AppState>,
-    Json(req): Json<BulkAssignGroupsRequest>,
+    Json(req): Json<BulkAssignPlansRequest>,
 ) -> impl IntoResponse {
-    let group_uuid = match Uuid::parse_str(&req.group_id) {
+    let plan_uuid = match Uuid::parse_str(&req.plan_id) {
         Ok(id) => id,
-        Err(_) => return AdminResponse::bad_request("Invalid group ID format").into_response(),
+        Err(_) => return AdminResponse::bad_request("Invalid plan ID format").into_response(),
     };
 
     if req.wallet_addresses.is_empty() {
@@ -405,19 +405,19 @@ pub async fn bulk_assign_groups(
             continue;
         }
 
-        // Assign wallet to group
+        // Assign wallet to plan
         match diesel::sql_query(
             r#"
-            INSERT INTO wallet_group_assignments (
-                wallet_address, group_id, assigned_at, expires_at, is_active, assignment_source
+            INSERT INTO wallet_plan_assignments (
+                wallet_address, plan_id, assigned_at, expires_at, is_active, assignment_source
             )
             VALUES ($1, $2, NOW(), $3, true, $4)
-            ON CONFLICT (wallet_address, group_id) DO UPDATE
+            ON CONFLICT (wallet_address, plan_id) DO UPDATE
             SET is_active = true, expires_at = EXCLUDED.expires_at, updated_at = NOW()
             "#
         )
         .bind::<diesel::sql_types::Text, _>(&wallet)
-        .bind::<diesel::sql_types::Uuid, _>(group_uuid)
+        .bind::<diesel::sql_types::Uuid, _>(plan_uuid)
         .bind::<diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>, _>(req.expires_at)
         .bind::<diesel::sql_types::Text, _>(req.assignment_source.as_deref().unwrap_or("bulk_assignment"))
         .execute(&mut conn)
@@ -428,14 +428,14 @@ pub async fn bulk_assign_groups(
                     wallet_address: wallet,
                     permissions_added: vec![],
                     permissions_removed: vec![],
-                    groups_assigned: vec![req.group_id.clone()],
+                    plans_assigned: vec![req.plan_id.clone()],
                 });
             }
             Err(e) => {
-                tracing::error!("Failed to assign wallet to group: {}", e);
+                tracing::error!("Failed to assign wallet to plan: {}", e);
                 failed.push(BulkWalletError {
                     wallet_address: wallet,
-                    error: "Failed to assign to group".to_string(),
+                    error: "Failed to assign to plan".to_string(),
                     error_code: "ASSIGNMENT_FAILED".to_string(),
                 });
             }
@@ -451,7 +451,7 @@ pub async fn bulk_assign_groups(
     };
 
     tracing::info!(
-        "Bulk group assignment completed: {} successful, {} failed",
+        "Bulk plan assignment completed: {} successful, {} failed",
         summary.successful_operations,
         summary.failed_operations
     );
@@ -460,7 +460,7 @@ pub async fn bulk_assign_groups(
         successful,
         failed,
         summary,
-        operation: "bulk_assign_groups".to_string(),
+        operation: "bulk_assign_plans".to_string(),
         timestamp: Utc::now(),
     }).into_response()
 }
@@ -540,14 +540,14 @@ pub async fn bulk_validate(
     for wallet_address in &req.wallet_addresses {
         let wallet = wallet_address.to_lowercase();
 
-        // Get all permissions (direct + groups)
+        // Get all permissions (direct + plans)
         let permissions = match diesel::sql_query(
             r#"
             SELECT DISTINCT p.permission_string, wdp.expires_at as direct_expires
             FROM permissions p
             LEFT JOIN wallet_direct_permissions wdp ON p.id = wdp.permission_id AND wdp.wallet_address = $1
-            LEFT JOIN group_permissions pgm ON p.id = pgm.permission_id
-            LEFT JOIN wallet_group_assignments wga ON pgm.group_id = wga.group_id AND wga.wallet_address = $1
+            LEFT JOIN plan_permissions pgm ON p.id = pgm.permission_id
+            LEFT JOIN wallet_plan_assignments wga ON pgm.plan_id = wga.plan_id AND wga.wallet_address = $1
             WHERE (wdp.is_active = true OR wga.is_active = true)
             "#
         )

@@ -12,7 +12,7 @@
 //
 // Features:
 // - Grant/revoke direct permissions
-// - Assign/remove permission groups
+// - Assign/remove permission plans
 // - Check permissions with wildcard support
 // - Cache with automatic invalidation
 // - Complete audit trail
@@ -23,8 +23,8 @@ use serde::{Deserialize, Serialize};
 use diesel_async::{AsyncPgConnection, RunQueryDsl, pooled_connection::deadpool::Pool};
 use diesel::prelude::*;
 use std::sync::Arc;
-// Note: wallet_group_memberships table not implemented yet
-  // use crate::schemas::primary::{wallet_group_memberships};
+// Note: wallet_plan_assignments table not implemented yet
+  // use crate::schemas::primary::{wallet_plan_assignments};
 use tracing::{debug, info, warn, error};
 use uuid::Uuid;
 
@@ -48,11 +48,10 @@ pub struct PermissionDetail {
     pub is_permanent: bool,
 }
 
-/// Permission source type
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum PermissionSource {
-    Group,
+    Plan,
     Direct,
 }
 
@@ -61,10 +60,10 @@ pub enum PermissionSource {
 pub struct PermissionStats {
     pub total_permissions: i64,
     pub direct_permissions: i64,
-    pub group_permissions: i64,
+    pub plan_permissions: i64,
     pub permanent_permissions: i64,
     pub temporary_permissions: i64,
-    pub groups_count: i64,
+    pub plans_count: i64,
     pub expiring_soon_count: i64,
 }
 
@@ -87,21 +86,21 @@ pub struct RevokePermissionRequest {
     pub reason: Option<String>,
 }
 
-/// Assign group request
+/// Assign plan request
 #[derive(Debug, Clone)]
-pub struct AssignGroupRequest {
+pub struct AssignPlanRequest {
     pub wallet_address: String,
-    pub group_id: Uuid,
+    pub plan_id: Uuid,
     pub assigned_by: String,
     pub reason: Option<String>,
     pub expires_at: Option<DateTime<Utc>>,
 }
 
-/// Remove group request
+/// Remove plan request
 #[derive(Debug, Clone)]
-pub struct RemoveGroupRequest {
+pub struct RemovePlanRequest {
     pub wallet_address: String,
-    pub group_id: Uuid,
+    pub plan_id: Uuid,
     pub removed_by: String,
     pub reason: Option<String>,
 }
@@ -257,8 +256,8 @@ impl UnifiedPermissionService {
                     permission_id: row.permission_id
                         .and_then(|s| Uuid::parse_str(&s).ok())
                         .unwrap_or_else(Uuid::new_v4),
-                    source_type: if row.source_type == "group" {
-                        PermissionSource::Group
+                    source_type: if row.source_type == "plan" || row.source_type == "group" {
+                        PermissionSource::Plan
                     } else {
                         PermissionSource::Direct
                     },
@@ -487,19 +486,15 @@ impl UnifiedPermissionService {
         Ok(())
     }
 
-    // ========================================================================
-    // GROUP MANAGEMENT
-    // ========================================================================
-
-    /// Assign wallet to permission group
-    pub async fn assign_group(
+    /// Assign wallet to permission plan
+    pub async fn assign_plan(
         &self,
-        request: AssignGroupRequest,
+        request: AssignPlanRequest,
     ) -> Result<Uuid, AppError> {
         let wallet_lower = request.wallet_address.to_lowercase();
         info!(
-            "Assigning group {} to wallet: {} by {}",
-            request.group_id, wallet_lower, request.assigned_by
+            "Assigning plan {} to wallet: {} by {}",
+            request.plan_id, wallet_lower, request.assigned_by
         );
 
         let mut conn = self.db_pool.get().await.map_err(|e| {
@@ -508,16 +503,16 @@ impl UnifiedPermissionService {
 
         // Use raw SQL for complex ON CONFLICT operation
         let query = format!(r#"
-            INSERT INTO wallet_group_memberships (
+            INSERT INTO wallet_plan_assignments (
                 wallet_address,
-                group_id,
+                plan_id,
                 assigned_at,
                 expires_at,
                 assigned_by,
                 assignment_reason,
                 is_active
             ) VALUES ('{}', '{}', NOW(), '{}', '{}', '{}', TRUE)
-            ON CONFLICT (wallet_address, group_id)
+            ON CONFLICT (wallet_address, plan_id)
             DO UPDATE SET
                 is_active = TRUE,
                 assigned_at = NOW(),
@@ -527,7 +522,7 @@ impl UnifiedPermissionService {
             RETURNING id
             "#,
             wallet_lower.replace("'", "''"),
-            request.group_id,
+            request.plan_id,
             request.expires_at.map(|dt| dt.to_rfc3339()).unwrap_or("NULL".to_string()).replace("'", "''"),
             request.assigned_by.replace("'", "''"),
             request.reason.unwrap_or_default().replace("'", "''")
@@ -543,8 +538,8 @@ impl UnifiedPermissionService {
             .get_result::<AssignmentResult>(&mut conn)
             .await
             .map_err(|e| {
-                error!("Database error assigning group: {}", e);
-                AppError::database_error(format!("Failed to assign group: {}", e))
+                error!("Database error assigning plan: {}", e);
+                AppError::database_error(format!("Failed to assign plan: {}", e))
             })?
             .id;
 
@@ -555,19 +550,19 @@ impl UnifiedPermissionService {
 
         // Audit log (trigger handles this automatically)
 
-        info!("Successfully assigned group {} to wallet: {}", request.group_id, wallet_lower);
+        info!("Successfully assigned plan {} to wallet: {}", request.plan_id, wallet_lower);
         Ok(assignment_id)
     }
 
-    /// Remove wallet from permission group
-    pub async fn remove_group(
+    /// Remove wallet from permission plan
+    pub async fn remove_plan(
         &self,
-        request: RemoveGroupRequest,
+        request: RemovePlanRequest,
     ) -> Result<(), AppError> {
         let wallet_lower = request.wallet_address.to_lowercase();
         info!(
-            "Removing group {} from wallet: {} by {}",
-            request.group_id, wallet_lower, request.removed_by
+            "Removing plan {} from wallet: {} by {}",
+            request.plan_id, wallet_lower, request.removed_by
         );
 
         // Get database connection
@@ -577,26 +572,26 @@ impl UnifiedPermissionService {
 
         // Use raw SQL for DELETE operation
         let query = format!(r#"
-            DELETE FROM wallet_group_assignments
+            DELETE FROM wallet_plan_assignments
             WHERE wallet_address = '{}'
-              AND group_id = '{}'
+              AND plan_id = '{}'
               AND is_active = TRUE
             "#,
             wallet_lower.replace("'", "''"),
-            request.group_id
+            request.plan_id
         );
 
         let rows_affected = diesel::sql_query(query)
             .execute(&mut conn)
             .await
             .map_err(|e| {
-                error!("Database error removing group: {}", e);
-                AppError::database_error(format!("Failed to remove group: {}", e))
+                error!("Database error removing plan: {}", e);
+                AppError::database_error(format!("Failed to remove plan: {}", e))
             })?;
 
         if rows_affected == 0 {
-            warn!("Group {} was not found for wallet: {}", request.group_id, wallet_lower);
-            return Err(AppError::not_found("Group assignment not found for this wallet"));
+            warn!("Plan {} was not found for wallet: {}", request.plan_id, wallet_lower);
+            return Err(AppError::not_found("Plan assignment not found for this wallet"));
         }
 
         // Invalidate cache
@@ -606,7 +601,7 @@ impl UnifiedPermissionService {
 
         // Audit log (trigger handles this automatically)
 
-        info!("Successfully removed group {} from wallet: {}", request.group_id, wallet_lower);
+        info!("Successfully removed plan {} from wallet: {}", request.plan_id, wallet_lower);
         Ok(())
     }
 
@@ -634,13 +629,13 @@ impl UnifiedPermissionService {
             #[diesel(sql_type = diesel::sql_types::BigInt)]
             direct_permissions: i64,
             #[diesel(sql_type = diesel::sql_types::BigInt)]
-            group_permissions: i64,
+            plan_permissions: i64,
             #[diesel(sql_type = diesel::sql_types::BigInt)]
             permanent_permissions: i64,
             #[diesel(sql_type = diesel::sql_types::BigInt)]
             temporary_permissions: i64,
             #[diesel(sql_type = diesel::sql_types::BigInt)]
-            groups_count: i64,
+            plans_count: i64,
             #[diesel(sql_type = diesel::sql_types::BigInt)]
             expiring_soon_count: i64,
         }
@@ -657,10 +652,10 @@ impl UnifiedPermissionService {
         Ok(PermissionStats {
             total_permissions: row.total_permissions,
             direct_permissions: row.direct_permissions,
-            group_permissions: row.group_permissions,
+            plan_permissions: row.plan_permissions,
             permanent_permissions: row.permanent_permissions,
             temporary_permissions: row.temporary_permissions,
-            groups_count: row.groups_count,
+            plans_count: row.plans_count,
             expiring_soon_count: row.expiring_soon_count,
         })
     }
@@ -787,6 +782,71 @@ impl UnifiedPermissionService {
         .map(|r| r.id);
 
         Ok(permission_id)
+    }
+
+    // ========================================================================
+    // RANKING ACCESS
+    // ========================================================================
+
+    /// Get ranking offset for a wallet based on their active plans/plans.
+    /// Returns the minimum offset found in plan_metadata, or FREE_PLAN_RANKING_OFFSET for Free Plan/unauthenticated.
+    pub async fn get_wallet_ranking_offset(
+        &self,
+        wallet_address: &str,
+    ) -> Result<i32, AppError> {
+        let wallet_lower = wallet_address.to_lowercase();
+        debug!("Getting ranking offset for wallet: {}", wallet_lower);
+
+        let mut conn = self.db_pool.get().await
+            .map_err(|e| {
+                error!("Pool error: {}", e);
+                AppError::database_error(format!("Pool error: {}", e))
+            })?;
+
+        #[derive(QueryableByName)]
+        struct GroupMetadataRow {
+            #[diesel(sql_type = diesel::sql_types::Jsonb)]
+            plan_metadata: serde_json::Value,
+        }
+
+        // Query all active group memberships for this wallet and get their metadata
+        let rows = diesel::sql_query(
+            r#"
+            SELECT g.plan_metadata
+            FROM wallet_plan_assignments wgm
+            JOIN plans g ON wgm.plan_id = g.id
+            WHERE wgm.wallet_address = $1
+              AND wgm.is_active = TRUE
+              AND g.is_active = TRUE
+              AND (wgm.expires_at IS NULL OR wgm.expires_at > NOW())
+            "#
+        )
+        .bind::<diesel::sql_types::Text, _>(&wallet_lower)
+        .load::<GroupMetadataRow>(&mut conn)
+        .await
+        .map_err(|e| {
+            error!("Database error fetching group metadata: {}", e);
+            AppError::database_error(format!("Failed to fetch group metadata: {}", e))
+        })?;
+
+        if rows.is_empty() {
+            info!("No active plans for wallet {}, using {} offset {}", wallet_lower, crate::core::constants::FREE_PLAN_NAME, crate::core::constants::FREE_PLAN_RANKING_OFFSET);
+            return Ok(crate::core::constants::FREE_PLAN_RANKING_OFFSET);
+        }
+
+        // Find minimum ranking_offset from all plans
+        let mut min_offset = crate::core::constants::FREE_PLAN_RANKING_OFFSET;
+        for row in rows {
+            if let Some(offset) = row.plan_metadata.get("ranking_offset").and_then(|v| v.as_i64()) {
+                let offset_i32 = offset as i32;
+                if offset_i32 < min_offset {
+                    min_offset = offset_i32;
+                }
+            }
+        }
+
+        info!("Wallet {} has ranking offset: {}", wallet_lower, min_offset);
+        Ok(min_offset)
     }
 }
 

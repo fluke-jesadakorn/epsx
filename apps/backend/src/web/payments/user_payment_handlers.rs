@@ -22,7 +22,7 @@ use crate::{
         auth::AppState,
     },
     schemas::payments::payments,
-    schemas::primary::{groups},
+    schemas::primary::{plans},
     infrastructure::models::payment::{PaymentDb},
     // domain::payment::repository_ports::{TransactionHistoryProvider},
 };
@@ -155,7 +155,7 @@ pub async fn get_user_payment_history(
             Json(create_error_response(500, "Database query failed", "Failed to fetch payments"))
         })?;
 
-    // Fetch plan names - need to use PRIMARY database since groups is there
+    // Fetch plan names - need to use PRIMARY database since plans is there
     use crate::infrastructure::database::get_diesel_pool;
     let primary_pool = get_diesel_pool().await
         .map_err(|e| {
@@ -171,11 +171,11 @@ pub async fn get_user_payment_history(
     let mut payment_infos = Vec::new();
 
     for payment in payments_list {
-        // Find plan name if plan_id exists - query from PRIMARY database (where groups table lives)
-        // Find plan name - query from PRIMARY database (where groups table lives)
-        let plan_name = groups::table
-            .filter(groups::id.eq(payment.plan_id))
-            .select(groups::name)
+        // Find plan name if plan_id exists - query from PRIMARY database (where plans table lives)
+        // Find plan name - query from PRIMARY database (where plans table lives)
+        let plan_name = plans::table
+            .filter(plans::id.eq(payment.plan_id))
+            .select(plans::name)
             .first::<String>(&mut primary_conn)
             .await
             .ok();

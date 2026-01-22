@@ -19,7 +19,7 @@ interface PaymentPageClientProps {
   // V2 Dynamic Payment Context
   context?: {
     planId: string | null;
-    groupId: string | null;
+    planId: string | null;
     linkSlug: string | null;
   };
 }
@@ -31,7 +31,7 @@ export function PaymentPageClient({ selectedPackageId, context }: PaymentPageCli
   }, []);
 
   // Determine if this is a dynamic link payment
-  const isDynamicPayment = !!(context?.planId || context?.groupId || context?.linkSlug);
+  const isDynamicPayment = !!(context?.planId || context?.planId || context?.linkSlug);
 
   // Loading fallback component
   const LoadingFallback = () => (

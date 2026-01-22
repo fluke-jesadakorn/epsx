@@ -20,7 +20,7 @@ use crate::web::errors::PermissionError;
 /// Validates permissions using ONLY the JWT claims (no database queries)
 /// This is 100x faster than database validation and horizontally scalable
 ///
-/// IMPORTANT: Permissions are expanded from permission groups during token generation
+/// IMPORTANT: Permissions are expanded from permission plans during token generation
 /// and stored in the JWT. This middleware just validates what's in the token.
 pub async fn permission_validation_middleware(
     request: Request,
@@ -203,10 +203,10 @@ fn create_permission_denied_error(
             user_context.permissions.join(", ")
         ),
         suggested_actions: vec![
-            "Upgrade your permission group to access this feature".to_string(),
+            "Upgrade your permission plan to access this feature".to_string(),
             "Contact support if you believe this is an error".to_string(),
         ],
-        upgrade_group: Some("Premium Access Group".to_string()),
+        upgrade_plan: Some("Premium Access Plan".to_string()),
     }
 }
 
@@ -310,21 +310,21 @@ mod tests {
         );
     }
 
-    // NOTE: Test disabled - determine_upgrade_group function removed during refactoring
+    // NOTE: Test disabled - determine_upgrade_plan function removed during refactoring
     /*
     #[test]
-    fn test_determine_upgrade_group() {
+    fn test_determine_upgrade_plan() {
         assert_eq!(
-            determine_upgrade_group("basic"),
-            Some("Standard Access Group".to_string())
+            determine_upgrade_plan("basic"),
+            Some("Standard Access Plan".to_string())
         );
         assert_eq!(
-            determine_upgrade_group("standard"),
-            Some("Premium Access Group".to_string())
+            determine_upgrade_plan("standard"),
+            Some("Premium Access Plan".to_string())
         );
         assert_eq!(
-            determine_upgrade_group("premium"),
-            Some("Professional Access Group".to_string())
+            determine_upgrade_plan("premium"),
+            Some("Professional Access Plan".to_string())
         );
     }
     */

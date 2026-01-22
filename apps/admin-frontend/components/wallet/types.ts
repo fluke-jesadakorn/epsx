@@ -90,8 +90,8 @@ export interface WalletData {
     lastAuthAt?: string;
     permissions: WalletPermission[];
     subscriptions: WalletSubscription[];
-    /** Groups this wallet belongs to */
-    groups: Array<{ groupName: string; role?: string }>;
+    /** Plans to which this wallet belongs */
+    plans: Array<{ planName: string; role?: string }>;
     /** Platforms this wallet has access to */
     platforms: Platform[];
     metadata?: Record<string, unknown>;

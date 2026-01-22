@@ -1,3 +1,4 @@
+import PlanStatusBar from '@/components/analytics/PlanStatusBar';
 import ServerCardDashboard from '@/components/analytics/ServerCardDashboard';
 import { BarChart3, Sparkles, TrendingUp } from 'lucide-react';
 
@@ -28,9 +29,9 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
         <div className="absolute -top-40 -left-40 h-[500px] w-[500px] rounded-full bg-gradient-to-br from-purple-600/20 to-pink-600/10 blur-3xl animate-pulse" />
         <div className="absolute top-1/4 -right-32 h-[400px] w-[400px] rounded-full bg-gradient-to-br from-blue-600/15 to-cyan-600/10 blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
         <div className="absolute bottom-0 left-1/3 h-[350px] w-[350px] rounded-full bg-gradient-to-br from-indigo-600/15 to-purple-600/10 blur-3xl animate-pulse" style={{ animationDelay: '2s' }} />
-        
+
         {/* Grid pattern overlay */}
-        <div 
+        <div
           className="absolute inset-0 opacity-[0.03]"
           style={{
             backgroundImage: `linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px),
@@ -85,6 +86,10 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
           </div>
 
           {/* Dashboard Section */}
+          <div className='mb-8'>
+            <PlanStatusBar />
+          </div>
+
           <div className="relative">
             <ServerCardDashboard
               searchParams={{

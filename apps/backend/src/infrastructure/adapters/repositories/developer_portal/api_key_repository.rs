@@ -11,7 +11,7 @@ use uuid::Uuid;
 use crate::domain::developer_portal::{
     ApiKey, ApiKeyStatus, ModuleAccess, RateLimits, CreateApiKeyRequest, 
     RevokeApiKeyRequest, ApiKeyCreatedResponse, AccessLevel,
-    PermissionGroupInfo,
+    PlanInfo,
 };
 use crate::prelude::*;
 use crate::schemas::primary::{api_keys, api_key_module_access, api_key_permissions, api_modules};
@@ -96,12 +96,12 @@ impl ApiKeyRepository {
                 .map_err(|e| AppError::database_error(format!("Failed to add module access: {}", e)))?;
         }
 
-        // Insert permission group assignments (new group-based system)
-        for group_id in &request.group_ids {
+        // Insert permission plan assignments (new plan-based system)
+        for plan_id in &request.plan_ids {
             diesel::insert_into(api_key_permissions::table)
                 .values((
                     api_key_permissions::api_key_id.eq(&id),
-                    api_key_permissions::permission_group_id.eq(group_id),
+                    api_key_permissions::plan_id.eq(plan_id),
                     api_key_permissions::granted_at.eq(&now),
                     api_key_permissions::granted_by.eq(&request.created_by),
                     api_key_permissions::is_active.eq(true),
@@ -109,10 +109,10 @@ impl ApiKeyRepository {
                 ))
                 .execute(&mut conn)
                 .await
-                .map_err(|e| AppError::database_error(format!("Failed to add permission group: {}", e)))?;
+                .map_err(|e| AppError::database_error(format!("Failed to add permission plan: {}", e)))?;
         }
 
-        info!("Created API key {} for wallet {} with {} groups", id, request.wallet_address, request.group_ids.len());
+        info!("Created API key {} for wallet {} with {} plans", id, request.wallet_address, request.plan_ids.len());
 
         // Fetch the created key with modules
         let api_key = self.get_by_id(id).await?
@@ -200,8 +200,8 @@ impl ApiKeyRepository {
         if let (Some(core), Some(meta)) = (core_row, meta_row) {
             // Fetch module access (legacy)
             let modules = self.get_module_access_for_key(&mut conn, id).await?;
-            // Fetch permission groups (new system)
-            let permission_groups = self.get_permission_groups_for_key(&mut conn, id).await?;
+            // Fetch permission plans (new system)
+            let permission_plans = self.get_permission_plans_for_key(&mut conn, id).await?;
 
             Ok(Some(ApiKey {
                 id: core.id,
@@ -223,7 +223,7 @@ impl ApiKeyRepository {
                     per_day: core.rate_limit_per_day,
                 },
                 allowed_modules: modules,
-                permission_groups,
+                permission_plans,
                 selected_permissions: self.get_selected_permissions_for_key(&mut conn, id).await?,
                 expires_at: core.expires_at,
                 last_used_at: meta.last_used_at,
@@ -277,44 +277,44 @@ impl ApiKeyRepository {
         }).collect())
     }
 
-    /// Get permission groups for an API key
-    async fn get_permission_groups_for_key(
+    /// Get permission plans for an API key
+    async fn get_permission_plans_for_key(
         &self,
         conn: &mut AsyncPgConnection,
         api_key_id: Uuid,
-    ) -> AppResult<Vec<PermissionGroupInfo>> {
-        use crate::schemas::primary::{api_key_permissions, groups};
+    ) -> AppResult<Vec<PlanInfo>> {
+        use crate::schemas::primary::{api_key_permissions, plans};
 
         #[derive(Queryable)]
-        struct GroupRow {
+        struct PlanRow {
             id: Uuid,
             name: String,
             slug: String,
             description: String,
-            group_type: String,
+            plan_type: String,
         }
 
         let rows = api_key_permissions::table
-            .inner_join(groups::table.on(groups::id.eq(api_key_permissions::permission_group_id)))
+            .inner_join(plans::table.on(plans::id.eq(api_key_permissions::plan_id)))
             .filter(api_key_permissions::api_key_id.eq(&api_key_id))
             .filter(api_key_permissions::is_active.eq(true))
             .select((
-                groups::id,
-                groups::name,
-                groups::slug,
-                groups::description,
-                groups::group_type,
+                plans::id,
+                plans::name,
+                plans::slug,
+                plans::description,
+                plans::plan_type,
             ))
-            .load::<GroupRow>(conn)
+            .load::<PlanRow>(conn)
             .await
-            .map_err(|e| AppError::database_error(format!("Failed to fetch permission groups: {}", e)))?;
+            .map_err(|e| AppError::database_error(format!("Failed to fetch permission plans: {}", e)))?;
 
-        Ok(rows.into_iter().map(|row| PermissionGroupInfo {
+        Ok(rows.into_iter().map(|row| PlanInfo {
             id: row.id,
             name: row.name,
             slug: row.slug,
             description: Some(row.description),
-            group_type: row.group_type,
+            plan_type: row.plan_type,
         }).collect())
     }
 
@@ -426,7 +426,7 @@ impl ApiKeyRepository {
         let mut keys = Vec::new();
         for row in rows {
             let modules = self.get_module_access_for_key(&mut conn, row.id).await?;
-            let permission_groups = self.get_permission_groups_for_key(&mut conn, row.id).await?;
+            let permission_plans = self.get_permission_plans_for_key(&mut conn, row.id).await?;
             keys.push(ApiKey {
                 id: row.id,
                 key_prefix: row.key_prefix,
@@ -447,7 +447,7 @@ impl ApiKeyRepository {
                     per_day: row.rate_limit_per_day,
                 },
                 allowed_modules: modules,
-                permission_groups,
+                permission_plans,
                 // For list operations, we don't fetch selected_permissions to avoid N+1 queries
                 // Use get_by_id if you need the full permissions list
                 selected_permissions: vec![],
@@ -547,7 +547,7 @@ impl ApiKeyRepository {
         let mut keys = Vec::new();
         for row in rows {
             let modules = self.get_module_access_for_key(&mut conn, row.id).await?;
-            let permission_groups = self.get_permission_groups_for_key(&mut conn, row.id).await?;
+            let permission_plans = self.get_permission_plans_for_key(&mut conn, row.id).await?;
             keys.push(ApiKey {
                 id: row.id,
                 key_prefix: row.key_prefix,
@@ -568,7 +568,7 @@ impl ApiKeyRepository {
                     per_day: row.rate_limit_per_day,
                 },
                 allowed_modules: modules,
-                permission_groups,
+                permission_plans,
                 selected_permissions: row.selected_permissions.into_iter().flatten().collect(),
                 expires_at: row.expires_at,
                 last_used_at: row.last_used_at,
@@ -672,7 +672,7 @@ impl ApiKeyRepository {
     }
 
     /// List API keys expiring within the specified number of days
-    /// Returns keys grouped by wallet address for admin tracking
+    /// Returns keys planed by wallet address for admin tracking
     pub async fn list_expiring_keys(
         &self,
         days: i64,
@@ -748,11 +748,11 @@ impl ApiKeyRepository {
             .await
             .map_err(|e| AppError::database_error(format!("Failed to list expiring keys: {}", e)))?;
 
-        // Build full ApiKey objects with modules and groups
+        // Build full ApiKey objects with modules and plans
         let mut api_keys_result = Vec::new();
         for row in rows {
             let modules = self.get_module_access_for_key(&mut conn, row.id).await?;
-            let permission_groups = self.get_permission_groups_for_key(&mut conn, row.id).await?;
+            let permission_plans = self.get_permission_plans_for_key(&mut conn, row.id).await?;
             
             api_keys_result.push(ApiKey {
                 id: row.id,
@@ -774,7 +774,7 @@ impl ApiKeyRepository {
                     per_day: row.rate_limit_per_day,
                 },
                 allowed_modules: modules,
-                permission_groups,
+                permission_plans,
                 selected_permissions: vec![],
                 expires_at: row.expires_at,
                 last_used_at: row.last_used_at,

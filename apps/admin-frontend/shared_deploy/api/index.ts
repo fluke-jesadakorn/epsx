@@ -12,8 +12,7 @@
 export {
   APIError, createAdminApiClient, createApiClient, createFrontendApiClient, handlePaginatedRequest,
   handleSimpleRequest, isApiError,
-  isApiResponse,
-  isPaginatedResponse, retryRequest, UnifiedApiClient, type ApiError, type ApiResponse, type PaginatedResponse,
+  isApiResponse, isPaginatedResponse, retryRequest, UnifiedApiClient, type ApiError, type ApiResponse, type PaginatedResponse,
   type Platform, type RequestConfig
 } from '../utils/api-client';
 
@@ -50,10 +49,7 @@ export {
   type UserPermissionsResponse
 } from './permissions';
 
-export {
-  createGroupsClient, GroupsApi, type AssignGroupRequest, type Group,
-  type GroupMembership, type RemoveGroupRequest
-} from './groups';
+// Export removed: GroupsApi replaced by PlansApi
 
 export {
   createWalletsClient, WalletsApi, type RecentWallet, type WalletInfo,
@@ -86,8 +82,9 @@ export {
 } from './notifications';
 
 export {
-  createPlansClient, PlansAPIClient as PlansApi, type PlanResponse as Plan,
-  type PlanFeatureResponse as PlanFeature
+  createPlansClient, isApiSuccess, PlansApi, type Plan, type PlanMembership,
+  type PlanResponse,
+  type PlanStats, type SubscriptionResponse, type UpdateSubscriptionRequest
 } from './plans';
 
 export {
@@ -102,9 +99,7 @@ export {
   type SecuritySettings, type SettingUpdate, type SystemSettings, type UpdateSettingsResponse
 } from './settings';
 
-export {
-  createAdminPaymentsClient, createPaymentsClient, PaymentsApi, type PaymentConfirmRequest, type PaymentConfirmResult, type PaymentSubmitRequest, type PaymentValidateRequest, type PaymentValidationResult, type TransactionStatusData
-} from './payments';
+export { createAdminPaymentsClient, createPaymentsClient, PaymentsApi, type PaymentConfirmRequest, type PaymentConfirmResult, type PaymentSubmitRequest, type PaymentValidateRequest, type PaymentValidationResult, type TransactionStatusData } from './payments';
 
 export {
   ChatApi,

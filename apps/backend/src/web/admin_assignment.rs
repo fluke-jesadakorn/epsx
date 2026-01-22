@@ -6,8 +6,8 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use serde_json::Value;
-use crate::application::admin::commands::assign_admin_group::{
-    AssignAdminGroupCommand, AssignAdminGroupHandler
+use crate::application::admin::commands::assign_admin_plan::{
+    AssignAdminPlanCommand, AssignAdminPlanHandler
 };
 
 
@@ -17,7 +17,7 @@ use crate::web::auth::AppState;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AdminAssignmentRequest {
-    pub group: String,
+    pub plan: String,
     pub custom_claims: Option<HashMap<String, Value>>,
 }
 
@@ -26,20 +26,20 @@ pub struct AdminAssignmentResponse {
     pub success: bool,
     pub message: String,
     pub wallet_address: String,
-    pub assigned_group: String,
+    pub assigned_plan: String,
     pub custom_claims: HashMap<String, Value>,
 }
 
 // Helper functions removed as they are now in infrastructure adapter
 
 
-/// Assign admin group to a Firebase user
-pub async fn assign_admin_group_handler(
+/// Assign admin plan to a Firebase user
+pub async fn assign_admin_plan_handler(
     State(app_state): State<AppState>,
     Path(wallet_address): Path<String>,
     Json(request): Json<AdminAssignmentRequest>,
 ) -> Result<Json<AdminAssignmentResponse>, StatusCode> {
-    tracing::info!("Admin assignment request for user {} with group {}", wallet_address, request.group);
+    tracing::info!("Admin assignment request for user {} with plan {}", wallet_address, request.plan);
     
     let identity_provider = app_state
         .identity_provider
@@ -49,13 +49,13 @@ pub async fn assign_admin_group_handler(
             StatusCode::INTERNAL_SERVER_ERROR
         })?;
 
-    let command = AssignAdminGroupCommand {
+    let command = AssignAdminPlanCommand {
         wallet_address,
-        group_name: request.group,
+        plan_name: request.plan,
         custom_claims: request.custom_claims,
     };
     
-    let handler = AssignAdminGroupHandler::new(identity_provider);
+    let handler = AssignAdminPlanHandler::new(identity_provider);
     
     match handler.handle(command).await {
         Ok(response) => {
@@ -64,12 +64,12 @@ pub async fn assign_admin_group_handler(
                 success: response.success,
                 message: response.message,
                 wallet_address: response.wallet_address,
-                assigned_group: response.assigned_group,
+                assigned_plan: response.assigned_plan,
                 custom_claims: response.custom_claims,
             }))
         }
         Err(e) => {
-            tracing::error!("Failed to assign admin group: {}", e);
+            tracing::error!("Failed to assign admin plan: {}", e);
             Err(StatusCode::INTERNAL_SERVER_ERROR)
         }
     }

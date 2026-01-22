@@ -50,20 +50,20 @@ pub struct UserPermissionsQuery {
 #[derive(Debug, Serialize, ToSchema)]
 pub struct AccessOverviewData {
     pub current_tier: String,
-    pub groups: Vec<AccessGroupData>,
+    pub plans: Vec<AccessPlanData>,
     pub direct_permissions: Vec<DirectPermissionData>,
 }
 
 #[derive(Debug, Serialize, ToSchema)]
-pub struct AccessGroupData {
+pub struct AccessPlanData {
     pub name: String,
     pub description: Option<String>,
     pub expires_at: Option<String>,
     pub permissions: Vec<String>,
     pub source_type: String,
-    /// When this group was assigned to the user
+    /// When this plan was assigned to the user
     pub assigned_at: Option<String>,
-    /// Who assigned this group (admin wallet address or "system")
+    /// Who assigned this plan (admin wallet address or "system")
     pub assigned_by: Option<String>,
     /// Days remaining until expiration (None if permanent)
     pub days_remaining: Option<i32>,
@@ -192,7 +192,7 @@ pub async fn get_current_user_profile(
 }
 
 /// Get user access overview
-/// Detailed breakdown of permissions by source (Plan/Group/Direct)
+/// Detailed breakdown of permissions by source (Plan/Plan/Direct)
 #[utoipa::path(
     get,
     path = "/api/wallet/access-overview",
@@ -283,26 +283,26 @@ pub async fn get_user_access_overview(
         })
     }
 
-    // Group by source_id (or source_name if ID missing) for groups
-    let mut groups_map: HashMap<String, AccessGroupData> = HashMap::new();
+    // Plan by source_id (or source_name if ID missing) for plans
+    let mut plans_map: HashMap<String, AccessPlanData> = HashMap::new();
     let mut direct_permissions: Vec<DirectPermissionData> = Vec::new();
 
     for row in rows {
-        if row.source_type == "group" {
-            let key = row.source_id.clone().unwrap_or_else(|| row.source_name.clone().unwrap_or("Unknown Group".to_string()));
+        if row.source_type == "plan" {
+            let key = row.source_id.clone().unwrap_or_else(|| row.source_name.clone().unwrap_or("Unknown Plan".to_string()));
             let days_remaining = calculate_days_remaining(row.expires_at);
             let is_plan = row.source_name.as_ref().map(|n| 
                 n.contains("Plan") || n.contains("Starter") || n.contains("Pro") || n.contains("Enterprise")
             ).unwrap_or(false);
             
-            let entry = groups_map.entry(key).or_insert(AccessGroupData {
-                name: row.source_name.clone().unwrap_or("Unknown Group".to_string()),
-                description: None, // Will be fetched from groups table if available
+            let entry = plans_map.entry(key).or_insert(AccessPlanData {
+                name: row.source_name.clone().unwrap_or("Unknown Plan".to_string()),
+                description: None, // Will be fetched from plans table if available
                 expires_at: row.expires_at.map(|d| d.to_rfc3339()),
                 permissions: Vec::new(),
-                source_type: if is_plan { "plan".to_string() } else { "group".to_string() },
+                source_type: if is_plan { "plan".to_string() } else { "plan".to_string() },
                 assigned_at: Some(row.granted_at.to_rfc3339()),
-                assigned_by: None, // Would require additional query to get assigned_by from wallet_group_assignments
+                assigned_by: None, // Would require additional query to get assigned_by from wallet_plan_assignments
                 days_remaining,
                 can_renew: is_plan && days_remaining.map(|d| d <= 30).unwrap_or(false),
                 renewal_price: None, // Will be set if we can get plan price
@@ -327,20 +327,20 @@ pub async fn get_user_access_overview(
         }
     }
 
-    let groups: Vec<AccessGroupData> = groups_map.into_values().collect();
+    let plans: Vec<AccessPlanData> = plans_map.into_values().collect();
 
     // Determine current tier
-    let current_tier = if groups.is_empty() {
+    let current_tier = if plans.is_empty() {
         "Free User".to_string()
     } else {
-        // Simple logic: Use the name of the first group found
+        // Simple logic: Use the name of the first plan found
         // Ideally should have a priority system
-        groups.as_slice().first().map(|g| g.name.clone()).unwrap_or("Standard User".to_string())
+        plans.as_slice().first().map(|g| g.name.clone()).unwrap_or("Standard User".to_string())
     };
 
     let overview_data = AccessOverviewData {
         current_tier,
-        groups,
+        plans,
         direct_permissions,
     };
 

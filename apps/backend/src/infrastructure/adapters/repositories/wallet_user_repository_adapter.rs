@@ -89,7 +89,7 @@ impl WalletUserRepositoryPort for WalletUserRepositoryAdapter {
                     .with_component("wallet_user_repository"))?;
 
             let permission_set: HashSet<Permission> = HashSet::new();
-            let permission_group_set: HashSet<String> = HashSet::new();
+            let permission_plan_set: HashSet<String> = HashSet::new();
 
             let metadata = WalletMetadata::from_json(row.wallet_metadata)
                 .map_err(|e| AppError::validation_error(format!("Invalid wallet metadata: {}", e))
@@ -99,7 +99,7 @@ impl WalletUserRepositoryPort for WalletUserRepositoryAdapter {
                 wallet_address: wallet_addr,
                 is_active: row.is_active,
                 permissions: permission_set,
-                groups: permission_group_set,
+                plans: permission_plan_set,
                 wallet_metadata: metadata,
                 created_at: row.created_at,
                 updated_at: row.updated_at,
@@ -150,14 +150,14 @@ impl WalletUserRepositoryPort for WalletUserRepositoryAdapter {
         for row in db_users {
             if let Ok(wallet_addr) = WalletAddress::new(row.wallet_address) {
                 let permission_set: HashSet<Permission> = HashSet::new();
-                let permission_group_set: HashSet<String> = HashSet::new();
+                let permission_plan_set: HashSet<String> = HashSet::new();
 
                 if let Ok(metadata) = WalletMetadata::from_json(row.wallet_metadata) {
                     let wallet = WalletUser::load(crate::domain::wallet_management::aggregates::wallet_user::WalletUserLoadParams {
                         wallet_address: wallet_addr,
                         is_active: row.is_active,
                         permissions: permission_set,
-                        groups: permission_group_set,
+                        plans: permission_plan_set,
                         wallet_metadata: metadata,
                         created_at: row.created_at,
                         updated_at: row.updated_at,
@@ -278,7 +278,7 @@ impl WalletUserRepositoryPort for WalletUserRepositoryAdapter {
                         wallet_address: wallet_addr,
                         is_active: row.is_active,
                         permissions: HashSet::new(),
-                        groups: HashSet::new(),
+                        plans: HashSet::new(),
                         wallet_metadata: metadata,
                         created_at: row.created_at,
                         updated_at: row.updated_at,
@@ -380,8 +380,8 @@ impl WalletUserSearchPort for WalletUserRepositoryAdapter {
                 wu.wallet_address, wu.is_active, wu.wallet_metadata,
                 wu.created_at, wu.updated_at, wu.last_auth_at
             FROM wallet_users wu
-            LEFT JOIN wallet_group_memberships wga ON wu.wallet_address = wga.wallet_address
-            LEFT JOIN group_permissions pgm ON wga.group_id = pgm.group_id
+            LEFT JOIN wallet_plan_assignments wga ON wu.wallet_address = wga.wallet_address
+            LEFT JOIN plan_permissions pgm ON wga.plan_id = pgm.plan_id
             LEFT JOIN permissions p1 ON pgm.permission_id = p1.id
             LEFT JOIN wallet_direct_permissions wdp ON wu.wallet_address = wdp.wallet_address
             LEFT JOIN permissions p2 ON wdp.permission_id = p2.id
@@ -411,7 +411,7 @@ impl WalletUserSearchPort for WalletUserRepositoryAdapter {
                 AppError::validation_error(format!("Invalid wallet address: {}", e)))?;
 
             let permissions: HashSet<Permission> = HashSet::new();
-            let permission_group_set: HashSet<String> = HashSet::new();
+            let permission_plan_set: HashSet<String> = HashSet::new();
             let wallet_metadata = WalletMetadata::from_json(row.wallet_metadata)
                 .unwrap_or_default();
 
@@ -419,7 +419,7 @@ impl WalletUserSearchPort for WalletUserRepositoryAdapter {
                 wallet_address,
                 is_active: row.is_active,
                 permissions,
-                groups: permission_group_set,
+                plans: permission_plan_set,
                 wallet_metadata,
                 created_at: row.created_at,
                 updated_at: row.updated_at,
@@ -450,8 +450,8 @@ impl WalletUserSearchPort for WalletUserRepositoryAdapter {
                 wu.wallet_address, wu.is_active, wu.wallet_metadata,
                 wu.created_at, wu.updated_at, wu.last_auth_at
             FROM wallet_users wu
-            INNER JOIN wallet_group_memberships wga ON wu.wallet_address = wga.wallet_address
-            INNER JOIN groups pg ON wga.group_id = pg.id
+            INNER JOIN wallet_plan_assignments wga ON wu.wallet_address = wga.wallet_address
+            INNER JOIN plans pg ON wga.plan_id = pg.id
             WHERE wu.is_active = true
               AND wga.is_active = true
               AND pg.is_active = true
@@ -466,7 +466,7 @@ impl WalletUserSearchPort for WalletUserRepositoryAdapter {
             .load::<WalletUserQueryResult>(&mut conn)
             .await
             .map_err(|e| {
-                error!("Failed to find users by permission group {}: {}", type_filter, e);
+                error!("Failed to find users by permission plan {}: {}", type_filter, e);
                 AppError::database_error(e.to_string())
                     .with_component("wallet_user_repository")
             })?;
@@ -477,7 +477,7 @@ impl WalletUserSearchPort for WalletUserRepositoryAdapter {
                 AppError::validation_error(format!("Invalid wallet address: {}", e)))?;
 
             let permissions: HashSet<Permission> = HashSet::new();
-            let permission_group_set: HashSet<String> = HashSet::new();
+            let permission_plan_set: HashSet<String> = HashSet::new();
             let wallet_metadata = WalletMetadata::from_json(row.wallet_metadata)
                 .unwrap_or_default();
 
@@ -485,7 +485,7 @@ impl WalletUserSearchPort for WalletUserRepositoryAdapter {
                 wallet_address,
                 is_active: row.is_active,
                 permissions,
-                groups: permission_group_set,
+                plans: permission_plan_set,
                 wallet_metadata,
                 created_at: row.created_at,
                 updated_at: row.updated_at,
@@ -497,11 +497,11 @@ impl WalletUserSearchPort for WalletUserRepositoryAdapter {
         Ok(users)
     }
 
-    async fn find_by_permission_group(&self, permission_group: &str) -> AppResult<Vec<WalletUser>> {
+    async fn find_by_permission_plan(&self, permission_plan: &str) -> AppResult<Vec<WalletUser>> {
         let mut conn = self.db_pool.get().await
             .map_err(|e| AppError::database_error(e.to_string())
                 .with_component("wallet_user_repository")
-                .with_operation("find_by_permission_group"))?;
+                .with_operation("find_by_permission_plan"))?;
 
         let query = format!(r#"
             SELECT DISTINCT
@@ -513,26 +513,26 @@ impl WalletUserSearchPort for WalletUserRepositoryAdapter {
                 wu.updated_at,
                 wu.last_auth_at
             FROM wallet_users wu
-            INNER JOIN wallet_group_memberships wga ON wu.wallet_address = wga.wallet_address
-            INNER JOIN groups pg ON wga.group_id = pg.id
+            INNER JOIN wallet_plan_assignments wga ON wu.wallet_address = wga.wallet_address
+            INNER JOIN plans pg ON wga.plan_id = pg.id
             WHERE wu.is_active = true
               AND wga.is_active = true
               AND pg.is_active = true
               AND (pg.name = '{}' OR pg.slug = '{}')
             ORDER BY wu.created_at DESC
             "#,
-            permission_group.replace("'", "''"),
-            permission_group.replace("'", "''")
+            permission_plan.replace("'", "''"),
+            permission_plan.replace("'", "''")
         );
 
         let rows = diesel::sql_query(query)
             .load::<WalletUserQueryResult>(&mut conn)
             .await
             .map_err(|e| {
-                error!("Failed to find users by permission group {}: {}", permission_group, e);
+                error!("Failed to find users by permission plan {}: {}", permission_plan, e);
                 AppError::database_error(e.to_string())
                     .with_component("wallet_user_repository")
-                    .with_operation("find_by_permission_group")
+                    .with_operation("find_by_permission_plan")
             })?;
 
         let mut users = Vec::new();
@@ -541,7 +541,7 @@ impl WalletUserSearchPort for WalletUserRepositoryAdapter {
                 wallet_address: WalletAddress::new(row.wallet_address).expect("Invalid wallet address"),
                 is_active: row.is_active,
                 permissions: HashSet::new(),
-                groups: HashSet::new(),
+                plans: HashSet::new(),
                 wallet_metadata: WalletMetadata::from_json(row.wallet_metadata).expect("Invalid wallet metadata"),
                 created_at: row.created_at,
                 updated_at: row.updated_at,
@@ -574,8 +574,8 @@ impl WalletUserSearchPort for WalletUserRepositoryAdapter {
             where_clauses.push(format!("is_active = {}", is_active));
         }
 
-        if let Some(ref permission_group) = criteria.permission_group {
-            where_clauses.push(format!("groups::jsonb ? '{}'", permission_group.replace("'", "''")));
+        if let Some(ref permission_plan) = criteria.permission_plan {
+            where_clauses.push(format!("plan_metadata ? '{}'", permission_plan.replace("'", "''")));
         }
 
         if let Some(ref created_after) = criteria.created_after {
@@ -619,7 +619,7 @@ impl WalletUserSearchPort for WalletUserRepositoryAdapter {
                         wallet_address: wallet_addr,
                         is_active: row.is_active,
                         permissions: HashSet::new(),
-                        groups: HashSet::new(),
+                        plans: HashSet::new(),
                         wallet_metadata: metadata,
                         created_at: row.created_at,
                         updated_at: row.updated_at,
@@ -783,7 +783,7 @@ impl WalletUserAnalyticsPort for WalletUserRepositoryAdapter {
         Ok(WalletUserStatistics {
             total_users: stats.total_users as u64,
             active_users: stats.active_users as u64,
-            users_by_permission_group: HashMap::new(),
+            users_by_permission_plan: HashMap::new(),
             users_by_chain: HashMap::new(),
             manual_permissions: 0,
             nft_gated_permissions: 0,
@@ -976,8 +976,8 @@ impl WalletUserAnalyticsPort for WalletUserRepositoryAdapter {
                 p.permission_string,
                 COUNT(DISTINCT COALESCE(wgm.wallet_address, wdp.wallet_address)) as user_count
             FROM permissions p
-            LEFT JOIN group_permissions pgm ON p.id = pgm.permission_id
-            LEFT JOIN wallet_group_memberships wgm ON pgm.group_id = wgm.group_id AND wgm.is_active = true
+            LEFT JOIN plan_permissions pgm ON p.id = pgm.permission_id
+            LEFT JOIN wallet_plan_assignments wgm ON pgm.plan_id = wgm.plan_id AND wgm.is_active = true
             LEFT JOIN wallet_direct_permissions wdp ON p.id = wdp.permission_id AND wdp.is_active = true
             WHERE p.is_active = true
             GROUP BY p.permission_string
@@ -1095,7 +1095,7 @@ impl WalletUserAnalyticsPort for WalletUserRepositoryAdapter {
                         wallet_address: wallet_addr,
                         is_active: row.is_active,
                         permissions: HashSet::new(),
-                        groups: HashSet::new(),
+                        plans: HashSet::new(),
                         wallet_metadata: metadata,
                         created_at: row.created_at,
                         updated_at: row.updated_at,
@@ -1110,50 +1110,51 @@ impl WalletUserAnalyticsPort for WalletUserRepositoryAdapter {
         Ok(users)
     }
 
-    async fn get_group_progression(&self) -> AppResult<HashMap<String, Vec<String>>> {
+    async fn get_plan_progression(&self) -> AppResult<HashMap<String, Vec<String>>> {
         let mut conn = self.db_pool.get().await
             .map_err(|e| AppError::database_error(e.to_string())
                 .with_component("wallet_user_repository")
-                .with_operation("get_group_progression"))?;
+                .with_operation("get_plan_progression"))?;
 
         #[derive(diesel::QueryableByName)]
         struct ProgressionRow {
             #[diesel(sql_type = diesel::sql_types::Text)]
             wallet_address: String,
             #[diesel(sql_type = diesel::sql_types::Text)]
-            permission_group: String,
+            permission_plan: String,
         }
 
         let rows = diesel::sql_query(
             r#"
-            SELECT DISTINCT ON (wallet_address, permission_group)
+            SELECT DISTINCT ON (wallet_address, resource_id)
                 wallet_address,
-                permission_group,
-                event_timestamp
-            FROM permission_audit_log
-            WHERE event_type = 'group_assigned'
-              AND permission_group IS NOT NULL
-            ORDER BY wallet_address, permission_group, event_timestamp ASC
+                resource_id as permission_plan,
+                created_at as event_timestamp
+            FROM audit_logs
+            WHERE action = 'plan_assigned'
+              AND resource_type = 'plan'
+              AND resource_id IS NOT NULL
+            ORDER BY wallet_address, resource_id, created_at ASC
             "#
         )
         .load::<ProgressionRow>(&mut conn)
         .await
         .map_err(|e| {
-            error!("Failed to get group progression: {}", e);
+            error!("Failed to get plan progression: {}", e);
             AppError::database_error(e.to_string())
                 .with_component("wallet_user_repository")
         })?;
 
         let mut progression: HashMap<String, Vec<String>> = HashMap::new();
         for row in rows {
-            if !row.wallet_address.is_empty() && !row.permission_group.is_empty() {
+            if !row.wallet_address.is_empty() && !row.permission_plan.is_empty() {
                 progression.entry(row.wallet_address)
                     .or_default()
-                    .push(row.permission_group);
+                    .push(row.permission_plan);
             }
         }
 
-        info!("Retrieved group progression for {} wallets", progression.len());
+        info!("Retrieved plan progression for {} wallets", progression.len());
         Ok(progression)
     }
 

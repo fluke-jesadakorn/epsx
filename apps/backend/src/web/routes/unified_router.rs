@@ -58,7 +58,7 @@ impl UnifiedRouteBuilder {
 
     /// Build complete router with all routes and middleware
     pub fn build(self) -> Router {
-        // Create route groups
+        // Create route plans
         let health_routes = self.create_health_routes();
         let auth_routes = self.create_auth_routes();
         let admin_routes = self.create_admin_routes();
@@ -187,8 +187,8 @@ impl UnifiedRouteBuilder {
             .route("/web3/permissions/grant", post(grant_permission_handler))
 
             .route("/web3/permissions/revoke", delete(revoke_permission_handler))
-            // Group permissions route
-            .route("/web3/groups/permissions/{wallet_address}", get(get_user_permissions_handler))
+            // Plan permissions route
+            .route("/web3/plans/permissions/{wallet_address}", get(get_user_permissions_handler))
 
             .with_state(app_state)
     }
@@ -232,20 +232,9 @@ impl UnifiedRouteBuilder {
                 crate::web::middleware::bearer_middleware  // Use bearer_middleware to set OpenIDUserContext
             ));
 
-        let permission_authority_routes = crate::web::admin::routes::create_permission_authority_routes()
-            .with_state(app_state.clone())
-            .layer(axum_middleware::from_fn(
-                crate::web::middleware::permission_validation_middleware
-            ))
-            .layer(axum_middleware::from_fn_with_state(
-                app_state.clone(),
-                crate::web::middleware::bearer_middleware  // Use bearer_middleware to set OpenIDUserContext
-            ));
-
         Router::new()
             .merge(public_admin_routes)
             .merge(admin_routes)
-            .merge(permission_authority_routes)
     }
 
     // ============================================================================
@@ -392,8 +381,8 @@ impl UnifiedRouteBuilder {
             create_my_key_handler,
             get_my_key_handler,
             revoke_my_key_handler,
-            list_available_groups_handler,
-            get_my_groups_handler,
+            list_available_plans_handler,
+            get_my_plans_handler,
             get_usage_stats_handler,
             get_usage_history_handler,
             get_top_endpoints_handler,
@@ -401,9 +390,9 @@ impl UnifiedRouteBuilder {
 
         let app_state = self.create_app_state();
 
-        // Available permission groups (public info, no auth required)
+        // Available permission plans (public info, no auth required)
         let public_routes = Router::new()
-            .route("/available-groups", get(list_available_groups_handler))
+            .route("/available-plans", get(list_available_plans_handler))
             .with_state(app_state.clone());
 
         // User-facing routes (scoped to authenticated user's wallet)
@@ -414,7 +403,7 @@ impl UnifiedRouteBuilder {
             .route("/my-keys/{id}", get(get_my_key_handler))
             .route("/my-keys/{id}", delete(revoke_my_key_handler))
             .route("/my-keys/{id}/revoke", post(revoke_my_key_handler))
-            .route("/my-groups", get(get_my_groups_handler))
+            .route("/my-plans", get(get_my_plans_handler))
             .route("/stats", get(get_usage_stats_handler))
             .route("/usage-history", get(get_usage_history_handler))
             .route("/top-endpoints", get(get_top_endpoints_handler))

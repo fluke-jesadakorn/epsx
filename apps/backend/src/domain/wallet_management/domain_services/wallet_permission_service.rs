@@ -55,8 +55,8 @@ impl WalletPermissionService {
         }
         
         // Add group-based permissions
-        let groups: Vec<String> = wallet.groups().iter().cloned().collect();
-        let group_permissions = self.get_group_permissions(&groups)?;
+        let plans: Vec<String> = wallet.plans().iter().cloned().collect();
+        let group_permissions = self.get_group_permissions(&plans)?;
         effective_permissions.extend(group_permissions);
         
         // Add Web3-validated permissions (NFT, token, DAO)
@@ -103,7 +103,7 @@ impl WalletPermissionService {
         permissions.insert(Permission::new("epsx:user:read")?);
         
         // Group-based permissions
-        for group in wallet.groups() {
+        for group in wallet.plans() {
             permissions.extend(self.get_group_permissions(std::slice::from_ref(group))?);
         }
         
@@ -302,10 +302,10 @@ impl WalletPermissionService {
     
     // Private helper methods
     
-    fn get_group_permissions(&self, groups: &[String]) -> AppResult<HashSet<Permission>> {
+    fn get_group_permissions(&self, plans: &[String]) -> AppResult<HashSet<Permission>> {
         let mut permissions = HashSet::new();
         
-        for group in groups {
+        for group in plans {
             match group.as_str() {
                 "basic" => {
                     permissions.insert(Permission::new("epsx:basic:access")?);
@@ -643,11 +643,11 @@ mod tests {
     use super::*;
     
     fn create_test_wallet_user() -> WalletUser {
-        let mut groups = std::collections::HashSet::new();
-        groups.insert("basic".to_string());
+        let mut plans = std::collections::HashSet::new();
+        plans.insert("basic".to_string());
         WalletUser::create(
             WalletAddress::new("0x742d35Cc6634C0532925a3b8D369D7763F3c45c6").unwrap(),
-            groups,
+            plans,
         ).unwrap()
     }
     

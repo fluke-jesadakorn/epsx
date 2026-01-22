@@ -95,7 +95,7 @@ export interface UserPermissionsResponse {
   wallet_address: string;
   permissions: Permission[];
   groups: Array<{
-    group_id: string;
+    plan_id: string;
     name: string;
     permissions: string[];
   }>;

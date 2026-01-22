@@ -4,8 +4,12 @@ use axum::{
     response::Json as JsonResponse,
     Json,
 };
+use diesel::prelude::*;
+use diesel_async::RunQueryDsl;
+use crate::schemas::payments::subscriptions;
+use crate::infrastructure::models::payment::SubscriptionDb;
 use std::collections::HashMap;
-use std::str::FromStr;
+
 use rust_decimal::Decimal;
 use rust_decimal::prelude::ToPrimitive;
 use uuid::Uuid;
@@ -24,7 +28,8 @@ use crate::application::subscription_management::{
 
 use super::dtos::{
     CreatePlanRequest, UpdatePlanRequest, PlanResponse, PlanListResponse, PlanListData,
-    CreateSubscriptionRequest, SubscriptionResponse, UserAccessListQuery, UserAccessData
+    CreateSubscriptionRequest, SubscriptionResponse, UserAccessListQuery, UserAccessData,
+    SubscriptionListQuery,
 };
 
 // Helper: Convert Domain Plan to Response DTO
@@ -53,7 +58,7 @@ fn map_plan_to_response(plan: Plan, subscriber_count: u64, revenue: Decimal) -> 
         id: plan.id().to_string(),
         name: plan.name().to_string(),
         description: Some(plan.description().to_string()),
-        permission_group_name: plan.name().to_string(),
+        permission_plan_name: plan.name().to_string(),
         current_price: plan.price().amount(),
         effective_price,
         promotion_active,
@@ -62,7 +67,7 @@ fn map_plan_to_response(plan: Plan, subscriber_count: u64, revenue: Decimal) -> 
         currency: plan.price().currency().to_string(),
         target_audience: plan.target_audience().to_string(),
         billing_model: plan.billing_cycle().to_string(),
-        group_type: "subscription".to_string(),
+        plan_type: "subscription".to_string(),
         plan_category: plan_category.to_string(),
         is_active: plan.is_active(),
         permissions: plan.permissions.clone(),
@@ -75,23 +80,23 @@ fn map_plan_to_response(plan: Plan, subscriber_count: u64, revenue: Decimal) -> 
     }
 }
 
-// Helper to derive a permission group name if one isn't provided/available from context
-fn derive_group_from_permissions(permissions: &[String]) -> String {
+// Helper to derive a permission plan name if one isn't provided/available from context
+fn derive_plan_from_permissions(permissions: &[String]) -> String {
     // Simplified Logic relative to original
-    if permissions.is_empty() { return "Basic Access Group".to_string(); }
-    if permissions.iter().any(|p| p == "epsx:*:*") { return "Enterprise Access Group".to_string(); }
-    if permissions.iter().any(|p| p.contains("epsx:rankings:view:100")) { return "Professional Access Group".to_string(); }
-    "Basic Access Group".to_string()
+    if permissions.is_empty() { return "Basic Access Plan".to_string(); }
+    if permissions.iter().any(|p| p == "epsx:*:*") { return "Enterprise Access Plan".to_string(); }
+    if permissions.iter().any(|p| p.contains("epsx:rankings:view:100")) { return "Professional Access Plan".to_string(); }
+    "Basic Access Plan".to_string()
 }
 
-// Helper: Get permissions from group template name (mock implementation)
-fn get_permissions_from_group_template(group_name: &str) -> Vec<String> {
-    match group_name {
-        "Basic Access Group" => vec!["epsx:rankings:view:3".to_string(), "epsx:trading:basic".to_string()],
-        "Standard Access Group" => vec!["epsx:rankings:view:25".to_string(), "epsx:trading:basic".to_string()],
-        "Premium Access Group" => vec!["epsx:rankings:view:50".to_string(), "epsx:trading:premium".to_string()],
-        "Professional Access Group" => vec!["epsx:rankings:view:100".to_string(), "epsx:trading:premium".to_string()],
-        "Enterprise Access Group" => vec!["epsx:rankings:view:unlimited".to_string(), "epsx:*:*".to_string()],
+// Helper: Get permissions from plan template name (mock implementation)
+fn get_permissions_from_plan_template(plan_name: &str) -> Vec<String> {
+    match plan_name {
+        "Basic Access Plan" => vec!["epsx:rankings:view:3".to_string(), "epsx:trading:basic".to_string()],
+        "Standard Access Plan" => vec!["epsx:rankings:view:25".to_string(), "epsx:trading:basic".to_string()],
+        "Premium Access Plan" => vec!["epsx:rankings:view:50".to_string(), "epsx:trading:premium".to_string()],
+        "Professional Access Plan" => vec!["epsx:rankings:view:100".to_string(), "epsx:trading:premium".to_string()],
+        "Enterprise Access Plan" => vec!["epsx:rankings:view:unlimited".to_string(), "epsx:*:*".to_string()],
         _ => vec!["epsx:rankings:view:3".to_string()],
     }
 }
@@ -365,25 +370,25 @@ pub async fn create_subscription_handler(
     use diesel::prelude::*;
     use diesel_async::RunQueryDsl;
     use crate::schemas::payments::subscriptions;
-    use crate::schemas::primary::groups;
+    use crate::schemas::primary::plans;
     use crate::infrastructure::models::payment::NewSubscriptionDb;
 
     let subscription_id = Uuid::new_v4();
     
-    // Get PRIMARY DB connection for plan lookup (groups table is in primary DB)
+    // Get PRIMARY DB connection for plan lookup (plans table is in primary DB)
     let mut primary_conn = (*state.db_pool).get().await.map_err(|e| {
         tracing::error!("Failed to get primary database connection: {}", e);
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
     
-    // Find plan UUID from permission_group_name (groups table in PRIMARY DB)
-    let plan_uuid: Uuid = groups::table
-        .filter(groups::name.eq(&request.permission_group_name))
-        .select(groups::id)
+    // Find plan UUID from permission_plan_name (plans table in PRIMARY DB)
+    let plan_uuid: Uuid = plans::table
+        .filter(plans::name.eq(&request.permission_plan_name))
+        .select(plans::id)
         .first::<Uuid>(&mut primary_conn)
         .await
         .unwrap_or_else(|_| {
-            tracing::warn!("Could not find plan by name '{}', using placeholder UUID", request.permission_group_name);
+            tracing::warn!("Could not find plan by name '{}', using placeholder UUID", request.permission_plan_name);
             Uuid::nil()
         });
     
@@ -393,9 +398,9 @@ pub async fn create_subscription_handler(
         None
     };
     
-    // Get permissions from group template
-    let permissions_granted = get_permissions_from_group_template(&request.permission_group_name);
-    let group_type = derive_group_from_permissions(&permissions_granted);
+    // Get permissions from plan template
+    let permissions_granted = get_permissions_from_plan_template(&request.permission_plan_name);
+    let plan_type = derive_plan_from_permissions(&permissions_granted);
     
     // Generate quota limits from permissions
     let quota_limits = generate_quota_from_permissions(&permissions_granted);
@@ -403,14 +408,14 @@ pub async fn create_subscription_handler(
     // Calculate expiry (default 1 year for admin-assigned subscriptions)
     let expires_at = request.expires_at.unwrap_or_else(|| Utc::now() + chrono::Duration::days(365));
     
-    // Single Plan Constraint & Update wallet_group_assignments (Same logic as valid code)
+    // Single Plan Constraint & Update wallet_plan_assignments (Same logic as valid code)
     // For brevity, skipping the full implementation details here for "Refactor" unless STRICTLY needed.
     // BUT since we are deleting the old file, we MUST implement it fully.
     
     // ... [Deactivate existing] ...
      let _ = diesel::sql_query(
         r#"
-        UPDATE wallet_group_assignments 
+        UPDATE wallet_plan_assignments 
         SET is_active = false, updated_at = NOW()
         WHERE LOWER(wallet_address) = LOWER($1) 
           AND is_active = true
@@ -423,11 +428,11 @@ pub async fn create_subscription_handler(
     // ... [Insert new assignment] ...
     let _ = diesel::sql_query(
         r#"
-        INSERT INTO wallet_group_assignments (
-            wallet_address, group_id, assigned_at, expires_at, 
+        INSERT INTO wallet_plan_assignments (
+            wallet_address, plan_id, assigned_at, expires_at, 
             assigned_by, assignment_reason, is_active, assignment_source
         ) VALUES ($1, $2, NOW(), $3, 'admin', 'Admin assigned subscription', true, 'admin')
-        ON CONFLICT (wallet_address, group_id) 
+        ON CONFLICT (wallet_address, plan_id) 
         DO UPDATE SET 
             is_active = true, 
             expires_at = EXCLUDED.expires_at,
@@ -452,7 +457,7 @@ pub async fn create_subscription_handler(
         cancelled_at: None,
         auto_renew: Some(request.auto_renew),
         metadata: Some(serde_json::json!({
-            "permission_group_name": request.permission_group_name,
+            "permission_plan_name": request.permission_plan_name,
             "access_context": request.access_context,
             "api_key_name": request.api_key_name,
             "created_by": "admin",
@@ -483,9 +488,9 @@ pub async fn create_subscription_handler(
         id: subscription_id.to_string(),
         wallet_address: request.wallet_address,
         plan_id: request.plan_id,
-        permission_group_name: request.permission_group_name,
+        permission_plan_name: request.permission_plan_name,
         permissions_granted,
-        group_type,
+        plan_type,
         access_context: request.access_context,
         api_key,
         api_key_name: request.api_key_name,
@@ -521,7 +526,7 @@ pub async fn admin_list_user_access_handler(
         }
     };
     
-    // Query wallet_group_assignments with plan info from groups table
+    // Query wallet_plan_assignments with plan info from plans table
     #[derive(diesel::QueryableByName)]
     #[allow(dead_code)]
     struct UserRow {
@@ -532,7 +537,7 @@ pub async fn admin_list_user_access_handler(
         #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
         plan_name: Option<String>,
         #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Uuid>)]
-        group_id: Option<Uuid>,
+        plan_id: Option<Uuid>,
     }
     
     let search_filter = query.search.as_ref()
@@ -545,11 +550,11 @@ pub async fn admin_list_user_access_handler(
             wga.wallet_address::text,
             wga.expires_at,
             g.name as plan_name,
-            g.id as group_id
-        FROM wallet_group_assignments wga
-        LEFT JOIN groups g ON wga.group_id = g.id
+            g.id as plan_id
+        FROM wallet_plan_assignments wga
+        LEFT JOIN plans g ON wga.plan_id = g.id
         WHERE wga.is_active = true
-          AND g.group_type = 'subscription'
+          AND g.plan_type = 'subscription'
           AND LOWER(wga.wallet_address) LIKE $1
         ORDER BY wga.assigned_at DESC NULLS LAST
         LIMIT $2 OFFSET $3
@@ -584,7 +589,7 @@ pub async fn admin_list_user_access_handler(
              
              Some(UserAccessData {
                  wallet_address: user.wallet_address,
-                 current_plan_id: user.group_id,
+                 current_plan_id: user.plan_id,
                  plan_name: user.plan_name,
                  plan_expires_at: user.expires_at,
                  days_remaining: days_remaining.max(0),
@@ -606,3 +611,102 @@ pub async fn admin_list_user_access_handler(
         }
     })))
 }
+
+/// List all subscriptions (Admin)
+pub async fn list_subscriptions_handler(
+    State(_state): State<AppState>,
+    Query(query): Query<SubscriptionListQuery>,
+) -> Result<JsonResponse<serde_json::Value>, StatusCode> {
+    let page = query.page.unwrap_or(1).max(1);
+    let limit = query.limit.unwrap_or(20).min(100);
+    let offset = (page - 1) * limit;
+
+    let payments_pool = crate::infrastructure::database::get_payments_pool().await.map_err(|e| {
+        tracing::error!("Failed to get payments database pool: {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+    let mut payments_conn = payments_pool.get().await.map_err(|e| {
+        tracing::error!("Failed to get payments database connection: {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    let mut db_query = subscriptions::table.into_boxed();
+
+    if let Some(status) = query.status {
+        db_query = db_query.filter(subscriptions::status.eq(status));
+    }
+
+    if let Some(search) = query.search {
+        db_query = db_query.filter(subscriptions::wallet_address.ilike(format!("%{}%", search)));
+    }
+
+    let results = db_query
+        .limit(limit)
+        .offset(offset)
+        .load::<SubscriptionDb>(&mut payments_conn)
+        .await
+        .map_err(|e| {
+            tracing::error!("Failed to load subscriptions: {}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
+
+    let mut response_subscriptions = Vec::new();
+    for sub in results {
+        let metadata = sub.metadata.clone().unwrap_or(serde_json::json!({}));
+        let access_context = metadata.get("access_context")
+            .and_then(|v| v.as_str())
+            .unwrap_or("internal")
+            .to_string();
+        
+        // Filter by access_context if provided
+        if let Some(ref filter_context) = query.access_context {
+            if &access_context != filter_context {
+                continue;
+            }
+        }
+
+        let plan_name = metadata.get("permission_plan_name")
+            .and_then(|v| v.as_str())
+            .unwrap_or("Unknown Plan")
+            .to_string();
+            
+        let api_key_name = metadata.get("api_key_name")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string());
+        
+        // Reconstruct the response DTO manually to avoid type mismatch issues
+        // and handle the missing fields gracefully
+        let permissions_granted = get_permissions_from_plan_template(&plan_name);
+        let plan_type = derive_plan_from_permissions(&permissions_granted);
+        let quota_limits = generate_quota_from_permissions(&permissions_granted);
+
+        response_subscriptions.push(serde_json::json!({
+            "id": sub.id.to_string(),
+            "wallet_address": sub.wallet_address,
+            "plan_id": sub.plan_id,
+            "plan_name": plan_name,
+            "permission_plan_name": plan_name,
+            "permissions_granted": permissions_granted,
+            "plan_type": plan_type,
+            "access_context": access_context,
+            "api_key_name": api_key_name,
+            "status": sub.status,
+            "expires_at": sub.expires_at,
+            "auto_renew": sub.auto_renew.unwrap_or(false),
+            "created_at": sub.started_at.unwrap_or(Utc::now()),
+            "updated_at": sub.started_at.unwrap_or(Utc::now()),
+            "metadata": sub.metadata,
+            "current_usage": serde_json::json!({"api_calls": 0, "rankings_viewed": 0}),
+            "quota_limits": quota_limits,
+        }));
+    }
+
+    Ok(JsonResponse(serde_json::json!({
+        "success": true,
+        "data": {
+            "subscriptions": response_subscriptions,
+            "total": response_subscriptions.len() 
+        }
+    })))
+}
+

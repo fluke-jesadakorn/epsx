@@ -1,7 +1,7 @@
 //! Payment Context Aggregate
 //!
 //! Represents a dynamic payment link that can be associated with various contexts
-//! (plans, groups, products, campaigns, or custom purposes).
+//! (plans, plans, products, campaigns, or custom purposes).
 //!
 //! Core Design Philosophy:
 //! - Users can unlock granular features by paying through dynamic links

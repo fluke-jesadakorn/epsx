@@ -3,10 +3,10 @@
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 
-import { PermissionTransferList } from '@/components/groups/PermissionTransferList'
+import { PermissionTransferList } from '@/components/plans/PermissionTransferList'
 import { PageLoadingSpinner } from '@/components/ui/LoadingSpinner'
 import { toast } from '@/hooks/use-toast'
-import { useAvailablePermissions } from '@/hooks/useGroupPermissions'
+import { useAvailablePermissions } from '@/hooks/usePlanPermissions'
 import { createPlansClient, isApiSuccess } from '@/shared/api/plans'
 import { useSharedAuth } from '@/shared/components/auth/Provider'
 import { createAdminApiClient } from '@/shared/utils/api-client'

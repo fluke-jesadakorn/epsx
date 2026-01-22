@@ -1,0 +1,132 @@
+'use client';
+
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Skeleton } from '@/components/ui/skeleton';
+import { createAdminApiClient } from '@/shared/utils/api-client';
+import { ExternalLink, RefreshCw, Search } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { WalletActivityTimeline } from './WalletActivityTimeline';
+import { WalletActivityEvent } from './types';
+
+// Simplified interface for internal use -> aligned with WalletActivityTimeline
+// We need to map AuditLogEntry to WalletActivityEvent
+interface AuditLogEntry {
+    id: string;
+    action: string;
+    wallet_address: string | null;
+    timestamp: string;
+    details: Record<string, unknown> | null;
+}
+
+interface ActivityLogSectionProps {
+    className?: string;
+}
+
+import { cn } from '@/lib/utils';
+
+export function ActivityLogSection({ className }: ActivityLogSectionProps) {
+    const [events, setEvents] = useState<WalletActivityEvent[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+
+    const fetchLogs = useCallback(async () => {
+        setIsLoading(true);
+        try {
+            const client = createAdminApiClient();
+            // Use audit logs endpoint but map to activity events
+            const response = await client.get<any>('/api/admin/audit-logs?page=1&page_size=10');
+
+            if (response.success && response.data) {
+                const logs: AuditLogEntry[] = response.data.entries || [];
+                // Map to WalletActivityEvent
+                const mappedEvents: WalletActivityEvent[] = logs.map(log => ({
+                    id: log.id,
+                    type: mapActionToEventType(log.action),
+                    description: formatActionDescription(log.action, log.details),
+                    timestamp: log.timestamp,
+                    performedBy: log.wallet_address || 'System',
+                    metadata: log.details || undefined
+                }));
+                setEvents(mappedEvents);
+            }
+        } catch (err) {
+            console.error('Failed to fetch activity logs:', err);
+        } finally {
+            setIsLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        fetchLogs();
+    }, [fetchLogs]);
+
+    return (
+        <div className={cn("flex flex-col h-full bg-card border border-border rounded-xl shadow-sm overflow-hidden", className)}>
+            {/* Filter Bar */}
+            <div className="p-4 border-b border-border flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center bg-card/50">
+                <div className="flex items-center gap-2 w-full sm:w-auto flex-1">
+                    <div className="relative w-full sm:max-w-md">
+                        <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                        <Input
+                            placeholder="Search activity logs..."
+                            className="pl-9 h-10 bg-background/50 border-border/50 focus:bg-background transition-colors"
+                        />
+                    </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm" className="h-10 border-dashed" onClick={fetchLogs} disabled={isLoading}>
+                        <RefreshCw className={cn("h-4 w-4 mr-2", isLoading && "animate-spin")} />
+                        Refresh
+                    </Button>
+                </div>
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 p-6 bg-muted/5 min-h-[500px]">
+                {isLoading ? (
+                    <div className="space-y-8 max-w-3xl mx-auto pt-8">
+                        {[1, 2, 3, 4].map(i => <div key={i} className="flex gap-4">
+                            <Skeleton className="h-4 w-4 rounded-full mt-2" />
+                            <div className="space-y-3 flex-1">
+                                <Skeleton className="h-5 w-1/3" />
+                                <Skeleton className="h-4 w-2/3" />
+                                <Skeleton className="h-20 w-full rounded-xl" />
+                            </div>
+                        </div>)}
+                    </div>
+                ) : (
+                    <div className="max-w-4xl mx-auto">
+                        <WalletActivityTimeline
+                            events={events}
+                            maxItems={50}
+                            showAll={true}
+                            className="space-y-8"
+                        />
+                    </div>
+                )}
+            </div>
+
+            {/* Simple Footer */}
+            <div className="p-3 border-t border-border bg-muted/20 flex justify-center">
+                <Button variant="link" className="text-xs text-muted-foreground hover:text-primary">
+                    View Complete Audit Log Archive <ExternalLink className="ml-1 h-3 w-3" />
+                </Button>
+            </div>
+        </div>
+    );
+}
+
+// Helpers
+function mapActionToEventType(action: string): WalletActivityEvent['type'] {
+    if (action.includes('grant') || action.includes('permission')) return 'permission_granted';
+    if (action.includes('revoke')) return 'permission_revoked';
+    if (action.includes('disable')) return 'wallet_disabled';
+    if (action.includes('enable')) return 'wallet_enabled';
+    if (action.includes('login')) return 'login';
+    return 'wallet_created'; // fallback
+}
+
+function formatActionDescription(action: string, details: any): string {
+    return action.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+}

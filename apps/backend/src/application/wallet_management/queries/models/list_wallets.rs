@@ -71,7 +71,7 @@ pub struct WalletSummary {
 
     // Permission and tier fields
     pub permissions: HashSet<Permission>,
-    pub permission_group: String,          // Permission group from permissions
+    pub permission_plan: String,          // Permission group from permissions
 
     // Timestamp fields
     pub created_at: DateTime<Utc>,

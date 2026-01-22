@@ -7,7 +7,7 @@
 // Re-export all model modules
 pub mod wallet_user;
 
-pub mod group;
+pub mod plan;
 pub mod permission;
 pub mod payment;
 pub mod notification;
@@ -20,9 +20,12 @@ pub use wallet_user::{
 
 
 // Primary exports (new names)
-pub use group::{
-    GroupDb, NewGroupDb, UpdateGroupDb,
-    CreateGroupRequest, UpdateGroupRequest,
+pub use plan::{
+    PlanDb as GroupDb, NewPlanDb as NewGroupDb, UpdatePlanDb as UpdateGroupDb,
+    CreatePlanRequest as CreateGroupRequest, UpdatePlanRequest as UpdateGroupRequest,
+    // Unified names
+    PlanDb, NewPlanDb, UpdatePlanDb,
+    CreatePlanRequest, UpdatePlanRequest,
     // Backward compatibility aliases
     PermissionGroupDb, NewPermissionGroupDb, UpdatePermissionGroupDb,
     CreatePermissionGroupRequest, UpdatePermissionGroupRequest

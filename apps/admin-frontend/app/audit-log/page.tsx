@@ -4,7 +4,7 @@
  */
 'use client';
 
-import { ChevronLeft, ChevronRight, Download, FileText, RefreshCw, Search } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Download, RefreshCw, Search } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import React, { useCallback, useEffect, useState } from 'react';
 
@@ -437,10 +437,10 @@ function generateMockAuditLogs(): AuditLogEntry[] {
     const actions = [
         'permission_granted', 'permission_revoked', 'wallet_created', 'wallet_disabled',
         'wallet_enabled', 'plan_created', 'plan_updated', 'user_login', 'settings_updated',
-        'notification_sent', 'group_created', 'member_added', 'member_removed'
+        'notification_sent', 'plan_created', 'plan_updated', 'member_added', 'member_removed'
     ] as const;
 
-    const targetTypes = ['wallet', 'permission', 'plan', 'user', 'group', 'notification'] as const;
+    const targetTypes = ['wallet', 'permission', 'plan', 'user', 'notification'] as const;
 
     return Array.from({ length: 20 }, (_, i) => ({
         id: `log-${Date.now()}-${i}`,

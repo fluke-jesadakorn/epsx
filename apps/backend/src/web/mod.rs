@@ -4,7 +4,7 @@
 pub mod auth;
 pub mod admin;
 pub mod routes; // New contextual route architecture
-// Removed: permission_profile, permissions - replaced by auth/groups.rs
+// Removed: permission_profile, permissions - replaced by auth/plans.rs
 pub mod user;
 pub mod middleware;
 // pub mod modules; // Removed - empty placeholder routers, all stub implementations

@@ -58,14 +58,12 @@ export function DroppablePermissionList({ id, items, emptyMessage }: { id: strin
     );
 }
 
-// --- Groups ---
+// --- Plans ---
 
-// --- Groups ---
-
-export function DraggableGroupItem({ id, label, description, isAssigned = false }: { id: string; label: string; description?: string, isAssigned?: boolean }) {
+export function DraggablePlanItem({ id, label, description, isAssigned = false }: { id: string; label: string; description?: string, isAssigned?: boolean }) {
     const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
         id: id,
-        data: { type: 'group', id, name: label },
+        data: { type: 'plan', id, name: label },
         disabled: isAssigned
     });
 
@@ -105,7 +103,7 @@ export function DraggableGroupItem({ id, label, description, isAssigned = false 
     );
 }
 
-export function DroppableGroupList({
+export function DroppablePlanList({
     id,
     items,
     emptyMessage,
@@ -141,23 +139,23 @@ export function DroppableGroupList({
                 </div>
             ) : (
                 <div className="space-y-3">
-                    {allItems.map(group => (
-                        <div key={group.id} className={cn(
+                    {allItems.map(plan => (
+                        <div key={plan.id} className={cn(
                             "flex items-center justify-between p-4 rounded-xl border bg-slate-800/80 border-slate-700 shadow-sm transition-all",
-                            group.isPending && "border-amber-500/50 bg-amber-500/10"
+                            plan.isPending && "border-amber-500/50 bg-amber-500/10"
                         )}>
                             <div className="flex items-center gap-4">
                                 <div className={cn(
                                     "h-10 w-10 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors",
-                                    group.isPending ? "bg-amber-500/20 text-amber-400" : "bg-purple-500/20 text-purple-400"
+                                    plan.isPending ? "bg-amber-500/20 text-amber-400" : "bg-purple-500/20 text-purple-400"
                                 )}>
                                     <Package className="h-5 w-5" />
                                 </div>
                                 <div className="min-w-0">
                                     <p className="font-semibold text-sm text-slate-200">
-                                        {group.name}
+                                        {plan.name}
                                     </p>
-                                    {group.isPending && (
+                                    {plan.isPending && (
                                         <span className="text-[10px] text-amber-400 font-bold uppercase tracking-wider">Pending Add</span>
                                     )}
                                 </div>
@@ -165,12 +163,12 @@ export function DroppableGroupList({
 
                             {/* Actions for Assigned Items */}
                             <div className="flex items-center gap-2">
-                                {onEdit && !group.isPending && (
+                                {onEdit && !plan.isPending && (
                                     <Button
                                         variant="ghost"
                                         size="sm"
                                         className="h-8 px-3 text-xs font-medium text-slate-400 hover:text-white hover:bg-slate-700"
-                                        onClick={() => onEdit(group)}
+                                        onClick={() => onEdit(plan)}
                                     >
                                         Edit
                                     </Button>
@@ -180,7 +178,7 @@ export function DroppableGroupList({
                                         variant="ghost"
                                         size="sm"
                                         className="h-8 px-3 text-xs font-medium text-red-500/70 hover:text-red-400 hover:bg-red-500/10"
-                                        onClick={() => onDelete(group.id)}
+                                        onClick={() => onDelete(plan.id)}
                                     >
                                         Del
                                     </Button>
@@ -193,4 +191,3 @@ export function DroppableGroupList({
         </div>
     );
 }
-

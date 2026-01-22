@@ -2,17 +2,17 @@
 
 import { Badge } from '@/components/ui/badge';
 import type { AuthUser } from '@/lib/server-actions';
-import { createPlansClient } from '@/shared/api/plans';
+import { createUsersClient } from '@/shared/api/users';
 import { UnifiedApiClient } from '@/shared/utils/api-client';
 import { useEffect, useState } from 'react';
 
 interface UserGroupData {
-    groups: Array<{
+    plans: Array<{
         id: string;
         name: string;
         slug: string;
         description: string;
-        group_type: string;
+        plan_type: string;
         permissions: string[];
         expires_at: string | null;
         rate_limit_per_minute: number | null;
@@ -38,14 +38,16 @@ export function DeveloperStatsCards({ currentUser }: DeveloperStatsCardsProps) {
                     baseURL: process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080',
                     platform: 'frontend',
                 });
-                const plansClient = createPlansClient(client);
-                const response = await plansClient.getMyGroups();
+                const usersClient = createUsersClient(client);
+                const response = await usersClient.getMyPlans();
                 if (response.success && response.data) {
-                    // UnifiedApiClient response.data is already the unwrapped payload T
+                    // Map 'plans' property from response if needed, or if API matches UserGroupData structure
+                    // The API returns { plans: [...], total_api_keys, total_requests }
+                    // UserGroupData updated to use 'plans' instead of 'groups'
                     setUserGroupData(response.data as unknown as UserGroupData);
                 }
             } catch (error) {
-                console.error('Failed to fetch user groups:', error);
+                console.error('Failed to fetch user plans:', error);
             } finally {
                 setIsLoading(false);
             }
@@ -53,8 +55,8 @@ export function DeveloperStatsCards({ currentUser }: DeveloperStatsCardsProps) {
         fetchUserGroups();
     }, []);
 
-    const hasGroups = userGroupData?.groups && userGroupData.groups.length > 0;
-    const primaryGroup = userGroupData?.groups?.[0];
+    const hasGroups = userGroupData?.plans && userGroupData.plans.length > 0;
+    const primaryGroup = userGroupData?.plans?.[0];
     const hasApiKeys = (userGroupData?.total_api_keys ?? 0) > 0;
     const accessLevel = hasApiKeys || hasGroups ? 'Active' : 'No API Keys';
     const rateLimit = primaryGroup?.rate_limit_per_minute
@@ -62,8 +64,8 @@ export function DeveloperStatsCards({ currentUser }: DeveloperStatsCardsProps) {
         : (hasApiKeys ? 'Default' : 'N/A');
 
     const getEarliestExpiry = () => {
-        if (!userGroupData?.groups?.length) return null;
-        const expiringGroups = userGroupData.groups.filter(g => g.expires_at);
+        if (!userGroupData?.plans?.length) return null;
+        const expiringGroups = userGroupData.plans.filter(g => g.expires_at);
         if (!expiringGroups.length) return null;
         const dates = expiringGroups.map(g => new Date(g.expires_at!));
         return new Date(Math.min(...dates.map(d => d.getTime())));
@@ -89,14 +91,14 @@ export function DeveloperStatsCards({ currentUser }: DeveloperStatsCardsProps) {
                     </div>
                     {hasGroups && userGroupData && (
                         <div className="flex flex-wrap gap-1">
-                            {userGroupData.groups.slice(0, 2).map(g => (
+                            {userGroupData.plans.slice(0, 2).map(g => (
                                 <Badge key={g.id} variant="outline" className="text-xs bg-white/50 dark:bg-gray-900/50">
                                     {g.name}
                                 </Badge>
                             ))}
-                            {userGroupData.groups.length > 2 && (
+                            {userGroupData.plans.length > 2 && (
                                 <Badge variant="outline" className="text-xs bg-white/50 dark:bg-gray-900/50">
-                                    +{userGroupData.groups.length - 2}
+                                    +{userGroupData.plans.length - 2}
                                 </Badge>
                             )}
                         </div>

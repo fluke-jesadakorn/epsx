@@ -1,21 +1,21 @@
 use crate::prelude::*;
 use crate::application::shared::Command;
 
-/// Command to remove a wallet from a permission group
+/// Command to remove a wallet from a permission plan
 #[derive(Debug, Clone)]
-pub struct RemoveWalletFromGroupCommand {
-    pub group_id: String,
+pub struct RemoveWalletFromPlanCommand {
+    pub plan_id: String,
     pub wallet_address: String,
 }
 
-impl Command for RemoveWalletFromGroupCommand {
-    type Response = RemoveWalletFromGroupResponse;
+impl Command for RemoveWalletFromPlanCommand {
+    type Response = RemoveWalletFromPlanResponse;
 }
 
-/// Response for remove wallet from group command
+/// Response for remove wallet from plan command
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RemoveWalletFromGroupResponse {
-    pub group_id: String,
+pub struct RemoveWalletFromPlanResponse {
+    pub plan_id: String,
     pub wallet_address: String,
     pub removed: bool,
 }

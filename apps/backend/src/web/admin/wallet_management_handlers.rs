@@ -58,9 +58,9 @@ pub struct WalletListQuery {
     /// Sort order (asc/desc)
     #[param(example = "desc")]
     pub sort_order: Option<String>,
-    /// Exclude members of a specific group
+    /// Exclude members of a specific plan
     #[param(example = "uuid")]
-    pub exclude_group_id: Option<String>,
+    pub exclude_plan_id: Option<String>,
 }
 
 #[derive(Debug, Serialize, utoipa::ToSchema)]
@@ -78,9 +78,9 @@ pub struct WalletSummaryResponse {
     /// Total number of permissions assigned
     #[schema(example = 5)]
     pub permissions_count: i32,
-    /// Number of permission groups assigned
+    /// Number of permission plans assigned
     #[schema(example = 2)]
-    pub groups_count: i32,
+    pub plans_count: i32,
     /// Last activity timestamp
     pub last_activity: Option<DateTime<Utc>>,
     /// Additional wallet metadata
@@ -101,8 +101,8 @@ pub struct WalletDetailResponse {
     pub last_auth_at: Option<DateTime<Utc>>,
     /// List of wallet permissions
     pub permissions: Vec<WalletPermission>,
-    /// List of wallet groups
-    pub groups: Vec<WalletGroup>,
+    /// List of wallet plans
+    pub plans: Vec<WalletPlan>,
     /// Activity summary for the wallet
     pub activity_summary: WalletActivitySummary,
     /// Additional wallet metadata
@@ -114,8 +114,8 @@ pub struct WalletPermission {
     /// Permission string (format: platform:resource:action)
     #[schema(example = "epsx:analytics:read")]
     pub permission: String,
-    /// Source of the permission (direct, group, etc.)
-    #[schema(example = "group")]
+    /// Source of the permission (direct, plan, etc.)
+    #[schema(example = "plan")]
     pub source: String,
     /// When the permission was granted
     pub granted_at: DateTime<Utc>,
@@ -127,21 +127,21 @@ pub struct WalletPermission {
 }
 
 #[derive(Debug, Serialize, utoipa::ToSchema)]
-pub struct WalletGroup {
-    /// Group unique identifier
+pub struct WalletPlan {
+    /// Plan unique identifier
     #[schema(example = "550e8400-e29b-41d4-a716-446655440000")]
-    pub group_id: String,
-    /// Group display name
+    pub plan_id: String,
+    /// Plan display name
     #[schema(example = "Premium Users")]
-    pub group_name: String,
-    /// Group type (system, custom, etc.)
+    pub plan_name: String,
+    /// Plan type (system, custom, etc.)
     #[schema(example = "system")]
-    pub group_type: String,
-    /// When the wallet was assigned to this group
+    pub plan_type: String,
+    /// When the wallet was assigned to this plan
     pub assigned_at: DateTime<Utc>,
-    /// When the group assignment expires (if applicable)
+    /// When the plan assignment expires (if applicable)
     pub expires_at: Option<DateTime<Utc>>,
-    /// Whether the group assignment is currently active
+    /// Whether the plan assignment is currently active
     #[schema(example = true)]
     pub is_active: bool,
 }
@@ -163,9 +163,9 @@ pub struct WalletActivitySummary {
     /// Number of expired permissions
     #[schema(example = 3)]
     pub expired_permissions: i32,
-    /// Number of groups the wallet belongs to
+    /// Number of plans the wallet belongs to
     #[schema(example = 2)]
-    pub groups_count: i32,
+    pub plans_count: i32,
 }
 
 // ============================================================================
@@ -180,7 +180,7 @@ impl From<query_models::WalletSummaryDto> for WalletSummaryResponse {
             created_at: dto.created_at,
             last_auth_at: dto.last_auth_at,
             permissions_count: dto.permissions_count,
-            groups_count: dto.groups_count,
+            plans_count: dto.plans_count,
             last_activity: dto.last_activity,
             metadata: dto.metadata.unwrap_or(serde_json::json!({})),
         }
@@ -195,7 +195,7 @@ impl From<query_models::WalletDetailDto> for WalletDetailResponse {
             created_at: dto.created_at,
             last_auth_at: dto.last_auth_at,
             permissions: dto.permissions.into_iter().map(Into::into).collect(),
-            groups: dto.groups.into_iter().map(Into::into).collect(),
+            plans: dto.plans.into_iter().map(Into::into).collect(),
             activity_summary: dto.activity_summary.into(),
             metadata: dto.metadata.unwrap_or(serde_json::json!({})),
         }
@@ -214,12 +214,12 @@ impl From<query_models::WalletPermissionDto> for WalletPermission {
     }
 }
 
-impl From<query_models::WalletGroupDto> for WalletGroup {
-    fn from(dto: query_models::WalletGroupDto) -> Self {
+impl From<query_models::WalletPlanDto> for WalletPlan {
+    fn from(dto: query_models::WalletPlanDto) -> Self {
         Self {
-            group_id: dto.group_id,
-            group_name: dto.group_name,
-            group_type: dto.group_type,
+            plan_id: dto.plan_id,
+            plan_name: dto.plan_name,
+            plan_type: dto.plan_type,
             assigned_at: dto.assigned_at,
             expires_at: dto.expires_at,
             is_active: dto.is_active,
@@ -235,7 +235,7 @@ impl From<query_models::WalletActivitySummaryDto> for WalletActivitySummary {
             total_permissions: dto.total_permissions,
             active_permissions: dto.active_permissions,
             expired_permissions: dto.expired_permissions,
-            groups_count: dto.groups_count,
+            plans_count: dto.plans_count,
         }
     }
 }
@@ -302,7 +302,7 @@ pub struct BulkPermissionValidationResponse {
     #[schema(example = 15)]
     pub validation_time_ms: u64,
     /// Detailed results for each permission
-    #[schema(example = json!([{"permission": "admin:users:read", "granted": true, "source": "group"}]))]
+    #[schema(example = json!([{"permission": "admin:users:read", "granted": true, "source": "plan"}]))]
     pub results: Vec<serde_json::Value>,
 }
 
@@ -369,7 +369,7 @@ impl From<query_models::WalletStatsDto> for WalletStatsResponse {
         ("date_to" = Option<String>, Query, description = "Filter by creation date to"),
         ("sort_by" = Option<String>, Query, description = "Sort field"),
         ("sort_order" = Option<String>, Query, description = "Sort order (asc/desc)"),
-        ("exclude_group_id" = Option<String>, Query, description = "Exclude members of a specific group")
+        ("exclude_plan_id" = Option<String>, Query, description = "Exclude members of a specific plan")
     ),
     security(("bearerAuth" = []))
 )]
@@ -389,7 +389,7 @@ pub async fn list_users_handler(
         date_to: params.date_to,
         sort_by: params.sort_by,
         sort_order: params.sort_order,
-        exclude_group_id: params.exclude_group_id,
+        exclude_plan_id: params.exclude_plan_id,
     };
 
     // 2. Execute CQRS handler
@@ -769,7 +769,7 @@ pub async fn validate_user_permissions_bulk(
                 results.push(serde_json::json!({
                     "permission": permission,
                     "granted": granted,
-                    "source": if granted { "direct_or_group" } else { "not_found" },
+                    "source": if granted { "direct_or_plan" } else { "not_found" },
                     "expires_at": null,
                     "reason": null
                 }));

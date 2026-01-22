@@ -253,29 +253,26 @@ export function PolicyCard({
           </div>
         </div>
 
-        {/* Key Metrics Grid - Adaptive based on type */}
-        <div className={cn(
-          'grid gap-3',
-          isSubscription ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-2 sm:grid-cols-4'
-        )}>
+        {/* Key Metrics Grid - 2 cols for readability */}
+        <div className="grid grid-cols-2 gap-3">
           {/* Type (all) */}
-          <div className="flex flex-col p-3 rounded-xl bg-gradient-to-br from-gray-50 to-gray-100/50 dark:from-gray-800/50 dark:to-gray-900/50 border border-gray-100 dark:border-gray-800 transition-all duration-200 hover:border-gray-200 dark:hover:border-gray-700">
-            <span className="text-[10px] uppercase text-muted-foreground font-semibold tracking-wider mb-1">Type</span>
+          <div className="flex flex-col p-3 rounded-xl bg-muted/40 border border-border">
+            <span className="text-[10px] uppercase text-muted-foreground font-medium tracking-wide mb-1">Type</span>
             <div className="flex items-center gap-1.5">
               <span className="text-base">{typeConfig.icon}</span>
-              <span className="text-sm font-bold text-foreground truncate">{typeConfig.label}</span>
+              <span className="text-sm font-semibold text-foreground">{typeConfig.label}</span>
             </div>
           </div>
 
           {/* Members/Subscribers (all) */}
-          <div className="flex flex-col p-3 rounded-xl bg-gradient-to-br from-gray-50 to-gray-100/50 dark:from-gray-800/50 dark:to-gray-900/50 border border-gray-100 dark:border-gray-800 transition-all duration-200 hover:border-gray-200 dark:hover:border-gray-700">
-            <span className="text-[10px] uppercase text-muted-foreground font-semibold tracking-wider mb-1">
-              {isSubscription ? 'Subscribers' : 'Members'}
+          <div className="flex flex-col p-3 rounded-xl bg-muted/40 border border-border">
+            <span className="text-[10px] uppercase text-muted-foreground font-medium tracking-wide mb-1">
+              {isSubscription ? 'Subs' : 'Users'}
             </span>
             <div className="flex items-center gap-1.5">
               <Users className="h-4 w-4 text-blue-500" />
-              <span className="text-sm font-bold text-foreground">
-                {policy.memberCount} <span className="text-muted-foreground font-normal text-xs">users</span>
+              <span className="text-sm font-semibold text-foreground">
+                {policy.memberCount}
               </span>
             </div>
           </div>
@@ -283,9 +280,9 @@ export function PolicyCard({
           {/* Subscription: Price & Revenue */}
           {isSubscription && (
             <>
-              <div className="flex flex-col p-3 rounded-xl bg-gradient-to-br from-blue-50/50 to-indigo-50/50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-100 dark:border-blue-800 transition-all duration-200 hover:border-blue-200 dark:hover:border-blue-700">
-                <span className="text-[10px] uppercase text-muted-foreground font-semibold tracking-wider mb-1">Price</span>
-                <span className="text-sm font-bold text-foreground">
+              <div className="flex flex-col p-3 rounded-xl bg-blue-500/10 border border-blue-500/20">
+                <span className="text-[10px] uppercase text-muted-foreground font-medium tracking-wide mb-1">Price</span>
+                <span className="text-sm font-semibold text-foreground">
                   {policy.pricing?.amount === 0 ? (
                     <span className="text-emerald-600 dark:text-emerald-400">Free</span>
                   ) : (
@@ -299,11 +296,11 @@ export function PolicyCard({
                 </span>
               </div>
 
-              <div className="flex flex-col p-3 rounded-xl bg-gradient-to-br from-emerald-50/50 to-green-50/50 dark:from-emerald-900/20 dark:to-green-900/20 border border-emerald-100 dark:border-emerald-800 transition-all duration-200 hover:border-emerald-200 dark:hover:border-emerald-700">
-                <span className="text-[10px] uppercase text-muted-foreground font-semibold tracking-wider mb-1">Revenue (30d)</span>
+              <div className="flex flex-col p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+                <span className="text-[10px] uppercase text-muted-foreground font-medium tracking-wide mb-1">Revenue (30d)</span>
                 <div className="flex items-center gap-1.5">
                   <TrendingUp className="h-4 w-4 text-emerald-500" />
-                  <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">
+                  <span className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">
                     ${(policy.revenue || 0).toFixed(2)}
                   </span>
                 </div>
@@ -314,27 +311,27 @@ export function PolicyCard({
           {/* Group: Permissions & Priority/Expiry */}
           {!isSubscription && (
             <>
-              <div className="flex flex-col p-3 rounded-xl bg-gradient-to-br from-gray-50 to-gray-100/50 dark:from-gray-800/50 dark:to-gray-900/50 border border-gray-100 dark:border-gray-800 transition-all duration-200 hover:border-gray-200 dark:hover:border-gray-700">
-                <span className="text-[10px] uppercase text-muted-foreground font-semibold tracking-wider mb-1">Perms</span>
-                <span className="text-sm font-bold text-foreground">
+              <div className="flex flex-col p-3 rounded-xl bg-muted/40 border border-border">
+                <span className="text-[10px] uppercase text-muted-foreground font-medium tracking-wide mb-1">Perms</span>
+                <span className="text-sm font-semibold text-foreground">
                   {policy.permissions.length} <span className="text-muted-foreground font-normal text-xs">active</span>
                 </span>
               </div>
 
-              <div className="flex flex-col p-3 rounded-xl bg-gradient-to-br from-gray-50 to-gray-100/50 dark:from-gray-800/50 dark:to-gray-900/50 border border-gray-100 dark:border-gray-800 transition-all duration-200 hover:border-gray-200 dark:hover:border-gray-700">
-                <span className="text-[10px] uppercase text-muted-foreground font-semibold tracking-wider mb-1">
+              <div className="flex flex-col p-3 rounded-xl bg-muted/40 border border-border">
+                <span className="text-[10px] uppercase text-muted-foreground font-medium tracking-wide mb-1">
                   {policy.expiryDays ? 'Expiry' : 'Priority'}
                 </span>
                 <div className="flex items-center gap-1.5">
                   {policy.expiryDays ? (
                     <>
                       <Clock className="h-4 w-4 text-amber-500" />
-                      <span className="text-sm font-bold text-foreground">
+                      <span className="text-sm font-semibold text-foreground">
                         {policy.expiryDays}d
                       </span>
                     </>
                   ) : (
-                    <span className="text-sm font-bold text-foreground">
+                    <span className="text-sm font-semibold text-foreground">
                       Level {policy.priorityLevel ?? 0}
                     </span>
                   )}

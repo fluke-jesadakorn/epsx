@@ -46,7 +46,7 @@ export interface PermissionStats {
  */
 export interface GroupMembership {
   id: string;
-  group_id: string;
+  plan_id: string;
   group_name: string;
   group_type: string;
   assigned_at: string;

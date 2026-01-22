@@ -59,7 +59,7 @@ export function WalletTable({
                         const isSelected = selectedAddresses.has(wallet.walletAddress);
                         const activePermissions = wallet.permissions.filter(p => p.isActive).length;
                         const plan = wallet.subscriptions[0]?.planName || 'Free';
-                        const group = wallet.groups?.[0]?.groupName || 'User';
+                        const group = wallet.plans?.[0]?.planName || 'User'; // Showing first plan as primary group for display
                         const isDisabled = wallet.status === 'disabled';
 
                         return (

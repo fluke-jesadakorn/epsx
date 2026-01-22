@@ -1,7 +1,7 @@
 use clap::{Arg, Command};
 use diesel::prelude::*;
 use epsx::infrastructure::models::wallet_user::NewWalletUserDb;
-use epsx::infrastructure::models::permission::NewPermissionDb;
+use epsx::infrastructure::models::permission::{PermissionDb, NewWalletDirectPermissionDb};
 use std::env;
 
 #[tokio::main]
@@ -98,7 +98,7 @@ fn ensure_wallet_user_exists(
     conn: &mut diesel::PgConnection,
     wallet_addr_str: &str
 ) -> Result<String, Box<dyn std::error::Error>> {
-    use epsx::schema::wallet_users::dsl::*;
+    use epsx::schemas::primary::wallet_users::dsl::*;
 
     // Check if user exists
     let existing_user: Option<String> = wallet_users
@@ -130,47 +130,52 @@ fn ensure_wallet_user_exists(
 fn grant_single_permission_direct(
     conn: &mut diesel::PgConnection,
     wallet_addr_str: &str,
-    permission: &str
+    permission_str: &str
 ) -> Result<(), Box<dyn std::error::Error>> {
-    use epsx::schema::permissions::dsl::*;
+    use epsx::schemas::primary::permissions::dsl::*;
+    use epsx::schemas::primary::wallet_direct_permissions::dsl as wdp;
 
-    // Check if permission already exists in the unified permissions table
-    let existing_permission_count: i64 = permissions
+    // 1. Get permission definition
+    let perm_def: Option<PermissionDb> = permissions
+        .filter(permission_string.eq(permission_str))
+        .first(conn)
+        .optional()?;
+
+    let perm = match perm_def {
+        Some(p) => p,
+        None => {
+            eprintln!("Error: Permission definition '{}' not found in permissions catalog.", permission_str);
+            eprintln!("Please add it to the permissions table first.");
+            std::process::exit(1);
+        }
+    };
+
+    // 2. Check if already granted
+    let existing_count: i64 = wdp::wallet_direct_permissions
         .count()
-        .filter(wallet_address.eq(wallet_addr_str))
-        .filter(permission_string.eq(permission))
+        .filter(wdp::wallet_address.eq(wallet_addr_str))
+        .filter(wdp::permission_id.eq(perm.id))
         .get_result(conn)?;
 
-    if existing_permission_count > 0 {
-        println!("Permission '{}' already exists for wallet '{}'", permission, wallet_addr_str);
+    if existing_count > 0 {
+        println!("Permission '{}' already granted to wallet '{}'", permission_str, wallet_addr_str);
         return Ok(());
     }
 
-    // Create new permission using unified permission structure
-    let permission_parts: Vec<&str> = permission.split(':').collect();
-    if permission_parts.len() != 3 {
-        eprintln!("Error: Permission must be in format 'platform:resource:action'");
-        std::process::exit(1);
-    }
-
-    let new_permission = NewPermissionDb {
-        permission_string: permission.to_string(),
-        platform: permission_parts[0].to_string(),
-        resource: permission_parts[1].to_string(),
-        action: permission_parts[2].to_string(),
-        description: None,
-        permission_type: "manual".to_string(),
-        wallet_address: Some(wallet_addr_str.to_string()),
-        source_type: Some("direct".to_string()),
-        source_id: None,
-        granted_by: Some("Manual".to_string()),
-        grant_reason: Some("CLI tool".to_string()),
+    // 3. Grant permission
+    let new_grant = NewWalletDirectPermissionDb {
+        wallet_address: wallet_addr_str.to_string(),
+        permission_id: perm.id,
+        granted_by: Some("Manual (CLI)".to_string()),
+        grant_reason: Some("CLI tool grant".to_string()),
+        expires_at: None,
+        is_active: true,
     };
 
-    diesel::insert_into(permissions)
-        .values(&new_permission)
+    diesel::insert_into(wdp::wallet_direct_permissions)
+        .values(&new_grant)
         .execute(conn)?;
 
-    println!("Permission '{}' granted to wallet '{}'", permission, wallet_addr_str);
+    println!("Permission '{}' granted to wallet '{}'", permission_str, wallet_addr_str);
     Ok(())
 }

@@ -38,11 +38,11 @@ pub struct UserAnalyticsResponse {
 
 #[derive(Debug, Serialize)]
 pub struct PermissionAnalyticsResponse {
-    pub total_groups: i32,
+    pub total_plans: i32,
     pub total_permissions: i32,
     pub active_permissions: i32,
     pub permission_usage: Vec<PermissionUsageStats>,
-    pub group_membership: Vec<GroupMembershipStats>,
+    pub plan_assignment: Vec<PlanAssignmentStats>,
     pub permission_trends: Vec<TimeSeriesPoint>,
     pub expiring_permissions: Vec<ExpiringPermission>,
 }
@@ -128,8 +128,8 @@ pub struct PermissionUsageStats {
 }
 
 #[derive(Debug, Serialize)]
-pub struct GroupMembershipStats {
-    pub group_name: String,
+pub struct PlanAssignmentStats {
+    pub plan_name: String,
     pub member_count: i32,
     pub active_members: i32,
     pub revenue_contribution: f64,

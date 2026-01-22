@@ -18,7 +18,7 @@ use crate::{
     prelude::*,
     infrastructure::database::{get_payments_pool, get_diesel_pool},
     schemas::payments::payments,
-    schemas::primary::groups,
+    schemas::primary::plans,
     infrastructure::models::payment::PaymentDb,
     web::{
         auth::AppState,
@@ -150,9 +150,9 @@ pub async fn get_transaction_status_handler(
                 let primary_pool = get_diesel_pool().await.ok();
                 if let Some(pool) = primary_pool {
                     if let Ok(mut primary_conn) = pool.get().await {
-                        groups::table
-                            .filter(groups::id.eq(payment.plan_id))
-                            .select(groups::name)
+                        plans::table
+                            .filter(plans::id.eq(payment.plan_id))
+                            .select(plans::name)
                             .first::<String>(&mut primary_conn)
                             .await
                             .ok()

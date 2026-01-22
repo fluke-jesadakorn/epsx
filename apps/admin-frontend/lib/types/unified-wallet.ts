@@ -207,7 +207,7 @@ export interface WalletStatusUpdateData {
 }
 
 export interface WalletGroupUpdateData {
-  groupIds: string[]
+  planIds: string[]
   customPermissions?: Permission[]
 }
 

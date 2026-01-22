@@ -204,7 +204,7 @@ export function DynamicPaymentWidget({
                 }
             } else if (context.groupId) {
                 // Fetch group details
-                const response = await apiClient.get<any>(`/api/permissions/groups/${context.groupId}`);
+                const response = await apiClient.get<any>(`/api/permissions/plans/${context.groupId}`);
                 if (response.success && response.data) {
                     const group = response.data;
                     data = {

@@ -21,7 +21,7 @@ pub mod auth; // Web3 wallet-first authentication system
 
 #[cfg(test)]
 pub mod __test__; // Test utilities and test modules
-// permissions module removed - replaced by auth/groups.rs (conceptually)
+// permissions module removed - replaced by auth/plans.rs (conceptually)
 
 // Selective re-exports for clean namespace
 pub use core::{ errors, types, telemetry };

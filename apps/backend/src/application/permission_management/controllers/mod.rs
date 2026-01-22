@@ -1,5 +1,5 @@
 // HTTP Controllers for Permission Management
-// Handles permission groups, policies, assignments, and validation
+// Handles permission plans, policies, assignments, and validation
 
 // Note: Controllers not yet extracted from web layer
 // Current implementation: Handler functions in web/admin/permissions/

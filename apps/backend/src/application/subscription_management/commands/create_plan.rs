@@ -25,12 +25,12 @@ impl CreatePlanCommandHandler {
 #[async_trait]
 impl CommandHandler<CreatePlanCommand> for CreatePlanCommandHandler {
     async fn handle(&self, command: CreatePlanCommand) -> ApplicationResult<CreatePlanResult> {
-        let permission_group = PlanFactory::derive_group_from_permissions(&command.permissions);
+        let permission_plan = PlanFactory::derive_group_from_permissions(&command.permissions);
 
         let plan = PlanFactory::create_plan(
             command.name.clone(),
             Some(command.description),
-            permission_group,
+            permission_plan,
             command.permissions,
             command.price_amount,
             command.currency,

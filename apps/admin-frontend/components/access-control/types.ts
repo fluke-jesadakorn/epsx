@@ -3,7 +3,7 @@
  * Combines Plans and Groups into a single AccessPolicy abstraction
  */
 
-import type { PermissionGroup } from '@/lib/api/group-management-client';
+import type { PermissionPlan as PermissionGroup } from '@/lib/api/plan-management-client';
 import type { PlanResponse } from '@/shared/api/plans';
 
 // ============================================================================
@@ -236,7 +236,7 @@ export function groupToPolicy(group: PermissionGroup): AccessPolicy {
     system: 'system',
   };
 
-  const policyType = typeMap[group.group_type] || 'manual';
+  const policyType = typeMap[group.plan_type] || 'manual';
 
   return {
     id: `group-${group.id}`,
@@ -250,7 +250,7 @@ export function groupToPolicy(group: PermissionGroup): AccessPolicy {
     // Group-specific
     expiryDays: group.default_expiry_days,
     priorityLevel: group.priority_level ?? 0,
-    isSystemGroup: group.is_system_group || group.group_type === 'system',
+    isSystemGroup: group.is_system_plan || group.plan_type === 'system',
     slug: group.slug,
 
     // Common

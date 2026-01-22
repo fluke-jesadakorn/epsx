@@ -183,29 +183,29 @@ pub struct SessionInfo {
     pub active: bool,
 }
 
-/// Permission group structure
-/// Logical grouping of permissions that can be assigned to users
+/// Permission plan structure
+/// Logical planing of permissions that can be assigned to users
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
-pub struct PermissionGroup {
-    /// Group unique identifier (UUID v4 format)
+pub struct PermissionPlan {
+    /// Plan unique identifier (UUID v4 format)
     #[schema(example = "550e8400-e29b-41d4-a716-446655440000")]
     pub id: String,
 
-    /// Human-readable group name
+    /// Human-readable plan name
     #[schema(example = "Premium Users")]
     pub name: String,
 
-    /// Optional description of the group's purpose
+    /// Optional description of the plan's purpose
     #[schema(example = "Users with premium access permissions and advanced features")]
     pub description: Option<String>,
 
-    /// List of permissions granted to members of this group
+    /// List of permissions granted to members of this plan
     pub permissions: Vec<String>,
 
-    /// When this permission group was created
+    /// When this permission plan was created
     pub created_at: chrono::DateTime<chrono::Utc>,
 
-    /// When this permission group was last updated
+    /// When this permission plan was last updated
     pub updated_at: chrono::DateTime<chrono::Utc>,
 }
 
@@ -228,12 +228,12 @@ pub struct PermissionCheckResponse {
     #[schema(example = true)]
     pub has_permission: bool,
 
-    /// Source of permission (group, direct, or none)
-    #[schema(example = "group")]
+    /// Source of permission (plan, direct, or none)
+    #[schema(example = "plan")]
     pub source: String,
 
-    /// Group name if from group
-    pub group_name: Option<String>,
+    /// Plan name if from plan
+    pub plan_name: Option<String>,
 
     /// Permission expiry if time-limited
     pub expires_at: Option<chrono::DateTime<chrono::Utc>>,
@@ -262,8 +262,8 @@ pub struct Plan {
     #[schema(example = 29990)]
     pub price_yearly: i64,
 
-    /// Associated permission group ID
-    pub group_id: String,
+    /// Associated permission plan ID
+    pub plan_id: String,
 
     /// Plan features list
     #[schema(example = json!(["Advanced Analytics", "Premium Support", "API Access"]))]
@@ -285,10 +285,10 @@ pub struct WalletUser {
     #[schema(example = "0x1234567890123456789012345678901234567890")]
     pub wallet_address: String,
 
-    /// User's permission groups
-    pub groups: Vec<String>,
+    /// User's permission plans
+    pub plans: Vec<String>,
 
-    /// Direct permissions (non-group)
+    /// Direct permissions (non-plan)
     pub permissions: Vec<String>,
 
     /// Account creation timestamp
@@ -407,9 +407,9 @@ pub struct PlatformStats {
     #[schema(example = 5000)]
     pub active_wallets: u64,
 
-    /// Total permission groups
+    /// Total permission plans
     #[schema(example = 12)]
-    pub total_groups: u32,
+    pub total_plans: u32,
 
     /// Total API calls (last 24 hours)
     #[schema(example = 250000)]

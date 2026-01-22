@@ -2,7 +2,7 @@ use crate::prelude::*;
 use crate::domain::shared_kernel::{AggregateRoot, AggregateBase, DomainEvent};
 use crate::domain::subscription_management::{PlanId, Price, BillingCycle, PlanFeatures};
 use crate::domain::subscription_management::value_objects::quota::Quota;
-use crate::domain::permission_management::GroupId;
+
 
 /// Plan Aggregate Root
 /// Represents a subscription plan with pricing, features, and permission group association
@@ -11,7 +11,7 @@ pub struct Plan {
     id: PlanId,
     name: String,
     description: String,
-    group_id: GroupId,
+    plan_id: PlanId,
     price: Price,
     billing_cycle: BillingCycle,
     features: PlanFeatures,
@@ -31,7 +31,7 @@ pub struct Plan {
 pub struct CreatePlanParams {
     pub name: String,
     pub description: String,
-    pub group_id: GroupId,
+    pub plan_id: PlanId,
     pub permissions: Vec<String>, // Added
     pub price: Price,
     pub billing_cycle: BillingCycle,
@@ -48,7 +48,7 @@ pub struct LoadPlanParams {
     pub id: PlanId,
     pub name: String,
     pub description: String,
-    pub group_id: GroupId,
+    pub plan_id: PlanId,
     pub permissions: Vec<String>, // Added
     pub quotas: std::collections::HashMap<String, Quota>, // Added
     pub price: Price,
@@ -91,7 +91,7 @@ impl Plan {
             id: PlanId::new(),
             name: params.name,
             description: params.description,
-            group_id: params.group_id,
+            plan_id: params.plan_id,
             price: params.price,
             billing_cycle: params.billing_cycle,
             features: params.features,
@@ -115,7 +115,7 @@ impl Plan {
             id: params.id,
             name: params.name,
             description: params.description,
-            group_id: params.group_id,
+            plan_id: params.plan_id,
             price: params.price,
             billing_cycle: params.billing_cycle,
             features: params.features,
@@ -269,8 +269,8 @@ impl Plan {
         &self.description
     }
 
-    pub fn group_id(&self) -> &GroupId {
-        &self.group_id
+    pub fn plan_id(&self) -> &PlanId {
+        &self.plan_id
     }
 
     pub fn price(&self) -> &Price {

@@ -453,8 +453,8 @@ export class NotificationsAPIClient {
 
     if (!this.client.isApiSuccess(response)) {
       // Don't throw error for acknowledgement failures - just log
-      console.warn(`Failed to acknowledge notification ${notificationId}: ${response.error}`);
-      return { success: false, message: response.error || 'Failed to acknowledge notification' };
+      console.warn(`Failed to acknowledge notification ${notificationId}: ${response.error?.message}`);
+      return { success: false, message: response.error?.message || 'Failed to acknowledge notification' };
     }
 
     return response.data;

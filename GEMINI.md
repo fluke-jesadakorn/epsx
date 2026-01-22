@@ -129,7 +129,7 @@ bun env:status
 
 ### Remote Server Deployment (Docker Compose)
 
-For servers with limited RAM or network bandwidth (e.g., 100.109.131.15), use this "Build Local, Deploy Remote" strategy to avoid `bun install` or `cargo build` on the server.
+For servers with limited RAM or network bandwidth (e.g., 100.97.9.56), use this "Build Local, Deploy Remote" strategy to avoid `bun install` or `cargo build` on the server.
 
 **1. Build & Package Locally (Mac)**
 ```bash
@@ -142,7 +142,7 @@ docker save epsx-frontend:latest epsx-admin-frontend:latest epsx-backend:latest 
 ```
 
 ### Infrastructure Overview
-- **Host**: Remote Server (100.109.131.15)
+- **Host**: Remote Server (100.97.9.56)
 - **Containerization**: Docker Compose
 - **Ingress**: Cloudflare Tunnel (Zero Trust)
 - **Database**: Shared PostgreSQL instance (DBs: `epsx_prod`, `epsx_dev`)

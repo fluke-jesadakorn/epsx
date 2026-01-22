@@ -48,7 +48,7 @@ impl QueryHandler<GetWalletListQuery> for GetWalletListQueryHandler {
             date_to: query.date_to,
             sort_by: query.sort_by,
             sort_order: query.sort_order,
-            exclude_group_id: query.exclude_group_id,
+            exclude_plan_id: query.exclude_plan_id,
             limit,
             offset,
         };
@@ -80,7 +80,7 @@ impl QueryHandler<GetWalletListQuery> for GetWalletListQueryHandler {
                 created_at: w.created_at,
                 last_auth_at: w.last_auth_at,
                 permissions_count: w.permissions_count,
-                groups_count: w.groups_count,
+                plans_count: w.plans_count,
                 last_activity: Some(w.created_at),
                 metadata: w.wallet_metadata,
             })

@@ -6,7 +6,7 @@
 /// ## Core Concepts
 /// 
 /// - **Notification**: Main aggregate managing notification lifecycle from creation to delivery
-/// - **NotificationTopic**: Wallet-based topics for broadcasting notifications to user groups
+/// - **NotificationTopic**: Wallet-based topics for broadcasting notifications to user plans
 /// - **UserNotificationPreferences**: User preferences, quiet hours, and channel settings
 /// - **DeliveryChannel**: Multi-channel delivery with retry logic and content adaptation
 /// - **ScheduleInfo**: Scheduling, expiry, and timing management for notifications

@@ -33,7 +33,7 @@ impl QueryHandler<ListWalletsQuery> for ListWalletsQueryHandler {
         let criteria = crate::domain::wallet_management::WalletUserSearchCriteria {
             wallet_pattern: query.wallet_pattern_filter,
             is_active: None,
-            permission_group: None,
+            permission_plan: None,
             has_permissions,
             permission_type: None,
             chain_id: None,
@@ -72,7 +72,7 @@ impl QueryHandler<ListWalletsQuery> for ListWalletsQueryHandler {
                 };
 
                 // Permission group - use first group or "none"
-                let permission_group = wallet.groups()
+                let permission_plan = wallet.plans()
                     .iter()
                     .next().cloned()
                     .unwrap_or_else(|| "none".to_string());
@@ -91,7 +91,7 @@ impl QueryHandler<ListWalletsQuery> for ListWalletsQueryHandler {
                     status,
                     is_active: wallet.is_active(),
                     permissions: wallet.permissions().clone(),
-                    permission_group,
+                    permission_plan,
                     created_at: wallet.created_at(),
                     updated_at: wallet.updated_at(),
                     last_login_at: wallet.last_auth_at(),

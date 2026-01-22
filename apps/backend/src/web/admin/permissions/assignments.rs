@@ -1,5 +1,5 @@
-// Wallet-Group Assignment Management
-// Consolidates assignment operations from permission_group_handlers.rs and normalized_permission_handlers.rs
+// Wallet-Plan Assignment Management
+// Consolidates assignment operations from permission_plan_handlers.rs and normalized_permission_handlers.rs
 
 use axum::{
     extract::{Path, Query, State},
@@ -22,7 +22,7 @@ use crate::web::responses::{AdminResponse, create_pagination};
 #[derive(Debug, Deserialize)]
 pub struct CreateAssignmentRequest {
     pub wallet_address: String,
-    pub group_id: String,
+    pub plan_id: String,
     pub assignment_source: String, // "manual" | "payment" | "web3_asset" | "dao_governance" | "admin" | "migration" | "auto_assignment"
     pub assignment_reason: Option<String>,
     pub expires_at: Option<DateTime<Utc>>,
@@ -36,9 +36,9 @@ pub struct CreateAssignmentRequest {
 pub struct AssignmentResponse {
     pub id: String,
     pub wallet_address: String,
-    pub group_id: String,
-    pub group_name: String,
-    pub group_type: String,
+    pub plan_id: String,
+    pub plan_name: String,
+    pub plan_type: String,
     pub assigned_at: DateTime<Utc>,
     pub expires_at: Option<DateTime<Utc>>,
     pub is_active: bool,
@@ -57,7 +57,7 @@ pub struct ListAssignmentsQuery {
     pub page: Option<u32>,
     pub limit: Option<u32>,
     pub wallet_address: Option<String>,
-    pub group_id: Option<String>,
+    pub plan_id: Option<String>,
     pub is_active: Option<bool>,
 }
 
@@ -67,10 +67,10 @@ pub struct ExpiringAssignmentsQuery {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct GroupHistoryQuery {
+pub struct PlanHistoryQuery {
     pub operation_type: Option<String>,
     pub operation_source: Option<String>,
-    pub group_id: Option<String>,
+    pub plan_id: Option<String>,
     pub user_search: Option<String>,
     pub date_from: Option<DateTime<Utc>>,
     pub date_to: Option<DateTime<Utc>>,
@@ -79,13 +79,13 @@ pub struct GroupHistoryQuery {
 }
 
 #[derive(Debug, Serialize)]
-pub struct GroupHistoryResponse {
+pub struct PlanHistoryResponse {
     pub id: String,
     pub user_id: String,
     pub user_email: Option<String>, // Not available in blockchain auth, but kept for interface compat
     pub user_name: Option<String>,
-    pub group_id: String,
-    pub group_name: Option<String>,
+    pub plan_id: String,
+    pub plan_name: Option<String>,
     pub operation_type: String,
     pub operation_source: String,
     pub performed_by: Option<String>,
@@ -100,7 +100,7 @@ pub struct GroupHistoryResponse {
 // HANDLERS
 // ============================================================================
 
-/// Create a new wallet-group assignment
+/// Create a new wallet-plan assignment
 /// POST /admin/permissions/assignments
 pub async fn create_assignment(
     State(app_state): State<AppState>,
@@ -112,10 +112,10 @@ pub async fn create_assignment(
         return AdminResponse::bad_request("Invalid wallet address format (must be 42 characters starting with 0x)").into_response();
     }
 
-    // Parse group ID
-    let group_uuid = match Uuid::parse_str(&req.group_id) {
+    // Parse plan ID
+    let plan_uuid = match Uuid::parse_str(&req.plan_id) {
         Ok(id) => id,
-        Err(_) => return AdminResponse::bad_request("Invalid group ID format").into_response(),
+        Err(_) => return AdminResponse::bad_request("Invalid plan ID format").into_response(),
     };
 
     // Get database connection
@@ -134,11 +134,11 @@ pub async fn create_assignment(
     }
 
     #[derive(QueryableByName)]
-    struct GroupDetails {
+    struct PlanDetails {
         #[diesel(sql_type = diesel::sql_types::Text)]
         name: String,
         #[diesel(sql_type = diesel::sql_types::Text)]
-        group_type: String,
+        plan_type: String,
     }
 
     // Run transaction
@@ -166,38 +166,38 @@ pub async fn create_assignment(
             .await?;
 
             // Deactivate existing subscription plan assignments for this wallet
-            // Enforces single active plan per user (groups can still have multiple users)
+            // Enforces single active plan per user (plans can still have multiple users)
             diesel::sql_query(
                 r#"
-                UPDATE wallet_group_assignments 
+                UPDATE wallet_plan_assignments 
                 SET is_active = false, updated_at = NOW()
                 WHERE wallet_address = $1 
                   AND is_active = true
-                  AND group_id IN (SELECT id FROM groups WHERE group_type = 'subscription')
-                  AND group_id != $2
+                  AND plan_id IN (SELECT id FROM plans WHERE plan_type = 'subscription')
+                  AND plan_id != $2
                 "#
             )
             .bind::<diesel::sql_types::Text, _>(&wallet_clone)
-            .bind::<diesel::sql_types::Uuid, _>(group_uuid)
+            .bind::<diesel::sql_types::Uuid, _>(plan_uuid)
             .execute(conn)
             .await?;
 
             // Insert or update assignment
             let assignment_id = diesel::sql_query(
                 r#"
-                INSERT INTO wallet_group_assignments (
-                    wallet_address, group_id, assigned_at, expires_at, is_active,
+                INSERT INTO wallet_plan_assignments (
+                    wallet_address, plan_id, assigned_at, expires_at, is_active,
                     assignment_source, assignment_reason, payment_reference, subscription_id,
                     auto_renew, next_billing_date, assignment_metadata
                 )
                 VALUES ($1, $2, NOW(), $3, true, $4, $5, $6, $7, $8, $9, $10)
-                ON CONFLICT (wallet_address, group_id) DO UPDATE
+                ON CONFLICT (wallet_address, plan_id) DO UPDATE
                 SET is_active = true, expires_at = EXCLUDED.expires_at, updated_at = NOW()
                 RETURNING id
                 "#
             )
             .bind::<diesel::sql_types::Text, _>(&wallet_clone)
-            .bind::<diesel::sql_types::Uuid, _>(group_uuid)
+            .bind::<diesel::sql_types::Uuid, _>(plan_uuid)
             .bind::<diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>, _>(req.expires_at)
             .bind::<diesel::sql_types::Text, _>(&assignment_source_clone)
             .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(&assignment_reason_clone)
@@ -210,22 +210,22 @@ pub async fn create_assignment(
             .await?
             .id;
 
-            // Fetch group details
-            let group = diesel::sql_query(
-                "SELECT name, group_type FROM groups WHERE id = $1"
+            // Fetch plan details
+            let plan = diesel::sql_query(
+                "SELECT name, plan_type FROM plans WHERE id = $1"
             )
-            .bind::<diesel::sql_types::Uuid, _>(group_uuid)
-            .get_result::<GroupDetails>(conn)
+            .bind::<diesel::sql_types::Uuid, _>(plan_uuid)
+            .get_result::<PlanDetails>(conn)
             .await
             .optional()?;
 
-            Ok((assignment_id, group))
+            Ok((assignment_id, plan))
         })
     }).await;
 
-    let (assignment_id, group) = match result {
+    let (assignment_id, plan) = match result {
         Ok((id, Some(g))) => (id, g),
-        Ok((_, None)) => return AdminResponse::not_found("Permission group").into_response(),
+        Ok((_, None)) => return AdminResponse::not_found("Permission plan").into_response(),
         Err(e) => {
             tracing::error!("Transaction failed: {}", e);
             return AdminResponse::server_error("Failed to create assignment").into_response();
@@ -236,9 +236,9 @@ pub async fn create_assignment(
     let response = AssignmentResponse {
         id: assignment_id.to_string(),
         wallet_address: wallet,
-        group_id: req.group_id,
-        group_name: group.name,
-        group_type: group.group_type,
+        plan_id: req.plan_id,
+        plan_name: plan.name,
+        plan_type: plan.plan_type,
         assigned_at: Utc::now(),
         expires_at: req.expires_at,
         is_active: true,
@@ -252,10 +252,10 @@ pub async fn create_assignment(
         assignment_metadata: req.assignment_metadata.unwrap_or(serde_json::json!({})),
     };
 
-    AdminResponse::created(response, "Wallet assigned to permission group successfully").into_response()
+    AdminResponse::created(response, "Wallet assigned to permission plan successfully").into_response()
 }
 
-/// List wallet-group assignments with pagination
+/// List wallet-plan assignments with pagination
 /// GET /admin/permissions/assignments
 pub async fn list_assignments(
     State(app_state): State<AppState>,
@@ -271,9 +271,9 @@ pub async fn list_assignments(
         SELECT
             wga.id,
             wga.wallet_address,
-            wga.group_id,
-            pg.name as group_name,
-            pg.group_type,
+            wga.plan_id,
+            pg.name as plan_name,
+            pg.plan_type,
             wga.assigned_at,
             wga.expires_at,
             wga.is_active,
@@ -285,22 +285,22 @@ pub async fn list_assignments(
             wga.auto_renew,
             wga.next_billing_date,
             wga.assignment_metadata
-        FROM wallet_group_assignments wga
-        JOIN groups pg ON wga.group_id = pg.id
+        FROM wallet_plan_assignments wga
+        JOIN plans pg ON wga.plan_id = pg.id
         "#
     );
 
     let mut where_clauses = Vec::new();
-    let group_clause;
+    let plan_clause;
     let active_clause;
 
     if query.wallet_address.is_some() {
         where_clauses.push("wga.wallet_address = $3");
     }
-    if query.group_id.is_some() {
+    if query.plan_id.is_some() {
         let clause_idx = if query.wallet_address.is_some() { 4 } else { 3 };
-        group_clause = format!("wga.group_id = ${}", clause_idx);
-        where_clauses.push(&group_clause);
+        plan_clause = format!("wga.plan_id = ${}", clause_idx);
+        where_clauses.push(&plan_clause);
     }
     if query.is_active.is_some() {
         let clause_idx = 3 + where_clauses.len();
@@ -336,11 +336,11 @@ pub async fn list_assignments(
         #[diesel(sql_type = diesel::sql_types::Text)]
         wallet_address: String,
         #[diesel(sql_type = diesel::sql_types::Uuid)]
-        group_id: Uuid,
+        plan_id: Uuid,
         #[diesel(sql_type = diesel::sql_types::Text)]
-        group_name: String,
+        plan_name: String,
         #[diesel(sql_type = diesel::sql_types::Text)]
-        group_type: String,
+        plan_type: String,
         #[diesel(sql_type = diesel::sql_types::Timestamptz)]
         assigned_at: DateTime<Utc>,
         #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
@@ -367,7 +367,7 @@ pub async fn list_assignments(
 
     // Get total count
     let total: i64 = match diesel::sql_query(
-        "SELECT COUNT(*)::bigint as count FROM wallet_group_assignments"
+        "SELECT COUNT(*)::bigint as count FROM wallet_plan_assignments"
     )
     .get_result::<CountRow>(&mut conn)
     .await
@@ -379,25 +379,25 @@ pub async fn list_assignments(
     // Build and execute query with all binds inline
     let result = match (
         &query.wallet_address,
-        &query.group_id.as_ref().and_then(|g| Uuid::parse_str(g).ok()),
+        &query.plan_id.as_ref().and_then(|g| Uuid::parse_str(g).ok()),
         query.is_active,
     ) {
-        (Some(wallet), Some(group_uuid), Some(is_active)) => {
+        (Some(wallet), Some(plan_uuid), Some(is_active)) => {
             diesel::sql_query(&sql)
                 .bind::<diesel::sql_types::Integer, _>(limit as i32)
                 .bind::<diesel::sql_types::Integer, _>(offset as i32)
                 .bind::<diesel::sql_types::Text, _>(wallet.to_lowercase())
-                .bind::<diesel::sql_types::Uuid, _>(*group_uuid)
+                .bind::<diesel::sql_types::Uuid, _>(*plan_uuid)
                 .bind::<diesel::sql_types::Bool, _>(is_active)
                 .load::<AssignmentRow>(&mut conn)
                 .await
         }
-        (Some(wallet), Some(group_uuid), None) => {
+        (Some(wallet), Some(plan_uuid), None) => {
             diesel::sql_query(&sql)
                 .bind::<diesel::sql_types::Integer, _>(limit as i32)
                 .bind::<diesel::sql_types::Integer, _>(offset as i32)
                 .bind::<diesel::sql_types::Text, _>(wallet.to_lowercase())
-                .bind::<diesel::sql_types::Uuid, _>(*group_uuid)
+                .bind::<diesel::sql_types::Uuid, _>(*plan_uuid)
                 .load::<AssignmentRow>(&mut conn)
                 .await
         }
@@ -418,20 +418,20 @@ pub async fn list_assignments(
                 .load::<AssignmentRow>(&mut conn)
                 .await
         }
-        (None, Some(group_uuid), Some(is_active)) => {
+        (None, Some(plan_uuid), Some(is_active)) => {
             diesel::sql_query(&sql)
                 .bind::<diesel::sql_types::Integer, _>(limit as i32)
                 .bind::<diesel::sql_types::Integer, _>(offset as i32)
-                .bind::<diesel::sql_types::Uuid, _>(*group_uuid)
+                .bind::<diesel::sql_types::Uuid, _>(*plan_uuid)
                 .bind::<diesel::sql_types::Bool, _>(is_active)
                 .load::<AssignmentRow>(&mut conn)
                 .await
         }
-        (None, Some(group_uuid), None) => {
+        (None, Some(plan_uuid), None) => {
             diesel::sql_query(&sql)
                 .bind::<diesel::sql_types::Integer, _>(limit as i32)
                 .bind::<diesel::sql_types::Integer, _>(offset as i32)
-                .bind::<diesel::sql_types::Uuid, _>(*group_uuid)
+                .bind::<diesel::sql_types::Uuid, _>(*plan_uuid)
                 .load::<AssignmentRow>(&mut conn)
                 .await
         }
@@ -464,9 +464,9 @@ pub async fn list_assignments(
         AssignmentResponse {
             id: row.id.to_string(),
             wallet_address: row.wallet_address,
-            group_id: row.group_id.to_string(),
-            group_name: row.group_name,
-            group_type: row.group_type,
+            plan_id: row.plan_id.to_string(),
+            plan_name: row.plan_name,
+            plan_type: row.plan_type,
             assigned_at: row.assigned_at,
             expires_at: row.expires_at,
             is_active: row.is_active,
@@ -485,7 +485,7 @@ pub async fn list_assignments(
     AdminResponse::success_with_pagination(assignments, pagination).into_response()
 }
 
-/// Remove a wallet-group assignment
+/// Remove a wallet-plan assignment
 /// DELETE /admin/permissions/assignments/:assignment_id
 pub async fn remove_assignment(
     State(app_state): State<AppState>,
@@ -505,7 +505,7 @@ pub async fn remove_assignment(
     };
 
     match diesel::sql_query(
-        "UPDATE wallet_group_assignments SET is_active = false, updated_at = NOW() WHERE id = $1"
+        "UPDATE wallet_plan_assignments SET is_active = false, updated_at = NOW() WHERE id = $1"
     )
     .bind::<diesel::sql_types::Uuid, _>(assignment_uuid)
     .execute(&mut conn)
@@ -548,9 +548,9 @@ pub async fn get_expiring_assignments(
         #[diesel(sql_type = diesel::sql_types::Text)]
         wallet_address: String,
         #[diesel(sql_type = diesel::sql_types::Uuid)]
-        group_id: Uuid,
+        plan_id: Uuid,
         #[diesel(sql_type = diesel::sql_types::Text)]
-        group_name: String,
+        plan_name: String,
         #[diesel(sql_type = diesel::sql_types::Timestamptz)]
         assigned_at: DateTime<Utc>,
         #[diesel(sql_type = diesel::sql_types::Timestamptz)]
@@ -562,12 +562,12 @@ pub async fn get_expiring_assignments(
         SELECT
             wga.id,
             wga.wallet_address,
-            wga.group_id,
-            pg.name as group_name,
+            wga.plan_id,
+            pg.name as plan_name,
             wga.assigned_at,
             wga.expires_at
-        FROM wallet_group_assignments wga
-        JOIN groups pg ON wga.group_id = pg.id
+        FROM wallet_plan_assignments wga
+        JOIN plans pg ON wga.plan_id = pg.id
         WHERE wga.is_active = true
           AND wga.expires_at IS NOT NULL
           AND wga.expires_at BETWEEN NOW() AND NOW() + ($1 || ' days')::interval
@@ -589,8 +589,8 @@ pub async fn get_expiring_assignments(
         serde_json::json!({
             "id": row.id.to_string(),
             "wallet_address": row.wallet_address,
-            "group_id": row.group_id.to_string(),
-            "group_name": row.group_name,
+            "plan_id": row.plan_id.to_string(),
+            "plan_name": row.plan_name,
             "assigned_at": row.assigned_at,
             "expires_at": row.expires_at,
         })
@@ -626,11 +626,11 @@ pub async fn get_assignment_history(
         #[diesel(sql_type = diesel::sql_types::Text)]
         wallet_address: String,
         #[diesel(sql_type = diesel::sql_types::Uuid)]
-        group_id: Uuid,
+        plan_id: Uuid,
         #[diesel(sql_type = diesel::sql_types::Text)]
-        group_name: String,
+        plan_name: String,
         #[diesel(sql_type = diesel::sql_types::Text)]
-        group_type: String,
+        plan_type: String,
         #[diesel(sql_type = diesel::sql_types::Timestamptz)]
         assigned_at: DateTime<Utc>,
         #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
@@ -660,9 +660,9 @@ pub async fn get_assignment_history(
         SELECT
             wga.id,
             wga.wallet_address,
-            wga.group_id,
-            pg.name as group_name,
-            pg.group_type,
+            wga.plan_id,
+            pg.name as plan_name,
+            pg.plan_type,
             wga.assigned_at,
             wga.expires_at,
             wga.is_active,
@@ -674,8 +674,8 @@ pub async fn get_assignment_history(
             wga.auto_renew,
             wga.next_billing_date,
             wga.assignment_metadata
-        FROM wallet_group_assignments wga
-        JOIN groups pg ON wga.group_id = pg.id
+        FROM wallet_plan_assignments wga
+        JOIN plans pg ON wga.plan_id = pg.id
         WHERE wga.wallet_address = $1
         ORDER BY wga.assigned_at DESC
         "#
@@ -695,9 +695,9 @@ pub async fn get_assignment_history(
         AssignmentResponse {
             id: row.id.to_string(),
             wallet_address: row.wallet_address,
-            group_id: row.group_id.to_string(),
-            group_name: row.group_name,
-            group_type: row.group_type,
+            plan_id: row.plan_id.to_string(),
+            plan_name: row.plan_name,
+            plan_type: row.plan_type,
             assigned_at: row.assigned_at,
             expires_at: row.expires_at,
             is_active: row.is_active,
@@ -719,9 +719,9 @@ pub async fn get_assignment_history(
     })).into_response()
 }
 
-/// Get groups assigned to a wallet
-/// GET /admin/permissions/wallets/:wallet/groups
-pub async fn get_wallet_groups(
+/// Get plans assigned to a wallet
+/// GET /admin/permissions/wallets/:wallet/plans
+pub async fn get_wallet_plans(
     State(app_state): State<AppState>,
     Path(wallet): Path<String>,
 ) -> impl IntoResponse {
@@ -736,17 +736,17 @@ pub async fn get_wallet_groups(
     };
 
     #[derive(QueryableByName)]
-    struct GroupRow {
+    struct PlanRow {
         #[diesel(sql_type = diesel::sql_types::Uuid)]
         id: Uuid,
         #[diesel(sql_type = diesel::sql_types::Uuid)]
-        group_id: Uuid,
+        plan_id: Uuid,
         #[diesel(sql_type = diesel::sql_types::Text)]
-        group_name: String,
+        plan_name: String,
         #[diesel(sql_type = diesel::sql_types::Text)]
-        group_slug: String,
+        plan_slug: String,
         #[diesel(sql_type = diesel::sql_types::Text)]
-        group_type: String,
+        plan_type: String,
         #[diesel(sql_type = diesel::sql_types::Timestamptz)]
         assigned_at: DateTime<Utc>,
         #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
@@ -758,32 +758,32 @@ pub async fn get_wallet_groups(
     let rows = match diesel::sql_query(
         r#"
         SELECT
-            wga.id, wga.group_id, wga.assigned_at, wga.expires_at, wga.is_active,
-            pg.name as group_name, pg.slug as group_slug, pg.group_type
-        FROM wallet_group_assignments wga
-        JOIN groups pg ON wga.group_id = pg.id
+            wga.id, wga.plan_id, wga.assigned_at, wga.expires_at, wga.is_active,
+            pg.name as plan_name, pg.slug as plan_slug, pg.plan_type
+        FROM wallet_plan_assignments wga
+        JOIN plans pg ON wga.plan_id = pg.id
         WHERE wga.wallet_address = $1 AND wga.is_active = true
         ORDER BY wga.assigned_at DESC
         "#
     )
     .bind::<diesel::sql_types::Text, _>(&wallet)
-    .load::<GroupRow>(&mut conn)
+    .load::<PlanRow>(&mut conn)
     .await
     {
         Ok(rows) => rows,
         Err(e) => {
-            tracing::error!("Failed to fetch wallet groups: {}", e);
+            tracing::error!("Failed to fetch wallet plans: {}", e);
             return AdminResponse::server_error("Database query failed").into_response();
         }
     };
 
-    let groups: Vec<serde_json::Value> = rows.into_iter().map(|row| {
+    let plans: Vec<serde_json::Value> = rows.into_iter().map(|row| {
         serde_json::json!({
             "id": row.id.to_string(),
-            "group_id": row.group_id.to_string(),
-            "group_name": row.group_name,
-            "group_slug": row.group_slug,
-            "group_type": row.group_type,
+            "plan_id": row.plan_id.to_string(),
+            "plan_name": row.plan_name,
+            "plan_slug": row.plan_slug,
+            "plan_type": row.plan_type,
             "assigned_at": row.assigned_at,
             "expires_at": row.expires_at,
             "is_active": row.is_active,
@@ -792,16 +792,16 @@ pub async fn get_wallet_groups(
 
     AdminResponse::success(serde_json::json!({
         "wallet_address": wallet,
-        "groups": groups,
-        "count": groups.len()
+        "plans": plans,
+        "count": plans.len()
     })).into_response()
 }
 
-/// Get group assignment history (audit log)
-/// GET /admin/groups/history
-pub async fn get_group_history(
+/// Get plan assignment history (audit log)
+/// GET /admin/plans/history
+pub async fn get_plan_history(
     State(app_state): State<AppState>,
-    Query(query): Query<GroupHistoryQuery>,
+    Query(query): Query<PlanHistoryQuery>,
 ) -> impl IntoResponse {
     let page = query.limit.unwrap_or(20).clamp(1, 100);
     let offset = query.offset.unwrap_or(0);
@@ -823,8 +823,8 @@ pub async fn get_group_history(
         SELECT
             id,
             wallet_address as user_id,
-            group_id,
-            group_name,
+            plan_id,
+            plan_name,
             event_type,
             event_source,
             performed_by,
@@ -834,7 +834,7 @@ pub async fn get_group_history(
             metadata,
             event_timestamp as created_at
         FROM permission_audit_log
-        WHERE event_type IN ('group_assigned', 'group_removed', 'group_updated', 'expired')
+        WHERE event_type IN ('plan_assigned', 'plan_removed', 'plan_updated', 'expired')
         "#
     );
 
@@ -842,10 +842,10 @@ pub async fn get_group_history(
 
     if let Some(op_type) = &query.operation_type {
         let db_event_type = match op_type.as_str() {
-            "assign" => "group_assigned",
-            "remove" => "group_removed",
+            "assign" => "plan_assigned",
+            "remove" => "plan_removed",
             "expire" => "expired",
-            _ => "group_assigned", // Default fallback
+            _ => "plan_assigned", // Default fallback
         };
         where_clauses.push(format!("event_type = '{}'", db_event_type));
     }
@@ -856,9 +856,9 @@ pub async fn get_group_history(
         where_clauses.push(format!("event_source = '{}'", clean_source));
     }
 
-    if let Some(gid) = &query.group_id {
+    if let Some(gid) = &query.plan_id {
         if let Ok(uuid) = Uuid::parse_str(gid) {
-            where_clauses.push(format!("group_id = '{}'", uuid));
+            where_clauses.push(format!("plan_id = '{}'", uuid));
         }
     }
 
@@ -889,9 +889,9 @@ pub async fn get_group_history(
         #[diesel(sql_type = diesel::sql_types::Text)]
         user_id: String,
         #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Uuid>)]
-        group_id: Option<Uuid>,
+        plan_id: Option<Uuid>,
         #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
-        group_name: Option<String>,
+        plan_name: Option<String>,
         #[diesel(sql_type = diesel::sql_types::Text)]
         event_type: String,
         #[diesel(sql_type = diesel::sql_types::Text)]
@@ -919,26 +919,26 @@ pub async fn get_group_history(
     let rows = match result {
         Ok(rows) => rows,
         Err(e) => {
-            tracing::error!("Failed to fetch group history: {}", e);
+            tracing::error!("Failed to fetch plan history: {}", e);
             return AdminResponse::server_error("Database query failed").into_response();
         }
     };
 
-    let history: Vec<GroupHistoryResponse> = rows.into_iter().map(|row| {
+    let history: Vec<PlanHistoryResponse> = rows.into_iter().map(|row| {
         let op_type = match row.event_type.as_str() {
-            "group_assigned" => "assign",
-            "group_removed" => "remove",
+            "plan_assigned" => "assign",
+            "plan_removed" => "remove",
             "expired" => "expire",
              _ => "assign",
         };
 
-        GroupHistoryResponse {
+        PlanHistoryResponse {
             id: row.id.to_string(),
             user_id: row.user_id,
             user_email: None,
             user_name: None,
-            group_id: row.group_id.map(|g| g.to_string()).unwrap_or_default(),
-            group_name: row.group_name,
+            plan_id: row.plan_id.map(|g| g.to_string()).unwrap_or_default(),
+            plan_name: row.plan_name,
             operation_type: op_type.to_string(),
             operation_source: row.event_source,
             performed_by: row.performed_by,

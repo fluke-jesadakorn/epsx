@@ -1,6 +1,6 @@
 /**
  * Wallet Detail Page
- * Unified view for wallet info, groups, and permissions with DND support
+ * Unified view for wallet info, plans, and permissions with DND support
  */
 'use client';
 
@@ -39,9 +39,9 @@ import { DisableWalletModal, type DisableWalletData } from '@/components/wallet/
 import { ExpiryDatePicker } from '@/components/wallet/ExpiryDatePicker';
 import { ReenableWalletModal, type ReenableWalletData } from '@/components/wallet/ReenableWalletModal';
 import type { WalletData, WalletStatus } from '@/components/wallet/types';
-import { DraggableGroupItem, DraggablePermissionItem, DroppableGroupList, DroppablePermissionList } from '@/components/wallet/WalletComponents';
+import { DraggablePermissionItem, DraggablePlanItem, DroppablePermissionList, DroppablePlanList } from '@/components/wallet/WalletComponents';
 import { AccessItem, useWalletAccess } from '@/hooks/useWalletAccess';
-import { groupMgmt } from '@/lib/api/group-management-client';
+import { planMgmt } from '@/lib/api/plan-management-client';
 import { walletMgmt } from '@/lib/api/wallet-management-client';
 import { cn, copyToClipboard } from '@/lib/utils';
 import { useSharedAuth } from '@/shared/components/auth/Provider';
@@ -104,8 +104,8 @@ export default function WalletDetailPage() {
     const {
         data: accessData,
         isLoading: isAccessLoading,
-        assignGroup,
-        removeGroup,
+        assignPlan,
+        removePlan,
         assignPermission,
         revokePermission,
         refresh: refreshAccess
@@ -115,7 +115,7 @@ export default function WalletDetailPage() {
     const [activeDragItem, setActiveDragItem] = useState<AccessItem | null>(null);
     const [pendingDrops, setPendingDrops] = useState<AccessItem[]>([]);
     const [isSavingPending, setIsSavingPending] = useState(false);
-    const [editingItem, setEditingItem] = useState<{ item: AccessItem, type: 'group' | 'permission' } | null>(null);
+    const [editingItem, setEditingItem] = useState<{ item: AccessItem, type: 'plan' | 'permission' } | null>(null);
 
     // Metadata Editing State
     const [metadataForm, setMetadataForm] = useState({ label: '', note: '' });
@@ -125,7 +125,7 @@ export default function WalletDetailPage() {
     // Filter State
     const [searchQuery, setSearchQuery] = useState('');
     const [assignedSearchQuery, setAssignedSearchQuery] = useState('');
-    const [groupBuilderSearchQuery, setGroupBuilderSearchQuery] = useState('');
+    const [planBuilderSearchQuery, setPlanBuilderSearchQuery] = useState('');
     const [permissionSearchQuery, setPermissionSearchQuery] = useState('');
 
     // Modals
@@ -135,15 +135,15 @@ export default function WalletDetailPage() {
     const [isLoadingSub, setIsLoadingSub] = useState(false);
     const [isActionLoading, setIsActionLoading] = useState(false);
 
-    // Group Builder State
-    const [builderSelectedGroupId, setBuilderSelectedGroupId] = useState<string | null>(null);
+    // Plan Builder State
+    const [builderSelectedPlanId, setBuilderSelectedPlanId] = useState<string | null>(null);
     const [builderPermissions, setBuilderPermissions] = useState<string[]>([]);
     const [builderForm, setBuilderForm] = useState({ name: '', description: '', priority: 0, expiryDays: 30 });
     const [isSavingBuilder, setIsSavingBuilder] = useState(false);
     const [hasBuilderChanges, setHasBuilderChanges] = useState(false);
 
-    // Derived Group Lists
-    const allGroups = useMemo(() => [...accessData.authorizedGroups, ...accessData.availableGroups], [accessData.authorizedGroups, accessData.availableGroups]);
+    // Derived Plan Lists
+    const allPlans = useMemo(() => [...accessData.authorizedPlans, ...accessData.availablePlans], [accessData.authorizedPlans, accessData.availablePlans]);
 
     // Available Permissions for Builder (All Permissions)
     const filteredAvailablePermissions = useMemo(() => {
@@ -217,60 +217,55 @@ export default function WalletDetailPage() {
     }, [walletAddress]);
 
     // Computed
-    const filteredAvailableGroups = useMemo(() => {
-        const assignedIds = new Set(accessData.authorizedGroups.map(g => g.id));
+    const filteredAvailablePlans = useMemo(() => {
+        const assignedIds = new Set(accessData.authorizedPlans.map(g => g.id));
         const pendingIds = new Set(pendingDrops.map(g => g.id));
 
-        return accessData.availableGroups.filter(g =>
+        return accessData.availablePlans.filter(g =>
             !assignedIds.has(g.id) &&
             !pendingIds.has(g.id) &&
             (g.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                 g.description?.toLowerCase().includes(searchQuery.toLowerCase()))
         );
-    }, [accessData.availableGroups, accessData.authorizedGroups, pendingDrops, searchQuery]);
+    }, [accessData.availablePlans, accessData.authorizedPlans, pendingDrops, searchQuery]);
 
     // Builder Logic
-    const handleSelectGroupForBuilder = (groupId: string) => {
-        const group = allGroups.find(g => g.id === groupId);
-        if (group) {
-            setBuilderSelectedGroupId(groupId);
-            // In a real app, we might need to fetch the full group details to get permissions
-            // For now assuming group object has permissions. If not, we'd need a fetch call.
+    const handleSelectPlanForBuilder = (planId: string) => {
+        const plan = allPlans.find(g => g.id === planId);
+        if (plan) {
+            setBuilderSelectedPlanId(planId);
+            // In a real app, we might need to fetch the full plan details to get permissions
+            // For now assuming plan object has permissions. If not, we'd need a fetch call.
             // Checking if 'permissions' property exists on AccessItem
-            setBuilderPermissions(group.permissions || []);
+            setBuilderPermissions(plan.permissions || []);
             setBuilderForm({
-                name: group.name,
-                description: group.description || '',
-                // @ts-ignore - Assuming properties exist on group object for now or fallback
-                priority: (group as any).priority_level || 0,
+                name: plan.name,
+                description: plan.description || '',
+                // @ts-ignore - Assuming properties exist on plan object for now or fallback
+                priority: (plan as any).priority_level || 0,
                 // @ts-ignore
-                expiryDays: (group as any).default_expiry_days || 30
+                expiryDays: (plan as any).default_expiry_days || 30
             });
             setHasBuilderChanges(false);
         }
     };
 
-    const handleSaveGroup = async () => {
-        if (!builderSelectedGroupId) return;
+    const handleSavePlan = async () => {
+        if (!builderSelectedPlanId) return;
         setIsSavingBuilder(true);
         try {
-            // We need a method to update group permissions.
-            // Typically: groupMgmt.updateGroup(builderSelectedGroupId, { permissions: builderPermissions })
-            // Importing groupMgmt is needed.
-            // Since we don't have direct import here, we should ensure it's available or add it.
-            // Assuming we add `import { groupMgmt } from '@/lib/api/group-management-client';`
-            await groupMgmt.updateGroup(builderSelectedGroupId, {
+            await planMgmt.updatePlan(builderSelectedPlanId, {
                 name: builderForm.name,
                 description: builderForm.description,
                 permissions: builderPermissions,
                 priority_level: builderForm.priority,
                 default_expiry_days: builderForm.expiryDays
             });
-            toast.success('Group updated successfully');
+            toast.success('Plan updated successfully');
             setHasBuilderChanges(false);
             refreshAccess(); // Refresh to reflect changes if any
         } catch (err) {
-            toast.error('Failed to save group details');
+            toast.error('Failed to save plan details');
             console.error(err);
         } finally {
             setIsSavingBuilder(false);
@@ -284,8 +279,8 @@ export default function WalletDetailPage() {
         const allPermissions = [...accessData.availablePermissions, ...accessData.authorizedPermissions];
         // Note: normalized items for dragging
 
-        const item = active.data.current?.type === 'group'
-            ? allGroups.find(p => p.id === active.id)
+        const item = active.data.current?.type === 'plan'
+            ? allPlans.find(p => p.id === active.id)
             : allPermissions.find(p => p.id === active.id);
 
         if (item) {
@@ -299,19 +294,19 @@ export default function WalletDetailPage() {
 
         if (!over) { return; }
 
-        // Dropped Group into Assigned List (Top Section)
-        if (active.data.current?.type === 'group' && over.id === 'assigned-group-list') {
-            const group = accessData.availableGroups.find(g => g.id === active.id);
-            if (group && !pendingDrops.find(p => p.id === group.id)) {
-                setPendingDrops(prev => [...prev, group]);
-                toast.success(`Staged "${group.name}" for assignment`);
+        // Dropped Plan into Assigned List (Top Section)
+        if (active.data.current?.type === 'plan' && over.id === 'assigned-plan-list') {
+            const plan = accessData.availablePlans.find(g => g.id === active.id);
+            if (plan && !pendingDrops.find(p => p.id === plan.id)) {
+                setPendingDrops(prev => [...prev, plan]);
+                toast.success(`Staged "${plan.name}" for assignment`);
             }
         }
 
         // Dropped Permission into Builder List (Bottom Section)
-        if (active.data.current?.type === 'permission' && over.id === 'builder-group-permissions') {
+        if (active.data.current?.type === 'permission' && over.id === 'builder-plan-permissions') {
             const permissionName = active.data.current.name; // Use name as ID for permissions often
-            if (builderSelectedGroupId && !builderPermissions.includes(permissionName)) {
+            if (builderSelectedPlanId && !builderPermissions.includes(permissionName)) {
                 setBuilderPermissions(prev => [...prev, permissionName]);
                 setHasBuilderChanges(true);
             }
@@ -322,7 +317,7 @@ export default function WalletDetailPage() {
             const itemId = active.id as string;
             const type = active.data.current?.type;
 
-            if (type === 'group') {
+            if (type === 'plan') {
                 // Check if pending
                 if (pendingDrops.find(p => p.id === itemId)) {
                     setPendingDrops(prev => prev.filter(p => p.id !== itemId));
@@ -330,15 +325,15 @@ export default function WalletDetailPage() {
                     return;
                 }
                 // Check if assigned (needs API call)
-                if (accessData.authorizedGroups.find(g => g.id === itemId)) {
-                    removeGroup(itemId).then(() => {
-                        toast.success('Group access revoked');
+                if (accessData.authorizedPlans.find(g => g.id === itemId)) {
+                    removePlan(itemId).then(() => {
+                        toast.success('Plan access revoked');
                         refreshAccess();
                     });
                 }
             } else if (type === 'permission') {
                 // If dropping from builder list
-                if (builderSelectedGroupId && builderPermissions.includes(active.data.current?.name)) {
+                if (builderSelectedPlanId && builderPermissions.includes(active.data.current?.name)) {
                     setBuilderPermissions(prev => prev.filter(p => p !== active.data.current?.name));
                     setHasBuilderChanges(true);
                     return;
@@ -362,13 +357,13 @@ export default function WalletDetailPage() {
         if (pendingDrops.length === 0) return;
         setIsSavingPending(true);
         try {
-            await Promise.all(pendingDrops.map(group => assignGroup(group.id)));
-            toast.success('Access groups assigned successfully');
+            await Promise.all(pendingDrops.map(plan => assignPlan(plan.id)));
+            toast.success('Access plans assigned successfully');
             setPendingDrops([]);
             refreshAccess();
         } catch (err) {
             console.error('Failed to save changes:', err);
-            toast.error('Failed to assign groups');
+            toast.error('Failed to assign plans');
         } finally {
             setIsSavingPending(false);
         }
@@ -488,7 +483,7 @@ export default function WalletDetailPage() {
                                 Wallet Details
                             </h1>
                             <p className="text-sm text-gray-500">
-                                Manage wallet access and groups
+                                Manage wallet access and plans
                             </p>
                         </div>
                         <Button
@@ -502,7 +497,7 @@ export default function WalletDetailPage() {
                         </Button>
                     </div>
 
-                    {/* Wallet Identity & Access Management Section (Merged Metadata & Group Assignment) */}
+                    {/* Wallet Identity & Access Management Section (Merged Metadata & Plan Assignment) */}
                     <div className="pt-4 border-t border-white/10 space-y-6">
                         <div className="flex items-center justify-between">
                             <div>
@@ -510,7 +505,7 @@ export default function WalletDetailPage() {
                                     <ShieldCheck className="h-5 w-5 text-purple-400" />
                                     Wallet Identity & Access Management
                                 </h2>
-                                <p className="text-sm text-slate-500 mt-1">Manage wallet identification, subscription plans, and access groups</p>
+                                <p className="text-sm text-slate-500 mt-1">Manage wallet identification, subscription plans, and access plans</p>
                             </div>
                         </div>
 
@@ -525,7 +520,7 @@ export default function WalletDetailPage() {
                                                 <p className="text-xs text-slate-500">Drag items to the right to assign</p>
                                             </div>
                                             <Badge variant="outline" className="text-xs border-blue-500/30 text-blue-400">
-                                                {filteredAvailableGroups.length} available
+                                                {filteredAvailablePlans.length} available
                                             </Badge>
                                         </div>
                                         <Input
@@ -537,15 +532,15 @@ export default function WalletDetailPage() {
                                     </CardHeader>
                                     <CardContent className="p-4 overflow-y-auto max-h-[600px]">
                                         <div className="grid grid-cols-1 gap-3">
-                                            {filteredAvailableGroups.map(group => (
-                                                <DraggableGroupItem
-                                                    key={group.id}
-                                                    id={group.id}
-                                                    label={group.name}
-                                                    description={group.description}
+                                            {filteredAvailablePlans.map(plan => (
+                                                <DraggablePlanItem
+                                                    key={plan.id}
+                                                    id={plan.id}
+                                                    label={plan.name}
+                                                    description={plan.description}
                                                 />
                                             ))}
-                                            {filteredAvailableGroups.length === 0 && (
+                                            {filteredAvailablePlans.length === 0 && (
                                                 <div className="flex flex-col items-center justify-center py-12 text-slate-500">
                                                     <Package className="h-10 w-10 mb-3 opacity-20" />
                                                     <p>No available plans found.</p>
@@ -668,14 +663,14 @@ export default function WalletDetailPage() {
                                             )}
 
                                             <div className="flex justify-between items-center text-xs text-slate-500 pt-2">
-                                                <span>Started: {new Date(activeSub.started_at).toLocaleDateString()}</span>
+                                                <span>Started: {activeSub.started_at ? new Date(activeSub.started_at).toLocaleDateString() : 'Never'}</span>
                                                 <span>Expires: {activeSub.expires_at ? new Date(activeSub.expires_at).toLocaleDateString() : 'Never'}</span>
                                             </div>
                                         </div>
                                     </div>
                                 )}
 
-                                {/* Section 3: Assigned Groups (Plans) */}
+                                {/* Section 3: Assigned Plans */}
                                 <Card className="flex-1 flex flex-col h-full border border-white/10 bg-slate-900/50 shadow-lg min-h-0 overflow-hidden">
                                     <div className="h-1 bg-gradient-to-r from-blue-500 to-cyan-500" />
                                     <CardHeader className="pb-3 border-b border-white/5 bg-white/5">
@@ -683,7 +678,7 @@ export default function WalletDetailPage() {
                                             <div className="flex items-center gap-2">
                                                 <CardTitle className="text-sm font-semibold uppercase tracking-wider text-blue-400">Assigned Plans</CardTitle>
                                                 <Badge variant="outline" className="text-[10px] h-4 px-1 border-blue-500/30 text-blue-400 leading-none">
-                                                    {accessData.authorizedGroups.length + pendingDrops.length}
+                                                    {accessData.authorizedPlans.length + pendingDrops.length}
                                                 </Badge>
                                             </div>
                                             <Badge variant="outline" className="text-[10px] font-normal border-blue-500/20 text-blue-400/60 uppercase tracking-widest">
@@ -699,24 +694,24 @@ export default function WalletDetailPage() {
                                     </CardHeader>
                                     <CardContent className="p-0 flex flex-col min-h-0">
                                         <div className="p-4 overflow-y-auto max-h-[400px]">
-                                            <DroppableGroupList
-                                                id="assigned-group-list"
-                                                items={accessData.authorizedGroups.filter(g =>
+                                            <DroppablePlanList
+                                                id="assigned-plan-list"
+                                                items={accessData.authorizedPlans.filter(g =>
                                                     g.name.toLowerCase().includes(assignedSearchQuery.toLowerCase())
                                                 )}
                                                 pendingItems={pendingDrops.filter(g =>
                                                     g.name.toLowerCase().includes(assignedSearchQuery.toLowerCase())
                                                 )}
                                                 emptyMessage="Drag plans here from the left to assign access"
-                                                onEdit={(item) => setEditingItem({ item, type: 'group' })}
+                                                onEdit={(item) => setEditingItem({ item, type: 'plan' })}
                                                 onDelete={(id) => {
                                                     if (pendingDrops.find(p => p.id === id)) {
                                                         setPendingDrops(prev => prev.filter(p => p.id !== id));
                                                         toast.info('Removed from staging');
                                                     } else {
-                                                        const group = accessData.authorizedGroups.find(g => g.id === id);
-                                                        if (confirm(`Are you sure you want to remove access to "${group?.name}"?`)) {
-                                                            removeGroup(id).then(() => {
+                                                        const plan = accessData.authorizedPlans.find(g => g.id === id);
+                                                        if (confirm(`Are you sure you want to remove access to "${plan?.name}"?`)) {
+                                                            removePlan(id).then(() => {
                                                                 toast.success('Plan access revoked');
                                                                 refreshAccess();
                                                             });
@@ -753,23 +748,23 @@ export default function WalletDetailPage() {
                     </div>
 
 
-                    {/* Group & Plan Management Builder */}
+                    {/* Plan & Plan Management Builder */}
                     <div className="pt-8 border-t border-white/10 mt-8 space-y-6">
                         <div className="flex items-center justify-between">
                             <div>
                                 <h2 className="text-xl font-bold text-white flex items-center gap-2">
                                     <Package className="h-5 w-5 text-purple-400" />
-                                    Group & Plan Management
+                                    Plan Management
                                 </h2>
-                                <p className="text-sm text-slate-500 mt-1">Edit group definitions and assign permissions</p>
+                                <p className="text-sm text-slate-500 mt-1">Edit plan definitions and assign permissions</p>
                             </div>
                             <Button
                                 size="sm"
-                                onClick={() => {/* TODO: Create New Group Handler */ }}
+                                onClick={() => {/* TODO: Create New Plan Handler */ }}
                                 className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
                             >
                                 <Package className="h-4 w-4 mr-2" />
-                                New Group
+                                New Plan
                             </Button>
                         </div>
 
@@ -777,38 +772,38 @@ export default function WalletDetailPage() {
                             {/* LEFT COLUMN: Selection (Moved from right) */}
                             <div className="lg:col-span-5">
                                 <div className="flex flex-col gap-4">
-                                    {/* Top: Group List - Collapsible height */}
+                                    {/* Top: Plan List - Collapsible height */}
                                     <Card className="border border-white/10 bg-slate-900/50 shadow-lg">
                                         <CardHeader className="py-3 px-4 border-b border-white/5 bg-white/5">
                                             <div className="flex items-center justify-between mb-2">
-                                                <CardTitle className="text-sm font-semibold text-slate-200">Select Group</CardTitle>
+                                                <CardTitle className="text-sm font-semibold text-slate-200">Select Plan</CardTitle>
                                                 <Badge variant="outline" className="text-xs border-purple-500/30 text-purple-400">
-                                                    {allGroups.length} groups
+                                                    {allPlans.length} plans
                                                 </Badge>
                                             </div>
                                             <Input
-                                                placeholder="Search groups..."
-                                                value={groupBuilderSearchQuery}
-                                                onChange={e => setGroupBuilderSearchQuery(e.target.value)}
+                                                placeholder="Search plans..."
+                                                value={planBuilderSearchQuery}
+                                                onChange={e => setPlanBuilderSearchQuery(e.target.value)}
                                                 className="h-8 text-xs bg-slate-950/50 border-white/10 text-slate-200 placeholder:text-slate-600"
                                             />
                                         </CardHeader>
                                         <CardContent className="p-0 overflow-y-auto max-h-[300px]">
                                             <div className="divide-y divide-white/5">
-                                                {allGroups
-                                                    .filter(g => g.name.toLowerCase().includes(groupBuilderSearchQuery.toLowerCase()))
-                                                    .map(group => (
+                                                {allPlans
+                                                    .filter(g => g.name.toLowerCase().includes(planBuilderSearchQuery.toLowerCase()))
+                                                    .map(plan => (
                                                         <div
-                                                            key={group.id}
-                                                            onClick={() => handleSelectGroupForBuilder(group.id)}
+                                                            key={plan.id}
+                                                            onClick={() => handleSelectPlanForBuilder(plan.id)}
                                                             className={cn(
                                                                 "p-3 flex items-center justify-between cursor-pointer hover:bg-white/5 transition-colors",
-                                                                builderSelectedGroupId === group.id ? "bg-purple-500/10 hover:bg-purple-500/20 border-l-4 border-l-purple-500" : "border-l-4 border-l-transparent"
+                                                                builderSelectedPlanId === plan.id ? "bg-purple-500/10 hover:bg-purple-500/20 border-l-4 border-l-purple-500" : "border-l-4 border-l-transparent"
                                                             )}
                                                         >
                                                             <div className="min-w-0 flex-1">
-                                                                <p className="font-medium text-sm text-slate-200">{group.name}</p>
-                                                                <p className="text-xs text-slate-500 truncate">{group.description || 'No description'}</p>
+                                                                <p className="font-medium text-sm text-slate-200">{plan.name}</p>
+                                                                <p className="text-xs text-slate-500 truncate">{plan.description || 'No description'}</p>
                                                             </div>
                                                             <Button size="icon" variant="ghost" className="h-6 w-6 text-slate-500 hover:text-white flex-shrink-0">
                                                                 <span className="sr-only">Edit</span>
@@ -859,19 +854,19 @@ export default function WalletDetailPage() {
 
                             {/* RIGHT COLUMN: Editor (Moved from left) */}
                             <div className="lg:col-span-7 flex flex-col gap-4">
-                                {builderSelectedGroupId ? (
+                                {builderSelectedPlanId ? (
                                     <>
-                                        {/* Edit Group Details */}
+                                        {/* Edit Plan Details */}
                                         <Card className="border border-white/10 bg-slate-900/50 shadow-lg shrink-0">
                                             <div className="h-1 bg-gradient-to-r from-amber-500 to-orange-500" />
                                             <CardHeader className="pb-3 border-b border-white/5 bg-white/5">
                                                 <CardTitle className="text-sm font-semibold uppercase tracking-wider text-amber-400">
-                                                    Edit Group Details
+                                                    Edit Plan Details
                                                 </CardTitle>
                                             </CardHeader>
                                             <CardContent className="pt-4 grid grid-cols-2 gap-4">
                                                 <div className="col-span-2 md:col-span-1 space-y-2">
-                                                    <Label className="text-slate-400">Group Name</Label>
+                                                    <Label className="text-slate-400">Plan Name</Label>
                                                     <Input
                                                         placeholder="e.g. Premium Plan"
                                                         value={builderForm.name}
@@ -902,7 +897,7 @@ export default function WalletDetailPage() {
                                                 <div className="col-span-2 md:col-span-1 space-y-2">
                                                     <Label className="text-slate-400">Description</Label>
                                                     <Input
-                                                        placeholder="Description of this group..."
+                                                        placeholder="Description of this plan..."
                                                         value={builderForm.description}
                                                         onChange={e => { setBuilderForm(p => ({ ...p, description: e.target.value })); setHasBuilderChanges(true); }}
                                                         className="bg-slate-950/50 border-white/10 text-slate-200 placeholder:text-slate-600"
@@ -925,7 +920,7 @@ export default function WalletDetailPage() {
                                             <CardContent className="p-0 flex flex-col min-h-0 overflow-hidden">
                                                 <div className="p-4 overflow-y-auto max-h-[400px]">
                                                     <DroppablePermissionList
-                                                        id="builder-group-permissions"
+                                                        id="builder-plan-permissions"
                                                         items={builderPermissions}
                                                         emptyMessage="Drag permissions here from the left"
                                                     />
@@ -934,7 +929,7 @@ export default function WalletDetailPage() {
                                                     <Button
                                                         variant="ghost"
                                                         size="sm"
-                                                        onClick={() => setBuilderSelectedGroupId(null)}
+                                                        onClick={() => setBuilderSelectedPlanId(null)}
                                                         className="text-slate-400 hover:text-white"
                                                     >
                                                         Discard
@@ -942,7 +937,7 @@ export default function WalletDetailPage() {
                                                     <Button
                                                         variant="destructive"
                                                         size="sm"
-                                                        onClick={() => {/* TODO: Delete Group */ }}
+                                                        onClick={() => {/* TODO: Delete Plan */ }}
                                                         className="bg-red-600/80 hover:bg-red-600"
                                                     >
                                                         Delete
@@ -951,7 +946,7 @@ export default function WalletDetailPage() {
                                                         size="sm"
                                                         className="bg-purple-600 hover:bg-purple-700"
                                                         disabled={!hasBuilderChanges || isSavingBuilder}
-                                                        onClick={handleSaveGroup}
+                                                        onClick={handleSavePlan}
                                                     >
                                                         {isSavingBuilder ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Save className="h-4 w-4 mr-1" />}
                                                         Save
@@ -963,8 +958,8 @@ export default function WalletDetailPage() {
                                 ) : (
                                     <div className="h-full flex flex-col items-center justify-center border-2 border-dashed border-white/10 rounded-xl bg-slate-900/30 text-slate-500 py-16">
                                         <Package className="h-16 w-16 mb-4 opacity-20" />
-                                        <h3 className="text-lg font-semibold text-slate-400">No Group Selected</h3>
-                                        <p className="text-sm">Select a group from the left to edit details and permissions</p>
+                                        <h3 className="text-lg font-semibold text-slate-400">No Plan Selected</h3>
+                                        <p className="text-sm">Select a plan from the left to edit details and permissions</p>
                                     </div>
                                 )}
                             </div>
@@ -1022,8 +1017,8 @@ export default function WalletDetailPage() {
                         onConfirm={async (date) => {
                             try {
                                 const expiry = date ? date.toISOString() : undefined;
-                                if (editingItem.type === 'group') {
-                                    await assignGroup(editingItem.item.id, expiry);
+                                if (editingItem.type === 'plan') {
+                                    await assignPlan(editingItem.item.id, expiry);
                                     toast.success(`Updated expiry for "${editingItem.item.name}"`);
                                     refreshAccess();
                                 }
@@ -1040,3 +1035,4 @@ export default function WalletDetailPage() {
         </DndContext>
     );
 }
+

@@ -252,26 +252,62 @@ export class UsersApi {
 
   /**
    * Get user API keys
-   * GET /api/auth/web3/api-keys
+   * GET /api/developer-portal/my-keys
    */
-  async getApiKeys(): Promise<ApiResponse<{ api_keys: UserApiKey[] }>> {
-    return this.client.get<{ api_keys: UserApiKey[] }>('/api/auth/web3/api-keys');
+  async getApiKeys(filters?: { limit?: number; offset?: number; status?: string }): Promise<ApiResponse<{ api_keys: UserApiKey[]; total: number }>> {
+    return this.client.get<{ api_keys: UserApiKey[]; total: number }>('/api/developer-portal/my-keys', filters);
   }
 
   /**
    * Create API key
-   * POST /api/user/api-keys
+   * POST /api/developer-portal/my-keys
    */
-  async createApiKey(name: string, scopes?: string[]): Promise<ApiResponse<UserApiKey>> {
-    return this.client.post<UserApiKey>('/api/user/api-keys', { name, scopes });
+  async createApiKey(body: { client_name: string; client_description?: string; permissions?: string[]; plan_ids?: string[] }): Promise<ApiResponse<UserApiKey>> {
+    return this.client.post<UserApiKey>('/api/developer-portal/my-keys', body);
   }
 
   /**
-   * Delete API key
-   * DELETE /api/auth/web3/api-keys/{key_id}
+   * Delete API key (Revoke)
+   * DELETE /api/developer-portal/my-keys/{key_id}
    */
-  async deleteApiKey(key_id: string): Promise<ApiResponse<{ deleted: boolean }>> {
-    return this.client.delete<{ deleted: boolean }>(`/api/auth/web3/api-keys/${key_id}`);
+  async deleteApiKey(key_id: string, reason?: string): Promise<ApiResponse<{ success: boolean; message: string }>> {
+    return this.client.delete<{ success: boolean; message: string }>(`/api/developer-portal/my-keys/${key_id}`, { body: JSON.stringify({ reason }) });
+  }
+
+  // ============================================================================
+  // USAGE ANALYTICS
+  // ============================================================================
+
+  /**
+   * Get aggregated usage stats
+   * GET /api/developer-portal/stats
+   */
+  async getUsageStats(): Promise<ApiResponse<any>> {
+    return this.client.get('/api/developer-portal/stats');
+  }
+
+  /**
+   * Get usage history
+   * GET /api/developer-portal/usage-history
+   */
+  async getUsageHistory(days: number = 7): Promise<ApiResponse<any>> {
+    return this.client.get('/api/developer-portal/usage-history', { days });
+  }
+
+  /**
+   * Get top endpoints
+   * GET /api/developer-portal/top-endpoints
+   */
+  async getTopEndpoints(days: number = 7): Promise<ApiResponse<any>> {
+    return this.client.get('/api/developer-portal/top-endpoints', { days });
+  }
+
+  /**
+   * Get user assigned plans
+   * GET /api/developer-portal/my-plans
+   */
+  async getMyPlans(): Promise<ApiResponse<any>> {
+    return this.client.get('/api/developer-portal/my-plans');
   }
 
   // ============================================================================

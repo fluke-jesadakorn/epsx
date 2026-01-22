@@ -51,8 +51,8 @@ pub struct CreateApiKeyBody {
     pub rate_limit_per_minute: Option<i32>,
     pub rate_limit_per_day: Option<i32>,
     pub expires_at: Option<String>,
-    /// Optional group IDs to assign to the API key
-    pub group_ids: Option<Vec<String>>,
+    /// Optional plan IDs to assign to the API key
+    pub plan_ids: Option<Vec<String>>,
     /// Optional direct permissions to assign to the API key
     pub permissions: Option<Vec<String>>,
 }
@@ -181,7 +181,7 @@ pub async fn create_api_key_handler(
         client_contact_email: body.client_contact_email,
         wallet_address: body.wallet_address.clone(),
         allowed_modules,
-        group_ids: body.group_ids.unwrap_or_default().into_iter()
+        plan_ids: body.plan_ids.unwrap_or_default().into_iter()
             .filter_map(|id| Uuid::parse_str(&id).ok())
             .collect(),
         permissions: body.permissions.unwrap_or_default(),

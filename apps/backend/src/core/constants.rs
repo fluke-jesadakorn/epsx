@@ -148,4 +148,21 @@ pub const REFRESH_TOKEN_CLEANUP_INTERVAL: Duration = ONE_HOUR;
 pub const PRICE_SEARCH_WINDOW: i64 = DAY;
 
 /// Default notification delay (1 hour)
-pub const DEFAULT_NOTIFICATION_DELAY: u64 = HOUR as u64;
+// ============================================================================
+// FREE PLAN CONSTANTS
+// ============================================================================
+
+/// Free Plan ranking offset - unauthenticated/no-plan users see ranks 101+
+pub const FREE_PLAN_RANKING_OFFSET: i32 = 100;
+
+/// Free Plan name
+pub const FREE_PLAN_NAME: &str = "Free Plan";
+
+/// Free Plan slug
+pub const FREE_PLAN_SLUG: &str = "free";
+
+/// Free Plan tier level (lowest tier)
+pub const FREE_PLAN_TIER_LEVEL: i32 = 0;
+
+/// Free Plan rankings limit
+pub const FREE_PLAN_RANKINGS_LIMIT: i32 = 5;

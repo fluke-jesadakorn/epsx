@@ -1,5 +1,5 @@
 // Permission Management Entities
 
-pub mod group_assignment;
+pub mod plan_assignment;
 
-pub use group_assignment::GroupAssignment;
+pub use plan_assignment::PlanAssignment;

@@ -452,11 +452,11 @@ async fn fetch_plan_info(
     app_state: &AppState,
     plan_id: &Uuid,
 ) -> Result<(String, f64, serde_json::Value), Json<UnifiedErrorResponse>> {
-    // Try to fetch from group repository using the plan ID
+    // Try to fetch from plan repository using the plan ID
     let plan_id_str = plan_id.to_string();
     
-    // Query the pricing_plans table if available, otherwise use groups
-    match app_state.group_repo.get_subscription_plans().await {
+    // Query the pricing_plans table if available, otherwise use plans
+    match app_state.plan_repo.get_subscription_plans().await {
         Ok(plans) => {
             // Find the plan by ID (compare as string since plan_id might be stored differently)
             for plan in plans {
@@ -465,7 +465,7 @@ async fn fetch_plan_info(
                         .as_ref()
                         .and_then(|p| p.to_string().parse::<f64>().ok())
                         .unwrap_or(0.0);
-                    let metadata = plan.group_metadata.clone();
+                    let metadata = plan.plan_metadata.clone();
                     return Ok((plan.name, price, metadata));
                 }
             }

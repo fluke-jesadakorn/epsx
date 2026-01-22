@@ -6,7 +6,7 @@ use crate::application::wallet_management::commands::admin_models::{
     UpdateWalletCommand, UpdateWalletResponse,
 };
 use crate::application::wallet_management::queries::admin_models::{
-    WalletActivitySummaryDto, WalletDetailDto, WalletGroupDto, WalletPermissionDto,
+    WalletActivitySummaryDto, WalletDetailDto, WalletPlanDto, WalletPermissionDto,
 };
 use async_trait::async_trait;
 use diesel::prelude::*;
@@ -187,12 +187,12 @@ impl UpdateWalletCommandHandler {
             r#"
             SELECT
                 p.permission_string as permission,
-                'group' as source,
+                'plan' as source,
                 pgm.granted_at,
                 wgm.expires_at,
                 wgm.is_active
-            FROM wallet_group_assignments wgm
-            JOIN group_permissions pgm ON wgm.group_id = pgm.group_id
+            FROM wallet_plan_assignments wgm
+            JOIN plan_permissions pgm ON wgm.plan_id = pgm.plan_id
             JOIN permissions p ON pgm.permission_id = p.id
             WHERE wgm.wallet_address = $1
               AND p.is_active = true
@@ -230,7 +230,7 @@ impl UpdateWalletCommandHandler {
             .collect();
 
         // Groups placeholder
-        let groups: Vec<WalletGroupDto> = Vec::new();
+        let plans: Vec<WalletPlanDto> = Vec::new();
 
         // Activity summary
         let active_permissions_count = permissions.iter().filter(|p| p.is_active).count();
@@ -240,7 +240,7 @@ impl UpdateWalletCommandHandler {
             total_permissions: permissions.len() as i32,
             active_permissions: active_permissions_count as i32,
             expired_permissions: (permissions.len() - active_permissions_count) as i32,
-            groups_count: groups.len() as i32,
+            plans_count: plans.len() as i32,
         };
 
         Ok(WalletDetailDto {
@@ -249,7 +249,7 @@ impl UpdateWalletCommandHandler {
             created_at: wallet.created_at,
             last_auth_at: wallet.last_auth_at,
             permissions,
-            groups,
+            plans,
             activity_summary,
             metadata: wallet.wallet_metadata,
         })

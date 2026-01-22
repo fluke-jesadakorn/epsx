@@ -83,7 +83,7 @@ export const PAYMENT_ESCROW_ABI = [
     type: 'function',
     name: 'payForGroup',
     inputs: [
-      { name: 'groupId', type: 'uint256', internalType: 'uint256' },
+      { name: 'planId', type: 'uint256', internalType: 'uint256' },
       { name: 'token', type: 'address', internalType: 'address' },
       { name: 'amount', type: 'uint256', internalType: 'uint256' }
     ],

@@ -18,7 +18,6 @@ import {
 import { AnalyticsApi, createAnalyticsClient } from '../api/analytics';
 import { AuthApi, createAuthClient } from '../api/auth';
 import { ComplianceApi, createComplianceClient } from '../api/compliance';
-import { createGroupsClient, GroupsApi } from '../api/groups';
 import { createNotificationsClient, NotificationsApi } from '../api/notifications';
 import { createPermissionsClient, PermissionsApi } from '../api/permissions';
 import { createPlansClient, PlansApi } from '../api/plans';
@@ -33,13 +32,12 @@ export interface ApiClients {
   base: UnifiedApiClient;
   users: UsersApi;
   permissions: PermissionsApi;
-  groups: GroupsApi;
+  plans: PlansApi;
   wallets: WalletsApi;
   compliance: ComplianceApi;
   analytics: AnalyticsApi;
   auth: AuthApi;
   notifications: NotificationsApi;
-  plans: PlansApi;
 }
 
 export type Platform = 'admin' | 'frontend';
@@ -116,13 +114,12 @@ export function useApiClient(options?: {
       base: baseClient,
       users: createUsersClient(baseClient),
       permissions: createPermissionsClient(baseClient),
-      groups: createGroupsClient(baseClient),
+      plans: createPlansClient(baseClient),
       wallets: createWalletsClient(baseClient),
       compliance: createComplianceClient(baseClient),
       analytics: createAnalyticsClient(baseClient),
       auth: createAuthClient(baseClient),
       notifications: createNotificationsClient(baseClient),
-      plans: createPlansClient(baseClient)
     };
   }, [platform, options?.baseURL, options?.token]);
 }

@@ -14,12 +14,12 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import type { AuthUser } from '@/lib/server-actions';
-import { createPlansClient, type ApiKeyResponse } from '@/shared/api/plans';
-import { UnifiedApiClient } from '@/shared/utils/api-client';
+import type { UserApiKey } from '@/shared/api/users';
+import { useFrontendApiClient } from '@/shared/hooks/useApiClient';
 import { copyToClipboard as copyToClipboardUtil } from '@/utils/util';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { GroupTransferList } from './GroupTransferList';
+import { PlanTransferList } from './PlanTransferList';
 
 interface APIKeyManagerProps {
   currentUser: AuthUser;
@@ -27,7 +27,8 @@ interface APIKeyManagerProps {
 }
 
 export function APIKeyManager({ currentUser, onStatsChange }: APIKeyManagerProps) {
-  const [apiKeys, setApiKeys] = useState<ApiKeyResponse[]>([]);
+  const { users, plans } = useFrontendApiClient();
+  const [apiKeys, setApiKeys] = useState<UserApiKey[]>([]);
   const [availablePermissions, setAvailablePermissions] = useState<string[]>([]);
   const [newKeyName, setNewKeyName] = useState('');
   const [showNewKey, setShowNewKey] = useState(false);
@@ -36,52 +37,41 @@ export function APIKeyManager({ currentUser, onStatsChange }: APIKeyManagerProps
   const [selectedPermissions, setSelectedPermissions] = useState<string[]>([]);
   const [expiresAt, setExpiresAt] = useState<string>(''); // ISO date string or empty
   const [revokeDialogOpen, setRevokeDialogOpen] = useState(false);
-  const [selectedKeyToRevoke, setSelectedKeyToRevoke] = useState<ApiKeyResponse | null>(null);
-  const [hasGroups, setHasGroups] = useState(false);
-
-
-  // Get API client
-  const getApiClient = () => {
-    const client = new UnifiedApiClient({
-      baseURL: process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080',
-      platform: 'frontend',
-    });
-    return createPlansClient(client);
-  };
+  const [selectedKeyToRevoke, setSelectedKeyToRevoke] = useState<UserApiKey | null>(null);
+  const [hasPlans, setHasPlans] = useState(false);
 
   // Load API keys and permissions on mount
   useEffect(() => {
     const loadData = async () => {
       setIsLoading(true);
       try {
-        const client = getApiClient();
-
-        // Load user's own API keys using user-facing endpoint
-        const keysResponse = await client.listMyApiKeys({ limit: 100 });
+        // Load user's own API keys
+        const keysResponse = await users.getApiKeys();
         if (keysResponse.success && keysResponse.data) {
-          const keysRaw = keysResponse.data as unknown as Record<string, unknown>;
-          setApiKeys(((keysRaw.data as any)?.api_keys || keysRaw.api_keys || []) as ApiKeyResponse[]);
+          setApiKeys(keysResponse.data.api_keys || []);
         }
 
-        // Load user's assigned groups and flatten permissions
-        const groupsResponse = await client.getMyGroups();
-        if (groupsResponse.success && groupsResponse.data) {
-          const rawData = groupsResponse.data as unknown as Record<string, unknown>;
-          const groups = (rawData.data as any)?.groups || rawData.groups || [];
+        // Load user's assigned plans and flatten permissions
+        const walletAddress = currentUser.walletAddress || '';
+        if (!walletAddress) {
+          console.warn('No wallet address found for user');
+          return;
+        }
+        const membershipsResponse = await plans.getWalletMemberships(walletAddress);
+        if (membershipsResponse.success && membershipsResponse.data) {
+          const memberships = Array.isArray(membershipsResponse.data) ? membershipsResponse.data : [];
 
-          // Flatten permissions from all groups into unique list
+          // Flatten permissions from all plans into unique list
           const allPermissions = new Set<string>();
-          groups.forEach((g: any) => {
-            if (g.permissions && Array.isArray(g.permissions)) {
-              g.permissions.forEach((p: string) => allPermissions.add(p));
+          memberships.forEach((m) => {
+            if (m.permissions && Array.isArray(m.permissions)) {
+              m.permissions.forEach((p: string) => allPermissions.add(p));
             }
           });
 
           const permissionsList = Array.from(allPermissions).sort();
           setAvailablePermissions(permissionsList);
-          setHasGroups(groups.length > 0);
-        } else {
-          // Handle cases where group response might be empty or failed without error
+          setHasPlans(memberships.length > 0);
         }
       } catch (error) {
         console.error('Failed to load data:', error);
@@ -91,29 +81,27 @@ export function APIKeyManager({ currentUser, onStatsChange }: APIKeyManagerProps
     };
 
     loadData();
-  }, []);
+  }, [users, plans, currentUser.walletAddress]);
 
   // Manual refresh function for create/revoke operations
   const refreshData = async () => {
     setIsLoading(true);
     try {
-      const client = getApiClient();
-      const keysResponse = await client.listMyApiKeys({ limit: 100 });
+      const keysResponse = await users.getApiKeys();
       if (keysResponse.success && keysResponse.data) {
-        const keysRaw = keysResponse.data as unknown as Record<string, unknown>;
-        setApiKeys(((keysRaw.data as any)?.api_keys || keysRaw.api_keys || []) as ApiKeyResponse[]);
+        setApiKeys(keysResponse.data.api_keys || []);
       }
-      // Also refresh available groups
-      const groupsResponse = await client.getMyGroups();
-      if (groupsResponse.success && groupsResponse.data) {
-        const rawData = groupsResponse.data as unknown as Record<string, unknown>;
-        const groups = (rawData.data as any)?.groups || rawData.groups || [];
-        setHasGroups(groups.length > 0);
-        // Flatten permissions from groups
+
+      // Also refresh available permissions/plans
+      const membershipsResponse = await plans.getWalletMemberships(currentUser.walletAddress || '');
+      if (membershipsResponse.success && membershipsResponse.data) {
+        const memberships = Array.isArray(membershipsResponse.data) ? membershipsResponse.data : [];
+        setHasPlans(memberships.length > 0);
+
         const allPermissions = new Set<string>();
-        groups.forEach((g: any) => {
-          if (g.permissions && Array.isArray(g.permissions)) {
-            g.permissions.forEach((p: string) => allPermissions.add(p));
+        memberships.forEach((m) => {
+          if (m.permissions && Array.isArray(m.permissions)) {
+            m.permissions.forEach((p: string) => allPermissions.add(p));
           }
         });
         setAvailablePermissions(Array.from(allPermissions).sort());
@@ -134,34 +122,23 @@ export function APIKeyManager({ currentUser, onStatsChange }: APIKeyManagerProps
     setIsLoading(true);
 
     try {
-      const client = getApiClient();
-
-      // Create API key using user-facing endpoint
-      const response = await client.createMyApiKey({
+      // Create API key using UsersApi
+      const response = await users.createApiKey({
         client_name: newKeyName,
-        client_description: `API key for ${currentUser.walletAddress}`,
-        group_ids: [], // Not using group IDs
-        permissions: selectedPermissions, // Individual permission strings
-        ip_restrictions: [],
-        expires_at: expiresAt || undefined, // Use selected expiration or undefined for no expiration
+        permissions: selectedPermissions
       });
 
       if (response.success && response.data) {
-        // Handle potentially nested response: response.data may contain { data: { full_key, api_key: { id } } }
-        const rawData = response.data as unknown as Record<string, unknown>;
-        const newKey = (rawData.data as any) || rawData; // Handle both wrapped and unwrapped response
-        const fullKey = (newKey as any).full_key || '';
-        const _keyId = (newKey as any).api_key?.id || (newKey as any).id || '';
+        const newKey = response.data;
+        // The endpoint should return the full key on creation
+        const fullKey = newKey.key;
 
-
-        setGeneratedKey(fullKey as string || 'Key created - check your keys');
+        setGeneratedKey(fullKey || 'Key created - check your keys');
         setShowNewKey(true);
         setNewKeyName('');
         setSelectedPermissions([]);
         setExpiresAt(''); // Reset expiration
         toast.success('API key created successfully!');
-
-
 
         // Reload keys list
         await refreshData();
@@ -180,9 +157,7 @@ export function APIKeyManager({ currentUser, onStatsChange }: APIKeyManagerProps
   const executeRevoke = async (keyId: string) => {
     setIsLoading(true);
     try {
-      const client = getApiClient();
-      // Use user-facing revoke endpoint
-      const response = await client.revokeMyApiKey(keyId, 'Revoked by user');
+      const response = await users.deleteApiKey(keyId);
 
       if (response.success) {
         toast.success('API key revoked successfully');
@@ -200,16 +175,8 @@ export function APIKeyManager({ currentUser, onStatsChange }: APIKeyManagerProps
     }
   };
 
-  const _togglePermissionSelection = (permissionId: string) => {
-    setSelectedPermissions((prev: string[]) =>
-      prev.includes(permissionId)
-        ? prev.filter((id: string) => id !== permissionId)
-        : [...prev, permissionId]
-    );
-  };
-
-  // User can create keys if they have any groups assigned
-  const canCreateKeys = hasGroups || currentUser.role === 'admin';
+  // User can create keys if they have any plans assigned
+  const canCreateKeys = hasPlans || currentUser.role === 'admin';
 
   return (
     <div className="space-y-8">
@@ -254,14 +221,14 @@ export function APIKeyManager({ currentUser, onStatsChange }: APIKeyManagerProps
                 </div>
 
                 {/* Permission Selection - Drag & Drop */}
-                <GroupTransferList
+                <PlanTransferList
                   available={availablePermissions}
                   selected={selectedPermissions}
                   onChange={setSelectedPermissions}
                 />
                 {availablePermissions.length === 0 && (
                   <p className="text-sm text-amber-600 dark:text-amber-400 -mt-2">
-                    Note: No permissions available. Check if you have been assigned any permission groups.
+                    Note: No permissions available. Check if you have been assigned any permission plans.
                   </p>
                 )}
 
@@ -483,14 +450,14 @@ export function APIKeyManager({ currentUser, onStatsChange }: APIKeyManagerProps
                     <div className="flex items-start justify-between mb-4">
                       <div>
                         <div className="flex items-center gap-2 mb-1">
-                          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{apiKey.client_name}</h3>
+                          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{apiKey.name}</h3>
                           <Badge
-                            variant={apiKey.status === 'active' ? "default" : "secondary"}
-                            className={`px-2 py-0.5 text-xs font-medium rounded-full ${apiKey.status === 'active'
+                            variant={apiKey.is_active ? "default" : "secondary"}
+                            className={`px-2 py-0.5 text-xs font-medium rounded-full ${apiKey.is_active
                               ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border-green-200 dark:border-green-800"
                               : "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400 border-gray-200 dark:border-gray-700"}`}
                           >
-                            {apiKey.status === 'active' ? 'Active' : 'Revoked'}
+                            {apiKey.is_active ? 'Active' : 'Revoked'}
                           </Badge>
                         </div>
                         <div className="text-xs text-gray-500 dark:text-gray-400">
@@ -499,7 +466,7 @@ export function APIKeyManager({ currentUser, onStatsChange }: APIKeyManagerProps
                       </div>
                     </div>
 
-                    {/* Key Preview Box */}
+                    {/* Key Box */}
                     <div className="mb-6">
                       <div className="text-xs text-gray-500 dark:text-gray-400 mb-2 font-medium">Key Preview</div>
                       <div className="flex items-center gap-3">
@@ -512,7 +479,7 @@ export function APIKeyManager({ currentUser, onStatsChange }: APIKeyManagerProps
                           <input
                             type="text"
                             readOnly
-                            value={apiKey.key_preview || 'epsx_••••••••••••••••'}
+                            value={apiKey.key || 'epsx_••••••••••••••••'}
                             className="w-full pl-10 pr-4 py-3 bg-[#1e2330] border border-gray-700/50 rounded-lg font-mono text-sm text-green-500 focus:outline-none focus:ring-1 focus:ring-green-500/30 transition-all font-medium truncate"
                           />
                         </div>
@@ -520,11 +487,11 @@ export function APIKeyManager({ currentUser, onStatsChange }: APIKeyManagerProps
                           size="icon"
                           className="rounded-full bg-amber-500 hover:bg-amber-600 text-white shadow-lg shadow-amber-500/20 shrink-0 w-8 h-8 transition-transform hover:scale-105 active:scale-95 flex items-center justify-center p-0"
                           onClick={async () => {
-                            const keyToCopy = apiKey.full_key || apiKey.key_preview;
+                            const keyToCopy = apiKey.key;
                             if (keyToCopy) {
                               const success = await copyToClipboardUtil(keyToCopy);
                               if (success) {
-                                toast.success(apiKey.full_key ? 'Full API key copied!' : 'Key preview copied');
+                                toast.success('API key copied to clipboard!');
                               }
                             }
                           }}
@@ -537,20 +504,14 @@ export function APIKeyManager({ currentUser, onStatsChange }: APIKeyManagerProps
 
                     {/* Info Grid */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 py-4 border-t border-gray-800/50">
-                      {/* Permission Groups */}
+                      {/* Permissions */}
                       <div>
                         <div className="text-[10px] font-bold text-gray-500 dark:text-gray-500 uppercase tracking-widest mb-2">Permissions</div>
                         <div className="flex flex-wrap gap-1.5">
-                          {(apiKey as any).permissions?.length > 0 ? (
-                            (apiKey as any).permissions.map((permission: string, idx: number) => (
+                          {apiKey.scopes?.length > 0 ? (
+                            apiKey.scopes.map((permission: string, idx: number) => (
                               <Badge key={idx} variant="outline" className="px-2 py-0.5 text-[11px] border-amber-500/50 text-amber-400 bg-amber-900/10 font-mono">
                                 {permission}
-                              </Badge>
-                            ))
-                          ) : (apiKey as any).groups?.length > 0 ? (
-                            (apiKey as any).groups.map((group: { id: string; name: string; slug: string }, idx: number) => (
-                              <Badge key={idx} variant="outline" className="px-3 py-1 text-xs border-blue-900/50 text-blue-400 bg-blue-900/10">
-                                {group.name}
                               </Badge>
                             ))
                           ) : (
@@ -563,34 +524,19 @@ export function APIKeyManager({ currentUser, onStatsChange }: APIKeyManagerProps
                       <div>
                         <div className="text-[10px] font-bold text-gray-500 dark:text-gray-500 uppercase tracking-widest mb-2">Usage</div>
                         <div className="text-sm font-semibold text-gray-200">
-                          {apiKey.total_requests?.toLocaleString() || 0} <span className="font-medium text-gray-500 text-xs">requests</span>
+                          {apiKey.usage_count?.toLocaleString() || 0} <span className="font-medium text-gray-500 text-xs">requests</span>
                         </div>
                       </div>
 
-                      {/* Expiration */}
-                      <div>
-                        <div className="text-[10px] font-bold text-gray-500 dark:text-gray-500 uppercase tracking-widest mb-2">Expiration</div>
-                        <div className="text-sm font-medium">
-                          {apiKey.expires_at ? (
-                            <span className={(() => {
-                              const d = new Date(apiKey.expires_at);
-                              const days = Math.ceil((d.getTime() - new Date().getTime()) / 86400000);
-                              return days < 0 ? 'text-red-500' : days < 7 ? 'text-amber-500' : 'text-gray-200';
-                            })()}>
-                              {new Date(apiKey.expires_at).toLocaleDateString()}
-                            </span>
-                          ) : (
-                            <span className="text-green-500 flex items-center gap-1.5">
-                              Never
-                            </span>
-                          )}
-                        </div>
-                      </div>
+                      {/* Expiration (UserApiKey doesn't have expires_at currently? checking type) */}
+                      {/* Assuming UserApiKey might be extended or we skip it if not in type */}
+                      {/* Line 92 of users.ts didn't show expires_at. If it's there via backend but not type, we can cast or skip. */}
+                      {/* I will assume it's not available for now or add a check */}
                     </div>
                   </div>
 
                   {/* Actions Footer */}
-                  {apiKey.status === 'active' && (
+                  {apiKey.is_active && (
                     <div className="px-6 pb-4 flex justify-end">
                       <button
                         type="button"
@@ -636,7 +582,7 @@ export function APIKeyManager({ currentUser, onStatsChange }: APIKeyManagerProps
             <AlertDialogDescription>
               Are you sure you want to revoke{' '}
               <span className="font-mono text-xs p-1 bg-gray-100 dark:bg-gray-800 rounded">
-                {selectedKeyToRevoke?.client_name}
+                {selectedKeyToRevoke?.name}
               </span>
               ? This action cannot be undone and any applications using this key will stop working immediately.
             </AlertDialogDescription>

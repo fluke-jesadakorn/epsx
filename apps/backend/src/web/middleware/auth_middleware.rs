@@ -27,7 +27,7 @@ use crate::auth::UnifiedWeb3AuthService;
 pub struct Web3AuthContext {
     pub wallet_address: String,        // Primary key from wallet_users table
     pub permissions: Vec<String>,      // Permissions from the permission system
-    pub groups: Vec<String>,          // Permission groups from wallet_users
+    pub plans: Vec<String>,          // Permission plans from wallet_users
     pub is_active: bool,              // From wallet_users.is_active
     pub verified_at: DateTime<Utc>,   // When signature was verified
     pub signature_hash: String,       // Hash of the SIWE signature
@@ -237,7 +237,7 @@ async fn validate_siwe_signature(headers: &HeaderMap, app_state: &AppState) -> R
     let auth_context = Web3AuthContext {
         wallet_address: wallet_header.to_lowercase(),
         permissions,
-        groups: vec!["admin".to_string()], // Temporary admin group
+        plans: vec!["admin".to_string()], // Temporary admin plan
         is_active: true,
         verified_at: Utc::now(),
         signature_hash: format!("0x{}", &signature_header[2..18]), // First 16 chars of signature
@@ -271,7 +271,7 @@ async fn validate_bearer_token(token: &str, app_state: &AppState) -> Result<Web3
                 return Ok(Web3AuthContext {
                     wallet_address: claims.wallet_address.to_lowercase(),
                     permissions,
-                    groups: vec![],
+                    plans: vec![],
                     is_active: true,
                     verified_at: DateTime::from_timestamp(claims.iat, 0).unwrap_or(Utc::now()),
                     signature_hash: claims.jti,
@@ -294,7 +294,7 @@ async fn validate_bearer_token(token: &str, app_state: &AppState) -> Result<Web3
         return Ok(Web3AuthContext {
             wallet_address: wallet_address.to_lowercase(),
             permissions: vec![], // Legacy tokens don't have permissions in claims
-            groups: vec![],
+            plans: vec![],
             is_active: true,
             verified_at: Utc::now(),
             signature_hash: String::new(),

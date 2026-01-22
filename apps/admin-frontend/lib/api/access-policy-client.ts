@@ -7,24 +7,24 @@
 
 'use client';
 
-import { createPlansClient, isApiSuccess, type PlanResponse } from '@/shared/api/plans';
-import { createAdminApiClient } from '@/shared/utils/api-client';
-import { 
-  groupMgmt, 
-  type PermissionGroup, 
-  type GroupAnalytics,
-  type CreateGroupRequest,
-  type UpdateGroupRequest,
-} from './group-management-client';
 import {
-  type AccessPolicy,
-  type PolicyStats,
-  type PolicyFilters,
-  type PolicyType,
   DEFAULT_POLICY_STATS,
-  planToPolicy,
   groupToPolicy,
+  planToPolicy,
+  type AccessPolicy,
+  type PolicyFilters,
+  type PolicyStats,
+  type PolicyType,
 } from '@/components/access-control/types';
+import { createAdminApiClient } from '@/shared/utils/api-client';
+import { createPlansClient, isApiSuccess, type PlanResponse } from '@/shared_deploy/api/plans';
+import {
+  planMgmt,
+  type CreatePlanRequest as CreateGroupRequest,
+  type PlanAnalytics as GroupAnalytics,
+  type PermissionPlan as PermissionGroup,
+  type UpdatePlanRequest as UpdateGroupRequest
+} from './plan-management-client';
 
 // ============================================================================
 // ACCESS POLICY CLIENT
@@ -40,7 +40,7 @@ export const accessPolicyClient = {
 
     const [plansRes, groups] = await Promise.all([
       plansClient.getPlans({ limit: 100 }),
-      groupMgmt.getPermissionGroups(),
+      planMgmt.getPermissionPlans(),
     ]);
 
     const policies: AccessPolicy[] = [];
@@ -56,8 +56,8 @@ export const accessPolicyClient = {
 
     // Transform groups to policies (exclude subscription type - handled by plans)
     groups
-      .filter(g => g.group_type !== 'subscription')
-      .forEach(group => {
+      .filter((g: PermissionGroup) => g.plan_type !== 'subscription')
+      .forEach((group: PermissionGroup) => {
         policies.push(groupToPolicy(group));
       });
 
@@ -75,7 +75,7 @@ export const accessPolicyClient = {
       const apiClient = createAdminApiClient();
       const plansClient = createPlansClient(apiClient);
       const res = await plansClient.getPlan(sourceId);
-      
+
       if (isApiSuccess(res) && res.data) {
         return planToPolicy(res.data);
       }
@@ -83,7 +83,7 @@ export const accessPolicyClient = {
     }
 
     if (sourceType === 'group') {
-      const group = await groupMgmt.getPermissionGroup(sourceId);
+      const group = await planMgmt.getPermissionPlan(sourceId);
       return groupToPolicy(group);
     }
 
@@ -99,8 +99,8 @@ export const accessPolicyClient = {
 
     const [plansRes, groups, analytics] = await Promise.all([
       plansClient.getPlans({ limit: 100 }),
-      groupMgmt.getPermissionGroups(),
-      groupMgmt.getGroupAnalytics(),
+      planMgmt.getPermissionPlans(),
+      planMgmt.getPlanAnalytics(),
     ]);
 
     const stats: PolicyStats = { ...DEFAULT_POLICY_STATS };
@@ -109,10 +109,10 @@ export const accessPolicyClient = {
     if (isApiSuccess(plansRes)) {
       const backendResponse = plansRes.data as any;
       const plans: PlanResponse[] = backendResponse?.data?.plans || backendResponse?.plans || [];
-      
+
       stats.byType.subscription = plans.length;
       stats.activeSubscriptions = plans.filter(p => p.is_active).length;
-      
+
       // Calculate MRR
       stats.totalMRR = plans.reduce((sum, plan) => {
         const revenue = typeof plan.revenue_last_30_days === 'string'
@@ -127,11 +127,11 @@ export const accessPolicyClient = {
     }
 
     // Process groups (exclude subscription type)
-    const nonSubGroups = groups.filter(g => g.group_type !== 'subscription');
-    stats.activeGroups = nonSubGroups.filter(g => g.is_active).length;
+    const nonSubGroups = groups.filter((g: PermissionGroup) => g.plan_type !== 'subscription');
+    stats.activeGroups = nonSubGroups.filter((g: PermissionGroup) => g.is_active).length;
 
     // Count by type
-    nonSubGroups.forEach(group => {
+    nonSubGroups.forEach((group: PermissionGroup) => {
       const typeMap: Record<string, PolicyType> = {
         manual: 'manual',
         web3_asset: 'web3_asset',
@@ -140,7 +140,7 @@ export const accessPolicyClient = {
         admin: 'system',
         system: 'system',
       };
-      const policyType = typeMap[group.group_type] || 'manual';
+      const policyType = typeMap[group.plan_type] || 'manual';
       stats.byType[policyType] = (stats.byType[policyType] || 0) + 1;
     });
 
@@ -184,7 +184,7 @@ export const accessPolicyClient = {
     // Sort
     result.sort((a, b) => {
       let comparison = 0;
-      
+
       switch (filters.sortBy) {
         case 'name':
           comparison = a.name.localeCompare(b.name);
@@ -217,21 +217,21 @@ export const accessPolicyClient = {
    * Create a new group (manual, web3, dao, system)
    */
   async createGroup(data: CreateGroupRequest): Promise<PermissionGroup> {
-    return groupMgmt.createPermissionGroup(data);
+    return planMgmt.createPermissionPlan(data);
   },
 
   /**
    * Update an existing group
    */
-  async updateGroup(groupId: string, data: UpdateGroupRequest): Promise<PermissionGroup> {
-    return groupMgmt.updatePermissionGroup(groupId, data);
+  async updateGroup(planId: string, data: UpdateGroupRequest): Promise<PermissionGroup> {
+    return planMgmt.updatePermissionPlan(planId, data);
   },
 
   /**
    * Delete a group
    */
-  async deleteGroup(groupId: string): Promise<void> {
-    return groupMgmt.deletePermissionGroup(groupId);
+  async deleteGroup(planId: string): Promise<void> {
+    return planMgmt.deletePermissionPlan(planId);
   },
 
   /**
@@ -239,6 +239,7 @@ export const accessPolicyClient = {
    */
   async deletePolicy(policyId: string): Promise<void> {
     const [sourceType, sourceId] = policyId.split('-', 2);
+    if (!sourceId) return;
 
     if (sourceType === 'plan') {
       const apiClient = createAdminApiClient();
@@ -248,7 +249,37 @@ export const accessPolicyClient = {
     }
 
     if (sourceType === 'group') {
-      await groupMgmt.deletePermissionGroup(sourceId);
+      await planMgmt.deletePermissionPlan(sourceId);
+      return;
+    }
+
+    throw new Error(`Unknown policy type: ${sourceType}`);
+  },
+
+  /**
+   * Update a policy (plan or group) by its unified ID
+   */
+  async updatePolicy(policyId: string, updates: { permissions?: string[]; name?: string; description?: string }): Promise<void> {
+    const [sourceType, sourceId] = policyId.split('-', 2);
+    if (!sourceId) return;
+
+    if (sourceType === 'plan') {
+      const apiClient = createAdminApiClient();
+      const plansClient = createPlansClient(apiClient);
+      await plansClient.updatePlan(sourceId, {
+        name: updates.name,
+        description: updates.description,
+        permissions: updates.permissions
+      });
+      return;
+    }
+
+    if (sourceType === 'group') {
+      await planMgmt.updatePermissionPlan(sourceId, {
+        name: updates.name,
+        description: updates.description,
+        permissions: updates.permissions
+      });
       return;
     }
 
@@ -258,17 +289,17 @@ export const accessPolicyClient = {
   /**
    * Get group memberships
    */
-  async getGroupMembers(groupId: string) {
-    return groupMgmt.getGroupMemberships(groupId);
+  async getGroupMembers(planId: string) {
+    return planMgmt.getPlanMemberships(planId);
   },
 
   /**
    * Assign user to group
    */
-  async assignUserToGroup(userId: string, groupId: string, expiresAt?: string, reason?: string) {
-    return groupMgmt.assignUserToGroup({
+  async assignUserToGroup(userId: string, planId: string, expiresAt?: string, reason?: string) {
+    return planMgmt.assignUserToPlan({
       user_id: userId,
-      group_id: groupId,
+      plan_id: planId,
       expires_at: expiresAt,
       reason,
     });
@@ -277,22 +308,22 @@ export const accessPolicyClient = {
   /**
    * Remove user from group
    */
-  async removeUserFromGroup(userId: string, groupId: string) {
-    return groupMgmt.removeUserFromGroup(userId, groupId);
+  async removeUserFromGroup(userId: string, planId: string) {
+    return planMgmt.removeUserFromPlan(userId, planId);
   },
 
   /**
    * Get expiring memberships
    */
   async getExpiringMemberships(days = 7) {
-    return groupMgmt.getExpiringMemberships(days);
+    return planMgmt.getExpiringMemberships(days);
   },
 
   /**
    * Get analytics for a specific group
    */
   async getGroupAnalytics(): Promise<GroupAnalytics> {
-    return groupMgmt.getGroupAnalytics();
+    return planMgmt.getPlanAnalytics();
   },
 };
 

@@ -1,0 +1,192 @@
+$ tsc --noEmit
+app/developer-portal/api-keys/create/page.tsx(78,42): error TS2339: Property 'createApiKey' does not exist on type 'PlansApi'.
+app/developer-portal/api-keys/create/page.tsx(201,41): error TS7006: Parameter 'p' implicitly has an 'any' type.
+app/subscriptions/[id]/page.tsx(106,21): error TS2322: Type 'string | ApiError' is not assignable to type 'string | undefined'.
+  Type 'ApiError' is not assignable to type 'string'.
+app/subscriptions/[id]/page.tsx(140,21): error TS2322: Type 'string | ApiError' is not assignable to type 'string | undefined'.
+  Type 'ApiError' is not assignable to type 'string'.
+app/subscriptions/[id]/page.tsx(313,46): error TS2345: Argument of type 'Record<string, any> | undefined' is not assignable to parameter of type 'Record<string, any>'.
+  Type 'undefined' is not assignable to type 'Record<string, any>'.
+app/subscriptions/[id]/page.tsx(319,46): error TS2345: Argument of type 'Record<string, any> | undefined' is not assignable to parameter of type 'Record<string, any>'.
+  Type 'undefined' is not assignable to type 'Record<string, any>'.
+app/subscriptions/new/page.tsx(10,34): error TS2724: '"@/shared/api/plans"' has no exported member named 'CreateSubscriptionRequest'. Did you mean 'UpdateSubscriptionRequest'?
+app/subscriptions/new/page.tsx(86,48): error TS2551: Property 'createSubscription' does not exist on type 'PlansApi'. Did you mean 'getSubscription'?
+app/subscriptions/plans/[id]/edit/page.tsx(188,9): error TS2353: Object literal may only specify known properties, and 'current_price' does not exist in type 'UpdatePlanRequest'.
+app/subscriptions/plans/[id]/edit/page.tsx(214,33): error TS2322: Type 'string | ApiError' is not assignable to type 'string | undefined'.
+  Type 'ApiError' is not assignable to type 'string'.
+app/subscriptions/plans/[id]/edit/page.tsx(568,53): error TS2322: Type 'string | ApiError' is not assignable to type 'string | undefined'.
+  Type 'ApiError' is not assignable to type 'string'.
+app/subscriptions/plans/new/page.tsx(125,11): error TS2322: Type 'string | ApiError' is not assignable to type 'string | undefined'.
+  Type 'ApiError' is not assignable to type 'string'.
+app/wallet-management/[address]/page.tsx(666,74): error TS2769: No overload matches this call.
+  Overload 1 of 4, '(value: string | number | Date): Date', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string | number | Date'.
+      Type 'undefined' is not assignable to type 'string | number | Date'.
+  Overload 2 of 4, '(value: string | number): Date', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string | number'.
+      Type 'undefined' is not assignable to type 'string | number'.
+app/wallet-management/[address]/page.tsx(1015,25): error TS2322: Type '"plan" | "permission"' is not assignable to type '"group" | "permission"'.
+  Type '"plan"' is not assignable to type '"group" | "permission"'.
+app/wallet-management/plans/[id]/page.tsx(235,93): error TS2322: Type 'number | null' is not assignable to type 'number | undefined'.
+  Type 'null' is not assignable to type 'number | undefined'.
+components/admin/developer-portal/ApiKeyManager.tsx(16,15): error TS2614: Module '"@/shared/api/plans"' has no exported member 'ApiKeyResponse'. Did you mean to use 'import ApiKeyResponse from "@/shared/api/plans"' instead?
+components/admin/developer-portal/ApiKeyManager.tsx(115,77): error TS7006: Parameter 'module' implicitly has an 'any' type.
+components/admin/developer-portal/DeveloperPortalPage.tsx(18,34): error TS2614: Module '"@/shared/api/plans"' has no exported member 'ApiKeyResponse'. Did you mean to use 'import ApiKeyResponse from "@/shared/api/plans"' instead?
+components/admin/developer-portal/DeveloperPortalPage.tsx(18,55): error TS2614: Module '"@/shared/api/plans"' has no exported member 'Module'. Did you mean to use 'import Module from "@/shared/api/plans"' instead?
+components/admin/developer-portal/DeveloperPortalPage.tsx(65,51): error TS2339: Property 'listApiKeys' does not exist on type 'PlansApi'.
+components/admin/developer-portal/DeveloperPortalPage.tsx(85,54): error TS2339: Property 'getModules' does not exist on type 'PlansApi'.
+components/admin/developer-portal/DeveloperPortalPage.tsx(158,52): error TS2339: Property 'revokeApiKey' does not exist on type 'PlansApi'.
+components/admin/developer-portal/DeveloperPortalPage.tsx(183,52): error TS2339: Property 'updateApiKeyExpiration' does not exist on type 'PlansApi'.
+components/admin/developer-portal/PortalOverview.tsx(7,15): error TS2614: Module '"@/shared/api/plans"' has no exported member 'ApiKeyResponse'. Did you mean to use 'import ApiKeyResponse from "@/shared/api/plans"' instead?
+components/admin/developer-portal/PortalOverview.tsx(7,46): error TS2614: Module '"@/shared/api/plans"' has no exported member 'Module'. Did you mean to use 'import Module from "@/shared/api/plans"' instead?
+components/admin/developer-portal/PortalOverview.tsx(147,61): error TS7006: Parameter 'module' implicitly has an 'any' type.
+components/admin/developer-portal/shared/ApiKeyRow.tsx(9,15): error TS2614: Module '"@/shared/api/plans"' has no exported member 'ApiKeyResponse'. Did you mean to use 'import ApiKeyResponse from "@/shared/api/plans"' instead?
+components/admin/developer-portal/shared/ApiKeyRow.tsx(125,65): error TS7006: Parameter 'module' implicitly has an 'any' type.
+components/admin/developer-portal/tabs/ApiKeysTab.tsx(18,15): error TS2614: Module '"@/shared/api/plans"' has no exported member 'ApiKeyResponse'. Did you mean to use 'import ApiKeyResponse from "@/shared/api/plans"' instead?
+components/admin/developer-portal/tabs/DocumentationTab.tsx(6,15): error TS2614: Module '"@/shared/api/plans"' has no exported member 'Module'. Did you mean to use 'import Module from "@/shared/api/plans"' instead?
+components/admin/developer-portal/tabs/OverviewTab.tsx(10,15): error TS2614: Module '"@/shared/api/plans"' has no exported member 'ApiKeyResponse'. Did you mean to use 'import ApiKeyResponse from "@/shared/api/plans"' instead?
+components/admin/developer-portal/tabs/OverviewTab.tsx(10,31): error TS2614: Module '"@/shared/api/plans"' has no exported member 'Module'. Did you mean to use 'import Module from "@/shared/api/plans"' instead?
+components/admin/developer-portal/tabs/OverviewTab.tsx(147,65): error TS7006: Parameter 'module' implicitly has an 'any' type.
+components/admin/developer-portal/tabs/UsageAnalyticsTab.tsx(7,15): error TS2614: Module '"@/shared/api/plans"' has no exported member 'ApiKeyResponse'. Did you mean to use 'import ApiKeyResponse from "@/shared/api/plans"' instead?
+components/admin/developer-portal/UsageAnalytics.tsx(6,15): error TS2614: Module '"@/shared/api/plans"' has no exported member 'ApiKeyResponse'. Did you mean to use 'import ApiKeyResponse from "@/shared/api/plans"' instead?
+components/charts/ChartContainer.tsx(46,9): error TS2353: Object literal may only specify known properties, and 'size' does not exist in type 'ConfigVariants<{ variant: { default: string[]; insight: string[]; pancake: string[]; user: string[]; permission: string[]; billing: string[]; analytics: string[]; warning: string[]; error: string[]; }; hover: { none: string; lift: string; glow: string; both: string; }; padding: { ...; }; interactive: { ...; }; }> & ...'.
+components/features/AdminFeatureGate.tsx(53,55): error TS7006: Parameter 'p' implicitly has an 'any' type.
+components/payments/PaymentAnalytics.tsx(38,60): error TS2339: Property 'message' does not exist on type 'ApiResponse<any>'.
+components/payments/PaymentLinksManagement.tsx(106,60): error TS2339: Property 'message' does not exist on type 'ApiResponse<any>'.
+components/payments/PaymentLinksManagement.tsx(149,60): error TS2339: Property 'message' does not exist on type 'ApiResponse<any>'.
+components/payments/PaymentLinksManagement.tsx(169,60): error TS2339: Property 'message' does not exist on type 'ApiResponse<any>'.
+components/payments/PaymentsManagement.tsx(90,60): error TS2339: Property 'message' does not exist on type 'ApiResponse<any>'.
+components/payments/UserAccessManagement.tsx(35,60): error TS2339: Property 'message' does not exist on type 'ApiResponse<any>'.
+components/permissions/PermissionRegistry.tsx(27,24): error TS2304: Cannot find name 'planMgmt'.
+components/permissions/PermissionRegistry.tsx(33,20): error TS2304: Cannot find name 'planMgmt'.
+components/permissions/PermissionRegistry.tsx(52,37): error TS2304: Cannot find name 'planMgmt'.
+components/permissions/PermissionRegistry.tsx(82,52): error TS7006: Parameter 'p' implicitly has an 'any' type.
+components/permissions/PermissionRegistry.tsx(88,60): error TS7006: Parameter 'acc' implicitly has an 'any' type.
+components/permissions/PermissionRegistry.tsx(88,65): error TS7006: Parameter 'curr' implicitly has an 'any' type.
+components/permissions/PermissionRegistry.tsx(180,38): error TS18046: 'items' is of type 'unknown'.
+components/permissions/PermissionRegistry.tsx(184,34): error TS18046: 'items' is of type 'unknown'.
+components/permissions/PermissionRegistry.tsx(184,45): error TS7006: Parameter 'def' implicitly has an 'any' type.
+components/plan/index.ts(6,15): error TS2307: Cannot find module './GroupCard' or its corresponding type declarations.
+components/plan/index.ts(7,15): error TS2307: Cannot find module './GroupHub' or its corresponding type declarations.
+components/plan/index.ts(8,15): error TS2307: Cannot find module './GroupStatsBar' or its corresponding type declarations.
+components/plans/PlanManagement.tsx(98,29): error TS2339: Property 'includes' does not exist on type 'ApiError'.
+components/plans/PlanManagement.tsx(98,73): error TS2339: Property 'includes' does not exist on type 'ApiError'.
+components/plans/PlanManagement.tsx(113,11): error TS2322: Type 'string | ApiError' is not assignable to type 'string | undefined'.
+  Type 'ApiError' is not assignable to type 'string'.
+components/plans/PlanManagement.tsx(193,52): error TS2353: Object literal may only specify known properties, and 'tier_level' does not exist in type 'UpdatePlanRequest'.
+components/policies/PolicyBuilder.tsx(270,25): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(message?: string | undefined, options?: ErrorOptions | undefined): Error', gave the following error.
+    Argument of type 'ApiError | "Failed to save policy"' is not assignable to parameter of type 'string | undefined'.
+      Type 'ApiError' is not assignable to type 'string'.
+  Overload 2 of 2, '(message?: string | undefined): Error', gave the following error.
+    Argument of type 'ApiError | "Failed to save policy"' is not assignable to parameter of type 'string | undefined'.
+      Type 'ApiError' is not assignable to type 'string'.
+components/promotions/PromotionManagement.tsx(62,11): error TS2322: Type 'string | ApiError' is not assignable to type 'string | undefined'.
+  Type 'ApiError' is not assignable to type 'string'.
+components/providers/AuthProvider.tsx(29,4): error TS2304: Cannot find name 'AuthProviderProps'.
+components/providers/AuthProvider.tsx(61,27): error TS2304: Cannot find name 'UnifiedAuth'.
+components/public/ApiKeyRequestForm.tsx(179,14): error TS2322: Type '{ children: Element; id: string; label: string; required: true; }' is not assignable to type 'IntrinsicAttributes & { render: ({ field, fieldState, formState, }: { field: ControllerRenderProps<FieldValues, string>; fieldState: ControllerFieldState; formState: UseFormStateReturn<...>; }) => ReactElement<...>; } & UseControllerProps<...>'.
+  Property 'children' does not exist on type 'IntrinsicAttributes & { render: ({ field, fieldState, formState, }: { field: ControllerRenderProps<FieldValues, string>; fieldState: ControllerFieldState; formState: UseFormStateReturn<...>; }) => ReactElement<...>; } & UseControllerProps<...>'.
+components/public/ApiKeyRequestForm.tsx(187,14): error TS2322: Type '{ children: Element; id: string; label: string; }' is not assignable to type 'IntrinsicAttributes & { render: ({ field, fieldState, formState, }: { field: ControllerRenderProps<FieldValues, string>; fieldState: ControllerFieldState; formState: UseFormStateReturn<...>; }) => ReactElement<...>; } & UseControllerProps<...>'.
+  Property 'children' does not exist on type 'IntrinsicAttributes & { render: ({ field, fieldState, formState, }: { field: ControllerRenderProps<FieldValues, string>; fieldState: ControllerFieldState; formState: UseFormStateReturn<...>; }) => ReactElement<...>; } & UseControllerProps<...>'.
+components/public/ApiKeyRequestForm.tsx(199,14): error TS2322: Type '{ children: Element; id: string; label: string; }' is not assignable to type 'IntrinsicAttributes & { render: ({ field, fieldState, formState, }: { field: ControllerRenderProps<FieldValues, string>; fieldState: ControllerFieldState; formState: UseFormStateReturn<...>; }) => ReactElement<...>; } & UseControllerProps<...>'.
+  Property 'children' does not exist on type 'IntrinsicAttributes & { render: ({ field, fieldState, formState, }: { field: ControllerRenderProps<FieldValues, string>; fieldState: ControllerFieldState; formState: UseFormStateReturn<...>; }) => ReactElement<...>; } & UseControllerProps<...>'.
+components/public/ApiKeyRequestForm.tsx(218,14): error TS2322: Type '{ children: Element; id: string; label: string; required: true; }' is not assignable to type 'IntrinsicAttributes & { render: ({ field, fieldState, formState, }: { field: ControllerRenderProps<FieldValues, string>; fieldState: ControllerFieldState; formState: UseFormStateReturn<...>; }) => ReactElement<...>; } & UseControllerProps<...>'.
+  Property 'children' does not exist on type 'IntrinsicAttributes & { render: ({ field, fieldState, formState, }: { field: ControllerRenderProps<FieldValues, string>; fieldState: ControllerFieldState; formState: UseFormStateReturn<...>; }) => ReactElement<...>; } & UseControllerProps<...>'.
+components/public/ApiKeyRequestForm.tsx(226,14): error TS2322: Type '{ children: Element; id: string; label: string; required: true; }' is not assignable to type 'IntrinsicAttributes & { render: ({ field, fieldState, formState, }: { field: ControllerRenderProps<FieldValues, string>; fieldState: ControllerFieldState; formState: UseFormStateReturn<...>; }) => ReactElement<...>; } & UseControllerProps<...>'.
+  Property 'children' does not exist on type 'IntrinsicAttributes & { render: ({ field, fieldState, formState, }: { field: ControllerRenderProps<FieldValues, string>; fieldState: ControllerFieldState; formState: UseFormStateReturn<...>; }) => ReactElement<...>; } & UseControllerProps<...>'.
+components/public/ApiKeyRequestForm.tsx(235,14): error TS2322: Type '{ children: Element; id: string; label: string; }' is not assignable to type 'IntrinsicAttributes & { render: ({ field, fieldState, formState, }: { field: ControllerRenderProps<FieldValues, string>; fieldState: ControllerFieldState; formState: UseFormStateReturn<...>; }) => ReactElement<...>; } & UseControllerProps<...>'.
+  Property 'children' does not exist on type 'IntrinsicAttributes & { render: ({ field, fieldState, formState, }: { field: ControllerRenderProps<FieldValues, string>; fieldState: ControllerFieldState; formState: UseFormStateReturn<...>; }) => ReactElement<...>; } & UseControllerProps<...>'.
+components/public/ApiKeyRequestForm.tsx(254,14): error TS2322: Type '{ children: Element; id: string; label: string; required: true; }' is not assignable to type 'IntrinsicAttributes & { render: ({ field, fieldState, formState, }: { field: ControllerRenderProps<FieldValues, string>; fieldState: ControllerFieldState; formState: UseFormStateReturn<...>; }) => ReactElement<...>; } & UseControllerProps<...>'.
+  Property 'children' does not exist on type 'IntrinsicAttributes & { render: ({ field, fieldState, formState, }: { field: ControllerRenderProps<FieldValues, string>; fieldState: ControllerFieldState; formState: UseFormStateReturn<...>; }) => ReactElement<...>; } & UseControllerProps<...>'.
+components/public/ApiKeyRequestForm.tsx(264,16): error TS2322: Type '{ children: Element; id: string; label: string; }' is not assignable to type 'IntrinsicAttributes & { render: ({ field, fieldState, formState, }: { field: ControllerRenderProps<FieldValues, string>; fieldState: ControllerFieldState; formState: UseFormStateReturn<...>; }) => ReactElement<...>; } & UseControllerProps<...>'.
+  Property 'children' does not exist on type 'IntrinsicAttributes & { render: ({ field, fieldState, formState, }: { field: ControllerRenderProps<FieldValues, string>; fieldState: ControllerFieldState; formState: UseFormStateReturn<...>; }) => ReactElement<...>; } & UseControllerProps<...>'.
+components/public/ApiKeyRequestForm.tsx(276,16): error TS2322: Type '{ children: Element; id: string; label: string; }' is not assignable to type 'IntrinsicAttributes & { render: ({ field, fieldState, formState, }: { field: ControllerRenderProps<FieldValues, string>; fieldState: ControllerFieldState; formState: UseFormStateReturn<...>; }) => ReactElement<...>; } & UseControllerProps<...>'.
+  Property 'children' does not exist on type 'IntrinsicAttributes & { render: ({ field, fieldState, formState, }: { field: ControllerRenderProps<FieldValues, string>; fieldState: ControllerFieldState; formState: UseFormStateReturn<...>; }) => ReactElement<...>; } & UseControllerProps<...>'.
+components/public/ApiKeyRequestForm.tsx(323,12): error TS2322: Type '{ children: Element; id: string; label: string; }' is not assignable to type 'IntrinsicAttributes & { render: ({ field, fieldState, formState, }: { field: ControllerRenderProps<FieldValues, string>; fieldState: ControllerFieldState; formState: UseFormStateReturn<...>; }) => ReactElement<...>; } & UseControllerProps<...>'.
+  Property 'children' does not exist on type 'IntrinsicAttributes & { render: ({ field, fieldState, formState, }: { field: ControllerRenderProps<FieldValues, string>; fieldState: ControllerFieldState; formState: UseFormStateReturn<...>; }) => ReactElement<...>; } & UseControllerProps<...>'.
+components/subscriptions/PromotionSection.tsx(17,15): error TS2305: Module '"@/lib/data/access-management"' has no exported member 'DisplayPromotion'.
+components/subscriptions/SubscriptionManagement.tsx(49,11): error TS2322: Type 'string | ApiError' is not assignable to type 'string | undefined'.
+  Type 'ApiError' is not assignable to type 'string'.
+components/subscriptions/SubscriptionManagement.tsx(82,11): error TS2322: Type 'string | ApiError' is not assignable to type 'string | undefined'.
+  Type 'ApiError' is not assignable to type 'string'.
+components/subscriptions/SubscriptionManagement.tsx(99,7): error TS18048: 'sub.plan_name' is possibly 'undefined'.
+components/subscriptions/SubscriptionManagement.tsx(100,7): error TS18048: 'sub.user_id' is possibly 'undefined'.
+components/ui/WalletAutocomplete.tsx(82,39): error TS2304: Cannot find name 'planMgmt'.
+components/wallet/WalletAccessManager.tsx(117,22): error TS2367: This comparison appears to be unintentional because the types 'AccessItemType' and '"group"' have no overlap.
+components/wallet/WalletAccessManager.tsx(200,9): error TS2339: Property 'batchAssignGroups' does not exist on type 'UseWalletAccessReturn'.
+components/wallet/WalletAccessManager.tsx(201,9): error TS2339: Property 'batchRemoveGroups' does not exist on type 'UseWalletAccessReturn'.
+components/wallet/WalletAccessManager.tsx(297,28): error TS2339: Property 'availableGroups' does not exist on type 'WalletAccessData'.
+components/wallet/WalletAccessManager.tsx(297,51): error TS7006: Parameter 'g' implicitly has an 'any' type.
+components/wallet/WalletAccessManager.tsx(306,21): error TS2339: Property 'authorizedGroups' does not exist on type 'WalletAccessData'.
+components/wallet/WalletAccessManager.tsx(306,45): error TS7006: Parameter 'g' implicitly has an 'any' type.
+components/wallet/WalletAccessManager.tsx(340,32): error TS2367: This comparison appears to be unintentional because the types '"plan"' and '"group"' have no overlap.
+components/wallet/WalletAccessManager.tsx(346,32): error TS2367: This comparison appears to be unintentional because the types '"plan"' and '"group"' have no overlap.
+components/wallet/WalletAccessManager.tsx(363,32): error TS2367: This comparison appears to be unintentional because the types '"plan"' and '"group"' have no overlap.
+components/wallet/WalletAccessManager.tsx(445,32): error TS2339: Property 'availableGroups' does not exist on type 'WalletAccessData'.
+components/wallet/WalletAccessManager.tsx(451,40): error TS7006: Parameter 'item' implicitly has an 'any' type.
+components/wallet/WalletAccessManager.tsx(459,32): error TS7006: Parameter 'item' implicitly has an 'any' type.
+components/wallet/WalletAccessManager.tsx(466,55): error TS2367: This comparison appears to be unintentional because the types 'AccessItemType' and '"group"' have no overlap.
+components/wallet/WalletAccessManager.tsx(469,14): error TS2339: Property 'availableGroups' does not exist on type 'WalletAccessData'.
+components/wallet/WalletAccessManager.tsx(473,35): error TS2339: Property 'authorizedGroups' does not exist on type 'WalletAccessData'.
+components/wallet/WalletAccessManager.tsx(501,14): error TS2339: Property 'authorizedGroups' does not exist on type 'WalletAccessData'.
+components/wallet/WalletCard.tsx(329,41): error TS2339: Property 'groups' does not exist on type 'WalletData'.
+components/wallet/WalletCard.tsx(331,38): error TS2339: Property 'groups' does not exist on type 'WalletData'.
+components/wallet/WalletCard.tsx(332,126): error TS2339: Property 'groups' does not exist on type 'WalletData'.
+hooks/useAdminProgressiveAuth.ts(11,63): error TS2307: Cannot find module '@/types/progressive-auth' or its corresponding type declarations.
+hooks/useAdminProgressiveAuth.ts(48,30): error TS2532: Object is possibly 'undefined'.
+hooks/useAdminProgressiveAuth.ts(48,62): error TS2532: Object is possibly 'undefined'.
+hooks/useAnalyticsData.ts(120,3): error TS2322: Type '(T & {}) | null' is not assignable to type 'T'.
+  'T' could be instantiated with an arbitrary type which could be unrelated to '(T & {}) | null'.
+hooks/useAuthenticatedFetch.ts(33,23): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(message?: string | undefined, options?: ErrorOptions | undefined): Error', gave the following error.
+    Argument of type 'string | ApiError' is not assignable to parameter of type 'string | undefined'.
+      Type 'ApiError' is not assignable to type 'string'.
+  Overload 2 of 2, '(message?: string | undefined): Error', gave the following error.
+    Argument of type 'string | ApiError' is not assignable to parameter of type 'string | undefined'.
+      Type 'ApiError' is not assignable to type 'string'.
+hooks/useAuthenticatedFetch.ts(33,80): error TS2339: Property 'status' does not exist on type 'ApiResponse<T>'.
+lib/actions/consolidated-admin-actions.ts(90,9): error TS2322: Type 'string | ApiError' is not assignable to type 'string | undefined'.
+  Type 'ApiError' is not assignable to type 'string'.
+lib/actions/consolidated-admin-actions.ts(143,9): error TS2322: Type 'string | ApiError' is not assignable to type 'string | undefined'.
+  Type 'ApiError' is not assignable to type 'string'.
+lib/actions/server-auth.ts(56,36): error TS7006: Parameter 'p' implicitly has an 'any' type.
+lib/actions/server-auth.ts(97,31): error TS7006: Parameter 'p' implicitly has an 'any' type.
+lib/api/plan-management-client.ts(189,70): error TS2339: Property 'PLANS' does not exist on type '{ readonly VALIDATE: "/api/permissions/validate"; readonly VALIDATE_BULK: "/api/permissions/validate-bulk"; readonly CHECK: "/api/permissions/check"; readonly WALLET_PERMISSIONS: "/api/permissions/wallet/:wallet_address"; ... 23 more ...; readonly WEB3_RECENT_WALLETS: "/api/admin/web3/recent-wallets"; }'.
+lib/api/plan-management-client.ts(194,73): error TS2339: Property 'PLANS' does not exist on type '{ readonly VALIDATE: "/api/permissions/validate"; readonly VALIDATE_BULK: "/api/permissions/validate-bulk"; readonly CHECK: "/api/permissions/check"; readonly WALLET_PERMISSIONS: "/api/permissions/wallet/:wallet_address"; ... 23 more ...; readonly WEB3_RECENT_WALLETS: "/api/admin/web3/recent-wallets"; }'.
+lib/api/plan-management-client.ts(215,82): error TS2339: Property 'PLANS' does not exist on type '{ readonly VALIDATE: "/api/permissions/validate"; readonly VALIDATE_BULK: "/api/permissions/validate-bulk"; readonly CHECK: "/api/permissions/check"; readonly WALLET_PERMISSIONS: "/api/permissions/wallet/:wallet_address"; ... 23 more ...; readonly WEB3_RECENT_WALLETS: "/api/admin/web3/recent-wallets"; }'.
+lib/api/plan-management-client.ts(220,84): error TS2339: Property 'PLANS' does not exist on type '{ readonly VALIDATE: "/api/permissions/validate"; readonly VALIDATE_BULK: "/api/permissions/validate-bulk"; readonly CHECK: "/api/permissions/check"; readonly WALLET_PERMISSIONS: "/api/permissions/wallet/:wallet_address"; ... 23 more ...; readonly WEB3_RECENT_WALLETS: "/api/admin/web3/recent-wallets"; }'.
+lib/api/wallet-management-client.ts(177,9): error TS2353: Object literal may only specify known properties, and 'groups' does not exist in type 'WalletData'.
+shared_deploy/api/auth.ts(400,9): error TS2322: Type 'string | ApiError' is not assignable to type 'string'.
+  Type 'ApiError' is not assignable to type 'string'.
+shared_deploy/api/notifications.ts(457,32): error TS2322: Type 'string | ApiError' is not assignable to type 'string'.
+  Type 'ApiError' is not assignable to type 'string'.
+shared_deploy/api/permission-definitions.ts(121,30): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+shared_deploy/api/permission-definitions.ts(121,54): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+shared_deploy/components/profile/index.ts(1,29): error TS2307: Cannot find module './EmailEditor' or its corresponding type declarations.
+shared_deploy/components/profile/index.ts(2,29): error TS2307: Cannot find module './ProfileForm' or its corresponding type declarations.
+shared_deploy/components/profile/index.ts(3,29): error TS2307: Cannot find module './ProfileTabs' or its corresponding type declarations.
+shared_deploy/types/api.ts(751,13): error TS2352: Conversion of type 'object & Record<"message", unknown> & Record<"status", unknown>' to type 'ApiError' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Property 'code' is missing in type 'object & Record<"message", unknown> & Record<"status", unknown>' but required in type 'ApiError'.
+shared_deploy/types/api.ts(752,13): error TS2352: Conversion of type 'object & Record<"message", unknown> & Record<"status", unknown>' to type 'ApiError' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Property 'code' is missing in type 'object & Record<"message", unknown> & Record<"status", unknown>' but required in type 'ApiError'.
+shared_deploy/types/api.ts(752,32): error TS2339: Property 'status' does not exist on type 'ApiError'.
+shared_deploy/types/api.ts(763,13): error TS2352: Conversion of type 'object & Record<"data", unknown> & Record<"status", unknown> & Record<"success", unknown>' to type 'ApiResponse<any>' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Property 'error' is missing in type 'object & Record<"data", unknown> & Record<"status", unknown> & Record<"success", unknown>' but required in type 'ApiResponse<any>'.
+shared_deploy/types/api.ts(763,38): error TS2339: Property 'status' does not exist on type 'ApiResponse<any>'.
+shared_deploy/types/api.ts(764,13): error TS2352: Conversion of type 'object & Record<"data", unknown> & Record<"status", unknown> & Record<"success", unknown>' to type 'ApiResponse<any>' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Property 'error' is missing in type 'object & Record<"data", unknown> & Record<"status", unknown> & Record<"success", unknown>' but required in type 'ApiResponse<any>'.
+shared_deploy/types/index.ts(24,15): error TS2307: Cannot find module './tier-groups' or its corresponding type declarations.
+shared_deploy/types/index.ts(120,8): error TS2307: Cannot find module './tier-groups' or its corresponding type declarations.
+types/ui.ts(9,39): error TS2307: Cannot find module './core' or its corresponding type declarations.
+../../shared/api/permission-definitions.ts(121,30): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+../../shared/api/permission-definitions.ts(121,54): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+../../shared/components/profile/index.ts(1,29): error TS2307: Cannot find module './EmailEditor' or its corresponding type declarations.
+../../shared/components/profile/index.ts(2,29): error TS2307: Cannot find module './ProfileForm' or its corresponding type declarations.
+../../shared/components/profile/index.ts(3,29): error TS2307: Cannot find module './ProfileTabs' or its corresponding type declarations.
+../../shared/types/index.ts(24,15): error TS2307: Cannot find module './tier-groups' or its corresponding type declarations.
+../../shared/types/index.ts(120,8): error TS2307: Cannot find module './tier-groups' or its corresponding type declarations.

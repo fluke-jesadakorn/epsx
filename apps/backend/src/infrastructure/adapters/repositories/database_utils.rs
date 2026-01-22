@@ -333,8 +333,8 @@ pub mod testing {
                         .await
                         .map_err(|e| AppError::database_error(e.to_string()))?;
 
-                    // Clean up test permission groups
-                    diesel_async::RunQueryDsl::execute(diesel::sql_query("DELETE FROM groups WHERE group_name LIKE 'test_%'"), conn)
+                    // Clean up test permission plans
+                    diesel_async::RunQueryDsl::execute(diesel::sql_query("DELETE FROM plans WHERE plan_name LIKE 'test_%'"), conn)
                         .await
                         .map_err(|e| AppError::database_error(e.to_string()))?;
 

@@ -36,16 +36,25 @@ pub struct PublicPlanResponse {
     get,
     path = "/api/public/plans",
     tag = "public",
+    params(
+        ("category" = Option<String>, Query, description = "Filter by plan category (subscription, enterprise, api)"),
+        ("affiliate_code" = Option<String>, Query, description = "Affiliate code for tracking")
+    ),
     responses(
         (status = 200, description = "Successfully retrieved subscription plans", body = ApiResponse<Vec<PublicPlanResponse>>),
         (status = 500, description = "Internal server error")
     )
 )]
-pub async fn get_public_plans(State(app_state): State<AppState>) -> (StatusCode, Json<ApiResponse<Vec<PublicPlanResponse>>>) {
+pub async fn get_public_plans(
+    State(app_state): State<AppState>,
+    axum::extract::Query(query): axum::extract::Query<std::collections::HashMap<String, String>>,
+) -> (StatusCode, Json<ApiResponse<Vec<PublicPlanResponse>>>) {
+    let category_filter = query.get("category").map(|s| s.to_lowercase());
+
     tracing::info!("📊 Fetching public subscription plans");
 
     // Get plans from database instead of hardcoded data
-    let db_plans = match app_state.group_repo.get_subscription_plans().await {
+    let db_plans = match app_state.plan_repo.get_subscription_plans().await {
         Ok(plans) => {
             tracing::info!("✅ Found {} subscription plans in database", plans.len());
             plans
@@ -78,15 +87,20 @@ pub async fn get_public_plans(State(app_state): State<AppState>) -> (StatusCode,
             .unwrap_or_default();
 
         // Extract features from metadata or generate from permissions
-        let features = plan.group_metadata.get("features")
+        let features = plan.plan_metadata.get("features")
             .and_then(|f| f.as_array())
             .map(|arr| arr.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect::<Vec<String>>())
             .unwrap_or_else(|| generate_features_from_permissions(&permissions));
 
-        // Generate plan type from name
-        let plan_type = plan.name.to_uppercase()
-            .replace(" PLAN", "")
-            .replace(" ", "_");
+        // Generate plan type from name or metadata
+        let plan_type = plan.plan_metadata.get("plan_type")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string())
+            .unwrap_or_else(|| {
+                plan.name.to_uppercase()
+                    .replace(" PLAN", "")
+                    .replace(" ", "_")
+            });
 
         // Get price as string
         let price_str = plan.price.as_ref()
@@ -96,7 +110,7 @@ pub async fn get_public_plans(State(app_state): State<AppState>) -> (StatusCode,
         let base_price = price_str.parse::<f64>().unwrap_or(0.0);
 
         // Extract and process promotion
-        let promotion_data = plan.group_metadata.get("promotion");
+        let promotion_data = plan.plan_metadata.get("promotion");
         let (effective_price, promotion_active, promotion_status, promotion_discount, promotion_ends_at) = if let Some(promo_value) = promotion_data {
             if let Ok(promo) = serde_json::from_value::<Promotion>(promo_value.clone()) {
                 let effective = promo.calculate_effective_price(base_price);
@@ -128,6 +142,27 @@ pub async fn get_public_plans(State(app_state): State<AppState>) -> (StatusCode,
             permissions,
             is_active: plan.is_active.unwrap_or(true),
             display_order: plan.display_order.unwrap_or(0),
+        }
+    }).filter(|p| {
+        // Filter out free plans
+        let is_free = p.effective_price == 0.0 || p.name.to_lowercase() == "free plan";
+        if is_free { return false; }
+        
+        // Filter by category if requested
+        if let Some(ref cat) = category_filter {
+            // Map plan_type to category-like string or check exact match
+            // "starter", "pro" -> subscription
+            // "enterprise" -> enterprise
+            // "api", "api_developer" -> api
+            let p_type = p.plan_type.to_lowercase();
+            match cat.as_str() {
+                "api" => p_type.contains("api"),
+                "enterprise" => p_type.contains("enterprise"),
+                "subscription" | "user" => !p_type.contains("api") && !p_type.contains("enterprise"),
+                _ => true,
+            }
+        } else {
+            true
         }
     }).collect();
 
@@ -171,7 +206,7 @@ pub async fn get_public_plan_by_id(
     };
 
     // Get all plans and find the one with matching ID
-    let db_plans = match app_state.group_repo.get_subscription_plans().await {
+    let db_plans = match app_state.plan_repo.get_subscription_plans().await {
         Ok(plans) => plans,
         Err(err) => {
             tracing::error!(error = %err, "❌ Failed to fetch subscription plans");
@@ -202,7 +237,7 @@ pub async fn get_public_plan_by_id(
         .unwrap_or_default();
 
     // Extract features from metadata or generate from permissions
-    let features = plan.group_metadata.get("features")
+    let features = plan.plan_metadata.get("features")
         .and_then(|f| f.as_array())
         .map(|arr| arr.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect::<Vec<String>>())
         .unwrap_or_else(|| generate_features_from_permissions(&permissions));
@@ -220,7 +255,7 @@ pub async fn get_public_plan_by_id(
     let base_price = price_str.parse::<f64>().unwrap_or(0.0);
 
     // Extract and process promotion
-    let promotion_data = plan.group_metadata.get("promotion");
+    let promotion_data = plan.plan_metadata.get("promotion");
     let (effective_price, promotion_active, promotion_status, promotion_discount, promotion_ends_at) = if let Some(promo_value) = promotion_data {
         if let Ok(promo) = serde_json::from_value::<Promotion>(promo_value.clone()) {
             let effective = promo.calculate_effective_price(base_price);
@@ -286,7 +321,18 @@ fn generate_features_from_permissions(permissions: &[String]) -> Vec<String> {
                     if limit_str == "unlimited" {
                         features.push("Unlimited rankings access".to_string());
                     } else if let Ok(limit) = limit_str.parse::<i32>() {
-                        features.push(format!("{} stock rankings limit", limit));
+                        features.push(format!("Rankings from position {}+", limit + 1));
+                    }
+                }
+            },
+            perm if perm.starts_with("epsx:rankings:offset:") => {
+                if let Some(offset_str) = perm.strip_prefix("epsx:rankings:offset:") {
+                    if let Ok(offset) = offset_str.parse::<i32>() {
+                        if offset == 0 {
+                            features.push("Full rankings access (Rank 1+)".to_string());
+                        } else {
+                            features.push(format!("Rankings access from position {}+", offset + 1));
+                        }
                     }
                 }
             },

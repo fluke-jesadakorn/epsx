@@ -37,9 +37,9 @@ pub async fn get_revenue_analytics_handler(
 
     // Calculate total revenue from active subscriptions and lifetime packages
     let total_revenue = match diesel::sql_query(
-        "SELECT COALESCE(SUM(pg.price), 0.0) as revenue FROM wallet_group_assignments wga
-         INNER JOIN groups pg ON wga.group_id = pg.id
-         WHERE wga.is_active = true AND pg.group_type = 'subscription'"
+        "SELECT COALESCE(SUM(pg.price), 0.0) as revenue FROM wallet_plan_assignments wga
+         INNER JOIN plans pg ON wga.plan_id = pg.id
+         WHERE wga.is_active = true AND pg.plan_type = 'subscription'"
     )
     .get_result::<RevenueResult>(&mut conn)
     .await
@@ -56,9 +56,9 @@ pub async fn get_revenue_analytics_handler(
                 WHEN pg.billing_cycle = 'yearly' THEN pg.price / 12.0
                 ELSE 0.0
             END
-        ), 0.0) as revenue FROM wallet_group_assignments wga
-         INNER JOIN groups pg ON wga.group_id = pg.id
-         WHERE wga.is_active = true AND pg.group_type = 'subscription'
+        ), 0.0) as revenue FROM wallet_plan_assignments wga
+         INNER JOIN plans pg ON wga.plan_id = pg.id
+         WHERE wga.is_active = true AND pg.plan_type = 'subscription'
          AND pg.billing_cycle IN ('monthly', 'yearly')"
     )
     .get_result::<RevenueResult>(&mut conn)
@@ -80,7 +80,7 @@ pub async fn get_revenue_analytics_handler(
         average_revenue_per_user: Option<f64>,
     }
 
-    // Get revenue by tier/permission group
+    // Get revenue by tier/permission plan
     let revenue_by_tier = match diesel::sql_query(
         "SELECT pg.name as tier_name,
                 COALESCE(SUM(pg.price), 0.0) as revenue,
@@ -89,9 +89,9 @@ pub async fn get_revenue_analytics_handler(
                     WHEN COUNT(*) > 0 THEN COALESCE(SUM(pg.price), 0.0) / COUNT(*)::float
                     ELSE 0.0
                 END as average_revenue_per_user
-         FROM wallet_group_assignments wga
-         INNER JOIN groups pg ON wga.group_id = pg.id
-         WHERE wga.is_active = true AND pg.group_type = 'subscription'
+         FROM wallet_plan_assignments wga
+         INNER JOIN plans pg ON wga.plan_id = pg.id
+         WHERE wga.is_active = true AND pg.plan_type = 'subscription'
          GROUP BY pg.id, pg.name
          ORDER BY revenue DESC"
     )
@@ -115,9 +115,9 @@ pub async fn get_revenue_analytics_handler(
 
     // Calculate subscription metrics
     let active_subscriptions = match diesel::sql_query(
-        "SELECT COUNT(*)::bigint as count FROM wallet_group_assignments wga
-         INNER JOIN groups pg ON wga.group_id = pg.id
-         WHERE wga.is_active = true AND pg.group_type = 'subscription'"
+        "SELECT COUNT(*)::bigint as count FROM wallet_plan_assignments wga
+         INNER JOIN plans pg ON wga.plan_id = pg.id
+         WHERE wga.is_active = true AND pg.plan_type = 'subscription'"
     )
     .get_result::<CountResult>(&mut conn)
     .await
@@ -127,9 +127,9 @@ pub async fn get_revenue_analytics_handler(
     };
 
     let new_subscriptions = match diesel::sql_query(
-        "SELECT COUNT(*)::bigint as count FROM wallet_group_assignments wga
-         INNER JOIN groups pg ON wga.group_id = pg.id
-         WHERE wga.is_active = true AND pg.group_type = 'subscription'
+        "SELECT COUNT(*)::bigint as count FROM wallet_plan_assignments wga
+         INNER JOIN plans pg ON wga.plan_id = pg.id
+         WHERE wga.is_active = true AND pg.plan_type = 'subscription'
          AND wga.created_at >= NOW() - INTERVAL '30 days'"
     )
     .get_result::<CountResult>(&mut conn)
@@ -140,9 +140,9 @@ pub async fn get_revenue_analytics_handler(
     };
 
     let cancelled_subscriptions = match diesel::sql_query(
-        "SELECT COUNT(*)::bigint as count FROM wallet_group_assignments wga
-         INNER JOIN groups pg ON wga.group_id = pg.id
-         WHERE wga.is_active = false AND pg.group_type = 'subscription'
+        "SELECT COUNT(*)::bigint as count FROM wallet_plan_assignments wga
+         INNER JOIN plans pg ON wga.plan_id = pg.id
+         WHERE wga.is_active = false AND pg.plan_type = 'subscription'
          AND wga.updated_at >= NOW() - INTERVAL '30 days'"
     )
     .get_result::<CountResult>(&mut conn)
@@ -172,10 +172,10 @@ pub async fn get_revenue_analytics_handler(
         SELECT
             DATE_TRUNC('day', wga.created_at) as trend_date,
             COALESCE(SUM(pg.price), 0.0) as daily_revenue
-        FROM wallet_group_assignments wga
-        INNER JOIN groups pg ON wga.group_id = pg.id
+        FROM wallet_plan_assignments wga
+        INNER JOIN plans pg ON wga.plan_id = pg.id
         WHERE wga.created_at >= NOW() - INTERVAL '30 days'
-          AND pg.group_type = 'subscription'
+          AND pg.plan_type = 'subscription'
         GROUP BY DATE_TRUNC('day', wga.created_at)
         ORDER BY trend_date ASC
         "#

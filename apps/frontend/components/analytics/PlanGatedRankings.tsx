@@ -1,6 +1,7 @@
 'use client';
 
 import { usePlanAccess } from '@/hooks/usePlanAccess';
+import { FREE_PLAN_RANKING_OFFSET } from '@/shared/config/constants';
 import { Crown, Lock, Rocket } from 'lucide-react';
 import Link from 'next/link';
 import { UpgradeBannerInline } from './RankingUpgradeOverlay';
@@ -22,7 +23,7 @@ export function PlanGatedRankings({
     const { planAccess, loading } = usePlanAccess();
 
     // ranking_offset: 0 = full access, >0 = number of top ranks locked
-    const rankingOffset = planAccess?.ranking_offset ?? 100;
+    const rankingOffset = planAccess?.ranking_offset ?? FREE_PLAN_RANKING_OFFSET;
     const hasFullAccess = rankingOffset === 0;
     const canUpgrade = planAccess?.can_upgrade ?? true;
 
@@ -31,7 +32,7 @@ export function PlanGatedRankings({
             {/* Show upgrade banner for limited plans */}
             {!loading && !hasFullAccess && canUpgrade && (
                 <UpgradeBannerInline
-                    rankingsLimit={rankingOffset}
+                    rankingOffset={rankingOffset}
                     totalRankings={totalRankings}
                     planName={planAccess?.plan_name}
                     className="mb-6"

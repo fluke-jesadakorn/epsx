@@ -22,9 +22,11 @@ import {
     TrendingUp
 } from 'lucide-react';
 
+export type PaymentType = 'plan' | 'access-plan' | 'group' | 'permission';
+
 interface CurrentAccessCardProps {
     className?: string;
-    paymentType?: 'plan' | 'group' | 'permission';
+    paymentType?: PaymentType;
 }
 
 export function CurrentAccessCard({ className, paymentType = 'plan' }: CurrentAccessCardProps) {

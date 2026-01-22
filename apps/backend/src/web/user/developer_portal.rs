@@ -32,7 +32,7 @@ pub struct ListMyKeysQuery {
 pub struct CreateMyApiKeyBody {
     pub client_name: String,
     pub client_description: Option<String>,
-    pub group_ids: Vec<String>, // Permission groups to assign
+    pub plan_ids: Vec<String>, // Permission plans to assign
     #[serde(default)]
     pub permissions: Vec<String>, // Individual permission strings
     pub ip_restrictions: Option<Vec<String>>,
@@ -58,7 +58,7 @@ pub struct MaskedApiKey {
     pub client_name: String,
     pub client_description: Option<String>,
     pub status: String,
-    pub groups: Vec<PermissionGroupInfo>,
+    pub plans: Vec<PermissionPlanInfo>,
     /// Individual permissions selected when creating the key
     pub permissions: Vec<String>,
     pub total_requests: i64,
@@ -68,52 +68,52 @@ pub struct MaskedApiKey {
 }
 
 #[derive(Debug, Serialize)]
-pub struct PermissionGroupInfo {
+pub struct PermissionPlanInfo {
     pub id: String,
     pub name: String,
     pub slug: String,
 }
 
 #[derive(Debug, Serialize)]
-pub struct AvailableGroupsResponse {
-    pub groups: Vec<AvailableGroup>,
+pub struct AvailablePlansResponse {
+    pub plans: Vec<AvailablePlan>,
 }
 
 #[derive(Debug, Serialize)]
-pub struct AvailableGroup {
+pub struct AvailablePlan {
     pub id: String,
     pub name: String,
     pub slug: String,
     pub description: String,
     pub permissions: Vec<String>,
-    pub group_type: String,
+    pub plan_type: String,
     pub is_active: bool,
 }
 
-/// Response for user's assigned groups
+/// Response for user's assigned plans
 #[derive(Debug, Serialize)]
-pub struct MyGroupsResponse {
-    pub groups: Vec<UserAssignedGroup>,
+pub struct MyPlansResponse {
+    pub plans: Vec<UserAssignedPlan>,
     pub total_api_keys: i64,
     pub total_requests: i64,
 }
 
-/// User's assigned group with metadata
+/// User's assigned plan with metadata
 #[derive(Debug, Serialize)]
-pub struct UserAssignedGroup {
+pub struct UserAssignedPlan {
     pub id: String,
     pub name: String,
     pub slug: String,
     pub description: String,
-    pub group_type: String,
+    pub plan_type: String,
     pub permissions: Vec<String>,
-    /// When this group assignment expires (None = never)
+    /// When this plan assignment expires (None = never)
     pub expires_at: Option<String>,
-    /// Rate limit per minute for this group
+    /// Rate limit per minute for this plan
     pub rate_limit_per_minute: Option<i32>,
-    /// Rate limit per day for this group
+    /// Rate limit per day for this plan
     pub rate_limit_per_day: Option<i32>,
-    /// When the user was assigned this group
+    /// When the user was assigned this plan
     pub assigned_at: String,
 }
 
@@ -157,7 +157,7 @@ pub async fn list_my_keys_handler(
                     client_name: key.client_name,
                     client_description: key.client_description,
                     status: key.status.to_string(),
-                    groups: key.permission_groups.into_iter().map(|g| PermissionGroupInfo {
+                    plans: key.permission_plans.into_iter().map(|g| PermissionPlanInfo {
                         id: g.id.to_string(),
                         name: g.name,
                         slug: g.slug,
@@ -201,8 +201,8 @@ pub async fn create_my_key_handler(
         None
     };
 
-    // Convert group_ids from strings to UUIDs
-    let group_ids: Vec<uuid::Uuid> = body.group_ids.iter()
+    // Convert plan_ids from strings to UUIDs
+    let plan_ids: Vec<uuid::Uuid> = body.plan_ids.iter()
         .filter_map(|id| uuid::Uuid::parse_str(id).ok())
         .collect();
 
@@ -211,8 +211,8 @@ pub async fn create_my_key_handler(
         client_description: body.client_description,
         client_contact_email: None,
         wallet_address: wallet_address.clone(),
-        allowed_modules: vec![], // Legacy, replaced by permission groups
-        group_ids,
+        allowed_modules: vec![], // Legacy, replaced by permission plans
+        plan_ids,
         permissions: body.permissions, // Individual permission strings
         ip_restrictions: body.ip_restrictions,
         rate_limit_per_minute: Some(60),
@@ -269,7 +269,7 @@ pub async fn get_my_key_handler(
                 client_name: api_key.client_name,
                 client_description: api_key.client_description,
                 status: api_key.status.to_string(),
-                groups: api_key.permission_groups.into_iter().map(|g| PermissionGroupInfo {
+                plans: api_key.permission_plans.into_iter().map(|g| PermissionPlanInfo {
                     id: g.id.to_string(),
                     name: g.name,
                     slug: g.slug,
@@ -348,14 +348,14 @@ pub async fn revoke_my_key_handler(
     }
 }
 
-/// GET /api/developer-portal/available-groups
-/// List permission groups available for API key assignment
-pub async fn list_available_groups_handler(
+/// GET /api/developer-portal/available-plans
+/// List permission plans available for API key assignment
+pub async fn list_available_plans_handler(
     State(state): State<AppState>,
 ) -> impl IntoResponse {
     use diesel::prelude::*;
     use diesel_async::RunQueryDsl;
-    use crate::schemas::primary::{groups, group_permissions, permissions};
+    use crate::schemas::primary::{plans, plan_permissions, permissions};
 
     let pool = *state.db_pool;
     let mut conn = match pool.get().await {
@@ -366,77 +366,77 @@ pub async fn list_available_groups_handler(
         }
     };
 
-    // Query active groups with their associated permissions
+    // Query active plans with their associated permissions
     #[derive(diesel::Queryable)]
-    struct GroupRow {
+    struct PlanRow {
         id: uuid::Uuid,
         name: String,
         slug: String,
         description: String,
-        group_type: String,
+        plan_type: String,
         is_active: bool,
     }
 
-    // Exclude 'free' group from available groups for API key assignment
-    let active_groups = match groups::table
-        .filter(groups::is_active.eq(true))
-        .filter(groups::slug.ne("free"))
+    // Exclude 'free' plan from available plans for API key assignment
+    let active_plans = match plans::table
+        .filter(plans::is_active.eq(true))
+        .filter(plans::slug.ne("free"))
         .select((
-            groups::id,
-            groups::name,
-            groups::slug,
-            groups::description,
-            groups::group_type,
-            groups::is_active,
+            plans::id,
+            plans::name,
+            plans::slug,
+            plans::description,
+            plans::plan_type,
+            plans::is_active,
         ))
-        .order(groups::name.asc())
-        .load::<GroupRow>(&mut conn)
+        .order(plans::name.asc())
+        .load::<PlanRow>(&mut conn)
         .await
     {
         Ok(rows) => rows,
         Err(e) => {
-            error!("Failed to query groups: {}", e);
+            error!("Failed to query plans: {}", e);
             return UnifiedApiResponse::server_error(&e.to_string());
         }
     };
 
-    // For each group, fetch associated permissions
-    let mut result_groups = Vec::new();
-    for group in active_groups {
-        // Query permissions for this group
+    // For each plan, fetch associated permissions
+    let mut result_plans = Vec::new();
+    for plan in active_plans {
+        // Query permissions for this plan
 
-        let group_perms: Vec<String> = group_permissions::table
-            .inner_join(permissions::table.on(permissions::id.eq(group_permissions::permission_id)))
-            .filter(group_permissions::group_id.eq(&group.id))
+        let plan_perms: Vec<String> = plan_permissions::table
+            .inner_join(permissions::table.on(permissions::id.eq(plan_permissions::permission_id)))
+            .filter(plan_permissions::plan_id.eq(&plan.id))
             .select(permissions::permission_string)
             .load::<String>(&mut conn)
             .await
             .unwrap_or_default();
 
-        result_groups.push(AvailableGroup {
-            id: group.id.to_string(),
-            name: group.name,
-            slug: group.slug,
-            description: group.description,
-            permissions: group_perms,
-            group_type: group.group_type,
-            is_active: group.is_active,
+        result_plans.push(AvailablePlan {
+            id: plan.id.to_string(),
+            name: plan.name,
+            slug: plan.slug,
+            description: plan.description,
+            permissions: plan_perms,
+            plan_type: plan.plan_type,
+            is_active: plan.is_active,
         });
     }
 
-    info!("Returning {} available groups", result_groups.len());
-    UnifiedApiResponse::success(AvailableGroupsResponse { groups: result_groups })
+    info!("Returning {} available plans", result_plans.len());
+    UnifiedApiResponse::success(AvailablePlansResponse { plans: result_plans })
 }
 
-/// GET /api/developer-portal/my-groups
-/// Get the authenticated user's assigned permission groups with metadata
-pub async fn get_my_groups_handler(
+/// GET /api/developer-portal/my-plans
+/// Get the authenticated user's assigned permission plans with metadata
+pub async fn get_my_plans_handler(
     State(state): State<AppState>,
     Extension(wallet_address): Extension<String>,
 ) -> impl IntoResponse {
     use diesel::prelude::*;
     use diesel_async::RunQueryDsl;
-    use crate::schemas::primary::{groups, group_permissions, permissions, api_keys, wallet_group_assignments};
+    use crate::schemas::primary::{plans, plan_permissions, permissions, api_keys, wallet_plan_assignments};
 
     let pool = *state.db_pool;
     let mut conn = match pool.get().await {
@@ -490,81 +490,81 @@ pub async fn get_my_groups_handler(
     // Use first active key for rate limits (if any)
     let user_api_keys: Vec<_> = all_api_keys;
 
-    // Get groups assigned directly to the wallet (from wallet_group_assignments)
+    // Get plans assigned directly to the wallet (from wallet_plan_assignments)
     #[derive(diesel::Queryable)]
-    struct WalletGroupRow {
-        group_id: uuid::Uuid,
+    struct WalletPlanRow {
+        plan_id: uuid::Uuid,
         assigned_at: chrono::DateTime<chrono::Utc>,
         expires_at: Option<chrono::DateTime<chrono::Utc>>,
     }
 
-    let wallet_assignments = wallet_group_assignments::table
-        .filter(wallet_group_assignments::wallet_address.eq(&wallet_address))
-        .filter(wallet_group_assignments::is_active.eq(true))
+    let wallet_assignments = wallet_plan_assignments::table
+        .filter(wallet_plan_assignments::wallet_address.eq(&wallet_address))
+        .filter(wallet_plan_assignments::is_active.eq(true))
         .select((
-            wallet_group_assignments::group_id,
-            wallet_group_assignments::assigned_at,
-            wallet_group_assignments::expires_at,
+            wallet_plan_assignments::plan_id,
+            wallet_plan_assignments::assigned_at,
+            wallet_plan_assignments::expires_at,
         ))
-        .load::<WalletGroupRow>(&mut conn)
+        .load::<WalletPlanRow>(&mut conn)
         .await
         .unwrap_or_default();
 
-    // Get the full group details for each assigned group
+    // Get the full plan details for each assigned plan
     #[derive(diesel::Queryable)]
-    struct GroupRow {
+    struct PlanRow {
         id: uuid::Uuid,
         name: String,
         slug: String,
         description: String,
-        group_type: String,
+        plan_type: String,
     }
 
-    let group_ids: Vec<uuid::Uuid> = wallet_assignments.iter().map(|a| a.group_id).collect();
+    let plan_ids: Vec<uuid::Uuid> = wallet_assignments.iter().map(|a| a.plan_id).collect();
     
-    let assigned_groups = if group_ids.is_empty() {
+    let assigned_plans = if plan_ids.is_empty() {
         vec![]
     } else {
-        groups::table
-            .filter(groups::id.eq_any(&group_ids))
-            .filter(groups::is_active.eq(true))
+        plans::table
+            .filter(plans::id.eq_any(&plan_ids))
+            .filter(plans::is_active.eq(true))
             .select((
-                groups::id,
-                groups::name,
-                groups::slug,
-                groups::description,
-                groups::group_type,
+                plans::id,
+                plans::name,
+                plans::slug,
+                plans::description,
+                plans::plan_type,
             ))
-            .load::<GroupRow>(&mut conn)
+            .load::<PlanRow>(&mut conn)
             .await
             .unwrap_or_default()
     };
 
-    // Build result with permissions for each group
-    let mut result_groups = Vec::new();
-    for group in assigned_groups {
-        // Get permissions for this group
-        let group_perms: Vec<String> = group_permissions::table
-            .inner_join(permissions::table.on(permissions::id.eq(group_permissions::permission_id)))
-            .filter(group_permissions::group_id.eq(&group.id))
+    // Build result with permissions for each plan
+    let mut result_plans = Vec::new();
+    for plan in assigned_plans {
+        // Get permissions for this plan
+        let plan_perms: Vec<String> = plan_permissions::table
+            .inner_join(permissions::table.on(permissions::id.eq(plan_permissions::permission_id)))
+            .filter(plan_permissions::plan_id.eq(&plan.id))
             .select(permissions::permission_string)
             .load::<String>(&mut conn)
             .await
             .unwrap_or_default();
 
-        // Find the wallet assignment for this group to get expiry/assigned_at
-        let wallet_assignment = wallet_assignments.iter().find(|a| a.group_id == group.id);
+        // Find the wallet assignment for this plan to get expiry/assigned_at
+        let wallet_assignment = wallet_assignments.iter().find(|a| a.plan_id == plan.id);
         
         // Use first API key for rate limits if available (use get(0) to avoid Diesel trait conflict)
         let first_api_key = user_api_keys.as_slice().first();
         
-        result_groups.push(UserAssignedGroup {
-            id: group.id.to_string(),
-            name: group.name,
-            slug: group.slug,
-            description: group.description,
-            group_type: group.group_type,
-            permissions: group_perms,
+        result_plans.push(UserAssignedPlan {
+            id: plan.id.to_string(),
+            name: plan.name,
+            slug: plan.slug,
+            description: plan.description,
+            plan_type: plan.plan_type,
+            permissions: plan_perms,
             expires_at: wallet_assignment.and_then(|a| a.expires_at.map(|dt| dt.to_rfc3339())),
             rate_limit_per_minute: first_api_key.map(|k| k.rate_limit_per_minute),
             rate_limit_per_day: first_api_key.map(|k| k.rate_limit_per_day),
@@ -574,9 +574,9 @@ pub async fn get_my_groups_handler(
         });
     }
 
-    info!("Returning {} assigned groups for wallet {}", result_groups.len(), wallet_address);
-    UnifiedApiResponse::success(MyGroupsResponse {
-        groups: result_groups,
+    info!("Returning {} assigned plans for wallet {}", result_plans.len(), wallet_address);
+    UnifiedApiResponse::success(MyPlansResponse {
+        plans: result_plans,
         total_api_keys,
         total_requests,
     })

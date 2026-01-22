@@ -17,7 +17,7 @@ pub struct GetPlanResponse {
     pub id: i32,
     pub name: String,
     pub description: String,
-    pub group_id: String,
+    pub plan_id: String,
     pub price: f64,
     pub currency: String,
     pub billing_cycle: String,

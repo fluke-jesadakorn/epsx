@@ -82,9 +82,9 @@ pub async fn get_user_permissions_debug_handler(
     tracing::info!("Getting permissions for user: {}", test_user);
     
     // Get user roles
-    // Get user groups (modern JWT-based auth)
-    // In production, this would extract groups from JWT claims or user profile
-    let groups = vec!["admin".to_string(), "user".to_string()]; // Standard admin groups
+    // Get user plans (modern JWT-based auth)
+    // In production, this would extract plans from JWT claims or user profile
+    let plans = vec!["admin".to_string(), "user".to_string()]; // Standard admin plans
     
     // Test specific permissions
     let test_permissions = vec![
@@ -98,8 +98,8 @@ pub async fn get_user_permissions_debug_handler(
     for resource in test_permissions {
         for action in &["GET", "POST", "PUT", "DELETE"] {
             // Permission check (modern JWT-based auth)
-            // In production, this would check JWT claims and user groups
-            let has_permission = groups.contains(&"admin".to_string()); // Admin has all permissions
+            // In production, this would check JWT claims and user plans
+            let has_permission = plans.contains(&"admin".to_string()); // Admin has all permissions
             
             permission_checks.push(json!({
                 "resource": resource,
@@ -111,7 +111,7 @@ pub async fn get_user_permissions_debug_handler(
     
     Ok(Json(json!({
         "user": test_user,
-        "groups": groups,
+        "plans": plans,
         "permission_checks": permission_checks,
         "timestamp": chrono::Utc::now()
     })))

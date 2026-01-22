@@ -51,11 +51,6 @@ export {
 } from './permissions';
 
 export {
-  createGroupsClient, GroupsApi, type AssignGroupRequest, type Group,
-  type GroupMembership, type RemoveGroupRequest
-} from './groups';
-
-export {
   createWalletsClient, WalletsApi, type RecentWallet, type WalletInfo,
   type WalletSearchFilters,
   type WalletStats
@@ -86,8 +81,8 @@ export {
 } from './notifications';
 
 export {
-  createPlansClient, PlansAPIClient as PlansApi, type PlanResponse as Plan,
-  type PlanFeatureResponse as PlanFeature
+  createPlansClient, PlansApi, type Plan, type PlanMembership,
+  type PlanStats
 } from './plans';
 
 export {
@@ -102,9 +97,7 @@ export {
   type SecuritySettings, type SettingUpdate, type SystemSettings, type UpdateSettingsResponse
 } from './settings';
 
-export {
-  createAdminPaymentsClient, createPaymentsClient, PaymentsApi, type PaymentConfirmRequest, type PaymentConfirmResult, type PaymentSubmitRequest, type PaymentValidateRequest, type PaymentValidationResult, type TransactionStatusData
-} from './payments';
+export { createAdminPaymentsClient, createPaymentsClient, PaymentsApi, type PaymentConfirmRequest, type PaymentConfirmResult, type PaymentSubmitRequest, type PaymentValidateRequest, type PaymentValidationResult, type TransactionStatusData } from './payments';
 
 export {
   ChatApi,

@@ -10,7 +10,7 @@ use crate::web::notifications::{NotificationType, NotificationPriority};
 #[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct SendNotificationRequest {
     pub recipient_wallet_address: Option<String>,
-    pub recipient_group: Option<String>,
+    pub recipient_plan: Option<String>,
     pub broadcast: Option<bool>,
     pub notification_type: NotificationType,
     pub priority: NotificationPriority,

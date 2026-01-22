@@ -5,7 +5,7 @@
 pub mod shared_kernel;
 pub mod wallet_management; // Web3-first: wallet-based user management
 pub mod payment; // Payment processing and validation
-pub mod permission_management; // Permission groups, policies, and assignments
+pub mod permission_management; // Permission plans, policies, and assignments
 pub mod subscription_management; // Plans, subscriptions, and billing
 pub mod market_analytics;
 pub mod notification;

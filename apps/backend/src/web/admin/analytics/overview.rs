@@ -159,11 +159,11 @@ pub async fn get_platform_overview_handler(
     }
 
     let revenue_total = {
-        // Calculate total revenue from all active subscription-based permission groups
+        // Calculate total revenue from all active subscription-based permission plans
         match diesel::sql_query(
-            "SELECT COALESCE(SUM(pg.price), 0.0) as revenue FROM wallet_group_assignments wga
-             INNER JOIN groups pg ON wga.group_id = pg.id
-             WHERE wga.is_active = true AND pg.group_type = 'subscription'"
+            "SELECT COALESCE(SUM(pg.price), 0.0) as revenue FROM wallet_plan_assignments wga
+             INNER JOIN plans pg ON wga.plan_id = pg.id
+             WHERE wga.is_active = true AND pg.plan_type = 'subscription'"
         )
         .get_result::<RevenueResult>(&mut conn)
         .await
@@ -176,9 +176,9 @@ pub async fn get_platform_overview_handler(
     let revenue_period = {
         // Calculate revenue from new subscriptions in the last 30 days
         match diesel::sql_query(
-            "SELECT COALESCE(SUM(pg.price), 0.0) as revenue FROM wallet_group_assignments wga
-             INNER JOIN groups pg ON wga.group_id = pg.id
-             WHERE wga.is_active = true AND pg.group_type = 'subscription'
+            "SELECT COALESCE(SUM(pg.price), 0.0) as revenue FROM wallet_plan_assignments wga
+             INNER JOIN plans pg ON wga.plan_id = pg.id
+             WHERE wga.is_active = true AND pg.plan_type = 'subscription'
              AND wga.created_at >= NOW() - INTERVAL '30 days'"
         )
         .get_result::<RevenueResult>(&mut conn)

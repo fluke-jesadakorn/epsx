@@ -87,19 +87,19 @@ function TimelineItem({ event, isLast }: { event: WalletActivityEvent; isLast: b
             <div className="flex-1 pb-4">
                 <div className="flex items-start justify-between gap-4">
                     <div>
-                        <p className="text-sm font-medium text-gray-900 dark:text-white flex items-center gap-2">
+                        <p className="text-sm font-medium text-foreground flex items-center gap-2">
                             <span>{config.emoji}</span>
                             {event.description}
                         </p>
                         {event.performedBy && (
-                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                            <p className="text-sm text-muted-foreground mt-0.5">
                                 by {event.performedBy}
                             </p>
                         )}
                     </div>
                     <div className="text-right shrink-0">
-                        <p className="text-xs font-medium text-gray-600 dark:text-gray-300">{date}</p>
-                        <p className="text-xs text-gray-400 dark:text-gray-500">{time}</p>
+                        <p className="text-xs font-medium text-muted-foreground">{date}</p>
+                        <p className="text-[10px] text-muted-foreground/70 uppercase tracking-wider">{time}</p>
                     </div>
                 </div>
             </div>

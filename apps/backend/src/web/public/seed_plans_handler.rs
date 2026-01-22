@@ -48,64 +48,6 @@ pub async fn seed_subscription_plans(State(app_state): State<AppState>) -> (Stat
         }
     };
 
-    // Free Plan
-    let free_plan_metadata = json!({
-        "permissions": ["epsx:analytics:view:5", "epsx:rankings:view:5"],
-        "features": [
-            "Basic analytics view",
-            "5 stock rankings limit",
-            "Community support",
-            "Daily market updates"
-        ],
-        "ranking_offset": 100, 
-        "rankings_limit": 5,
-        "limits": {
-            "analytics_queries_per_day": 10,
-            "stocks_tracked": 5,
-            "historical_data_months": 1
-        }
-    });
-
-
-    let free_plan_result = diesel::sql_query(
-        r#"
-        INSERT INTO groups (
-            id, name, slug, description, group_type, group_metadata,
-            price, currency, billing_cycle, is_active, is_promoted, display_order, created_by
-        ) VALUES (
-            gen_random_uuid(),
-            $1, $2, $3, $4,
-            $5::jsonb,
-            $6, $7, $8, $9, $10, $11, $12
-        )
-        ON CONFLICT (slug) DO UPDATE SET
-            name = EXCLUDED.name,
-            description = EXCLUDED.description,
-            group_type = EXCLUDED.group_type,
-            group_metadata = EXCLUDED.group_metadata,
-            price = EXCLUDED.price,
-            currency = EXCLUDED.currency,
-            billing_cycle = EXCLUDED.billing_cycle,
-            is_active = EXCLUDED.is_active,
-            is_promoted = EXCLUDED.is_promoted,
-            display_order = EXCLUDED.display_order,
-            created_by = EXCLUDED.created_by
-        "#
-    )
-    .bind::<diesel::sql_types::Text, _>("Free Plan")
-    .bind::<diesel::sql_types::Text, _>("free")
-    .bind::<diesel::sql_types::Text, _>("Perfect for getting started with basic analytics")
-    .bind::<diesel::sql_types::Text, _>("subscription")
-    .bind::<diesel::sql_types::Jsonb, _>(&free_plan_metadata)
-    .bind::<diesel::sql_types::Nullable<diesel::sql_types::Numeric>, _>(BigDecimal::from_str("0.00").ok())
-    .bind::<diesel::sql_types::Text, _>("USD")
-    .bind::<diesel::sql_types::Text, _>("monthly")
-    .bind::<diesel::sql_types::Bool, _>(true)
-    .bind::<diesel::sql_types::Bool, _>(false)
-    .bind::<diesel::sql_types::Integer, _>(1)
-    .bind::<diesel::sql_types::Text, _>("0x0000000000000000000000000000000000000000")
-    .execute(&mut conn)
-    .await;
 
     // Starter Plan
     let starter_plan_metadata = json!({
@@ -129,8 +71,8 @@ pub async fn seed_subscription_plans(State(app_state): State<AppState>) -> (Stat
 
     let starter_plan_result = diesel::sql_query(
         r#"
-        INSERT INTO groups (
-            id, name, slug, description, group_type, group_metadata,
+        INSERT INTO plans (
+            id, name, slug, description, plan_type, plan_metadata,
             price, currency, billing_cycle, is_active, is_promoted, display_order, created_by
         ) VALUES (
             gen_random_uuid(),
@@ -141,8 +83,8 @@ pub async fn seed_subscription_plans(State(app_state): State<AppState>) -> (Stat
         ON CONFLICT (slug) DO UPDATE SET
             name = EXCLUDED.name,
             description = EXCLUDED.description,
-            group_type = EXCLUDED.group_type,
-            group_metadata = EXCLUDED.group_metadata,
+            plan_type = EXCLUDED.plan_type,
+            plan_metadata = EXCLUDED.plan_metadata,
             price = EXCLUDED.price,
             currency = EXCLUDED.currency,
             billing_cycle = EXCLUDED.billing_cycle,
@@ -194,8 +136,8 @@ pub async fn seed_subscription_plans(State(app_state): State<AppState>) -> (Stat
 
     let pro_plan_result = diesel::sql_query(
         r#"
-        INSERT INTO groups (
-            id, name, slug, description, group_type, group_metadata,
+        INSERT INTO plans (
+            id, name, slug, description, plan_type, plan_metadata,
             price, currency, billing_cycle, is_active, is_promoted, display_order, created_by
         ) VALUES (
             gen_random_uuid(),
@@ -206,8 +148,8 @@ pub async fn seed_subscription_plans(State(app_state): State<AppState>) -> (Stat
         ON CONFLICT (slug) DO UPDATE SET
             name = EXCLUDED.name,
             description = EXCLUDED.description,
-            group_type = EXCLUDED.group_type,
-            group_metadata = EXCLUDED.group_metadata,
+            plan_type = EXCLUDED.plan_type,
+            plan_metadata = EXCLUDED.plan_metadata,
             price = EXCLUDED.price,
             currency = EXCLUDED.currency,
             billing_cycle = EXCLUDED.billing_cycle,
@@ -260,8 +202,8 @@ pub async fn seed_subscription_plans(State(app_state): State<AppState>) -> (Stat
 
     let enterprise_plan_result = diesel::sql_query(
         r#"
-        INSERT INTO groups (
-            id, name, slug, description, group_type, group_metadata,
+        INSERT INTO plans (
+            id, name, slug, description, plan_type, plan_metadata,
             price, currency, billing_cycle, is_active, is_promoted, display_order, created_by
         ) VALUES (
             gen_random_uuid(),
@@ -272,8 +214,8 @@ pub async fn seed_subscription_plans(State(app_state): State<AppState>) -> (Stat
         ON CONFLICT (slug) DO UPDATE SET
             name = EXCLUDED.name,
             description = EXCLUDED.description,
-            group_type = EXCLUDED.group_type,
-            group_metadata = EXCLUDED.group_metadata,
+            plan_type = EXCLUDED.plan_type,
+            plan_metadata = EXCLUDED.plan_metadata,
             price = EXCLUDED.price,
             currency = EXCLUDED.currency,
             billing_cycle = EXCLUDED.billing_cycle,
@@ -320,8 +262,8 @@ pub async fn seed_subscription_plans(State(app_state): State<AppState>) -> (Stat
 
     let api_plan_result = diesel::sql_query(
         r#"
-        INSERT INTO groups (
-            id, name, slug, description, group_type, group_metadata,
+        INSERT INTO plans (
+            id, name, slug, description, plan_type, plan_metadata,
             price, currency, billing_cycle, is_active, is_promoted, display_order, created_by
         ) VALUES (
             gen_random_uuid(),
@@ -332,8 +274,8 @@ pub async fn seed_subscription_plans(State(app_state): State<AppState>) -> (Stat
         ON CONFLICT (slug) DO UPDATE SET
             name = EXCLUDED.name,
             description = EXCLUDED.description,
-            group_type = EXCLUDED.group_type,
-            group_metadata = EXCLUDED.group_metadata,
+            plan_type = EXCLUDED.plan_type,
+            plan_metadata = EXCLUDED.plan_metadata,
             price = EXCLUDED.price,
             currency = EXCLUDED.currency,
             billing_cycle = EXCLUDED.billing_cycle,
@@ -358,24 +300,24 @@ pub async fn seed_subscription_plans(State(app_state): State<AppState>) -> (Stat
     .execute(&mut conn)
     .await;
 
-    // Seed group permissions
+    // Seed plan permissions
     
     // Helper to seed permissions
-    async fn seed_permissions_for_group(
+    async fn seed_permissions_for_plan(
         conn: &mut diesel_async::AsyncPgConnection,
         slug: &str,
         perms: &[&str],
         platform_default: &str,
     ) -> Result<(), String> {
-        // 1. Get Group ID
+        // 1. Get Plan ID
         #[derive(QueryableByName)]
         struct GId { #[diesel(sql_type = diesel::sql_types::Uuid)] id: uuid::Uuid }
         
-        let group_id = diesel::sql_query("SELECT id FROM groups WHERE slug = $1")
+        let plan_id = diesel::sql_query("SELECT id FROM plans WHERE slug = $1")
             .bind::<diesel::sql_types::Text, _>(slug)
             .get_result::<GId>(conn)
             .await
-            .map_err(|e| format!("Group {} not found: {}", slug, e))?
+            .map_err(|e| format!("Plan {} not found: {}", slug, e))?
             .id;
 
         for p_str in perms {
@@ -412,15 +354,15 @@ pub async fn seed_subscription_plans(State(app_state): State<AppState>) -> (Stat
                 .map_err(|e| format!("Failed to get ID for perm {}: {}", p_str, e))?
                 .id;
 
-            // 4. Link Group Permission
+            // 4. Link Plan Permission
             diesel::sql_query(
                 r#"
-                INSERT INTO group_permissions (id, group_id, permission_id, granted_at)
+                INSERT INTO plan_permissions (id, plan_id, permission_id, granted_at)
                 VALUES (gen_random_uuid(), $1, $2, NOW())
                 ON CONFLICT DO NOTHING
                 "#
             )
-            .bind::<diesel::sql_types::Uuid, _>(group_id)
+            .bind::<diesel::sql_types::Uuid, _>(plan_id)
             .bind::<diesel::sql_types::Uuid, _>(perm_id)
             .execute(conn)
             .await
@@ -429,14 +371,12 @@ pub async fn seed_subscription_plans(State(app_state): State<AppState>) -> (Stat
         Ok(())
     }
 
-    let free_seed = seed_permissions_for_group(&mut conn, "free", &["epsx:analytics:view:5", "epsx:rankings:view:5"], "epsx").await;
-    let starter_seed = seed_permissions_for_group(&mut conn, "starter", &["epsx:analytics:view:25", "epsx:rankings:view:25", "epsx:analytics:export", "epsx:alerts:create", "epsx:rankings:offset:1"], "epsx").await;
-    let pro_seed = seed_permissions_for_group(&mut conn, "pro", &["epsx:analytics:view:100", "epsx:rankings:view:100", "epsx:analytics:export", "epsx:analytics:advanced", "epsx:alerts:create", "epsx:alerts:manage", "epsx:portfolio:view", "epsx:portfolio:manage", "epsx:rankings:offset:1"], "epsx").await;
-    let enterprise_seed = seed_permissions_for_group(&mut conn, "enterprise", &["epsx:*:*", "epsx:api:access", "epsx:enterprise:*"], "epsx").await;
-    let api_developer_seed = seed_permissions_for_group(&mut conn, "api-developer", &["epsx:api:access", "epsx:analytics:view:unlimited", "epsx:rankings:view:unlimited"], "epsx").await;
+    let starter_seed = seed_permissions_for_plan(&mut conn, "starter", &["epsx:analytics:view:25", "epsx:rankings:view:25", "epsx:analytics:export", "epsx:alerts:create", "epsx:rankings:offset:1"], "epsx").await;
+    let pro_seed = seed_permissions_for_plan(&mut conn, "pro", &["epsx:analytics:view:100", "epsx:rankings:view:100", "epsx:analytics:export", "epsx:analytics:advanced", "epsx:alerts:create", "epsx:alerts:manage", "epsx:portfolio:view", "epsx:portfolio:manage", "epsx:rankings:offset:1"], "epsx").await;
+    let enterprise_seed = seed_permissions_for_plan(&mut conn, "enterprise", &["epsx:*:*", "epsx:api:access", "epsx:enterprise:*"], "epsx").await;
+    let api_developer_seed = seed_permissions_for_plan(&mut conn, "api-developer", &["epsx:api:access", "epsx:analytics:view:unlimited", "epsx:rankings:view:unlimited"], "epsx").await;
     
     // Log seeding errors if any
-    if let Err(e) = free_seed { tracing::error!("Error seeding Free Plan permissions: {}", e); }
     if let Err(e) = starter_seed { tracing::error!("Error seeding Starter Plan permissions: {}", e); }
     if let Err(e) = pro_seed { tracing::error!("Error seeding Pro Plan permissions: {}", e); }
     if let Err(e) = enterprise_seed { tracing::error!("Error seeding Enterprise Plan permissions: {}", e); }
@@ -446,7 +386,6 @@ pub async fn seed_subscription_plans(State(app_state): State<AppState>) -> (Stat
     let mut inserted = 0;
     let mut errors = Vec::new();
 
-    if free_plan_result.is_ok() { inserted += 1; } else { errors.push("Free Plan".to_string()); }
     if starter_plan_result.is_ok() { inserted += 1; } else { errors.push("Starter Plan".to_string()); }
     if pro_plan_result.is_ok() { inserted += 1; } else { errors.push("Pro Plan".to_string()); }
     if enterprise_plan_result.is_ok() { inserted += 1; } else { errors.push("Enterprise Plan".to_string()); }
@@ -460,7 +399,7 @@ pub async fn seed_subscription_plans(State(app_state): State<AppState>) -> (Stat
     }
 
     let total_plans = diesel::sql_query(
-        "SELECT COUNT(*) as count FROM groups WHERE group_type = 'subscription'"
+        "SELECT COUNT(*) as count FROM plans WHERE plan_type = 'subscription'"
     )
     .get_result::<CountRow>(&mut conn)
     .await

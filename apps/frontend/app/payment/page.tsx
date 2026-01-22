@@ -18,7 +18,8 @@ export const dynamic = 'force-dynamic';
 interface PaymentPageProps {
   searchParams: Promise<{
     plan?: string;
-    group?: string;
+    'access-plan'?: string;
+    group?: string; // Legacy support
     link?: string;
     permission?: string;
   }>;
@@ -33,8 +34,12 @@ export default async function PaymentPage({ searchParams }: PaymentPageProps) {
   if (resolvedSearchParams.plan) {
     redirect(`/payment/plan/${resolvedSearchParams.plan}`);
   }
+  if (resolvedSearchParams['access-plan']) {
+    redirect(`/payment/access-plan/${resolvedSearchParams['access-plan']}`);
+  }
+  // Legacy support for group param
   if (resolvedSearchParams.group) {
-    redirect(`/payment/group/${resolvedSearchParams.group}`);
+    redirect(`/payment/access-plan/${resolvedSearchParams.group}`);
   }
   if (resolvedSearchParams.permission) {
     redirect(`/payment/permission/${resolvedSearchParams.permission}`);

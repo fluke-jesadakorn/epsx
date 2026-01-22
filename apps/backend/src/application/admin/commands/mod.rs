@@ -1,1 +1,1 @@
-pub mod assign_admin_group;
+pub mod assign_admin_plan;

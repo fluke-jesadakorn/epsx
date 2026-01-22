@@ -182,7 +182,7 @@ impl UnifiedPermissionCache {
     // ========================================================================
 
     /// Invalidate all cache entries for a wallet
-    /// Called when permissions are granted/revoked or groups are assigned/removed
+    /// Called when permissions are granted/revoked or plans are assigned/removed
     pub async fn invalidate_wallet(&self, wallet_address: &str) {
         debug!("Invalidating cache for wallet: {}", wallet_address);
 

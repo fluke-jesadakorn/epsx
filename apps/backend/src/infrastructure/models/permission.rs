@@ -279,6 +279,46 @@ pub struct PermissionSummary {
     pub grant_reason: Option<String>,
 }
 
+/// Diesel Queryable model for direct permissions
+#[derive(Debug, Clone, Queryable, Selectable, Identifiable, Serialize, Deserialize)]
+#[diesel(table_name = crate::schemas::primary::wallet_direct_permissions)]
+#[diesel(belongs_to(PermissionDb, foreign_key = permission_id))]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+pub struct WalletDirectPermissionDb {
+    /// Primary key
+    pub id: Uuid,
+    /// Wallet address
+    pub wallet_address: String,
+    /// Permission ID
+    pub permission_id: Uuid,
+    /// Granted at
+    pub granted_at: DateTime<Utc>,
+    /// Expires at
+    pub expires_at: Option<DateTime<Utc>>,
+    /// Granted by
+    pub granted_by: Option<String>,
+    /// Grant reason
+    pub grant_reason: Option<String>,
+    /// Is active
+    pub is_active: bool,
+}
+
+/// Diesel Insertable model for creating new direct permissions
+#[derive(Debug, Clone, Insertable)]
+#[diesel(table_name = crate::schemas::primary::wallet_direct_permissions)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+pub struct NewWalletDirectPermissionDb {
+    /// Wallet address
+    pub wallet_address: String,
+    /// Permission ID
+    pub permission_id: Uuid,
+    /// Invalid in insert: granted_at (default), expires_at (optional), granted_by (optional)
+    pub expires_at: Option<DateTime<Utc>>,
+    pub granted_by: Option<String>,
+    pub grant_reason: Option<String>,
+    pub is_active: bool,
+}
+
 /// Helper functions for permission management
 /// Helper functions for permission management
 impl PermissionDb {

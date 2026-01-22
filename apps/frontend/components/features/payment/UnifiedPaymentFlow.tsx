@@ -22,6 +22,7 @@ import {
     Loader2,
     Lock,
     Shield,
+    Sparkles,
     Wallet,
     Zap
 } from 'lucide-react';
@@ -45,7 +46,7 @@ import { useDirectTokenTransfer } from './hooks/useDirectTokenTransfer';
 import { PricingCard, PricingCardData } from '@/shared/components/plans/PricingCard';
 
 // Types
-type PaymentType = 'plan' | 'group' | 'permission';
+type PaymentType = 'plan' | 'access-plan' | 'permission';
 type PaymentStep = 'select' | 'confirm' | 'pay' | 'success';
 
 interface UnifiedPaymentFlowProps {
@@ -174,10 +175,10 @@ export function UnifiedPaymentFlow({
         if (planTier === currentPlanTier) return 'extend';
         if (planTier > currentPlanTier) return 'upgrade';
         if (planTier < currentPlanTier) {
-            return isExpired ? 'downgrade' : 'locked';
+            return 'downgrade';
         }
         return 'select';
-    }, [currentPlanTier, isExpired]);
+    }, [currentPlanTier]);
 
     // Fetch plans from API
     const fetchPlans = useCallback(async () => {
@@ -217,7 +218,7 @@ export function UnifiedPaymentFlow({
 
                         return {
                             id: plan.id,
-                            title: plan.name,
+                            title: plan.name.replace(/\s+Plan$/i, ''), // Remove trailing ' Plan' to avoid duplication in UI
                             price: isFree ? 'Free' : `${price}`, // PricingCard handles formatting
                             originalPrice: basePrice ? `$${basePrice}` : undefined,
                             features: Array.isArray(plan.features)
@@ -263,9 +264,6 @@ export function UnifiedPaymentFlow({
 
     // Handle plan selection
     const handlePlanSelect = (plan: PricingCardData) => {
-        const action = getActionType(plan);
-        if (action === 'locked') return;
-
         setSelectedPlan(plan);
         setError(null);
         // If clicking on a plan in grid, view details/confirm
@@ -366,7 +364,7 @@ export function UnifiedPaymentFlow({
         if (title) return title;
         switch (paymentType) {
             case 'plan': return 'Choose Your Plan';
-            case 'group': return 'Join Group';
+            case 'access-plan': return 'Join Group';
             case 'permission': return 'Unlock Access';
             default: return 'Make Payment';
         }
@@ -376,7 +374,7 @@ export function UnifiedPaymentFlow({
         if (description) return description;
         switch (paymentType) {
             case 'plan': return 'Select a plan to unlock premium features and analytics';
-            case 'group': return 'Join this group to access shared permissions';
+            case 'access-plan': return 'Join this group to access shared permissions';
             case 'permission': return 'Purchase access to this specific feature';
             default: return 'Complete your payment securely';
         }
@@ -669,7 +667,7 @@ export function UnifiedPaymentFlow({
                         onSelect={handlePlanSelect}
                         isSelected={true}
                         actionType="select"
-                        isDisabled={getActionType(selectedPlan) === 'locked'}
+                        isDisabled={false}
                     />
 
                     <div className="text-center mt-8">
@@ -709,10 +707,10 @@ export function UnifiedPaymentFlow({
                     </button>
                 )}
                 {!isExpired && currentPlanTier > 0 && (
-                    <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
-                        <Lock className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-                        <span className="text-sm text-amber-700 dark:text-amber-300">
-                            <strong>Upgrade only</strong> — lower tier plans are locked while your subscription is active
+                    <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                        <Sparkles className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                        <span className="text-sm text-blue-700 dark:text-blue-300">
+                            Select any plan to update your current subscription
                         </span>
                     </div>
                 )}
@@ -724,7 +722,7 @@ export function UnifiedPaymentFlow({
                     <PricingCard
                         key={plan.id}
                         card={plan}
-                        isDisabled={getActionType(plan) === 'locked'}
+                        isDisabled={false}
                         isSelected={selectedPlan?.id === plan.id}
                         onSelect={handlePlanSelect}
                         actionType={getActionType(plan)}

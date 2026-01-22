@@ -19,7 +19,7 @@ pub struct GetWalletListQuery {
     pub date_to: Option<String>,
     pub sort_by: Option<String>,
     pub sort_order: Option<String>,
-    pub exclude_group_id: Option<String>,
+    pub exclude_plan_id: Option<String>,
 }
 
 impl Query for GetWalletListQuery {
@@ -89,7 +89,7 @@ pub struct WalletSummaryDto {
     pub created_at: DateTime<Utc>,
     pub last_auth_at: Option<DateTime<Utc>>,
     pub permissions_count: i32,
-    pub groups_count: i32,
+    pub plans_count: i32,
     pub last_activity: Option<DateTime<Utc>>,
     pub metadata: Option<serde_json::Value>,
 }

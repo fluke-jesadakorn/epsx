@@ -13,6 +13,7 @@ use super::plan_handlers::{
   delete_plan_handler,
   create_subscription_handler,
   admin_list_user_access_handler,
+  list_subscriptions_handler,
 };
 // Promotion management handlers
 use super::promotion_handlers::{
@@ -24,20 +25,20 @@ use super::promotion_handlers::{
 };
 // Consolidated permission module - all permission operations
 use super::permissions::{
-  // Group CRUD operations
-  create_group,
-  get_group,
-  list_groups,
-  update_group,
-  delete_group,
-  get_group_members,
+  // Plan CRUD operations
+  create_plan,
+  get_plan,
+  list_plans,
+  update_plan,
+  delete_plan,
+  get_plan_members,
   // Assignment management
   create_assignment,
   list_assignments,
   remove_assignment,
   get_expiring_assignments,
   get_assignment_history,
-  get_group_history,
+  get_plan_history,
   // Validation operations
   validate_permission,
   validate_bulk_permissions,
@@ -46,12 +47,12 @@ use super::permissions::{
   grant_permission,
   revoke_permission,
   list_wallet_permissions,
-  add_permission_to_group,
-  remove_permission_from_group,
+  add_permission_to_plan,
+  remove_permission_from_plan,
   // Bulk operations
   bulk_grant,
   bulk_revoke,
-  bulk_assign_groups,
+  bulk_assign_plans,
   bulk_apply_template,
   bulk_validate,
   // System operations
@@ -60,9 +61,9 @@ use super::permissions::{
   clear_caches,
   get_route_permissions,
   register_route_permission,
-  // Group permission and assignment queries
-  get_group_permissions,
-  get_group_assignments,
+  // Plan permission and assignment queries
+  get_plan_permissions,
+  get_plan_assignments,
 };
 // Performance monitoring handlers
 use super::performance_handlers::{
@@ -146,7 +147,7 @@ pub fn create_admin_routes() -> Router<AppState> {
     .route("/promotions/{id}", put(update_promotion_handler))
     .route("/promotions/{id}", delete(delete_promotion_handler))
     // Subscription Management routes (require admin:subscriptions:* permissions) - Simplified
-    .route("/subscriptions", post(create_subscription_handler))
+    .route("/subscriptions", get(list_subscriptions_handler).post(create_subscription_handler))
     // Direct Payment Model: User Access List (replaces subscription-based model)
     .route("/plans/user-access/list", get(admin_list_user_access_handler))
     // Performance monitoring routes (require admin:performance:* permissions)
@@ -189,20 +190,20 @@ pub fn create_admin_routes() -> Router<AppState> {
     // List all available unique permission strings (matches frontend call)
     .route("/permissions/available", get(super::permissions::list_available_permissions))
 
-    // Group Assignment History (Audit Log)
-    .route("/groups/history", get(get_group_history))
+    // Plan Assignment History (Audit Log)
+    .route("/plans/history", get(get_plan_history))
 
     // Admin-only direct permission management (elevated privileges)
     .route("/permissions/direct/grant", post(grant_permission))
     .route("/permissions/direct/revoke", delete(revoke_permission))
     .route("/permissions/direct/wallet/{wallet}", get(list_wallet_permissions))
-    .route("/permissions/groups/{group_id}/permissions", post(add_permission_to_group))
-    .route("/permissions/groups/{group_id}/permissions/{permission_id}", delete(remove_permission_from_group))
+    .route("/permissions/plans/{plan_id}/permissions", post(add_permission_to_plan))
+    .route("/permissions/plans/{plan_id}/permissions/{permission_id}", delete(remove_permission_from_plan))
 
     // Admin-only bulk operations
     .route("/permissions/bulk/grant", post(bulk_grant))
     .route("/permissions/bulk/revoke", post(bulk_revoke))
-    .route("/permissions/bulk/assign-groups", post(bulk_assign_groups))
+    .route("/permissions/bulk/assign-plans", post(bulk_assign_plans))
     .route("/permissions/bulk/apply-template", post(bulk_apply_template))
     .route("/permissions/bulk/validate", post(bulk_validate))
 
@@ -281,7 +282,7 @@ pub fn create_admin_routes() -> Router<AppState> {
 
     // ============================================================================
     // PAYMENT LINK MANAGEMENT (V2 Dynamic Payments)
-    // Dynamic payment links for plans, groups, products, campaigns, and custom
+    // Dynamic payment links for plans, plans, products, campaigns, and custom
     // ============================================================================
 
     // Payment Link routes (require admin:payments:* permissions)
@@ -330,12 +331,12 @@ pub fn create_permission_authority_routes() -> Router<AppState> {
     // Route: /api/permissions/wallet/{wallet_address}
     .route("/wallet/{wallet_address}", get(get_wallet_permissions))
 
-    // Permission Group Management (accessible by all apps)
-    // Route: /api/permissions/groups
-    .route("/groups", get(list_groups).post(create_group))
-    .route("/groups/{group_id}", get(get_group).put(update_group).delete(delete_group))
-    .route("/groups/{group_id}/members", get(get_group_members))
-    .route("/groups/{group_id}/permissions", get(get_group_permissions))
+    // Permission Plan Management (accessible by all apps)
+    // Route: /api/permissions/plans
+    .route("/plans", get(list_plans).post(create_plan))
+    .route("/plans/{plan_id}", get(get_plan).put(update_plan).delete(delete_plan))
+    .route("/plans/{plan_id}/members", get(get_plan_members))
+    .route("/plans/{plan_id}/permissions", get(get_plan_permissions))
 
     // Assignment Management (accessible by all apps)
     // Route: /api/permissions/assignments
@@ -343,7 +344,7 @@ pub fn create_permission_authority_routes() -> Router<AppState> {
     .route("/assignments/{assignment_id}", delete(remove_assignment))
     .route("/assignments/expiring", get(get_expiring_assignments))
     .route("/assignments/wallet/{wallet}", get(get_assignment_history))
-    .route("/assignments/group/{group_id}", get(get_group_assignments))
+    .route("/assignments/plan/{plan_id}", get(get_plan_assignments))
 
     // Apply authentication middleware to permission authority routes
     }

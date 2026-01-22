@@ -8,7 +8,7 @@ use crate::domain::subscription_management::{
 };
 use rust_decimal::Decimal;
 use std::str::FromStr;
-use crate::domain::permission_management::GroupId;
+use crate::domain::permission_management::PlanId;
 use crate::domain::shared_kernel::DomainEventBus;
 
 /// Command handler for creating plans
@@ -33,8 +33,8 @@ impl CreatePlanCommandHandler {
 impl CommandHandler<CreatePlanCommand> for CreatePlanCommandHandler {
     async fn handle(&self, command: CreatePlanCommand) -> ApplicationResult<CreatePlanResponse> {
         // 1. Parse permission group ID
-        let group_id = GroupId::from_str(&command.group_id)
-            .map_err(|e| ApplicationError::validation("group_id", e.to_string()))?;
+        let plan_id = PlanId::from_str(&command.plan_id)
+            .map_err(|e| ApplicationError::validation("plan_id", e.to_string()))?;
 
         // 2. Create price value object - convert f64 to Decimal
         let price_decimal = Decimal::from_str(&command.price.to_string())
@@ -62,7 +62,7 @@ impl CommandHandler<CreatePlanCommand> for CreatePlanCommandHandler {
         let plan = Plan::create(plan_id.clone(), CreatePlanParams {
             name: command.name.clone(),
             description: command.description,
-            group_id,
+            plan_id,
             price,
             billing_cycle,
             features,

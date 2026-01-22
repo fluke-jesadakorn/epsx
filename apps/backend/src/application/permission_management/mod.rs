@@ -1,5 +1,5 @@
 // Permission Management Application Layer
-// Commands and queries for permission group and policy operations
+// Commands and queries for permission plan and policy operations
 
 pub mod commands;
 pub mod queries;
@@ -8,43 +8,43 @@ pub mod dtos; // Request/Response DTOs
 
 // Re-export command models
 pub use commands::{
-    CreatePermissionGroupCommand,
-    CreatePermissionGroupResponse,
-    UpdatePermissionGroupCommand,
-    UpdatePermissionGroupResponse,
-    DeletePermissionGroupCommand,
-    DeletePermissionGroupResponse,
-    AssignWalletToGroupCommand,
-    AssignWalletToGroupResponse,
-    RemoveWalletFromGroupCommand,
-    RemoveWalletFromGroupResponse,
+    CreatePermissionPlanCommand,
+    CreatePermissionPlanResponse,
+    UpdatePermissionPlanCommand,
+    UpdatePermissionPlanResponse,
+    DeletePermissionPlanCommand,
+    DeletePermissionPlanResponse,
+    AssignWalletToPlanCommand,
+    AssignWalletToPlanResponse,
+    RemoveWalletFromPlanCommand,
+    RemoveWalletFromPlanResponse,
 };
 
 // Re-export command handlers
 pub use commands::{
-    CreatePermissionGroupCommandHandler,
-    UpdatePermissionGroupCommandHandler,
-    DeletePermissionGroupCommandHandler,
-    AssignWalletToGroupCommandHandler,
-    RemoveWalletFromGroupCommandHandler,
+    CreatePermissionPlanCommandHandler,
+    UpdatePermissionPlanCommandHandler,
+    DeletePermissionPlanCommandHandler,
+    AssignWalletToPlanCommandHandler,
+    RemoveWalletFromPlanCommandHandler,
 };
 
 // Re-export query models
 pub use queries::{
-    GetPermissionGroupQuery,
-    GetPermissionGroupResponse,
-    ListPermissionGroupsQuery,
-    ListPermissionGroupsResponse,
-    GetGroupMembersQuery,
-    GetGroupMembersResponse,
-    GetWalletGroupsQuery,
-    GetWalletGroupsResponse,
+    GetPermissionPlanQuery,
+    GetPermissionPlanResponse,
+    ListPermissionPlansQuery,
+    ListPermissionPlansResponse,
+    GetPlanMembersQuery,
+    GetPlanMembersResponse,
+    GetWalletPlansQuery,
+    GetWalletPlansResponse,
 };
 
 // Re-export query handlers
 pub use queries::{
-    GetPermissionGroupQueryHandler,
-    ListPermissionGroupsQueryHandler,
-    GetGroupMembersQueryHandler,
-    GetWalletGroupsQueryHandler,
+    GetPermissionPlanQueryHandler,
+    ListPermissionPlansQueryHandler,
+    GetPlanMembersQueryHandler,
+    GetWalletPlansQueryHandler,
 };

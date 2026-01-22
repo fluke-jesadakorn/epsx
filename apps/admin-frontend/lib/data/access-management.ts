@@ -40,11 +40,11 @@ export interface PermissionDefinitionDto {
 // API ROUTES
 // ============================================================================
 
-const API_ROUTES = {
+const API_ROUTES_LOCAL = {
   PERMISSIONS: {
-    GROUPS: '/admin/permissions/groups',
-    DEFINITIONS: '/admin/permissions/definitions',
-    ANALYTICS: '/admin/permissions/analytics',
+    PLANS: '/api/permissions/plans',
+    DEFINITIONS: '/api/permissions/definitions',
+    ANALYTICS: '/api/admin/analytics/permissions',
   },
 } as const;
 
@@ -62,7 +62,7 @@ export async function fetchPolicies(): Promise<AccessPolicy[]> {
 
     const [plansRes, groupsRes] = await Promise.all([
       plansClient.getPlans({ limit: 100 }),
-      apiClient.get<{ groups: any[] }>(API_ROUTES.PERMISSIONS.GROUPS),
+      apiClient.get<{ plans: any[] }>(API_ROUTES_LOCAL.PERMISSIONS.PLANS),
     ]);
 
     const policies: AccessPolicy[] = [];
@@ -78,7 +78,7 @@ export async function fetchPolicies(): Promise<AccessPolicy[]> {
 
     // Transform groups to policies (exclude subscription type - handled by plans)
     if (groupsRes.success && groupsRes.data) {
-      const groups = groupsRes.data.groups || groupsRes.data || [];
+      const groups = groupsRes.data.plans || groupsRes.data || [];
       (Array.isArray(groups) ? groups : [])
         .filter((g: any) => g.group_type !== 'subscription')
         .forEach((group: any) => {
@@ -103,8 +103,8 @@ export async function fetchPolicyStats(): Promise<PolicyStats> {
 
     const [plansRes, groupsRes, analyticsRes] = await Promise.all([
       plansClient.getPlans({ limit: 100 }),
-      apiClient.get<{ groups: any[] }>(API_ROUTES.PERMISSIONS.GROUPS),
-      apiClient.get<any>(API_ROUTES.PERMISSIONS.ANALYTICS),
+      apiClient.get<{ plans: any[] }>(API_ROUTES_LOCAL.PERMISSIONS.PLANS),
+      apiClient.get<any>(API_ROUTES_LOCAL.PERMISSIONS.ANALYTICS),
     ]);
 
     const stats: PolicyStats = { ...DEFAULT_POLICY_STATS };
@@ -132,7 +132,7 @@ export async function fetchPolicyStats(): Promise<PolicyStats> {
 
     // Process groups (exclude subscription type)
     if (groupsRes.success && groupsRes.data) {
-      const groups = groupsRes.data.groups || groupsRes.data || [];
+      const groups = groupsRes.data.plans || groupsRes.data || [];
       const groupsArray = Array.isArray(groups) ? groups : [];
       const nonSubGroups = groupsArray.filter((g: any) => g.group_type !== 'subscription');
       stats.activeGroups = nonSubGroups.filter((g: any) => g.is_active).length;
@@ -175,7 +175,7 @@ export async function fetchPolicyStats(): Promise<PolicyStats> {
 export async function fetchPermissionStats(): Promise<{ count: number; platformCount: number }> {
   try {
     const apiClient = createAdminApiClient({ serverSide: true });
-    const response = await apiClient.get<PermissionDefinitionDto[]>(API_ROUTES.PERMISSIONS.DEFINITIONS);
+    const response = await apiClient.get<PermissionDefinitionDto[]>(API_ROUTES_LOCAL.PERMISSIONS.DEFINITIONS);
 
     if (response.success && response.data) {
       const definitions = Array.isArray(response.data) ? response.data : [];

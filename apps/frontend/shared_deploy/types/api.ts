@@ -747,9 +747,9 @@ export function isApiError(error: unknown): error is ApiError {
     typeof error === 'object' &&
     error !== null &&
     'message' in error &&
-    'status' in error &&
-    typeof (error as ApiError).message === 'string' &&
-    typeof (error as ApiError).status === 'number'
+    'code' in error &&
+    typeof (error as any).message === 'string' &&
+    typeof (error as any).code === 'string'
   );
 }
 
@@ -758,9 +758,8 @@ export function isApiResponse<T>(response: unknown): response is ApiResponse<T> 
     typeof response === 'object' &&
     response !== null &&
     'data' in response &&
-    'status' in response &&
+    'error' in response &&
     'success' in response &&
-    typeof (response as ApiResponse).status === 'number' &&
     typeof (response as ApiResponse).success === 'boolean'
   );
 }

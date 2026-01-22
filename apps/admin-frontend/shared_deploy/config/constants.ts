@@ -157,6 +157,23 @@ export const PERMISSION_TEMPLATES: Record<PermissionTemplateName, PermissionTemp
 } as const;
 
 // ============================================================================
+// FREE PLAN CONSTANTS
+// ============================================================================
+
+/** Free Plan ranking offset - unauthenticated/no-plan users see ranks 101+ */
+export const FREE_PLAN_RANKING_OFFSET = 100;
+
+/** Free Plan display name */
+export const FREE_PLAN_NAME = 'Free Plan';
+
+/** Free Plan tier level (lowest tier) */
+export const FREE_PLAN_TIER_LEVEL = 0;
+
+/** Free Plan rankings limit */
+export const FREE_PLAN_RANKINGS_LIMIT = 5;
+
+
+// ============================================================================
 // SUPPORTED CRYPTO ASSETS
 // ============================================================================
 

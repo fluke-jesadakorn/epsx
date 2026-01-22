@@ -3,7 +3,7 @@ use std::fmt::{self, Display};
 use std::collections::HashSet;
 
 /// Notification Topic Value Object
-/// Represents email topics for broadcasting notifications to groups of users
+/// Represents email topics for broadcasting notifications to plans of users
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct NotificationTopic {
     name: String,

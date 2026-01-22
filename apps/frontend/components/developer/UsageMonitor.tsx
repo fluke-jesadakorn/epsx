@@ -3,7 +3,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui';
 import { Badge } from '@/components/ui/badge';
 import type { AuthUser } from '@/lib/server-actions';
-import { createPlansClient, type ApiKeyResponse } from '@/shared/api/plans';
+import { createUsersClient, type UserApiKey as ApiKeyResponse } from '@/shared/api/users';
 import { UnifiedApiClient } from '@/shared/utils/api-client';
 import { useEffect, useState } from 'react';
 
@@ -42,10 +42,10 @@ export function UsageMonitor({ currentUser }: UsageMonitorProps) {
           baseURL: process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080',
           platform: 'frontend',
         });
-        const plansClient = createPlansClient(client);
+        const usersClient = createUsersClient(client);
 
         // Fetch user's API keys
-        const keysResponse = await plansClient.listMyApiKeys({ limit: 100 });
+        const keysResponse = await usersClient.getApiKeys({ limit: 100 });
         if (keysResponse.success && keysResponse.data) {
           const rawData = keysResponse.data as any;
           // Handle double-wrapped data (UnifiedApiResponse nested in ApiResponse.data)
@@ -55,11 +55,11 @@ export function UsageMonitor({ currentUser }: UsageMonitorProps) {
           // Map to summary format
           const summaries: KeyUsageSummary[] = keys.map(k => ({
             id: k.id,
-            name: k.client_name,
-            total_requests: k.total_requests || 0,
-            status: k.status,
+            name: k.name,
+            total_requests: k.usage_count || 0,
+            status: k.is_active ? 'active' : 'inactive',
             created_at: k.created_at,
-            expires_at: k.expires_at || null
+            expires_at: null // UserApiKey doesn't expose expires_at yet?
           }));
 
           setApiKeys(summaries);
@@ -68,7 +68,7 @@ export function UsageMonitor({ currentUser }: UsageMonitorProps) {
         }
 
         // Fetch User Stats
-        const statsRes = await plansClient.getUserUsageStats();
+        const statsRes = await usersClient.getUsageStats();
         if (statsRes.success && statsRes.data) {
           // Unwrap UnifiedApiResponse
           const statsData = (statsRes.data as any).data || statsRes.data;
@@ -76,7 +76,7 @@ export function UsageMonitor({ currentUser }: UsageMonitorProps) {
         }
 
         // Fetch Usage History
-        const historyRes = await plansClient.getUserUsageHistory(7);
+        const historyRes = await usersClient.getUsageHistory(7);
         if (historyRes.success && historyRes.data) {
           // Unwrap UnifiedApiResponse
           const historyData = (historyRes.data as any).data || historyRes.data;
@@ -87,7 +87,7 @@ export function UsageMonitor({ currentUser }: UsageMonitorProps) {
         }
 
         // Fetch Top Endpoints
-        const endpointsRes = await plansClient.getUserTopEndpoints(7);
+        const endpointsRes = await usersClient.getTopEndpoints(7);
         if (endpointsRes.success && endpointsRes.data) {
           // Unwrap UnifiedApiResponse
           const endpointsData = (endpointsRes.data as any).data || endpointsRes.data;

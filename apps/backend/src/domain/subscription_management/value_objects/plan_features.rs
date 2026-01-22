@@ -103,7 +103,7 @@ impl Default for PlanFeatures {
         Self {
             api_calls_limit: Some(100),
             rankings_limit: Some(3),
-            ranking_offset: Some(100), // Default offset for free tier
+            ranking_offset: Some(crate::core::constants::FREE_PLAN_RANKING_OFFSET), // Default offset for free tier
             analytics_enabled: false,
             premium_support: false,
             custom_features: serde_json::json!({}),

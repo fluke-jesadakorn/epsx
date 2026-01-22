@@ -397,8 +397,8 @@ fn extract_wallet_address(headers: &HeaderMap) -> Option<String> {
   None
 }
 
-/// Helper function to get user's plan tier from their group assignments
-async fn get_user_plan_from_groups(
+/// Helper function to get user's plan tier from their plan assignments
+async fn get_user_plan_from_plans(
     container: &Arc<DomainContainer>,
     wallet_address: &str,
 ) -> Option<String> {
@@ -414,22 +414,22 @@ async fn get_user_plan_from_groups(
         }
     };
     
-    // Query user's active group assignments to determine rate limit tier
-    // We prioritize by group type: elite > premium > basic > free
+    // Query user's active plan assignments to determine rate limit tier
+    // We prioritize by plan type: elite > premium > basic > free
     #[derive(diesel::QueryableByName)]
-    struct GroupInfo {
+    struct PlanInfo {
         #[diesel(sql_type = diesel::sql_types::Text)]
-        group_type: String,
+        plan_type: String,
     }
     
-    let result: Result<Vec<GroupInfo>, _> = diesel::sql_query(
-        "SELECT DISTINCT g.group_type 
-         FROM wallet_group_assignments wga
-         JOIN groups g ON g.id = wga.group_id
+    let result: Result<Vec<PlanInfo>, _> = diesel::sql_query(
+        "SELECT DISTINCT g.plan_type 
+         FROM wallet_plan_assignments wga
+         JOIN plans g ON g.id = wga.plan_id
          WHERE wga.wallet_address = $1 
            AND wga.is_active = true
            AND (wga.expires_at IS NULL OR wga.expires_at > NOW())
-         ORDER BY CASE g.group_type 
+         ORDER BY CASE g.plan_type 
            WHEN 'elite' THEN 1
            WHEN 'enterprise' THEN 2
            WHEN 'premium' THEN 3
@@ -445,17 +445,17 @@ async fn get_user_plan_from_groups(
     .await;
     
     match result {
-        Ok(groups) if !groups.is_empty() => {
-            let plan = groups[0].group_type.clone();
+        Ok(plans) if !plans.is_empty() => {
+            let plan = plans[0].plan_type.clone();
             debug!("Found plan '{}' for wallet {}", plan, wallet_address);
             Some(plan)
         }
         Ok(_) => {
-            debug!("No active groups found for wallet {}", wallet_address);
+            debug!("No active plans found for wallet {}", wallet_address);
             None
         }
         Err(e) => {
-            warn!("Failed to query user groups for rate limiting: {}", e);
+            warn!("Failed to query user plans for rate limiting: {}", e);
             None
         }
     }
@@ -501,10 +501,10 @@ pub async fn web3_rate_limit_middleware(
       config
   );
 
-  // Determine plan limits based on wallet's group assignments
+  // Determine plan limits based on wallet's plan assignments
   let plan_limits = if let Some(wallet) = &wallet_address {
-      // Query user's groups from database to determine rate limit tier
-      let user_plan = match get_user_plan_from_groups(&container, wallet).await {
+      // Query user's plans from database to determine rate limit tier
+      let user_plan = match get_user_plan_from_plans(&container, wallet).await {
           Some(plan) => plan,
           None => "free".to_string(),
       };

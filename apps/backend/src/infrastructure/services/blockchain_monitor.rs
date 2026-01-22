@@ -184,7 +184,7 @@ impl BlockchainMonitor {
 
         // Map contract plan_id (tier_level) to database group ID
         let plan_uuid: Uuid = diesel::sql_query(
-            "SELECT id FROM groups WHERE tier_level = $1 LIMIT 1"
+            "SELECT id FROM plans WHERE tier_level = $1 LIMIT 1"
         )
         .bind::<diesel::sql_types::Integer, _>(event.plan_id as i32)
         .get_result::<IdResult>(&mut conn)

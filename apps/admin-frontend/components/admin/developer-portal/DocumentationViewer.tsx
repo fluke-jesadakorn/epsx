@@ -2,20 +2,20 @@
 import { AlertTriangle, Code, Globe, Shield } from 'lucide-react';
 import React from 'react';
 
-import { type Module } from '@/shared/api/plans';
+import { type Plan } from '@/shared/api/plans';
+
+export interface Module {
+    id: string;
+    name: string;
+    display_name: string;
+}
 
 interface DocumentationViewerProps {
     modules: Module[];
-    availableGroups?: Array<{
-        id: string;
-        name: string;
-        slug: string;
-        description: string;
-        group_type: string;
-    }>;
+    availablePlans?: Plan[];
 }
 
-export const DocumentationViewer: React.FC<DocumentationViewerProps> = ({ modules, availableGroups = [] }) => {
+export const DocumentationViewer: React.FC<DocumentationViewerProps> = ({ modules, availablePlans = [] }) => {
     return (
         <div className="space-y-6">
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
@@ -119,10 +119,10 @@ export const DocumentationViewer: React.FC<DocumentationViewerProps> = ({ module
                         </h3>
                         <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
                             <div className="space-y-2 text-sm text-yellow-800 dark:text-yellow-200">
-                                {availableGroups.length > 0 ? (
-                                    availableGroups.map(group => (
-                                        <div key={group.id}>
-                                            <strong>{group.name}:</strong> {group.description}
+                                {availablePlans.length > 0 ? (
+                                    availablePlans.map(plan => (
+                                        <div key={plan.id}>
+                                            <strong>{plan.name}:</strong> {plan.description}
                                         </div>
                                     ))
                                 ) : (

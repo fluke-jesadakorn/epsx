@@ -1,7 +1,7 @@
 //! Payment Link Management Handlers
 //!
 //! Admin endpoints for managing dynamic payment links.
-//! Enables creation of payment links for plans, groups, products, campaigns, or custom purposes.
+//! Enables creation of payment links for plans, plans, products, campaigns, or custom purposes.
 
 use axum::{
     extract::{Path, Query, State},
@@ -33,7 +33,6 @@ use crate::web::auth::AppState;
 #[serde(rename_all = "lowercase")]
 pub enum PaymentContextType {
     Plan,
-    Group,
     Product,
     Campaign,
     Custom,
@@ -43,7 +42,6 @@ impl std::fmt::Display for PaymentContextType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Plan => write!(f, "plan"),
-            Self::Group => write!(f, "group"),
             Self::Product => write!(f, "product"),
             Self::Campaign => write!(f, "campaign"),
             Self::Custom => write!(f, "custom"),
@@ -56,7 +54,7 @@ impl std::fmt::Display for PaymentContextType {
 pub struct CreatePaymentLinkRequest {
     /// Type of payment context
     pub context_type: PaymentContextType,
-    /// UUID of linked entity (plan, group, etc.) - required for plan/group
+    /// UUID of linked entity (plan, plan, etc.) - required for plan/plan
     pub context_id: Option<Uuid>,
     /// Custom slug (auto-generated if not provided)
     pub slug: Option<String>,

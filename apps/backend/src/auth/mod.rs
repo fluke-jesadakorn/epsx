@@ -35,7 +35,7 @@ pub mod types;
 pub use unified_permission_service::{
     UnifiedPermissionService, PermissionDetail, PermissionSource as UnifiedPermissionSource,
     PermissionStats as UnifiedPermissionStats, GrantPermissionRequest, RevokePermissionRequest,
-    AssignGroupRequest, RemoveGroupRequest
+    AssignPlanRequest, RemovePlanRequest
 };
 
 // WEB3-FIRST AUTH EXPORTS

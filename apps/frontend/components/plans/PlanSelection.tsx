@@ -1,6 +1,7 @@
 'use client'
 
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { usePlanAccess } from '@/hooks/usePlanAccess'
 import { PricingCard } from '@/shared/components/plans/PricingCard'
 import { env } from '@/shared/env/schema'
 import { Plan, PricingCardData } from '@/shared/types/plans'
@@ -22,6 +23,7 @@ export function PlanSelection({ currentUser, className }: PlanSelectionProps) {
 
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { planAccess } = usePlanAccess()
 
   // Extract affiliate code from URL parameters
   useEffect(() => {
@@ -162,15 +164,42 @@ export function PlanSelection({ currentUser, className }: PlanSelectionProps) {
           ? Array.from({ length: 3 }).map((_, i) => (
             <div key={i} className="animate-pulse bg-gray-200 dark:bg-gray-800 rounded-2xl h-[500px]" />
           ))
-          : pricingCards.map((card) => (
-            <PricingCard
-              key={card.id}
-              card={card}
-              onSelect={handlePlanClick}
-              affiliateInfo={affiliateInfo}
-              affiliateCode={affiliateCode}
-            />
-          ))
+          : pricingCards.map((card) => {
+            // Determine action type based on current plan
+            let actionType: 'extend' | 'upgrade' | 'downgrade' | 'select' | 'locked' = 'select';
+            let buttonTextOverride = undefined;
+            let isSelected = false;
+
+            if (planAccess) {
+              if (planAccess.plan_name === card.title) {
+                actionType = 'extend';
+                buttonTextOverride = 'Extend Plan';
+                isSelected = true;
+              } else if ((card.tier_level || 0) > planAccess.tier_level) {
+                actionType = 'upgrade';
+              } else if ((card.tier_level || 0) < planAccess.tier_level) {
+                actionType = 'downgrade';
+                buttonTextOverride = 'Switch Plan'; // Will queue after expiry
+              }
+            }
+
+            // Override button text if needed
+            const finalCard = buttonTextOverride
+              ? { ...card, buttonText: buttonTextOverride }
+              : card;
+
+            return (
+              <PricingCard
+                key={card.id}
+                card={finalCard}
+                onSelect={handlePlanClick}
+                affiliateInfo={affiliateInfo}
+                affiliateCode={affiliateCode}
+                actionType={actionType}
+                isSelected={isSelected}
+              />
+            )
+          })
         }
       </div>
 

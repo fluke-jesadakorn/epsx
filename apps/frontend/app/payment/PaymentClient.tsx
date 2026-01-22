@@ -26,7 +26,7 @@ const UnifiedPaymentFlow = dynamic(
     }
 );
 
-type PaymentType = 'plan' | 'group' | 'permission';
+type PaymentType = 'plan' | 'access-plan' | 'permission';
 
 interface PaymentClientProps {
     paymentType: PaymentType;

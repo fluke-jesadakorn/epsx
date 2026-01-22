@@ -6,7 +6,6 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { Input } from './input'
 
-import { groupMgmt } from '@/lib/api/group-management-client'
 
 interface WalletSuggestion {
     wallet_address: string
@@ -76,11 +75,11 @@ export function WalletAutocomplete({
     const { data: suggestions = [], isLoading } = useQuery({
         queryKey: ['wallet-search', debouncedQuery, excludeGroupId],
         queryFn: async () => {
-            if (!shouldSearch) {return []}
+            if (!shouldSearch) { return [] }
 
             try {
                 // Use the group management client to search users
-                const results = await groupMgmt.searchUsers(debouncedQuery, 10, excludeGroupId)
+                const results = await planMgmt.searchUsers(debouncedQuery, 10, excludeGroupId)
 
                 // Transform results to wallet suggestions
                 if (Array.isArray(results)) {

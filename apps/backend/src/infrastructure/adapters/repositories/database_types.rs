@@ -259,17 +259,17 @@ impl UserCreateResponse {
 
 
 
-// Permission Group Types - Updated to match database schema exactly
+// Permission Plan Types - Updated to match database schema exactly
 // Supports both SQLx (legacy) and Diesel (new) during migration
 #[derive(Debug, Clone, diesel::Queryable, diesel::Selectable)]
-#[diesel(table_name = crate::schemas::primary::groups)]
-pub struct PermissionGroup {
+#[diesel(table_name = crate::schemas::primary::plans)]
+pub struct PermissionPlan {
     pub id: Uuid,
     pub name: String,
     pub slug: String,
     pub description: String,
-    pub group_type: String,
-    pub group_metadata: serde_json::Value,
+    pub plan_type: String,
+    pub plan_metadata: serde_json::Value,
     pub price: Option<bigdecimal::BigDecimal>,
     pub currency: Option<String>,
     pub billing_cycle: Option<String>,
@@ -294,25 +294,25 @@ pub struct PermissionGroup {
     pub tier_level: i32,
 }
 
-// Helper to extract permissions from group_metadata
-impl PermissionGroup {
+// Helper to extract permissions from plan_metadata
+impl PermissionPlan {
     pub fn permissions(&self) -> serde_json::Value {
-        self.group_metadata
+        self.plan_metadata
             .get("permissions")
             .cloned()
             .unwrap_or(serde_json::json!([]))
     }
 }
 
-// Diesel Insertable model for creating new permission groups
+// Diesel Insertable model for creating new permission plans
 #[derive(Debug, Clone, diesel::Insertable)]
-#[diesel(table_name = crate::schemas::primary::groups)]
-pub struct NewPermissionGroup {
+#[diesel(table_name = crate::schemas::primary::plans)]
+pub struct NewPermissionPlan {
     pub name: String,
     pub slug: String,
     pub description: String,
-    pub group_type: String,
-    pub group_metadata: serde_json::Value,
+    pub plan_type: String,
+    pub plan_metadata: serde_json::Value,
     pub price: Option<bigdecimal::BigDecimal>,
     pub currency: Option<String>,
     pub billing_cycle: Option<String>,
@@ -328,22 +328,22 @@ pub struct NewPermissionGroup {
 }
 
 // Helper method for backward compatibility
-impl NewPermissionGroup {
+impl NewPermissionPlan {
     pub fn with_permissions(mut self, permissions: serde_json::Value) -> Self {
-        if let Some(obj) = self.group_metadata.as_object_mut() {
+        if let Some(obj) = self.plan_metadata.as_object_mut() {
             obj.insert("permissions".to_string(), permissions);
         }
         self
     }
 }
 
-// Diesel AsChangeset model for updating permission groups
+// Diesel AsChangeset model for updating permission plans
 #[derive(Debug, Clone, diesel::AsChangeset)]
-#[diesel(table_name = crate::schemas::primary::groups)]
-pub struct UpdatePermissionGroup {
+#[diesel(table_name = crate::schemas::primary::plans)]
+pub struct UpdatePermissionPlan {
     pub name: Option<String>,
     pub description: Option<String>,
-    pub group_metadata: Option<serde_json::Value>,
+    pub plan_metadata: Option<serde_json::Value>,
     pub price: Option<bigdecimal::BigDecimal>,
     pub currency: Option<String>,
     pub billing_cycle: Option<String>,
@@ -352,30 +352,30 @@ pub struct UpdatePermissionGroup {
 }
 
 // Helper method for backward compatibility
-impl UpdatePermissionGroup {
+impl UpdatePermissionPlan {
     pub fn with_permissions(mut self, permissions: serde_json::Value) -> Self {
-        if let Some(ref mut metadata) = self.group_metadata {
+        if let Some(ref mut metadata) = self.plan_metadata {
             if let Some(obj) = metadata.as_object_mut() {
                 obj.insert("permissions".to_string(), permissions);
             }
         } else {
             let mut obj = serde_json::Map::new();
             obj.insert("permissions".to_string(), permissions);
-            self.group_metadata = Some(serde_json::Value::Object(obj));
+            self.plan_metadata = Some(serde_json::Value::Object(obj));
         }
         self
     }
 }
 
-// PermissionGroupRepository has been removed - use PermissionGroupRepositoryAdapter instead
+// PermissionPlanRepository has been removed - use PermissionPlanRepositoryAdapter instead
 // Supports both SQLx (legacy) and Diesel (new) during migration
 #[derive(Debug, Clone, diesel::Queryable)]
 pub struct WalletAssignment {
     pub id: Uuid,
     pub wallet_address: String,
-    pub group_id: Uuid,
-    pub group_name: String,
-    pub group_type: String,
+    pub plan_id: Uuid,
+    pub plan_name: String,
+    pub plan_type: String,
     pub assignment_source: String,
     pub assignment_reason: Option<String>,
     pub assigned_by: Option<String>,
@@ -394,7 +394,7 @@ pub struct WalletUserDb {
     pub is_active: bool,
     pub tier_level: String,
     pub wallet_metadata: serde_json::Value,
-    pub permission_groups: Option<serde_json::Value>,
+    pub permission_plans: Option<serde_json::Value>,
     pub disable_info: Option<serde_json::Value>,
     pub plan_expires_at: Option<DateTime<Utc>>,
     pub current_plan_id: Option<i32>,
@@ -428,19 +428,19 @@ pub struct UpdateWalletUserDb {
 
 
 // ============================================================================
-// Permission Group Models (Diesel)
+// Permission Plan Models (Diesel)
 // ============================================================================
 
-/// Diesel Queryable model for groups table
+/// Diesel Queryable model for plans table
 #[derive(Debug, Clone, diesel::Queryable, diesel::Selectable)]
-#[diesel(table_name = crate::schemas::primary::groups)]
-pub struct PermissionGroupDb {
+#[diesel(table_name = crate::schemas::primary::plans)]
+pub struct PermissionPlanDb {
     pub id: uuid::Uuid,
     pub name: String,
     pub slug: String,
     pub description: String,
-    pub group_type: String,
-    pub group_metadata: serde_json::Value,
+    pub plan_type: String,
+    pub plan_metadata: serde_json::Value,
     pub price: Option<BigDecimal>,
     pub currency: Option<String>,
     pub billing_cycle: Option<String>,
@@ -462,16 +462,16 @@ pub struct PermissionGroupDb {
     pub tier_level: i32,
 }
 
-/// Diesel Insertable model for creating/updating permission groups
+/// Diesel Insertable model for creating/updating permission plans
 #[derive(Debug, Clone, diesel::Insertable, diesel::AsChangeset)]
-#[diesel(table_name = crate::schemas::primary::groups)]
-pub struct NewPermissionGroupDb {
+#[diesel(table_name = crate::schemas::primary::plans)]
+pub struct NewPermissionPlanDb {
     pub id: uuid::Uuid,
     pub name: String,
     pub slug: String,
     pub description: String,
-    pub group_type: String,
-    pub group_metadata: serde_json::Value,
+    pub plan_type: String,
+    pub plan_metadata: serde_json::Value,
     pub price: Option<BigDecimal>,
     pub currency: Option<String>,
     pub billing_cycle: Option<String>,

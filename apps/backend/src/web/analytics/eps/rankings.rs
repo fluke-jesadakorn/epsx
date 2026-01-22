@@ -10,7 +10,7 @@ use std::sync::Arc;
 use tracing::{debug, info, warn};
 
 use crate::core::errors::AppError;
-use crate::domain::shared_kernel::services::eps_ranking_service::{EPSRankingService, EPSRankingParams, PermissionParser};
+use crate::domain::shared_kernel::services::eps_ranking_service::{EPSRankingService, EPSRankingParams};
 use crate::auth::UnifiedPermissionService;
 use super::{types::*, enhancement::enhance_with_websocket_data};
 
@@ -31,7 +31,7 @@ pub async fn get_eps_rankings(
     let (rank_offset, limit_cap) = if let Some(ref wallet) = wallet_address {
         calculate_ranking_config_from_permissions(&permission_service, wallet).await
     } else {
-        (100, -1) // Default free tier offset and limit for anonymous users
+        (crate::core::constants::FREE_PLAN_RANKING_OFFSET, -1) // Default free tier offset and limit for anonymous users
     };
 
     debug!("Calculated ranking config: offset={}, limit={} for wallet: {:?}", 
@@ -118,7 +118,7 @@ pub async fn get_eps_rankings(
         },
         access_info: super::types::AccessInfo {
             min_accessible_rank: rank_offset,
-            locked_ranks_count: rank_offset - 1,  // Ranks 1 to (offset-1) are locked
+            locked_ranks_count: rank_offset.max(1) - 1,  // Ranks 1 to (offset-1) are locked
         },
     };
 
@@ -209,24 +209,22 @@ pub fn is_valid_eps_for_ranking(eps: f64) -> bool {
     true
 }
 
-/// Calculate rank offset and limit based on user permissions
+/// Calculate rank offset and limit based on user's plan metadata.
+/// Uses get_wallet_ranking_offset which reads from plan_metadata directly.
 async fn calculate_ranking_config_from_permissions(
     permission_service: &Arc<UnifiedPermissionService>,
     wallet_address: &str,
 ) -> (i32, i32) {
-    // Get all permission strings for the user
-    // Get all permission strings for the user
-    match permission_service.get_permission_strings(wallet_address).await {
-        Ok(permissions) => {
-            info!("User {} has permissions: {:?}", wallet_address, permissions);
-            // Use the parser to extract offset and limit
-            let (offset, limit) = PermissionParser::extract_ranking_config(&permissions);
-            info!("Parsed ranking config for {}: offset={}, limit={}", wallet_address, offset, limit);
-            (offset, limit)
+    // Get offset directly from plan metadata (not permission strings)
+    match permission_service.get_wallet_ranking_offset(wallet_address).await {
+        Ok(offset) => {
+            info!("Wallet {} has ranking offset: {} (from plan metadata)", wallet_address, offset);
+            // limit_cap is -1 (unlimited) since we're using offset-based access
+            (offset, -1)
         },
         Err(e) => {
-            warn!("Failed to fetch permissions for user {}: {}, using defaults", wallet_address, e);
-            (100, -1) // Default free tier
+            warn!("Failed to get ranking offset for {}: {}, using {} default", wallet_address, e, crate::core::constants::FREE_PLAN_NAME);
+            (crate::core::constants::FREE_PLAN_RANKING_OFFSET, -1) // Free Plan default
         }
     }
 }

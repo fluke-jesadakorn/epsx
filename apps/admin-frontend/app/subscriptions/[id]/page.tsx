@@ -103,7 +103,7 @@ export default function SubscriptionDetailPage() {
             } else {
                 toast({
                     title: "Error",
-                    description: response.error || "Failed to update subscription",
+                    description: response.error?.message || "Failed to update subscription",
                     variant: "destructive"
                 })
             }
@@ -137,7 +137,7 @@ export default function SubscriptionDetailPage() {
             } else {
                 toast({
                     title: "Error",
-                    description: response.error || "Failed to cancel subscription",
+                    description: response.error?.message || "Failed to cancel subscription",
                     variant: "destructive"
                 })
             }
@@ -310,13 +310,13 @@ export default function SubscriptionDetailPage() {
                         <div>
                             <h4 className="font-semibold text-muted-foreground mb-2">Current Usage</h4>
                             <p className="text-sm text-foreground/80 font-mono bg-muted p-3 rounded-xl border border-border/50">
-                                {formatUsage(subscription.current_usage)}
+                                {formatUsage(subscription.current_usage || {})}
                             </p>
                         </div>
                         <div>
                             <h4 className="font-semibold text-muted-foreground mb-2">Quota Limits</h4>
                             <p className="text-sm text-foreground/80 font-mono bg-muted p-3 rounded-xl border border-border/50">
-                                {formatUsage(subscription.quota_limits)}
+                                {formatUsage(subscription.quota_limits || {})}
                             </p>
                         </div>
                     </div>

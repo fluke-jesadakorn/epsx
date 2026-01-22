@@ -75,9 +75,7 @@ export class MarketApiClient {
     // We use UnifiedApiClient but pointing to our Frontend API Routes
     this.client = new UnifiedApiClient({
       baseURL: clientBaseUrl,
-      headers: {
-        'Content-Type': 'application/json',
-      }
+      platform: 'frontend'
     });
   }
 
@@ -92,14 +90,14 @@ export class MarketApiClient {
       );
 
       if (!response.success) {
-        throw new Error(response.error || `Request failed with status ${response.status}`);
+        throw new Error(response.error?.message || 'Request failed');
       }
 
       const data = response.data!;
 
       apiLogger.debug('Market data fetched', {
         params,
-        totalItems: data.pagination?.total_items
+        totalItems: data.pagination?.total
       });
 
       return data;
@@ -123,7 +121,7 @@ export class MarketApiClient {
       );
 
       if (!response.success) {
-        throw new Error(response.error || `Request failed with status ${response.status}`);
+        throw new Error(response.error?.message || 'Request failed');
       }
 
       return response.data!;
@@ -146,7 +144,7 @@ export class MarketApiClient {
       );
 
       if (!response.success) {
-        throw new Error(response.error || `Request failed with status ${response.status}`);
+        throw new Error(response.error?.message || 'Request failed');
       }
 
       apiLogger.debug('Individual stock data fetched', { symbol });
@@ -171,7 +169,7 @@ export class MarketApiClient {
       );
 
       if (!response.success) {
-        throw new Error(response.error || `Request failed with status ${response.status}`);
+        throw new Error(response.error?.message || 'Request failed');
       }
 
       return response.data!;
@@ -193,7 +191,7 @@ export class MarketApiClient {
       );
 
       if (!response.success) {
-        throw new Error(response.error || `Request failed with status ${response.status}`);
+        throw new Error(response.error?.message || 'Request failed');
       }
 
       return response.data!;
@@ -217,7 +215,7 @@ export class MarketApiClient {
       );
 
       if (!response.success) {
-        throw new Error(response.error || `Request failed with status ${response.status}`);
+        throw new Error(response.error?.message || 'Request failed');
       }
 
       return response.data!;
@@ -252,7 +250,7 @@ export class MarketApiClient {
       );
 
       if (!response.success) {
-        throw new Error(response.error || `Request failed with status ${response.status}`);
+        throw new Error(response.error?.message || 'Request failed');
       }
 
       return response.data!;
@@ -276,7 +274,7 @@ export class MarketApiClient {
       );
 
       if (!response.success) {
-        throw new Error(response.error || `Request failed with status ${response.status}`);
+        throw new Error(response.error?.message || 'Request failed');
       }
 
       return response.data!;
@@ -298,7 +296,7 @@ export class MarketApiClient {
       );
 
       if (!response.success) {
-        throw new Error(response.error || `Request failed with status ${response.status}`);
+        throw new Error(response.error?.message || 'Request failed');
       }
 
       return response.data!;

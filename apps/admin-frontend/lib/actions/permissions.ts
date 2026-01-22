@@ -13,7 +13,7 @@ interface BatchPermissionRequest {
   expiresAt?: string;
   reason?: string;
   sourceType?: 'direct' | 'group';
-  groupId?: string;
+  planId?: string;
 }
 
 interface PermissionTemplate {
@@ -285,7 +285,7 @@ export async function applyPermissionTemplate(
   }
 
   try {
-    const response = await fetch(`${process.env.BACKEND_URL}${API_ROUTES.ADMIN.PERMISSION_GROUPS}/${templateId}/apply`, {
+    const response = await fetch(`${process.env.BACKEND_URL}${API_ROUTES.ADMIN.PERMISSION_PLANS}/${templateId}/apply`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,

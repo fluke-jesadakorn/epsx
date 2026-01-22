@@ -10,8 +10,8 @@ pub struct CreatePlanRequest {
     pub name: String,
     #[schema(example = "Plan for advanced users")]
     pub description: Option<String>,
-    #[schema(example = "Advanced Access Group")]
-    pub permission_group_name: String, 
+    #[schema(example = "Advanced Access Plan")]
+    pub permission_plan_name: String, 
     #[schema(value_type = String, example = "29.99")]
     pub current_price: Decimal,
     #[schema(example = "USD")]
@@ -44,7 +44,7 @@ pub struct PlanResponse {
     pub id: String, // UUID
     pub name: String,
     pub description: Option<String>,
-    pub permission_group_name: String,
+    pub permission_plan_name: String,
     #[schema(value_type = String)]
     pub current_price: Decimal,
     pub effective_price: f64,
@@ -54,7 +54,7 @@ pub struct PlanResponse {
     pub currency: String,
     pub target_audience: String,
     pub billing_model: String,
-    pub group_type: String,
+    pub plan_type: String,
     pub plan_category: String,
     pub is_active: bool,
     pub permissions: Vec<String>,
@@ -86,7 +86,7 @@ pub struct PlanListData {
 pub struct CreateSubscriptionRequest {
     pub wallet_address: String,
     pub plan_id: Uuid,
-    pub permission_group_name: String, // e.g., "Premium Access Group"
+    pub permission_plan_name: String, // e.g., "Premium Access Plan"
     pub access_context: String,
     pub api_key_name: Option<String>,
     pub expires_at: Option<DateTime<Utc>>,
@@ -99,9 +99,9 @@ pub struct SubscriptionResponse {
     pub id: String,
     pub wallet_address: String,
     pub plan_id: Uuid,
-    pub permission_group_name: String,
+    pub permission_plan_name: String,
     pub permissions_granted: Vec<String>,
-    pub group_type: String,
+    pub plan_type: String,
     pub access_context: String,
     pub api_key: Option<String>,
     pub api_key_name: Option<String>,
@@ -133,11 +133,19 @@ pub struct UserAccessData {
     pub status: String, // "active", "expiring_soon", "expired", "no_plan"
 }
 
-// Permissions Group DTO
+// Permissions Plan DTO
 #[derive(Debug, Deserialize, ToSchema)]
-pub struct PermissionGroupRequest {
+pub struct PermissionPlanRequest {
     pub name: String,
     pub description: Option<String>,
     pub permissions: Vec<String>,
-    pub group_type: String, 
+    pub plan_type: String, 
+}
+#[derive(Debug, Deserialize)]
+pub struct SubscriptionListQuery {
+    pub page: Option<i64>,
+    pub limit: Option<i64>,
+    pub status: Option<String>,
+    pub access_context: Option<String>,
+    pub search: Option<String>,
 }

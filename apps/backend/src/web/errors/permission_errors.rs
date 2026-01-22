@@ -24,7 +24,7 @@ pub enum PermissionError {
         permission: String,
         reason: String,
         suggested_actions: Vec<String>,
-        upgrade_group: Option<String>,
+        upgrade_plan: Option<String>,
     },
     
     #[error("Permission expired: {permission} expired at {expired_at}")]
@@ -40,13 +40,13 @@ pub enum PermissionError {
         current_usage: u32,
         limit: u32,
         reset_at: Option<chrono::DateTime<chrono::Utc>>,
-        upgrade_group: Option<String>,
+        upgrade_plan: Option<String>,
     },
     
-    #[error("Insufficient permission group: {current_group} insufficient for {required_group}")]
-    InsufficientGroup {
-        current_group: String,
-        required_group: String,
+    #[error("Insufficient permission plan: {current_plan} insufficient for {required_plan}")]
+    InsufficientPlan {
+        current_plan: String,
+        required_plan: String,
         upgrade_url: Option<String>,
         benefits: Vec<String>,
     },
@@ -120,8 +120,8 @@ impl UsagePeriod {
 pub struct PermissionErrorContext {
     /// The user's wallet address
     pub wallet_address: Option<String>,
-    /// The user's current permission group (e.g., "free", "starter", "professional")
-    pub current_group: Option<String>,
+    /// The user's current permission plan (e.g., "free", "starter", "professional")
+    pub current_plan: Option<String>,
     /// The resource path being accessed
     pub resource_path: Option<String>,
     /// The HTTP method being used
@@ -140,8 +140,8 @@ impl PermissionErrorContext {
         self
     }
 
-    pub fn with_group(mut self, group: impl Into<String>) -> Self {
-        self.current_group = Some(group.into());
+    pub fn with_plan(mut self, plan: impl Into<String>) -> Self {
+        self.current_plan = Some(plan.into());
         self
     }
 
@@ -204,11 +204,11 @@ pub struct PermissionErrorDetails {
     /// HTTP method used
     pub http_method: Option<String>,
     
-    /// Current user permission group
-    pub current_group: Option<String>,
+    /// Current user permission plan
+    pub current_plan: Option<String>,
     
-    /// Required permission group for this action
-    pub required_group: Option<String>,
+    /// Required permission plan for this action
+    pub required_plan: Option<String>,
     
     /// Permission expiry information
     pub expiry_info: Option<PermissionExpiryInfo>,
@@ -252,11 +252,11 @@ pub struct SecurityInfo {
     pub contact_support_url: Option<String>,
 }
 
-/// Group upgrade information
+/// Plan upgrade information
 #[derive(Debug, Serialize, Deserialize)]
 pub struct UpgradeInfo {
-    pub current_group: String,
-    pub required_group: String,
+    pub current_plan: String,
+    pub required_plan: String,
     pub upgrade_url: Option<String>,
     pub pricing_url: Option<String>,
     pub benefits: Vec<String>,
@@ -281,8 +281,8 @@ impl PermissionError {
                         wallet_address: None,
                         resource_path: None,
                         http_method: None,
-                        current_group: None,
-                        required_group: None,
+                        current_plan: None,
+                        required_plan: None,
                         expiry_info: None,
                         usage_info: None,
                         security_info: None,
@@ -302,10 +302,10 @@ impl PermissionError {
                 }
             }
             
-            PermissionError::PermissionDenied { permission, reason, suggested_actions, upgrade_group } => {
+            PermissionError::PermissionDenied { permission, reason, suggested_actions, upgrade_plan } => {
                 let mut context = HashMap::new();
-                if let Some(tier) = upgrade_group {
-                    context.insert("upgrade_group".to_string(), serde_json::Value::String(tier.clone()));
+                if let Some(tier) = upgrade_plan {
+                    context.insert("upgrade_plan".to_string(), serde_json::Value::String(tier.clone()));
                 }
                 
                 PermissionErrorResponse {
@@ -317,14 +317,14 @@ impl PermissionError {
                         wallet_address: None,
                         resource_path: None,
                         http_method: None,
-                        current_group: None,
-                        required_group: upgrade_group.clone(),
+                        current_plan: None,
+                        required_plan: upgrade_plan.clone(),
                         expiry_info: None,
                         usage_info: None,
                         security_info: None,
-                        upgrade_info: upgrade_group.as_ref().map(|tier| UpgradeInfo {
-                            current_group: "basic".to_string(), // TODO: Get from user context
-                            required_group: tier.clone(),
+                        upgrade_info: upgrade_plan.as_ref().map(|tier| UpgradeInfo {
+                            current_plan: "basic".to_string(), // TODO: Get from user context
+                            required_plan: tier.clone(),
                             upgrade_url: Some("/payment".to_string()),
                             pricing_url: Some("/payment".to_string()),
                             benefits: vec![
@@ -336,7 +336,7 @@ impl PermissionError {
                     },
                     suggested_actions: suggested_actions.clone(),
                     user_message: format!("You don't have permission to access this feature. {}", 
-                        if upgrade_group.is_some() { "Consider upgrading your plan." } else { "" }),
+                        if upgrade_plan.is_some() { "Consider upgrading your plan." } else { "" }),
                     timestamp,
                     error_id,
                     context,
@@ -353,8 +353,8 @@ impl PermissionError {
                         wallet_address: None,
                         resource_path: None,
                         http_method: None,
-                        current_group: None,
-                        required_group: None,
+                        current_plan: None,
+                        required_plan: None,
                         expiry_info: Some(PermissionExpiryInfo {
                             expired_at: *expired_at,
                             grace_period_until: None,
@@ -368,7 +368,7 @@ impl PermissionError {
                     suggested_actions: vec![
                         "Renew your subscription".to_string(),
                         "Contact support for extension".to_string(),
-                        "Upgrade to a higher permission group".to_string(),
+                        "Upgrade to a higher permission plan".to_string(),
                     ],
                     user_message: "Your permission has expired. Please renew your subscription to continue.".to_string(),
                     timestamp,
@@ -377,7 +377,7 @@ impl PermissionError {
                 }
             }
             
-            PermissionError::UsageLimitExceeded { permission, current_usage, limit, reset_at, upgrade_group } => {
+            PermissionError::UsageLimitExceeded { permission, current_usage, limit, reset_at, upgrade_plan } => {
                 let usage_percentage = (*current_usage as f32 / *limit as f32) * 100.0;
                 
                 PermissionErrorResponse {
@@ -389,8 +389,8 @@ impl PermissionError {
                         wallet_address: None,
                         resource_path: None,
                         http_method: None,
-                        current_group: None,
-                        required_group: upgrade_group.clone(),
+                        current_plan: None,
+                        required_plan: upgrade_plan.clone(),
                         expiry_info: None,
                         usage_info: Some(UsageInfo {
                             current_usage: *current_usage,
@@ -400,9 +400,9 @@ impl PermissionError {
                             usage_percentage,
                         }),
                         security_info: None,
-                        upgrade_info: upgrade_group.as_ref().map(|tier| UpgradeInfo {
-                            current_group: "basic".to_string(), // TODO: Get from user context
-                            required_group: tier.clone(),
+                        upgrade_info: upgrade_plan.as_ref().map(|tier| UpgradeInfo {
+                            current_plan: "basic".to_string(), // TODO: Get from user context
+                            required_plan: tier.clone(),
                             upgrade_url: Some("/payment".to_string()),
                             pricing_url: Some("/payment".to_string()),
                             benefits: vec![
@@ -427,24 +427,24 @@ impl PermissionError {
                 }
             }
             
-            PermissionError::InsufficientGroup { current_group, required_group, upgrade_url, benefits } => {
+            PermissionError::InsufficientPlan { current_plan, required_plan, upgrade_url, benefits } => {
                 PermissionErrorResponse {
-                    error_type: "insufficient_group".to_string(),
+                    error_type: "insufficient_plan".to_string(),
                     status_code: 403,
-                    message: format!("Insufficient permission group: {} required, you have {}", required_group, current_group),
+                    message: format!("Insufficient permission plan: {} required, you have {}", required_plan, current_plan),
                     details: PermissionErrorDetails {
                         permission: None,
                         wallet_address: None,
                         resource_path: None,
                         http_method: None,
-                        current_group: Some(current_group.clone()),
-                        required_group: Some(required_group.clone()),
+                        current_plan: Some(current_plan.clone()),
+                        required_plan: Some(required_plan.clone()),
                         expiry_info: None,
                         usage_info: None,
                         security_info: None,
                         upgrade_info: Some(UpgradeInfo {
-                            current_group: current_group.clone(),
-                            required_group: required_group.clone(),
+                            current_plan: current_plan.clone(),
+                            required_plan: required_plan.clone(),
                             upgrade_url: upgrade_url.clone(),
                             pricing_url: Some("/payment".to_string()),
                             benefits: benefits.clone(),
@@ -452,11 +452,11 @@ impl PermissionError {
                         }),
                     },
                     suggested_actions: vec![
-                        format!("Upgrade to {} permission group", required_group),
+                        format!("Upgrade to {} permission plan", required_plan),
                         "View pricing options".to_string(),
                         "Start a free trial".to_string(),
                     ],
-                    user_message: format!("This feature requires {} permission group. Upgrade your plan to access it.", required_group),
+                    user_message: format!("This feature requires {} permission plan. Upgrade your plan to access it.", required_plan),
                     timestamp,
                     error_id,
                     context: HashMap::new(),
@@ -473,8 +473,8 @@ impl PermissionError {
                         wallet_address: None,
                         resource_path: None,
                         http_method: None,
-                        current_group: None,
-                        required_group: None,
+                        current_plan: None,
+                        required_plan: None,
                         expiry_info: None,
                         usage_info: None,
                         security_info: Some(SecurityInfo {
@@ -517,8 +517,8 @@ impl PermissionError {
                         wallet_address: None,
                         resource_path: None,
                         http_method: None,
-                        current_group: None,
-                        required_group: None,
+                        current_plan: None,
+                        required_plan: None,
                         expiry_info: None,
                         usage_info: None,
                         security_info: None,
@@ -549,8 +549,8 @@ impl PermissionError {
                         wallet_address: None,
                         resource_path: None,
                         http_method: None,
-                        current_group: None,
-                        required_group: None,
+                        current_plan: None,
+                        required_plan: None,
                         expiry_info: None,
                         usage_info: None,
                         security_info: None,
@@ -579,13 +579,13 @@ impl PermissionError {
             response.details.wallet_address = Some(wallet.clone());
         }
         
-        // Enrich with current group (replacing hardcoded "basic")
-        if let Some(group) = &ctx.current_group {
-            response.details.current_group = Some(group.clone());
+        // Enrich with current plan (replacing hardcoded "basic")
+        if let Some(plan) = &ctx.current_plan {
+            response.details.current_plan = Some(plan.clone());
             
             // Also update upgrade_info if present
             if let Some(ref mut upgrade_info) = response.details.upgrade_info {
-                upgrade_info.current_group = group.clone();
+                upgrade_info.current_plan = plan.clone();
             }
         }
         
@@ -634,17 +634,17 @@ impl PermissionError {
     pub fn permission_denied_with_upgrade(
         permission: impl Into<String>,
         reason: impl Into<String>,
-        upgrade_group: impl Into<String>,
+        upgrade_plan: impl Into<String>,
     ) -> Self {
-        let group = upgrade_group.into();
+        let plan = upgrade_plan.into();
         Self::PermissionDenied {
             permission: permission.into(),
             reason: reason.into(),
             suggested_actions: vec![
-                format!("Upgrade to {} group", group),
+                format!("Upgrade to {} plan", plan),
                 "View pricing options".to_string(),
             ],
-            upgrade_group: Some(group),
+            upgrade_plan: Some(plan),
         }
     }
     
@@ -660,7 +660,7 @@ impl PermissionError {
             current_usage: current,
             limit,
             reset_at,
-            upgrade_group: Some("premium".to_string()),
+            upgrade_plan: Some("premium".to_string()),
         }
     }
     
@@ -683,7 +683,7 @@ mod tests {
     fn test_permission_denied_error_response() {
         let error = PermissionError::permission_denied_with_upgrade(
             "admin:users:create",
-            "Insufficient permission group level",
+            "Insufficient permission plan level",
             "professional"
         );
         
@@ -734,20 +734,20 @@ mod tests {
         
         let ctx = PermissionErrorContext::new()
             .with_wallet("0x1234567890abcdef1234567890abcdef12345678")
-            .with_group("starter")
+            .with_plan("starter")
             .with_resource("/api/analytics/rankings", "GET");
         
         let response = error.to_error_response_with_context(&ctx);
         
         assert_eq!(response.error_type, "permission_denied");
         assert_eq!(response.details.wallet_address, Some("0x1234567890abcdef1234567890abcdef12345678".to_string()));
-        assert_eq!(response.details.current_group, Some("starter".to_string()));
+        assert_eq!(response.details.current_plan, Some("starter".to_string()));
         assert_eq!(response.details.resource_path, Some("/api/analytics/rankings".to_string()));
         assert_eq!(response.details.http_method, Some("GET".to_string()));
         
-        // The upgrade_info should also be updated with the actual group
+        // The upgrade_info should also be updated with the actual plan
         if let Some(upgrade_info) = &response.details.upgrade_info {
-            assert_eq!(upgrade_info.current_group, "starter");
+            assert_eq!(upgrade_info.current_plan, "starter");
         }
     }
 

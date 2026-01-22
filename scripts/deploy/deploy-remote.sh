@@ -2,7 +2,7 @@
 set -e
 
 # Configuration
-SERVER_IP="100.109.131.15"
+SERVER_IP="100.97.9.56"
 REMOTE_DIR="~/epsx"
 DEPLOY_ARCHIVE="deploy-prod.tar.gz"
 

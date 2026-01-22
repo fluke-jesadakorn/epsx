@@ -30,6 +30,12 @@ impl PlanId {
     pub fn as_str(&self) -> String {
         self.0.to_string()
     }
+
+    /// Parse from string
+    pub fn from_str(s: &str) -> Result<Self, AppError> {
+        use std::str::FromStr;
+        <Self as FromStr>::from_str(s)
+    }
 }
 
 impl std::fmt::Display for PlanId {

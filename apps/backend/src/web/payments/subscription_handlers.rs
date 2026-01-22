@@ -24,7 +24,7 @@ use crate::{
 // HELPER FUNCTIONS
 // ============================================================================
 
-/// Extract ranking offset from group metadata
+/// Extract ranking offset from plan metadata
 /// Returns: 0 for top ranks access, higher values for lower tier access
 fn extract_ranking_offset(metadata: &serde_json::Value) -> i32 {
     // Check for ranking_offset in metadata root or features
@@ -53,7 +53,7 @@ fn extract_ranking_offset(metadata: &serde_json::Value) -> i32 {
         }
     }
     // Default: free tier sees ranks 101+ (offset 100)
-    100
+    crate::core::constants::FREE_PLAN_RANKING_OFFSET
 }
 
 // ============================================================================
@@ -80,6 +80,16 @@ pub struct PlanAccessData {
     pub ranking_offset: i32, // Starting rank position (0 = top ranks, 100 = ranks 101+)
     pub can_upgrade: bool,
     pub tier_level: i32, // Plan tier level for upgrade/downgrade logic
+    pub all_plans: Vec<PlanSummary>,
+}
+
+/// Summary of an active subscription
+#[derive(Debug, Clone, Serialize)]
+pub struct PlanSummary {
+    pub plan_name: String,
+    pub expires_at: Option<DateTime<Utc>>,
+    pub tier_level: i32,
+    pub is_effective: bool,
 }
 
 /// Plan expiry status response
@@ -129,7 +139,7 @@ pub async fn get_user_plans_handler(
 
     let now = Utc::now();
 
-    // 1. Primary Check: Look for active subscription in wallet_group_assignments
+    // 1. Primary Check: Look for active subscription in wallet_plan_assignments
     // This is the source of truth for all new payments/plans
     #[derive(diesel::QueryableByName)]
     struct ActiveSubscriptionRow {
@@ -138,33 +148,34 @@ pub async fn get_user_plans_handler(
         #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
         expires_at: Option<DateTime<Utc>>,
         #[diesel(sql_type = diesel::sql_types::Jsonb)]
-        group_metadata: serde_json::Value,
+        plan_metadata: serde_json::Value,
         #[diesel(sql_type = diesel::sql_types::Integer)]
         tier_level: i32,
     }
 
-    let active_sub: Option<ActiveSubscriptionRow> = diesel::sql_query(
+
+
+    // Re-run safely with load
+    let active_subs: Vec<ActiveSubscriptionRow> = diesel::sql_query(
         r#"
-        SELECT g.name, wga.expires_at, g.group_metadata, g.tier_level
-        FROM wallet_group_assignments wga
-        JOIN groups g ON g.id = wga.group_id
+        SELECT g.name, wga.expires_at, g.plan_metadata, g.tier_level
+        FROM wallet_plan_assignments wga
+        JOIN plans g ON g.id = wga.plan_id
         WHERE LOWER(wga.wallet_address) = LOWER($1)
           AND wga.is_active = true
           AND (wga.expires_at IS NULL OR wga.expires_at > NOW())
-          AND (g.group_type = 'subscription' OR g.group_type = 'plan')
-        ORDER BY wga.assigned_at DESC
-        LIMIT 1
+          AND (g.plan_type = 'subscription' OR g.plan_type = 'enterprise' OR g.plan_type = 'api-developer')
+        ORDER BY g.tier_level DESC, wga.assigned_at DESC
         "#
     )
     .bind::<diesel::sql_types::Text, _>(&user_context.wallet_address)
-    .get_result(&mut conn)
+    .load(&mut conn)
     .await
-    .optional()
-    .ok()
-    .flatten();
+    .unwrap_or_default();
 
-    if let Some(sub) = active_sub {
-        // Found active subscription!
+
+    if let Some(sub) = active_subs.as_slice().first() {
+        // Effective plan is the one with highest tier_level (first in list due to sort)
         let days_remaining = sub.expires_at
             .map(|exp| if exp > now { (exp - now).num_days() } else { 0 })
             .unwrap_or(3650); // Effectively unlimited if NULL (permanent)
@@ -176,30 +187,39 @@ pub async fn get_user_plans_handler(
         };
         
         // Extract ranking offset from metadata
-        let ranking_offset = extract_ranking_offset(&sub.group_metadata);
+        let ranking_offset = extract_ranking_offset(&sub.plan_metadata);
         
         // Check if user can upgrade (ranking_offset > 0 means not full access)
         let can_upgrade = ranking_offset > 0;
+
+        // Build summary list
+        let all_plans = active_subs.iter().map(|s| PlanSummary {
+            plan_name: s.name.clone(),
+            expires_at: s.expires_at,
+            tier_level: s.tier_level,
+            is_effective: s.tier_level == sub.tier_level, // Simple check, assuming unique tiers or first is best
+        }).collect();
 
         return Ok(Json(UserPlansResponse {
             success: true,
             message: "User plan access retrieved successfully".to_string(),
             data: Some(PlanAccessData {
                 wallet_address: user_context.wallet_address.clone(),
-                current_plan_id: None, // No legacy integer ID for group-based plans
-                plan_name: Some(sub.name),
+                current_plan_id: None, // No legacy integer ID for plan-based plans
+                plan_name: Some(sub.name.clone()),
                 plan_expires_at: sub.expires_at,
                 days_remaining: days_remaining.max(0),
                 status: status.to_string(),
                 ranking_offset,
                 can_upgrade,
-                tier_level: sub.tier_level, // Use tier_level from group
+                tier_level: sub.tier_level, // Use tier_level from plan
+                all_plans,
             }),
         }));
     }
 
     // 2. Fallback: Check legacy wallet_users columns (Deprecated)
-    // Only used for users who haven't migrated to the new group system
+    // Only used for users who haven't migrated to the new plan system
     #[derive(diesel::QueryableByName)]
     struct UserRow {
         #[diesel(sql_type = diesel::sql_types::Text)]
@@ -272,9 +292,10 @@ pub async fn get_user_plans_handler(
                 plan_expires_at: u.plan_expires_at,
                 days_remaining: days_remaining.max(0),
                 status: status.to_string(),
-                ranking_offset: 100, // Legacy users default to free tier offset
+                ranking_offset: crate::core::constants::FREE_PLAN_RANKING_OFFSET, // Legacy users default to free tier offset
                 can_upgrade: true,
                 tier_level: 0, // Legacy users default to tier 0
+                all_plans: vec![],
             }
         },
         None => PlanAccessData {
@@ -284,9 +305,10 @@ pub async fn get_user_plans_handler(
             plan_expires_at: None,
             days_remaining: 0,
             status: "no_plan".to_string(),
-            ranking_offset: 100, // Free tier sees ranks 101+
+            ranking_offset: crate::core::constants::FREE_PLAN_RANKING_OFFSET, // Free tier sees ranks 101+
             can_upgrade: true,
             tier_level: 0, // No plan = tier 0
+            all_plans: vec![],
         },
     };
 
@@ -492,18 +514,18 @@ pub async fn get_upgrade_preview_handler(
     #[allow(dead_code)]
     struct AssignmentRow {
         #[diesel(sql_type = diesel::sql_types::Uuid)]
-        group_id: uuid::Uuid,
+        plan_id: uuid::Uuid,
         #[diesel(sql_type = diesel::sql_types::Timestamptz)]
         assigned_at: DateTime<Utc>,
         #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
         expires_at: Option<DateTime<Utc>>,
     }
 
-    // Get active group assignment for this wallet
+    // Get active plan assignment for this wallet
     let assignment: Option<AssignmentRow> = diesel::sql_query(
         r#"
-        SELECT group_id, assigned_at, expires_at
-        FROM wallet_group_assignments
+        SELECT plan_id, assigned_at, expires_at
+        FROM wallet_plan_assignments
         WHERE LOWER(wallet_address) = LOWER($1)
           AND is_active = true
           AND (expires_at IS NULL OR expires_at > NOW())
@@ -522,7 +544,7 @@ pub async fn get_upgrade_preview_handler(
     let (current_plan_info, current_plan_price) = if let Some(ref a) = assignment {
         #[derive(diesel::QueryableByName)]
         #[allow(dead_code)]
-        struct GroupRow {
+        struct PlanRow {
             #[diesel(sql_type = diesel::sql_types::Uuid)]
             id: uuid::Uuid,
             #[diesel(sql_type = diesel::sql_types::Text)]
@@ -531,17 +553,17 @@ pub async fn get_upgrade_preview_handler(
             price: Option<bigdecimal::BigDecimal>,
         }
 
-        let group: Option<GroupRow> = diesel::sql_query(
-            "SELECT id, name, price FROM groups WHERE id = $1"
+        let plan: Option<PlanRow> = diesel::sql_query(
+            "SELECT id, name, price FROM plans WHERE id = $1"
         )
-        .bind::<diesel::sql_types::Uuid, _>(a.group_id)
+        .bind::<diesel::sql_types::Uuid, _>(a.plan_id)
         .get_result(&mut conn)
         .await
         .optional()
         .ok()
         .flatten();
 
-        if let Some(g) = group {
+        if let Some(g) = plan {
             let price: rust_decimal::Decimal = g.price.as_ref()
                 .and_then(|bd| rust_decimal::Decimal::from_str(&bd.to_string()).ok())
                 .unwrap_or(rust_decimal::Decimal::ZERO);
@@ -551,7 +573,7 @@ pub async fn get_upgrade_preview_handler(
                 .unwrap_or(0);
 
             (Some(CurrentPlanInfo {
-                id: None, // Groups use UUID, not i32
+                id: None, // Plans use UUID, not i32
                 name: g.name,
                 price: price.to_string(),
                 expires_at: a.expires_at,
@@ -589,7 +611,7 @@ pub async fn get_upgrade_preview_handler(
         current_plan: current_plan_info,
         new_plan: NewPlanInfo {
             id: new_plan.id,
-            name: new_plan.name,
+            name: new_plan.name.clone(),
             price: new_plan_price.to_string(),
         },
         credit_from_current_plan: credit.to_string(),
@@ -600,7 +622,8 @@ pub async fn get_upgrade_preview_handler(
     };
 
     let message = if !is_upgrade {
-        "Downgrades are not allowed. Please wait for your current plan to expire or contact support.".to_string()
+        // Downgrade / Sidegrade logic
+        format!("Plan Switch: {} (Activates after your current plan expires)", new_plan.name)
     } else if credit > rust_decimal::Decimal::ZERO {
         format!("Upgrade with ${} credit from your current plan. Amount to pay: ${}", credit, amount_to_pay)
     } else {
@@ -608,7 +631,7 @@ pub async fn get_upgrade_preview_handler(
     };
 
     Ok(Json(UpgradePreviewResponse {
-        success: is_upgrade,
+        success: true, // ALWAYS ALLOW switch (upgrade or downgrade)
         message,
         data: Some(response_data),
     }))

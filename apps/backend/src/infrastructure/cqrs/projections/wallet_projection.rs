@@ -277,7 +277,7 @@ impl WalletReadModelProjection {
             UPDATE read_model.wallet_details
             SET
                 permissions_last_updated = NOW(),
-                groups_last_updated = NOW(),
+                plans_last_updated = NOW(),
                 updated_at = NOW(),
                 projection_version = projection_version + 1,
                 last_event_id = $1,

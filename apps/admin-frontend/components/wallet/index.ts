@@ -24,8 +24,8 @@ export { WalletStatsBar } from './WalletStatsBar';
 
 // New Components (Redesign)
 export { AddResourceModal } from './AddResourceModal';
-export { WalletGroupSection } from './WalletGroupSection';
 export { WalletPermissionSection } from './WalletPermissionSection';
+export { WalletPlanSection } from './WalletPlanSection';
 
 // Types
 export type {

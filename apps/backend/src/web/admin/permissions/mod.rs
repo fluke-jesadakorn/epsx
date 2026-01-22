@@ -4,8 +4,8 @@
 // Reduces 3,743 lines to ~1,800 lines (52% reduction)
 // ============================================================================
 
-pub mod groups;       // Permission group CRUD operations
-pub mod assignments;  // Wallet-group assignment management
+pub mod plans;       // Permission plan CRUD operations
+pub mod assignments;  // Wallet-plan assignment management
 pub mod direct;       // Direct wallet permission management
 pub mod validation;   // Permission validation logic
 pub mod bulk;         // Bulk operations for permissions
@@ -13,7 +13,7 @@ pub mod system;       // System-level operations (health, caching, stats)
 pub mod available;    // Available permissions listing
 
 // Re-export for convenience
-pub use groups::*;
+pub use plans::*;
 pub use assignments::*;
 pub use direct::*;
 pub use validation::*;
@@ -32,27 +32,27 @@ use crate::web::auth::AppState;
 pub fn create_permission_routes() -> Router<AppState> {
     Router::new()
         // ============================================================================
-        // PERMISSION GROUPS
+        // PERMISSION PLANS
         // ============================================================================
-        .route("/groups", post(groups::create_group))
-        .route("/groups", get(groups::list_groups))
-        .route("/groups/{group_id}", get(groups::get_group))
-        .route("/groups/{group_id}", put(groups::update_group))
-        .route("/groups/{group_id}", delete(groups::delete_group))
-        .route("/groups/{group_id}/members", get(groups::get_group_members))
-        .route("/groups/{group_id}/permissions", get(groups::get_group_permissions))
-        .route("/assignments/group/{group_id}", get(groups::get_group_assignments))
+        .route("/plans", post(plans::create_plan))
+        .route("/plans", get(plans::list_plans))
+        .route("/plans/{id}", get(plans::get_plan))
+        .route("/plans/{id}", put(plans::update_plan))
+        .route("/plans/{id}", delete(plans::delete_plan))
+        .route("/plans/{id}/members", get(plans::get_plan_members))
+        .route("/plans/{id}/permissions", get(plans::get_plan_permissions))
+        .route("/assignments/plan/{id}", get(plans::get_plan_assignments))
 
         // ============================================================================
-        // WALLET-GROUP ASSIGNMENTS
+        // WALLET-PLAN ASSIGNMENTS
         // ============================================================================
         .route("/assignments", post(assignments::create_assignment))
         .route("/assignments", get(assignments::list_assignments))
         .route("/assignments/{assignment_id}", delete(assignments::remove_assignment))
         .route("/assignments/expiring", get(assignments::get_expiring_assignments))
         .route("/assignments/history/{wallet}", get(assignments::get_assignment_history))
-        .route("/assignments/history", get(assignments::get_group_history))
-        .route("/wallets/{wallet}/groups", get(assignments::get_wallet_groups))
+        .route("/assignments/history", get(assignments::get_plan_history))
+        .route("/wallets/{wallet}/plans", get(assignments::get_wallet_plans))
 
         // ============================================================================
         // DIRECT PERMISSIONS
@@ -60,8 +60,8 @@ pub fn create_permission_routes() -> Router<AppState> {
         .route("/direct", post(direct::grant_permission))
         .route("/direct", delete(direct::revoke_permission))
         .route("/direct/{wallet}", get(direct::list_wallet_permissions))
-        .route("/groups/{group_id}/permissions", post(direct::add_permission_to_group))
-        .route("/groups/{group_id}/permissions/{permission_id}", delete(direct::remove_permission_from_group))
+        .route("/plans/{id}/permissions", post(direct::add_permission_to_plan))
+        .route("/plans/{id}/permissions/{permission_id}", delete(direct::remove_permission_from_plan))
 
         // ============================================================================
         // VALIDATION
@@ -75,7 +75,7 @@ pub fn create_permission_routes() -> Router<AppState> {
         // ============================================================================
         .route("/bulk/grant", post(bulk::bulk_grant))
         .route("/bulk/revoke", post(bulk::bulk_revoke))
-        .route("/bulk/assign-groups", post(bulk::bulk_assign_groups))
+        .route("/bulk/assign-plans", post(bulk::bulk_assign_plans))
         .route("/bulk/apply-template", post(bulk::bulk_apply_template))
         .route("/bulk/validate", post(bulk::bulk_validate))
 

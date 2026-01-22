@@ -4,9 +4,9 @@ use crate::domain::subscription_management::value_objects::{
     billing_cycle::BillingCycle,
     plan_features::PlanFeatures,
 };
-// Use GroupId if wrapper or just String. Assuming String needs conversion or mock.
-// Since Plan Aggregate expects GroupId, we need to import it.
-// Checking aggregates/plan.rs: use crate::domain::permission_management::GroupId;
+// Use PlanId if wrapper or just String. Assuming String needs conversion or mock.
+// Since Plan Aggregate expects PlanId, we need to import it.
+// Checking aggregates/plan.rs: use crate::domain::permission_management::PlanId;
 
 pub struct PlanFactory;
 
@@ -14,7 +14,7 @@ impl PlanFactory {
     pub fn create_plan(
         name: String,
         description: Option<String>,
-        _permission_group: String,
+        _permission_plan: String,
         permissions: Vec<String>,
         price_amount: rust_decimal::Decimal,
         currency: String,
@@ -30,13 +30,13 @@ impl PlanFactory {
         };
 
         // Plan aggregation creation
-        // Temporarily generate a new GroupId. In real app, might need to lookup or create group by name.
-        let group_id = crate::domain::permission_management::GroupId::from(uuid::Uuid::new_v4());
+        // Temporarily generate a new PlanId. In real app, might need to lookup or create group by name.
+        let plan_id = crate::domain::permission_management::PlanId::from(uuid::Uuid::new_v4());
         
         let params = CreatePlanParams {
             name,
             description: description.unwrap_or_default(),
-            group_id, 
+            plan_id, 
             permissions,
             price,
             billing_cycle,
@@ -56,7 +56,7 @@ impl PlanFactory {
     /// This replaces `derive_group_from_permissions` from the handler layer
     pub fn derive_group_from_permissions(permissions: &[String]) -> String {
         // Simplified Logic: Hash of sorted permissions or a default
-        // In a real system, this might check a registry of known groups
+        // In a real system, this might check a registry of known plans
         if permissions.is_empty() {
             return "free_tier".to_string();
         }

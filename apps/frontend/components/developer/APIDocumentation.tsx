@@ -134,7 +134,7 @@ curl -X GET "${baseUrl}/api/developer-portal/my-keys" \\
         parameters: [
           { name: 'client_name', type: 'string', required: true, description: 'Name for the API key' },
           { name: 'client_description', type: 'string', required: false, description: 'Description of usage' },
-          { name: 'group_ids', type: 'array', required: false, description: 'Permission group IDs to assign' },
+          { name: 'plan_ids', type: 'array', required: false, description: 'Permission group IDs to assign' },
           { name: 'expires_at', type: 'string', required: false, description: 'ISO 8601 expiration date' }
         ],
         response: `{

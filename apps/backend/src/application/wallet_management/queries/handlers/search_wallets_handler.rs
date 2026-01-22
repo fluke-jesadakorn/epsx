@@ -42,7 +42,7 @@ impl QueryHandler<SearchWalletsQuery> for SearchWalletsQueryHandler {
         let criteria = crate::domain::wallet_management::WalletUserSearchCriteria {
             wallet_pattern: query.wallet_pattern,
             is_active: query.is_active,
-            permission_group: None,
+            permission_plan: None,
             has_permissions,
             permission_type: None,
             chain_id: None,
