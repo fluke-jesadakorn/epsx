@@ -15,7 +15,15 @@ import {
     useSensor,
     useSensors
 } from '@dnd-kit/core';
-import { ArrowLeft, Copy, Key, Loader2, Package, RefreshCw, Save, ShieldCheck } from 'lucide-react';
+import {
+    ArrowLeft,
+    Copy,
+    ExternalLink,
+    Key, Loader2, Package,
+    RefreshCw,
+    Save,
+    ShieldCheck
+} from 'lucide-react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -37,6 +45,8 @@ import { groupMgmt } from '@/lib/api/group-management-client';
 import { walletMgmt } from '@/lib/api/wallet-management-client';
 import { cn, copyToClipboard } from '@/lib/utils';
 import { useSharedAuth } from '@/shared/components/auth/Provider';
+import { createPlansClient, type SubscriptionResponse } from '@/shared_deploy/api/plans';
+import { createAdminApiClient } from '@/shared_deploy/utils/api-client';
 
 const STATUS_CONFIG: Record<WalletStatus, { label: string; emoji: string; className: string }> = {
     active: {
@@ -121,6 +131,8 @@ export default function WalletDetailPage() {
     // Modals
     const [showDisableModal, setShowDisableModal] = useState(false);
     const [showReenableModal, setShowReenableModal] = useState(false);
+    const [activeSub, setActiveSub] = useState<SubscriptionResponse | null>(null);
+    const [isLoadingSub, setIsLoadingSub] = useState(false);
     const [isActionLoading, setIsActionLoading] = useState(false);
 
     // Group Builder State
@@ -178,6 +190,31 @@ export default function WalletDetailPage() {
             loadWallet();
         }
     }, [isAuthenticated, authLoading, loadWallet]);
+
+    useEffect(() => {
+        if (walletAddress) {
+            // Fetch detailed subscription info
+            const loadSubscription = async () => {
+                setIsLoadingSub(true);
+                try {
+                    const client = createPlansClient(createAdminApiClient());
+                    // Note: Ideally backend supports filtering by user_id, here we filter client-side as fallback
+                    const res = await client.getSubscriptions({ limit: 100 });
+                    if (res && res.data && res.data.subscriptions) {
+                        const sub = res.data.subscriptions.find((s: SubscriptionResponse) =>
+                            s.user_id === walletAddress && s.status === 'active'
+                        );
+                        if (sub) setActiveSub(sub);
+                    }
+                } catch (e) {
+                    console.error('Failed to load subscription details', e);
+                } finally {
+                    setIsLoadingSub(false);
+                }
+            };
+            loadSubscription();
+        }
+    }, [walletAddress]);
 
     // Computed
     const filteredAvailableGroups = useMemo(() => {
@@ -588,23 +625,52 @@ export default function WalletDetailPage() {
                                     </div>
                                 </Card>
 
-                                {/* Section 2: Current Subscription (Compressed from Card to Box) */}
-                                {wallet.subscriptions && wallet.subscriptions.some(s => s.status === 'active') && (
+                                {/* Section 2: Current Subscription (Detailed) */}
+                                {activeSub && (
                                     <div className="relative group">
                                         <div className="absolute -inset-0.5 bg-gradient-to-br from-purple-500/10 to-blue-500/10 rounded-xl blur-sm opacity-75 group-hover:opacity-100 transition duration-1000"></div>
-                                        <div className="relative bg-slate-900 border border-white/10 rounded-xl p-4 flex items-center justify-between">
-                                            <div className="flex items-center gap-4">
-                                                <div className="w-10 h-10 rounded-lg bg-purple-500/10 flex items-center justify-center border border-purple-500/20">
-                                                    <Package className="h-5 w-5 text-purple-400" />
+                                        <div className="relative bg-slate-900 border border-white/10 rounded-xl p-4 space-y-4">
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-4">
+                                                    <div className="w-10 h-10 rounded-lg bg-purple-500/10 flex items-center justify-center border border-purple-500/20">
+                                                        <Package className="h-5 w-5 text-purple-400" />
+                                                    </div>
+                                                    <div>
+                                                        <h4 className="text-sm font-bold text-white uppercase tracking-wider leading-none mb-1">Active Subscription</h4>
+                                                        <p className="text-xs text-slate-400">
+                                                            {activeSub.plan_name}
+                                                        </p>
+                                                    </div>
                                                 </div>
-                                                <div>
-                                                    <h4 className="text-sm font-bold text-white uppercase tracking-wider leading-none mb-1">Active Subscription</h4>
-                                                    <p className="text-xs text-slate-400">
-                                                        {wallet.subscriptions.find(s => s.status === 'active')?.planName} • Expires {wallet.subscriptions.find(s => s.status === 'active')?.expiresAt ? new Date(wallet.subscriptions.find(s => s.status === 'active')!.expiresAt!).toLocaleDateString() : 'Never'}
-                                                    </p>
+                                                <div className="flex items-center gap-2">
+                                                    <Badge className="bg-green-500/10 text-green-400 border-green-500/20 uppercase text-[10px] font-bold">Active</Badge>
+                                                    <Link href={`/subscriptions/${activeSub.id}`}>
+                                                        <Button size="sm" variant="outline" className="h-7 text-xs gap-1 border-white/10 hover:bg-white/5">
+                                                            Manage
+                                                            <ExternalLink className="h-3 w-3" />
+                                                        </Button>
+                                                    </Link>
                                                 </div>
                                             </div>
-                                            <Badge className="bg-green-500/10 text-green-400 border-green-500/20 uppercase text-[10px] font-bold">Active</Badge>
+
+                                            {/* Usage & Quotas */}
+                                            {activeSub.current_usage && Object.keys(activeSub.current_usage).length > 0 && (
+                                                <div className="mt-3 pt-3 border-t border-white/5 grid grid-cols-2 gap-4">
+                                                    {Object.entries(activeSub.current_usage).map(([key, value]) => (
+                                                        <div key={key}>
+                                                            <span className="text-[10px] text-slate-500 uppercase font-medium">{key.replace('_', ' ')}</span>
+                                                            <div className="text-sm font-mono text-slate-300">
+                                                                {value} / {activeSub.quota_limits?.[key] || '∞'}
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+
+                                            <div className="flex justify-between items-center text-xs text-slate-500 pt-2">
+                                                <span>Started: {new Date(activeSub.started_at).toLocaleDateString()}</span>
+                                                <span>Expires: {activeSub.expires_at ? new Date(activeSub.expires_at).toLocaleDateString() : 'Never'}</span>
+                                            </div>
                                         </div>
                                     </div>
                                 )}

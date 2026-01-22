@@ -9,13 +9,11 @@
  */
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { RefreshCw, Shield, Trash2 } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import { Shield, Trash2, RefreshCw } from 'lucide-react';
 
-import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
 import { PolicyCard } from '@/components/access-control/PolicyCard';
 import { PolicyFilters, PolicyTypeChips } from '@/components/access-control/PolicyFilters';
 import {
@@ -24,6 +22,8 @@ import {
   type PolicyType,
   DEFAULT_POLICY_FILTERS,
 } from '@/components/access-control/types';
+import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { accessPolicyClient } from '@/lib/api/access-policy-client';
 import { cn } from '@/lib/utils';
 
@@ -62,7 +62,7 @@ function filterPolicies(policies: AccessPolicy[], filters: PolicyFiltersType): A
   // Sort
   result.sort((a, b) => {
     let comparison = 0;
-    
+
     switch (filters.sortBy) {
       case 'name':
         comparison = a.name.localeCompare(b.name);
@@ -180,7 +180,7 @@ export function PolicySection({ initialPolicies, className }: PolicySectionProps
 
   // Navigation handlers
   const handleCreatePlan = () => router.push('/subscriptions/plans/new');
-  const handleCreateGroup = () => router.push('/subscriptions/manual-access/create-group');
+  const handleCreateGroup = () => router.push('/wallet-management/groups/new');
 
   return (
     <div className={cn('space-y-4', className)}>

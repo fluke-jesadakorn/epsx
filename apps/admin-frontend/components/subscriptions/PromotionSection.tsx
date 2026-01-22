@@ -5,24 +5,27 @@
  * - Shows active promotions as small cards in a horizontal scroll
  * - Inline create button
  * - Quick stats and usage progress
+ * - Supports compact mode for sidebar display
  */
 'use client';
 
-import { useState, useCallback } from 'react';
-import { Gift, Plus, RefreshCw, TrendingUp, Ticket, ChevronRight } from 'lucide-react';
+import { ChevronRight, Gift, Plus, RefreshCw, Ticket, TrendingUp } from 'lucide-react';
+import { useCallback, useState } from 'react';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
+import type { DisplayPromotion } from '@/lib/data/access-management';
 import { cn } from '@/lib/utils';
 import { createPromotionsClient, isApiSuccess, type Promotion } from '@/shared/api/promotions';
 import { createAdminApiClient } from '@/shared/utils/api-client';
-import type { DisplayPromotion } from '@/lib/data/access-management';
 
 interface PromotionSectionProps {
   initialPromotions: DisplayPromotion[];
   className?: string;
+  compactMode?: boolean;
 }
 
+// Helper functions must be declared before use or safely outside
 function getUsagePercentage(promo: DisplayPromotion): number {
   if (!promo.usageLimit) return 0;
   return Math.min((promo.currentUsage / promo.usageLimit) * 100, 100);
@@ -44,7 +47,11 @@ function isUpcoming(startDate: string): boolean {
   return new Date(startDate) > new Date();
 }
 
-export function PromotionSection({ initialPromotions, className }: PromotionSectionProps) {
+function isActive(p: DisplayPromotion) {
+  return p.isActive && !isExpired(p.endDate);
+}
+
+export function PromotionSection({ initialPromotions, className, compactMode = false }: PromotionSectionProps) {
   const [promotions, setPromotions] = useState<DisplayPromotion[]>(initialPromotions);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showAll, setShowAll] = useState(false);
@@ -54,8 +61,9 @@ export function PromotionSection({ initialPromotions, className }: PromotionSect
   const totalUsage = promotions.reduce((sum, p) => sum + p.currentUsage, 0);
   const totalRevenue = promotions.reduce((sum, p) => sum + p.totalRevenue, 0);
 
-  // Displayed promotions (show first 6 unless expanded)
-  const displayedPromotions = showAll ? promotions : promotions.slice(0, 6);
+  // Displayed promotions (show first 6 unless expanded, or first 3 in compact mode)
+  const limit = compactMode ? 3 : 6;
+  const displayedPromotions = showAll ? promotions : promotions.slice(0, limit);
 
   // Refresh handler
   const handleRefresh = useCallback(async () => {
@@ -94,6 +102,53 @@ export function PromotionSection({ initialPromotions, className }: PromotionSect
       setIsRefreshing(false);
     }
   }, []);
+
+  if (compactMode) {
+    return (
+      <div className={cn('space-y-3', className)}>
+        {displayedPromotions.map((promo) => {
+          const expired = isExpired(promo.endDate);
+          const usagePercent = getUsagePercentage(promo);
+
+          return (
+            <div
+              key={promo.id}
+              className={cn(
+                "flex flex-col gap-2 p-3 bg-muted/30 rounded-lg border border-border transition-colors hover:bg-muted/50 cursor-pointer",
+                isActive(promo) ? "border-l-2 border-l-success" : ""
+              )}
+              onClick={() => toast.info(`View promotion: ${promo.name}`)}
+            >
+              <div className="flex justify-between items-start">
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <code className="text-[10px] font-mono font-bold bg-muted px-1 py-0.5 rounded">{promo.code}</code>
+                    {promo.isActive && !expired && <div className="w-1.5 h-1.5 rounded-full bg-success animate-pulse" />}
+                  </div>
+                  <div className="font-semibold text-xs">{promo.name}</div>
+                </div>
+                <div className="text-right">
+                  <div className="text-sm font-bold text-success">{getDiscountDisplay(promo)}</div>
+                </div>
+              </div>
+
+              <div className="w-full h-1 bg-muted rounded-full overflow-hidden">
+                <div className="h-full bg-success transition-all" style={{ width: `${usagePercent}%` }} />
+              </div>
+              <div className="flex justify-between text-[10px] text-muted-foreground">
+                <span>{promo.currentUsage} used</span>
+                <span>{usagePercent.toFixed(0)}%</span>
+              </div>
+            </div>
+          );
+        })}
+
+        <Button variant="outline" size="sm" className="w-full text-xs h-8" onClick={() => toast.info('View all promotions')}>
+          View All Promotions
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className={cn('space-y-4', className)}>

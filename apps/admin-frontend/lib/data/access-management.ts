@@ -5,17 +5,16 @@
  * to fetch initial data for the unified access management page.
  */
 
-import { createPlansClient, isApiSuccess, type PlanResponse } from '@/shared/api/plans';
-import { createPromotionsClient, isApiSuccess as isPromoSuccess, type Promotion } from '@/shared/api/promotions';
-import { createAdminApiClient } from '@/shared/utils/api-client';
 import {
+  DEFAULT_POLICY_STATS,
+  groupToPolicy,
+  planToPolicy,
   type AccessPolicy,
   type PolicyStats,
   type PolicyType,
-  DEFAULT_POLICY_STATS,
-  planToPolicy,
-  groupToPolicy,
 } from '@/components/access-control/types';
+import { createPlansClient, isApiSuccess, type PlanResponse } from '@/shared/api/plans';
+import { createAdminApiClient } from '@/shared/utils/api-client';
 
 // ============================================================================
 // TYPES
@@ -24,28 +23,8 @@ import {
 export interface AccessManagementData {
   policies: AccessPolicy[];
   stats: PolicyStats;
-  promotions: DisplayPromotion[];
   permissionCount: number;
   platformCount: number;
-}
-
-export interface DisplayPromotion {
-  id: number;
-  name: string;
-  code: string;
-  description?: string;
-  discountType: 'percentage' | 'fixed';
-  discountValue: number;
-  maxDiscountAmount: number | null;
-  minPurchaseAmount: number;
-  usageLimit?: number;
-  currentUsage: number;
-  isActive: boolean;
-  startDate: string;
-  endDate?: string;
-  applicablePlans: string[];
-  totalRevenue: number;
-  conversionRate: number;
 }
 
 export interface PermissionDefinitionDto {
@@ -134,10 +113,10 @@ export async function fetchPolicyStats(): Promise<PolicyStats> {
     if (isApiSuccess(plansRes)) {
       const backendResponse = plansRes.data as any;
       const plans: PlanResponse[] = backendResponse?.data?.plans || backendResponse?.plans || [];
-      
+
       stats.byType.subscription = plans.length;
       stats.activeSubscriptions = plans.filter(p => p.is_active).length;
-      
+
       // Calculate MRR
       stats.totalMRR = plans.reduce((sum, plan) => {
         const revenue = typeof plan.revenue_last_30_days === 'string'
@@ -191,45 +170,6 @@ export async function fetchPolicyStats(): Promise<PolicyStats> {
 }
 
 /**
- * Fetch promotions for server-side rendering
- */
-export async function fetchPromotions(): Promise<DisplayPromotion[]> {
-  try {
-    const apiClient = createAdminApiClient({ serverSide: true });
-    const promotionsClient = createPromotionsClient(apiClient);
-
-    const response = await promotionsClient.getPromotions({ limit: 100 });
-
-    if (isPromoSuccess(response)) {
-      const promos = response.data?.promotions || [];
-      return promos.map((p: Promotion) => ({
-        id: p.id,
-        name: p.name,
-        code: p.code,
-        description: p.description,
-        discountType: p.discountType,
-        discountValue: parseFloat(p.discountValue),
-        maxDiscountAmount: p.maxDiscountAmount ? parseFloat(p.maxDiscountAmount) : null,
-        minPurchaseAmount: parseFloat(p.minPurchaseAmount || '0'),
-        usageLimit: p.usageLimit,
-        currentUsage: p.currentUsage,
-        isActive: p.isActive,
-        startDate: p.startDate,
-        endDate: p.endDate,
-        applicablePlans: p.applicablePlans,
-        totalRevenue: parseFloat(p.totalRevenue),
-        conversionRate: p.conversionRate,
-      }));
-    }
-
-    return [];
-  } catch (error) {
-    console.error('[fetchPromotions] Error:', error);
-    return [];
-  }
-}
-
-/**
  * Fetch permission definitions count and platform count
  */
 export async function fetchPermissionStats(): Promise<{ count: number; platformCount: number }> {
@@ -257,17 +197,15 @@ export async function fetchPermissionStats(): Promise<{ count: number; platformC
  * Fetch all access management data in parallel for server-side rendering
  */
 export async function fetchAccessManagementData(): Promise<AccessManagementData> {
-  const [policies, stats, promotions, permissionStats] = await Promise.all([
+  const [policies, stats, permissionStats] = await Promise.all([
     fetchPolicies(),
     fetchPolicyStats(),
-    fetchPromotions(),
     fetchPermissionStats(),
   ]);
 
   return {
     policies,
     stats,
-    promotions,
     permissionCount: permissionStats.count,
     platformCount: permissionStats.platformCount,
   };

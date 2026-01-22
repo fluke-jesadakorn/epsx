@@ -3,8 +3,8 @@
  * Combines Plans and Groups into a single AccessPolicy abstraction
  */
 
-import type { PlanResponse } from '@/shared/api/plans';
 import type { PermissionGroup } from '@/lib/api/group-management-client';
+import type { PlanResponse } from '@/shared/api/plans';
 
 // ============================================================================
 // POLICY TYPES
@@ -30,74 +30,74 @@ export type PolicyStatus = 'active' | 'inactive';
 export interface AccessPolicy {
   /** Unique identifier (prefixed with source type for uniqueness) */
   id: string;
-  
+
   /** Display name */
   name: string;
-  
+
   /** Description */
   description: string;
-  
+
   /** Policy type category */
   type: PolicyType;
-  
+
   /** List of permission strings */
   permissions: string[];
-  
+
   /** Number of users/wallets with this policy */
   memberCount: number;
-  
+
   /** Whether the policy is currently active */
   isActive: boolean;
-  
+
   // -------------------------------------------------------------------------
   // Subscription-specific fields (type === 'subscription')
   // -------------------------------------------------------------------------
-  
+
   /** Pricing information for subscription plans */
   pricing?: {
     amount: number;
     currency: string;
     cycle: string;
   };
-  
+
   /** Revenue in last 30 days (subscription only) */
   revenue?: number;
-  
+
   /** Tier level for plan hierarchy (subscription only) */
   tierLevel?: number;
-  
+
   /** Plan category (standard, api, enterprise) */
   planCategory?: string;
-  
+
   // -------------------------------------------------------------------------
   // Group-specific fields (type !== 'subscription')
   // -------------------------------------------------------------------------
-  
+
   /** Default expiry days for assignments */
   expiryDays?: number;
-  
+
   /** Priority level for permission resolution */
   priorityLevel?: number;
-  
+
   /** Whether this is a protected system group */
   isSystemGroup?: boolean;
-  
+
   /** Group slug for URL-friendly identification */
   slug?: string;
-  
+
   // -------------------------------------------------------------------------
   // Common metadata
   // -------------------------------------------------------------------------
-  
+
   /** Creation timestamp */
   createdAt: string;
-  
+
   /** Last update timestamp */
   updatedAt: string;
-  
+
   /** Original ID from source (plan.id or group.id) */
   sourceId: string;
-  
+
   /** Source type for API routing */
   sourceType: PolicySource;
 }
@@ -110,16 +110,16 @@ export interface AccessPolicy {
 export interface PolicyFilters {
   /** Text search across name/description */
   search: string;
-  
+
   /** Filter by policy type(s) */
   types: PolicyType[] | 'all';
-  
+
   /** Filter by status */
   status: 'all' | 'active' | 'inactive';
-  
+
   /** Sort field */
   sortBy: 'name' | 'members' | 'created_at' | 'revenue' | 'type';
-  
+
   /** Sort direction */
   sortOrder: 'asc' | 'desc';
 }
@@ -141,22 +141,22 @@ export const DEFAULT_POLICY_FILTERS: PolicyFilters = {
 export interface PolicyStats {
   /** Total number of policies */
   totalPolicies: number;
-  
+
   /** Count by type */
   byType: Record<PolicyType, number>;
-  
+
   /** Total active members across all policies */
   totalMembers: number;
-  
+
   /** Total monthly recurring revenue (subscription only) */
   totalMRR: number;
-  
+
   /** Number of policies expiring soon */
   expiringSoon: number;
-  
+
   /** Active subscription plans */
   activeSubscriptions: number;
-  
+
   /** Active manual groups */
   activeGroups: number;
 }
@@ -186,10 +186,10 @@ export const DEFAULT_POLICY_STATS: PolicyStats = {
  * Transform a PlanResponse to AccessPolicy
  */
 export function planToPolicy(plan: PlanResponse): AccessPolicy {
-  const price = typeof plan.current_price === 'string' 
-    ? parseFloat(plan.current_price) 
+  const price = typeof plan.current_price === 'string'
+    ? parseFloat(plan.current_price)
     : plan.current_price;
-  
+
   const revenue = typeof plan.revenue_last_30_days === 'string'
     ? parseFloat(plan.revenue_last_30_days)
     : plan.revenue_last_30_days;
@@ -202,7 +202,7 @@ export function planToPolicy(plan: PlanResponse): AccessPolicy {
     permissions: plan.permissions || [],
     memberCount: plan.subscriber_count || 0,
     isActive: plan.is_active,
-    
+
     // Subscription-specific
     pricing: {
       amount: isNaN(price) ? 0 : price,
@@ -212,7 +212,7 @@ export function planToPolicy(plan: PlanResponse): AccessPolicy {
     revenue: isNaN(revenue) ? 0 : revenue,
     tierLevel: plan.tier_level ?? 0,
     planCategory: plan.plan_category,
-    
+
     // Common
     createdAt: plan.created_at,
     updatedAt: plan.updated_at || plan.created_at,
@@ -235,7 +235,7 @@ export function groupToPolicy(group: PermissionGroup): AccessPolicy {
     admin: 'system',
     system: 'system',
   };
-  
+
   const policyType = typeMap[group.group_type] || 'manual';
 
   return {
@@ -246,13 +246,13 @@ export function groupToPolicy(group: PermissionGroup): AccessPolicy {
     permissions: group.permissions || [],
     memberCount: group.member_count ?? 0,
     isActive: group.is_active,
-    
+
     // Group-specific
     expiryDays: group.default_expiry_days,
     priorityLevel: group.priority_level ?? 0,
     isSystemGroup: group.is_system_group || group.group_type === 'system',
     slug: group.slug,
-    
+
     // Common
     createdAt: group.created_at,
     updatedAt: group.updated_at || group.created_at,
@@ -280,9 +280,11 @@ export function isGroupPolicy(policy: AccessPolicy): boolean {
  */
 export function getPolicyEditUrl(policy: AccessPolicy): string {
   if (policy.sourceType === 'plan') {
+    // Legacy route kept for plan editing
     return `/subscriptions/plans/${policy.sourceId}/edit`;
   }
-  return `/subscriptions/manual-access/groups/${policy.sourceId}/edit`;
+  // Unified group management
+  return `/wallet-management/groups/${policy.sourceId}`;
 }
 
 /**
@@ -290,9 +292,11 @@ export function getPolicyEditUrl(policy: AccessPolicy): string {
  */
 export function getPolicyMembersUrl(policy: AccessPolicy): string {
   if (policy.sourceType === 'plan') {
-    return `/subscriptions/plans/${policy.sourceId}/subscribers`;
+    // Redirect to edit page since subscribers view is deprecated
+    return `/subscriptions/plans/${policy.sourceId}/edit`;
   }
-  return `/subscriptions/manual-access/groups/${policy.sourceId}/members`;
+  // Groups are managed in wallet-management
+  return `/wallet-management/groups/${policy.sourceId}`;
 }
 
 // ============================================================================
