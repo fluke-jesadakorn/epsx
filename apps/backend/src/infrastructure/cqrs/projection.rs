@@ -3,7 +3,7 @@
 
 use crate::prelude::*;
 use diesel::prelude::*;
-use diesel_async::{AsyncPgConnection, AsyncConnection, RunQueryDsl, pooled_connection::deadpool::Pool};
+use diesel_async::{AsyncConnection, RunQueryDsl};
 use async_trait::async_trait;
 use serde_json::Value as JsonValue;
 use uuid::Uuid;
@@ -24,22 +24,22 @@ pub trait Projection: Send + Sync {
     /// Project a single event into the read model
     async fn project_event(
         &self,
-        conn: &mut AsyncPgConnection,
+        conn: &mut diesel_async::AsyncPgConnection,
         event: &ProjectionEvent,
     ) -> AppResult<()>;
 
     /// Get last processed checkpoint
-    async fn get_checkpoint(&self, pool: &Pool<AsyncPgConnection>) -> AppResult<Option<ProjectionCheckpoint>>;
+    async fn get_checkpoint(&self, pool: &TlsPool) -> AppResult<Option<ProjectionCheckpoint>>;
 
     /// Save checkpoint after successful projection
     async fn save_checkpoint(
         &self,
-        conn: &mut AsyncPgConnection,
+        conn: &mut diesel_async::AsyncPgConnection,
         checkpoint: &ProjectionCheckpoint,
     ) -> AppResult<()>;
 
     /// Rebuild entire projection from event store (dangerous!)
-    async fn rebuild(&self, _pool: &Pool<AsyncPgConnection>) -> AppResult<()> {
+    async fn rebuild(&self, _pool: &TlsPool) -> AppResult<()> {
         Err(AppError::internal_error(
             "Rebuild not implemented for this projection".to_string(),
         ))
@@ -91,7 +91,7 @@ impl ProjectionCheckpoint {
 
 /// ProjectionManager - Orchestrates multiple projections
 pub struct ProjectionManager {
-    pool: Arc<&'static Pool<AsyncPgConnection>>,
+    pool: Arc<&'static TlsPool>,
     projections: Vec<Arc<dyn Projection>>,
     redis_client: Option<redis::Client>,
     redis_stream_name: String,
@@ -100,7 +100,7 @@ pub struct ProjectionManager {
 
 impl ProjectionManager {
     pub fn new(
-        pool: Arc<&'static Pool<AsyncPgConnection>>,
+        pool: Arc<&'static TlsPool>,
         redis_url: Option<String>,
         redis_stream_name: String,
     ) -> AppResult<Self> {

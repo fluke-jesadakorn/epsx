@@ -4,11 +4,11 @@
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
 use std::sync::Arc;
-use diesel_async::{AsyncPgConnection, pooled_connection::deadpool::Pool};
 use bigdecimal::BigDecimal;
+use crate::infrastructure::database::diesel_connection_manager::TlsPool;
 
 // Database Pool Types
-pub type DbPool = &'static Pool<AsyncPgConnection>;
+pub type DbPool = &'static TlsPool;
 
 // Session Types
 
@@ -184,7 +184,7 @@ impl NotificationMapper {
         // Create the notification based on whether it's for a user or topic
         let notification = if let Some(wallet_id) = recipient_wallet_address {
             Notification::create_for_user(
-                wallet_id,
+                wallet_id.to_string(),
                 content,
                 notification_type,
                 priority,

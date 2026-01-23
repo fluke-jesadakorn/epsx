@@ -2,6 +2,7 @@
 // CQRS handler for updating wallet information
 
 use crate::application::shared::{ApplicationError, ApplicationResult, Command, CommandHandler};
+use crate::infrastructure::database::diesel_connection_manager::TlsPool;
 use crate::application::wallet_management::commands::admin_models::{
     UpdateWalletCommand, UpdateWalletResponse,
 };
@@ -10,16 +11,16 @@ use crate::application::wallet_management::queries::admin_models::{
 };
 use async_trait::async_trait;
 use diesel::prelude::*;
-use diesel_async::{AsyncPgConnection, RunQueryDsl, pooled_connection::deadpool::Pool};
+use diesel_async::{RunQueryDsl};
 use std::sync::Arc;
 use tracing::{error, info};
 
 pub struct UpdateWalletCommandHandler {
-    db_pool: Arc<&'static Pool<AsyncPgConnection>>,
+    db_pool: Arc<&'static TlsPool>,
 }
 
 impl UpdateWalletCommandHandler {
-    pub fn new(db_pool: Arc<&'static Pool<AsyncPgConnection>>) -> Self {
+    pub fn new(db_pool: Arc<&'static TlsPool>) -> Self {
         Self { db_pool }
     }
 }

@@ -10,7 +10,6 @@ use crate::domain::notification::{
 use crate::domain::notification::value_objects::user_preferences::NotificationType;
 use crate::domain::notification::value_objects::schedule_info::ScheduleType;
 use crate::domain::shared_kernel::DomainEventBus;
-use uuid::Uuid;
 
 /// Command handler for creating user notifications
 pub struct CreateUserNotificationCommandHandler {
@@ -34,8 +33,11 @@ impl CreateUserNotificationCommandHandler {
 impl CommandHandler<CreateUserNotificationCommand> for CreateUserNotificationCommandHandler {
     async fn handle(&self, command: CreateUserNotificationCommand) -> ApplicationResult<CreateUserNotificationResponse> {
         // 1. Parse recipient wallet address
-        let recipient_wallet_address = Uuid::parse_str(&command.recipient_wallet_address)
-            .map_err(|e| ApplicationError::validation("recipient_wallet_address", e.to_string()))?;
+        // 1. Validate recipient wallet address
+        let recipient_wallet_address = command.recipient_wallet_address.clone();
+        if recipient_wallet_address.trim().is_empty() {
+            return Err(ApplicationError::validation("recipient_wallet_address", "Wallet address cannot be empty".to_string()));
+        }
 
         // 2. Create notification content
         let content = NotificationContent::new(command.title, command.message)

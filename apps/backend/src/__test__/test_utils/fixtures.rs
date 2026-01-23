@@ -3,7 +3,7 @@
 
 use diesel::prelude::*;
 
-use diesel_async::AsyncPgConnection;
+use diesel_async::*;
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
 use anyhow::Result;
@@ -39,7 +39,7 @@ impl Web3NonceFixture {
     }
 
     /// Insert the fixture into the database
-    pub async fn insert(&self, conn: &mut AsyncPgConnection) -> Result<()> {
+    pub async fn insert(&self, conn: &mut diesel_async::AsyncPgConnection) -> Result<()> {
         diesel_async::RunQueryDsl::execute(
             diesel::insert_into(web3_auth_nonces::table)
             .values((
@@ -83,7 +83,7 @@ impl WalletUserFixture {
     }
 
     /// Insert the fixture into the database
-    pub async fn insert(&self, conn: &mut AsyncPgConnection) -> Result<()> {
+    pub async fn insert(&self, conn: &mut diesel_async::AsyncPgConnection) -> Result<()> {
         diesel_async::RunQueryDsl::execute(
             diesel::insert_into(wallet_users::table)
             .values((
@@ -135,7 +135,7 @@ impl NotificationFixture {
     }
 
     /// Insert the fixture into the database
-    pub async fn insert(&self, conn: &mut AsyncPgConnection) -> Result<()> {
+    pub async fn insert(&self, conn: &mut diesel_async::AsyncPgConnection) -> Result<()> {
         diesel_async::RunQueryDsl::execute(
             diesel::insert_into(wallet_notifications::table)
             .values((
@@ -158,7 +158,7 @@ pub struct TestScenarios;
 impl TestScenarios {
     /// Create a complete Web3 authentication scenario with wallet user and nonce
     pub async fn create_web3_auth_scenario(
-        conn: &mut AsyncPgConnection,
+        conn: &mut diesel_async::AsyncPgConnection,
     ) -> Result<(WalletUserFixture, Web3NonceFixture)> {
         let wallet_fixture = WalletUserFixture::default();
         wallet_fixture.insert(conn).await?;
@@ -175,7 +175,7 @@ impl TestScenarios {
 
     /// Create notification scenario for a user
     pub async fn create_notification_scenario(
-        conn: &mut AsyncPgConnection,
+        conn: &mut diesel_async::AsyncPgConnection,
         wallet_address: String,
         count: usize,
     ) -> Result<Vec<NotificationFixture>> {

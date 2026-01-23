@@ -13,7 +13,7 @@ import { cn } from '../../utils';
 // VARIANT TYPES
 // ============================================================================
 
-export type UnifiedCardVariant = 'default' | 'pancake' | 'admin' | 'analytics' | 'premium' | 'glass';
+export type UnifiedCardVariant = 'default' | 'pancake' | 'admin' | 'analytics' | 'premium';
 export type AccentPosition = 'left' | 'top' | 'bottom' | 'right' | 'none';
 export type UnifiedCardSize = 'sm' | 'md' | 'lg';
 export type UnifiedCardPadding = 'none' | 'sm' | 'md' | 'lg';
@@ -29,7 +29,6 @@ export interface UnifiedCardProps {
     padding?: UnifiedCardPadding;
     hover?: boolean;
     accent?: AccentPosition;
-    glassmorphism?: boolean;
     className?: string;
 }
 
@@ -82,14 +81,6 @@ const variantStyles = {
         accent: 'bg-gradient-to-r from-purple-500 to-pink-600',
         shadow: 'shadow-sm',
         text: 'text-gray-900 dark:text-gray-100'
-    },
-    glass: {
-        bg: 'bg-white/80 dark:bg-gray-900/80',
-        bgGlass: 'bg-white/80 dark:bg-gray-900/80',
-        border: 'border-gray-200/50 dark:border-gray-700/50',
-        accent: 'bg-gradient-to-r from-blue-500/80 to-indigo-600/80',
-        shadow: 'shadow-lg',
-        text: 'text-gray-900 dark:text-gray-100'
     }
 };
 
@@ -125,7 +116,6 @@ export function UnifiedCard({
     padding = 'md',
     hover = true,
     accent = 'none',
-    glassmorphism = false,
     className
 }: UnifiedCardProps) {
     const style = variantStyles[variant];
@@ -134,13 +124,12 @@ export function UnifiedCard({
         <div
             className={cn(
                 'relative border rounded-lg overflow-hidden',
-                glassmorphism ? style.bgGlass : style.bg,
+                style.bg,
                 style.border,
                 style.text,
                 style.shadow,
                 sizeClasses[size],
                 paddingClasses[padding],
-                glassmorphism && 'backdrop-blur-xl',
                 hover && 'hover:shadow-xl transition-all duration-200',
                 className
             )}
@@ -197,28 +186,23 @@ export function UnifiedCardFooter({ children, className }: UnifiedCardSectionPro
 // ============================================================================
 
 /** PancakeSwap-style gradient card */
-export function PancakeCard({ glassmorphism = false, ...props }: Omit<UnifiedCardProps, 'variant'>) {
-    return <UnifiedCard variant="pancake" glassmorphism={glassmorphism} {...props} />;
+export function PancakeCard(props: Omit<UnifiedCardProps, 'variant'>) {
+    return <UnifiedCard variant="pancake" {...props} />;
 }
 
 /** Admin/dashboard style card */
-export function AdminCard({ glassmorphism = true, ...props }: Omit<UnifiedCardProps, 'variant'>) {
-    return <UnifiedCard variant="admin" glassmorphism={glassmorphism} {...props} />;
+export function AdminCard(props: Omit<UnifiedCardProps, 'variant'>) {
+    return <UnifiedCard variant="admin" {...props} />;
 }
 
 /** Analytics/data visualization card */
-export function AnalyticsCard({ glassmorphism = false, ...props }: Omit<UnifiedCardProps, 'variant'>) {
-    return <UnifiedCard variant="analytics" glassmorphism={glassmorphism} {...props} />;
+export function AnalyticsCard(props: Omit<UnifiedCardProps, 'variant'>) {
+    return <UnifiedCard variant="analytics" {...props} />;
 }
 
 /** Premium/subscription card */
 export function PremiumCard(props: Omit<UnifiedCardProps, 'variant'>) {
     return <UnifiedCard variant="premium" {...props} />;
-}
-
-/** Glassmorphism effect card */
-export function GlassCard(props: Omit<UnifiedCardProps, 'variant'>) {
-    return <UnifiedCard variant="glass" glassmorphism {...props} />;
 }
 
 // ============================================================================

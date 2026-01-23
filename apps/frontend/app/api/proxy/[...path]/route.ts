@@ -90,17 +90,36 @@ async function handleProxy(req: NextRequest, ctx: { params: Promise<{ path: stri
             cache: 'no-store'
         });
 
-        // Stream response back
-        return new NextResponse(response.body, {
+        // Read response body for error handling
+        const responseBody = await response.text();
+        
+        // If there's an error, log it for debugging
+        if (!response.ok) {
+            console.error(`❌ Backend Error ${response.status} ${req.method} ${targetPath}:`, {
+                status: response.status,
+                statusText: response.statusText,
+                body: responseBody.substring(0, 500), // Limit log size
+                url: targetUrl
+            });
+        }
+
+        // Return response with proper error body
+        return new NextResponse(responseBody, {
             status: response.status,
             statusText: response.statusText,
-            headers: response.headers
+            headers: {
+                'Content-Type': response.headers.get('Content-Type') || 'application/json',
+            }
         });
 
     } catch (error) {
         console.error('❌ API Proxy Error:', error);
         return NextResponse.json(
-            { error: 'Proxy implementation failed', details: String(error) },
+            { 
+                error: 'Proxy implementation failed', 
+                message: error instanceof Error ? error.message : String(error),
+                details: error instanceof Error ? error.stack : undefined
+            },
             { status: 500 }
         );
     }

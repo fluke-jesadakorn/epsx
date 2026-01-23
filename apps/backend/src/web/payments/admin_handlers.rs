@@ -110,10 +110,10 @@ pub struct PaymentAuditLog {
     pub id: Uuid,
     pub action: String,
     pub old_status: Option<String>,
-    pub new_status: String,
+    pub new_status: Option<String>,
     pub reason: Option<String>,
     pub performed_by: Option<String>,
-    pub performed_at: DateTime<Utc>,
+    pub created_at: DateTime<Utc>,
     pub metadata: serde_json::Value,
 }
 
@@ -475,8 +475,7 @@ pub async fn admin_get_payment_details_handler(
     use diesel_async::RunQueryDsl;
     use crate::infrastructure::models::payment::PaymentDb;
     use crate::infrastructure::database::get_payments_pool;
-    use crate::schemas::payments::payments;
-use crate::schemas::analytics::payment_audit_log;
+    use crate::schemas::payments::{payments, payment_audit_log};
     use crate::schemas::primary::plans;
 
     info!("Admin getting payment details for {}", payment_id);
@@ -548,12 +547,23 @@ use crate::schemas::analytics::payment_audit_log;
     // Fetch audit logs for this payment
     let audit_log_rows = payment_audit_log::table
         .filter(payment_audit_log::payment_id.eq(payment_id))
-        .order(payment_audit_log::performed_at.desc().nulls_last())
-        .load::<(Uuid, Uuid, String, Option<String>, String, Option<String>, Option<String>, Option<chrono::DateTime<Utc>>, Option<serde_json::Value>)>(&mut payments_conn)
+        .order(payment_audit_log::created_at.desc().nulls_last())
+        .select((
+            payment_audit_log::id,
+            payment_audit_log::payment_id,
+            payment_audit_log::action,
+            payment_audit_log::old_status,
+            payment_audit_log::new_status,
+            payment_audit_log::reason,
+            payment_audit_log::performed_by,
+            payment_audit_log::created_at,
+            payment_audit_log::metadata,
+        ))
+        .load::<(Uuid, Uuid, String, Option<String>, Option<String>, Option<String>, Option<String>, chrono::DateTime<Utc>, Option<serde_json::Value>)>(&mut payments_conn)
         .await
         .unwrap_or_default();
 
-    let audit_logs: Vec<PaymentAuditLog> = audit_log_rows.into_iter().map(|(id, _payment_id, action, old_status, new_status, reason, performed_by, performed_at, metadata)| {
+    let audit_logs: Vec<PaymentAuditLog> = audit_log_rows.into_iter().map(|(id, _payment_id, action, old_status, new_status, reason, performed_by, created_at, metadata)| {
         PaymentAuditLog {
             id,
             action,
@@ -561,7 +571,7 @@ use crate::schemas::analytics::payment_audit_log;
             new_status,
             reason,
             performed_by,
-            performed_at: performed_at.unwrap_or_else(Utc::now),
+            created_at,
             metadata: metadata.unwrap_or(serde_json::json!({})),
         }
     }).collect();
@@ -585,8 +595,7 @@ pub async fn admin_update_payment_status_handler(
     use diesel::prelude::*;
     use diesel_async::RunQueryDsl;
     use crate::infrastructure::database::get_payments_pool;
-    use crate::schemas::payments::payments;
-use crate::schemas::analytics::payment_audit_log;
+    use crate::schemas::payments::{payments, payment_audit_log};
 
     let admin_wallet = &admin_context.wallet_address;
     info!(
@@ -659,7 +668,7 @@ use crate::schemas::analytics::payment_audit_log;
             payment_audit_log::new_status.eq(&request.status),
             payment_audit_log::reason.eq(&request.reason),
             payment_audit_log::performed_by.eq(admin_wallet.as_str()),
-            payment_audit_log::performed_at.eq(updated_at),
+            payment_audit_log::created_at.eq(updated_at),
             payment_audit_log::metadata.eq(request.metadata.unwrap_or(serde_json::json!({}))),
         ))
         .execute(&mut payments_conn)
@@ -690,8 +699,7 @@ pub async fn admin_process_refund_handler(
     use diesel::prelude::*;
     use diesel_async::RunQueryDsl;
     use crate::infrastructure::database::get_payments_pool;
-    use crate::schemas::payments::{payments, subscriptions};
-    use crate::schemas::analytics::payment_audit_log;
+    use crate::schemas::payments::{payments, subscriptions, payment_audit_log};
 
     info!(
         "Admin processing refund for payment {}, reason: {}",
@@ -779,7 +787,7 @@ pub async fn admin_process_refund_handler(
             payment_audit_log::new_status.eq("refunded"),
             payment_audit_log::reason.eq(&request.reason),
             payment_audit_log::performed_by.eq("admin"),
-            payment_audit_log::performed_at.eq(processed_at),
+            payment_audit_log::created_at.eq(processed_at),
             payment_audit_log::metadata.eq(serde_json::json!({
                 "refund_id": refund_id,
                 "refund_amount": refund_amount,
@@ -810,6 +818,7 @@ pub async fn admin_list_subscriptions_handler(
     use diesel_async::RunQueryDsl;
     use crate::infrastructure::models::payment::SubscriptionDb;
     use crate::infrastructure::database::get_payments_pool;
+    use crate::schemas::payments::payments;
 
     info!("Admin listing subscriptions with params: {:?}", params);
 
@@ -961,11 +970,11 @@ pub async fn admin_list_subscriptions_handler(
         .unwrap_or(0);
 
     // Monthly revenue from payments (this month, completed/confirmed)
-    let monthly_revenue_bd: Option<bigdecimal::BigDecimal> = crate::schemas::payments::payments::table
-        .filter(crate::schemas::payments::payments::created_at.ge(month_start))
-        .filter(crate::schemas::payments::payments::status.eq("completed")
-            .or(crate::schemas::payments::payments::status.eq("confirmed")))
-        .select(diesel::dsl::sum(crate::schemas::payments::payments::amount))
+    let monthly_revenue_bd: Option<bigdecimal::BigDecimal> = payments::table
+        .filter(payments::created_at.ge(month_start))
+        .filter(payments::status.eq("completed")
+            .or(payments::status.eq("confirmed")))
+        .select(diesel::dsl::sum(payments::amount))
         .first(&mut payments_conn)
         .await
         .unwrap_or(None);

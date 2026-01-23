@@ -31,7 +31,7 @@ export * from '@/shared/components/ui/tooltip'
 // ============================================================================
 export {
     AdminCard, EPSXCard, EPSXCardContent,
-    EPSXCardFooter, EPSXCardHeader, GlassCard,
+    EPSXCardFooter, EPSXCardHeader,
     // Legacy aliases
     MetroCard, MetroListCard, MetroStatsCard, PremiumCard, ProfessionalCard, ProfessionalFeatureCard, ProfessionalListCard, ProfessionalStatsCard, AnalyticsCard as UnifiedAnalyticsCard,
     // Main UnifiedCard
@@ -66,8 +66,9 @@ export {
 // ============================================================================
 // ADMIN-SPECIFIC LOCAL COMPONENTS
 // ============================================================================
-// Note: Checkbox from FormComponents, Select from select are used in admin
-export { Checkbox, Textarea } from './FormComponents'
+// Note: FormComponents uses shared components, but we keep local separator
+export { Label } from '@/shared/components/ui/label'
+export { Textarea } from '@/shared/components/ui/textarea'
 export {
     Select,
     SelectContent,
@@ -76,9 +77,9 @@ export {
     SelectLabel, SelectScrollDownButton, SelectScrollUpButton, SelectSeparator,
     SelectTrigger,
     SelectValue
-} from './select'
-export * from './separator'
-export * from './switch'
+} from '@/shared/components/ui/select'
+export { Switch } from '@/shared/components/ui/switch'
+export { Separator } from './separator'
 
 // Admin-specific presentational components
 export * from './AnalyticsCard'

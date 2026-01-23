@@ -2,21 +2,22 @@
 // CQRS handler for retrieving global wallet statistics
 
 use crate::application::shared::{ApplicationError, ApplicationResult, Query, QueryHandler};
+use crate::infrastructure::database::diesel_connection_manager::TlsPool;
 use crate::application::wallet_management::queries::admin_models::{
     GetWalletStatsQuery, GetWalletStatsResponse, WalletStatsDto,
 };
 use async_trait::async_trait;
 use diesel::prelude::*;
-use diesel_async::{AsyncPgConnection, RunQueryDsl, pooled_connection::deadpool::Pool};
+use diesel_async::{RunQueryDsl};
 use std::sync::Arc;
 use tracing::{error, info};
 
 pub struct GetWalletStatsQueryHandler {
-    db_pool: Arc<&'static Pool<AsyncPgConnection>>,
+    db_pool: Arc<&'static TlsPool>,
 }
 
 impl GetWalletStatsQueryHandler {
-    pub fn new(db_pool: Arc<&'static Pool<AsyncPgConnection>>) -> Self {
+    pub fn new(db_pool: Arc<&'static TlsPool>) -> Self {
         Self { db_pool }
     }
 }

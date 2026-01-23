@@ -2,13 +2,16 @@ use uuid::Uuid;
 use chrono::{DateTime, Utc};
 
 use crate::domain::notification::*;
+use crate::domain::shared_kernel::aggregate_root::AggregateRoot;
 
+/// Database record structure for notifications
+/// Maps between domain model and database columns
 /// Database record structure for notifications
 /// Maps between domain model and database columns
 #[derive(Debug, Clone)]
 pub struct NotificationRecord {
     pub id: Uuid,
-    pub recipient_wallet_id: Option<Uuid>,
+    pub recipient_wallet_address: Option<String>,
     pub topic_name: Option<String>,
     pub title: String,
     pub body: String,
@@ -23,7 +26,7 @@ pub struct NotificationRecord {
     pub send_started_at: Option<DateTime<Utc>>,
     pub channel_status: serde_json::Value,
     pub total_attempts: i32,
-    pub created_by_wallet_id: Option<Uuid>,
+    pub created_by: Option<String>,
     pub image_url: Option<String>,
     pub action_url: Option<String>,
     pub data_payload: Option<serde_json::Value>,
@@ -39,7 +42,7 @@ impl NotificationRecord {
     pub fn from_domain(notification: &Notification) -> Self {
         Self {
             id: Uuid::parse_str(&notification.id().as_str()).unwrap(),
-            recipient_wallet_id: notification.recipientwallet_address(),
+            recipient_wallet_address: notification.recipient_wallet_address().map(String::from),
             topic_name: notification.topic().map(|t| t.name().to_string()),
             title: notification.content().title().to_string(),
             body: notification.content().body().to_string(),
@@ -54,7 +57,7 @@ impl NotificationRecord {
             send_started_at: notification.delivery_tracking().send_started_at(),
             channel_status: serde_json::to_value(notification.delivery_tracking()).unwrap_or_default(),
             total_attempts: notification.delivery_tracking().total_attempts() as i32,
-            created_by_wallet_id: notification.metadata().created_by(),
+            created_by: notification.metadata().created_by().map(String::from),
             image_url: notification.metadata().image_url().map(String::from),
             action_url: notification.metadata().action_url().map(String::from),
             data_payload: notification.metadata().data_payload().cloned(),
@@ -88,7 +91,7 @@ impl NotificationRecord {
             self.expires_at,
         )?;
 
-        let mut metadata = if let Some(creator) = self.created_by_wallet_id {
+        let mut metadata = if let Some(creator) = self.created_by {
             NotificationMetadata::with_creator(Some(creator))
         } else {
             NotificationMetadata::new()
@@ -123,7 +126,7 @@ impl NotificationRecord {
 
         Ok(Notification::from_persistence(
             id,
-            self.recipient_wallet_id,
+            self.recipient_wallet_address,
             topic,
             content,
             notification_type,

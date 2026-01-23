@@ -3,7 +3,7 @@
 
 use std::sync::Once;
 use diesel::prelude::*;
-use diesel_async::{AsyncPgConnection, RunQueryDsl};
+use diesel_async::{RunQueryDsl};
 use anyhow::Result;
 use tracing::info;
 
@@ -34,7 +34,7 @@ impl TestDatabase {
     }
 
     /// Get a connection for testing
-    pub async fn get_connection(&self) -> Result<Object<AsyncPgConnection>> {
+    pub async fn get_connection(&self) -> Result<Object<>> {
         let pool = get_diesel_pool().await?;
         pool.get().await.map_err(|e| anyhow::anyhow!("Failed to get test connection: {}", e))
     }
@@ -58,7 +58,7 @@ impl TestDatabase {
             .await?;
 
         // Clean up test notifications
-        diesel::delete(wallet_notifications::table.filter(wallet_notifications::wallet_address.like("0xtest%")))
+        diesel::delete(wallet_notifications::table.filter(wallet_notifications::recipient_wallet_address.like("0xtest%")))
             .execute(&mut conn)
             .await?;
 

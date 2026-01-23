@@ -2,9 +2,10 @@
 // Eliminates duplicate SQL across admin query handlers
 
 use diesel::prelude::*;
-use diesel_async::{AsyncPgConnection, RunQueryDsl, pooled_connection::deadpool::Pool};
+use diesel_async::{RunQueryDsl};
 use chrono::{DateTime, Utc};
 use std::sync::Arc;
+use crate::infrastructure::database::diesel_connection_manager::TlsPool;
 
 use crate::core::errors::{AppError, ErrorKind};
 
@@ -56,11 +57,11 @@ pub struct WalletSearchCriteria {
 
 /// Repository for wallet management operations
 pub struct WalletManagementRepository {
-    pool: Arc<&'static Pool<AsyncPgConnection>>,
+    pool: Arc<&'static TlsPool>,
 }
 
 impl WalletManagementRepository {
-    pub fn new(pool: Arc<&'static Pool<AsyncPgConnection>>) -> Self {
+    pub fn new(pool: Arc<&'static TlsPool>) -> Self {
         Self { pool }
     }
 

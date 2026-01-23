@@ -7,8 +7,8 @@ import UsageAnalyticsTab from '@/components/admin/UsageAnalyticsTab';
 import { PlanAnalyticsDashboard } from '@/components/plans/PlanAnalyticsDashboard';
 import { PageHeader, PageLayout, PageSkeleton } from '@/components/shared';
 import { AnalyticsStatsCard, AnalyticsSummaryCard } from '@/components/ui/AnalyticsCard';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/shared/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/card';
 import { useAnalyticsOverview, useApiKeys, useRealTimeMetrics } from '@/hooks/useAnalyticsData';
 
 function LoadingCard(): React.JSX.Element {

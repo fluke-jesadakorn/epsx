@@ -4,7 +4,7 @@
 
 use chrono::Utc;
 use diesel::prelude::*;
-use diesel_async::{AsyncPgConnection, RunQueryDsl, pooled_connection::deadpool::Pool};
+use diesel_async::{RunQueryDsl};
 use tracing::info;
 use uuid::Uuid;
 
@@ -14,15 +14,15 @@ use crate::domain::developer_portal::{
     PlanInfo,
 };
 use crate::prelude::*;
-use crate::schemas::primary::{api_keys, api_key_module_access, api_key_permissions, api_modules};
+use crate::schemas::primary::{api_key_permissions, api_keys, api_key_module_access, api_modules};
 
 /// API Key Repository for database operations
 pub struct ApiKeyRepository {
-    pool: &'static Pool<AsyncPgConnection>,
+    pool: &'static TlsPool,
 }
 
 impl ApiKeyRepository {
-    pub fn new(pool: &'static Pool<AsyncPgConnection>) -> Self {
+    pub fn new(pool: &'static TlsPool) -> Self {
         Self { pool }
     }
 
@@ -242,7 +242,7 @@ impl ApiKeyRepository {
     /// Get module access for an API key
     async fn get_module_access_for_key(
         &self,
-        conn: &mut AsyncPgConnection,
+        conn: &mut diesel_async::AsyncPgConnection,
         api_key_id: Uuid,
     ) -> AppResult<Vec<ModuleAccess>> {
         #[derive(Queryable)]
@@ -255,7 +255,7 @@ impl ApiKeyRepository {
         }
 
         let rows = api_key_module_access::table
-            .inner_join(api_modules::table.on(api_modules::id.eq(api_key_module_access::module_id)))
+            .inner_join(api_modules::table.on(api_key_module_access::module_id.eq(api_modules::id)))
             .filter(api_key_module_access::api_key_id.eq(&api_key_id))
             .select((
                 api_key_module_access::module_id,
@@ -280,11 +280,26 @@ impl ApiKeyRepository {
     /// Get permission plans for an API key
     async fn get_permission_plans_for_key(
         &self,
-        conn: &mut AsyncPgConnection,
+        conn: &mut diesel_async::AsyncPgConnection,
         api_key_id: Uuid,
     ) -> AppResult<Vec<PlanInfo>> {
-        use crate::schemas::primary::{api_key_permissions, plans};
+        use crate::schemas::primary::plans;
+        use crate::schemas::primary::api_key_permissions;
 
+        // 1. Get plan IDs from permissions table
+        let plan_ids: Vec<Uuid> = api_key_permissions::table
+            .filter(api_key_permissions::api_key_id.eq(&api_key_id))
+            .filter(api_key_permissions::is_active.eq(true))
+            .select(api_key_permissions::plan_id)
+            .load::<Uuid>(conn)
+            .await
+            .map_err(|e| AppError::database_error(format!("Failed to fetch permission IDs: {}", e)))?;
+
+        if plan_ids.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        // 2. Fetch plans details
         #[derive(Queryable)]
         struct PlanRow {
             id: Uuid,
@@ -294,10 +309,8 @@ impl ApiKeyRepository {
             plan_type: String,
         }
 
-        let rows = api_key_permissions::table
-            .inner_join(plans::table.on(plans::id.eq(api_key_permissions::plan_id)))
-            .filter(api_key_permissions::api_key_id.eq(&api_key_id))
-            .filter(api_key_permissions::is_active.eq(true))
+        let rows = plans::table
+            .filter(plans::id.eq_any(plan_ids))
             .select((
                 plans::id,
                 plans::name,
@@ -307,7 +320,7 @@ impl ApiKeyRepository {
             ))
             .load::<PlanRow>(conn)
             .await
-            .map_err(|e| AppError::database_error(format!("Failed to fetch permission plans: {}", e)))?;
+            .map_err(|e| AppError::database_error(format!("Failed to fetch plans: {}", e)))?;
 
         Ok(rows.into_iter().map(|row| PlanInfo {
             id: row.id,
@@ -322,7 +335,7 @@ impl ApiKeyRepository {
     /// Uses raw SQL to handle Nullable<Array<Nullable<Text>>> column type
     async fn get_selected_permissions_for_key(
         &self,
-        conn: &mut AsyncPgConnection,
+        conn: &mut diesel_async::AsyncPgConnection,
         api_key_id: Uuid,
     ) -> AppResult<Vec<String>> {
         use diesel_async::RunQueryDsl;

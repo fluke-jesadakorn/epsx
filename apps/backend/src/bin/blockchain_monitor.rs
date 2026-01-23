@@ -2,9 +2,7 @@
 // Standalone service for monitoring BSC blockchain events and processing payments
 
 use epsx::infrastructure::BlockchainMonitor;
-use diesel_async::AsyncPgConnection;
-use diesel_async::pooled_connection::deadpool::Pool;
-use diesel_async::pooled_connection::AsyncDieselConnectionManager;
+use epsx::prelude::{TlsPool, TlsConnectionManager};
 use diesel_async::RunQueryDsl;
 use std::sync::Arc;
 use tracing::{error, info, warn};
@@ -78,8 +76,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Connect to database
     info!("🔌 Connecting to PostgreSQL database...");
-    let config = AsyncDieselConnectionManager::<AsyncPgConnection>::new(&database_url);
-    let pool = Pool::builder(config)
+    let config = TlsConnectionManager::new(database_url.clone());
+    let pool = TlsPool::builder(config)
         .max_size(10)
         .build()
         .expect("Failed to create database pool");
@@ -125,7 +123,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // Leak the pool to make it 'static (required for BlockchainMonitor)
-    let pool_static: &'static Pool<AsyncPgConnection> = Box::leak(Box::new(pool));
+    let pool_static: &'static TlsPool = Box::leak(Box::new(pool));
     let pool_arc = Arc::new(pool_static);
 
     // Parse supported tokens

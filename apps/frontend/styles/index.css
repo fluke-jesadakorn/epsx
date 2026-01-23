@@ -135,12 +135,6 @@ body[data-performance-mode="high"] .card-insight {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
-body[data-performance-mode="high"] .glass,
-body[data-performance-mode="high"] .glass-strong,
-body[data-performance-mode="high"] .glass-subtle {
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-}
 
 /* ============================================================================
    VERSION METADATA

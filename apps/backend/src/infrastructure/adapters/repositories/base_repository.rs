@@ -1,7 +1,7 @@
 use async_trait::async_trait;
-use diesel_async::{AsyncPgConnection, pooled_connection::deadpool::Pool};
 use std::sync::Arc;
 use crate::core::errors::{AppResult, AppError};
+use crate::infrastructure::database::diesel_connection_manager::TlsPool;
 
 /// Base repository trait providing common database operations
 #[async_trait]
@@ -26,15 +26,15 @@ pub trait BaseRepository<T, ID> {
 /// Safe Send/Sync implementation - contains Arc<&'static Pool> which is thread-safe
 #[derive(Clone)]
 pub struct DieselBaseRepository {
-    pool: Arc<&'static Pool<AsyncPgConnection>>,
+    pool: Arc<&'static TlsPool>,
 }
 
 impl DieselBaseRepository {
-    pub fn new(pool: Arc<&'static Pool<AsyncPgConnection>>) -> Self {
+    pub fn new(pool: Arc<&'static TlsPool>) -> Self {
         Self { pool }
     }
 
-    pub fn get_pool(&self) -> &Pool<AsyncPgConnection> {
+    pub fn get_pool(&self) -> &TlsPool {
         &self.pool
     }
 

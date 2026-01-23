@@ -4,7 +4,7 @@
 [print_schema]
 file = "src/schemas/notifications.rs"
 import_types = ["diesel::sql_types::*"]
-filter = { except_tables = ["_sqlx_migrations", "__diesel_schema_migrations", "schema_migrations"] }
+filter = { only_tables = ["notifications", "wallet_notifications"] }
 with_docs = true
 
 [migrations_directory]

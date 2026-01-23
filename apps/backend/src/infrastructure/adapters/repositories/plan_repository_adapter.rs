@@ -5,7 +5,7 @@
 use crate::prelude::*;
 use async_trait::async_trait;
 use diesel::prelude::*;
-use diesel_async::{AsyncPgConnection, RunQueryDsl, pooled_connection::deadpool::Pool};
+use diesel_async::{RunQueryDsl};
 use crate::domain::subscription_management::Price;
 use tracing::error;
 use std::str::FromStr;
@@ -22,16 +22,16 @@ use crate::infrastructure::adapters::repositories::database_types::PermissionRow
 
 #[derive(Clone)]
 pub struct PostgresPlanRepositoryAdapter {
-    db_pool: &'static Pool<AsyncPgConnection>,
+    db_pool: &'static TlsPool,
 }
 
 impl PostgresPlanRepositoryAdapter {
-    pub fn new(db_pool: &'static Pool<AsyncPgConnection>) -> Self {
+    pub fn new(db_pool: &'static TlsPool) -> Self {
         Self { db_pool }
     }
 
     // Helper to map DB row to Aggregate
-    async fn map_row_to_plan(&self, conn: &mut AsyncPgConnection, row: PlanDb) -> AppResult<Plan> {
+    async fn map_row_to_plan(&self, conn: &mut diesel_async::AsyncPgConnection, row: PlanDb) -> AppResult<Plan> {
          // Fetch permissions
          let query = r#"
             SELECT p.permission_string, p.platform, p.resource, p.action

@@ -19,33 +19,23 @@ impl RedisCache {
         config: CacheConfig,
     ) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
         // Try to connect to Redis
-        let redis_client = match redis::Client::open(connection_url.clone()) {
-            Ok(client) => {
-                // Test the connection
-                match client.get_connection() {
-                    Ok(mut conn) => {
-                        // Test with a simple ping
-                        match redis::cmd("PING").query::<String>(&mut conn) {
-                            Ok(_) => {
-                                tracing::info!("✅ Redis connection successful: {}", connection_url);
-                                Some(Arc::new(Mutex::new(client)))
-                            }
-                            Err(e) => {
-                                tracing::warn!("⚠️ Redis ping failed: {}, falling back to memory cache", e);
-                                None
-                            }
-                        }
-                    }
-                    Err(e) => {
-                        tracing::warn!("⚠️ Redis connection failed: {}, falling back to memory cache", e);
-                        None
+        let client = redis::Client::open(connection_url.clone())?;
+        let client_clone = client.clone();
+        
+        // Test the connection in a blocking task to avoid hanging if Redis is down
+        let redis_client = match tokio::task::spawn_blocking(move || {
+            match client_clone.get_connection() {
+                Ok(mut conn) => {
+                    match redis::cmd("PING").query::<String>(&mut conn) {
+                        Ok(_) => Some(client_clone),
+                        Err(_) => None
                     }
                 }
+                Err(_) => None
             }
-            Err(e) => {
-                tracing::warn!("⚠️ Redis client creation failed: {}, falling back to memory cache", e);
-                None
-            }
+        }).await {
+            Ok(Some(client)) => Some(Arc::new(Mutex::new(client))),
+            _ => None
         };
 
         let is_redis_available = redis_client.is_some();
@@ -229,6 +219,20 @@ impl Cache for RedisCache {
                 self.fallback_cache.clear();
             })
         })
+    }
+
+    fn health_check(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        if self.redis_client.is_none() {
+            return Err("Redis client not configured".into());
+        }
+
+        if !*self.is_redis_available.read().unwrap() {
+            return Err("Redis marked as unavailable".into());
+        }
+
+        // We could do a PING here, but is_redis_available is already updated by other operations
+        // and its initial value is from a PING.
+        Ok(())
     }
 }
 

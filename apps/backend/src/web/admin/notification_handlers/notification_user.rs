@@ -106,15 +106,24 @@ pub async fn get_user_notifications_handler(
     }
 
     // Use repository for database operations - notifications table is in separate DB
-    let notifications_pool = if let Ok(p) = crate::infrastructure::database::get_notifications_pool().await {
-        std::sync::Arc::new(p)
-    } else {
-        app_state.db_pool.clone()
+    let notifications_pool = match crate::infrastructure::database::get_notifications_pool().await {
+        Ok(p) => std::sync::Arc::new(p),
+        Err(e) => {
+            tracing::warn!("Failed to get notifications pool, falling back to main pool: {}", e);
+            app_state.db_pool.clone()
+        }
     };
     let repo = WalletNotificationRepository::new(notifications_pool.clone());
 
     // Fetch notifications for wallet
-    let records = repo.find_for_wallet(&wallet_address, &filter, limit as i64, offset).await?;
+    let records = repo.find_for_wallet(&wallet_address, &filter, limit as i64, offset).await
+        .map_err(|e| {
+            tracing::error!("Failed to fetch notifications for wallet {}: {}", wallet_address, e);
+            AppError::new(
+                ErrorKind::DatabaseError,
+                format!("Failed to fetch notifications: {}", e.message)
+            )
+        })?;
 
     let notifications: Vec<NotificationDto> = records.into_iter().map(|r| NotificationDto {
         id: r.id.to_string(),
@@ -134,10 +143,24 @@ pub async fn get_user_notifications_handler(
     }).collect();
 
     // Get total count
-    let total_count = repo.count_for_wallet(&wallet_address, &filter).await?;
+    let total_count = repo.count_for_wallet(&wallet_address, &filter).await
+        .map_err(|e| {
+            tracing::error!("Failed to count notifications for wallet {}: {}", wallet_address, e);
+            AppError::new(
+                ErrorKind::DatabaseError,
+                format!("Failed to count notifications: {}", e.message)
+            )
+        })?;
 
     // Get unread count
-    let unread_count = repo.count_unread_for_wallet(&wallet_address, &filter).await?;
+    let unread_count = repo.count_unread_for_wallet(&wallet_address, &filter).await
+        .map_err(|e| {
+            tracing::error!("Failed to count unread notifications for wallet {}: {}", wallet_address, e);
+            AppError::new(
+                ErrorKind::DatabaseError,
+                format!("Failed to count unread notifications: {}", e.message)
+            )
+        })?;
 
     let total_pages = ((total_count as f64) / (limit as f64)).ceil() as u32;
 

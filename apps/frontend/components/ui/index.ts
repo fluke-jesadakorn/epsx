@@ -55,7 +55,7 @@ export {
 export {
   AdminCard,
   AnalyticsCard, EPSXCard, EPSXCardContent,
-  EPSXCardFooter, EPSXCardHeader, GlassCard,
+  EPSXCardFooter, EPSXCardHeader,
   // Legacy aliases
   MetroCard, MetroListCard, MetroStatsCard,
   // Specialized variants

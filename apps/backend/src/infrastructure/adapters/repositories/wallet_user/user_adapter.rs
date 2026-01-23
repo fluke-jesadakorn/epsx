@@ -1,7 +1,7 @@
 use crate::prelude::*;
 use std::collections::{HashMap, HashSet};
 use diesel::prelude::*;
-use diesel_async::{AsyncPgConnection, RunQueryDsl, pooled_connection::deadpool::Pool};
+use diesel_async::{RunQueryDsl};
 use crate::schemas::primary::wallet_users;
 use crate::infrastructure::adapters::repositories::database_types::{WalletUserDb, NewWalletUserDb};
 
@@ -13,11 +13,11 @@ use crate::domain::wallet_management::{
 
 #[derive(Clone)]
 pub struct PostgresWalletUserRepositoryAdapter {
-    db_pool: &'static Pool<AsyncPgConnection>,
+    db_pool: &'static TlsPool,
 }
 
 impl PostgresWalletUserRepositoryAdapter {
-    pub fn new(db_pool: &'static Pool<AsyncPgConnection>) -> Self {
+    pub fn new(db_pool: &'static TlsPool) -> Self {
         Self { db_pool }
     }
 }

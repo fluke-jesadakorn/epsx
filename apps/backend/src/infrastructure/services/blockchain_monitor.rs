@@ -1,9 +1,10 @@
+use crate::prelude::TlsPool;
 use std::sync::Arc;
 use std::str::FromStr;
 use tokio::sync::RwLock;
 use tracing::{error, info, warn};
 use diesel::prelude::*;
-use diesel_async::{AsyncPgConnection, RunQueryDsl, pooled_connection::deadpool::Pool};
+use diesel_async::{RunQueryDsl};
 use chrono::{Utc, Duration};
 
 use uuid::Uuid;
@@ -19,7 +20,7 @@ use crate::domain::wallet_management::{
 pub struct BlockchainMonitor {
     bsc_listener: Arc<RwLock<BscEventListener>>,
     is_running: Arc<RwLock<bool>>,
-    db_pool: Arc<&'static Pool<AsyncPgConnection>>,
+    db_pool: Arc<&'static TlsPool>,
 }
 
 impl BlockchainMonitor {
@@ -30,7 +31,7 @@ impl BlockchainMonitor {
         start_block: u64,
         poll_interval_secs: u64,
         supported_tokens: Vec<String>,
-        db_pool: Arc<&'static Pool<AsyncPgConnection>>,
+        db_pool: Arc<&'static TlsPool>,
     ) -> Result<Self, AppError> {
         let bsc_listener = BscEventListener::new(
             rpc_url,
@@ -97,7 +98,7 @@ impl BlockchainMonitor {
 
     /// Process a payment event - Direct Payment Model
     /// Updates wallet_users.plan_expires_at instead of creating subscription records
-    async fn process_payment_event(event: PaymentEvent, pool: Arc<&'static Pool<AsyncPgConnection>>) -> Result<(), AppError> {
+    async fn process_payment_event(event: PaymentEvent, pool: Arc<&'static TlsPool>) -> Result<(), AppError> {
         info!("💳 Processing payment event: {}", event.unique_id());
         info!("   User: {}", event.user_address);
         info!("   Plan: {}", event.plan_id);
@@ -332,9 +333,9 @@ mod tests {
         let database_url = std::env::var("DATABASE_URL")
             .expect("DATABASE_URL must be set for tests");
 
-        let config = AsyncDieselConnectionManager::<AsyncPgConnection>::new(&database_url);
-        let pool = Pool::builder(config).build().expect("Failed to create test pool");
-        let pool_static: &'static Pool<AsyncPgConnection> = Box::leak(Box::new(pool));
+        let config = AsyncDieselConnectionManager::<diesel_async::AsyncPgConnection>::new(&database_url);
+        let pool = diesel_async::pooled_connection::deadpool::Pool::builder(config).build().expect("Failed to create test pool");
+        let pool_static: &'static TlsPool = Box::leak(Box::new(pool));
         let pool_arc = Arc::new(pool_static);
 
         let monitor = BlockchainMonitor::new(
@@ -355,9 +356,9 @@ mod tests {
         let database_url = std::env::var("DATABASE_URL")
             .expect("DATABASE_URL must be set for tests");
 
-        let config = AsyncDieselConnectionManager::<AsyncPgConnection>::new(&database_url);
-        let pool = Pool::builder(config).build().expect("Failed to create test pool");
-        let pool_static: &'static Pool<AsyncPgConnection> = Box::leak(Box::new(pool));
+        let config = AsyncDieselConnectionManager::<diesel_async::AsyncPgConnection>::new(&database_url);
+        let pool = diesel_async::pooled_connection::deadpool::Pool::builder(config).build().expect("Failed to create test pool");
+        let pool_static: &'static TlsPool = Box::leak(Box::new(pool));
         let pool_arc = Arc::new(pool_static);
 
         let monitor = BlockchainMonitor::new(

@@ -4,7 +4,7 @@
 use crate::prelude::*;
 use tracing::{error, info};
 use diesel::prelude::*;
-use diesel_async::{AsyncPgConnection, RunQueryDsl, pooled_connection::deadpool::Pool};
+use diesel_async::{RunQueryDsl};
 
 use crate::domain::permission_management::{
     Plan, PlanId, PlanSlug, PermissionString,
@@ -41,11 +41,11 @@ struct CountResult {
 /// PostgreSQL implementation of PlanRepositoryPort using Diesel
 #[derive(Clone)]
 pub struct PlanRepositoryAdapter {
-    db_pool: &'static Pool<AsyncPgConnection>,
+    db_pool: &'static TlsPool,
 }
 
 impl PlanRepositoryAdapter {
-    pub fn new(db_pool: &'static Pool<AsyncPgConnection>) -> Self {
+    pub fn new(db_pool: &'static TlsPool) -> Self {
         Self { db_pool }
     }
 }

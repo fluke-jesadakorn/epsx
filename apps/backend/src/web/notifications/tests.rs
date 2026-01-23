@@ -7,13 +7,14 @@
 mod notification_tests {
     use crate::__test__::test_utils::*;
     use crate::infrastructure::database::get_diesel_pool;
+    use crate::infrastructure::database::diesel_connection_manager::TlsPool;
     use chrono::Utc;
     use uuid::Uuid;
     use diesel::prelude::*;
-    use diesel_async::{RunQueryDsl, pooled_connection::deadpool::Pool, AsyncPgConnection};
+    use diesel_async::{RunQueryDsl, };
 
     async fn setup_test_notification(
-        pool: &Pool<AsyncPgConnection>,
+        pool: &TlsPool,
         wallet_address: &str,
     ) -> Result<Uuid, Box<dyn std::error::Error>> {
         let id = Uuid::new_v4();
@@ -40,7 +41,7 @@ mod notification_tests {
     }
 
     async fn cleanup_test_notifications(
-        pool: &Pool<AsyncPgConnection>,
+        pool: &TlsPool,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let mut conn = pool.get().await?;
         diesel_async::RunQueryDsl::execute(diesel::sql_query("DELETE FROM wallet_notifications WHERE title = 'Test Notification'"), &mut conn)

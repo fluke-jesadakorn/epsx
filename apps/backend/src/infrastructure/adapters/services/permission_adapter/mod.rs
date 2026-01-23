@@ -4,7 +4,7 @@
 
 use crate::prelude::*;
 use tracing::{debug, info, warn};
-use diesel_async::{AsyncPgConnection, RunQueryDsl, pooled_connection::deadpool::Pool};
+use diesel_async::{RunQueryDsl};
 use diesel::prelude::*;
 
 use crate::domain::wallet_management::{
@@ -30,14 +30,14 @@ pub struct Web3PermissionServiceAdapter {
     nft: NftValidator,
     token: TokenValidator,
     dao: DaoValidator,
-    pool: &'static Pool<AsyncPgConnection>,
+    pool: &'static TlsPool,
 }
 
 impl Web3PermissionServiceAdapter {
     pub fn new(
         cache: Option<Arc<dyn Cache>>,
         cfg: Option<BlockchainConfig>,
-        pool: &'static Pool<AsyncPgConnection>,
+        pool: &'static TlsPool,
     ) -> Self {
         let cache_mgr = Web3CacheMgr::new(cache);
         let blockchain_cfg = cfg.unwrap_or_default();

@@ -3,7 +3,7 @@
 
 use crate::prelude::*;
 use diesel::prelude::*;
-use diesel_async::{AsyncPgConnection, RunQueryDsl, pooled_connection::deadpool::Pool};
+use diesel_async::{RunQueryDsl};
 use tracing::{info, error, debug};
 use uuid::Uuid;
 
@@ -29,7 +29,7 @@ pub trait EventStore: Send + Sync {
     /// Append events to the event store (using existing connection, can be within transaction)
     async fn append_events(
         &self,
-        conn: &mut AsyncPgConnection,
+        conn: &mut diesel_async::AsyncPgConnection,
         events: &[Box<dyn DomainEvent>],
         causation_id: Option<Uuid>,
         correlation_id: Option<Uuid>,
@@ -71,19 +71,19 @@ pub trait EventStore: Send + Sync {
 
 /// PostgreSQL implementation of EventStore
 pub struct PostgresEventStore {
-    pool: Arc<&'static Pool<AsyncPgConnection>>,
+    pool: Arc<&'static TlsPool>,
     config: EventStoreConfig,
 }
 
 impl PostgresEventStore {
-    pub fn new(pool: Arc<&'static Pool<AsyncPgConnection>>) -> Self {
+    pub fn new(pool: Arc<&'static TlsPool>) -> Self {
         Self {
             pool,
             config: EventStoreConfig::default(),
         }
     }
 
-    pub fn with_config(pool: Arc<&'static Pool<AsyncPgConnection>>, config: EventStoreConfig) -> Self {
+    pub fn with_config(pool: Arc<&'static TlsPool>, config: EventStoreConfig) -> Self {
         Self { pool, config }
     }
 }
@@ -92,7 +92,7 @@ impl PostgresEventStore {
 impl EventStore for PostgresEventStore {
     async fn append_events(
         &self,
-        conn: &mut AsyncPgConnection,
+        conn: &mut diesel_async::AsyncPgConnection,
         events: &[Box<dyn DomainEvent>],
         causation_id: Option<Uuid>,
         correlation_id: Option<Uuid>,

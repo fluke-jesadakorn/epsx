@@ -4,7 +4,7 @@
 
 use chrono::Utc;
 use diesel::prelude::*;
-use diesel_async::{AsyncPgConnection, RunQueryDsl, pooled_connection::deadpool::Pool};
+use diesel_async::{RunQueryDsl};
 use tracing::info;
 use uuid::Uuid;
 
@@ -17,11 +17,11 @@ use crate::schemas::primary::api_modules;
 
 /// Module Repository for database operations
 pub struct ModuleRepository {
-    pool: &'static Pool<AsyncPgConnection>,
+    pool: &'static TlsPool,
 }
 
 impl ModuleRepository {
-    pub fn new(pool: &'static Pool<AsyncPgConnection>) -> Self {
+    pub fn new(pool: &'static TlsPool) -> Self {
         Self { pool }
     }
 

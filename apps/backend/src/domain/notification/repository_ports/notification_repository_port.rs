@@ -1,12 +1,12 @@
 use crate::prelude::*;
 use crate::domain::notification::{Notification, NotificationStatus};
 use crate::domain::notification::value_objects::user_preferences::NotificationType;
-use uuid::Uuid;
+
 
 /// Search criteria for notifications
 #[derive(Debug, Clone, Default)]
 pub struct NotificationSearchCriteria {
-    pub recipient_wallet_address: Option<Uuid>,
+    pub recipient_wallet_address: Option<String>,
     pub topic: Option<String>,
     pub status: Option<NotificationStatus>,
     pub notification_type: Option<NotificationType>,
@@ -42,7 +42,7 @@ pub trait NotificationRepositoryPort: Send + Sync {
     async fn find_pending(&self, limit: u32) -> AppResult<Vec<Notification>>;
 
     /// Find notifications by wallet address
-    async fn find_by_wallet(&self, wallet_address: Uuid) -> AppResult<Vec<Notification>>;
+    async fn find_by_wallet(&self, wallet_address: String) -> AppResult<Vec<Notification>>;
 
     /// Find notifications by topic
     async fn find_by_topic(&self, topic: &str) -> AppResult<Vec<Notification>>;

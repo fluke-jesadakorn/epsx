@@ -52,4 +52,4 @@ pub use payment::{
 
 // Common type aliases for database types
 pub type DbTimestamp = chrono::DateTime<chrono::Utc>;
-pub type DbPool = &'static diesel_async::pooled_connection::deadpool::Pool<diesel_async::AsyncPgConnection>;
+pub type DbPool = crate::prelude::TlsPool;

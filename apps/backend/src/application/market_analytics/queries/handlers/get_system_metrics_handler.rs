@@ -4,16 +4,15 @@ use crate::application::market_analytics::queries::{
     GetSystemMetricsQuery, GetSystemMetricsResponse, CacheMetrics, DatabaseMetrics, ApiMetrics,
 };
 use crate::infrastructure::adapters::services::tradingview::TradingViewApiService;
-use diesel_async::{AsyncPgConnection, pooled_connection::deadpool::Pool};
 
 /// Query handler for getting multi-source system metrics
 pub struct GetSystemMetricsQueryHandler {
     tradingview_service: Arc<TradingViewApiService>,
-    db_pool: Arc<&'static Pool<AsyncPgConnection>>,
+    db_pool: Arc<&'static TlsPool>,
 }
 
 impl GetSystemMetricsQueryHandler {
-    pub fn new(tradingview_service: Arc<TradingViewApiService>, db_pool: Arc<&'static Pool<AsyncPgConnection>>) -> Self {
+    pub fn new(tradingview_service: Arc<TradingViewApiService>, db_pool: Arc<&'static TlsPool>) -> Self {
         Self {
             tradingview_service,
             db_pool,

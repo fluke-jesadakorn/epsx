@@ -309,20 +309,6 @@ CREATE UNIQUE INDEX idx_route_permissions_unique_route ON route_permissions(rout
 -- AUDIT TABLES
 -- ================================================================================================
 
-CREATE TABLE wallet_activity_logs (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    wallet_address VARCHAR(42) NOT NULL,
-    event_type VARCHAR(50) NOT NULL,
-    description TEXT NOT NULL,
-    performed_by VARCHAR(42),
-    metadata JSONB DEFAULT '{}',
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE INDEX idx_wallet_activity_logs_wallet ON wallet_activity_logs(wallet_address);
-CREATE INDEX idx_wallet_activity_logs_type ON wallet_activity_logs(event_type);
-CREATE INDEX idx_wallet_activity_logs_created ON wallet_activity_logs(created_at DESC);
-
 -- Read model schema for projections
 CREATE SCHEMA IF NOT EXISTS read_model;
 
@@ -633,6 +619,5 @@ COMMENT ON TABLE sessions IS 'Active user sessions';
 
 COMMENT ON TABLE system_settings IS 'Global admin console settings';
 COMMENT ON TABLE api_keys IS 'Developer API keys';
-COMMENT ON TABLE wallet_activity_logs IS 'Wallet activity tracking';
 
 SELECT 'EPSX CONSOLIDATED SCHEMA v4 CREATED SUCCESSFULLY! 🎉' AS success_message;

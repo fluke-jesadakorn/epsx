@@ -5,7 +5,8 @@
 // Reduces code duplication across all repository implementations
 
 use crate::prelude::*;
-use diesel_async::{AsyncPgConnection, RunQueryDsl, pooled_connection::deadpool::Pool};
+use diesel_async::{RunQueryDsl, AsyncPgConnection};
+use diesel_async::pooled_connection::deadpool::Object;
 use std::pin::Pin;
 use std::future::Future;
 use tracing::error;
@@ -76,7 +77,7 @@ macro_rules! handle_validation_error {
 #[async_trait::async_trait]
 pub trait RepositoryBase {
     /// Get a database connection from the pool
-    async fn get_connection(&self) -> Result<AsyncPgConnection, AppError>;
+    async fn get_connection(&self) -> Result<Object<AsyncPgConnection>, AppError>;
 
     /// Perform a health check on the database connection
     async fn health_check(&self) -> Result<(), AppError>;
@@ -162,7 +163,7 @@ pub struct DatabaseOperations;
 impl DatabaseOperations {
     /// Execute a health check query
     pub async fn health_check_query(
-        conn: &mut AsyncPgConnection,
+        conn: &mut diesel_async::AsyncPgConnection,
         component: &str,
     ) -> Result<(), AppError> {
         use diesel::dsl::sql;
@@ -188,12 +189,12 @@ impl DatabaseOperations {
 /// Wrapper for database connection pool with common operations
 #[derive(Clone)]
 pub struct ConnectionPoolManager {
-    pool: &'static Pool<AsyncPgConnection>,
+    pool: &'static TlsPool,
     component: &'static str,
 }
 
 impl ConnectionPoolManager {
-    pub fn new(pool: &'static Pool<AsyncPgConnection>, component: &'static str) -> Self {
+    pub fn new(pool: &'static TlsPool, component: &'static str) -> Self {
         Self { pool, component }
     }
 
@@ -237,7 +238,7 @@ pub fn normalize_wallet_address(address: &str) -> String {
 /// Validate wallet address format (basic validation)
 pub fn validate_wallet_address(address: &str) -> Result<(), AppError> {
     if address.len() < 42 || address.len() > 50 {
-        return Err(handle_validation_error!(
+        return Err(crate::handle_validation_error!(
             "Invalid wallet address length",
             "validation",
             "wallet_address"
@@ -245,7 +246,7 @@ pub fn validate_wallet_address(address: &str) -> Result<(), AppError> {
     }
 
     if !address.starts_with("0x") && address.len() == 42 {
-        return Err(handle_validation_error!(
+        return Err(crate::handle_validation_error!(
             "Wallet address must start with 0x",
             "validation",
             "wallet_address"
@@ -277,7 +278,7 @@ pub mod testing {
     use tracing::info;
 
     /// Create a mock connection pool for testing
-    pub async fn create_test_pool() -> Arc<Pool<AsyncPgConnection>> {
+    pub async fn create_test_pool() -> Arc<TlsPool> {
         // Use in-memory SQLite for testing or connect to test database
         // For this implementation, we'll create a simple test configuration
 
@@ -286,9 +287,9 @@ pub mod testing {
             .unwrap_or_else(|_| "postgresql://postgres:password@localhost:5432/epsx_test_db".to_string());
 
         // Create connection pool configuration for testing
-        let config = AsyncDieselConnectionManager::<AsyncPgConnection>::new(database_url);
+        let config = AsyncDieselConnectionManager::<diesel_async::AsyncPgConnection>::new(database_url);
 
-        let pool = Pool::builder(config)
+        let pool = diesel_async::pooled_connection::deadpool::Pool::builder(config)
             .max_size(5) // Small pool for testing
             .build()
             .expect("Failed to create test database pool");
@@ -298,7 +299,7 @@ pub mod testing {
 
     /// Create test database utilities
     pub struct TestDatabase {
-        pool: Arc<Pool<AsyncPgConnection>>,
+        pool: Arc<TlsPool>,
     }
 
     impl TestDatabase {
@@ -346,78 +347,3 @@ pub mod testing {
         }
     }
 }
-
-// ============================================================================
-// EXAMPLE USAGE
-// ============================================================================
-
-/*
-// Example repository using the shared utilities:
-
-#[derive(Clone)]
-pub struct ExampleRepository {
-    db_pool: ConnectionPoolManager,
-}
-
-impl ExampleRepository {
-    pub fn new(pool: &'static Pool<AsyncPgConnection>) -> Self {
-        Self {
-            db_pool: ConnectionPoolManager::new(pool, "example_repository"),
-        }
-    }
-
-    pub async fn find_by_id(&self, id: &str) -> Result<Option<ExampleEntity>, AppError> {
-        self.db_pool.execute("find_by_id", |conn| {
-            let entity = example_table::table
-                .filter(example_table::id.eq(id))
-                .first::<ExampleEntity>(conn)
-                .await
-                .optional()
-                .map_err(|e| handle_db_error!(e, Self::component_name(), "find_by_id", id))?;
-
-            Ok(entity)
-        }).await
-    }
-
-    pub async fn paginated_search(&self, params: PaginationParams) -> Result<PaginatedResult<ExampleEntity>, AppError> {
-        self.db_pool.execute("paginated_search", |conn| {
-            // Get total count
-            let total_count = DatabaseOperations::count_query(
-                conn,
-                example_table::table,
-                example_table::is_active.eq(true),
-                Self::component_name(),
-                "paginated_search_count"
-            ).await?;
-
-            // Get paginated results
-            let offset = params.offset.unwrap_or(0) as i64;
-            let limit = params.limit.unwrap_or(50) as i64;
-
-            let items = example_table::table
-                .filter(example_table::is_active.eq(true))
-                .limit(limit)
-                .offset(offset)
-                .load::<ExampleEntity>(conn)
-                .await
-                .map_err(|e| handle_db_error!(e, Self::component_name(), "paginated_search"))?;
-
-            Ok(PaginatedResult::new(items, total_count as u64, offset as u64, limit as u64))
-        }).await
-    }
-}
-
-impl RepositoryBase for ExampleRepository {
-    async fn get_connection(&self) -> Result<AsyncPgConnection, AppError> {
-        self.db_pool.get_connection("base_operation").await
-    }
-
-    async fn health_check(&self) -> Result<(), AppError> {
-        self.db_pool.health_check().await
-    }
-
-    fn component_name() -> &'static str {
-        "example_repository"
-    }
-}
-*/

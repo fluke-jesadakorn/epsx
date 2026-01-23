@@ -1,5 +1,5 @@
 use diesel::prelude::*;
-use diesel_async::{AsyncPgConnection, RunQueryDsl, pooled_connection::deadpool::Pool};
+use diesel_async::{RunQueryDsl};
 use std::sync::Arc;
 use uuid::Uuid;
 use async_trait::async_trait;
@@ -9,19 +9,21 @@ use crate::domain::notification::*;
 use crate::core::errors::{AppError, ErrorKind};
 use super::notification_record::NotificationRecord;
 
+
+
 pub struct NotificationRepository {
-    pool: Arc<&'static Pool<AsyncPgConnection>>,
+    pool: Arc<&'static TlsPool>,
 }
 
 impl NotificationRepository {
-    pub fn new(pool: Arc<&'static Pool<AsyncPgConnection>>) -> Self {
+    pub fn new(pool: Arc<&'static TlsPool>) -> Self {
         Self { pool }
     }
 
     fn diesel_row_to_record(row: NotificationQueryRow) -> Result<NotificationRecord, AppError> {
         Ok(NotificationRecord {
             id: row.id,
-            recipient_wallet_id: row.recipient_wallet_id,
+            recipient_wallet_address: row.recipient_wallet_address.clone(), 
             topic_name: row.topic_name,
             title: row.title,
             body: row.body,
@@ -36,7 +38,7 @@ impl NotificationRepository {
             send_started_at: row.send_started_at,
             channel_status: row.channel_status,
             total_attempts: row.total_attempts,
-            created_by_wallet_id: row.created_by_wallet_id,
+            created_by: row.created_by,
             image_url: row.image_url,
             action_url: row.action_url,
             data_payload: row.data_payload,
@@ -54,8 +56,8 @@ impl NotificationRepository {
 struct NotificationQueryRow {
     #[diesel(sql_type = diesel::sql_types::Uuid)]
     id: Uuid,
-    #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Uuid>)]
-    recipient_wallet_id: Option<Uuid>,
+    #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Varchar>)]
+    recipient_wallet_address: Option<String>,
     #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
     topic_name: Option<String>,
     #[diesel(sql_type = diesel::sql_types::Text)]
@@ -84,8 +86,8 @@ struct NotificationQueryRow {
     channel_status: serde_json::Value,
     #[diesel(sql_type = diesel::sql_types::Integer)]
     total_attempts: i32,
-    #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Uuid>)]
-    created_by_wallet_id: Option<Uuid>,
+    #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Varchar>)]
+    created_by: Option<String>,
     #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
     image_url: Option<String>,
     #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
@@ -105,6 +107,7 @@ struct NotificationQueryRow {
 }
 
 #[async_trait]
+#[async_trait]
 impl NotificationRepositoryPort for NotificationRepository {
     async fn find_by_id(&self, notification_id: &str) -> AppResult<Option<Notification>> {
         let id = Uuid::parse_str(notification_id)
@@ -115,12 +118,12 @@ impl NotificationRepositoryPort for NotificationRepository {
 
         let row = diesel::sql_query(
             r#"
-            SELECT id, recipient_wallet_id, topic_name, title, body, urgency,
+            SELECT id, recipient_wallet_address, topic_name, title, body, urgency,
                    notification_type, priority, channels, schedule_type, scheduled_at, expires_at,
                    status, send_started_at, channel_status, total_attempts,
-                   created_by_wallet_id, image_url, action_url, data_payload, tags, notes,
+                   created_by, image_url, action_url, data_payload, tags, notes,
                    version, created_at, updated_at
-            FROM notifications WHERE id = $1
+            FROM wallet_notifications WHERE id = $1
             "#
         )
         .bind::<diesel::sql_types::Uuid, _>(id)
@@ -144,13 +147,13 @@ impl NotificationRepositoryPort for NotificationRepository {
 
         let rows = diesel::sql_query(
             r#"
-            SELECT id, recipient_wallet_id, topic_name, title, body, urgency,
+            SELECT id, recipient_wallet_address, topic_name, title, body, urgency,
                    notification_type, priority, channels, schedule_type, scheduled_at, expires_at,
                    status, send_started_at, channel_status, total_attempts,
-                   created_by_wallet_id, image_url, action_url, data_payload, tags, notes,
+                   created_by, image_url, action_url, data_payload, tags, notes,
                    version, created_at, updated_at
-            FROM notifications
-            WHERE ($1::uuid IS NULL OR recipient_wallet_id = $1)
+            FROM wallet_notifications
+            WHERE ($1::text IS NULL OR recipient_wallet_address = $1)
               AND ($2::text IS NULL OR topic_name = $2)
               AND ($3::text IS NULL OR status = $3)
               AND ($4::text IS NULL OR notification_type = $4)
@@ -161,7 +164,7 @@ impl NotificationRepositoryPort for NotificationRepository {
             LIMIT $8 OFFSET $9
             "#
         )
-        .bind::<diesel::sql_types::Nullable<diesel::sql_types::Uuid>, _>(criteria.recipient_wallet_address)
+        .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(criteria.recipient_wallet_address.as_deref())
         .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(criteria.topic.as_deref())
         .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(criteria.status.as_ref().map(|s| s.as_str()))
         .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(criteria.notification_type.as_ref().map(|t| t.as_str()))
@@ -190,18 +193,18 @@ impl NotificationRepositoryPort for NotificationRepository {
 
         diesel::sql_query(
             r#"
-            INSERT INTO notifications (
-                id, recipient_wallet_id, topic_name, title, body, urgency,
+            INSERT INTO wallet_notifications (
+                id, recipient_wallet_address, topic_name, title, body, urgency,
                 notification_type, priority, channels, schedule_type, scheduled_at, expires_at,
                 status, send_started_at, channel_status, total_attempts,
-                created_by_wallet_id, image_url, action_url, data_payload, tags, notes,
+                created_by, image_url, action_url, data_payload, tags, notes,
                 version, created_at, updated_at
             ) VALUES (
                 $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16,
                 $17, $18, $19, $20, $21, $22, $23, $24, $25
             )
             ON CONFLICT (id) DO UPDATE SET
-                recipient_wallet_id = EXCLUDED.recipient_wallet_id,
+                recipient_wallet_address = EXCLUDED.recipient_wallet_address,
                 topic_name = EXCLUDED.topic_name,
                 title = EXCLUDED.title,
                 body = EXCLUDED.body,
@@ -226,7 +229,7 @@ impl NotificationRepositoryPort for NotificationRepository {
             "#
         )
         .bind::<diesel::sql_types::Uuid, _>(record.id)
-        .bind::<diesel::sql_types::Nullable<diesel::sql_types::Uuid>, _>(record.recipient_wallet_id)
+        .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(record.recipient_wallet_address.as_deref())
         .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(record.topic_name.as_deref())
         .bind::<diesel::sql_types::Text, _>(&record.title)
         .bind::<diesel::sql_types::Text, _>(&record.body)
@@ -241,7 +244,7 @@ impl NotificationRepositoryPort for NotificationRepository {
         .bind::<diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>, _>(record.send_started_at)
         .bind::<diesel::sql_types::Nullable<diesel::sql_types::Jsonb>, _>(&record.channel_status)
         .bind::<diesel::sql_types::Integer, _>(record.total_attempts)
-        .bind::<diesel::sql_types::Nullable<diesel::sql_types::Uuid>, _>(record.created_by_wallet_id)
+        .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(record.created_by.as_deref())
         .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(record.image_url.as_deref())
         .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(record.action_url.as_deref())
         .bind::<diesel::sql_types::Nullable<diesel::sql_types::Jsonb>, _>(&record.data_payload)
@@ -264,7 +267,7 @@ impl NotificationRepositoryPort for NotificationRepository {
         let mut conn = self.pool.get().await
             .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to get connection: {}", e)))?;
 
-        diesel::sql_query("DELETE FROM notifications WHERE id = $1")
+        diesel::sql_query("DELETE FROM wallet_notifications WHERE id = $1")
             .bind::<diesel::sql_types::Uuid, _>(id)
             .execute(&mut conn)
             .await
@@ -286,14 +289,14 @@ impl NotificationRepositoryPort for NotificationRepository {
         let row = diesel::sql_query(
             r#"
             SELECT COUNT(*) as count
-            FROM notifications
-            WHERE ($1::uuid IS NULL OR recipient_wallet_id = $1)
+            FROM wallet_notifications
+            WHERE ($1::text IS NULL OR recipient_wallet_address = $1)
               AND ($2::text IS NULL OR topic_name = $2)
               AND ($3::text IS NULL OR status = $3)
               AND ($4::text IS NULL OR notification_type = $4)
             "#
         )
-        .bind::<diesel::sql_types::Nullable<diesel::sql_types::Uuid>, _>(criteria.recipient_wallet_address)
+        .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(criteria.recipient_wallet_address.as_deref())
         .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(criteria.topic.as_deref())
         .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(criteria.status.as_ref().map(|s| s.as_str()))
         .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(criteria.notification_type.as_ref().map(|t| t.as_str()))
@@ -317,7 +320,7 @@ impl NotificationRepositoryPort for NotificationRepository {
             exists: bool,
         }
 
-        let row = diesel::sql_query("SELECT EXISTS(SELECT 1 FROM notifications WHERE id = $1) as exists")
+        let row = diesel::sql_query("SELECT EXISTS(SELECT 1 FROM wallet_notifications WHERE id = $1) as exists")
             .bind::<diesel::sql_types::Uuid, _>(id)
             .get_result::<ExistsRow>(&mut conn)
             .await
@@ -332,12 +335,12 @@ impl NotificationRepositoryPort for NotificationRepository {
 
         let rows = diesel::sql_query(
             r#"
-            SELECT id, recipient_wallet_id, topic_name, title, body, urgency,
+            SELECT id, recipient_wallet_address, topic_name, title, body, urgency,
                    notification_type, priority, channels, schedule_type, scheduled_at, expires_at,
                    status, send_started_at, channel_status, total_attempts,
-                   created_by_wallet_id, image_url, action_url, data_payload, tags, notes,
+                   created_by, image_url, action_url, data_payload, tags, notes,
                    version, created_at, updated_at
-            FROM notifications
+            FROM wallet_notifications
             WHERE status IN ('scheduled', 'queued', 'created')
               AND (scheduled_at IS NULL OR scheduled_at <= NOW())
               AND (expires_at IS NULL OR expires_at > NOW())
@@ -358,7 +361,7 @@ impl NotificationRepositoryPort for NotificationRepository {
         Ok(notifications)
     }
 
-    async fn find_by_wallet(&self, wallet_address: Uuid) -> AppResult<Vec<Notification>> {
+    async fn find_by_wallet(&self, wallet_address: String) -> AppResult<Vec<Notification>> {
         let criteria = NotificationSearchCriteria {
             recipient_wallet_address: Some(wallet_address),
             ..Default::default()
@@ -388,12 +391,12 @@ impl NotificationRepositoryPort for NotificationRepository {
 
         let rows = diesel::sql_query(
             r#"
-            SELECT id, recipient_wallet_id, topic_name, title, body, urgency,
+            SELECT id, recipient_wallet_address, topic_name, title, body, urgency,
                    notification_type, priority, channels, schedule_type, scheduled_at, expires_at,
                    status, send_started_at, channel_status, total_attempts,
-                   created_by_wallet_id, image_url, action_url, data_payload, tags, notes,
+                   created_by, image_url, action_url, data_payload, tags, notes,
                    version, created_at, updated_at
-            FROM notifications
+            FROM wallet_notifications
             WHERE expires_at IS NOT NULL
               AND expires_at <= NOW()
               AND status NOT IN ('expired', 'delivered', 'cancelled')

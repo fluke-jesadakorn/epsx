@@ -72,7 +72,7 @@ impl From<AuditLogDb> for AuditLogEntry {
 impl AuditLogRepository for DieselAuditLogRepository {
     async fn save(&self, entry: AuditLogEntry) -> Result<AuditLogEntry> {
         let pool = get_analytics_pool().await?;
-        let mut conn = pool.get().await.context("Failed to get DB connection")?;
+        let mut conn = pool.get().await.map_err(|e| anyhow::anyhow!("Failed to get DB connection: {:?}", e))?;
 
         let new_log = NewAuditLogDb {
             wallet_address: entry.wallet_address.map(|w| w.to_string()),
@@ -104,7 +104,7 @@ impl AuditLogRepository for DieselAuditLogRepository {
 
     async fn find_all(&self, query: AuditQuery) -> Result<(Vec<AuditLogEntry>, i64)> {
         let pool = get_analytics_pool().await?;
-        let mut conn = pool.get().await.context("Failed to get DB connection")?;
+        let mut conn = pool.get().await.map_err(|e| anyhow::anyhow!("Failed to get DB connection: {:?}", e))?;
 
         // Use a local closure to build the query twice to avoid move/clone issues with Diesel's BoxedQuery
         let build_query = || {

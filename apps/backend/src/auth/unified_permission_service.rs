@@ -1,3 +1,4 @@
+use crate::prelude::TlsPool;
 // ============================================================================
 // UNIFIED PERMISSION SERVICE - SINGLE SOURCE OF TRUTH
 // ============================================================================
@@ -20,7 +21,7 @@
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use diesel_async::{AsyncPgConnection, RunQueryDsl, pooled_connection::deadpool::Pool};
+use diesel_async::RunQueryDsl;
 use diesel::prelude::*;
 use std::sync::Arc;
 // Note: wallet_plan_assignments table not implemented yet
@@ -112,18 +113,18 @@ pub struct RemovePlanRequest {
 /// The single source of truth for all permission operations
 #[derive(Clone)]
 pub struct UnifiedPermissionService {
-    db_pool: &'static Pool<AsyncPgConnection>,
+    db_pool: &'static TlsPool,
     cache: Option<Arc<UnifiedPermissionCache>>,
 }
 
 impl UnifiedPermissionService {
     /// Create new unified permission service with cache
-    pub fn new(db_pool: &'static Pool<AsyncPgConnection>, cache: Arc<UnifiedPermissionCache>) -> Self {
+    pub fn new(db_pool: &'static TlsPool, cache: Arc<UnifiedPermissionCache>) -> Self {
         Self { db_pool, cache: Some(cache) }
     }
 
     /// Create new unified permission service without cache (direct DB queries only)
-    pub fn new_without_cache(db_pool: &'static Pool<AsyncPgConnection>) -> Self {
+    pub fn new_without_cache(db_pool: &'static TlsPool) -> Self {
         Self { db_pool, cache: None }
     }
 

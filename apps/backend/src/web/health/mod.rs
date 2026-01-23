@@ -1,18 +1,18 @@
-//! Health check module for monitoring system status
-//! Single comprehensive /health endpoint with external service status
+use crate::prelude::TlsPool;
+// Health check module for monitoring system status
+// Single comprehensive /health endpoint with external service status
 
 use axum::{response::Json, extract::State};
 use serde_json::{json, Value};
 use utoipa::ToSchema;
 use std::sync::Arc;
 // use diesel::prelude::*;
-use diesel_async::{AsyncPgConnection, pooled_connection::deadpool::Pool};
 use crate::infrastructure::cache::Cache;
 
 /// Health state for health endpoint
 #[derive(Clone)]
 pub struct HealthState {
-    pub pool: Arc<&'static Pool<AsyncPgConnection>>,
+    pub pool: Arc<&'static TlsPool>,
     pub cache: Arc<dyn Cache>,
 }
 
@@ -57,15 +57,18 @@ pub async fn health_check_handler(
 
     // Check Redis
     let redis_start = std::time::Instant::now();
-    let redis_status = match cache.get("health_check") {
-        Some(_) => ServiceStatus {
+    let redis_status = match cache.health_check() {
+        Ok(_) => ServiceStatus {
             status: "connected".to_string(),
             latency_ms: Some(redis_start.elapsed().as_millis() as u64),
         },
-        None => ServiceStatus {
-            status: "disconnected".to_string(),
-            latency_ms: None,
-        },
+        Err(e) => {
+            tracing::warn!("Redis health check failed: {}", e);
+            ServiceStatus {
+                status: "disconnected".to_string(),
+                latency_ms: None,
+            }
+        }
     };
 
     // Overall status

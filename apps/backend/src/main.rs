@@ -1,8 +1,6 @@
 use std::net::SocketAddr;
 use std::sync::Arc;
-use diesel_async::AsyncPgConnection;
-use diesel_async::pooled_connection::deadpool::Pool;
-use diesel_async::pooled_connection::AsyncDieselConnectionManager;
+use epsx::prelude::{TlsPool, TlsConnectionManager};
 use tracing::{info, error};
 
 // Import from our library
@@ -18,8 +16,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // Initialize configuration (loads .env and validates)
     let config = init_config();
 
-    // Initialize basic tracing
-    tracing_subscriber::fmt::init();
+    // Initialize tracing with level from configuration
+    // Filter out noisy tokio_postgres DEBUG logs by default
+    // Users can still enable them via RUST_LOG=tokio_postgres=debug if needed
+    let filter = tracing_subscriber::EnvFilter::try_from_default_env()
+        .unwrap_or_else(|_| {
+            // Default: use LOG_LEVEL config + suppress tokio_postgres DEBUG
+            // This prevents verbose query preparation/execution logs from tokio_postgres
+            let filter_str = format!("{},tokio_postgres=warn", config.log_level);
+            tracing_subscriber::EnvFilter::new(&filter_str)
+        });
+    
+    tracing_subscriber::fmt()
+        .with_env_filter(filter)
+        .init();
+
+    // Install default crypto provider for rustls
+    let _ = rustls::crypto::ring::default_provider().install_default();
 
     info!("🚀 Starting EPSX Backend Server - Data Analytics Platform...");
 
@@ -27,38 +40,52 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let database_url = std::env::var("DATABASE_URL")
         .map_err(|_| "DATABASE_URL must be set")?;
 
-    let db_config = AsyncDieselConnectionManager::<AsyncPgConnection>::new(&database_url);
-    let pool = Pool::builder(db_config)
+    info!("Connecting to database...");
+    let db_config = TlsConnectionManager::new(database_url);
+    let pool = TlsPool::builder(db_config)
         .max_size(10)
         .build()
         .map_err(|e| format!("Failed to create database pool: {}", e))?;
 
-    // Test database connection
-    match pool.get().await {
-        Ok(_) => info!("✅ Database pool created and connection verified"),
-        Err(e) => {
+    // Test database connection with timeout
+    let connection_timeout = std::time::Duration::from_secs(10);
+    match tokio::time::timeout(connection_timeout, pool.get()).await {
+        Ok(Ok(_)) => {
+            info!("✅ Database pool created and connection verified")
+        },
+        Ok(Err(e)) => {
             error!("❌ Failed to connect to database: {}", e);
             return Err(format!("Database connection failed: {}", e).into());
+        },
+        Err(_) => {
+            error!("❌ Database connection check timed out after 10s");
+            return Err("Database connection timed out".into());
         }
     }
 
     // Leak the pool to make it 'static (required for container)
-    let _db_pool: &'static Pool<AsyncPgConnection> = Box::leak(Box::new(pool));
+    let _db_pool: &'static TlsPool = Box::leak(Box::new(pool));
 
     // Create cache (optional)
+    let redis_timeout = std::time::Duration::from_secs(5);
     let cache = match std::env::var("REDIS_URL").ok() {
         Some(redis_url) => {
-            match epsx::infrastructure::cache::redis_cache::RedisCache::new(
+            match tokio::time::timeout(redis_timeout, epsx::infrastructure::cache::redis_cache::RedisCache::new(
                 redis_url,
                 10, // pool_size
                 epsx::infrastructure::cache::CacheConfig::default()
-            ).await {
-                Ok(cache) => {
+            )).await {
+                Ok(Ok(cache)) => {
                     info!("✅ Redis cache initialized");
                     Some(Arc::new(cache) as Arc<dyn epsx::infrastructure::cache::Cache>)
                 }
-                Err(e) => {
-                    info!("⚠️ Redis cache unavailable, using memory cache: {}", e);
+                Ok(Err(e)) => {
+                    info!("⚠️ Redis cache initialization failed, using memory cache: {}", e);
+                    Some(Arc::new(epsx::infrastructure::cache::memory_cache::MemoryCache::new())
+                        as Arc<dyn epsx::infrastructure::cache::Cache>)
+                }
+                Err(_) => {
+                    info!("⚠️ Redis connection timed out after 5s, using memory cache");
                     Some(Arc::new(epsx::infrastructure::cache::memory_cache::MemoryCache::new())
                         as Arc<dyn epsx::infrastructure::cache::Cache>)
                 }

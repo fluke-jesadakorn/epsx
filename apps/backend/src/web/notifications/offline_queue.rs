@@ -1,5 +1,6 @@
+use crate::prelude::TlsPool;
 use diesel::prelude::*;
-use diesel_async::{AsyncPgConnection, RunQueryDsl, pooled_connection::deadpool::Pool};
+use diesel_async::RunQueryDsl;
 use uuid::Uuid;
 use crate::web::notifications::{SSENotification, NotificationType, NotificationPriority};
 use crate::core::errors::AppError;
@@ -15,7 +16,7 @@ use crate::core::errors::AppError;
 /// - Limits to last 30 days to prevent fetching excessive old data
 /// - Excludes expired notifications
 pub async fn fetch_queued_notifications(
-    db_pool: &Pool<AsyncPgConnection>,
+    db_pool: &TlsPool,
     wallet_address: &str,
 ) -> Result<Vec<SSENotification>, AppError> {
     let mut conn = db_pool.get().await
@@ -89,7 +90,7 @@ pub async fn fetch_queued_notifications(
 
 /// Mark notification as delivered via Redis
 pub async fn mark_as_delivered(
-    db_pool: &Pool<AsyncPgConnection>,
+    db_pool: &TlsPool,
     notification_id: &str,
 ) -> Result<(), AppError> {
     let id = Uuid::parse_str(notification_id)
@@ -110,7 +111,7 @@ pub async fn mark_as_delivered(
 
 /// Mark notification as acknowledged by client
 pub async fn mark_as_acknowledged(
-    db_pool: &Pool<AsyncPgConnection>,
+    db_pool: &TlsPool,
     notification_id: &str,
 ) -> Result<(), AppError> {
     let id = Uuid::parse_str(notification_id)
@@ -141,7 +142,7 @@ pub async fn mark_as_acknowledged(
 ///
 /// This function is designed to be called by a cron job (not implemented)
 pub async fn cleanup_old_notifications(
-    db_pool: &Pool<AsyncPgConnection>,
+    db_pool: &TlsPool,
     _days: i64,
 ) -> Result<u64, AppError> {
     let mut conn = db_pool.get().await.map_err(|e| {
@@ -186,7 +187,7 @@ pub async fn cleanup_old_notifications(
 
 /// Get notification statistics for monitoring (excludes soft-deleted)
 pub async fn get_notification_stats(
-    db_pool: &Pool<AsyncPgConnection>,
+    db_pool: &TlsPool,
 ) -> Result<NotificationStats, AppError> {
     let mut conn = db_pool.get().await.map_err(|e| {
         AppError::database_error(format!("Failed to get database connection: {}", e))

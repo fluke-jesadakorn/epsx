@@ -9,7 +9,7 @@ use tracing::{error, info, warn};
 
 // Diesel imports
 use diesel::prelude::*;
-use diesel_async::{AsyncPgConnection, RunQueryDsl, pooled_connection::deadpool::Pool};
+use diesel_async::{RunQueryDsl};
 use crate::schemas::primary::wallet_users;
 use crate::infrastructure::adapters::repositories::database_types::{WalletUserDb, NewWalletUserDb};
 
@@ -47,11 +47,11 @@ struct WalletUserQueryResult {
 /// PostgreSQL implementation of WalletUserRepositoryPort using Diesel
 #[derive(Clone)]
 pub struct WalletUserRepositoryAdapter {
-    db_pool: &'static Pool<AsyncPgConnection>,
+    db_pool: &'static TlsPool,
 }
 
 impl WalletUserRepositoryAdapter {
-    pub fn new(db_pool: &'static Pool<AsyncPgConnection>) -> Self {
+    pub fn new(db_pool: &'static TlsPool) -> Self {
         Self { db_pool }
     }
 }

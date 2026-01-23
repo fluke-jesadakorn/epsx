@@ -13,7 +13,7 @@ use super::super::aggregates::notification::{NotificationPriority, NotificationS
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NotificationCreated {
     pub metadata: EventMetadata,
-    pub recipientwallet_address: Uuid,
+    pub recipient_wallet_address: String,
     pub topic_name: Option<String>,
     pub notification_type: NotificationType,
     pub priority: NotificationPriority,
@@ -24,7 +24,7 @@ impl NotificationCreated {
     pub fn new(
         aggregate_id: impl Into<String>,
         aggregate_version: u64,
-        recipientwallet_address: Uuid,
+        recipient_wallet_address: String,
         topic_name: Option<String>,
         notification_type: NotificationType,
         priority: NotificationPriority,
@@ -32,7 +32,7 @@ impl NotificationCreated {
     ) -> Self {
         Self {
             metadata: EventMetadata::new(aggregate_id.into(), aggregate_version),
-            recipientwallet_address,
+            recipient_wallet_address,
             topic_name,
             notification_type,
             priority,

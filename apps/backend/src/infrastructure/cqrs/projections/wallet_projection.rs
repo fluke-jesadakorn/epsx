@@ -4,16 +4,16 @@
 use crate::prelude::*;
 use crate::infrastructure::cqrs::projection::{Projection, ProjectionEvent, ProjectionCheckpoint};
 use diesel::prelude::*;
-use diesel_async::{AsyncPgConnection, RunQueryDsl, pooled_connection::deadpool::Pool};
+use diesel_async::{RunQueryDsl};
 use async_trait::async_trait;
 use chrono::Utc;
 
 pub struct WalletReadModelProjection {
-    _pool: Arc<&'static Pool<AsyncPgConnection>>,
+    _pool: Arc<&'static TlsPool>,
 }
 
 impl WalletReadModelProjection {
-    pub fn new(pool: Arc<&'static Pool<AsyncPgConnection>>) -> Self {
+    pub fn new(pool: Arc<&'static TlsPool>) -> Self {
         Self { _pool: pool }
     }
 }
@@ -37,7 +37,7 @@ impl Projection for WalletReadModelProjection {
 
     async fn project_event(
         &self,
-        conn: &mut AsyncPgConnection,
+        conn: &mut diesel_async::AsyncPgConnection,
         event: &ProjectionEvent,
     ) -> AppResult<()> {
         match event.event_type.as_str() {
@@ -54,7 +54,7 @@ impl Projection for WalletReadModelProjection {
         }
     }
 
-    async fn get_checkpoint(&self, pool: &Pool<AsyncPgConnection>) -> AppResult<Option<ProjectionCheckpoint>> {
+    async fn get_checkpoint(&self, pool: &TlsPool) -> AppResult<Option<ProjectionCheckpoint>> {
         let mut conn = pool.get().await.map_err(|e| {
             AppError::database_error(format!("Failed to get connection: {}", e))
         })?;
@@ -108,7 +108,7 @@ impl Projection for WalletReadModelProjection {
 
     async fn save_checkpoint(
         &self,
-        conn: &mut AsyncPgConnection,
+        conn: &mut diesel_async::AsyncPgConnection,
         checkpoint: &ProjectionCheckpoint,
     ) -> AppResult<()> {
         diesel::sql_query(
@@ -149,7 +149,7 @@ impl Projection for WalletReadModelProjection {
 impl WalletReadModelProjection {
     async fn handle_wallet_created(
         &self,
-        conn: &mut AsyncPgConnection,
+        conn: &mut diesel_async::AsyncPgConnection,
         event: &ProjectionEvent,
     ) -> AppResult<()> {
         let payload = &event.event_payload;
@@ -209,7 +209,7 @@ impl WalletReadModelProjection {
 
     async fn handle_wallet_activated(
         &self,
-        conn: &mut AsyncPgConnection,
+        conn: &mut diesel_async::AsyncPgConnection,
         event: &ProjectionEvent,
     ) -> AppResult<()> {
         diesel::sql_query(
@@ -238,7 +238,7 @@ impl WalletReadModelProjection {
 
     async fn handle_wallet_deactivated(
         &self,
-        conn: &mut AsyncPgConnection,
+        conn: &mut diesel_async::AsyncPgConnection,
         event: &ProjectionEvent,
     ) -> AppResult<()> {
         diesel::sql_query(
@@ -267,7 +267,7 @@ impl WalletReadModelProjection {
 
     async fn handle_permissions_updated(
         &self,
-        conn: &mut AsyncPgConnection,
+        conn: &mut diesel_async::AsyncPgConnection,
         event: &ProjectionEvent,
     ) -> AppResult<()> {
         // Schema optimized - permissions now tracked in user_effective_permissions table
@@ -311,7 +311,7 @@ impl WalletReadModelProjection {
 
     async fn handle_session_created(
         &self,
-        conn: &mut AsyncPgConnection,
+        conn: &mut diesel_async::AsyncPgConnection,
         event: &ProjectionEvent,
     ) -> AppResult<()> {
         let payload = &event.event_payload;
@@ -352,7 +352,7 @@ impl WalletReadModelProjection {
 
     async fn handle_session_invalidated(
         &self,
-        conn: &mut AsyncPgConnection,
+        conn: &mut diesel_async::AsyncPgConnection,
         event: &ProjectionEvent,
     ) -> AppResult<()> {
         let payload = &event.event_payload;

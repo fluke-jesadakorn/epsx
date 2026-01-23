@@ -1,3 +1,4 @@
+use crate::prelude::TlsPool;
 // ============================================================================
 // OPENID TOKEN SERVICE WITH WEB3 AUTHENTICATION TRIGGER
 // Standard OpenID Connect token issuance after Web3 wallet signature verification
@@ -7,7 +8,7 @@ use anyhow::Result;
 use chrono::{DateTime, Duration, Utc};
 use jsonwebtoken::{encode, Algorithm, Header};
 use serde::{Deserialize, Serialize};
-use diesel_async::{AsyncPgConnection, pooled_connection::deadpool::Pool, RunQueryDsl};
+use diesel_async::RunQueryDsl;
 use diesel::prelude::*;
 use std::sync::Arc;
 use tracing::{error, info};
@@ -21,7 +22,7 @@ use crate::auth::key_manager::KeyManager;
 /// Issues standard OAuth2/OpenID tokens after successful Web3 wallet authentication
 #[derive(Clone)]
 pub struct OpenIDTokenService {
-    db_pool: &'static Pool<AsyncPgConnection>,
+    db_pool: &'static TlsPool,
     issuer: String,                    // "https://api.epsx.io"
     audiences: Vec<String>,            // ["epsx-frontend", "epsx-admin"]
     key_manager: Arc<KeyManager>,       // RSA key manager for JWT signing/validation
@@ -126,7 +127,7 @@ pub enum OpenIDTokenError {
 impl OpenIDTokenService {
     /// Create new OpenID Token Service
     pub fn new(
-        db_pool: &'static Pool<AsyncPgConnection>,
+        db_pool: &'static TlsPool,
         issuer: String,
         audiences: Vec<String>,
         key_manager: Arc<KeyManager>,

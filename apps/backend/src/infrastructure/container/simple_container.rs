@@ -1,8 +1,8 @@
+use crate::prelude::TlsPool;
 // Enhanced Container - Web3-first service container
 // Provides comprehensive Web3 services with proper dependency injection
 
 use std::sync::Arc;
-use diesel_async::{AsyncPgConnection, pooled_connection::deadpool::Pool};
 use crate::infrastructure::cache::Cache;
 use crate::infrastructure::cache::unified_permission_cache::UnifiedPermissionCache;
 use crate::infrastructure::redis::RedisPool;
@@ -35,10 +35,10 @@ use crate::infrastructure::cqrs::{EventStore, PostgresEventStore, TransactionalO
 /// Enhanced container with Web3-first services
 #[derive(Clone)]
 pub struct SimpleContainer {
-    pub db_pool: Arc<&'static Pool<AsyncPgConnection>>,
-    pub payments_pool: Option<Arc<&'static Pool<AsyncPgConnection>>>,
-    pub analytics_pool: Option<Arc<&'static Pool<AsyncPgConnection>>>,
-    pub notifications_pool: Option<Arc<&'static Pool<AsyncPgConnection>>>,
+    pub db_pool: Arc<&'static TlsPool>,
+    pub payments_pool: Option<Arc<&'static TlsPool>>,
+    pub analytics_pool: Option<Arc<&'static TlsPool>>,
+    pub notifications_pool: Option<Arc<&'static TlsPool>>,
     pub cache: Option<Arc<dyn Cache>>,
 
     // NEW - Web3-first services (primary)
@@ -75,7 +75,7 @@ pub struct SimpleContainer {
 }
 
 impl SimpleContainer {
-    pub fn new(db_pool: Arc<&'static Pool<AsyncPgConnection>>) -> Self {
+    pub fn new(db_pool: Arc<&'static TlsPool>) -> Self {
         Self {
             db_pool,
             payments_pool: None,
@@ -274,18 +274,23 @@ impl SimpleContainer {
         };
 
         // Create Redis pool and notification broadcaster
+        let redis_timeout = std::time::Duration::from_secs(5);
         let (redis_pool, redis_broadcaster, permission_cache, unified_permission_service) = match redis_url {
             Some(ref url) => {
                 // Try to create Redis pool for notifications
-                let (pool, broadcaster) = match RedisPool::new(url).await {
-                    Ok(pool) => {
+                let (pool, broadcaster) = match tokio::time::timeout(redis_timeout, RedisPool::new(url)).await {
+                    Ok(Ok(pool)) => {
                         let pool_arc = Arc::new(pool);
                         let broadcaster = Arc::new(RedisNotificationBroadcaster::new(Arc::clone(&pool_arc)));
                         tracing::info!("✅ Redis notification system initialized");
                         (Some(pool_arc), Some(broadcaster))
                     }
-                    Err(e) => {
+                    Ok(Err(e)) => {
                         tracing::warn!("⚠️ Failed to create Redis pool: {} (notifications will not work)", e);
+                        (None, None)
+                    }
+                    Err(_) => {
+                        tracing::warn!("⚠️ Redis pool initialization timed out after 5s");
                         (None, None)
                     }
                 };
@@ -383,7 +388,7 @@ impl SimpleContainer {
         }
     }
 
-    pub fn with_cache(db_pool: Arc<&'static Pool<AsyncPgConnection>>, cache: Arc<dyn Cache>) -> Self {
+    pub fn with_cache(db_pool: Arc<&'static TlsPool>, cache: Arc<dyn Cache>) -> Self {
         Self {
             db_pool,
             payments_pool: None,
@@ -433,7 +438,7 @@ impl SimpleContainer {
     }
 
     // Compatibility methods
-    pub fn db_pool(&self) -> Arc<&'static Pool<AsyncPgConnection>> {
+    pub fn db_pool(&self) -> Arc<&'static TlsPool> {
         Arc::clone(&self.db_pool)
     }
 
@@ -442,15 +447,15 @@ impl SimpleContainer {
     }
     
     // Pool Getters
-    pub fn get_payments_pool(&self) -> Option<Arc<&'static Pool<AsyncPgConnection>>> {
+    pub fn get_payments_pool(&self) -> Option<Arc<&'static TlsPool>> {
         self.payments_pool.as_ref().map(Arc::clone)
     }
 
-    pub fn get_analytics_pool(&self) -> Option<Arc<&'static Pool<AsyncPgConnection>>> {
+    pub fn get_analytics_pool(&self) -> Option<Arc<&'static TlsPool>> {
         self.analytics_pool.as_ref().map(Arc::clone)
     }
 
-    pub fn get_notifications_pool(&self) -> Option<Arc<&'static Pool<AsyncPgConnection>>> {
+    pub fn get_notifications_pool(&self) -> Option<Arc<&'static TlsPool>> {
         self.notifications_pool.as_ref().map(Arc::clone)
     }
 
@@ -618,7 +623,7 @@ pub struct Web3AppState {
     pub wallet_permission_service: Option<Arc<WalletPermissionService>>,
     pub web3_permission_adapter: Option<Arc<Web3PermissionServiceAdapter>>,
     pub auth_service: Option<Arc<UnifiedWeb3AuthService>>,
-    pub db_pool: Arc<&'static Pool<AsyncPgConnection>>,
+    pub db_pool: Arc<&'static TlsPool>,
     pub cache: Option<Arc<dyn Cache>>,
     pub transaction_history_provider: Option<Arc<dyn TransactionHistoryProvider>>,
 }

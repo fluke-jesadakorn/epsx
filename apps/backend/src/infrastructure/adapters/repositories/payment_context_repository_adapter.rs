@@ -11,7 +11,7 @@ use crate::prelude::*;
 use bigdecimal::BigDecimal;
 use chrono::{DateTime, Utc};
 use diesel::prelude::*;
-use diesel_async::{pooled_connection::deadpool::Pool, AsyncPgConnection, RunQueryDsl};
+use diesel_async::{RunQueryDsl};
 use serde::{Deserialize, Serialize};
 use tracing::{debug, error, info, warn};
 use uuid::Uuid;
@@ -100,11 +100,11 @@ pub struct PaymentContextSearchCriteria {
 /// PostgreSQL payment context repository adapter
 #[derive(Clone)]
 pub struct PaymentContextRepositoryAdapter {
-    db_pool: &'static Pool<AsyncPgConnection>,
+    db_pool: &'static TlsPool,
 }
 
 impl PaymentContextRepositoryAdapter {
-    pub fn new(db_pool: &'static Pool<AsyncPgConnection>) -> Self {
+    pub fn new(db_pool: &'static TlsPool) -> Self {
         Self { db_pool }
     }
 

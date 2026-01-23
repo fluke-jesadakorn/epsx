@@ -22,7 +22,7 @@ impl NotificationMapper {
             title: notification.content().title().to_string(),
             message: notification.content().body().to_string(),
             data: notification.metadata().data_payload().cloned(),
-            priority: Self::map_domain_priority_to_sse(notification.priority()),
+            priority: Self::map_domain_priority_to_sse(&notification.priority()),
             timestamp: Utc::now(),
             expires_at: notification.schedule().expires_at(),
         }

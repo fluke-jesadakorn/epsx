@@ -25,7 +25,7 @@ impl QueryHandler<GetNotificationQuery> for GetNotificationQueryHandler {
             .ok_or_else(|| ApplicationError::not_found("notification_id", "Notification not found"))?;
 
         // Map domain aggregate to response DTO
-        let (recipient_type, recipient_id) = if let Some(wallet_address) = notification.recipientwallet_address() {
+        let (recipient_type, recipient_id) = if let Some(wallet_address) = notification.recipient_wallet_address() {
             ("user".to_string(), wallet_address.to_string())
         } else if let Some(topic) = notification.topic() {
             ("topic".to_string(), topic.name().to_string())

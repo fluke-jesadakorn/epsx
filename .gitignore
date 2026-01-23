@@ -26,6 +26,7 @@ playwright-report/
 # Environment Files
 .env
 .env.deploy
+.env.docker
 .env.local
 .env.*.local
 !.env.example
@@ -59,6 +60,7 @@ Thumbs.db
 
 # Rust
 target/
+target-check/
 **/*.rs.bk
 
 # Secrets

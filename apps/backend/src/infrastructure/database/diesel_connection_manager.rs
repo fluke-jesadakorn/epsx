@@ -2,22 +2,109 @@
 // Provides efficient connection pooling using diesel-async and deadpool
 // Optimized for Cloud Run serverless deployment
 
-use diesel_async::{AsyncPgConnection, pooled_connection::{AsyncDieselConnectionManager, deadpool::Pool}};
+use diesel_async::{AsyncPgConnection, RunQueryDsl};
+use deadpool::managed::{Manager, Pool, RecycleResult, RecycleError};
 use std::sync::OnceLock;
 use anyhow::Result;
 use tracing::{info, warn, error};
+use tokio_postgres_rustls::MakeRustlsConnect;
+use rustls::ClientConfig;
+use std::str::FromStr;
+use async_trait::async_trait;
+
+/// Custom Error type for the Connection Manager
+#[derive(Debug, thiserror::Error)]
+pub enum ManagerError {
+    #[error("Database connection error: {0}")]
+    Connection(#[from] tokio_postgres::Error),
+    #[error("Internal error: {0}")]
+    Internal(String),
+    #[error("Configuration error: {0}")]
+    Config(String),
+}
+
+/// Custom Connection Manager that enforces TLS
+#[derive(Clone)]
+pub struct TlsConnectionManager {
+    database_url: String,
+}
+
+impl TlsConnectionManager {
+    pub fn new(database_url: String) -> Self {
+        Self { database_url }
+    }
+}
+
+#[async_trait]
+impl Manager for TlsConnectionManager {
+    type Type = AsyncPgConnection;
+    type Error = ManagerError;
+
+    async fn create(&self) -> Result<AsyncPgConnection, ManagerError> {
+        let config = tokio_postgres::Config::from_str(&self.database_url)
+            .map_err(|e| ManagerError::Config(e.to_string()))?;
+        
+        let root_store = rustls::RootCertStore::from_iter(
+            webpki_roots::TLS_SERVER_ROOTS.iter().cloned()
+        );
+        let client_config = ClientConfig::builder()
+            .with_root_certificates(root_store)
+            .with_no_client_auth();
+        let tls = MakeRustlsConnect::new(client_config);
+        
+        // Wrap connection in timeout to prevent hanging
+        let connect_timeout = std::time::Duration::from_secs(5);
+        
+        info!("DEBUG: Connecting to database with TLS...");
+        let (client, connection) = tokio::time::timeout(connect_timeout, config.connect(tls))
+            .await
+            .map_err(|_| ManagerError::Config("Database connection timed out during TLS handshake".to_string()))?
+            .map_err(|e| {
+                error!("❌ TLS Connection error: {}", e);
+                ManagerError::Connection(e)
+            })?;
+        
+        info!("DEBUG: Database socket established, spawning connection task...");
+        tokio::spawn(async move {
+            if let Err(e) = connection.await {
+                error!("❌ database connection error: {}", e);
+            }
+        });
+        
+        info!("DEBUG: Wrapping in AsyncPgConnection...");
+        tokio::time::timeout(connect_timeout, AsyncPgConnection::try_from(client))
+            .await
+            .map_err(|_| ManagerError::Config("AsyncPgConnection wrapper timed out".to_string()))?
+            .map_err(|e| {
+                error!("❌ AsyncPgConnection conversion error: {}", e);
+                ManagerError::Internal(e.to_string())
+            })
+    }
+
+    async fn recycle(&self, conn: &mut AsyncPgConnection) -> RecycleResult<ManagerError> {
+        // Simple health check query
+        diesel::sql_query("SELECT 1")
+            .execute(conn)
+            .await
+            .map(|_| ())
+            .map_err(|e| RecycleError::Backend(ManagerError::Internal(e.to_string())))
+    }
+}
+
+// Global Pool Type Definition - explicitly using our custom manager
+pub type TlsPool = Pool<TlsConnectionManager>;
 
 /// Global Diesel async connection pool that persists across serverless invocations
-static GLOBAL_DIESEL_POOL: OnceLock<Pool<AsyncPgConnection>> = OnceLock::new();
+static GLOBAL_DIESEL_POOL: OnceLock<TlsPool> = OnceLock::new();
 
 /// Global Analytics database pool (separate database for high-volume logs)
-static GLOBAL_ANALYTICS_POOL: OnceLock<Pool<AsyncPgConnection>> = OnceLock::new();
+static GLOBAL_ANALYTICS_POOL: OnceLock<TlsPool> = OnceLock::new();
 
 /// Global Notifications database pool (separate database for real-time notifications)
-static GLOBAL_NOTIFICATIONS_POOL: OnceLock<Pool<AsyncPgConnection>> = OnceLock::new();
+static GLOBAL_NOTIFICATIONS_POOL: OnceLock<TlsPool> = OnceLock::new();
 
 /// Global Payments database pool (separate database for financial transactions)
-static GLOBAL_PAYMENTS_POOL: OnceLock<Pool<AsyncPgConnection>> = OnceLock::new();
+static GLOBAL_PAYMENTS_POOL: OnceLock<TlsPool> = OnceLock::new();
 
 /// Health status for all database pools
 #[derive(Debug, serde::Serialize, utoipa::ToSchema)]
@@ -74,7 +161,7 @@ pub struct DieselConnectionManager;
 
 impl DieselConnectionManager {
     /// Get or create the global Diesel connection pool (optimized for serverless)
-    pub async fn get_pool() -> Result<&'static Pool<AsyncPgConnection>> {
+    pub async fn get_pool() -> Result<&'static TlsPool> {
         // Try to get existing pool first (warm container scenario)
         if let Some(pool) = GLOBAL_DIESEL_POOL.get() {
             return Ok(pool);
@@ -99,16 +186,20 @@ impl DieselConnectionManager {
     }
 
     /// Create an optimized Diesel async connection pool for serverless environments
-    async fn create_optimized_pool(config: DieselServerlessConfig) -> Result<Pool<AsyncPgConnection>> {
+    async fn create_optimized_pool(config: DieselServerlessConfig) -> Result<TlsPool> {
         info!("🔗 Creating Diesel async pool for serverless...");
         info!("   Max connections: {}", config.max_size);
         info!("   Acquire timeout: {}s", config.acquire_timeout_secs);
 
-        // Create Diesel connection manager
-        let manager = AsyncDieselConnectionManager::<AsyncPgConnection>::new(&config.database_url);
+        // Create TLS connection manager
+        let manager = TlsConnectionManager {
+            database_url: config.database_url,
+        };
 
         // Create the pool with simplified configuration
-        let pool = Pool::builder(manager)
+        // Note: Using TlsPool::builder(manager) might not work directly if TlsPool is an alias
+        // Use deadpool::managed::Pool::builder(manager)
+        let pool = TlsPool::builder(manager)
             .max_size(config.max_size)
             .build()
             .map_err(|e| anyhow::anyhow!("Failed to create Diesel pool: {}", e))?;
@@ -118,13 +209,13 @@ impl DieselConnectionManager {
     }
 
     /// Get a connection from the pool (optimized for per-request usage)
-    pub async fn get_connection() -> Result<&'static Pool<AsyncPgConnection>> {
+    pub async fn get_connection() -> Result<&'static TlsPool> {
         Self::get_pool().await
     }
 
     /// Get or create the analytics database pool (for high-volume logs)
     /// Falls back to main pool if ANALYTICS_DATABASE_URL is not configured
-    pub async fn get_analytics_pool() -> Result<&'static Pool<AsyncPgConnection>> {
+    pub async fn get_analytics_pool() -> Result<&'static TlsPool> {
         // Check if analytics DB is configured
         let analytics_url = match std::env::var("ANALYTICS_DATABASE_URL") {
             Ok(url) => url,
@@ -163,7 +254,7 @@ impl DieselConnectionManager {
 
     /// Get or create the notifications database pool (for real-time SSE notifications)
     /// Falls back to main pool if NOTIFICATIONS_DATABASE_URL is not configured
-    pub async fn get_notifications_pool() -> Result<&'static Pool<AsyncPgConnection>> {
+    pub async fn get_notifications_pool() -> Result<&'static TlsPool> {
         // Check if notifications DB is configured
         let notifications_url = match std::env::var("NOTIFICATIONS_DATABASE_URL") {
             Ok(url) => url,
@@ -202,7 +293,7 @@ impl DieselConnectionManager {
 
     /// Get or create the payments database pool (for financial transactions)
     /// Falls back to main pool if PAYMENTS_DATABASE_URL is not configured
-    pub async fn get_payments_pool() -> Result<&'static Pool<AsyncPgConnection>> {
+    pub async fn get_payments_pool() -> Result<&'static TlsPool> {
         // Check if payments DB is configured
         let payments_url = match std::env::var("PAYMENTS_DATABASE_URL") {
             Ok(url) => url,
@@ -264,7 +355,7 @@ impl DieselConnectionManager {
     }
 
     /// Helper to check a specific pool health
-    async fn check_pool(pool_result: Result<&'static Pool<AsyncPgConnection>>) -> bool {
+    async fn check_pool(pool_result: Result<&'static TlsPool>) -> bool {
         match pool_result {
             Ok(pool) => {
                 use diesel::prelude::*;
@@ -326,22 +417,22 @@ pub struct DieselPoolStats {
 }
 
 /// Quick access function for getting Diesel database pool in handlers
-pub async fn get_diesel_pool() -> Result<&'static Pool<AsyncPgConnection>> {
+pub async fn get_diesel_pool() -> Result<&'static TlsPool> {
     DieselConnectionManager::get_connection().await
 }
 
 /// Quick access function for getting analytics database pool in handlers
-pub async fn get_analytics_pool() -> Result<&'static Pool<AsyncPgConnection>> {
+pub async fn get_analytics_pool() -> Result<&'static TlsPool> {
     DieselConnectionManager::get_analytics_pool().await
 }
 
 /// Quick access function for getting notifications database pool in handlers
-pub async fn get_notifications_pool() -> Result<&'static Pool<AsyncPgConnection>> {
+pub async fn get_notifications_pool() -> Result<&'static TlsPool> {
     DieselConnectionManager::get_notifications_pool().await
 }
 
 /// Quick access function for getting payments database pool in handlers
-pub async fn get_payments_pool() -> Result<&'static Pool<AsyncPgConnection>> {
+pub async fn get_payments_pool() -> Result<&'static TlsPool> {
     DieselConnectionManager::get_payments_pool().await
 }
 
@@ -354,3 +445,5 @@ pub async fn diesel_health_check() -> bool {
 pub async fn diesel_health_check_all() -> AllPoolsHealth {
     DieselConnectionManager::health_check_all().await
 }
+
+

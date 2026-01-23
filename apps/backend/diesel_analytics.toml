@@ -4,7 +4,7 @@
 [print_schema]
 file = "src/schemas/analytics.rs"
 import_types = ["diesel::sql_types::*"]
-filter = { except_tables = ["_sqlx_migrations", "__diesel_schema_migrations", "schema_migrations"] }
+filter = { only_tables = ["analytics_events", "audit_logs", "wallet_activity_logs", "aggregate_snapshots", "api_modules", "api_key_module_access", "api_key_usage_logs", "api_key_permissions", "event_store", "assignment_audit_log", "permission_audit_log"] }
 with_docs = true
 
 [migrations_directory]

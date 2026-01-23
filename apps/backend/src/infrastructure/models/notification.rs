@@ -1,71 +1,72 @@
 //! Diesel models for notifications
 use chrono::{DateTime, Utc};
-use diesel::{Queryable, Selectable, Insertable, AsChangeset};
+use diesel::{Queryable, Selectable, Insertable};
 use uuid::Uuid;
 use serde::{Deserialize, Serialize};
 
-/// Diesel Queryable model for wallet_notifications table
+/// Diesel Queryable model for notifications table
 #[derive(Debug, Clone, Queryable, Selectable, Serialize, Deserialize)]
 #[diesel(table_name = crate::schemas::notifications::wallet_notifications)]
 pub struct WalletNotificationDb {
     pub id: Uuid,
-    pub wallet_address: String,
-    pub notification_type: String,
+    pub recipient_wallet_address: Option<String>,
+    pub topic_name: Option<String>,
     pub title: String,
-    pub message: String,
-    pub data: Option<serde_json::Value>,
+    pub body: String,
+    pub urgency: String,
+    pub notification_type: String,
     pub priority: String,
-    pub timestamp: DateTime<Utc>,
+    pub channels: serde_json::Value,
+    pub schedule_type: String,
+    pub scheduled_at: Option<DateTime<Utc>>,
     pub expires_at: Option<DateTime<Utc>>,
-    pub read_at: Option<DateTime<Utc>>,
-    pub clicked_at: Option<DateTime<Utc>>,
-    pub delivered_at: Option<DateTime<Utc>>,
-    pub action_url: Option<String>,
+    pub status: String,
+    pub send_started_at: Option<DateTime<Utc>>,
+    pub channel_status: serde_json::Value,
+    pub total_attempts: i32,
+    pub created_by: Option<String>,
     pub image_url: Option<String>,
+    pub action_url: Option<String>,
+    pub data_payload: Option<serde_json::Value>,
+    pub tags: Option<Vec<String>>,
+    pub notes: Option<String>,
+    pub version: i32,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
-    pub queued_at: Option<DateTime<Utc>>,
-    pub delivery_attempts: Option<i32>,
-    pub last_delivery_attempt_at: Option<DateTime<Utc>>,
-    pub delivery_error: Option<String>,
-    pub acknowledged_at: Option<DateTime<Utc>>,
-    pub deleted_at: Option<DateTime<Utc>>,
 }
 
-/// Diesel Insertable model for creating new wallet notifications
+/// Diesel Insertable model for creating new notifications
 #[derive(Debug, Clone, Insertable)]
 #[diesel(table_name = crate::schemas::notifications::wallet_notifications)]
 pub struct NewWalletNotificationDb {
-    pub wallet_address: String,
-    pub notification_type: String,
+    pub id: Uuid,
+    pub recipient_wallet_address: Option<String>,
+    pub topic_name: Option<String>,
     pub title: String,
-    pub message: String,
-    pub data: Option<serde_json::Value>,
+    pub body: String,
+    pub urgency: String,
+    pub notification_type: String,
     pub priority: String,
-    pub timestamp: DateTime<Utc>,
+    pub channels: serde_json::Value,
+    pub schedule_type: String,
+    pub scheduled_at: Option<DateTime<Utc>>,
     pub expires_at: Option<DateTime<Utc>>,
-    pub action_url: Option<String>,
+    pub status: String,
+    pub send_started_at: Option<DateTime<Utc>>,
+    pub channel_status: serde_json::Value,
+    pub total_attempts: i32,
+    pub created_by: Option<String>,
     pub image_url: Option<String>,
+    pub action_url: Option<String>,
+    pub data_payload: Option<serde_json::Value>,
+    pub tags: Option<Vec<String>>,
+    pub notes: Option<String>,
+    pub version: i32,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
 
-/// Diesel AsChangeset model for updating wallet notifications
-#[derive(Debug, Clone, AsChangeset)]
-#[diesel(table_name = crate::schemas::notifications::wallet_notifications)]
-pub struct UpdateWalletNotificationDb {
-    pub read_at: Option<DateTime<Utc>>,
-    pub clicked_at: Option<DateTime<Utc>>,
-    pub delivered_at: Option<DateTime<Utc>>,
-    pub queued_at: Option<DateTime<Utc>>,
-    pub delivery_attempts: Option<i32>,
-    pub last_delivery_attempt_at: Option<DateTime<Utc>>,
-    pub delivery_error: Option<String>,
-    pub acknowledged_at: Option<DateTime<Utc>>,
-    pub deleted_at: Option<DateTime<Utc>>,
-    pub updated_at: DateTime<Utc>,
-}
-
+/*
 /// Diesel Queryable model for notification_subscriptions table
 #[derive(Debug, Clone, Queryable, Selectable)]
 #[diesel(table_name = crate::schemas::notifications::notification_subscriptions)]
@@ -95,3 +96,4 @@ pub struct NewNotificationSubscriptionDb {
     // IP address handling might require custom types or raw SQL insert
     pub redis_channel: Option<String>,
 }
+*/

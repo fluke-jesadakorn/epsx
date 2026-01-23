@@ -211,6 +211,24 @@ CREATE INDEX idx_assign_audit_assignment ON assignment_audit_log(assignment_id);
 CREATE INDEX idx_assign_audit_performed_at ON assignment_audit_log(performed_at DESC);
 
 -- ============================================================================
+-- WALLET ACTIVITY LOGS
+-- ============================================================================
+
+CREATE TABLE wallet_activity_logs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    wallet_address VARCHAR(42) NOT NULL,
+    event_type VARCHAR(50) NOT NULL,
+    description TEXT NOT NULL,
+    performed_by VARCHAR(42),
+    metadata JSONB DEFAULT '{}',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_wallet_activity_logs_wallet ON wallet_activity_logs(wallet_address);
+CREATE INDEX idx_wallet_activity_logs_type ON wallet_activity_logs(event_type);
+CREATE INDEX idx_wallet_activity_logs_created ON wallet_activity_logs(created_at DESC);
+
+-- ============================================================================
 -- COMMENTS
 -- ============================================================================
 
@@ -220,3 +238,4 @@ COMMENT ON TABLE outbox_events IS 'Transactional outbox for reliable event publi
 COMMENT ON TABLE permission_audit_log IS 'Audit trail for permission changes';
 COMMENT ON TABLE payment_audit_log IS 'Audit trail for payment status changes';
 COMMENT ON TABLE assignment_audit_log IS 'Audit trail for subscription/assignment modifications';
+COMMENT ON TABLE wallet_activity_logs IS 'Wallet activity tracking';

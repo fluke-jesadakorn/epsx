@@ -44,7 +44,7 @@ export {
 export {
   AdminCard,
   AnalyticsCard, EPSXCard, EPSXCardContent,
-  EPSXCardFooter, EPSXCardHeader, GlassCard,
+  EPSXCardFooter, EPSXCardHeader,
   // Legacy aliases
   MetroCard, MetroListCard, MetroStatsCard, PremiumCard, ProfessionalCard, ProfessionalFeatureCard, ProfessionalListCard, ProfessionalStatsCard, UnifiedCard, UnifiedCardContent,
   UnifiedCardFooter, UnifiedCardHeader, UnifiedFeatureCard, UnifiedListCard, PancakeCard as UnifiedPancakeCard, UnifiedStatsCard, type AccentPosition, type UnifiedCardPadding,

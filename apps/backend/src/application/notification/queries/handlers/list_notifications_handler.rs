@@ -4,7 +4,6 @@ use crate::application::notification::queries::{
     ListNotificationsQuery, ListNotificationsResponse, NotificationSummaryDTO
 };
 use crate::domain::notification::{NotificationRepositoryPort, NotificationSearchCriteria, NotificationStatus, NotificationType};
-use uuid::Uuid;
 
 /// Query handler for listing notifications with filters
 pub struct ListNotificationsQueryHandler {
@@ -23,12 +22,7 @@ impl ListNotificationsQueryHandler {
 impl QueryHandler<ListNotificationsQuery> for ListNotificationsQueryHandler {
     async fn handle(&self, query: ListNotificationsQuery) -> ApplicationResult<ListNotificationsResponse> {
         // Parse wallet address if provided
-        let recipient_wallet_address = if let Some(addr) = &query.wallet_address {
-            Some(Uuid::parse_str(addr)
-                .map_err(|e| ApplicationError::validation("wallet_address", e.to_string()))?)
-        } else {
-            None
-        };
+        let recipient_wallet_address = query.wallet_address.clone();
 
         // Parse status if provided
         let status = if let Some(s) = &query.status {
@@ -71,7 +65,7 @@ impl QueryHandler<ListNotificationsQuery> for ListNotificationsQueryHandler {
         let notification_summaries: Vec<NotificationSummaryDTO> = notifications
             .into_iter()
             .map(|notification| {
-                let (recipient_type, recipient_id) = if let Some(wallet_address) = notification.recipientwallet_address() {
+                let (recipient_type, recipient_id) = if let Some(wallet_address) = notification.recipient_wallet_address() {
                     ("user".to_string(), wallet_address.to_string())
                 } else if let Some(topic) = notification.topic() {
                     ("topic".to_string(), topic.name().to_string())

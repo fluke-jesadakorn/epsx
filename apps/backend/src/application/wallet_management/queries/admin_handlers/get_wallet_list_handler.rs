@@ -2,6 +2,7 @@
 // CQRS handler for retrieving wallet list with filtering and pagination
 
 use crate::application::shared::{ApplicationError, ApplicationResult, Query, QueryHandler};
+use crate::infrastructure::database::diesel_connection_manager::TlsPool;
 use crate::application::wallet_management::queries::admin_models::{
     GetWalletListQuery, GetWalletListResponse, PaginationDto, WalletSummaryDto,
 };
@@ -9,16 +10,15 @@ use crate::application::wallet_management::wallet_management_repository::{
     WalletManagementRepository, WalletSearchCriteria,
 };
 use async_trait::async_trait;
-use diesel_async::{AsyncPgConnection, pooled_connection::deadpool::Pool};
 use std::sync::Arc;
 use tracing::{error, info};
 
 pub struct GetWalletListQueryHandler {
-    db_pool: Arc<&'static Pool<AsyncPgConnection>>,
+    db_pool: Arc<&'static TlsPool>,
 }
 
 impl GetWalletListQueryHandler {
-    pub fn new(db_pool: Arc<&'static Pool<AsyncPgConnection>>) -> Self {
+    pub fn new(db_pool: Arc<&'static TlsPool>) -> Self {
         Self { db_pool }
     }
 }

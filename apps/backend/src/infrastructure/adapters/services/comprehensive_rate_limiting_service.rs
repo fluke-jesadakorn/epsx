@@ -1,12 +1,13 @@
-//! Comprehensive Rate Limiting Service
-//! 
-//! Features:
-//! - Sliding window algorithm for precise rate limiting
-//! - Progressive penalties for repeat violators
-//! - Redis + database fallback for high availability
-//! - Distributed rate limiting coordination
-//! - Brute force protection with violation tracking
-//! - Security event integration
+use crate::prelude::TlsPool;
+// Comprehensive Rate Limiting Service
+// 
+// Features:
+// - Sliding window algorithm for precise rate limiting
+// - Progressive penalties for repeat violators
+// - Redis + database fallback for high availability
+// - Distributed rate limiting coordination
+// - Brute force protection with violation tracking
+// - Security event integration
 
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -16,7 +17,6 @@ use tracing::{info, warn, error, debug};
 use uuid::Uuid;
 
 use crate::infrastructure::cache::Cache;
-use diesel_async::{AsyncPgConnection, pooled_connection::deadpool::Pool};
 
 /// Rate limiting configuration for different client types
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -256,13 +256,13 @@ pub struct RateLimitResult {
 pub struct ComprehensiveRateLimitingService {
     cache: Arc<dyn Cache>,
     #[allow(dead_code)]
-    database: Arc<&'static Pool<AsyncPgConnection>>,
+    database: Arc<&'static TlsPool>,
     default_tiers: HashMap<String, RateLimitTier>,
 }
 
 impl ComprehensiveRateLimitingService {
     /// Create new rate limiting service
-    pub fn new(cache: Arc<dyn Cache>, database: Arc<&'static Pool<AsyncPgConnection>>) -> Self {
+    pub fn new(cache: Arc<dyn Cache>, database: Arc<&'static TlsPool>) -> Self {
         let mut default_tiers = HashMap::new();
         default_tiers.insert("FREE".to_string(), RateLimitTier::free_tier());
         default_tiers.insert("PREMIUM".to_string(), RateLimitTier::premium_tier());

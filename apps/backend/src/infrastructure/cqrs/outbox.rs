@@ -9,7 +9,7 @@
 
 use crate::prelude::*;
 use diesel::prelude::*;
-use diesel_async::{AsyncPgConnection, AsyncConnection, RunQueryDsl, pooled_connection::deadpool::Pool};
+use diesel_async::{AsyncConnection, RunQueryDsl};
 use tracing::{info, error, debug, warn};
 use uuid::Uuid;
 
@@ -17,7 +17,7 @@ use super::event_store::EventStore;
 
 /// Callback type for saving aggregate state with Diesel
 /// This allows repositories to provide their own save logic
-pub type AggregateSaveFn = Box<dyn for<'a> Fn(&'a mut AsyncPgConnection) -> std::pin::Pin<Box<dyn std::future::Future<Output = AppResult<()>> + Send + 'a>> + Send + Sync>;
+pub type AggregateSaveFn = Box<dyn for<'a> Fn(&'a mut diesel_async::AsyncPgConnection) -> std::pin::Pin<Box<dyn std::future::Future<Output = AppResult<()>> + Send + 'a>> + Send + Sync>;
 
 /// Parameters for save_with_events operation
 pub struct SaveWithEventsParams<F> {
@@ -38,12 +38,12 @@ pub struct SaveWithEventsParams<F> {
 /// - Events are saved to outbox_events (for async publishing)
 /// - Everything happens atomically in one transaction
 pub struct TransactionalOutbox {
-    pool: Arc<&'static Pool<AsyncPgConnection>>,
+    pool: Arc<&'static TlsPool>,
     event_store: Arc<dyn EventStore>,
 }
 
 impl TransactionalOutbox {
-    pub fn new(pool: Arc<&'static Pool<AsyncPgConnection>>, event_store: Arc<dyn EventStore>) -> Self {
+    pub fn new(pool: Arc<&'static TlsPool>, event_store: Arc<dyn EventStore>) -> Self {
         Self { pool, event_store }
     }
 
@@ -173,7 +173,7 @@ impl TransactionalOutbox {
     /// Result indicating success or failure of the atomic operation
     pub async fn save_with_events<F, Fut>(&self, params: SaveWithEventsParams<F>) -> AppResult<()>
     where
-        F: FnOnce(&mut AsyncPgConnection) -> Fut + Send,
+        F: FnOnce(&mut diesel_async::AsyncPgConnection) -> Fut + Send,
         Fut: std::future::Future<Output = AppResult<()>> + Send,
     {
         if params.events.is_empty() {

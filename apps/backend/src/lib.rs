@@ -2,7 +2,7 @@
 
 #![allow(improper_ctypes_definitions)]
 // Allow architectural patterns used throughout the codebase
-#![allow(clippy::redundant_allocation)] // Arc<&'static Pool<AsyncPgConnection>> is used for DI
+#![allow(clippy::redundant_allocation)] // Arc<&'static TlsPool> is used for DI
 #![allow(clippy::result_large_err)] // AppError is intentionally rich for debugging
 #![allow(clippy::too_many_arguments)] // Complex domain constructors require many params
 

@@ -436,7 +436,8 @@ pub async fn get_my_plans_handler(
 ) -> impl IntoResponse {
     use diesel::prelude::*;
     use diesel_async::RunQueryDsl;
-    use crate::schemas::primary::{plans, plan_permissions, permissions, api_keys, wallet_plan_assignments};
+    use crate::schemas::primary::{plans, plan_permissions, permissions, api_keys};
+    use crate::schemas::payments::subscriptions;
 
     let pool = *state.db_pool;
     let mut conn = match pool.get().await {
@@ -494,17 +495,17 @@ pub async fn get_my_plans_handler(
     #[derive(diesel::Queryable)]
     struct WalletPlanRow {
         plan_id: uuid::Uuid,
-        assigned_at: chrono::DateTime<chrono::Utc>,
-        expires_at: Option<chrono::DateTime<chrono::Utc>>,
+        assigned_at: Option<chrono::DateTime<chrono::Utc>>,
+        expires_at: chrono::DateTime<chrono::Utc>,
     }
 
-    let wallet_assignments = wallet_plan_assignments::table
-        .filter(wallet_plan_assignments::wallet_address.eq(&wallet_address))
-        .filter(wallet_plan_assignments::is_active.eq(true))
+    let wallet_assignments = subscriptions::table
+        .filter(subscriptions::wallet_address.eq(&wallet_address))
+        .filter(subscriptions::status.eq("active"))
         .select((
-            wallet_plan_assignments::plan_id,
-            wallet_plan_assignments::assigned_at,
-            wallet_plan_assignments::expires_at,
+            subscriptions::plan_id,
+            subscriptions::started_at, // Was assigned_at
+            subscriptions::expires_at,
         ))
         .load::<WalletPlanRow>(&mut conn)
         .await
@@ -565,11 +566,12 @@ pub async fn get_my_plans_handler(
             description: plan.description,
             plan_type: plan.plan_type,
             permissions: plan_perms,
-            expires_at: wallet_assignment.and_then(|a| a.expires_at.map(|dt| dt.to_rfc3339())),
+            expires_at: wallet_assignment.map(|a| a.expires_at.to_rfc3339()),
             rate_limit_per_minute: first_api_key.map(|k| k.rate_limit_per_minute),
             rate_limit_per_day: first_api_key.map(|k| k.rate_limit_per_day),
             assigned_at: wallet_assignment
-                .map(|a| a.assigned_at.to_rfc3339())
+                .and_then(|a| a.assigned_at)
+                .map(|dt| dt.to_rfc3339())
                 .unwrap_or_else(|| chrono::Utc::now().to_rfc3339()),
         });
     }

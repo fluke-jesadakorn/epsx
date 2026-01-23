@@ -6,7 +6,7 @@
 use crate::prelude::*;
 use tracing::{info, error, debug, warn};
 use diesel::prelude::*;
-use diesel_async::{AsyncPgConnection, RunQueryDsl, pooled_connection::deadpool::Pool};
+use diesel_async::{RunQueryDsl};
 use uuid::Uuid;
 use chrono::Utc;
 
@@ -26,11 +26,11 @@ pub struct SubscriptionSearchCriteria {
 /// PostgreSQL subscription repository adapter
 #[derive(Clone)]
 pub struct SubscriptionRepositoryAdapter {
-    db_pool: &'static Pool<AsyncPgConnection>,
+    db_pool: &'static TlsPool,
 }
 
 impl SubscriptionRepositoryAdapter {
-    pub fn new(db_pool: &'static Pool<AsyncPgConnection>) -> Self {
+    pub fn new(db_pool: &'static TlsPool) -> Self {
         Self { db_pool }
     }
 

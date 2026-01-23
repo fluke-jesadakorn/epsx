@@ -242,19 +242,18 @@ async fn cleanup_expired_revoked_tokens() -> Result<u32, Box<dyn std::error::Err
 
 /// Clean up expired Web3 auth nonces (SIWE challenges)
 /// This cleans up nonces that were generated but never used (user abandoned sign-in)
-pub async fn cleanup_expired_web3_nonces(pool: &DbPool) -> Result<u32, Box<dyn std::error::Error + Send + Sync>> {
+pub async fn cleanup_expired_web3_nonces(pool: &DbPool) -> anyhow::Result<u32> {
     use crate::schemas::primary::web3_auth_nonces;
     
     let now = chrono::Utc::now();
     
     let mut conn = pool.get().await
-        .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)?;
+        .map_err(|e| anyhow::anyhow!("Failed to get connection from pool: {}", e))?;
     
     let deleted_count = diesel::delete(web3_auth_nonces::table)
         .filter(web3_auth_nonces::expires_at.lt(&now))
         .execute(&mut conn)
-        .await
-        .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)?;
+        .await?;
     
     if deleted_count > 0 {
         tracing::info!(

@@ -1,3 +1,4 @@
+use crate::prelude::TlsPool;
 // Repository Adapters
 // Web3-first repository implementations with comprehensive blockchain integration
 
@@ -35,19 +36,17 @@ pub use payment_context_repository_adapter::{PaymentContextRepositoryAdapter, Pa
 // Export both new and legacy names for backward compatibility
 pub use permission_plan_repository_adapter::{PlanRepositoryAdapter, PermissionPlanRepositoryAdapter};
 
-use diesel_async::{AsyncPgConnection, pooled_connection::AsyncDieselConnectionManager, pooled_connection::deadpool::Pool};
-
 // Database connection pool type - Diesel async PostgreSQL pool
-pub type DbPool = &'static Pool<AsyncPgConnection>;
+pub type DbPool = &'static TlsPool;
 
 /// Create a database connection pool for production use
-pub async fn create_pool() -> Result<&'static Pool<AsyncPgConnection>, Box<dyn std::error::Error>> {
+pub async fn create_pool() -> anyhow::Result<&'static TlsPool> {
   let database_url = std::env
     ::var("DATABASE_URL")
     .expect("DATABASE_URL must be set");
 
-  let config = AsyncDieselConnectionManager::<AsyncPgConnection>::new(&database_url);
-  let pool = Pool::builder(config)
+  let manager = crate::infrastructure::database::diesel_connection_manager::TlsConnectionManager::new(database_url);
+  let pool = deadpool::managed::Pool::builder(manager)
     .max_size(10)
     .build()?;
 
@@ -56,15 +55,15 @@ pub async fn create_pool() -> Result<&'static Pool<AsyncPgConnection>, Box<dyn s
 }
 
 /// Create a test database connection pool
-pub async fn create_test_pool() -> Result<&'static Pool<AsyncPgConnection>, Box<dyn std::error::Error>> {
+pub async fn create_test_pool() -> anyhow::Result<&'static TlsPool> {
   let database_url = std::env
     ::var("DATABASE_URL")
     .unwrap_or_else(|_|
       "postgresql://postgres:password@localhost:5432/epsx_test_db".to_string()
     );
 
-  let config = AsyncDieselConnectionManager::<AsyncPgConnection>::new(&database_url);
-  let pool = Pool::builder(config)
+  let manager = crate::infrastructure::database::diesel_connection_manager::TlsConnectionManager::new(database_url);
+  let pool = deadpool::managed::Pool::builder(manager)
     .max_size(5)
     .build()?;
 

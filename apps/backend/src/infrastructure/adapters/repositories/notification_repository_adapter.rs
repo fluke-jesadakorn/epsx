@@ -12,18 +12,19 @@ use crate::domain::notification::aggregates::notification::{
 // Email service removed - Web3-first system uses direct wallet notifications
 use crate::application::shared::error::ApplicationResult;
 use diesel::prelude::*;
-use diesel_async::{AsyncPgConnection, RunQueryDsl, pooled_connection::deadpool::Pool};
+use diesel_async::{RunQueryDsl};
 use crate::schemas::notifications::wallet_notifications;
+use crate::infrastructure::database::diesel_connection_manager::TlsPool;
 
 
 /// Web3-first notification repository adapter - no email dependencies
 #[derive(Clone)]
 pub struct NotificationRepositoryAdapter {
-    pool: &'static Pool<AsyncPgConnection>,
+    pool: &'static TlsPool,
 }
 
 impl NotificationRepositoryAdapter {
-  pub fn new(pool: &'static Pool<AsyncPgConnection>) -> Self {
+  pub fn new(pool: &'static TlsPool) -> Self {
     debug!("Creating Web3-first NotificationRepositoryAdapter");
     Self {
       pool
@@ -192,20 +193,19 @@ impl NotificationRepositoryAdapter {
     })?;
 
     // Insert notification into wallet_notifications table
-    // Use correct column names from schema: message (not body), timestamp (not created_at)
+    // Use correct column names from schema: body, recipient_wallet_address, data_payload, created_at
     let now = Utc::now();
     diesel::insert_into(wallet_notifications::table)
         .values((
             wallet_notifications::id.eq(notification.id().value()),
-            wallet_notifications::wallet_address.eq(wallet_address.to_lowercase()),
+            wallet_notifications::recipient_wallet_address.eq(Some(wallet_address.to_lowercase())),
             wallet_notifications::title.eq(notification.content().title()),
-            wallet_notifications::message.eq(notification.content().body()),
+            wallet_notifications::body.eq(notification.content().body()),
             wallet_notifications::notification_type.eq(format!("{:?}", notification.notification_type())),
             wallet_notifications::priority.eq(notification.priority().as_str()),
-            wallet_notifications::timestamp.eq(now),
-            wallet_notifications::data.eq(notification.metadata().data_payload().cloned()),
             wallet_notifications::created_at.eq(now),
             wallet_notifications::updated_at.eq(now),
+            wallet_notifications::data_payload.eq(notification.metadata().data_payload().cloned()),
         ))
         .execute(&mut conn)
         .await

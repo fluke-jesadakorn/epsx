@@ -2,11 +2,12 @@
 // CQRS handler for re-enabling a wallet
 
 use crate::application::shared::{ApplicationError, ApplicationResult, CommandHandler};
+use crate::infrastructure::database::diesel_connection_manager::TlsPool;
 use crate::application::wallet_management::commands::admin_models::{
     EnableWalletCommand, EnableWalletResponse,
 };
 use async_trait::async_trait;
-use diesel_async::{AsyncPgConnection, RunQueryDsl, pooled_connection::deadpool::Pool};
+use diesel_async::{RunQueryDsl};
 use diesel::sql_types::Text;
 use diesel::prelude::*;
 use std::sync::Arc;
@@ -15,11 +16,11 @@ use chrono::Utc;
 use serde_json::json;
 
 pub struct EnableWalletCommandHandler {
-    db_pool: Arc<&'static Pool<AsyncPgConnection>>,
+    db_pool: Arc<&'static TlsPool>,
 }
 
 impl EnableWalletCommandHandler {
-    pub fn new(db_pool: Arc<&'static Pool<AsyncPgConnection>>) -> Self {
+    pub fn new(db_pool: Arc<&'static TlsPool>) -> Self {
         Self { db_pool }
     }
 }

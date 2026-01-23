@@ -34,3 +34,5 @@ pub use crate::domain::shared_kernel::value_objects::{
     SessionId,
     Email,
 };
+// ===== Database =====
+pub use crate::infrastructure::database::diesel_connection_manager::{TlsPool, TlsConnectionManager};

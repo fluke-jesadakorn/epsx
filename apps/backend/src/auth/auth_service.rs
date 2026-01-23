@@ -1,3 +1,4 @@
+use crate::prelude::TlsPool;
 // Unified Web3 Authentication Service
 // Single source of truth for all Web3 wallet-based authentication
 // Consolidates SIWE authentication, permission checking, and wallet management
@@ -13,7 +14,7 @@ use ethers::{
 };
 use serde::{Deserialize, Serialize};
 use siwe::{Message, VerificationOpts};
-use diesel_async::{AsyncPgConnection, pooled_connection::deadpool::Pool, RunQueryDsl};
+use diesel_async::RunQueryDsl;
 use diesel::prelude::*;
 use std::str::FromStr;
 use tracing::{debug, error, info, warn};
@@ -27,7 +28,7 @@ use crate::config::env::get_bsc_chain_id;
 /// Handles all Web3 wallet authentication, SIWE verification, and permission management
 #[derive(Clone)]
 pub struct UnifiedWeb3AuthService {
-    db_pool: &'static Pool<AsyncPgConnection>,
+    db_pool: &'static TlsPool,
     openid_service: Option<OpenIDTokenService>,
     // Configuration
     domain: String,
@@ -118,7 +119,7 @@ pub enum Web3AuthError {
 impl UnifiedWeb3AuthService {
     /// Create new unified Web3 auth service
     pub fn new(
-        db_pool: &'static Pool<AsyncPgConnection>,
+        db_pool: &'static TlsPool,
         domain: String,
     ) -> Self {
         Self {
@@ -131,7 +132,7 @@ impl UnifiedWeb3AuthService {
 
     /// Create new unified Web3 auth service with OpenID token service
     pub fn new_with_openid(
-        db_pool: &'static Pool<AsyncPgConnection>,
+        db_pool: &'static TlsPool,
         domain: String,
         openid_service: OpenIDTokenService,
     ) -> Self {

@@ -1,8 +1,9 @@
+use crate::prelude::TlsPool;
 // Wallet Notification Repository - Lightweight repository for wallet_notifications table
 // Eliminates duplicate database logic from handlers
 
 use diesel::prelude::*;
-use diesel_async::{AsyncPgConnection, RunQueryDsl, pooled_connection::deadpool::Pool};
+use diesel_async::{RunQueryDsl};
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
 use std::sync::Arc;
@@ -33,11 +34,11 @@ pub struct WalletNotificationRecord {
 
 /// Repository for wallet_notifications table operations
 pub struct WalletNotificationRepository {
-    pool: Arc<&'static Pool<AsyncPgConnection>>,
+    pool: Arc<&'static TlsPool>,
 }
 
 impl WalletNotificationRepository {
-    pub fn new(pool: Arc<&'static Pool<AsyncPgConnection>>) -> Self {
+    pub fn new(pool: Arc<&'static TlsPool>) -> Self {
         Self { pool }
     }
 

@@ -2,6 +2,7 @@
 // CQRS handler for retrieving detailed wallet information
 
 use crate::application::shared::{ApplicationError, ApplicationResult, Query, QueryHandler};
+use crate::infrastructure::database::diesel_connection_manager::TlsPool;
 use crate::application::wallet_management::queries::admin_models::{
     GetWalletDetailQuery, GetWalletDetailResponse, WalletActivitySummaryDto, WalletDetailDto,
     WalletPlanDto, WalletPermissionDto,
@@ -9,7 +10,7 @@ use crate::application::wallet_management::queries::admin_models::{
 use crate::application::wallet_management::wallet_management_repository::WalletManagementRepository;
 use async_trait::async_trait;
 use diesel::prelude::*;
-use diesel_async::{AsyncPgConnection, RunQueryDsl, pooled_connection::deadpool::Pool};
+use diesel_async::{RunQueryDsl};
 use std::sync::Arc;
 use tracing::{error, info};
 
@@ -28,11 +29,11 @@ struct PermissionDetailRow {
 }
 
 pub struct GetWalletDetailQueryHandler {
-    db_pool: Arc<&'static Pool<AsyncPgConnection>>,
+    db_pool: Arc<&'static TlsPool>,
 }
 
 impl GetWalletDetailQueryHandler {
-    pub fn new(db_pool: Arc<&'static Pool<AsyncPgConnection>>) -> Self {
+    pub fn new(db_pool: Arc<&'static TlsPool>) -> Self {
         Self { db_pool }
     }
 }

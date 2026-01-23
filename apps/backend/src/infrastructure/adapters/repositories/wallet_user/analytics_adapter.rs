@@ -1,14 +1,14 @@
 use crate::prelude::*;
 use diesel::prelude::*;
-use diesel_async::{AsyncPgConnection, RunQueryDsl, pooled_connection::deadpool::Pool};
+use diesel_async::{RunQueryDsl};
 use crate::domain::wallet_management::repository_ports::{WalletUserAnalyticsPort, WalletUserStatistics};
 
 pub struct PostgresWalletUserAnalyticsAdapter {
-    db_pool: &'static Pool<AsyncPgConnection>,
+    db_pool: &'static TlsPool,
 }
 
 impl PostgresWalletUserAnalyticsAdapter {
-    pub fn new(db_pool: &'static Pool<AsyncPgConnection>) -> Self {
+    pub fn new(db_pool: &'static TlsPool) -> Self {
         Self { db_pool }
     }
 }

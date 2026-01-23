@@ -112,7 +112,7 @@ pub struct UpdateSubscriptionDb {
 
 /// Diesel Queryable model for payment_audit_log table
 #[derive(Debug, Clone, Queryable, Selectable)]
-#[diesel(table_name = crate::schemas::analytics::payment_audit_log)]
+#[diesel(table_name = crate::schemas::payments::payment_audit_log)]
 pub struct PaymentAuditLogDb {
     pub id: Uuid,
     pub payment_id: Uuid,
@@ -121,13 +121,13 @@ pub struct PaymentAuditLogDb {
     pub new_status: String,
     pub reason: Option<String>,
     pub performed_by: Option<String>,
-    pub performed_at: DateTime<Utc>,
+    pub created_at: DateTime<Utc>,
     pub metadata: serde_json::Value,
 }
 
 /// Diesel Insertable model for creating audit log entries
 #[derive(Debug, Clone, Insertable)]
-#[diesel(table_name = crate::schemas::analytics::payment_audit_log)]
+#[diesel(table_name = crate::schemas::payments::payment_audit_log)]
 pub struct NewPaymentAuditLogDb {
     pub payment_id: Uuid,
     pub action: String,

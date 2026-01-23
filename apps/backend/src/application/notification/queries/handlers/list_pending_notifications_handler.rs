@@ -46,7 +46,7 @@ impl QueryHandler<ListPendingNotificationsQuery> for ListPendingNotificationsQue
         let pending_dtos: Vec<PendingNotificationDTO> = filtered_notifications
             .into_iter()
             .map(|notification| {
-                let (recipient_type, recipient_id) = if let Some(wallet_address) = notification.recipientwallet_address() {
+                let (recipient_type, recipient_id) = if let Some(wallet_address) = notification.recipient_wallet_address() {
                     ("user".to_string(), wallet_address.to_string())
                 } else if let Some(topic) = notification.topic() {
                     ("topic".to_string(), topic.name().to_string())

@@ -15,13 +15,13 @@ mod tests {
     use crate::core::errors::AppError;
     use chrono::{Utc, Duration};
     use serde_json::json;
-    use diesel_async::{pooled_connection::deadpool::Pool, AsyncPgConnection, RunQueryDsl};
+    use diesel_async::{RunQueryDsl};
     use diesel::prelude::*;
 
     // ================== Transaction Test Setup ==================
 
     struct TransactionTestSetup {
-        pool: &'static Pool<AsyncPgConnection>,
+        pool: &'static TlsPool,
         repository: WalletUserRepositoryAdapter,
         test_wallet_addresses: Vec<String>,
     }
@@ -603,11 +603,11 @@ mod tests {
 
     /// Execute a database transaction with automatic rollback on error
     async fn execute_transaction<F, R>(
-        pool: &'static Pool<AsyncPgConnection>,
+        pool: &'static TlsPool,
         operation: F,
     ) -> Result<R, AppError>
     where
-        F: FnOnce(&mut AsyncPgConnection) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<R, diesel::result::Error>> + Send>>,
+        F: FnOnce(FnOnce(&mut )mut diesel_async::AsyncPgConnection) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<R, diesel::result::Error>> + Send>>,
     {
         let mut conn = pool.get().await
             .map_err(|e| AppError::database_error(e.to_string()))?;
@@ -640,11 +640,11 @@ mod tests {
 
     /// Execute an inner transaction (using existing connection)
     async fn execute_transaction_inner<F, R>(
-        conn: &mut AsyncPgConnection,
+        conn: &mut diesel_async::AsyncPgConnection,
         operation: F,
     ) -> Result<R, diesel::result::Error>
     where
-        F: FnOnce(&mut AsyncPgConnection) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<R, diesel::result::Error>> + Send>>,
+        F: FnOnce(FnOnce(&mut )mut diesel_async::AsyncPgConnection) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<R, diesel::result::Error>> + Send>>,
     {
         // For nested transactions, we typically use savepoints
         diesel::sql_query("SAVEPOINT inner_transaction")
@@ -668,7 +668,7 @@ mod tests {
     }
 
     /// Create a test database pool
-    async fn create_test_database_pool() -> &'static Pool<AsyncPgConnection> {
+    async fn create_test_database_pool() -> &'static TlsPool {
         // For testing, this would create a separate test database
         // For now, this is a placeholder that would need actual database setup
         todo!("Implement test database pool creation with isolated test database");

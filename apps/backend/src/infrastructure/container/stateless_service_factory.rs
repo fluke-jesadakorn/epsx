@@ -1,8 +1,8 @@
+use crate::prelude::TlsPool;
 // Stateless Service Factory for Serverless Architecture
 // Creates services per request without shared state containers
 // Designed for serverless environments (AWS Lambda, Google Cloud Functions, etc.)
 
-use diesel_async::{AsyncPgConnection, pooled_connection::deadpool::Pool};
 use anyhow::Result;
 use std::sync::Arc;
 use crate::infrastructure::cache::{Cache, ServerlessCacheFactory};
@@ -195,7 +195,7 @@ impl StatelessServiceFactory {
 
 /// Services created per request - no shared state
 pub struct RequestServices {
-    pub db_pool: Arc<&'static Pool<AsyncPgConnection>>,
+    pub db_pool: Arc<&'static TlsPool>,
     pub cache: Option<Arc<dyn Cache>>,
 
     // Service instances (owned by this request)
@@ -256,7 +256,7 @@ impl RequestServices {
 
 /// Minimal services for health checks only
 pub struct HealthServices {
-    pub db_pool: Arc<&'static Pool<AsyncPgConnection>>,
+    pub db_pool: Arc<&'static TlsPool>,
 }
 
 impl HealthServices {
