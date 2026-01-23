@@ -1,10 +1,10 @@
 'use client';
 
+import { disableWalletAction, enableWalletAction, fetchWalletsAction, updateWalletMetadataAction } from '@/app/wallet-management/actions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
-import { walletMgmt } from '@/lib/api/wallet-management-client';
 import { cn } from '@/lib/utils';
 import { useSharedAuth } from '@/shared/components/auth/Provider';
 import { Plus, Search } from 'lucide-react';
@@ -48,7 +48,7 @@ export function WalletSection({ className }: WalletSectionProps) {
     const loadData = useCallback(async () => {
         setIsLoading(true);
         try {
-            const data = await walletMgmt.fetchWallets(filters, page, 4); // Limit to 4 for grid view
+            const data = await fetchWalletsAction(filters, page, 4); // Limit to 4 for grid view
             setWallets(data.wallets);
             setTotalPages(data.pagination?.total_pages ?? 1);
         } catch (err) {
@@ -68,7 +68,7 @@ export function WalletSection({ className }: WalletSectionProps) {
     const handleDisableWallet = async (data: DisableWalletData) => {
         setIsActionLoading(true);
         try {
-            await walletMgmt.disableWallet(data.walletAddress, {
+            await disableWalletAction(data.walletAddress, {
                 duration_days: data.duration === 'until_manual' ? null : data.duration,
                 reason_category: data.reasonCategory,
                 reason_details: data.reasonDetails,
@@ -89,7 +89,7 @@ export function WalletSection({ className }: WalletSectionProps) {
     const handleReenableWallet = async (data: ReenableWalletData) => {
         setIsActionLoading(true);
         try {
-            await walletMgmt.enableWallet(data.walletAddress, {
+            await enableWalletAction(data.walletAddress, {
                 platforms_to_enable: data.platformsToEnable,
                 restore_permissions: data.restorePermissions,
                 resume_subscriptions: data.resumeSubscriptions,
@@ -196,7 +196,7 @@ export function WalletSection({ className }: WalletSectionProps) {
                                 onEnable={() => setReenableModalWallet(wallet)}
                                 onEdit={() => setEditMetadataWallet(wallet)}
                                 onUpdateMetadata={async (label, note) => {
-                                    await walletMgmt.updateWalletMetadata(wallet.walletAddress, { label, note });
+                                    await updateWalletMetadataAction(wallet.walletAddress, { label, note });
                                     await loadData();
                                 }}
                             />

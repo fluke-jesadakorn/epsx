@@ -3,6 +3,7 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 // Plans are fetched dynamically from API - no hardcoded fallback
+import { getPublicPlansAction } from '@/app/actions/plans';
 import { useAuth } from '@/lib/auth';
 import { cn } from '@/lib/utils';
 import {
@@ -21,8 +22,6 @@ import {
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useAccount } from 'wagmi';
-import { API_ROUTES } from '@/shared/config/route-constants';
-import { env } from '@/shared/env/schema';
 import MetaMaskPayment from './MetaMaskPayment';
 import { UpgradeBanner } from './UpgradeBanner';
 
@@ -79,33 +78,12 @@ type PaymentStep = 'package' | 'payment' | 'confirmation';
 // API helper function to fetch plans
 const fetchPlans = async (): Promise<PaymentPackage[]> => {
   try {
-    const baseUrl = env.BACKEND_URL;
-    const apiUrl = `${baseUrl}${API_ROUTES.PUBLIC.PLANS}`;
-
-
-    const response = await fetch(apiUrl, {
-      method: 'GET',
-      headers: {
-        Accept: 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('[OneClickPayment] Failed to fetch plans:', {
-        status: response.status,
-        statusText: response.statusText,
-        error: errorText,
-      });
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    const result = await response.json();
+    const result = await getPublicPlansAction();
 
     // Backend returns wrapped response: { success, data, message }
     if (!result.success || !result.data || !Array.isArray(result.data)) {
-      console.error('[OneClickPayment] Invalid response format');
-      throw new Error('Invalid API response format');
+      console.error('[OneClickPayment] Invalid response format', result);
+      throw new Error(result.message || 'Invalid API response format');
     }
 
     const plans: ApiPaymentPlan[] = result.data;

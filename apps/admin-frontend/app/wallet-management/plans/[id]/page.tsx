@@ -21,6 +21,11 @@ import { useParams, useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
+import { TrashDropZone } from '@/components/wallet/TrashDropZone';
+import {
+    DraggablePermissionItem,
+    DroppablePermissionList
+} from '@/components/wallet/WalletComponents';
 import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/card';
@@ -28,14 +33,10 @@ import { Input } from '@/shared/components/ui/input';
 import { Label } from '@/shared/components/ui/label';
 import { Skeleton } from '@/shared/components/ui/skeleton';
 import { Textarea } from '@/shared/components/ui/textarea';
-import { TrashDropZone } from '@/components/wallet/TrashDropZone';
-import {
-    DraggablePermissionItem,
-    DroppablePermissionList
-} from '@/components/wallet/WalletComponents';
 
+import { deletePlanAction, getPlanAction, getPlansAction, updatePlanAction } from '@/app/wallet-management/plan-actions';
 import { useAvailablePermissions } from '@/hooks/usePlanPermissions';
-import { PermissionPlan, planMgmt } from '@/lib/api/plan-management-client';
+import { PermissionPlan } from '@/lib/api/plan-management-client';
 
 export default function PlanDetailPage() {
     const router = useRouter();
@@ -54,9 +55,9 @@ export default function PlanDetailPage() {
         queryKey: ['permission-plan', planId],
         queryFn: async () => {
             try {
-                return await planMgmt.getPermissionPlan(planId);
+                return await getPlanAction(planId);
             } catch (e) {
-                const plans = await planMgmt.getPermissionPlans();
+                const plans = await getPlansAction();
                 return plans.find((g: PermissionPlan) => g.id === planId) || null;
             }
         },
@@ -126,7 +127,7 @@ export default function PlanDetailPage() {
         if (!plan) return;
         setIsSaving(true);
         try {
-            await planMgmt.updatePlan(plan.id, {
+            await updatePlanAction(plan.id, {
                 ...formData,
                 default_expiry_days: formData.default_expiry_days === null ? undefined : formData.default_expiry_days,
                 permissions: assignedPermissionIds
@@ -145,7 +146,7 @@ export default function PlanDetailPage() {
         if (!confirm('Are you sure you want to delete this plan?')) return;
         setIsSaving(true);
         try {
-            await planMgmt.deletePlan(planId);
+            await deletePlanAction(planId);
             toast.success('Plan deleted');
             queryClient.invalidateQueries({ queryKey: ['permission-plans'] });
             router.push('/wallet-management/plans');
@@ -232,7 +233,7 @@ export default function PlanDetailPage() {
                                             <Input
                                                 type="number"
                                                 value={formData.default_expiry_days || ''}
-                                                onChange={e => { setFormData({ ...formData, default_expiry_days: e.target.value ? parseInt(e.target.value) : null }); setPendingChanges(true); }}
+                                                onChange={e => { setFormData({ ...formData, default_expiry_days: e.target.value ? parseInt(e.target.value) : undefined }); setPendingChanges(true); }}
                                             />
                                         </div>
                                     </div>

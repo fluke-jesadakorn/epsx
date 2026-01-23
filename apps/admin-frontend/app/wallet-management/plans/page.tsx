@@ -9,18 +9,19 @@ import { ArrowLeft, Package, Plus, Shield, Users } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
+import { getPlansAction } from '@/app/wallet-management/plan-actions';
+import { PermissionPlan } from '@/lib/api/plan-management-client';
 import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
 import { Card, CardContent } from '@/shared/components/ui/card';
 import { Skeleton } from '@/shared/components/ui/skeleton';
-import { PermissionPlan, planMgmt } from '@/lib/api/plan-management-client';
 
 export default function PlanListPage() {
     const router = useRouter();
 
     const { data: plans, isLoading } = useQuery({
         queryKey: ['permission-plans'],
-        queryFn: async () => await planMgmt.getPermissionPlans()
+        queryFn: async () => await getPlansAction()
     });
 
     if (isLoading) {

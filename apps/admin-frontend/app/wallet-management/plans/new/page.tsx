@@ -21,20 +21,21 @@ import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
+import { TrashDropZone } from '@/components/wallet/TrashDropZone';
+import {
+    DraggablePermissionItem,
+    DroppablePermissionList
+} from '@/components/wallet/WalletComponents';
 import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/card';
 import { Input } from '@/shared/components/ui/input';
 import { Label } from '@/shared/components/ui/label';
 import { Textarea } from '@/shared/components/ui/textarea';
-import { TrashDropZone } from '@/components/wallet/TrashDropZone';
-import {
-    DraggablePermissionItem,
-    DroppablePermissionList
-} from '@/components/wallet/WalletComponents';
 
+import { createPlanAction } from '@/app/wallet-management/plan-actions';
 import { useAvailablePermissions } from '@/hooks/usePlanPermissions';
-import { CreatePlanRequest, planMgmt } from '@/lib/api/plan-management-client';
+import { CreatePlanRequest } from '@/lib/api/plan-management-client';
 
 export default function CreatePlanPage() {
     const router = useRouter();
@@ -101,7 +102,7 @@ export default function CreatePlanPage() {
 
         setIsSaving(true);
         try {
-            await planMgmt.createPlan({
+            await createPlanAction({
                 name: formData.name,
                 description: formData.description,
                 priority_level: formData.priority_level || 0,

@@ -1,10 +1,13 @@
+import {
+    getTransactionStatusAction,
+    submitTransactionAction
+} from '@/app/actions/payments'
 import { PAYMENT_ESCROW_ABI } from '@/lib/contracts/PaymentEscrowABI'
 import type { TransactionStatusData } from '@/shared/api/payments'
 import { devLog } from '@/shared/utils'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { parseUnits } from 'viem'
 import { useWaitForTransactionReceipt, useWriteContract } from 'wagmi'
-import { env } from '../@/shared/env/schema'
 
 interface UsePaymentTransactionProps {
     tokenAddress: string | null
@@ -15,8 +18,6 @@ interface UsePaymentTransactionProps {
     onSuccess?: (hash: string) => void
     onError?: (error: string) => void
 }
-
-// Note: Using TransactionStatusData from @/shared/api/payments
 
 /** Polling interval for transaction status checks (ms) */
 const STATUS_POLL_INTERVAL_MS = 3000
@@ -51,7 +52,6 @@ export function usePaymentTransaction({
         isLoading: isWaitingForReceipt,
         isSuccess: isPaymentOnChainConfirmed,
         error: receiptError,
-        data: receipt,
     } = useWaitForTransactionReceipt({
         hash: paymentHash,
     })
@@ -81,36 +81,25 @@ export function usePaymentTransaction({
         }
 
         try {
-            const submitUrl = `${env.BACKEND_URL}/api/payments/submit`;
             devLog('📤 Submitting transaction to backend for monitoring...', { txHash, planId, amount, currency })
             hasSubmittedRef.current = true
 
-            const requestBody = {
+            const result = await submitTransactionAction({
                 transaction_hash: txHash,
                 plan_id: planId.toString(),
                 expected_amount: amount,
                 currency,
-            }
+            });
 
-            const response = await fetch(submitUrl, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                credentials: 'include',
-                body: JSON.stringify(requestBody),
-            })
-
-            const result = await response.json()
-            devLog('📥 Backend response:', { status: response.status, result })
+            devLog('📥 Backend response:', result)
 
             if (result.success) {
                 devLog('✅ Transaction submitted to backend', result.data)
                 setStep('submitted')
                 startPolling(txHash)
             } else {
-                devLog('❌ Failed to submit to backend:', result.message || result.error)
-                onError?.(`Failed to submit transaction: ${result.message || JSON.stringify(result.error)}`)
+                devLog('❌ Failed to submit to backend:', result.error?.message || (result as any).error)
+                onError?.(`Failed to submit transaction: ${result.error?.message || JSON.stringify((result as any).error)}`)
             }
         } catch (error) {
             devLog('❌ Error submitting to backend:', error)
@@ -129,24 +118,10 @@ export function usePaymentTransaction({
 
         const pollStatus = async () => {
             try {
-                const statusUrl = `${env.BACKEND_URL}/api/payments/status/${txHash}`;
+                const result = await getTransactionStatusAction(txHash);
 
-                const response = await fetch(statusUrl, {
-                    credentials: 'include',
-                })
-
-                if (!response.ok) {
-                    if (response.status === 404) {
-                        devLog('⏳ Transaction not yet processed by backend')
-                        return
-                    }
-                    throw new Error(`Status check failed: ${response.status}`)
-                }
-
-                const result = await response.json()
-
-                if (result.success) {
-                    const status = result.data as TransactionStatusData
+                if (result.success && result.data) {
+                    const status = (result.data as any) as TransactionStatusData
                     setTxStatus(status)
 
                     devLog('📊 Transaction status:', status)
@@ -164,6 +139,10 @@ export function usePaymentTransaction({
                     } else if (status.status === 'confirming') {
                         setStep('confirming')
                     }
+                } else if ((result as any).status === 404) {
+                    devLog('⏳ Transaction not yet processed by backend')
+                } else {
+                    devLog('Error polling status:', result.error?.message || 'Unknown error')
                 }
             } catch (error) {
                 devLog('Error polling status:', error)
@@ -280,9 +259,7 @@ export function usePaymentTransaction({
     }
 
     // Derived states for backward compatibility
-    // isPaymentConfirming includes: waiting for on-chain receipt, waiting for backend submission, and backend confirming
     const isPaymentConfirming = step === 'submitted' || step === 'confirming' || isWaitingForReceipt || (isPaymentOnChainConfirmed && !hasSubmittedRef.current)
-    // isPaymentConfirmed should ONLY be true when backend has confirmed the transaction
     const isPaymentConfirmed = step === 'complete'
 
     return {

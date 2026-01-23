@@ -96,15 +96,15 @@ export class PaymentsApi {
     /**
      * Submit a transaction for backend monitoring
      */
-    async submitTransaction(request: PaymentSubmitRequest): Promise<ApiResponse<{ success: boolean; data?: TransactionStatusData }>> {
-        return this.client.post<{ success: boolean; data?: TransactionStatusData }>('/api/payments/submit', request);
+    async submitTransaction(request: PaymentSubmitRequest): Promise<ApiResponse<TransactionStatusData>> {
+        return this.client.post<TransactionStatusData>('/api/payments/submit', request);
     }
 
     /**
      * Get the status of a transaction
      */
-    async getTransactionStatus(transactionHash: string): Promise<ApiResponse<{ success: boolean; data: TransactionStatusData }>> {
-        return this.client.get<{ success: boolean; data: TransactionStatusData }>(`/api/payments/status/${transactionHash}`);
+    async getTransactionStatus(transactionHash: string): Promise<ApiResponse<TransactionStatusData>> {
+        return this.client.get<TransactionStatusData>(`/api/payments/status/${transactionHash}`);
     }
 
     /**

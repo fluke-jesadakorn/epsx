@@ -1,11 +1,15 @@
 'use client';
 
+import {
+  getApiKeysAction,
+  getTopEndpointsAction,
+  getUsageHistoryAction,
+  getUsageStatsAction
+} from '@/app/actions/developer';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui';
 import { Badge } from '@/components/ui/badge';
+import { useServerActionSWR } from '@/lib/infrastructure/swr-adapter';
 import type { AuthUser } from '@/lib/server-actions';
-import { createUsersClient, type UserApiKey as ApiKeyResponse } from '@/shared/api/users';
-import { UnifiedApiClient } from '@/shared/utils/api-client';
-import { useEffect, useState } from 'react';
 
 interface UsageMonitorProps {
   currentUser: AuthUser;
@@ -21,90 +25,40 @@ interface KeyUsageSummary {
 }
 
 export function UsageMonitor({ currentUser }: UsageMonitorProps) {
-  const [apiKeys, setApiKeys] = useState<KeyUsageSummary[]>([]);
-  const [totalKeys, setTotalKeys] = useState(0);
-  const [activeKeys, setActiveKeys] = useState(0);
-  const [stats, setStats] = useState({
+  // Use SWR for all data fetching
+  const { data: keysRes, isLoading: isLoadingKeys } = useServerActionSWR('dev-api-keys', () => getApiKeysAction({ limit: 100 }));
+  const { data: statsRes, isLoading: isLoadingStats } = useServerActionSWR('dev-usage-stats', getUsageStatsAction);
+  const { data: historyRes, isLoading: isLoadingHistory } = useServerActionSWR('dev-usage-history', () => getUsageHistoryAction(7));
+  const { data: endpointsRes, isLoading: isLoadingEndpoints } = useServerActionSWR('dev-top-endpoints', () => getTopEndpointsAction(7));
+
+  const isLoading = isLoadingKeys || isLoadingStats || isLoadingHistory || isLoadingEndpoints;
+
+  // Process API Keys
+  const apiKeys: KeyUsageSummary[] = (keysRes?.success && keysRes.data) ? (keysRes.data as any).api_keys?.map((k: any) => ({
+    id: k.id,
+    name: k.name,
+    total_requests: k.usage_count || 0,
+    status: k.is_active ? 'active' : 'inactive',
+    created_at: k.created_at,
+    expires_at: null
+  })) || [] : [];
+
+  const totalKeys = apiKeys.length;
+  const activeKeys = apiKeys.filter(k => k.status === 'active').length;
+
+  // Process Stats
+  const stats = (statsRes?.success && statsRes.data) ? ((statsRes.data as any).data || statsRes.data) : {
     total_requests: 0,
     average_success_rate: 100,
     requests_24h: 0,
     error_rate_24h: 0
-  });
-  const [history, setHistory] = useState<Array<{ bucket: string; count: number }>>([]);
-  const [topEndpoints, setTopEndpoints] = useState<Array<{ endpoint: string; method: string; count: number }>>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  };
 
-  // Fetch real data from API
-  useEffect(() => {
-    const fetchUsageData = async () => {
-      try {
-        const client = new UnifiedApiClient({
-          baseURL: process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080',
-          platform: 'frontend',
-        });
-        const usersClient = createUsersClient(client);
+  // Process History
+  const history = (historyRes?.success && historyRes.data) ? ((historyRes.data as any).data || historyRes.data) : [];
 
-        // Fetch user's API keys
-        const keysResponse = await usersClient.getApiKeys({ limit: 100 });
-        if (keysResponse.success && keysResponse.data) {
-          const rawData = keysResponse.data as any;
-          // Handle double-wrapped data (UnifiedApiResponse nested in ApiResponse.data)
-          const keysData = rawData.data?.api_keys ? rawData.data : (rawData.api_keys ? rawData : { api_keys: [] });
-          const keys: ApiKeyResponse[] = keysData.api_keys || [];
-
-          // Map to summary format
-          const summaries: KeyUsageSummary[] = keys.map(k => ({
-            id: k.id,
-            name: k.name,
-            total_requests: k.usage_count || 0,
-            status: k.is_active ? 'active' : 'inactive',
-            created_at: k.created_at,
-            expires_at: null // UserApiKey doesn't expose expires_at yet?
-          }));
-
-          setApiKeys(summaries);
-          setTotalKeys(summaries.length);
-          setActiveKeys(summaries.filter(k => k.status === 'active').length);
-        }
-
-        // Fetch User Stats
-        const statsRes = await usersClient.getUsageStats();
-        if (statsRes.success && statsRes.data) {
-          // Unwrap UnifiedApiResponse
-          const statsData = (statsRes.data as any).data || statsRes.data;
-          setStats(statsData);
-        }
-
-        // Fetch Usage History
-        const historyRes = await usersClient.getUsageHistory(7);
-        if (historyRes.success && historyRes.data) {
-          // Unwrap UnifiedApiResponse
-          const historyData = (historyRes.data as any).data || historyRes.data;
-          // Ensure it's an array
-          if (Array.isArray(historyData)) {
-            setHistory(historyData);
-          }
-        }
-
-        // Fetch Top Endpoints
-        const endpointsRes = await usersClient.getTopEndpoints(7);
-        if (endpointsRes.success && endpointsRes.data) {
-          // Unwrap UnifiedApiResponse
-          const endpointsData = (endpointsRes.data as any).data || endpointsRes.data;
-          // Ensure it's an array
-          if (Array.isArray(endpointsData)) {
-            setTopEndpoints(endpointsData);
-          }
-        }
-      } catch (error) {
-        console.error('Failed to fetch usage data:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchUsageData();
-  }, []);
+  // Process Top Endpoints
+  const topEndpoints = (endpointsRes?.success && endpointsRes.data) ? ((endpointsRes.data as any).data || endpointsRes.data) : [];
 
   return (
     <div className="space-y-6">

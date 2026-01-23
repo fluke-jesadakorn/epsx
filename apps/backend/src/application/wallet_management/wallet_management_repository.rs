@@ -198,8 +198,11 @@ impl WalletManagementRepository {
         }
 
         if let Some(ref status) = criteria.status {
-            let is_active = status == "active";
-            where_parts.push(format!("wu.is_active = {}", is_active));
+            if status == "active" {
+                where_parts.push("wu.is_active = true".to_string());
+            } else if status == "disabled" {
+                where_parts.push("wu.is_active = false".to_string());
+            }
         }
 
         if let Some(ref date_from) = criteria.date_from {
@@ -316,8 +319,11 @@ impl WalletManagementRepository {
         }
 
         if let Some(ref status) = criteria.status {
-            let is_active = status == "active";
-            where_parts.push(format!("wu.is_active = {}", is_active));
+            if status == "active" {
+                where_parts.push("wu.is_active = true".to_string());
+            } else if status == "disabled" {
+                where_parts.push("wu.is_active = false".to_string());
+            }
         }
 
         if let Some(ref date_from) = criteria.date_from {

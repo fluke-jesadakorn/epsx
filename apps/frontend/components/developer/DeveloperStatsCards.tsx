@@ -1,10 +1,9 @@
 'use client';
 
+import { getMyPlansAction } from '@/app/actions/developer';
 import { Badge } from '@/components/ui/badge';
+import { useServerActionSWR } from '@/lib/infrastructure/swr-adapter';
 import type { AuthUser } from '@/lib/server-actions';
-import { createUsersClient } from '@/shared/api/users';
-import { UnifiedApiClient } from '@/shared/utils/api-client';
-import { useEffect, useState } from 'react';
 
 interface UserGroupData {
     plans: Array<{
@@ -28,32 +27,12 @@ interface DeveloperStatsCardsProps {
 }
 
 export function DeveloperStatsCards({ currentUser }: DeveloperStatsCardsProps) {
-    const [userGroupData, setUserGroupData] = useState<UserGroupData | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
+    const { data: response, isLoading } = useServerActionSWR(
+        'developer-plans',
+        getMyPlansAction
+    );
 
-    useEffect(() => {
-        const fetchUserGroups = async () => {
-            try {
-                const client = new UnifiedApiClient({
-                    baseURL: process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080',
-                    platform: 'frontend',
-                });
-                const usersClient = createUsersClient(client);
-                const response = await usersClient.getMyPlans();
-                if (response.success && response.data) {
-                    // Map 'plans' property from response if needed, or if API matches UserGroupData structure
-                    // The API returns { plans: [...], total_api_keys, total_requests }
-                    // UserGroupData updated to use 'plans' instead of 'groups'
-                    setUserGroupData(response.data as unknown as UserGroupData);
-                }
-            } catch (error) {
-                console.error('Failed to fetch user plans:', error);
-            } finally {
-                setIsLoading(false);
-            }
-        };
-        fetchUserGroups();
-    }, []);
+    const userGroupData = response?.success ? (response.data as unknown as UserGroupData) : null;
 
     const hasGroups = userGroupData?.plans && userGroupData.plans.length > 0;
     const primaryGroup = userGroupData?.plans?.[0];

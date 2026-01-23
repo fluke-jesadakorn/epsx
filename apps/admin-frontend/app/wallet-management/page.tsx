@@ -1,7 +1,7 @@
 import { PageHeader, PageLayout } from '@/components/shared';
 import { DashboardSection } from '@/components/wallet/DashboardSection';
 import { WalletManagementTabs } from '@/components/wallet/WalletManagementTabs';
-import { fetchAccessManagementData } from '@/lib/data/access-management';
+import { fetchAccessManagementData, fetchWalletStats } from '@/lib/data/access-management';
 
 /**
  * Wallet Management Hub Page (Server Component)
@@ -15,18 +15,21 @@ import { fetchAccessManagementData } from '@/lib/data/access-management';
  *   4. Permission Registry
  */
 export default async function WalletManagementPage() {
-  const data = await fetchAccessManagementData();
+  const [data, walletStats] = await Promise.all([
+    fetchAccessManagementData(),
+    fetchWalletStats()
+  ]);
 
   // Transform stats for DashboardSection
   const dashboardStats = {
-    totalWallets: data.stats.totalPolicies, // Approx proxy or specific count
-    activeCount: data.stats.activeSubscriptions + data.stats.activeGroups,
-    disabledCount: 0, // Need accurate count if available, using 0 placeholder or calc
+    totalWallets: walletStats.total_users,
+    activeCount: walletStats.active_users,
+    disabledCount: walletStats.inactive_users,
     subscribedCount: data.stats.activeSubscriptions,
     expiringSoon: data.stats.expiringSoon,
     mrr: `$${(data.stats.totalMRR / 1000).toFixed(1)}K`,
     members: formatNumber(data.stats.totalMembers),
-    growth: "+12.4%" // Placeholder or calc
+    growth: walletStats.growth_rate ? `+${walletStats.growth_rate.toFixed(1)}%` : "+0%"
   };
 
   return (

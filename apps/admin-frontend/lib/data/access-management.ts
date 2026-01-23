@@ -46,11 +46,47 @@ const API_ROUTES_LOCAL = {
     DEFINITIONS: '/api/permissions/definitions',
     ANALYTICS: '/api/admin/analytics/permissions',
   },
+  WALLETS: {
+    STATS: '/api/admin/wallets/stats',
+  }
 } as const;
 
 // ============================================================================
 // SERVER-SIDE DATA FETCHERS
 // ============================================================================
+
+/**
+ * Fetch wallet statistics for server-side rendering
+ */
+export async function fetchWalletStats(): Promise<any> {
+  try {
+    const apiClient = createAdminApiClient({ serverSide: true });
+    const response = await apiClient.get<any>(API_ROUTES_LOCAL.WALLETS.STATS);
+
+    if (response.success && response.data) {
+      return response.data;
+    }
+
+    return {
+      total_users: 0,
+      active_users: 0,
+      inactive_users: 0,
+      new_users_30_days: 0,
+      active_users_30_days: 0,
+      growth_rate: 0
+    };
+  } catch (error) {
+    console.error('[fetchWalletStats] Error:', error);
+    return {
+      total_users: 0,
+      active_users: 0,
+      inactive_users: 0,
+      new_users_30_days: 0,
+      active_users_30_days: 0,
+      growth_rate: 0
+    };
+  }
+}
 
 /**
  * Fetch all access policies (plans + groups) for server-side rendering

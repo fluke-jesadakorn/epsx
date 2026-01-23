@@ -17,13 +17,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let config = init_config();
 
     // Initialize tracing with level from configuration
-    // Filter out noisy tokio_postgres DEBUG logs by default
-    // Users can still enable them via RUST_LOG=tokio_postgres=debug if needed
+    // Filter out noisy tokio_postgres and rustls DEBUG logs by default
+    // Users can still enable them via RUST_LOG=tokio_postgres=debug,rustls=debug if needed
     let filter = tracing_subscriber::EnvFilter::try_from_default_env()
         .unwrap_or_else(|_| {
-            // Default: use LOG_LEVEL config + suppress tokio_postgres DEBUG
+            // Default: use LOG_LEVEL config + suppress noisy DEBUG logs
             // This prevents verbose query preparation/execution logs from tokio_postgres
-            let filter_str = format!("{},tokio_postgres=warn", config.log_level);
+            // and TLS handshake details from rustls
+            let filter_str = format!("{},tokio_postgres=warn,rustls=warn", config.log_level);
             tracing_subscriber::EnvFilter::new(&filter_str)
         });
     

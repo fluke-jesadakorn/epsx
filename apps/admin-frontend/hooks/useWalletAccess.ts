@@ -7,8 +7,16 @@
 
 import { useCallback, useEffect, useState } from 'react';
 
-import { adminApiClient } from '@/lib/api-client';
-import { planMgmt } from '@/lib/api/plan-management-client';
+import {
+    assignUserToPlanAction,
+    getAvailablePermissionsAction,
+    getPlansAction,
+    getUserPermissionsAction,
+    getUserPlansAction,
+    grantPermissionAction,
+    removeUserFromPlanAction,
+    revokePermissionAction
+} from '@/app/wallet-management/plan-actions';
 
 // ============================================================================
 // TYPES
@@ -89,35 +97,31 @@ export function useWalletAccess(walletAddress: string | null): UseWalletAccessRe
             setIsLoading(true);
             setError(null);
 
-            // Fetch available items in parallel - ensure arrays with fallbacks
+            // Fetch available items in parallel
             const [
                 availablePermissionsRaw,
                 plansRaw,
             ] = await Promise.all([
-                planMgmt.getAvailablePermissions().catch(() => []),
-                planMgmt.getPlans().catch(() => []),
+                getAvailablePermissionsAction().catch(() => []),
+                getPlansAction().catch(() => []),
             ]);
 
-            // Ensure arrays (in case API returns non-array)
-            const availablePermissions: string[] = Array.isArray(availablePermissionsRaw) ? availablePermissionsRaw : [];
-            const plans = Array.isArray(plansRaw) ? plansRaw : [];
-
-            // Fetch wallet-specific data separately to handle 404 gracefully
-            let walletPlans: Awaited<ReturnType<typeof planMgmt.getUserPlans>> = [];
+            // Fetch wallet-specific data separately
+            let walletPlans: Awaited<ReturnType<typeof getUserPlansAction>> = [];
             let walletPermissions: string[] = [];
 
             try {
-                const result = await planMgmt.getUserPlans(walletAddress);
+                const result = await getUserPlansAction(walletAddress);
                 walletPlans = Array.isArray(result) ? result : [];
             } catch {
-                // 404 means no plans assigned - treat as empty (expected behavior)
+                // 404 means no plans assigned
             }
 
             try {
-                const result = await planMgmt.getUserPermissions(walletAddress);
+                const result = await getUserPermissionsAction(walletAddress);
                 walletPermissions = Array.isArray(result) ? result : [];
             } catch {
-                // 404 means no permissions assigned - treat as empty (expected behavior)
+                // 404 means no permissions assigned
             }
 
             // Parse authorized permissions from wallet data
@@ -125,7 +129,7 @@ export function useWalletAccess(walletAddress: string | null): UseWalletAccessRe
             const authorizedPlanIds = new Set(walletPlans.map(wg => wg.plan_id));
 
             // Convert permissions to AccessItems
-            const permissionItems: AccessItem[] = availablePermissions.map(p => {
+            const permissionItems: AccessItem[] = availablePermissionsRaw.map(p => {
                 const parts = p.split(':');
                 return {
                     id: p,
@@ -137,7 +141,7 @@ export function useWalletAccess(walletAddress: string | null): UseWalletAccessRe
             });
 
             // Convert plans to AccessItems
-            const planItems: AccessItem[] = plans.map(g => ({
+            const planItems: AccessItem[] = plansRaw.map(g => ({
                 id: g.id,
                 type: 'plan' as const,
                 name: g.name,
@@ -183,11 +187,7 @@ export function useWalletAccess(walletAddress: string | null): UseWalletAccessRe
     const assignPermission = useCallback(async (permissionId: string, expiresAt?: string) => {
         if (!walletAddress) { return; }
         try {
-            await adminApiClient.post('/api/admin/permissions/direct/grant', {
-                wallet_address: walletAddress,
-                permission_string: permissionId,
-                expires_at: expiresAt,
-            });
+            await grantPermissionAction(walletAddress, permissionId, expiresAt);
             await loadData();
         } catch (err) {
             throw new Error(err instanceof Error ? err.message : 'Failed to assign permission');
@@ -198,11 +198,7 @@ export function useWalletAccess(walletAddress: string | null): UseWalletAccessRe
     const revokePermission = useCallback(async (permissionId: string) => {
         if (!walletAddress) { return; }
         try {
-            // Use POST with query params since DELETE doesn't support body in this client
-            await adminApiClient.post('/api/admin/permissions/direct/revoke', {
-                wallet_address: walletAddress,
-                permission_string: permissionId,
-            });
+            await revokePermissionAction(walletAddress, permissionId);
             await loadData();
         } catch (err) {
             throw new Error(err instanceof Error ? err.message : 'Failed to revoke permission');
@@ -213,11 +209,7 @@ export function useWalletAccess(walletAddress: string | null): UseWalletAccessRe
     const assignPlan = useCallback(async (planId: string, expiresAt?: string) => {
         if (!walletAddress) { return; }
         try {
-            await planMgmt.assignUserToPlan({
-                user_id: walletAddress,
-                plan_id: planId,
-                expires_at: expiresAt || null,
-            });
+            await assignUserToPlanAction(walletAddress, planId, expiresAt || null);
             await loadData();
         } catch (err) {
             throw new Error(err instanceof Error ? err.message : 'Failed to assign plan');
@@ -228,7 +220,7 @@ export function useWalletAccess(walletAddress: string | null): UseWalletAccessRe
     const removePlan = useCallback(async (planId: string) => {
         if (!walletAddress) { return; }
         try {
-            await planMgmt.removeUserFromPlan(walletAddress, planId);
+            await removeUserFromPlanAction(walletAddress, planId);
             await loadData();
         } catch (err) {
             throw new Error(err instanceof Error ? err.message : 'Failed to remove plan');
@@ -241,11 +233,7 @@ export function useWalletAccess(walletAddress: string | null): UseWalletAccessRe
         try {
             await Promise.all(
                 permissionIds.map(permissionId =>
-                    adminApiClient.post('/api/admin/permissions/direct/grant', {
-                        wallet_address: walletAddress,
-                        permission_string: permissionId,
-                        expires_at: expiresAt,
-                    })
+                    grantPermissionAction(walletAddress, permissionId, expiresAt)
                 )
             );
             await loadData();
@@ -260,10 +248,7 @@ export function useWalletAccess(walletAddress: string | null): UseWalletAccessRe
         try {
             await Promise.all(
                 permissionIds.map(permissionId =>
-                    adminApiClient.post('/api/admin/permissions/direct/revoke', {
-                        wallet_address: walletAddress,
-                        permission_string: permissionId,
-                    })
+                    revokePermissionAction(walletAddress, permissionId)
                 )
             );
             await loadData();
@@ -278,11 +263,7 @@ export function useWalletAccess(walletAddress: string | null): UseWalletAccessRe
         try {
             await Promise.all(
                 planIds.map(planId =>
-                    planMgmt.assignUserToPlan({
-                        user_id: walletAddress,
-                        plan_id: planId,
-                        expires_at: expiresAt || null,
-                    })
+                    assignUserToPlanAction(walletAddress, planId, expiresAt || null)
                 )
             );
             await loadData();
@@ -296,7 +277,7 @@ export function useWalletAccess(walletAddress: string | null): UseWalletAccessRe
         if (!walletAddress || planIds.length === 0) { return; }
         try {
             await Promise.all(
-                planIds.map(planId => planMgmt.removeUserFromPlan(walletAddress, planId))
+                planIds.map(planId => removeUserFromPlanAction(walletAddress, planId))
             );
             await loadData();
         } catch (err) {

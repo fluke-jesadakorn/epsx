@@ -1,6 +1,5 @@
-
+import { getRankingsAction } from '@/app/actions/analytics';
 import { StockDataCard } from '@/shared/components';
-import { env } from '@/shared/env/schema';
 
 interface QuarterlyPerformance {
   quarter: string;
@@ -77,60 +76,43 @@ export default async function ServerTopPerformers({ className }: ServerTopPerfor
   let error: string | null = null;
 
   try {
-    // Prefer server-to-server URL (BACKEND_URL), fallback to public URL if needed
-    // In many setups, env.BACKEND_URL is configured for inter-service comms
-    const baseUrl = env.BACKEND_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080';
+    const result = await getRankingsAction({
+      page: 1,
+      limit: 3,
+      sort_by: 'growth_factor'
+    } as any);
 
-    // We intentionally don't set revalidate here to rely on default caching or page.tsx defaults
-    // But since page.tsx has export const revalidate = 0, this fetch will be dynamic by default within that route
-    const response = await fetch(`${baseUrl}/api/analytics/rankings?page=1&limit=3&sort_by=growth_factor`, {
-      method: 'GET',
-      headers: { 'Accept': 'application/json' },
-      // cache: 'no-store' // Implicit because of parent route revalidate=0, but can be explicit
-    });
+    if (result.success && result.data && Array.isArray(result.data)) {
+      data = (result.data as any[]).map((ranking: any, index: number) => {
+        const qData = ranking?.quarterly_performance || ranking?.quarterly_data || [];
 
-    if (!response.ok) {
-      // If 404/500, we might want to handle gracefully
-      console.error(`[ServerTopPerformers] Fetch failed: ${response.status}`);
-      error = `Failed to fetch: ${response.status}`;
+        return {
+          rank: ranking?.rank || ranking?.ranking_position || index + 1,
+          symbol: ranking?.symbol || '',
+          latest_date: qData[0]?.date || ranking?.latest_date || new Date().toISOString(),
+          value: ranking?.value || ranking?.price_current || 0,
+          active_status: ranking?.active_status || 'unknown',
+          quarterly_performance: qData.map((q: any) => ({
+            quarter: q?.quarter || '',
+            date: q?.date || '',
+            price: q?.price || 0,
+            eps: q?.eps || 0,
+            eps_growth: q?.eps_growth || 0,
+            price_growth: q?.price_growth || 0,
+          })),
+          next_quarter_estimate: ranking?.next_quarter_estimate ? {
+            quarter: ranking.next_quarter_estimate.quarter || '',
+            estimated_eps: ranking.next_quarter_estimate.estimated_eps || 0,
+            announcement_date: ranking.next_quarter_estimate.announcement_date || '',
+            announcement_timestamp: ranking.next_quarter_estimate.announcement_timestamp || 0,
+            days_until_announcement: ranking.next_quarter_estimate.days_until_announcement || 0,
+            confidence: ranking.next_quarter_estimate.confidence || 'Medium'
+          } : undefined,
+          currency: 'USD'
+        };
+      });
     } else {
-      const result = await response.json();
-
-      if (result.success && result.data && Array.isArray(result.data)) {
-        data = result.data.map((ranking: any, index: number) => {
-          const qData = ranking?.quarterly_performance || ranking?.quarterly_data || [];
-
-          return {
-            rank: ranking?.rank || ranking?.ranking_position || index + 1,
-            symbol: ranking?.symbol || '',
-            latest_date: qData[0]?.date || ranking?.latest_date || new Date().toISOString(),
-            value: ranking?.value || ranking?.price_current || 0,
-            active_status: ranking?.active_status || 'unknown',
-            quarterly_performance: qData.map((q: any) => ({
-              quarter: q?.quarter || '',
-              date: q?.date || '',
-              price: q?.price || 0,
-              eps: q?.eps || 0,
-              eps_growth: q?.eps_growth || 0,
-              price_growth: q?.price_growth || 0,
-            })),
-            next_quarter_estimate: ranking?.next_quarter_estimate ? {
-              quarter: ranking.next_quarter_estimate.quarter || '',
-              estimated_eps: ranking.next_quarter_estimate.estimated_eps || 0,
-              announcement_date: ranking.next_quarter_estimate.announcement_date || '',
-              announcement_timestamp: ranking.next_quarter_estimate.announcement_timestamp || 0,
-              days_until_announcement: ranking.next_quarter_estimate.days_until_announcement || 0,
-              confidence: ranking.next_quarter_estimate.confidence || 'Medium'
-            } : undefined,
-            currency: 'USD'
-          };
-        });
-
-        // Slice to top 3
-        data = data.slice(0, 3);
-      } else {
-        error = 'No valid data received';
-      }
+      error = (result as any).message || 'No valid data received';
     }
   } catch (err) {
     console.error('[ServerTopPerformers] Error:', err);

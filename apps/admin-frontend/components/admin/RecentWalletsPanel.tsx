@@ -8,11 +8,11 @@ import { Calendar, Eye, RefreshCw, TrendingUp, Wallet } from 'lucide-react';
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 
+import { getRecentWalletsAction } from '@/app/analytics/actions';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useSimpleFetch } from '@/hooks/useSimpleFetch';
 import { logger } from '@/lib/logger';
 
 interface WalletConnection {
@@ -53,7 +53,7 @@ interface RecentWalletsData {
  *
  */
 export function RecentWalletsPanel() {
-  const { fetchSimple } = useSimpleFetch();
+
   const [data, setData] = useState<RecentWalletsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -68,7 +68,8 @@ export function RecentWalletsPanel() {
 
     try {
       // Try to get 30 days of data to show more meaningful results
-      const result = await fetchSimple<RecentWalletsData>('/api/admin/web3/recent-wallets?limit=10&days=30');
+      // Use longer timeout (60s) for this endpoint as it performs complex aggregations
+      const result = await getRecentWalletsAction(10, 30);
       setData(result);
     } catch (err) {
       logger.error('Error fetching recent wallets', { error: err instanceof Error ? err.message : JSON.stringify(err) });

@@ -19,11 +19,11 @@ import {
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
+import { getPolicyStatsAction } from '@/app/policies/actions';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { adminApiClient } from '@/lib/api-client';
 
 interface PolicyEvaluation {
   id: string;
@@ -106,7 +106,7 @@ export default function PolicyMonitor() {
         loadRecentEvaluations(),
       ]);
     } catch (_error) {
-       
+
       console.error('Error loading initial data:', _error);
       toast({
         title: "Error",
@@ -120,12 +120,12 @@ export default function PolicyMonitor() {
 
   const loadPolicyStats = async () => {
     try {
-      const response = await adminApiClient.get<{ stats: PolicyStats }>('/api/admin/policies/stats');
-      if (response.success && response.data) {
-        setStats(response.data.stats);
+      const stats = await getPolicyStatsAction();
+      if (stats) {
+        setStats(stats);
       }
     } catch (_error) {
-       
+
       console.error('Error loading policy stats:', _error);
     }
   };
@@ -171,7 +171,7 @@ export default function PolicyMonitor() {
 
       setLiveEvaluations(mockEvaluations);
     } catch (_error) {
-       
+
       console.error('Error loading recent evaluations:', _error);
     }
   };
@@ -197,7 +197,7 @@ export default function PolicyMonitor() {
 
       setLastUpdate(new Date());
     } catch (_error) {
-       
+
       console.error('Error refreshing live data:', _error);
     }
   };

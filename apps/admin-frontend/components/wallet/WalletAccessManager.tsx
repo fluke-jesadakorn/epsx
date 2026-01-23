@@ -114,7 +114,7 @@ function ItemCard({ item, onClick, isAuthorized, isSelected, onSelect, pendingCh
                         </p>
                     )}
                     {/* Extra info based on type */}
-                    {item.type === 'group' && item.permissionCount !== undefined && (
+                    {item.type === 'plan' && item.permissionCount !== undefined && (
                         <p className="text-xs text-purple-600 dark:text-purple-400 font-medium">
                             {item.permissionCount} permissions
                         </p>
@@ -197,8 +197,8 @@ export function WalletAccessManager({
         error,
         batchAssignPermissions,
         batchRevokePermissions,
-        batchAssignGroups,
-        batchRemoveGroups,
+        batchAssignPlans,
+        batchRemovePlans,
         refresh,
     } = useWalletAccess(walletAddress);
 
@@ -278,7 +278,7 @@ export function WalletAccessManager({
         e.preventDefault();
         setDropTarget(null);
 
-        if (!draggedItem || !dragSource || dragSource === target) {return;}
+        if (!draggedItem || !dragSource || dragSource === target) { return; }
 
         if (target === 'authorized') {
             // Moving to authorized -> show expiry picker
@@ -294,7 +294,7 @@ export function WalletAccessManager({
 
     // Bulk Actions
     const stageBulkAssign = useCallback(() => {
-        const items = data.availableGroups.filter(g => selectedAvailable.has(g.id));
+        const items = data.availablePlans.filter(g => selectedAvailable.has(g.id));
         if (items.length > 0) {
             setExpiryModalItems(items);
         }
@@ -303,7 +303,7 @@ export function WalletAccessManager({
     const stageBulkRemove = useCallback(() => {
         const items = [
             ...data.authorizedPermissions.filter(p => selectedAuthorized.has(p.id)),
-            ...data.authorizedGroups.filter(g => selectedAuthorized.has(g.id)),
+            ...data.authorizedPlans.filter(g => selectedAuthorized.has(g.id)),
         ];
         setPendingChanges(prev => {
             const next = new Map(prev);
@@ -324,34 +324,34 @@ export function WalletAccessManager({
 
     // Apply all pending changes
     const applyChanges = useCallback(async () => {
-        if (pendingChanges.size === 0) {return;}
+        if (pendingChanges.size === 0) { return; }
 
         setIsApplying(true);
         try {
             const addPermissions: string[] = [];
             const removePermissions: string[] = [];
-            const addGroups: string[] = [];
-            const removeGroups: string[] = [];
+            const addPlans: string[] = [];
+            const removePlans: string[] = [];
 
             pendingChanges.forEach((change) => {
                 if (change.action === 'add') {
                     if (change.item.type === 'permission') {
                         addPermissions.push(change.item.id);
-                    } else if (change.item.type === 'group') {
-                        addGroups.push(change.item.id);
+                    } else if (change.item.type === 'plan') {
+                        addPlans.push(change.item.id);
                     }
                 } else {
                     if (change.item.type === 'permission') {
                         removePermissions.push(change.item.id);
-                    } else if (change.item.type === 'group') {
-                        removeGroups.push(change.item.id);
+                    } else if (change.item.type === 'plan') {
+                        removePlans.push(change.item.id);
                     }
                 }
             });
 
             // Group additions by expiry date
             const permissionsByExpiry = new Map<string, string[]>();
-            const groupsByExpiry = new Map<string, string[]>();
+            const plansByExpiry = new Map<string, string[]>();
 
             pendingChanges.forEach((change) => {
                 if (change.action === 'add') {
@@ -360,10 +360,10 @@ export function WalletAccessManager({
                         const arr = permissionsByExpiry.get(expiryKey) || [];
                         arr.push(change.item.id);
                         permissionsByExpiry.set(expiryKey, arr);
-                    } else if (change.item.type === 'group') {
-                        const arr = groupsByExpiry.get(expiryKey) || [];
+                    } else if (change.item.type === 'plan') {
+                        const arr = plansByExpiry.get(expiryKey) || [];
                         arr.push(change.item.id);
-                        groupsByExpiry.set(expiryKey, arr);
+                        plansByExpiry.set(expiryKey, arr);
                     }
                 }
             });
@@ -378,14 +378,14 @@ export function WalletAccessManager({
             });
 
             // Add groups
-            groupsByExpiry.forEach((ids, expiryKey) => {
+            plansByExpiry.forEach((ids, expiryKey) => {
                 const expiry = expiryKey === 'no-expiry' ? undefined : expiryKey;
-                operations.push(batchAssignGroups(ids, expiry));
+                operations.push(batchAssignPlans(ids, expiry));
             });
 
             // Remove operations
-            if (removePermissions.length > 0) {operations.push(batchRevokePermissions(removePermissions));}
-            if (removeGroups.length > 0) {operations.push(batchRemoveGroups(removeGroups));}
+            if (removePermissions.length > 0) { operations.push(batchRevokePermissions(removePermissions)); }
+            if (removePlans.length > 0) { operations.push(batchRemovePlans(removePlans)); }
 
             await Promise.all(operations);
 
@@ -397,14 +397,14 @@ export function WalletAccessManager({
         } finally {
             setIsApplying(false);
         }
-    }, [pendingChanges, batchAssignPermissions, batchRevokePermissions, batchAssignGroups, batchRemoveGroups, onSaveComplete]);
+    }, [pendingChanges, batchAssignPermissions, batchRevokePermissions, batchAssignPlans, batchRemovePlans, onSaveComplete]);
 
     // Selection handlers
     const handleSelectAvailable = useCallback((item: AccessItem, selected: boolean) => {
         setSelectedAvailable(prev => {
             const next = new Set(prev);
-            if (selected) {next.add(item.id);}
-            else {next.delete(item.id);}
+            if (selected) { next.add(item.id); }
+            else { next.delete(item.id); }
             return next;
         });
     }, []);
@@ -412,8 +412,8 @@ export function WalletAccessManager({
     const handleSelectAuthorized = useCallback((item: AccessItem, selected: boolean) => {
         setSelectedAuthorized(prev => {
             const next = new Set(prev);
-            if (selected) {next.add(item.id);}
-            else {next.delete(item.id);}
+            if (selected) { next.add(item.id); }
+            else { next.delete(item.id); }
             return next;
         });
     }, []);
@@ -422,8 +422,8 @@ export function WalletAccessManager({
         setSelectedAvailable(prev => {
             const next = new Set(prev);
             items.forEach(item => {
-                if (selected) {next.add(item.id);}
-                else {next.delete(item.id);}
+                if (selected) { next.add(item.id); }
+                else { next.delete(item.id); }
             });
             return next;
         });
@@ -433,16 +433,16 @@ export function WalletAccessManager({
         setSelectedAuthorized(prev => {
             const next = new Set(prev);
             items.forEach(item => {
-                if (selected) {next.add(item.id);}
-                else {next.delete(item.id);}
+                if (selected) { next.add(item.id); }
+                else { next.delete(item.id); }
             });
             return next;
         });
     }, []);
 
-    // Filter available items (Groups Only by default request)
+    // Filter available items (Plans Only by default request)
     const availableItems = useMemo(() => {
-        const allGroups = data.availableGroups;
+        const allGroups = data.availablePlans;
 
         // Filter by search
         let filtered = allGroups;
@@ -463,14 +463,14 @@ export function WalletAccessManager({
             }),
             // If item has a pending REMOVE, add it back to available list
             ...Array.from(pendingChanges.values())
-                .filter(p => p.action === 'remove' && p.item.type === 'group')
+                .filter(p => p.action === 'remove' && p.item.type === 'plan')
                 .map(p => p.item)
         ].sort((a, b) => a.name.localeCompare(b.name));
-    }, [data.availableGroups, availableSearch, pendingChanges]);
+    }, [data.availablePlans, availableSearch, pendingChanges]);
 
-    // Filter authorized items (Both Groups and Permissions)
+    // Filter authorized items (Both Plans and Permissions)
     const authorizedItems = useMemo(() => {
-        const allItems = [...data.authorizedGroups, ...data.authorizedPermissions];
+        const allItems = [...data.authorizedPlans, ...data.authorizedPermissions];
 
         // Filter by search
         let filtered = allItems;
@@ -495,24 +495,24 @@ export function WalletAccessManager({
                 .map(p => p.item)
         ].sort((a, b) => {
             // Sort by type then name
-            if (a.type !== b.type) {return a.type.localeCompare(b.type);}
+            if (a.type !== b.type) { return a.type.localeCompare(b.type); }
             return a.name.localeCompare(b.name);
         });
-    }, [data.authorizedGroups, data.authorizedPermissions, authorizedSearch, pendingChanges]);
+    }, [data.authorizedPlans, data.authorizedPermissions, authorizedSearch, pendingChanges]);
 
     // Count changes
     const changesSummary = useMemo(() => {
-        let addPermissions = 0, removePermissions = 0, addGroups = 0, removeGroups = 0;
+        let addPermissions = 0, removePermissions = 0, addPlans = 0, removePlans = 0;
         pendingChanges.forEach(change => {
             if (change.action === 'add') {
-                if (change.item.type === 'permission') {addPermissions++;}
-                else {addGroups++;}
+                if (change.item.type === 'permission') { addPermissions++; }
+                else { addPlans++; }
             } else {
-                if (change.item.type === 'permission') {removePermissions++;}
-                else {removeGroups++;}
+                if (change.item.type === 'permission') { removePermissions++; }
+                else { removePlans++; }
             }
         });
-        return { addPermissions, removePermissions, addGroups, removeGroups };
+        return { addPermissions, removePermissions, addPlans, removePlans };
     }, [pendingChanges]);
 
     const hasChanges = pendingChanges.size > 0;
@@ -570,14 +570,14 @@ export function WalletAccessManager({
                                     <AlertTriangle className="h-4 w-4" />
                                     Pending Changes:
                                 </span>
-                                {(changesSummary.addPermissions > 0 || changesSummary.addGroups > 0) && (
+                                {(changesSummary.addPermissions > 0 || changesSummary.addPlans > 0) && (
                                     <span className="text-green-600">
-                                        +{(changesSummary.addPermissions + changesSummary.addGroups)} added
+                                        +{(changesSummary.addPermissions + changesSummary.addPlans)} added
                                     </span>
                                 )}
-                                {(changesSummary.removePermissions > 0 || changesSummary.removeGroups > 0) && (
+                                {(changesSummary.removePermissions > 0 || changesSummary.removePlans > 0) && (
                                     <span className="text-red-600">
-                                        -{(changesSummary.removePermissions + changesSummary.removeGroups)} removed
+                                        -{(changesSummary.removePermissions + changesSummary.removePlans)} removed
                                     </span>
                                 )}
                             </div>
@@ -627,7 +627,7 @@ export function WalletAccessManager({
                     >
                         <div className="flex items-center justify-between mb-3 px-3 pt-3">
                             <h4 className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                                AVAILABLE GROUPS
+                                AVAILABLE PLANS
                             </h4>
                             <Badge variant="secondary" className="text-xs">
                                 {availableItems.length}

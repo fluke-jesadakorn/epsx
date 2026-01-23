@@ -16,7 +16,7 @@ use axum::{
     Json,
 };
 use serde::{Deserialize, Serialize};
-use tracing::{debug, warn};
+use tracing::debug;
 
 use crate::{
     auth::OpenIDTokenError,
@@ -100,7 +100,7 @@ pub async fn bearer_middleware(
     let user_context = match validate_bearer_token(&token, &app_state).await {
         Ok(context) => context,
         Err(err) => {
-            warn!("Bearer token validation failed: {}", err);
+            debug!("Bearer token validation failed: {}", err);
             return Err(create_auth_error(
                 StatusCode::UNAUTHORIZED,
                 "Token validation failed",

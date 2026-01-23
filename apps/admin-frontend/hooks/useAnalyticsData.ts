@@ -3,7 +3,6 @@
 import { useCallback } from 'react';
 import useSWR from 'swr';
 
-import { adminApiClient } from '@/lib/api-client';
 
 // ============================================================================
 // TYPES & CONFIG (Restored locally after shared cleanup)
@@ -103,34 +102,34 @@ export interface ApiKey {
   status: 'active' | 'revoked' | 'expired';
 }
 
-interface ApiKeysResponse {
+export interface ApiKeysResponse {
   keys: ApiKey[];
   api_keys?: ApiKey[];
 }
 
 // ============================================================================
-// FETCHER
+// FETCHER (Legacy fetcher removed in favor of Server Action)
 // ============================================================================
-
-const fetcher = async <T>(url: string): Promise<T> => {
-  const response = await adminApiClient.get<T>(url);
-  if (response.data === undefined) {
-    throw new Error('No data received from API');
-  }
-  return response.data;
-};
 
 // ============================================================================
 // INDIVIDUAL DATA HOOKS (using shared types)
 // ============================================================================
+
+import {
+  getApiKeysAction,
+  getDeveloperPortalStatsAction,
+  getPermissionAnalyticsAction,
+  getSystemMetricsAction,
+  getUserStatsAction
+} from '@/app/analytics/actions';
 
 /**
  *
  */
 export function useUserStats() {
   const { data, error, isLoading, mutate } = useSWR<UserStats>(
-    '/api/admin/wallets/stats',
-    fetcher,
+    'user-stats',
+    getUserStatsAction,
     {
       refreshInterval: 30000, // Refresh every 30 seconds
       revalidateOnFocus: true,
@@ -151,8 +150,8 @@ export function useUserStats() {
  */
 export function usePermissionAnalytics() {
   const { data, error, isLoading, mutate } = useSWR<PermissionAnalytics>(
-    '/api/admin/analytics/permissions',
-    fetcher,
+    'permission-analytics',
+    getPermissionAnalyticsAction,
     DEFAULT_ANALYTICS_CONFIG
   );
 
@@ -169,8 +168,8 @@ export function usePermissionAnalytics() {
  */
 export function useSystemMetrics() {
   const { data, error, isLoading, mutate } = useSWR<SystemMetrics>(
-    '/api/admin/analytics/metrics',
-    fetcher,
+    'system-metrics',
+    getSystemMetricsAction,
     REALTIME_ANALYTICS_CONFIG
   );
 
@@ -189,8 +188,8 @@ export function useSystemMetrics() {
  */
 export function useAnalyticsDashboard(dateRange = '7d', selectedModule = 'all') {
   const { data, error, isLoading, mutate } = useSWR<DeveloperPortalStats>(
-    '/api/admin/developer-portal/stats',
-    fetcher,
+    'developer-portal-stats',
+    getDeveloperPortalStatsAction,
     DEFAULT_ANALYTICS_CONFIG
   );
 
@@ -216,8 +215,8 @@ export function useAnalyticsDashboard(dateRange = '7d', selectedModule = 'all') 
  */
 export function useApiKeys() {
   const { data, error, isLoading, mutate } = useSWR<ApiKeysResponse>(
-    '/api/admin/developer-portal/api-keys',
-    fetcher,
+    'api-keys',
+    getApiKeysAction,
     SLOW_ANALYTICS_CONFIG
   );
 

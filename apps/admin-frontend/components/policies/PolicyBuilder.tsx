@@ -18,11 +18,11 @@ import {
 } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 
+import { createPolicyAction, evaluatePolicyAction, getPolicyTemplatesAction } from '@/app/policies/actions';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { adminApiClient } from '@/lib/api-client';
 
 type PolicyType = 'time_based' | 'location_based' | 'risk_based' | 'device_based' | 'behavioral' | 'compliance' | 'custom';
 type ConditionOperator = 'AND' | 'OR' | 'NOT';
@@ -149,12 +149,10 @@ export default function PolicyBuilder() {
 
   const loadTemplates = async () => {
     try {
-      const response = await adminApiClient.get<any>('/api/admin/policies/templates');
-      if (response.success && response.data) {
-        setTemplates(response.data.templates || []);
-      }
+      const templates = await getPolicyTemplatesAction();
+      setTemplates(templates);
     } catch (_error) {
-       
+
       console.error('Error loading templates:', _error);
     }
   };
@@ -231,17 +229,17 @@ export default function PolicyBuilder() {
         }
       };
 
-      const response = await adminApiClient.post<any>('/api/admin/policies/evaluate', testContext);
+      const result = await evaluatePolicyAction(testContext);
 
-      if (response.success && response.data) {
-        setTestResults(response.data.evaluation);
+      if (result) {
+        setTestResults(result);
         toast({
           title: "Test Complete",
-          description: `Policy decision: ${response.data.evaluation.decision}`,
+          description: `Policy decision: ${result.decision}`,
         });
       }
     } catch (_error) {
-       
+
       console.error('Error testing policy:', _error);
       toast({
         title: "Test Failed",
@@ -264,11 +262,7 @@ export default function PolicyBuilder() {
         return;
       }
 
-      const response = await adminApiClient.post<any>('/api/admin/policies', formData);
-
-      if (!response.success) {
-        throw new Error(response.error || 'Failed to save policy');
-      }
+      await createPolicyAction(formData);
 
       toast({
         title: "Success",
@@ -292,7 +286,7 @@ export default function PolicyBuilder() {
         priority: 100,
       });
     } catch (_error) {
-       
+
       console.error('Error saving policy:', _error);
       toast({
         title: "Error",

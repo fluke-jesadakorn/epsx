@@ -25,6 +25,7 @@ import {
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
+import { updatePlanAction } from '@/app/wallet-management/plan-actions';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -33,7 +34,6 @@ import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { DraggablePermissionItem, DroppablePermissionList } from '@/components/wallet/WalletComponents';
 import { AccessItem, useWalletAccess } from '@/hooks/useWalletAccess';
-import { planMgmt } from '@/lib/api/plan-management-client';
 import { cn } from '@/lib/utils';
 import { useSharedAuth } from '@/shared/components/auth/Provider';
 
@@ -108,7 +108,7 @@ export function PlanManagementView({ className }: PlanManagementViewProps) {
         if (!builderSelectedPlanId) return;
         setIsSavingBuilder(true);
         try {
-            await planMgmt.updatePlan(builderSelectedPlanId, {
+            await updatePlanAction(builderSelectedPlanId, {
                 name: builderForm.name,
                 description: builderForm.description,
                 permissions: builderPermissions,

@@ -29,22 +29,21 @@ import { useParams, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
-import { Badge } from '@/shared/components/ui/badge';
-import { Button } from '@/shared/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/card';
-import { Input } from '@/shared/components/ui/input';
-import { Label } from '@/shared/components/ui/label';
-import { Skeleton } from '@/shared/components/ui/skeleton';
+import { updatePlanAction } from '@/app/wallet-management/plan-actions';
 import { DisableWalletModal, type DisableWalletData } from '@/components/wallet/DisableWalletModal';
 import { ExpiryDatePicker } from '@/components/wallet/ExpiryDatePicker';
 import { ReenableWalletModal, type ReenableWalletData } from '@/components/wallet/ReenableWalletModal';
 import type { WalletData, WalletStatus } from '@/components/wallet/types';
 import { DraggablePermissionItem, DraggablePlanItem, DroppablePermissionList, DroppablePlanList } from '@/components/wallet/WalletComponents';
 import { AccessItem, useWalletAccess } from '@/hooks/useWalletAccess';
-import { planMgmt } from '@/lib/api/plan-management-client';
-import { walletMgmt } from '@/lib/api/wallet-management-client';
 import { cn, copyToClipboard } from '@/lib/utils';
 import { useSharedAuth } from '@/shared/components/auth/Provider';
+import { Badge } from '@/shared/components/ui/badge';
+import { Button } from '@/shared/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/card';
+import { Input } from '@/shared/components/ui/input';
+import { Label } from '@/shared/components/ui/label';
+import { Skeleton } from '@/shared/components/ui/skeleton';
 import { createPlansClient, type SubscriptionResponse } from '@/shared_deploy/api/plans';
 import { createAdminApiClient } from '@/shared_deploy/utils/api-client';
 
@@ -165,7 +164,7 @@ export default function WalletDetailPage() {
 
         try {
             setIsRefreshing(true);
-            const walletData = await walletMgmt.fetchWalletDetail(walletAddress);
+            const walletData = await fetchWalletDetailAction(walletAddress);
             setWallet(walletData);
 
             if (walletData) {
@@ -254,7 +253,7 @@ export default function WalletDetailPage() {
         if (!builderSelectedPlanId) return;
         setIsSavingBuilder(true);
         try {
-            await planMgmt.updatePlan(builderSelectedPlanId, {
+            await updatePlanAction(builderSelectedPlanId, {
                 name: builderForm.name,
                 description: builderForm.description,
                 permissions: builderPermissions,
@@ -373,7 +372,7 @@ export default function WalletDetailPage() {
         if (!wallet) { return; }
         setIsSavingMetadata(true);
         try {
-            await walletMgmt.updateWalletMetadata(wallet.walletAddress, {
+            await updateWalletMetadataAction(wallet.walletAddress, {
                 label: metadataForm.label || null,
                 note: metadataForm.note || null,
             });
@@ -402,7 +401,7 @@ export default function WalletDetailPage() {
         if (!wallet) { return; }
         setIsActionLoading(true);
         try {
-            await walletMgmt.disableWallet(wallet.walletAddress, {
+            await disableWalletAction(wallet.walletAddress, {
                 duration_days: data.duration === 'until_manual' ? null : data.duration,
                 reason_category: data.reasonCategory,
                 reason_details: data.reasonDetails,
@@ -426,7 +425,7 @@ export default function WalletDetailPage() {
         if (!wallet) { return; }
         setIsActionLoading(true);
         try {
-            await walletMgmt.enableWallet(wallet.walletAddress, {
+            await enableWalletAction(wallet.walletAddress, {
                 platforms_to_enable: data.platformsToEnable,
                 restore_permissions: data.restorePermissions,
                 resume_subscriptions: data.resumeSubscriptions,

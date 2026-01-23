@@ -602,39 +602,58 @@ pub async fn get_recent_wallets(
     active_permissions_count: Option<i32>,
   }
 
+  // Optimized query: First get wallets, then get permission counts separately
+  // This avoids correlated subqueries which are slow
   let recent_wallets = match diesel::sql_query(
     r#"
+    WITH recent_wallets_base AS (
+      SELECT
+        wu.wallet_address,
+        wu.wallet_metadata,
+        wu.created_at,
+        wu.last_auth_at,
+        wu.is_active
+      FROM wallet_users wu
+      WHERE wu.created_at >= NOW() - make_interval(days => $2)
+      ORDER BY wu.created_at DESC
+      LIMIT $1
+    ),
+    plan_permission_counts AS (
+      SELECT
+        rwb.wallet_address,
+        COUNT(DISTINCT p.id)::int as plan_count
+      FROM recent_wallets_base rwb
+      LEFT JOIN wallet_plan_assignments wga 
+        ON wga.wallet_address = rwb.wallet_address
+        AND wga.is_active = true
+        AND (wga.expires_at IS NULL OR wga.expires_at > NOW())
+      LEFT JOIN plan_permissions pgm ON wga.plan_id = pgm.plan_id
+      LEFT JOIN permissions p ON pgm.permission_id = p.id AND p.is_active = true
+      GROUP BY rwb.wallet_address
+    ),
+    direct_permission_counts AS (
+      SELECT
+        rwb.wallet_address,
+        COUNT(DISTINCT p.id)::int as direct_count
+      FROM recent_wallets_base rwb
+      LEFT JOIN wallet_direct_permissions wdp 
+        ON wdp.wallet_address = rwb.wallet_address
+        AND wdp.is_active = true
+        AND (wdp.expires_at IS NULL OR wdp.expires_at > NOW())
+      LEFT JOIN permissions p ON wdp.permission_id = p.id AND p.is_active = true
+      GROUP BY rwb.wallet_address
+    )
     SELECT
-      wu.wallet_address,
-      wu.wallet_metadata,
-      wu.created_at,
-      wu.last_auth_at,
-      wu.is_active,
-      COALESCE(
-        (
-          SELECT COUNT(DISTINCT p.id)::int
-          FROM wallet_plan_assignments wga
-          JOIN plan_permissions pgm ON wga.plan_id = pgm.plan_id
-          JOIN permissions p ON pgm.permission_id = p.id
-          WHERE wga.wallet_address = wu.wallet_address
-            AND wga.is_active = true
-            AND p.is_active = true
-            AND (wga.expires_at IS NULL OR wga.expires_at > NOW())
-        ) + (
-          SELECT COUNT(DISTINCT p.id)::int
-          FROM wallet_direct_permissions wdp
-          JOIN permissions p ON wdp.permission_id = p.id
-          WHERE wdp.wallet_address = wu.wallet_address
-            AND wdp.is_active = true
-            AND p.is_active = true
-            AND (wdp.expires_at IS NULL OR wdp.expires_at > NOW())
-        ),
-        0
-      ) as active_permissions_count
-    FROM wallet_users wu
-    WHERE wu.created_at >= NOW() - make_interval(days => $2)
-    ORDER BY wu.created_at DESC
-    LIMIT $1
+      rwb.wallet_address,
+      rwb.wallet_metadata,
+      rwb.created_at,
+      rwb.last_auth_at,
+      rwb.is_active,
+      COALESCE(ppc.plan_count, 0) + COALESCE(dpc.direct_count, 0) as active_permissions_count
+    FROM recent_wallets_base rwb
+    LEFT JOIN plan_permission_counts ppc ON ppc.wallet_address = rwb.wallet_address
+    LEFT JOIN direct_permission_counts dpc ON dpc.wallet_address = rwb.wallet_address
+    ORDER BY rwb.created_at DESC
     "#
   )
   .bind::<diesel::sql_types::BigInt, _>(limit as i64)

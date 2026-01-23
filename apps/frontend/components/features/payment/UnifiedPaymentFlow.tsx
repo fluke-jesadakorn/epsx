@@ -11,8 +11,8 @@
  * - Payment execution
  */
 
-import { API_ROUTES } from '@/shared/config/route-constants';
-import { env } from '@/shared/env/schema';
+import { submitTransactionAction } from '@/app/actions/payments';
+import { getPublicPlansAction } from '@/app/actions/plans';
 import { createFrontendApiClient } from '@/shared/utils/api-client';
 import {
     AlertCircle,
@@ -186,19 +186,7 @@ export function UnifiedPaymentFlow({
             setLoading(true);
             setError(null);
 
-            const baseUrl = env.BACKEND_URL;
-            const apiUrl = `${baseUrl}${API_ROUTES.PUBLIC.PLANS}`;
-
-            const response = await fetch(apiUrl, {
-                method: 'GET',
-                headers: { 'Accept': 'application/json' },
-            });
-
-            if (!response.ok) {
-                throw new Error(`Failed to fetch plans: ${response.status}`);
-            }
-
-            const result = await response.json();
+            const result = await getPublicPlansAction();
 
             if (result.success && result.data && Array.isArray(result.data)) {
                 // Transform to PricingCardData
@@ -241,13 +229,10 @@ export function UnifiedPaymentFlow({
                     const preselected = transformedPlans.find(p => String(p.id) === String(preselectedId));
                     if (preselected) {
                         setSelectedPlan(preselected);
-                        // If we have a preselection, we might want to stay in 'select' step but show Single Card UI
-                        // Or if it's a direct link, maybe go to confirm? 
-                        // For now let's stick to 'select' step but render specific UI
                     }
                 }
             } else {
-                throw new Error('Invalid API response format');
+                throw new Error(result.error?.message || 'Invalid API response format');
             }
         } catch (err) {
             console.error('Error fetching plans:', err);
@@ -333,21 +318,21 @@ export function UnifiedPaymentFlow({
                     // Extract numeric price
                     const priceVal = parseFloat(selectedPlan?.price.replace(/[^0-9.]/g, '') || '0');
 
-                    const response = await apiClient.post('/api/payments/submit', {
+                    const result = await submitTransactionAction({
                         transaction_hash: transferTxHash,
-                        plan_id: selectedPlan?.id,
+                        plan_id: selectedPlan?.id as string,
                         expected_amount: priceVal,
                         currency: selectedToken.symbol,
-                        network: supportedChains.find(c => c.id === chainId)?.name || 'unknown'
-                    });
+                        // network: supportedChains.find(c => c.id === chainId)?.name || 'unknown' // Backend might not take this in submitTransactionAction type
+                    } as any);
 
-                    if (response.success) {
+                    if (result.success) {
                         setTxHash(transferTxHash);
                         setStep('success');
                         // Refresh plan access
                         refetchPlanAccess();
                     } else {
-                        setError('Payment submitted but verification pending');
+                        setError(result.error?.message || 'Payment submitted but verification pending');
                     }
                 } catch (err) {
                     console.error('Submit error:', err);

@@ -1,9 +1,9 @@
 'use client'
 
+import { getPublicPlansAction } from '@/app/actions/plans'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { usePlanAccess } from '@/hooks/usePlanAccess'
 import { PricingCard } from '@/shared/components/plans/PricingCard'
-import { env } from '@/shared/env/schema'
 import { Plan, PricingCardData } from '@/shared/types/plans'
 import { AlertCircle, Star } from 'lucide-react'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -52,33 +52,19 @@ export function PlanSelection({ currentUser, className }: PlanSelectionProps) {
     const fetchPlans = async () => {
       try {
         setLoading(true)
-        const baseUrl = env.BACKEND_URL || 'http://localhost:8080'
-        let apiUrl = `${baseUrl}/api/public/plans`
+        const response = await getPublicPlansAction({
+          affiliate_code: affiliateCode || undefined
+        } as any)
 
-        if (affiliateCode) {
-          apiUrl += `?affiliate_code=${encodeURIComponent(affiliateCode)}`
-        }
-
-        const response = await fetch(apiUrl, {
-          method: 'GET',
-          headers: { 'Accept': 'application/json' },
-        })
-
-        if (!response.ok) {
-          throw new Error(`Failed to fetch plans: ${response.status}`)
-        }
-
-        const result = await response.json()
-
-        if (result.success && result.data && Array.isArray(result.data)) {
-          const cards = result.data
+        if (response.success && response.data && Array.isArray(response.data)) {
+          const cards = response.data
             .filter((plan: Plan) => plan.is_active)
             .sort((a: Plan, b: Plan) => (a.display_order || 0) - (b.display_order || 0))
             .map((plan: Plan) => transformToPricingCard(plan))
 
           setPricingCards(cards)
         } else {
-          throw new Error('Invalid API response')
+          throw new Error(response.error?.message || 'Invalid API response')
         }
       } catch (err) {
         console.error('[PlanSelection] Error fetching plans:', err)

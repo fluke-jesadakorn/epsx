@@ -1,29 +1,18 @@
 'use client';
 
+import { fetchActivityLogsAction } from '@/app/wallet-management/actions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
-import { createAdminApiClient } from '@/shared/utils/api-client';
+import { cn } from '@/lib/utils';
 import { ExternalLink, RefreshCw, Search } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { WalletActivityTimeline } from './WalletActivityTimeline';
 import { WalletActivityEvent } from './types';
 
-// Simplified interface for internal use -> aligned with WalletActivityTimeline
-// We need to map AuditLogEntry to WalletActivityEvent
-interface AuditLogEntry {
-    id: string;
-    action: string;
-    wallet_address: string | null;
-    timestamp: string;
-    details: Record<string, unknown> | null;
-}
-
 interface ActivityLogSectionProps {
     className?: string;
 }
-
-import { cn } from '@/lib/utils';
 
 export function ActivityLogSection({ className }: ActivityLogSectionProps) {
     const [events, setEvents] = useState<WalletActivityEvent[]>([]);
@@ -32,23 +21,19 @@ export function ActivityLogSection({ className }: ActivityLogSectionProps) {
     const fetchLogs = useCallback(async () => {
         setIsLoading(true);
         try {
-            const client = createAdminApiClient();
-            // Use audit logs endpoint but map to activity events
-            const response = await client.get<any>('/api/admin/audit-logs?page=1&page_size=10');
+            // Use Server Action
+            const logs = await fetchActivityLogsAction(undefined, 1, 10);
 
-            if (response.success && response.data) {
-                const logs: AuditLogEntry[] = response.data.entries || [];
-                // Map to WalletActivityEvent
-                const mappedEvents: WalletActivityEvent[] = logs.map(log => ({
-                    id: log.id,
-                    type: mapActionToEventType(log.action),
-                    description: formatActionDescription(log.action, log.details),
-                    timestamp: log.timestamp,
-                    performedBy: log.wallet_address || 'System',
-                    metadata: log.details || undefined
-                }));
-                setEvents(mappedEvents);
-            }
+            // Map to WalletActivityEvent
+            const mappedEvents: WalletActivityEvent[] = logs.map((log: any) => ({
+                id: log.id,
+                type: mapActionToEventType(log.action),
+                description: formatActionDescription(log.action, log.details),
+                timestamp: log.timestamp,
+                performedBy: log.wallet_address || 'System',
+                metadata: log.details || undefined
+            }));
+            setEvents(mappedEvents);
         } catch (err) {
             console.error('Failed to fetch activity logs:', err);
         } finally {
