@@ -25,6 +25,7 @@ playwright-report/
 
 # Environment Files
 .env
+.env.deploy
 .env.local
 .env.*.local
 !.env.example
