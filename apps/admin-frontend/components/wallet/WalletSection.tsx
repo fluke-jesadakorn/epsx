@@ -18,15 +18,24 @@ import { WalletData, WalletFilters } from './types';
 
 interface WalletSectionProps {
     className?: string;
+    initialData?: {
+        wallets: WalletData[];
+        pagination: {
+            page: number;
+            limit: number;
+            total: number;
+            total_pages: number;
+        }
+    }
 }
 
-export function WalletSection({ className }: WalletSectionProps) {
+export function WalletSection({ className, initialData }: WalletSectionProps) {
     const router = useRouter();
     const { isAuthenticated, isLoading: authLoading } = useSharedAuth();
 
     // State
-    const [wallets, setWallets] = useState<WalletData[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
+    const [wallets, setWallets] = useState<WalletData[]>(initialData?.wallets || []);
+    const [isLoading, setIsLoading] = useState(!initialData);
     const [filters, setFilters] = useState<WalletFilters>({
         search: '',
         platform: 'all',

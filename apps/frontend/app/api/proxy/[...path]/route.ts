@@ -1,9 +1,8 @@
 
 import { COOKIES } from '@/shared/auth/cookies';
+import { createFrontendApiClient } from '@/shared/utils/api-client';
 import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
-
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8080';
 
 // Match all HTTP methods
 export async function GET(req: NextRequest, ctx: { params: Promise<{ path: string[] }> }) {
@@ -32,17 +31,18 @@ async function handleProxy(req: NextRequest, ctx: { params: Promise<{ path: stri
         const cookieStore = await cookies();
         const token = cookieStore.get(COOKIES.access_token)?.value;
 
-        // Construct backend URL
+        // Construct backend URL path
         // path is an array like ['api', 'admin', 'wallets', 'stats']
         const targetPath = '/' + path.join('/');
-        const targetUrl = `${BACKEND_URL}${targetPath}${req.nextUrl.search}`;
 
         console.log(`🔄 API Proxy (Frontend): ${req.method} ${targetPath}`, {
-            targetUrl,
             hasToken: !!token
         });
 
-        // Create new headers object to control exactly what is sent
+        // Initialize Unified Client (Server Side)
+        const client = createFrontendApiClient({ serverSide: true });
+
+        // Create headers to forward
         const forwardHeaders = new Headers();
 
         // Copy safe headers
@@ -53,19 +53,11 @@ async function handleProxy(req: NextRequest, ctx: { params: Promise<{ path: stri
             }
         });
 
-        // Ensure we don't send cookies to backend (it should only rely on Bearer token)
+        // Ensure we don't send cookies to backend
         forwardHeaders.delete('cookie');
 
-        // Inject Authorization
-        if (token) {
-            forwardHeaders.set('Authorization', `Bearer ${token}`);
-        } else {
-            console.warn('⚠️ API Proxy: No token found for restricted endpoint');
-        }
-
         // Prepare body (for non-GET/HEAD requests)
-        // Prepare body (for non-GET/HEAD requests)
-        let body = (req.method !== 'GET' && req.method !== 'HEAD')
+        let body: any = (req.method !== 'GET' && req.method !== 'HEAD')
             ? await req.blob()
             : undefined;
 
@@ -74,49 +66,54 @@ async function handleProxy(req: NextRequest, ctx: { params: Promise<{ path: stri
             const refreshToken = cookieStore.get(COOKIES.refresh_token)?.value;
             if (refreshToken) {
                 console.log('🔄 API Proxy: Injecting refresh token from cookie');
-                body = new Blob([JSON.stringify({ refresh_token: refreshToken })], { type: 'application/json' });
+                body = JSON.stringify({ refresh_token: refreshToken });
                 forwardHeaders.set('content-type', 'application/json');
-                // Ensure content-length is updated or handled by fetch automatically (blob handles it)
             } else {
                 console.warn('⚠️ API Proxy: No refresh token cookie found for refresh request');
             }
         }
 
-        // Forward request to backend
-        const response = await fetch(targetUrl, {
+        // Use Unified Client's requestRaw
+        const response = await client.requestRaw(targetPath + req.nextUrl.search, {
             method: req.method,
             headers: forwardHeaders,
             body,
             cache: 'no-store'
         });
 
-        // Read response body for error handling
-        const responseBody = await response.text();
-        
-        // If there's an error, log it for debugging
+        // Read response body for error handling logging
+        // Note: Reading body here consumes the stream if we don't clone.
+        // UnifiedApiClient.requestRaw returns the raw fetch Response.
+        // If we want to log errors from body, we need to clone or text().
+
+        let responseBody: BodyInit | null = response.body;
+
+        // Check for error status to log details (similar to original code)
         if (!response.ok) {
+            // Clone to read text
+            const clone = response.clone();
+            const text = await clone.text();
             console.error(`❌ Backend Error ${response.status} ${req.method} ${targetPath}:`, {
                 status: response.status,
                 statusText: response.statusText,
-                body: responseBody.substring(0, 500), // Limit log size
-                url: targetUrl
+                body: text.substring(0, 500),
+                url: response.url
             });
+            // We can still return response.body as it wasn't consumed (we used clone)
         }
 
-        // Return response with proper error body
+        // Return response
         return new NextResponse(responseBody, {
             status: response.status,
             statusText: response.statusText,
-            headers: {
-                'Content-Type': response.headers.get('Content-Type') || 'application/json',
-            }
+            headers: response.headers
         });
 
     } catch (error) {
         console.error('❌ API Proxy Error:', error);
         return NextResponse.json(
-            { 
-                error: 'Proxy implementation failed', 
+            {
+                error: 'Proxy implementation failed',
                 message: error instanceof Error ? error.message : String(error),
                 details: error instanceof Error ? error.stack : undefined
             },

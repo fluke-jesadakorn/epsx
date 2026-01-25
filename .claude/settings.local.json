@@ -37,7 +37,8 @@
       "Bash(sqlx migrate:*)",
       "Bash(echo $DATABASE_URL)",
       "Bash(cat:*)",
-      "Bash(export SQLX_OFFLINE=true)"
+      "Bash(export SQLX_OFFLINE=true)",
+      "Bash(wc:*)"
     ],
     "deny": [],
     "ask": []

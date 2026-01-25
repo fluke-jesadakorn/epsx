@@ -44,32 +44,52 @@ impl Manager for TlsConnectionManager {
         let config = tokio_postgres::Config::from_str(&self.database_url)
             .map_err(|e| ManagerError::Config(e.to_string()))?;
         
-        let root_store = rustls::RootCertStore::from_iter(
-            webpki_roots::TLS_SERVER_ROOTS.iter().cloned()
-        );
-        let client_config = ClientConfig::builder()
-            .with_root_certificates(root_store)
-            .with_no_client_auth();
-        let tls = MakeRustlsConnect::new(client_config);
-        
-        // Wrap connection in timeout to prevent hanging
         let connect_timeout = std::time::Duration::from_secs(5);
         
-        info!("DEBUG: Connecting to database with TLS...");
-        let (client, connection) = tokio::time::timeout(connect_timeout, config.connect(tls))
-            .await
-            .map_err(|_| ManagerError::Config("Database connection timed out during TLS handshake".to_string()))?
-            .map_err(|e| {
-                error!("❌ TLS Connection error: {}", e);
-                ManagerError::Connection(e)
-            })?;
-        
-        info!("DEBUG: Database socket established, spawning connection task...");
-        tokio::spawn(async move {
-            if let Err(e) = connection.await {
-                error!("❌ database connection error: {}", e);
+        info!("DEBUG: Connecting to database (SSL Mode: {:?})...", config.get_ssl_mode());
+
+        let client = match config.get_ssl_mode() {
+            tokio_postgres::config::SslMode::Disable => {
+                let (client, connection) = tokio::time::timeout(connect_timeout, config.connect(tokio_postgres::NoTls))
+                    .await
+                    .map_err(|_| ManagerError::Config("Database connection timed out".to_string()))?
+                    .map_err(|e| {
+                        error!("❌ Connection error: {:?}", e);
+                        ManagerError::Connection(e)
+                    })?;
+
+                tokio::spawn(async move {
+                    if let Err(e) = connection.await {
+                        error!("❌ database connection error: {}", e);
+                    }
+                });
+                client
             }
-        });
+            _ => {
+                let root_store = rustls::RootCertStore::from_iter(
+                    webpki_roots::TLS_SERVER_ROOTS.iter().cloned()
+                );
+                let client_config = ClientConfig::builder()
+                    .with_root_certificates(root_store)
+                    .with_no_client_auth();
+                let tls = MakeRustlsConnect::new(client_config);
+                
+                let (client, connection) = tokio::time::timeout(connect_timeout, config.connect(tls))
+                    .await
+                    .map_err(|_| ManagerError::Config("Database connection timed out during TLS handshake".to_string()))?
+                    .map_err(|e| {
+                        error!("❌ TLS Connection error: {}", e);
+                        ManagerError::Connection(e)
+                    })?;
+
+                tokio::spawn(async move {
+                    if let Err(e) = connection.await {
+                        error!("❌ database connection error: {}", e);
+                    }
+                });
+                client
+            }
+        };
         
         info!("DEBUG: Wrapping in AsyncPgConnection...");
         tokio::time::timeout(connect_timeout, AsyncPgConnection::try_from(client))
@@ -197,10 +217,16 @@ impl DieselConnectionManager {
         };
 
         // Create the pool with simplified configuration
-        // Note: Using TlsPool::builder(manager) might not work directly if TlsPool is an alias
-        // Use deadpool::managed::Pool::builder(manager)
+        use deadpool::managed::Timeouts;
+        let mut timeouts = Timeouts::default();
+        timeouts.wait = Some(std::time::Duration::from_secs(config.acquire_timeout_secs));
+        timeouts.create = Some(std::time::Duration::from_secs(config.acquire_timeout_secs));
+        timeouts.recycle = Some(std::time::Duration::from_secs(config.acquire_timeout_secs));
+
         let pool = TlsPool::builder(manager)
             .max_size(config.max_size)
+            .timeouts(timeouts)
+            .runtime(deadpool::Runtime::Tokio1) // Crucial for timeouts
             .build()
             .map_err(|e| anyhow::anyhow!("Failed to create Diesel pool: {}", e))?;
 

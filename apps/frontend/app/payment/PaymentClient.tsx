@@ -33,6 +33,7 @@ interface PaymentClientProps {
     preselectedId?: string;
     title?: string;
     description?: string;
+    initialPlans?: any[];
 }
 
 export function PaymentClient({
@@ -40,6 +41,7 @@ export function PaymentClient({
     preselectedId,
     title,
     description,
+    initialPlans = [],
 }: PaymentClientProps) {
     return (
         <Suspense
@@ -54,6 +56,7 @@ export function PaymentClient({
                 preselectedId={preselectedId}
                 title={title}
                 description={description}
+                initialPlans={initialPlans}
             />
         </Suspense>
     );

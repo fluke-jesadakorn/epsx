@@ -41,6 +41,22 @@ echo -e "${BLUE}║           EPSX Local Development Setup                    �
 echo -e "${BLUE}╚═══════════════════════════════════════════════════════════╝${NC}"
 echo ""
 
+# Pre-flight check
+if ! command -v forge &> /dev/null || ! command -v cast &> /dev/null; then
+    echo -e "${YELLOW}⚠️  Foundry (forge/cast) not found in PATH${NC}"
+    echo "   Checking default ~/.foundry/bin..."
+    
+    if [ -f "$HOME/.foundry/bin/forge" ]; then
+        export PATH="$HOME/.foundry/bin:$PATH"
+        echo -e "${GREEN}✅ Added ~/.foundry/bin to PATH for this script session${NC}"
+    else
+        echo -e "${RED}❌ Error: forge and cast are required but not found.${NC}"
+        echo "   Please install Foundry with: curl -L https://foundry.paradigm.xyz | bash"
+        echo "   Then run: foundryup"
+        exit 1
+    fi
+fi
+
 # -----------------------------------------------------------------------------
 # Step 1: Deploy PaymentEscrow
 # -----------------------------------------------------------------------------

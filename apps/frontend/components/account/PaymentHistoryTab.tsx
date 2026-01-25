@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
-interface PaymentHistoryItem {
+export interface PaymentHistoryItem {
     id: string;
     amount: number;
     currency: string;
@@ -28,14 +28,14 @@ interface PaymentHistoryItem {
     completed_at?: string;
 }
 
-interface PaymentHistoryPagination {
+export interface PaymentHistoryPagination {
     page: number;
     per_page: number;
     total: number;
     total_pages: number;
 }
 
-interface PaymentHistoryData {
+export interface PaymentHistoryData {
     payments: PaymentHistoryItem[];
     pagination: PaymentHistoryPagination;
 }
@@ -45,16 +45,24 @@ interface PaymentHistoryBody {
     data: PaymentHistoryData;
 }
 
-export function PaymentHistoryTab() {
+interface PaymentHistoryTabProps {
+    initialData?: PaymentHistoryData;
+}
+
+export function PaymentHistoryTab({ initialData }: PaymentHistoryTabProps) {
     const { base } = useApiClient({ platform: 'frontend' });
-    const [payments, setPayments] = useState<PaymentHistoryItem[]>([]);
-    const [loading, setLoading] = useState(true);
+
+    // Initialize state with initialData if provided
+    const [payments, setPayments] = useState<PaymentHistoryItem[]>(initialData?.payments || []);
+    // If we have initial data (and it has items), we are not loading. 
+    // If initial data is undefined, we are loading.
+    const [loading, setLoading] = useState(!initialData);
     const [error, setError] = useState<string | null>(null);
 
     // Pagination
-    const [page, setPage] = useState(1);
-    const [totalPages, setTotalPages] = useState(1);
-    const [totalItems, setTotalItems] = useState(0);
+    const [page, setPage] = useState(initialData?.pagination?.page || 1);
+    const [totalPages, setTotalPages] = useState(initialData?.pagination?.total_pages || 1);
+    const [totalItems, setTotalItems] = useState(initialData?.pagination?.total || 0);
 
     const fetchPaymentHistory = async (silent = false) => {
         try {
@@ -94,7 +102,34 @@ export function PaymentHistoryTab() {
     };
 
     useEffect(() => {
-        fetchPaymentHistory();
+        // Only fetch if we don't have initial data OR if page changed from initial
+        // Use a ref or simple check? 
+        // Simple check: if initialData provided matches current page, don't fetch on mount?
+        // But useEffect runs on mount.
+
+        // If initialData is present and page is 1 (or matching initial), we skip the FIRST fetch.
+        // But if user changes page, we must fetch.
+
+        // Actually, just checking if we already have data for this page?
+        // But we might want to refresh.
+
+        // Standard pattern: 
+        // 1. Initial render uses initialData.
+        // 2. useEffect runs. If initialData covers current page and we just mounted, maybe skip?
+        // Let's keep it simple: If initialData is provided, we set loading=false. 
+        // The useEffect dependency [page] will trigger on mount? No, only if page changes or mounting.
+
+        // If we initialized with data, we might not want to fetch immediately.
+        // Let's use a flag or check if payments are populated matching the page?
+
+        // Better approach for Hybrid:
+        // Identify if this is the "initial load" where we have data.
+
+        const isInitialLoad = initialData && page === initialData.pagination.page && payments === initialData.payments;
+
+        if (!isInitialLoad) {
+            fetchPaymentHistory();
+        }
     }, [page, base]);
 
     // Polling effect for pending/confirming transactions

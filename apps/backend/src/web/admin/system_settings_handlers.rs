@@ -15,6 +15,7 @@ use serde_json::{json, Value};
 use tracing::{error, info};
 use utoipa::ToSchema;
 
+use crate::core::errors::{AppError, ErrorKind};
 use crate::web::auth::AppState;
 
 // ============================================================================
@@ -134,14 +135,14 @@ fn get_default_settings() -> std::collections::HashMap<String, std::collections:
 )]
 pub async fn get_all_settings_handler(
     State(app_state): State<AppState>,
-) -> Result<Json<Value>, StatusCode> {
+) -> Result<Json<Value>, AppError> {
     info!("📋 Getting all system settings");
     
     let mut conn = app_state.db_pool.get().await.map_err(|e| {
         error!("❌ Failed to get DB connection: {}", e);
-        StatusCode::INTERNAL_SERVER_ERROR
+        AppError::new(ErrorKind::DatabaseError, format!("Failed to get DB connection: {}", e))
     })?;
-    
+
     // Query all settings from database
     let rows: Vec<SystemSettingRow> = diesel::sql_query(
         "SELECT id, category, key, value, description, updated_at FROM system_settings ORDER BY category, key"
@@ -150,7 +151,7 @@ pub async fn get_all_settings_handler(
     .await
     .map_err(|e| {
         error!("❌ Failed to query settings: {}", e);
-        StatusCode::INTERNAL_SERVER_ERROR
+        AppError::new(ErrorKind::DatabaseError, format!("Failed to query settings: {}", e))
     })?;
     
     // Plan settings by category
@@ -193,14 +194,14 @@ pub async fn get_all_settings_handler(
 pub async fn get_settings_by_category_handler(
     State(app_state): State<AppState>,
     Path(category): Path<String>,
-) -> Result<Json<Value>, StatusCode> {
+) -> Result<Json<Value>, AppError> {
     info!("📋 Getting settings for category: {}", category);
     
     let mut conn = app_state.db_pool.get().await.map_err(|e| {
         error!("❌ Failed to get DB connection: {}", e);
-        StatusCode::INTERNAL_SERVER_ERROR
+        AppError::new(ErrorKind::DatabaseError, format!("Failed to get DB connection: {}", e))
     })?;
-    
+
     // Query settings for specific category
     let rows: Vec<SystemSettingRow> = diesel::sql_query(
         "SELECT id, category, key, value, description, updated_at FROM system_settings WHERE category = $1"
@@ -210,7 +211,7 @@ pub async fn get_settings_by_category_handler(
     .await
     .map_err(|e| {
         error!("❌ Failed to query settings: {}", e);
-        StatusCode::INTERNAL_SERVER_ERROR
+        AppError::new(ErrorKind::DatabaseError, format!("Failed to query settings: {}", e))
     })?;
     
     // Build response

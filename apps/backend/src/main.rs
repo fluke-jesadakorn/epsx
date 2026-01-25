@@ -45,6 +45,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let db_config = TlsConnectionManager::new(database_url);
     let pool = TlsPool::builder(db_config)
         .max_size(10)
+        .runtime(deadpool::Runtime::Tokio1)
         .build()
         .map_err(|e| format!("Failed to create database pool: {}", e))?;
 

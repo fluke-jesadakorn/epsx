@@ -248,15 +248,17 @@ impl WalletManagementRepository {
                 wu.created_at,
                 wu.last_auth_at,
                 wu.wallet_metadata,
-                COALESCE(perms.count, 0)::int as permissions_count,
-                0 as plans_count
+                (
+                    SELECT COUNT(*)::int 
+                    FROM wallet_plan_assignments wpa 
+                    WHERE wpa.wallet_address = wu.wallet_address AND wpa.is_active = true
+                ) as plans_count,
+                (
+                    SELECT COUNT(*)::int 
+                    FROM wallet_plan_assignments wpa 
+                    WHERE wpa.wallet_address = wu.wallet_address AND wpa.is_active = true
+                ) as permissions_count
             FROM wallet_users wu
-            LEFT JOIN (
-                SELECT wallet_address, COUNT(*)::int as count
-                FROM wallet_plan_assignments
-                WHERE is_active = true
-                GROUP BY wallet_address
-            ) perms ON wu.wallet_address = perms.wallet_address
             {}
             ORDER BY wu.{} {}
             LIMIT {} OFFSET {}

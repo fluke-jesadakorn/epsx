@@ -454,7 +454,7 @@ export class NotificationsAPIClient {
     if (!this.client.isApiSuccess(response)) {
       // Don't throw error for acknowledgement failures - just log
       console.warn(`Failed to acknowledge notification ${notificationId}: ${response.error}`);
-      return { success: false, message: response.error || 'Failed to acknowledge notification' };
+      return { success: false, message: (typeof response.error === 'string' ? response.error : response.error?.message) || 'Failed to acknowledge notification' };
     }
 
     return response.data;
@@ -1259,13 +1259,16 @@ export function createNotificationsClient(client: UnifiedApiClient): Notificatio
 /**
  * Create notifications client with automatic platform detection
  */
-export function createPlatformNotificationsClient(platform: 'frontend' | 'admin' = 'frontend'): NotificationsAPIClient {
+export function createPlatformNotificationsClient(
+  platform: 'frontend' | 'admin' = 'frontend',
+  options: { serverSide?: boolean } = {}
+): NotificationsAPIClient {
   if (platform === 'admin') {
     const { createAdminApiClient } = require('../utils/api-client');
-    return new NotificationsAPIClient(createAdminApiClient());
+    return new NotificationsAPIClient(createAdminApiClient(options));
   } else {
     const { createFrontendApiClient } = require('../utils/api-client');
-    return new NotificationsAPIClient(createFrontendApiClient());
+    return new NotificationsAPIClient(createFrontendApiClient(options));
   }
 }
 

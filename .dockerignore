@@ -102,3 +102,6 @@ secrets/
 deploy.tar.gz
 deploy-prod.tar.gz
 *.tar.gz
+
+# Smart Contracts
+apps/contracts/

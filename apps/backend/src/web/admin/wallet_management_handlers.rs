@@ -5,7 +5,6 @@
 
 use axum::{
     extract::{Path, Query, State},
-    http::StatusCode,
     response::Json,
     Json as RequestJson,
 };
@@ -17,6 +16,7 @@ use std::sync::Arc;
 use crate::web::auth::AppState;
 use crate::web::admin::responses::{AdminApiResponse, AdminMetadata, PaginationInfo};
 use crate::auth::unified_permission_service::UnifiedPermissionService;
+use crate::core::errors::{AppError, ErrorKind};
 
 // CQRS imports for wallet management
 use crate::application::shared::{QueryHandler, CommandHandler};
@@ -376,7 +376,7 @@ impl From<query_models::WalletStatsDto> for WalletStatsResponse {
 pub async fn list_users_handler(
     Query(params): Query<WalletListQuery>,
     State(app_state): State<AppState>,
-) -> Result<Json<AdminApiResponse<WalletListResponse>>, StatusCode> {
+) -> Result<Json<AdminApiResponse<WalletListResponse>>, AppError> {
     info!("🔍 Admin: Listing users with filters (CQRS): {:?}", params);
 
     // 1. Create query (parameter pass-through)
@@ -396,7 +396,7 @@ pub async fn list_users_handler(
     let handler = query_handlers::GetWalletListQueryHandler::new(app_state.db_pool.clone());
     let response = handler.handle(query).await.map_err(|e| {
         error!("❌ Wallet list query failed: {}", e);
-        StatusCode::INTERNAL_SERVER_ERROR
+        AppError::new(ErrorKind::InternalServerError, format!("Wallet list query failed: {}", e))
     })?;
 
     // 3. Map DTOs to web responses using traits
@@ -451,7 +451,7 @@ pub async fn list_users_handler(
 pub async fn get_user_handler(
     Path(wallet_address): Path<String>,
     State(app_state): State<AppState>,
-) -> Result<Json<AdminApiResponse<WalletDetailResponse>>, StatusCode> {
+) -> Result<Json<AdminApiResponse<WalletDetailResponse>>, AppError> {
     info!("🔍 Admin: Getting user details for: {} (CQRS)", wallet_address);
 
     // 1. Create query
@@ -464,9 +464,9 @@ pub async fn get_user_handler(
     let response = handler.handle(query).await.map_err(|e| {
         error!("❌ Wallet detail query failed: {}", e);
         if e.to_string().contains("not found") {
-            return StatusCode::NOT_FOUND;
+            return AppError::new(ErrorKind::AggregateNotFound, "Wallet not found");
         }
-        StatusCode::INTERNAL_SERVER_ERROR
+        AppError::new(ErrorKind::InternalServerError, format!("Wallet detail query failed: {}", e))
     })?;
 
     // 3. Map to web response using traits
@@ -511,7 +511,7 @@ pub async fn update_user_handler(
     Path(wallet_address): Path<String>,
     State(app_state): State<AppState>,
     RequestJson(request): RequestJson<UpdateWalletRequest>,
-) -> Result<Json<AdminApiResponse<WalletDetailResponse>>, StatusCode> {
+) -> Result<Json<AdminApiResponse<WalletDetailResponse>>, AppError> {
     info!("✏️ Admin: Updating user: {} (CQRS)", wallet_address);
 
     // 1. Create command
@@ -526,12 +526,12 @@ pub async fn update_user_handler(
     let response = handler.handle(command).await.map_err(|e| {
         error!("❌ Update wallet failed: {}", e);
         if e.to_string().contains("not found") {
-            return StatusCode::NOT_FOUND;
+            return AppError::new(ErrorKind::AggregateNotFound, "Wallet not found");
         }
         if e.to_string().contains("validation") {
-            return StatusCode::BAD_REQUEST;
+            return AppError::new(ErrorKind::ValidationError, format!("Validation error: {}", e));
         }
-        StatusCode::INTERNAL_SERVER_ERROR
+        AppError::new(ErrorKind::InternalServerError, format!("Update wallet failed: {}", e))
     })?;
 
     // 3. Map to web response using traits
@@ -565,7 +565,7 @@ pub async fn update_user_handler(
 )]
 pub async fn get_user_stats_handler(
     State(app_state): State<AppState>,
-) -> Result<Json<AdminApiResponse<WalletStatsResponse>>, StatusCode> {
+) -> Result<Json<AdminApiResponse<WalletStatsResponse>>, AppError> {
     info!("📊 Admin: Getting user statistics (CQRS)");
 
     // 1. Create query
@@ -575,7 +575,7 @@ pub async fn get_user_stats_handler(
     let handler = query_handlers::GetWalletStatsQueryHandler::new(app_state.db_pool.clone());
     let response = handler.handle(query).await.map_err(|e| {
         error!("❌ Stats query failed: {}", e);
-        StatusCode::INTERNAL_SERVER_ERROR
+        AppError::new(ErrorKind::InternalServerError, format!("Stats query failed: {}", e))
     })?;
 
     // 3. Map to web response using traits
@@ -617,7 +617,7 @@ pub async fn disable_user_handler(
     Path(wallet_address): Path<String>,
     State(app_state): State<AppState>,
     RequestJson(request): RequestJson<command_models::DisableWalletCommand>,
-) -> Result<Json<AdminApiResponse<command_models::DisableWalletResponse>>, StatusCode> {
+) -> Result<Json<AdminApiResponse<command_models::DisableWalletResponse>>, AppError> {
     info!("🚫 Admin: Disabling user: {} (CQRS)", wallet_address);
 
     // Ensure path param matches body logic if needed, but command has it.
@@ -632,9 +632,9 @@ pub async fn disable_user_handler(
     let response = handler.handle(command).await.map_err(|e| {
         error!("❌ Disable wallet failed: {}", e);
         if e.to_string().contains("not found") {
-            return StatusCode::NOT_FOUND;
+            return AppError::new(ErrorKind::AggregateNotFound, "Wallet not found");
         }
-        StatusCode::INTERNAL_SERVER_ERROR
+        AppError::new(ErrorKind::InternalServerError, format!("Disable wallet failed: {}", e))
     })?;
 
     let metadata = AdminMetadata::crud_operation("disable_user", Some("admin".to_string()));
@@ -672,7 +672,7 @@ pub async fn enable_user_handler(
     Path(wallet_address): Path<String>,
     State(app_state): State<AppState>,
     RequestJson(request): RequestJson<command_models::EnableWalletCommand>,
-) -> Result<Json<AdminApiResponse<command_models::EnableWalletResponse>>, StatusCode> {
+) -> Result<Json<AdminApiResponse<command_models::EnableWalletResponse>>, AppError> {
     info!("✅ Admin: Enabling user: {} (CQRS)", wallet_address);
 
     // Ensure path param matches body logic
@@ -686,9 +686,9 @@ pub async fn enable_user_handler(
     let response = handler.handle(command).await.map_err(|e| {
         error!("❌ Enable wallet failed: {}", e);
         if e.to_string().contains("not found") {
-            return StatusCode::NOT_FOUND;
+            return AppError::new(ErrorKind::AggregateNotFound, "Wallet not found");
         }
-        StatusCode::INTERNAL_SERVER_ERROR
+        AppError::new(ErrorKind::InternalServerError, format!("Enable wallet failed: {}", e))
     })?;
 
     let metadata = AdminMetadata::crud_operation("enable_user", Some("admin".to_string()));
@@ -727,7 +727,7 @@ pub async fn validate_user_permissions_bulk(
     State(permission_service): State<Arc<UnifiedPermissionService>>,
     headers: axum::http::HeaderMap,
     RequestJson(request): RequestJson<BulkPermissionValidationRequest>,
-) -> Result<Json<AdminApiResponse<BulkPermissionValidationResponse>>, StatusCode> {
+) -> Result<Json<AdminApiResponse<BulkPermissionValidationResponse>>, AppError> {
     info!("🔐 Admin: Performing bulk permission validation test");
     let start_time = std::time::Instant::now();
 
@@ -741,11 +741,11 @@ pub async fn validate_user_permissions_bulk(
         Ok(true) => info!("✅ Admin authorized for bulk permission validation"),
         Ok(false) => {
             info!("❌ Admin not authorized for bulk permission validation");
-            return Err(StatusCode::FORBIDDEN);
+            return Err(AppError::new(ErrorKind::AuthorizationError, "Admin not authorized for bulk permission validation"));
         },
         Err(e) => {
             error!("❌ Permission check failed: {}", e);
-            return Err(StatusCode::INTERNAL_SERVER_ERROR);
+            return Err(AppError::new(ErrorKind::InternalServerError, format!("Permission check failed: {}", e)));
         }
     }
 

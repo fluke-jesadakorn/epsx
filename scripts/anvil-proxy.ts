@@ -7,9 +7,25 @@ console.log(`\n🔌 Starting Anvil Proxy...`);
 console.log(`   Proxy: http://0.0.0.0:${PROXY_PORT} (accessible via Tailscale)`);
 console.log(`   Anvil: http://127.0.0.1:${ANVIL_PORT} (background)`);
 
+// Check if anvil is in PATH or ~/.foundry/bin
+import { which } from "bun";
+const anvilPath = await which("anvil");
+const foundryAnvilPath = `${process.env.HOME}/.foundry/bin/anvil`;
+
+if (!anvilPath && !(await import("fs/promises").then(fs => fs.stat(foundryAnvilPath).then(() => true).catch(() => false)))) {
+    console.error("\n❌ Error: 'anvil' not found in PATH.");
+    console.error("   Please install Foundry with: curl -L https://foundry.paradigm.xyz | bash");
+    console.error("   Then run: foundryup\n");
+    process.exit(1);
+}
+
 // Start Anvil on background port
 const anvil = spawn(["./apps/contracts/start-anvil-local.sh"], {
-    env: { ...process.env, ANVIL_PORT: ANVIL_PORT.toString() },
+    env: {
+        ...process.env,
+        ANVIL_PORT: ANVIL_PORT.toString(),
+        PATH: anvilPath ? process.env.PATH : `${process.env.HOME}/.foundry/bin:${process.env.PATH}`
+    },
     stdout: "inherit",
     stderr: "inherit",
 });

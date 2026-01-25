@@ -109,7 +109,7 @@ export class UnifiedApiClient {
     endpoint: string,
     config: RequestConfig = {}
   ): Promise<ApiResponse<T>> {
-    const { timeout = 30000, serverSide, platform, ...options } = config;
+    const { timeout = 0, serverSide, platform, ...options } = config;
     const url = `${this.baseURL}${endpoint}`;
 
     try {
@@ -418,6 +418,42 @@ export class UnifiedApiClient {
       platform: overrides.platform || this.platform,
       serverSide: overrides.serverSide || this.isServerSide
     });
+  }
+
+  /**
+   * Performs a raw request and returns the full Response object.
+   * Useful for proxying, streaming, or handling non-JSON responses.
+   */
+  async requestRaw(
+    endpoint: string,
+    config: RequestConfig = {}
+  ): Promise<Response> {
+    const { timeout = 0, serverSide, platform, ...options } = config;
+    const url = `${this.baseURL}${endpoint}`;
+
+    const baseHeaders = await this.getAuthHeaders();
+    const mergedHeaders = new Headers(baseHeaders);
+
+    if (options.headers) {
+      new Headers(options.headers).forEach((value, key) => {
+        mergedHeaders.set(key, value);
+      });
+    }
+
+    const requestConfig: RequestInit = {
+      ...options,
+      headers: mergedHeaders,
+      credentials: this.isServerSide ? undefined : 'include',
+      cache: this.isServerSide ? 'no-store' : 'default',
+    };
+
+    if (timeout && !('signal' in requestConfig)) {
+      const controller = new AbortController();
+      setTimeout(() => controller.abort(), timeout);
+      requestConfig.signal = controller.signal;
+    }
+
+    return fetch(url, requestConfig);
   }
 }
 

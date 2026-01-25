@@ -226,13 +226,13 @@ pub async fn verify_signature_handler(
                 "refresh_token": auth_result.refresh_token
             })))
         }
-        Err(Web3AuthError::ExpiredNonce(_)) => {
-            warn!("Challenge not found or expired for wallet: {}", request.wallet_address);
+        Err(Web3AuthError::ExpiredNonce(msg)) => {
+            warn!("Web3 challenge error for wallet: {}: {}", request.wallet_address, msg);
             Ok(Json(json!({
                 "success": false,
                 "authenticated": false,
-                "error": "challenge_not_found",
-                "message": "Challenge not found or expired. Please request a new challenge."
+                "error": "challenge_error",
+                "message": msg
             })))
         }
         Err(Web3AuthError::InvalidSignature(_)) => {

@@ -427,6 +427,11 @@ export class SharedWeb3AuthClient {
 
     this.authInProgress = true;
 
+    // CRITICAL: Clear any cached challenge for this wallet to ensure 
+    // fresh nonces on subsequent attempts if this one fails or is reused
+    const cacheKey = `${request.wallet_address}_${this.clientId}`;
+    this.challengeCache.delete(cacheKey);
+
     try {
       // Call backend verify endpoint directly
       const response = await fetch(`${this.backendUrl}/api/auth/web3/verify`, {

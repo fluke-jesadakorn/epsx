@@ -10,7 +10,22 @@ import { WalletSection } from './WalletSection';
 
 
 
-export function WalletManagementTabs() {
+import { WalletActivityEvent, WalletData } from './types';
+
+export interface WalletManagementTabsProps {
+    initialData?: {
+        wallets: WalletData[];
+        pagination: {
+            page: number;
+            limit: number;
+            total: number;
+            total_pages: number;
+        }
+    };
+    initialActivityLogs?: WalletActivityEvent[];
+}
+
+export function WalletManagementTabs({ initialData, initialActivityLogs }: WalletManagementTabsProps) {
     const router = useRouter();
     const pathname = usePathname();
     const searchParams = useSearchParams();
@@ -61,7 +76,7 @@ export function WalletManagementTabs() {
 
             <div className="relative min-h-[500px]">
                 <TabsContent value="wallets" className="m-0 border-none p-0 outline-none animate-in fade-in-50 duration-500">
-                    <WalletSection />
+                    <WalletSection initialData={initialData} />
                 </TabsContent>
 
                 <TabsContent value="access-control" className="m-0 border-none p-0 outline-none animate-in fade-in-50 duration-500">
@@ -69,7 +84,7 @@ export function WalletManagementTabs() {
                 </TabsContent>
 
                 <TabsContent value="activity" className="m-0 border-none p-0 outline-none animate-in fade-in-50 duration-500">
-                    <ActivityLogSection />
+                    <ActivityLogSection initialEvents={initialActivityLogs} />
                 </TabsContent>
             </div>
         </Tabs>

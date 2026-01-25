@@ -3,6 +3,7 @@ import { getCurrentUser } from '@/lib/server-actions';
 import { getDebugSessionInfo } from '@/lib/server-actions-user';
 import { redirect } from 'next/navigation';
 import { PaymentClient } from './PaymentClient';
+import { getPublicPlansAction } from '@/app/actions/plans';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,6 +30,10 @@ export default async function PaymentPage({ searchParams }: PaymentPageProps) {
   const user = await getCurrentUser();
   const debugInfo = !user ? await getDebugSessionInfo() : null;
   const resolvedSearchParams = await searchParams;
+
+  // Fetch plans on the server
+  const plansResponse = await getPublicPlansAction();
+  const initialPlans = plansResponse.success && plansResponse.data ? plansResponse.data : [];
 
   // Redirect query string patterns to new dynamic routes
   if (resolvedSearchParams.plan) {
@@ -94,6 +99,7 @@ export default async function PaymentPage({ searchParams }: PaymentPageProps) {
           paymentType="plan"
           title="Choose Your Plan"
           description="Select a plan to unlock premium features and analytics. Your subscription is secured by blockchain technology."
+          initialPlans={initialPlans}
         />
 
         {/* Security Footer */}

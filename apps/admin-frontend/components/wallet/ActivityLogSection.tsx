@@ -12,11 +12,12 @@ import { WalletActivityEvent } from './types';
 
 interface ActivityLogSectionProps {
     className?: string;
+    initialEvents?: WalletActivityEvent[];
 }
 
-export function ActivityLogSection({ className }: ActivityLogSectionProps) {
-    const [events, setEvents] = useState<WalletActivityEvent[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
+export function ActivityLogSection({ className, initialEvents }: ActivityLogSectionProps) {
+    const [events, setEvents] = useState<WalletActivityEvent[]>(initialEvents || []);
+    const [isLoading, setIsLoading] = useState(!initialEvents);
 
     const fetchLogs = useCallback(async () => {
         setIsLoading(true);

@@ -12,7 +12,6 @@
  */
 
 import { submitTransactionAction } from '@/app/actions/payments';
-import { getPublicPlansAction } from '@/app/actions/plans';
 import { createFrontendApiClient } from '@/shared/utils/api-client';
 import {
     AlertCircle,
@@ -59,6 +58,7 @@ interface UnifiedPaymentFlowProps {
     /** Custom description */
     description?: string;
     className?: string;
+    initialPlans?: any[];
 }
 
 /**
@@ -81,6 +81,7 @@ export function UnifiedPaymentFlow({
     title,
     description,
     className,
+    initialPlans = [],
 }: UnifiedPaymentFlowProps) {
     // Auth and wallet state
     const { user, isLoading: isAuthLoading } = useAuth();
@@ -96,9 +97,13 @@ export function UnifiedPaymentFlow({
     const [plans, setPlans] = useState<PricingCardData[]>([]);
     const [selectedPlan, setSelectedPlan] = useState<PricingCardData | null>(null);
     const [selectedToken, setSelectedToken] = useState<PaymentToken>(PAYMENT_TOKENS[0]);
-    const [loading, setLoading] = useState(true);
+    // Allow loading to be false if we have initial plans
+    const [loading, setLoading] = useState(initialPlans.length === 0);
     const [error, setError] = useState<string | null>(null);
     const [txHash, setTxHash] = useState<string | null>(null);
+
+    // Internal fetch state to trigger re-fetch on retry
+    const [shouldFetch, setShouldFetch] = useState(false);
 
     // State to toggle between single view and grid view if user wants to change plan
     const [showAllPlans, setShowAllPlans] = useState(false);
@@ -180,7 +185,42 @@ export function UnifiedPaymentFlow({
         return 'select';
     }, [currentPlanTier]);
 
-    // Fetch plans from API
+    // Transform plans helper
+    const transformPlans = useCallback((rawPlans: any[]): PricingCardData[] => {
+        return rawPlans
+            .filter((plan: any) => plan.is_active)
+            .sort((a: any, b: any) => (a.display_order || 0) - (b.display_order || 0))
+            .map((plan: any) => {
+                const price = typeof plan.current_price === 'string'
+                    ? parseFloat(plan.current_price)
+                    : plan.current_price;
+
+                const basePrice = plan.base_price
+                    ? (typeof plan.base_price === 'string' ? parseFloat(plan.base_price) : plan.base_price)
+                    : null;
+
+                const isFree = price === 0;
+
+                return {
+                    id: plan.id,
+                    title: plan.name.replace(/\s+Plan$/i, ''),
+                    price: isFree ? 'Free' : `${price}`,
+                    originalPrice: basePrice ? `$${basePrice}` : undefined,
+                    features: Array.isArray(plan.features)
+                        ? plan.features.map((f: any) => typeof f === 'string' ? { text: f, included: true } : f)
+                        : typeof plan.features === 'string'
+                            ? JSON.parse(plan.features).map((f: any) => typeof f === 'string' ? { text: f, included: true } : f)
+                            : [],
+                    highlight: plan.is_highlighted || plan.is_promoted,
+                    buttonText: isFree ? 'Start Free' : 'Select Plan',
+                    tier_level: plan.tier_level ?? 0,
+                    plan_type: plan.plan_type,
+                    description: plan.description
+                };
+            });
+    }, []);
+
+    // Function to fetch plans manually (for retry)
     const fetchPlans = useCallback(async () => {
         try {
             setLoading(true);
@@ -189,44 +229,11 @@ export function UnifiedPaymentFlow({
             const result = await getPublicPlansAction();
 
             if (result.success && result.data && Array.isArray(result.data)) {
-                // Transform to PricingCardData
-                const transformedPlans: PricingCardData[] = result.data
-                    .filter((plan: any) => plan.is_active)
-                    .sort((a: any, b: any) => (a.display_order || 0) - (b.display_order || 0))
-                    .map((plan: any) => {
-                        const price = typeof plan.current_price === 'string'
-                            ? parseFloat(plan.current_price)
-                            : plan.current_price;
-
-                        const basePrice = plan.base_price
-                            ? (typeof plan.base_price === 'string' ? parseFloat(plan.base_price) : plan.base_price)
-                            : null;
-
-                        const isFree = price === 0;
-
-                        return {
-                            id: plan.id,
-                            title: plan.name.replace(/\s+Plan$/i, ''), // Remove trailing ' Plan' to avoid duplication in UI
-                            price: isFree ? 'Free' : `${price}`, // PricingCard handles formatting
-                            originalPrice: basePrice ? `$${basePrice}` : undefined,
-                            features: Array.isArray(plan.features)
-                                ? plan.features.map((f: any) => typeof f === 'string' ? { text: f, included: true } : f)
-                                : typeof plan.features === 'string'
-                                    ? JSON.parse(plan.features).map((f: any) => typeof f === 'string' ? { text: f, included: true } : f)
-                                    : [],
-                            highlight: plan.is_highlighted || plan.is_promoted,
-                            buttonText: isFree ? 'Start Free' : 'Select Plan',
-                            tier_level: plan.tier_level ?? 0,
-                            plan_type: plan.plan_type,
-                            description: plan.description
-                        };
-                    });
-
-                setPlans(transformedPlans);
-
+                const transformed = transformPlans(result.data);
+                setPlans(transformed);
                 // Auto-select preselected plan
                 if (preselectedId) {
-                    const preselected = transformedPlans.find(p => String(p.id) === String(preselectedId));
+                    const preselected = transformed.find(p => String(p.id) === String(preselectedId));
                     if (preselected) {
                         setSelectedPlan(preselected);
                     }
@@ -240,12 +247,27 @@ export function UnifiedPaymentFlow({
         } finally {
             setLoading(false);
         }
-    }, [preselectedId]);
+    }, [preselectedId, transformPlans]);
 
-    // Load plans on mount
+    // Initialize/Update plans from props or fetch if missing
     useEffect(() => {
-        fetchPlans();
-    }, [fetchPlans]);
+        if (initialPlans.length > 0) {
+            const transformed = transformPlans(initialPlans);
+            setPlans(transformed);
+            setLoading(false);
+
+            // Auto-select preselected plan
+            if (preselectedId) {
+                const preselected = transformed.find(p => String(p.id) === String(preselectedId));
+                if (preselected) {
+                    setSelectedPlan(preselected);
+                }
+            }
+        } else {
+            // Fetch if no initial plans
+            fetchPlans();
+        }
+    }, [initialPlans, preselectedId, transformPlans, fetchPlans]);
 
     // Handle plan selection
     const handlePlanSelect = (plan: PricingCardData) => {

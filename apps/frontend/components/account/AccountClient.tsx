@@ -21,7 +21,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useAccount } from 'wagmi';
 import { AccessOverview } from './AccessOverview';
-import { PaymentHistoryTab } from './PaymentHistoryTab';
+import { PaymentHistoryData, PaymentHistoryTab } from './PaymentHistoryTab';
 
 interface NotificationPreferences {
   analytics: boolean;
@@ -42,7 +42,11 @@ interface NotificationPreferencesResponse {
   preferences: NotificationPreferences;
 }
 
-export function AccountClient() {
+interface AccountClientProps {
+  initialPaymentHistory?: PaymentHistoryData;
+}
+
+export function AccountClient({ initialPaymentHistory }: AccountClientProps) {
   const _router = useRouter();
   const { base } = useApiClient({ platform: 'frontend' });
   const { address } = useAccount();
@@ -256,7 +260,7 @@ export function AccountClient() {
             </div>
             <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Transaction History</h2>
           </div>
-          <PaymentHistoryTab />
+          <PaymentHistoryTab initialData={initialPaymentHistory} />
         </div>
 
         {/* Notification Settings Section */}

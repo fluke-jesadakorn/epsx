@@ -230,7 +230,19 @@ impl UnifiedWeb3AuthService {
             .await
             .optional()
             .map_err(|e| Web3AuthError::DatabaseError(e.to_string()))?
-        .ok_or_else(|| Web3AuthError::ExpiredNonce("No valid nonce found".to_string()))?;
+            .ok_or_else(|| Web3AuthError::ExpiredNonce("Challenge not found. Please request a new challenge.".to_string()))?;
+
+        // Check nonce match - prevent using a different nonce than requested
+        if nonce_record.nonce != request.nonce {
+            warn!("Nonce mismatch for wallet {}: expected {}, got {}", wallet_address, nonce_record.nonce, request.nonce);
+            return Err(Web3AuthError::ExpiredNonce("Challenge mismatch. Please request a new challenge.".to_string()));
+        }
+
+        // Check if the message contains the correct nonce
+        if !request.message.contains(&request.nonce) {
+             warn!("Nonce not found in message for wallet {}: {}", wallet_address, request.nonce);
+             return Err(Web3AuthError::InvalidSignature("Challenge nonce missing from message".to_string()));
+        }
 
         // Check nonce expiry
         if Utc::now() > nonce_record.expires_at {

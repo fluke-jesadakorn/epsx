@@ -23,8 +23,7 @@ import { getBackendUrl } from './url-resolver';
 import type { ApiError as ApiErrorResult, ApiResponse, PaginatedResponse } from '../types/api';
 
 export interface RequestConfig extends RequestInit {
-  timeout?: number;
-  serverSide?: boolean;
+  serverSide?: boolean; // Timeout removed
   platform?: 'admin' | 'frontend';
 }
 
@@ -108,7 +107,7 @@ export class UnifiedApiClient {
     endpoint: string,
     config: RequestConfig = {}
   ): Promise<ApiResponse<T>> {
-    const { timeout = 30000, serverSide, platform, ...options } = config;
+    const { serverSide, platform, ...options } = config;
     const url = `${this.baseURL}${endpoint}`;
 
     try {
@@ -125,11 +124,8 @@ export class UnifiedApiClient {
       };
 
       // Apply timeout if supported
-      if (timeout && !('signal' in requestConfig)) {
-        const controller = new AbortController();
-        setTimeout(() => controller.abort(), timeout);
-        requestConfig.signal = controller.signal;
-      }
+      // TIMEOUT REMOVED: We now rely on browser/network defaults or backend timeouts.
+      // previous logic: if (timeout && !('signal' in requestConfig)) { ... }
 
       const response = await fetch(url, requestConfig);
 
@@ -225,18 +221,8 @@ export class UnifiedApiClient {
       return this.normalizeResponse(response, data);
 
     } catch (error) {
-      // Handle AbortError (timeout)
-      if (error instanceof Error && error.name === 'AbortError') {
-        return {
-          success: false,
-          data: null,
-          error: {
-            code: 'TIMEOUT',
-            message: `Request timeout after ${timeout}ms`,
-            requestId: options.headers ? (options.headers as any)['x-request-id'] : undefined
-          }
-        };
-      }
+      // Handle AbortError (timeout) - REMOVED custom timeout error logic
+      // if (error instanceof Error && error.name === 'AbortError') { ... }
 
       // Re-throw if it's already a handled response (shouldn't happen with this design, but for safety)
       if (this.isApiSuccess(error as any) || (error as any).success === false) {
@@ -417,6 +403,36 @@ export class UnifiedApiClient {
       platform: overrides.platform || this.platform,
       serverSide: overrides.serverSide || this.isServerSide
     });
+  }
+
+  /**
+   * Performs a raw request and returns the full Response object.
+   * Useful for proxying, streaming, or handling non-JSON responses.
+   */
+  async requestRaw(
+    endpoint: string,
+    config: RequestConfig = {}
+  ): Promise<Response> {
+    const { serverSide, platform, ...options } = config;
+    const url = `${this.baseURL}${endpoint}`;
+
+    const baseHeaders = await this.getAuthHeaders();
+    const mergedHeaders = new Headers(baseHeaders);
+
+    if (options.headers) {
+      new Headers(options.headers).forEach((value, key) => {
+        mergedHeaders.set(key, value);
+      });
+    }
+
+    const requestConfig: RequestInit = {
+      ...options,
+      headers: mergedHeaders,
+      credentials: this.isServerSide ? undefined : 'include',
+      cache: this.isServerSide ? 'no-store' : 'default',
+    };
+
+    return fetch(url, requestConfig);
   }
 }
 

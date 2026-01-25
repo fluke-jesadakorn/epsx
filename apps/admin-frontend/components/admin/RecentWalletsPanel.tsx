@@ -52,10 +52,10 @@ interface RecentWalletsData {
 /**
  *
  */
-export function RecentWalletsPanel() {
+export function RecentWalletsPanel({ initialData }: { initialData?: RecentWalletsData }) {
 
-  const [data, setData] = useState<RecentWalletsData | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState<RecentWalletsData | null>(initialData || null);
+  const [loading, setLoading] = useState(!initialData);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [expanded, setExpanded] = useState(false);
@@ -83,12 +83,14 @@ export function RecentWalletsPanel() {
   }, []);
 
   useEffect(() => {
-    fetchRecentWallets();
+    if (!initialData) {
+      fetchRecentWallets();
+    }
 
     // Set up auto-refresh every 30 seconds
-    const interval = setInterval(() => fetchRecentWallets(), 30000);
+    const interval = setInterval(() => fetchRecentWallets(false), 30000);
     return () => clearInterval(interval);
-  }, [fetchRecentWallets]);
+  }, [fetchRecentWallets, initialData]);
 
   const formatTimeAgo = (timestamp: string) => {
     const date = new Date(timestamp);
