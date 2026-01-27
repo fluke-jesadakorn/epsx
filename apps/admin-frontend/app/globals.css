@@ -1,24 +1,16 @@
 /**
- * Admin Frontend - Main Stylesheet (PancakeSwap Style)
- * 
- * Enhanced with PancakeSwap-inspired design system:
- * - Vibrant gradient backgrounds
- * - Rounded corner aesthetics  
- * - Modern glass morphism effects
+ * Admin Frontend - Main Stylesheet (Matches Frontend Dark Theme)
+ *
+ * Design System: Frontend-inspired dark theme with solid colored cards
+ * - Dark gradient background (no glass effects)
+ * - Solid blue/indigo colored cards
  * - Zero Animation Policy compliant
- * 
- * Architecture Migration Status: Phase 4 Complete ✅
- * - PancakeSwap UI integration implemented
- * - Gradient system enhanced
- * - Animation violations removed
- * - Glass morphism effects preserved
- * 
- * Design System: PancakeSwap + Modern Admin
- * 
+ * - Matches frontend UX/UI
+ *
  * NOTE: Theme variables (CSS custom properties) are now defined in
  * @shared/design-system/theme.css - DO NOT duplicate them here.
  */
- 
+
 /* ============================================================================
    IMPORT MODULAR CSS STRUCTURE
    ============================================================================ */
@@ -27,32 +19,15 @@
 @import '../styles/index.css';
 
 /* ============================================================================
-   TEMPORARY COMPATIBILITY BRIDGE
-   ============================================================================ */
-
-/*
- * This section provides backward compatibility for components that haven't
- * been migrated to the new design system yet. These styles will be gradually
- * removed as components are migrated in Phase 4.
- */
-
-@layer compatibility {
-  /* Ensure existing components don't break during migration */
-  .legacy-compat {
-    /* Add any critical legacy overrides here if needed */
-  }
-}
-
-/* ============================================================================
-   PANCAKESWAP VISUAL EFFECTS (Animation-Free)
+   SOLID COLORED CARDS (Matches Frontend)
    ============================================================================ */
 
 @layer components {
   /* Grid Pattern Background */
   .bg-grid-pattern {
-    background-image: 
-      linear-gradient(rgba(255, 193, 7, 0.1) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255, 193, 7, 0.1) 1px, transparent 1px);
+    background-image:
+      linear-gradient(rgba(99, 102, 241, 0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(99, 102, 241, 0.05) 1px, transparent 1px);
     background-size: 50px 50px;
   }
 
@@ -62,28 +37,63 @@
     background-clip: text;
   }
 
-}
+  /* Primary solid blue card - matches frontend */
+  .card-primary-solid {
+    background: linear-gradient(135deg, hsl(217 91% 60%) 0%, hsl(262 83% 58%) 100%);
+    border: 1px solid hsl(217 91% 60%);
+    box-shadow: 0 10px 40px rgba(37, 99, 235, 0.3);
+    border-radius: 1rem;
+    padding: 1.5rem;
+    position: relative;
+    overflow: hidden;
+  }
 
-/* ============================================================================
-   DEVELOPMENT HELPERS
-   ============================================================================ */
+  .card-primary-solid::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, transparent 70%);
+  }
 
-@layer development {
-  /* Development-only visual indicators for migration status */
-  @media (prefers-color-scheme: no-preference) {
-    .design-system-migrated {
-      /* Visual indicator for migrated components in development */
-      position: relative;
-    }
-    
-    .design-system-migrated::after {
-      content: '🥞';
-      position: absolute;
-      top: -8px;
-      right: -8px;
-      font-size: 12px;
-      opacity: 0.5;
-      pointer-events: none;
-    }
+  /* Secondary indigo card */
+  .card-secondary-solid {
+    background: linear-gradient(135deg, hsl(238 85% 65%) 0%, hsl(262 83% 58%) 100%);
+    border: 1px solid hsl(238 85% 65%);
+    box-shadow: 0 10px 40px rgba(99, 102, 241, 0.3);
+    border-radius: 1rem;
+    padding: 1.5rem;
+    color: white;
+  }
+
+  /* Dark card with accent border */
+  .card-dark-accent {
+    background: hsl(220 20% 10%);
+    border: 1px solid hsl(217 91% 60%);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    border-radius: 1rem;
+    padding: 1.5rem;
+  }
+
+  /* Stats card variant */
+  .card-stats {
+    background: linear-gradient(135deg, rgba(30, 27, 75, 0.8) 0%, rgba(49, 46, 129, 0.8) 100%);
+    border: 1px solid rgba(99, 102, 241, 0.3);
+    box-shadow: 0 10px 40px rgba(37, 99, 235, 0.2);
+    border-radius: 1rem;
+    padding: 1.5rem;
+    color: white;
+  }
+
+  /* Replace admin-card-dashboard with solid version */
+  .admin-card-dashboard {
+    background: linear-gradient(135deg, hsl(217 91% 60% / 0.1) 0%, hsl(262 83% 58% / 0.1) 100%);
+    border: 1px solid hsl(217 91% 60% / 0.3);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    border-radius: 1rem;
+    backdrop-filter: none;
+    background-color: hsl(220 20% 10%);
   }
 }

@@ -2,7 +2,7 @@
 
 import { PaymentStatusCard } from '@/components/features/payment/PaymentStatusCard';
 import { TransactionHistory } from '@/components/features/payment/TransactionHistory';
-import { withPaymentAuth } from './withPaymentAuth';
+import { usePaymentAuth, PaymentAuthLoadingUI, PaymentAuthRequiredUI, PaymentAccessRequiredUI } from './usePaymentAuth';
 
 // Transaction interface that matches what TransactionHistory expects
 interface Transaction {
@@ -56,12 +56,18 @@ const getLatestTransactionDetails = (transactions: Transaction[]) => {
   };
 };
 
-const BasePaymentStatusSection = ({
+export function PaymentStatusSection({
   className = '',
   showTitle = true,
   transactions = [],
   error = null
-}: PaymentStatusSectionProps) => {
+}: PaymentStatusSectionProps) {
+  const { isLoading, isAuthenticated, hasPaymentAccess, user } = usePaymentAuth();
+
+  if (isLoading) return <PaymentAuthLoadingUI />;
+  if (!isAuthenticated) return <PaymentAuthRequiredUI />;
+  if (!hasPaymentAccess) return <PaymentAccessRequiredUI user={user} />;
+
   // Derive status from transactions instead of hardcoding
   const paymentStatus = getOverallPaymentStatus(transactions);
   const transactionDetails = getLatestTransactionDetails(transactions);
@@ -102,6 +108,4 @@ const BasePaymentStatusSection = ({
       </div>
     </section>
   );
-};
-
-export const PaymentStatusSection = withPaymentAuth(BasePaymentStatusSection);
+}

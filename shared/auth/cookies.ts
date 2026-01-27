@@ -34,6 +34,14 @@ const env = typeof process !== 'undefined' ? process.env.NODE_ENV : 'development
 const isProduction = env === 'production';
 const prefix = isProduction ? '__Host-' : '';
 
+// Cookie duration constants (in seconds)
+const SECONDS_MINUTE = 60;
+const SECONDS_HOUR = 60 * SECONDS_MINUTE;
+const SECONDS_DAY = 24 * SECONDS_HOUR;
+const SECONDS_WEEK = 7 * SECONDS_DAY;
+const SECONDS_MONTH = 30 * SECONDS_DAY;
+const SECONDS_YEAR = 365 * SECONDS_DAY;
+
 /**
  * Unified cookie names - shared across all EPSX apps
  * No context separation - same cookies for frontend and admin-frontend
@@ -41,10 +49,7 @@ const prefix = isProduction ? '__Host-' : '';
 export const COOKIES = {
   // Server-side HttpOnly auth cookies
   access_token: `${prefix}epsx.access_token`,
-  id_token: `${prefix}epsx.id_token`,
   refresh_token: `${prefix}epsx.refresh_token`,
-  state: `${prefix}epsx.state`,
-  nonce: `${prefix}epsx.nonce`,
 
   // Client-side JavaScript accessible cookies
   user: `${prefix}epsx.user`,
@@ -84,22 +89,19 @@ export const COOKIE_OPTIONS = {
 
   maxAge: {
     // Auth tokens
-    access_token: 2592000,           // 30 days
-    id_token: 2592000,               // 30 days
-    refresh_token: 2592000,          // 30 days
-    state: 600,                      // 10 minutes
-    nonce: 600,                      // 10 minutes
+    access_token: SECONDS_MONTH,
+    refresh_token: SECONDS_MONTH,
 
     // Client-side data
-    user: 2592000,                   // 30 days (user data)
-    sid: 2592000,             // 30 days
-    expires_at: 2592000,             // 30 days
-    auth_time: 2592000,              // 30 days
-    theme: 31536000,                 // 1 year
-    browser_notifications: 31536000, // 1 year
-    affiliate_attribution: 2592000,  // 30 days
-    affiliate_code: 2592000,         // 30 days
-    wallet_state: null,              // Session cookie
+    user: SECONDS_MONTH,
+    sid: SECONDS_MONTH,
+    expires_at: SECONDS_MONTH,
+    auth_time: SECONDS_MONTH,
+    theme: SECONDS_YEAR,
+    browser_notifications: SECONDS_YEAR,
+    affiliate_attribution: SECONDS_MONTH,
+    affiliate_code: SECONDS_MONTH,
+    wallet_state: null, // Session cookie
   },
 } as const;
 
@@ -107,7 +109,7 @@ export const COOKIE_OPTIONS = {
  * Get cookie name for type
  */
 export function getCookieName(
-  type: 'access_token' | 'id_token' | 'refresh_token' | 'state' | 'nonce'
+  type: 'access_token' | 'refresh_token'
 ): string {
   return COOKIES[type];
 }
@@ -293,22 +295,9 @@ export function getClientCookieJSON<T = any>(name: string): T | null {
  * Clear all client-side cookies
  */
 export function clearClientSideCookies(): void {
-  // Clear only client-side cookies (not HttpOnly auth cookies)
-  const clientCookieNames = [
-    'user',
-    'expires_at',
-    'auth_time',
-    'theme',
-    'browser_notifications',
-    'affiliate_attribution',
-    'affiliate_code',
-    'wallet_state',
-    'sid'
-  ] as const;
-
-  clientCookieNames.forEach(cookieKey => {
-    if (COOKIES[cookieKey]) {
-      removeClientCookie(COOKIES[cookieKey]);
+  Object.entries(COOKIES).forEach(([key, name]) => {
+    if (!HTTP_ONLY_COOKIES.includes(key as any)) {
+      removeClientCookie(name);
     }
   });
 }
@@ -337,10 +326,7 @@ export const CLIENT_SIDE_COOKIES = [
  */
 export const HTTP_ONLY_COOKIES = [
   'access_token',
-  'id_token',
-  'refresh_token',
-  'state',
-  'nonce'
+  'refresh_token'
 ] as const;
 
 /**
@@ -362,4 +348,18 @@ export function getServerAuthToken(
   if (token) return token;
 
   return null;
+}
+
+/**
+ * Check if a cookie key corresponds to an HttpOnly cookie
+ */
+export function isHttpOnlyCookie(cookieKey: keyof typeof COOKIES): boolean {
+  return HTTP_ONLY_COOKIES.includes(cookieKey as any);
+}
+
+/**
+ * Check if a cookie key corresponds to a client-side cookie
+ */
+export function isClientSideCookie(cookieKey: keyof typeof COOKIES): boolean {
+  return CLIENT_SIDE_COOKIES.includes(cookieKey as any);
 }

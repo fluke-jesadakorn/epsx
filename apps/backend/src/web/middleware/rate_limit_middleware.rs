@@ -423,7 +423,7 @@ async fn get_user_plan_from_plans(
     }
     
     let result: Result<Vec<PlanInfo>, _> = diesel::sql_query(
-        "SELECT DISTINCT g.plan_type 
+        "SELECT g.plan_type 
          FROM wallet_plan_assignments wga
          JOIN plans g ON g.id = wga.plan_id
          WHERE wga.wallet_address = $1 

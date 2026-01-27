@@ -9,6 +9,12 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { useBrowserNotifications } from './BrowserNotifications'
+import {
+  getInitialNotificationsAction,
+  markAsReadAction,
+  markAllAsReadAction,
+  deleteNotificationAction,
+} from '@/app/actions/notifications'
 
 export function NotificationBellClient() {
   const router = useRouter()
@@ -20,7 +26,7 @@ export function NotificationBellClient() {
   // Browser notifications integration
   const { showNotification: showBrowserNotification } = useBrowserNotifications()
 
-  // Use shared notification bell hook
+  // Use shared notification bell hook with server actions
   const {
     notifications,
     count,
@@ -31,7 +37,13 @@ export function NotificationBellClient() {
     markAsRead,
     markAllAsRead,
   } = useNotificationBell({
-    apiClient: createFrontendApiClient(),
+    actions: {
+      getNotifications: getInitialNotificationsAction,
+      markAsRead: markAsReadAction,
+      markAllAsRead: markAllAsReadAction,
+      deleteNotification: deleteNotificationAction,
+    },
+    apiClient: createFrontendApiClient(), // Only needed for SSE
     walletAddress: user?.wallet_address,
     isAuthenticated,
     refreshSession,
@@ -62,15 +74,12 @@ export function NotificationBellClient() {
     router.push(`/notifications?id=${notificationId}`)
   }
 
-  // Delete notification functionality
+  // Delete notification functionality using server action
   const handleDeleteNotification = async (e: React.MouseEvent, notificationId: string) => {
     e.stopPropagation()
     try {
-      const client = createFrontendApiClient()
-      const response = await client.delete(`/api/notifications/${notificationId}`)
-      if (response.success) {
-        fetchNotifications() // Refresh the list
-      }
+      await deleteNotificationAction(notificationId)
+      fetchNotifications() // Refresh the list
     } catch (error) {
       console.error('Failed to delete notification:', error)
     }

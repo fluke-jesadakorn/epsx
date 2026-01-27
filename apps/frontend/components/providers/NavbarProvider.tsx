@@ -33,15 +33,24 @@ export function NavbarProvider({ children }: NavbarProviderProps) {
     const checkMobile = () => setIsMobile(window.innerWidth < 768);
     checkMobile();
 
+    // Safety timeout: ensure hydration completes even if rAF is blocked
+    const safetyTimeout = setTimeout(() => {
+      setIsHydrated(true);
+    }, 100); // 100ms max wait
+
     // Use single requestAnimationFrame to prevent hydration mismatch
     // This ensures client matches server state initially, then hydrates
     requestAnimationFrame(() => {
       setIsHydrated(true);
+      clearTimeout(safetyTimeout);
     });
 
     // Listen for resize events
     window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
+    return () => {
+      window.removeEventListener('resize', checkMobile);
+      clearTimeout(safetyTimeout);
+    };
   }, []);
 
   const contextValue = useMemo(() => ({

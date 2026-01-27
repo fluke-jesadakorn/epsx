@@ -6,20 +6,14 @@ import { OptimizedSuspenseBoundary } from '@/components/common/OptimizedSuspense
 import { PerformanceProvider } from '@/components/common/PerformanceProvider';
 import { Toaster } from '@/components/ui/toaster';
 import { CommonProviders } from '@/shared/components/providers/CommonProviders';
-import dynamic from 'next/dynamic';
+import { UnifiedWeb3Provider } from '@/shared/components/providers/UnifiedWeb3Provider';
 import React from 'react';
+import { State } from 'wagmi';
 
-// Dynamic import with ssr: false to prevent WalletConnect localStorage errors during SSR
-// The @walletconnect/keyvaluestorage package tries to access localStorage during module init
-const UnifiedWeb3Provider = dynamic(
-  () => import('@/shared/components/providers/UnifiedWeb3Provider').then(mod => mod.UnifiedWeb3Provider),
-  { ssr: false }
-);
-
-export function ClientProviders({ children }: { children: React.ReactNode }) {
+export function ClientProviders({ children, initialState }: { children: React.ReactNode; initialState?: State }) {
   return (
     <CommonProviders>
-      <UnifiedWeb3Provider>
+      <UnifiedWeb3Provider initialState={initialState}>
         <PerformanceProvider>
           <OptimizedSuspenseBoundary identifier="main content">
             {children}

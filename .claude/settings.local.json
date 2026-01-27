@@ -38,7 +38,10 @@
       "Bash(echo $DATABASE_URL)",
       "Bash(cat:*)",
       "Bash(export SQLX_OFFLINE=true)",
-      "Bash(wc:*)"
+      "Bash(wc:*)",
+      "Bash(git -C /Users/fluke/Desktop/Work/epsx grep:*)",
+      "Bash(git -C . grep -ri \"firebase\" . --exclude-dir=node_modules --exclude-dir=target --exclude-dir=.git)",
+      "Bash(npx tsc:*)"
     ],
     "deny": [],
     "ask": []

@@ -59,16 +59,16 @@ export function NotFoundContent({
       <div className="relative">
         {/* Background decoration */}
         <div className="absolute inset-0 -z-10">
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-gradient-to-r from-primary/20 to-secondary/20 rounded-full blur-3xl" />
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-gradient-to-r from-indigo-900/30 to-purple-900/30 rounded-full blur-3xl" />
         </div>
 
         {/* Icon */}
         <div className="flex justify-center mb-6">
           <div className="relative">
-            <div className="w-24 h-24 sm:w-28 sm:h-28 bg-gradient-to-br from-primary/20 to-secondary/20 rounded-3xl flex items-center justify-center border-2 border-primary/30">
-              <FileQuestion className="w-12 h-12 sm:w-14 sm:h-14 text-primary" />
+            <div className="w-24 h-24 sm:w-28 sm:h-28 bg-gradient-to-br from-indigo-600 to-purple-700 rounded-3xl flex items-center justify-center border-2 border-indigo-400 shadow-lg shadow-indigo-500/30">
+              <FileQuestion className="w-12 h-12 sm:w-14 sm:h-14 text-white" />
             </div>
-            <div className="absolute -top-2 -right-2 w-8 h-8 bg-gradient-to-r from-primary to-secondary rounded-xl flex items-center justify-center text-white font-bold text-lg">
+            <div className="absolute -top-2 -right-2 w-8 h-8 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center text-white font-bold text-lg">
               ?
             </div>
           </div>
@@ -76,7 +76,7 @@ export function NotFoundContent({
 
         {/* Error code */}
         <div className="text-center mb-4">
-          <span className="text-7xl sm:text-8xl font-black bg-gradient-to-r from-primary via-secondary to-primary bg-clip-text text-transparent">
+          <span className="text-7xl sm:text-8xl font-black bg-gradient-to-r from-indigo-400 via-purple-400 to-indigo-400 bg-clip-text text-transparent">
             404
           </span>
         </div>
@@ -145,8 +145,8 @@ export function ErrorContent({
       <div className="w-full max-w-lg">
         {/* Header */}
         <div className="flex items-center gap-4 mb-6">
-          <div className="w-14 h-14 sm:w-16 sm:h-16 bg-destructive/10 rounded-2xl flex items-center justify-center border border-destructive/20">
-            <AlertTriangle className="w-7 h-7 sm:w-8 sm:h-8 text-destructive" />
+          <div className="w-14 h-14 sm:w-16 sm:h-16 bg-red-600 rounded-2xl flex items-center justify-center border border-red-400 shadow-lg shadow-red-500/30">
+            <AlertTriangle className="w-7 h-7 sm:w-8 sm:h-8 text-white" />
           </div>
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
@@ -229,8 +229,8 @@ export function AccessDeniedContent({
       <div className="w-full max-w-lg">
         {/* Icon */}
         <div className="flex justify-center mb-6">
-          <div className="w-20 h-20 sm:w-24 sm:h-24 bg-destructive/10 rounded-3xl flex items-center justify-center border-2 border-destructive/20">
-            <ShieldX className="w-10 h-10 sm:w-12 sm:h-12 text-destructive" />
+          <div className="w-20 h-20 sm:w-24 sm:h-24 bg-red-600 rounded-3xl flex items-center justify-center border-2 border-red-400 shadow-lg shadow-red-500/30">
+            <ShieldX className="w-10 h-10 sm:w-12 sm:h-12 text-white" />
           </div>
         </div>
 

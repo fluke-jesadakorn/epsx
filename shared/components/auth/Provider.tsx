@@ -78,6 +78,11 @@ export interface SharedAuthContextValue {
     endpoint: string,
     options?: RequestInit
   ) => Promise<UnifiedApiResponse<any>>;
+
+  // Modal state management
+  showSignInModal: boolean;
+  openSignInModal: () => void;
+  closeSignInModal: () => void;
 }
 
 // Default context value
@@ -116,6 +121,9 @@ const defaultContextValue: SharedAuthContextValue = {
       reason: 'Provider not initialized',
     },
   }),
+  showSignInModal: false,
+  openSignInModal: () => { },
+  closeSignInModal: () => { },
 };
 
 // Create context
@@ -136,22 +144,15 @@ export function SharedOpenIDWeb3Provider({
   clientId = 'epsx-frontend',
   backendUrl,
   onAuthError,
-}: SharedOpenIDWeb3ProviderProps) {
-  // Initialize user from client's stored state immediately
-  const [user, setUser] = useState<UserInfoResponse | null>(() => {
-    // Attempt to get user from cookies (single source of truth)
-    // This prevents the flicker to "unauthenticated" on refresh
-    if (typeof window !== 'undefined') {
-      try {
-        const storedUser = getClientCookieJSON<UserInfoResponse>(COOKIES.user);
-        if (storedUser) return storedUser;
-      } catch (e) { }
-    }
-    return null;
-  });
+  initialUser = null, // Accept server-provided user state
+}: SharedOpenIDWeb3ProviderProps & { initialUser?: UserInfoResponse | null }) {
+  // Initialize user from server-provided state (SSR compatible)
+  // CRITICAL: Do NOT read from cookies here - it causes hydration mismatch
+  const [user, setUser] = useState<UserInfoResponse | null>(initialUser);
   const [isLoading, setIsLoading] = useState(true);
   const [isSigningChallenge, setIsSigningChallenge] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showSignInModal, setShowSignInModal] = useState(false);
   const [client] = useState(() => {
     // Enhanced backend URL resolution with environment variable support
     const resolvedBackendUrl =
@@ -163,7 +164,7 @@ export function SharedOpenIDWeb3Provider({
         : process.env.BACKEND_URL || 'http://localhost:8080');
 
     console.log(
-      '🔧 SharedOpenIDWeb3Provider: Enhanced backend URL configuration',
+      '[AUTH] Provider: Enhanced backend URL configuration',
       {
         provided: backendUrl,
         resolved: resolvedBackendUrl,
@@ -185,14 +186,26 @@ export function SharedOpenIDWeb3Provider({
 
         // First try to restore Web3 authentication from cookies/storage
         let hasStoredAuth = false;
-        if (typeof window !== 'undefined') {
+
+        // If we have an initial user from server, we are already authenticated
+        if (initialUser) {
+          console.log('[AUTH] Provider: Hydrated from server state', {
+            wallet: initialUser.wallet_address
+          });
+          // Update client with this user to Ensure sync
+          client.setCurrentUser(initialUser);
+          hasStoredAuth = true;
+          // We don't return here because we might want to validate/refresh in background
+        }
+
+        if (typeof window !== 'undefined' && !hasStoredAuth) {
           try {
             // Priority 1: Check if client already has it (it runs loadTokensFromStorage in constructor)
             const clientUser = client.getCurrentUser();
             const clientHasAuth = client.isAuthenticated();
 
             if (clientUser && clientHasAuth) {
-              console.log('✅ Client successfully pre-loaded valid auth state');
+              console.log('[AUTH] Client successfully pre-loaded valid auth state');
               setUser(clientUser);
               hasStoredAuth = true;
               return;
@@ -204,7 +217,7 @@ export function SharedOpenIDWeb3Provider({
             const accessToken = getClientCookie(COOKIES.access_token);
             const tokenExpiry = getClientCookie(COOKIES.expires_at);
 
-            console.log('🔍 SharedOpenIDWeb3Provider: Cookie restoration check', {
+            console.log('[AUTH] Provider: Cookie restoration check', {
               clientId,
               hasStoredUser: !!storedUser,
               hasAccessToken: !!accessToken,
@@ -212,30 +225,17 @@ export function SharedOpenIDWeb3Provider({
               tokenExpiryValue: tokenExpiry ? new Date(parseInt(tokenExpiry)).toISOString() : 'none',
             });
 
-            // CRITICAL FIX: Only restore session if we have BOTH user object AND a valid access token
-            // This prevents "zombie" sessions where we have user data but passed token expiry or missing token
-            // NOTE: access_token is HttpOnly so we can't read it from JavaScript
-            // If we have stored user data, trust it - middleware does the real auth check
+            // Trust stored user data - HttpOnly cookie validation happens server-side
+            // Middleware validates the actual HttpOnly token on every request
             if (storedUser) {
-              const isTokenValid = tokenExpiry
-                ? parseInt(tokenExpiry) > Date.now()
-                : true; // If no expiry, assume valid for now (backend will verify)
-
-              if (isTokenValid) {
-                console.log('✅ Restoring auth from cookies', {
-                  clientId,
-                  wallet: storedUser.wallet_address?.slice(0, 8),
-                });
-                setUser(storedUser);
-                hasStoredAuth = true;
-                return;
-              } else {
-                console.log('🗑️ Clearing expired auth from cookies');
-                clearClientSideCookies();
-              }
+              console.log('[AUTH] Restoring auth from cookies', {
+                clientId,
+                wallet: storedUser.wallet_address?.slice(0, 8),
+              });
+              setUser(storedUser);
+              hasStoredAuth = true;
+              return;
             }
-            // NOTE: Removed "zombie user" detection since access_token is HttpOnly
-            // and cannot be read by JavaScript. Middleware handles actual auth.
           } catch (error) {
             console.warn('Failed to restore authentication from storage', error);
           }
@@ -267,12 +267,22 @@ export function SharedOpenIDWeb3Provider({
       }
     };
 
+    // Safety timeout: unexpected hangs shouldn't block the UI forever
+    const safetyTimeout = setTimeout(() => {
+      setIsLoading(prev => {
+        if (prev) {
+          console.warn('[AUTH] Provider: Initialization took too long, forcing load completion');
+          return false;
+        }
+        return prev;
+      });
+    }, 5000); // 5 second max load time
+
     initializeAuth();
 
     // Subscribe to auth state changes
     const unsubscribe = client.subscribe(newUser => {
       setUser(newUser);
-      setIsLoading(false);
 
       if (newUser) {
         console.log('User state updated', {
@@ -283,7 +293,10 @@ export function SharedOpenIDWeb3Provider({
       }
     });
 
-    return unsubscribe;
+    return () => {
+      clearTimeout(safetyTimeout);
+      unsubscribe();
+    };
   }, [client, onAuthError]);
 
   // Request Web3 challenge
@@ -378,16 +391,16 @@ export function SharedOpenIDWeb3Provider({
           const accessToken = result.user.access;
 
           if (accessToken) {
-            console.log('🔐 Calling loginAction to persist session...');
+            console.log('[AUTH] Calling loginAction to persist session...');
             const loginResult = await loginAction(accessToken, result.user);
 
             if (!loginResult.success) {
-              console.error('❌ loginAction failed:', loginResult.error);
+              console.error('[AUTH] Error: loginAction failed:', loginResult.error);
               throw new Error('Failed to create server session');
             }
-            console.log('✅ loginAction successful');
+            console.log('[AUTH] loginAction successful');
           } else {
-            console.warn('⚠️ No access token returned from authentication, session might be incomplete');
+            console.warn('[AUTH] Warning: No access token returned from authentication, session might be incomplete');
           }
 
         } else {
@@ -433,7 +446,7 @@ export function SharedOpenIDWeb3Provider({
       setError(null);
       setIsLoading(true);
 
-      console.log('🔄 Processing direct API authentication result', {
+      console.log('[AUTH] Processing direct API authentication result', {
         wallet: result.wallet_address,
         tier: result.tier_level,
         permissions: result.permissions.length,
@@ -454,7 +467,7 @@ export function SharedOpenIDWeb3Provider({
       // Cookies are set by loginAction server action
       // Only update in-memory React state here
       if (typeof window !== 'undefined') {
-        console.log('✅ Session established via server action', {
+        console.log('[AUTH] Session established via server action', {
           clientId,
           wallet: user.wallet_address?.slice(0, 8),
         });
@@ -463,14 +476,14 @@ export function SharedOpenIDWeb3Provider({
       // Update user state directly
       setUser(user);
 
-      console.log('✅ Direct API authentication processed successfully');
+      console.log('[AUTH] Direct API authentication processed successfully');
     } catch (error) {
       const errorMessage =
         error instanceof Error
           ? error.message
           : 'Failed to process authentication result';
       console.error(
-        '❌ Direct API authentication processing failed:',
+        '[AUTH] Error: Direct API authentication processing failed:',
         errorMessage
       );
       setError(errorMessage);
@@ -492,18 +505,18 @@ export function SharedOpenIDWeb3Provider({
       // 1. Call server action to clear HttpOnly cookies
       try {
         await logoutAction();
-        console.log('✅ Server session cleared');
+        console.log('[AUTH] Server session cleared');
       } catch (e) {
-        console.error('❌ Failed to clear server session:', e);
+        console.error('[AUTH] Error: Failed to clear server session:', e);
       }
 
       // 2. Clear all client-side cookies (legacy/fallback)
       if (typeof window !== 'undefined') {
         try {
           clearClientSideCookies();
-          console.log('🗑️ Cleared authentication from cookies', { clientId });
+          console.log('[AUTH] Cleared authentication from cookies', { clientId });
         } catch (error) {
-          console.warn('⚠️ Failed to clear authentication cookies:', error);
+          console.warn('[AUTH] Warning: Failed to clear authentication cookies:', error);
         }
       }
 
@@ -542,18 +555,18 @@ export function SharedOpenIDWeb3Provider({
   // Refresh session tokens
   const refreshSession = useCallback(async () => {
     try {
-      console.log('🔄 Refreshing session tokens...');
+      console.log('[AUTH] Refreshing session tokens...');
       const success = await client.refreshTokens();
       if (success) {
-        console.log('✅ Session tokens refreshed successfully');
+        console.log('[AUTH] Session tokens refreshed successfully');
         // Force update user state from new tokens
         await client.loadCurrentUser();
       } else {
-        console.warn('⚠️ Session refresh failed');
+        console.warn('[AUTH] Warning: Session refresh failed');
       }
       return success;
     } catch (err) {
-      console.error('❌ Session refresh error', err);
+      console.error('[AUTH] Error: Session refresh error', err);
       return false;
     }
   }, [client]);
@@ -604,11 +617,20 @@ export function SharedOpenIDWeb3Provider({
     [client]
   );
 
+  // Modal state management
+  const openSignInModal = useCallback(() => {
+    setShowSignInModal(true);
+  }, []);
+
+  const closeSignInModal = useCallback(() => {
+    setShowSignInModal(false);
+  }, []);
+
   // Context value - Backend handles ALL validation (tokens, permissions, expiry)
   // Frontend only checks: "Do I have a user object?"
   const isAuthenticated = !!user;
 
-  console.log('🔍 Provider: isAuthenticated calculation', {
+  console.log('[AUTH] Provider: isAuthenticated calculation', {
     clientId,
     isAuthenticated,
     hasUser: !!user,
@@ -636,6 +658,9 @@ export function SharedOpenIDWeb3Provider({
     getUserPermissions,
     hasPermissionForDisplay,
     makeApiRequest,
+    showSignInModal,
+    openSignInModal,
+    closeSignInModal,
   }), [
     user,
     isAuthenticated,
@@ -653,6 +678,9 @@ export function SharedOpenIDWeb3Provider({
     getUserPermissions,
     hasPermissionForDisplay,
     makeApiRequest,
+    showSignInModal,
+    openSignInModal,
+    closeSignInModal,
   ]);
 
   return (

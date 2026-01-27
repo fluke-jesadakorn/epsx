@@ -36,11 +36,38 @@ pub struct Config {
     pub base_rpc_url: String,
     pub bsc_rpc_url: String,
 
+    // WebSocket endpoints for real-time subscriptions
+    pub ethereum_ws_url: String,
+    pub polygon_ws_url: String,
+    pub arbitrum_ws_url: String,
+    pub optimism_ws_url: String,
+    pub base_ws_url: String,
+    pub bsc_ws_url: String,
+
+    // Backup WebSocket endpoints
+    pub ethereum_ws_backup: Option<String>,
+    pub polygon_ws_backup: Option<String>,
+    pub arbitrum_ws_backup: Option<String>,
+    pub optimism_ws_backup: Option<String>,
+    pub base_ws_backup: Option<String>,
+    pub bsc_ws_backup: Option<String>,
+
+    // Contract addresses for payment monitoring
+    pub bsc_payment_contract: Option<String>,
+    pub ethereum_payment_contract: Option<String>,
+    pub polygon_payment_contract: Option<String>,
+    pub arbitrum_payment_contract: Option<String>,
+    pub optimism_payment_contract: Option<String>,
+    pub base_payment_contract: Option<String>,
+
+    // Payment event signature
+    pub payment_event_topic: String,
+
     // Enterprise Web3 Features
     pub enterprise_nft_contract: Option<String>,
     pub enterprise_dao_contract: Option<String>,
     pub enterprise_governance_token: Option<String>,
-    
+
     // Blockchain Network Configuration
     pub blockchain_network: String,
 
@@ -137,6 +164,37 @@ impl Config {
         let base_rpc_url = get_with_default("BASE_RPC_URL", "https://base.llamarpc.com");
         let bsc_rpc_url = get_with_default("BSC_RPC_URL", "https://bsc-dataseed.binance.org");
 
+        // WebSocket endpoints for real-time subscriptions
+        let ethereum_ws_url = get_with_default("WS_URL_ETHEREUM", "wss://eth.llamarpc.com");
+        let polygon_ws_url = get_with_default("WS_URL_POLYGON", "wss://polygon-bor.publicnode.com");
+        let arbitrum_ws_url = get_with_default("WS_URL_ARBITRUM", "wss://arbitrum-one.publicnode.com");
+        let optimism_ws_url = get_with_default("WS_URL_OPTIMISM", "wss://optimism.publicnode.com");
+        let base_ws_url = get_with_default("WS_URL_BASE", "wss://base.publicnode.com");
+        let bsc_ws_url = get_with_default("WS_URL_BSC", "wss://bsc-ws-node.nariox.org:443");
+
+        // Backup WebSocket endpoints
+        let ethereum_ws_backup = get_optional("WS_BACKUP_ETHEREUM");
+        let polygon_ws_backup = get_optional("WS_BACKUP_POLYGON");
+        let arbitrum_ws_backup = get_optional("WS_BACKUP_ARBITRUM");
+        let optimism_ws_backup = get_optional("WS_BACKUP_OPTIMISM");
+        let base_ws_backup = get_optional("WS_BACKUP_BASE");
+        let bsc_ws_backup = get_optional("WS_BACKUP_BSC");
+
+        // Contract addresses for payment monitoring
+        let bsc_payment_contract = get_optional("CONTRACT_ADDRESS_BSC");
+        let ethereum_payment_contract = get_optional("CONTRACT_ADDRESS_ETHEREUM");
+        let polygon_payment_contract = get_optional("CONTRACT_ADDRESS_POLYGON");
+        let arbitrum_payment_contract = get_optional("CONTRACT_ADDRESS_ARBITRUM");
+        let optimism_payment_contract = get_optional("CONTRACT_ADDRESS_OPTIMISM");
+        let base_payment_contract = get_optional("CONTRACT_ADDRESS_BASE");
+
+        // Payment event signature
+        // keccak256("PaymentReceived(address,uint256,address,uint256,uint256,uint256)")
+        let payment_event_topic = get_with_default(
+            "PAYMENT_EVENT_TOPIC",
+            "0xa7f9e7f4f9c6e7e3d8b3a2f1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6f5a4b3c2d1"
+        );
+
         // Enterprise Web3 Features - Optional
         let enterprise_nft_contract = get_optional("ENTERPRISE_NFT_CONTRACT");
         let enterprise_dao_contract = get_optional("ENTERPRISE_DAO_CONTRACT");
@@ -174,6 +232,25 @@ impl Config {
             optimism_rpc_url,
             base_rpc_url,
             bsc_rpc_url,
+            ethereum_ws_url,
+            polygon_ws_url,
+            arbitrum_ws_url,
+            optimism_ws_url,
+            base_ws_url,
+            bsc_ws_url,
+            ethereum_ws_backup,
+            polygon_ws_backup,
+            arbitrum_ws_backup,
+            optimism_ws_backup,
+            base_ws_backup,
+            bsc_ws_backup,
+            bsc_payment_contract,
+            ethereum_payment_contract,
+            polygon_payment_contract,
+            arbitrum_payment_contract,
+            optimism_payment_contract,
+            base_payment_contract,
+            payment_event_topic,
             enterprise_nft_contract,
             enterprise_dao_contract,
             enterprise_governance_token,
@@ -264,6 +341,25 @@ pub fn get_fallback_config() -> Config {
         optimism_rpc_url: "https://optimism.llamarpc.com".to_string(),
         base_rpc_url: "https://base.llamarpc.com".to_string(),
         bsc_rpc_url: "https://bsc-dataseed.binance.org".to_string(),
+        ethereum_ws_url: "wss://eth.llamarcp.com".to_string(),
+        polygon_ws_url: "wss://polygon-bor.publicnode.com".to_string(),
+        arbitrum_ws_url: "wss://arbitrum-one.publicnode.com".to_string(),
+        optimism_ws_url: "wss://optimism.publicnode.com".to_string(),
+        base_ws_url: "wss://base.publicnode.com".to_string(),
+        bsc_ws_url: "wss://bsc-ws-node.nariox.org:443".to_string(),
+        ethereum_ws_backup: None,
+        polygon_ws_backup: None,
+        arbitrum_ws_backup: None,
+        optimism_ws_backup: None,
+        base_ws_backup: None,
+        bsc_ws_backup: None,
+        bsc_payment_contract: None,
+        ethereum_payment_contract: None,
+        polygon_payment_contract: None,
+        arbitrum_payment_contract: None,
+        optimism_payment_contract: None,
+        base_payment_contract: None,
+        payment_event_topic: "0xa7f9e7f4f9c6e7e3d8b3a2f1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6f5a4b3c2d1".to_string(),
         enterprise_nft_contract: None,
         enterprise_dao_contract: None,
         enterprise_governance_token: None,

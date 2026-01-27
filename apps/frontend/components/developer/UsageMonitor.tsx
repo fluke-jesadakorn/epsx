@@ -8,7 +8,7 @@ import {
 } from '@/app/actions/developer';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui';
 import { Badge } from '@/components/ui/badge';
-import { useServerActionSWR } from '@/lib/infrastructure/swr-adapter';
+import { useQuery } from '@tanstack/react-query';
 import type { AuthUser } from '@/lib/server-actions';
 
 interface UsageMonitorProps {
@@ -25,11 +25,11 @@ interface KeyUsageSummary {
 }
 
 export function UsageMonitor({ currentUser }: UsageMonitorProps) {
-  // Use SWR for all data fetching
-  const { data: keysRes, isLoading: isLoadingKeys } = useServerActionSWR('dev-api-keys', () => getApiKeysAction({ limit: 100 }));
-  const { data: statsRes, isLoading: isLoadingStats } = useServerActionSWR('dev-usage-stats', getUsageStatsAction);
-  const { data: historyRes, isLoading: isLoadingHistory } = useServerActionSWR('dev-usage-history', () => getUsageHistoryAction(7));
-  const { data: endpointsRes, isLoading: isLoadingEndpoints } = useServerActionSWR('dev-top-endpoints', () => getTopEndpointsAction(7));
+  // Use TanStack Query for all data fetching
+  const { data: keysRes, isLoading: isLoadingKeys } = useQuery({ queryKey: ['dev-api-keys'], queryFn: () => getApiKeysAction({ limit: 100 }) });
+  const { data: statsRes, isLoading: isLoadingStats } = useQuery({ queryKey: ['dev-usage-stats'], queryFn: getUsageStatsAction });
+  const { data: historyRes, isLoading: isLoadingHistory } = useQuery({ queryKey: ['dev-usage-history'], queryFn: () => getUsageHistoryAction(7) });
+  const { data: endpointsRes, isLoading: isLoadingEndpoints } = useQuery({ queryKey: ['dev-top-endpoints'], queryFn: () => getTopEndpointsAction(7) });
 
   const isLoading = isLoadingKeys || isLoadingStats || isLoadingHistory || isLoadingEndpoints;
 

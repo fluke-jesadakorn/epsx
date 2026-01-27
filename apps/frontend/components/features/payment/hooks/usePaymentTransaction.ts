@@ -19,10 +19,10 @@ interface UsePaymentTransactionProps {
     onError?: (error: string) => void
 }
 
-/** Polling interval for transaction status checks (ms) */
+/** Polling interval for transaction status checks - queries backend every 3 seconds */
 const STATUS_POLL_INTERVAL_MS = 3000
 
-/** Token decimals for USDT/USDC on BSC */
+/** BSC token decimals for USDT/USDC - 6 decimals for stablecoin precision */
 const TOKEN_DECIMALS = 6
 
 export function usePaymentTransaction({
@@ -72,7 +72,9 @@ export function usePaymentTransaction({
     }, [paymentHash, paymentError, isPaying, writeStatus, isWaitingForReceipt, isPaymentOnChainConfirmed, receiptError, step])
 
     /**
-     * Submit transaction to backend for monitoring
+     * Submit confirmed transaction hash to backend for payment monitoring.
+     * Backend validates the transaction and tracks its status until confirmed.
+     * Only submits once per transaction (guarded by hasSubmittedRef).
      */
     const submitToBackend = useCallback(async (txHash: string) => {
         if (hasSubmittedRef.current) {
@@ -109,7 +111,9 @@ export function usePaymentTransaction({
     }, [planId, amount, currency, onError])
 
     /**
-     * Poll backend for transaction status
+     * Start polling backend for transaction confirmation status.
+     * Polls every STATUS_POLL_INTERVAL_MS (3s) until status is 'confirmed' or 'failed'.
+     * Stops any existing polling before starting new poll.
      */
     const startPolling = useCallback((txHash: string) => {
         if (pollingRef.current) {
@@ -191,7 +195,9 @@ export function usePaymentTransaction({
     }, [paymentError, onError])
 
     /**
-     * Convert UUID plan ID to numeric ID for smart contract
+     * Convert UUID or numeric plan ID to BigInt for smart contract compatibility.
+     * Smart contracts require numeric IDs, so UUIDs are converted via djb2 hash.
+     * Throws error if ID format is invalid.
      */
     const getNumericPlanId = (uuidOrId: string | number): bigint => {
         try {

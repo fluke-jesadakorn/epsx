@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { SelectPackage } from '@/components/features/payment/SelectPackage';
-import { withPaymentAuth } from './withPaymentAuth';
+import { usePaymentAuth, PaymentAuthLoadingUI, PaymentAuthRequiredUI, PaymentAccessRequiredUI } from './usePaymentAuth';
 import { PACKAGES, BLOCKCHAIN_CONFIG } from '@/app/constants/packages';
 import { useRouter } from 'next/navigation';
 
@@ -11,9 +11,10 @@ interface SelectPackageSectionProps {
   showTitle?: boolean;
 }
 
-const BaseSelectPackageSection = ({
+export function SelectPackageSection({
   className = '',
-}: SelectPackageSectionProps) => {
+}: SelectPackageSectionProps) {
+  const { isLoading, isAuthenticated, hasPaymentAccess, user } = usePaymentAuth();
   const router = useRouter();
   const defaultPackage =
     PACKAGES.find((pkg) => pkg.id === 'silver') || PACKAGES[0];
@@ -21,6 +22,10 @@ const BaseSelectPackageSection = ({
   const [currency, setCurrency] = useState<string>(
     BLOCKCHAIN_CONFIG.BSC.currency,
   );
+
+  if (isLoading) return <PaymentAuthLoadingUI />;
+  if (!isAuthenticated) return <PaymentAuthRequiredUI />;
+  if (!hasPaymentAccess) return <PaymentAccessRequiredUI user={user} />;
 
   const handleCurrencyChange = (newCurrency: string) => {
     setCurrency(newCurrency);
@@ -52,6 +57,4 @@ const BaseSelectPackageSection = ({
       />
     </section>
   );
-};
-
-export const SelectPackageSection = withPaymentAuth(BaseSelectPackageSection);
+}

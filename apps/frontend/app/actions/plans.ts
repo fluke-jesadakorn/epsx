@@ -2,6 +2,20 @@
 
 import { createPlansClient } from '@/shared/api/plans';
 import { getServerActionClient } from '@/shared/utils/server-fetch';
+import type { PlanAccessData } from '@/shared/types/payment';
+import { FREE_PLAN_RANKING_OFFSET, FREE_PLAN_TIER_LEVEL } from '@/shared/config/constants';
+
+const DEFAULT_FREE_TIER: PlanAccessData = {
+  wallet_address: '',
+  current_plan_id: null,
+  plan_name: null,
+  plan_expires_at: null,
+  days_remaining: 0,
+  status: 'no_plan',
+  ranking_offset: FREE_PLAN_RANKING_OFFSET,
+  can_upgrade: true,
+  tier_level: FREE_PLAN_TIER_LEVEL,
+};
 
 /**
  * Fetch public plans for the pricing section
@@ -15,4 +29,25 @@ export async function getPublicPlansAction(filters?: { category?: string; affili
     // For now, let's keep it consistent with the existing implementation.
 
     return plansApi.getPublicPlans(filters);
+}
+
+/**
+ * Server action to get current user's plan access data.
+ * Returns default free tier config if user is unauthenticated or has no active plan.
+ */
+export async function getMyPlanAccessAction(): Promise<PlanAccessData> {
+  const client = await getServerActionClient();
+  const plansApi = createPlansClient(client);
+
+  try {
+    const response = await plansApi.getMyPlanAccess();
+    if (response.success && response.data) {
+      return response.data;
+    }
+  } catch (error) {
+    // Return default free tier on any error
+    console.debug('Failed to fetch plan access, returning default free tier:', error);
+  }
+
+  return DEFAULT_FREE_TIER;
 }

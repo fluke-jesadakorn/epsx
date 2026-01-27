@@ -19,6 +19,7 @@
  * - Reduced CSS bundle size
  */
 @import "tailwindcss";
+@source "@/shared";
 
 /* ============================================================================
    BASE STYLES - Essential foundations
@@ -27,7 +28,7 @@
    BASE STYLES - Essential foundations
    ============================================================================ */
 /* Shared Design System (Unified Theme) */
-@import '../shared_deploy/design-system/index.css';
+@import '@/shared/design-system/index.css';
 /* Local base styles replaced by shared system */
 /* @import './base.css'; */
 

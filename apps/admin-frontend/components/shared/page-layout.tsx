@@ -183,10 +183,10 @@ export function PageTabs({ tabs, activeTab, onTabChange, className }: PageTabsPr
 
   return (
     <div className={cn(
-      'relative overflow-hidden rounded-2xl bg-gradient-to-r from-primary/10 via-secondary/10 to-primary/10 p-0.5',
+      'relative overflow-hidden rounded-2xl bg-gradient-to-r from-indigo-900/50 via-purple-900/50 to-indigo-900/50 p-0.5 border border-indigo-500/30',
       className
     )}>
-      <div className="relative bg-card rounded-2xl p-2">
+      <div className="relative bg-gray-900 rounded-2xl p-2">
         <div className={cn(
           'grid gap-2',
           tabs.length === 2 && 'grid-cols-2',
@@ -201,8 +201,8 @@ export function PageTabs({ tabs, activeTab, onTabChange, className }: PageTabsPr
               className={cn(
                 'px-4 sm:px-6 py-3 rounded-xl font-semibold text-sm sm:text-base min-h-[44px] transition-all duration-200',
                 activeTab === tab.id
-                  ? cn('bg-gradient-to-r text-white shadow-lg', getTabGradient(tab))
-                  : 'bg-card/80 text-foreground hover:bg-muted'
+                  ? cn('bg-gradient-to-r text-white shadow-lg shadow-indigo-500/30', getTabGradient(tab))
+                  : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
               )}
             >
               {tab.prefix && <span className="mr-1">{tab.prefix}</span>}
@@ -249,16 +249,16 @@ export function PageSkeleton({
         {showHeader && (
           <div className="mb-6 sm:mb-8 animate-pulse">
             <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-primary/20 rounded-xl" />
-              <div className="h-10 sm:h-12 bg-gradient-to-r from-primary/20 to-secondary/20 rounded-2xl w-48 sm:w-64" />
+              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-indigo-600 rounded-xl" />
+              <div className="h-10 sm:h-12 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl w-48 sm:w-64" />
             </div>
-            <div className="h-4 sm:h-5 bg-muted rounded-full w-48 sm:w-72 mt-3" />
+            <div className="h-4 sm:h-5 bg-gray-700 rounded-full w-48 sm:w-72 mt-3" />
           </div>
         )}
 
         {/* Tabs skeleton */}
         {showTabs && (
-          <div className="rounded-2xl bg-muted/30 p-2 animate-pulse">
+          <div className="rounded-2xl bg-gray-800 p-2 animate-pulse">
             <div className={cn(
               'grid gap-2',
               tabCount === 2 && 'grid-cols-2',
@@ -266,7 +266,7 @@ export function PageSkeleton({
               tabCount === 4 && 'grid-cols-4'
             )}>
               {Array.from({ length: tabCount }).map((_, i) => (
-                <div key={i} className="h-12 bg-muted rounded-xl" />
+                <div key={i} className="h-12 bg-gray-700 rounded-xl" />
               ))}
             </div>
           </div>
@@ -283,16 +283,16 @@ export function PageSkeleton({
             {Array.from({ length: stats }).map((_, i) => (
               <div
                 key={i}
-                className="bg-card rounded-2xl sm:rounded-3xl p-4 sm:p-6 border-2 border-primary/10"
+                className="bg-gradient-to-br from-indigo-900/50 to-purple-900/50 rounded-2xl sm:rounded-3xl p-4 sm:p-6 border-2 border-indigo-500/30"
               >
                 <div className="flex items-center justify-between mb-3 sm:mb-4">
-                  <div className="w-10 h-10 bg-primary/10 rounded-xl" />
-                  <div className="w-12 h-4 bg-muted rounded-full" />
+                  <div className="w-10 h-10 bg-indigo-600 rounded-xl" />
+                  <div className="w-12 h-4 bg-gray-700 rounded-full" />
                 </div>
                 <div className="space-y-2">
-                  <div className="h-8 bg-primary/20 rounded-lg w-20" />
-                  <div className="h-4 bg-muted rounded-full w-24" />
-                  <div className="h-3 bg-muted/60 rounded-full w-16" />
+                  <div className="h-8 bg-indigo-500 rounded-lg w-20" />
+                  <div className="h-4 bg-gray-700 rounded-full w-24" />
+                  <div className="h-3 bg-gray-600 rounded-full w-16" />
                 </div>
               </div>
             ))}
@@ -301,19 +301,19 @@ export function PageSkeleton({
 
         {/* Content skeleton */}
         {rows > 0 && (
-          <div className="bg-card rounded-2xl sm:rounded-3xl border border-border/30 overflow-hidden animate-pulse">
+          <div className="bg-gray-900 rounded-2xl sm:rounded-3xl border border-gray-700 overflow-hidden animate-pulse">
             <div className="p-4 sm:p-6 lg:p-8 space-y-4">
               {Array.from({ length: rows }).map((_, i) => (
                 <div
                   key={i}
-                  className="flex items-center gap-4 p-3 sm:p-4 bg-muted/30 rounded-xl sm:rounded-2xl"
+                  className="flex items-center gap-4 p-3 sm:p-4 bg-gray-800 rounded-xl sm:rounded-2xl"
                 >
-                  <div className="w-10 h-10 bg-primary/10 rounded-xl shrink-0" />
+                  <div className="w-10 h-10 bg-indigo-600 rounded-xl shrink-0" />
                   <div className="flex-1 space-y-2">
-                    <div className="h-4 bg-muted rounded-lg w-1/3" />
-                    <div className="h-3 bg-muted/60 rounded-lg w-1/2" />
+                    <div className="h-4 bg-gray-700 rounded-lg w-1/3" />
+                    <div className="h-3 bg-gray-600 rounded-lg w-1/2" />
                   </div>
-                  <div className="h-8 w-20 bg-primary/10 rounded-full shrink-0" />
+                  <div className="h-8 w-20 bg-indigo-600 rounded-full shrink-0" />
                 </div>
               ))}
             </div>

@@ -29,7 +29,13 @@ import { useParams, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
-import { updatePlanAction } from '@/app/wallet-management/plan-actions';
+import {
+    disableWalletAction,
+    enableWalletAction,
+    fetchWalletDetailAction,
+    updatePlanAction,
+    updateWalletMetadataAction
+} from '@/app/wallet-management/plan-actions';
 import { DisableWalletModal, type DisableWalletData } from '@/components/wallet/DisableWalletModal';
 import { ExpiryDatePicker } from '@/components/wallet/ExpiryDatePicker';
 import { ReenableWalletModal, type ReenableWalletData } from '@/components/wallet/ReenableWalletModal';
@@ -37,6 +43,7 @@ import type { WalletData, WalletStatus } from '@/components/wallet/types';
 import { DraggablePermissionItem, DraggablePlanItem, DroppablePermissionList, DroppablePlanList } from '@/components/wallet/WalletComponents';
 import { AccessItem, useWalletAccess } from '@/hooks/useWalletAccess';
 import { cn, copyToClipboard } from '@/lib/utils';
+import { createPlansClient, type SubscriptionResponse } from '@/shared/api/plans';
 import { useSharedAuth } from '@/shared/components/auth/Provider';
 import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
@@ -44,8 +51,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui
 import { Input } from '@/shared/components/ui/input';
 import { Label } from '@/shared/components/ui/label';
 import { Skeleton } from '@/shared/components/ui/skeleton';
-import { createPlansClient, type SubscriptionResponse } from '@/shared_deploy/api/plans';
-import { createAdminApiClient } from '@/shared_deploy/utils/api-client';
+import { createAdminApiClient } from '@/shared/utils/api-client';
 
 const STATUS_CONFIG: Record<WalletStatus, { label: string; emoji: string; className: string }> = {
     active: {
@@ -199,7 +205,7 @@ export default function WalletDetailPage() {
                     const client = createPlansClient(createAdminApiClient());
                     // Note: Ideally backend supports filtering by user_id, here we filter client-side as fallback
                     const res = await client.getSubscriptions({ limit: 100 });
-                    if (res && res.data && res.data.subscriptions) {
+                    if (res && res.success && res.data && res.data.subscriptions) {
                         const sub = res.data.subscriptions.find((s: SubscriptionResponse) =>
                             s.user_id === walletAddress && s.status === 'active'
                         );

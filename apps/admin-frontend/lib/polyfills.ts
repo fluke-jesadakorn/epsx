@@ -80,5 +80,22 @@ if (!anyMath.pow.__isPolyfilled) {
     (Math.pow as any).__isPolyfilled = true;
 }
 
+// Validation: Mock localStorage for Server-Side Rendering
+// Some dependencies (like @walletconnect/keyvaluestorage) try to access localStorage during module initialization
+// even in SSR environments, causing crashes. We provide a dummy implementation to satisfy them.
+if (typeof window === 'undefined' && typeof global !== 'undefined') {
+    const g = global as any;
+    if (!g.localStorage || typeof g.localStorage.getItem !== 'function') {
+        g.localStorage = {
+            getItem: () => null,
+            setItem: () => { },
+            removeItem: () => { },
+            clear: () => { },
+            key: () => null,
+            length: 0,
+        };
+    }
+}
+
 export { };
 

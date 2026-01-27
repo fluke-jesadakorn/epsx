@@ -1,5 +1,44 @@
 import { useState, useEffect, useCallback } from 'react';
-import { storage } from '@/lib/state';
+
+// Storage utilities (inlined from lib/state/store.ts)
+const storage = {
+  get: (key: string, storageType: 'localStorage' | 'sessionStorage' = 'localStorage') => {
+    if (typeof window === 'undefined') return null;
+    try {
+      const item = window[storageType].getItem(key);
+      return item ? JSON.parse(item) : null;
+    } catch {
+      return null;
+    }
+  },
+
+  set: (key: string, value: unknown, storageType: 'localStorage' | 'sessionStorage' = 'localStorage') => {
+    if (typeof window === 'undefined') return;
+    try {
+      window[storageType].setItem(key, JSON.stringify(value));
+    } catch (error) {
+      console.warn('Failed to save to storage:', error instanceof Error ? error.message : error);
+    }
+  },
+
+  remove: (key: string, storageType: 'localStorage' | 'sessionStorage' = 'localStorage') => {
+    if (typeof window === 'undefined') return;
+    try {
+      window[storageType].removeItem(key);
+    } catch (error) {
+      console.warn('Failed to remove from storage:', error instanceof Error ? error.message : error);
+    }
+  },
+
+  clear: (storageType: 'localStorage' | 'sessionStorage' = 'localStorage') => {
+    if (typeof window === 'undefined') return;
+    try {
+      window[storageType].clear();
+    } catch (error) {
+      console.warn('Failed to clear storage:', error instanceof Error ? error.message : error);
+    }
+  }
+};
 
 interface PersistentStateOptions<T> {
   key: string;
@@ -62,7 +101,7 @@ export function usePersistentState<T>(options: PersistentStateOptions<T>) {
 
   const updateState = useCallback((value: T | ((prev: T) => T)) => {
     setState(prevState => {
-      const newState = typeof value === 'function' 
+      const newState = typeof value === 'function'
         ? (value as (prev: T) => T)(prevState)
         : value;
       return newState;

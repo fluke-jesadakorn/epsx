@@ -12,6 +12,7 @@
  */
 
 import { ApiResponse, PaginatedResponse } from '../types/api';
+import type { PlanAccessData } from '../types/payment';
 import { UnifiedApiClient } from '../utils/api-client';
 
 // ============================================================================
@@ -28,6 +29,28 @@ export interface Plan {
   updated_at?: string;
   is_active: boolean;
   metadata?: Record<string, any>;
+}
+
+export interface SubscriptionResponse {
+  id: string;
+  wallet_address: string;
+  user_id: string;
+  plan_id: string;
+  plan_name: string;
+  permission_plan_name: string;
+  permissions_granted: string[];
+  plan_type: string;
+  access_context: 'internal' | 'external' | 'both';
+  api_key?: string;
+  api_key_name?: string;
+  status: 'active' | 'cancelled' | 'expired' | 'paused';
+  expires_at?: string;
+  auto_renew: boolean;
+  created_at: string;
+  updated_at: string;
+  metadata?: Record<string, any>;
+  current_usage?: Record<string, any>;
+  quota_limits?: Record<string, any>;
 }
 
 export interface PublicPlan {
@@ -77,6 +100,14 @@ export interface MembershipFilters {
   expires_before?: number;
   limit?: number;
   offset?: number;
+}
+
+export interface SubscriptionListQuery {
+  page?: number;
+  limit?: number;
+  status?: string;
+  access_context?: string;
+  search?: string;
 }
 
 export interface AssignPlanRequest {
@@ -208,6 +239,26 @@ export class PlansApi {
   }
 
   // ============================================================================
+  // SUBSCRIPTION MANAGEMENT
+  // ============================================================================
+
+  /**
+   * List all subscriptions
+   * GET /api/admin/subscriptions
+   */
+  async getSubscriptions(filters?: SubscriptionListQuery): Promise<ApiResponse<{ subscriptions: SubscriptionResponse[]; total: number }>> {
+    return this.client.get<{ subscriptions: SubscriptionResponse[]; total: number }>('/api/admin/subscriptions', filters);
+  }
+
+  /**
+   * Cancel a subscription
+   * POST /api/admin/subscriptions/{subscription_id}/cancel
+   */
+  async cancelSubscription(subscription_id: string): Promise<ApiResponse<{ cancelled: boolean }>> {
+    return this.client.post<{ cancelled: boolean }>(`/api/admin/subscriptions/${subscription_id}/cancel`);
+  }
+
+  // ============================================================================
   // MEMBERSHIP MANAGEMENT
   // ============================================================================
 
@@ -272,6 +323,14 @@ export class PlansApi {
       wallet_address,
       plan_id
     });
+  }
+
+  /**
+   * Get current user's plan access data
+   * GET /api/payments/plans/my-plan-access
+   */
+  async getMyPlanAccess(): Promise<ApiResponse<PlanAccessData>> {
+    return this.client.get<PlanAccessData>('/api/payments/plans/my-plan-access');
   }
 
   // ============================================================================

@@ -3,10 +3,11 @@
  *
  * Centralized business logic for notification bell functionality.
  * Handles fetching, state management, and actions for both frontend and admin.
+ *
+ * Now uses server actions for all notification operations to eliminate proxy dependency.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { createNotificationsClient } from '../api/notifications'
 import { MAX_DROPDOWN_NOTIFICATIONS } from '../components/notifications/constants'
 import type { Notification } from '../components/notifications/types'
 import type { UnifiedApiClient } from '../utils/api-client'
@@ -16,8 +17,18 @@ interface BrowserNotificationAPI {
   showNotification: (type: string, title: string, message: string) => void
 }
 
+// Server action functions for notification operations
+interface NotificationActions {
+  getNotifications: (filters: { page: number; limit: number; status?: string }) => Promise<any>
+  markAsRead: (notificationId: string) => Promise<{ success: boolean; message: string }>
+  markAllAsRead: () => Promise<{ success: boolean; updated_count: number }>
+  deleteNotification?: (notificationId: string) => Promise<{ success: boolean; message: string }>
+  clearAll?: () => Promise<{ success: boolean; deleted_count: number }>
+}
+
 interface UseNotificationBellOptions {
-  apiClient: UnifiedApiClient
+  actions: NotificationActions
+  apiClient?: UnifiedApiClient // Only needed for SSE
   walletAddress?: string
   isAuthenticated: boolean
   enableSSE?: boolean
@@ -42,6 +53,7 @@ export function useNotificationBell(
   options: UseNotificationBellOptions
 ): UseNotificationBellReturn {
   const {
+    actions,
     apiClient,
     walletAddress,
     isAuthenticated,
@@ -59,7 +71,8 @@ export function useNotificationBell(
   const optionsRef = useRef(options)
   optionsRef.current = options
 
-  // SSE real-time notifications
+  // SSE real-time notifications (only if apiClient is provided)
+  const sseEnabled = enableSSE && !!apiClient;
   const { isConnected: isSSEConnected, reconnect: reconnectSSE } = useSSENotifications({
     apiClient,
     walletAddress,
@@ -124,7 +137,7 @@ export function useNotificationBell(
     }, [walletAddress]),
   })
 
-  // Fetch notifications from API
+  // Fetch notifications from API using server actions
   const fetchNotifications = useCallback(async () => {
     if (!isAuthenticated || !walletAddress) {
       setNotifications([])
@@ -137,29 +150,33 @@ export function useNotificationBell(
       setLoading(true)
       setError(null)
 
-      const client = createNotificationsClient(apiClient)
-      const data = await client.getNotifications({
+      const data = await actions.getNotifications({
         page: 1,
         limit: MAX_DROPDOWN_NOTIFICATIONS,
         status: 'unread',
       })
 
-      const mappedNotifications: Notification[] = data.data.notifications.map((n) => ({
-        id: n.id,
-        title: n.title,
-        message: n.message,
-        type: n.notification_type as any,
-        priority: n.priority as any,
-        timestamp: n.timestamp,
-        expires_at: n.expires_at,
-        action_url: n.action_url,
-        wallet_address: n.wallet_address,
-        data: n.data,
-        read: !!n.read_at,
-      }))
+      if (data?.success && data?.data?.notifications) {
+        const mappedNotifications: Notification[] = data.data.notifications.map((n: any) => ({
+          id: n.id,
+          title: n.title,
+          message: n.message,
+          type: n.notification_type as any,
+          priority: n.priority as any,
+          timestamp: n.timestamp,
+          expires_at: n.expires_at,
+          action_url: n.action_url,
+          wallet_address: n.wallet_address,
+          data: n.data,
+          read: !!n.read_at,
+        }))
 
-      setNotifications(mappedNotifications)
-      setCount(data.data.unread_count)
+        setNotifications(mappedNotifications)
+        setCount(data.data.unread_count ?? 0)
+      } else {
+        setNotifications([])
+        setCount(0)
+      }
     } catch (err) {
       // Silently fail if not authenticated - this is expected
       const apiError = err as any
@@ -172,14 +189,13 @@ export function useNotificationBell(
     } finally {
       setLoading(false)
     }
-  }, [apiClient, isAuthenticated, walletAddress])
+  }, [actions, isAuthenticated, walletAddress])
 
-  // Mark notification as read
+  // Mark notification as read using server action
   const markAsRead = useCallback(
     async (notificationId: string) => {
       try {
-        const client = createNotificationsClient(apiClient)
-        await client.markAsRead(notificationId)
+        await actions.markAsRead(notificationId)
 
         // Update local state
         setNotifications((prev) =>
@@ -190,14 +206,13 @@ export function useNotificationBell(
         console.error('Failed to mark notification as read:', err)
       }
     },
-    [apiClient]
+    [actions]
   )
 
-  // Mark all notifications as read
+  // Mark all notifications as read using server action
   const markAllAsRead = useCallback(async () => {
     try {
-      const client = createNotificationsClient(apiClient)
-      await client.markAllAsRead()
+      await actions.markAllAsRead()
 
       // Update local state
       setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))
@@ -205,7 +220,7 @@ export function useNotificationBell(
     } catch (err) {
       console.error('Failed to mark all notifications as read:', err)
     }
-  }, [apiClient])
+  }, [actions])
 
   // Fetch notifications when authentication state changes
   useEffect(() => {
@@ -225,9 +240,8 @@ export function useNotificationBell(
 
     const fetchNotifications = async () => {
       try {
-        const { apiClient } = optionsRef.current
-        const client = createNotificationsClient(apiClient)
-        const data = await client.getNotifications({
+        const { actions } = optionsRef.current
+        const data = await actions.getNotifications({
           page: 1,
           limit: MAX_DROPDOWN_NOTIFICATIONS,
           status: 'unread',
@@ -243,7 +257,7 @@ export function useNotificationBell(
           return
         }
 
-        const mappedNotifications: Notification[] = data.data.notifications.map((n) => ({
+        const mappedNotifications: Notification[] = data.data.notifications.map((n: any) => ({
           id: n.id,
           title: n.title,
           message: n.message,
@@ -286,11 +300,11 @@ export function useNotificationBell(
 
   // Connect SSE when authenticated and enabled
   useEffect(() => {
-    if (enableSSE && isAuthenticated && walletAddress && !isSSEConnected) {
+    if (sseEnabled && isAuthenticated && walletAddress && !isSSEConnected) {
       console.log('🔌 Connecting SSE for authenticated user:', walletAddress)
       reconnectSSE()
     }
-  }, [enableSSE, isAuthenticated, walletAddress, isSSEConnected, reconnectSSE])
+  }, [sseEnabled, isAuthenticated, walletAddress, isSSEConnected, reconnectSSE])
 
   return {
     notifications,

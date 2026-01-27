@@ -15,6 +15,7 @@
 'use client';
 
 import { ReactNode } from 'react';
+import React from 'react';
 import { getAuthHook, type AuthLevel } from './UnifiedAuthAdapter';
 
 export type Platform = 'admin' | 'frontend';
@@ -331,18 +332,18 @@ export function withProgressiveAuth<P extends object>(
     showWalletOptions?: boolean;
   }
 ) {
-  return function ProtectedComponent(props: P) {
-    return (
-      <UnifiedProgressiveAuthGate
-        platform={platform}
-        requiredLevel={requiredLevel}
-        actionName={options?.actionName}
-        showWalletOptions={options?.showWalletOptions}
-      >
-        <Component {...props} />
-      </UnifiedProgressiveAuthGate>
-    );
-  };
+  const WrappedComponent = React.forwardRef((props: any, ref: React.Ref<any>) => (
+    <UnifiedProgressiveAuthGate
+      platform={platform}
+      requiredLevel={requiredLevel}
+      actionName={options?.actionName}
+      showWalletOptions={options?.showWalletOptions}
+    >
+      <Component {...props} {...(ref && { ref })} />
+    </UnifiedProgressiveAuthGate>
+  ));
+  WrappedComponent.displayName = `withProgressiveAuth(${Component.displayName || Component.name})`;
+  return WrappedComponent as unknown as React.ComponentType<P>;
 }
 
 // ============================================================================

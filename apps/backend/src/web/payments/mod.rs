@@ -3,6 +3,7 @@
 //! This module provides comprehensive payment validation and management API endpoints
 //! using the existing PaymentVerifier for blockchain transaction validation
 
+pub mod admin;
 pub mod validation_handlers;
 pub mod subscription_handlers;
 pub mod admin_handlers;

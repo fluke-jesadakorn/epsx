@@ -115,19 +115,19 @@ export function StateProvider({
 }
 
 // HOC for components that need state management
-export function withStateProvider<P extends object>(
+export function withStateProvider<P>(
   Component: React.ComponentType<P>,
   options: {
     initialState?: StateProviderProps['initialState'];
     errorBoundary?: boolean;
   } = {}
 ) {
-  const WrappedComponent = React.forwardRef<any, P>((props, ref) => {
+  const WrappedComponent = React.forwardRef((props: any, ref: React.Ref<any>) => {
     const { initialState, errorBoundary = true } = options;
 
     const ComponentWithState = (
       <StateProvider initialState={initialState}>
-        <Component {...(props as P)} ref={ref} />
+        <Component {...props} ref={ref} />
       </StateProvider>
     );
 

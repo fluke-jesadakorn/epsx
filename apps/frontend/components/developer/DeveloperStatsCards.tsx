@@ -2,7 +2,7 @@
 
 import { getMyPlansAction } from '@/app/actions/developer';
 import { Badge } from '@/components/ui/badge';
-import { useServerActionSWR } from '@/lib/infrastructure/swr-adapter';
+import { useQuery } from '@tanstack/react-query';
 import type { AuthUser } from '@/lib/server-actions';
 
 interface UserGroupData {
@@ -27,10 +27,10 @@ interface DeveloperStatsCardsProps {
 }
 
 export function DeveloperStatsCards({ currentUser }: DeveloperStatsCardsProps) {
-    const { data: response, isLoading } = useServerActionSWR(
-        'developer-plans',
-        getMyPlansAction
-    );
+    const { data: response, isLoading } = useQuery({
+        queryKey: ['developer-plans'],
+        queryFn: getMyPlansAction,
+    });
 
     const userGroupData = response?.success ? (response.data as unknown as UserGroupData) : null;
 

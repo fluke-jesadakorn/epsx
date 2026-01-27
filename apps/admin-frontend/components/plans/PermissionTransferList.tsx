@@ -3,7 +3,7 @@
 import { Lock, Shield } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
-import { TransferList } from '@/shared_deploy/components/ui/transfer-list/TransferList'
+import { TransferList } from '@/shared/components/ui/transfer-list/TransferList'
 
 interface PermissionTransferListProps {
     available: string[]

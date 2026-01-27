@@ -13,16 +13,8 @@ if (typeof window === 'undefined') {
   globalObj.indexedDB = undefined;
 }
 
-// Query client factory for admin-optimized settings
-const createQueryClient = () => new QueryClient({
-  defaultOptions: {
-    queries: {
-      retry: 3,
-      staleTime: 60000, // 1 minute for admin data
-      gcTime: 300000, // 5 minutes garbage collection time
-    },
-  },
-});
+// Use shared query client factory
+import { createQueryClient } from '@/shared/state';
 
 // Configure Wagmi for Admin with BSC testnet - Client-only
 let config: Config | null = null;

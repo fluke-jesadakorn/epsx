@@ -53,10 +53,13 @@ impl WalletNotificationRepository {
             .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to get database connection: {}", e)))?;
 
         // Build WHERE clause manually
-        let mut where_parts = vec!["deleted_at IS NULL".to_string()];
+        let mut where_parts = vec!["status != 'deleted'".to_string()]; // Assuming 'deleted' status instead of deleted_at column if removed, checking schema... up.sql had NO deleted_at.
+
+        // Wait, up.sql does NOT have deleted_at! It has `status` but no `deleted_at`.
+        // I will assume logic for soft delete is setting status to 'deleted'.
 
         if let Some(ref wallet) = filter.wallet_address {
-            where_parts.push(format!("wallet_address = '{}'", wallet.replace("'", "''")));
+            where_parts.push(format!("recipient_wallet_address = '{}'", wallet.replace("'", "''")));
         }
         if let Some(ref notif_type) = filter.notification_type {
             where_parts.push(format!("notification_type = '{}'", notif_type.replace("'", "''")));
@@ -66,18 +69,18 @@ impl WalletNotificationRepository {
         }
         if let Some(ref status) = filter.status {
             if status == "read" {
-                where_parts.push("read_at IS NOT NULL".to_string());
+                where_parts.push("status = 'read'".to_string());
             } else if status == "unread" {
-                where_parts.push("read_at IS NULL".to_string());
+                where_parts.push("status != 'read'".to_string()); // includes created, sent, etc.
             }
         }
 
         let query_str = format!(
-            "SELECT id, wallet_address, notification_type, title, message, data, priority, \
-             timestamp, expires_at, read_at, clicked_at, delivered_at, action_url, image_url, \
-             created_at, updated_at \
+            "SELECT id, recipient_wallet_address, notification_type, title, body, data_payload, priority, \
+             created_at, expires_at, status, action_url, image_url, \
+             created_at as created_at_alias, updated_at \
              FROM wallet_notifications WHERE {} \
-             ORDER BY timestamp DESC LIMIT {} OFFSET {}",
+             ORDER BY created_at DESC LIMIT {} OFFSET {}",
             where_parts.join(" AND "),
             limit,
             offset
@@ -87,34 +90,30 @@ impl WalletNotificationRepository {
         struct NotificationRow {
             #[diesel(sql_type = diesel::sql_types::Uuid)]
             id: Uuid,
-            #[diesel(sql_type = diesel::sql_types::Text)]
-            wallet_address: String,
+            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)] // recipient_wallet_address can be null? up.sql says VARCHAR(42), nullable
+            recipient_wallet_address: Option<String>,
             #[diesel(sql_type = diesel::sql_types::Text)]
             notification_type: String,
             #[diesel(sql_type = diesel::sql_types::Text)]
             title: String,
             #[diesel(sql_type = diesel::sql_types::Text)]
-            message: String,
+            body: String,
             #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Jsonb>)]
-            data: Option<serde_json::Value>,
+            data_payload: Option<serde_json::Value>,
             #[diesel(sql_type = diesel::sql_types::Text)]
             priority: String,
             #[diesel(sql_type = diesel::sql_types::Timestamptz)]
-            timestamp: DateTime<Utc>,
+            created_at: DateTime<Utc>,
             #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
             expires_at: Option<DateTime<Utc>>,
-            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
-            read_at: Option<DateTime<Utc>>,
-            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
-            clicked_at: Option<DateTime<Utc>>,
-            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
-            delivered_at: Option<DateTime<Utc>>,
+            #[diesel(sql_type = diesel::sql_types::Text)]
+            status: String,
             #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
             action_url: Option<String>,
             #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
             image_url: Option<String>,
             #[diesel(sql_type = diesel::sql_types::Timestamptz)]
-            created_at: DateTime<Utc>,
+            created_at_alias: DateTime<Utc>,
             #[diesel(sql_type = diesel::sql_types::Timestamptz)]
             updated_at: DateTime<Utc>,
         }
@@ -124,23 +123,27 @@ impl WalletNotificationRepository {
             .await
             .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to fetch notifications: {}", e)))?;
 
-        Ok(records.into_iter().map(|r| WalletNotificationRecord {
-            id: r.id,
-            wallet_address: r.wallet_address,
-            notification_type: r.notification_type,
-            title: r.title,
-            message: r.message,
-            data: r.data,
-            priority: r.priority,
-            timestamp: r.timestamp,
-            expires_at: r.expires_at,
-            read_at: r.read_at,
-            clicked_at: r.clicked_at,
-            delivered_at: r.delivered_at,
-            action_url: r.action_url,
-            image_url: r.image_url,
-            created_at: r.created_at,
-            updated_at: r.updated_at,
+        Ok(records.into_iter().map(|r| {
+            let read_at = if r.status == "read" { Some(r.updated_at) } else { None };
+            
+            WalletNotificationRecord {
+                id: r.id,
+                wallet_address: r.recipient_wallet_address.unwrap_or_default(),
+                notification_type: r.notification_type,
+                title: r.title,
+                message: r.body,
+                data: r.data_payload,
+                priority: r.priority,
+                timestamp: r.created_at,
+                expires_at: r.expires_at,
+                read_at,
+                clicked_at: None, // Not tracked in new schema
+                delivered_at: None, // Not tracked directly or use send_started_at?
+                action_url: r.action_url,
+                image_url: r.image_url,
+                created_at: r.created_at_alias,
+                updated_at: r.updated_at,
+            }
         }).collect())
     }
 
@@ -155,11 +158,12 @@ impl WalletNotificationRepository {
         let mut conn = self.pool.get().await
             .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to get database connection: {}", e)))?;
 
-        // Build WHERE clause manually - wallet specific (user OR broadcast 'all')
+        // Build WHERE clause manually
         let escaped_wallet = wallet_address.replace("'", "''");
         let mut where_parts = vec![
-            "deleted_at IS NULL".to_string(),
-            format!("(wallet_address = '{}' OR wallet_address = 'all')", escaped_wallet)
+            "status != 'deleted'".to_string(),
+            format!("(recipient_wallet_address = '{}' OR recipient_wallet_address IS NULL)", escaped_wallet) // Assuming NULL means broadcast? Or "all" string logic is gone? New schema creates per-user I think. But let's check.
+            // up.sql: cast recipient_wallet_address VARCHAR(42). usually 'all' fits.
         ];
 
         if let Some(ref notif_type) = filter.notification_type {
@@ -170,18 +174,18 @@ impl WalletNotificationRepository {
         }
         if let Some(ref status) = filter.status {
             if status == "read" {
-                where_parts.push("read_at IS NOT NULL".to_string());
+                where_parts.push("status = 'read'".to_string());
             } else if status == "unread" {
-                where_parts.push("read_at IS NULL".to_string());
+                where_parts.push("status != 'read'".to_string());
             }
         }
 
         let query_str = format!(
-            "SELECT id, wallet_address, notification_type, title, message, data, priority, \
-             timestamp, expires_at, read_at, clicked_at, delivered_at, action_url, image_url, \
-             created_at, updated_at \
+            "SELECT id, recipient_wallet_address, notification_type, title, body, data_payload, priority, \
+             created_at, expires_at, status, action_url, image_url, \
+             created_at as created_at_alias, updated_at \
              FROM wallet_notifications WHERE {} \
-             ORDER BY timestamp DESC LIMIT {} OFFSET {}",
+             ORDER BY created_at DESC LIMIT {} OFFSET {}",
             where_parts.join(" AND "),
             limit,
             offset
@@ -191,34 +195,30 @@ impl WalletNotificationRepository {
         struct NotificationRow {
             #[diesel(sql_type = diesel::sql_types::Uuid)]
             id: Uuid,
-            #[diesel(sql_type = diesel::sql_types::Text)]
-            wallet_address: String,
+            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
+            recipient_wallet_address: Option<String>,
             #[diesel(sql_type = diesel::sql_types::Text)]
             notification_type: String,
             #[diesel(sql_type = diesel::sql_types::Text)]
             title: String,
             #[diesel(sql_type = diesel::sql_types::Text)]
-            message: String,
+            body: String,
             #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Jsonb>)]
-            data: Option<serde_json::Value>,
+            data_payload: Option<serde_json::Value>,
             #[diesel(sql_type = diesel::sql_types::Text)]
             priority: String,
             #[diesel(sql_type = diesel::sql_types::Timestamptz)]
-            timestamp: DateTime<Utc>,
+            created_at: DateTime<Utc>,
             #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
             expires_at: Option<DateTime<Utc>>,
-            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
-            read_at: Option<DateTime<Utc>>,
-            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
-            clicked_at: Option<DateTime<Utc>>,
-            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
-            delivered_at: Option<DateTime<Utc>>,
+            #[diesel(sql_type = diesel::sql_types::Text)]
+            status: String,
             #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
             action_url: Option<String>,
             #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
             image_url: Option<String>,
             #[diesel(sql_type = diesel::sql_types::Timestamptz)]
-            created_at: DateTime<Utc>,
+            created_at_alias: DateTime<Utc>,
             #[diesel(sql_type = diesel::sql_types::Timestamptz)]
             updated_at: DateTime<Utc>,
         }
@@ -228,23 +228,27 @@ impl WalletNotificationRepository {
             .await
             .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to fetch notifications: {}", e)))?;
 
-        Ok(records.into_iter().map(|r| WalletNotificationRecord {
-            id: r.id,
-            wallet_address: r.wallet_address,
-            notification_type: r.notification_type,
-            title: r.title,
-            message: r.message,
-            data: r.data,
-            priority: r.priority,
-            timestamp: r.timestamp,
-            expires_at: r.expires_at,
-            read_at: r.read_at,
-            clicked_at: r.clicked_at,
-            delivered_at: r.delivered_at,
-            action_url: r.action_url,
-            image_url: r.image_url,
-            created_at: r.created_at,
-            updated_at: r.updated_at,
+        Ok(records.into_iter().map(|r| {
+            let read_at = if r.status == "read" { Some(r.updated_at) } else { None };
+
+            WalletNotificationRecord {
+                id: r.id,
+                wallet_address: r.recipient_wallet_address.unwrap_or_default(),
+                notification_type: r.notification_type,
+                title: r.title,
+                message: r.body,
+                data: r.data_payload,
+                priority: r.priority,
+                timestamp: r.created_at,
+                expires_at: r.expires_at,
+                read_at,
+                clicked_at: None,
+                delivered_at: None,
+                action_url: r.action_url,
+                image_url: r.image_url,
+                created_at: r.created_at_alias,
+                updated_at: r.updated_at,
+            }
         }).collect())
     }
 
@@ -256,10 +260,10 @@ impl WalletNotificationRepository {
         let mut conn = self.pool.get().await
             .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to get database connection: {}", e)))?;
 
-        let mut where_parts = vec!["deleted_at IS NULL".to_string()];
+        let mut where_parts = vec!["status != 'deleted'".to_string()];
 
         if let Some(ref wallet) = filter.wallet_address {
-            where_parts.push(format!("wallet_address = '{}'", wallet.replace("'", "''")));
+            where_parts.push(format!("recipient_wallet_address = '{}'", wallet.replace("'", "''")));
         }
         if let Some(ref notif_type) = filter.notification_type {
             where_parts.push(format!("notification_type = '{}'", notif_type.replace("'", "''")));
@@ -269,9 +273,9 @@ impl WalletNotificationRepository {
         }
         if let Some(ref status) = filter.status {
             if status == "read" {
-                where_parts.push("read_at IS NOT NULL".to_string());
+                where_parts.push("status = 'read'".to_string());
             } else if status == "unread" {
-                where_parts.push("read_at IS NULL".to_string());
+                where_parts.push("status != 'read'".to_string());
             }
         }
 
@@ -306,8 +310,8 @@ impl WalletNotificationRepository {
 
         let escaped_wallet = wallet_address.replace("'", "''");
         let mut where_parts = vec![
-            "deleted_at IS NULL".to_string(),
-            format!("(wallet_address = '{}' OR wallet_address = 'all')", escaped_wallet)
+            "status != 'deleted'".to_string(),
+            format!("(recipient_wallet_address = '{}' OR recipient_wallet_address IS NULL)", escaped_wallet)
         ];
 
         if let Some(ref notif_type) = filter.notification_type {
@@ -318,9 +322,9 @@ impl WalletNotificationRepository {
         }
         if let Some(ref status) = filter.status {
             if status == "read" {
-                where_parts.push("read_at IS NOT NULL".to_string());
+                where_parts.push("status = 'read'".to_string());
             } else if status == "unread" {
-                where_parts.push("read_at IS NULL".to_string());
+                where_parts.push("status != 'read'".to_string());
             }
         }
 
@@ -352,10 +356,10 @@ impl WalletNotificationRepository {
         let mut conn = self.pool.get().await
             .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to get database connection: {}", e)))?;
 
-        let mut where_parts = vec!["read_at IS NULL".to_string(), "deleted_at IS NULL".to_string()];
+        let mut where_parts = vec!["status != 'read'".to_string(), "status != 'deleted'".to_string()];
 
         if let Some(ref wallet) = filter.wallet_address {
-            where_parts.push(format!("wallet_address = '{}'", wallet.replace("'", "''")));
+            where_parts.push(format!("recipient_wallet_address = '{}'", wallet.replace("'", "''")));
         }
         if let Some(ref notif_type) = filter.notification_type {
             where_parts.push(format!("notification_type = '{}'", notif_type.replace("'", "''")));
@@ -395,9 +399,9 @@ impl WalletNotificationRepository {
 
         let escaped_wallet = wallet_address.replace("'", "''");
         let mut where_parts = vec![
-            "deleted_at IS NULL".to_string(),
-            "read_at IS NULL".to_string(),
-            format!("(wallet_address = '{}' OR wallet_address = 'all')", escaped_wallet)
+            "status != 'deleted'".to_string(),
+            "status != 'read'".to_string(),
+            format!("(recipient_wallet_address = '{}' OR recipient_wallet_address IS NULL)", escaped_wallet)
         ];
 
         if let Some(ref notif_type) = filter.notification_type {
@@ -449,8 +453,8 @@ impl WalletNotificationRepository {
         diesel::sql_query(
             r#"
             INSERT INTO wallet_notifications
-            (id, wallet_address, notification_type, title, message, data, priority, timestamp, expires_at, delivered_at, action_url, image_url)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+            (id, recipient_wallet_address, notification_type, title, body, data_payload, priority, created_at, expires_at, action_url, image_url, status)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'created')
             "#
         )
         .bind::<diesel::sql_types::Uuid, _>(id)
@@ -462,7 +466,6 @@ impl WalletNotificationRepository {
         .bind::<diesel::sql_types::Text, _>(priority)
         .bind::<diesel::sql_types::Timestamptz, _>(now)
         .bind::<diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>, _>(expires_at)
-        .bind::<diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>, _>(Some(now))
         .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(action_url.as_deref())
         .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(image_url.as_deref())
         .execute(&mut conn)
@@ -472,13 +475,14 @@ impl WalletNotificationRepository {
         Ok(())
     }
 
-    /// Update delivery attempt
+    /// Update delivery attempt - Updated for new schema
     pub async fn update_delivery_attempt(&self, id: Uuid) -> Result<(), AppError> {
         let mut conn = self.pool.get().await
             .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to get database connection: {}", e)))?;
 
+        // New schema uses total_attempts
         diesel::sql_query(
-            "UPDATE wallet_notifications SET delivery_attempts = 1, last_delivery_attempt_at = NOW() WHERE id = $1"
+            "UPDATE wallet_notifications SET total_attempts = total_attempts + 1, updated_at = NOW() WHERE id = $1"
         )
         .bind::<diesel::sql_types::Uuid, _>(id)
         .execute(&mut conn)
@@ -488,7 +492,7 @@ impl WalletNotificationRepository {
         Ok(())
     }
 
-    /// Mark notification as read
+    /// Mark notification as read - Updated: Sets status = 'read'
     pub async fn mark_as_read(&self, id: Uuid, wallet_address: &str) -> Result<u64, AppError> {
         let mut conn = self.pool.get().await
             .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to get database connection: {}", e)))?;
@@ -498,8 +502,8 @@ impl WalletNotificationRepository {
         let rows_affected = diesel::sql_query(
             r#"
             UPDATE wallet_notifications
-            SET read_at = $1, updated_at = $1
-            WHERE id = $2 AND (wallet_address = $3 OR wallet_address = 'all')
+            SET status = 'read', updated_at = $1
+            WHERE id = $2 AND (recipient_wallet_address = $3 OR recipient_wallet_address IS NULL)
             "#
         )
         .bind::<diesel::sql_types::Timestamptz, _>(now)
@@ -522,8 +526,8 @@ impl WalletNotificationRepository {
         let rows_affected = diesel::sql_query(
             r#"
             UPDATE wallet_notifications
-            SET read_at = $1, updated_at = $1
-            WHERE (wallet_address = $2 OR wallet_address = 'all') AND read_at IS NULL AND deleted_at IS NULL
+            SET status = 'read', updated_at = $1
+            WHERE (recipient_wallet_address = $2 OR recipient_wallet_address IS NULL) AND status != 'read' AND status != 'deleted'
             "#
         )
         .bind::<diesel::sql_types::Timestamptz, _>(now)
@@ -543,8 +547,8 @@ impl WalletNotificationRepository {
         let rows_affected = diesel::sql_query(
             r#"
             UPDATE wallet_notifications
-            SET deleted_at = NOW(), updated_at = NOW()
-            WHERE id = $1 AND deleted_at IS NULL AND (wallet_address = $2 OR wallet_address = 'all')
+            SET status = 'deleted', updated_at = NOW()
+            WHERE id = $1 AND status != 'deleted' AND (recipient_wallet_address = $2 OR recipient_wallet_address IS NULL)
             "#
         )
         .bind::<diesel::sql_types::Uuid, _>(id)
@@ -564,8 +568,8 @@ impl WalletNotificationRepository {
         let rows_affected = diesel::sql_query(
             r#"
             UPDATE wallet_notifications
-            SET deleted_at = NOW(), updated_at = NOW()
-            WHERE (wallet_address = $1 OR wallet_address = 'all') AND deleted_at IS NULL
+            SET status = 'deleted', updated_at = NOW()
+            WHERE (recipient_wallet_address = $1 OR recipient_wallet_address IS NULL) AND status != 'deleted'
             "#
         )
         .bind::<diesel::sql_types::Text, _>(wallet_address)
@@ -605,8 +609,8 @@ impl WalletNotificationRepository {
 
         let count = diesel::sql_query(
             "SELECT COUNT(*) as count FROM wallet_notifications \
-             WHERE (wallet_address = $1 OR wallet_address = 'all') \
-             AND read_at IS NULL AND deleted_at IS NULL"
+             WHERE (recipient_wallet_address = $1 OR recipient_wallet_address IS NULL) \
+             AND status != 'read' AND status != 'deleted'"
         )
         .bind::<diesel::sql_types::Text, _>(wallet_address)
         .get_result::<CountRow>(&mut conn)

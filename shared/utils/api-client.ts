@@ -13,7 +13,7 @@
  * - Configurable request options and timeouts
  */
 
-import { COOKIES, setClientCookie } from '../auth/cookies';
+import { COOKIES, getClientCookie, setClientCookie } from '../auth/cookies';
 import { getBackendUrl } from './url-resolver';
 
 // ============================================================================
@@ -54,13 +54,7 @@ export class UnifiedApiClient {
   }
 
   private getDefaultBaseURL(): string {
-    // 1. Client-Side (Browser): Use local proxy path
-    if (!this.isServerSide) {
-      return '/api/proxy';
-    }
-
-    // 2. Server-Side: Use direct backend URL
-    return getBackendUrl('server');
+    return getBackendUrl(this.isServerSide ? 'server' : 'client');
   }
 
   private async getAuthHeaders(): Promise<HeadersInit> {
@@ -96,10 +90,23 @@ export class UnifiedApiClient {
         // console.debug(`[UnifiedApiClient] Server-side token retrieval skipped:`, error);
       }
     } else {
-      // Client-side:
-      // We DO NOT manually attach the Authorization header anymore.
-      // The Next.js Middleware intercepts requests to /api/proxy and injects the token.
-      // This prevents exposing the token in client-side logs or managing manual headers.
+      // Client-side: Get token from client-side cookies for direct backend calls
+      // access_token is HttpOnly, so we get it from the 'user' cookie
+      try {
+        const userCookie = getClientCookie(COOKIES.user);
+        if (userCookie) {
+          try {
+            const user = JSON.parse(userCookie);
+            if (user.access) {
+              headers['Authorization'] = `Bearer ${user.access}`;
+            }
+          } catch {
+            // Invalid JSON, ignore
+          }
+        }
+      } catch (error) {
+        // Silently fail if cookies unavailable
+      }
     }
 
     return headers;
@@ -138,46 +145,90 @@ export class UnifiedApiClient {
       if (response.status === 401) {
         // Attempt to refresh token IF not already retrying (avoid infinite loop)
         // And IF this is not the refresh endpoint itself
-        // And specific check for client-side execution to leverage proxy cookie injection
-        if (!this.isServerSide && !endpoint.includes('/api/auth/session/refresh') && !(headers as any)['x-retry']) {
+        if (!endpoint.includes('/api/auth/session/refresh') && !(headers as any)['x-retry']) {
           try {
             console.debug('[UnifiedApiClient] 401 detected, attempting token refresh...');
 
-            // Call refresh endpoint via proxy (which injects the refresh_token cookie)
-            const refreshResponse = await fetch(`${this.baseURL}/api/auth/session/refresh`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({}) // Empty body allowed because proxy injects token
-            });
+            let refreshData: any = null;
+            let refreshSuccess = false;
 
-            if (refreshResponse.ok) {
-              const refreshData = await refreshResponse.json();
+            if (this.isServerSide) {
+              // Server-side: Call backend directly with refresh token from cookies
+              const cookieStore = await import('next/headers').then(m => m.cookies());
+              const refreshToken = (await cookieStore).get(COOKIES.refresh_token)?.value;
 
-              if (refreshData.access_token) {
-                console.debug('[UnifiedApiClient] Token refreshed successfully, retrying request');
+              if (refreshToken) {
+                const refreshResponse = await fetch(`${this.baseURL}/api/auth/session/refresh`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ refresh_token: refreshToken }),
+                });
 
-                // Update internal token
-                this.setAuthToken(refreshData.access_token);
+                if (refreshResponse.ok) {
+                  refreshData = await refreshResponse.json();
+                  refreshSuccess = !!refreshData?.access_token;
 
-                // CRITICAL: Update cookies so Proxy uses new token
-                if (!this.isServerSide) {
-                  setClientCookie(COOKIES.access_token, refreshData.access_token, refreshData.expires_in || 3600);
-                  if (refreshData.refresh_token) {
-                    setClientCookie(COOKIES.refresh_token, refreshData.refresh_token, 2592000);
+                  // Update server-side cookies
+                  if (refreshSuccess) {
+                    (await cookieStore).set(COOKIES.access_token, refreshData.access_token, {
+                      httpOnly: true,
+                      secure: process.env.NODE_ENV === 'production',
+                      sameSite: 'lax',
+                      path: '/',
+                      maxAge: refreshData.expires_in || 3600,
+                    });
+                    if (refreshData.refresh_token) {
+                      (await cookieStore).set(COOKIES.refresh_token, refreshData.refresh_token, {
+                        httpOnly: true,
+                        secure: process.env.NODE_ENV === 'production',
+                        sameSite: 'lax',
+                        path: '/',
+                        maxAge: 2592000,
+                      });
+                    }
                   }
                 }
-
-                // Retry original request with new token
-                // We recursively call request() but need to ensure headers are updated
-                return this.request<T>(endpoint, {
-                  ...config,
-                  // token property removed as it's not in RequestConfig
-                  headers: {
-                    ...options.headers,
-                    'x-retry': 'true' // Flag to prevent infinite recursion
-                  }
-                });
               }
+            } else {
+              // Client-side: Use server action (which can handle HttpOnly cookies properly)
+              try {
+                const { refreshSessionAction } = await import('../auth/actions');
+                const refreshResult = await refreshSessionAction();
+                refreshSuccess = refreshResult.success;
+                refreshData = refreshResult.success ? { access_token: refreshResult.access_token } : null;
+              } catch {
+                // Server action might not be available, fall through
+              }
+            }
+
+            if (refreshSuccess && refreshData?.access_token) {
+              console.debug('[UnifiedApiClient] Token refreshed successfully, retrying request');
+
+              // Update internal token
+              this.setAuthToken(refreshData.access_token);
+
+              // For client-side, also update the user cookie with new access token
+              if (!this.isServerSide) {
+                try {
+                  const userCookie = getClientCookie(COOKIES.user);
+                  if (userCookie) {
+                    const user = JSON.parse(userCookie);
+                    user.access = refreshData.access_token;
+                    setClientCookie(COOKIES.user, JSON.stringify(user), 2592000);
+                  }
+                } catch {
+                  // Ignore cookie update errors
+                }
+              }
+
+              // Retry original request with new token
+              return this.request<T>(endpoint, {
+                ...config,
+                headers: {
+                  ...options.headers,
+                  'x-retry': 'true' // Flag to prevent infinite recursion
+                }
+              });
             } else {
               console.warn('[UnifiedApiClient] Token refresh attempt failed');
             }

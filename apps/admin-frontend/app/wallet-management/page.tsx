@@ -29,14 +29,14 @@ import { fetchActivityLogsAction, fetchWalletsAction } from './actions';
  */
 export default async function WalletManagementPage() {
   const [data, walletStats, initialWalletsData, initialActivityLogsRaw] = await Promise.all([
-    fetchAccessManagementData(),
-    fetchWalletStats(),
-    fetchWalletsAction({ platform: 'all', status: 'all', sortBy: 'created_at', sortOrder: 'desc', search: '' }),
-    fetchActivityLogsAction(undefined, 1, 10)
+    fetchAccessManagementData().catch(() => ({ stats: { activeSubscriptions: 0, expiringSoon: 0, totalMRR: 0, totalMembers: 0 }, policies: [], permissionCount: 0, platformCount: 0 })),
+    fetchWalletStats().catch(() => ({ total_users: 0, active_users: 0, inactive_users: 0, growth_rate: 0 })),
+    fetchWalletsAction({ platform: 'all', status: 'all', sortBy: 'created_at', sortOrder: 'desc', search: '' }).catch(() => ({ wallets: [], pagination: { page: 1, limit: 20, total: 0, total_pages: 1, has_next_page: false, has_previous_page: false } })),
+    fetchActivityLogsAction(undefined, 1, 10).catch(() => [])
   ]);
 
   // Map activity logs to frontend format
-  const initialActivityLogs = initialActivityLogsRaw.map((log: any) => ({
+  const initialActivityLogs = (initialActivityLogsRaw || []).map((log: any) => ({
     id: log.id,
     type: 'wallet_created', // Fallback, client component maps properly but we need basic structure
     description: log.details?.description || 'Activity logged', // Simplified mapping for server-side prop
@@ -47,14 +47,14 @@ export default async function WalletManagementPage() {
 
   // Transform stats for DashboardSection
   const dashboardStats = {
-    totalWallets: walletStats.total_users,
-    activeCount: walletStats.active_users,
-    disabledCount: walletStats.inactive_users,
-    subscribedCount: data.stats.activeSubscriptions,
-    expiringSoon: data.stats.expiringSoon,
-    mrr: `$${(data.stats.totalMRR / 1000).toFixed(1)}K`,
-    members: formatNumber(data.stats.totalMembers),
-    growth: walletStats.growth_rate ? `+${walletStats.growth_rate.toFixed(1)}%` : "+0%"
+    totalWallets: walletStats?.total_users || 0,
+    activeCount: walletStats?.active_users || 0,
+    disabledCount: walletStats?.inactive_users || 0,
+    subscribedCount: data?.stats?.activeSubscriptions || 0,
+    expiringSoon: data?.stats?.expiringSoon || 0,
+    mrr: `$${((data?.stats?.totalMRR || 0) / 1000).toFixed(1)}K`,
+    members: formatNumber(data?.stats?.totalMembers || 0),
+    growth: walletStats?.growth_rate ? `+${walletStats.growth_rate.toFixed(1)}%` : "+0%"
   };
 
   return (

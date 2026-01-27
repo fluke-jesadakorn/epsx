@@ -310,31 +310,45 @@ impl UnifiedWeb3AuthService {
     pub async fn get_wallet_permissions(&self, wallet_address: &str) -> Result<Vec<String>, Web3AuthError> {
         // Normalize wallet address to lowercase
         let wallet_address = wallet_address.to_lowercase();
-        let wallet_address = wallet_address.as_str();
+        let wallet_address_str = wallet_address.as_str();
         
         let mut permissions = Vec::new();
 
-        // 1. Manual permissions
-        let manual_perms = self.get_manual_permissions(wallet_address).await?;
+        // 1. Manual permissions (DB - fast)
+        let manual_perms = self.get_manual_permissions(wallet_address_str).await?;
         permissions.extend(manual_perms);
 
+        // Run blockchain checks in parallel
+        // This significantly speeds up login by doing 3 RPC calls concurrently
+        let (nft_perms, token_perms, dao_perms) = tokio::join!(
+            self.get_nft_permissions(wallet_address_str),
+            self.get_token_permissions(wallet_address_str),
+            self.get_dao_permissions(wallet_address_str)
+        );
+
         // 2. NFT-gated permissions
-        let nft_perms = self.get_nft_permissions(wallet_address).await?;
-        permissions.extend(nft_perms);
+        match nft_perms {
+            Ok(perms) => permissions.extend(perms),
+            Err(e) => warn!("Failed to check NFT permissions for {}: {}", wallet_address_str, e),
+        }
 
         // 3. Token-gated permissions
-        let token_perms = self.get_token_permissions(wallet_address).await?;
-        permissions.extend(token_perms);
+        match token_perms {
+            Ok(perms) => permissions.extend(perms),
+            Err(e) => warn!("Failed to check token permissions for {}: {}", wallet_address_str, e),
+        }
 
         // 4. DAO governance permissions
-        let dao_perms = self.get_dao_permissions(wallet_address).await?;
-        permissions.extend(dao_perms);
+        match dao_perms {
+            Ok(perms) => permissions.extend(perms),
+            Err(e) => warn!("Failed to check DAO permissions for {}: {}", wallet_address_str, e),
+        }
 
         // Remove duplicates
         permissions.sort();
         permissions.dedup();
 
-        debug!("Retrieved {} permissions for wallet: {}", permissions.len(), wallet_address);
+        debug!("Retrieved {} permissions for wallet: {}", permissions.len(), wallet_address_str);
         Ok(permissions)
     }
 

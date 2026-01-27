@@ -3,7 +3,7 @@
 
 use axum::{
     extract::{Query, State},
-    http::StatusCode,
+    http::{HeaderMap, StatusCode},
     Json,
 };
 use serde::{Deserialize, Serialize};
@@ -292,7 +292,7 @@ pub async fn logout_handler(
 #[derive(Debug, Deserialize, Serialize, ToSchema)]
 pub struct TokenRefreshRequest {
     /// Refresh token
-    pub refresh_token: String,
+    pub refresh_token: Option<String>,
 }
 
 /// Refresh access token using refresh token
@@ -309,9 +309,40 @@ pub struct TokenRefreshRequest {
 )]
 pub async fn refresh_token_handler(
     State(app_state): State<AppState>,
+    headers: HeaderMap,
     Json(request): Json<TokenRefreshRequest>,
 ) -> Result<Json<Value>, StatusCode> {
     info!("Processing token refresh request");
+
+    // 1. Try to get token from request body
+    let mut refresh_token = request.refresh_token;
+
+    // 2. If not in body, try to get from cookies
+    if refresh_token.is_none() {
+        if let Some(cookie_header) = headers.get("cookie").and_then(|h| h.to_str().ok()) {
+            // Parse cookies manually to avoid extra dependencies for now
+            // Looking for epsx.refresh_token or __Host-epsx.refresh_token
+            for cookie in cookie_header.split(';') {
+                let parts: Vec<&str> = cookie.trim().split('=').collect();
+                if parts.len() >= 2 {
+                    let key = parts[0].trim();
+                    let value = parts[1].trim();
+                    if key == "epsx.refresh_token" || key == "__Host-epsx.refresh_token" {
+                        refresh_token = Some(value.to_string());
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    let token = match refresh_token {
+        Some(t) => t,
+        None => {
+            warn!("No refresh token provided in body or cookies");
+            return Err(StatusCode::UNAUTHORIZED);
+        }
+    };
 
     let web3_auth_service = match app_state.domain_container.get_auth_service() {
         Some(service) => service,
@@ -321,7 +352,7 @@ pub async fn refresh_token_handler(
         }
     };
 
-    match web3_auth_service.refresh_tokens(&request.refresh_token).await {
+    match web3_auth_service.refresh_tokens(&token).await {
         Ok(tokens) => {
             Ok(Json(json!({
                 "success": true,

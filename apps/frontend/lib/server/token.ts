@@ -58,7 +58,7 @@ export async function getUserInfoFromWeb3(): Promise<EPSXJWTPayload | null> {
     }
 
     // Get user info from backend Web3 authentication endpoint
-    const backendUrl = clientConfig.backendUrl || 'http://localhost:8080';
+    const backendUrl = clientConfig.backendUrl || 'http://127.0.0.1:8080';
     const response = await fetch(`${backendUrl}/api/auth/web3/user`, {
       headers: {
         'Authorization': `Bearer ${sessionToken}`,
@@ -89,8 +89,12 @@ export async function getUserInfoFromWeb3(): Promise<EPSXJWTPayload | null> {
       aud: 'epsx-frontend',
     } as EPSXJWTPayload;
 
-  } catch (error) {
-    console.error('❌ Failed to get user info from Web3 backend:', error);
+  } catch (error: any) {
+    if (error.code === 'ECONNREFUSED') {
+      console.error(`❌ Backend connection refused at ${clientConfig.backendUrl || 'http://127.0.0.1:8080'}. Is the backend running?`);
+    } else {
+      console.error('❌ Failed to get user info from Web3 backend:', error);
+    }
     return null;
   }
 }

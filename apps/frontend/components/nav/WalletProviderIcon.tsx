@@ -11,13 +11,12 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui';
 import { themeUtils } from '@/components/ui/SafeThemeScript';
-import { useWeb3AuthStore } from '@/lib/auth/store';
 import { formatAddress } from '@/shared/auth/utils';
 import { useSharedAuth } from '@/shared/components/auth/Provider';
 import { copyToClipboard } from '@/utils/util';
-import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { Check, ChevronRight, Code, Copy, ExternalLink, LogOut, Moon, Settings, Sun, Wallet } from 'lucide-react';
 import Link from 'next/link';
+import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useAccount, useDisconnect, useSignMessage } from 'wagmi';
 
@@ -61,8 +60,9 @@ const walletProviders: Record<string, WalletProviderInfo> = {
 };
 
 export function WalletProviderIcon({ className = '', compact = false }: WalletProviderIconProps) {
+  const router = useRouter();
+  const pathname = usePathname();
   const [isHydrated, setIsHydrated] = useState(false);
-  const [isWagmiReady, setIsWagmiReady] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [isAuthenticating, setIsAuthenticating] = useState(false);
@@ -76,81 +76,20 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
   const { isAuthenticated, requestChallenge, authenticateWithWallet, logout } = useSharedAuth();
   const { signMessageAsync } = useSignMessage();
 
-  // Get web3 auth store for syncing authentication state
-  const setWeb3Connected = useWeb3AuthStore((s: any) => s.setConnected);
-  const setWeb3Authenticated = useWeb3AuthStore((s: any) => s.setAuthenticated);
-  const setWeb3WalletAddress = useWeb3AuthStore((s: any) => s.setWalletAddress);
-
-  // Get current state to avoid redundant updates
-  const storeWalletAddress = useWeb3AuthStore((s: any) => s.walletAddress);
-  const storeIsConnected = useWeb3AuthStore((s: any) => s.isConnected);
-  const storeIsAuthenticated = useWeb3AuthStore((s: any) => s.isAuthenticated);
-
-  // Sync wallet connection state to Web3AuthStore immediately
-  useEffect(() => {
-    if (isConnected && address) {
-      const normalizedAddress = address.toLowerCase();
-      if (!storeIsConnected) {
-        setWeb3Connected(true);
-      }
-      if (storeWalletAddress !== normalizedAddress) {
-        setWeb3WalletAddress(normalizedAddress);
-      }
-    }
-  }, [isConnected, address, setWeb3Connected, setWeb3WalletAddress, storeIsConnected, storeWalletAddress]);
-
   useEffect(() => {
     if (!isHydrated) {
       setIsHydrated(true);
       setCurrentTheme(themeUtils.getTheme());
     }
-  }, [isConnected, address, connector, isInitialized, isAuthenticated, isHydrated]);
+  }, [isHydrated]);
 
-  // Wait for wagmi to restore connection state from cookie storage
-  // This prevents the flash of "Connect" button during page refresh
-  useEffect(() => {
-    if (!isHydrated) return;
-
-    // If wagmi shows actually connected, mark as ready immediately
-    if (isConnected && address) {
-      setIsWagmiReady(true);
-      return;
-    }
-
-    // If still reconnecting or connecting, DO NOT mark as ready yet
-    // This keeps showing the loading state until connection is confirmed
-    if (accountStatus === 'reconnecting' || accountStatus === 'connecting') {
-      return; // Keep isWagmiReady as false, shows loading state
-    }
-
-    // Only when confirmed disconnected, give wagmi a bit more time 
-    // to potentially restore state, then mark as ready
-    // If authenticated, give more time (1.5s) to prevent "Connect" flash while wallet reconnects
-    const timeoutDuration = isAuthenticated ? 1500 : 300;
-
-    const timer = setTimeout(() => {
-      setIsWagmiReady(true);
-    }, timeoutDuration);
-
-    return () => clearTimeout(timer);
-  }, [isHydrated, isConnected, address, accountStatus, isAuthenticated]);
-
-  // Sync disconnect state
+  // Reset auth retry count on disconnect
   useEffect(() => {
     if (!isConnected || !address) {
-      if (storeIsConnected) {
-        setWeb3Connected(false);
-      }
-      if (storeIsAuthenticated) {
-        setWeb3Authenticated(false);
-      }
-      if (storeWalletAddress !== undefined) {
-        setWeb3WalletAddress(undefined);
-      }
       setAuthRetryCount(0);
       setLastAuthError(null);
     }
-  }, [isConnected, address, setWeb3Connected, setWeb3Authenticated, setWeb3WalletAddress, storeIsConnected, storeIsAuthenticated, storeWalletAddress]);
+  }, [isConnected, address]);
 
   const handleCopyAddress = async () => {
     if (!address) return;
@@ -182,8 +121,6 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
       if (result.success) {
         setAuthRetryCount(0);
         setLastAuthError(null);
-        setWeb3Authenticated(true);
-        setWeb3WalletAddress(address.toLowerCase());
       } else {
         console.error('❌ Sign-in failed:', result.error);
         setLastAuthError(result.error ?? null);
@@ -202,20 +139,12 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
     setIsDisconnecting(true);
     try {
       await logout();
-      disconnect();
-      setWeb3Connected(false);
-      setWeb3Authenticated(false);
-      setWeb3WalletAddress(undefined);
-      setIsOpen(false);
+      await disconnect();
     } catch (error) {
       console.error('OIDC logout error:', error);
-      disconnect();
-      setWeb3Connected(false);
-      setWeb3Authenticated(false);
-      setWeb3WalletAddress(undefined);
-      setIsOpen(false);
+      await disconnect();
     } finally {
-      setTimeout(() => setIsDisconnecting(false), 500);
+      setIsDisconnecting(false);
     }
   };
 
@@ -224,8 +153,9 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
     setCurrentTheme(newTheme);
   };
 
-  // Loading state - wait for hydration, initialization, AND wagmi to restore state
-  if (!isHydrated || !isInitialized || !isWagmiReady) {
+  // Loading state - only wait for hydration and initialization
+  // Let wagmi reconnect silently in background without blocking UI
+  if (!isHydrated || !isInitialized) {
     return (
       <Button
         variant="ghost"
@@ -238,39 +168,23 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
     );
   }
 
-  // Handle reconnecting/connecting states to prevent flash
-  if (accountStatus === 'reconnecting' || accountStatus === 'connecting') {
-    return (
-      <Button
-        variant="ghost"
-        size="icon"
-        className={`h-10 w-10 rounded-full bg-orange-50 text-orange-500 hover:bg-orange-100 dark:bg-slate-800 dark:text-orange-400 dark:hover:bg-slate-700 ${className}`}
-        disabled
-      >
-        <div className="h-4 w-4 animate-spin rounded-full border-2 border-orange-500 border-t-transparent" />
-      </Button>
-    );
-  }
-
   // Not connected - show connect button
   if (!isConnected || !address) {
-    return (
-      <ConnectButton.Custom>
-        {({ openConnectModal }) => {
-          const baseClasses = 'flex items-center gap-2 rounded-2xl font-medium transition-all duration-200';
-          const sizeClasses = compact ? 'h-8 px-3 text-xs' : 'h-10 px-4 text-sm';
-          const colorClasses = 'bg-gradient-to-r from-orange-400 to-orange-600 hover:from-orange-500 hover:to-orange-700 text-white shadow-lg hover:shadow-xl border-0';
-          const extraClasses = typeof className === 'string' ? className : '';
-          const finalClassName = [baseClasses, sizeClasses, colorClasses, extraClasses].filter(Boolean).join(' ');
+    const handleConnectRedirect = () => {
+      router.push(`/connect-wallet?return_url=${encodeURIComponent(pathname)}`);
+    };
 
-          return (
-            <button onClick={openConnectModal} type="button" className={finalClassName}>
-              <Wallet className={compact ? 'h-3 w-3 text-white' : 'h-4 w-4 text-white'} />
-              <span>Connect</span>
-            </button>
-          );
-        }}
-      </ConnectButton.Custom>
+    const baseClasses = 'flex items-center gap-2 rounded-2xl font-medium transition-all duration-200';
+    const sizeClasses = compact ? 'h-8 px-3 text-xs' : 'h-10 px-4 text-sm';
+    const colorClasses = 'bg-gradient-to-r from-orange-400 to-orange-600 hover:from-orange-500 hover:to-orange-700 text-white shadow-lg hover:shadow-xl border-0';
+    const extraClasses = typeof className === 'string' ? className : '';
+    const finalClassName = [baseClasses, sizeClasses, colorClasses, extraClasses].filter(Boolean).join(' ');
+
+    return (
+      <button onClick={handleConnectRedirect} type="button" className={finalClassName}>
+        <Wallet className={compact ? 'h-3 w-3 text-white' : 'h-4 w-4 text-white'} />
+        <span>Connect</span>
+      </button>
     );
   }
 

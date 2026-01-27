@@ -1,43 +1,28 @@
 /**
  * Server-side JWT Cookie Utilities for Admin Frontend - WEB3-FIRST
- * Uses jose library for JWT verification and cookie management with Web3 secrets
- * Phase 4.2: Updated to use Web3 app secrets, legacy JWT marked for Web3 migration
+ * Phase 4.3: Refactored to delegate verification to Backend API (Sidecar Pattern)
+ * This avoids local key management and algorithm mismatch issues (HS256 vs RS256)
  */
-import { jwtVerify } from 'jose';
+import { decodeJwt } from 'jose';
+import { cookies } from 'next/headers';
 
-import { env } from '@/config/env';
+import { config } from '@/config/env';
 import { COOKIES } from '@/shared/auth/cookies';
 import type { EPSXJWTPayload } from '@/shared/auth/jwt';
 
 export type { EPSXJWTPayload };
 
 /**
- * JWT verification function with Web3 app secret
- * Phase 4.2: Updated to use WEB3_APP_SECRET instead of NEXTAUTH_SECRET
- * @param token
+ * Extract wallet address from JWT without verification
+ * Used to provide context for the backend verification call
  */
-async function verifyJWT(token: string): Promise<EPSXJWTPayload | null> {
+function getWalletAddressFromToken(token: string): string | null {
   try {
-    // Use Web3 app secret with legacy fallback
-    const jwtSecret = env.WEB3_APP_SECRET || env.WEB3_APP_SECRET;
-
-    if (!jwtSecret) {
-
-      console.error('No WEB3_APP_SECRET or JWT_SECRET configured for JWT verification');
-      return null;
-    }
-
-    const { payload } = await jwtVerify(
-      token,
-      new TextEncoder().encode(jwtSecret),
-      {
-        algorithms: ['HS256'],
-      }
-    );
-    return payload as EPSXJWTPayload;
-  } catch (_error) {
-
-    console.error('JWT verification failed:', _error);
+    const claims = decodeJwt(token);
+    // In our backend, 'sub' is the wallet address, also present as 'wallet_address'
+    return (claims.wallet_address as string) || (claims.sub as string) || null;
+  } catch (error) {
+    console.error('❌ Failed to decode JWT for wallet address:', error);
     return null;
   }
 }
@@ -47,31 +32,115 @@ async function verifyJWT(token: string): Promise<EPSXJWTPayload | null> {
  */
 export async function getJWTFromCookies(): Promise<string | null> {
   try {
-    const { cookies } = await import('next/headers');
     const cookieStore = await cookies();
 
-    // Get access token from unified cookies (no context separation)
-    const jwtCookie = cookieStore.get(COOKIES.access_token);
+    // Check multiple cookie possibilities for robustness
+    const jwtCookie = cookieStore.get(COOKIES.access_token) ||
+      cookieStore.get('epsx.access_token') ||
+      cookieStore.get('access_token');
 
     return jwtCookie?.value || null;
   } catch (_error) {
-
     console.error('❌ Failed to get JWT from cookies:', _error);
     return null;
   }
 }
 
 /**
+ * Verify JWT using Backend API (Delegated Verification)
+ * Instead of verifying locally, we ask the backend "Who is this?"
+ */
+export async function verifyJWTWithBackend(token: string): Promise<EPSXJWTPayload | null> {
+  try {
+    const walletAddress = getWalletAddressFromToken(token);
+
+    if (!walletAddress) {
+      console.error('❌ Could not extract wallet address from token');
+      return null;
+    }
+
+    const backendUrl = config.backendUrl || 'http://127.0.0.1:8080';
+
+    // Call Backend Web3 Session Endpoint
+    // We use the session endpoint because it validates the token and returns permissions
+    const response = await fetch(`${backendUrl}/api/auth/web3/session`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        'X-Wallet-Address': walletAddress
+      },
+      cache: 'no-store' // Critical: Always validate with backend
+    });
+
+    if (!response.ok) {
+      // If backend says 401/403, the token is invalid
+      if (response.status === 401 || response.status === 403) {
+        console.warn(`⚠️ Backend rejected session: ${response.status}`);
+      } else if (response.status === 404) {
+        // Handle 404 specifically - might mean user not found despite valid token signature
+        console.warn(`⚠️ Backend could not find user session: ${response.status}`);
+      } else {
+        console.error(`❌ Backend verification error: ${response.status}`);
+      }
+      return null;
+    }
+
+    const sessionData = await response.json();
+
+    if (!sessionData.authenticated) {
+      console.warn('⚠️ Backend returned unauthenticated session');
+      return null;
+    }
+
+    // Extract iat/exp from original token since session endpoint doesn't return them
+    // This is safe because we just validated the token with the backend
+    const claims = decodeJwt(token);
+
+    // Map backend response to EPSXJWTPayload standard
+    return {
+      sub: sessionData.wallet_address,
+      id: sessionData.wallet_address,
+      wallet_address: sessionData.wallet_address,
+      email: `${sessionData.wallet_address}@web3.epsx.io`, // synthetic email
+      name: `Admin (${sessionData.wallet_address.slice(0, 6)}...${sessionData.wallet_address.slice(-4)})`,
+      permissions: sessionData.permissions || [],
+      platform_context: '', // Missing from session endpoint, default to empty string
+      iss: 'epsx-backend',
+      aud: 'epsx-admin',
+      exp: claims.exp || Math.floor(Date.now() / 1000) + 3600,
+      iat: claims.iat || Math.floor(Date.now() / 1000),
+    } as EPSXJWTPayload;
+
+  } catch (error: any) {
+    if (error.code === 'ECONNREFUSED') {
+      console.error(`❌ Backend connection refused at ${config.backendUrl || 'http://127.0.0.1:8080'}. Is the backend running?`);
+    } else {
+      console.error('❌ Backend verification request failed:', error);
+    }
+    return null;
+  }
+}
+
+/**
+ * Deprecated: Legacy local verification
+ * Replaced by verifyJWTWithBackend
+ */
+async function verifyJWT(_token: string): Promise<EPSXJWTPayload | null> {
+  return verifyJWTWithBackend(_token);
+}
+
+/**
  * Verify and decode JWT token from cookies
+ * Now delegates to backend
  */
 export async function verifyJWTFromCookies(): Promise<EPSXJWTPayload | null> {
   try {
     const token = await getJWTFromCookies();
     if (!token) { return null; }
 
-    return await verifyJWT(token);
+    return await verifyJWTWithBackend(token);
   } catch (_error) {
-
     console.error('❌ Failed to verify JWT from cookies:', _error);
     return null;
   }
@@ -93,7 +162,6 @@ export async function getSessionFromJWT(): Promise<{
 
     return { isAuthenticated: true, user: payload };
   } catch (_error) {
-
     console.error('❌ Failed to get session from JWT:', _error);
     return { isAuthenticated: false, user: null };
   }

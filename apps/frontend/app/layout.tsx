@@ -1,13 +1,16 @@
+import '@/lib/polyfills';
 // Import browser polyfills first to handle SSR issues
 import { FrontendAuthRegistration } from '@/components/auth/FrontendAuthRegistration';
 import { GlobalErrorBoundary } from '@/components/error-boundaries/GlobalErrorBoundary';
 import { NavigationClient } from '@/components/nav/NavigationClient';
 import { ClientProviders } from '@/components/providers/ClientProviders';
-import '@/lib/polyfills';
 import { SharedOpenIDWeb3Provider } from '@/shared/components/auth/Provider';
+import { getServerConfig } from '@/shared/config/wagmi';
 import { initializeRuntimeEnvironment } from '@/shared/utils/runtime-env-validator';
 import { Kanit } from 'next/font/google';
+import { headers } from 'next/headers';
 import { Toaster } from 'sonner';
+import { cookieToInitialState } from 'wagmi';
 import './globals.css';
 
 import { SafeThemeScript } from '@/components/ui/SafeThemeScript';
@@ -61,11 +64,16 @@ export const viewport = {
   ],
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  // Unified Web3 Cookie Hydration
+  const headersList = await headers();
+  const cookie = headersList.get('cookie');
+  const initialState = cookieToInitialState(getServerConfig(), cookie);
+
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
@@ -95,7 +103,7 @@ export default function RootLayout({
       >
         <SafeThemeScript />
         <GlobalErrorBoundary level="global">
-          <ClientProviders>
+          <ClientProviders initialState={initialState}>
             <SharedOpenIDWeb3Provider
               clientId="epsx-frontend"
               backendUrl={process.env.NEXT_PUBLIC_BACKEND_URL}

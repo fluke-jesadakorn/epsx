@@ -27,8 +27,15 @@ const DEFAULT_FREE_TIER: PlanAccessData = {
 };
 
 /**
- * Hook to fetch current user's plan access data including rankings limit
- * Uses shared PlansAPIClient to call backend directly
+ * @deprecated Use getMyPlanAccessAction() server action for new code.
+ * This hook is maintained for legacy client-side components.
+ * For server components, use `getMyPlanAccessAction()` directly.
+ *
+ * @example Server-side usage (recommended):
+ * const planAccess = await getMyPlanAccessAction();
+ *
+ * @example Client-side usage (legacy):
+ * const { planAccess } = usePlanAccess();
  */
 export function usePlanAccess(): UsePlanAccessResult {
     const [planAccess, setPlanAccess] = useState<PlanAccessData | null>(null);
@@ -41,45 +48,19 @@ export function usePlanAccess(): UsePlanAccessResult {
             setError(null);
 
             const plansClient = createPlansClient(createFrontendApiClient());
-            // Use shorter timeout for plan access - fail fast if backend unreachable
-            try {
-                const response = await plansClient.getMyPlanAccess();
+            const response = await plansClient.getMyPlanAccess();
 
-                if (response.success && response.data) {
-                    setPlanAccess(response.data);
-                } else {
-                    // User not logged in or no plan - return default free tier
-                    setPlanAccess(DEFAULT_FREE_TIER);
-                }
-            } catch (err: any) { // Use any to access status safely
-                // Handle 401 Unauthorized (expired token)
-                if (err?.status === 401 || err?.message?.includes('401')) {
-                    console.log('Plan access 401, attempting session refresh...');
-                    // Dynamic import to avoid circular dependencies if any
-                    const { authService } = await import('@/lib/auth/service');
-                    const refreshed = await authService.refreshSession();
-
-                    if (refreshed) {
-                        console.log('Session refreshed, retrying plan access...');
-                        // Retry with new token (which should be in cookies now)
-                        const retryClient = createPlansClient(createFrontendApiClient());
-                        const response = await retryClient.getMyPlanAccess();
-                        if (response.success && response.data) {
-                            setPlanAccess(response.data);
-                            return;
-                        }
-                    }
-                }
-                throw err;
+            if (response.success && response.data) {
+                setPlanAccess(response.data);
+            } else {
+                // User not logged in or no plan - return default free tier
+                setPlanAccess(DEFAULT_FREE_TIER);
             }
         } catch (err) {
             console.error('Failed to fetch plan access:', err);
-            // Don't show error for 401/403 as it just means free tier/not logged in
-            const isAuthError = err instanceof Error && (err.message.includes('401') || err.message.includes('403'));
-            if (!isAuthError) {
-                setError(err instanceof Error ? err.message : 'Failed to fetch plan');
-            }
-            // Set default on error (fallback to free tier)
+            // UnifiedApiClient handles 401 refresh automatically via proxy
+            // Just set default free tier on any error
+            setError(err instanceof Error ? err.message : 'Failed to fetch plan');
             setPlanAccess(DEFAULT_FREE_TIER);
         } finally {
             setLoading(false);

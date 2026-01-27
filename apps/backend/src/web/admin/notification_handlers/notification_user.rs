@@ -223,8 +223,8 @@ pub async fn mark_notification_read_handler(
     let rows_affected = diesel::sql_query(
         r#"
         UPDATE wallet_notifications
-        SET read_at = $1, updated_at = $1
-        WHERE id = $2 AND (wallet_address = $3 OR wallet_address = 'all')
+        SET status = 'read', updated_at = $1
+        WHERE id = $2 AND (recipient_wallet_address = $3 OR recipient_wallet_address IS NULL)
         "#
     )
     .bind::<diesel::sql_types::Timestamptz, _>(now)
@@ -285,11 +285,12 @@ pub async fn delete_notification_handler(
         .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to get database connection: {}", e)))?;
 
     // Soft delete: Only allow deleting if notification belongs to user or is broadcast
+    // Updated to set status = 'deleted'
     let rows_affected = diesel::sql_query(
         r#"
         UPDATE wallet_notifications
-        SET deleted_at = NOW(), updated_at = NOW()
-        WHERE id = $1 AND deleted_at IS NULL AND (wallet_address = $2 OR wallet_address = 'all')
+        SET status = 'deleted', updated_at = NOW()
+        WHERE id = $1 AND status != 'deleted' AND (recipient_wallet_address = $2 OR recipient_wallet_address IS NULL)
         "#
     )
     .bind::<diesel::sql_types::Uuid, _>(notif_uuid)
@@ -348,8 +349,8 @@ pub async fn get_unread_count_handler(
 
     let unread_count: i64 = diesel::sql_query(
         "SELECT COUNT(*) as count FROM wallet_notifications \
-         WHERE (wallet_address = $1 OR wallet_address = 'all') \
-         AND read_at IS NULL AND deleted_at IS NULL"
+         WHERE (recipient_wallet_address = $1 OR recipient_wallet_address IS NULL) \
+         AND status != 'read' AND status != 'deleted'"
     )
     .bind::<diesel::sql_types::Text, _>(&wallet_address)
     .get_result::<CountRow>(&mut conn)
@@ -395,8 +396,8 @@ pub async fn mark_all_notifications_read_handler(
     let rows_affected = diesel::sql_query(
         r#"
         UPDATE wallet_notifications
-        SET read_at = $1, updated_at = $1
-        WHERE (wallet_address = $2 OR wallet_address = 'all') AND read_at IS NULL AND deleted_at IS NULL
+        SET status = 'read', updated_at = $1
+        WHERE (recipient_wallet_address = $2 OR recipient_wallet_address IS NULL) AND status != 'read' AND status != 'deleted'
         "#
     )
     .bind::<diesel::sql_types::Timestamptz, _>(now)
@@ -440,12 +441,12 @@ pub async fn clear_all_notifications_handler(
     let mut conn = notifications_pool.get().await
         .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to get database connection: {}", e)))?;
 
-    // Soft delete: Set deleted_at timestamp instead of removing rows
+    // Soft delete: set status to 'deleted'
     let rows_affected = diesel::sql_query(
         r#"
         UPDATE wallet_notifications
-        SET deleted_at = NOW(), updated_at = NOW()
-        WHERE (wallet_address = $1 OR wallet_address = 'all') AND deleted_at IS NULL
+        SET status = 'deleted', updated_at = NOW()
+        WHERE (recipient_wallet_address = $1 OR recipient_wallet_address IS NULL) AND status != 'deleted'
         "#
     )
     .bind::<diesel::sql_types::Text, _>(&wallet_address)

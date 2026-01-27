@@ -219,20 +219,7 @@ export const clientEnvSchema = z.object({
   NEXT_PUBLIC_PAYMENT_TESTNET_ADDRESS: z.string()
     .optional()
     .default('0x7877e415a13532d9E43Df7Fd2CC256f93a39ced7')
-    .describe('Company wallet address for testnet payments (BSC testnet)'),
-
-  // Firebase Analytics Configuration (4 variables) - Minimal config for frontend analytics only
-  NEXT_PUBLIC_FIREBASE_API_KEY: z.string().optional()
-    .describe('Firebase API key for client-side analytics (frontend only)'),
-
-  NEXT_PUBLIC_FIREBASE_PROJECT_ID: z.string().optional()
-    .describe('Firebase project ID for client-side analytics (frontend only)'),
-
-  NEXT_PUBLIC_FIREBASE_APP_ID: z.string().optional()
-    .describe('Firebase app ID for client-side analytics (frontend only)'),
-
-  NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID: z.string().optional()
-    .describe('Firebase measurement ID for analytics tracking (frontend only)')
+    .describe('Company wallet address for testnet payments (BSC testnet)')
 });
 
 /**
@@ -284,12 +271,7 @@ export const clientEnv = new Proxy({} as ClientEnv, {
             NEXT_PUBLIC_CHAIN_ID: (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_CHAIN_ID) || '97',
             // Payment addresses
             NEXT_PUBLIC_PAYMENT_MAINNET_ADDRESS: (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_PAYMENT_MAINNET_ADDRESS) || '0x7877e415a13532d9E43Df7Fd2CC256f93a39ced7',
-            NEXT_PUBLIC_PAYMENT_TESTNET_ADDRESS: (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_PAYMENT_TESTNET_ADDRESS) || '0x7877e415a13532d9E43Df7Fd2CC256f93a39ced7',
-            // Firebase Analytics fallbacks - minimal config (frontend only)
-            NEXT_PUBLIC_FIREBASE_API_KEY: (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_FIREBASE_API_KEY) || undefined,
-            NEXT_PUBLIC_FIREBASE_PROJECT_ID: (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_FIREBASE_PROJECT_ID) || undefined,
-            NEXT_PUBLIC_FIREBASE_APP_ID: (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_FIREBASE_APP_ID) || undefined,
-            NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID: (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID) || undefined
+            NEXT_PUBLIC_PAYMENT_TESTNET_ADDRESS: (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_PAYMENT_TESTNET_ADDRESS) || '0x7877e415a13532d9E43Df7Fd2CC256f93a39ced7'
           } as ClientEnv;
         } else {
           // In development, log the error and provide safe fallbacks
@@ -341,20 +323,6 @@ export const env = {
   },
   get PAYMENT_TESTNET_ADDRESS() {
     return clientEnv.NEXT_PUBLIC_PAYMENT_TESTNET_ADDRESS;
-  },
-
-  // Firebase Analytics Configuration (minimal - frontend only)
-  get FIREBASE_API_KEY() {
-    return clientEnv.NEXT_PUBLIC_FIREBASE_API_KEY;
-  },
-  get FIREBASE_PROJECT_ID() {
-    return clientEnv.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
-  },
-  get FIREBASE_APP_ID() {
-    return clientEnv.NEXT_PUBLIC_FIREBASE_APP_ID;
-  },
-  get FIREBASE_MEASUREMENT_ID() {
-    return clientEnv.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID;
   },
 
   // Server-only (returns undefined if accessed on client)

@@ -83,13 +83,6 @@ else
     echo -e "${RED}❌ OIDC_ADMIN_CLIENT_SECRET${NC}: not set"
 fi
 
-# Check Firebase
-if [ -n "$FIREBASE_PROJECT_ID" ]; then
-    echo -e "${GREEN}✅ FIREBASE_PROJECT_ID${NC}: $FIREBASE_PROJECT_ID"
-else
-    echo -e "${YELLOW}⚠️  FIREBASE_PROJECT_ID${NC}: not set"
-fi
-
 echo ""
 echo "Optional Environment Variables:"
 echo "================================"

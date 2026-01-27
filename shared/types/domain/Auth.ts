@@ -46,7 +46,6 @@ export interface UserJWTPayload extends BaseJWTPayload {
     package_tier: PackageTier
     wallet_address?: string
     platform_preferences: string[]
-    firebase_uid?: string
   }
   platforms: string[]
   primary_platform: string
@@ -261,43 +260,6 @@ export interface Web3AuthResponse {
 }
 
 // ============================================================================
-// FIREBASE AUTHENTICATION TYPES
-// ============================================================================
-
-/**
- * Firebase custom token claims
- */
-export interface FirebaseCustomClaims {
-  epsx_user_id: string
-  epsx_role: UserRole
-  epsx_permissions: EPSXPermission[]
-  epsx_package_tier: PackageTier
-  epsx_platforms: string[]
-}
-
-/**
- * Firebase token exchange request
- */
-export interface FirebaseTokenExchange {
-  firebase_token: string
-  app_type: 'user' | 'admin'
-}
-
-/**
- * Firebase token exchange response
- */
-export interface FirebaseTokenExchangeResponse {
-  success: boolean
-  epsx_tokens?: {
-    access_token: string
-    refresh_token: string
-    expires_at: number
-  }
-  user?: UserProfile
-  error?: string
-}
-
-// ============================================================================
 // MULTI-FACTOR AUTHENTICATION TYPES
 // ============================================================================
 
@@ -476,12 +438,6 @@ export interface OIDCClientConfig {
  */
 export interface AuthProviderConfig {
   oidc: OIDCClientConfig
-  firebase: {
-    api_key: string
-    project_id: string
-    auth_domain: string
-    app_id: string
-  }
   web3: {
     supported_chains: number[]
     wallet_connect_project_id: string

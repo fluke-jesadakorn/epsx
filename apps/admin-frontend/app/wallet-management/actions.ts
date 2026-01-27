@@ -14,6 +14,7 @@ import {
     WalletSummaryDto
 } from '@/lib/api/wallet-management-client';
 import { createAdminApiClient } from '@/shared/api';
+import { redirect } from 'next/navigation';
 
 // ============================================================================
 // MAPPERS (Duplicated from client to ensure server-side isolation)
@@ -105,8 +106,16 @@ export async function fetchWalletsAction(filters: WalletFilters, page = 1, limit
 
     const res = await apiClient.get<WalletListResponse>('/api/admin/wallets', params);
 
-    if (!res.success || !res.data) {
+    if (!res.success) {
+        // Gracefully handle 401 for client-side modal trigger or server-side redirect
+        if (res.error?.code === 'UNAUTHORIZED' || res.error?.status === 401 || res.error?.message?.includes('Unauthorized')) {
+            redirect('/auth');
+        }
         throw new Error(res.error?.message || 'Failed to fetch wallets');
+    }
+
+    if (!res.data) {
+        throw new Error('Failed to fetch wallets: No data');
     }
 
     const responseData = res.data.data || res.data; // Handle potential double wrapping
@@ -125,6 +134,9 @@ export async function updateWalletMetadataAction(walletAddress: string, data: { 
     });
 
     if (!res.success) {
+        if (res.error?.code === 'UNAUTHORIZED') {
+            redirect('/auth');
+        }
         throw new Error(res.error?.message || 'Failed to update metadata');
     }
 }
@@ -134,6 +146,9 @@ export async function disableWalletAction(walletAddress: string, data: DisableWa
     const res = await apiClient.post(`/api/admin/wallets/${walletAddress}/disable`, data);
 
     if (!res.success) {
+        if (res.error?.code === 'UNAUTHORIZED') {
+            redirect('/auth');
+        }
         throw new Error(res.error?.message || 'Failed to disable wallet');
     }
 }
@@ -143,6 +158,9 @@ export async function enableWalletAction(walletAddress: string, data: EnableWall
     const res = await apiClient.post(`/api/admin/wallets/${walletAddress}/enable`, data);
 
     if (!res.success) {
+        if (res.error?.code === 'UNAUTHORIZED') {
+            redirect('/auth');
+        }
         throw new Error(res.error?.message || 'Failed to enable wallet');
     }
 }
@@ -161,6 +179,9 @@ export async function fetchActivityLogsAction(walletAddress?: string, page = 1, 
     const res = await apiClient.get<any>(endpoint, params);
 
     if (!res.success || !res.data) {
+        if (res.error?.code === 'UNAUTHORIZED') {
+            redirect('/auth');
+        }
         throw new Error(res.error?.message || 'Failed to fetch activity logs');
     }
 

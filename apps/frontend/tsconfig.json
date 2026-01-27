@@ -42,7 +42,7 @@
         "config/*"
       ],
       "@/shared/*": [
-        "./shared_deploy/*"
+        "../../shared/*"
       ]
     },
     "target": "ES2022",

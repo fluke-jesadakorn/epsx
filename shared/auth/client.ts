@@ -59,6 +59,8 @@ export interface UserInfoResponse {
   email?: string; // Optional email (for compatibility)
   access?: string; // JWT access token for SSE authentication
   packageTier?: string; // Package tier for display (alias of tier_level)
+  group?: string; // User group (for permission display)
+  is_admin?: boolean; // Admin status flag
 }
 
 // Unified API Response Structure (from backend)
@@ -161,7 +163,7 @@ export class SharedWeb3AuthClient {
           if (payloadPart) {
             const payload = JSON.parse(atob(payloadPart));
             if (payload.sub && payload.sub.startsWith('0x')) {
-              console.log('🔓 Decoded user identity from Access Token');
+              console.log('[AUTH] Decoded user identity from Access Token');
               storedUser = {
                 sub: payload.sub,
                 wallet_address: payload.sub,
@@ -181,7 +183,7 @@ export class SharedWeb3AuthClient {
         this.user = storedUser;
       }
 
-      console.log('🔍 SharedWeb3AuthClient: Initial cookie state loaded', {
+      console.log('[AUTH] SharedWeb3AuthClient: Initial cookie state loaded', {
         clientId: this.clientId,
         hasAccessToken: !!this.accessToken,
         hasUser: !!this.user,
@@ -214,7 +216,7 @@ export class SharedWeb3AuthClient {
         setClientCookieJSON(COOKIES.user, this.user, 2592000);
       }
 
-      console.log('🍪 Client: Session state updated and cookies set', {
+      console.log('[AUTH] Client: Session state updated and cookies set', {
         clientId: this.clientId,
         hasUser: !!this.user,
       });
@@ -256,13 +258,13 @@ export class SharedWeb3AuthClient {
 
     // Return cached promise if request is in-flight or recent (within 60s)
     if (cached && (now - cached.timestamp) < 60000) {
-      console.log('🔄 Reusing existing challenge request');
+      console.log('[AUTH] Reusing existing challenge request');
       return cached.promise;
     }
 
     const challengeUrl = `${this.backendUrl}/api/auth/web3/challenge`;
 
-    console.log('🔑 Requesting Web3 challenge', {
+    console.log('[AUTH] Requesting Web3 challenge', {
       url: challengeUrl,
       wallet_address: walletAddress,
       backend_url: this.backendUrl,
@@ -279,9 +281,10 @@ export class SharedWeb3AuthClient {
           body: JSON.stringify({
             wallet_address: walletAddress,
           }),
+          signal: AbortSignal.timeout(10000), // 10s timeout
         });
 
-        console.log('🔑 Challenge response received', {
+        console.log('[AUTH] Challenge response received', {
           status: response.status,
           ok: response.ok,
           statusText: response.statusText,
@@ -330,7 +333,7 @@ export class SharedWeb3AuthClient {
               backendUrl: this.backendUrl,
             };
 
-            console.error('❌ Web3 challenge endpoint not found (404)', errorDetails);
+            console.error('[AUTH] Error: Web3 challenge endpoint not found (404)', errorDetails);
           } else {
             errorDetails = {
               url: challengeUrl,
@@ -345,14 +348,14 @@ export class SharedWeb3AuthClient {
               backendUrl: this.backendUrl,
             };
 
-            console.error('❌ Challenge request failed with full details:', errorDetails);
+            console.error('[AUTH] Error: Challenge request failed with full details:', errorDetails);
           }
 
           throw new Error(errorMessage);
         }
 
         const challengeData = await response.json();
-        console.log('✅ Challenge request successful', challengeData);
+        console.log('[AUTH] Challenge request successful', challengeData);
 
         // Clear cache after success
         setTimeout(() => this.challengeCache.delete(cacheKey), 60000);
@@ -367,13 +370,17 @@ export class SharedWeb3AuthClient {
         if (error instanceof TypeError && error.message.includes('fetch')) {
           errorMessage = `Network error: Cannot connect to backend at ${this.backendUrl}. Please check your internet connection and ensure the backend service is running.`;
         } else if (error instanceof Error) {
-          errorMessage = error.message;
+          if (error.name === 'TimeoutError' || error.name === 'AbortError') {
+            errorMessage = 'Request timed out. Please check your connection.';
+          } else {
+            errorMessage = error.message;
+          }
         } else {
           errorMessage = String(error);
         }
 
         const enhancedError = new Error(errorMessage);
-        console.error('🌐 Challenge request error', {
+        console.error('[AUTH] Error: Challenge request', {
           url: challengeUrl,
           backend_url: this.backendUrl,
           original_error: error,
@@ -435,6 +442,7 @@ export class SharedWeb3AuthClient {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(request),
+        signal: AbortSignal.timeout(15000), // 15s timeout for verification
       });
 
       if (!response.ok) {
@@ -451,7 +459,7 @@ export class SharedWeb3AuthClient {
         // Special handling for 404 - likely route configuration issue
         if (response.status === 404) {
           errorMessage = `Authentication endpoint not found. The backend may need to be updated with the correct Web3 authentication routes.`;
-          console.error('❌ Web3 authentication endpoint not found (404)', {
+          console.error('[AUTH] Error: Web3 authentication endpoint not found (404)', {
             status: response.status,
             statusText: response.statusText,
             url: `${this.backendUrl}/api/auth/web3/verify`,
@@ -486,15 +494,16 @@ export class SharedWeb3AuthClient {
       }
 
       // Store access token
-      console.log('🔐 Auth result from backend:', {
+      console.log('[AUTH] Auth result from backend:', {
         hasAccessToken: !!result.access_token,
         accessTokenLength: result.access_token?.length || 0,
         accessTokenPreview: result.access_token?.substring(0, 50) + '...',
       });
       this.accessToken = result.access_token;
       this.refreshToken = result.refresh_token;
-      // Default to 30 days expiry if not provided
-      this.tokenExpiry = Date.now() + 30 * 24 * 60 * 60 * 1000;
+      // Use backend-provided expiry, default to 1 hour if not specified
+      const expiresInSeconds = result.expires_in || 3600;
+      this.tokenExpiry = Date.now() + expiresInSeconds * 1000;
 
       // Create user object from response
       const user: UserInfoResponse = {
@@ -507,7 +516,7 @@ export class SharedWeb3AuthClient {
       };
 
       this.user = user;
-      console.log('🍪 Saving tokens to storage, accessToken is:', this.accessToken ? 'SET' : 'EMPTY');
+      console.log('[AUTH] Saving tokens to storage, accessToken is:', this.accessToken ? 'SET' : 'EMPTY');
       this.saveTokensToStorage();
       this.notifyListeners();
 
@@ -523,7 +532,11 @@ export class SharedWeb3AuthClient {
           error: error.message
         });
       } else if (error instanceof Error) {
-        errorMessage = error.message;
+        if (error.name === 'TimeoutError' || error.name === 'AbortError') {
+          errorMessage = 'Verification timed out. Please try again.';
+        } else {
+          errorMessage = error.message;
+        }
         console.error('Web3 authentication error', {
           error: error.message,
           wallet_address: request.wallet_address
@@ -617,7 +630,6 @@ export class SharedWeb3AuthClient {
       console.error('Token refresh request failed', error);
       // Do NOT clear tokens on network error (might be temporary)
       // Only clear if we know for sure it's invalid (handled above in !response.ok)
-      // this.clearTokens();
       return false;
     }
   }
@@ -722,6 +734,25 @@ export class SharedWeb3AuthClient {
   // USER MANAGEMENT
   // ============================================================================
 
+  /**
+   * Manually set the current user (e.g. from server-side hydration)
+   * @param user User info or null
+   */
+  setCurrentUser(user: UserInfoResponse | null): void {
+    this.user = user;
+
+    // If user object contains an access token, hydrate that too
+    if (user && user.access) {
+      this.accessToken = user.access;
+      // If we don't have an expiry yet, assume it's valid for at least a bit (hydration scenario)
+      if (!this.tokenExpiry) {
+        this.tokenExpiry = Date.now() + 3600 * 1000; // 1 hour safety buffer
+      }
+    }
+
+    this.notifyListeners();
+  }
+
   async loadCurrentUser(): Promise<UserInfoResponse | null> {
     try {
       if (!this.isAuthenticated()) {
@@ -741,7 +772,7 @@ export class SharedWeb3AuthClient {
       this.notifyListeners();
       return user;
     } catch (error) {
-      console.warn('Failed to load current use', error);
+      console.warn('[AUTH] Failed to load current user', error);
       // Don't auto-logout on network error, but do if 401
       if (error instanceof Error && error.message.includes('401')) {
         this.clearTokens();

@@ -16,8 +16,9 @@ import {
   type PolicyStats,
   type PolicyType,
 } from '@/components/access-control/types';
+import { createPlansClient, type Plan } from '@/shared/api/plans';
+import { isApiSuccess } from '@/shared/types/api';
 import { createAdminApiClient } from '@/shared/utils/api-client';
-import { createPlansClient, isApiSuccess, type PlanResponse } from '@/shared_deploy/api/plans';
 import {
   planMgmt,
   type CreatePlanRequest as CreateGroupRequest,
@@ -25,6 +26,12 @@ import {
   type PermissionPlan as PermissionGroup,
   type UpdatePlanRequest as UpdateGroupRequest
 } from './plan-management-client';
+
+// Extended Plan type with analytics fields
+interface PlanResponse extends Plan {
+  revenue_last_30_days?: string | number;
+  subscriber_count?: number;
+}
 
 // ============================================================================
 // ACCESS POLICY CLIENT
@@ -39,8 +46,8 @@ export const accessPolicyClient = {
     const plansClient = createPlansClient(apiClient);
 
     const [plansRes, groups] = await Promise.all([
-      plansClient.getPlans({ limit: 100 }),
-      planMgmt.getPermissionPlans(),
+      plansClient.listPlans({ limit: 100 }),
+      planMgmt.getPlans(),
     ]);
 
     const policies: AccessPolicy[] = [];
@@ -83,7 +90,7 @@ export const accessPolicyClient = {
     }
 
     if (sourceType === 'group') {
-      const group = await planMgmt.getPermissionPlan(sourceId);
+      const group = await planMgmt.getPlan(sourceId);
       return groupToPolicy(group);
     }
 
@@ -98,8 +105,8 @@ export const accessPolicyClient = {
     const plansClient = createPlansClient(apiClient);
 
     const [plansRes, groups, analytics] = await Promise.all([
-      plansClient.getPlans({ limit: 100 }),
-      planMgmt.getPermissionPlans(),
+      plansClient.listPlans({ limit: 100 }),
+      planMgmt.getPlans(),
       planMgmt.getPlanAnalytics(),
     ]);
 
@@ -217,21 +224,21 @@ export const accessPolicyClient = {
    * Create a new group (manual, web3, dao, system)
    */
   async createGroup(data: CreateGroupRequest): Promise<PermissionGroup> {
-    return planMgmt.createPermissionPlan(data);
+    return planMgmt.createPlan(data);
   },
 
   /**
    * Update an existing group
    */
   async updateGroup(planId: string, data: UpdateGroupRequest): Promise<PermissionGroup> {
-    return planMgmt.updatePermissionPlan(planId, data);
+    return planMgmt.updatePlan(planId, data);
   },
 
   /**
    * Delete a group
    */
   async deleteGroup(planId: string): Promise<void> {
-    return planMgmt.deletePermissionPlan(planId);
+    return planMgmt.deletePlan(planId);
   },
 
   /**
@@ -249,7 +256,7 @@ export const accessPolicyClient = {
     }
 
     if (sourceType === 'group') {
-      await planMgmt.deletePermissionPlan(sourceId);
+      await planMgmt.deletePlan(sourceId);
       return;
     }
 
@@ -275,7 +282,7 @@ export const accessPolicyClient = {
     }
 
     if (sourceType === 'group') {
-      await planMgmt.updatePermissionPlan(sourceId, {
+      await planMgmt.updatePlan(sourceId, {
         name: updates.name,
         description: updates.description,
         permissions: updates.permissions

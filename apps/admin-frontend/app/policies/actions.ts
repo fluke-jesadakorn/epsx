@@ -1,6 +1,7 @@
 'use server';
 
 import { createAdminApiClient } from '@/shared/api';
+import { redirect } from 'next/navigation';
 
 interface PolicyStats {
     total_policies: number;
@@ -14,7 +15,13 @@ interface PolicyStats {
 export async function getPolicyStatsAction(): Promise<PolicyStats | null> {
     const apiClient = createAdminApiClient({ serverSide: true });
     const res = await apiClient.get<{ stats: PolicyStats }>('/api/admin/policies/stats');
-    if (res.success && res.data) {
+    if (!res.success) {
+        if (res.error?.code === 'UNAUTHORIZED') {
+            redirect('/auth');
+        }
+        return null;
+    }
+    if (res.data) {
         return res.data.stats;
     }
     return null;
@@ -23,7 +30,13 @@ export async function getPolicyStatsAction(): Promise<PolicyStats | null> {
 export async function getPolicyTemplatesAction(): Promise<any[]> {
     const apiClient = createAdminApiClient({ serverSide: true });
     const res = await apiClient.get<any>('/api/admin/policies/templates');
-    if (res.success && res.data) {
+    if (!res.success) {
+        if (res.error?.code === 'UNAUTHORIZED') {
+            redirect('/auth');
+        }
+        return [];
+    }
+    if (res.data) {
         return res.data.templates || [];
     }
     return [];
@@ -32,16 +45,25 @@ export async function getPolicyTemplatesAction(): Promise<any[]> {
 export async function evaluatePolicyAction(context: any): Promise<any> {
     const apiClient = createAdminApiClient({ serverSide: true });
     const res = await apiClient.post<any>('/api/admin/policies/evaluate', context);
-    if (res.success && res.data) {
+    if (!res.success) {
+        if (res.error?.code === 'UNAUTHORIZED') {
+            redirect('/auth');
+        }
+        throw new Error(res.error?.message || 'Failed to evaluate policy');
+    }
+    if (res.data) {
         return res.data.evaluation;
     }
-    throw new Error(res.error?.message || 'Failed to evaluate policy');
+    throw new Error('Failed to evaluate policy: No data');
 }
 
 export async function createPolicyAction(formData: any): Promise<void> {
     const apiClient = createAdminApiClient({ serverSide: true });
     const res = await apiClient.post<any>('/api/admin/policies', formData);
     if (!res.success) {
+        if (res.error?.code === 'UNAUTHORIZED') {
+            redirect('/auth');
+        }
         throw new Error(res.error?.message || 'Failed to save policy');
     }
 }

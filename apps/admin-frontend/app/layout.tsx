@@ -14,7 +14,10 @@ import { ClientProviders } from '@/components/providers/ClientProviders';
 import { ErrorBoundary } from '@/components/providers/ErrorBoundary';
 import { ToastProvider } from '@/components/providers/ToastProvider';
 import { SafeThemeScript } from '@/shared/components/ui/SafeThemeScript';
+import { getServerConfig } from '@/shared/config/wagmi';
 import { Kanit } from 'next/font/google';
+import { headers } from 'next/headers';
+import { cookieToInitialState } from 'wagmi';
 
 const kanit = Kanit({
   subsets: ['latin'],
@@ -58,16 +61,27 @@ export const viewport: Viewport = {
   userScalable: true,
 };
 
+import { getAuthUser } from '@/lib/server/auth';
+
 /**
  *
  * @param root0
  * @param root0.children
  */
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  // Server-side auth check to seed client state
+  const user = await getAuthUser();
+
+  // Unified Web3 Cookie Hydration
+  const headersList = await headers();
+  const rawCookie = headersList.get('cookie');
+  const cookie = rawCookie ? decodeURIComponent(rawCookie) : rawCookie;
+  const initialState = cookieToInitialState(getServerConfig(), cookie);
+
   return (
     <html
       lang="en"
@@ -106,24 +120,22 @@ export default function RootLayout({
         <SafeThemeScript />
       </head>
       <body
-        className="h-screen bg-background text-foreground overflow-hidden"
+        className="h-screen bg-gray-950 text-foreground overflow-hidden"
         suppressHydrationWarning
       >
         {/* Theme handled by CommonProviders (inside ClientProviders) */}
 
-        {/* Enhanced Background Mesh - Matches Frontend */}
-        <div className="fixed inset-0 -z-10 bg-background">
+        {/* Dark Background - Matches Frontend */}
+        <div className="fixed inset-0 -z-10 bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950">
           <div className="absolute inset-0 bg-grid-pattern opacity-[0.03] dark:opacity-[0.05]" />
-          <div className="absolute top-0 -left-1/4 w-1/2 h-1/2 bg-blue-500/10 blur-[120px] rounded-full mix-blend-screen dark:mix-blend-screen" />
-          <div className="absolute bottom-0 -right-1/4 w-1/2 h-1/2 bg-indigo-500/10 blur-[120px] rounded-full mix-blend-screen dark:mix-blend-screen" />
         </div>
 
         {/* Main application wrapper with consistent spacing */}
         <div className="flex h-screen flex-col overflow-hidden">
           <ErrorBoundary>
-            <ClientProviders>
+            <ClientProviders initialUser={user} initialState={initialState}>
               <main className="flex-1 relative overflow-hidden">
-                <LayoutWrapper>
+                <LayoutWrapper initialUser={user}>
                   {children}
                 </LayoutWrapper>
               </main>

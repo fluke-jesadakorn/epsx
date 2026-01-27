@@ -2,6 +2,7 @@
 
 import { usePlanAccess } from '@/hooks/usePlanAccess';
 import { useUpgradeOptions } from '@/hooks/useUpgradeOptions';
+import type { PlanAccessData } from '@/shared/types/payment';
 import { cn } from '@/lib/utils';
 import { FREE_PLAN_NAME, FREE_PLAN_RANKING_OFFSET } from '@/shared/config/constants';
 import { Crown, Lock, Rocket, Shield, Sparkles, Star, Zap } from 'lucide-react';
@@ -9,6 +10,7 @@ import Link from 'next/link';
 
 interface PlanStatusBarProps {
     className?: string;
+    planAccess?: PlanAccessData | null;
 }
 
 interface TierConfig {
@@ -55,9 +57,12 @@ function getTierConfig(tierLevel: number): TierConfig {
     return TIER_STYLES[effectiveTier] ?? TIER_STYLES[0];
 }
 
-export function PlanStatusBar({ className }: PlanStatusBarProps): React.ReactElement {
-    const { planAccess, loading } = usePlanAccess();
+export function PlanStatusBar({ className, planAccess: propPlanAccess }: PlanStatusBarProps): React.ReactElement {
+    const { planAccess: hookPlanAccess, loading } = usePlanAccess();
     const { nextPlan, loading: loadingUpgrade } = useUpgradeOptions();
+
+    // Use prop if provided, otherwise fall back to hook
+    const planAccess = propPlanAccess !== undefined ? propPlanAccess : hookPlanAccess;
 
     if (loading) {
         return (

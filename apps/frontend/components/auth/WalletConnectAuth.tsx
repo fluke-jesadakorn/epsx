@@ -1,17 +1,17 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useSharedAuth } from '@/shared/components/auth/Provider';
+import { AlertCircle, Loader2, RefreshCw, Shield } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { useAccount, useSignMessage } from 'wagmi';
 import { ConnectedWalletDropdown } from './ConnectedWalletDropdown';
 import { WalletConnectionModal } from './WalletConnectionModal';
-import { Wallet, Loader2, AlertCircle, Shield, RefreshCw } from 'lucide-react';
-import { useAccount, useSignMessage } from 'wagmi';
-import { usePermissionAuth } from '@/lib/auth/service';
 
 interface WalletConnectAuthProps {
   onAuthSuccess?: (walletAddress: string) => void;
   onAuthError?: (error: string) => void;
   className?: string;
-  
+
   /**
    * Show compact mode for navigation bars
    */
@@ -19,9 +19,9 @@ interface WalletConnectAuthProps {
 }
 
 // Simple loading button for 2-step flow
-function LoadingButton({ message, className = '' }: { 
-  message: string; 
-  className?: string; 
+function LoadingButton({ message, className = '' }: {
+  message: string;
+  className?: string;
 }) {
   return (
     <button
@@ -35,8 +35,8 @@ function LoadingButton({ message, className = '' }: {
 }
 
 // Enhanced error display with reset options
-function ErrorDisplay({ error, onReset, onFullReset }: { 
-  error: string; 
+function ErrorDisplay({ error, onReset, onFullReset }: {
+  error: string;
   onReset: () => void;
   onFullReset?: () => void;
 }) {
@@ -67,26 +67,28 @@ function ErrorDisplay({ error, onReset, onFullReset }: {
   );
 }
 
-export function WalletConnectAuth({ 
-  onAuthSuccess, 
-  onAuthError, 
+export function WalletConnectAuth({
+  onAuthSuccess,
+  onAuthError,
   className = '',
   compact = false
 }: WalletConnectAuthProps) {
   const [isHydrated, setIsHydrated] = useState(false);
-  
+
   const { address, isConnected: wagmiConnected } = useAccount();
   const { signMessageAsync } = useSignMessage();
   const {
     user,
-    loading: isLoading,
+    isLoading,
     error,
-    connectWallet,
-    refreshUser
-  } = usePermissionAuth();
-  
+    requestChallenge,
+    authenticateWithWallet,
+    refreshUser,
+    logout,
+  } = useSharedAuth();
+
   const isAuthenticated = !!user;
-  
+
   // Local state for authentication flow
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [isSigningChallenge, setIsSigningChallenge] = useState(false);
@@ -98,10 +100,10 @@ export function WalletConnectAuth({
 
   // Handle callbacks
   useEffect(() => {
-    if (isAuthenticated && user?.walletAddress && onAuthSuccess) {
-      onAuthSuccess(user.walletAddress);
+    if (isAuthenticated && user?.wallet_address && onAuthSuccess) {
+      onAuthSuccess(user.wallet_address);
     }
-  }, [isAuthenticated, user?.walletAddress, onAuthSuccess]);
+  }, [isAuthenticated, user?.wallet_address, onAuthSuccess]);
 
   useEffect(() => {
     if (error && onAuthError) {
@@ -115,7 +117,7 @@ export function WalletConnectAuth({
   }
 
   // Show connected wallet dropdown if authenticated
-  if (isAuthenticated && user?.walletAddress) {
+  if (isAuthenticated && user?.wallet_address) {
     return <ConnectedWalletDropdown className={className} />;
   }
 
@@ -123,51 +125,59 @@ export function WalletConnectAuth({
   return (
     <div className="flex items-center gap-2">
       {(isSigningChallenge || isAuthenticating) ? (
-        <LoadingButton 
-          message={isAuthenticating ? "Authenticating..." : wagmiConnected ? "Signing..." : "Connecting..."} 
-          className={className} 
+        <LoadingButton
+          message={isAuthenticating ? "Authenticating..." : wagmiConnected ? "Signing..." : "Connecting..."}
+          className={className}
         />
       ) : wagmiConnected && address ? (
         <button
           onClick={async () => {
+            let safetyTimeout: NodeJS.Timeout | null = null;
+
             try {
               setIsAuthenticating(true);
               setIsSigningChallenge(true);
-              
-              
-              // Use the authentication service which now integrates with SharedWeb3AuthClient
-              const authService = (await import('@/lib/auth/service')).permissionAuthService;
-              
-              // Request challenge
-              const challenge = await authService.requestWeb3Challenge(address);
-              
+
+              // Safety timeout: reset state if stuck for too long
+              safetyTimeout = setTimeout(() => {
+                if (isAuthenticating || isSigningChallenge) {
+                  console.warn('[AUTH] UI: Authentication timed out, resetting state');
+                  setIsAuthenticating(false);
+                  setIsSigningChallenge(false);
+                  onAuthError?.('Process timed out. Please try again.');
+                }
+              }, 15000); // 15s max waiting time
+
+              // Use the shared authentication service
+              const challenge = await requestChallenge(address);
+
+              // Clear signing state once challenge is received, now waiting for signature
+              // But we keep isAuthenticating true until full completion
+
               const signature = await signMessageAsync({ message: challenge.message, account: address });
-              
-              const success = await authService.authenticateWithWallet(
+
+              const result = await authenticateWithWallet(
                 address,
                 signature,
                 challenge.message,
                 challenge.nonce
               );
-              
-              if (success) {
-                
-                // Reload user data
-                await refreshUser();
-                
+
+              if (result.success) {
                 // Trigger success callback
                 if (onAuthSuccess) {
                   onAuthSuccess(address);
                 }
               } else {
-                throw new Error('Authentication verification failed');
+                throw new Error(result.error || 'Authentication verification failed');
               }
-              
+
             } catch (error: unknown) {
               console.error('❌ Authentication failed:', error);
               const errorMessage = error instanceof Error ? error.message : 'Authentication failed';
               onAuthError?.(errorMessage);
             } finally {
+              if (safetyTimeout) clearTimeout(safetyTimeout);
               setIsAuthenticating(false);
               setIsSigningChallenge(false);
             }
@@ -181,18 +191,17 @@ export function WalletConnectAuth({
       ) : (
         <WalletConnectionModal className={className} />
       )}
-      
+
       {error && (
-        <ErrorDisplay 
-          error={error} 
+        <ErrorDisplay
+          error={error}
           onReset={() => {
             // Reset error state by refreshing user
             refreshUser();
           }}
           onFullReset={async () => {
             // Full reset - logout and reload
-            const authService = (await import('@/lib/auth/service')).permissionAuthService;
-            await authService.logout();
+            await logout();
           }}
         />
       )}

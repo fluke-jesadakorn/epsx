@@ -2,6 +2,7 @@
 // Uses unified environment schema from env.rs
 
 pub mod env;
+pub mod contracts;
 
 // Re-export simplified items
 pub use env::{
@@ -14,4 +15,11 @@ pub use env::{
     get_database_url,
     get_fallback_config,
     ValidationError,
+};
+
+pub use contracts::{
+    Chain,
+    ChainContractConfig,
+    ContractConfig,
+    PAYMENT_EVENT_TOPIC,
 };

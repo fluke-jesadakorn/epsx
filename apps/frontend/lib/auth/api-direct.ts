@@ -45,8 +45,7 @@ export class DirectWeb3Api {
   private client: UnifiedApiClient;
 
   constructor() {
-    // Use default URL resolution which now points to /api/proxy on client
-    // and direct backend URL on server
+    // Use default URL resolution which now points to direct backend URL on client
     this.client = new UnifiedApiClient({
       platform: 'frontend',
       serverSide: typeof window === 'undefined',
@@ -64,7 +63,7 @@ export class DirectWeb3Api {
       });
 
       if (!response.success || !response.data) {
-        throw new Error(response.error || response.message || 'Challenge generation failed');
+        throw new Error(response.error?.message || 'Challenge generation failed');
       }
 
       return response.data;
@@ -83,7 +82,7 @@ export class DirectWeb3Api {
       const response = await this.client.post<VerifyResponse>('/api/auth/web3/verify', request);
 
       if (!response.success || !response.data) {
-        throw new Error(response.error || response.message || 'Signature verification failed');
+        throw new Error(response.error?.message || 'Signature verification failed');
       }
 
       return {

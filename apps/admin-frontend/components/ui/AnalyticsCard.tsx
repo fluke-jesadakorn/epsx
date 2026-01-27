@@ -148,8 +148,8 @@ export function AnalyticsStatsCard({
   const isInactive = statusColor === 'red';
 
   return (
-    <div 
-      className={`w-full max-w-sm mx-auto bg-gradient-to-br from-purple-600 via-purple-700 to-purple-800 rounded-3xl shadow-2xl border-2 border-gray-400/30 overflow-hidden touch-manipulation transition-all duration-300 hover:shadow-3xl hover:scale-[1.02] p-6 ${onClick ? 'cursor-pointer' : ''}`}
+    <div
+      className={`w-full max-w-sm mx-auto bg-gradient-to-br from-indigo-600 via-purple-700 to-blue-800 rounded-3xl shadow-2xl shadow-indigo-500/30 border-2 border-indigo-400/30 overflow-hidden touch-manipulation transition-all duration-300 hover:shadow-3xl hover:shadow-indigo-500/50 hover:scale-[1.02] p-6 ${onClick ? 'cursor-pointer' : ''}`}
       onClick={onClick}
     >
       {/* Header Section */}
@@ -260,12 +260,12 @@ export function AnalyticsSummaryCard({
   className = ''
 }: AnalyticsSummaryCardProps) {
   return (
-    <div className={`bg-gradient-to-br from-white/80 via-blue-50/20 to-purple-50/30 dark:from-gray-900 dark:via-gray-800 dark:to-blue-900/20 border-2 border-blue-200/50 dark:border-blue-700/50 shadow-xl shadow-blue-200/30 dark:shadow-blue-900/50 hover:shadow-2xl hover:shadow-blue-300/40 dark:hover:shadow-blue-700/60 hover:scale-105 transition-all duration-300 rounded-2xl p-6 text-center backdrop-blur-md ${className}`}>
-      <div className="text-7xl font-black text-gray-900 dark:text-white mb-3 drop-shadow-sm">
+    <div className={`bg-gradient-to-br from-indigo-600 via-purple-600 to-blue-700 border-2 border-indigo-400/50 shadow-xl shadow-indigo-500/30 hover:shadow-2xl hover:shadow-indigo-500/50 hover:scale-105 transition-all duration-300 rounded-2xl p-6 text-center ${className}`}>
+      <div className="text-7xl font-black text-white mb-3 drop-shadow-sm">
         {typeof value === 'number' ? value.toLocaleString() : value}
       </div>
-      <div className="text-2xl font-bold text-gray-800 dark:text-gray-200 mb-2">{title}</div>
-      <div className="text-base text-gray-600 dark:text-gray-400 font-medium">{subtitle}</div>
+      <div className="text-2xl font-bold text-white/90 mb-2">{title}</div>
+      <div className="text-base text-white/70 font-medium">{subtitle}</div>
     </div>
   );
 }

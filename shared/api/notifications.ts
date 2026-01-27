@@ -833,7 +833,19 @@ export class NotificationsAPIClient {
 
     // Only append query string if there are parameters
     const queryString = params.toString();
-    const baseURL = this.client['baseURL'];
+
+    // Client-side: Use direct backend URL with token parameter for SSE
+    // SSE cannot use proxy because proxy is server-side only and SSE needs persistent client connection
+    let baseURL: string;
+    if (typeof window !== 'undefined') {
+      // Client-side: use direct backend URL
+      const { getBackendUrl } = require('../utils/url-resolver');
+      baseURL = getBackendUrl('client');
+    } else {
+      // Server-side: use the client's baseURL (should not happen for SSE)
+      baseURL = this.client['baseURL'];
+    }
+
     const sseUrl = `${baseURL}${API_ROUTES.NOTIFICATIONS.STREAM}${queryString ? '?' + queryString : ''}`;
 
     // Comprehensive validation

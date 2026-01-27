@@ -158,7 +158,13 @@ export function cn(...inputs: any[]) {
 // SIMPLE HELPER UTILITIES (inline implementations)
 // ============================================================================
 
-/** Simple debounce implementation */
+/**
+ * Debounce function - delays execution until after wait milliseconds have elapsed
+ * since the last time it was invoked. Useful for search inputs, resize handlers.
+ * @example
+ * const debouncedSearch = debounce((query: string) => search(query), 300);
+ * input.addEventListener('input', (e) => debouncedSearch(e.target.value));
+ */
 export function debounce<T extends (...args: any[]) => any>(
   fn: T,
   delay: number
@@ -170,7 +176,13 @@ export function debounce<T extends (...args: any[]) => any>(
   };
 }
 
-/** Simple throttle implementation */
+/**
+ * Throttle function - ensures function is called at most once per specified time limit.
+ * Useful for scroll handlers, mousemove events.
+ * @example
+ * const throttledScroll = throttle(() => updatePosition(), 100);
+ * window.addEventListener('scroll', throttledScroll);
+ */
 export function throttle<T extends (...args: any[]) => any>(
   fn: T,
   limit: number
@@ -185,12 +197,24 @@ export function throttle<T extends (...args: any[]) => any>(
   };
 }
 
-/** Simple sleep implementation */
+/**
+ * Sleep/delay function - returns promise that resolves after specified milliseconds.
+ * Useful for adding delays in async functions, retry logic, or animations.
+ * @example
+ * await sleep(1000); // Wait 1 second
+ * await sleep(500).then(() => console.log('Done waiting'));
+ */
 export function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-/** Simple deep clone */
+/**
+ * Deep clone object using JSON serialization. Note: Does NOT preserve:
+ * - Functions, undefined, Symbol properties
+ * - Date objects (become strings)
+ * - Circular references (will throw)
+ * Consider structuredClone() for full support if available.
+ */
 export function deepClone<T>(obj: T): T {
   return JSON.parse(JSON.stringify(obj));
 }

@@ -16,7 +16,7 @@ export {
   createPlansClient, PlansApi, type AssignPlanRequest, type BulkAssignRequest,
   type BulkRemoveRequest, type PlanFilters, type PlanStats, type RemovePlanRequest, type CreatePlanRequest as SharedCreatePlanRequest, type Plan as SharedPlan,
   type PlanMembership as SharedPlanMembership, type UpdatePlanRequest as SharedUpdatePlanRequest
-} from '@/shared_deploy/api/plans';
+} from '@/shared/api/plans';
 
 // ============================================================================
 // ADMIN-SPECIFIC TYPES
@@ -246,5 +246,18 @@ export const planMgmt = {
     if (assignment) {
       await adminApiClient.delete(`${API_ROUTES.ADMIN.PERMISSION_ASSIGNMENTS}/${assignment.id}`);
     }
+  },
+
+  // Analytics and Monitoring
+  getPlanAnalytics: async () => {
+    const res = await adminApiClient.get<PlanAnalytics>(API_ROUTES.ADMIN.ANALYTICS_PERMISSIONS);
+    if (!res.success) throw new Error(res.error?.message);
+    return res.data!;
+  },
+  getExpiringMemberships: async (days: number = 7) => {
+    const res = await adminApiClient.get<any>(API_ROUTES.PERMISSIONS.EXPIRING, { days });
+    // This endpoint should return a list of expiring memberships
+    // Need to verify response structure to map correctly if needed, but for now returning array
+    return extractArrayOrEmpty<any>(res);
   }
 };

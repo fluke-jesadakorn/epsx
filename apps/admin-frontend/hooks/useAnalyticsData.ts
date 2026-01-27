@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback } from 'react';
-import useSWR from 'swr';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 
 // ============================================================================
@@ -127,21 +127,18 @@ import {
  *
  */
 export function useUserStats() {
-  const { data, error, isLoading, mutate } = useSWR<UserStats>(
-    'user-stats',
-    getUserStatsAction,
-    {
-      refreshInterval: 30000, // Refresh every 30 seconds
-      revalidateOnFocus: true,
-      errorRetryCount: 3,
-    }
-  );
+  const { data, error, isLoading, refetch } = useQuery<UserStats>({
+    queryKey: ['user-stats'],
+    queryFn: getUserStatsAction,
+    refetchInterval: 30000, // Refresh every 30 seconds
+    refetchOnWindowFocus: true,
+  });
 
   return {
     userStats: data,
     isLoading,
     error,
-    refresh: mutate,
+    refresh: refetch,
   };
 }
 
@@ -149,17 +146,18 @@ export function useUserStats() {
  *
  */
 export function usePermissionAnalytics() {
-  const { data, error, isLoading, mutate } = useSWR<PermissionAnalytics>(
-    'permission-analytics',
-    getPermissionAnalyticsAction,
-    DEFAULT_ANALYTICS_CONFIG
-  );
+  const { data, error, isLoading, refetch } = useQuery<PermissionAnalytics>({
+    queryKey: ['permission-analytics'],
+    queryFn: getPermissionAnalyticsAction,
+    refetchInterval: DEFAULT_ANALYTICS_CONFIG.refreshInterval,
+    refetchOnWindowFocus: DEFAULT_ANALYTICS_CONFIG.revalidateOnFocus,
+  });
 
   return {
     permissionAnalytics: data,
     isLoading,
     error,
-    refresh: mutate,
+    refresh: refetch,
   };
 }
 
@@ -167,17 +165,18 @@ export function usePermissionAnalytics() {
  *
  */
 export function useSystemMetrics() {
-  const { data, error, isLoading, mutate } = useSWR<SystemMetrics>(
-    'system-metrics',
-    getSystemMetricsAction,
-    REALTIME_ANALYTICS_CONFIG
-  );
+  const { data, error, isLoading, refetch } = useQuery<SystemMetrics>({
+    queryKey: ['system-metrics'],
+    queryFn: getSystemMetricsAction,
+    refetchInterval: REALTIME_ANALYTICS_CONFIG.refreshInterval,
+    refetchOnWindowFocus: REALTIME_ANALYTICS_CONFIG.revalidateOnFocus,
+  });
 
   return {
     systemMetrics: data,
     isLoading,
     error,
-    refresh: mutate,
+    refresh: refetch,
   };
 }
 
@@ -187,11 +186,12 @@ export function useSystemMetrics() {
  * @param selectedModule
  */
 export function useAnalyticsDashboard(dateRange = '7d', selectedModule = 'all') {
-  const { data, error, isLoading, mutate } = useSWR<DeveloperPortalStats>(
-    'developer-portal-stats',
-    getDeveloperPortalStatsAction,
-    DEFAULT_ANALYTICS_CONFIG
-  );
+  const { data, error, isLoading, refetch } = useQuery<DeveloperPortalStats>({
+    queryKey: ['developer-portal-stats'],
+    queryFn: getDeveloperPortalStatsAction,
+    refetchInterval: DEFAULT_ANALYTICS_CONFIG.refreshInterval,
+    refetchOnWindowFocus: DEFAULT_ANALYTICS_CONFIG.revalidateOnFocus,
+  });
 
   const dashboardData: AnalyticsDashboardData | undefined = data ? {
     summary: data,
@@ -205,7 +205,7 @@ export function useAnalyticsDashboard(dateRange = '7d', selectedModule = 'all') 
     dashboardData,
     isLoading,
     error,
-    refresh: mutate,
+    refresh: refetch,
   };
 }
 
@@ -214,17 +214,18 @@ export function useAnalyticsDashboard(dateRange = '7d', selectedModule = 'all') 
  *
  */
 export function useApiKeys() {
-  const { data, error, isLoading, mutate } = useSWR<ApiKeysResponse>(
-    'api-keys',
-    getApiKeysAction,
-    SLOW_ANALYTICS_CONFIG
-  );
+  const { data, error, isLoading, refetch } = useQuery<ApiKeysResponse>({
+    queryKey: ['api-keys'],
+    queryFn: getApiKeysAction,
+    refetchInterval: SLOW_ANALYTICS_CONFIG.refreshInterval,
+    refetchOnWindowFocus: SLOW_ANALYTICS_CONFIG.revalidateOnFocus,
+  });
 
   return {
     apiKeys: data?.api_keys || data?.keys || [],
     isLoading,
     error,
-    refresh: mutate,
+    refresh: refetch,
   };
 }
 
@@ -236,14 +237,19 @@ export function useApiKeys() {
  *
  */
 export function useAnalyticsOverview() {
+  const queryClient = useQueryClient();
   const { userStats, isLoading: userStatsLoading, error: userStatsError } = useUserStats();
   const { permissionAnalytics, isLoading: permissionLoading, error: permissionError } = usePermissionAnalytics();
   const { systemMetrics, isLoading: systemLoading, error: systemError } = useSystemMetrics();
   const { dashboardData, isLoading: dashboardLoading, error: dashboardError } = useAnalyticsDashboard();
 
   const refreshAll = useCallback(() => {
-    // Refresh all data sources by triggering SWR revalidation
-  }, []);
+    // Refresh all data sources using queryClient
+    queryClient.invalidateQueries({ queryKey: ['user-stats'] });
+    queryClient.invalidateQueries({ queryKey: ['permission-analytics'] });
+    queryClient.invalidateQueries({ queryKey: ['system-metrics'] });
+    queryClient.invalidateQueries({ queryKey: ['developer-portal-stats'] });
+  }, [queryClient]);
 
   return {
     // Data

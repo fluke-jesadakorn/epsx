@@ -7,6 +7,7 @@
  */
 
 import { useCallback, useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useAccount, useConnect, useDisconnect, useSignMessage, useSwitchChain, type Connector } from 'wagmi';
 import { loginAction } from '../../auth/actions';
 import { requestWalletChallenge, verifyWalletSignature } from '../../auth/api';
@@ -116,7 +117,11 @@ export function AuthModal({
             setChallenge(challengeData);
 
             // Step 2: Sign message with wallet
-            const signature = await signMessageAsync({ message: challengeData.message });
+            console.log('[Auth] Signing message for address:', address);
+            const signature = await signMessageAsync({
+                message: challengeData.message,
+                account: address // Explicitly pass account to avoid ambiguity
+            });
 
             // Step 3: Verify signature with backend
             const result = await verifyWalletSignature({
@@ -172,7 +177,12 @@ export function AuthModal({
             }, 1000);
 
         } catch (err) {
+            console.error('[Auth] Authentication failed with error:', err);
             const msg = err instanceof Error ? err.message : 'Authentication failed';
+            // Specific check for the getChainId error to give a better message
+            if (msg.includes('getChainId is not a function')) {
+                console.error('[Auth] Critical Connector Error: getChainId missing. Connector object:', connectors.find(c => c.id === chain?.id));
+            }
             setError(msg);
             onError?.(msg);
             setStep('error');
@@ -204,12 +214,16 @@ export function AuthModal({
 
     if (!isOpen) return null;
 
+    // Use portal to avoid z-index/stacking context issues
+    if (typeof document === 'undefined') return null;
+
     const title = variant === 'admin' ? '🔐 Admin Access' : '🔗 Connect Wallet';
+
     const subtitle = variant === 'admin'
         ? 'Verify your admin permissions'
         : 'Connect your wallet to continue';
 
-    return (
+    return createPortal(
         <div className="auth-modal-overlay" onClick={onClose}>
             <div className={`auth-modal-card ${variant === 'admin' ? 'auth-modal-admin' : ''}`} onClick={(e) => e.stopPropagation()}>
                 {/* Header */}
@@ -360,7 +374,8 @@ export function AuthModal({
                     </p>
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 }
 

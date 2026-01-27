@@ -1,63 +1,31 @@
 'use client';
 
 import { WalletConnectAuth } from '@/components/auth/WalletConnectAuth';
-import { loginAction } from '@/shared/auth/actions';
+import { useSharedAuth } from '@/shared/components/auth/Provider';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useEffect } from 'react';
 import { toast } from 'sonner';
 
 export default function ConnectWalletPage() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const returnUrl = searchParams.get('return_url') || '/';
+    const { isAuthenticated, user } = useSharedAuth();
+
+    // Auto-redirect when authenticated
+    useEffect(() => {
+        if (isAuthenticated && user) {
+            console.log('[AUTH] connect-wallet: Authenticated, redirecting to', returnUrl);
+            router.push(returnUrl);
+            router.refresh();
+        }
+    }, [isAuthenticated, user, returnUrl, router]);
 
     const handleAuthSuccess = async (walletAddress: string) => {
-        // Note: complex auth logic is handled inside WalletConnectAuth
-        // However, we need to ensure the server session is set.
-        // Ideally WalletConnectAuth should return the full auth result,
-        // but looking at its implementation, it calls onAuthSuccess with just the address.
-        // We might need to rely on the side-effects of usePermissionAuth, 
-        // OR primarily rely on the fact that `usePermissionAuth` implementation uses `web3Client`.
-
-        // Wait a moment for client-side state to settle (localStorage etc)
-        // In a real implementation with Server Actions, we should likely
-        // pass the token TO the action.
-
-        // Since WalletConnectAuth abstracts away the token, we need to 
-        // check if we can get it from localStorage or cookies to pass to the server action.
-
-        const token = localStorage.getItem('epsx.access_token');
-        if (token) {
-            // Construct user data similar to Admin
-            const cookieData = {
-                wallet_address: walletAddress,
-                sub: walletAddress,
-                auth_time: Date.now(),
-                permissions: [], // Frontend usually fetches these dynamically
-                groups: ['user'],
-                isAdmin: false,
-                expires_at: Date.now() + 2592000000 // 30 days
-            };
-
-            try {
-                const result = await loginAction(token, cookieData);
-                if (result.success) {
-                    toast.success('Session established successfully');
-                    router.push(returnUrl);
-                    router.refresh();
-                } else {
-                    console.error('Server session failed:', result.error);
-                    toast.error('Failed to establish server session');
-                }
-            } catch (e) {
-                console.error('Server action error:', e);
-                toast.error('Login error');
-            }
-        } else {
-            // Fallback or retry?
-            // If WalletConnectAuth succeeded, the token SHOULD be in storage/client state.
-            console.warn('No token found after auth success');
-            router.push(returnUrl);
-        }
+        // Shared auth provider handles the heavy lifting
+        console.log('[AUTH] connect-wallet: Auth success callback triggered for', walletAddress);
+        toast.success('Authenticated successfully');
+        // Redirection is handled by the useEffect above
     };
 
     return (

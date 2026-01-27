@@ -16,6 +16,7 @@
 'use client';
 
 import { ReactNode } from 'react';
+import React from 'react';
 import { getAuthHook, type UnifiedAuthInterface } from './UnifiedAuthAdapter';
 
 // Platform-specific types
@@ -573,19 +574,19 @@ export function withUnifiedPermissions<P extends object>(
     minAuthLevel?: AuthLevel;
   }
 ) {
-  return function ProtectedComponent(props: P) {
-    return (
-      <UnifiedPermissionGuard
-        platform={platform}
-        permissions={permissions}
-        actionName={options?.actionName}
-        showPermissionDetails={options?.showPermissionDetails}
-        minAuthLevel={options?.minAuthLevel}
-      >
-        <Component {...props} />
-      </UnifiedPermissionGuard>
-    );
-  };
+  const WrappedComponent = React.forwardRef((props: any, ref: React.Ref<any>) => (
+    <UnifiedPermissionGuard
+      platform={platform}
+      permissions={permissions}
+      actionName={options?.actionName}
+      showPermissionDetails={options?.showPermissionDetails}
+      minAuthLevel={options?.minAuthLevel}
+    >
+      <Component {...props} {...(ref && { ref })} />
+    </UnifiedPermissionGuard>
+  ));
+  WrappedComponent.displayName = `withUnifiedPermissions(${Component.displayName || Component.name})`;
+  return WrappedComponent as unknown as React.ComponentType<P>;
 }
 
 // ============================================================================

@@ -19,11 +19,15 @@ interface AuthLayoutProps {
 
 // Pages that should NEVER have the admin layout
 const NO_LAYOUT_PATHS = [
+  '/auth',
+  '/login',
   '/unauthorized',
   '/access-denied',
   '/request-access',
   '/permissions/policies'
 ]
+
+import { AdminAuthModal } from '@/components/auth/AdminAuthModal'
 
 /**
  * AuthLayout
@@ -50,8 +54,10 @@ export function AuthLayout({ children, user: serverUser }: AuthLayoutProps) {
 
   // Always show layout for all pages except the excluded ones
   return (
-    <MainLayout user={layoutUser}>
-      {children}
-    </MainLayout>
+    <AdminAuthModal>
+      <MainLayout user={layoutUser}>
+        {children}
+      </MainLayout>
+    </AdminAuthModal>
   )
 }

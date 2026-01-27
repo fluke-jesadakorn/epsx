@@ -35,21 +35,29 @@ export function GlobalAuthGuard({
         }
     }, [isLoading]);
 
+    // Authenticated - render children immediately (Optimistic UI)
+    // We prioritize this over loading state because if we have the user object (from cookies),
+    // we should show the content while background verification happens.
+    if (isAuthenticated && children) {
+        return <>{children}</>;
+    }
+
     // Loading state
     if (!hasCheckedAuth || isLoading) {
+        // Debug check for cookie presence
+        const hasUserCookie = typeof document !== 'undefined' ? document.cookie.includes('epsx.user') : false;
+
         return (
             <div className="flex h-64 items-center justify-center p-6 bg-slate-50/50 dark:bg-slate-900/50 rounded-xl border border-dashed border-slate-200 dark:border-slate-800">
                 <div className="flex flex-col items-center gap-2">
                     <Loader2 className="h-8 w-8 animate-spin text-primary/50" />
                     <p className="text-sm text-muted-foreground animate-pulse">Verifying access...</p>
+                    <div className="text-xs text-muted-foreground mt-4 font-mono bg-slate-100 dark:bg-slate-800 p-2 rounded">
+                        Debug: Auth={String(isAuthenticated)}, Load={String(isLoading)}, Cookie={String(hasUserCookie)}
+                    </div>
                 </div>
             </div>
         );
-    }
-
-    // Authenticated - render children
-    if (isAuthenticated && children) {
-        return <>{children}</>;
     }
 
     // Custom fallback

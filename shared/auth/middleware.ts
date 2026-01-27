@@ -27,14 +27,11 @@ export interface AuthMiddlewareConfig {
     tokenCookieName?: string;
 
     /**
-     * Cookie name for the access token.
-     * Default: 'epsx.access_token'
+     * When enabled, never redirect - let client-side handle auth.
+     * Client-side components will check auth and show modal.
+     * Default: false
      */
-    /**
-     * URL of the backend server.
-     * Required for proxying /api/proxy requests.
-     */
-    backendUrl?: string;
+    noRedirect?: boolean;
 }
 
 /**
@@ -48,7 +45,7 @@ export function createAuthMiddleware(config: AuthMiddlewareConfig) {
     const homePath = config.homePath || '/';
     const tokenCookieName = config.tokenCookieName || COOKIES.access_token;
     const publicRoutes = config.publicRoutes || [];
-    const backendUrl = config.backendUrl;
+    const noRedirect = config.noRedirect || false;
 
     return async function authMiddleware(request: NextRequest) {
         const { pathname, search } = request.nextUrl;
@@ -71,7 +68,7 @@ export function createAuthMiddleware(config: AuthMiddlewareConfig) {
         const isAuthenticated = !!token;
 
         // DEBUG: Log authentication state
-        console.log('🔒 Middleware Auth Check:', {
+        console.log('[AUTH] Middleware Auth Check:', {
             pathname,
             tokenCookieName,
             hasToken: !!token,
@@ -87,7 +84,7 @@ export function createAuthMiddleware(config: AuthMiddlewareConfig) {
         });
 
         // DEBUG: Log route matching
-        console.log('🔒 Middleware Route Check:', {
+        console.log('[AUTH] Middleware Route Check:', {
             pathname,
             isPublicRoute,
             loginPath,
@@ -98,6 +95,11 @@ export function createAuthMiddleware(config: AuthMiddlewareConfig) {
 
         // Case A: Unauthenticated User on Protected Route
         if (!isAuthenticated && !isPublicRoute) {
+            // If noRedirect mode is enabled, let page load - client will show modal
+            if (noRedirect) {
+                return response;
+            }
+
             // Create redirect URL with return_url
             const redirectUrl = new URL(loginPath, request.url);
 
@@ -114,6 +116,11 @@ export function createAuthMiddleware(config: AuthMiddlewareConfig) {
         // Case B: Authenticated User on Login Page (e.g. /auth)
         // We only redirect if they are explicitly visiting the login path to prevent loops
         if (isAuthenticated && pathname === loginPath) {
+            // If noRedirect mode is enabled, let page load
+            if (noRedirect) {
+                return response;
+            }
+
             // Check for return_url in the current query params
             const returnUrl = request.nextUrl.searchParams.get('return_url');
             const targetPath = returnUrl || homePath;

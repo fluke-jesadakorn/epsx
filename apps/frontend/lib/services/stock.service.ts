@@ -1,5 +1,6 @@
 // Shared stock data service
 
+import { CACHE_TTL } from '@/shared/config/constants';
 import { transformFinancialDataWithCurrentPrice } from '@/utils';
 import type { StockFinancialData } from '@/types/financialChartData';
 import { MarketCountry } from '../../types/market';
@@ -21,7 +22,7 @@ let countCache: {
   ttl: number;
 } | null = null;
 
-const CACHE_TTL = 300; // 5 minutes in seconds
+const CACHE_TTL_SECONDS = CACHE_TTL.STOCK_DATA; // 5 minutes
 
 export async function getStockFinancialData(
   page = 1,
@@ -36,25 +37,31 @@ export async function getStockFinancialData(
     // Check server-side cache first
     const now = Date.now();
     const cachedData = serverCache.get(cacheKey);
-    if (cachedData && now - cachedData.timestamp < cachedData.ttl * 1000) {
+    if (cachedData && now - cachedData.timestamp < CACHE_TTL_SECONDS * 1000) {
       return cachedData.data;
     }
 
-    // Unable to fetch data: rankStocksByEpsWithChart utility not found.
+    // Stock data fetch not implemented: rankStocksByEpsWithChart utility not found
+    console.warn('[StockService] Data fetch not implemented, returning empty result');
     return [];
   } catch (error) {
+    console.error('[StockService] Error fetching stock data:', error);
     // Return cached data if available, even if expired, as fallback
     const cacheKey = `${page}-${limit}-${country}-${quarters}`;
     const cachedData = serverCache.get(cacheKey);
     if (cachedData) {
+      console.warn('[StockService] Using stale cached data as fallback');
       return cachedData.data;
     }
+    console.warn('[StockService] No cached data available, returning empty result');
     return [];
   }
 }
 
 /**
- * Get total count of stocks for pagination
+ * Get total count of stocks available for pagination.
+ * Returns cached count if available (even if expired), otherwise queries database.
+ * Returns 0 as fallback if no data available.
  */
 export async function getStockFinancialDataCount(
   country: typeof MarketCountry = MarketCountry,
@@ -67,11 +74,15 @@ export async function getStockFinancialDataCount(
       return countCache.count;
     }
 
-    // Unable to fetch count: fetchScreenerStock utility not found.
+    // Count fetch not implemented: fetchScreenerStock utility not found
+    console.warn('[StockService] Count fetch not implemented, returning 0');
     return 0;
   } catch (error) {
-    console.error('Error getting stock count:', error);
+    console.error('[StockService] Error getting stock count:', error);
     // Return cached count if available, or fallback to 0
+    if (countCache) {
+      console.warn('[StockService] Using stale cached count as fallback');
+    }
     return countCache?.count || 0;
   }
 }

@@ -11,6 +11,8 @@
  * - Database wallet saving and retrieval
  */
 
+import { fetchWithTimeout } from '../utils/fetch-with-timeout';
+
 // Challenge request/response types
 export interface ChallengeRequest {
   wallet_address: string;
@@ -56,7 +58,7 @@ class DirectWeb3ApiClient {
         ? process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080'
         : process.env.BACKEND_URL || 'http://localhost:8080';
 
-    console.log('🔧 DirectWeb3ApiClient initialized', {
+    console.log('[AUTH] DirectWeb3ApiClient initialized', {
       baseUrl: this.baseUrl,
     });
   }
@@ -67,14 +69,15 @@ class DirectWeb3ApiClient {
   async requestChallenge(walletAddress: string): Promise<ChallengeResponse> {
     const url = `${this.baseUrl}/api/auth/web3/challenge`;
 
-    console.log('📝 Requesting SIWE challenge', {
+    console.log('[AUTH] Requesting SIWE challenge', {
       wallet_address: walletAddress,
       url,
     });
 
     try {
-      const response = await fetch(url, {
+      const response = await fetchWithTimeout(url, {
         method: 'POST',
+        timeout: 15000,
         headers: {
           'Content-Type': 'application/json',
           Accept: 'application/json',
@@ -88,7 +91,7 @@ class DirectWeb3ApiClient {
         const errorData = await response
           .json()
           .catch(() => ({ error: 'Unknown error' }));
-        console.error('❌ Challenge request failed', {
+        console.error('[AUTH] Error: Challenge request failed', {
           status: response.status,
           statusText: response.statusText,
           error: errorData,
@@ -101,13 +104,13 @@ class DirectWeb3ApiClient {
       const challengeData: ChallengeResponse = await response.json();
 
       if (!challengeData.success) {
-        console.error('❌ Challenge generation failed', {
+        console.error('[AUTH] Error: Challenge generation failed', {
           error: challengeData.error,
         });
         throw new Error(challengeData.error || 'Challenge generation failed');
       }
 
-      console.log('✅ SIWE challenge received successfully', {
+      console.log('[AUTH] SIWE challenge received successfully', {
         wallet_address: challengeData.wallet_address,
         nonce: challengeData.nonce,
         expires_at: challengeData.expires_at,
@@ -116,7 +119,7 @@ class DirectWeb3ApiClient {
 
       return challengeData;
     } catch (error) {
-      console.error('❌ Challenge request error', { error });
+      console.error('[AUTH] Error: Challenge request error', { error });
       throw error instanceof Error
         ? error
         : new Error('Failed to request challenge');
@@ -131,14 +134,15 @@ class DirectWeb3ApiClient {
   ): Promise<SignatureVerificationResponse> {
     const url = `${this.baseUrl}/api/auth/web3/verify`;
 
-    console.log('🔐 Verifying wallet signature', {
+    console.log('[AUTH] Verifying wallet signature', {
       wallet_address: request.wallet_address,
       url,
     });
 
     try {
-      const response = await fetch(url, {
+      const response = await fetchWithTimeout(url, {
         method: 'POST',
+        timeout: 15000,
         headers: {
           'Content-Type': 'application/json',
           Accept: 'application/json',
@@ -150,7 +154,7 @@ class DirectWeb3ApiClient {
         const errorData = await response
           .json()
           .catch(() => ({ error: 'Unknown error' }));
-        console.error('❌ Signature verification failed', {
+        console.error('[AUTH] Error: Signature verification failed', {
           status: response.status,
           statusText: response.statusText,
           error: errorData,
@@ -164,7 +168,7 @@ class DirectWeb3ApiClient {
         await response.json();
 
       if (!verificationData.success) {
-        console.error('❌ Signature verification rejected', {
+        console.error('[AUTH] Error: Signature verification rejected', {
           error: verificationData.error,
         });
         throw new Error(
@@ -172,7 +176,7 @@ class DirectWeb3ApiClient {
         );
       }
 
-      console.log('✅ Signature verification successful', {
+      console.log('[AUTH] Signature verification successful', {
         wallet_address: verificationData.wallet_address,
         permissions_count: verificationData.permissions?.length || 0,
         is_new_user: verificationData.is_new_user,
@@ -180,7 +184,7 @@ class DirectWeb3ApiClient {
 
       return verificationData;
     } catch (error) {
-      console.error('❌ Signature verification error', { error });
+      console.error('[AUTH] Error: Signature verification error', { error });
       throw error instanceof Error
         ? error
         : new Error('Failed to verify signature');
@@ -195,7 +199,7 @@ class DirectWeb3ApiClient {
     signMessage: (message: string) => Promise<string>
   ): Promise<SignatureVerificationResponse> {
     try {
-      console.log('🚀 Starting complete wallet authentication flow', {
+      console.log('[AUTH] Starting complete wallet authentication flow', {
         wallet_address: walletAddress,
       });
 
@@ -203,9 +207,9 @@ class DirectWeb3ApiClient {
       const challenge = await this.requestChallenge(walletAddress);
 
       // Step 2: Sign message
-      console.log('🖊️ Requesting signature for SIWE message...');
+      console.log('[AUTH] Requesting signature for SIWE message...');
       const signature = await signMessage(challenge.message);
-      console.log('✅ Signature received from wallet');
+      console.log('[AUTH] Signature received from wallet');
 
       // Step 3: Verify signature
       const verification = await this.verifySignature({
@@ -215,7 +219,7 @@ class DirectWeb3ApiClient {
         nonce: challenge.nonce,
       });
 
-      console.log('🎉 Wallet authentication completed successfully!', {
+      console.log('[AUTH] Wallet authentication completed successfully!', {
         wallet_address: verification.wallet_address,
         permissions: verification.permissions?.length || 0,
         is_new_user: verification.is_new_user,
@@ -223,7 +227,7 @@ class DirectWeb3ApiClient {
 
       return verification;
     } catch (error) {
-      console.error('❌ Wallet authentication failed', { error });
+      console.error('[AUTH] Error: Wallet authentication failed', { error });
       throw error instanceof Error
         ? error
         : new Error('Wallet authentication failed');

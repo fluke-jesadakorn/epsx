@@ -42,7 +42,7 @@ export {
 // ============================================================================
 
 export {
-  DEFAULT_POLLING_CONFIG, useOptimisticUpdate, usePollingManager, useSmartPolling, type PollingPriority, type PollingState, type SmartPollingConfig, type UseSmartPollingOptions
+  DEFAULT_POLLING_CONFIG, usePollingManager, useSmartPolling, type PollingPriority, type SmartPollingConfig, type UseSmartPollingOptions
 } from './useSmartPolling';
 
 // ============================================================================

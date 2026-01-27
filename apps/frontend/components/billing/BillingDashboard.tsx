@@ -1,9 +1,9 @@
-import { useWeb3Auth } from '@/lib/auth/use-auth';
+import { useAccount } from 'wagmi';
 
 export default function BillingDashboard() {
-  const { walletAddress } = useWeb3Auth();
-  
-  const user = walletAddress ? { address: walletAddress } : null;
+  const { address } = useAccount();
+
+  const user = address ? { address } : null;
   
   return (
     <div className="min-h-screen bg-gray-50 p-6">

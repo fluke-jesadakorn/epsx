@@ -13,8 +13,15 @@ import {
   type PolicyStats,
   type PolicyType,
 } from '@/components/access-control/types';
-import { createPlansClient, isApiSuccess, type PlanResponse } from '@/shared/api/plans';
+import { createPlansClient, type Plan } from '@/shared/api/plans';
+import { isApiSuccess } from '@/shared/types/api';
 import { createAdminApiClient } from '@/shared/utils/api-client';
+
+// Extended Plan type with analytics fields
+interface PlanResponse extends Plan {
+  revenue_last_30_days?: string | number;
+  subscriber_count?: number;
+}
 
 // ============================================================================
 // TYPES
@@ -97,7 +104,7 @@ export async function fetchPolicies(): Promise<AccessPolicy[]> {
     const plansClient = createPlansClient(apiClient);
 
     const [plansRes, groupsRes] = await Promise.all([
-      plansClient.getPlans({ limit: 100 }),
+      plansClient.listPlans({ limit: 100 }),
       apiClient.get<{ plans: any[] }>(API_ROUTES_LOCAL.PERMISSIONS.PLANS),
     ]);
 
@@ -138,7 +145,7 @@ export async function fetchPolicyStats(): Promise<PolicyStats> {
     const plansClient = createPlansClient(apiClient);
 
     const [plansRes, groupsRes, analyticsRes] = await Promise.all([
-      plansClient.getPlans({ limit: 100 }),
+      plansClient.listPlans({ limit: 100 }),
       apiClient.get<{ plans: any[] }>(API_ROUTES_LOCAL.PERMISSIONS.PLANS),
       apiClient.get<any>(API_ROUTES_LOCAL.PERMISSIONS.ANALYTICS),
     ]);
