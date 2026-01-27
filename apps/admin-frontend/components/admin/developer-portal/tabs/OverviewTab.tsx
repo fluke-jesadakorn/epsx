@@ -1,6 +1,6 @@
 'use client';
 
-import { Activity, Key, Plus, Settings } from 'lucide-react';
+import { Activity, Key, Plus, Settings, Shield } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import React from 'react';
 
@@ -22,13 +22,13 @@ interface OverviewTabProps {
 const getStatusColor = (status: string): string => {
     switch (status) {
         case 'active':
-            return 'bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-200';
+            return 'bg-green-500/10 text-green-400 border border-green-500/10';
         case 'revoked':
-            return 'bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-200';
+            return 'bg-red-500/10 text-red-400 border border-red-500/10';
         case 'expired':
-            return 'bg-yellow-100 dark:bg-yellow-900/50 text-yellow-800 dark:text-yellow-200';
+            return 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/10';
         default:
-            return 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-300';
+            return 'bg-white/5 text-muted-foreground border border-white/10';
     }
 };
 
@@ -57,86 +57,92 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                     title="Total API Keys"
                     value={apiKeys.length}
                     icon={Key}
-                    iconBgColor="bg-blue-100 dark:bg-blue-900/50"
-                    iconColor="text-blue-600 dark:text-blue-400"
+                    iconBgColor="bg-cyan-500"
+                    iconColor="text-cyan-400"
                 />
                 <StatsCard
                     title="Active Keys"
                     value={activeKeys}
-                    icon={Activity}
-                    iconBgColor="bg-green-100 dark:bg-green-900/50"
-                    iconColor="text-green-600 dark:text-green-400"
+                    icon={Shield}
+                    iconBgColor="bg-green-500"
+                    iconColor="text-green-400"
                 />
                 <StatsCard
                     title="Total Requests"
                     value={totalRequests}
                     icon={Activity}
-                    iconBgColor="bg-purple-100 dark:bg-purple-900/50"
-                    iconColor="text-purple-600 dark:text-purple-400"
+                    iconBgColor="bg-purple-500"
+                    iconColor="text-purple-400"
                 />
                 <StatsCard
                     title="Available Modules"
                     value={modules.length}
                     icon={Settings}
-                    iconBgColor="bg-orange-100 dark:bg-orange-900/50"
-                    iconColor="text-orange-600 dark:text-orange-400"
+                    iconBgColor="bg-warning"
+                    iconColor="text-yellow-400"
                 />
             </div>
 
             {/* Recent API Keys */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
-                <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+            <div className="relative overflow-hidden rounded-[32px] bg-slate-900/40 backdrop-blur-2xl border border-white/5 shadow-xl">
+                <div className="p-8 border-b border-white/5">
                     <div className="flex items-center justify-between">
-                        <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">
-                            Recent API Keys
-                        </h3>
-                        <Button onClick={onCreateKey} size="sm">
-                            <Plus className="w-4 h-4 mr-2" />
+                        <div>
+                            <h3 className="text-xl font-black text-foreground uppercase tracking-tight mb-1">
+                                Recent API Keys
+                            </h3>
+                            <p className="text-sm font-bold text-muted-foreground">Most recently used and active keys</p>
+                        </div>
+                        <Button
+                            onClick={onCreateKey}
+                            className="bg-gradient-to-r from-[#1fc7d4] to-[#7645d9] hover:opacity-90 text-white font-black px-6 py-6 rounded-2xl shadow-lg shadow-cyan-500/20 active:scale-95 transition-all text-xs uppercase tracking-widest"
+                        >
+                            <Plus className="w-5 h-5 mr-2" />
                             Create New Key
                         </Button>
                     </div>
                 </div>
-                <div className="divide-y divide-gray-200 dark:divide-gray-700">
+                <div className="divide-y divide-white/5">
                     {apiKeys.length === 0 ? (
-                        <div className="p-6 text-center text-gray-500 dark:text-gray-400">
+                        <div className="p-12 text-center text-muted-foreground font-bold">
                             No API keys found. Create one to get started.
                         </div>
                     ) : (
                         apiKeys.slice(0, 5).map(apiKey => (
-                            <div key={apiKey.id} className="p-6">
+                            <div key={apiKey.id} className="p-8 hover:bg-white/[0.02] transition-colors">
                                 <div className="flex items-center justify-between">
-                                    <div className="flex items-center space-x-4">
-                                        <div className="p-2 bg-gray-100 dark:bg-gray-700 rounded-lg">
-                                            <Key className="w-5 h-5 text-gray-600 dark:text-gray-300" />
+                                    <div className="flex items-center space-x-5">
+                                        <div className="w-12 h-12 flex items-center justify-center bg-white/5 rounded-2xl border border-white/5">
+                                            <Key className="w-6 h-6 text-[#1fc7d4]" />
                                         </div>
                                         <div>
-                                            <h4 className="font-medium text-gray-900 dark:text-gray-100">
+                                            <h4 className="font-black text-foreground tracking-tight text-lg">
                                                 {apiKey.client_name}
                                             </h4>
-                                            <p className="text-sm text-gray-500 dark:text-gray-400">
-                                                Key: {(apiKey as any).key_prefix || apiKey.key_preview}...
+                                            <p className="text-sm font-mono text-muted-foreground mt-1">
+                                                <span className="text-[#1fc7d4]/70">prefix_</span>{(apiKey as any).key_prefix || apiKey.key_preview}
                                             </p>
                                         </div>
                                     </div>
-                                    <div className="flex items-center space-x-3">
+                                    <div className="flex items-center space-x-4">
                                         <span
-                                            className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(apiKey.status)}`}
+                                            className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest ${getStatusColor(apiKey.status)}`}
                                         >
                                             {apiKey.status}
                                         </span>
-                                        <div className="text-sm text-gray-500 dark:text-gray-400">
-                                            {apiKey.total_requests.toLocaleString()} requests
+                                        <div className="text-xs font-black text-muted-foreground uppercase tracking-widest bg-white/5 px-3 py-1.5 rounded-lg border border-white/5">
+                                            {apiKey.total_requests.toLocaleString()} REQS
                                         </div>
                                     </div>
                                 </div>
-                                <div className="mt-3 flex flex-wrap gap-2">
+                                <div className="mt-4 flex flex-wrap gap-2 ml-[68px]">
                                     {/* Permission Groups */}
                                     {(apiKey as any).permission_groups?.length > 0 && (
                                         <>
                                             {(apiKey as any).permission_groups.map((group: { id: string; name: string }) => (
                                                 <span
                                                     key={group.id}
-                                                    className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-purple-100 dark:bg-purple-900/50 text-purple-800 dark:text-purple-200"
+                                                    className="inline-flex items-center px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest bg-purple-500/10 text-purple-400 border border-purple-500/10"
                                                 >
                                                     {group.name}
                                                 </span>
@@ -147,7 +153,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                                     {apiKey.allowed_modules.map(module => (
                                         <span
                                             key={module.module_id}
-                                            className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200"
+                                            className="inline-flex items-center px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest bg-cyan-500/10 text-cyan-400 border border-cyan-500/10"
                                         >
                                             {module.module_name}
                                         </span>
@@ -160,44 +166,42 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
             </div>
 
             {/* Available Modules */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
-                <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-                    <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">
+            <div className="relative overflow-hidden rounded-[32px] bg-slate-900/40 backdrop-blur-2xl border border-white/5 shadow-xl">
+                <div className="p-8 border-b border-white/5">
+                    <h3 className="text-xl font-black text-foreground uppercase tracking-tight mb-1">
                         Available Modules
                     </h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-300">
-                        Choose from these modules when creating API keys
-                    </p>
+                    <p className="text-sm font-bold text-muted-foreground">Choose from these modules when creating API keys</p>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-8">
                     {modules.length === 0 ? (
-                        <div className="col-span-full text-center text-gray-500 dark:text-gray-400 py-6">
+                        <div className="col-span-full text-center text-muted-foreground font-bold py-12">
                             No modules available.
                         </div>
                     ) : (
                         modules.map(module => (
                             <div
                                 key={module.id}
-                                className="border border-gray-200 dark:border-gray-600 rounded-lg p-4"
+                                className="relative group p-6 rounded-[24px] bg-white/5 border border-white/5 hover:bg-white/[0.08] transition-all duration-300"
                             >
-                                <div className="flex items-start justify-between mb-3">
+                                <div className="flex items-start justify-between mb-4">
                                     <div>
-                                        <h4 className="font-medium text-gray-900 dark:text-gray-100">
+                                        <h4 className="font-black text-foreground tracking-tight text-lg mb-1">
                                             {module.display_name}
                                         </h4>
-                                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                                        <p className="text-[10px] font-black text-[#1fc7d4] uppercase tracking-widest bg-[#1fc7d4]/10 w-fit px-2 py-0.5 rounded-md">
                                             {module.name}
                                         </p>
                                     </div>
-                                    <span className="px-2 py-1 bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-200 rounded-full text-xs font-medium">
+                                    <span className="px-3 py-1 bg-green-500/10 text-green-400 border border-green-500/10 rounded-full text-[10px] font-black uppercase tracking-widest">
                                         {module.status}
                                     </span>
                                 </div>
-                                <p className="text-sm text-gray-600 dark:text-gray-300 mb-3">
+                                <p className="text-sm font-bold text-muted-foreground mb-4 line-clamp-2">
                                     {module.description || 'No description available'}
                                 </p>
-                                <div className="text-xs text-gray-500 dark:text-gray-400">
-                                    <span className="font-medium">Category:</span> {module.category}
+                                <div className="flex items-center text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em] bg-white/5 px-3 py-2 rounded-xl border border-white/5 w-fit">
+                                    <span className="opacity-50 mr-2">Category:</span> {module.category}
                                 </div>
                             </div>
                         ))

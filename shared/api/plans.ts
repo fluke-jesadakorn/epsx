@@ -163,6 +163,28 @@ export interface PlanStats {
   recent_removals: number;
 }
 
+export interface ApiKeyResponse {
+  id: string;
+  client_name: string;
+  key_prefix?: string;
+  key_preview: string;
+  status: 'active' | 'revoked' | 'expired';
+  total_requests: number;
+  allowed_modules: Array<{ module_id: string; module_name: string }>;
+  expires_at: string | null;
+  created_at: string;
+  permission_groups?: Array<{ id: string; name: string }>;
+}
+
+export interface Module {
+  id: string;
+  name: string;
+  display_name: string;
+  description?: string;
+  status: 'active' | 'inactive';
+  category: string;
+}
+
 // ============================================================================
 // PLANS API CLASS
 // ============================================================================
@@ -356,6 +378,42 @@ export class PlansApi {
     performed_by?: string;
   }>>> {
     return this.client.get(`/api/admin/plans/${plan_id}/history`, filters);
+  }
+
+  // ============================================================================
+  // API KEY & MODULE MANAGEMENT (Admin only)
+  // ============================================================================
+
+  /**
+   * List all API keys
+   * GET /api/admin/developer/keys
+   */
+  async listApiKeys(filters?: { status?: string; search?: string }): Promise<ApiResponse<{ api_keys: ApiKeyResponse[] }>> {
+    return this.client.get<{ api_keys: ApiKeyResponse[] }>('/api/admin/developer/keys', filters);
+  }
+
+  /**
+   * Get all available modules
+   * GET /api/admin/developer/modules
+   */
+  async getModules(filters?: { status?: string }): Promise<ApiResponse<{ modules: Module[] }>> {
+    return this.client.get<{ modules: Module[] }>('/api/admin/developer/modules', filters);
+  }
+
+  /**
+   * Revoke an API key
+   * POST /api/admin/developer/keys/{key_id}/revoke
+   */
+  async revokeApiKey(keyId: string, reason?: string): Promise<ApiResponse<{ success: boolean }>> {
+    return this.client.post<{ success: boolean }>(`/api/admin/developer/keys/${keyId}/revoke`, { reason });
+  }
+
+  /**
+   * Update API key expiration
+   * PUT /api/admin/developer/keys/{key_id}/expiration
+   */
+  async updateApiKeyExpiration(keyId: string, expiresAt: string | null): Promise<ApiResponse<{ success: boolean }>> {
+    return this.client.put<{ success: boolean }>(`/api/admin/developer/keys/${keyId}/expiration`, { expires_at: expiresAt });
   }
 }
 

@@ -1,8 +1,7 @@
 import '@/lib/polyfills';
 /**
- * EPSX Admin - Enhanced Root Layout
- * Features: Windows Phone + PancakeSwap design system integration
- * Enhanced dark mode, spacing consistency, and accessibility
+ * EPSX Admin - Root Layout
+ * Modern, clean admin interface with system fonts
  */
 
 import { Metadata, Viewport } from 'next';
@@ -86,7 +85,7 @@ export default async function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${kanit.variable} font-sans antialiased scroll-smooth`}
+      className="antialiased scroll-smooth"
     >
       <head>
         {/* CRITICAL: Synchronous BigInt polyfill to prevent Math.pow crash in dependencies like viem */}
@@ -120,30 +119,38 @@ export default async function RootLayout({
         <SafeThemeScript />
       </head>
       <body
-        className="h-screen bg-gray-950 text-foreground overflow-hidden"
+        className={`${kanit.variable} h-screen bg-[#08060b] text-foreground overflow-hidden font-sans`}
         suppressHydrationWarning
       >
-        {/* Theme handled by CommonProviders (inside ClientProviders) */}
+        {/* Modern, deep background system */}
+        <div className="fixed inset-0 z-[-1] overflow-hidden pointer-events-none">
+          {/* Base gradient */}
+          <div className="absolute inset-0 bg-gradient-to-br from-[#08060b] via-[#120c1d] to-[#08060b]" />
 
-        {/* Dark Background - Matches Frontend */}
-        <div className="fixed inset-0 -z-10 bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950">
-          <div className="absolute inset-0 bg-grid-pattern opacity-[0.03] dark:opacity-[0.05]" />
+          {/* Subdued Grid */}
+          <div className="absolute inset-0 bg-grid-pattern opacity-40" />
+
+          {/* Decorative blurry blobs */}
+          <div className="absolute -top-[10%] -left-[10%] w-[40%] h-[40%] bg-[#7645d9]/10 rounded-full blur-[120px] animate-pulse" />
+          <div className="absolute top-[20%] -right-[5%] w-[30%] h-[30%] bg-[#1fc7d4]/5 rounded-full blur-[100px]" />
+          <div className="absolute -bottom-[10%] left-[20%] w-[50%] h-[50%] bg-[#ed4b9e]/5 rounded-full blur-[150px] animate-pulse" style={{ animationDuration: '8s' }} />
+
+          {/* Subtle noise/texture overlay if needed, currently just using the clean gradient */}
         </div>
 
-        {/* Main application wrapper with consistent spacing */}
-        <div className="flex h-screen flex-col overflow-hidden">
+        {/* Main application wrapper */}
+        <div className="flex h-screen flex-col overflow-hidden relative z-0">
           <ErrorBoundary>
             <ClientProviders initialUser={user} initialState={initialState}>
-              <main className="flex-1 relative overflow-hidden">
+              <div className="flex-1 relative overflow-hidden">
                 <LayoutWrapper initialUser={user}>
                   {children}
                 </LayoutWrapper>
-              </main>
+              </div>
               <ToastProvider />
             </ClientProviders>
           </ErrorBoundary>
         </div>
-
       </body>
     </html>
   );

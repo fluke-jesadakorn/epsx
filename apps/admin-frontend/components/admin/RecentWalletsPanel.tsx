@@ -180,8 +180,11 @@ export function RecentWalletsPanel({ initialData }: { initialData?: RecentWallet
     : data.recent_wallets.slice(0, 5);
 
   return (
-    <div className="h-full bg-card backdrop-blur-sm rounded-2xl sm:rounded-3xl shadow-xl border border-border p-6">
-      <div className="flex items-center justify-between mb-6">
+    <div className="h-full bg-slate-900/40 backdrop-blur-2xl rounded-[32px] shadow-xl border border-white/5 p-8 relative overflow-hidden group">
+      {/* Decorative background element */}
+      <div className="absolute -right-12 -top-12 w-48 h-48 bg-[#1fc7d4]/5 rounded-full blur-3xl group-hover:bg-[#1fc7d4]/10 transition-colors" />
+
+      <div className="relative z-10 flex items-center justify-between mb-8">
         <div>
           <div className="flex items-center gap-2 mb-2">
             <Wallet className="h-5 w-5" />
@@ -211,36 +214,36 @@ export function RecentWalletsPanel({ initialData }: { initialData?: RecentWallet
 
       <div>
         {/* Analytics Summary */}
-        <div className="mb-6 grid grid-cols-3 gap-4">
-          <div className="rounded-lg bg-blue-50 p-3 text-center dark:bg-blue-900/20">
-            <div className="mb-1 flex items-center justify-center gap-1 text-blue-600">
+        <div className="mb-8 grid grid-cols-3 gap-4">
+          <div className="rounded-3xl bg-blue-50/5 p-4 text-center border border-blue-500/10 backdrop-blur-sm">
+            <div className="mb-1 flex items-center justify-center gap-1.5 text-[#1fc7d4]">
               <TrendingUp className="h-4 w-4" />
-              <span className="text-sm font-medium">Total</span>
+              <span className="text-xs font-bold uppercase tracking-wider">Total</span>
             </div>
-            <div className="text-lg font-bold">
+            <div className="text-2xl font-bold text-foreground">
               {data.analytics.total_in_period}
             </div>
-            <div className="text-xs text-muted-foreground">connections</div>
+            <div className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">connections</div>
           </div>
-          <div className="rounded-lg bg-green-50 p-3 text-center dark:bg-green-900/20">
-            <div className="mb-1 flex items-center justify-center gap-1 text-green-600">
+          <div className="rounded-3xl bg-emerald-50/5 p-4 text-center border border-[#31d0aa]/10 backdrop-blur-sm">
+            <div className="mb-1 flex items-center justify-center gap-1.5 text-[#31d0aa]">
               <Calendar className="h-4 w-4" />
-              <span className="text-sm font-medium">Daily Avg</span>
+              <span className="text-xs font-bold uppercase tracking-wider">Daily Avg</span>
             </div>
-            <div className="text-lg font-bold">
+            <div className="text-2xl font-bold text-foreground">
               {data.analytics.avg_daily.toFixed(1)}
             </div>
-            <div className="text-xs text-muted-foreground">per day</div>
+            <div className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">per day</div>
           </div>
-          <div className="rounded-lg bg-purple-50 p-3 text-center dark:bg-purple-900/20">
-            <div className="mb-1 flex items-center justify-center gap-1 text-purple-600">
+          <div className="rounded-3xl bg-purple-50/5 p-4 text-center border border-[#7645d9]/10 backdrop-blur-sm">
+            <div className="mb-1 flex items-center justify-center gap-1.5 text-[#7645d9]">
               <Eye className="h-4 w-4" />
-              <span className="text-sm font-medium">Active</span>
+              <span className="text-xs font-bold uppercase tracking-wider">Active</span>
             </div>
-            <div className="text-lg font-bold">
+            <div className="text-2xl font-bold text-foreground">
               {data.recent_wallets.filter(w => w.is_active).length}
             </div>
-            <div className="text-xs text-muted-foreground">wallets</div>
+            <div className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">wallets</div>
           </div>
         </div>
 
@@ -264,34 +267,34 @@ export function RecentWalletsPanel({ initialData }: { initialData?: RecentWallet
             displayedWallets.map((wallet, index) => (
               <div
                 key={wallet.wallet_address}
-                className="flex items-center justify-between rounded border border-border p-3 hover:bg-muted/50"
+                className="flex items-center justify-between rounded-2xl border border-white/5 p-4 hover:bg-white/5 transition-all group/item active:scale-[0.99]"
               >
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-4">
                   <div className="relative">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-r from-blue-500 to-purple-600 text-xs font-bold text-white">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-[#1fc7d4] to-[#7645d9] text-xs font-bold text-white shadow-lg shadow-cyan-500/10">
                       {index + 1}
                     </div>
                     {wallet.connection_info.is_new && (
-                      <div className="absolute -top-1 -right-1 h-3 w-3 rounded-full border-2 border-white bg-green-500 dark:border-gray-900" />
+                      <div className="absolute -top-1 -right-1 h-3.5 w-3.5 rounded-full border-2 border-[#1a1c24] bg-[#31d0aa] animate-pulse" />
                     )}
                   </div>
                   <div>
-                    <div className="font-mono text-sm font-medium">
+                    <div className="font-mono text-sm font-bold text-foreground">
                       {formatWalletAddress(wallet.wallet_address)}
                     </div>
                     <div className="mt-1 flex items-center gap-2">
-                      <span className="text-xs text-gray-500">
+                      <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest bg-white/5 px-2 py-0.5 rounded-lg border border-white/5">
                         {wallet.active_permissions_count} permissions
                       </span>
                     </div>
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="text-xs text-gray-500">
+                  <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1">
                     {formatTimeAgo(wallet.created_at)}
                   </div>
                   {wallet.connection_info.is_new && (
-                    <Badge variant="default" className="mt-1 text-xs">
+                    <Badge variant="default" className="rounded-lg bg-[#31d0aa] text-white text-[9px] font-bold py-0 h-4 border-none shadow-sm shadow-[#31d0aa]/20">
                       NEW
                     </Badge>
                   )}

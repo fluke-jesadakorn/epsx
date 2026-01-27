@@ -28,16 +28,19 @@ export const StatsCard: React.FC<StatsCardProps> = ({
     iconColor,
 }) => {
     return (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-            <div className="flex items-center">
-                <div className={`p-2 ${iconBgColor} rounded-lg`}>
+        <div className="relative group overflow-hidden rounded-[32px] bg-slate-900/40 backdrop-blur-2xl border border-white/5 p-6 shadow-xl transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]">
+            {/* Background Glow */}
+            <div className={`absolute -right-4 -bottom-4 w-24 h-24 blur-3xl opacity-10 group-hover:opacity-20 transition-opacity rounded-full ${iconBgColor}`}></div>
+
+            <div className="relative flex items-center">
+                <div className={`flex items-center justify-center w-12 h-12 rounded-[20px] bg-white/5 border border-white/5 shadow-inner transition-transform duration-300 group-hover:rotate-6`}>
                     <Icon className={`w-6 h-6 ${iconColor}`} />
                 </div>
-                <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600 dark:text-gray-300">
+                <div className="ml-5">
+                    <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em] mb-1">
                         {title}
                     </p>
-                    <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                    <p className="text-2xl font-black text-foreground tracking-tight">
                         {typeof value === 'number' ? value.toLocaleString() : value}
                     </p>
                 </div>

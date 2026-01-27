@@ -1,6 +1,5 @@
 'use client';
 
-import { Settings } from 'lucide-react';
 
 import { SettingsDashboard } from '@/components/admin/SettingsDashboard';
 import { PageHeader, PageLayout } from '@/components/shared';
@@ -13,12 +12,13 @@ export const dynamic = 'force-dynamic';
  */
 export default function SettingsPage() {
   return (
-    <PageLayout maxWidth="6xl">
+    <PageLayout maxWidth="7xl">
       <PageHeader
-        title="Settings"
-        subtitle="Configure system settings, notifications, and security options"
+        title="Settings Nexus"
+        subtitle="Universal configuration interface for security, appearance, and system protocols"
         icon="Settings"
-        gradient="default"
+        gradient="warning"
+        centered
       />
 
       <SettingsDashboard />

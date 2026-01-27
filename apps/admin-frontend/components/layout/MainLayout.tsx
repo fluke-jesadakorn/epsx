@@ -1,6 +1,6 @@
 'use client';
 
-import { ReactNode } from 'react';
+import { ReactNode, Suspense } from 'react';
 
 import { Breadcrumb } from './Breadcrumb';
 import { Header } from './Header';
@@ -31,7 +31,7 @@ interface MainLayoutProps {
  */
 export function MainLayout({ children, user }: MainLayoutProps) {
   return (
-    <div className="flex h-screen w-full overflow-hidden bg-background">
+    <div className="flex h-screen w-full overflow-hidden bg-gradient-to-br from-slate-900 via-purple-900/20 to-slate-900 bg-grid-pattern">
       {/* Sidebar Navigation - Fixed height handled by parent h-screen */}
       <Sidebar />
 
@@ -42,28 +42,27 @@ export function MainLayout({ children, user }: MainLayoutProps) {
 
         {/* Content Wrapper - Fixed frame, internal main scrolls */}
         <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-          {/* Breadcrumb - Fixed */}
-          <div className="border-b border-border bg-card px-3 sm:px-4 lg:px-6 py-2 sm:py-3 z-30">
+          {/* Breadcrumb - Fixed with glass effect */}
+          <div className="border-b border-white/10 bg-white/5 backdrop-blur-xl px-3 sm:px-4 lg:px-6 py-2 sm:py-3 z-30">
             <Breadcrumb />
           </div>
 
           {/* Main Content - Scrollable */}
           <main className="flex-1 overflow-y-auto overflow-x-hidden p-0">
-            {children}
+            <Suspense fallback={null}>
+              {children}
+            </Suspense>
           </main>
 
-          {/* Footer - Fixed */}
-          <footer className="border-t border-border bg-card px-3 sm:px-4 lg:px-6 py-3 sm:py-4">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-4">
-              <div className="flex items-center gap-1.5 sm:gap-2">
-                <span className="text-sm sm:text-base">⚡</span>
-                <span className="text-xs sm:text-sm font-semibold text-gray-900 dark:text-white">
-                  EPSX Admin Dashboard
-                </span>
-              </div>
-              <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">
+          {/* Footer - Fixed with glass effect */}
+          <footer className="border-t border-white/10 bg-white/5 backdrop-blur-xl px-4 py-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-foreground">
+                EPSX Admin Dashboard
+              </span>
+              <span className="text-sm text-muted-foreground">
                 Version 2.0
-              </div>
+              </span>
             </div>
           </footer>
         </div>

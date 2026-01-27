@@ -1,6 +1,5 @@
 'use client';
 
-import { Bell } from 'lucide-react';
 import { useState } from 'react';
 
 import { NotificationManagement } from '@/components/notifications/NotificationManagement';
@@ -32,10 +31,11 @@ export default function NotificationsPage() {
   return (
     <PageLayout>
       <PageHeader
-        title="Notifications"
-        subtitle="Send notifications and manage user alerts across the platform"
+        title="Command Center"
+        subtitle="Global broadcast protocol and network alert management"
         icon="Bell"
-        gradient="info"
+        gradient="warning"
+        centered
       />
 
       <PageTabs
@@ -44,23 +44,28 @@ export default function NotificationsPage() {
         onTabChange={setActiveTab}
       />
 
-      {activeTab === 'overview' ? (
-        <NotificationManagement currentUser={user} />
-      ) : (
-        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-amber-400/10 via-orange-400/10 to-red-400/10 p-0.5">
-          <div className="relative bg-card/95 backdrop-blur-xl rounded-2xl p-6 sm:p-8">
-            <h2 className="text-xl sm:text-2xl font-bold mb-6 bg-gradient-to-r from-amber-500 via-orange-500 to-red-500 bg-clip-text text-transparent">
-              Send Notification
-            </h2>
-            <div className="max-w-3xl">
-              <SendNotificationForm
-                onSuccess={() => setActiveTab('overview')}
-                onCancel={() => setActiveTab('overview')}
-              />
+      <div className="mt-8">
+        {activeTab === 'overview' ? (
+          <NotificationManagement currentUser={user} />
+        ) : (
+          <div className="relative overflow-hidden rounded-[40px] bg-slate-900/40 backdrop-blur-2xl border border-white/5 p-1 shadow-2xl">
+            <div className="relative bg-card/60 backdrop-blur-md rounded-[38px] p-8 sm:p-12">
+              <div className="max-w-4xl mx-auto">
+                <div className="mb-12">
+                  <h2 className="text-3xl font-black text-foreground uppercase tracking-tight mb-2">
+                    Signal Generator
+                  </h2>
+                  <p className="text-sm font-bold text-muted-foreground">Construct and transmit high-priority system alerts</p>
+                </div>
+                <SendNotificationForm
+                  onSuccess={() => setActiveTab('overview')}
+                  onCancel={() => setActiveTab('overview')}
+                />
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </PageLayout>
   );
 }

@@ -1,23 +1,24 @@
 /**
  * Shared Design System - Theme Configuration (Tailwind CSS v4)
- * 
- * Centralized configuration for both Frontend and Admin-Frontend apps.
- * Source of Truth for:
- * - Theme configuration (@theme)
- * - Base element styles (@layer base)
- * - Shared variables and utility classes
+ *
+ * Modern, clean admin interface theme (Vercel/Linear/Stripe inspired)
+ * - Proper light/dark mode support
+ * - Neutral gray palette with blue accent
+ * - System fonts for native feel
+ * - Subtle shadows and borders
  */
 
 @theme {
   /* Container Configuration */
   --breakpoint-2xl: 1400px;
-  
-  /* Border Radius Variables */
-  --radius: 1rem;
-  --radius-lg: 1rem;
-  --radius-md: calc(1rem - 2px);
-  --radius-sm: calc(1rem - 4px);
-  
+
+  /* Border Radius - PancakeSwap standards */
+  --radius-sm: 0.5rem;   /* 8px */
+  --radius: 0.75rem;     /* 12px */
+  --radius-lg: 1rem;     /* 16px */
+  --radius-xl: 1.5rem;   /* 24px */
+  --radius-pancake: 1.5rem; /* 24px */
+
   /* ========================================================================
      TAILWIND V4 SEMANTIC MAPPING
      ======================================================================== */
@@ -40,93 +41,13 @@
   --color-border: hsl(var(--border));
   --color-input: hsl(var(--input));
   --color-ring: hsl(var(--ring));
-  
-  /* Custom Status Colors */
-  --color-success: hsl(var(--admin-active));
-  --color-warning: hsl(var(--admin-pending));
-  --color-error: hsl(var(--admin-suspended));
-  --color-info: hsl(var(--insight-info));
 
-  /* Color Scales for reference */
-  --color-primary-50: hsl(217 100% 95%);
-  --color-primary-100: hsl(217 90% 90%);
-  --color-primary-200: hsl(217 95% 85%);
-  --color-primary-300: hsl(217 95% 75%);
-  --color-primary-400: hsl(217 95% 65%);
-  --color-primary-500: hsl(217 91% 60%);
-  --color-primary-600: hsl(217 95% 45%);
-  --color-primary-700: hsl(217 90% 40%);
-  --color-primary-800: hsl(217 85% 35%);
-  --color-primary-900: hsl(217 80% 30%);
-  
-  /* Secondary Color Scale */
-  --color-secondary-50: hsl(262 100% 95%);
-  --color-secondary-100: hsl(262 95% 88%);
-  --color-secondary-200: hsl(262 90% 80%);
-  --color-secondary-300: hsl(262 95% 75%);
-  --color-secondary-400: hsl(262 100% 70%);
-  --color-secondary-500: hsl(262 83% 58%);
-  --color-secondary-600: hsl(262 95% 65%);
-  --color-secondary-700: hsl(262 90% 60%);
-  --color-secondary-800: hsl(262 85% 55%);
-  --color-secondary-900: hsl(262 80% 50%);
-  
-  /* Success Color Scale */
-  --color-success-50: hsl(142 76% 95%);
-  --color-success-100: hsl(142 71% 88%);
-  --color-success-200: hsl(142 71% 75%);
-  --color-success-300: hsl(142 71% 65%);
-  --color-success-400: hsl(142 71% 55%);
-  --color-success-500: hsl(142 71% 45%);
-  --color-success-600: hsl(142 66% 40%);
-  --color-success-700: hsl(142 61% 35%);
-  --color-success-800: hsl(142 56% 30%);
-  --color-success-900: hsl(142 51% 25%);
-  
-  /* Warning Color Scale */
-  --color-warning-50: hsl(45 98% 95%);
-  --color-warning-100: hsl(45 93% 88%);
-  --color-warning-200: hsl(45 93% 75%);
-  --color-warning-300: hsl(45 93% 65%);
-  --color-warning-400: hsl(45 93% 57%);
-  --color-warning-500: hsl(45 93% 47%);
-  --color-warning-600: hsl(45 88% 42%);
-  --color-warning-700: hsl(45 83% 37%);
-  --color-warning-800: hsl(45 78% 32%);
-  --color-warning-900: hsl(45 73% 27%);
-  
-  /* Error Color Scale */
-  --color-error-50: hsl(0 90% 95%);
-  --color-error-100: hsl(0 85% 88%);
-  --color-error-200: hsl(0 85% 75%);
-  --color-error-300: hsl(0 85% 70%);
-  --color-error-400: hsl(0 85% 65%);
-  --color-error-500: hsl(0 85% 60%);
-  --color-error-600: hsl(0 80% 55%);
-  --color-error-700: hsl(0 75% 50%);
-  --color-error-800: hsl(0 70% 45%);
-  --color-error-900: hsl(0 65% 40%);
-  
-  /* Info Color Scale */
-  --color-info-50: hsl(217 96% 95%);
-  --color-info-100: hsl(217 91% 88%);
-  --color-info-200: hsl(217 91% 75%);
-  --color-info-300: hsl(217 91% 70%);
-  --color-info-400: hsl(217 91% 65%);
-  --color-info-500: hsl(217 91% 60%);
-  --color-info-600: hsl(217 86% 55%);
-  --color-info-700: hsl(217 81% 50%);
-  --color-info-800: hsl(217 76% 45%);
-  --color-info-900: hsl(217 71% 40%);
-  
-  /* Insight Colors (Analytics Theme) */
-  --color-insight-primary: hsl(217 91% 60%);
-  --color-insight-secondary: hsl(262 83% 58%);
-  --color-insight-success: hsl(142 71% 45%);
-  --color-insight-warning: hsl(45 93% 47%);
-  --color-insight-error: hsl(0 85% 60%);
-  --color-insight-info: hsl(184 93% 47%);
-  
+  /* Status Colors */
+  --color-success: hsl(var(--success));
+  --color-warning: hsl(var(--warning));
+  --color-error: hsl(var(--error));
+  --color-info: hsl(var(--info));
+
   /* Animations */
   --animate-shimmer: shimmer 2s infinite linear;
 }
@@ -136,160 +57,140 @@
   100% { transform: translateX(200%) skewX(-12deg); }
 }
 
-
-
 /* ============================================================================
-   CSS CUSTOM PROPERTIES (Theme Variables) - For Backwards Compatibility
+   CSS CUSTOM PROPERTIES (Theme Variables)
    ============================================================================ */
 
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  /* Light theme - Core colors */
-  --background: 252 100% 99%;
-  --foreground: 223 84% 10%;
+  /* Light theme - Neutral gray background */
+  --background: 0 0% 100%;
+  --foreground: 0 0% 9%;
+
   --card: 0 0% 100%;
-  --card-foreground: 223 84% 10%;
+  --card-foreground: 0 0% 9%;
+
   --popover: 0 0% 100%;
-  --popover-foreground: 223 84% 10%;
-  
-  /* Primary colors (Analytics platform inspired) */
-  --primary: 217 91% 60%;
+  --popover-foreground: 0 0% 9%;
+
+  /* Primary - Purple */
+  --primary: 258 90% 66%;
   --primary-foreground: 0 0% 100%;
-  
-  /* Secondary colors */
-  --secondary: 42 100% 70%;
-  --secondary-foreground: 223 84% 10%;
-  
-  /* Utility colors */
-  --muted: 240 5% 96%;
-  --muted-foreground: 240 4% 46%;
-  --accent: 217 32% 95%;
-  --accent-foreground: 217 91% 40%;
-  --destructive: 0 85% 60%;
+
+  /* Secondary - Orange */
+  --secondary: 24 95% 53%;
+  --secondary-foreground: 0 0% 100%;
+
+  /* Muted - Subtle gray */
+  --muted: 0 0% 96%;
+  --muted-foreground: 0 0% 45%;
+
+  /* Accent - Purple gradient base */
+  --accent: 258 90% 66% / 0.1;
+  --accent-foreground: 258 90% 66%;
+
+  /* Glass morphism */
+  --glass-bg: rgba(255, 255, 255, 0.05);
+  --glass-border: rgba(139, 92, 246, 0.2);
+
+  /* Destructive - Red */
+  --destructive: 0 84% 60%;
   --destructive-foreground: 0 0% 100%;
-  
-  /* Interactive elements */
-  --border: 240 6% 90%;
-  --input: 240 6% 90%;
-  --ring: 217 91% 60%;
-  
-  /* ========================================================================
-     ADMIN-SPECIFIC SEMANTIC COLORS
-     ======================================================================== */
-  
-  /* Admin user status colors */
-  --admin-active: 142 71% 45%;
-  --admin-inactive: 215 16% 47%;
-  --admin-pending: 45 93% 47%;
-  --admin-suspended: 0 85% 60%;
-  --admin-premium: 250 84% 54%;
-  
-  /* Permission status colors */
-  --permission-granted: 142 71% 45%;
-  --permission-denied: 0 85% 60%;
-  --permission-pending: 45 93% 47%;
-  --permission-inherited: 217 91% 60%;
-  
-  /* Insight/Analytics colors */
-  --insight-primary: 217 91% 60%;
+
+  /* Borders - Subtle gray */
+  --border: 0 0% 90%;
+  --input: 0 0% 90%;
+  --ring: 221 83% 53%;
+
+  /* Status Colors */
+  --success: 142 76% 36%;
+  --warning: 38 92% 50%;
+  --error: 0 84% 60%;
+  --info: 199 89% 48%;
+
+  /* PancakeSwap Specific */
+  --pancake-cyan: 184 72% 48%;
+  --pancake-magenta: 329 86% 61%;
+  --pancake-purple: 259 66% 56%;
+  --pancake-bg: 250 24% 9%;
+
+  /* Admin Status Colors */
+  --admin-active: 142 76% 36%;
+  --admin-inactive: 0 0% 45%;
+  --admin-pending: 38 92% 50%;
+  --admin-suspended: 0 84% 60%;
+  --admin-premium: 262 83% 58%;
+
+  /* Insight Colors */
+  --insight-primary: 221 83% 53%;
   --insight-secondary: 262 83% 58%;
-  --insight-success: 142 71% 45%;
-  --insight-warning: 45 93% 47%;
-  --insight-error: 0 85% 60%;
-  --insight-info: 184 93% 47%;
-  --insight-accent: 217 91% 65%;
-  
-  /* PancakeSwap-inspired colors */
-  --pancake-primary: 31 100% 50%;
-  --pancake-secondary: 42 100% 70%;
-  --pancake-success: 142 71% 45%;
-  --pancake-warning: 45 93% 47%;
-  --pancake-info: 217 91% 60%;
-  --pancake-purple: 250 84% 54%;
-  
-  /* ========================================================================
-     GRADIENT DEFINITIONS
-     ======================================================================== */
-  
-  /* Primary gradients */
-  --gradient-primary: linear-gradient(135deg, hsl(31 100% 50%) 0%, hsl(42 100% 70%) 100%);
-  --gradient-primary-hover: linear-gradient(135deg, hsl(31 95% 45%) 0%, hsl(42 95% 65%) 100%);
-  --gradient-secondary: linear-gradient(135deg, hsl(217 91% 60%) 0%, hsl(262 83% 58%) 100%);
-  --gradient-secondary-hover: linear-gradient(135deg, hsl(217 91% 65%) 0%, hsl(262 83% 63%) 100%);
-  
-  /* Admin-specific gradients */
-  --gradient-admin: linear-gradient(135deg, hsl(217 91% 60%) 0%, hsl(262 83% 58%) 100%);
-  --gradient-admin-hover: linear-gradient(135deg, hsl(217 91% 65%) 0%, hsl(262 83% 63%) 100%);
-  --gradient-analytics: linear-gradient(135deg, hsl(215 16% 47%) 0%, hsl(215 19% 35%) 100%);
-  --gradient-analytics-hover: linear-gradient(135deg, hsl(215 20% 52%) 0%, hsl(215 22% 40%) 100%);
-  
-  /* Card gradients */
-  --gradient-card: linear-gradient(135deg, hsl(var(--card)) 0%, hsl(var(--muted) / 0.3) 100%);
-  --gradient-soft-highlight: linear-gradient(135deg, hsl(31 95% 92%) 0%, hsl(42 90% 88%) 100%);
+  --insight-success: 142 76% 36%;
+  --insight-warning: 38 92% 50%;
+  --insight-error: 0 84% 60%;
+  --insight-info: 199 89% 48%;
 }
 
 .dark {
-  /* Dark theme - Core colors */
-  --background: 240 10% 4%;
-  --foreground: 0 0% 95%;
-  --card: 240 10% 6%;
-  --card-foreground: 0 0% 95%;
-  --popover: 240 10% 6%;
-  --popover-foreground: 0 0% 95%;
-  
-  /* Primary colors (slightly brighter for dark mode) */
-  --primary: 217 91% 65%;
+  /* Slate-based navy dark theme */
+  --background: 222 47% 11%;
+  --foreground: 0 0% 100%;
+
+  --card: 215 28% 17%;
+  --card-foreground: 0 0% 100%;
+
+  --popover: 215 28% 17%;
+  --popover-foreground: 0 0% 100%;
+
+  /* Primary - Purple accent */
+  --primary: 258 90% 66%;
   --primary-foreground: 0 0% 100%;
-  
-  /* Secondary colors */
-  --secondary: 240 4% 16%;
-  --secondary-foreground: 0 0% 95%;
-  
-  /* Utility colors */
-  --muted: 240 4% 16%;
-  --muted-foreground: 240 5% 75%;
-  --accent: 240 4% 16%;
-  --accent-foreground: 0 0% 95%;
+
+  /* Secondary - Orange accent */
+  --secondary: 24 95% 53%;
+  --secondary-foreground: 0 0% 100%;
+
+  /* Muted */
+  --muted: 215 25% 20%;
+  --muted-foreground: 215 20% 65%;
+
+  /* Accent - Purple gradient base */
+  --accent: 258 90% 66% / 0.15;
+  --accent-foreground: 0 0% 100%;
+
+  /* Glass morphism for dark mode */
+  --glass-bg: rgba(15, 23, 42, 0.6);
+  --glass-border: rgba(139, 92, 246, 0.2);
+
+  /* Destructive */
   --destructive: 0 85% 60%;
-  --destructive-foreground: 0 0% 95%;
-  
-  /* Interactive elements */
-  --border: 240 4% 25%;
-  --input: 240 4% 25%;
-  --ring: 217 91% 65%;
-  
-  /* Admin colors (same in dark mode for consistency) */
-  --admin-active: 142 71% 50%;
-  --admin-inactive: 215 16% 55%;
-  --admin-pending: 45 93% 52%;
-  --admin-suspended: 0 85% 65%;
-  --admin-premium: 250 84% 60%;
-  
-  --permission-granted: 142 71% 50%;
-  --permission-denied: 0 85% 65%;
-  --permission-pending: 45 93% 52%;
-  --permission-inherited: 217 91% 65%;
-  
-  /* Insight colors (brighter for dark mode) */
-  --insight-primary: 217 91% 65%;
-  --insight-secondary: 262 83% 63%;
-  --insight-success: 142 71% 50%;
-  --insight-warning: 45 93% 52%;
-  --insight-error: 0 85% 65%;
-  --insight-info: 184 93% 52%;
-  --insight-accent: 217 91% 70%;
-  
-  /* PancakeSwap colors (brighter for dark mode) */
-  --pancake-primary: 31 100% 55%;
-  --pancake-secondary: 42 100% 75%;
-  --pancake-success: 142 71% 50%;
-  --pancake-warning: 45 93% 52%;
-  --pancake-info: 217 91% 65%;
-  --pancake-purple: 250 84% 60%;
-  
-  /* Dark mode gradient variations */
-  --gradient-soft-highlight: linear-gradient(135deg, hsl(31 50% 20%) 0%, hsl(42 60% 18%) 100%);
+  --destructive-foreground: 0 0% 100%;
+
+  /* Borders - Transparent white */
+  --border: 0 0% 100% / 0.1;
+  --input: 215 25% 20%;
+  --ring: 258 90% 66%;
+
+  /* Status Colors */
+  --success: 160 84% 39%;
+  --warning: 38 92% 50%;
+  --error: 0 85% 60%;
+  --info: 199 89% 48%;
+
+  /* Admin Colors */
+  --admin-active: 160 84% 39%;
+  --admin-inactive: 0 0% 55%;
+  --admin-pending: 38 92% 50%;
+  --admin-suspended: 0 85% 60%;
+  --admin-premium: 258 90% 66%;
+
+  /* Insight Colors */
+  --insight-primary: 258 90% 66%;
+  --insight-secondary: 217 91% 60%;
+  --insight-success: 160 84% 39%;
+  --insight-warning: 38 92% 50%;
+  --insight-error: 0 85% 60%;
+  --insight-info: 199 89% 48%;
 }
 
 /* ============================================================================
@@ -306,6 +207,7 @@
 body {
   background-color: hsl(var(--background));
   color: hsl(var(--foreground));
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   font-feature-settings: "rlig" 1, "calt" 1;
@@ -344,8 +246,8 @@ select:disabled {
 
 /* Better Scrollbar UI */
 ::-webkit-scrollbar {
-  width: 11px;
-  height: 11px;
+  width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-track {
@@ -353,25 +255,12 @@ select:disabled {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: hsl(var(--muted-foreground) / 0.3);
-  border-radius: 20px;
-  border: 3px solid transparent;
-  background-clip: content-box;
+  background: hsl(var(--border));
+  border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: hsl(var(--muted-foreground) / 0.5);
-  background-clip: content-box;
-}
-
-.dark ::-webkit-scrollbar-thumb {
-  background: hsl(var(--muted-foreground) / 0.4);
-  background-clip: content-box;
-}
-
-.dark ::-webkit-scrollbar-thumb:hover {
-  background: hsl(var(--muted-foreground) / 0.6);
-  background-clip: content-box;
+  background: hsl(var(--muted-foreground) / 0.3);
 }
 
 /* Ensure proper box-sizing */
@@ -483,35 +372,35 @@ select {
     box-shadow: none !important;
     text-shadow: none !important;
   }
-  
+
   a,
   a:visited {
     text-decoration: underline;
   }
-  
+
   a[href]:after {
     content: " (" attr(href) ")";
   }
-  
+
   abbr[title]:after {
     content: " (" attr(title) ")";
   }
-  
+
   img {
     max-width: 100% !important;
   }
-  
+
   @page {
     margin: 0.5cm;
   }
-  
+
   p,
   h2,
   h3 {
     orphans: 3;
     widows: 3;
   }
-  
+
   h2,
   h3 {
     page-break-after: avoid;

@@ -3,7 +3,6 @@
 import { Copy, Trash2 } from 'lucide-react';
 import React from 'react';
 
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { TableCell, TableRow } from '@/components/ui/table';
 import type { ApiKeyResponse } from '@/shared/api/plans';
@@ -21,7 +20,7 @@ interface ApiKeyRowProps {
  * @param address
  */
 const truncateWallet = (address: string): string => {
-    if (!address || address.length < 12) {return address || 'Unknown';}
+    if (!address || address.length < 12) { return address || 'Unknown'; }
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
 };
 
@@ -30,8 +29,8 @@ const truncateWallet = (address: string): string => {
  * @param prefix
  */
 const maskKeyPrefix = (prefix: string): string => {
-    if (!prefix) {return '***';}
-    if (prefix.length <= 8) {return `${prefix}...`;}
+    if (!prefix) { return '***'; }
+    if (prefix.length <= 8) { return `${prefix}...`; }
     const start = prefix.slice(0, 4);
     const end = prefix.slice(-3);
     return `${start}...${end}`;
@@ -75,15 +74,15 @@ export const ApiKeyRow: React.FC<ApiKeyRowProps> = ({
     const permissionGroups = (apiKey as any).permission_groups || [];
 
     return (
-        <TableRow>
+        <TableRow className="hover:bg-white/[0.02] border-white/5 transition-colors">
             {/* User / Client */}
-            <TableCell>
+            <TableCell className="py-6 px-6">
                 <div className="flex flex-col">
-                    <span className="font-medium text-gray-900 dark:text-gray-100">
+                    <span className="font-black text-foreground tracking-tight text-base">
                         {apiKey.client_name}
                     </span>
                     <span
-                        className="text-xs text-gray-500 dark:text-gray-400 font-mono cursor-pointer hover:text-blue-600 dark:hover:text-blue-400"
+                        className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mt-1 cursor-pointer hover:text-[#1fc7d4] transition-colors"
                         title={walletAddress}
                         onClick={() => onCopyWallet(walletAddress)}
                     >
@@ -93,84 +92,95 @@ export const ApiKeyRow: React.FC<ApiKeyRowProps> = ({
             </TableCell>
 
             {/* API Key */}
-            <TableCell>
-                <div className="flex items-center space-x-2">
-                    <span className="font-mono text-sm text-gray-600 dark:text-gray-300">
+            <TableCell className="py-6 px-6">
+                <div className="flex items-center space-x-3">
+                    <div className="px-3 py-1.5 bg-white/5 border border-white/5 rounded-lg font-mono text-xs font-bold text-[#1fc7d4]">
                         {maskKeyPrefix(keyPrefix)}
-                    </span>
+                    </div>
                     <button
                         onClick={() => onCopyKeyPrefix(keyPrefix)}
-                        className="p-1 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
+                        className="p-2 text-muted-foreground/50 hover:text-[#1fc7d4] hover:bg-white/5 rounded-lg transition-all"
                         title="Copy key prefix"
                     >
-                        <Copy className="w-3 h-3" />
+                        <Copy className="w-4 h-4" />
                     </button>
                 </div>
             </TableCell>
 
             {/* Scope / Permission Groups */}
-            <TableCell>
-                <div className="flex flex-wrap gap-1 max-w-[200px]">
+            <TableCell className="py-6 px-6">
+                <div className="flex flex-wrap gap-2 max-w-[240px]">
                     {permissionGroups.length > 0 ? (
                         permissionGroups.slice(0, 3).map((group: { id: string; name: string }) => (
-                            <Badge
+                            <span
                                 key={group.id}
-                                variant="secondary"
-                                className="text-xs bg-purple-100 dark:bg-purple-900/50 text-purple-800 dark:text-purple-200 hover:bg-purple-200 border-none"
+                                className="inline-flex items-center px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-widest bg-purple-500/10 text-purple-400 border border-purple-500/10 shadow-[0_0_15px_rgba(168,85,247,0.05)]"
                             >
                                 {group.name}
-                            </Badge>
+                            </span>
                         ))
                     ) : apiKey.allowed_modules.length > 0 ? (
                         apiKey.allowed_modules.slice(0, 3).map((module) => (
-                            <Badge key={module.module_id} variant="outline" className="text-xs">
+                            <span
+                                key={module.module_id}
+                                className="inline-flex items-center px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-widest bg-cyan-500/10 text-cyan-400 border border-cyan-500/10 shadow-[0_0_15px_rgba(31,199,212,0.05)]"
+                            >
                                 {module.module_name}
-                            </Badge>
+                            </span>
                         ))
                     ) : (
-                        <span className="text-xs text-gray-400">No scope</span>
+                        <span className="text-[10px] font-black text-muted-foreground/30 uppercase tracking-widest">No scope</span>
                     )}
                     {(permissionGroups.length > 3 || apiKey.allowed_modules.length > 3) && (
-                        <Badge variant="outline" className="text-xs">
+                        <span className="inline-flex items-center px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-widest bg-white/5 text-muted-foreground border border-white/5">
                             +{Math.max(permissionGroups.length, apiKey.allowed_modules.length) - 3}
-                        </Badge>
+                        </span>
                     )}
                 </div>
             </TableCell>
 
             {/* Expiration */}
-            <TableCell>
+            <TableCell className="py-6 px-6">
                 <button
                     onClick={() => onEditExpiration(apiKey)}
-                    className="text-sm text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:underline"
+                    className="flex flex-col items-start group"
                     title="Click to edit expiration"
                 >
-                    {apiKey.expires_at ? (
-                        new Date(apiKey.expires_at).toLocaleDateString()
-                    ) : (
-                        <span className="text-gray-400 dark:text-gray-500">Never</span>
-                    )}
+                    <span className="text-xs font-black text-foreground group-hover:text-[#1fc7d4] transition-colors">
+                        {apiKey.expires_at ? (
+                            new Date(apiKey.expires_at).toLocaleDateString(undefined, {
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric'
+                            })
+                        ) : (
+                            'Never'
+                        )}
+                    </span>
+                    <span className="text-[10px] font-black text-muted-foreground/50 uppercase tracking-widest">
+                        {apiKey.expires_at ? 'Fixed Date' : 'Permanent'}
+                    </span>
                 </button>
             </TableCell>
 
             {/* Status */}
-            <TableCell>
-                <Badge className={getStatusBadgeClass(apiKey.status)}>
+            <TableCell className="py-6 px-6">
+                <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest ${getStatusBadgeClass(apiKey.status)}`}>
                     {apiKey.status}
-                </Badge>
+                </span>
             </TableCell>
 
             {/* Actions */}
-            <TableCell className="text-right">
+            <TableCell className="py-6 px-6 text-right">
                 {apiKey.status === 'active' && (
                     <Button
                         size="sm"
                         variant="ghost"
-                        className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+                        className="h-10 w-10 p-0 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-xl border border-transparent hover:border-red-500/20 active:scale-90 transition-all"
                         onClick={() => onRevoke(apiKey)}
                         title="Revoke API Key"
                     >
-                        <Trash2 className="w-4 h-4" />
+                        <Trash2 className="w-5 h-5" />
                         <span className="sr-only">Revoke</span>
                     </Button>
                 )}

@@ -59,16 +59,16 @@ export function NotFoundContent({
       <div className="relative">
         {/* Background decoration */}
         <div className="absolute inset-0 -z-10">
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-gradient-to-r from-indigo-900/30 to-purple-900/30 rounded-full blur-3xl" />
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-gradient-to-r from-primary/20 to-secondary/20 rounded-full blur-3xl" />
         </div>
 
         {/* Icon */}
         <div className="flex justify-center mb-6">
           <div className="relative">
-            <div className="w-24 h-24 sm:w-28 sm:h-28 bg-gradient-to-br from-indigo-600 to-purple-700 rounded-3xl flex items-center justify-center border-2 border-indigo-400 shadow-lg shadow-indigo-500/30">
+            <div className="w-24 h-24 sm:w-28 sm:h-28 bg-gradient-to-br from-primary to-secondary rounded-3xl flex items-center justify-center border-2 border-primary/50 shadow-lg">
               <FileQuestion className="w-12 h-12 sm:w-14 sm:h-14 text-white" />
             </div>
-            <div className="absolute -top-2 -right-2 w-8 h-8 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center text-white font-bold text-lg">
+            <div className="absolute -top-2 -right-2 w-8 h-8 bg-gradient-to-r from-primary to-secondary rounded-xl flex items-center justify-center text-white font-bold text-lg">
               ?
             </div>
           </div>
@@ -76,7 +76,7 @@ export function NotFoundContent({
 
         {/* Error code */}
         <div className="text-center mb-4">
-          <span className="text-7xl sm:text-8xl font-black bg-gradient-to-r from-indigo-400 via-purple-400 to-indigo-400 bg-clip-text text-transparent">
+          <span className="text-7xl sm:text-8xl font-black bg-gradient-to-r from-primary via-secondary to-primary bg-clip-text text-transparent">
             404
           </span>
         </div>
@@ -96,7 +96,7 @@ export function NotFoundContent({
           {showHomeLink && (
             <Link
               href="/"
-              className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-2xl font-semibold hover:opacity-90 transition-opacity"
+              className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-500 to-orange-500 text-white rounded-2xl font-semibold shadow-lg shadow-purple-500/20 hover:shadow-xl hover:shadow-purple-500/30 hover-lift transition-all"
             >
               <Home className="w-5 h-5" />
               Go Home
@@ -105,7 +105,7 @@ export function NotFoundContent({
           {showBackButton && (
             <button
               onClick={() => router.back()}
-              className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-muted text-foreground rounded-2xl font-semibold hover:bg-muted/80 transition-colors"
+              className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-white/5 backdrop-blur-xl border border-white/10 text-foreground rounded-2xl font-semibold hover:bg-white/10 transition-colors"
             >
               <ArrowLeft className="w-5 h-5" />
               Go Back
@@ -157,10 +157,10 @@ export function ErrorContent({
         </div>
 
         {/* Error details */}
-        <div className="bg-card rounded-2xl border border-border p-6 mb-6 shadow-lg">
+        <div className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 p-6 mb-6 shadow-lg">
           <p className="text-foreground mb-3">{message}</p>
           {errorId && (
-            <p className="text-xs text-muted-foreground font-mono bg-muted px-3 py-2 rounded-lg">
+            <p className="text-xs text-muted-foreground font-mono bg-white/5 backdrop-blur-sm border border-white/10 px-3 py-2 rounded-lg">
               Error ID: {errorId}
             </p>
           )}
@@ -171,7 +171,7 @@ export function ErrorContent({
           {onReset && (
             <button
               onClick={onReset}
-              className="w-full inline-flex items-center justify-center gap-2 px-6 py-4 bg-primary text-primary-foreground rounded-2xl font-semibold hover:opacity-90 transition-opacity"
+              className="w-full inline-flex items-center justify-center gap-2 px-6 py-4 bg-gradient-to-r from-purple-500 to-orange-500 text-white rounded-2xl font-semibold shadow-lg shadow-purple-500/20 hover:shadow-xl hover:shadow-purple-500/30 hover-lift transition-all"
             >
               <RefreshCw className="w-5 h-5" />
               Try Again
@@ -180,7 +180,7 @@ export function ErrorContent({
           {showHomeLink && (
             <Link
               href="/"
-              className="w-full inline-flex items-center justify-center gap-2 px-6 py-4 bg-secondary text-secondary-foreground rounded-2xl font-semibold hover:opacity-90 transition-opacity"
+              className="w-full inline-flex items-center justify-center gap-2 px-6 py-4 bg-gradient-to-r from-purple-500 to-orange-500 text-white rounded-2xl font-semibold shadow-lg shadow-purple-500/20 hover:shadow-xl hover:shadow-purple-500/30 hover-lift transition-all"
             >
               <Home className="w-5 h-5" />
               Go Home
@@ -229,7 +229,7 @@ export function AccessDeniedContent({
       <div className="w-full max-w-lg">
         {/* Icon */}
         <div className="flex justify-center mb-6">
-          <div className="w-20 h-20 sm:w-24 sm:h-24 bg-red-600 rounded-3xl flex items-center justify-center border-2 border-red-400 shadow-lg shadow-red-500/30">
+          <div className="w-20 h-20 sm:w-24 sm:h-24 bg-gradient-to-br from-red-500 to-red-600 rounded-3xl flex items-center justify-center border-2 border-red-400/30 shadow-lg shadow-red-500/30">
             <ShieldX className="w-10 h-10 sm:w-12 sm:h-12 text-white" />
           </div>
         </div>
@@ -245,7 +245,7 @@ export function AccessDeniedContent({
         </div>
 
         {/* Error details card */}
-        <div className="bg-card rounded-2xl border border-border shadow-lg overflow-hidden mb-6">
+        <div className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 shadow-lg overflow-hidden mb-6">
           <div className="p-6">
             <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
               <AlertTriangle className="w-4 h-4 text-destructive" />
@@ -255,7 +255,7 @@ export function AccessDeniedContent({
               {route && (
                 <div className="flex justify-between items-start gap-4">
                   <span className="text-muted-foreground shrink-0">Requested Route:</span>
-                  <code className="text-foreground bg-muted px-2 py-1 rounded text-right break-all">
+                  <code className="text-foreground bg-white/5 backdrop-blur-sm border border-white/10 px-2 py-1 rounded text-right break-all">
                     {decodeURIComponent(route)}
                   </code>
                 </div>
@@ -269,7 +269,7 @@ export function AccessDeniedContent({
               {permission && (
                 <div className="flex justify-between items-start gap-4">
                   <span className="text-muted-foreground shrink-0">Required Permission:</span>
-                  <code className="text-foreground bg-muted px-2 py-1 rounded text-right break-all">
+                  <code className="text-foreground bg-white/5 backdrop-blur-sm border border-white/10 px-2 py-1 rounded text-right break-all">
                     {decodeURIComponent(permission)}
                   </code>
                 </div>
@@ -278,7 +278,7 @@ export function AccessDeniedContent({
           </div>
 
           {context === 'admin' && (
-            <div className="border-t border-border bg-primary/5 p-4">
+            <div className="border-t border-white/10 bg-gradient-to-r from-purple-500/10 to-orange-500/10 backdrop-blur-sm p-4">
               <p className="text-sm text-foreground">
                 <span className="font-medium">Admin Access Required:</span> Only authorized administrators can access this panel.
                 Contact your system administrator if you believe this is an error.
@@ -292,7 +292,7 @@ export function AccessDeniedContent({
           {showLoginButton && (
             <Link
               href="/auth"
-              className="flex-1 inline-flex items-center justify-center gap-2 px-6 py-4 bg-destructive text-destructive-foreground rounded-2xl font-semibold hover:opacity-90 transition-opacity"
+              className="flex-1 inline-flex items-center justify-center gap-2 px-6 py-4 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-2xl font-semibold shadow-lg shadow-red-500/20 hover:shadow-xl hover:shadow-red-500/30 hover-lift transition-all"
             >
               <RotateCcw className="w-5 h-5" />
               Login Again
@@ -301,7 +301,7 @@ export function AccessDeniedContent({
           {showHomeButton && (
             <Link
               href="/"
-              className="flex-1 inline-flex items-center justify-center gap-2 px-6 py-4 bg-muted text-foreground rounded-2xl font-semibold hover:bg-muted/80 transition-colors"
+              className="flex-1 inline-flex items-center justify-center gap-2 px-6 py-4 bg-white/5 backdrop-blur-xl border border-white/10 text-foreground rounded-2xl font-semibold hover:bg-white/10 transition-colors"
             >
               <Home className="w-5 h-5" />
               Go Home

@@ -1,9 +1,25 @@
 'use client';
 
+import {
+  AlertTriangle,
+  BarChart2,
+  Bell,
+  Calendar,
+  ChevronRight,
+  Clock,
+  Layers,
+  MessageSquare,
+  RefreshCw,
+  Search,
+  Shield,
+  Trash2
+} from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
+import { StatsCard } from '@/components/admin/developer-portal/shared/StatsCard';
+import { Button } from '@/components/ui/button';
 import { createNotificationsClient } from '@/shared/api/notifications';
 import { createAdminApiClient } from '@/shared/utils/api-client';
 
@@ -15,9 +31,7 @@ interface NotificationManagementProps {
 }
 
 /**
- *
- * @param root0
- * @param root0.currentUser
+ * Modernized Notification Management with PancakeSwap aesthetic
  */
 export function NotificationManagement({ currentUser }: NotificationManagementProps) {
   const router = useRouter();
@@ -52,14 +66,15 @@ export function NotificationManagement({ currentUser }: NotificationManagementPr
         setStats({
           total: backendStats.total_notifications,
           unread: 0,
-          last24Hours: backendStats.sent_today,
-          lastWeek: backendStats.sent_this_week,
+          sentToday: backendStats.sent_today,
+          sentThisWeek: backendStats.sent_this_week,
           byType: backendStats.by_type || {},
           byPriority: backendStats.by_priority || {},
         });
       }
     } catch (err) {
       console.error('Failed to load notifications:', err);
+      toast.error('Failed to load notification data');
     } finally {
       setLoading(false);
     }
@@ -79,10 +94,8 @@ export function NotificationManagement({ currentUser }: NotificationManagementPr
       const client = createNotificationsClient(createAdminApiClient());
       await client.deleteAdminNotification(deleteModal.id);
 
-      // Update local state immediately
       setNotifications(prev => prev.filter(n => n.id !== deleteModal.id));
 
-      // Update stats
       if (stats) {
         setStats({
           ...stats,
@@ -91,7 +104,7 @@ export function NotificationManagement({ currentUser }: NotificationManagementPr
       }
 
       hideDeleteModal();
-      toast.success('Notification deleted');
+      toast.success('Notification deleted successfully');
     } catch (err) {
       console.error('Failed to delete notification:', err);
       toast.error('Failed to delete notification');
@@ -100,237 +113,230 @@ export function NotificationManagement({ currentUser }: NotificationManagementPr
     }
   };
 
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case 'critical': return 'bg-red-500/10 text-red-400 border-red-500/20';
+      case 'high': return 'bg-amber-500/10 text-amber-400 border-amber-500/20';
+      case 'normal': return 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20';
+      default: return 'bg-slate-500/10 text-slate-400 border-slate-500/20';
+    }
+  };
+
   if (loading) {
     return (
-      <div className="max-w-7xl mx-auto space-y-8">
-        <div className="text-center mb-12">
-          <div className="h-16 bg-primary/20 rounded-2xl w-96 mx-auto mb-6 animate-pulse"></div>
-          <div className="h-6 bg-muted rounded-full w-64 mx-auto animate-pulse"></div>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="space-y-8 animate-in fade-in duration-500">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="bg-card border border-border rounded-3xl h-32 animate-pulse"></div>
+            <div key={i} className="h-32 rounded-[32px] bg-slate-900/40 backdrop-blur-2xl border border-white/5 animate-pulse" />
           ))}
         </div>
+        <div className="h-96 rounded-[32px] bg-slate-900/40 backdrop-blur-2xl border border-white/5 animate-pulse" />
       </div>
     );
   }
 
   return (
-    <div>
-      <div className="space-y-6 sm:space-y-8">
-        <div className="fixed inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute top-20 left-20 w-32 h-32 bg-gradient-to-r from-blue-400/20 to-purple-500/20 rounded-full blur-xl"></div>
-          <div className="absolute top-40 right-32 w-24 h-24 bg-gradient-to-r from-pink-400/20 to-orange-500/20 rounded-full blur-lg"></div>
-          <div className="absolute bottom-32 left-1/3 w-28 h-28 bg-gradient-to-r from-purple-400/15 to-blue-500/15 rounded-full blur-xl"></div>
+    <div className="space-y-10">
+      {/* Stats Section */}
+      {stats && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <StatsCard
+            title="Total Sent"
+            value={stats.total}
+            icon={Layers}
+            iconBgColor="bg-cyan-500"
+            iconColor="text-cyan-400"
+          />
+          <StatsCard
+            title="Today's Pulse"
+            value={stats.sentToday}
+            icon={Clock}
+            iconBgColor="bg-amber-500"
+            iconColor="text-amber-400"
+          />
+          <StatsCard
+            title="Weekly Volume"
+            value={stats.sentThisWeek}
+            icon={Calendar}
+            iconBgColor="bg-purple-500"
+            iconColor="text-purple-400"
+          />
+          <StatsCard
+            title="System Health"
+            value="Stable"
+            icon={Shield}
+            iconBgColor="bg-green-500"
+            iconColor="text-green-400"
+          />
+        </div>
+      )}
+
+      {/* Action Buttons */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+        <button
+          onClick={loadData}
+          className="group relative overflow-hidden rounded-[32px] bg-slate-900/40 backdrop-blur-2xl border border-white/5 p-1 transition-all hover:border-[#1fc7d4]/30 shadow-xl"
+        >
+          <div className="relative bg-card rounded-[28px] p-8 flex items-center justify-between transition-colors group-hover:bg-white/[0.02]">
+            <div className="flex items-center space-x-6">
+              <div className="w-16 h-16 flex items-center justify-center bg-cyan-500/10 rounded-2xl border border-cyan-500/20 text-[#1fc7d4] transition-transform group-hover:rotate-180 duration-500">
+                <RefreshCw className="w-8 h-8" />
+              </div>
+              <div className="text-left">
+                <h3 className="text-xl font-black text-foreground uppercase tracking-tight mb-1">
+                  Synchronize
+                </h3>
+                <p className="text-sm font-bold text-muted-foreground">Refresh real-time telemetry</p>
+              </div>
+            </div>
+            <ChevronRight className="w-6 h-6 text-muted-foreground/30 group-hover:text-[#1fc7d4] group-hover:translate-x-1 transition-all" />
+          </div>
+        </button>
+
+        <button
+          onClick={() => router.push('/notifications/analytics')}
+          className="group relative overflow-hidden rounded-[32px] bg-slate-900/40 backdrop-blur-2xl border border-white/5 p-1 transition-all hover:border-purple-500/30 shadow-xl"
+        >
+          <div className="relative bg-card rounded-[28px] p-8 flex items-center justify-between transition-colors group-hover:bg-white/[0.02]">
+            <div className="flex items-center space-x-6">
+              <div className="w-16 h-16 flex items-center justify-center bg-purple-500/10 rounded-2xl border border-purple-500/20 text-purple-400 transition-transform group-hover:scale-110">
+                <BarChart2 className="w-8 h-8" />
+              </div>
+              <div className="text-left">
+                <h3 className="text-xl font-black text-foreground uppercase tracking-tight mb-1">
+                  Analytics
+                </h3>
+                <p className="text-sm font-bold text-muted-foreground">Deep dive performance metrics</p>
+              </div>
+            </div>
+            <ChevronRight className="w-6 h-6 text-muted-foreground/30 group-hover:text-purple-400 group-hover:translate-x-1 transition-all" />
+          </div>
+        </button>
+      </div>
+
+      {/* Table Section */}
+      <div className="relative overflow-hidden rounded-[32px] bg-slate-900/40 backdrop-blur-2xl border border-white/5 shadow-xl">
+        <div className="p-8 border-b border-white/5 flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-black text-foreground uppercase tracking-tight mb-2">
+              Recent Broadcasts
+            </h2>
+            <p className="text-sm font-bold text-muted-foreground">Monitoring the latest system communications</p>
+          </div>
+          <div className="relative hidden sm:block">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50" />
+            <input
+              type="text"
+              placeholder="Filter events..."
+              className="bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 py-2 text-xs font-bold focus:outline-none focus:border-[#1fc7d4]/50 transition-colors"
+            />
+          </div>
         </div>
 
-        <div className="relative max-w-7xl mx-auto">
-          <div className="text-center mb-8 sm:mb-12">
-            <div className="relative inline-block">
-              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-primary via-secondary to-primary bg-clip-text text-transparent mb-4">
-                🔔 Notification Management
-              </h1>
-              <div className="absolute -top-2 -right-2 w-4 h-4 bg-primary rounded-full"></div>
+        <div className="divide-y divide-white/5">
+          {notifications.length === 0 ? (
+            <div className="py-24 text-center">
+              <div className="inline-flex p-6 bg-white/5 rounded-[32px] mb-6">
+                <Bell className="w-12 h-12 text-muted-foreground/20" />
+              </div>
+              <h3 className="text-xl font-black text-muted-foreground uppercase tracking-tight">
+                Silence is Golden
+              </h3>
+              <p className="text-sm font-bold text-muted-foreground/50 mt-2">No active notifications detected in the grid</p>
             </div>
-            <p className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto">
-              Send and manage system notifications for users
-            </p>
-          </div>
+          ) : (
+            notifications.map(notification => (
+              <div
+                key={notification.id}
+                className="group p-8 flex items-start gap-8 hover:bg-white/[0.02] transition-colors"
+              >
+                <div className="flex-shrink-0 w-14 h-14 rounded-2xl bg-white/5 border border-white/5 flex items-center justify-center text-muted-foreground shadow-inner">
+                  {notification.notification_type === 'security' ? <Shield className="w-6 h-6" /> :
+                    notification.notification_type === 'system' ? <RefreshCw className="w-6 h-6" /> :
+                      <MessageSquare className="w-6 h-6" />}
+                </div>
 
-          {stats && (
-            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 mb-6 sm:mb-8">
-              <div className="bg-card/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl border border-primary/20">
-                <div className="flex items-center justify-between mb-3 sm:mb-4">
-                  <div className="text-xl sm:text-2xl">📬</div>
-                  <span className="text-xs sm:text-sm font-medium text-muted-foreground">Total</span>
-                </div>
-                <div className="space-y-1">
-                  <div className="text-2xl sm:text-3xl font-bold text-primary">{stats.total}</div>
-                  <div className="text-xs sm:text-sm text-foreground/80">Notifications</div>
-                  <div className="text-xs text-muted-foreground">All time</div>
-                </div>
-              </div>
-
-              <div className="bg-card/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl border border-warning/20">
-                <div className="flex items-center justify-between mb-3 sm:mb-4">
-                  <div className="text-xl sm:text-2xl">⚠️</div>
-                  <span className="text-xs sm:text-sm font-medium text-muted-foreground">Unread</span>
-                </div>
-                <div className="space-y-1">
-                  <div className="text-2xl sm:text-3xl font-bold text-warning">{stats.unread}</div>
-                  <div className="text-xs sm:text-sm text-foreground/80">Pending</div>
-                  <div className="text-xs text-muted-foreground">Action needed</div>
-                </div>
-              </div>
-
-              <div className="bg-card/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl border border-secondary/20">
-                <div className="flex items-center justify-between mb-3 sm:mb-4">
-                  <div className="text-xl sm:text-2xl">📅</div>
-                  <span className="text-xs sm:text-sm font-medium text-muted-foreground">Today</span>
-                </div>
-                <div className="space-y-1">
-                  <div className="text-2xl sm:text-3xl font-bold text-secondary">{stats.last24Hours}</div>
-                  <div className="text-xs sm:text-sm text-foreground/80">Last 24h</div>
-                  <div className="text-xs text-muted-foreground">Recent</div>
-                </div>
-              </div>
-
-              <div className="bg-card/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl border border-success/20">
-                <div className="flex items-center justify-between mb-3 sm:mb-4">
-                  <div className="text-xl sm:text-2xl">📊</div>
-                  <span className="text-xs sm:text-sm font-medium text-muted-foreground">Week</span>
-                </div>
-                <div className="space-y-1">
-                  <div className="text-2xl sm:text-3xl font-bold text-success">{stats.lastWeek}</div>
-                  <div className="text-xs sm:text-sm text-foreground/80">Last 7 days</div>
-                  <div className="text-xs text-muted-foreground">Weekly</div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 mb-8 sm:mb-12">
-            <div
-              className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-primary/10 p-0.5 cursor-pointer"
-              onClick={loadData}
-            >
-              <div className="relative bg-primary text-primary-foreground rounded-2xl sm:rounded-3xl transition-opacity hover:opacity-90">
-                <div className="p-6 sm:p-8">
-                  <div className="bg-white/20 rounded-2xl w-12 h-12 flex items-center justify-center mb-4 sm:mb-6">
-                    <span className="text-xl sm:text-2xl">🔄</span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-wrap items-center gap-3 mb-2">
+                    <h3 className="text-lg font-black text-foreground tracking-tight truncate">
+                      {notification.title}
+                    </h3>
+                    <span className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border ${getPriorityColor(notification.priority)}`}>
+                      {notification.priority}
+                    </span>
                   </div>
-                  <h3 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4">Refresh Data</h3>
-                  <p className="text-primary-foreground/80 mb-4 sm:mb-6 text-sm sm:text-base">Reload notification data and statistics</p>
-                  <div className="bg-white/20 rounded-2xl px-4 sm:px-6 py-2 sm:py-3 text-center font-semibold text-sm sm:text-base min-h-[44px] flex items-center justify-center">
-                    Refresh
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div
-              className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-secondary/10 p-0.5 cursor-pointer"
-              onClick={() => router.push('/notifications/analytics')}
-            >
-              <div className="relative bg-secondary text-secondary-foreground rounded-2xl sm:rounded-3xl transition-opacity hover:opacity-90">
-                <div className="p-6 sm:p-8">
-                  <div className="bg-white/20 rounded-2xl w-12 h-12 flex items-center justify-center mb-4 sm:mb-6">
-                    <span className="text-xl sm:text-2xl">📈</span>
-                  </div>
-                  <h3 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4">View Analytics</h3>
-                  <p className="text-secondary-foreground/80 mb-4 sm:mb-6 text-sm sm:text-base">Detailed notification performance metrics</p>
-                  <div className="bg-white/20 rounded-2xl px-4 sm:px-6 py-2 sm:py-3 text-center font-semibold text-sm sm:text-base min-h-[44px] flex items-center justify-center">
-                    Analytics
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-border/20 p-0.5">
-            <div className="relative bg-card/95 backdrop-blur-xl rounded-2xl sm:rounded-3xl p-4 sm:p-6 lg:p-8">
-              <h2 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent mb-6">
-                Recent Notifications
-              </h2>
-
-              {notifications.length === 0 ? (
-                <div className="text-center py-12 sm:py-16">
-                  <div className="h-20 w-20 bg-muted rounded-2xl flex items-center justify-center mx-auto mb-4">
-                    <span className="text-4xl">📭</span>
-                  </div>
-                  <h3 className="text-xl font-semibold text-muted-foreground mb-2">
-                    No notifications yet
-                  </h3>
-                  <p className="text-muted-foreground/60">
-                    Start by sending your first notification
+                  <p className="text-base font-bold text-muted-foreground mb-4 line-clamp-2 max-w-4xl">
+                    {notification.message}
                   </p>
+                  <div className="flex items-center space-x-6 text-[10px] font-black uppercase tracking-widest text-muted-foreground/40">
+                    <span className="flex items-center">
+                      <Layers className="w-3 h-3 mr-2" />
+                      {notification.notification_type}
+                    </span>
+                    <span className="flex items-center">
+                      <Clock className="w-3 h-3 mr-2" />
+                      {new Date(notification.timestamp).toLocaleString(undefined, {
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </span>
+                  </div>
                 </div>
-              ) : (
-                <div className="space-y-4">
-                  {notifications.slice(0, 5).map(notification => (
-                    <div
-                      key={notification.id}
-                      className="p-4 bg-muted/30 rounded-2xl border border-border/50"
-                    >
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="flex-1">
-                          <h3 className="font-medium text-foreground mb-1">
-                            {notification.title}
-                          </h3>
-                          <p className="text-sm text-muted-foreground line-clamp-2 mb-2">
-                            {notification.message}
-                          </p>
-                          <div className="flex items-center gap-4 text-xs text-muted-foreground/70">
-                            <span>{notification.notification_type}</span>
-                            <span>•</span>
-                            <span>{new Date(notification.timestamp).toLocaleString()}</span>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <div className={`px-3 py-1 rounded-full text-xs font-semibold ${notification.priority === 'critical' ? 'bg-destructive/10 text-destructive' :
-                            notification.priority === 'high' ? 'bg-warning/10 text-warning' :
-                              notification.priority === 'normal' ? 'bg-primary/10 text-primary' :
-                                'bg-success/10 text-success'
-                            }`}>
-                            {notification.priority}
-                          </div>
-                          <button
-                            onClick={() => showDeleteModal(notification.id, notification.title)}
-                            className="px-3 py-1 bg-destructive hover:bg-destructive/90 text-destructive-foreground text-xs font-semibold rounded-full transition-colors"
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+
+                <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Button
+                    onClick={() => showDeleteModal(notification.id, notification.title)}
+                    variant="ghost"
+                    className="h-12 w-12 p-0 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-2xl border border-transparent hover:border-red-500/20 active:scale-95 transition-all"
+                  >
+                    <Trash2 className="w-6 h-6" />
+                  </Button>
                 </div>
-              )}
-            </div>
-          </div>
+              </div>
+            ))
+          )}
         </div>
       </div>
 
       {/* Delete Confirmation Modal */}
       {deleteModal.show && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="relative bg-card rounded-3xl p-8 max-w-md w-full shadow-2xl border border-destructive/20">
-            <div className="text-center mb-6">
-              <div className="w-16 h-16 bg-destructive/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                <span className="text-3xl">🗑️</span>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xl animate-in fade-in duration-300">
+          <div className="relative overflow-hidden rounded-[40px] bg-slate-900/60 border border-red-500/20 p-1 max-w-md w-full shadow-2xl">
+            <div className="bg-card rounded-[38px] p-10 text-center">
+              <div className="w-20 h-20 bg-red-500/10 rounded-[28px] flex items-center justify-center mx-auto mb-8 border border-red-500/20">
+                <AlertTriangle className="w-10 h-10 text-red-500" />
               </div>
-              <h3 className="text-2xl font-bold text-foreground mb-2">
-                Delete Notification
+              <h3 className="text-3xl font-black text-foreground uppercase tracking-tight mb-4">
+                Confirm Deletion
               </h3>
-              <p className="text-muted-foreground mb-4">
-                Are you sure you want to delete this notification?
+              <p className="text-base font-bold text-muted-foreground mb-8">
+                This broadcast will be permanently purged from the system grid.
               </p>
-              <div className="bg-muted rounded-xl p-4 mb-6">
-                <p className="text-sm font-medium text-foreground line-clamp-2">
+
+              <div className="bg-white/5 border border-white/5 rounded-2xl p-6 mb-10">
+                <p className="text-sm font-black text-foreground line-clamp-2">
                   {deleteModal.title}
                 </p>
               </div>
-              <p className="text-sm text-destructive font-semibold">
-                This action cannot be undone.
-              </p>
-            </div>
 
-            <div className="flex gap-3">
-              <button
-                onClick={hideDeleteModal}
-                disabled={deleting}
-                className="flex-1 px-6 py-3 bg-muted hover:bg-muted/80 text-foreground font-semibold rounded-xl disabled:opacity-50 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={confirmDelete}
-                disabled={deleting}
-                className="flex-1 px-6 py-3 bg-destructive hover:bg-destructive/90 text-destructive-foreground font-semibold rounded-xl disabled:opacity-50 transition-colors"
-              >
-                {deleting ? 'Deleting...' : 'Delete'}
-              </button>
+              <div className="flex gap-4">
+                <Button
+                  onClick={hideDeleteModal}
+                  disabled={deleting}
+                  className="flex-1 py-7 rounded-2xl bg-white/5 border border-white/10 text-foreground font-black uppercase tracking-widest hover:bg-white/10 transition-all"
+                >
+                  Abort
+                </Button>
+                <Button
+                  onClick={confirmDelete}
+                  disabled={deleting}
+                  className="flex-1 py-7 rounded-2xl bg-red-500 hover:bg-red-600 text-white font-black uppercase tracking-widest shadow-lg shadow-red-500/20 active:scale-95 transition-all"
+                >
+                  {deleting ? 'Purging...' : 'Purge'}
+                </Button>
+              </div>
             </div>
           </div>
         </div>

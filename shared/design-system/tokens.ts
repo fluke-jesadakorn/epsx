@@ -143,12 +143,14 @@ export const colors = {
 
     // PancakeSwap-inspired colors
     pancake: {
-        primary: 'hsl(31 100% 50%)', // Orange
-        secondary: 'hsl(42 100% 70%)', // Yellow
+        primary: 'hsl(184 72% 48%)', // Cyan (#1fc7d4)
+        secondary: 'hsl(329 86% 61%)', // Magenta (#ed4b9e)
+        purple: 'hsl(259 66% 56%)', // Purple (#7645d9)
+        bg: 'hsl(250 24% 9%)', // Deep background
+        bgSubtle: 'hsl(250 24% 15%)', // Subtle background
         success: 'hsl(142 71% 45%)',
         warning: 'hsl(45 93% 47%)',
-        info: 'hsl(217 91% 60%)',
-        purple: 'hsl(250 84% 54%)',
+        info: 'hsl(184 72% 48%)',
     },
 
     // Gradient definitions
@@ -317,6 +319,7 @@ export const borderRadius = {
     xl: '0.75rem', // 12px
     '2xl': '1rem', // 16px
     '3xl': '1.5rem', // 24px
+    pancake: '1.5rem', // 24px
     full: '9999px',
 } as const;
 

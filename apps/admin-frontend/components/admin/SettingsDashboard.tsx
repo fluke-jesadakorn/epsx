@@ -2,21 +2,22 @@
 
 import {
   Bell,
-  ChevronRight,
+  Clock,
   Globe,
   Loader2,
   Palette,
+  RefreshCw,
   RotateCcw,
   Save,
   Settings,
   Shield,
-  Sparkles,
-  Zap,
+  Zap
 } from 'lucide-react';
 import * as React from 'react';
 import { toast } from 'sonner';
 
 import { useSettings } from '@/components/providers/SettingsProvider';
+import { PageTabs, type TabItem } from '@/components/shared/page-layout';
 import { settingsApi } from '@/lib/api/settings-client';
 import type { SystemSettings } from '@/types/settings';
 import { DEFAULT_SETTINGS } from '@/types/settings';
@@ -31,8 +32,7 @@ interface SettingsDashboardProps {
 }
 
 /**
- * Settings Dashboard Component
- * Manages global admin console settings with real API persistence
+ * Modernized Settings Dashboard with PancakeSwap aesthetic
  */
 export const SettingsDashboard: React.FC<SettingsDashboardProps> = () => {
   const [activeView, setActiveView] = React.useState('general');
@@ -151,13 +151,23 @@ export const SettingsDashboard: React.FC<SettingsDashboardProps> = () => {
     }
   };
 
+  const tabs: TabItem[] = [
+    { id: 'general', label: 'Nodes', prefix: '🌍', gradient: 'primary' },
+    { id: 'notifications', label: 'Signals', prefix: '🔔', gradient: 'info' },
+    { id: 'security', label: 'Vault', prefix: '🔒', gradient: 'warning' },
+    { id: 'appearance', label: 'Optics', prefix: '🎨', gradient: 'purple' },
+  ];
+
   const renderContent = () => {
     if (loading) {
       return (
-        <div className="flex items-center justify-center py-12 sm:py-20">
-          <div className="text-center">
-            <Loader2 className="h-8 w-8 sm:h-12 sm:w-12 animate-spin text-orange-500 mx-auto mb-3 sm:mb-4" />
-            <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400">Loading settings...</p>
+        <div className="flex items-center justify-center py-40">
+          <div className="relative">
+            <div className="absolute inset-0 blur-2xl bg-cyan-500/20 rounded-full animate-pulse"></div>
+            <Loader2 className="h-16 w-16 animate-spin text-[#1fc7d4] relative z-10" />
+            <p className="mt-6 text-[10px] font-black uppercase tracking-[0.3em] text-cyan-400 text-center animate-pulse">
+              Syncing Nexus...
+            </p>
           </div>
         </div>
       );
@@ -166,70 +176,77 @@ export const SettingsDashboard: React.FC<SettingsDashboardProps> = () => {
     switch (activeView) {
       case 'general':
         return (
-          <div>
-            <div className="bg-white dark:bg-gray-800 rounded-2xl sm:rounded-3xl shadow-2xl border border-yellow-200/50 dark:border-purple-500/30 overflow-hidden">
-              {/* Card Header */}
-              <div className="bg-gradient-to-r from-yellow-400 via-orange-500 to-pink-500 p-4 sm:p-6">
-                <div className="flex items-center gap-3 sm:gap-4">
-                  <div className="h-10 w-10 sm:h-12 sm:w-12 bg-white/30 rounded-xl sm:rounded-2xl flex items-center justify-center flex-shrink-0">
-                    <Globe className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
+          <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            {/* System Node Section */}
+            <div className="relative overflow-hidden rounded-[40px] bg-slate-900/40 backdrop-blur-2xl border border-white/5 shadow-2xl">
+              <div className="bg-gradient-to-r from-cyan-500/10 to-transparent p-12">
+                <div className="flex items-center gap-8">
+                  <div className="w-16 h-16 rounded-[24px] bg-cyan-500 flex items-center justify-center shadow-lg shadow-cyan-500/20">
+                    <Globe className="h-8 w-8 text-white" />
                   </div>
-                  <div className="min-w-0">
-                    <h2 className="text-xl sm:text-2xl font-bold text-white">🌍 System Configuration</h2>
-                    <p className="text-sm sm:text-base text-white/80">Configure your platform basics</p>
+                  <div>
+                    <h2 className="text-3xl font-black text-foreground uppercase tracking-tight mb-2">System Configuration</h2>
+                    <p className="text-sm font-bold text-muted-foreground uppercase opacity-50 tracking-widest">Platform Core Parameters</p>
                   </div>
                 </div>
               </div>
 
-              {/* Card Content */}
-              <div className="p-4 sm:p-6 lg:p-8 space-y-4 sm:space-y-6">
-                <div>
-                  <label className="flex items-center gap-2 text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-2 sm:mb-3">
-                    <Sparkles className="h-4 w-4 sm:h-5 sm:w-5 text-yellow-500 flex-shrink-0" />
-                    System Name
+              <div className="px-12 pb-16 space-y-12">
+                {/* System Name */}
+                <div className="space-y-4">
+                  <label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground ml-2">
+                    System Designation
                   </label>
-                  <input
-                    type="text"
-                    value={settings.general.systemName}
-                    onChange={(e) => handleSettingChange('general', 'systemName', e.target.value)}
-                    className="w-full px-3 sm:px-4 py-2 sm:py-3 border-2 border-yellow-200 dark:border-purple-500/30 rounded-xl sm:rounded-2xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-4 focus:ring-orange-200 focus:border-orange-400 text-base sm:text-lg"
-                    placeholder="Enter your system name..."
-                  />
-                </div>
-
-                <div>
-                  <label className="flex items-center gap-2 text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-2 sm:mb-3">
-                    <Zap className="h-4 w-4 sm:h-5 sm:w-5 text-orange-500 flex-shrink-0" />
-                    Admin Email
-                  </label>
-                  <input
-                    type="email"
-                    value={settings.general.adminEmail}
-                    onChange={(e) => handleSettingChange('general', 'adminEmail', e.target.value)}
-                    className="w-full px-3 sm:px-4 py-2 sm:py-3 border-2 border-yellow-200 dark:border-purple-500/30 rounded-xl sm:rounded-2xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-4 focus:ring-orange-200 focus:border-orange-400 text-base sm:text-lg"
-                    placeholder="Enter admin email address..."
-                  />
-                </div>
-
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 sm:p-6 bg-gradient-to-r from-yellow-50 to-orange-50 dark:from-purple-900/40 dark:to-gray-900/40 rounded-xl sm:rounded-2xl border border-yellow-200/30 dark:border-purple-500/20">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 font-bold text-base sm:text-lg text-gray-900 dark:text-white mb-1 sm:mb-2">
-                      <Shield className="h-4 w-4 sm:h-5 sm:w-5 text-red-500 flex-shrink-0" />
-                      🚧 Maintenance Mode
-                    </div>
-                    <div className="text-sm sm:text-base text-gray-600 dark:text-gray-400">
-                      Temporarily disable public access to the platform
+                  <div className="relative group">
+                    <input
+                      type="text"
+                      value={settings.general.systemName}
+                      onChange={(e) => handleSettingChange('general', 'systemName', e.target.value)}
+                      className="w-full h-16 bg-white/5 border border-white/10 rounded-2xl px-6 font-black text-lg transition-all focus:border-cyan-500/50 focus:bg-white/[0.08] outline-none"
+                    />
+                    <div className="absolute right-6 top-1/2 -translate-y-1/2 opacity-20 pointer-events-none">
+                      <Zap className="w-6 h-6 text-cyan-400" />
                     </div>
                   </div>
-                  <label className="relative inline-flex items-center cursor-pointer flex-shrink-0">
-                    <input
-                      type="checkbox"
-                      className="sr-only peer"
-                      checked={settings.general.maintenanceMode}
-                      onChange={(e) => handleSettingChange('general', 'maintenanceMode', e.target.checked)}
-                    />
-                    <div className="relative w-12 h-6 sm:w-14 sm:h-7 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-orange-300 dark:peer-focus:ring-orange-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:start-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 sm:after:h-6 sm:after:w-6 dark:border-gray-600 peer-checked:bg-gradient-to-r peer-checked:from-yellow-400 peer-checked:to-orange-500"></div>
+                </div>
+
+                {/* Admin Email */}
+                <div className="space-y-4">
+                  <label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground ml-2">
+                    Authority Email Channel
                   </label>
+                  <div className="relative group">
+                    <input
+                      type="email"
+                      value={settings.general.adminEmail}
+                      onChange={(e) => handleSettingChange('general', 'adminEmail', e.target.value)}
+                      className="w-full h-16 bg-white/5 border border-white/10 rounded-2xl px-6 font-black text-lg transition-all focus:border-cyan-500/50 focus:bg-white/[0.08] outline-none"
+                    />
+                    <div className="absolute right-6 top-1/2 -translate-y-1/2 opacity-20 pointer-events-none">
+                      <RefreshCw className="w-6 h-6 text-cyan-400" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Maintenance Toggle */}
+                <div className="flex items-center justify-between p-8 rounded-[32px] bg-red-500/5 border border-red-500/10 hover:bg-red-500/10 transition-all">
+                  <div className="flex items-center gap-6">
+                    <div className="w-12 h-12 rounded-2xl bg-red-500/20 flex items-center justify-center">
+                      <Shield className="w-6 h-6 text-red-500" />
+                    </div>
+                    <div>
+                      <div className="text-sm font-black text-foreground uppercase tracking-tight mb-1">Maintenance Lock</div>
+                      <div className="text-[10px] font-bold text-muted-foreground uppercase opacity-50">Isolate Network from Public Operations</div>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => handleSettingChange('general', 'maintenanceMode', !settings.general.maintenanceMode)}
+                    className={`relative w-24 h-12 rounded-full transition-all duration-300 ${settings.general.maintenanceMode ? 'bg-red-500' : 'bg-white/5'
+                      }`}
+                  >
+                    <div className={`absolute top-2 left-2 w-8 h-8 rounded-full bg-white transition-transform duration-300 ${settings.general.maintenanceMode ? 'translate-x-[48px]' : 'translate-x-0'
+                      }`} />
+                  </button>
                 </div>
               </div>
             </div>
@@ -237,91 +254,84 @@ export const SettingsDashboard: React.FC<SettingsDashboardProps> = () => {
         );
       case 'notifications':
         return (
-          <div>
-            <div className="bg-white dark:bg-gray-800 rounded-2xl sm:rounded-3xl shadow-2xl border border-yellow-200/50 dark:border-purple-500/30 overflow-hidden">
-              {/* Card Header */}
-              <div className="bg-gradient-to-r from-blue-400 via-purple-500 to-pink-500 p-4 sm:p-6">
-                <div className="flex items-center gap-3 sm:gap-4">
-                  <div className="h-10 w-10 sm:h-12 sm:w-12 bg-white/30 rounded-xl sm:rounded-2xl flex items-center justify-center flex-shrink-0">
-                    <Bell className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
+          <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="relative overflow-hidden rounded-[40px] bg-slate-900/40 backdrop-blur-2xl border border-white/5 shadow-2xl">
+              <div className="bg-gradient-to-r from-purple-500/10 to-transparent p-12">
+                <div className="flex items-center gap-8">
+                  <div className="w-16 h-16 rounded-[24px] bg-purple-500 flex items-center justify-center shadow-lg shadow-purple-500/20">
+                    <Bell className="h-8 w-8 text-white" />
                   </div>
-                  <div className="min-w-0">
-                    <h2 className="text-xl sm:text-2xl font-bold text-white">🔔 Notification Settings</h2>
-                    <p className="text-sm sm:text-base text-white/80">Manage your alert preferences</p>
+                  <div>
+                    <h2 className="text-3xl font-black text-foreground uppercase tracking-tight mb-2">Signal Processing</h2>
+                    <p className="text-sm font-bold text-muted-foreground uppercase opacity-50 tracking-widest">Network Alert Preferences</p>
                   </div>
                 </div>
               </div>
 
-              {/* Card Content */}
-              <div className="p-4 sm:p-6 lg:p-8">
-                <div className="grid gap-4 sm:gap-6">
-                  {Object.entries(settings.notifications).map(([key, value]) => (
-                    <div key={key} className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 sm:p-6 bg-gradient-to-r from-yellow-50 to-orange-50 dark:from-purple-900/40 dark:to-gray-900/40 rounded-xl sm:rounded-2xl border border-yellow-200/30 dark:border-purple-500/20 hover:shadow-lg transition-shadow">
-                      <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
-                        <div className="h-8 w-8 sm:h-10 sm:w-10 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-xl sm:rounded-2xl flex items-center justify-center flex-shrink-0">
-                          <Bell className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
-                        </div>
-                        <div className="min-w-0">
-                          <div className="font-bold text-base sm:text-lg text-gray-900 dark:text-white capitalize">
-                            {key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
-                          </div>
-                          <div className="text-sm sm:text-base text-gray-600 dark:text-gray-400">
-                            Enable {key.toLowerCase().replace(/([A-Z])/g, ' $1')} for this platform
-                          </div>
-                        </div>
+              <div className="px-12 pb-16 grid grid-cols-1 md:grid-cols-2 gap-8">
+                {Object.entries(settings.notifications).map(([key, value]) => (
+                  <div
+                    key={key}
+                    className="flex items-center justify-between p-8 rounded-[32px] bg-white/5 border border-white/5 hover:bg-white/[0.08] transition-all"
+                  >
+                    <div className="flex items-center gap-6">
+                      <div className="w-12 h-12 rounded-2xl bg-purple-500/20 flex items-center justify-center">
+                        <Zap className="w-6 h-6 text-purple-400" />
                       </div>
-                      <label className="relative inline-flex items-center cursor-pointer flex-shrink-0">
-                        <input
-                          type="checkbox"
-                          className="sr-only peer"
-                          checked={Boolean(value)}
-                          onChange={(e) => handleSettingChange('notifications', key as keyof typeof settings.notifications, e.target.checked)}
-                        />
-                        <div className="relative w-12 h-6 sm:w-14 sm:h-7 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:start-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 sm:after:h-6 sm:after:w-6 dark:border-gray-600 peer-checked:bg-gradient-to-r peer-checked:from-blue-400 peer-checked:to-purple-500"></div>
-                      </label>
+                      <div>
+                        <div className="text-sm font-black text-foreground uppercase tracking-tight mb-1">
+                          {key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
+                        </div>
+                        <div className="text-[10px] font-bold text-muted-foreground uppercase opacity-50">Active Broadcast Channel</div>
+                      </div>
                     </div>
-                  ))}
-                </div>
+                    <button
+                      onClick={() => handleSettingChange('notifications', key as keyof typeof settings.notifications, !value)}
+                      className={`relative w-20 h-10 rounded-full transition-all duration-300 ${value ? 'bg-purple-500' : 'bg-white/5'
+                        }`}
+                    >
+                      <div className={`absolute top-1.5 left-1.5 w-7 h-7 rounded-full bg-white transition-transform duration-300 ${value ? 'translate-x-[40px]' : 'translate-x-0'
+                        }`} />
+                    </button>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
         );
       case 'security':
         return (
-          <div>
-            <div className="bg-white dark:bg-gray-800 rounded-2xl sm:rounded-3xl shadow-2xl border border-yellow-200/50 dark:border-purple-500/30 overflow-hidden">
-              {/* Card Header */}
-              <div className="bg-gradient-to-r from-red-400 via-pink-500 to-purple-600 p-4 sm:p-6">
-                <div className="flex items-center gap-3 sm:gap-4">
-                  <div className="h-10 w-10 sm:h-12 sm:w-12 bg-white/30 rounded-xl sm:rounded-2xl flex items-center justify-center flex-shrink-0">
-                    <Shield className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
+          <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="relative overflow-hidden rounded-[40px] bg-slate-900/40 backdrop-blur-2xl border border-white/5 shadow-2xl">
+              <div className="bg-gradient-to-r from-amber-500/10 to-transparent p-12">
+                <div className="flex items-center gap-8">
+                  <div className="w-16 h-16 rounded-[24px] bg-amber-500 flex items-center justify-center shadow-lg shadow-amber-500/20">
+                    <Shield className="h-8 w-8 text-white" />
                   </div>
-                  <div className="min-w-0">
-                    <h2 className="text-xl sm:text-2xl font-bold text-white">🔒 Security Settings</h2>
-                    <p className="text-sm sm:text-base text-white/80">Configure session and access controls</p>
+                  <div>
+                    <h2 className="text-3xl font-black text-foreground uppercase tracking-tight mb-2">Vault Protocols</h2>
+                    <p className="text-sm font-bold text-muted-foreground uppercase opacity-50 tracking-widest">Authentication and Access Controls</p>
                   </div>
                 </div>
               </div>
 
-              {/* Card Content */}
-              <div className="p-4 sm:p-6 lg:p-8 space-y-4 sm:space-y-6">
-                <div>
-                  <label className="flex items-center gap-2 text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-2 sm:mb-3">
-                    <Zap className="h-4 w-4 sm:h-5 sm:w-5 text-red-500 flex-shrink-0" />
-                    ⏱️ Session Timeout (minutes)
+              <div className="px-12 pb-16 space-y-12">
+                <div className="space-y-4">
+                  <label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground ml-2">
+                    Auto-Lock Duration (Minutes)
                   </label>
-                  <input
-                    type="number"
-                    value={settings.security.sessionTimeout}
-                    onChange={(e) => handleSettingChange('security', 'sessionTimeout', parseInt(e.target.value) || 30)}
-                    className="w-full px-3 sm:px-4 py-2 sm:py-3 border-2 border-yellow-200 dark:border-purple-500/30 rounded-xl sm:rounded-2xl bg-white/50 dark:bg-gray-700/50 backdrop-blur-sm text-gray-900 dark:text-white focus:ring-4 focus:ring-red-200 focus:border-red-400 text-base sm:text-lg"
-                    placeholder="Enter session timeout in minutes..."
-                    min="5"
-                    max="480"
-                  />
-                  <p className="mt-2 text-xs sm:text-sm text-gray-500 dark:text-gray-400">
-                    Sessions will automatically expire after this period of inactivity (5-480 minutes)
-                  </p>
+                  <div className="relative group max-w-md">
+                    <input
+                      type="number"
+                      value={settings.security.sessionTimeout}
+                      onChange={(e) => handleSettingChange('security', 'sessionTimeout', parseInt(e.target.value) || 30)}
+                      className="w-full h-16 bg-white/5 border border-white/10 rounded-2xl px-6 font-black text-lg transition-all focus:border-amber-500/50 focus:bg-white/[0.08] outline-none"
+                    />
+                    <div className="absolute right-6 top-1/2 -translate-y-1/2 opacity-20 pointer-events-none">
+                      <Clock className="w-6 h-6 text-amber-400" />
+                    </div>
+                  </div>
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase opacity-30 ml-2">Recommended: 15-60 Minutes for Optimal Security</p>
                 </div>
               </div>
             </div>
@@ -329,84 +339,82 @@ export const SettingsDashboard: React.FC<SettingsDashboardProps> = () => {
         );
       case 'appearance':
         return (
-          <div>
-            <div className="bg-white dark:bg-gray-800 rounded-2xl sm:rounded-3xl shadow-2xl border border-yellow-200/50 dark:border-purple-500/30 overflow-hidden">
-              {/* Card Header */}
-              <div className="bg-gradient-to-r from-purple-400 via-pink-500 to-red-500 p-4 sm:p-6">
-                <div className="flex items-center gap-3 sm:gap-4">
-                  <div className="h-10 w-10 sm:h-12 sm:w-12 bg-white/30 rounded-xl sm:rounded-2xl flex items-center justify-center flex-shrink-0">
-                    <Palette className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
+          <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="relative overflow-hidden rounded-[40px] bg-slate-900/40 backdrop-blur-2xl border border-white/5 shadow-2xl">
+              <div className="bg-gradient-to-r from-pink-500/10 to-transparent p-12">
+                <div className="flex items-center gap-8">
+                  <div className="w-16 h-16 rounded-[24px] bg-pink-500 flex items-center justify-center shadow-lg shadow-pink-500/20">
+                    <Palette className="h-8 w-8 text-white" />
                   </div>
-                  <div className="min-w-0">
-                    <h2 className="text-xl sm:text-2xl font-bold text-white">🎨 Appearance Settings</h2>
-                    <p className="text-sm sm:text-base text-white/80">Customize your visual experience</p>
+                  <div>
+                    <h2 className="text-3xl font-black text-foreground uppercase tracking-tight mb-2">Optical Customization</h2>
+                    <p className="text-sm font-bold text-muted-foreground uppercase opacity-50 tracking-widest">Visual Feedback and Interface Styling</p>
                   </div>
                 </div>
               </div>
 
-              {/* Card Content */}
-              <div className="p-4 sm:p-6 lg:p-8 space-y-4 sm:space-y-6">
-                <div>
-                  <label className="flex items-center gap-2 text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-2 sm:mb-3">
-                    <Sparkles className="h-4 w-4 sm:h-5 sm:w-5 text-purple-500 flex-shrink-0" />
-                    🌓 Theme Mode
+              <div className="px-12 pb-16 space-y-12">
+                {/* Theme Mode */}
+                <div className="space-y-4">
+                  <label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground ml-2">
+                    Luminosity Mode
                   </label>
-                  <select
-                    value={settings.appearance.theme}
-                    onChange={(e) => handleSettingChange('appearance', 'theme', e.target.value as 'light' | 'dark' | 'auto')}
-                    className="w-full px-3 sm:px-4 py-2 sm:py-3 border-2 border-yellow-200 dark:border-purple-500/30 rounded-xl sm:rounded-2xl bg-white/50 dark:bg-gray-700/50 backdrop-blur-sm text-gray-900 dark:text-white focus:ring-4 focus:ring-purple-200 focus:border-purple-400 text-base sm:text-lg"
-                  >
-                    <option value="light">☀️ Light Mode</option>
-                    <option value="dark">🌙 Dark Mode</option>
-                    <option value="auto">🔄 Auto (System)</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="flex items-center gap-2 text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-2 sm:mb-3">
-                    <Palette className="h-4 w-4 sm:h-5 sm:w-5 text-pink-500 flex-shrink-0" />
-                    🌈 Primary Accent Color
-                  </label>
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
-                    <input
-                      type="color"
-                      value={settings.appearance.primaryColor}
-                      onChange={(e) => handleSettingChange('appearance', 'primaryColor', e.target.value)}
-                      className="h-12 w-full sm:h-16 sm:w-32 border-2 border-yellow-200 dark:border-purple-500/30 rounded-xl sm:rounded-2xl bg-white/50 dark:bg-gray-700/50 backdrop-blur-sm focus:ring-4 focus:ring-purple-200 focus:border-purple-400 cursor-pointer flex-shrink-0"
-                    />
-                    <div className="flex-1 min-w-0">
-                      <div className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white break-all">
-                        Selected Color: {settings.appearance.primaryColor}
-                      </div>
-                      <div className="text-sm sm:text-base text-gray-600 dark:text-gray-400">
-                        This will affect buttons, links, and accent elements
-                      </div>
-                    </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                    {['light', 'dark', 'auto'].map((mode) => (
+                      <button
+                        key={mode}
+                        onClick={() => handleSettingChange('appearance', 'theme', mode as any)}
+                        className={`p-6 rounded-[24px] border transition-all text-center ${settings.appearance.theme === mode
+                          ? 'bg-pink-500/10 border-pink-500 shadow-lg shadow-pink-500/10'
+                          : 'bg-white/5 border-white/5 hover:border-white/10'
+                          }`}
+                      >
+                        <div className="font-black text-sm uppercase tracking-widest">
+                          {mode === 'light' ? '☀️ Daylight' : mode === 'dark' ? '🌙 Eclipse' : '🔄 Neural'}
+                        </div>
+                      </button>
+                    ))}
                   </div>
                 </div>
 
-                {/* Color Presets */}
-                <div>
-                  <label className="flex items-center gap-2 text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-3 sm:mb-4">
-                    <Zap className="h-4 w-4 sm:h-5 sm:w-5 text-yellow-500 flex-shrink-0" />
-                    🎭 Quick Presets
+                {/* Accent Color */}
+                <div className="space-y-4">
+                  <label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground ml-2">
+                    Interface Accent Chroma
                   </label>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-                    {[
-                      { name: 'PancakeSwap', color: '#FF8C00', gradient: 'from-yellow-400 to-orange-500' },
-                      { name: 'Ocean Blue', color: '#0EA5E9', gradient: 'from-blue-400 to-blue-600' },
-                      { name: 'Forest', color: '#10B981', gradient: 'from-green-400 to-green-600' },
-                      { name: 'Sunset', color: '#F59E0B', gradient: 'from-orange-400 to-red-500' },
-                    ].map((preset) => (
-                      <button
-                        key={preset.name}
-                        onClick={() => handleSettingChange('appearance', 'primaryColor', preset.color)}
-                        className={`p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-gradient-to-r ${preset.gradient} text-white font-semibold text-center shadow-lg hover:shadow-xl transition-shadow`}
-                      >
-                        <div className="text-xs sm:text-sm">{preset.name}</div>
-                        <div className="text-[10px] sm:text-xs opacity-80 mt-1">{preset.color}</div>
-                      </button>
-                    ))}
+                  <div className="flex flex-col sm:flex-row items-center gap-10 p-8 rounded-[32px] bg-white/5 border border-white/5">
+                    <div className="relative w-24 h-24 rounded-[32px] overflow-hidden group shadow-2xl">
+                      <input
+                        type="color"
+                        value={settings.appearance.primaryColor}
+                        onChange={(e) => handleSettingChange('appearance', 'primaryColor', e.target.value)}
+                        className="absolute inset-0 w-[150%] h-[150%] -translate-x-1/4 -translate-y-1/4 cursor-pointer"
+                      />
+                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <RefreshCw className="w-6 h-6 text-white" />
+                      </div>
+                    </div>
+                    <div className="flex-1 text-center sm:text-left">
+                      <div className="text-xl font-black uppercase tracking-tight mb-1">{settings.appearance.primaryColor}</div>
+                      <div className="text-[10px] font-bold text-muted-foreground uppercase opacity-50">Active Interface Pigment</div>
+                    </div>
+
+                    <div className="grid grid-cols-4 gap-3">
+                      {[
+                        { name: 'PancakeSwap', color: '#1fc7d4' },
+                        { name: 'Eclipse', color: '#7645d9' },
+                        { name: 'Magma', color: '#ffb237' },
+                        { name: 'Crimson', color: '#ed4b9e' },
+                      ].map((preset) => (
+                        <button
+                          key={preset.name}
+                          onClick={() => handleSettingChange('appearance', 'primaryColor', preset.color)}
+                          className="w-10 h-10 rounded-full border-2 border-white/10 hover:scale-110 transition-transform shadow-lg"
+                          style={{ backgroundColor: preset.color }}
+                          title={preset.name}
+                        />
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -414,139 +422,48 @@ export const SettingsDashboard: React.FC<SettingsDashboardProps> = () => {
           </div>
         );
       default:
-        return (
-          <div>
-            <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl shadow-2xl border border-yellow-200/50 dark:border-purple-500/30 p-6 sm:p-12 text-center">
-              <div className="h-12 w-12 sm:h-16 sm:w-16 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-2xl sm:rounded-3xl flex items-center justify-center mx-auto mb-4 sm:mb-6">
-                <Settings className="h-6 w-6 sm:h-8 sm:w-8 text-white" />
-              </div>
-              <h3 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-yellow-600 to-orange-600 bg-clip-text text-transparent mb-3 sm:mb-4">
-                {settingsViews.find((v) => v.id === activeView)?.label}
-              </h3>
-              <p className="text-base sm:text-xl text-gray-600 dark:text-gray-400">
-                🔄 Loading settings...
-              </p>
-            </div>
-          </div>
-        );
+        return null;
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-yellow-50 via-orange-50 to-pink-50 dark:from-gray-900 dark:via-purple-900 dark:to-gray-900 p-3 sm:p-6">
-      {/* Background Decorations */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
-        <div className="absolute top-20 left-20 w-32 h-32 bg-gradient-to-r from-yellow-400/20 to-orange-500/20 rounded-full blur-xl"></div>
-        <div className="absolute top-40 right-32 w-24 h-24 bg-gradient-to-r from-pink-400/20 to-purple-500/20 rounded-full blur-xl"></div>
-        <div className="absolute bottom-32 left-40 w-40 h-40 bg-gradient-to-r from-blue-400/20 to-teal-500/20 rounded-full blur-xl"></div>
+    <div className="space-y-10">
+      {/* Global Control Bar */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-6 p-6 rounded-[32px] bg-slate-900/40 backdrop-blur-2xl border border-white/5 shadow-xl">
+        <PageTabs
+          tabs={tabs}
+          activeTab={activeView}
+          onTabChange={setActiveView}
+          className="bg-transparent border-none p-0 backdrop-blur-none shadow-none"
+        />
+
+        <div className="flex items-center gap-4">
+          <button
+            onClick={handleResetSettings}
+            disabled={resetting || loading}
+            className="flex items-center gap-3 px-8 py-4 rounded-2xl bg-white/5 hover:bg-white/10 text-[10px] font-black uppercase tracking-widest transition-all disabled:opacity-50"
+          >
+            {resetting ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCcw className="w-4 h-4" />}
+            Reset Logic
+          </button>
+
+          <button
+            onClick={handleSaveSettings}
+            disabled={saving || loading || !hasChanges}
+            className={`
+              flex items-center gap-3 px-10 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all
+              ${hasChanges
+                ? 'bg-gradient-to-r from-orange-400 to-red-500 text-white shadow-lg shadow-orange-500/20 active:scale-95'
+                : 'bg-white/5 text-muted-foreground cursor-not-allowed'}
+            `}
+          >
+            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+            {hasChanges ? 'Deploy Update' : 'Synchronized'}
+          </button>
+        </div>
       </div>
 
-      <div className="relative z-10 max-w-7xl mx-auto space-y-6 sm:space-y-8">
-        {/* Hero Header */}
-        <div className="text-center mb-8 sm:mb-12">
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 mb-4 sm:mb-6">
-            <div className="h-12 w-12 sm:h-16 sm:w-16 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-2xl sm:rounded-3xl flex items-center justify-center shadow-2xl">
-              <Settings className="h-6 w-6 sm:h-8 sm:w-8 text-white" />
-            </div>
-            <div className="text-center sm:text-left">
-              <h1 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-yellow-600 via-orange-600 to-pink-600 bg-clip-text text-transparent">
-                ⚙️ System Settings
-              </h1>
-              <p className="text-base sm:text-xl text-gray-600 dark:text-gray-400 mt-2">
-                Configure your sweet admin experience
-              </p>
-            </div>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3 sm:gap-4">
-            <button
-              onClick={handleResetSettings}
-              disabled={resetting || loading}
-              className="flex items-center justify-center gap-2 px-4 sm:px-6 py-2 sm:py-3 bg-white dark:bg-gray-800 border-2 border-yellow-200/50 dark:border-purple-500/30 rounded-xl sm:rounded-2xl hover:bg-gray-50 dark:hover:bg-gray-700 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              {resetting ? (
-                <Loader2 className="h-4 w-4 sm:h-5 sm:w-5 animate-spin text-gray-700 dark:text-gray-300" />
-              ) : (
-                <RotateCcw className="h-4 w-4 sm:h-5 sm:w-5 text-gray-700 dark:text-gray-300" />
-              )}
-              <span className="text-sm sm:text-base font-semibold text-gray-700 dark:text-gray-300">Reset All</span>
-            </button>
-            <button
-              onClick={handleSaveSettings}
-              disabled={saving || loading || !hasChanges}
-              className="flex items-center justify-center gap-2 px-6 sm:px-8 py-2 sm:py-3 bg-gradient-to-r from-yellow-400 via-orange-500 to-pink-500 text-white rounded-xl sm:rounded-2xl font-semibold hover:from-yellow-500 hover:to-pink-600 shadow-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-            >
-              {saving ? (
-                <Loader2 className="h-4 w-4 sm:h-5 sm:w-5 animate-spin" />
-              ) : (
-                <Save className="h-4 w-4 sm:h-5 sm:w-5" />
-              )}
-              <span className="text-sm sm:text-base">💾 {hasChanges ? 'Save Changes' : 'No Changes'}</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Settings Navigation Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-8 sm:mb-12">
-          {settingsViews.map((view, index) => {
-            const Icon = view.icon;
-            const isActive = activeView === view.id;
-
-            return (
-              <button
-                key={view.id}
-                onClick={() => setActiveView(view.id)}
-                className={`
-                  group p-4 sm:p-6 rounded-2xl sm:rounded-3xl text-left border-2 relative overflow-hidden transition-all
-                  ${isActive
-                    ? 'bg-gradient-to-br from-yellow-400 via-orange-500 to-pink-500 text-white border-orange-300 shadow-2xl'
-                    : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 border-yellow-200/50 dark:border-purple-500/30 shadow-xl'
-                  }
-                `}
-              >
-                {/* Floating decorations */}
-                <div className="absolute -top-2 -right-2 h-12 w-12 bg-white/20 rounded-full"></div>
-                <div className="absolute top-1/2 -left-4 h-8 w-8 bg-yellow-400/20 rounded-full"></div>
-
-                <div className="relative z-10">
-                  <div className="flex items-center gap-3 sm:gap-4 mb-3 sm:mb-4">
-                    <div
-                      className={`
-                      p-2 sm:p-3 rounded-xl sm:rounded-2xl shadow-lg transition-all
-                      ${isActive
-                          ? 'bg-white/30'
-                          : 'bg-gradient-to-r from-yellow-400 to-orange-500 group-hover:from-yellow-500 group-hover:to-orange-600'
-                        }
-                    `}
-                    >
-                      <Icon
-                        className={`h-5 w-5 sm:h-6 sm:w-6 ${isActive ? 'text-white' : 'text-white'}`}
-                      />
-                    </div>
-                    <ChevronRight
-                      className={`h-4 w-4 sm:h-5 sm:w-5 transition-transform flex-shrink-0 ${isActive ? 'text-white rotate-90' : 'text-orange-500 group-hover:text-orange-600'}`}
-                    />
-                  </div>
-                  <div>
-                    <div
-                      className={`font-bold text-base sm:text-lg mb-1 sm:mb-2 ${isActive ? 'text-white' : 'text-gray-900 dark:text-white'}`}
-                    >
-                      {view.label}
-                    </div>
-                    <div
-                      className={`text-xs sm:text-sm ${isActive ? 'text-white/80' : 'text-gray-600 dark:text-gray-400'}`}
-                    >
-                      {view.description}
-                    </div>
-                  </div>
-                </div>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Content */}
+      <div className="relative">
         {renderContent()}
       </div>
     </div>

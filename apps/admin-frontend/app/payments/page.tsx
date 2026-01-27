@@ -1,6 +1,5 @@
 'use client';
 
-import { CreditCard } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
@@ -8,7 +7,7 @@ import { PaymentAnalytics } from '@/components/payments/PaymentAnalytics';
 import { PaymentLinksManagement } from '@/components/payments/PaymentLinksManagement';
 import { PaymentsManagement } from '@/components/payments/PaymentsManagement';
 import { UserAccessManagement } from '@/components/payments/UserAccessManagement';
-import { PageAuthRequired, PageHeader, PageLayout, PageSkeleton, PageTabs, type TabItem } from '@/components/shared';
+import { PageHeader, PageLayout, PageSkeleton, PageTabs, type TabItem } from '@/components/shared';
 import { useSharedAuth } from '@/shared/components/auth/Provider';
 
 type TabType = 'payments' | 'user-access' | 'payment-links' | 'analytics';
@@ -46,13 +45,15 @@ export default function AdminPaymentsPage() {
         title="Payments Hub"
         subtitle="Manage payments, user access, and payment links"
         icon="CreditCard"
-        gradient="info"
+        gradient="primary"
+        centered
       />
 
       <PageTabs
         tabs={tabs}
         activeTab={activeTab}
         onTabChange={(id) => setActiveTab(id as TabType)}
+        className="mb-8"
       />
 
       {activeTab === 'payments' && <PaymentsManagement />}

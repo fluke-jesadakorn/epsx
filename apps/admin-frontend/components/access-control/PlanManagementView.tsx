@@ -20,7 +20,9 @@ import {
     Key,
     Loader2,
     Package,
-    Save
+    Plus,
+    Save,
+    Search
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
@@ -179,18 +181,18 @@ export function PlanManagementView({ className }: PlanManagementViewProps) {
                 <div className="space-y-6">
                     <div className="flex items-center justify-between">
                         <div>
-                            <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                                <Package className="h-5 w-5 text-purple-400" />
+                            <h2 className="text-2xl font-black text-white flex items-center gap-3 tracking-tight">
+                                <Package className="h-6 w-6 text-[#7645d9]" />
                                 Plan Management
                             </h2>
-                            <p className="text-sm text-slate-500 mt-1">Edit plan definitions and assign permissions</p>
+                            <p className="text-sm font-medium text-muted-foreground mt-1">Configure user plans and permission sets</p>
                         </div>
                         <Button
-                            size="sm"
+                            size="lg"
+                            className="bg-[#1fc7d4] hover:bg-[#1fc7d4]/90 text-white font-bold rounded-2xl shadow-lg shadow-cyan-500/20 px-8 transition-all active:scale-95"
                             onClick={() => {/* TODO: Create New Plan Handler */ }}
-                            className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
                         >
-                            <Package className="h-4 w-4 mr-2" />
+                            <Plus className="h-5 w-5 mr-2" />
                             New Plan
                         </Button>
                     </div>
@@ -200,20 +202,23 @@ export function PlanManagementView({ className }: PlanManagementViewProps) {
                         <div className="lg:col-span-5">
                             <div className="flex flex-col gap-4">
                                 {/* Top: Plan List */}
-                                <Card className="border border-white/10 bg-slate-900/50 shadow-lg">
-                                    <CardHeader className="py-3 px-4 border-b border-white/5 bg-white/5">
-                                        <div className="flex items-center justify-between mb-2">
-                                            <CardTitle className="text-sm font-semibold text-slate-200">Select Plan</CardTitle>
-                                            <Badge variant="outline" className="text-xs border-purple-500/30 text-purple-400">
+                                <Card className="border border-white/5 bg-slate-900/40 backdrop-blur-xl shadow-xl rounded-[32px] overflow-hidden">
+                                    <CardHeader className="py-6 px-8 border-b border-white/5 bg-white/5">
+                                        <div className="flex items-center justify-between mb-4">
+                                            <CardTitle className="text-lg font-bold text-foreground">Select Plan</CardTitle>
+                                            <Badge variant="outline" className="text-xs font-bold border-cyan-500/30 text-[#1fc7d4] rounded-lg">
                                                 {allPlans.length} plans
                                             </Badge>
                                         </div>
-                                        <Input
-                                            placeholder="Search plans..."
-                                            value={planBuilderSearchQuery}
-                                            onChange={e => setPlanBuilderSearchQuery(e.target.value)}
-                                            className="h-8 text-xs bg-slate-950/50 border-white/10 text-slate-200 placeholder:text-slate-600"
-                                        />
+                                        <div className="relative">
+                                            <Search className="absolute left-4 top-3 h-4 w-4 text-muted-foreground/50" />
+                                            <Input
+                                                placeholder="Search plans..."
+                                                value={planBuilderSearchQuery}
+                                                onChange={e => setPlanBuilderSearchQuery(e.target.value)}
+                                                className="h-10 pl-11 text-sm bg-white/5 border-white/5 text-foreground rounded-xl placeholder:text-muted-foreground/30"
+                                            />
+                                        </div>
                                     </CardHeader>
                                     <CardContent className="p-0 overflow-y-auto max-h-[300px]">
                                         <div className="divide-y divide-white/5">
@@ -243,22 +248,25 @@ export function PlanManagementView({ className }: PlanManagementViewProps) {
                                 </Card>
 
                                 {/* Bottom: Available Permissions */}
-                                <Card className="border border-white/10 bg-slate-900/50 shadow-lg">
-                                    <CardHeader className="py-3 px-4 border-b border-white/5 bg-white/5">
-                                        <div className="flex items-center justify-between mb-2">
-                                            <CardTitle className="text-sm font-semibold text-slate-200">Available Permissions</CardTitle>
-                                            <Badge variant="outline" className="text-xs border-cyan-500/30 text-cyan-400">
+                                <Card className="border border-white/5 bg-slate-900/40 backdrop-blur-xl shadow-xl rounded-[32px] overflow-hidden">
+                                    <CardHeader className="py-6 px-8 border-b border-white/5 bg-white/5">
+                                        <div className="flex items-center justify-between mb-4">
+                                            <CardTitle className="text-lg font-bold text-foreground">Available Permissions</CardTitle>
+                                            <Badge variant="outline" className="text-xs font-bold border-purple-500/30 text-[#7645d9] rounded-lg">
                                                 {filteredAvailablePermissions.length} available
                                             </Badge>
                                         </div>
-                                        <Input
-                                            placeholder="Search permissions..."
-                                            value={permissionSearchQuery}
-                                            onChange={e => setPermissionSearchQuery(e.target.value)}
-                                            className="h-8 text-xs bg-slate-950/50 border-white/10 text-slate-200 placeholder:text-slate-600"
-                                        />
+                                        <div className="relative">
+                                            <Search className="absolute left-4 top-3 h-4 w-4 text-muted-foreground/50" />
+                                            <Input
+                                                placeholder="Search permissions..."
+                                                value={permissionSearchQuery}
+                                                onChange={e => setPermissionSearchQuery(e.target.value)}
+                                                className="h-10 pl-11 text-sm bg-white/5 border-white/5 text-foreground rounded-xl placeholder:text-muted-foreground/30"
+                                            />
+                                        </div>
                                     </CardHeader>
-                                    <CardContent className="p-2 overflow-y-auto max-h-[450px]">
+                                    <CardContent className="p-4 overflow-y-auto max-h-[450px]">
                                         <div className="grid grid-cols-1 gap-2">
                                             {filteredAvailablePermissions.map(perm => (
                                                 <DraggablePermissionItem
@@ -284,21 +292,21 @@ export function PlanManagementView({ className }: PlanManagementViewProps) {
                             {builderSelectedPlanId ? (
                                 <>
                                     {/* Edit Plan Details */}
-                                    <Card className="border border-white/10 bg-slate-900/50 shadow-lg shrink-0">
-                                        <div className="h-1 bg-gradient-to-r from-amber-500 to-orange-500" />
-                                        <CardHeader className="pb-3 border-b border-white/5 bg-white/5">
-                                            <CardTitle className="text-sm font-semibold uppercase tracking-wider text-amber-400">
+                                    <Card className="border border-white/5 bg-slate-900/40 backdrop-blur-xl shadow-xl rounded-[32px] overflow-hidden shrink-0">
+                                        <div className="h-1.5 bg-gradient-to-r from-[#ffb237] to-[#ed4b9e]" />
+                                        <CardHeader className="py-6 px-8 border-b border-white/5 bg-white/5">
+                                            <CardTitle className="text-sm font-black uppercase tracking-widest text-[#ffb237]">
                                                 Edit Plan Details
                                             </CardTitle>
                                         </CardHeader>
-                                        <CardContent className="pt-4 grid grid-cols-2 gap-4">
-                                            <div className="col-span-2 md:col-span-1 space-y-2">
-                                                <Label className="text-slate-400">Plan Name</Label>
+                                        <CardContent className="p-8 grid grid-cols-2 gap-6">
+                                            <div className="col-span-2 md:col-span-1 space-y-3">
+                                                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Plan Name</Label>
                                                 <Input
                                                     placeholder="e.g. Premium Plan"
                                                     value={builderForm.name}
                                                     onChange={e => { setBuilderForm(p => ({ ...p, name: e.target.value })); setHasBuilderChanges(true); }}
-                                                    className="bg-slate-950/50 border-white/10 text-slate-200 placeholder:text-slate-600"
+                                                    className="h-12 bg-white/5 border-white/5 text-foreground rounded-2xl placeholder:text-muted-foreground/30 font-bold"
                                                 />
                                             </div>
                                             <div className="col-span-2 md:col-span-1 space-y-2">
@@ -334,30 +342,30 @@ export function PlanManagementView({ className }: PlanManagementViewProps) {
                                     </Card>
 
                                     {/* Assigned Permissions */}
-                                    <Card className="flex-1 flex flex-col border border-white/10 bg-slate-900/50 shadow-lg min-h-0">
-                                        <div className="h-1 bg-gradient-to-r from-blue-500 to-cyan-500" />
-                                        <CardHeader className="pb-3 border-b border-white/5 bg-white/5">
-                                            <CardTitle className="text-sm font-semibold uppercase tracking-wider text-blue-400 flex justify-between items-center">
+                                    <Card className="flex-1 flex flex-col border border-white/5 bg-slate-900/40 backdrop-blur-xl shadow-xl rounded-[32px] overflow-hidden min-h-0">
+                                        <div className="h-1.5 bg-gradient-to-r from-[#1fc7d4] to-[#7645d9]" />
+                                        <CardHeader className="py-6 px-8 border-b border-white/5 bg-white/5">
+                                            <CardTitle className="text-sm font-black uppercase tracking-widest text-[#1fc7d4] flex justify-between items-center">
                                                 <span>Assigned Permissions ({builderPermissions.length})</span>
-                                                <Badge variant="outline" className="text-xs normal-case font-normal border-blue-500/30 text-blue-400">
+                                                <Badge variant="outline" className="text-[10px] font-bold border-cyan-500/30 text-[#1fc7d4] rounded-lg">
                                                     Drag here
                                                 </Badge>
                                             </CardTitle>
                                         </CardHeader>
                                         <CardContent className="p-0 flex flex-col min-h-0 overflow-hidden">
-                                            <div className="p-4 overflow-y-auto max-h-[400px]">
+                                            <div className="p-8 overflow-y-auto max-h-[400px]">
                                                 <DroppablePermissionList
                                                     id="builder-plan-permissions"
                                                     items={builderPermissions}
                                                     emptyMessage="Drag permissions here from the left"
                                                 />
                                             </div>
-                                            <div className="p-3 border-t border-white/5 bg-slate-950/50 flex gap-2 justify-end mt-auto">
+                                            <div className="p-6 border-t border-white/5 bg-black/20 flex gap-3 justify-end mt-auto">
                                                 <Button
                                                     variant="ghost"
                                                     size="sm"
                                                     onClick={() => setBuilderSelectedPlanId(null)}
-                                                    className="text-slate-400 hover:text-white"
+                                                    className="text-muted-foreground hover:text-white font-bold px-6"
                                                 >
                                                     Discard
                                                 </Button>
@@ -365,18 +373,18 @@ export function PlanManagementView({ className }: PlanManagementViewProps) {
                                                     variant="destructive"
                                                     size="sm"
                                                     onClick={() => {/* TODO: Delete Plan */ }}
-                                                    className="bg-red-600/80 hover:bg-red-600"
+                                                    className="bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white font-bold px-6 border-none rounded-xl"
                                                 >
                                                     Delete
                                                 </Button>
                                                 <Button
                                                     size="sm"
-                                                    className="bg-purple-600 hover:bg-purple-700"
+                                                    className="bg-[#7645d9] hover:bg-[#7645d9]/90 text-white font-bold px-8 rounded-xl shadow-lg shadow-purple-500/20 active:scale-95 transition-all"
                                                     disabled={!hasBuilderChanges || isSavingBuilder}
                                                     onClick={handleSavePlan}
                                                 >
                                                     {isSavingBuilder ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Save className="h-4 w-4 mr-1" />}
-                                                    Save
+                                                    Save Changes
                                                 </Button>
                                             </div>
                                         </CardContent>

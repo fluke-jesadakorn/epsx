@@ -167,64 +167,76 @@ export default function DashboardClient({ initialRecentWallets }: DashboardClien
       </div>
 
       {/* Stats Dashboard */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
         {/* Total Wallets */}
-        <div className="bg-card rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-sm border-2 border-primary/20">
-          <div className="flex items-center justify-between mb-3 sm:mb-4">
-            <div className="p-2 bg-primary/10 rounded-xl text-primary">
-              <Wallet className="w-6 h-6" />
+        <div className="bg-slate-900/40 backdrop-blur-2xl rounded-[32px] p-6 shadow-xl border border-white/5 relative overflow-hidden group">
+          <div className="absolute -right-6 -top-6 w-24 h-24 bg-[#1fc7d4]/10 rounded-full blur-2xl group-hover:bg-[#1fc7d4]/20 transition-colors" />
+          <div className="relative z-10">
+            <div className="flex items-center justify-between mb-4">
+              <div className="p-3 bg-gradient-to-br from-[#1fc7d4]/10 to-[#7645d9]/10 rounded-[18px] text-[#1fc7d4] border border-[#1fc7d4]/20">
+                <Wallet className="w-6 h-6" />
+              </div>
+              <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Total</span>
             </div>
-            <span className="text-xs sm:text-sm font-medium text-muted-foreground">Total</span>
-          </div>
-          <div className="space-y-1">
-            <div className="text-2xl sm:text-3xl font-bold text-primary">{dashboardStats.totalWallets}</div>
-            <div className="text-xs sm:text-sm text-foreground/80">Wallets</div>
-            <div className="text-xs text-muted-foreground">{dashboardStats.activeWallets} active today</div>
+            <div className="space-y-1">
+              <div className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-[#1fc7d4] to-[#7645d9] bg-clip-text text-transparent">{dashboardStats.totalWallets}</div>
+              <div className="text-sm font-bold text-foreground/80 uppercase tracking-wide">Wallets</div>
+              <div className="text-xs text-muted-foreground font-medium">{dashboardStats.activeWallets} active today</div>
+            </div>
           </div>
         </div>
 
         {/* System Health */}
-        <div className="bg-card/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-sm border-2 border-success/20">
-          <div className="flex items-center justify-between mb-3 sm:mb-4">
-            <div className="p-2 bg-success/10 rounded-xl text-success">
-              <Activity className="w-6 h-6" />
+        <div className="bg-slate-900/40 backdrop-blur-2xl rounded-[32px] p-6 shadow-xl border border-white/5 relative overflow-hidden group">
+          <div className="absolute -right-6 -top-6 w-24 h-24 bg-[#31d0aa]/10 rounded-full blur-2xl group-hover:bg-[#31d0aa]/20 transition-colors" />
+          <div className="relative z-10">
+            <div className="flex items-center justify-between mb-4">
+              <div className="p-3 bg-gradient-to-br from-[#31d0aa]/10 to-[#1fc7d4]/10 rounded-[18px] text-[#31d0aa] border border-[#31d0aa]/20">
+                <Activity className="w-6 h-6" />
+              </div>
+              <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Health</span>
             </div>
-            <span className="text-xs sm:text-sm font-medium text-muted-foreground">Health</span>
-          </div>
-          <div className="space-y-1">
-            <div className="text-2xl sm:text-3xl font-bold text-success">{dashboardStats.systemHealth}%</div>
-            <div className="text-xs sm:text-sm text-foreground/80">System Health</div>
-            <div className="text-xs text-muted-foreground">{dashboardStats.systemUptime} uptime</div>
+            <div className="space-y-1">
+              <div className="text-3xl sm:text-4xl font-bold text-[#31d0aa]">{dashboardStats.systemHealth}%</div>
+              <div className="text-sm font-bold text-foreground/80 uppercase tracking-wide">System Health</div>
+              <div className="text-xs text-muted-foreground font-medium">{dashboardStats.systemUptime} uptime</div>
+            </div>
           </div>
         </div>
 
         {/* Today's Activity */}
-        <div className="bg-card/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-sm border-2 border-secondary/20">
-          <div className="flex items-center justify-between mb-3 sm:mb-4">
-            <div className="p-2 bg-secondary/10 rounded-xl text-secondary">
-              <Zap className="w-6 h-6" />
+        <div className="bg-slate-900/40 backdrop-blur-2xl rounded-[32px] p-6 shadow-xl border border-white/5 relative overflow-hidden group">
+          <div className="absolute -right-6 -top-6 w-24 h-24 bg-[#ed4b9e]/10 rounded-full blur-2xl group-hover:bg-[#ed4b9e]/20 transition-colors" />
+          <div className="relative z-10">
+            <div className="flex items-center justify-between mb-4">
+              <div className="p-3 bg-gradient-to-br from-[#ed4b9e]/10 to-[#7645d9]/10 rounded-[18px] text-[#ed4b9e] border border-[#ed4b9e]/20">
+                <Zap className="w-6 h-6" />
+              </div>
+              <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Today</span>
             </div>
-            <span className="text-xs sm:text-sm font-medium text-muted-foreground">Today</span>
-          </div>
-          <div className="space-y-1">
-            <div className="text-2xl sm:text-3xl font-bold text-secondary">{dashboardStats.todayConnections}</div>
-            <div className="text-xs sm:text-sm text-foreground/80">Connections</div>
-            <div className="text-xs text-muted-foreground">{dashboardStats.totalPermissions} permissions</div>
+            <div className="space-y-1">
+              <div className="text-3xl sm:text-4xl font-bold text-[#ed4b9e]">{dashboardStats.todayConnections}</div>
+              <div className="text-sm font-bold text-foreground/80 uppercase tracking-wide">Connections</div>
+              <div className="text-xs text-muted-foreground font-medium">{dashboardStats.totalPermissions} permissions</div>
+            </div>
           </div>
         </div>
 
         {/* Performance */}
-        <div className="bg-card/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-sm border-2 border-warning/20">
-          <div className="flex items-center justify-between mb-3 sm:mb-4">
-            <div className="p-2 bg-warning/10 rounded-xl text-warning">
-              <Clock className="w-6 h-6" />
+        <div className="bg-slate-900/40 backdrop-blur-2xl rounded-[32px] p-6 shadow-xl border border-white/5 relative overflow-hidden group">
+          <div className="absolute -right-6 -top-6 w-24 h-24 bg-[#ffb237]/10 rounded-full blur-2xl group-hover:bg-[#ffb237]/20 transition-colors" />
+          <div className="relative z-10">
+            <div className="flex items-center justify-between mb-4">
+              <div className="p-3 bg-gradient-to-br from-[#ffb237]/10 to-[#ffb237]/10 rounded-[18px] text-[#ffb237] border border-[#ffb237]/20">
+                <Clock className="w-6 h-6" />
+              </div>
+              <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Speed</span>
             </div>
-            <span className="text-xs sm:text-sm font-medium text-muted-foreground">Speed</span>
-          </div>
-          <div className="space-y-1">
-            <div className="text-xl sm:text-3xl font-bold text-warning">{dashboardStats.avgResponseTime}</div>
-            <div className="text-xs sm:text-sm text-foreground/80">Avg Response</div>
-            <div className="text-xs text-muted-foreground">{dashboardStats.pendingNotifications} pending</div>
+            <div className="space-y-1">
+              <div className="text-3xl sm:text-4xl font-bold text-[#ffb237]">{dashboardStats.avgResponseTime}</div>
+              <div className="text-sm font-bold text-foreground/80 uppercase tracking-wide">Avg Response</div>
+              <div className="text-xs text-muted-foreground font-medium">{dashboardStats.pendingNotifications} pending</div>
+            </div>
           </div>
         </div>
       </div>
@@ -236,22 +248,23 @@ export default function DashboardClient({ initialRecentWallets }: DashboardClien
         </div>
         <div className="space-y-4">
           {/* Quick Stats */}
-          <div className="bg-card/80 backdrop-blur-sm rounded-2xl p-6 shadow-sm border-2 border-primary/20">
-            <h3 className="text-lg font-bold text-primary mb-4 flex items-center gap-2">
-              <Activity className="w-5 h-5" /> Quick Stats
+          <div className="bg-slate-900/40 backdrop-blur-2xl rounded-[32px] p-8 shadow-xl border border-white/5 relative overflow-hidden group">
+            <div className="absolute -right-6 -top-6 w-20 h-20 bg-[#1fc7d4]/10 rounded-full blur-2xl group-hover:bg-[#1fc7d4]/20 transition-colors" />
+            <h3 className="text-xl font-bold bg-gradient-to-r from-[#1fc7d4] to-[#7645d9] bg-clip-text text-transparent mb-6 flex items-center gap-3">
+              <Activity className="w-6 h-6 text-[#1fc7d4]" /> Quick Stats
             </h3>
-            <div className="space-y-3">
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-muted-foreground">Active Wallets</span>
-                <span className="font-semibold">{dashboardStats.activeWallets}</span>
+            <div className="space-y-4">
+              <div className="flex justify-between items-center p-3 rounded-2xl bg-white/5 border border-white/5 transition-colors hover:bg-white/10">
+                <span className="text-sm font-bold text-muted-foreground uppercase tracking-widest">Active Wallets</span>
+                <span className="font-bold text-foreground text-lg">{dashboardStats.activeWallets}</span>
               </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-muted-foreground">System Health</span>
-                <span className="font-semibold text-success">{dashboardStats.systemHealth}%</span>
+              <div className="flex justify-between items-center p-3 rounded-2xl bg-white/5 border border-white/5 transition-colors hover:bg-white/10">
+                <span className="text-sm font-bold text-muted-foreground uppercase tracking-widest">System Health</span>
+                <span className="font-bold text-[#31d0aa] text-lg">{dashboardStats.systemHealth}%</span>
               </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-muted-foreground">Response Time</span>
-                <span className="font-semibold text-warning">{dashboardStats.avgResponseTime}</span>
+              <div className="flex justify-between items-center p-3 rounded-2xl bg-white/5 border border-white/5 transition-colors hover:bg-white/10">
+                <span className="text-sm font-bold text-muted-foreground uppercase tracking-widest">Response Time</span>
+                <span className="font-bold text-[#ffb237] text-lg">{dashboardStats.avgResponseTime}</span>
               </div>
             </div>
           </div>
@@ -266,9 +279,9 @@ export default function DashboardClient({ initialRecentWallets }: DashboardClien
             title: "Wallet Management",
             icon: <Wallet className="w-6 h-6" />,
             description: "Manage wallets and permissions",
-            gradient: "from-primary via-secondary to-primary",
-            textGradient: "text-primary",
-            bgGradient: "bg-primary/5",
+            gradient: "from-[#1fc7d4] via-[#7645d9] to-[#1fc7d4]",
+            textGradient: "text-[#1fc7d4]",
+            bgGradient: "bg-[#1fc7d4]/5",
             stats: `${dashboardStats.totalWallets} wallets`
           },
           {
@@ -276,9 +289,9 @@ export default function DashboardClient({ initialRecentWallets }: DashboardClien
             title: "Permissions",
             icon: <Shield className="w-6 h-6" />,
             description: "Grant and manage access permissions",
-            gradient: "from-success via-secondary to-success",
-            textGradient: "text-success",
-            bgGradient: "bg-success/5",
+            gradient: "from-[#31d0aa] via-[#1fc7d4] to-[#31d0aa]",
+            textGradient: "text-[#31d0aa]",
+            bgGradient: "bg-[#31d0aa]/5",
             stats: `${dashboardStats.totalPermissions} permissions`
           },
           {
@@ -286,9 +299,9 @@ export default function DashboardClient({ initialRecentWallets }: DashboardClien
             title: "Audit Log",
             icon: <FileText className="w-6 h-6" />,
             description: "Track admin actions and changes",
-            gradient: "from-indigo-500 via-purple-500 to-indigo-500",
-            textGradient: "text-indigo-500",
-            bgGradient: "bg-indigo-500/5",
+            gradient: "from-[#ed4b9e] via-[#7645d9] to-[#ed4b9e]",
+            textGradient: "text-[#ed4b9e]",
+            bgGradient: "bg-[#ed4b9e]/5",
             stats: "View history"
           },
           {
@@ -296,9 +309,9 @@ export default function DashboardClient({ initialRecentWallets }: DashboardClien
             title: "Notifications",
             icon: <Bell className="w-6 h-6" />,
             description: "Send notifications and manage alerts",
-            gradient: "from-secondary via-primary to-secondary",
-            textGradient: "text-secondary",
-            bgGradient: "bg-secondary/5",
+            gradient: "from-[#7645d9] via-[#ed4b9e] to-[#7645d9]",
+            textGradient: "text-[#7645d9]",
+            bgGradient: "bg-[#7645d9]/5",
             stats: `${dashboardStats.pendingNotifications} pending`
           },
           {
@@ -306,9 +319,9 @@ export default function DashboardClient({ initialRecentWallets }: DashboardClien
             title: "Settings",
             icon: <Settings className="w-6 h-6" />,
             description: "Configure system and user settings",
-            gradient: "from-muted-foreground via-foreground to-muted-foreground",
-            textGradient: "text-muted-foreground",
-            bgGradient: "bg-muted/5",
+            gradient: "from-slate-400 via-slate-500 to-slate-400",
+            textGradient: "text-slate-400",
+            bgGradient: "bg-slate-500/5",
             stats: "System config"
           },
           {
@@ -316,45 +329,48 @@ export default function DashboardClient({ initialRecentWallets }: DashboardClien
             title: "Developer",
             icon: <Zap className="w-6 h-6" />,
             description: "API documentation and developer tools",
-            gradient: "from-warning via-primary to-warning",
-            textGradient: "text-warning",
-            bgGradient: "bg-warning/5",
+            gradient: "from-[#ffb237] via-[#1fc7d4] to-[#ffb237]",
+            textGradient: "text-[#ffb237]",
+            bgGradient: "bg-[#ffb237]/5",
             stats: "API & Tools"
           }
         ].map((action) => (
           <a
             key={action.href}
             href={action.href}
-            className="block group focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            className="block group active:scale-[0.98] transition-all"
           >
-            <div className={`relative overflow-hidden rounded-2xl sm:rounded-3xl ${action.bgGradient} p-0.5 border border-border/50 hover:border-primary/50 transition-colors`}>
-              <div className="relative bg-card rounded-2xl sm:rounded-3xl">
+            <div className={`relative overflow-hidden rounded-[32px] ${action.bgGradient} p-0.5 border border-white/5 hover:border-[#1fc7d4]/30 transition-colors bg-slate-900/40 backdrop-blur-xl`}>
+              <div className="relative p-6 sm:p-8">
                 {/* Floating decoration */}
-                <div className={`absolute top-4 right-4 w-4 h-4 bg-gradient-to-r ${action.gradient} rounded-full blur-sm opacity-60`}></div>
+                <div className={`absolute -top-4 -right-4 w-16 h-16 bg-gradient-to-r ${action.gradient} rounded-full blur-2xl opacity-10 group-hover:opacity-20 transition-opacity`}></div>
 
-                <div className="p-4 sm:p-6">
-                  <div className="mb-4">
-                    <div className="flex items-center gap-3 mb-2">
-                      <div className={`p-2 rounded-lg bg-muted ${action.textGradient}`}>
-                        {action.icon}
-                      </div>
-                      <h3 className={`text-lg sm:text-xl font-bold bg-gradient-to-r ${action.gradient} bg-clip-text text-transparent`}>
+                <div className="relative z-10">
+                  <div className="flex items-center gap-4 mb-4">
+                    <div className={`p-3 rounded-2xl bg-white/5 border border-white/5 ${action.textGradient}`}>
+                      {action.icon}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className={`text-xl sm:text-2xl font-bold bg-gradient-to-r ${action.gradient} bg-clip-text text-transparent truncate`}>
                         {action.title}
                       </h3>
-                    </div>
-                    <p className="text-sm text-muted-foreground mb-3 ml-1">
-                      {action.description}
-                    </p>
-                    <div className="text-xs font-medium text-muted-foreground/80 ml-1">
-                      {action.stats}
+                      <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mt-0.5">
+                        {action.stats}
+                      </div>
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between mt-4">
-                    <div className={`px-3 py-1 bg-gradient-to-r ${action.gradient} text-white rounded-full text-xs font-medium`}>
-                      Open
+                  <p className="text-sm text-muted-foreground mb-8 line-clamp-2 font-medium">
+                    {action.description}
+                  </p>
+
+                  <div className="flex items-center justify-between">
+                    <div className={`px-5 py-2 bg-[#1fc7d4] text-white rounded-2xl text-xs font-bold shadow-lg shadow-cyan-500/10 group-hover:shadow-cyan-500/30 transition-all`}>
+                      Open Tool
                     </div>
-                    <div className="text-muted-foreground group-hover:text-primary transition-colors">→</div>
+                    <div className="w-8 h-8 rounded-full bg-white/5 border border-white/5 flex items-center justify-center text-muted-foreground group-hover:text-[#1fc7d4] transition-colors">
+                      →
+                    </div>
                   </div>
                 </div>
               </div>

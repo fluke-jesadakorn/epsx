@@ -8,9 +8,10 @@ const inputVariants = cva(
     variants: {
       variant: {
         default: "border-input bg-background",
-        pancake: "border-2 border-primary/30 bg-gradient-to-r from-background to-primary/5 focus-visible:border-primary hover:border-primary/50 shadow-sm",
+        dark: "border-gray-700 bg-[#1a1a1a] text-foreground placeholder:text-gray-500 focus-visible:border-purple-500 focus-visible:ring-purple-500/20",
         ghost: "border-none shadow-none focus-visible:ring-0 px-0",
-        wp: "border-2 border-secondary/30 bg-card focus-visible:border-secondary focus-visible:ring-secondary/20 hover:border-secondary/50 shadow-sm",
+        search: "border-gray-700 bg-slate-950/50 text-slate-200 placeholder:text-slate-600 focus-visible:border-blue-500/50 h-8 text-xs",
+        glass: "bg-white/5 backdrop-blur-sm border-white/20 text-foreground placeholder:text-muted-foreground focus-visible:border-purple-500/50 focus-visible:ring-purple-500/20",
       },
       size: {
         default: "h-10",
@@ -35,25 +36,18 @@ export interface InputProps
 const Input = React.forwardRef<HTMLInputElement, InputProps>(
   ({ className, variant, size, error, type, ...props }, ref) => {
     return (
-      <div className="relative w-full">
-        <input
-          type={type}
-          className={cn(
-            inputVariants({ variant, size, className }),
-            error && "border-destructive focus-visible:ring-destructive/30"
-          )}
-          ref={ref}
-          {...props}
-        />
-        {/* Decorative elements for Pancake variant */}
-        {variant === "pancake" && (
-           <div className="absolute top-0 right-0 w-2 h-2 bg-gradient-to-bl from-primary/40 to-transparent rounded-tr-lg pointer-events-none" />
+      <input
+        type={type}
+        className={cn(
+          inputVariants({ variant, size, className }),
+          error && "border-destructive focus-visible:ring-destructive/30"
         )}
-      </div>
+        ref={ref}
+        {...props}
+      />
     )
   }
 )
 Input.displayName = "Input"
 
 export { Input, inputVariants };
-

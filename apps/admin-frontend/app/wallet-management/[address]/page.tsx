@@ -765,8 +765,8 @@ export default function WalletDetailPage() {
                             </div>
                             <Button
                                 size="sm"
+                                variant="admin"
                                 onClick={() => {/* TODO: Create New Plan Handler */ }}
-                                className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
                             >
                                 <Package className="h-4 w-4 mr-2" />
                                 New Plan

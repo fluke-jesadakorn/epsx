@@ -1,11 +1,10 @@
 /**
- * Admin Frontend - Main Stylesheet (Matches Frontend Dark Theme)
+ * Admin Frontend - PancakeSwap Theme
  *
- * Design System: Frontend-inspired dark theme with solid colored cards
- * - Dark gradient background (no glass effects)
- * - Solid blue/indigo colored cards
- * - Zero Animation Policy compliant
- * - Matches frontend UX/UI
+ * Design System: PancakeSwap-inspired UI with glass morphism
+ * - Purple/orange gradient theme
+ * - Glass morphism effects (backdrop-blur, transparent backgrounds)
+ * - Modern rounded corners (8px, 12px, 16px, 24px)
  *
  * NOTE: Theme variables (CSS custom properties) are now defined in
  * @shared/design-system/theme.css - DO NOT duplicate them here.
@@ -19,30 +18,59 @@
 @import '../styles/index.css';
 
 /* ============================================================================
-   SOLID COLORED CARDS (Matches Frontend)
+   PANCAKESWAP UTILITIES
    ============================================================================ */
 
 @layer components {
-  /* Grid Pattern Background */
-  .bg-grid-pattern {
-    background-image:
-      linear-gradient(rgba(99, 102, 241, 0.05) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(99, 102, 241, 0.05) 1px, transparent 1px);
-    background-size: 50px 50px;
+  /* Subtle Noise Overlay */
+  .bg-noise {
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+    filter: contrast(120%) brightness(120%);
+    opacity: 0.03;
   }
 
-  /* Gradient text clip */
+  /* Glass morphism card */
+  .card-glass {
+    background: hsl(var(--glass-bg));
+    backdrop-filter: blur(12px);
+    border: 1px solid hsl(var(--glass-border));
+    border-radius: var(--radius-lg);
+  }
+
+  /* PancakeSwap gradient background */
+  .bg-pancake-gradient {
+    background: linear-gradient(135deg, #8B5CF6 0%, #F97316 100%);
+  }
+
+  /* Gradient text - Purple to Orange */
+  .text-pancake-gradient {
+    background: linear-gradient(135deg, #8B5CF6 0%, #F97316 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  /* Gradient text clip utility */
   .bg-clip-text {
     -webkit-background-clip: text;
     background-clip: text;
   }
 
-  /* Primary solid blue card - matches frontend */
+  /* Hover lift effect */
+  .hover-lift {
+    transition: all 0.3s ease;
+  }
+  .hover-lift:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 40px rgba(139, 92, 246, 0.3);
+  }
+
+  /* Primary purple/orange gradient card */
   .card-primary-solid {
-    background: linear-gradient(135deg, hsl(217 91% 60%) 0%, hsl(262 83% 58%) 100%);
-    border: 1px solid hsl(217 91% 60%);
-    box-shadow: 0 10px 40px rgba(37, 99, 235, 0.3);
-    border-radius: 1rem;
+    background: linear-gradient(135deg, hsl(258 90% 66%) 0%, hsl(24 95% 53%) 100%);
+    border: 1px solid hsl(258 90% 66%);
+    box-shadow: 0 10px 40px rgba(139, 92, 246, 0.3);
+    border-radius: var(--radius-lg);
     padding: 1.5rem;
     position: relative;
     overflow: hidden;
@@ -58,42 +86,80 @@
     background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, transparent 70%);
   }
 
-  /* Secondary indigo card */
-  .card-secondary-solid {
-    background: linear-gradient(135deg, hsl(238 85% 65%) 0%, hsl(262 83% 58%) 100%);
-    border: 1px solid hsl(238 85% 65%);
-    box-shadow: 0 10px 40px rgba(99, 102, 241, 0.3);
-    border-radius: 1rem;
-    padding: 1.5rem;
-    color: white;
-  }
-
-  /* Dark card with accent border */
-  .card-dark-accent {
-    background: hsl(220 20% 10%);
-    border: 1px solid hsl(217 91% 60%);
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-    border-radius: 1rem;
+  /* Secondary glass card */
+  .card-secondary-glass {
+    background: hsl(var(--glass-bg));
+    backdrop-filter: blur(12px);
+    border: 1px solid hsl(var(--glass-border));
+    box-shadow: 0 10px 40px rgba(139, 92, 246, 0.2);
+    border-radius: var(--radius-lg);
     padding: 1.5rem;
   }
 
-  /* Stats card variant */
+  /* Stats card variant with glass morphism */
   .card-stats {
-    background: linear-gradient(135deg, rgba(30, 27, 75, 0.8) 0%, rgba(49, 46, 129, 0.8) 100%);
-    border: 1px solid rgba(99, 102, 241, 0.3);
-    box-shadow: 0 10px 40px rgba(37, 99, 235, 0.2);
-    border-radius: 1rem;
+    background: hsl(var(--glass-bg));
+    backdrop-filter: blur(12px);
+    border: 1px solid hsl(var(--glass-border));
+    box-shadow: 0 10px 40px rgba(139, 92, 246, 0.2);
+    border-radius: var(--radius-lg);
     padding: 1.5rem;
-    color: white;
   }
 
-  /* Replace admin-card-dashboard with solid version */
+  /* Admin dashboard card */
   .admin-card-dashboard {
-    background: linear-gradient(135deg, hsl(217 91% 60% / 0.1) 0%, hsl(262 83% 58% / 0.1) 100%);
-    border: 1px solid hsl(217 91% 60% / 0.3);
+    background: hsl(var(--glass-bg));
+    backdrop-filter: blur(12px);
+    border: 1px solid hsl(var(--glass-border));
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-    border-radius: 1rem;
-    backdrop-filter: none;
-    background-color: hsl(220 20% 10%);
+    border-radius: var(--radius-lg);
+  }
+
+  /* Card with gradient top border - Orange */
+  .card-border-orange {
+    border: 1px solid hsl(0 0% 100% / 0.1);
+    border-top: 1px solid transparent;
+    position: relative;
+  }
+  .card-border-orange::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, hsl(24 95% 53%), hsl(38 92% 50%));
+  }
+
+  /* Card with gradient top border - Purple */
+  .card-border-purple {
+    border: 1px solid hsl(0 0% 100% / 0.1);
+    border-top: 1px solid transparent;
+    position: relative;
+  }
+  .card-border-purple::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, hsl(258 90% 66%), hsl(262 83% 58%));
+  }
+
+  /* Search input styling with glass effect */
+  .input-search-dark {
+    background-color: hsl(222 47% 11% / 0.5);
+    backdrop-filter: blur(4px);
+    border: 1px solid hsl(0 0% 100% / 0.1);
+    color: hsl(0 0% 100%);
+  }
+  .input-search-dark::placeholder {
+    color: hsl(215 20% 50%);
+  }
+  .input-search-dark:focus {
+    border-color: hsl(258 90% 66% / 0.5);
+    outline: none;
+    box-shadow: 0 0 0 2px hsl(258 90% 66% / 0.1);
   }
 }

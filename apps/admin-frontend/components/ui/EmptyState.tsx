@@ -24,28 +24,28 @@ interface EmptyStateProps {
 
 const variantConfig = {
   default: {
-    iconColor: 'text-gray-400',
-    bgColor: 'bg-gray-100 dark:bg-gray-800',
-    titleColor: 'text-gray-900 dark:text-gray-100',
-    descColor: 'text-gray-600 dark:text-gray-400'
+    iconColor: 'text-purple-400',
+    bgColor: 'bg-gradient-to-br from-purple-500/10 to-orange-500/10 border border-purple-500/20',
+    titleColor: 'text-foreground',
+    descColor: 'text-muted-foreground'
   },
   search: {
-    iconColor: 'text-blue-400',
-    bgColor: 'bg-blue-50 dark:bg-blue-900/20',
-    titleColor: 'text-blue-900 dark:text-blue-100',
-    descColor: 'text-blue-600 dark:text-blue-400'
+    iconColor: 'text-purple-400',
+    bgColor: 'bg-gradient-to-br from-purple-500/10 to-orange-500/10 border border-purple-500/20',
+    titleColor: 'text-foreground',
+    descColor: 'text-muted-foreground'
   },
   error: {
     iconColor: 'text-red-400',
-    bgColor: 'bg-red-50 dark:bg-red-900/20',
-    titleColor: 'text-red-900 dark:text-red-100',
-    descColor: 'text-red-600 dark:text-red-400'
+    bgColor: 'bg-gradient-to-br from-red-500/10 to-red-600/10 border border-red-500/20',
+    titleColor: 'text-foreground',
+    descColor: 'text-muted-foreground'
   },
   info: {
-    iconColor: 'text-yellow-400',
-    bgColor: 'bg-yellow-50 dark:bg-yellow-900/20',
-    titleColor: 'text-yellow-900 dark:text-yellow-100',
-    descColor: 'text-yellow-600 dark:text-yellow-400'
+    iconColor: 'text-amber-400',
+    bgColor: 'bg-gradient-to-br from-amber-500/10 to-orange-500/10 border border-amber-500/20',
+    titleColor: 'text-foreground',
+    descColor: 'text-muted-foreground'
   }
 }
 
@@ -78,7 +78,7 @@ export function EmptyState({
       role="status"
       aria-live="polite"
     >
-      <div className={cn('p-4 rounded-full mb-4', config.bgColor)}>
+      <div className={cn('p-4 rounded-2xl mb-4 backdrop-blur-sm', config.bgColor)}>
         <Icon className={cn('w-12 h-12', config.iconColor)} aria-hidden="true" />
       </div>
 
@@ -206,13 +206,15 @@ export function TableEmptyState({
   action?: { label: string; onClick: () => void }
 }) {
   return (
-    <div className="text-center py-12 text-gray-500 dark:text-gray-400">
-      <Inbox className="w-12 h-12 mx-auto mb-3 text-gray-400" aria-hidden="true" />
+    <div className="text-center py-12 text-muted-foreground">
+      <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-gradient-to-br from-purple-500/10 to-orange-500/10 border border-purple-500/20 flex items-center justify-center">
+        <Inbox className="w-6 h-6 text-purple-400" aria-hidden="true" />
+      </div>
       <p className="text-sm">{message}</p>
       {action && (
         <Button
           onClick={action.onClick}
-          variant="outline"
+          variant="glass"
           className="mt-4"
           aria-label={action.label}
         >

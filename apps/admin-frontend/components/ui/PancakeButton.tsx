@@ -36,7 +36,7 @@ export function PancakeButton({
   loading = false,
   icon,
   fullWidth = false,
-  metro = true
+  metro = false
 }: PancakeButtonProps) {
   const sizeClasses = {
     sm: 'px-4 py-2 text-sm',
@@ -47,25 +47,25 @@ export function PancakeButton({
 
   const variants = {
     pancake: {
-      bg: 'bg-primary',
-      hover: 'hover:opacity-90',
-      text: 'text-primary-foreground',
-      shadow: 'shadow-primary/20',
-      accent: 'border-primary/20'
+      bg: 'bg-gradient-to-r from-purple-500 to-orange-500',
+      hover: 'hover:shadow-xl hover:shadow-purple-500/30 hover:-translate-y-1',
+      text: 'text-white',
+      shadow: 'shadow-lg shadow-purple-500/20',
+      accent: 'border-purple-500/30'
     },
     admin: {
-      bg: 'bg-primary',
-      hover: 'hover:opacity-90',
-      text: 'text-primary-foreground',
-      shadow: 'shadow-primary/20',
-      accent: 'border-primary/20'
+      bg: 'bg-gradient-to-r from-purple-500 to-orange-500',
+      hover: 'hover:shadow-xl hover:shadow-purple-500/30 hover:-translate-y-1',
+      text: 'text-white',
+      shadow: 'shadow-lg shadow-purple-500/20',
+      accent: 'border-purple-500/30'
     },
     analytics: {
       bg: 'bg-secondary',
-      hover: 'hover:opacity-90',
-      text: 'text-secondary-foreground',
-      shadow: 'shadow-secondary/20',
-      accent: 'border-secondary/20'
+      hover: 'hover:shadow-xl hover:shadow-orange-500/30 hover:-translate-y-1',
+      text: 'text-white',
+      shadow: 'shadow-lg shadow-orange-500/20',
+      accent: 'border-orange-500/30'
     },
     ghost: {
       bg: 'bg-transparent',
@@ -99,7 +99,7 @@ export function PancakeButton({
         ${disabled || loading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
       `}
     >
-      {/* Windows Phone Static Metro Effect */}
+      {/* Metro effect - only shown if metro is true */}
       {metro && (
         <div
           className="absolute inset-0 opacity-10"
@@ -109,7 +109,7 @@ export function PancakeButton({
         />
       )}
 
-      {/* Button static shine effect */}
+      {/* Button hover shine effect */}
       <div
         className="absolute inset-0 opacity-0 hover:opacity-100 transition-opacity"
         style={{
@@ -135,7 +135,7 @@ export function PancakeButton({
         )}
       </div>
 
-      {/* Metro accent line */}
+      {/* Metro accent line - only shown if metro is true */}
       {metro && (
         <div className="absolute bottom-0 left-0 w-full h-0.5 bg-white/20" />
       )}
@@ -177,9 +177,9 @@ export function PancakeIconButton({
   };
 
   const variants = {
-    pancake: 'bg-primary',
-    admin: 'bg-primary',
-    analytics: 'bg-secondary'
+    pancake: 'bg-gradient-to-r from-purple-500 to-orange-500 shadow-purple-500/20 hover:shadow-purple-500/30',
+    admin: 'bg-gradient-to-r from-purple-500 to-orange-500 shadow-purple-500/20 hover:shadow-purple-500/30',
+    analytics: 'bg-gradient-to-r from-orange-500 to-yellow-500 shadow-orange-500/20 hover:shadow-orange-500/30'
   };
 
   return (
@@ -189,12 +189,13 @@ export function PancakeIconButton({
       className={`
         ${sizeClasses[size]}
         ${variants[variant]}
-        text-primary-foreground
+        text-white
         relative
         overflow-hidden
         shadow-lg
-        shadow-primary/20
-        hover:opacity-90
+        rounded-xl
+        hover:shadow-xl
+        hover:-translate-y-1
         transition-all
         ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
       `}
@@ -242,9 +243,9 @@ export function PancakeFAB({
   };
 
   const variants = {
-    pancake: 'bg-primary',
-    admin: 'bg-primary',
-    analytics: 'bg-secondary'
+    pancake: 'bg-gradient-to-r from-purple-500 to-orange-500 shadow-purple-500/30 hover:shadow-purple-500/40',
+    admin: 'bg-gradient-to-r from-purple-500 to-orange-500 shadow-purple-500/30 hover:shadow-purple-500/40',
+    analytics: 'bg-gradient-to-r from-orange-500 to-yellow-500 shadow-orange-500/30 hover:shadow-orange-500/40'
   };
 
   return (
@@ -254,10 +255,10 @@ export function PancakeFAB({
         fixed ${positions[position]}
         w-16 h-16
         ${variants[variant]}
-        text-primary-foreground text-2xl
+        text-white text-2xl
         shadow-2xl
-        shadow-primary/30
-        hover:opacity-90
+        rounded-2xl
+        hover:scale-110
         transition-all
         z-50
         overflow-hidden

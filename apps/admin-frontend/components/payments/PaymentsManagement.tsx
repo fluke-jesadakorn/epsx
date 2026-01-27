@@ -1,12 +1,16 @@
 'use client';
 
 import {
-    CheckCircleIcon,
-    ClockIcon,
-    CurrencyDollarIcon,
-    EyeIcon,
-    XCircleIcon,
-} from '@heroicons/react/24/outline';
+    BarChart3,
+    CheckCircle,
+    Clock,
+    CreditCard,
+    DollarSign,
+    Eye,
+    RefreshCcw,
+    Search,
+    XCircle
+} from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 
 import { useApiClient } from '@/shared/hooks/useApiClient';
@@ -87,7 +91,11 @@ export function PaymentsManagement() {
                 setStats(response.data.summary || null);
                 setTotalPages(response.data.pagination?.total_pages || 1);
             } else {
-                throw new Error(response.error || response.message || 'Failed to load payments');
+                const resp = response as any;
+                const errorMessage = typeof resp.error === 'object'
+                    ? resp.error.message || JSON.stringify(resp.error)
+                    : resp.error || resp.message || 'Failed to load payments';
+                throw new Error(errorMessage);
             }
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Unknown error loading payments');
@@ -165,16 +173,16 @@ export function PaymentsManagement() {
         switch (status.toLowerCase()) {
             case 'succeeded':
             case 'completed':
-                return <CheckCircleIcon className="w-4 h-4" />;
+                return <CheckCircle className="w-4 h-4" />;
             case 'failed':
             case 'cancelled':
             case 'expired':
-                return <XCircleIcon className="w-4 h-4" />;
+                return <XCircle className="w-4 h-4" />;
             case 'pending':
             case 'processing':
-                return <ClockIcon className="w-4 h-4" />;
+                return <Clock className="w-4 h-4" />;
             default:
-                return <ClockIcon className="w-4 h-4" />;
+                return <Clock className="w-4 h-4" />;
         }
     };
 
@@ -231,184 +239,160 @@ export function PaymentsManagement() {
 
             <div className="relative max-w-7xl mx-auto">
                 {/* Hero Section */}
-                <div className="text-center mb-8 sm:mb-12">
-                    <div className="relative inline-block">
-                        <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-primary via-secondary to-primary bg-clip-text text-transparent mb-4">
-                            💳 Payment Transactions
-                        </h1>
-                        <div className="absolute -top-2 -right-2 w-4 h-4 bg-primary/20 rounded-full animate-ping"></div>
+                <div className="text-center mb-12">
+                    <div className="inline-flex p-4 bg-white/5 rounded-[32px] border border-white/5 text-[#1fc7d4] mb-8 shadow-xl">
+                        <CreditCard className="w-12 h-12" />
                     </div>
-                    <p className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto">
-                        Monitor and manage all payment transactions across the platform
+                    <h1 className="text-4xl sm:text-6xl font-black bg-gradient-to-r from-[#1fc7d4] via-[#7645d9] to-[#1fc7d4] bg-clip-text text-transparent mb-4 tracking-tighter">
+                        Payments Hub
+                    </h1>
+                    <p className="text-lg font-bold text-muted-foreground max-w-2xl mx-auto">
+                        Manage payments, user access, and payment links
                     </p>
                 </div>
 
                 {/* Action Cards */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 mb-8 sm:mb-12">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-12">
                     <div
-                        className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-primary/10 p-0.5 cursor-pointer"
+                        className="group relative overflow-hidden rounded-[32px] bg-slate-900/40 backdrop-blur-2xl border border-white/5 p-8 shadow-xl transition-all duration-300 hover:border-[#1fc7d4]/30 cursor-pointer text-center"
                         onClick={() => loadPayments()}
                     >
-                        <div className="relative bg-primary text-primary-foreground rounded-2xl sm:rounded-3xl hover:opacity-90 transition-opacity">
-                            <div className="p-6 sm:p-8">
-                                <div className="bg-white/20 rounded-2xl w-12 h-12 flex items-center justify-center mb-4 sm:mb-6">
-                                    <span className="text-xl sm:text-2xl">🔄</span>
-                                </div>
-                                <h3 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4">Refresh Data</h3>
-                                <p className="text-primary-foreground/80 mb-4 sm:mb-6 text-sm sm:text-base">Reload payment data from the server</p>
-                                <div className="bg-white/20 rounded-2xl px-4 sm:px-6 py-2 sm:py-3 text-center font-semibold text-sm sm:text-base min-h-[44px] flex items-center justify-center">
-                                    Refresh Now
-                                </div>
+                        <div className="absolute -right-8 -top-8 w-32 h-32 bg-[#1fc7d4]/5 rounded-full blur-3xl group-hover:bg-[#1fc7d4]/10 transition-colors" />
+                        <div className="relative z-10 flex flex-col items-center">
+                            <div className="p-4 bg-[#1fc7d4]/10 rounded-[24px] border border-[#1fc7d4]/10 text-[#1fc7d4] mb-6">
+                                <RefreshCcw className="w-8 h-8 group-hover:rotate-180 transition-transform duration-500" />
                             </div>
+                            <h3 className="text-2xl font-black text-foreground uppercase tracking-tight mb-2">Refresh Data</h3>
+                            <p className="text-muted-foreground font-bold mb-8">Reload payment data from the server</p>
+                            <button className="w-full max-w-[200px] py-3 rounded-2xl bg-slate-800 hover:bg-slate-700 text-white font-black text-sm uppercase tracking-widest transition-all">
+                                Refresh Now
+                            </button>
                         </div>
                     </div>
 
                     <div
-                        className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-secondary/10 p-0.5 cursor-pointer"
+                        className="group relative overflow-hidden rounded-[32px] bg-slate-900/40 backdrop-blur-2xl border border-white/5 p-8 shadow-xl transition-all duration-300 hover:border-[#7645d9]/30 cursor-pointer text-center"
                         onClick={exportPaymentsToCSV}
                     >
-                        <div className="relative bg-secondary text-secondary-foreground rounded-2xl sm:rounded-3xl hover:opacity-90 transition-opacity">
-                            <div className="p-6 sm:p-8">
-                                <div className="bg-white/20 rounded-2xl w-12 h-12 flex items-center justify-center mb-4 sm:mb-6">
-                                    <span className="text-xl sm:text-2xl">📊</span>
-                                </div>
-                                <h3 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4">Export Analysis</h3>
-                                <p className="text-secondary-foreground/80 mb-4 sm:mb-6 text-sm sm:text-base">Download detailed report in CSV format</p>
-                                <div className="bg-white/20 rounded-2xl px-4 sm:px-6 py-2 sm:py-3 text-center font-semibold text-sm sm:text-base min-h-[44px] flex items-center justify-center">
-                                    Export CSV Files
-                                </div>
+                        <div className="absolute -right-8 -top-8 w-32 h-32 bg-[#7645d9]/5 rounded-full blur-3xl group-hover:bg-[#7645d9]/10 transition-colors" />
+                        <div className="relative z-10 flex flex-col items-center">
+                            <div className="p-4 bg-[#7645d9]/10 rounded-[24px] border border-[#7645d9]/10 text-[#7645d9] mb-6">
+                                <BarChart3 className="w-8 h-8" />
                             </div>
+                            <h3 className="text-2xl font-black text-foreground uppercase tracking-tight mb-2">Export Analysis</h3>
+                            <p className="text-muted-foreground font-bold mb-8">Download detailed report in CSV format</p>
+                            <button className="w-full max-w-[200px] py-3 rounded-2xl bg-slate-800 hover:bg-slate-700 text-white font-black text-sm uppercase tracking-widest transition-all">
+                                Export CSV Files
+                            </button>
                         </div>
                     </div>
                 </div>
 
                 {/* Stats Grid */}
                 {stats && (
-                    <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 mb-6 sm:mb-8">
-                        <div className="bg-card rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-sm border border-primary/20">
-                            <div className="flex items-center justify-between mb-3 sm:mb-4">
-                                <div className="p-2 bg-primary/10 rounded-xl text-primary text-xl sm:text-2xl">💰</div>
-                                <span className="text-xs sm:text-sm font-medium text-muted-foreground">Revenue</span>
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+                        <div className="group relative bg-slate-900/40 backdrop-blur-2xl border border-white/5 rounded-[32px] p-8 shadow-xl transition-all duration-300 hover:border-[#1fc7d4]/30 overflow-hidden text-center">
+                            <div className="absolute -right-6 -top-6 w-20 h-20 bg-[#1fc7d4]/5 rounded-full blur-3xl group-hover:bg-[#1fc7d4]/10 transition-colors" />
+                            <div className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em] mb-4">Total Revenue</div>
+                            <div className="text-3xl sm:text-4xl font-black bg-gradient-to-r from-[#1fc7d4] to-[#7645d9] bg-clip-text text-transparent tracking-tighter mb-2">
+                                {formatCurrency(stats.total_amount)}
                             </div>
-                            <div className="space-y-1">
-                                <div className="text-xl sm:text-3xl font-bold text-primary truncate">
-                                    {formatCurrency(stats.total_amount)}
-                                </div>
-                                <div className="text-xs sm:text-sm text-muted-foreground">Total</div>
-                            </div>
+                            <div className="text-sm font-bold text-muted-foreground/60">Platform Total</div>
                         </div>
 
-                        <div className="bg-card/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-sm border border-success/20">
-                            <div className="flex items-center justify-between mb-3 sm:mb-4">
-                                <div className="p-2 bg-success/10 rounded-xl text-success text-xl sm:text-2xl">✅</div>
-                                <span className="text-xs sm:text-sm font-medium text-muted-foreground">Success</span>
+                        <div className="group relative bg-slate-900/40 backdrop-blur-2xl border border-white/5 rounded-[32px] p-8 shadow-xl transition-all duration-300 hover:border-[#31d0aa]/30 overflow-hidden text-center">
+                            <div className="absolute -right-6 -top-6 w-20 h-20 bg-[#31d0aa]/5 rounded-full blur-3xl group-hover:bg-[#31d0aa]/10 transition-colors" />
+                            <div className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em] mb-4">Successful</div>
+                            <div className="text-3xl sm:text-4xl font-black text-[#31d0aa] tracking-tighter mb-2">
+                                {stats.successful_payments}
                             </div>
-                            <div className="space-y-1">
-                                <div className="text-2xl sm:text-3xl font-bold text-success">{stats.successful_payments}</div>
-                                <div className="text-xs sm:text-sm text-muted-foreground">Completed</div>
-                            </div>
+                            <div className="text-sm font-bold text-muted-foreground/60">Completed</div>
                         </div>
 
-                        <div className="bg-card/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-sm border border-warning/20">
-                            <div className="flex items-center justify-between mb-3 sm:mb-4">
-                                <div className="p-2 bg-warning/10 rounded-xl text-warning text-xl sm:text-2xl">⏳</div>
-                                <span className="text-xs sm:text-sm font-medium text-muted-foreground">Pending</span>
+                        <div className="group relative bg-slate-900/40 backdrop-blur-2xl border border-white/5 rounded-[32px] p-8 shadow-xl transition-all duration-300 hover:border-[#ffb237]/30 overflow-hidden text-center">
+                            <div className="absolute -right-6 -top-6 w-20 h-20 bg-[#ffb237]/5 rounded-full blur-3xl group-hover:bg-[#ffb237]/10 transition-colors" />
+                            <div className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em] mb-4">Pending</div>
+                            <div className="text-3xl sm:text-4xl font-black text-[#ffb237] tracking-tighter mb-2">
+                                {stats.pending_payments}
                             </div>
-                            <div className="space-y-1">
-                                <div className="text-2xl sm:text-3xl font-bold text-warning">{stats.pending_payments}</div>
-                                <div className="text-xs sm:text-sm text-muted-foreground">In Progress</div>
-                            </div>
+                            <div className="text-sm font-bold text-muted-foreground/60">In Progress</div>
                         </div>
 
-                        <div className="bg-card/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-sm border border-secondary/20">
-                            <div className="flex items-center justify-between mb-3 sm:mb-4">
-                                <div className="p-2 bg-secondary/10 rounded-xl text-secondary text-xl sm:text-2xl">📈</div>
-                                <span className="text-xs sm:text-sm font-medium text-muted-foreground">Today</span>
+                        <div className="group relative bg-slate-900/40 backdrop-blur-2xl border border-white/5 rounded-[32px] p-8 shadow-xl transition-all duration-300 hover:border-[#ed4b9e]/30 overflow-hidden text-center">
+                            <div className="absolute -right-6 -top-6 w-20 h-20 bg-[#ed4b9e]/5 rounded-full blur-3xl group-hover:bg-[#ed4b9e]/10 transition-colors" />
+                            <div className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em] mb-4">Today</div>
+                            <div className="text-3xl sm:text-4xl font-black text-[#ed4b9e] tracking-tighter mb-2 truncate">
+                                {formatCurrency(stats.revenue_today)}
                             </div>
-                            <div className="space-y-1">
-                                <div className="text-xl sm:text-3xl font-bold text-secondary truncate">
-                                    {formatCurrency(stats.revenue_today)}
-                                </div>
-                                <div className="text-xs sm:text-sm text-muted-foreground">Revenue</div>
-                            </div>
+                            <div className="text-sm font-bold text-muted-foreground/60">Current Revenue</div>
                         </div>
                     </div>
                 )}
 
                 {/* Filter Section */}
-                <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-primary/10 p-0.5 mb-6">
-                    <div className="relative bg-card rounded-2xl sm:rounded-3xl p-4 sm:p-6 border border-border/50">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-                            <div>
-                                <label className="block text-sm font-medium text-muted-foreground mb-2">Search</label>
+                <div className="relative overflow-hidden rounded-[32px] bg-slate-900/40 backdrop-blur-2xl border border-white/5 p-6 shadow-xl mb-12">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 items-end">
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em] ml-2">Search</label>
+                            <div className="relative group">
+                                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-[#1fc7d4] transition-colors" />
                                 <input
                                     type="text"
-                                    placeholder="Reference, wallet, hash..."
+                                    placeholder="Reference, wallet..."
                                     value={filters.search}
                                     onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-                                    className="w-full px-4 py-3 bg-muted/50 border border-border/50 rounded-xl text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                                    className="w-full pl-11 pr-4 py-3 bg-white/5 border border-white/10 rounded-2xl text-foreground placeholder-muted-foreground/50 focus:outline-none focus:border-[#1fc7d4]/50 focus:bg-white/10 transition-all font-bold text-sm"
                                 />
                             </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-muted-foreground mb-2">Status</label>
-                                <select
-                                    value={filters.status}
-                                    onChange={(e) => setFilters({ ...filters, status: e.target.value })}
-                                    className="w-full px-4 py-3 bg-muted/50 border border-border/50 rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-                                >
-                                    <option value="">All Status</option>
-                                    <option value="succeeded">Succeeded</option>
-                                    <option value="pending">Pending</option>
-                                    <option value="failed">Failed</option>
-                                    <option value="cancelled">Cancelled</option>
-                                </select>
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-muted-foreground mb-2">Method</label>
-                                <select
-                                    value={filters.payment_method}
-                                    onChange={(e) => setFilters({ ...filters, payment_method: e.target.value })}
-                                    className="w-full px-4 py-3 bg-muted/50 border border-border/50 rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-                                >
-                                    <option value="">All Methods</option>
-                                    <option value="on_chain">On Chain</option>
-                                    <option value="on_line">Online</option>
-                                </select>
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-muted-foreground mb-2">Plan</label>
-                                <select
-                                    value={filters.plan_template}
-                                    onChange={(e) => setFilters({ ...filters, plan_template: e.target.value as PermissionTemplateName })}
-                                    className="w-full px-4 py-3 bg-muted/50 border border-border/50 rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-                                >
-                                    <option value="BASIC">Basic</option>
-                                    <option value="PRO">Pro</option>
-                                    <option value="ENTERPRISE">Enterprise</option>
-                                    <option value="WHALE">Whale</option>
-                                </select>
-                            </div>
-
-                            <div className="flex items-end">
-                                <button
-                                    onClick={() => {
-                                        setFilters({
-                                            status: '',
-                                            payment_method: '',
-                                            date_range: '',
-                                            plan_template: 'BASIC',
-                                            search: '',
-                                        });
-                                    }}
-                                    className="w-full px-4 py-3 font-semibold rounded-xl bg-muted hover:bg-muted/80 text-muted-foreground transition-all border border-border/50"
-                                >
-                                    Reset
-                                </button>
-                            </div>
                         </div>
+
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em] ml-2">Status</label>
+                            <select
+                                value={filters.status}
+                                onChange={(e) => setFilters({ ...filters, status: e.target.value })}
+                                className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-2xl text-foreground focus:outline-none focus:border-[#1fc7d4]/50 focus:bg-white/10 transition-all font-bold text-sm"
+                            >
+                                <option value="">All Status</option>
+                                <option value="succeeded">Succeeded</option>
+                                <option value="pending">Pending</option>
+                                <option value="failed">Failed</option>
+                            </select>
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em] ml-2">Method</label>
+                            <select
+                                value={filters.payment_method}
+                                onChange={(e) => setFilters({ ...filters, payment_method: e.target.value })}
+                                className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-2xl text-foreground focus:outline-none focus:border-[#1fc7d4]/50 focus:bg-white/10 transition-all font-bold text-sm"
+                            >
+                                <option value="">All Methods</option>
+                                <option value="on_chain">On Chain</option>
+                                <option value="on_line">Online</option>
+                            </select>
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em] ml-2">Plan</label>
+                            <select
+                                value={filters.plan_template}
+                                onChange={(e) => setFilters({ ...filters, plan_template: e.target.value as PermissionTemplateName })}
+                                className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-2xl text-foreground focus:outline-none focus:border-[#1fc7d4]/50 focus:bg-white/10 transition-all font-bold text-sm"
+                            >
+                                <option value="BASIC">Basic</option>
+                                <option value="PRO">Pro</option>
+                                <option value="ENTERPRISE">Enterprise</option>
+                                <option value="WHALE">Whale</option>
+                            </select>
+                        </div>
+
+                        <button
+                            onClick={() => setFilters({ status: '', payment_method: '', date_range: '', plan_template: 'BASIC', search: '' })}
+                            className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-2xl text-muted-foreground hover:text-foreground hover:bg-white/10 font-black text-xs uppercase tracking-widest transition-all"
+                        >
+                            Reset
+                        </button>
                     </div>
                 </div>
 
@@ -422,141 +406,139 @@ export function PaymentsManagement() {
                 )}
 
                 {/* Payments Table */}
-                <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-primary/10 p-0.5">
-                    <div className="relative bg-card/95 backdrop-blur-xl rounded-2xl sm:rounded-3xl overflow-hidden border border-border/50">
-                        <div className="p-4 sm:p-6 lg:p-8">
-                            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-3">
-                                <h2 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-primary via-secondary to-primary bg-clip-text text-transparent">
-                                    Recent Transactions
-                                </h2>
-                                <div className="text-sm text-muted-foreground">
-                                    {payments.length} payments
-                                </div>
+                <div className="relative overflow-hidden rounded-[32px] bg-slate-900/40 backdrop-blur-2xl border border-white/5 shadow-xl">
+                    <div className="p-8">
+                        <div className="flex flex-col sm:flex-row items-center justify-between mb-8 gap-4">
+                            <h2 className="text-2xl font-black bg-gradient-to-r from-[#1fc7d4] to-[#7645d9] bg-clip-text text-transparent uppercase tracking-tight">
+                                Recent Transactions
+                            </h2>
+                            <div className="px-4 py-1.5 bg-white/5 rounded-full border border-white/10 text-xs font-black text-muted-foreground uppercase tracking-widest leading-none">
+                                {payments.length} Payments
                             </div>
-
-                            {payments.length === 0 ? (
-                                <div className="text-center py-12 sm:py-16">
-                                    <div className="h-20 w-20 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                                        <CurrencyDollarIcon className="w-10 h-10 text-primary" />
-                                    </div>
-                                    <h3 className="text-xl font-semibold text-foreground mb-2">
-                                        No payments found
-                                    </h3>
-                                    <p className="text-muted-foreground">
-                                        No payments match your current filters.
-                                    </p>
-                                </div>
-                            ) : (
-                                <>
-                                    {/* Mobile Card Layout */}
-                                    <div className="block sm:hidden space-y-4">
-                                        {payments.map((payment) => (
-                                            <div
-                                                key={payment.id}
-                                                className="p-4 bg-muted/30 border border-border/50 rounded-2xl"
-                                            >
-                                                <div className="flex items-center justify-between mb-3">
-                                                    <span className="font-mono text-xs text-muted-foreground">{payment.payment_reference}</span>
-                                                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${getStatusColor(payment.status)}`}>
-                                                        {getStatusIcon(payment.status)}
-                                                        <span className="ml-1">{payment.status}</span>
-                                                    </span>
-                                                </div>
-                                                <div className="grid grid-cols-2 gap-3">
-                                                    <div className="bg-card rounded-xl p-3 border border-border/50">
-                                                        <div className="text-sm font-medium text-muted-foreground">Amount</div>
-                                                        <div className="text-lg font-bold text-primary">
-                                                            {formatCurrency(payment.amount, payment.currency)}
-                                                        </div>
-                                                    </div>
-                                                    <div className="bg-card rounded-xl p-3 border border-border/50">
-                                                        <div className="text-sm font-medium text-muted-foreground">Plan</div>
-                                                        <div className="text-lg font-bold text-secondary">{payment.plan_name}</div>
-                                                    </div>
-                                                </div>
-                                                <div className="mt-3 text-xs text-muted-foreground">{formatDate(payment.created_at)}</div>
-                                            </div>
-                                        ))}
-                                    </div>
-
-                                    {/* Desktop Table */}
-                                    <div className="hidden sm:block overflow-x-auto">
-                                        <table className="min-w-full">
-                                            <thead>
-                                                <tr className="border-b border-border/50">
-                                                    <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Reference</th>
-                                                    <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Wallet</th>
-                                                    <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Plan</th>
-                                                    <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Amount</th>
-                                                    <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Status</th>
-                                                    <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Created</th>
-                                                    <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Actions</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody className="divide-y divide-border/50">
-                                                {payments.map((payment) => (
-                                                    <tr key={payment.id} className="hover:bg-muted/30 transition-colors">
-                                                        <td className="px-4 py-4 whitespace-nowrap text-sm font-mono text-foreground">
-                                                            {payment.payment_reference}
-                                                        </td>
-                                                        <td className="px-4 py-4 whitespace-nowrap">
-                                                            <div className="text-xs font-mono text-muted-foreground">
-                                                                {payment.wallet_address || 'N/A'}
-                                                            </div>
-                                                        </td>
-                                                        <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-foreground">
-                                                            {payment.plan_name}
-                                                        </td>
-                                                        <td className="px-4 py-4 whitespace-nowrap text-sm font-semibold text-primary">
-                                                            {formatCurrency(payment.amount, payment.currency)}
-                                                        </td>
-                                                        <td className="px-4 py-4 whitespace-nowrap">
-                                                            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${getStatusColor(payment.status)}`}>
-                                                                {getStatusIcon(payment.status)}
-                                                                <span className="ml-1">{payment.status}</span>
-                                                            </span>
-                                                        </td>
-                                                        <td className="px-4 py-4 whitespace-nowrap text-sm text-muted-foreground">
-                                                            {formatDate(payment.created_at)}
-                                                        </td>
-                                                        <td className="px-4 py-4 whitespace-nowrap">
-                                                            <button className="p-2 rounded-xl text-primary hover:bg-primary/10 transition-colors">
-                                                                <EyeIcon className="w-5 h-5" />
-                                                            </button>
-                                                        </td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    </div>
-
-                                    {/* Pagination */}
-                                    {totalPages > 1 && (
-                                        <div className="mt-6 flex items-center justify-between border-t border-border/50 pt-6">
-                                            <p className="text-sm text-muted-foreground">
-                                                Page <span className="font-semibold text-foreground">{currentPage}</span> of <span className="font-semibold text-foreground">{totalPages}</span>
-                                            </p>
-                                            <div className="flex gap-2">
-                                                <button
-                                                    onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                                                    disabled={currentPage === 1}
-                                                    className="px-4 py-2 text-sm font-medium rounded-xl bg-muted text-muted-foreground hover:bg-muted/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors border border-border/50"
-                                                >
-                                                    Previous
-                                                </button>
-                                                <button
-                                                    onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-                                                    disabled={currentPage === totalPages}
-                                                    className="px-4 py-2 text-sm font-medium rounded-xl bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                                                >
-                                                    Next
-                                                </button>
-                                            </div>
-                                        </div>
-                                    )}
-                                </>
-                            )}
                         </div>
+
+                        {payments.length === 0 ? (
+                            <div className="text-center py-12 sm:py-16">
+                                <div className="h-20 w-20 bg-[#1fc7d4]/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                                    <DollarSign className="w-10 h-10 text-[#1fc7d4]" />
+                                </div>
+                                <h3 className="text-xl font-semibold text-foreground mb-2">
+                                    No payments found
+                                </h3>
+                                <p className="text-muted-foreground">
+                                    No payments match your current filters.
+                                </p>
+                            </div>
+                        ) : (
+                            <>
+                                {/* Mobile Card Layout */}
+                                <div className="block sm:hidden space-y-4">
+                                    {payments.map((payment) => (
+                                        <div
+                                            key={payment.id}
+                                            className="p-4 bg-muted/30 border border-border/50 rounded-2xl"
+                                        >
+                                            <div className="flex items-center justify-between mb-3">
+                                                <span className="font-mono text-xs text-muted-foreground">{payment.payment_reference}</span>
+                                                <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${getStatusColor(payment.status)}`}>
+                                                    {getStatusIcon(payment.status)}
+                                                    <span className="ml-1">{payment.status}</span>
+                                                </span>
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-3">
+                                                <div className="bg-card rounded-xl p-3 border border-border/50">
+                                                    <div className="text-sm font-medium text-muted-foreground">Amount</div>
+                                                    <div className="text-lg font-bold text-primary">
+                                                        {formatCurrency(payment.amount, payment.currency)}
+                                                    </div>
+                                                </div>
+                                                <div className="bg-card rounded-xl p-3 border border-border/50">
+                                                    <div className="text-sm font-medium text-muted-foreground">Plan</div>
+                                                    <div className="text-lg font-bold text-secondary">{payment.plan_name}</div>
+                                                </div>
+                                            </div>
+                                            <div className="mt-3 text-xs text-muted-foreground">{formatDate(payment.created_at)}</div>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                {/* Desktop Table */}
+                                <div className="hidden sm:block overflow-x-auto">
+                                    <table className="min-w-full">
+                                        <thead>
+                                            <tr className="border-b border-border/50">
+                                                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Reference</th>
+                                                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Wallet</th>
+                                                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Plan</th>
+                                                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Amount</th>
+                                                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Status</th>
+                                                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Created</th>
+                                                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-border/50">
+                                            {payments.map((payment) => (
+                                                <tr key={payment.id} className="hover:bg-muted/30 transition-colors">
+                                                    <td className="px-4 py-4 whitespace-nowrap text-sm font-mono text-foreground">
+                                                        {payment.payment_reference}
+                                                    </td>
+                                                    <td className="px-4 py-4 whitespace-nowrap">
+                                                        <div className="text-xs font-mono text-muted-foreground">
+                                                            {payment.wallet_address || 'N/A'}
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-foreground">
+                                                        {payment.plan_name}
+                                                    </td>
+                                                    <td className="px-6 py-5 whitespace-nowrap text-sm font-bold text-[#1fc7d4]">
+                                                        {formatCurrency(payment.amount, payment.currency)}
+                                                    </td>
+                                                    <td className="px-4 py-4 whitespace-nowrap">
+                                                        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${getStatusColor(payment.status)}`}>
+                                                            {getStatusIcon(payment.status)}
+                                                            <span className="ml-1">{payment.status}</span>
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-4 py-4 whitespace-nowrap text-sm text-muted-foreground">
+                                                        {formatDate(payment.created_at)}
+                                                    </td>
+                                                    <td className="px-4 py-4 whitespace-nowrap">
+                                                        <button className="p-2 rounded-xl text-[#1fc7d4] hover:bg-[#1fc7d4]/10 transition-colors">
+                                                            <Eye className="w-5 h-5" />
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                {/* Pagination */}
+                                {totalPages > 1 && (
+                                    <div className="mt-6 flex items-center justify-between border-t border-border/50 pt-6">
+                                        <p className="text-sm text-muted-foreground">
+                                            Page <span className="font-semibold text-foreground">{currentPage}</span> of <span className="font-semibold text-foreground">{totalPages}</span>
+                                        </p>
+                                        <div className="flex gap-2">
+                                            <button
+                                                onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                                                disabled={currentPage === 1}
+                                                className="px-4 py-2 text-sm font-medium rounded-xl bg-muted text-muted-foreground hover:bg-muted/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors border border-border/50"
+                                            >
+                                                Previous
+                                            </button>
+                                            <button
+                                                onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                                                disabled={currentPage === totalPages}
+                                                className="px-4 py-2 text-sm font-medium rounded-xl bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                            >
+                                                Next
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+                            </>
+                        )}
                     </div>
                 </div>
             </div>

@@ -1,11 +1,11 @@
 'use client';
 
-import { Activity, BarChart3, BookOpen, Code, Key, Shield } from 'lucide-react';
+import { Shield } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import React, { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
-import { PageHeader } from '@/components/shared';
+import { PageHeader, PageTabs } from '@/components/shared';
 
 import { EditExpirationModal } from './modals/EditExpirationModal';
 import { RevokeKeyModal } from './modals/RevokeKeyModal';
@@ -213,16 +213,18 @@ export const DeveloperPortalPage: React.FC = () => {
     if (accessDenied) {
         return (
             <div className="flex items-center justify-center min-h-[60vh]">
-                <div className="text-center max-w-md">
-                    <Shield className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                    <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">
+                <div className="relative overflow-hidden rounded-[32px] bg-slate-900/40 backdrop-blur-2xl border border-white/5 p-12 shadow-xl text-center max-w-md">
+                    <div className="inline-flex p-4 bg-red-500/10 rounded-[24px] border border-red-500/10 text-red-500 mb-6 font-bold">
+                        <Shield className="w-12 h-12" />
+                    </div>
+                    <h2 className="text-2xl font-black text-foreground uppercase tracking-tight mb-2">
                         Access Denied
                     </h2>
-                    <p className="text-gray-600 dark:text-gray-300 mb-4">{accessDenied.message}</p>
+                    <p className="text-muted-foreground font-bold mb-6">{accessDenied.message}</p>
                     {accessDenied.code && (
-                        <p className="text-sm text-gray-500 dark:text-gray-400">
-                            Error code: {accessDenied.code}
-                        </p>
+                        <div className="px-4 py-2 bg-white/5 rounded-xl border border-white/5 text-xs font-mono text-muted-foreground">
+                            Error: {accessDenied.code}
+                        </div>
                     )}
                 </div>
             </div>
@@ -232,9 +234,13 @@ export const DeveloperPortalPage: React.FC = () => {
     // Loading data state
     if (loading) {
         return (
-            <div className="flex items-center justify-center p-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                <span className="ml-2 text-gray-600 dark:text-gray-300">Loading developer portal...</span>
+            <div className="flex flex-col items-center justify-center p-20 text-center">
+                <div className="relative w-16 h-16 mb-6">
+                    <div className="absolute inset-0 border-4 border-[#1fc7d4]/20 rounded-full"></div>
+                    <div className="absolute inset-0 border-4 border-[#1fc7d4] border-t-transparent rounded-full animate-spin"></div>
+                </div>
+                <h3 className="text-xl font-black text-foreground uppercase tracking-tight mb-2">Loading</h3>
+                <p className="text-muted-foreground font-bold">Preparing developer portal...</p>
             </div>
         );
     }
@@ -247,51 +253,21 @@ export const DeveloperPortalPage: React.FC = () => {
                 subtitle="Manage API keys, documentation, and third-party integrations"
                 icon="Code"
                 gradient="warning"
+                centered={true}
             />
 
             {/* Tab Navigation */}
-            <div className="flex space-x-1 mb-6 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg w-fit">
-                <button
-                    onClick={() => setActiveTab('overview')}
-                    className={`px-4 py-2 rounded-md font-medium transition-colors flex items-center ${activeTab === 'overview'
-                        ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
-                        : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100'
-                        }`}
-                >
-                    <BarChart3 className="w-4 h-4 mr-2" />
-                    Overview
-                </button>
-                <button
-                    onClick={() => setActiveTab('keys')}
-                    className={`px-4 py-2 rounded-md font-medium transition-colors flex items-center ${activeTab === 'keys'
-                        ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
-                        : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100'
-                        }`}
-                >
-                    <Key className="w-4 h-4 mr-2" />
-                    API Keys
-                </button>
-                <button
-                    onClick={() => setActiveTab('docs')}
-                    className={`px-4 py-2 rounded-md font-medium transition-colors flex items-center ${activeTab === 'docs'
-                        ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
-                        : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100'
-                        }`}
-                >
-                    <BookOpen className="w-4 h-4 mr-2" />
-                    Documentation
-                </button>
-                <button
-                    onClick={() => setActiveTab('usage')}
-                    className={`px-4 py-2 rounded-md font-medium transition-colors flex items-center ${activeTab === 'usage'
-                        ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
-                        : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100'
-                        }`}
-                >
-                    <Activity className="w-4 h-4 mr-2" />
-                    Usage Analytics
-                </button>
-            </div>
+            <PageTabs
+                tabs={[
+                    { id: 'overview', label: 'Overview', prefix: '📊' },
+                    { id: 'keys', label: 'API Keys', prefix: '🔑' },
+                    { id: 'docs', label: 'Documentation', prefix: '📚' },
+                    { id: 'usage', label: 'Usage Analytics', prefix: '📈' },
+                ]}
+                activeTab={activeTab}
+                onTabChange={(id) => setActiveTab(id as TabType)}
+                className="mb-8"
+            />
 
             {/* Tab Content */}
             {activeTab === 'overview' && (

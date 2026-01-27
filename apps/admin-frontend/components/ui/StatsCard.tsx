@@ -75,10 +75,10 @@ export function StatsCard({
   // Semantic color mapping
   const getIconColors = () => {
     const variantMap = {
-      enhanced: { bg: 'bg-primary-100', text: 'text-primary-600' },
-      simple: { bg: 'bg-blue-100', text: 'text-blue-600' },
-      inline: { bg: 'bg-neutral-100', text: 'text-neutral-600' },
-      default: { bg: 'bg-primary-100', text: 'text-primary-600' },
+      enhanced: { bg: 'bg-gradient-to-br from-purple-500 to-orange-500', text: 'text-white' },
+      simple: { bg: 'bg-gradient-to-br from-purple-500 to-orange-500', text: 'text-white' },
+      inline: { bg: 'bg-white/5 backdrop-blur-sm border border-white/10', text: 'text-purple-400' },
+      default: { bg: 'bg-gradient-to-br from-purple-500/20 to-orange-500/20', text: 'text-purple-400 border border-purple-500/20' },
     };
 
     return variantMap[variant] || variantMap.default;
@@ -86,12 +86,11 @@ export function StatsCard({
 
   // Use standard Tailwind classes instead of design system
   const getCardClasses = () => {
-    // Use shared premium card styles to match Frontend
-    const baseClasses = 'card-insight-enhanced text-card-foreground';
+    // Glass morphism card styles
+    const baseClasses = 'bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 text-card-foreground hover:shadow-xl hover:border-purple-500/30 hover-lift transition-all duration-200';
     const paddingClasses = variant === 'inline' ? 'p-4' : 'p-6';
-    const hoverClasses = 'hover:shadow-xl transition-shadow duration-200';
 
-    return cn(baseClasses, paddingClasses, hoverClasses);
+    return cn(baseClasses, paddingClasses);
   };
 
   const cardClasses = getCardClasses();

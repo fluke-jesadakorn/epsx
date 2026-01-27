@@ -24,42 +24,42 @@ const EVENT_CONFIG: Record<WalletActivityEvent['type'], {
     permission_granted: {
         emoji: '✅',
         label: 'Permission Granted',
-        color: 'bg-green-500',
+        color: 'bg-[#31d0aa]',
     },
     permission_revoked: {
         emoji: '❌',
         label: 'Permission Revoked',
-        color: 'bg-red-500',
+        color: 'bg-[#ed4b9e]',
     },
     subscription_started: {
         emoji: '📦',
         label: 'Subscription Started',
-        color: 'bg-purple-500',
+        color: 'bg-[#7645d9]',
     },
     subscription_cancelled: {
         emoji: '🚫',
         label: 'Subscription Cancelled',
-        color: 'bg-orange-500',
+        color: 'bg-[#ffb237]',
     },
     wallet_disabled: {
         emoji: '⚠️',
         label: 'Wallet Disabled',
-        color: 'bg-amber-500',
+        color: 'bg-[#ffb237]',
     },
     wallet_enabled: {
         emoji: '🔓',
         label: 'Wallet Enabled',
-        color: 'bg-green-500',
+        color: 'bg-[#31d0aa]',
     },
     wallet_created: {
         emoji: '🆕',
         label: 'Wallet Created',
-        color: 'bg-blue-500',
+        color: 'bg-[#1fc7d4]',
     },
     login: {
         emoji: '🔑',
         label: 'Login',
-        color: 'bg-gray-500',
+        color: 'bg-slate-500',
     },
 };
 

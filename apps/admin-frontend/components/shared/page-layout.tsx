@@ -52,23 +52,23 @@ type GradientPreset =
   | 'default';     // Primary to secondary
 
 const gradientClasses: Record<GradientPreset, string> = {
-  primary: 'from-primary via-secondary to-primary',
-  success: 'from-emerald-500 via-teal-500 to-cyan-500',
-  info: 'from-blue-500 via-indigo-500 to-purple-500',
-  purple: 'from-purple-500 via-fuchsia-500 to-pink-500',
-  warning: 'from-amber-500 via-orange-500 to-red-500',
-  indigo: 'from-indigo-500 via-purple-500 to-pink-500',
-  default: 'from-primary via-secondary to-primary',
+  primary: 'from-[#1fc7d4] via-[#7645d9] to-[#1fc7d4]',
+  success: 'from-[#31d0aa] to-[#1fc7d4]',
+  info: 'from-[#1fc7d4] to-[#7645d9]',
+  purple: 'from-[#7645d9] to-[#ed4b9e]',
+  warning: 'from-[#ffb237] to-[#ffb237]',
+  indigo: 'from-[#1fc7d4] via-[#7645d9] to-[#ed4b9e]',
+  default: 'from-[#1fc7d4] via-[#7645d9] to-[#1fc7d4]',
 };
 
 const iconColorClasses: Record<GradientPreset, string> = {
-  primary: 'text-primary',
-  success: 'text-emerald-500',
-  info: 'text-blue-500',
-  purple: 'text-purple-500',
-  warning: 'text-amber-500',
-  indigo: 'text-indigo-500',
-  default: 'text-primary',
+  primary: 'text-[#1fc7d4]',
+  success: 'text-[#31d0aa]',
+  info: 'text-[#1fc7d4]',
+  purple: 'text-[#7645d9]',
+  warning: 'text-[#ffb237]',
+  indigo: 'text-[#7645d9]',
+  default: 'text-[#1fc7d4]',
 };
 
 interface PageHeaderProps {
@@ -183,33 +183,25 @@ export function PageTabs({ tabs, activeTab, onTabChange, className }: PageTabsPr
 
   return (
     <div className={cn(
-      'relative overflow-hidden rounded-2xl bg-gradient-to-r from-indigo-900/50 via-purple-900/50 to-indigo-900/50 p-0.5 border border-indigo-500/30',
+      'relative overflow-hidden rounded-3xl bg-slate-900/40 p-0.5 border border-white/5 backdrop-blur-2xl shadow-xl',
       className
     )}>
-      <div className="relative bg-gray-900 rounded-2xl p-2">
-        <div className={cn(
-          'grid gap-2',
-          tabs.length === 2 && 'grid-cols-2',
-          tabs.length === 3 && 'grid-cols-1 sm:grid-cols-3',
-          tabs.length === 4 && 'grid-cols-2 sm:grid-cols-4',
-          tabs.length > 4 && 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4'
-        )}>
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => onTabChange(tab.id)}
-              className={cn(
-                'px-4 sm:px-6 py-3 rounded-xl font-semibold text-sm sm:text-base min-h-[44px] transition-all duration-200',
-                activeTab === tab.id
-                  ? cn('bg-gradient-to-r text-white shadow-lg shadow-indigo-500/30', getTabGradient(tab))
-                  : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
-              )}
-            >
-              {tab.prefix && <span className="mr-1">{tab.prefix}</span>}
-              {tab.label}
-            </button>
-          ))}
-        </div>
+      <div className="relative bg-white/5 backdrop-blur-sm rounded-3xl p-1.5 flex gap-1 overflow-x-auto no-scrollbar">
+        {tabs.map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => onTabChange(tab.id)}
+            className={cn(
+              'px-6 py-3 rounded-2xl font-bold text-sm sm:text-base min-h-[44px] transition-all duration-200 whitespace-nowrap active:scale-95',
+              activeTab === tab.id
+                ? cn('bg-gradient-to-r text-white shadow-lg shadow-cyan-500/10', getTabGradient(tab))
+                : 'bg-transparent text-muted-foreground hover:bg-white/5 hover:text-foreground'
+            )}
+          >
+            {tab.prefix && <span className="mr-2">{tab.prefix}</span>}
+            {tab.label}
+          </button>
+        ))}
       </div>
     </div>
   );
@@ -249,16 +241,16 @@ export function PageSkeleton({
         {showHeader && (
           <div className="mb-6 sm:mb-8 animate-pulse">
             <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-indigo-600 rounded-xl" />
-              <div className="h-10 sm:h-12 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl w-48 sm:w-64" />
+              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-primary rounded-xl" />
+              <div className="h-10 sm:h-12 bg-gradient-to-r from-primary to-secondary rounded-2xl w-48 sm:w-64" />
             </div>
-            <div className="h-4 sm:h-5 bg-gray-700 rounded-full w-48 sm:w-72 mt-3" />
+            <div className="h-4 sm:h-5 bg-muted rounded-full w-48 sm:w-72 mt-3" />
           </div>
         )}
 
         {/* Tabs skeleton */}
         {showTabs && (
-          <div className="rounded-2xl bg-gray-800 p-2 animate-pulse">
+          <div className="rounded-2xl bg-white/5 backdrop-blur-xl border border-white/10 p-2 animate-pulse">
             <div className={cn(
               'grid gap-2',
               tabCount === 2 && 'grid-cols-2',
@@ -266,7 +258,7 @@ export function PageSkeleton({
               tabCount === 4 && 'grid-cols-4'
             )}>
               {Array.from({ length: tabCount }).map((_, i) => (
-                <div key={i} className="h-12 bg-gray-700 rounded-xl" />
+                <div key={i} className="h-12 bg-white/5 rounded-xl" />
               ))}
             </div>
           </div>
@@ -283,16 +275,16 @@ export function PageSkeleton({
             {Array.from({ length: stats }).map((_, i) => (
               <div
                 key={i}
-                className="bg-gradient-to-br from-indigo-900/50 to-purple-900/50 rounded-2xl sm:rounded-3xl p-4 sm:p-6 border-2 border-indigo-500/30"
+                className="bg-white/5 backdrop-blur-xl rounded-2xl sm:rounded-3xl p-4 sm:p-6 border border-white/10"
               >
                 <div className="flex items-center justify-between mb-3 sm:mb-4">
-                  <div className="w-10 h-10 bg-indigo-600 rounded-xl" />
-                  <div className="w-12 h-4 bg-gray-700 rounded-full" />
+                  <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-orange-500 rounded-xl" />
+                  <div className="w-12 h-4 bg-white/10 rounded-full" />
                 </div>
                 <div className="space-y-2">
-                  <div className="h-8 bg-indigo-500 rounded-lg w-20" />
-                  <div className="h-4 bg-gray-700 rounded-full w-24" />
-                  <div className="h-3 bg-gray-600 rounded-full w-16" />
+                  <div className="h-8 bg-gradient-to-r from-purple-500 to-orange-500 rounded-lg w-20" />
+                  <div className="h-4 bg-white/10 rounded-full w-24" />
+                  <div className="h-3 bg-white/10 rounded-full w-16" />
                 </div>
               </div>
             ))}
@@ -301,19 +293,19 @@ export function PageSkeleton({
 
         {/* Content skeleton */}
         {rows > 0 && (
-          <div className="bg-gray-900 rounded-2xl sm:rounded-3xl border border-gray-700 overflow-hidden animate-pulse">
+          <div className="bg-white/5 backdrop-blur-xl rounded-2xl sm:rounded-3xl border border-white/10 overflow-hidden animate-pulse">
             <div className="p-4 sm:p-6 lg:p-8 space-y-4">
               {Array.from({ length: rows }).map((_, i) => (
                 <div
                   key={i}
-                  className="flex items-center gap-4 p-3 sm:p-4 bg-gray-800 rounded-xl sm:rounded-2xl"
+                  className="flex items-center gap-4 p-3 sm:p-4 bg-white/5 rounded-xl sm:rounded-2xl"
                 >
-                  <div className="w-10 h-10 bg-indigo-600 rounded-xl shrink-0" />
+                  <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-orange-500 rounded-xl shrink-0" />
                   <div className="flex-1 space-y-2">
-                    <div className="h-4 bg-gray-700 rounded-lg w-1/3" />
-                    <div className="h-3 bg-gray-600 rounded-lg w-1/2" />
+                    <div className="h-4 bg-white/10 rounded-lg w-1/3" />
+                    <div className="h-3 bg-white/10 rounded-lg w-1/2" />
                   </div>
-                  <div className="h-8 w-20 bg-indigo-600 rounded-full shrink-0" />
+                  <div className="h-8 w-20 bg-gradient-to-r from-purple-500 to-orange-500 rounded-full shrink-0" />
                 </div>
               ))}
             </div>
@@ -387,7 +379,7 @@ export function PageError({
       'flex flex-col items-center justify-center py-12 sm:py-16 text-center',
       className
     )}>
-      <div className="w-16 h-16 bg-destructive/10 rounded-2xl flex items-center justify-center mb-4">
+      <div className="w-16 h-16 bg-red-500/10 rounded-2xl flex items-center justify-center mb-4">
         <span className="text-3xl">⚠️</span>
       </div>
       <h3 className="text-lg sm:text-xl font-semibold text-foreground mb-2">{title}</h3>
@@ -395,7 +387,7 @@ export function PageError({
       {onRetry && (
         <button
           onClick={onRetry}
-          className="px-6 py-3 bg-primary text-primary-foreground rounded-xl font-semibold hover:opacity-90 transition-opacity"
+          className="px-6 py-3 bg-gradient-to-r from-purple-500 to-orange-500 text-white rounded-xl font-semibold shadow-lg shadow-purple-500/20 hover:shadow-xl hover:shadow-purple-500/30 hover-lift transition-all"
         >
           Try Again
         </button>
@@ -426,22 +418,22 @@ export function PageAuthRequired({
       'flex flex-col items-center justify-center py-16 sm:py-24 text-center',
       className
     )}>
-      <div className="w-20 h-20 bg-primary/10 rounded-3xl flex items-center justify-center mb-6">
-        <span className="text-4xl">🔐</span>
+      <div className="w-24 h-24 bg-gradient-to-br from-[#1fc7d4]/10 to-[#7645d9]/10 rounded-[32px] flex items-center justify-center mb-8 border border-white/5 shadow-xl">
+        <span className="text-5xl">🔐</span>
       </div>
-      <h3 className="text-2xl sm:text-3xl font-bold text-foreground mb-3">{title}</h3>
-      <p className="text-base sm:text-lg text-muted-foreground max-w-md mb-8">{message}</p>
+      <h3 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-[#1fc7d4] to-[#7645d9] bg-clip-text text-transparent mb-4 tracking-tight">{title}</h3>
+      <p className="text-lg sm:text-xl text-muted-foreground max-w-md mb-10 font-medium">{message}</p>
       {onAuth ? (
         <button
           onClick={onAuth}
-          className="px-8 py-4 bg-primary text-primary-foreground rounded-2xl font-bold text-lg hover:opacity-90 transition-opacity"
+          className="px-10 py-5 bg-[#1fc7d4] text-white rounded-3xl font-bold text-xl shadow-lg shadow-cyan-500/20 hover:shadow-cyan-500/40 hover:scale-[1.02] active:scale-95 transition-all"
         >
           Connect Wallet
         </button>
       ) : (
         <a
           href="/auth"
-          className="px-8 py-4 bg-primary text-primary-foreground rounded-2xl font-bold text-lg hover:opacity-90 transition-opacity"
+          className="px-10 py-5 bg-[#1fc7d4] text-white rounded-3xl font-bold text-xl shadow-lg shadow-cyan-500/20 hover:shadow-cyan-500/40 hover:scale-[1.02] active:scale-95 transition-all"
         >
           Connect Wallet
         </a>

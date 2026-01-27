@@ -73,7 +73,14 @@ export class NotificationValidationError extends NotificationAPIError {
 
 function handleNotificationError(error: any, operation: string, details?: any): never {
   const status = error?.status || error?.response?.status;
-  const errorMessage = error?.error || error?.message || 'Unknown error occurred';
+
+  // Safe error message extraction - handle cases where error.error might be an object
+  let errorMessage = 'Unknown error occurred';
+  if (error?.error && typeof error.error === 'object') {
+    errorMessage = error.error.message || error.error.error || JSON.stringify(error.error);
+  } else {
+    errorMessage = error?.error || error?.message || 'Unknown error occurred';
+  }
 
   if (status === 404) {
     throw new NotificationNotFoundError(

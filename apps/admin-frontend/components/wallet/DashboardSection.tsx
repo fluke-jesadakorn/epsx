@@ -55,7 +55,7 @@ interface DashboardSectionProps {
 export function DashboardSection({ stats, className }: DashboardSectionProps) {
     return (
         <div className={cn("hidden lg:block", className)}>
-            <div className="bg-card/50 backdrop-blur-sm border border-border/50 rounded-xl p-4 shadow-sm">
+            <div className="bg-slate-900/40 backdrop-blur-2xl border border-white/5 rounded-[32px] p-6 shadow-xl">
                 <div className="flex items-center justify-between">
                     {/* Left: Key Metrics Row */}
                     <div className="flex items-center flex-1">
@@ -64,7 +64,7 @@ export function DashboardSection({ stats, className }: DashboardSectionProps) {
                             value={stats.totalWallets}
                             trend="23"
                             trendUp={true}
-                            colorClass="text-blue-500"
+                            colorClass="text-[#1fc7d4]"
                             subValue="vs last mo"
                         />
                         <CompactStat
@@ -72,7 +72,7 @@ export function DashboardSection({ stats, className }: DashboardSectionProps) {
                             value={stats.activeCount}
                             trend="15"
                             trendUp={true}
-                            colorClass="text-green-500"
+                            colorClass="text-[#31d0aa]"
                             subValue="Active users"
                         />
                         <CompactStat
@@ -80,7 +80,7 @@ export function DashboardSection({ stats, className }: DashboardSectionProps) {
                             value={stats.disabledCount}
                             trend="3"
                             trendUp={false}
-                            colorClass="text-red-500"
+                            colorClass="text-[#ed4b9e]"
                             subValue="Attention"
                         />
                         <CompactStat
@@ -88,7 +88,7 @@ export function DashboardSection({ stats, className }: DashboardSectionProps) {
                             value={stats.subscribedCount}
                             trend="12.4%"
                             trendUp={true}
-                            colorClass="text-purple-500"
+                            colorClass="text-[#7645d9]"
                             subValue="Paid plans"
                         />
                         <CompactStat
@@ -96,35 +96,35 @@ export function DashboardSection({ stats, className }: DashboardSectionProps) {
                             value={stats.expiringSoon}
                             trend="12"
                             trendUp={false}
-                            colorClass="text-amber-500"
+                            colorClass="text-[#ffb237]"
                             subValue="In 7 days"
                         />
                     </div>
 
                     {/* Right: Revenue/Business Summary */}
-                    <div className="flex items-center gap-6 pl-6 border-l border-border/40 bg-zinc-50/50 dark:bg-zinc-900/50 py-2 px-6 rounded-lg ml-4">
+                    <div className="flex items-center gap-8 pl-8 border-l border-white/10 bg-white/5 py-4 px-8 rounded-3xl ml-6">
                         <div className="flex flex-col text-right">
-                            <div className="flex items-center justify-end gap-1.5 text-green-600 dark:text-green-500 mb-0.5">
+                            <div className="flex items-center justify-end gap-1.5 text-[#31d0aa] mb-0.5">
                                 <TrendingUp className="h-3 w-3" />
-                                <span className="text-[10px] font-bold uppercase tracking-wider">MRR</span>
+                                <span className="text-[10px] font-bold uppercase tracking-widest">MRR</span>
                             </div>
-                            <span className="text-lg font-bold">{stats.mrr}</span>
+                            <span className="text-xl font-bold text-foreground">{stats.mrr}</span>
                         </div>
 
                         <div className="flex flex-col text-right">
-                            <div className="flex items-center justify-end gap-1.5 text-blue-600 dark:text-blue-500 mb-0.5">
+                            <div className="flex items-center justify-end gap-1.5 text-[#1fc7d4] mb-0.5">
                                 <Users className="h-3 w-3" />
-                                <span className="text-[10px] font-bold uppercase tracking-wider">Members</span>
+                                <span className="text-[10px] font-bold uppercase tracking-widest">Members</span>
                             </div>
-                            <span className="text-lg font-bold">{stats.members}</span>
+                            <span className="text-xl font-bold text-foreground">{stats.members}</span>
                         </div>
 
                         <div className="flex flex-col text-right">
-                            <div className="flex items-center justify-end gap-1.5 text-purple-600 dark:text-purple-500 mb-0.5">
+                            <div className="flex items-center justify-end gap-1.5 text-[#7645d9] mb-0.5">
                                 <Crown className="h-3 w-3" />
-                                <span className="text-[10px] font-bold uppercase tracking-wider">Growth</span>
+                                <span className="text-[10px] font-bold uppercase tracking-widest">Growth</span>
                             </div>
-                            <span className="text-lg font-bold">{stats.growth}</span>
+                            <span className="text-xl font-bold text-[#7645d9]">{stats.growth}</span>
                         </div>
                     </div>
                 </div>

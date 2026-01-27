@@ -47,21 +47,21 @@ export function ActivityLogSection({ className, initialEvents }: ActivityLogSect
     }, [fetchLogs]);
 
     return (
-        <div className={cn("flex flex-col h-full bg-card border border-border rounded-xl shadow-sm overflow-hidden", className)}>
+        <div className={cn("flex flex-col h-full bg-slate-900/40 backdrop-blur-2xl border border-white/5 rounded-[32px] shadow-xl overflow-hidden", className)}>
             {/* Filter Bar */}
-            <div className="p-4 border-b border-border flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center bg-card/50">
-                <div className="flex items-center gap-2 w-full sm:w-auto flex-1">
+            <div className="p-6 border-b border-white/5 flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center bg-white/5">
+                <div className="flex items-center gap-3 w-full sm:w-auto flex-1">
                     <div className="relative w-full sm:max-w-md">
-                        <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                        <Search className="absolute left-4 top-3 h-4 w-4 text-muted-foreground" />
                         <Input
                             placeholder="Search activity logs..."
-                            className="pl-9 h-10 bg-background/50 border-border/50 focus:bg-background transition-colors"
+                            className="pl-11 h-12 bg-white/5 border-white/5 focus:bg-white/10 transition-all rounded-2xl placeholder:text-muted-foreground/50 font-medium"
                         />
                     </div>
                 </div>
 
                 <div className="flex items-center gap-2">
-                    <Button variant="outline" size="sm" className="h-10 border-dashed" onClick={fetchLogs} disabled={isLoading}>
+                    <Button variant="outline" size="sm" className="h-12 border-dashed rounded-2xl bg-white/5 border-white/10 hover:bg-white/10 font-bold" onClick={fetchLogs} disabled={isLoading}>
                         <RefreshCw className={cn("h-4 w-4 mr-2", isLoading && "animate-spin")} />
                         Refresh
                     </Button>
