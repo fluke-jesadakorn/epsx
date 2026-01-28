@@ -15,12 +15,11 @@ export interface SecurityConfig {
   maxRequestsPerMinute: number;
 }
 
-export interface PermissionRule {
-  platform: string;
-  resource: string;
-  action: string;
-  condition?: (context: unknown) => boolean;
-}
+
+// ============================================================================
+// Exports
+// ============================================================================
+
 
 export interface SecurityHeaders {
   'Content-Security-Policy'?: string;
@@ -86,95 +85,6 @@ export function generateSecurityHeaders(config: SecurityConfig = getSecurityConf
   }
 
   return headers;
-}
-
-// ============================================================================
-// Permission Validation
-// ============================================================================
-
-export class PermissionValidator {
-  private rules: PermissionRule[] = [];
-
-  addRule(rule: PermissionRule): void {
-    this.rules.push(rule);
-  }
-
-  removeRule(platform: string, resource: string, action: string): void {
-    this.rules = this.rules.filter(rule =>
-      !(rule.platform === platform && rule.resource === resource && rule.action === action)
-    );
-  }
-
-  validate(permissions: string[], requiredPermission: string, context?: unknown): boolean {
-    const parts = requiredPermission.split(':');
-    if (parts.length !== 3) {
-      throw new Error('Invalid permission format. Expected: platform:resource:action');
-    }
-
-    const [platform, resource, action] = parts;
-
-    // Check exact permission match
-    if (permissions.includes(requiredPermission)) {
-      return this.checkRuleConditions(platform, resource, action, context);
-    }
-
-    // Check wildcard permissions
-    const wildcardPermissions = [
-      `${platform}:${resource}:*`,
-      `${platform}:*:${action}`,
-      `${platform}:*:*`,
-      `*:${resource}:${action}`,
-      `*:${resource}:*`,
-      `*:*:${action}`,
-      `*:*:*`
-    ];
-
-    for (const wildcardPermission of wildcardPermissions) {
-      if (permissions.includes(wildcardPermission)) {
-        return this.checkRuleConditions(platform, resource, action, context);
-      }
-    }
-
-    // Check embedded timestamp permissions
-    for (const permission of permissions) {
-      const permParts = permission.split(':');
-      if (permParts.length === 4) {
-        const timestamp = parseInt(permParts[3], 10);
-        if (!isNaN(timestamp) && Date.now() / 1000 <= timestamp) {
-          const basePermission = permParts.slice(0, 3).join(':');
-          if (basePermission === requiredPermission) {
-            return this.checkRuleConditions(platform, resource, action, context);
-          }
-        }
-      }
-    }
-
-    return false;
-  }
-
-  private checkRuleConditions(platform: string, resource: string, action: string, context?: unknown): boolean {
-    const rule = this.rules.find(r =>
-      r.platform === platform && r.resource === resource && r.action === action
-    );
-
-    if (rule && rule.condition) {
-      return rule.condition(context);
-    }
-
-    return true;
-  }
-
-  validateMultiple(permissions: string[], requiredPermissions: string[], context?: unknown): boolean {
-    return requiredPermissions.every(permission =>
-      this.validate(permissions, permission, context)
-    );
-  }
-
-  validateAny(permissions: string[], requiredPermissions: string[], context?: unknown): boolean {
-    return requiredPermissions.some(permission =>
-      this.validate(permissions, permission, context)
-    );
-  }
 }
 
 // ============================================================================
@@ -343,7 +253,6 @@ export function buildCSPHeader(nonce?: string): string {
 // Exports
 // ============================================================================
 
-export const permissionValidator = new PermissionValidator();
 export const rateLimiter = new RateLimiter(getSecurityConfig().maxRequestsPerMinute);
 
 // Level utilities for user tiers

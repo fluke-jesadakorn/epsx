@@ -7,12 +7,8 @@
 import {
   getPlatformPermissions,
   getUserEffectivePermissions,
-  hasAllPermissions,
-  hasAnyPermission,
-  hasPermission,
   isAdmin,
   isSuperAdmin,
-  PLATFORMS,
   // Core IAM utilities
   IAM_CONFIG as SHARED_IAM_CONFIG,
   buildPermission as sharedBuildPermission,
@@ -130,76 +126,38 @@ export const FRONTEND_PERMISSION_SETS = {
  * Check if user has permissions for frontend context (non-admin)
  */
 export function hasUserPermissions(userPermissions: string[]): boolean {
-  // Users should have EPSX platform permissions, not admin permissions
-  return getPlatformPermissions(userPermissions, PLATFORMS.EPSX).length > 0;
+  // PERMISSION REFACTOR: Client-side is permissive for authenticated users.
+  // Backend enforces actual access control.
+  return !!userPermissions && userPermissions.length > 0;
 }
 
-/**
- * Check if user can access frontend route
- */
 export function canAccessUserRoute(route: string, userPermissions: string[]): boolean {
-  // Check if route is public
+  // PERMISSION REFACTOR: Client-side route checks are now permissive.
+  // Backend (Rust) enforces access control based on user plan/permissions.
   if (isPublicRoute(route)) {
     return true;
   }
 
-  // Check if route requires authentication only
-  if (isAuthenticatedRoute(route)) {
-    return userPermissions.length > 0;
-  }
-
-  // Check specific route permissions
-  const requiredPermissions = getRoutePermissions(route);
-  if (requiredPermissions && requiredPermissions.length > 0) {
-    return hasAnyPermission(userPermissions, requiredPermissions);
-  }
-
-  // Default to requiring authentication
-  return userPermissions.length > 0;
+  // Require at least authentication for non-public routes
+  return !!userPermissions && userPermissions.length > 0;
 }
 
 /**
  * Get user-specific effective permissions (filter out admin permissions)
  */
 export function getUserEffectivePermissionsFiltered(userPermissions: string[]): string[] {
-  const effectivePermissions = getUserEffectivePermissions(userPermissions);
-
-  // Filter out admin permissions for user context
-  return effectivePermissions.filter(permission =>
-    !permission.startsWith('admin:')
-  );
+  // PERMISSION REFACTOR: Return as-is, backend manages set expansion.
+  return [...userPermissions];
 }
 
 /**
  * Validate user permission context
  */
-export function validateUserPermission(permission: string): {
+export function validateUserPermission(_permission: string): {
   valid: boolean;
   error?: string;
 } {
-  if (!sharedIsValidPermission(permission)) {
-    return {
-      valid: false,
-      error: 'Invalid permission format. Must be platform:resource:action'
-    };
-  }
-
-  const parsed = sharedParsePermission(permission);
-  if (!parsed) {
-    return {
-      valid: false,
-      error: 'Failed to parse permission structure'
-    };
-  }
-
-  // User context - should not be admin platform
-  if (parsed.platform === PLATFORMS.ADMIN) {
-    return {
-      valid: false,
-      error: 'Admin permissions not allowed in user context'
-    };
-  }
-
+  // PERMISSION REFACTOR: Permissive on client.
   return { valid: true };
 }
 
@@ -207,43 +165,15 @@ export function validateUserPermission(permission: string): {
  * Get user's permission tier based on their permissions
  */
 export function getUserPermissionTier(userPermissions: string[]): 'free' | 'trial' | 'basic' | 'premium' | 'enterprise' {
+  // PERMISSION REFACTOR: Tier detection now defaults to a base level if authenticated.
+  // Real tier benefits are enforced by the backend.
   if (!userPermissions || userPermissions.length === 0) {
     return 'free';
   }
 
-  // Check for enterprise permissions
-  if (hasPermission(userPermissions, 'epsx:*:*')) {
-    return 'enterprise';
-  }
-
-  // Check for premium permissions
-  const premiumPermissions = [
-    'epsx:analytics:advanced',
-    'epsx:realtime:access',
-    'epsx:analytics:export'
-  ];
-
-  if (premiumPermissions.some(permission => hasPermission(userPermissions, permission))) {
-    return 'premium';
-  }
-
-  // Check for basic permissions
-  const basicPermissions = [
-    'epsx:analytics:view',
-    'epsx:profile:manage'
-  ];
-
-  if (basicPermissions.some(permission => hasPermission(userPermissions, permission))) {
-    // Check if it's trial (has export but not advanced)
-    if (hasPermission(userPermissions, 'epsx:analytics:export') &&
-      !hasPermission(userPermissions, 'epsx:analytics:advanced')) {
-      return 'trial';
-    }
-    return 'basic';
-  }
-
-  return 'free';
+  return 'basic';
 }
+
 
 // Re-export shared utility functions with frontend context
 export const getRoutePermissions = sharedGetRoutePermissions;
@@ -261,7 +191,7 @@ export function getPermissionPlatform(permission: string): string | null {
 
 // Re-export all shared IAM utilities for frontend use
 export {
-  getPlatformPermissions, getUserEffectivePermissions, hasAllPermissions, hasAnyPermission, hasPermission, isAdmin,
+  getPlatformPermissions, getUserEffectivePermissions, isAdmin,
   isSuperAdmin
 };
 

@@ -11,11 +11,9 @@ import {
   CheckCircle,
   ChevronRight,
   Copy,
-  CreditCard,
   MoreHorizontal,
   Settings,
   Shield,
-  ShieldCheck,
   TrendingUp,
   Users,
   XCircle,
@@ -271,9 +269,7 @@ export function AnalyticsSummaryCard({
 interface AnalyticsUserCardProps {
   avatarLabel?: string;
   address: string;
-  plan?: string;
-  group?: string;
-  permissionsCount?: number;
+  plan: string; // Plan Name e.g. "Premium", "Enterprise"
   onViewDetails?: () => void;
   className?: string;
 }
@@ -284,9 +280,7 @@ interface AnalyticsUserCardProps {
 export function AnalyticsUserCard({
   avatarLabel = 'BB',
   address,
-  plan = 'Free',
-  group = 'User',
-  permissionsCount = 0,
+  plan,
   onViewDetails,
   className = ''
 }: AnalyticsUserCardProps) {
@@ -345,43 +339,21 @@ export function AnalyticsUserCard({
           </div>
         </div>
 
-        {/* Middle Section: Stats & Badges */}
-        <div className="grid grid-cols-2 gap-4 sm:flex sm:flex-wrap sm:items-center sm:gap-6 lg:gap-8">
-          {/* Plan */}
+        {/* Middle Section: Plan */}
+        <div className="flex-1 min-w-0">
           <div className="flex flex-col gap-1.5">
             <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Plan</span>
-            <div className={cn(
-              "flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm font-bold backdrop-blur-md w-full sm:w-auto justify-center sm:justify-start",
-              plan === 'Premium'
-                ? "border-[#7645d9]/30 bg-[#7645d9]/10 text-[#7645d9]"
-                : "border-slate-700 bg-slate-800/50 text-slate-300"
-            )}>
-              <CreditCard size={14} />
-              {plan}
-            </div>
-          </div>
-
-          {/* Group */}
-          <div className="flex flex-col gap-1.5">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Group</span>
-            <div className="flex items-center gap-2 text-sm font-medium text-slate-200 bg-white/5 sm:bg-transparent rounded-lg sm:rounded-none px-3 py-1.5 sm:p-0 justify-center sm:justify-start border border-white/5 sm:border-none">
-              <AnalyticsIcon name="users" size={16} className="text-[#1fc7d4]" />
-              {group}
-            </div>
-          </div>
-
-          {/* Perms */}
-          <div className="col-span-2 sm:col-span-1 flex flex-col gap-1.5">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Access</span>
-            <div className="flex items-center justify-center sm:justify-start gap-2 rounded-lg bg-[#7645d9]/20 px-3 py-1.5 text-xs font-bold text-[#b8add2] shadow-[0_0_15px_-3px_rgba(118,69,217,0.3)]">
-              <ShieldCheck size={14} />
-              {permissionsCount} PERMS
+            <div className="flex items-center gap-2 text-sm font-medium text-slate-200 bg-white/5 rounded-lg px-3 py-2 border border-white/5 w-full">
+              <AnalyticsIcon name="actions" size={16} className="text-[#1fc7d4] shrink-0" />
+              <span className="font-mono text-xs sm:text-sm truncate" title={plan}>
+                {plan}
+              </span>
             </div>
           </div>
         </div>
 
         {/* Right Section: Actions */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 mt-2 lg:mt-0 lg:border-l lg:border-white/5 lg:pl-8">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 mt-2 lg:mt-0 lg:border-l lg:border-white/5 lg:pl-8 shrink-0">
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -404,3 +376,5 @@ export function AnalyticsUserCard({
     </div>
   );
 }
+
+

@@ -8,17 +8,20 @@
  */
 'use client';
 
-import { useState, lazy, Suspense } from 'react';
-import { Key, ChevronRight, Loader2, Settings } from 'lucide-react';
+import { ChevronRight, Key, Settings } from 'lucide-react';
+import { useState } from 'react';
+
 
 import { cn } from '@/lib/utils';
 
-// Lazy load the heavy PermissionRegistry component
-const PermissionRegistry = lazy(() => 
-  import('@/components/permissions/PermissionRegistry').then(mod => ({
-    default: mod.PermissionRegistry
-  }))
+// PermissionRegistry was removed as part of client-side permission cleanup.
+// Real permissions are managed on the backend.
+const PermissionRegistry = () => (
+  <div className="p-8 text-center text-muted-foreground border-2 border-dashed border-border rounded-xl">
+    Permission Management has moved to the unified backend authority.
+  </div>
 );
+
 
 interface PermissionAccordionProps {
   count: number;
@@ -85,19 +88,11 @@ export function PermissionAccordion({ count, platformCount, className }: Permiss
       {isExpanded && (
         <div className="border-t border-border bg-card/50">
           <div className="p-4 sm:p-6">
-            <Suspense fallback={
-              <div className="flex items-center justify-center py-12">
-                <div className="text-center">
-                  <Loader2 className="h-8 w-8 animate-spin text-purple-500 mx-auto mb-3" />
-                  <p className="text-sm text-muted-foreground">Loading permission registry...</p>
-                </div>
-              </div>
-            }>
-              <PermissionRegistry />
-            </Suspense>
+            <PermissionRegistry />
           </div>
         </div>
       )}
+
 
       {/* Quick Actions Bar (always visible) */}
       {!isExpanded && (

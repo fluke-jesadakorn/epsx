@@ -110,19 +110,10 @@ export class ServerAuth {
       redirect('/auth')
     }
 
-    // Use role from JWT payload (computed by backend)
-    // Falls back to permission check if role is not available
-    const hasAdminPermission = session.user?.role === 'admin' ||
-      session.user?.role === 'super_admin' ||
-      session.user?.permissions?.some(p =>
-        p.startsWith('admin:') || p === 'admin:*:*'
-      )
-
-    if (!hasAdminPermission) {
-      redirect('/access-denied')
-    }
-
+    // PERMISSION REFACTOR: Full admin enforcement is now handled by the backend.
+    // We only perform the basic login check here.
     return session
+
   }
 
   // Permission check stubs - Backend handles enforcement via JWT middleware
@@ -131,7 +122,8 @@ export class ServerAuth {
    * @param _permission
    */
   static async hasPermission(_permission: string): Promise<boolean> {
-    return true;
+    const session = await this.getAdminSession();
+    return session.isLoggedIn;
   }
 
   /**
@@ -140,6 +132,7 @@ export class ServerAuth {
    */
   static async requirePermission(_permission: string): Promise<void> {
     // No-op - backend handles enforcement via 403 response
+    await this.requireAdminAuth();
   }
 
   // Basic JWT decode (client-side safe, no verification)

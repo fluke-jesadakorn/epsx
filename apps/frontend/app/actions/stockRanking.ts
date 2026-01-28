@@ -1,19 +1,9 @@
 'use server';
 
-import type { StockFinancialData } from '@/types/financialChartData';
 import { getStockFinancialData } from '@/lib/services/stock.service';
-import { getRankingLimitFromPermissions, getDisplayTierFromPermissions } from '@/app/constants/packages';
+import type { StockFinancialData } from '@/types/financialChartData';
 import { MarketCountry } from '@/types/market';
 
-// Helper function to extract ranking limit from permissions
-function extractRankingLimitFromPermissions(permissions: string[]): number {
-  return getRankingLimitFromPermissions(permissions);
-}
-
-// Helper function to derive tier from permissions
-function deriveTierFromPermissions(permissions: string[]): string {
-  return getDisplayTierFromPermissions(permissions);
-}
 
 /**
  * Reusable server action for fetching stock financial data
@@ -31,8 +21,8 @@ export async function fetchStockRankingData(
 }
 
 /**
- * Fetch data with user access control based on permissions
- * Respects user permissions for ranking limits (NEW - Permission-based)
+ * Fetch stock ranking data
+ * Legacy wrapper for backward compatibility.
  */
 export async function fetchStockRankingDataWithPermissions(
   userPermissions: string[],
@@ -41,15 +31,8 @@ export async function fetchStockRankingDataWithPermissions(
   country?: typeof MarketCountry,
   quarters = 2,
 ): Promise<StockFinancialData[]> {
-  const maxLimit = isExpired ? 5 : extractRankingLimitFromPermissions(userPermissions);
-
-  // Determine tier for additional logic
-  const derivedTier = deriveTierFromPermissions(userPermissions);
-
-  // Always fetch a bit more for premium users to show locked items
-  const fetchLimit = derivedTier === 'BRONZE' ? maxLimit : Math.min((maxLimit === -1 ? 100 : maxLimit) + 10, 100);
-
-  return getStockFinancialData(page, fetchLimit, country, quarters);
+  const defaultLimit = 100;
+  return getStockFinancialData(page, defaultLimit, country, quarters);
 }
 
 

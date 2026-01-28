@@ -1,7 +1,7 @@
 import '@/lib/polyfills';
 // Import browser polyfills first to handle SSR issues
-import { FrontendAuthRegistration } from '@/components/auth/FrontendAuthRegistration';
 import { GlobalErrorBoundary } from '@/components/error-boundaries/GlobalErrorBoundary';
+
 import { NavigationClient } from '@/components/nav/NavigationClient';
 import { ClientProviders } from '@/components/providers/ClientProviders';
 import { SharedOpenIDWeb3Provider } from '@/shared/components/auth/Provider';
@@ -108,25 +108,25 @@ export default async function RootLayout({
               clientId="epsx-frontend"
               backendUrl={process.env.NEXT_PUBLIC_BACKEND_URL}
             >
-              <FrontendAuthRegistration>
-                {/* Mobile navigation optimized for touch */}
-                <NavigationClient />
+              {/* Mobile navigation optimized for touch */}
+              <NavigationClient />
 
-                {/* Main content with mobile scroll optimization */}
-                <main className="relative min-h-screen">{children}</main>
+              {/* Main content with mobile scroll optimization */}
+              <main className="relative min-h-screen">{children}</main>
 
-                {/* Toast notifications */}
-                <Toaster
-                  position="top-right"
-                  toastOptions={{
-                    style: {
-                      background: 'hsl(var(--background))',
-                      color: 'hsl(var(--foreground))',
-                      border: '1px solid hsl(var(--border))',
-                    },
-                  }}
-                />
-              </FrontendAuthRegistration>
+
+              {/* Toast notifications */}
+              <Toaster
+                position="top-right"
+                toastOptions={{
+                  style: {
+                    background: 'hsl(var(--background))',
+                    color: 'hsl(var(--foreground))',
+                    border: '1px solid hsl(var(--border))',
+                  },
+                }}
+              />
+
             </SharedOpenIDWeb3Provider>
           </ClientProviders>
         </GlobalErrorBoundary>

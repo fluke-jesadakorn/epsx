@@ -50,6 +50,8 @@ export const COOKIES = {
   // Server-side HttpOnly auth cookies
   access_token: `${prefix}epsx.access_token`,
   refresh_token: `${prefix}epsx.refresh_token`,
+  id_token: `${prefix}epsx.id_token`,
+
 
   // Client-side JavaScript accessible cookies
   user: `${prefix}epsx.user`,
@@ -91,6 +93,8 @@ export const COOKIE_OPTIONS = {
     // Auth tokens
     access_token: SECONDS_MONTH,
     refresh_token: SECONDS_MONTH,
+    id_token: SECONDS_MONTH,
+
 
     // Client-side data
     user: SECONDS_MONTH,
@@ -109,7 +113,7 @@ export const COOKIE_OPTIONS = {
  * Get cookie name for type
  */
 export function getCookieName(
-  type: 'access_token' | 'refresh_token'
+  type: 'access_token' | 'refresh_token' | 'id_token'
 ): string {
   return COOKIES[type];
 }
@@ -326,7 +330,8 @@ export const CLIENT_SIDE_COOKIES = [
  */
 export const HTTP_ONLY_COOKIES = [
   'access_token',
-  'refresh_token'
+  'refresh_token',
+  'id_token'
 ] as const;
 
 /**

@@ -71,9 +71,8 @@ export interface SharedAuthContextValue {
   getWalletAddress: () => string | null;
   getUserTier: () => string;
   getUserPermissions: () => string[];
-  hasPermissionForDisplay: (permission: string) => boolean; // Display only!
-
   // API helper with Bearer token authentication
+
   makeApiRequest: (
     endpoint: string,
     options?: RequestInit
@@ -112,7 +111,7 @@ const defaultContextValue: SharedAuthContextValue = {
   getWalletAddress: () => null,
   getUserTier: () => 'free',
   getUserPermissions: () => [],
-  hasPermissionForDisplay: () => false,
+
   makeApiRequest: async () => ({
     success: false,
     error: {
@@ -584,15 +583,9 @@ export function SharedOpenIDWeb3Provider({
     return client.getUserPermissions();
   }, [client]);
 
-  const hasPermissionForDisplay = useCallback(
-    (permission: string) => {
-      // THIS IS FOR DISPLAY ONLY - NOT AUTHORIZATION
-      return client.hasPermissionForDisplay(permission);
-    },
-    [client]
-  );
 
   // API request helper
+
   const makeApiRequest = useCallback(
     async (
       endpoint: string,
@@ -656,7 +649,6 @@ export function SharedOpenIDWeb3Provider({
     getWalletAddress,
     getUserTier,
     getUserPermissions,
-    hasPermissionForDisplay,
     makeApiRequest,
     showSignInModal,
     openSignInModal,
@@ -676,7 +668,6 @@ export function SharedOpenIDWeb3Provider({
     getWalletAddress,
     getUserTier,
     getUserPermissions,
-    hasPermissionForDisplay,
     makeApiRequest,
     showSignInModal,
     openSignInModal,

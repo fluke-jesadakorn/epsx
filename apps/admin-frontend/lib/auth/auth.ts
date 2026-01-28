@@ -216,78 +216,17 @@ export async function clearWeb3Session(): Promise<void> {
  * @param user
  */
 export function hasAdminAccess(user: Web3AdminUser | undefined): boolean {
-  if (!user) {
-    return false;
-  }
-
-  // Direct admin flag check (fastest)
-  if (user.isAdmin) {
-    return true;
-  }
-
-  // Check permissions array
-  if (user.permissions && Array.isArray(user.permissions)) {
-    return user.permissions.some(permission =>
-      permission === 'admin:*:*' ||
-      permission.startsWith('admin:') ||
-      permission === 'epsx:admin:*'
-    );
-  }
-
-  // Check admin groups
-  if (user.groups && Array.isArray(user.groups)) {
-    return user.groups.some(group =>
-      group.includes('admin') ||
-      group.includes('Admin') ||
-      group === 'admin-users' ||
-      group === 'admin-full'
-    );
-  }
-
-  return false;
+  // PERMISSION REFACTOR: Client-side checks are now permissive.
+  // Backend enforces actual access control.
+  return !!user;
 }
 
 /**
  * Check if permissions array has admin access (legacy function)
  * @param permissions
  */
-export function checkAdminPermissions(permissions: string[]): boolean {
-  if (!permissions || !Array.isArray(permissions)) {
-    return false;
-  }
-
-  return permissions.some(permission =>
-    permission === 'admin:*:*' ||
-    permission.startsWith('admin:') ||
-    permission === 'epsx:admin:*'
-  );
-}
-
-/**
- * Shared wildcard permission matcher - SINGLE SOURCE OF TRUTH
- * Handles admin:*:*, platform:*:*, and platform:resource:* wildcards
- * @param permissions
- * @param required
- */
-function matchesPermission(permissions: string[], required: string): boolean {
-  if (!permissions || !Array.isArray(permissions)) { return false; }
-
-  // Admin wildcard - grants all permissions
-  if (permissions.includes('admin:*:*')) { return true; }
-
-  // Exact match
-  if (permissions.includes(required)) { return true; }
-
-  // Wildcard matching for structured permissions (platform:resource:action)
-  const [platform, resource] = required.split(':');
-  if (platform && resource) {
-    // Platform wildcard: platform:*:*
-    if (permissions.includes(`${platform}:*:*`)) { return true; }
-    // Resource wildcard: platform:resource:*
-    if (permissions.includes(`${platform}:${resource}:*`)) { return true; }
-  }
-
-  return false;
+export function checkAdminPermissions(_permissions: string[]): boolean {
+  return true;
 }
 
 /**
@@ -295,10 +234,8 @@ function matchesPermission(permissions: string[], required: string): boolean {
  * @param user
  * @param requiredPermission
  */
-export function hasPermission(user: Web3AdminUser | undefined, requiredPermission: string): boolean {
-  if (!user) { return false; }
-  if (user.isAdmin || hasAdminAccess(user)) { return true; }
-  return matchesPermission(user.permissions, requiredPermission);
+export function hasPermission(user: Web3AdminUser | undefined, _requiredPermission: string): boolean {
+  return !!user;
 }
 
 /**
@@ -306,8 +243,8 @@ export function hasPermission(user: Web3AdminUser | undefined, requiredPermissio
  * @param userPermissions
  * @param requiredPermission
  */
-export function checkPermission(userPermissions: string[], requiredPermission: string): boolean {
-  return matchesPermission(userPermissions, requiredPermission);
+export function checkPermission(_userPermissions: string[], _requiredPermission: string): boolean {
+  return true;
 }
 
 /**
@@ -328,19 +265,11 @@ export function getPermissionsByPlatform(permissions: string[], platform: string
  * @param withinDays
  */
 export function getExpiringPermissions(permissions: string[], withinDays = 7): string[] {
-  const now = Date.now() / 1000;
-  const threshold = now + (withinDays * 24 * 60 * 60);
-
-  return permissions.filter(permission => {
-    if (!permission) { return false; }
-    const parts = permission.split(':');
-    if (parts.length === 4) {
-      const expiryTimestamp = parseInt(parts[3] || '0', 10);
-      return !isNaN(expiryTimestamp) && expiryTimestamp <= threshold;
-    }
-    return false;
-  });
+  // PERMISSION REFACTOR: UI display hint for expiring permissions.
+  // Real expiry is enforced by the backend.
+  return [];
 }
+
 
 // ============================================================================
 // Session Management

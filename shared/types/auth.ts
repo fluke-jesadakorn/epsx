@@ -21,10 +21,13 @@ export interface User {
   id: string
   email: string
   name?: string
+  /** @deprecated Use plan instead */
   permissions: string[]
+  plan: string // Primary access field
   platform_context?: string
   permission_version?: number
   permission_last_updated?: number
+  /** @deprecated Use plan instead */
   tier?: string
   verified?: boolean
   enterpriseTier?: string
@@ -49,6 +52,8 @@ export interface AuthState {
   isConnected: boolean
 
   // Enterprise Data
+  plan: string // Primary access field
+  /** @deprecated Use plan instead */
   permissions: string[]
   enterpriseTier: string
   hasApiAccess: boolean
@@ -97,9 +102,7 @@ export interface AuthState {
   checkTokenHealth?: () => boolean
 
   // Permission Helpers
-  can?: (permission: string) => boolean
-  hasAnyPermission?: (permissions: string[]) => boolean
-  hasAllPermissions?: (permissions: string[]) => boolean
+
 }
 
 export interface AdminAuthState extends AuthState {

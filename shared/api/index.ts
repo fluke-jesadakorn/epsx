@@ -17,6 +17,8 @@ export {
   type Platform, type RequestConfig
 } from '../utils/api-client';
 
+export { isApiSuccess } from '../types/api';
+
 // ============================================================================
 // RESPONSE UTILITIES
 // ============================================================================

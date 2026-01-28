@@ -37,12 +37,9 @@ export async function getAuthUser(): Promise<any | null> {
     const { verifyJWTFromCookies } = await import('./token');
     const user = await verifyJWTFromCookies();
 
-    // Validate admin permissions
-    if (user && !user.permissions && user.role !== 'admin') {
-
-      console.warn('⚠️  Admin: User lacks admin permissions');
-      return null;
-    }
+    // PERMISSION REFACTOR: Backend (Rust) enforces actual admin access.
+    // If a valid JWT is present, we consider the user authenticated.
+    return user;
 
     return user;
   } catch (_error) {
@@ -252,21 +249,7 @@ export async function hasPermission(_permission: string): Promise<boolean> {
   return true;
 }
 
-/**
- * Require specific structured permission
- * @param permission
- * @param redirectPath
- */
-export async function requirePermission(permission: string, redirectPath?: string): Promise<any> {
-  const { redirect } = await import('next/navigation');
-  const user = await requireAuth(redirectPath);
-
-  const hasRequiredPermission = await hasPermission(permission);
-
-  if (!hasRequiredPermission) {
-    const accessDeniedUrl = `/access-denied?permission=${encodeURIComponent(permission)}${redirectPath ? `&route=${encodeURIComponent(redirectPath)}` : ''}`;
-    redirect(accessDeniedUrl);
-  }
-
-  return user;
+export async function requirePermission(_permission: string, redirectPath?: string): Promise<any> {
+  // PERMISSION REFACTOR: Admin-frontend is permissive; backend enforces access.
+  return await requireAuth(redirectPath);
 }

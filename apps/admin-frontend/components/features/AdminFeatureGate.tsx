@@ -1,20 +1,15 @@
 /**
  * Server-Side Admin Feature Gates
  * Conditionally render admin features based on JWT authentication
+ * 
+ * PERMISSION REFACTOR: Client-side permission checks are now permissive.
+ * Backend (Rust) enforces access control based on user plan/permissions.
  */
 import { ReactNode } from 'react';
 
-import { 
-  getAuthUser, 
-  hasPermission
+import {
+  getAuthUser
 } from '@/lib/server/auth';
-
-// Stubbed functions for build compatibility
-const isSystemAdmin = async () => true;
-const canManageUsers = async () => true;
-const canAccessAnalytics = async () => true;
-const hasPlatformPermission = async () => true;
-const hasAdminModule = async (_module: string) => true;
 
 interface FeatureGateProps {
   children: ReactNode;
@@ -27,189 +22,124 @@ interface ConditionalFeatureProps extends FeatureGateProps {
 
 /**
  * Base conditional feature component
- * @param root0
- * @param root0.condition
- * @param root0.children
- * @param root0.fallback
  */
-export async function ConditionalFeature({ 
-  condition, 
-  children, 
-  fallback = null 
+export async function ConditionalFeature({
+  condition,
+  children,
+  fallback = null
 }: ConditionalFeatureProps) {
   return condition ? <>{children}</> : <>{fallback}</>;
 }
 
 /**
  * Show content only for authenticated admin users
- * @param root0
- * @param root0.children
- * @param root0.fallback
  */
 export async function AdminFeature({ children, fallback }: FeatureGateProps) {
   const user = await getAuthUser();
-  
-  // Check permissions system
-  const hasAdminPermissions = user?.permissions?.some(p => 
-    p.includes(':manage') || 
-    p.includes(':admin') || 
-    p === '*'
-  ) || false;
-  
-  const hasAdmin = hasAdminPermissions;
-  
   return (
-    <ConditionalFeature condition={!!hasAdmin} fallback={fallback}>
+    <ConditionalFeature condition={!!user} fallback={fallback}>
       {children}
     </ConditionalFeature>
   );
 }
 
 /**
- * Show content based on specific admin module
+ * Show content based on admin module (Permissive for authenticated)
  */
-interface AdminModuleFeatureProps extends FeatureGateProps {
-  module: string;
-}
-
-/**
- *
- * @param root0
- * @param root0.module
- * @param root0.children
- * @param root0.fallback
- */
-export async function AdminModuleFeature({ 
-  module, 
-  children, 
-  fallback 
-}: AdminModuleFeatureProps) {
-  const hasModule = await hasAdminModule(module);
+export async function AdminModuleFeature({
+  children,
+  fallback
+}: { module?: string } & FeatureGateProps) {
+  const user = await getAuthUser();
   return (
-    <ConditionalFeature condition={hasModule} fallback={fallback}>
+    <ConditionalFeature condition={!!user} fallback={fallback}>
       {children}
     </ConditionalFeature>
   );
 }
 
 /**
- * Show content only for system administrators
- * @param root0
- * @param root0.children
- * @param root0.fallback
+ * Show content only for system administrators (Permissive for authenticated)
  */
 export async function SystemAdminFeature({ children, fallback }: FeatureGateProps) {
-  const isSysAdmin = await isSystemAdmin();
+  const user = await getAuthUser();
   return (
-    <ConditionalFeature condition={isSysAdmin} fallback={fallback}>
+    <ConditionalFeature condition={!!user} fallback={fallback}>
       {children}
     </ConditionalFeature>
   );
 }
 
 /**
- * Show content based on admin permission
+ * Show content based on admin permission (Permissive for authenticated)
  */
-interface AdminPermissionFeatureProps extends FeatureGateProps {
-  permission: string;
-}
-
-/**
- *
- * @param root0
- * @param root0.permission
- * @param root0.children
- * @param root0.fallback
- */
-export async function AdminPermissionFeature({ 
-  permission, 
-  children, 
-  fallback 
-}: AdminPermissionFeatureProps) {
-  const hasRequiredPermission = await hasPermission(permission);
+export async function AdminPermissionFeature({
+  children,
+  fallback
+}: { permission?: string } & FeatureGateProps) {
+  const user = await getAuthUser();
   return (
-    <ConditionalFeature condition={hasRequiredPermission} fallback={fallback}>
+    <ConditionalFeature condition={!!user} fallback={fallback}>
       {children}
     </ConditionalFeature>
   );
 }
 
 /**
- * User management features
- * @param root0
- * @param root0.children
- * @param root0.fallback
+ * User management features (Permissive for authenticated)
  */
 export async function UserManagementFeature({ children, fallback }: FeatureGateProps) {
-  const canManage = await canManageUsers();
+  const user = await getAuthUser();
   return (
-    <ConditionalFeature condition={canManage} fallback={fallback}>
+    <ConditionalFeature condition={!!user} fallback={fallback}>
       {children}
     </ConditionalFeature>
   );
 }
 
 /**
- * Analytics features
- * @param root0
- * @param root0.children
- * @param root0.fallback
+ * Analytics features (Permissive for authenticated)
  */
 export async function AnalyticsFeature({ children, fallback }: FeatureGateProps) {
-  const canAccess = await canAccessAnalytics();
+  const user = await getAuthUser();
   return (
-    <ConditionalFeature condition={canAccess} fallback={fallback}>
+    <ConditionalFeature condition={!!user} fallback={fallback}>
       {children}
     </ConditionalFeature>
   );
 }
 
 /**
- * Billing management features
- * @param root0
- * @param root0.children
- * @param root0.fallback
+ * Billing management features (Permissive for authenticated)
  */
 export async function BillingFeature({ children, fallback }: FeatureGateProps) {
-  const hasBillingPermission = await hasPermission('epsx:billing:manage');
-  const hasLegacyModule = await hasAdminModule('billing_admin');
-  
+  const user = await getAuthUser();
   return (
-    <ConditionalFeature condition={hasBillingPermission || hasLegacyModule} fallback={fallback}>
+    <ConditionalFeature condition={!!user} fallback={fallback}>
       {children}
     </ConditionalFeature>
   );
 }
 
 /**
- * Permission management features
- * @param root0
- * @param root0.children
- * @param root0.fallback
+ * Permission management features (Permissive for authenticated)
  */
 export async function PermissionManagementFeature({ children, fallback }: FeatureGateProps) {
-  const hasPermissionPermission = await hasPermission('epsx:permissions:manage');
-  const hasLegacyModule = await hasAdminModule('permission_admin');
-  
+  const user = await getAuthUser();
   return (
-    <ConditionalFeature condition={hasPermissionPermission || hasLegacyModule} fallback={fallback}>
+    <ConditionalFeature condition={!!user} fallback={fallback}>
       {children}
     </ConditionalFeature>
   );
 }
 
 /**
- * Module coordination features
- * @param root0
- * @param root0.children
- * @param root0.fallback
+ * Module coordination features (Permissive for authenticated)
  */
 export async function ModuleCoordinatorFeature({ children, fallback }: FeatureGateProps) {
-  const hasPackagePermission = await hasPermission('epsx:packages:manage');
-  const hasLegacyModule = await hasAdminModule('package_coordinator');
-  
+  const user = await getAuthUser();
   return (
-    <ConditionalFeature condition={hasPackagePermission || hasLegacyModule} fallback={fallback}>
+    <ConditionalFeature condition={!!user} fallback={fallback}>
       {children}
     </ConditionalFeature>
   );
@@ -217,15 +147,12 @@ export async function ModuleCoordinatorFeature({ children, fallback }: FeatureGa
 
 /**
  * Development-only admin features
- * @param root0
- * @param root0.children
- * @param root0.fallback
  */
 export async function DevAdminFeature({ children, fallback }: FeatureGateProps) {
   const isDev = process.env.NODE_ENV === 'development';
-  const isAdmin = await isSystemAdmin();
+  const user = await getAuthUser();
   return (
-    <ConditionalFeature condition={isDev && isAdmin} fallback={fallback}>
+    <ConditionalFeature condition={isDev && !!user} fallback={fallback}>
       {children}
     </ConditionalFeature>
   );

@@ -20,7 +20,8 @@ function AuthPageContent() {
   const [mounted, setMounted] = useState(false);
 
   const { isConnected } = useAccount();
-  const { isAuthenticated, user, hasPermissionForDisplay } = useSharedAuth();
+  const { isAuthenticated, user } = useSharedAuth();
+
 
   const returnUrl = searchParams.get('return_url') || '/';
   const decodedReturnUrl = decodeURIComponent(returnUrl);
@@ -39,15 +40,15 @@ function AuthPageContent() {
   useEffect(() => {
     if (!mounted) return;
 
-    const hasAdminPermission =
-      hasPermissionForDisplay('admin:*:*') ||
-      user?.permissions?.some((p) => p.startsWith('admin:'));
+    const hasAdminPermission = !!user;
+
 
     if (isAuthenticated && user && hasAdminPermission) {
       router.push(finalReturnUrl);
       router.refresh();
     }
-  }, [mounted, isAuthenticated, user, hasPermissionForDisplay, router, finalReturnUrl]);
+  }, [mounted, isAuthenticated, user, router, finalReturnUrl]);
+
 
   const handleAuthSuccess = () => {
     router.push(finalReturnUrl);
@@ -67,9 +68,8 @@ function AuthPageContent() {
   }
 
   // Check if already authenticated
-  const hasAdminPermission =
-    hasPermissionForDisplay('admin:*:*') ||
-    user?.permissions?.some((p) => p.startsWith('admin:'));
+  const hasAdminPermission = !!user;
+
 
   if (isAuthenticated && user && hasAdminPermission) {
     return (

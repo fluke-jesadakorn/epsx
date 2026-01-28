@@ -7,69 +7,54 @@
 import {
   // Web3 Auth configuration types (OIDC removed)
   AuthConfig,
-  Web3Config,
-  SessionConfig,
   AuthFeatures,
   ProgressiveAuthState,
-  
-  // Configuration getters (Web3 only)
-  getFrontendAuthConfig,
-  getSessionConfig,
-  getWeb3Config,
-  
-  // Web3 URL builders
-  buildWeb3ChallengeUrl,
-  
-  // Web3 Validation functions
-  validateWeb3Signature,
-  
-  // Progressive auth helpers
-  getRequiredAuthLevel,
-  meetsAuthRequirements,
-  
-  // Utility functions (JWT for Web3 sessions)
-  parseJWTPayload,
-  isJWTExpired,
-  getJWTExpiry,
-  
+  SessionConfig,
+  Web3Config,
   // Legacy compatibility
   authConfig,
-  web3Config,
-  sessionConfig
+  // Web3 URL builders
+  buildWeb3ChallengeUrl,
+  // Configuration getters (Web3 only)
+  getFrontendAuthConfig,
+  getJWTExpiry,
+  // Progressive auth helpers
+  getRequiredAuthLevel,
+  getSessionConfig,
+  getWeb3Config,
+  isJWTExpired,
+  meetsAuthRequirements,
+
+  // Utility functions (JWT for Web3 sessions)
+  parseJWTPayload,
+  sessionConfig,
+  // Web3 Validation functions
+  validateWeb3Signature,
+  web3Config
 } from '@/shared/config/auth';
 import { env } from './env';
 
 // Re-export types (Web3-focused)
 export type {
-  AuthConfig,
-  Web3Config,
-  SessionConfig,
-  AuthFeatures,
-  ProgressiveAuthState,
+  AuthConfig, AuthFeatures,
+  ProgressiveAuthState, SessionConfig, Web3Config
 };
 
 // Re-export Web3 auth utilities for frontend use
 export {
-  
-  // Configuration getters (Web3 only)
-  getFrontendAuthConfig,
-  getSessionConfig,
-  getWeb3Config,
-  
+
   // Web3 URL builders
   buildWeb3ChallengeUrl,
-  
-  // Web3 Validation functions
-  validateWeb3Signature,
-  
+  // Configuration getters (Web3 only)
+  getFrontendAuthConfig, getJWTExpiry,
   // Progressive auth helpers
-  getRequiredAuthLevel,
-  meetsAuthRequirements,
-  
+  getRequiredAuthLevel, getSessionConfig,
+  getWeb3Config, isJWTExpired, meetsAuthRequirements,
+
   // Utility functions (JWT for Web3 sessions)
   parseJWTPayload,
-  isJWTExpired,
-  getJWTExpiry
+  // Web3 Validation functions
+  validateWeb3Signature
 };
 
 /**
@@ -193,21 +178,13 @@ export function hasWeb3Connection(authState: ProgressiveAuthState): boolean {
 
 /**
  * Check if user can access premium features
+ * PERMISSION REFACTOR: Client-side is permissive for authenticated users.
+ * Backend (Rust) enforces actual plan/premium access control.
  */
 export function canAccessPremiumFeatures(authState: ProgressiveAuthState): boolean {
-  if (!authState.isAuthenticated) return false;
-  
-  // Check for premium permissions
-  const premiumPermissions = [
-    'epsx:analytics:advanced',
-    'epsx:realtime:access',
-    'epsx:analytics:export'
-  ];
-  
-  return premiumPermissions.some(permission =>
-    authState.permissions.includes(permission)
-  );
+  return authState.isAuthenticated;
 }
+
 
 /**
  * Get user auth context for progressive auth
@@ -263,7 +240,7 @@ export function getCurrentNetworkConfig(): any {
 export function createSIWEMessage(walletAddress: string, nonce: string): string {
   const config = getWeb3Config();
   const { domain, uri, version, statement } = config.siweConfig;
-  
+
   const message = [
     `${domain} wants you to sign in with your Ethereum account:`,
     walletAddress,
@@ -276,14 +253,12 @@ export function createSIWEMessage(walletAddress: string, nonce: string): string 
     `Nonce: ${nonce}`,
     `Issued At: ${new Date().toISOString()}`,
   ].join('\\n');
-  
+
   return message;
 }
 
 // Legacy compatibility exports (Web3-focused)
-export { authConfig };
-export { sessionConfig };
-export { web3Config };
+export { authConfig, sessionConfig, web3Config };
 
 // Default export for backward compatibility
 export default FRONTEND_AUTH_CONFIG;

@@ -39,9 +39,12 @@ interface ApiKeyManagerProps {
 }
 
 export function ApiKeyManager({ className = '' }: ApiKeyManagerProps) {
-  const { isAuthenticated, getUserTier, hasPermissionForDisplay, makeApiRequest } = useSharedAuth();
+  const { isAuthenticated, getUserTier, makeApiRequest } = useSharedAuth();
   const userTier = getUserTier();
-  const hasApiAccess = hasPermissionForDisplay('epsx:api:manage');
+
+  // PERMISSION REFACTOR: Client-side is permissive. 
+  // Backend enforces API access on every request.
+  const hasApiAccess = true;
 
   // Generate API key function
   const generateApiKey = async (name: string) => {
@@ -166,43 +169,8 @@ export function ApiKeyManager({ className = '' }: ApiKeyManagerProps) {
 
 
 
-  if (!hasApiAccess) {
-    return (
-      <Card className={className}>
-        <CardContent className="p-6">
-          <div className="flex flex-col items-center gap-4 text-center">
-            <div className="p-3 bg-amber-100 dark:bg-amber-900/20 rounded-full">
-              <Key className="h-8 w-8 text-amber-600 dark:text-amber-400" />
-            </div>
-            <div>
-              <h3 className="font-semibold text-slate-900 dark:text-slate-100 mb-2">
-                API Access Not Available
-              </h3>
-              <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
-                API key management requires Enterprise tier access or special permissions.
-              </p>
-              <div className="flex items-center justify-center gap-2">
-                <Badge variant="outline" className="text-xs">
-                  Current: {userTier}
-                </Badge>
-                <Badge className="bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300 text-xs">
-                  Required: Enterprise
-                </Badge>
-              </div>
-            </div>
-            <Button
-              variant="outline"
-              onClick={() => window.open('/plans', '_blank')}
-              className="flex items-center gap-2"
-            >
-              <ExternalLink className="h-4 w-4" />
-              Upgrade to Enterprise
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
+  // PERMISSION REFACTOR: Logic removed as frontend is now permissive.
+  // Backend handles 403 Forbidden for restricted accounts.
 
   return (
     <GlobalAuthGuard title="API Key Management" fallback={<div className={className} />}>

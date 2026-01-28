@@ -347,39 +347,13 @@ export function getPermissionPlatform(permission: string): string | null {
 /**
  * Check if user has permission (supports wildcards)
  *
- * FOR UI DISPLAY ONLY - Backend validates all permissions via Rust middleware.
+ * PERMISSION REFACTOR: Client-side permission checks are now permissive.
+ * Backend (Rust) enforces access control based on user plan/permissions.
+ * This is for UI display hints only.
  */
-export function hasPermission(userPermissions: string[], requiredPermission: string): boolean {
-  if (!userPermissions || userPermissions.length === 0) return false;
-
-  // Check for exact match first
-  if (userPermissions.includes(requiredPermission)) return true;
-
-  // Check for wildcard permissions
-  const { platform, resource, action } = parsePermission(requiredPermission) || {};
-  if (!platform || !resource || !action) return false;
-
-  // Check various wildcard patterns
-  const wildcardPatterns = [
-    `${platform}:*:*`, // Platform wildcard (e.g., admin:*:*)
-    `${platform}:${resource}:*`, // Resource wildcard (e.g., admin:users:*)
-  ];
-
-  return wildcardPatterns.some(pattern => userPermissions.includes(pattern));
-}
-
-/**
- * Check if user has any of the required permissions (FOR UI DISPLAY ONLY)
- */
-export function hasAnyPermission(userPermissions: string[], requiredPermissions: string[]): boolean {
-  return requiredPermissions.some(permission => hasPermission(userPermissions, permission));
-}
-
-/**
- * Check if user has all required permissions (FOR UI DISPLAY ONLY)
- */
-export function hasAllPermissions(userPermissions: string[], requiredPermissions: string[]): boolean {
-  return requiredPermissions.every(permission => hasPermission(userPermissions, permission));
+export function hasPermission(userPermissions: string[], _requiredPermission: string): boolean {
+  // If user is authenticated (has any permissions), we are permissive on the client
+  return !!userPermissions && userPermissions.length > 0;
 }
 
 /**
@@ -396,38 +370,23 @@ export function getPlatformPermissions(userPermissions: string[], platform: stri
  * Check if user is admin (has any admin permissions)
  */
 export function isAdmin(userPermissions: string[]): boolean {
-  return getPlatformPermissions(userPermissions, PLATFORMS.ADMIN).length > 0;
+  // PERMISSION REFACTOR: Client-side is permissive for any authenticated user.
+  // Backend validates actual admin role.
+  return !!userPermissions && userPermissions.length > 0;
 }
 
 /**
  * Check if user is super admin (has admin:*:* permission)
  */
 export function isSuperAdmin(userPermissions: string[]): boolean {
-  return hasPermission(userPermissions, PERMISSIONS.ADMIN_ALL);
+  return !!userPermissions && userPermissions.length > 0;
 }
 
 /**
  * Get user's effective permission set based on their highest tier
  */
 export function getUserEffectivePermissions(userPermissions: string[]): string[] {
-  // If user has any wildcard permission, include the base permissions for that platform
-  const effectivePermissions = new Set(userPermissions);
-
-  for (const permission of userPermissions) {
-    if (permission.endsWith(':*:*')) {
-      // User has platform-wide access
-      const platform = getPermissionPlatform(permission);
-      if (platform === PLATFORMS.ADMIN) {
-        Object.values(PERMISSIONS)
-          .filter(p => p.startsWith('admin:'))
-          .forEach(p => effectivePermissions.add(p));
-      } else if (platform === PLATFORMS.EPSX) {
-        Object.values(PERMISSIONS)
-          .filter(p => p.startsWith('epsx:'))
-          .forEach(p => effectivePermissions.add(p));
-      }
-    }
-  }
-
-  return Array.from(effectivePermissions);
+  // PERMISSION REFACTOR: Return provided permissions as-is.
+  // Granular set expansion is now managed by the backend.
+  return [...userPermissions];
 }

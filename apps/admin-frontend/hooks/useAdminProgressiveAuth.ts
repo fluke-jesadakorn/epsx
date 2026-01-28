@@ -8,7 +8,7 @@ import { useMemo } from 'react';
 import { useAccount } from 'wagmi';
 
 import { useSharedAuth } from '@/shared/components/auth/Provider';
-import { AuthLevel, type AuthLevelType, type AuthState } from '@/types/progressive-auth';
+import { AuthLevel, type AuthLevelType, type AuthState } from '@/shared/types/progressive-auth';
 
 /**
  *
@@ -17,8 +17,7 @@ export function useAdminProgressiveAuth(): AuthState & {
   canAccess: (requiredLevel: AuthLevelType, requiredPermissions?: string[]) => boolean;
   getAuthMessage: (requiredLevel: AuthLevelType, actionName?: string) => string;
   getUpgradeAction: (requiredLevel: AuthLevelType) => string;
-  hasPermission: (permission: string) => boolean;
-  hasAnyPermission: (permissions: string[]) => boolean;
+
 } {
   const { isConnected } = useAccount();
   const { isAuthenticated, getWalletAddress, getUserPermissions } = useSharedAuth();
@@ -27,18 +26,16 @@ export function useAdminProgressiveAuth(): AuthState & {
 
   // Determine current authentication level
   const currentLevel = useMemo(() => {
-    if (isAuthenticated && permissions && permissions.length > 0) {return AuthLevel.AUTHENTICATED;}
-    if (isConnected && walletAddress) {return AuthLevel.CONNECTED;}
+    if (isAuthenticated && permissions && permissions.length > 0) { return AuthLevel.AUTHENTICATED; }
+    if (isConnected && walletAddress) { return AuthLevel.CONNECTED; }
     return AuthLevel.PUBLIC;
   }, [isAuthenticated, isConnected, walletAddress, permissions]);
 
-  // Permission check stubs - Backend handles all enforcement, these return true for compatibility
-  const hasPermission = (_permission: string): boolean => true;
-  const hasAnyPermission = (_permissions: string[]): boolean => true;
+
 
   // Check if user can access a feature requiring specific auth level and permissions
   const canAccess = (requiredLevel: AuthLevelType, requiredPermissions?: string[]): boolean => {
-    const levelHierarchy = {
+    const levelHierarchy: Record<AuthLevelType, number> = {
       [AuthLevel.PUBLIC]: 0,
       [AuthLevel.CONNECTED]: 1,
       [AuthLevel.AUTHENTICATED]: 2,
@@ -46,12 +43,9 @@ export function useAdminProgressiveAuth(): AuthState & {
 
     // Check auth level requirement
     const hasRequiredLevel = levelHierarchy[currentLevel] >= levelHierarchy[requiredLevel];
-    if (!hasRequiredLevel) {return false;}
+    if (!hasRequiredLevel) { return false; }
 
-    // Check permission requirement
-    if (requiredPermissions && requiredPermissions.length > 0) {
-      return hasAnyPermission(requiredPermissions);
-    }
+
 
     return true;
   };
@@ -102,7 +96,6 @@ export function useAdminProgressiveAuth(): AuthState & {
     canAccess,
     getAuthMessage,
     getUpgradeAction,
-    hasPermission,
-    hasAnyPermission,
+
   };
 }

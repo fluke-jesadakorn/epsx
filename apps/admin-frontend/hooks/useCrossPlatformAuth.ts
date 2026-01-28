@@ -20,7 +20,7 @@ export function useCrossPlatformAuth() {
     isAuthenticated: true,
     isLoading: false,
     error: null,
-    hasPermission: (permission: string) => false,
+
     login: async () => { },
     logout: async () => { },
     switchPlatform: async (platform: string) => { },
@@ -59,9 +59,7 @@ export function usePlatformContext() {
  */
 export function usePlatformPermissions() {
   return {
-    can: (permission: string) => false,
-    hasAnyPermission: (permissions: string[]) => false,
-    hasAllPermissions: (permissions: string[]) => false,
+
     platformPermissions: [],
   };
 }

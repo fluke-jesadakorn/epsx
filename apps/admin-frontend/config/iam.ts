@@ -8,9 +8,6 @@ import {
   CACHE_CONFIG,
   getPlatformPermissions,
   getUserEffectivePermissions,
-  hasAllPermissions,
-  hasAnyPermission,
-  hasPermission,
   // Error messages
   IAM_ERROR_MESSAGES,
   isAdmin,
@@ -157,10 +154,9 @@ export function canAccessAdminRoute(route: string, userPermissions: string[]): b
   }
 
   // Check specific route permissions
-  const requiredPermissions = getRoutePermissions(route);
-  if (requiredPermissions && requiredPermissions.length > 0) {
-    return hasAnyPermission(userPermissions, requiredPermissions);
-  }
+  // PERMISSION REFACTOR: Client-side route checks are now permissive.
+  // Backend enforces access based on the user's plan/permissions.
+  return true;
 
   // If no specific permissions required, admin access is sufficient
   return true;
@@ -213,30 +209,12 @@ export function validateAdminPermission(permission: string): {
   return { valid: true };
 }
 
-/**
- * Get user's admin permission tier
- * @param userPermissions
- */
 export function getAdminPermissionTier(userPermissions: string[]): 'none' | 'basic' | 'manager' | 'super' {
-  if (!hasAdminPermissions(userPermissions)) {
-    return 'none';
-  }
+  // PERMISSION REFACTOR: Simplified to just super or basic if admin.
+  if (!userPermissions || userPermissions.length === 0) return 'none';
 
   if (isSuperAdmin(userPermissions)) {
     return 'super';
-  }
-
-  const adminPermissions = getPlatformPermissions(userPermissions, PLATFORMS.ADMIN);
-
-  // Check for manager-level permissions
-  const managerPermissions = [
-    'admin:users:manage',
-    'admin:permissions:manage',
-    'admin:system:manage'
-  ];
-
-  if (managerPermissions.some(permission => hasPermission(userPermissions, permission))) {
-    return 'manager';
   }
 
   return 'basic';
@@ -252,7 +230,7 @@ export const buildPermission = sharedBuildPermission;
 
 // Re-export authentication helpers
 export {
-  getPlatformPermissions, getUserEffectivePermissions, hasAllPermissions, hasAnyPermission, hasPermission, isAdmin,
+  getPlatformPermissions, getUserEffectivePermissions, isAdmin,
   isSuperAdmin
 };
 

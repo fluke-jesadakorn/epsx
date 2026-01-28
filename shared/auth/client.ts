@@ -860,31 +860,11 @@ export class SharedWeb3AuthClient {
     return this.user?.permissions || [];
   }
 
-  hasPermissionForDisplay(permission: string): boolean {
-    if (!this.user) return false;
-
-    // Check specific permission
-    if (this.user.permissions.includes(permission)) return true;
-
-    // Check wildcards
-    if (this.user.permissions.includes('admin:*:*')) return true;
-
-    const parts = permission.split(':');
-    if (parts.length >= 2) {
-      const platform = parts[0];
-      const resource = parts[1];
-
-      if (this.user.permissions.includes(`${platform}:*:*`)) return true;
-      if (this.user.permissions.includes(`${platform}:${resource}:*`)) return true;
-    }
-
-    return false;
-  }
-
 
   // ============================================================================
   // OPENID CONNECT DISCOVERY (Compatibility)
   // ============================================================================
+
 
   async getDiscoveryDocument(): Promise<any> {
     const url = `${this.backendUrl}/.well-known/openid-configuration`;

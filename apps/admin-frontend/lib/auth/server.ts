@@ -80,15 +80,10 @@ export async function getCurrentUser(): Promise<EnhancedAuthUser | null> {
   }
 }
 
-/**
- * Check if user has required permissions
- * @param user
- * @param permission
- */
-export function hasPermission(user: EnhancedAuthUser | null, permission: string): boolean {
-  if (!user?.permissions) { return false; }
-  const permissions = Array.isArray(user.permissions) ? user.permissions : [];
-  return permissions.includes(permission) || permissions.includes('*');
+export function hasPermission(user: EnhancedAuthUser | null, _permission: string): boolean {
+  // PERMISSION REFACTOR: Server-side checks in the frontend are now permissive.
+  // The Rust backend makes all final authorization decisions.
+  return !!user;
 }
 
 /**
@@ -96,20 +91,8 @@ export function hasPermission(user: EnhancedAuthUser | null, permission: string)
  * @param user
  * @param module
  */
-export function hasAdminModule(user: EnhancedAuthUser | null, module: string): boolean {
-  if (!user) { return false; }
-
-  // Convert legacy module to structured permission
-  const modulePermissionMap: Record<string, string> = {
-    'user_management': 'epsx:users:manage',
-    'analytics': 'epsx:analytics:view',
-    'security': 'epsx:security:manage',
-    'notifications': 'epsx:notifications:manage',
-    'billing': 'epsx:billing:manage',
-  };
-
-  const permission = modulePermissionMap[module];
-  return permission ? hasPermission(user, permission) : false;
+export function hasAdminModule(user: EnhancedAuthUser | null, _module: string): boolean {
+  return !!user;
 }
 
 /**
@@ -117,18 +100,7 @@ export function hasAdminModule(user: EnhancedAuthUser | null, module: string): b
  * @param user
  */
 export function isAdmin(user: EnhancedAuthUser | null): boolean {
-  if (!user) { return false; }
-
-  // Check permissions system
-  if (user.permissions?.length > 0) {
-    return user.permissions.some(p =>
-      p.includes(':manage') ||
-      p.includes(':admin') ||
-      p === '*'
-    );
-  }
-
-  return false;
+  return !!user;
 }
 
 /**
@@ -178,10 +150,5 @@ export function hasPlatformPermission(
   action: string,
   platform?: string
 ): boolean {
-  if (!user) { return false; }
-
-  const targetPlatform = platform || user.platform_context || user.primary_platform || 'epsx';
-  const permission = `${targetPlatform}:${resource}:${action}`;
-
-  return hasPermission(user, permission);
+  return !!user;
 }

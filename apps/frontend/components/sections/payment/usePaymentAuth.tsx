@@ -1,21 +1,15 @@
 'use client'
 
-import { useAuth } from '@/lib/auth'
+import { useAuth } from '@/lib/auth';
 
 // Hook for payment auth logic
 export function usePaymentAuth() {
   const { user, isLoading } = useAuth()
   const isAuthenticated = !!user
 
-  const hasPaymentAccess = user?.permissions ?
-    (Array.isArray(user.permissions)
-      ? user.permissions.some(p =>
-        p.includes('epsx:') || p.includes('premium:') || p.includes('payments:')
-      )
-      : Object.keys(user.permissions).some(p =>
-        p.includes('epsx:') || p.includes('premium:') || p.includes('payments:')
-      )
-    ) : true
+  // PERMISSION REFACTOR: Client-side is permissive.
+  // Backend enforces payment access on every API request.
+  const hasPaymentAccess = true;
 
   return {
     isLoading,
@@ -98,7 +92,7 @@ export function PaymentAccessRequiredUI({ user }: { user?: any }) {
 // LEGACY HOC (deprecated, use usePaymentAuth hook instead)
 // ============================================================================
 
-import { ComponentType, forwardRef } from 'react'
+import { ComponentType, forwardRef } from 'react';
 
 /**
  * @deprecated Use usePaymentAuth hook directly instead

@@ -468,7 +468,8 @@ export async function exportPermissionsData(
 
 // Validate permission strings
 /**
- *
+ * PERMISSION REFACTOR: Client-side validation is now permissive.
+ * Backend (Rust) validates all permission identifiers during assignment.
  * @param permissions
  */
 export async function validatePermissions(permissions: string[]): Promise<{
@@ -476,43 +477,14 @@ export async function validatePermissions(permissions: string[]): Promise<{
   invalid: string[];
   normalized: Record<string, string>;
 }> {
-  const cookieStore = await cookies();
-  const token = cookieStore.get(COOKIES.access_token)?.value;
-
-  if (!token) {
-    throw new Error('Authentication required');
-  }
-
-  try {
-    const response = await fetch(`${process.env.BACKEND_URL}${API_ROUTES.PERMISSIONS.VALIDATE}`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ permissions }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to validate permissions: ${response.status}`);
-    }
-
-    return await response.json();
-  } catch (error) {
-    console.error('Error validating permissions:', error);
-    // Return basic validation for development
-    const validPermissions = permissions.filter(perm => {
-      const parts = perm.split(':');
-      return parts.length >= 3 && parts.every(part => part.length > 0);
-    });
-
-    return {
-      valid: validPermissions,
-      invalid: permissions.filter(perm => !validPermissions.includes(perm)),
-      normalized: Object.fromEntries(permissions.map(perm => [perm, perm.toLowerCase()]))
-    };
-  }
+  // Return all permissions as valid on the client
+  return {
+    valid: permissions,
+    invalid: [],
+    normalized: Object.fromEntries(permissions.map(perm => [perm, perm.toLowerCase().trim()]))
+  };
 }
+
 
 // Get permission statistics for dashboard
 /**

@@ -488,30 +488,6 @@ export class AuthAPIClient {
   // ============================================================================
 
   /**
-   * Check if user has specific permission
-   */
-  async hasPermission(permission: string): Promise<boolean> {
-    try {
-      const permissions = await this.getUserPermissions();
-      return permissions.permissions.includes(permission) ||
-        permissions.permissions.some(p =>
-          p === 'admin:*:*' ||
-          p.startsWith(permission.split(':').slice(0, 2).join(':') + ':*')
-        );
-    } catch (error) {
-      console.warn(`Permission check failed: ${error}`);
-      return false;
-    }
-  }
-
-  /**
-   * Check if user has admin permissions
-   */
-  async isAdmin(): Promise<boolean> {
-    return this.hasPermission('admin:*:*');
-  }
-
-  /**
    * Get authentication status
    */
   async getAuthStatus(): Promise<{

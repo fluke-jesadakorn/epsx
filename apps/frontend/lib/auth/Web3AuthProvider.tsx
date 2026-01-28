@@ -1,7 +1,7 @@
 'use client';
 
 import { createFrontendClient } from '@/shared/auth/client';
-import { SharedOpenIDWeb3Provider, useSharedAuth } from '@/shared/components/auth/Provider';
+import { SharedOpenIDWeb3Provider } from '@/shared/components/auth/Provider';
 import React from 'react';
 
 // Create frontend client instance
@@ -26,13 +26,12 @@ export function Web3AuthProvider({ children }: { children: React.ReactNode }) {
 export { useSharedAuth as useAuth, useSharedAuth as useWeb3Auth } from '@/shared/components/auth/Provider';
 
 // Simplified hooks using shared auth directly
-export function useWeb3Permission(permission: string): boolean {
-  const { hasPermissionForDisplay } = useSharedAuth();
-  return hasPermissionForDisplay(permission);
+export function useWeb3Permission(_permission: string): boolean {
+  // PERMISSION REFACTOR: All client-side checks are now permissive.
+  return true;
 }
 
 export function useWeb3Admin(): boolean {
-  const { hasPermissionForDisplay } = useSharedAuth();
-  // Check for basic admin access (view users) instead of wildcard
-  return hasPermissionForDisplay('admin:users:view');
+  // PERMISSION REFACTOR: All client-side checks are now permissive.
+  return true;
 }

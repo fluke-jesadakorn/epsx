@@ -139,8 +139,6 @@ export interface WalletAuthState {
   // Permission checks (simplified)
   can: (permission: string) => boolean;
   hasPermission: (permission: string) => boolean;
-  hasAnyPermission: (permissions: string[]) => boolean;
-  hasAllPermissions: (permissions: string[]) => boolean;
 
   // Enhanced permission actions
   refreshPermissions: () => Promise<void>;
@@ -381,17 +379,17 @@ export type PermissionCondition =
   | { type: 'Or'; conditions: PermissionCondition[] }
   | { type: 'Not'; condition: PermissionCondition }
   | {
-      type: 'TokenBalance';
-      contract: string;
-      network: string;
-      min_balance: string;
-    }
+    type: 'TokenBalance';
+    contract: string;
+    network: string;
+    min_balance: string;
+  }
   | {
-      type: 'NFTOwnership';
-      contract: string;
-      network: string;
-      token_id?: string;
-    }
+    type: 'NFTOwnership';
+    contract: string;
+    network: string;
+    token_id?: string;
+  }
   | { type: 'DelegatedBy'; delegator: string }
   | { type: 'TimeWindow'; start: string; end: string };
 
@@ -422,28 +420,10 @@ export function hasPermission(
   return userPermissions.includes(requiredPermission);
 }
 
-/**
- * Check if user has any of the specified permissions
- */
-export function hasAnyPermission(
-  userPermissions: string[],
-  requiredPermissions: string[]
-): boolean {
-  return requiredPermissions.some(perm => userPermissions.includes(perm));
-}
-
-/**
- * Check if user has all specified permissions
- */
-export function hasAllPermissions(
-  userPermissions: string[],
-  requiredPermissions: string[]
-): boolean {
-  return requiredPermissions.every(perm => userPermissions.includes(perm));
-}
 
 /**
  * Extract platform from permission string
+
  * e.g., "admin:users:manage" -> "admin"
  */
 export function getPermissionPlatform(permission: string): string {

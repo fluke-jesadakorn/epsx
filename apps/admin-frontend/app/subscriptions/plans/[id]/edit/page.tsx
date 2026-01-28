@@ -19,7 +19,7 @@ import {
 import { PageLoadingSpinner } from '@/components/ui/LoadingSpinner'
 import { toast } from '@/hooks/use-toast'
 import { useAvailablePermissions } from '@/hooks/usePlanPermissions'
-import { createPlansClient, isApiSuccess, type PlanResponse } from '@/shared/api/plans'
+import { createPlansClient, isApiSuccess, type Plan } from '@/shared/api/plans'
 import { useSharedAuth } from '@/shared/components/auth/Provider'
 import { createAdminApiClient } from '@/shared/utils/api-client'
 import * as Promo from '@/shared/utils/promo'
@@ -32,7 +32,7 @@ export default function EditPlanPage() {
   const router = useRouter()
   const params = useParams()
   const { user, isLoading: authLoading, isAuthenticated } = useSharedAuth()
-  const [plan, setPlan] = useState<PlanResponse | null>(null)
+  const [plan, setPlan] = useState<Plan | null>(null)
   const [loading, setLoading] = useState(true)
   const [formData, setFormData] = useState({
     name: '',
