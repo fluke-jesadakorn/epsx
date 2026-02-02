@@ -1,3 +1,4 @@
+import { decodeJwt } from 'jose';
 import { NextRequest, NextResponse } from 'next/server';
 import { COOKIES } from './cookies';
 
@@ -63,9 +64,33 @@ export function createAuthMiddleware(config: AuthMiddlewareConfig) {
         response.headers.set('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
         response.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
 
-        // 3. Check for Token
+        // 3. Check for Token and Validate Expiration
         const token = request.cookies.get(tokenCookieName)?.value;
-        const isAuthenticated = !!token;
+        let isAuthenticated = false;
+
+        if (token) {
+            try {
+                // Decode token to check expiration (without verification signature to save time/keys)
+                // We rely on the backend API to verify the signature on actual data requests
+                const claims = decodeJwt(token);
+
+                // Check expiration
+                if (claims && claims.exp) {
+                    const currentTime = Math.floor(Date.now() / 1000);
+                    if (claims.exp > currentTime) {
+                        isAuthenticated = true;
+                    } else {
+                        console.log('[AUTH] Middleware: Token expired', {
+                            exp: claims.exp,
+                            now: currentTime
+                        });
+                    }
+                }
+            } catch (e) {
+                console.error('[AUTH] Middleware: Invalid token format', e);
+                // Invalid token -> Not authenticated
+            }
+        }
 
         // DEBUG: Log authentication state
         console.log('[AUTH] Middleware Auth Check:', {

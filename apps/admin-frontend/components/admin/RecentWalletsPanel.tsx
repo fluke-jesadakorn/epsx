@@ -71,7 +71,10 @@ export function RecentWalletsPanel({ initialData }: { initialData?: RecentWallet
       // Use longer timeout (60s) for this endpoint as it performs complex aggregations
       const result = await getRecentWalletsAction(10, 30);
       setData(result);
-    } catch (err) {
+    } catch (err: any) {
+      if (err?.message === 'NEXT_REDIRECT' || err?.digest?.startsWith('NEXT_REDIRECT')) {
+        throw err;
+      }
       logger.error('Error fetching recent wallets', { error: err instanceof Error ? err.message : JSON.stringify(err) });
       setError(
         err instanceof Error ? err.message : 'Failed to load recent wallets'

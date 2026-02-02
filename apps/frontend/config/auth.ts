@@ -99,23 +99,23 @@ export function getUserRequiredAuthLevel(route: string) {
  */
 export function buildFrontendWeb3ChallengeUrl(walletAddress: string): string {
   // Create an OIDC-compatible config for Web3 challenge URL
-  const backendUrl = env.BACKEND_URL || 'http://localhost:8080';
+  const BACKEND_URL = process.env.BACKEND_URL || 'http://127.0.0.1:8080';
   const oidcLikeConfig = {
     clientId: 'epsx-frontend',
-    issuer: backendUrl,
+    issuer: BACKEND_URL,
     scope: ['web3'],
     responseType: 'code',
     grantType: 'authorization_code',
     redirectUri: `${env.APP_URL}/api/auth/callback`,
     endpoints: {
-      authorize: `${backendUrl}/oauth/authorize`,
-      token: `${backendUrl}/oauth/token`,
-      userinfo: `${backendUrl}/oauth/userinfo`,
-      logout: `${backendUrl}/oauth/logout`,
-      challenge: `${backendUrl}/api/auth/web3/challenge`,
-      verify: `${backendUrl}/api/auth/web3/verify`,
-      refresh: `${backendUrl}/oauth/token`,
-      permissions: `${backendUrl}/api/auth/permissions`
+      authorize: `${BACKEND_URL}/oauth/authorize`,
+      token: `${BACKEND_URL}/oauth/token`,
+      userinfo: `${BACKEND_URL}/oauth/userinfo`,
+      logout: `${BACKEND_URL}/oauth/logout`,
+      challenge: `${BACKEND_URL}/api/auth/web3/challenge`,
+      verify: `${BACKEND_URL}/api/auth/web3/verify`,
+      refresh: `${BACKEND_URL}/oauth/token`,
+      permissions: `${BACKEND_URL}/api/auth/permissions`
     }
   };
   return buildWeb3ChallengeUrl(oidcLikeConfig, walletAddress);

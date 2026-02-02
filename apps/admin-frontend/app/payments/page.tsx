@@ -13,10 +13,10 @@ import { useSharedAuth } from '@/shared/components/auth/Provider';
 type TabType = 'payments' | 'user-access' | 'payment-links' | 'analytics';
 
 const tabs: TabItem[] = [
-  { id: 'payments', label: 'Payments', prefix: '💳', gradient: 'info' },
-  { id: 'user-access', label: 'User Access', prefix: '👥', gradient: 'success' },
-  { id: 'payment-links', label: 'Links', prefix: '🔗', gradient: 'purple' },
-  { id: 'analytics', label: 'Analytics', prefix: '📊', gradient: 'indigo' },
+  { id: 'payments', label: 'Payments', icon: 'CreditCard', gradient: 'info' },
+  { id: 'user-access', label: 'User Access', icon: 'Users', gradient: 'success' },
+  { id: 'payment-links', label: 'Links', icon: 'Link', gradient: 'purple' },
+  { id: 'analytics', label: 'Analytics', icon: 'BarChart3', gradient: 'indigo' },
 ];
 
 /**

@@ -7,7 +7,7 @@ import { Key, Package } from 'lucide-react';
 
 // --- Permissions ---
 
-export function DraggablePermissionItem({ id, label }: { id: string; label: string }) {
+export function DraggablePermissionItem({ id, label, onRemove }: { id: string; label: string; onRemove?: () => void }) {
     const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
         id: id,
         data: { type: 'permission', id, name: label }
@@ -19,19 +19,46 @@ export function DraggablePermissionItem({ id, label }: { id: string; label: stri
             {...listeners}
             {...attributes}
             className={cn(
-                "flex items-center gap-3 p-3 rounded-lg border bg-white dark:bg-gray-800 cursor-grab hover:border-purple-400 transition-all select-none",
+                "group flex items-center justify-between gap-3 p-3 rounded-lg border bg-white dark:bg-gray-800 cursor-grab hover:border-purple-400 transition-all select-none",
                 isDragging ? "opacity-50 ring-2 ring-purple-500 z-50" : "border-gray-200 dark:border-gray-700 hover:shadow-sm"
             )}
         >
-            <div className="h-8 w-8 rounded bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center flex-shrink-0 text-purple-600 dark:text-purple-400">
-                <Key className="h-4 w-4" />
+            <div className="flex items-center gap-3 min-w-0">
+                <div className="h-8 w-8 rounded bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center flex-shrink-0 text-purple-600 dark:text-purple-400">
+                    <Key className="h-4 w-4" />
+                </div>
+                <span className="text-sm font-medium truncate text-gray-900 dark:text-gray-100" title={label}>{label}</span>
             </div>
-            <span className="text-sm font-medium truncate text-gray-900 dark:text-gray-100" title={label}>{label}</span>
+            {onRemove && (
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-red-500 hover:bg-red-500/10"
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onRemove();
+                    }}
+                >
+                    <span className="sr-only">Remove</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
+                </Button>
+            )}
         </div>
     );
 }
 
-export function DroppablePermissionList({ id, items, emptyMessage }: { id: string; items: string[]; emptyMessage: string }) {
+export function DroppablePermissionList({
+    id,
+    items,
+    emptyMessage,
+    onRemoveItem
+}: {
+    id: string;
+    items: string[];
+    emptyMessage: string;
+    onRemoveItem?: (item: string) => void;
+}) {
     const { setNodeRef, isOver } = useDroppable({ id });
 
     return (
@@ -50,7 +77,12 @@ export function DroppablePermissionList({ id, items, emptyMessage }: { id: strin
             ) : (
                 <div className="grid gap-2">
                     {items.map(item => (
-                        <DraggablePermissionItem key={item} id={item} label={item} />
+                        <DraggablePermissionItem
+                            key={item}
+                            id={item}
+                            label={item}
+                            onRemove={onRemoveItem ? () => onRemoveItem(item) : undefined}
+                        />
                     ))}
                 </div>
             )}
@@ -60,7 +92,7 @@ export function DroppablePermissionList({ id, items, emptyMessage }: { id: strin
 
 // --- Plans ---
 
-export function DraggablePlanItem({ id, label, description, isAssigned = false }: { id: string; label: string; description?: string, isAssigned?: boolean }) {
+export function DraggablePlanItem({ id, label, description, isAssigned = false, onManage }: { id: string; label: string; description?: string, isAssigned?: boolean, onManage?: () => void }) {
     const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
         id: id,
         data: { type: 'plan', id, name: label },
@@ -84,13 +116,13 @@ export function DraggablePlanItem({ id, label, description, isAssigned = false }
     return (
         <div
             ref={setNodeRef}
-            {...listeners}
-            {...attributes}
             className={cn(
-                "group flex items-center gap-4 p-4 rounded-xl border transition-all select-none cursor-grab active:cursor-grabbing",
+                "group flex items-center gap-4 p-4 rounded-xl border transition-all select-none",
                 "bg-slate-800/50 border-slate-700 hover:border-blue-500/50 hover:bg-slate-800",
                 isDragging ? "opacity-50 ring-2 ring-blue-500 z-50 scale-105 shadow-2xl" : "shadow-sm"
             )}
+            {...listeners}
+            {...attributes}
         >
             <div className="h-10 w-10 rounded-lg bg-blue-500/10 flex items-center justify-center flex-shrink-0 text-blue-400 group-hover:text-blue-300 group-hover:bg-blue-500/20 transition-colors">
                 <Package className="h-5 w-5" />
@@ -99,6 +131,20 @@ export function DraggablePlanItem({ id, label, description, isAssigned = false }
                 <p className="font-semibold text-sm text-slate-200 group-hover:text-white transition-colors">{label}</p>
                 {description && <p className="text-xs text-slate-400 truncate mt-0.5">{description}</p>}
             </div>
+            {onManage && (
+                <Button
+                    variant="secondary"
+                    size="sm"
+                    className="h-7 text-xs opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap"
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onManage();
+                    }}
+                >
+                    Manage
+                </Button>
+            )}
         </div>
     );
 }
@@ -109,6 +155,7 @@ export function DroppablePlanList({
     emptyMessage,
     pendingItems = [],
     onEdit,
+    onManage,
     onDelete
 }: {
     id: string;
@@ -116,6 +163,7 @@ export function DroppablePlanList({
     emptyMessage: string;
     pendingItems?: any[];
     onEdit?: (item: any) => void;
+    onManage?: (item: any) => void;
     onDelete?: (id: string) => void;
 }) {
     const { setNodeRef, isOver } = useDroppable({ id });
@@ -163,6 +211,16 @@ export function DroppablePlanList({
 
                             {/* Actions for Assigned Items */}
                             <div className="flex items-center gap-2">
+                                {onManage && !plan.isPending && (
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-8 px-3 text-xs font-medium text-slate-400 hover:text-white hover:bg-slate-700"
+                                        onClick={() => onManage(plan)}
+                                    >
+                                        Manage
+                                    </Button>
+                                )}
                                 {onEdit && !plan.isPending && (
                                     <Button
                                         variant="ghost"

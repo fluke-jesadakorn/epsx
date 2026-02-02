@@ -33,14 +33,13 @@ import {
     disableWalletAction,
     enableWalletAction,
     fetchWalletDetailAction,
-    updatePlanAction,
     updateWalletMetadataAction
 } from '@/app/wallet-management/plan-actions';
 import { DisableWalletModal, type DisableWalletData } from '@/components/wallet/DisableWalletModal';
 import { ExpiryDatePicker } from '@/components/wallet/ExpiryDatePicker';
 import { ReenableWalletModal, type ReenableWalletData } from '@/components/wallet/ReenableWalletModal';
 import type { WalletData, WalletStatus } from '@/components/wallet/types';
-import { DraggablePermissionItem, DraggablePlanItem, DroppablePermissionList, DroppablePlanList } from '@/components/wallet/WalletComponents';
+import { DraggablePlanItem, DroppablePlanList } from '@/components/wallet/WalletComponents';
 import { AccessItem, useWalletAccess } from '@/hooks/useWalletAccess';
 import { cn, copyToClipboard } from '@/lib/utils';
 import { createPlansClient, type SubscriptionResponse } from '@/shared/api/plans';
@@ -127,11 +126,10 @@ export default function WalletDetailPage() {
     const [isSavingMetadata, setIsSavingMetadata] = useState(false);
     const [hasMetadataChanges, setHasMetadataChanges] = useState(false);
 
+
     // Filter State
     const [searchQuery, setSearchQuery] = useState('');
     const [assignedSearchQuery, setAssignedSearchQuery] = useState('');
-    const [planBuilderSearchQuery, setPlanBuilderSearchQuery] = useState('');
-    const [permissionSearchQuery, setPermissionSearchQuery] = useState('');
 
     // Modals
     const [showDisableModal, setShowDisableModal] = useState(false);
@@ -140,28 +138,9 @@ export default function WalletDetailPage() {
     const [isLoadingSub, setIsLoadingSub] = useState(false);
     const [isActionLoading, setIsActionLoading] = useState(false);
 
-    // Plan Builder State
-    const [builderSelectedPlanId, setBuilderSelectedPlanId] = useState<string | null>(null);
-    const [builderPermissions, setBuilderPermissions] = useState<string[]>([]);
-    const [builderForm, setBuilderForm] = useState({ name: '', description: '', priority: 0, expiryDays: 30 });
-    const [isSavingBuilder, setIsSavingBuilder] = useState(false);
-    const [hasBuilderChanges, setHasBuilderChanges] = useState(false);
-
     // Derived Plan Lists
     const allPlans = useMemo(() => [...accessData.authorizedPlans, ...accessData.availablePlans], [accessData.authorizedPlans, accessData.availablePlans]);
 
-    // Available Permissions for Builder (All Permissions)
-    const filteredAvailablePermissions = useMemo(() => {
-        // In builder mode, we show ALL available permissions on the right (even if user already has them)
-        // We filter out ones already in the builder list
-        const assignedSet = new Set(builderPermissions);
-        const allSystemPermissions = [...accessData.availablePermissions, ...accessData.authorizedPermissions];
-
-        // Remove duplicates just in case, though sets should be disjoint
-        const uniqueSystemPermissions = Array.from(new Map(allSystemPermissions.map(item => [item.name, item])).values());
-
-        return uniqueSystemPermissions.filter(p => !assignedSet.has(p.name) && p.name.toLowerCase().includes(permissionSearchQuery.toLowerCase()));
-    }, [accessData.availablePermissions, accessData.authorizedPermissions, builderPermissions, permissionSearchQuery]);
 
 
     // Load wallet data
@@ -234,47 +213,9 @@ export default function WalletDetailPage() {
         );
     }, [accessData.availablePlans, accessData.authorizedPlans, pendingDrops, searchQuery]);
 
-    // Builder Logic
-    const handleSelectPlanForBuilder = (planId: string) => {
-        const plan = allPlans.find(g => g.id === planId);
-        if (plan) {
-            setBuilderSelectedPlanId(planId);
-            // In a real app, we might need to fetch the full plan details to get permissions
-            // For now assuming plan object has permissions. If not, we'd need a fetch call.
-            // Checking if 'permissions' property exists on AccessItem
-            setBuilderPermissions(plan.permissions || []);
-            setBuilderForm({
-                name: plan.name,
-                description: plan.description || '',
-                // @ts-ignore - Assuming properties exist on plan object for now or fallback
-                priority: (plan as any).priority_level || 0,
-                // @ts-ignore
-                expiryDays: (plan as any).default_expiry_days || 30
-            });
-            setHasBuilderChanges(false);
-        }
-    };
-
-    const handleSavePlan = async () => {
-        if (!builderSelectedPlanId) return;
-        setIsSavingBuilder(true);
-        try {
-            await updatePlanAction(builderSelectedPlanId, {
-                name: builderForm.name,
-                description: builderForm.description,
-                permissions: builderPermissions,
-                priority_level: builderForm.priority,
-                default_expiry_days: builderForm.expiryDays
-            });
-            toast.success('Plan updated successfully');
-            setHasBuilderChanges(false);
-            refreshAccess(); // Refresh to reflect changes if any
-        } catch (err) {
-            toast.error('Failed to save plan details');
-            console.error(err);
-        } finally {
-            setIsSavingBuilder(false);
-        }
+    // Navigation Logic
+    const handleManagePlan = (planId: string) => {
+        router.push(`/wallet-management/plans/${planId}?from=/wallet-management/${encodeURIComponent(walletAddress)}`);
     };
 
 
@@ -308,53 +249,16 @@ export default function WalletDetailPage() {
             }
         }
 
-        // Dropped Permission into Builder List (Bottom Section)
-        if (active.data.current?.type === 'permission' && over.id === 'builder-plan-permissions') {
-            const permissionName = active.data.current.name; // Use name as ID for permissions often
-            if (builderSelectedPlanId && !builderPermissions.includes(permissionName)) {
-                setBuilderPermissions(prev => [...prev, permissionName]);
-                setHasBuilderChanges(true);
-            }
+
+        // If dropping from assigned list (Legacy/Global removal? - Disabled per request but logic exists)
+        /* 
+        if (accessData.authorizedPermissions.find(p => p.id === itemId)) {
+            revokePermission(itemId).then(() => {
+                toast.success('Permission revoked');
+                refreshAccess();
+            });
         }
-
-        // Dropped into Trash
-        if (over.id === 'trash') {
-            const itemId = active.id as string;
-            const type = active.data.current?.type;
-
-            if (type === 'plan') {
-                // Check if pending
-                if (pendingDrops.find(p => p.id === itemId)) {
-                    setPendingDrops(prev => prev.filter(p => p.id !== itemId));
-                    toast.info('Removed from staging');
-                    return;
-                }
-                // Check if assigned (needs API call)
-                if (accessData.authorizedPlans.find(g => g.id === itemId)) {
-                    removePlan(itemId).then(() => {
-                        toast.success('Plan access revoked');
-                        refreshAccess();
-                    });
-                }
-            } else if (type === 'permission') {
-                // If dropping from builder list
-                if (builderSelectedPlanId && builderPermissions.includes(active.data.current?.name)) {
-                    setBuilderPermissions(prev => prev.filter(p => p !== active.data.current?.name));
-                    setHasBuilderChanges(true);
-                    return;
-                }
-
-                // If dropping from assigned list (Legacy/Global removal? - Disabled per request but logic exists)
-                /* 
-                if (accessData.authorizedPermissions.find(p => p.id === itemId)) {
-                    revokePermission(itemId).then(() => {
-                        toast.success('Permission revoked');
-                        refreshAccess();
-                    });
-                }
-                */
-            }
-        }
+        */
     };
 
     // Save Actions
@@ -543,6 +447,7 @@ export default function WalletDetailPage() {
                                                     id={plan.id}
                                                     label={plan.name}
                                                     description={plan.description}
+                                                    onManage={() => handleManagePlan(plan.id)}
                                                 />
                                             ))}
                                             {filteredAvailablePlans.length === 0 && (
@@ -668,7 +573,7 @@ export default function WalletDetailPage() {
                                             )}
 
                                             <div className="flex justify-between items-center text-xs text-slate-500 pt-2">
-                                                <span>Started: {activeSub.started_at ? new Date(activeSub.started_at).toLocaleDateString() : 'Never'}</span>
+                                                <span>Started: {activeSub.created_at ? new Date(activeSub.created_at).toLocaleDateString() : 'Never'}</span>
                                                 <span>Expires: {activeSub.expires_at ? new Date(activeSub.expires_at).toLocaleDateString() : 'Never'}</span>
                                             </div>
                                         </div>
@@ -709,6 +614,7 @@ export default function WalletDetailPage() {
                                                 )}
                                                 emptyMessage="Drag plans here from the left to assign access"
                                                 onEdit={(item) => setEditingItem({ item, type: 'plan' })}
+                                                onManage={(item) => handleManagePlan(item.id)}
                                                 onDelete={(id) => {
                                                     if (pendingDrops.find(p => p.id === id)) {
                                                         setPendingDrops(prev => prev.filter(p => p.id !== id));
@@ -753,223 +659,6 @@ export default function WalletDetailPage() {
                     </div>
 
 
-                    {/* Plan & Plan Management Builder */}
-                    <div className="pt-8 border-t border-white/10 mt-8 space-y-6">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                                    <Package className="h-5 w-5 text-purple-400" />
-                                    Plan Management
-                                </h2>
-                                <p className="text-sm text-slate-500 mt-1">Edit plan definitions and assign permissions</p>
-                            </div>
-                            <Button
-                                size="sm"
-                                variant="admin"
-                                onClick={() => {/* TODO: Create New Plan Handler */ }}
-                            >
-                                <Package className="h-4 w-4 mr-2" />
-                                New Plan
-                            </Button>
-                        </div>
-
-                        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                            {/* LEFT COLUMN: Selection (Moved from right) */}
-                            <div className="lg:col-span-5">
-                                <div className="flex flex-col gap-4">
-                                    {/* Top: Plan List - Collapsible height */}
-                                    <Card className="border border-white/10 bg-slate-900/50 shadow-lg">
-                                        <CardHeader className="py-3 px-4 border-b border-white/5 bg-white/5">
-                                            <div className="flex items-center justify-between mb-2">
-                                                <CardTitle className="text-sm font-semibold text-slate-200">Select Plan</CardTitle>
-                                                <Badge variant="outline" className="text-xs border-purple-500/30 text-purple-400">
-                                                    {allPlans.length} plans
-                                                </Badge>
-                                            </div>
-                                            <Input
-                                                placeholder="Search plans..."
-                                                value={planBuilderSearchQuery}
-                                                onChange={e => setPlanBuilderSearchQuery(e.target.value)}
-                                                className="h-8 text-xs bg-slate-950/50 border-white/10 text-slate-200 placeholder:text-slate-600"
-                                            />
-                                        </CardHeader>
-                                        <CardContent className="p-0 overflow-y-auto max-h-[300px]">
-                                            <div className="divide-y divide-white/5">
-                                                {allPlans
-                                                    .filter(g => g.name.toLowerCase().includes(planBuilderSearchQuery.toLowerCase()))
-                                                    .map(plan => (
-                                                        <div
-                                                            key={plan.id}
-                                                            onClick={() => handleSelectPlanForBuilder(plan.id)}
-                                                            className={cn(
-                                                                "p-3 flex items-center justify-between cursor-pointer hover:bg-white/5 transition-colors",
-                                                                builderSelectedPlanId === plan.id ? "bg-purple-500/10 hover:bg-purple-500/20 border-l-4 border-l-purple-500" : "border-l-4 border-l-transparent"
-                                                            )}
-                                                        >
-                                                            <div className="min-w-0 flex-1">
-                                                                <p className="font-medium text-sm text-slate-200">{plan.name}</p>
-                                                                <p className="text-xs text-slate-500 truncate">{plan.description || 'No description'}</p>
-                                                            </div>
-                                                            <Button size="icon" variant="ghost" className="h-6 w-6 text-slate-500 hover:text-white flex-shrink-0">
-                                                                <span className="sr-only">Edit</span>
-                                                                <ArrowLeft className="h-3 w-3 rotate-180" />
-                                                            </Button>
-                                                        </div>
-                                                    ))}
-                                            </div>
-                                        </CardContent>
-                                    </Card>
-
-                                    {/* Bottom: Available Permissions - Shows all inline */}
-                                    <Card className="border border-white/10 bg-slate-900/50 shadow-lg">
-                                        <CardHeader className="py-3 px-4 border-b border-white/5 bg-white/5">
-                                            <div className="flex items-center justify-between mb-2">
-                                                <CardTitle className="text-sm font-semibold text-slate-200">Available Permissions</CardTitle>
-                                                <Badge variant="outline" className="text-xs border-cyan-500/30 text-cyan-400">
-                                                    {filteredAvailablePermissions.length} available
-                                                </Badge>
-                                            </div>
-                                            <Input
-                                                placeholder="Search permissions..."
-                                                value={permissionSearchQuery}
-                                                onChange={e => setPermissionSearchQuery(e.target.value)}
-                                                className="h-8 text-xs bg-slate-950/50 border-white/10 text-slate-200 placeholder:text-slate-600"
-                                            />
-                                        </CardHeader>
-                                        <CardContent className="p-2 overflow-y-auto max-h-[450px]">
-                                            <div className="grid grid-cols-1 gap-2">
-                                                {filteredAvailablePermissions.map(perm => (
-                                                    <DraggablePermissionItem
-                                                        key={perm.id}
-                                                        id={perm.id}
-                                                        label={perm.name}
-                                                    />
-                                                ))}
-                                                {filteredAvailablePermissions.length === 0 && (
-                                                    <div className="flex flex-col items-center justify-center py-8 text-slate-500">
-                                                        <Key className="h-8 w-8 mb-2 opacity-20" />
-                                                        <p className="text-sm">No permissions found</p>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </CardContent>
-                                    </Card>
-                                </div>
-                            </div>
-
-                            {/* RIGHT COLUMN: Editor (Moved from left) */}
-                            <div className="lg:col-span-7 flex flex-col gap-4">
-                                {builderSelectedPlanId ? (
-                                    <>
-                                        {/* Edit Plan Details */}
-                                        <Card className="border border-white/10 bg-slate-900/50 shadow-lg shrink-0">
-                                            <div className="h-1 bg-gradient-to-r from-amber-500 to-orange-500" />
-                                            <CardHeader className="pb-3 border-b border-white/5 bg-white/5">
-                                                <CardTitle className="text-sm font-semibold uppercase tracking-wider text-amber-400">
-                                                    Edit Plan Details
-                                                </CardTitle>
-                                            </CardHeader>
-                                            <CardContent className="pt-4 grid grid-cols-2 gap-4">
-                                                <div className="col-span-2 md:col-span-1 space-y-2">
-                                                    <Label className="text-slate-400">Plan Name</Label>
-                                                    <Input
-                                                        placeholder="e.g. Premium Plan"
-                                                        value={builderForm.name}
-                                                        onChange={e => { setBuilderForm(p => ({ ...p, name: e.target.value })); setHasBuilderChanges(true); }}
-                                                        className="bg-slate-950/50 border-white/10 text-slate-200 placeholder:text-slate-600"
-                                                    />
-                                                </div>
-                                                <div className="col-span-2 md:col-span-1 space-y-2">
-                                                    <Label className="text-slate-400">Priority Order</Label>
-                                                    <Input
-                                                        type="number"
-                                                        placeholder="0"
-                                                        value={builderForm.priority}
-                                                        onChange={e => { setBuilderForm(p => ({ ...p, priority: parseInt(e.target.value) || 0 })); setHasBuilderChanges(true); }}
-                                                        className="bg-slate-950/50 border-white/10 text-slate-200 placeholder:text-slate-600"
-                                                    />
-                                                </div>
-                                                <div className="col-span-2 md:col-span-1 space-y-2">
-                                                    <Label className="text-slate-400">Default Expiry (Days)</Label>
-                                                    <Input
-                                                        type="number"
-                                                        placeholder="30"
-                                                        value={builderForm.expiryDays}
-                                                        onChange={e => { setBuilderForm(p => ({ ...p, expiryDays: parseInt(e.target.value) || 0 })); setHasBuilderChanges(true); }}
-                                                        className="bg-slate-950/50 border-white/10 text-slate-200 placeholder:text-slate-600"
-                                                    />
-                                                </div>
-                                                <div className="col-span-2 md:col-span-1 space-y-2">
-                                                    <Label className="text-slate-400">Description</Label>
-                                                    <Input
-                                                        placeholder="Description of this plan..."
-                                                        value={builderForm.description}
-                                                        onChange={e => { setBuilderForm(p => ({ ...p, description: e.target.value })); setHasBuilderChanges(true); }}
-                                                        className="bg-slate-950/50 border-white/10 text-slate-200 placeholder:text-slate-600"
-                                                    />
-                                                </div>
-                                            </CardContent>
-                                        </Card>
-
-                                        {/* Assigned Permissions */}
-                                        <Card className="flex-1 flex flex-col border border-white/10 bg-slate-900/50 shadow-lg min-h-0">
-                                            <div className="h-1 bg-gradient-to-r from-blue-500 to-cyan-500" />
-                                            <CardHeader className="pb-3 border-b border-white/5 bg-white/5">
-                                                <CardTitle className="text-sm font-semibold uppercase tracking-wider text-blue-400 flex justify-between items-center">
-                                                    <span>Assigned Permissions ({builderPermissions.length})</span>
-                                                    <Badge variant="outline" className="text-xs normal-case font-normal border-blue-500/30 text-blue-400">
-                                                        Drag here
-                                                    </Badge>
-                                                </CardTitle>
-                                            </CardHeader>
-                                            <CardContent className="p-0 flex flex-col min-h-0 overflow-hidden">
-                                                <div className="p-4 overflow-y-auto max-h-[400px]">
-                                                    <DroppablePermissionList
-                                                        id="builder-plan-permissions"
-                                                        items={builderPermissions}
-                                                        emptyMessage="Drag permissions here from the left"
-                                                    />
-                                                </div>
-                                                <div className="p-3 border-t border-white/5 bg-slate-950/50 flex gap-2 justify-end mt-auto">
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        onClick={() => setBuilderSelectedPlanId(null)}
-                                                        className="text-slate-400 hover:text-white"
-                                                    >
-                                                        Discard
-                                                    </Button>
-                                                    <Button
-                                                        variant="destructive"
-                                                        size="sm"
-                                                        onClick={() => {/* TODO: Delete Plan */ }}
-                                                        className="bg-red-600/80 hover:bg-red-600"
-                                                    >
-                                                        Delete
-                                                    </Button>
-                                                    <Button
-                                                        size="sm"
-                                                        className="bg-purple-600 hover:bg-purple-700"
-                                                        disabled={!hasBuilderChanges || isSavingBuilder}
-                                                        onClick={handleSavePlan}
-                                                    >
-                                                        {isSavingBuilder ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Save className="h-4 w-4 mr-1" />}
-                                                        Save
-                                                    </Button>
-                                                </div>
-                                            </CardContent>
-                                        </Card>
-                                    </>
-                                ) : (
-                                    <div className="h-full flex flex-col items-center justify-center border-2 border-dashed border-white/10 rounded-xl bg-slate-900/30 text-slate-500 py-16">
-                                        <Package className="h-16 w-16 mb-4 opacity-20" />
-                                        <h3 className="text-lg font-semibold text-slate-400">No Plan Selected</h3>
-                                        <p className="text-sm">Select a plan from the left to edit details and permissions</p>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    </div>
                 </div>
 
                 {/* DND Overlay */}

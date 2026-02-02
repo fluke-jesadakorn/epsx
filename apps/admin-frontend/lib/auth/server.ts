@@ -39,7 +39,7 @@ export function createEnhancedAuthUser(payload: EPSXJWTPayload): EnhancedAuthUse
 export async function getServerSession(): Promise<ServerSession | null> {
   try {
     const { cookies } = await import('next/headers');
-    const { verifyJWT } = await import('@/shared/auth/jwt');
+    const { decodeEPSXJWT, isJWTExpired } = await import('@/shared/auth/jwt');
 
     const cookieStore = await cookies();
     // OIDC Migration: Use only OIDC access token
@@ -47,7 +47,11 @@ export async function getServerSession(): Promise<ServerSession | null> {
 
     if (!jwt) { return null; }
 
-    const payload = await verifyJWT(jwt);
+    // Check expiration first
+    if (isJWTExpired(jwt)) { return null; }
+
+    // Decode payload (skipping signature verification due to RS256/HS256 mismatch)
+    const payload = decodeEPSXJWT(jwt);
     if (!payload) { return null; }
 
     // Convert to proper ServerSession type

@@ -7,8 +7,9 @@
 export * from './types';
 
 // Components
+// Components
 export { AccessControlHub } from './AccessControlHub';
-export { PlanManagementView } from './PlanManagementView';
+export { AccessControlPage } from './AccessControlPage';
 export { PolicyCard } from './PolicyCard';
 export { PolicyFilters, PolicyTypeChips } from './PolicyFilters';
 export { PolicyStatsBar, PolicyStatsCompact } from './PolicyStatsBar';

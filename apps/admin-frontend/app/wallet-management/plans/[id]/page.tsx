@@ -17,7 +17,7 @@ import {
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, Loader2, Shield } from 'lucide-react';
 import Link from 'next/link';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
@@ -41,6 +41,9 @@ import { PermissionPlan } from '@/lib/api/plan-management-client';
 export default function PlanDetailPage() {
     const router = useRouter();
     const params = useParams();
+    const searchParams = useSearchParams();
+    const from = searchParams.get('from');
+
     const planId = params['id'] as string;
     const queryClient = useQueryClient();
 
@@ -149,7 +152,7 @@ export default function PlanDetailPage() {
             await deletePlanAction(planId);
             toast.success('Plan deleted');
             queryClient.invalidateQueries({ queryKey: ['permission-plans'] });
-            router.push('/wallet-management/plans');
+            router.push(from || '/wallet-management/plans');
         } catch (err: any) {
             toast.error(err.message || 'Failed to delete plan');
             setIsSaving(false);
@@ -178,7 +181,7 @@ export default function PlanDetailPage() {
                     {/* Header */}
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-4">
-                            <Link href="/wallet-management/plans" className="p-2 border rounded-xl hover:bg-white transition-colors">
+                            <Link href={from || "/wallet-management/plans"} className="p-2 border rounded-xl hover:bg-white transition-colors">
                                 <ArrowLeft className="h-5 w-5" />
                             </Link>
                             <div>

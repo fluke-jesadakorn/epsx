@@ -1,7 +1,7 @@
 'use client';
 
-import { useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useCallback } from 'react';
 
 
 // ============================================================================
@@ -62,6 +62,18 @@ export interface DeveloperPortalStats {
   top_modules_by_usage: any[];
 }
 
+export interface PlanStats {
+  total_plans: number;
+  active_plans: number;
+  system_plans?: number;
+  total_memberships: number;
+  active_memberships: number;
+  avg_permissions_per_plan?: number;
+  by_plan: Record<string, number>;
+  recent_assignments: number;
+  recent_removals: number;
+}
+
 export const DEFAULT_ANALYTICS_CONFIG = {
   refreshInterval: 60000,
   revalidateOnFocus: false,
@@ -119,6 +131,7 @@ import {
   getApiKeysAction,
   getDeveloperPortalStatsAction,
   getPermissionAnalyticsAction,
+  getPlanStatsAction,
   getSystemMetricsAction,
   getUserStatsAction
 } from '@/app/analytics/actions';
@@ -136,6 +149,25 @@ export function useUserStats() {
 
   return {
     userStats: data,
+    isLoading,
+    error,
+    refresh: refetch,
+  };
+}
+
+/**
+ *
+ */
+export function usePlanStats() {
+  const { data, error, isLoading, refetch } = useQuery<PlanStats>({
+    queryKey: ['plan-stats'],
+    queryFn: getPlanStatsAction,
+    refetchInterval: DEFAULT_ANALYTICS_CONFIG.refreshInterval,
+    refetchOnWindowFocus: DEFAULT_ANALYTICS_CONFIG.revalidateOnFocus,
+  });
+
+  return {
+    planStats: data,
     isLoading,
     error,
     refresh: refetch,
@@ -240,6 +272,7 @@ export function useAnalyticsOverview() {
   const queryClient = useQueryClient();
   const { userStats, isLoading: userStatsLoading, error: userStatsError } = useUserStats();
   const { permissionAnalytics, isLoading: permissionLoading, error: permissionError } = usePermissionAnalytics();
+  const { planStats, isLoading: planStatsLoading, error: planStatsError } = usePlanStats();
   const { systemMetrics, isLoading: systemLoading, error: systemError } = useSystemMetrics();
   const { dashboardData, isLoading: dashboardLoading, error: dashboardError } = useAnalyticsDashboard();
 
@@ -247,6 +280,7 @@ export function useAnalyticsOverview() {
     // Refresh all data sources using queryClient
     queryClient.invalidateQueries({ queryKey: ['user-stats'] });
     queryClient.invalidateQueries({ queryKey: ['permission-analytics'] });
+    queryClient.invalidateQueries({ queryKey: ['plan-stats'] });
     queryClient.invalidateQueries({ queryKey: ['system-metrics'] });
     queryClient.invalidateQueries({ queryKey: ['developer-portal-stats'] });
   }, [queryClient]);
@@ -259,13 +293,14 @@ export function useAnalyticsOverview() {
     dashboardData,
 
     // Loading states (using shared utility)
-    isLoading: combineLoadingStates(userStatsLoading, permissionLoading, systemLoading, dashboardLoading),
+    isLoading: combineLoadingStates(userStatsLoading, permissionLoading, planStatsLoading, systemLoading, dashboardLoading),
 
     // Error states (using shared utility)
-    hasError: combineErrorStates(userStatsError, permissionError, systemError, dashboardError),
+    hasError: combineErrorStates(userStatsError, permissionError, planStatsError, systemError, dashboardError),
     errors: {
       userStats: userStatsError,
       permissions: permissionError,
+      planStats: planStatsError,
       system: systemError,
       dashboard: dashboardError,
     },

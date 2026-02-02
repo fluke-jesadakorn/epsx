@@ -4,7 +4,7 @@ import { getSessionFromWeb3 } from '@/lib/server/token';
 // Force dynamic rendering for pages that use authentication
 export const dynamic = 'force-dynamic';
 
-export default async function DashboardPage() {
+export default async function PersonalDashboardPage() {
   // Get session data server-side using Web3 (but don't redirect on failure)
   const session = await getSessionFromWeb3();
 

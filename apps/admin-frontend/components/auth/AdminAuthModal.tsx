@@ -1,7 +1,7 @@
 'use client';
 
 import { Shield } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { AuthModal } from '@/shared/components/auth';
@@ -11,18 +11,16 @@ import { Loader2 } from 'lucide-react';
 interface AdminAuthModalProps {
     children: React.ReactNode;
     fallback?: React.ReactNode;
+    initialHasAuthCookie?: boolean;
 }
 
-export function AdminAuthModal({ children, fallback }: AdminAuthModalProps) {
+export function AdminAuthModal({ children, fallback, initialHasAuthCookie = false }: AdminAuthModalProps) {
     const { isAuthenticated, isLoading } = useSharedAuth();
     const [showModal, setShowModal] = useState(false);
-    const [hasCheckedAuth, setHasCheckedAuth] = useState(false);
 
-    useEffect(() => {
-        if (!isLoading) {
-            setHasCheckedAuth(true);
-        }
-    }, [isLoading]);
+    // If we have an initial cookie, we can assume we're "checking" until proven otherwise
+    // If no cookie, we can say checks are done (and failed) unless loading
+    const isChecking = isLoading || (initialHasAuthCookie && !isAuthenticated);
 
     // Authenticated - render children immediately
     if (isAuthenticated && children) {
@@ -30,16 +28,12 @@ export function AdminAuthModal({ children, fallback }: AdminAuthModalProps) {
     }
 
     // Loading state
-    if (!hasCheckedAuth || isLoading) {
-        const hasUserCookie = typeof document !== 'undefined' ? document.cookie.includes('epsx.user') : false;
+    if (isChecking) {
         return (
             <div className="flex min-h-screen items-center justify-center p-6">
                 <div className="flex flex-col items-center gap-2">
                     <Loader2 className="h-8 w-8 animate-spin text-primary/50" />
                     <p className="text-sm text-muted-foreground animate-pulse">Verifying admin access...</p>
-                    <div className="text-xs text-muted-foreground mt-4 font-mono bg-muted p-2 rounded">
-                        Debug: Auth={String(isAuthenticated)}, Load={String(isLoading)}, Cookie={String(hasUserCookie)}
-                    </div>
                 </div>
             </div>
         );

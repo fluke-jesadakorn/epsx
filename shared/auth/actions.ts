@@ -1,8 +1,8 @@
 'use server';
 
 import { cookies } from 'next/headers';
-import { COOKIES, COOKIE_OPTIONS, HTTP_ONLY_COOKIES } from './cookies';
 import type { UserInfoResponse } from './client';
+import { COOKIES, COOKIE_OPTIONS, HTTP_ONLY_COOKIES } from './cookies';
 
 /**
  * Server Action to establish a user session by setting cookies.
@@ -171,11 +171,28 @@ export async function refreshSessionAction() {
             });
         }
 
-        // Update user data if provided
-        if (data.user) {
-            const existingUserCookie = cookieStore.get(COOKIES.user)?.value;
-            let existingUser = existingUserCookie ? JSON.parse(existingUserCookie) : {};
-            cookieStore.set(COOKIES.user, JSON.stringify({ ...existingUser, ...data.user }), {
+        // Update user data and sync access token to client cookie
+        // This is CRITICAL because api-client.ts reads headers['Authorization'] from this cookie on the client side
+        const existingUserCookie = cookieStore.get(COOKIES.user)?.value;
+        if (existingUserCookie) {
+            const existingUser = JSON.parse(existingUserCookie);
+
+            // Always update the access token in the user object
+            existingUser.access = data.access_token;
+
+            // Merge any new user data if provided by backend
+            if (data.user) {
+                Object.assign(existingUser, data.user);
+            }
+
+            cookieStore.set(COOKIES.user, JSON.stringify(existingUser), {
+                ...COOKIE_OPTIONS.clientSide,
+                maxAge: COOKIE_OPTIONS.maxAge.user,
+            });
+        } else if (data.user) {
+            // If no existing cookie but we have user data, create it
+            const newUser = { ...data.user, access: data.access_token };
+            cookieStore.set(COOKIES.user, JSON.stringify(newUser), {
                 ...COOKIE_OPTIONS.clientSide,
                 maxAge: COOKIE_OPTIONS.maxAge.user,
             });

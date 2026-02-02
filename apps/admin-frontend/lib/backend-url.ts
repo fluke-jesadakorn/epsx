@@ -4,9 +4,9 @@
  * @param path
  */
 export function getBackendUrl(path = ''): string {
-  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080';
+  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://127.0.0.1:8080';
 
-  if (!path) {return backendUrl;}
+  if (!path) { return backendUrl; }
 
   return `${backendUrl}${path}`;
 }

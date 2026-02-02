@@ -15,6 +15,7 @@ interface AuthLayoutProps {
     name?: string
     role: string
   }
+  hasAuthCookie?: boolean
 }
 
 // Pages that should NEVER have the admin layout
@@ -34,7 +35,7 @@ import { AdminAuthModal } from '@/components/auth/AdminAuthModal'
  * Simplified: Relies on Proxy for protection.
  * Primarily serves as a wrapper to inject User context into MainLayout.
  */
-export function AuthLayout({ children, user: serverUser }: AuthLayoutProps) {
+export function AuthLayout({ children, user: serverUser, hasAuthCookie }: AuthLayoutProps) {
   const pathname = usePathname()
   const { user: authUser } = useSharedAuth()
 
@@ -54,7 +55,7 @@ export function AuthLayout({ children, user: serverUser }: AuthLayoutProps) {
 
   // Always show layout for all pages except the excluded ones
   return (
-    <AdminAuthModal>
+    <AdminAuthModal initialHasAuthCookie={hasAuthCookie}>
       <MainLayout user={layoutUser}>
         {children}
       </MainLayout>

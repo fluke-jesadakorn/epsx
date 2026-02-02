@@ -4,110 +4,133 @@ import {
     ApiKeysResponse,
     DeveloperPortalStats,
     PermissionAnalytics,
+    PlanStats,
     SystemMetrics,
     UserStats
 } from '@/hooks/useAnalyticsData';
-import { createAdminApiClient } from '@/shared/api';
-import { getServerAuthToken } from '@/shared/auth/cookies';
-import { cookies } from 'next/headers';
+import { logout } from '@/lib/auth/auth';
+import { createAdminApiClient, createPlansClient } from '@/shared/api';
+import { ApiResponse } from '@/shared/types/api';
+import { UnifiedApiClient } from '@/shared/utils/api-client';
 import { redirect } from 'next/navigation';
 
-export async function getUserStatsAction(): Promise<UserStats> {
-    const cookieStore = await cookies();
-    const token = getServerAuthToken(cookieStore);
+/**
+ * Generic helper to execute an API request with standard error handling and 401 redirect
+ */
+async function handleAction<T>(
+    requestFn: (apiClient: UnifiedApiClient) => Promise<ApiResponse<T>>,
+    errorMessage: string,
+    defaultValue?: T
+): Promise<T> {
+    const apiClient = createAdminApiClient({ serverSide: true });
 
-    const apiClient = createAdminApiClient({ serverSide: true, token: token || undefined });
-    const res = await apiClient.get<UserStats>('/api/admin/wallets/stats');
-    if (!res.success) {
-        if (res.error?.code === 'UNAUTHORIZED') {
-            redirect('/auth');
+    try {
+        const res = await requestFn(apiClient);
+
+        if (!res.success) {
+            if (res.error?.code === '401' || res.error?.code === 'UNAUTHORIZED') {
+                await logout();
+                redirect('/auth');
+            }
+
+            console.error(`${errorMessage}: ${res.error?.message} (${res.error?.code})`);
+
+            if (defaultValue !== undefined) {
+                return defaultValue;
+            }
+
+            throw new Error(res.error?.message || errorMessage);
         }
-        throw new Error(res.error?.message || 'Failed to fetch user stats');
+
+        return res.data || (defaultValue as T);
+    } catch (error: any) {
+        // Allow Next.js redirects to bubble up
+        if (error.digest?.startsWith('NEXT_REDIRECT')) {
+            throw error;
+        }
+
+        console.error(`${errorMessage}:`, error);
+
+        if (defaultValue !== undefined) {
+            return defaultValue;
+        }
+
+        throw error;
     }
-    return res.data || {};
+}
+
+export async function getUserStatsAction(): Promise<UserStats> {
+    return handleAction(
+        (apiClient) => apiClient.get<UserStats>('/api/admin/wallets/stats'),
+        'Failed to fetch user stats',
+        {} as UserStats
+    );
 }
 
 export async function getPermissionAnalyticsAction(): Promise<PermissionAnalytics> {
-    const cookieStore = await cookies();
-    const token = getServerAuthToken(cookieStore);
-
-    const apiClient = createAdminApiClient({ serverSide: true, token: token || undefined });
-    const res = await apiClient.get<PermissionAnalytics>('/api/admin/analytics/permissions');
-    if (!res.success) {
-        if (res.error?.code === 'UNAUTHORIZED') {
-            redirect('/auth');
-        }
-        throw new Error(res.error?.message || 'Failed to fetch permission analytics');
-    }
-    return res.data || {};
+    return handleAction(
+        (apiClient) => apiClient.get<PermissionAnalytics>('/api/admin/analytics/permissions'),
+        'Failed to fetch permission analytics',
+        {} as PermissionAnalytics
+    );
 }
 
 export async function getSystemMetricsAction(): Promise<SystemMetrics> {
-    const cookieStore = await cookies();
-    const token = getServerAuthToken(cookieStore);
-
-    const apiClient = createAdminApiClient({ serverSide: true, token: token || undefined });
-    const res = await apiClient.get<SystemMetrics>('/api/admin/analytics/metrics');
-    if (!res.success) {
-        if (res.error?.code === 'UNAUTHORIZED') {
-            redirect('/auth');
-        }
-        throw new Error(res.error?.message || 'Failed to fetch system metrics');
-    }
-    return res.data || {};
+    return handleAction(
+        (apiClient) => apiClient.get<SystemMetrics>('/api/admin/analytics/metrics'),
+        'Failed to fetch system metrics',
+        {} as SystemMetrics
+    );
 }
 
 export async function getDeveloperPortalStatsAction(): Promise<DeveloperPortalStats> {
-    const cookieStore = await cookies();
-    const token = getServerAuthToken(cookieStore);
-
-    const apiClient = createAdminApiClient({ serverSide: true, token: token || undefined });
-    const res = await apiClient.get<DeveloperPortalStats>('/api/admin/developer-portal/stats');
-    if (!res.success) {
-        if (res.error?.code === 'UNAUTHORIZED') {
-            redirect('/auth');
+    return handleAction(
+        (apiClient) => apiClient.get<DeveloperPortalStats>('/api/admin/developer-portal/stats'),
+        'Failed to fetch developer portal stats',
+        {
+            total_api_keys: 0,
+            active_api_keys: 0,
+            revoked_api_keys: 0,
+            expired_api_keys: 0,
+            total_modules: 0,
+            active_modules: 0,
+            total_requests_today: 0,
+            total_requests_this_month: 0,
+            top_modules_by_usage: []
         }
-        throw new Error(res.error?.message || 'Failed to fetch developer portal stats');
-    }
-    return res.data || {
-        total_api_keys: 0,
-        active_api_keys: 0,
-        revoked_api_keys: 0,
-        expired_api_keys: 0,
-        total_modules: 0,
-        active_modules: 0,
-        total_requests_today: 0,
-        total_requests_this_month: 0,
-        top_modules_by_usage: []
-    };
+    );
 }
 
 export async function getApiKeysAction(): Promise<ApiKeysResponse> {
-    const cookieStore = await cookies();
-    const token = getServerAuthToken(cookieStore);
-
-    const apiClient = createAdminApiClient({ serverSide: true, token: token || undefined });
-    const res = await apiClient.get<ApiKeysResponse>('/api/admin/developer-portal/api-keys');
-    if (!res.success) {
-        if (res.error?.code === 'UNAUTHORIZED') {
-            redirect('/auth');
-        }
-        throw new Error(res.error?.message || 'Failed to fetch API keys');
-    }
-    return res.data || { keys: [] };
+    return handleAction(
+        (apiClient) => apiClient.get<ApiKeysResponse>('/api/admin/developer-portal/api-keys'),
+        'Failed to fetch API keys',
+        { keys: [] }
+    );
 }
 
 export async function getRecentWalletsAction(limit = 10, days = 30): Promise<any> {
-    const cookieStore = await cookies();
-    const token = getServerAuthToken(cookieStore);
+    return handleAction(
+        (apiClient) => apiClient.get<any>(`/api/admin/web3/recent-wallets?limit=${limit}&days=${days}`),
+        'Failed to fetch recent wallets'
+    );
+}
 
-    const apiClient = createAdminApiClient({ serverSide: true, token: token || undefined });
-    const res = await apiClient.get<any>(`/api/admin/web3/recent-wallets?limit=${limit}&days=${days}`);
-    if (!res.success) {
-        if (res.error?.code === 'UNAUTHORIZED') {
-            redirect('/auth');
+export async function getPlanStatsAction(): Promise<PlanStats> {
+    return handleAction(
+        async (apiClient) => {
+            const plansClient = createPlansClient(apiClient);
+            return await plansClient.getStats();
+        },
+        'Failed to fetch plan stats',
+        {
+            total_plans: 0,
+            active_plans: 0,
+            total_memberships: 0,
+            active_memberships: 0,
+            by_plan: {},
+            recent_assignments: 0,
+            recent_removals: 0
         }
-        throw new Error(res.error?.message || 'Failed to fetch recent wallets');
-    }
-    return res.data;
+    );
 }

@@ -81,6 +81,9 @@ export default async function RootLayout({
   const cookie = rawCookie ? decodeURIComponent(rawCookie) : rawCookie;
   const initialState = cookieToInitialState(getServerConfig(), cookie);
 
+  // Check for auth cookie presence on server
+  const hasAuthCookie = rawCookie ? (rawCookie.includes('epsx.user') || rawCookie.includes('epsx.access_token')) : false;
+
   return (
     <html
       lang="en"
@@ -143,7 +146,7 @@ export default async function RootLayout({
           <ErrorBoundary>
             <ClientProviders initialUser={user} initialState={initialState}>
               <div className="flex-1 relative overflow-hidden">
-                <LayoutWrapper initialUser={user}>
+                <LayoutWrapper initialUser={user} hasAuthCookie={hasAuthCookie}>
                   {children}
                 </LayoutWrapper>
               </div>

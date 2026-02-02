@@ -156,7 +156,7 @@ function getDefaultBackendUrl(): string {
     }
   }
 
-  if (isDev) return 'http://localhost:8080';
+  if (isDev) return 'http://127.0.0.1:8080';
   if (isStaging) return 'https://staging-api.epsx.io';
   return 'https://api.epsx.io'; // Production default
 }

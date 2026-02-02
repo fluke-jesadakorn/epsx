@@ -22,8 +22,8 @@ interface UsePaymentTransactionProps {
 /** Polling interval for transaction status checks - queries backend every 3 seconds */
 const STATUS_POLL_INTERVAL_MS = 3000
 
-/** BSC token decimals for USDT/USDC - 6 decimals for stablecoin precision */
-const TOKEN_DECIMALS = 6
+/** BSC token decimals for USDT/USDC - 18 decimals for BSC-Pegged stablecoins */
+const TOKEN_DECIMALS = 18
 
 export function usePaymentTransaction({
     tokenAddress,

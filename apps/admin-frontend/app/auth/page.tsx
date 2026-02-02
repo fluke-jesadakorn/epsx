@@ -20,7 +20,7 @@ function AuthPageContent() {
   const [mounted, setMounted] = useState(false);
 
   const { isConnected } = useAccount();
-  const { isAuthenticated, user } = useSharedAuth();
+  const { isAuthenticated, user, logout } = useSharedAuth();
 
 
   const returnUrl = searchParams.get('return_url') || '/';
@@ -40,14 +40,32 @@ function AuthPageContent() {
   useEffect(() => {
     if (!mounted) return;
 
-    const hasAdminPermission = !!user;
+    const checkSessionAndRedirect = async () => {
+      const hasAdminPermission = !!user;
 
+      if (isAuthenticated && user && hasAdminPermission) {
+        // PERMISSION REFACTOR:
+        // Use server verification to prevent redirect loops where Client says "Auth" but Server says "No Session"
+        try {
+          const { verifySessionAction } = await import('./actions');
+          const session = await verifySessionAction();
 
-    if (isAuthenticated && user && hasAdminPermission) {
-      router.push(finalReturnUrl);
-      router.refresh();
-    }
-  }, [mounted, isAuthenticated, user, router, finalReturnUrl]);
+          if (session.valid) {
+            router.push(finalReturnUrl);
+            router.refresh();
+          } else {
+            console.warn('[AUTH] Client is authenticated but Server session is missing. Logging out to fix sync.');
+            // Force logout to clear invalid client state
+            await logout();
+          }
+        } catch (error) {
+          console.error('[AUTH] Session verification failed', error);
+        }
+      }
+    };
+
+    checkSessionAndRedirect();
+  }, [mounted, isAuthenticated, user, router, finalReturnUrl, logout]);
 
 
   const handleAuthSuccess = () => {

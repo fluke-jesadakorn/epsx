@@ -99,13 +99,27 @@ export class UnifiedApiClient {
             const user = JSON.parse(userCookie);
             if (user.access) {
               headers['Authorization'] = `Bearer ${user.access}`;
+              // console.debug('[UnifiedApiClient] Token attached from client cookie');
+            } else {
+              console.warn('[UnifiedApiClient] Cookie found but missing access token', {
+                keys: Object.keys(user),
+                hasAccess: !!user.access
+              });
             }
-          } catch {
-            // Invalid JSON, ignore
+          } catch (e) {
+            console.error('[UnifiedApiClient] Failed to parse user cookie JSON', e);
+          }
+        } else {
+          // Check if we have ANY epsx cookies
+          if (typeof document !== 'undefined') {
+            const hasEpsxCookies = document.cookie.split(';').some(c => c.trim().startsWith('epsx.'));
+            if (!hasEpsxCookies) {
+              console.warn('[UnifiedApiClient] No EPSX cookies found on client. User might be logged out.');
+            }
           }
         }
       } catch (error) {
-        // Silently fail if cookies unavailable
+        console.error('[UnifiedApiClient] Error reading client cookie', error);
       }
     }
 

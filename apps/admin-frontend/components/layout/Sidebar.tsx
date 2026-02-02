@@ -160,8 +160,8 @@ export function Sidebar() {
                   ) : (
                     <Link href={item.href}>
                       <div className={`flex items-center gap-3 px-4 py-2.5 rounded-2xl transition-all duration-200 group-active:scale-[0.98] ${isActive || hasActiveChild
-                          ? 'bg-gradient-to-r from-[#1fc7d4]/10 to-[#7645d9]/10 text-[#1fc7d4] border border-[#1fc7d4]/20 shadow-sm'
-                          : 'text-muted-foreground hover:bg-white/5 hover:text-foreground'
+                        ? 'bg-gradient-to-r from-[#1fc7d4]/10 to-[#7645d9]/10 text-[#1fc7d4] border border-[#1fc7d4]/20 shadow-sm'
+                        : 'text-muted-foreground hover:bg-white/5 hover:text-foreground'
                         }`}>
                         <Icon className={`w-5 h-5 flex-shrink-0 ${isActive || hasActiveChild ? 'text-[#1fc7d4]' : ''}`} />
                         <span className="text-sm font-semibold truncate">{item.label}</span>
@@ -206,8 +206,8 @@ export function Sidebar() {
                           ) : (
                             <Link href={child.href}>
                               <div className={`flex items-center gap-3 px-4 py-2 rounded-2xl transition-all ${childIsActive
-                                  ? 'text-[#ed4b9e] font-bold'
-                                  : 'text-muted-foreground hover:text-foreground'
+                                ? 'text-[#ed4b9e] font-bold'
+                                : 'text-muted-foreground hover:text-foreground'
                                 }`}>
                                 <ChildIcon className="w-4 h-4 flex-shrink-0" />
                                 <span className="text-sm font-medium truncate">{child.label}</span>

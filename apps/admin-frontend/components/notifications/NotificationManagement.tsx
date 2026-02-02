@@ -18,10 +18,9 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
+import { deleteNotificationAction, getNotificationsAction, getNotificationStatsAction } from '@/app/notifications/actions';
 import { StatsCard } from '@/components/admin/developer-portal/shared/StatsCard';
 import { Button } from '@/components/ui/button';
-import { createNotificationsClient } from '@/shared/api/notifications';
-import { createAdminApiClient } from '@/shared/utils/api-client';
 
 type Notification = any;
 type NotificationStats = any;
@@ -52,17 +51,20 @@ export function NotificationManagement({ currentUser }: NotificationManagementPr
   const loadData = async () => {
     try {
       setLoading(true);
-      const client = createNotificationsClient(createAdminApiClient());
-
       const [notificationsResponse, statsResponse] = await Promise.all([
-        client.getAllNotifications({ page: 1, limit: 20 }),
-        client.getNotificationStats()
+        getNotificationsAction(1, 20),
+        getNotificationStatsAction()
       ]);
 
-      setNotifications(notificationsResponse?.data?.notifications || []);
+      if (notificationsResponse.success) {
+        setNotifications(notificationsResponse.data?.notifications || []);
+      } else {
+        console.error('Failed to load notifications:', notificationsResponse.error);
+        toast.error('Failed to load notifications');
+      }
 
-      const backendStats = statsResponse?.data;
-      if (backendStats) {
+      if (statsResponse.success && statsResponse.data) {
+        const backendStats = statsResponse.data;
         setStats({
           total: backendStats.total_notifications,
           unread: 0,
@@ -91,20 +93,24 @@ export function NotificationManagement({ currentUser }: NotificationManagementPr
   const confirmDelete = async () => {
     try {
       setDeleting(true);
-      const client = createNotificationsClient(createAdminApiClient());
-      await client.deleteAdminNotification(deleteModal.id);
+      const result = await deleteNotificationAction(deleteModal.id);
 
-      setNotifications(prev => prev.filter(n => n.id !== deleteModal.id));
+      if (result.success) {
+        setNotifications(prev => prev.filter(n => n.id !== deleteModal.id));
 
-      if (stats) {
-        setStats({
-          ...stats,
-          total: stats.total - 1
-        });
+        if (stats) {
+          setStats({
+            ...stats,
+            total: stats.total - 1
+          });
+        }
+
+        hideDeleteModal();
+        toast.success('Notification deleted successfully');
+      } else {
+        console.error('Failed to delete notification:', result.error);
+        toast.error('Failed to delete notification');
       }
-
-      hideDeleteModal();
-      toast.success('Notification deleted successfully');
     } catch (err) {
       console.error('Failed to delete notification:', err);
       toast.error('Failed to delete notification');

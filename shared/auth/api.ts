@@ -55,8 +55,8 @@ class DirectWeb3ApiClient {
     // Enhanced backend URL resolution
     this.baseUrl =
       typeof window !== 'undefined'
-        ? process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080'
-        : process.env.BACKEND_URL || 'http://localhost:8080';
+        ? process.env.NEXT_PUBLIC_BACKEND_URL || 'http://127.0.0.1:8080'
+        : process.env.BACKEND_URL || 'http://127.0.0.1:8080';
 
     console.log('[AUTH] DirectWeb3ApiClient initialized', {
       baseUrl: this.baseUrl,

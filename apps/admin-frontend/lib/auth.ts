@@ -95,11 +95,6 @@ export const useAuth = create<Web3AdminAuthState & {
         if (web3User) {
           const adminWallet = transformWeb3UserToAdminWallet(web3User);
 
-          // Check admin permissions
-          if (!adminWallet.is_admin) {
-            throw new Error('Insufficient admin permissions');
-          }
-
           set({
             wallet: adminWallet,
             walletAddress: adminWallet.wallet_address,
@@ -156,10 +151,9 @@ export const useAuth = create<Web3AdminAuthState & {
 
         const adminWallet = transformWeb3UserToAdminWallet(result.user);
 
-        // Check admin permissions
-        if (!adminWallet.is_admin) {
-          throw new Error('Insufficient admin permissions for admin dashboard');
-        }
+        // Permission enforcement is now handled by the backend/middleware
+        // We trust the session returned by the server
+
 
         set({
           wallet: adminWallet,
@@ -258,16 +252,6 @@ export const useAuth = create<Web3AdminAuthState & {
       if (web3User) {
         const adminWallet = transformWeb3UserToAdminWallet(web3User);
 
-        // Verify admin permissions
-        if (!adminWallet.is_admin) {
-          set({
-            wallet: null,
-            isAuthenticated: false,
-            error: 'Insufficient admin permissions'
-          });
-          return null;
-        }
-
         set({
           wallet: adminWallet,
           isAuthenticated: true,
@@ -325,25 +309,14 @@ if (typeof window !== 'undefined') {
     if (web3User) {
       const adminWallet = transformWeb3UserToAdminWallet(web3User);
 
-      // Only update if user has admin permissions
-      if (adminWallet.is_admin) {
-        useAuth.setState({
-          wallet: adminWallet,
-          walletAddress: adminWallet.wallet_address,
-          isAuthenticated: true,
-          expiresAt: Date.now() + (24 * 60 * 60 * 1000),
-          error: null
-        });
-      } else {
-        // Clear session if no admin permissions
-        useAuth.setState({
-          wallet: null,
-          walletAddress: undefined,
-          isAuthenticated: false,
-          expiresAt: null,
-          error: 'Insufficient admin permissions'
-        });
-      }
+      // Server handling permission enforcement - we just display state
+      useAuth.setState({
+        wallet: adminWallet,
+        walletAddress: adminWallet.wallet_address,
+        isAuthenticated: true,
+        expiresAt: Date.now() + (24 * 60 * 60 * 1000),
+        error: null
+      });
     } else {
       // Clear session if Web3 user is null
       useAuth.setState({

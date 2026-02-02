@@ -1,5 +1,6 @@
 'use server';
 
+import { logout } from '@/lib/auth/auth';
 import { createAdminApiClient } from '@/shared/api';
 import { redirect } from 'next/navigation';
 
@@ -16,7 +17,8 @@ export async function getPolicyStatsAction(): Promise<PolicyStats | null> {
     const apiClient = createAdminApiClient({ serverSide: true });
     const res = await apiClient.get<{ stats: PolicyStats }>('/api/admin/policies/stats');
     if (!res.success) {
-        if (res.error?.code === 'UNAUTHORIZED') {
+        if (res.error?.code === 401 || res.error?.code === 'UNAUTHORIZED') {
+            await logout();
             redirect('/auth');
         }
         return null;
@@ -31,7 +33,8 @@ export async function getPolicyTemplatesAction(): Promise<any[]> {
     const apiClient = createAdminApiClient({ serverSide: true });
     const res = await apiClient.get<any>('/api/admin/policies/templates');
     if (!res.success) {
-        if (res.error?.code === 'UNAUTHORIZED') {
+        if (res.error?.code === 401 || res.error?.code === 'UNAUTHORIZED') {
+            await logout();
             redirect('/auth');
         }
         return [];
@@ -46,7 +49,8 @@ export async function evaluatePolicyAction(context: any): Promise<any> {
     const apiClient = createAdminApiClient({ serverSide: true });
     const res = await apiClient.post<any>('/api/admin/policies/evaluate', context);
     if (!res.success) {
-        if (res.error?.code === 'UNAUTHORIZED') {
+        if (res.error?.code === 401 || res.error?.code === 'UNAUTHORIZED') {
+            await logout();
             redirect('/auth');
         }
         throw new Error(res.error?.message || 'Failed to evaluate policy');
@@ -61,7 +65,8 @@ export async function createPolicyAction(formData: any): Promise<void> {
     const apiClient = createAdminApiClient({ serverSide: true });
     const res = await apiClient.post<any>('/api/admin/policies', formData);
     if (!res.success) {
-        if (res.error?.code === 'UNAUTHORIZED') {
+        if (res.error?.code === 401 || res.error?.code === 'UNAUTHORIZED') {
+            await logout();
             redirect('/auth');
         }
         throw new Error(res.error?.message || 'Failed to save policy');

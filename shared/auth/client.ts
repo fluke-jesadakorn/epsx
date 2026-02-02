@@ -883,13 +883,13 @@ export class SharedWeb3AuthClient {
 export function createFrontendClient(): SharedWeb3AuthClient {
   return new SharedWeb3AuthClient(
     'epsx-frontend',
-    process.env['NEXT_PUBLIC_BACKEND_URL'] || 'http://localhost:8080'
+    process.env['NEXT_PUBLIC_BACKEND_URL'] || 'http://127.0.0.1:8080'
   );
 }
 
 export function createAdminClient(): SharedWeb3AuthClient {
   return new SharedWeb3AuthClient(
     'epsx-admin',
-    process.env['NEXT_PUBLIC_BACKEND_URL'] || 'http://localhost:8080'
+    process.env['NEXT_PUBLIC_BACKEND_URL'] || 'http://127.0.0.1:8080'
   );
 }

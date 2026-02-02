@@ -17,9 +17,7 @@ export const middleware = createAuthMiddleware({
         '/manifest.json'
     ],
     loginPath: '/auth',
-    homePath: '/',
-    backendUrl: process.env.BACKEND_URL || 'http://localhost:8080',
-    noRedirect: true // Let client-side handle auth with modal instead of redirect
+    homePath: '/'
 });
 
 export const config = {

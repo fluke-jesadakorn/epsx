@@ -18,6 +18,7 @@ const routeConfig: Record<string, BreadcrumbItem> = {
   '/analytics': { label: 'Analytics', href: '/analytics', icon: '📊' },
   '/analytics/eps': { label: 'EPS Analytics', href: '/analytics/eps' },
   '/notifications': { label: 'Notifications', href: '/notifications', icon: '🔔' },
+  '/notifications/manage': { label: 'Overview', href: '/notifications/manage' },
   '/notifications/create': { label: 'Create Notification', href: '/notifications/create' },
   '/settings': { label: 'Settings', href: '/settings', icon: '⚙️' },
   '/audit-log': { label: 'Audit Log', href: '/audit-log', icon: '📜' },
@@ -26,6 +27,9 @@ const routeConfig: Record<string, BreadcrumbItem> = {
   '/docs': { label: 'Documentation', href: '/docs', icon: '📚' },
   '/docs/api': { label: 'API Docs', href: '/docs/api' },
   '/wallet-management': { label: 'Wallet Management', href: '/wallet-management', icon: '👛' },
+  '/wallet-management/wallets': { label: 'Wallets', href: '/wallet-management/wallets' },
+  '/wallet-management/access': { label: 'Access Control', href: '/wallet-management/access' },
+  '/wallet-management/activity': { label: 'Activity Logs', href: '/wallet-management/activity' },
   '/payments': { label: 'Payments', href: '/payments', icon: '💰' },
 
   // Access Management Routes (unified single page)

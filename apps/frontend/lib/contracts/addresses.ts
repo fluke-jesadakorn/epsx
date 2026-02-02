@@ -68,12 +68,12 @@ export const PAYMENT_RECEIVER_ADDRESS: Partial<Record<number, `0x${string}`>> = 
 export const TOKEN_ADDRESSES = {
   USDT: {
     56: '0x55d398326f99059fF775485246999027B3197955', // BSC Mainnet
-    97: '0x66E972502A34A625828C544a1914E8D8cc2A9dE5', // BSC Testnet USDT (PandaTool community token)
+    97: getOptionalEnvAddress('NEXT_PUBLIC_TESTNET_USDT_ADDRESS') || '0x66E972502A34A625828C544a1914E8D8cc2A9dE5', // BSC Testnet USDT (PandaTool community token)
     31337: '0x55d398326f99059fF775485246999027B3197955', // Local Anvil (Etched to match Mainnet)
   },
   USDC: {
     56: '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d', // BSC Mainnet
-    97: '0x64544969ed7EBf5f083679233325356EbE738930', // BSC Testnet USDC (community token)
+    97: getOptionalEnvAddress('NEXT_PUBLIC_TESTNET_USDC_ADDRESS') || '0x64544969ed7EBf5f083679233325356EbE738930', // BSC Testnet USDC (community token)
     31337: '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d', // Local Anvil (Etched to match Mainnet)
   },
 } as const;

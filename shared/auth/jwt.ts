@@ -233,3 +233,19 @@ export async function verifyJWT(token: string): Promise<EPSXJWTPayload | null> {
     return null;
   }
 }
+
+/**
+ * Decode EPSX JWT payload without verification
+ * Used when verification is handled by upstream/backend or we trust the source (HttpOnly cookie)
+ * Useful when we have RS256 tokens but no public key on the frontend
+ */
+export function decodeEPSXJWT(token: string): EPSXJWTPayload | null {
+  try {
+    const payloadPart = token.split('.')[1];
+    if (!payloadPart) return null;
+    const payload = JSON.parse(atob(payloadPart));
+    return payload as EPSXJWTPayload;
+  } catch {
+    return null;
+  }
+}

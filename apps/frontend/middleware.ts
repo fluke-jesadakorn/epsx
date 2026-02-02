@@ -21,8 +21,7 @@ export const middleware = createAuthMiddleware({
         '/manifest.json'
     ],
     loginPath: '/connect-wallet',
-    homePath: '/',
-    backendUrl: process.env.BACKEND_URL || 'http://localhost:8080'
+    homePath: '/'
 });
 
 export const config = {

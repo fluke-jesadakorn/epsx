@@ -1,0 +1,39 @@
+{
+  "network": "bsc-testnet",
+  "chainId": 97,
+  "deploymentDate": "2026-02-01T22:44:46+07:00",
+  "deployer": "0x9694897a5048147698f188d3A8ff49b30e907767",
+  "contracts": {
+    "PaymentEscrow": {
+      "address": "0xba7Ffb3f91a0856338068D6088A21A242A222258",
+      "deploymentTxHash": "0x06ddbee1903281c4f89af71e5871792049a6db7c47e05849932633328c3e2471",
+      "blockNumber": 87849705,
+      "gasUsed": 2753179,
+      "roles": {
+        "DEFAULT_ADMIN_ROLE": "0x9694897a5048147698f188d3A8ff49b30e907767",
+        "MANAGER_ROLE": "0x9694897a5048147698f188d3A8ff49b30e907767"
+      }
+    }
+  },
+  "enabledTokens": {
+    "USDT": {
+      "address": "0x55d398326f99059fF775485246999027B3197955",
+      "txHash": "0x8e4769f222b3dd1c8aa907e5bb5ffd787175f78018de5cd18d0dad9b3be18897",
+      "note": "BSC Mainnet address - may not have actual tokens on testnet"
+    },
+    "USDC": {
+      "address": "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d",
+      "txHash": "0xdb245fa75264c5087ef796d66becf5b1b106c5c45f9bdd7a2734e546ca6e963d",
+      "note": "BSC Mainnet address - may not have actual tokens on testnet"
+    }
+  },
+  "rpcUrl": "https://data-seed-prebsc-1-s1.bnbchain.org:8545",
+  "explorerUrl": "https://testnet.bscscan.com",
+  "contractExplorerUrl": "https://testnet.bscscan.com/address/0xba7Ffb3f91a0856338068D6088A21A242A222258",
+  "totalGasPaid": {
+    "amount": "0.0002850461",
+    "unit": "tBNB",
+    "gasUsed": 2850461,
+    "gasPrice": "0.1 gwei"
+  }
+}

@@ -160,6 +160,8 @@ export interface TabItem {
   label: string;
   /** Emoji or icon prefix */
   prefix?: string;
+  /** Lucide icon name */
+  icon?: LucideIconName;
   /** Custom gradient for active state */
   gradient?: GradientPreset;
 }
@@ -176,32 +178,40 @@ export function PageTabs({ tabs, activeTab, onTabChange, className }: PageTabsPr
     if (tab.gradient) {
       return gradientClasses[tab.gradient];
     }
-    // Alternate between info and purple for visual variety
-    const index = tabs.findIndex(t => t.id === tab.id);
-    return index % 2 === 0 ? gradientClasses.info : gradientClasses.purple;
+    // Default to a premium purple if no gradient specified, matching the design
+    return 'from-[#7645d9] to-[#7645d9]';
   };
 
   return (
     <div className={cn(
-      'relative overflow-hidden rounded-3xl bg-slate-900/40 p-0.5 border border-white/5 backdrop-blur-2xl shadow-xl',
+      'bg-slate-900/40 backdrop-blur-2xl p-1.5 rounded-[32px] border border-white/5 shadow-xl max-w-2xl mx-auto',
       className
     )}>
-      <div className="relative bg-white/5 backdrop-blur-sm rounded-3xl p-1.5 flex gap-1 overflow-x-auto no-scrollbar">
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => onTabChange(tab.id)}
-            className={cn(
-              'px-6 py-3 rounded-2xl font-bold text-sm sm:text-base min-h-[44px] transition-all duration-200 whitespace-nowrap active:scale-95',
-              activeTab === tab.id
-                ? cn('bg-gradient-to-r text-white shadow-lg shadow-cyan-500/10', getTabGradient(tab))
-                : 'bg-transparent text-muted-foreground hover:bg-white/5 hover:text-foreground'
-            )}
-          >
-            {tab.prefix && <span className="mr-2">{tab.prefix}</span>}
-            {tab.label}
-          </button>
-        ))}
+      <div className="relative flex gap-1 overflow-x-auto no-scrollbar justify-center">
+        {tabs.map((tab) => {
+          const Icon = tab.icon ? (LucideIcons[tab.icon] as React.ComponentType<{ className?: string }>) : null;
+          const isActive = activeTab === tab.id;
+
+          return (
+            <button
+              key={tab.id}
+              onClick={() => onTabChange(tab.id)}
+              className={cn(
+                'flex items-center justify-center gap-2 px-8 py-3 rounded-[28px] font-bold text-sm sm:text-base transition-all duration-300 active:scale-95 flex-1 min-w-[120px]',
+                isActive
+                  ? cn(
+                    'text-white shadow-lg shadow-purple-500/20 bg-gradient-to-r',
+                    getTabGradient(tab)
+                  )
+                  : 'text-muted-foreground hover:text-foreground hover:bg-white/5'
+              )}
+            >
+              {Icon && <Icon className="w-4 h-4 sm:w-5 sm:h-5" />}
+              {tab.prefix && !Icon && <span>{tab.prefix}</span>}
+              <span>{tab.label}</span>
+            </button>
+          );
+        })}
       </div>
     </div>
   );

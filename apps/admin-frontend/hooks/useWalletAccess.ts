@@ -91,7 +91,6 @@ export function useWalletAccess(walletAddress: string | null): UseWalletAccessRe
 
     // Load all data
     const loadData = useCallback(async () => {
-        if (!walletAddress) { return; }
 
         try {
             setIsLoading(true);
@@ -110,18 +109,20 @@ export function useWalletAccess(walletAddress: string | null): UseWalletAccessRe
             let walletPlans: Awaited<ReturnType<typeof getUserPlansAction>> = [];
             let walletPermissions: string[] = [];
 
-            try {
-                const result = await getUserPlansAction(walletAddress);
-                walletPlans = Array.isArray(result) ? result : [];
-            } catch {
-                // 404 means no plans assigned
-            }
+            if (walletAddress) {
+                try {
+                    const result = await getUserPlansAction(walletAddress);
+                    walletPlans = Array.isArray(result) ? result : [];
+                } catch {
+                    // 404 means no plans assigned
+                }
 
-            try {
-                const result = await getUserPermissionsAction(walletAddress);
-                walletPermissions = Array.isArray(result) ? result : [];
-            } catch {
-                // 404 means no permissions assigned
+                try {
+                    const result = await getUserPermissionsAction(walletAddress);
+                    walletPermissions = Array.isArray(result) ? result : [];
+                } catch {
+                    // 404 means no permissions assigned
+                }
             }
 
             // Parse authorized permissions from wallet data

@@ -66,6 +66,64 @@ export interface UnifiedWeb3ProviderProps {
     initialState?: State;
 }
 
+/**
+ * Inner provider component that renders after hydration
+ * This separation ensures RainbowKit is only mounted on the client after hydration
+ */
+function RainbowKitWrapper({
+    children,
+    appName,
+    learnMoreUrl,
+    isAdminMode,
+}: {
+    children: React.ReactNode;
+    appName: string;
+    learnMoreUrl: string;
+    isAdminMode: boolean;
+}) {
+    const { resolvedTheme } = useTheme();
+    const [isMounted, setIsMounted] = useState(false);
+
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
+
+    const customLightTheme = React.useMemo(() => lightTheme({
+        accentColor: '#f97316',
+        accentColorForeground: 'white',
+        borderRadius: 'medium',
+    }), []);
+
+    const customDarkTheme = React.useMemo(() => darkTheme({
+        accentColor: isAdminMode ? '#fbbf24' : '#f97316',
+        accentColorForeground: isAdminMode ? '#1f2937' : 'white',
+        borderRadius: 'medium',
+    }), [isAdminMode]);
+
+    const theme = React.useMemo(() =>
+        isMounted && resolvedTheme === 'dark' ? customDarkTheme : customLightTheme,
+        [isMounted, resolvedTheme, customDarkTheme, customLightTheme]);
+
+    // Don't render RainbowKit until after client-side mount
+    // This prevents the ConnectModal setState during Hydrate error
+    if (!isMounted) {
+        return <>{children}</>;
+    }
+
+    return (
+        <RainbowKitProvider
+            theme={theme}
+            modalSize="compact"
+            appInfo={{
+                appName,
+                learnMoreUrl,
+            }}
+        >
+            {children}
+        </RainbowKitProvider>
+    );
+}
+
 export function UnifiedWeb3Provider({
     children,
     appName = DEFAULT_APP_NAME,
@@ -78,7 +136,6 @@ export function UnifiedWeb3Provider({
     // Use provided chains or get default chains (with dynamic Anvil RPC)
     const resolvedChains = chains ?? getDefaultChains();
     const [isHydrated, setIsHydrated] = useState(false);
-    const { resolvedTheme } = useTheme();
     const router = useRouter();
     const [queryClient] = useState(() => createQueryClient(isAdminMode ? 'admin' : 'frontend'));
 
@@ -122,23 +179,6 @@ export function UnifiedWeb3Provider({
         ssr: true,
     }), [appName, projectId, resolvedChains]);
 
-
-    const customLightTheme = React.useMemo(() => lightTheme({
-        accentColor: '#f97316',
-        accentColorForeground: 'white',
-        borderRadius: 'medium',
-    }), []);
-
-    const customDarkTheme = React.useMemo(() => darkTheme({
-        accentColor: isAdminMode ? '#fbbf24' : '#f97316',
-        accentColorForeground: isAdminMode ? '#1f2937' : 'white',
-        borderRadius: 'medium',
-    }), [isAdminMode]);
-
-    const theme = React.useMemo(() =>
-        isHydrated && resolvedTheme === 'dark' ? customDarkTheme : customLightTheme,
-        [isHydrated, resolvedTheme, customDarkTheme, customLightTheme]);
-
     const forceReset = React.useCallback(() => {
         router.refresh();
     }, [router]);
@@ -159,19 +199,17 @@ export function UnifiedWeb3Provider({
             <WagmiProvider config={config} initialState={initialState}>
                 <QueryClientProvider client={queryClient}>
                     <WagmiReconnectProvider>
-                        <RainbowKitProvider
-                            theme={theme}
-                            modalSize="compact"
-                            appInfo={{
-                                appName,
-                                learnMoreUrl,
-                            }}
+                        <RainbowKitWrapper
+                            appName={appName}
+                            learnMoreUrl={learnMoreUrl}
+                            isAdminMode={isAdminMode}
                         >
                             {children}
-                        </RainbowKitProvider>
+                        </RainbowKitWrapper>
                     </WagmiReconnectProvider>
                 </QueryClientProvider>
             </WagmiProvider>
         </Web3Context.Provider>
     );
 }
+
