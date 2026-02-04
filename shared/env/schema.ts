@@ -131,13 +131,6 @@ export const serverEnvSchema = z.object({
     .default('web3-default-secret-for-development-only-change-in-production')
     .describe('Web3 application secret for wallet signature validation and session management'),
 
-  WALLET_SIGNATURE_SECRET: z.string()
-    .min(32, 'Wallet signature secret must be at least 32 characters for security')
-    .optional()
-    .default('wallet-signature-secret-development-change-in-production')
-    .describe('Secret key for validating and signing wallet-based authentication tokens'),
-
-
   // Infrastructure (1 variable) - Optional performance optimization
   REDIS_URL: z.string().url().optional()
     .describe('Redis connection URL for caching and session storage'),

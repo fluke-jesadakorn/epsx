@@ -505,8 +505,14 @@ export function SharedOpenIDWeb3Provider({
       try {
         await logoutAction();
         console.log('[AUTH] Server session cleared');
-      } catch (e) {
-        console.error('[AUTH] Error: Failed to clear server session:', e);
+      } catch (e: any) {
+        // Check if it's a redirect error (Standard Next.js Redirect)
+        if (e?.message === 'NEXT_REDIRECT' || e?.digest?.startsWith('NEXT_REDIRECT')) {
+          // Re-throw to allow Next.js client to handle the redirect
+          throw e;
+        } else {
+          console.error('[AUTH] Error: Failed to clear server session:', e);
+        }
       }
 
       // 2. Clear all client-side cookies (legacy/fallback)
@@ -523,12 +529,17 @@ export function SharedOpenIDWeb3Provider({
 
       console.log('Logout successful');
 
-    } catch (err) {
+    } catch (err: any) {
+      if (err?.message === 'NEXT_REDIRECT' || err?.digest?.startsWith('NEXT_REDIRECT')) {
+        // Re-throw if it bubbles up here (it shouldn't if we don't await the promise that throws)
+        throw err;
+      }
+
       const errorMessage = err instanceof Error ? err.message : 'Logout failed';
       console.error('Logout error', { error: errorMessage });
       setError(errorMessage);
       onAuthError?.(errorMessage);
-      throw new Error(errorMessage);
+      // Don't throw here to avoid crashing the UI for logout errors
     }
   }, [client, onAuthError]);
 

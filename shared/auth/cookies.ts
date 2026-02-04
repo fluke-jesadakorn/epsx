@@ -65,6 +65,7 @@ export const COOKIES = {
   affiliate_attribution: `${prefix}epsx.affiliate_attribution`,
   affiliate_code: `${prefix}epsx.affiliate_code`,
   wallet_state: `${prefix}epsx.wallet_state`,
+  return_url: `${prefix}epsx.return_url`,
 } as const;
 
 /**
@@ -106,6 +107,7 @@ export const COOKIE_OPTIONS = {
     affiliate_attribution: SECONDS_MONTH,
     affiliate_code: SECONDS_MONTH,
     wallet_state: null, // Session cookie
+    return_url: 300, // 5 minutes
   },
 } as const;
 
@@ -331,7 +333,8 @@ export const CLIENT_SIDE_COOKIES = [
 export const HTTP_ONLY_COOKIES = [
   'access_token',
   'refresh_token',
-  'id_token'
+  'id_token',
+  'return_url',
 ] as const;
 
 /**

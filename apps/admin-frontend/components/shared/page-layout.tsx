@@ -423,6 +423,9 @@ export function PageAuthRequired({
   onAuth,
   className,
 }: PageAuthRequiredProps) {
+  const router = useRouter();
+  const pathname = usePathname();
+
   return (
     <div className={cn(
       'flex flex-col items-center justify-center py-16 sm:py-24 text-center',
@@ -442,7 +445,7 @@ export function PageAuthRequired({
         </button>
       ) : (
         <a
-          href="/auth"
+          href={`/auth?return_url=${encodeURIComponent(pathname)}`}
           className="px-10 py-5 bg-[#1fc7d4] text-white rounded-3xl font-bold text-xl shadow-lg shadow-cyan-500/20 hover:shadow-cyan-500/40 hover:scale-[1.02] active:scale-95 transition-all"
         >
           Connect Wallet

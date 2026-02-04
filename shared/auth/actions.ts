@@ -1,6 +1,7 @@
 'use server';
 
 import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
 import type { UserInfoResponse } from './client';
 import { COOKIES, COOKIE_OPTIONS, HTTP_ONLY_COOKIES } from './cookies';
 
@@ -113,11 +114,13 @@ export async function logoutAction() {
         });
 
         console.log('[AUTH] logoutAction: All cookies cleared');
-        return { success: true };
     } catch (error) {
         console.error('Logout action failed:', error);
         return { success: false, error: 'Internal server error' };
     }
+
+    // Redirect to auth page - MUST be outside try/catch
+    redirect('/auth');
 }
 
 /**

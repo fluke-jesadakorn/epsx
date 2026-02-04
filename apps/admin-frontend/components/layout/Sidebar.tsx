@@ -139,6 +139,12 @@ export function Sidebar() {
           .map(item => {
             const isActive = pathname === item.href ||
               (item.href !== '/' && pathname.startsWith(`${item.href}/`));
+
+            // Dynamic HREF for auth link to include return_url
+            const href = item.id === 'auth'
+              ? `/auth?return_url=${encodeURIComponent(pathname)}`
+              : item.href;
+
             const hasActiveChild = item.children?.some(child =>
               pathname === child.href || pathname.startsWith(`${child.href}/`)
             );
@@ -158,7 +164,7 @@ export function Sidebar() {
                       <Lock className="w-3.5 h-3.5 flex-shrink-0 ml-auto" />
                     </div>
                   ) : (
-                    <Link href={item.href}>
+                    <Link href={href}>
                       <div className={`flex items-center gap-3 px-4 py-2.5 rounded-2xl transition-all duration-200 group-active:scale-[0.98] ${isActive || hasActiveChild
                         ? 'bg-gradient-to-r from-[#1fc7d4]/10 to-[#7645d9]/10 text-[#1fc7d4] border border-[#1fc7d4]/20 shadow-sm'
                         : 'text-muted-foreground hover:bg-white/5 hover:text-foreground'
@@ -236,7 +242,7 @@ export function Sidebar() {
                 <p className="text-[10px] text-muted-foreground mb-4 px-2">
                   Unlock all features by connecting your wallet.
                 </p>
-                <Link href="/auth">
+                <Link href={`/auth?return_url=${encodeURIComponent(pathname)}`}>
                   <div className="w-full bg-[#1fc7d4] text-white text-sm font-bold py-2.5 px-4 rounded-2xl shadow-lg shadow-cyan-500/20 hover:shadow-cyan-500/40 hover:scale-[1.02] active:scale-95 transition-all">
                     Connect Wallet
                   </div>

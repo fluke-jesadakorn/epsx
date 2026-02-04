@@ -635,7 +635,6 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
             credentials: 'include',
             body: JSON.stringify({
               wallet_address: address,
-              session_token: null,
               logout_reason: 'user_initiated_disconnect',
             }),
           });

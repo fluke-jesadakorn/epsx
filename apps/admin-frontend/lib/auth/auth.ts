@@ -7,6 +7,7 @@
 import { COOKIES } from '@/shared/auth/cookies';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
+import { clearWeb3SessionAction, setWeb3SessionAction } from './auth-actions';
 
 // ============================================================================
 // Core Types - Web3-First
@@ -89,8 +90,8 @@ export async function getWeb3SessionFromCookies(): Promise<Web3SessionData | nul
 
     // Check if session has expired using new expiresAt calculation
     if (Date.now() > sessionData.expiresAt) {
-      console.warn('Admin session expired, clearing...');
-      await clearWeb3Session();
+      console.warn('Admin session expired (read-only check)');
+      // Do not clear cookies here in Server Components - just return null
       return null;
     }
 
@@ -153,58 +154,14 @@ export async function validateWeb3Session(_sessionData: Web3SessionData): Promis
  * @param sessionData
  */
 export async function setWeb3Session(sessionData: Web3SessionData): Promise<void> {
-  const cookieStore = await cookies();
-
-  const cookieOptions = {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax' as const,
-    maxAge: Math.floor((sessionData.expiresAt - Date.now()) / 1000), // Convert to seconds
-    path: '/'
-  };
-
-  // Note: sessionData only contains accessible data
-  // HttpOnly auth cookies are set by backend during authentication
-
-  cookieStore.set(COOKIES.user, JSON.stringify({
-    wallet_address: sessionData.walletAddress,
-    sub: sessionData.walletAddress,
-    auth_time: Date.now(),
-    permissions: [],
-    groups: ['admin'],
-    isAdmin: true,
-    expires_at: sessionData.expiresAt
-  }), cookieOptions);
+  await setWeb3SessionAction(sessionData);
 }
 
 /**
  * Clear Web3 session data
  */
 export async function clearWeb3Session(): Promise<void> {
-  const cookieStore = await cookies();
-
-  // Clear unified EPSX session cookie
-  cookieStore.delete(COOKIES.user);
-  cookieStore.delete(COOKIES.access_token);
-  cookieStore.delete(COOKIES.id_token);
-  cookieStore.delete(COOKIES.refresh_token);
-  cookieStore.delete(COOKIES.sid);
-
-  // Clear old cookie names (backward compatibility)
-  cookieStore.delete('epsx.admin.user');
-  cookieStore.delete('wallet_address');
-  cookieStore.delete('wallet_signature');
-  cookieStore.delete('wallet_message');
-  cookieStore.delete('wallet_nonce');
-  cookieStore.delete('wallet_chain_id');
-  cookieStore.delete('wallet_expires_at');
-
-  // Clear any legacy tokens
-  cookieStore.delete('admin_jwt_token');
-  cookieStore.delete('session_token');
-  cookieStore.delete('access_token');
-  cookieStore.delete('id_token');
-  cookieStore.delete('refresh_token');
+  await clearWeb3SessionAction();
 }
 
 // ============================================================================
@@ -299,7 +256,7 @@ export async function getAdminSession(): Promise<AdminSession> {
     const web3User = await validateWeb3Session(sessionData);
 
     if (!web3User) {
-      await clearWeb3Session(); // Clear invalid session
+      // clearWeb3Session(); // Do not clear in Server Components
       return {
         isAuthenticated: false,
         isLoggedIn: false,

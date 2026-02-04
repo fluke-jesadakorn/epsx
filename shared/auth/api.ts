@@ -52,14 +52,19 @@ class DirectWeb3ApiClient {
   private baseUrl: string;
 
   constructor() {
-    // Enhanced backend URL resolution
+    // Enhanced backend URL resolution with dynamic environment detection
     this.baseUrl =
       typeof window !== 'undefined'
-        ? process.env.NEXT_PUBLIC_BACKEND_URL || 'http://127.0.0.1:8080'
-        : process.env.BACKEND_URL || 'http://127.0.0.1:8080';
+        ? // Client-side: Try env var, then dynamic port replacement (3000 -> 8080)
+        process.env.NEXT_PUBLIC_BACKEND_URL ||
+        window.location.origin.replace(/:300[0-9]/, ':8080')
+        : // Server-side: Try server env var, then default
+        process.env.BACKEND_URL || 'http://127.0.0.1:8080';
 
     console.log('[AUTH] DirectWeb3ApiClient initialized', {
       baseUrl: this.baseUrl,
+      context: typeof window !== 'undefined' ? 'browser' : 'server',
+      location: typeof window !== 'undefined' ? window.location.origin : 'N/A',
     });
   }
 
@@ -119,7 +124,11 @@ class DirectWeb3ApiClient {
 
       return challengeData;
     } catch (error) {
-      console.error('[AUTH] Error: Challenge request error', { error });
+      console.error('[AUTH] Error: Challenge request network/timeout error', {
+        name: error instanceof Error ? error.name : 'UnknownError',
+        message: error instanceof Error ? error.message : String(error),
+        url,
+      });
       throw error instanceof Error
         ? error
         : new Error('Failed to request challenge');
@@ -184,7 +193,11 @@ class DirectWeb3ApiClient {
 
       return verificationData;
     } catch (error) {
-      console.error('[AUTH] Error: Signature verification error', { error });
+      console.error('[AUTH] Error: Signature verification network/timeout error', {
+        name: error instanceof Error ? error.name : 'UnknownError',
+        message: error instanceof Error ? error.message : String(error),
+        url,
+      });
       throw error instanceof Error
         ? error
         : new Error('Failed to verify signature');

@@ -125,32 +125,76 @@ export function createAuthMiddleware(config: AuthMiddlewareConfig) {
                 return response;
             }
 
-            // Create redirect URL with return_url
-            const redirectUrl = new URL(loginPath, request.url);
+            // Create redirect response
+            const responseRedirect = NextResponse.redirect(new URL(loginPath, request.url));
 
-            // Only add return_url if it's not the root path to keep URLs clean
-            if (pathname !== '/') {
-                redirectUrl.searchParams.set('return_url', pathname + search);
+            // Set return_url cookie if not root and not an invalid path
+            const invalidPrefixes = ['/.well-known', '/_next', '/api', '/favicon', '/static'];
+            const isValidReturnPath = !invalidPrefixes.some(prefix => pathname.startsWith(prefix));
+
+            if (pathname !== '/' && isValidReturnPath) {
+                responseRedirect.cookies.set(COOKIES.return_url, pathname + search, {
+                    httpOnly: true,
+                    secure: process.env.NODE_ENV === 'production',
+                    sameSite: 'lax',
+                    path: '/',
+                    maxAge: 300 // 5 minutes
+                });
             }
 
-            redirectUrl.searchParams.set('reason', 'no-session');
-
-            return NextResponse.redirect(redirectUrl);
+            responseRedirect.headers.set('x-reason', 'no-session');
+            return responseRedirect;
         }
 
-        // Case B: Authenticated User on Login Page (e.g. /auth)
-        // We only redirect if they are explicitly visiting the login path to prevent loops
+        // Case B: Intercept explicit login requests with return_url param
+        // Store return_url in cookie and strip from query string to prevent loops
+        if (pathname === loginPath && request.nextUrl.searchParams.has('return_url')) {
+            const returnUrl = request.nextUrl.searchParams.get('return_url');
+            // Only process if return_url is valid and not pointing to login page itself
+            if (returnUrl && returnUrl !== loginPath && !returnUrl.startsWith(loginPath + '?')) {
+                // Check if return_url cookie is already set to this value (prevents loop)
+                const existingReturnUrl = request.cookies.get(COOKIES.return_url)?.value;
+                if (existingReturnUrl === returnUrl) {
+                    // Already set, just continue without redirect
+                    console.log('[AUTH] Middleware: return_url cookie already set, skipping redirect');
+                    return response;
+                }
+
+                // Create clean URL without return_url param to prevent redirect loops
+                const cleanUrl = new URL(loginPath, request.url);
+                const responseRedirect = NextResponse.redirect(cleanUrl);
+                responseRedirect.cookies.set(COOKIES.return_url, returnUrl, {
+                    httpOnly: true,
+                    secure: process.env.NODE_ENV === 'production',
+                    sameSite: 'lax',
+                    path: '/',
+                    maxAge: 300 // 5 minutes
+                });
+                console.log('[AUTH] Middleware: Setting return_url cookie and redirecting to clean login path', { returnUrl });
+                return responseRedirect;
+            }
+        }
+
+        // Case C: Authenticated User on Login Page (e.g. /auth)
+        // Redirect them to the return URL or home page
         if (isAuthenticated && pathname === loginPath) {
             // If noRedirect mode is enabled, let page load
             if (noRedirect) {
                 return response;
             }
 
-            // Check for return_url in the current query params
-            const returnUrl = request.nextUrl.searchParams.get('return_url');
-            const targetPath = returnUrl || homePath;
+            // Priority 1: Check return_url cookie (set by middleware or after protected route redirect)
+            const returnUrlCookie = request.cookies.get(COOKIES.return_url)?.value;
+            // Priority 2: Check query param (fallback)
+            const returnUrlParam = request.nextUrl.searchParams.get('return_url');
+            const targetPath = returnUrlCookie || returnUrlParam || homePath;
 
-            return NextResponse.redirect(new URL(targetPath, request.url));
+            console.log('[AUTH] Middleware: Authenticated user on login page, redirecting', { targetPath });
+
+            // Clear the return_url cookie since we're using it
+            const responseRedirect = NextResponse.redirect(new URL(targetPath, request.url));
+            responseRedirect.cookies.delete(COOKIES.return_url);
+            return responseRedirect;
         }
 
         // 6. Performance Tracking (Optional)

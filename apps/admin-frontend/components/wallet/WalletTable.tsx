@@ -1,6 +1,6 @@
 'use client';
 
-import { Edit, Eye, MoreHorizontal, Shield, Star } from 'lucide-react';
+import { Edit, Eye, MoreHorizontal, Star } from 'lucide-react';
 
 import { WalletLabelBadge } from './WalletLabelBadge';
 import type { WalletData } from './types';
@@ -48,18 +48,15 @@ export function WalletTable({
                             {/* Header checkbox could go here for bulk select */}
                         </th>
                         <th className="p-4 font-semibold text-muted-foreground whitespace-nowrap">Wallet & Label</th>
-                        <th className="p-4 font-semibold text-muted-foreground whitespace-nowrap">Access</th>
+                        <th className="p-4 font-semibold text-muted-foreground whitespace-nowrap">Plan</th>
                         <th className="p-4 font-semibold text-muted-foreground whitespace-nowrap">Status</th>
-                        <th className="p-4 font-semibold text-muted-foreground whitespace-nowrap text-center">Perms</th>
                         <th className="p-4 font-semibold text-muted-foreground whitespace-nowrap text-right">Actions</th>
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-border/40">
                     {wallets.map((wallet) => {
                         const isSelected = selectedAddresses.has(wallet.walletAddress);
-                        const activePermissions = wallet.permissions.filter(p => p.isActive).length;
                         const plan = wallet.subscriptions[0]?.planName || 'Free';
-                        const group = wallet.plans?.[0]?.planName || 'User'; // Showing first plan as primary group for display
                         const isDisabled = wallet.status === 'disabled';
 
                         return (
@@ -101,10 +98,6 @@ export function WalletTable({
                                         <Badge variant="outline" className="bg-primary/5 text-primary border-primary/10 text-[10px] py-0 px-2 uppercase font-bold tracking-wider">
                                             {plan}
                                         </Badge>
-                                        <div className="flex items-center gap-1 text-muted-foreground text-xs whitespace-nowrap">
-                                            <Shield className="h-3 w-3 fill-current opacity-70" />
-                                            {group}
-                                        </div>
                                     </div>
                                 </td>
                                 <td className="p-4">
@@ -121,11 +114,7 @@ export function WalletTable({
                                         </span>
                                     </div>
                                 </td>
-                                <td className="p-4 text-center">
-                                    <Badge variant="secondary" className="font-mono text-[10px] px-1.5 h-5 min-w-5 justify-center">
-                                        {activePermissions}
-                                    </Badge>
-                                </td>
+
                                 <td className="p-4 text-right">
                                     <div className="flex items-center justify-end gap-1">
                                         <Button

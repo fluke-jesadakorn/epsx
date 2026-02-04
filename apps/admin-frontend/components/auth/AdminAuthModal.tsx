@@ -1,6 +1,7 @@
 'use client';
 
 import { Shield } from 'lucide-react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,8 +16,19 @@ interface AdminAuthModalProps {
 }
 
 export function AdminAuthModal({ children, fallback, initialHasAuthCookie = false }: AdminAuthModalProps) {
+    const router = useRouter();
+    const searchParams = useSearchParams();
     const { isAuthenticated, isLoading } = useSharedAuth();
     const [showModal, setShowModal] = useState(false);
+
+    // Get return URL from URL parameters
+    const returnUrl = searchParams.get('return_url');
+    const decodedReturnUrl = returnUrl ? decodeURIComponent(returnUrl) : null;
+    const finalReturnUrl = decodedReturnUrl &&
+        decodedReturnUrl !== '/auth' &&
+        decodedReturnUrl !== '/login'
+        ? decodedReturnUrl
+        : null;
 
     // If we have an initial cookie, we can assume we're "checking" until proven otherwise
     // If no cookie, we can say checks are done (and failed) unless loading
@@ -77,9 +89,11 @@ export function AdminAuthModal({ children, fallback, initialHasAuthCookie = fals
                 variant="admin"
                 onSuccess={() => {
                     setShowModal(false);
-                    if (typeof window !== 'undefined') {
-                        window.location.reload();
+                    // Redirect to return URL if provided, otherwise refresh current page
+                    if (finalReturnUrl) {
+                        router.push(finalReturnUrl);
                     }
+                    router.refresh();
                 }}
                 onError={(err) => console.error('Auth error:', err)}
             />

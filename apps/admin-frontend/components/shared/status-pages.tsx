@@ -11,7 +11,7 @@ import {
   ShieldX,
 } from 'lucide-react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import React from 'react';
 
 /**
@@ -224,6 +224,9 @@ export function AccessDeniedContent({
   showLoginButton = true,
   showHomeButton = true,
 }: AccessDeniedContentProps) {
+  const router = useRouter();
+  const pathname = usePathname();
+
   return (
     <StatusPageLayout>
       <div className="w-full max-w-lg">
@@ -291,7 +294,7 @@ export function AccessDeniedContent({
         <div className="flex flex-col sm:flex-row gap-3">
           {showLoginButton && (
             <Link
-              href="/auth"
+              href={`/auth?return_url=${encodeURIComponent(pathname)}`}
               className="flex-1 inline-flex items-center justify-center gap-2 px-6 py-4 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-2xl font-semibold shadow-lg shadow-red-500/20 hover:shadow-xl hover:shadow-red-500/30 hover-lift transition-all"
             >
               <RotateCcw className="w-5 h-5" />

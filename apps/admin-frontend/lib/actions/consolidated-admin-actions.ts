@@ -1,8 +1,6 @@
 'use server';
 
-import { cookies } from 'next/headers';
 
-import { createAdminApiClient } from '@/lib/api-client';
 
 // ============================================================================
 // TYPES
@@ -24,21 +22,6 @@ interface ActionResult<T = unknown> {
   success: boolean;
   data?: T;
   error?: string;
-}
-
-// ============================================================================
-// HELPER FUNCTIONS
-// ============================================================================
-
-async function getAdminClient() {
-  const cookieStore = await cookies();
-  const sessionToken = cookieStore.get('admin_session_token')?.value;
-
-  // We pass the token explicitly to ensure it's used
-  return createAdminApiClient({
-    serverSide: true,
-    token: sessionToken,
-  });
 }
 
 // ============================================================================
@@ -96,7 +79,7 @@ export async function createAdminNotification(
       data: response.data,
     };
   } catch (error) {
-     
+
     console.error('Failed to create admin notification:', error);
     return {
       success: false,
@@ -149,7 +132,7 @@ export async function cleanupExpiredPermissionsAction(): Promise<ActionResult> {
       data: response.data,
     };
   } catch (error) {
-     
+
     console.error('Failed to cleanup permissions:', error);
     return {
       success: false,

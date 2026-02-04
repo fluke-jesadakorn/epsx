@@ -294,7 +294,6 @@ export interface TwoFactorSetupResponse {
 export interface TwoFactorVerificationRequest {
   method: TwoFactorMethod
   code: string
-  session_token?: string
 }
 
 /**

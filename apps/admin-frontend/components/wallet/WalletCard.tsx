@@ -4,7 +4,7 @@
  */
 'use client';
 
-import { BarChart3, CheckCircle2, ChevronRight, Coins, Copy, CreditCard, Edit, MoreHorizontal, ShieldCheck, TrendingUp, Users } from 'lucide-react';
+import { BarChart3, CheckCircle2, ChevronRight, Coins, Copy, CreditCard, Edit, MoreHorizontal, ShieldCheck, TrendingUp } from 'lucide-react';
 import React, { useState } from 'react';
 
 import type { Platform, WalletData, WalletStatus } from './types';
@@ -89,7 +89,7 @@ export function WalletCard({
 
     const statusConfig = STATUS_CONFIG[wallet.status];
     const isDisabled = wallet.status === 'disabled';
-    const activePermissions = wallet.permissions.filter(p => p.isActive).length;
+
 
     const handleCopy = async (e: React.MouseEvent) => {
         e.stopPropagation();
@@ -248,26 +248,7 @@ export function WalletCard({
                         </div>
                     </div>
 
-                    {/* Group */}
-                    <div className="flex flex-col gap-1.5">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Group</span>
-                        <div className="flex items-center gap-2 text-sm font-medium text-slate-200 px-1">
-                            <Users size={16} className="text-[#1fc7d4]" />
-                            {wallet.plans?.[0]?.planName || 'User'}
-                            {(wallet.plans?.length || 0) > 1 && (
-                                <span className="ml-1 text-[10px] bg-white/10 text-white px-2 py-0.5 rounded-full">+{wallet.plans!.length - 1}</span>
-                            )}
-                        </div>
-                    </div>
 
-                    {/* Perms */}
-                    <div className="flex flex-col gap-1.5">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Access</span>
-                        <div className="flex items-center gap-2 rounded-lg bg-[#7645d9]/20 px-3 py-1.5 text-xs font-bold text-[#b8add2] shadow-[0_0_15px_-3px_rgba(118,69,217,0.3)] w-fit">
-                            <ShieldCheck size={14} />
-                            {activePermissions} PERMS
-                        </div>
-                    </div>
 
                     {/* Platforms Breakdown */}
                     <div className="col-span-2 sm:col-span-1 flex flex-col gap-1.5 min-w-[100px]">

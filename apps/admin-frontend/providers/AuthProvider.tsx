@@ -2,31 +2,40 @@
 
 import { darkTheme, getDefaultConfig, lightTheme, RainbowKitProvider } from '@rainbow-me/rainbowkit';
 import '@rainbow-me/rainbowkit/styles.css';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClientProvider } from '@tanstack/react-query';
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { WagmiProvider, type Config } from 'wagmi';
 import { bscTestnet } from 'wagmi/chains';
 
-// Polyfill for SSR to prevent indexedDB errors
-if (typeof window === 'undefined') {
-  const globalObj = global as unknown as { indexedDB: unknown };
-  globalObj.indexedDB = undefined;
-}
-
 // Use shared query client factory
 import { createQueryClient } from '@/shared/state';
 
-// Configure Wagmi for Admin with BSC testnet - Client-only
-let config: Config | null = null;
+// ============================================================================
+// MODULE-LEVEL SINGLETONS
+// These must be created outside of React components to prevent WalletConnect
+// event listener accumulation during hot reloads (causes MaxListenersExceededWarning)
+// ============================================================================
 
-// Only create config on client side to prevent SSR issues
-if (typeof window !== 'undefined') {
-  config = getDefaultConfig({
-    appName: 'EPSX Admin - Web3 Management',
-    projectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || '9cc4d9939ee2ffbd56accefa1eec6f06',
-    chains: [bscTestnet],
-    ssr: true,
-  });
+let wagmiConfigSingleton: Config | null = null;
+let queryClientSingleton: ReturnType<typeof createQueryClient> | null = null;
+
+function getWagmiConfig(): Config {
+  if (!wagmiConfigSingleton) {
+    wagmiConfigSingleton = getDefaultConfig({
+      appName: 'EPSX Admin - Web3 Management',
+      projectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || '9cc4d9939ee2ffbd56accefa1eec6f06',
+      chains: [bscTestnet],
+      ssr: true,
+    });
+  }
+  return wagmiConfigSingleton;
+}
+
+function getQueryClient() {
+  if (!queryClientSingleton) {
+    queryClientSingleton = createQueryClient('admin');
+  }
+  return queryClientSingleton;
 }
 
 // Admin Web3 Context for additional admin-specific state
@@ -118,7 +127,9 @@ function ThemedRainbowKitProvider({ children }: { children: ReactNode }): React.
  * @param root0.children
  */
 export function AdminWeb3Provider({ children }: AdminWeb3ProviderProps): React.ReactElement {
-  const [queryClient] = useState(() => createQueryClient());
+  // Use module-level singletons to prevent WalletConnect event listener accumulation on hot reloads
+  const config = typeof window !== 'undefined' ? getWagmiConfig() : null;
+  const queryClient = getQueryClient();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
