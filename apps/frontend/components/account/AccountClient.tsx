@@ -20,7 +20,6 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useAccount } from 'wagmi';
-import { AccessOverview } from './AccessOverview';
 import { PaymentHistoryData, PaymentHistoryTab } from './PaymentHistoryTab';
 
 interface NotificationPreferences {
@@ -44,9 +43,10 @@ interface NotificationPreferencesResponse {
 
 interface AccountClientProps {
   initialPaymentHistory?: PaymentHistoryData;
+  accessOverviewSlot: React.ReactNode;
 }
 
-export function AccountClient({ initialPaymentHistory }: AccountClientProps) {
+export function AccountClient({ initialPaymentHistory, accessOverviewSlot }: AccountClientProps) {
   const _router = useRouter();
   const { base } = useApiClient({ platform: 'frontend' });
   const { address } = useAccount();
@@ -249,7 +249,7 @@ export function AccountClient({ initialPaymentHistory }: AccountClientProps) {
             </div>
             <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Access & Plans</h2>
           </div>
-          <AccessOverview />
+          {accessOverviewSlot}
         </div>
 
         {/* Payments Section */}

@@ -50,6 +50,12 @@
 
   /* Animations */
   --animate-shimmer: shimmer 2s infinite linear;
+  --animate-fade-in: fade-in 0.2s ease-out;
+  --animate-fade-out: fade-out 0.2s ease-in;
+  --animate-zoom-in: zoom-in 0.2s ease-out;
+  --animate-zoom-out: zoom-out 0.2s ease-in;
+  --animate-slide-in-from-top: slide-in-from-top 0.2s ease-out;
+  --animate-slide-out-to-top: slide-out-to-top 0.2s ease-in;
 }
 
 @keyframes shimmer {
@@ -57,11 +63,43 @@
   100% { transform: translateX(200%) skewX(-12deg); }
 }
 
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes zoom-in {
+  from { opacity: 0; scale: 0.95; }
+  to { opacity: 1; scale: 1; }
+}
+
+@keyframes zoom-out {
+  from { opacity: 1; scale: 1; }
+  to { opacity: 0; scale: 0.95; }
+}
+
+@keyframes slide-in-from-top {
+  from { translate: 0 -100%; }
+  to { translate: 0 0; }
+}
+
+@keyframes slide-out-to-top {
+  from { translate: 0 0; }
+  to { translate: 0 -100%; }
+}
+
 /* ============================================================================
-   CSS CUSTOM PROPERTIES (Theme Variables)
+   CUSTOM VARIANTS (Tailwind v4)
    ============================================================================ */
 
 @custom-variant dark (&:is(.dark *));
+@custom-variant state-open (&[data-state="open"]);
+@custom-variant state-closed (&[data-state="closed"]);
 
 :root {
   /* Light theme - Neutral gray background */

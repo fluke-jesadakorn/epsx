@@ -25,6 +25,7 @@ pub struct Plan {
     max_members: Option<i32>,
     auto_assign_enabled: bool,
     metadata: serde_json::Value,
+    is_public: bool,
     base: AggregateBase,
 }
 
@@ -43,6 +44,7 @@ pub struct CreatePlanParams {
     pub max_members: Option<i32>,
     pub auto_assign_enabled: Option<bool>,
     pub metadata: Option<serde_json::Value>,
+    pub is_public: Option<bool>,
 }
 
 pub struct LoadPlanParams {
@@ -61,6 +63,7 @@ pub struct LoadPlanParams {
     pub max_members: Option<i32>,
     pub auto_assign_enabled: bool,
     pub metadata: serde_json::Value,
+    pub is_public: bool,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub version: u64,
@@ -80,6 +83,7 @@ pub struct UpdatePlanParams {
     pub max_members: Option<Option<i32>>,
     pub auto_assign_enabled: Option<bool>,
     pub metadata: Option<serde_json::Value>,
+    pub is_public: Option<bool>,
 }
 
 impl Plan {
@@ -105,6 +109,7 @@ impl Plan {
             max_members: params.max_members,
             auto_assign_enabled: params.auto_assign_enabled.unwrap_or(false),
             metadata: params.metadata.unwrap_or_else(|| serde_json::json!({})),
+            is_public: params.is_public.unwrap_or(true),
             base: AggregateBase::new(),
         };
 
@@ -140,6 +145,7 @@ impl Plan {
             max_members: params.max_members,
             auto_assign_enabled: params.auto_assign_enabled,
             metadata: params.metadata,
+            is_public: params.is_public,
             base: AggregateBase {
                 version: params.version,
                 created_at: params.created_at,
@@ -186,6 +192,9 @@ impl Plan {
         }
         if let Some(meta) = params.metadata {
             self.metadata = meta;
+        }
+        if let Some(public) = params.is_public {
+            self.is_public = public;
         }
 
         self.base.touch();
@@ -296,6 +305,10 @@ impl Plan {
 
     pub fn metadata(&self) -> &serde_json::Value {
         &self.metadata
+    }
+
+    pub fn is_public(&self) -> bool {
+        self.is_public
     }
 }
 

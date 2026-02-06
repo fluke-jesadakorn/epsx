@@ -33,7 +33,7 @@ impl Default for TransactionMonitorConfig {
     fn default() -> Self {
         Self {
             rpc_url: std::env::var("BSC_RPC_URL")
-                .unwrap_or_else(|_| "http://100.97.9.56:8545".to_string()),
+                .unwrap_or_else(|_| "https://data-seed-prebsc-1-s1.binance.org:8545".to_string()),
             contract_address: std::env::var("PAYMENT_ESCROW_ADDRESS")
                 .ok()
                 .and_then(|addr| addr.parse::<H160>().ok())

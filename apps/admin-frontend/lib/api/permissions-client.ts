@@ -56,5 +56,18 @@ export const permissionsClient = {
             'delete',
             `/api/permissions/definitions/${id}`
         );
+    },
+
+    /**
+     * Update a permission definition
+     */
+    async updatePermission(id: string, data: Partial<CreatePermissionRequest>, client?: UnifiedApiClient): Promise<PermissionDefinition> {
+        const apiClient = client || createAdminApiClient();
+        return handleSimpleRequest<PermissionDefinition>(
+            apiClient,
+            'put',
+            `/api/permissions/definitions/${id}`,
+            data
+        );
     }
 };

@@ -1,8 +1,8 @@
-'use client';
 
 import { Badge } from '@/components/ui';
 import { PermissionBadge } from '@/components/ui/PermissionBadge';
-import { useApiClient } from '@/shared/hooks/useApiClient';
+import { AccessOverviewData, createUsersClient } from '@/shared/api/users';
+import { createFrontendApiClient } from '@/shared/utils/api-client';
 import { differenceInDays, format } from 'date-fns';
 import {
     AlertTriangle,
@@ -12,84 +12,49 @@ import {
     X
 } from 'lucide-react';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
 
-interface AccessGroup {
-    name: string;
-    description?: string;
-    expires_at?: string;
-    permissions: string[];
-    source_type: 'plan' | 'group' | 'manual';
-    /** When this group was assigned */
-    assigned_at?: string;
-    /** Who assigned this group */
-    assigned_by?: string;
-    /** Days remaining until expiration */
-    days_remaining?: number;
-    /** Whether renewal is available for this plan */
-    can_renew?: boolean;
-    /** Price for renewal (e.g., "29.99 USDT") */
-    renewal_price?: string;
-    /** Billing cycle (e.g., "monthly", "yearly") */
-    billing_cycle?: string;
-}
+export async function AccessOverview() {
+    const client = createFrontendApiClient();
+    const usersApi = createUsersClient(client);
 
-interface DirectPermission {
-    permission: string;
-    expires_at?: string;
-    /** Days remaining until expiration */
-    days_remaining?: number;
-    /** When this permission was granted */
-    granted_at?: string;
-    /** Who granted this permission */
-    granted_by?: string;
-    /** Source: 'manual' | 'system' */
-    source?: string;
-}
+    let data: AccessOverviewData | null = null;
+    let error: string | null = null;
 
-interface AccessOverviewData {
-    current_tier: string;
-    groups: AccessGroup[];
-    direct_permissions: DirectPermission[];
-}
+    try {
+        // NOTE: Endpoint is /api/wallet/access-overview in backend (unified_user_handlers.rs)
+        // usersApi uses unified client which might suffix, but let's be explicit or add method alias
+        // Backend struct AccessOverviewData has 'plans', frontend interface has 'groups'.
+        // We need to map response.
+        const response = await usersApi.getAccessOverview();
 
-interface AccessOverviewBody {
-    success: boolean;
-    data: AccessOverviewData;
-}
-
-export function AccessOverview() {
-    const { base } = useApiClient({ platform: 'frontend' });
-    const [data, setData] = useState<AccessOverviewData | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
-
-    useEffect(() => {
-        const fetchData = async () => {
-            try {
-                setLoading(true);
-                const response = await base.get<AccessOverviewData>('/api/users/access-overview');
-
-                if (response && response.success && response.data) {
-                    setData(response.data);
-                } else {
-                    // Show empty state instead of mock data - users should see their real access level
-                    setData({
-                        current_tier: "Free User",
-                        groups: [],
-                        direct_permissions: []
-                    });
-                }
-            } catch (err) {
-                console.error('Error fetching access overview:', err);
-                setError('Unable to load access details.');
-            } finally {
-                setLoading(false);
+        if (response.success && response.data) {
+            const responseData = response.data as any;
+            data = {
+                current_tier: responseData.current_tier,
+                // Map backend 'plans' to frontend 'groups'
+                groups: responseData.groups || responseData.plans || [],
+                direct_permissions: responseData.direct_permissions || []
+            };
+        } else {
+            // Show empty state instead of mock data - users should see their real access level
+            data = {
+                current_tier: "Free User",
+                groups: [],
+                direct_permissions: []
+            };
+            if (!response.success && response.error) {
+                console.error('Error fetching access overview detailed:', JSON.stringify(response.error, null, 2));
+                // also try logging keys just in case
+                console.error('Error keys:', Object.keys(response.error));
+                console.error('Error message:', response.error.message);
+                console.error('Error code:', response.error.code);
+                error = 'Unable to load access details.';
             }
-        };
-
-        fetchData();
-    }, [base]);
+        }
+    } catch (err) {
+        console.error('Error fetching access overview:', err);
+        error = 'Unable to load access details.';
+    }
 
     const getExpiryStatus = (dateStr?: string) => {
         if (!dateStr) return { label: 'Permanent', color: 'text-green-600 bg-green-50/50 dark:bg-green-900/20 dark:text-green-400 border-green-200 dark:border-green-800' };
@@ -117,18 +82,6 @@ export function AccessOverview() {
             )}
         </div>
     );
-
-    if (loading) {
-        return (
-            <div className="animate-pulse space-y-6">
-                <div className="h-40 bg-gray-200/50 dark:bg-gray-800/50 rounded-3xl"></div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="h-64 bg-gray-200/50 dark:bg-gray-800/50 rounded-3xl"></div>
-                    <div className="h-64 bg-gray-200/50 dark:bg-gray-800/50 rounded-3xl"></div>
-                </div>
-            </div>
-        );
-    }
 
     if (error || !data) {
         return (
@@ -243,7 +196,7 @@ export function AccessOverview() {
                                     <div className="mt-auto space-y-2">
                                         <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Permissions</div>
                                         <div className="flex flex-wrap gap-1.5">
-                                            {group.permissions.slice(0, 3).map((perm) => (
+                                            {group.permissions.slice(0, 3).map((perm: string) => (
                                                 <PermissionBadge key={perm} permission={perm} size="sm" showNote />
                                             ))}
                                         </div>

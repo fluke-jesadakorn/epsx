@@ -711,12 +711,25 @@ export default function WalletDetailPage() {
                         onConfirm={async (date) => {
                             try {
                                 const expiry = date ? date.toISOString() : undefined;
-                                if (editingItem.type === 'plan') {
-                                    await assignPlan(editingItem.item.id, expiry);
-                                    toast.success(`Updated expiry for "${editingItem.item.name}"`);
-                                    refreshAccess();
+
+                                // Check if item is in pending list
+                                const isPending = pendingDrops.some(p => p.id === editingItem.item.id);
+
+                                if (isPending) {
+                                    setPendingDrops(prev => prev.map(p =>
+                                        p.id === editingItem.item.id
+                                            ? { ...p, expiresAt: expiry }
+                                            : p
+                                    ));
+                                    toast.success(`Updated pending expiry for "${editingItem.item.name}"`);
+                                } else {
+                                    if (editingItem.type === 'plan') {
+                                        await assignPlan(editingItem.item.id, expiry);
+                                        toast.success(`Updated expiry for "${editingItem.item.name}"`);
+                                        refreshAccess();
+                                    }
+                                    // Add permission edit logic here if needed
                                 }
-                                // Add permission edit logic here if needed
                             } catch (err) {
                                 toast.error('Failed to update expiry');
                             }

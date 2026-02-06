@@ -171,7 +171,7 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
   // Not connected - show connect button
   if (!isConnected || !address) {
     const handleConnectRedirect = () => {
-      router.push(`/connect-wallet?return_url=${encodeURIComponent(pathname)}`);
+      router.push(`/auth?return_url=${encodeURIComponent(pathname)}`);
     };
 
     const baseClasses = 'flex items-center gap-2 rounded-2xl font-medium transition-all duration-200';

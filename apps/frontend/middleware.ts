@@ -5,7 +5,6 @@ export const middleware = createAuthMiddleware({
     publicRoutes: [
         '/', // Landing page
         '/auth',
-        '/connect-wallet',
         '/access-denied',
         '/unauthorized',
         '/terms',
@@ -20,7 +19,7 @@ export const middleware = createAuthMiddleware({
         '/sitemap.xml',
         '/manifest.json'
     ],
-    loginPath: '/connect-wallet',
+    loginPath: '/auth',
     homePath: '/'
 });
 

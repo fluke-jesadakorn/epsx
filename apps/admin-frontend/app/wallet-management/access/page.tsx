@@ -1,5 +1,5 @@
-import { AccessControlPage } from '@/components/access-control/AccessControlPage';
+import { redirect } from 'next/navigation';
 
 export default function AccessPage() {
-    return <AccessControlPage />;
+    redirect('/wallet-management/access/permissions');
 }

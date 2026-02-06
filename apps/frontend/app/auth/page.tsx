@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect } from 'react';
 import { toast } from 'sonner';
 
-export default function ConnectWalletPage() {
+export default function AuthPage() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const returnUrl = searchParams.get('return_url') || '/';
@@ -15,7 +15,7 @@ export default function ConnectWalletPage() {
     // Auto-redirect when authenticated
     useEffect(() => {
         if (isAuthenticated && user) {
-            console.log('[AUTH] connect-wallet: Authenticated, redirecting to', returnUrl);
+            console.log('[AUTH] auth: Authenticated, redirecting to', returnUrl);
             router.push(returnUrl);
             router.refresh();
         }
@@ -23,7 +23,7 @@ export default function ConnectWalletPage() {
 
     const handleAuthSuccess = async (walletAddress: string) => {
         // Shared auth provider handles the heavy lifting
-        console.log('[AUTH] connect-wallet: Auth success callback triggered for', walletAddress);
+        console.log('[AUTH] auth: Auth success callback triggered for', walletAddress);
         toast.success('Authenticated successfully');
         // Redirection is handled by the useEffect above
     };

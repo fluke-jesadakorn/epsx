@@ -292,6 +292,7 @@ pub struct PermissionPlan {
     pub created_by: Option<String>,
     pub last_modified_by: Option<String>,
     pub tier_level: i32,
+    pub is_public: bool,
 }
 
 // Helper to extract permissions from plan_metadata
@@ -460,6 +461,7 @@ pub struct PermissionPlanDb {
     pub created_by: Option<String>,
     pub last_modified_by: Option<String>,
     pub tier_level: i32,
+    pub is_public: bool,
 }
 
 /// Diesel Insertable model for creating/updating permission plans

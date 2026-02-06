@@ -47,6 +47,7 @@ export interface PermissionPlan {
   created_at: string;
   updated_at: string;
   member_count?: number;
+  is_public?: boolean;
 }
 
 export type Plan = PermissionPlan;
@@ -116,6 +117,9 @@ export interface CreatePlanRequest {
   description?: string;
   default_expiry_days?: number;
   priority_level?: number;
+  price?: number;
+  is_public?: boolean;
+  is_active?: boolean;
 }
 
 export interface UpdatePlanRequest {
@@ -124,6 +128,9 @@ export interface UpdatePlanRequest {
   description?: string;
   default_expiry_days?: number;
   priority_level?: number;
+  price?: number;
+  is_public?: boolean;
+  is_active?: boolean;
 }
 
 export interface PermissionDefinitionDto {

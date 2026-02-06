@@ -102,7 +102,7 @@ export function PricingCard({
             {card.highlight && !isDisabled && (
                 <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 z-20">
                     <div className="bg-gradient-to-r from-blue-600 to-cyan-500 text-white text-xs font-bold px-4 py-1 rounded-full shadow-lg flex items-center gap-1 uppercase tracking-wider">
-                        {card.title} PLAN ONLY
+                        {card.title} ONLY
                     </div>
                 </div>
             )}
@@ -111,7 +111,7 @@ export function PricingCard({
                 {/* Header */}
                 <div className="text-center mb-6">
                     <h3 className="text-lg font-bold text-gray-100 uppercase tracking-widest mb-4">
-                        {card.title} PLAN
+                        {card.title}
                     </h3>
 
                     <div className="flex items-center justify-center gap-2 mb-2">

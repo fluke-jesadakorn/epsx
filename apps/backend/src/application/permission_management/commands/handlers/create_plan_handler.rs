@@ -65,6 +65,7 @@ impl CommandHandler<CreatePermissionPlanCommand> for CreatePermissionPlanCommand
             max_members: command.max_members,
             auto_assign_enabled: command.auto_assign_enabled,
             metadata: command.metadata,
+            is_public: None, // Default to true via domain model
         }).map_err(ApplicationError::from)?;
 
         // 5. Save plan

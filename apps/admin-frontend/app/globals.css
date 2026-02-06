@@ -162,4 +162,49 @@
     outline: none;
     box-shadow: 0 0 0 2px hsl(258 90% 66% / 0.1);
   }
+
+  /* ============================================================================
+     TERMINAL/ASCII UI COMPONENTS
+     ============================================================================ */
+
+  /* Terminal-style borders with sharp corners */
+  .ascii-border {
+    font-family: 'Courier New', 'Monaco', monospace;
+    border: 1px solid hsl(var(--border));
+    border-radius: 0; /* Sharp corners for terminal feel */
+  }
+
+  /* Permission platform color coding */
+  .perm-admin { @apply text-red-400; }
+  .perm-epsx { @apply text-cyan-400; }
+  .perm-epsx-pay { @apply text-green-400; }
+  .perm-epsx-token { @apply text-purple-400; }
+
+  /* Terminal selection states */
+  .terminal-selected {
+    @apply bg-cyan-500/20 border-l-4 border-l-cyan-500;
+  }
+
+  .terminal-hover {
+    @apply hover:bg-white/5 cursor-pointer transition-colors;
+  }
+
+  /* Checkbox styling for terminal UI */
+  .terminal-checkbox {
+    @apply w-4 h-4 rounded-sm border-2 border-white/20 bg-black/20;
+    @apply checked:bg-cyan-500 checked:border-cyan-500;
+    @apply focus:ring-2 focus:ring-cyan-500/50 focus:ring-offset-0;
+    @apply transition-all cursor-pointer;
+  }
+
+  /* Monospace permission text */
+  .perm-string {
+    @apply font-mono text-xs;
+  }
+
+  /* ASCII box drawing characters */
+  .ascii-box {
+    font-family: 'Courier New', 'Monaco', monospace;
+    line-height: 1;
+  }
 }

@@ -19,3 +19,40 @@ body {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Radix UI Switch Styles (Exact Docs Implementation) */
+.SwitchRoot {
+  width: 42px !important;
+  height: 25px !important;
+  background-color: rgba(0, 0, 0, 0.44) !important; /* var(--black-a9) */
+  border-radius: 9999px !important;
+  position: relative !important;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.28) !important; /* var(--black-a7) */
+  -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
+  border: none !important;
+  padding: 0 !important;
+}
+
+.SwitchRoot:focus {
+  box-shadow: 0 0 0 2px black !important;
+}
+
+.SwitchRoot[data-state="checked"] {
+  background-color: black !important;
+}
+
+.SwitchThumb {
+  display: block !important;
+  width: 21px !important;
+  height: 21px !important;
+  background-color: white !important;
+  border-radius: 9999px !important;
+  box-shadow: 0 2px 2px rgba(0, 0, 0, 0.28) !important; /* var(--black-a7) */
+  transition: transform 100ms !important;
+  transform: translateX(2px) !important;
+  will-change: transform !important;
+}
+
+.SwitchThumb[data-state="checked"] {
+  transform: translateX(19px) !important;
+}

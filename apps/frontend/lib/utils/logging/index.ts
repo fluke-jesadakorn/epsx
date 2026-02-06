@@ -90,75 +90,78 @@ export class Logger {
       .replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, '***@***.***');
   }
 
-  private sanitizeData(data: unknown): unknown {
-    if (!data) return data;
+  private sanitizeData(data: unknown, seen = new WeakSet()): unknown {
+    if (data === null || data === undefined) return data;
 
-    // In production, limit data logging for security
-    if (process.env.NODE_ENV === 'production') {
-      // Only log error messages and basic metadata
-      if (data instanceof Error) {
-        return {
-          error: data.message,
-          name: data.name
-          // Stack traces excluded in production for security
-        };
-      }
-
-      if (typeof data === 'object') {
-        // Handle BigInt values and objects
-        try {
-          // Convert BigInt values to strings to prevent serialization errors
-          const serialized = JSON.stringify(data, (key, value) =>
-            typeof value === 'bigint' ? value.toString() + 'n' : value
-          );
-          return JSON.parse(serialized);
-        } catch {
-          // Fallback to safe field extraction
-          const safeFields = ['status', 'code', 'type', 'category'];
-          const sanitized: Record<string, unknown> = {};
-
-          for (const field of safeFields) {
-            const dataObj = data as Record<string, unknown>;
-            if (field in dataObj && typeof dataObj[field] !== 'object' && typeof dataObj[field] !== 'bigint') {
-              sanitized[field] = dataObj[field];
-            }
-          }
-
-          return sanitized;
-        }
-      }
-
-      // Handle BigInt primitive type
-      if (typeof data === 'bigint') {
-        return data.toString() + 'n';
-      }
-
-      // For primitive types, return as-is if not sensitive
-      return typeof data === 'string' ? this.sanitizeMessage(data) : data;
-    }
-
-    // In development, still need to handle BigInt for safe logging
     // Handle BigInt primitive type
     if (typeof data === 'bigint') {
       return data.toString() + 'n';
     }
 
-    // Handle objects that may contain BigInt values
-    if (typeof data === 'object' && data !== null) {
+    // Handle primary types
+    if (typeof data !== 'object') {
+      return typeof data === 'string' ? this.sanitizeMessage(data) : data;
+    }
+
+    // Prevent circular references
+    if (seen.has(data as object)) {
+      return '[Circular]';
+    }
+    seen.add(data as object);
+
+    // In production, limit data logging for security
+    if (process.env.NODE_ENV === 'production') {
+      if (data instanceof Error) {
+        return {
+          error: this.sanitizeMessage(data.message),
+          name: data.name
+          // Stack traces excluded in production for security
+        };
+      }
+
+      // Safe field extraction in production
+      const sanitized: Record<string, unknown> = {};
+      const safeFields = ['status', 'code', 'type', 'category', 'message', 'error', 'id', 'sub'];
+
       try {
-        // Convert BigInt values to strings to prevent serialization errors
-        const serialized = JSON.stringify(data, (key, value) =>
-          typeof value === 'bigint' ? value.toString() + 'n' : value
-        );
-        return JSON.parse(serialized);
+        const dataObj = data as Record<string, unknown>;
+        for (const field of safeFields) {
+          if (field in dataObj) {
+            const val = dataObj[field];
+            sanitized[field] = this.sanitizeData(val, seen);
+          }
+        }
+        return sanitized;
       } catch {
-        // If JSON serialization fails, return the original data
-        // The console will handle its own serialization
-        return data;
+        return '[Unserializable]';
       }
     }
 
-    return data;
+    // In development, handle BigInt for safe logging but keep more details
+    if (data instanceof Error) {
+      return {
+        message: this.sanitizeMessage(data.message),
+        name: data.name,
+        stack: data.stack,
+        ...((data as any).cause ? { cause: this.sanitizeData((data as any).cause, seen) } : {})
+      };
+    }
+
+    // Array handling
+    if (Array.isArray(data)) {
+      return data.map(item => this.sanitizeData(item, seen));
+    }
+
+    // Generic object handling
+    try {
+      const sanitized: Record<string, unknown> = {};
+      for (const [key, value] of Object.entries(data as object)) {
+        sanitized[key] = this.sanitizeData(value, seen);
+      }
+      return sanitized;
+    } catch {
+      return String(data);
+    }
   }
 
 
@@ -169,7 +172,7 @@ export class Logger {
     if (typeof console === 'undefined') return;
 
     // Sanitize data to handle BigInt values before logging
-    const safeData = data !== undefined ? this.sanitizeData(data) : undefined;
+    const safeData = data !== undefined ? this.sanitizeData(data, new WeakSet()) : undefined;
 
     // Simplified logging - console output only, no buffering or transmission
     const consoleMethod = level === 'debug' ? 'log' : level;
@@ -294,14 +297,22 @@ export function safeError(error: unknown): SafeErrorResult {
     return { message: error };
   }
 
+  if (typeof error === 'bigint') {
+    return { message: error.toString() + 'n' };
+  }
+
   if (error && typeof error === 'object') {
-    const obj = error as Record<string, unknown>;
-    return {
-      message: (obj.message as string) || (obj.error as string) || JSON.stringify(error),
-      stack: obj.stack as string | undefined,
-      code: (obj.code as string | undefined) || (obj.status as string | undefined),
-      status: (obj.status as number | undefined) || (obj.statusCode as number | undefined)
-    };
+    const obj = error as Record<string, any>;
+    try {
+      return {
+        message: String(obj.message || obj.error || 'Unknown object error'),
+        stack: String(obj.stack || ''),
+        code: String(obj.code || obj.status || ''),
+        status: typeof obj.status === 'number' ? obj.status : (typeof obj.statusCode === 'number' ? obj.statusCode : undefined)
+      };
+    } catch {
+      return { message: '[Non-serializable Error Object]' };
+    }
   }
 
   return { message: 'Unknown error occurred' };

@@ -53,3 +53,18 @@ export async function deletePermissionAction(id: string): Promise<ActionResponse
         };
     }
 }
+
+export async function updatePermissionAction(id: string, data: Partial<CreatePermissionRequest>): Promise<ActionResponse<PermissionDefinition>> {
+    try {
+        const client = await getAdminServerActionClient();
+        const permission = await permissionsClient.updatePermission(id, data, client);
+        revalidatePath('/wallet-management/access');
+        return { success: true, data: permission };
+    } catch (error) {
+        console.error('Failed to update permission:', error);
+        return {
+            success: false,
+            error: error instanceof Error ? error.message : 'Failed to update permission'
+        };
+    }
+}

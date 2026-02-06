@@ -1,5 +1,6 @@
 'use server';
 
+
 import {
     CreatePlanRequest,
     PermissionPlan,
@@ -8,6 +9,7 @@ import {
 } from '@/lib/api/plan-management-client';
 import { createAdminApiClient, extractArrayOrEmpty } from '@/shared/api';
 import { API_ROUTES } from '@/shared/config/route-constants';
+import { revalidatePath } from 'next/cache';
 
 // ============================================================================
 // HELPER FUNCTIONS
@@ -130,6 +132,7 @@ export async function updatePlanAction(planId: string, data: UpdatePlanRequest) 
     const apiClient = createAdminApiClient({ serverSide: true });
     const res = await apiClient.put(`${API_ROUTES.PERMISSIONS.PLANS}/${planId}`, data);
     if (!res.success) throw new Error(res.error?.message || 'Failed to update plan');
+    revalidatePath('/wallet-management/access/plans');
     return res.data;
 }
 
@@ -147,13 +150,16 @@ export async function createPlanAction(data: CreatePlanRequest) {
         name: data.name,
         slug: slug,
         description: data.description || '',
-        plan_type: 'manual',
+        plan_type: 'subscription',
         permissions: data.permissions,
         display_order: data.priority_level,
+        price: data.price,
     };
 
     const res = await apiClient.post(API_ROUTES.PERMISSIONS.PLANS, backendRequest);
     if (!res.success) throw new Error(res.error?.message || 'Failed to create plan');
+
+    revalidatePath('/wallet-management/access/plans');
     return res.data;
 }
 
@@ -168,6 +174,7 @@ export async function deletePlanAction(planId: string) {
     const apiClient = createAdminApiClient({ serverSide: true });
     const res = await apiClient.delete(`${API_ROUTES.PERMISSIONS.PLANS}/${planId}`);
     if (!res.success) throw new Error(res.error?.message || 'Failed to delete plan');
+    revalidatePath('/wallet-management/access/plans');
 }
 
 // ============================================================================

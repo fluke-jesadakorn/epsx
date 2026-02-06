@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect } from 'react';
 import { Wallet } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
 
+import { useSharedAuth } from '@/shared/components/auth/Provider';
 import {
     Dialog,
     DialogContent,
@@ -11,7 +12,6 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/shared/components/ui/dialog';
-import { useSharedAuth } from '@/shared/components/auth/Provider';
 
 export function FrontendAuthModal() {
     const { isAuthenticated, showSignInModal, closeSignInModal } = useSharedAuth();
@@ -24,7 +24,7 @@ export function FrontendAuthModal() {
     }, [isAuthenticated, closeSignInModal]);
 
     const handleConnectWallet = () => {
-        router.push('/connect-wallet');
+        router.push('/auth');
     };
 
     if (isAuthenticated) {

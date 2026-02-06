@@ -1,7 +1,7 @@
 'use client';
 
 import { cn } from '@/lib/utils';
-import { Crown, TrendingUp, Users } from 'lucide-react';
+import { AlertTriangle, ArrowDownRight, ArrowUpRight, Clock, Package, Users, Wallet } from 'lucide-react';
 
 interface DashboardStats {
     totalWallets: number;
@@ -9,39 +9,52 @@ interface DashboardStats {
     disabledCount: number;
     subscribedCount: number;
     expiringSoon: number;
-    mrr: string;
-    members: string;
-    growth: string;
 }
 
-interface CompactStatProps {
+interface StatCardProps {
     label: string;
     value: number | string;
     trend?: string;
     trendUp?: boolean;
-    colorClass: string;
     subValue?: string;
+    icon: React.ReactNode;
+    colorClass: string;
+    bgClass: string;
 }
 
-function CompactStat({ label, value, trend, trendUp, colorClass, subValue }: CompactStatProps) {
+function StatCard({ label, value, trend, trendUp, subValue, icon, colorClass, bgClass }: StatCardProps) {
     return (
-        <div className="flex flex-col min-w-[120px] px-4 first:pl-0 border-r border-border/40 last:border-0">
-            <div className="flex items-center justify-between mb-1">
-                <span className="text-xs font-medium text-muted-foreground">{label}</span>
-                {trend && (
-                    <span className={cn(
-                        "text-[10px] font-bold flex items-center gap-0.5",
-                        trendUp ? "text-green-500" : "text-red-500"
-                    )}>
-                        {trendUp ? '↑' : '↓'} {trend}
-                    </span>
-                )}
-            </div>
-            <div className="flex items-baseline gap-2">
-                <span className="text-xl font-bold tracking-tight text-foreground/90">{value}</span>
-                {subValue && (
-                    <span className="text-[10px] text-muted-foreground truncate max-w-[80px]">{subValue}</span>
-                )}
+        <div className={cn(
+            "relative overflow-hidden rounded-2xl p-0.5 transition-transform hover:scale-[1.02] duration-300",
+            bgClass
+        )}>
+            <div className="relative h-full bg-card/90 backdrop-blur-xl rounded-2xl p-5 flex flex-col justify-between">
+                <div className="flex items-start justify-between mb-4">
+                    <div className={cn("p-2 rounded-lg bg-muted/50", colorClass)}>
+                        {icon}
+                    </div>
+                    {trend && (
+                        <div className={cn(
+                            "flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-full bg-muted/50",
+                            trendUp ? "text-green-500" : "text-red-500"
+                        )}>
+                            {trendUp ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
+                            {trend}
+                        </div>
+                    )}
+                </div>
+
+                <div>
+                    <div className="text-2xl font-bold text-card-foreground mb-1 tracking-tight">{value}</div>
+                    <div className="flex items-center justify-between">
+                        <span className="text-xs font-medium text-muted-foreground">{label}</span>
+                        {subValue && (
+                            <span className="text-[10px] text-muted-foreground font-medium bg-muted/50 px-1.5 py-0.5 rounded">
+                                {subValue}
+                            </span>
+                        )}
+                    </div>
+                </div>
             </div>
         </div>
     );
@@ -54,80 +67,59 @@ interface DashboardSectionProps {
 
 export function DashboardSection({ stats, className }: DashboardSectionProps) {
     return (
-        <div className={cn("hidden lg:block", className)}>
-            <div className="bg-slate-900/40 backdrop-blur-2xl border border-white/5 rounded-[32px] p-6 shadow-xl">
-                <div className="flex items-center justify-between">
-                    {/* Left: Key Metrics Row */}
-                    <div className="flex items-center flex-1">
-                        <CompactStat
-                            label="Total Wallets"
-                            value={stats.totalWallets}
-                            trend="23"
-                            trendUp={true}
-                            colorClass="text-[#1fc7d4]"
-                            subValue="vs last mo"
-                        />
-                        <CompactStat
-                            label="Active"
-                            value={stats.activeCount}
-                            trend="15"
-                            trendUp={true}
-                            colorClass="text-[#31d0aa]"
-                            subValue="Active users"
-                        />
-                        <CompactStat
-                            label="Disabled"
-                            value={stats.disabledCount}
-                            trend="3"
-                            trendUp={false}
-                            colorClass="text-[#ed4b9e]"
-                            subValue="Attention"
-                        />
-                        <CompactStat
-                            label="Subscribed"
-                            value={stats.subscribedCount}
-                            trend="12.4%"
-                            trendUp={true}
-                            colorClass="text-[#7645d9]"
-                            subValue="Paid plans"
-                        />
-                        <CompactStat
-                            label="Expiring"
-                            value={stats.expiringSoon}
-                            trend="12"
-                            trendUp={false}
-                            colorClass="text-[#ffb237]"
-                            subValue="In 7 days"
-                        />
-                    </div>
-
-                    {/* Right: Revenue/Business Summary */}
-                    <div className="flex items-center gap-8 pl-8 border-l border-white/10 bg-white/5 py-4 px-8 rounded-3xl ml-6">
-                        <div className="flex flex-col text-right">
-                            <div className="flex items-center justify-end gap-1.5 text-[#31d0aa] mb-0.5">
-                                <TrendingUp className="h-3 w-3" />
-                                <span className="text-[10px] font-bold uppercase tracking-widest">MRR</span>
-                            </div>
-                            <span className="text-xl font-bold text-foreground">{stats.mrr}</span>
-                        </div>
-
-                        <div className="flex flex-col text-right">
-                            <div className="flex items-center justify-end gap-1.5 text-[#1fc7d4] mb-0.5">
-                                <Users className="h-3 w-3" />
-                                <span className="text-[10px] font-bold uppercase tracking-widest">Members</span>
-                            </div>
-                            <span className="text-xl font-bold text-foreground">{stats.members}</span>
-                        </div>
-
-                        <div className="flex flex-col text-right">
-                            <div className="flex items-center justify-end gap-1.5 text-[#7645d9] mb-0.5">
-                                <Crown className="h-3 w-3" />
-                                <span className="text-[10px] font-bold uppercase tracking-widest">Growth</span>
-                            </div>
-                            <span className="text-xl font-bold text-[#7645d9]">{stats.growth}</span>
-                        </div>
-                    </div>
-                </div>
+        <div className={cn("space-y-6", className)}>
+            {/* Key Metrics Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+                <StatCard
+                    label="Total Wallets"
+                    value={stats.totalWallets}
+                    trend="23"
+                    trendUp={true}
+                    subValue="vs last mo"
+                    icon={<Wallet className="w-5 h-5" />}
+                    colorClass="text-[#1fc7d4]"
+                    bgClass="bg-gradient-to-br from-[#1fc7d4]/20 via-transparent to-transparent"
+                />
+                <StatCard
+                    label="Active Users"
+                    value={stats.activeCount}
+                    trend="15"
+                    trendUp={true}
+                    subValue="Active"
+                    icon={<Users className="w-5 h-5" />}
+                    colorClass="text-[#31d0aa]"
+                    bgClass="bg-gradient-to-br from-[#31d0aa]/20 via-transparent to-transparent"
+                />
+                <StatCard
+                    label="Disabled"
+                    value={stats.disabledCount}
+                    trend="3"
+                    trendUp={false}
+                    subValue="Attention"
+                    icon={<AlertTriangle className="w-5 h-5" />}
+                    colorClass="text-[#ed4b9e]"
+                    bgClass="bg-gradient-to-br from-[#ed4b9e]/20 via-transparent to-transparent"
+                />
+                <StatCard
+                    label="Subscribed"
+                    value={stats.subscribedCount}
+                    trend="12.4%"
+                    trendUp={true}
+                    subValue="Paid plans"
+                    icon={<Package className="w-5 h-5" />}
+                    colorClass="text-[#7645d9]"
+                    bgClass="bg-gradient-to-br from-[#7645d9]/20 via-transparent to-transparent"
+                />
+                <StatCard
+                    label="Expiring"
+                    value={stats.expiringSoon}
+                    trend="12"
+                    trendUp={false}
+                    subValue="In 7 days"
+                    icon={<Clock className="w-5 h-5" />}
+                    colorClass="text-[#ffb237]"
+                    bgClass="bg-gradient-to-br from-[#ffb237]/20 via-transparent to-transparent"
+                />
             </div>
         </div>
     );

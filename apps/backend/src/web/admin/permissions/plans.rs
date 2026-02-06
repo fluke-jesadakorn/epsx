@@ -43,6 +43,7 @@ pub struct CreatePlanRequest {
     pub max_members: Option<i32>,
     pub auto_assign_enabled: Option<bool>,
     pub plan_metadata: Option<serde_json::Value>,
+    pub is_public: Option<bool>,
 }
 
 #[derive(Debug, Deserialize, utoipa::ToSchema)]
@@ -60,6 +61,7 @@ pub struct UpdatePlanRequest {
     pub max_members: Option<i32>,
     pub auto_assign_enabled: Option<bool>,
     pub plan_metadata: Option<serde_json::Value>,
+    pub is_public: Option<bool>,
 }
 
 #[derive(Debug, Serialize)]
@@ -82,6 +84,7 @@ pub struct PlanResponse {
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub member_count: i32,
+    pub is_public: bool,
 }
 
 #[derive(Debug, Deserialize)]
@@ -158,6 +161,7 @@ pub async fn create_plan(
         max_members: req.max_members,
         auto_assign_enabled: req.auto_assign_enabled,
         metadata: req.plan_metadata.clone(),
+        is_public: req.is_public,
     }) {
         Ok(g) => g,
         Err(e) => {
@@ -205,6 +209,7 @@ pub async fn create_plan(
         created_at: plan.created_at(),
         updated_at: plan.updated_at(),
         member_count: 0,
+        is_public: plan.is_public(),
     };
 
     AdminResponse::created(response, "Permission plan created successfully").into_response()
@@ -300,6 +305,7 @@ pub async fn get_plan(
         created_at: plan.created_at(),
         updated_at: plan.updated_at(),
         member_count,
+        is_public: plan.is_public(),
     };
 
     AdminResponse::success(response).into_response()
@@ -441,6 +447,7 @@ pub async fn list_plans(
             created_at: plan.created_at(),
             updated_at: plan.updated_at(),
             member_count: *count as i32,
+            is_public: plan.is_public(),
         }
     }).collect();
 
@@ -516,6 +523,7 @@ pub async fn update_plan(
         max_members: req.max_members.map(Some), // Wrap in Option
         auto_assign_enabled: req.auto_assign_enabled,
         metadata: req.plan_metadata,
+        is_public: req.is_public,
     };
 
     // Update the plan
@@ -530,7 +538,30 @@ pub async fn update_plan(
         return AdminResponse::server_error("Failed to update plan").into_response();
     }
 
-    AdminResponse::success_with_message(serde_json::json!({"id": plan_id}), "Plan updated successfully").into_response()
+    // Build response from updated domain model
+    let response = PlanResponse {
+        id: plan.id().to_string(),
+        name: plan.name().to_string(),
+        slug: plan.slug().as_str().to_string(),
+        description: plan.description().to_string(),
+        plan_type: plan.plan_type().to_string(),
+        permissions: plan.permissions().iter().map(|p| p.as_str().to_string()).collect(),
+        price: plan.price().to_string().parse::<BigDecimal>().unwrap_or_else(|_| BigDecimal::from(0)),
+        currency: plan.currency().to_string(),
+        billing_cycle: plan.billing_cycle().to_string(),
+        is_active: plan.is_active(),
+        is_promoted: plan.is_promoted(),
+        display_order: plan.display_order(),
+        max_members: plan.max_members(),
+        auto_assign_enabled: plan.auto_assign_enabled(),
+        plan_metadata: plan.metadata().clone(),
+        created_at: plan.created_at(),
+        updated_at: plan.updated_at(),
+        member_count: 0, // We don't recalculate member count on update, acceptable trade-off for performance
+        is_public: plan.is_public(),
+    };
+
+    AdminResponse::success(response).into_response()
 }
 
 /// Delete a permission plan

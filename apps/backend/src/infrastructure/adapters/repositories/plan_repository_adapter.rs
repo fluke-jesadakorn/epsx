@@ -214,6 +214,7 @@ impl PlanRepositoryPort for PostgresPlanRepositoryAdapter {
              rate_limit_per_day: 0,
              burst_capacity: 0,
              tier_level: 0, 
+             is_public: true, // Default to public for subscription plans
         };
 
         // 1. Upsert Plan

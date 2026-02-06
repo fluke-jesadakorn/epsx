@@ -14,7 +14,7 @@ export function ProgressiveAuthBanner({
     const pathname = usePathname();
 
     const handleSignIn = () => {
-        router.push(`/connect-wallet?return_url=${encodeURIComponent(pathname)}`);
+        router.push(`/auth?return_url=${encodeURIComponent(pathname)}`);
     };
 
     return <AuthBanner message={message} onSignIn={handleSignIn} />;

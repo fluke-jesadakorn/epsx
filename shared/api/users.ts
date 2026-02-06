@@ -89,6 +89,45 @@ export interface SubscriptionInfo {
   payment_method?: string;
 }
 
+interface AccessGroup {
+  name: string;
+  description?: string;
+  expires_at?: string;
+  permissions: string[];
+  source_type: 'plan' | 'group' | 'manual';
+  /** When this group was assigned */
+  assigned_at?: string;
+  /** Who assigned this group */
+  assigned_by?: string;
+  /** Days remaining until expiration */
+  days_remaining?: number;
+  /** Whether renewal is available for this plan */
+  can_renew?: boolean;
+  /** Price for renewal (e.g., "29.99 USDT") */
+  renewal_price?: string;
+  /** Billing cycle (e.g., "monthly", "yearly") */
+  billing_cycle?: string;
+}
+
+interface DirectPermission {
+  permission: string;
+  expires_at?: string;
+  /** Days remaining until expiration */
+  days_remaining?: number;
+  /** When this permission was granted */
+  granted_at?: string;
+  /** Who granted this permission */
+  granted_by?: string;
+  /** Source: 'manual' | 'system' */
+  source?: string;
+}
+
+export interface AccessOverviewData {
+  current_tier: string;
+  groups: AccessGroup[];
+  direct_permissions: DirectPermission[];
+}
+
 export interface UserApiKey {
   id: string;
   name: string;
@@ -333,6 +372,14 @@ export class UsersApi {
   // ============================================================================
   // PERMISSIONS
   // ============================================================================
+
+  /**
+   * Get access overview data (server-side compatible)
+   * GET /api/users/access-overview
+   */
+  async getAccessOverview(): Promise<ApiResponse<AccessOverviewData>> {
+    return this.client.get<AccessOverviewData>('/api/users/access-overview');
+  }
 
   /**
    * Get user permissions

@@ -38,6 +38,7 @@ pub struct PlanDb {
     pub created_by: Option<String>,
     pub last_modified_by: Option<String>,
     pub tier_level: i32,
+    pub is_public: bool,
 }
 
 /// Diesel Insertable model for creating new groups
@@ -68,6 +69,7 @@ pub struct NewPlanDb {
     pub rate_limit_per_day: i32,
     pub burst_capacity: i32,
     pub tier_level: i32,
+    pub is_public: bool,
 }
 
 /// Diesel AsChangeset model for updating groups
@@ -91,6 +93,7 @@ pub struct UpdatePlanDb {
     pub updated_at: Option<DateTime<Utc>>,
     pub last_modified_by: Option<String>,
     pub tier_level: Option<i32>,
+    pub is_public: Option<bool>,
 }
 
 /// Form data for group creation from API requests
@@ -108,6 +111,7 @@ pub struct CreatePlanRequest {
     pub max_members: Option<i32>,
     pub auto_assign_enabled: Option<bool>,
     pub assignment_rules: Option<serde_json::Value>,
+    pub is_public: Option<bool>,
 }
 
 /// Form data for group updates from API requests
@@ -127,6 +131,7 @@ pub struct UpdatePlanRequest {
     pub max_members: Option<i32>,
     pub auto_assign_enabled: Option<bool>,
     pub assignment_rules: Option<serde_json::Value>,
+    pub is_public: Option<bool>,
 }
 
 // Type aliases for backward compatibility

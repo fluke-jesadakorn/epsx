@@ -1,4 +1,5 @@
 import { getPaymentHistoryAction } from '@/app/actions/payments';
+import { AccessOverview } from '@/components/account/AccessOverview';
 import { AccountClient } from '@/components/account/AccountClient';
 
 export const dynamic = 'force-dynamic';
@@ -26,5 +27,8 @@ export default async function AccountPage() {
     };
   }
 
-  return <AccountClient initialPaymentHistory={initialHistory} />;
+  return <AccountClient
+    initialPaymentHistory={initialHistory}
+    accessOverviewSlot={<AccessOverview />}
+  />;
 }

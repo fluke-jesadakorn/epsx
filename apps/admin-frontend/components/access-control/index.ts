@@ -9,7 +9,8 @@ export * from './types';
 // Components
 // Components
 export { AccessControlHub } from './AccessControlHub';
-export { AccessControlPage } from './AccessControlPage';
+export { PermissionsView } from './PermissionsView';
+export { PlansView } from './PlansView';
 export { PolicyCard } from './PolicyCard';
 export { PolicyFilters, PolicyTypeChips } from './PolicyFilters';
 export { PolicyStatsBar, PolicyStatsCompact } from './PolicyStatsBar';

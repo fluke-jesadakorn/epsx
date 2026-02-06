@@ -63,6 +63,7 @@ impl CommandHandler<UpdatePermissionPlanCommand> for UpdatePermissionPlanCommand
             max_members: command.max_members,
             auto_assign_enabled: command.auto_assign_enabled,
             metadata: command.metadata,
+            is_public: None, // No visibility change via this handler
         }).map_err(ApplicationError::from)?;
 
         // 5. Save plan

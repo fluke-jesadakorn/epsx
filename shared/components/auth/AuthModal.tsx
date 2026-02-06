@@ -50,9 +50,9 @@ export function AuthModal({
 
     // Wagmi hooks
     const { address, isConnected, chain } = useAccount();
-    const { connect, connectors, isPending: isConnecting } = useConnect();
+    const { connect, connectors, error: connectError, isPending: isConnecting } = useConnect();
     const { disconnect } = useDisconnect();
-    const { data: walletClient } = useWalletClient();
+    const { data: walletClient, isLoading: isWalletClientLoading } = useWalletClient();
     const [isSigning, setIsSigning] = useState(false);
     const { switchChain, isPending: isSwitching } = useSwitchChain();
 
@@ -62,6 +62,17 @@ export function AuthModal({
     // Check if on correct chain
     const isCorrectChain = chain && SUPPORTED_CHAINS.includes(chain.id);
 
+    // Sync connection error to local state
+    useEffect(() => {
+        if (connectError) {
+            // Clean up error message
+            const msg = connectError.message || 'Failed to connect';
+            // If it's the "User rejected" error, might want to show a softer message
+            // or just show it as is.
+            setError(msg);
+        }
+    }, [connectError]);
+
     // Reset state when modal opens
     useEffect(() => {
         if (isOpen) {
@@ -69,25 +80,34 @@ export function AuthModal({
             if (isConnected && address) {
                 if (!isCorrectChain) {
                     setStep('switch-chain');
-                } else {
+                } else if (walletClient) {
+                    // Only go to sign if walletClient is ready
                     setStep('sign');
+                } else {
+                    // Wallet connected but walletClient not ready, stay on connect
+                    // This prevents stuck state after sign-out
+                    setStep('connect');
                 }
             } else {
                 setStep('connect');
             }
         }
-    }, [isOpen, isConnected, address, isCorrectChain]);
+    }, [isOpen, isConnected, address, isCorrectChain, walletClient]);
 
     // Handle wallet connection state changes
+    // Only advance to 'sign' when wallet is connected AND walletClient is available
     useEffect(() => {
         if (isConnected && address && step === 'connect') {
             if (!isCorrectChain) {
                 setStep('switch-chain');
-            } else {
+            } else if (walletClient) {
+                // Only go to sign step if walletClient is ready
                 setStep('sign');
             }
+            // If walletClient not ready yet, stay on 'connect' step
+            // The button will show "Preparing Wallet..." via the existing logic
         }
-    }, [isConnected, address, isCorrectChain, step]);
+    }, [isConnected, address, isCorrectChain, step, walletClient]);
 
     // Handle chain switch
     const handleSwitchChain = useCallback(async () => {
@@ -259,6 +279,28 @@ export function AuthModal({
                                     </button>
                                 ))}
                             </div>
+
+                            {/* Connection Error Display */}
+                            {error && (
+                                <div className="auth-connection-error" style={{
+                                    marginTop: '1rem',
+                                    padding: '0.75rem',
+                                    borderRadius: '8px',
+                                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                                    border: '1px solid rgba(239, 68, 68, 0.2)',
+                                    color: '#ef4444',
+                                    fontSize: '0.875rem',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '0.25rem'
+                                }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600 }}>
+                                        <span>⚠️</span>
+                                        <span>Connection Failed</span>
+                                    </div>
+                                    <p style={{ margin: 0, opacity: 0.9 }}>{error}</p>
+                                </div>
+                            )}
                         </div>
                     )}
 
@@ -309,12 +351,17 @@ export function AuthModal({
                             <button
                                 className="auth-btn-primary"
                                 onClick={handleSign}
-                                disabled={isSigning}
+                                disabled={isSigning || isWalletClientLoading || !walletClient}
                             >
                                 {isSigning ? (
                                     <>
                                         <span className="auth-spinner" />
                                         Sign in Wallet...
+                                    </>
+                                ) : isWalletClientLoading || !walletClient ? (
+                                    <>
+                                        <span className="auth-spinner" />
+                                        Preparing Wallet...
                                     </>
                                 ) : (
                                     '✍️ Sign Message'

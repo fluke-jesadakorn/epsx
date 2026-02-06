@@ -138,7 +138,7 @@ export function useRedirectGuardCleanup() {
 /**
  * Validate returnUrl to prevent auth page loops
  */
-const AUTH_PAGES = ['/auth/signin', '/auth/login', '/connect-wallet'];
+const AUTH_PAGES = ['/auth', '/auth/signin', '/auth/login'];
 
 export function validateReturnUrl(returnUrl: string, fallback: string = '/dashboard'): string {
   // Prevent auth pages from being returnUrl

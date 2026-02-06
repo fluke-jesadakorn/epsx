@@ -12,6 +12,7 @@
  */
 
 import { submitTransactionAction } from '@/app/actions/payments';
+import { getPublicPlansAction } from '@/app/actions/plans';
 import { createFrontendApiClient } from '@/shared/utils/api-client';
 import {
     AlertCircle,
@@ -159,7 +160,11 @@ export function UnifiedPaymentFlow({
         tokenAddress,
         receiverAddress,
         amount: amountInDecimals,
-        onError: (msg) => setError(msg)
+        onError: (msg) => {
+            setError(msg)
+            // Reset to confirm step so user can see the error and try again
+            setStep('confirm')
+        }
     });
 
     // Current plan tier level - use tier_level from planAccess if available

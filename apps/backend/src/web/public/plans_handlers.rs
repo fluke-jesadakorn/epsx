@@ -78,7 +78,10 @@ pub async fn get_public_plans(
     }
 
     // Convert database plans to frontend format
-    let plans: Vec<PublicPlanResponse> = db_plans.into_iter().map(|plan| {
+    // First filter by is_public to only show public plans
+    let plans: Vec<PublicPlanResponse> = db_plans.into_iter()
+        .filter(|plan| plan.is_public) // Only include public plans
+        .map(|plan| {
         use crate::domain::subscription_management::Promotion;
 
         // Extract permissions array from JSONB

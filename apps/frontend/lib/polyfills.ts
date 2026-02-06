@@ -1,6 +1,14 @@
 // This polyfill resolves a specific issue with Next.js/Turbopack where implicit BigInt
 // exponentiation (**) is sometimes transpiled to Math.pow(), which normally crashes with BigInts.
 
+/**
+ * BIGINT-SAFE MATH POLYFILLS
+ * 
+ * ESM bundles (like viem) often contain transpiled code that uses Math.pow
+ * with BigInt arguments, which throws TypeError in native JavaScript.
+ * This file MUST be imported before any other module that uses BigInt.
+ */
+
 // Access the global Math object safely
 const anyMath = Math as any;
 
@@ -15,9 +23,11 @@ if (!anyMath.pow.__isPolyfilled) {
         // Case 1: Both BigInt
         if (typeof base === 'bigint' && typeof exponent === 'bigint') {
             try {
+                // Use Function to avoid transpilation of ** to Math.pow
                 return new Function('b', 'e', 'return b ** e')(base, exponent);
             } catch (e) {
                 // Fallback: Loop
+                if (exponent < 0n) return 0n; // Simple fallback
                 let res = 1n;
                 for (let i = 0n; i < exponent; i++) {
                     res *= base;
@@ -29,7 +39,7 @@ if (!anyMath.pow.__isPolyfilled) {
         // Case 2: Mixed Types (BigInt base, Number exponent)
         if (typeof base === 'bigint' && typeof exponent === 'number') {
             try {
-                return new Function('b', 'e', 'return b ** e')(base, exponent);
+                return new Function('b', 'e', 'return b ** BigInt(e)')(base, exponent);
             } catch (e) {
                 // Fallback: Loop (if exponent is integer)
                 if (Math.floor(exponent) === exponent && exponent >= 0) {
@@ -47,7 +57,7 @@ if (!anyMath.pow.__isPolyfilled) {
         // Case 3: Mixed Types (Number base, BigInt exponent)
         if (typeof base === 'number' && typeof exponent === 'bigint') {
             try {
-                return new Function('b', 'e', 'return b ** e')(base, exponent);
+                return new Function('b', 'e', 'return BigInt(b) ** e')(base, exponent);
             } catch (e) {
                 // Fallback: Loop or safe conversion
                 // 2 ** 3n -> 8 (number? or bigint?) Native ** returns BigInt if base is BigInt? 
@@ -78,6 +88,29 @@ if (!anyMath.pow.__isPolyfilled) {
 
     // Mark as polyfilled to prevent re-wrapping
     (Math.pow as any).__isPolyfilled = true;
+
+    // Also polyfill common Math functions that might be called with BigInt during transpilation
+    const mathFuncs = ['floor', 'ceil', 'round', 'trunc', 'abs'];
+    mathFuncs.forEach(func => {
+        const original = (Math as any)[func];
+        if (original && !original.__isPolyfilled) {
+            (Math as any)[func] = function (val: any) {
+                if (typeof val === 'bigint') return val;
+                return original.call(Math, val);
+            };
+            (Math as any)[func].__isPolyfilled = true;
+        }
+    });
+
+    // CRITICAL: Self-test the polyfill immediately
+    try {
+        const result = (Math.pow as any)(2n, 3n);
+        if ((result as any) !== 8n) {
+            console.error('[POLYFILL] Self-test failed: Math.pow(2n, 3n) !== 8n');
+        }
+    } catch (e) {
+        console.error('[POLYFILL] Self-test CRASHED:', e);
+    }
 }
 
 // Validation: Mock localStorage for Server-Side Rendering

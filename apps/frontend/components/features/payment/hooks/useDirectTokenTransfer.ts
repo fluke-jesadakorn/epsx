@@ -82,6 +82,7 @@ export function useDirectTokenTransfer({
 
             if (isUserRejection) {
                 devLog('👤 User cancelled transfer')
+                onError?.('Transaction cancelled. You can try again when ready.')
             } else if (isRpcUnavailable) {
                 devLog('🔌 RPC connection issue detected')
                 onError?.('RPC connection failed. Ensure MetaMask RPC URL matches your network access (e.g., use Tailscale IP instead of localhost for remote access).')

@@ -117,6 +117,7 @@ impl PlanRepositoryPort for PlanRepositoryAdapter {
                 max_members: row.max_members,
                 auto_assign_enabled: row.auto_assign_enabled.unwrap_or(false),
                 metadata: row.plan_metadata,
+                is_public: row.is_public,
                 created_at: row.created_at,
                 updated_at: row.updated_at,
                 version: 1,
@@ -241,6 +242,7 @@ impl PlanRepositoryPort for PlanRepositoryAdapter {
             rate_limit_per_day: 0,
             burst_capacity: 0,
             tier_level: 0, // Default to free tier
+            is_public: plan.is_public(),
         };
 
         // Upsert permission plan
@@ -261,6 +263,7 @@ impl PlanRepositoryPort for PlanRepositoryAdapter {
                 plans::auto_assign_enabled.eq(&new_plan.auto_assign_enabled),
                 plans::plan_metadata.eq(&new_plan.plan_metadata),
                 plans::updated_at.eq(new_plan.updated_at),
+                plans::is_public.eq(new_plan.is_public),
             ))
             .execute(&mut conn)
             .await

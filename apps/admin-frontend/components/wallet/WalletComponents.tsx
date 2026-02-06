@@ -5,6 +5,20 @@ import { cn } from '@/lib/utils';
 import { useDraggable, useDroppable } from '@dnd-kit/core';
 import { Key, Package } from 'lucide-react';
 
+// --- Utilities ---
+function formatTimeRemaining(expiryDate: string): string {
+    const diff = new Date(expiryDate).getTime() - new Date().getTime();
+    if (diff <= 0) return "(Expired)";
+
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    if (days > 0) return `(${days} days left)`;
+
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    if (hours > 0) return `(${hours} hours left)`;
+
+    return "(Less than an hour left)";
+}
+
 // --- Permissions ---
 
 export function DraggablePermissionItem({ id, label, onRemove }: { id: string; label: string; onRemove?: () => void }) {
@@ -203,8 +217,17 @@ export function DroppablePlanList({
                                     <p className="font-semibold text-sm text-slate-200">
                                         {plan.name}
                                     </p>
-                                    {plan.isPending && (
-                                        <span className="text-[10px] text-amber-400 font-bold uppercase tracking-wider">Pending Add</span>
+                                    {plan.isPending ? (
+                                        <div className="flex flex-col items-start mt-0.5">
+                                            <span className="text-[10px] text-amber-400 font-bold uppercase tracking-wider leading-none mb-1">Pending Add</span>
+                                            <span className="text-[10px] text-slate-400/80 font-medium leading-none">
+                                                {plan.expiresAt ? `Expires: ${new Date(plan.expiresAt).toLocaleDateString()} ${formatTimeRemaining(plan.expiresAt)}` : "Permanent"}
+                                            </span>
+                                        </div>
+                                    ) : (
+                                        <p className="text-xs text-slate-400 mt-0.5">
+                                            {plan.expiresAt ? `Expires: ${new Date(plan.expiresAt).toLocaleDateString()} ${formatTimeRemaining(plan.expiresAt)}` : "Permanent"}
+                                        </p>
                                     )}
                                 </div>
                             </div>
@@ -221,7 +244,7 @@ export function DroppablePlanList({
                                         Manage
                                     </Button>
                                 )}
-                                {onEdit && !plan.isPending && (
+                                {onEdit && (
                                     <Button
                                         variant="ghost"
                                         size="sm"

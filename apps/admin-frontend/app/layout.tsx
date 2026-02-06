@@ -75,11 +75,26 @@ export default async function RootLayout({
   // Server-side auth check to seed client state
   const user = await getAuthUser();
 
-  // Unified Web3 Cookie Hydration
+  // Unified Web3 Cookie Hydration with safe error handling
   const headersList = await headers();
   const rawCookie = headersList.get('cookie');
-  const cookie = rawCookie ? decodeURIComponent(rawCookie) : rawCookie;
-  const initialState = cookieToInitialState(getServerConfig(), cookie);
+
+  // Safely parse wagmi cookie state - handle URL-encoded or malformed cookies
+  let initialState;
+  try {
+    // First try with raw cookie (wagmi's default behavior)
+    initialState = cookieToInitialState(getServerConfig(), rawCookie);
+  } catch {
+    // Cookie value might be URL-encoded - try decoding first
+    try {
+      const decodedCookie = rawCookie ? decodeURIComponent(rawCookie) : null;
+      initialState = cookieToInitialState(getServerConfig(), decodedCookie);
+    } catch {
+      // If all parsing fails, use undefined (fresh state)
+      console.warn('[Layout] Failed to parse wagmi cookie state, using fresh state');
+      initialState = undefined;
+    }
+  }
 
   // Check for auth cookie presence on server
   const hasAuthCookie = rawCookie ? (rawCookie.includes('epsx.user') || rawCookie.includes('epsx.access_token')) : false;
@@ -122,23 +137,21 @@ export default async function RootLayout({
         <SafeThemeScript />
       </head>
       <body
-        className={`${kanit.variable} h-screen bg-[#08060b] text-foreground overflow-hidden font-sans`}
+        className={`${kanit.variable} h-screen bg-background text-foreground overflow-hidden font-sans`}
         suppressHydrationWarning
       >
-        {/* Modern, deep background system */}
+        {/* Modern, theme-aware background system */}
         <div className="fixed inset-0 z-[-1] overflow-hidden pointer-events-none">
-          {/* Base gradient */}
-          <div className="absolute inset-0 bg-gradient-to-br from-[#08060b] via-[#120c1d] to-[#08060b]" />
+          {/* Base gradient - adapts to theme */}
+          <div className="absolute inset-0 bg-gradient-to-br from-background via-muted to-background" />
 
-          {/* Subdued Grid */}
-          <div className="absolute inset-0 bg-grid-pattern opacity-40" />
+          {/* Subdued Grid - only visible in dark mode */}
+          <div className="absolute inset-0 bg-grid-pattern opacity-0 dark:opacity-40" />
 
-          {/* Decorative blurry blobs */}
-          <div className="absolute -top-[10%] -left-[10%] w-[40%] h-[40%] bg-[#7645d9]/10 rounded-full blur-[120px] animate-pulse" />
-          <div className="absolute top-[20%] -right-[5%] w-[30%] h-[30%] bg-[#1fc7d4]/5 rounded-full blur-[100px]" />
-          <div className="absolute -bottom-[10%] left-[20%] w-[50%] h-[50%] bg-[#ed4b9e]/5 rounded-full blur-[150px] animate-pulse" style={{ animationDuration: '8s' }} />
-
-          {/* Subtle noise/texture overlay if needed, currently just using the clean gradient */}
+          {/* Decorative blurry blobs - only visible in dark mode */}
+          <div className="absolute -top-[10%] -left-[10%] w-[40%] h-[40%] bg-primary/0 dark:bg-primary/10 rounded-full blur-[120px] animate-pulse" />
+          <div className="absolute top-[20%] -right-[5%] w-[30%] h-[30%] bg-[#1fc7d4]/0 dark:bg-[#1fc7d4]/5 rounded-full blur-[100px]" />
+          <div className="absolute -bottom-[10%] left-[20%] w-[50%] h-[50%] bg-[#ed4b9e]/0 dark:bg-[#ed4b9e]/5 rounded-full blur-[150px] animate-pulse" style={{ animationDuration: '8s' }} />
         </div>
 
         {/* Main application wrapper */}

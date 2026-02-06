@@ -1,6 +1,10 @@
-import '@/lib/polyfills';
-// Import browser polyfills first to handle SSR issues
 import { GlobalErrorBoundary } from '@/components/error-boundaries/GlobalErrorBoundary';
+import '@/lib/polyfills';
+import Script from 'next/script';
+// Verify polyfills are active for debugging (both for server and client module load)
+if (typeof window !== 'undefined' && (Math.pow as any).__isPolyfilled) {
+  console.log('[Layout] BigInt-safe Math polyfills verified active (Module)');
+}
 
 import { NavigationClient } from '@/components/nav/NavigationClient';
 import { ClientProviders } from '@/components/providers/ClientProviders';
@@ -72,11 +76,66 @@ export default async function RootLayout({
   // Unified Web3 Cookie Hydration
   const headersList = await headers();
   const cookie = headersList.get('cookie');
-  const initialState = cookieToInitialState(getServerConfig(), cookie);
+
+  // Safely parse wagmi cookie state - handle URL-encoded or malformed cookies
+  let initialState;
+  try {
+    initialState = cookieToInitialState(getServerConfig(), cookie);
+  } catch (error) {
+    // Cookie value might be URL-encoded (e.g., '%7B%22stat...' instead of raw JSON)
+    // Try decoding the cookie string first
+    try {
+      const decodedCookie = cookie ? decodeURIComponent(cookie) : null;
+      initialState = cookieToInitialState(getServerConfig(), decodedCookie);
+    } catch {
+      // If all parsing fails, use undefined (fresh state)
+      console.warn('[Layout] Failed to parse wagmi cookie state, using fresh state');
+      initialState = undefined;
+    }
+  }
 
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        {/* CRITICAL: BigInt-safe Math polyfill must run before ANY other JS */}
+        <Script id="bigint-polyfill" strategy="beforeInteractive">
+          {`
+            (function() {
+              if (!Math.pow || !Math.pow.__isPolyfilled) {
+                var originalPow = Math.pow;
+                Math.pow = function(b, e) {
+                  if (typeof b === 'bigint' || typeof e === 'bigint') {
+                    try {
+                      return new Function('b', 'e', 'return b ** e')(b, e);
+                    } catch (err) {
+                      if (typeof b === 'bigint' && typeof e === 'bigint') {
+                         var res = 1n; 
+                         var exp = BigInt(e);
+                         if (exp < 0n) return 0n;
+                         for (var i = 0n; i < exp; i++) res *= b;
+                         return res;
+                      }
+                      return NaN;
+                    }
+                  }
+                  return originalPow.apply(Math, arguments);
+                };
+                Math.pow.__isPolyfilled = true;
+                
+                ['floor', 'ceil', 'round', 'trunc', 'abs'].forEach(function(f) {
+                  var orig = Math[f];
+                  if (orig) {
+                    Math[f] = function(v) {
+                      if (typeof v === 'bigint') return v;
+                      return orig.call(Math, v);
+                    };
+                  }
+                });
+                console.log('[Polyfill] Inline BigInt-safe Math polyfill active');
+              }
+            })();
+          `}
+        </Script>
         {/* Mobile performance optimizations */}
         <meta name="msapplication-tap-highlight" content="no" />
 
