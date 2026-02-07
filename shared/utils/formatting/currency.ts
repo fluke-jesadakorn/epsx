@@ -6,7 +6,7 @@
 /**
  * Format currency value with locale support
  */
-export function formatCurrency(value: number, currency: string = 'USD'): string {
+export function formatCurrency(value: number, currency = 'USD'): string {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: currency,
@@ -16,7 +16,7 @@ export function formatCurrency(value: number, currency: string = 'USD'): string 
 /**
  * Format currency value (alias for compatibility)
  */
-export function fmtCurrency(value: number, currency: string = 'USD'): string {
+export function fmtCurrency(value: number, currency = 'USD'): string {
   return formatCurrency(value, currency)
 }
 
@@ -30,7 +30,7 @@ export const cur = (amount: number, currency = 'USD'): string =>
  * Format EPS value for display with proper precision
  */
 export function formatEPS(value: number): string {
-  if (value === 0) return '$0.00'
+  if (value === 0) {return '$0.00'}
   if (Math.abs(value) < 0.01) {
     return value < 0 ? '-$0.01' : '$0.01'
   }
@@ -41,9 +41,9 @@ export function formatEPS(value: number): string {
  * Format price with appropriate precision based on value
  */
 export function formatPrice(price: number | null): string {
-  if (price === null) return 'N/A'
-  if (price >= 1000) return price.toLocaleString('en-US', { maximumFractionDigits: 2 })
-  if (price >= 1) return price.toFixed(2)
+  if (price === null) {return 'N/A'}
+  if (price >= 1000) {return price.toLocaleString('en-US', { maximumFractionDigits: 2 })}
+  if (price >= 1) {return price.toFixed(2)}
   return price.toFixed(4)
 }
 
@@ -73,7 +73,7 @@ export function formatLargeNumber(value: number): string {
  * Format file size in human readable format
  */
 export function formatFileSize(bytes: number): string {
-  if (bytes === 0) return '0 Bytes'
+  if (bytes === 0) {return '0 Bytes'}
   
   const k = 1024
   const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB']

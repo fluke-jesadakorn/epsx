@@ -108,9 +108,9 @@ export function withPaymentAuth<P extends object>(
   const PaymentAuthComponent = forwardRef((props: any, ref: React.Ref<any>) => {
     const { isLoading, isAuthenticated, hasPaymentAccess, user, router } = usePaymentAuth()
 
-    if (isLoading) return <LoadingUI />
-    if (!isAuthenticated) return <AuthRequiredUI />
-    if (!hasPaymentAccess) return <PaymentAccessRequiredUI user={user} router={router} />
+    if (isLoading) {return <LoadingUI />}
+    if (!isAuthenticated) {return <AuthRequiredUI />}
+    if (!hasPaymentAccess) {return <PaymentAccessRequiredUI user={user} router={router} />}
 
     return <WrappedComponent {...props} ref={ref} />
   })

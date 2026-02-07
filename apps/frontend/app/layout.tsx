@@ -1,10 +1,6 @@
 import { GlobalErrorBoundary } from '@/components/error-boundaries/GlobalErrorBoundary';
 import '@/lib/polyfills';
 import Script from 'next/script';
-// Verify polyfills are active for debugging (both for server and client module load)
-if (typeof window !== 'undefined' && (Math.pow as any).__isPolyfilled) {
-  console.log('[Layout] BigInt-safe Math polyfills verified active (Module)');
-}
 
 import { NavigationClient } from '@/components/nav/NavigationClient';
 import { ClientProviders } from '@/components/providers/ClientProviders';
@@ -18,6 +14,10 @@ import { cookieToInitialState } from 'wagmi';
 import './globals.css';
 
 import { SafeThemeScript } from '@/components/ui/SafeThemeScript';
+// Verify polyfills are active for debugging (both for server and client module load)
+if (typeof window !== 'undefined' && (Math.pow as any).__isPolyfilled) {
+  console.log('[Layout] BigInt-safe Math polyfills verified active (Module)');
+}
 
 // Initialize runtime environment validation
 initializeRuntimeEnvironment();

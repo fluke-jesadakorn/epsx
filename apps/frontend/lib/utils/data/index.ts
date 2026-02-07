@@ -56,7 +56,7 @@ export function arrayToCSV(data: Record<string, unknown>[], options: Partial<Exp
 }
 
 function escapeCSVField(field: string): string {
-  if (field == null) return '';
+  if (field == null) {return '';}
 
   const stringField = String(field);
 
@@ -69,7 +69,7 @@ function escapeCSVField(field: string): string {
 }
 
 function formatValue(value: unknown): string {
-  if (value == null) return '';
+  if (value == null) {return '';}
 
   if (value instanceof Date) {
     return value.toISOString();
@@ -117,17 +117,17 @@ export function downloadBlob(blob: Blob, filename: string): void {
   URL.revokeObjectURL(url);
 }
 
-export function downloadData(data: string, filename: string, mimeType: string = 'text/plain'): void {
+export function downloadData(data: string, filename: string, mimeType = 'text/plain'): void {
   const blob = new Blob([data], { type: mimeType });
   downloadBlob(blob, filename);
 }
 
-export function downloadCSV(data: Record<string, unknown>[], filename: string = 'export.csv', options: Partial<ExportOptions> = {}): void {
+export function downloadCSV(data: Record<string, unknown>[], filename = 'export.csv', options: Partial<ExportOptions> = {}): void {
   const csv = arrayToCSV(data, options);
   downloadData(csv, filename, 'text/csv');
 }
 
-export function downloadJSON(data: unknown, filename: string = 'export.json'): void {
+export function downloadJSON(data: unknown, filename = 'export.json'): void {
   const json = exportToJSON(data);
   downloadData(json, filename, 'application/json');
 }
@@ -351,14 +351,14 @@ export function sanitizeFilename(filename: string): string {
 // Number Formatting
 // ============================================================================
 
-export function formatCurrency(amount: number, currency: string = 'USD'): string {
+export function formatCurrency(amount: number, currency = 'USD'): string {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency
   }).format(amount);
 }
 
-export function formatPercent(value: number, decimals: number = 2): string {
+export function formatPercent(value: number, decimals = 2): string {
   return new Intl.NumberFormat('en-US', {
     style: 'percent',
     minimumFractionDigits: decimals,
@@ -366,7 +366,7 @@ export function formatPercent(value: number, decimals: number = 2): string {
   }).format(value / 100);
 }
 
-export function formatNumber(value: number, decimals: number = 0): string {
+export function formatNumber(value: number, decimals = 0): string {
   return new Intl.NumberFormat('en-US', {
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals
@@ -374,7 +374,7 @@ export function formatNumber(value: number, decimals: number = 0): string {
 }
 
 export function formatBytes(bytes: number): string {
-  if (bytes === 0) return '0 Bytes';
+  if (bytes === 0) {return '0 Bytes';}
 
   const k = 1024;
   const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
@@ -390,7 +390,7 @@ export function formatBytes(bytes: number): string {
 export const dataCache = new SimpleCache();
 
 // Service Worker utilities
-export function registerServiceWorker(swUrl: string = '/sw.js'): Promise<ServiceWorkerRegistration> {
+export function registerServiceWorker(swUrl = '/sw.js'): Promise<ServiceWorkerRegistration> {
   if (typeof window === 'undefined' || !('serviceWorker' in navigator)) {
     return Promise.reject(new Error('Service Worker not supported'));
   }

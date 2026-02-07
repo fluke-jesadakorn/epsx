@@ -139,6 +139,8 @@ pub async fn create_assignment(
         name: String,
         #[diesel(sql_type = diesel::sql_types::Text)]
         plan_type: String,
+        #[diesel(sql_type = diesel::sql_types::Jsonb)]
+        plan_metadata: serde_json::Value,
     }
 
     // Run transaction
@@ -149,11 +151,12 @@ pub async fn create_assignment(
     let assignment_reason_clone = req.assignment_reason.clone();
     let payment_reference_clone = req.payment_reference.clone();
     let subscription_id_clone = req.subscription_id.clone();
+    let req_expires_at = req.expires_at;
+    let req_auto_renew = req.auto_renew.unwrap_or(false);
 
     let result = conn.transaction::<_, diesel::result::Error, _>(|conn| {
         Box::pin(async move {
             // CRITICAL: Ensure wallet_users entry exists before assignment (FK constraint)
-            // This auto-creates a wallet user if it doesn't exist
             diesel::sql_query(
                 r#"
                 INSERT INTO wallet_users (wallet_address, is_active, tier_level, wallet_metadata)
@@ -165,8 +168,34 @@ pub async fn create_assignment(
             .execute(conn)
             .await?;
 
+            // Fetch plan details early to get expiry settings
+            let plan = diesel::sql_query(
+                "SELECT name, plan_type, plan_metadata FROM plans WHERE id = $1"
+            )
+            .bind::<diesel::sql_types::Uuid, _>(plan_uuid)
+            .get_result::<PlanDetails>(conn)
+            .await
+            .optional()?;
+
+            let plan_ref = plan.as_ref().ok_or(diesel::result::Error::NotFound)?;
+
+            // Calculate expiry
+            let expires_at = match req_expires_at {
+                Some(at) => Some(at),
+                None => {
+                    let days = plan_ref.plan_metadata.get("default_expiry_days")
+                        .and_then(|v| v.as_i64())
+                        .unwrap_or(30);
+                    
+                    if days == -1 {
+                        None
+                    } else {
+                        Some(Utc::now() + chrono::Duration::try_days(days).unwrap_or_else(|| chrono::Duration::zero()))
+                    }
+                }
+            };
+
             // Deactivate existing subscription plan assignments for this wallet
-            // Enforces single active plan per user (plans can still have multiple users)
             diesel::sql_query(
                 r#"
                 UPDATE wallet_plan_assignments 
@@ -198,35 +227,29 @@ pub async fn create_assignment(
             )
             .bind::<diesel::sql_types::Text, _>(&wallet_clone)
             .bind::<diesel::sql_types::Uuid, _>(plan_uuid)
-            .bind::<diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>, _>(req.expires_at)
+            .bind::<diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>, _>(expires_at)
             .bind::<diesel::sql_types::Text, _>(&assignment_source_clone)
             .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(&assignment_reason_clone)
             .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(&payment_reference_clone)
             .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(&subscription_id_clone)
-            .bind::<diesel::sql_types::Bool, _>(req.auto_renew.unwrap_or(false))
-            .bind::<diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>, _>(req.expires_at)
+            .bind::<diesel::sql_types::Bool, _>(req_auto_renew)
+            .bind::<diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>, _>(expires_at)
             .bind::<diesel::sql_types::Jsonb, _>(&assignment_metadata)
             .get_result::<AssignmentId>(conn)
             .await?
             .id;
 
-            // Fetch plan details
-            let plan = diesel::sql_query(
-                "SELECT name, plan_type FROM plans WHERE id = $1"
-            )
-            .bind::<diesel::sql_types::Uuid, _>(plan_uuid)
-            .get_result::<PlanDetails>(conn)
-            .await
-            .optional()?;
-
-            Ok((assignment_id, plan))
+            Ok((assignment_id, plan, expires_at))
         })
     }).await;
 
-    let (assignment_id, plan) = match result {
-        Ok((id, Some(g))) => (id, g),
-        Ok((_, None)) => return AdminResponse::not_found("Permission plan").into_response(),
+    let (assignment_id, plan, final_expires_at) = match result {
+        Ok((id, Some(g), exp)) => (id, g, exp),
+        Ok((_, None, _)) => return AdminResponse::not_found("Permission plan").into_response(),
         Err(e) => {
+            if matches!(e, diesel::result::Error::NotFound) {
+                return AdminResponse::not_found("Permission plan").into_response();
+            }
             tracing::error!("Transaction failed: {}", e);
             return AdminResponse::server_error("Failed to create assignment").into_response();
         }
@@ -240,15 +263,15 @@ pub async fn create_assignment(
         plan_name: plan.name,
         plan_type: plan.plan_type,
         assigned_at: Utc::now(),
-        expires_at: req.expires_at,
+        expires_at: final_expires_at,
         is_active: true,
         assignment_source: req.assignment_source,
         assignment_reason: req.assignment_reason,
         assigned_by: None,
         payment_reference: req.payment_reference,
         subscription_id: req.subscription_id,
-        auto_renew: req.auto_renew.unwrap_or(false),
-        next_billing_date: req.expires_at,
+        auto_renew: req_auto_renew,
+        next_billing_date: final_expires_at,
         assignment_metadata: req.assignment_metadata.unwrap_or(serde_json::json!({})),
     };
 

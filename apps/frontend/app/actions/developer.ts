@@ -33,7 +33,7 @@ export async function getApiKeysAction(filters?: { limit?: number; offset?: numb
 /**
  * Fetch usage history (default 7 days)
  */
-export async function getUsageHistoryAction(days: number = 7) {
+export async function getUsageHistoryAction(days = 7) {
     const client = await getServerActionClient();
     const usersClient = createUsersClient(client);
     return usersClient.getUsageHistory(days);
@@ -42,7 +42,7 @@ export async function getUsageHistoryAction(days: number = 7) {
 /**
  * Fetch top endpoints (default 7 days)
  */
-export async function getTopEndpointsAction(days: number = 7) {
+export async function getTopEndpointsAction(days = 7) {
     const client = await getServerActionClient();
     const usersClient = createUsersClient(client);
     return usersClient.getTopEndpoints(days);

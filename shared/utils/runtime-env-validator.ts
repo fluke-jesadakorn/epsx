@@ -124,14 +124,14 @@ export function getRuntimeEnvironment(isDevelopment = false): RequiredEnvVars & 
 
   return {
     // Required variables with centralized URL resolver fallbacks
-    NEXT_PUBLIC_BACKEND_URL: process.env.NEXT_PUBLIC_BACKEND_URL || getBackendUrl(URLContext.CLIENT),
-    NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL || getFrontendUrl(URLContext.CLIENT),
-    NEXT_PUBLIC_ADMIN_URL: process.env.NEXT_PUBLIC_ADMIN_URL || getAdminUrl(URLContext.CLIENT),
-    NEXT_PUBLIC_OAUTH_CLIENT_ID: process.env.NEXT_PUBLIC_OAUTH_CLIENT_ID || (isDevelopment ? 'epsx-frontend' : ''),
+    NEXT_PUBLIC_BACKEND_URL: process.env.NEXT_PUBLIC_BACKEND_URL ?? getBackendUrl(URLContext.CLIENT),
+    NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL ?? getFrontendUrl(URLContext.CLIENT),
+    NEXT_PUBLIC_ADMIN_URL: process.env.NEXT_PUBLIC_ADMIN_URL ?? getAdminUrl(URLContext.CLIENT),
+    NEXT_PUBLIC_OAUTH_CLIENT_ID: process.env.NEXT_PUBLIC_OAUTH_CLIENT_ID ?? (isDevelopment ? 'epsx-frontend' : ''),
 
     // Optional Web3 variables
-    NEXT_PUBLIC_BLOCKCHAIN_NETWORK: process.env.NEXT_PUBLIC_BLOCKCHAIN_NETWORK || 'testnet',
-    NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || 'epsx-web3-frontend',
+    NEXT_PUBLIC_BLOCKCHAIN_NETWORK: process.env.NEXT_PUBLIC_BLOCKCHAIN_NETWORK ?? 'testnet',
+    NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID ?? 'epsx-web3-frontend',
 
     // Optional Firebase variables
     NEXT_PUBLIC_FIREBASE_API_KEY: process.env['NEXT_PUBLIC_FIREBASE_API_KEY'],
@@ -147,19 +147,19 @@ export function initializeRuntimeEnvironment(): void {
   const isDevelopment = process.env.NODE_ENV === 'development';
 
   if (isDevelopment) {
-    console.log('🔍 Validating runtime environment variables...');
+    console.info('🔍 Validating runtime environment variables...');
   }
 
   try {
     const env = getRuntimeEnvironment(isDevelopment);
     if (isDevelopment) {
-      console.log('✅ Runtime environment validation passed');
-      console.log(`🌐 Backend URL: ${env.NEXT_PUBLIC_BACKEND_URL}`);
-      console.log(`🎯 App URL: ${env.NEXT_PUBLIC_APP_URL}`);
-      console.log(`👥 Admin URL: ${env.NEXT_PUBLIC_ADMIN_URL}`);
-      console.log(`🔑 OAuth Client ID: ${env.NEXT_PUBLIC_OAUTH_CLIENT_ID}`);
-      console.log(`⛓️ Blockchain Network: ${env.NEXT_PUBLIC_BLOCKCHAIN_NETWORK}`);
-      console.log(`🔗 WalletConnect Project ID: ${env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID}`);
+      console.info('✅ Runtime environment validation passed');
+      console.info(`🌐 Backend URL: ${env.NEXT_PUBLIC_BACKEND_URL}`);
+      console.info(`🎯 App URL: ${env.NEXT_PUBLIC_APP_URL}`);
+      console.info(`👥 Admin URL: ${env.NEXT_PUBLIC_ADMIN_URL}`);
+      console.info(`🔑 OAuth Client ID: ${env.NEXT_PUBLIC_OAUTH_CLIENT_ID}`);
+      console.info(`⛓️ Blockchain Network: ${env.NEXT_PUBLIC_BLOCKCHAIN_NETWORK}`);
+      console.info(`🔗 WalletConnect Project ID: ${env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID}`);
     }
   } catch (error) {
     console.error('❌ Runtime environment validation failed:', error);

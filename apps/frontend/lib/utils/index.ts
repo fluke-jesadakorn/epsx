@@ -4,6 +4,13 @@
  */
 
 // Logging and monitoring
+// ============================================================================
+// Common Utility Functions (from original utils.ts)
+// ============================================================================
+
+import { type ClassValue, clsx } from 'clsx';
+import { twMerge } from 'tailwind-merge';
+
 export * from './logging';
 
 // Security utilities
@@ -14,13 +21,6 @@ export * from './data';
 
 // Validation utilities
 export * from './validation';
-
-// ============================================================================
-// Common Utility Functions (from original utils.ts)
-// ============================================================================
-
-import { type ClassValue, clsx } from 'clsx';
-import { twMerge } from 'tailwind-merge';
 
 /**
  * Utility function to merge Tailwind CSS classes with clsx
@@ -39,7 +39,7 @@ export function isServerComponentContext(): boolean {
 /**
  * Utility function to format dates
  */
-export function formatDate(date: Date | string | number, locale: string = 'en-US'): string {
+export function formatDate(date: Date | string | number, locale = 'en-US'): string {
   const dateObj = new Date(date);
   return dateObj.toLocaleDateString(locale, {
     year: 'numeric',
@@ -51,7 +51,7 @@ export function formatDate(date: Date | string | number, locale: string = 'en-US
 /**
  * Utility function to format relative time
  */
-export function formatRelativeTime(date: Date | string | number, locale: string = 'en-US'): string {
+export function formatRelativeTime(date: Date | string | number, locale = 'en-US'): string {
   const now = new Date();
   const dateObj = new Date(date);
   const diffInSeconds = Math.floor((now.getTime() - dateObj.getTime()) / 1000);
@@ -90,8 +90,8 @@ export function createSlug(text: string): string {
 /**
  * Utility function to truncate text
  */
-export function truncate(text: string, length: number, suffix: string = '...'): string {
-  if (text.length <= length) return text;
+export function truncate(text: string, length: number, suffix = '...'): string {
+  if (text.length <= length) {return text;}
   return text.slice(0, length).trim() + suffix;
 }
 
@@ -107,9 +107,9 @@ export function generateId(prefix?: string): string {
  * Utility function to deep clone an object
  */
 export function deepClone<T>(obj: T): T {
-  if (obj === null || typeof obj !== 'object') return obj;
-  if (obj instanceof Date) return new Date(obj.getTime()) as T;
-  if (Array.isArray(obj)) return obj.map(item => deepClone(item)) as T;
+  if (obj === null || typeof obj !== 'object') {return obj;}
+  if (obj instanceof Date) {return new Date(obj.getTime()) as T;}
+  if (Array.isArray(obj)) {return obj.map(item => deepClone(item)) as T;}
 
   const cloned = {} as T;
   for (const key in obj) {
@@ -164,7 +164,7 @@ export function isBrowser(): boolean {
  * Utility function to check if code is running on mobile
  */
 export function isMobile(): boolean {
-  if (!isBrowser()) return false;
+  if (!isBrowser()) {return false;}
 
   return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
     navigator.userAgent
@@ -197,7 +197,7 @@ export function safeJsonParse<T>(str: string, fallback?: T): T | null {
  * Utility function to format file size
  */
 export function formatFileSize(bytes: number): string {
-  if (bytes === 0) return '0 Bytes';
+  if (bytes === 0) {return '0 Bytes';}
 
   const k = 1024;
   const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
@@ -209,7 +209,7 @@ export function formatFileSize(bytes: number): string {
 /**
  * Utility function to format currency
  */
-export function fmtCurrency(amount: number, currency: string = 'USD'): string {
+export function fmtCurrency(amount: number, currency = 'USD'): string {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency
@@ -247,8 +247,8 @@ export function isValidUUID(str: string): boolean {
  */
 export async function retry<T>(
   fn: () => Promise<T>,
-  maxAttempts: number = 3,
-  delay: number = 1000
+  maxAttempts = 3,
+  delay = 1000
 ): Promise<T> {
   let lastError: Error;
 
@@ -280,8 +280,8 @@ export function sleep(ms: number): Promise<void> {
  * Utility function to check if an object is empty
  */
 export function isEmpty(obj: unknown): boolean {
-  if (obj == null) return true;
-  if (Array.isArray(obj) || typeof obj === 'string') return obj.length === 0;
-  if (typeof obj === 'object') return Object.keys(obj).length === 0;
+  if (obj == null) {return true;}
+  if (Array.isArray(obj) || typeof obj === 'string') {return obj.length === 0;}
+  if (typeof obj === 'object') {return Object.keys(obj).length === 0;}
   return false;
 }

@@ -2,6 +2,12 @@
 
 import { useAuth } from '@/lib/auth';
 
+// ============================================================================
+// LEGACY HOC (deprecated, use usePaymentAuth hook instead)
+// ============================================================================
+
+import { ComponentType, forwardRef } from 'react';
+
 // Hook for payment auth logic
 export function usePaymentAuth() {
   const { user, isLoading } = useAuth()
@@ -88,12 +94,6 @@ export function PaymentAccessRequiredUI({ user }: { user?: any }) {
   )
 }
 
-// ============================================================================
-// LEGACY HOC (deprecated, use usePaymentAuth hook instead)
-// ============================================================================
-
-import { ComponentType, forwardRef } from 'react';
-
 /**
  * @deprecated Use usePaymentAuth hook directly instead
  */
@@ -103,9 +103,9 @@ export function withPaymentAuth<P extends object>(
   const PaymentAuthComponent = forwardRef((props: any, ref: React.Ref<any>) => {
     const { isLoading, isAuthenticated, hasPaymentAccess, user } = usePaymentAuth()
 
-    if (isLoading) return <PaymentAuthLoadingUI />
-    if (!isAuthenticated) return <PaymentAuthRequiredUI />
-    if (!hasPaymentAccess) return <PaymentAccessRequiredUI user={user} />
+    if (isLoading) {return <PaymentAuthLoadingUI />}
+    if (!isAuthenticated) {return <PaymentAuthRequiredUI />}
+    if (!hasPaymentAccess) {return <PaymentAccessRequiredUI user={user} />}
 
     return <WrappedComponent {...props} ref={ref} />
   })

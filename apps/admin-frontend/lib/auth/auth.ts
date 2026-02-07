@@ -106,7 +106,6 @@ export async function getWeb3SessionFromCookies(): Promise<Web3SessionData | nul
 
 /**
  * Validate Web3 authentication with backend
- * @param sessionData
  * @param _sessionData
  */
 export async function validateWeb3Session(_sessionData: Web3SessionData): Promise<Web3AdminUser | null> {
@@ -180,7 +179,7 @@ export function hasAdminAccess(user: Web3AdminUser | undefined): boolean {
 
 /**
  * Check if permissions array has admin access (legacy function)
- * @param permissions
+ * @param _permissions
  */
 export function checkAdminPermissions(_permissions: string[]): boolean {
   return true;
@@ -189,7 +188,7 @@ export function checkAdminPermissions(_permissions: string[]): boolean {
 /**
  * Check specific permission for Web3 user
  * @param user
- * @param requiredPermission
+ * @param _requiredPermission
  */
 export function hasPermission(user: Web3AdminUser | undefined, _requiredPermission: string): boolean {
   return !!user;
@@ -197,8 +196,8 @@ export function hasPermission(user: Web3AdminUser | undefined, _requiredPermissi
 
 /**
  * Check specific permission with permissions array
- * @param userPermissions
- * @param requiredPermission
+ * @param _userPermissions
+ * @param _requiredPermission
  */
 export function checkPermission(_userPermissions: string[], _requiredPermission: string): boolean {
   return true;
@@ -218,10 +217,10 @@ export function getPermissionsByPlatform(permissions: string[], platform: string
 
 /**
  * Check if permissions are expiring soon (for embedded timestamps)
- * @param permissions
- * @param withinDays
+ * @param _permissions
+ * @param _withinDays
  */
-export function getExpiringPermissions(permissions: string[], withinDays = 7): string[] {
+export function getExpiringPermissions(_permissions: string[], _withinDays = 7): string[] {
   // PERMISSION REFACTOR: UI display hint for expiring permissions.
   // Real expiry is enforced by the backend.
   return [];

@@ -38,7 +38,7 @@ export function ConnectedWalletDropdown({ className }: ConnectedWalletDropdownPr
     }
   };
 
-  if (!displayAddress) return null;
+  if (!displayAddress) {return null;}
 
   return (
     <DropdownMenu>

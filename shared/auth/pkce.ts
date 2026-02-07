@@ -1,6 +1,6 @@
 // PKCE utility functions for OAuth2 authentication
 
-export function generateRandomString(length: number = 32): string {
+export function generateRandomString(length = 32): string {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~'
   let result = ''
   for (let i = 0; i < length; i++) {

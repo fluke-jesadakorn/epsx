@@ -96,10 +96,10 @@ export class PaymentLinksAPIClient {
         const headers = await this.getAuthHeaders();
         const searchParams = new URLSearchParams();
 
-        if (params?.context_type) searchParams.append('context_type', params.context_type);
-        if (params?.is_active !== undefined) searchParams.append('is_active', String(params.is_active));
-        if (params?.limit) searchParams.append('limit', String(params.limit));
-        if (params?.offset) searchParams.append('offset', String(params.offset));
+        if (params?.context_type) {searchParams.append('context_type', params.context_type);}
+        if (params?.is_active !== undefined) {searchParams.append('is_active', String(params.is_active));}
+        if (params?.limit) {searchParams.append('limit', String(params.limit));}
+        if (params?.offset) {searchParams.append('offset', String(params.offset));}
 
         const url = `${this.adminBase}/payment-links${searchParams.toString() ? `?${searchParams}` : ''}`;
 

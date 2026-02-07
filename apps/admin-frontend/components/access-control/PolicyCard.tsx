@@ -327,7 +327,7 @@ export function PolicyCard({
                     <>
                       <Clock className="h-4 w-4 text-amber-500" />
                       <span className="text-sm font-semibold text-foreground">
-                        {policy.expiryDays}d
+                        {policy.expiryDays === -1 ? 'Permanent' : `${policy.expiryDays}d`}
                       </span>
                     </>
                   ) : (

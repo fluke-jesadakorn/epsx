@@ -142,7 +142,6 @@ export default function WalletDetailPage() {
     const allPlans = useMemo(() => [...accessData.authorizedPlans, ...accessData.availablePlans], [accessData.authorizedPlans, accessData.availablePlans]);
 
 
-
     // Load wallet data
     const loadWallet = useCallback(async () => {
         if (!walletAddress) { return; }
@@ -188,7 +187,7 @@ export default function WalletDetailPage() {
                         const sub = res.data.subscriptions.find((s: SubscriptionResponse) =>
                             s.user_id === walletAddress && s.status === 'active'
                         );
-                        if (sub) setActiveSub(sub);
+                        if (sub) {setActiveSub(sub);}
                     }
                 } catch (e) {
                     console.error('Failed to load subscription details', e);
@@ -263,7 +262,7 @@ export default function WalletDetailPage() {
 
     // Save Actions
     const handleSavePendingChanges = async () => {
-        if (pendingDrops.length === 0) return;
+        if (pendingDrops.length === 0) {return;}
         setIsSavingPending(true);
         try {
             await Promise.all(pendingDrops.map(plan => assignPlan(plan.id)));

@@ -122,14 +122,14 @@ export function buildAdminWeb3ChallengeUrl(walletAddress: string): string {
   // The shared buildWeb3ChallengeUrl expects an object with clientId and endpoints.
 
   // Construct a compatible config object for the shared function
-  const compatibilityConfig: any = {
+  const compatibilityConfig = {
     clientId: 'epsx-admin', // Fixed ID
     endpoints: {
       challenge: ROUTES.AUTH.WEB3_CHALLENGE
     }
   };
 
-  return buildWeb3ChallengeUrl(compatibilityConfig, walletAddress);
+  return buildWeb3ChallengeUrl(compatibilityConfig as unknown as Parameters<typeof buildWeb3ChallengeUrl>[0], walletAddress);
 }
 
 /**
@@ -190,7 +190,7 @@ export function createAdminAuthState(
  * @param authState
  */
 export function hasAdminAuthentication(authState: ProgressiveAuthState): boolean {
-  if (!authState.isAuthenticated) {return false;}
+  if (!authState.isAuthenticated) { return false; }
 
   // Check for admin permissions
   return authState.permissions.some(permission =>

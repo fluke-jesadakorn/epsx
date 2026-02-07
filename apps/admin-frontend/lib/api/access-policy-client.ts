@@ -33,6 +33,16 @@ interface PlanResponse extends Plan {
   subscriber_count?: number;
 }
 
+/**
+ * Backend response structure for plans
+ */
+interface PlansBackendResponse {
+  data?: {
+    plans?: PlanResponse[];
+  };
+  plans?: PlanResponse[];
+}
+
 // ============================================================================
 // ACCESS POLICY CLIENT
 // ============================================================================
@@ -54,7 +64,7 @@ export const accessPolicyClient = {
 
     // Transform plans to policies
     if (isApiSuccess(plansRes)) {
-      const backendResponse = plansRes.data as any;
+      const backendResponse = plansRes.data as unknown as PlansBackendResponse;
       const plans: PlanResponse[] = backendResponse?.data?.plans || backendResponse?.plans || [];
       plans.forEach(plan => {
         policies.push(planToPolicy(plan));
@@ -114,7 +124,7 @@ export const accessPolicyClient = {
 
     // Process plans
     if (isApiSuccess(plansRes)) {
-      const backendResponse = plansRes.data as any;
+      const backendResponse = plansRes.data as unknown as PlansBackendResponse;
       const plans: PlanResponse[] = backendResponse?.data?.plans || backendResponse?.plans || [];
 
       stats.byType.subscription = plans.length;
@@ -122,10 +132,11 @@ export const accessPolicyClient = {
 
       // Calculate MRR
       stats.totalMRR = plans.reduce((sum, plan) => {
-        const revenue = typeof plan.revenue_last_30_days === 'string'
-          ? parseFloat(plan.revenue_last_30_days)
-          : plan.revenue_last_30_days;
-        return sum + (isNaN(revenue) ? 0 : revenue);
+        const revenueText = plan.revenue_last_30_days;
+        const revenue = typeof revenueText === 'string'
+          ? parseFloat(revenueText)
+          : (revenueText || 0);
+        return sum + (isNaN(revenue) ? 0 : (revenue));
       }, 0);
 
       // Count subscribers
@@ -246,7 +257,7 @@ export const accessPolicyClient = {
    */
   async deletePolicy(policyId: string): Promise<void> {
     const [sourceType, sourceId] = policyId.split('-', 2);
-    if (!sourceId) return;
+    if (!sourceId) {return;}
 
     if (sourceType === 'plan') {
       const apiClient = createAdminApiClient();
@@ -268,7 +279,7 @@ export const accessPolicyClient = {
    */
   async updatePolicy(policyId: string, updates: { permissions?: string[]; name?: string; description?: string }): Promise<void> {
     const [sourceType, sourceId] = policyId.split('-', 2);
-    if (!sourceId) return;
+    if (!sourceId) {return;}
 
     if (sourceType === 'plan') {
       const apiClient = createAdminApiClient();
@@ -282,11 +293,7 @@ export const accessPolicyClient = {
     }
 
     if (sourceType === 'group') {
-      await planMgmt.updatePlan(sourceId, {
-        name: updates.name,
-        description: updates.description,
-        permissions: updates.permissions
-      });
+      await planMgmt.updatePlan(sourceId);
       return;
     }
 

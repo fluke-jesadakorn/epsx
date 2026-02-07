@@ -89,7 +89,7 @@ export function DualPanePermissionSelector({
 
     // Assign selected permissions (move from left to right)
     const handleAssign = useCallback(() => {
-        if (leftSelected.size === 0) return;
+        if (leftSelected.size === 0) {return;}
 
         const newAssigned = [...assignedPermissionStrings, ...Array.from(leftSelected)];
         onChange(newAssigned);
@@ -98,7 +98,7 @@ export function DualPanePermissionSelector({
 
     // Remove selected permissions (move from right to left)
     const handleRemove = useCallback(() => {
-        if (rightSelected.size === 0) return;
+        if (rightSelected.size === 0) {return;}
 
         const newAssigned = assignedPermissionStrings.filter((p) => !rightSelected.has(p));
         onChange(newAssigned);

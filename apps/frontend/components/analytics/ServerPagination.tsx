@@ -22,7 +22,7 @@ export default function ServerPagination({
 
   // Calculate visible page numbers with cleaner logic
   const getVisiblePages = () => {
-    if (totalPages <= 1) return [1];
+    if (totalPages <= 1) {return [1];}
     
     const delta = 2; // Show 2 pages on each side of current page
     const result: (number | string)[] = [];
@@ -67,7 +67,7 @@ export default function ServerPagination({
   const startItem = (page - 1) * limit + 1;
   const endItem = Math.min(page * limit, total);
 
-  if (totalPages <= 1) return null;
+  if (totalPages <= 1) {return null;}
 
   return (
     <div className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border border-orange-200/50 dark:border-orange-400/30 rounded-xl shadow-lg p-4">

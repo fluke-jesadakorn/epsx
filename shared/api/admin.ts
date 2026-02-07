@@ -14,7 +14,7 @@
  * - Type-safe responses with proper error handling
  */
 
-import { UnifiedApiClient, ApiResponse, PaginatedResponse } from '../utils/api-client';
+import { UnifiedApiClient } from '../utils/api-client';
 
 // ============================================================================
 // ADMIN TYPES
@@ -30,7 +30,7 @@ export interface AdminUser {
   created_at: string;
   last_login?: string;
   status: 'active' | 'inactive' | 'suspended';
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface AdminUserFilters {
@@ -108,7 +108,7 @@ export interface Permission {
   granted_by?: string;
   granted_at: string;
   expires_at?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface PermissionFilters {
@@ -142,7 +142,7 @@ export interface PermissionGrantRequest {
   wallet_address: string;
   permission: string;
   expires_at?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface PermissionRevokeRequest {
@@ -172,7 +172,7 @@ export interface Group {
   member_count: number;
   created_at: string;
   updated_at: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface GroupAssignRequest {
@@ -251,7 +251,7 @@ export interface PerformanceMetricsResponse {
 // ============================================================================
 
 export class AdminAPIClient {
-  constructor(private client: UnifiedApiClient) {}
+  constructor(private client: UnifiedApiClient) { }
 
   // ============================================================================
   // USER MANAGEMENT
@@ -287,7 +287,7 @@ export class AdminAPIClient {
    */
   async searchUsers(query: string, filters: Omit<AdminUserFilters, 'search'> = {}): Promise<AdminUsersResponse> {
     const searchFilters = { ...filters, search: query };
-    
+
     const response = await this.client.get<AdminUsersResponse>(
       '/api/admin/users/search',
       searchFilters,
@@ -317,7 +317,14 @@ export class AdminAPIClient {
     new_users_today: number;
     users_by_tier: Record<string, number>;
   }> {
-    const response = await this.client.get(
+    const response = await this.client.get<{
+      data: {
+        total_users: number;
+        active_users: number;
+        new_users_today: number;
+        users_by_tier: Record<string, number>;
+      };
+    }>(
       '/api/admin/users/stats',
       undefined,
       {
@@ -368,7 +375,7 @@ export class AdminAPIClient {
    * Get recent wallets activity
    * Route: GET /api/admin/web3/recent-wallets
    */
-  async getRecentWallets(limit: number = 10): Promise<{
+  async getRecentWallets(limit = 10): Promise<{
     recent_wallets: Array<{
       wallet_address: string;
       last_activity: string;
@@ -376,7 +383,16 @@ export class AdminAPIClient {
       permissions: string[];
     }>;
   }> {
-    const response = await this.client.get(
+    const response = await this.client.get<{
+      data: {
+        recent_wallets: Array<{
+          wallet_address: string;
+          last_activity: string;
+          action_type: string;
+          permissions: string[];
+        }>;
+      };
+    }>(
       '/api/admin/web3/recent-wallets',
       { limit },
       {
@@ -515,7 +531,16 @@ export class AdminAPIClient {
       error: string;
     }>;
   }> {
-    const response = await this.client.post(
+    const response = await this.client.post<{
+      data: {
+        success: boolean;
+        assigned_count: number;
+        failed_assignments: Array<{
+          wallet_address: string;
+          error: string;
+        }>;
+      };
+    }>(
       '/api/admin/users/bulk/assign-modules',
       request,
       {
@@ -600,7 +625,19 @@ export class AdminAPIClient {
       timestamp: string;
     }>;
   }> {
-    const response = await this.client.get(
+    const response = await this.client.get<{
+      data: {
+        permission_distribution: Record<string, number>;
+        group_membership: Array<{ group: string; count: number }>;
+        recent_activity: Array<{
+          action: string;
+          permission: string;
+          wallet_address: string;
+           
+          timestamp: string;
+        }>;
+      };
+    }>(
       '/api/admin/analytics/permissions',
       undefined,
       {
@@ -630,7 +667,15 @@ export class AdminAPIClient {
     eviction_count: number;
     performance_impact: number;
   }> {
-    const response = await this.client.get(
+    const response = await this.client.get<{
+      data: {
+        cache_hit_rate: number;
+        total_requests: number;
+        cache_size: number;
+        eviction_count: number;
+        performance_impact: number;
+      };
+    }>(
       '/api/admin/cache/stats',
       undefined,
       {
@@ -667,7 +712,18 @@ export class AdminAPIClient {
       status: string;
     }>;
   }> {
-    const response = await this.client.get(
+    const response = await this.client.get<{
+      data: {
+        nft_gates: Array<{
+          id: string;
+          contract_address: string;
+          chain_id: number;
+          required_tokens: number;
+          permissions: string[];
+          status: string;
+        }>;
+      };
+    }>(
       '/api/admin/web3/nft-gates',
       undefined,
       {
@@ -700,7 +756,18 @@ export class AdminAPIClient {
       status: string;
     }>;
   }> {
-    const response = await this.client.get(
+    const response = await this.client.get<{
+      data: {
+        token_gates: Array<{
+          id: string;
+          token_address: string;
+          chain_id: number;
+          required_balance: string;
+          permissions: string[];
+          status: string;
+        }>;
+      };
+    }>(
       '/api/admin/web3/token-gates',
       undefined,
       {
@@ -734,7 +801,19 @@ export class AdminAPIClient {
       created_at: string;
     }>;
   }> {
-    const response = await this.client.get(
+    const response = await this.client.get<{
+      data: {
+        proposals: Array<{
+          id: string;
+          title: string;
+          description: string;
+          status: string;
+          votes_for: number;
+          votes_against: number;
+          created_at: string;
+        }>;
+      };
+    }>(
       '/api/admin/web3/dao-proposals',
       undefined,
       {
@@ -764,7 +843,7 @@ export class AdminAPIClient {
     try {
       await this.getUserStats(); // Simple admin-only API call
       return true;
-    } catch (error) {
+    } catch (_error) {
       return false;
     }
   }

@@ -216,14 +216,14 @@ export class InputValidator {
   }
 
   private convertType(value: unknown, type?: ValidationRule['type']): unknown {
-    if (!type) return value;
+    if (!type) {return value;}
 
     switch (type) {
       case 'number':
         return Number(value);
 
       case 'boolean':
-        if (typeof value === 'boolean') return value;
+        if (typeof value === 'boolean') {return value;}
         return value === 'true' || value === true;
 
       case 'date':
@@ -287,10 +287,10 @@ export const commonRules = {
     minLength: 8,
     pattern: commonPatterns.password,
     custom: (value: string) => {
-      if (!/(?=.*[a-z])/.test(value)) return 'Must contain at least one lowercase letter';
-      if (!/(?=.*[A-Z])/.test(value)) return 'Must contain at least one uppercase letter';
-      if (!/(?=.*\d)/.test(value)) return 'Must contain at least one number';
-      if (!/(?=.*[@$!%*?&])/.test(value)) return 'Must contain at least one special character';
+      if (!/(?=.*[a-z])/.test(value)) {return 'Must contain at least one lowercase letter';}
+      if (!/(?=.*[A-Z])/.test(value)) {return 'Must contain at least one uppercase letter';}
+      if (!/(?=.*\d)/.test(value)) {return 'Must contain at least one number';}
+      if (!/(?=.*[@$!%*?&])/.test(value)) {return 'Must contain at least one special character';}
       return true;
     }
   },

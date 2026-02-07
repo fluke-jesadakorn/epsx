@@ -125,7 +125,7 @@ describe('Formatting Utilities', () => {
 describe('Input Validation Business Rules', () => {
   describe('Stock Symbol Validation', () => {
     const validateStockSymbol = (symbol: string): boolean => {
-      if (!symbol || typeof symbol !== 'string') return false
+      if (!symbol || typeof symbol !== 'string') {return false}
       // Stock symbols: 1-5 uppercase letters
       const symbolRegex = /^[A-Z]{1,5}$/
       return symbolRegex.test(symbol.trim())
@@ -151,7 +151,7 @@ describe('Input Validation Business Rules', () => {
 
   describe('Amount Validation', () => {
     const validateAmount = (amount: unknown): boolean => {
-      if (amount == null || amount === '') return false
+      if (amount == null || amount === '') {return false}
       const num = Number(amount)
       return !isNaN(num) && isFinite(num) && num >= 0
     }

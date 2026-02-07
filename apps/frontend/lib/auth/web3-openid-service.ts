@@ -279,7 +279,7 @@ export class Web3OpenIDService {
    * Note: This is NOT for authorization - backend makes all security decisions
    */
   isAdminUser(): boolean {
-    if (!this.currentUser) return false;
+    if (!this.currentUser) {return false;}
     return this.currentUser.permissions.some(p => p.startsWith('admin:'));
   }
 

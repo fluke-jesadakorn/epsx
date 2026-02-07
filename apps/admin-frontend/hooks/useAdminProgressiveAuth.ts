@@ -26,15 +26,14 @@ export function useAdminProgressiveAuth(): AuthState & {
 
   // Determine current authentication level
   const currentLevel = useMemo(() => {
-    if (isAuthenticated && permissions && permissions.length > 0) { return AuthLevel.AUTHENTICATED; }
+    if (isAuthenticated && permissions.length > 0) { return AuthLevel.AUTHENTICATED; }
     if (isConnected && walletAddress) { return AuthLevel.CONNECTED; }
     return AuthLevel.PUBLIC;
   }, [isAuthenticated, isConnected, walletAddress, permissions]);
 
 
-
   // Check if user can access a feature requiring specific auth level and permissions
-  const canAccess = (requiredLevel: AuthLevelType, requiredPermissions?: string[]): boolean => {
+  const canAccess = (requiredLevel: AuthLevelType, _requiredPermissions?: string[]): boolean => {
     const levelHierarchy: Record<AuthLevelType, number> = {
       [AuthLevel.PUBLIC]: 0,
       [AuthLevel.CONNECTED]: 1,
@@ -44,7 +43,6 @@ export function useAdminProgressiveAuth(): AuthState & {
     // Check auth level requirement
     const hasRequiredLevel = levelHierarchy[currentLevel] >= levelHierarchy[requiredLevel];
     if (!hasRequiredLevel) { return false; }
-
 
 
     return true;
@@ -91,7 +89,7 @@ export function useAdminProgressiveAuth(): AuthState & {
     walletAddress: walletAddress ?? undefined,
     isAuthenticated,
     isWalletConnected: isConnected,
-    adminPermissions: permissions || [],
+    adminPermissions: permissions,
     adminLevel: undefined, // Not provided by PureWeb3AuthProvider
     canAccess,
     getAuthMessage,

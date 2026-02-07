@@ -60,7 +60,7 @@ function downloadData(data: any[], filename: string, format: ExportFormat): void
 }
 
 function convertToCSV(data: any[]): string {
-  if (!data.length) return '';
+  if (!data.length) {return '';}
   
   const headers = Object.keys(data[0]);
   const csvRows = [headers.join(',')];

@@ -372,7 +372,7 @@ export function hasRequiredPermissions(
   userPermissions: string[],
   requiredPermissions: string[]
 ): boolean {
-  if (requiredPermissions.length === 0) return true;
+  if (requiredPermissions.length === 0) {return true;}
 
   return requiredPermissions.every(required =>
     userPermissions.some(permission =>

@@ -232,7 +232,7 @@ export class MarketApiClient {
   /**
    * Search stocks by symbol or company name
    */
-  async searchStocks(query: string, limit: number = 10): Promise<Array<{
+  async searchStocks(query: string, limit = 10): Promise<Array<{
     symbol: string;
     companyName: string;
     sector: string;
@@ -358,8 +358,8 @@ export function formatMarketCap(marketCap: number): string {
  * Get color for price change
  */
 export function getPriceChangeColor(change: number): string {
-  if (change > 0) return 'text-green-500';
-  if (change < 0) return 'text-red-500';
+  if (change > 0) {return 'text-green-500';}
+  if (change < 0) {return 'text-red-500';}
   return 'text-gray-500';
 }
 

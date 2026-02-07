@@ -39,7 +39,7 @@ export function useAddTokenToWallet() {
     const [addedTokens, setAddedTokens] = useState<Set<string>>(new Set());
 
     const addToken = useCallback(async (symbol: 'USDT' | 'USDC'): Promise<boolean> => {
-        if (!connector || isAdding) return false;
+        if (!connector || isAdding) {return false;}
 
         const tokenKey = `${chainId}-${symbol}`;
         if (addedTokens.has(tokenKey)) {

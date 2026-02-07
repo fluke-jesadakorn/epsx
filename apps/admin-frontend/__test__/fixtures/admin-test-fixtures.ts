@@ -652,10 +652,10 @@ export interface TestEnvironmentConfig {
 
 export const TEST_ENVIRONMENT_CONFIG: TestEnvironmentConfig = {
   database: {
-    host: (process.env['TEST_DB_HOST'] as string | undefined) || 'localhost',
-    port: parseInt((process.env['TEST_DB_PORT'] as string | undefined) || '5432'),
-    name: (process.env['TEST_DB_NAME'] as string | undefined) || 'epsx_test',
-    user: (process.env['TEST_DB_USER'] as string | undefined) || 'test_user',
+    host: (process.env['TEST_DB_HOST']) || 'localhost',
+    port: parseInt((process.env['TEST_DB_PORT']) || '5432'),
+    name: (process.env['TEST_DB_NAME']) || 'epsx_test',
+    user: (process.env['TEST_DB_USER']) || 'test_user',
     password: process.env['TEST_DB_PASSWORD'] || 'test_password'
   },
   api: {

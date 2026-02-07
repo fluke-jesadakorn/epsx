@@ -51,26 +51,11 @@ export function StatsCard({
   // Legacy props for backward compatibility
   gradient,
   textColor,
-  color,
   className = '',
   change,
   // New design system props
-  cardVariant,
   trend,
 }: StatsCardProps) {
-
-  // Map legacy variants to card variants
-  const getCardVariant = () => {
-    if (cardVariant) { return cardVariant; }
-
-    // Legacy mapping
-    switch (variant) {
-      case 'enhanced': return 'pancake';
-      case 'simple': return 'default';
-      case 'inline': return 'default';
-      default: return 'default';
-    }
-  };
 
   // Semantic color mapping
   const getIconColors = () => {

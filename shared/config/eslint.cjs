@@ -30,6 +30,7 @@ const unicorn = require('eslint-plugin-unicorn');
 const jsdoc = require('eslint-plugin-jsdoc');
 const promise = require('eslint-plugin-promise');
 const nextjs = require('@next/eslint-plugin-next');
+const globals = require('globals');
 
 module.exports = [
   js.configs.recommended,
@@ -46,34 +47,9 @@ module.exports = [
         project: true, // Enable type-aware linting
       },
       globals: {
-        // Browser
-        window: 'readonly',
-        document: 'readonly',
-        navigator: 'readonly',
-        console: 'readonly',
-        fetch: 'readonly',
-        URL: 'readonly',
-        URLSearchParams: 'readonly',
-        FormData: 'readonly',
-        Headers: 'readonly',
-        Request: 'readonly',
-        Response: 'readonly',
-        ReadableStream: 'readonly',
-        AbortController: 'readonly',
-        AbortSignal: 'readonly',
-        EventSource: 'readonly',
-        WebSocket: 'readonly',
-        // Node.js
-        process: 'readonly',
-        Buffer: 'readonly',
-        __dirname: 'readonly',
-        __filename: 'readonly',
-        global: 'readonly',
-        module: 'readonly',
-        require: 'readonly',
-        exports: 'readonly',
-        // TypeScript
-        NodeJS: 'readonly',
+        ...globals.browser,
+        ...globals.node,
+        ...globals.es2021,
         // React
         React: 'readonly',
         JSX: 'readonly',
@@ -93,145 +69,141 @@ module.exports = [
     },
     rules: {
       // ================================
-      // TypeScript Rules (Pragmatic)
+      // TypeScript Rules (Strict)
       // ================================
-      '@typescript-eslint/no-explicit-any': 'warn', // Many legacy uses, fix gradually
-      '@typescript-eslint/no-unsafe-assignment': 'off', // Requires type-aware linting
-      '@typescript-eslint/no-unsafe-member-access': 'off', // Requires type-aware linting
-      '@typescript-eslint/no-unsafe-call': 'off', // Requires type-aware linting
-      '@typescript-eslint/no-unsafe-return': 'off', // Requires type-aware linting
-      '@typescript-eslint/no-unsafe-argument': 'off', // Requires type-aware linting
-      '@typescript-eslint/no-floating-promises': 'off', // Requires type-aware linting
-      '@typescript-eslint/no-misused-promises': 'off', // Requires type-aware linting
-      '@typescript-eslint/await-thenable': 'off', // Requires type-aware linting
-      '@typescript-eslint/require-await': 'off', // Requires type-aware linting
-      '@typescript-eslint/no-unused-vars': ['warn', {
+      '@typescript-eslint/no-explicit-any': 'error',
+      '@typescript-eslint/no-unsafe-assignment': 'error', // Requires type-aware linting
+      '@typescript-eslint/no-unsafe-member-access': 'error', // Requires type-aware linting
+      '@typescript-eslint/no-unsafe-call': 'error', // Requires type-aware linting
+      '@typescript-eslint/no-unsafe-return': 'error', // Requires type-aware linting
+      '@typescript-eslint/no-unsafe-argument': 'error', // Requires type-aware linting
+      '@typescript-eslint/no-floating-promises': 'error', // Requires type-aware linting
+      '@typescript-eslint/no-misused-promises': 'error', // Requires type-aware linting
+      '@typescript-eslint/await-thenable': 'error', // Requires type-aware linting
+      '@typescript-eslint/require-await': 'error', // Requires type-aware linting
+      '@typescript-eslint/no-unused-vars': ['error', {
         argsIgnorePattern: '^_',
         varsIgnorePattern: '^_',
         caughtErrorsIgnorePattern: '^_'
       }],
-      '@typescript-eslint/explicit-function-return-type': 'off', // Too noisy for React components
-      '@typescript-eslint/explicit-module-boundary-types': 'off', // Too noisy for React components
-      '@typescript-eslint/strict-boolean-expressions': 'off', // Requires type-aware linting
-      '@typescript-eslint/no-non-null-assertion': 'warn',
-      '@typescript-eslint/prefer-nullish-coalescing': 'off', // Requires type-aware linting
-      '@typescript-eslint/prefer-optional-chain': 'off', // Requires type-aware linting
-      '@typescript-eslint/no-unnecessary-condition': 'off', // Requires type-aware linting
-      '@typescript-eslint/no-unnecessary-type-assertion': 'off', // Requires type-aware linting
-      '@typescript-eslint/prefer-as-const': 'warn',
-      '@typescript-eslint/no-inferrable-types': 'warn',
-      '@typescript-eslint/naming-convention': 'off', // Too strict
+      '@typescript-eslint/explicit-function-return-type': 'off',
+      '@typescript-eslint/explicit-module-boundary-types': 'off',
+      '@typescript-eslint/strict-boolean-expressions': 'off',
+      '@typescript-eslint/no-non-null-assertion': 'error',
+      '@typescript-eslint/prefer-nullish-coalescing': 'error',
+      '@typescript-eslint/prefer-optional-chain': 'error',
+      '@typescript-eslint/no-unnecessary-condition': 'error',
+      '@typescript-eslint/no-unnecessary-type-assertion': 'error',
+      '@typescript-eslint/prefer-as-const': 'error',
+      '@typescript-eslint/no-inferrable-types': 'error',
+      '@typescript-eslint/naming-convention': 'off',
 
       // ================================
-      // React Hooks (ERROR - Important)
+      // React Hooks (ERROR)
       // ================================
       'react-hooks/rules-of-hooks': 'error',
-      'react-hooks/exhaustive-deps': 'warn', // Often intentionally ignored
+      'react-hooks/exhaustive-deps': 'error',
 
       // ================================
-      // Accessibility (WARN - Fix gradually)
+      // Accessibility (ERROR)
       // ================================
-      'jsx-a11y/alt-text': 'warn',
-      'jsx-a11y/aria-props': 'warn',
-      'jsx-a11y/aria-proptypes': 'warn',
-      'jsx-a11y/aria-unsupported-elements': 'warn',
-      'jsx-a11y/role-has-required-aria-props': 'warn',
-      'jsx-a11y/role-supports-aria-props': 'warn',
-      'jsx-a11y/click-events-have-key-events': 'off', // Often not applicable
-      'jsx-a11y/no-static-element-interactions': 'off', // Often not applicable
-      'jsx-a11y/anchor-is-valid': 'warn',
-      'jsx-a11y/img-redundant-alt': 'warn',
-      'jsx-a11y/interactive-supports-focus': 'off', // Often not applicable
+      'jsx-a11y/alt-text': 'error',
+      'jsx-a11y/aria-props': 'error',
+      'jsx-a11y/aria-proptypes': 'error',
+      'jsx-a11y/aria-unsupported-elements': 'error',
+      'jsx-a11y/role-has-required-aria-props': 'error',
+      'jsx-a11y/role-supports-aria-props': 'error',
+      'jsx-a11y/click-events-have-key-events': 'off',
+      'jsx-a11y/no-static-element-interactions': 'off',
+      'jsx-a11y/anchor-is-valid': 'error',
+      'jsx-a11y/img-redundant-alt': 'error',
+      'jsx-a11y/interactive-supports-focus': 'off',
 
       // ================================
-      // Import Management (Relaxed)
+      // Import Management
       // ================================
-      'import/no-unresolved': 'off', // TypeScript handles this
-      'import/no-duplicates': 'warn',
-      'import/no-cycle': 'off', // Slow and often false positives
-      'import/first': 'warn',
-      'import/newline-after-import': 'warn',
-      'import/order': 'off', // Too strict for quick development
+      'import/no-unresolved': 'off',
+      'import/no-duplicates': 'error',
+      'import/no-cycle': 'off',
+      'import/first': 'error',
+      'import/newline-after-import': 'error',
+      'import/order': 'off',
 
       // ================================
-      // Security (WARN - Some false positives)
+      // Security (ERROR)
       // ================================
       'security/detect-object-injection': 'off', // Too many false positives
-      'security/detect-non-literal-regexp': 'warn',
-      'security/detect-unsafe-regex': 'warn',
-      'security/detect-buffer-noassert': 'warn',
-      'security/detect-child-process': 'warn',
-      'security/detect-disable-mustache-escape': 'warn',
+      'security/detect-non-literal-regexp': 'error',
+      'security/detect-unsafe-regex': 'error',
+      'security/detect-buffer-noassert': 'error',
+      'security/detect-child-process': 'error',
+      'security/detect-disable-mustache-escape': 'error',
       'security/detect-eval-with-expression': 'error',
-      'security/detect-no-csrf-before-method-override': 'warn',
+      'security/detect-no-csrf-before-method-override': 'error',
       'security/detect-non-literal-fs-filename': 'off', // Too many false positives
       'security/detect-non-literal-require': 'off', // Too many false positives
       'security/detect-possible-timing-attacks': 'off', // Too many false positives
-      'security/detect-pseudoRandomBytes': 'warn',
+      'security/detect-pseudoRandomBytes': 'error',
 
       // ================================
-      // Complexity Limits (WARN)
+      // Complexity Limits (Stricter)
       // ================================
-      'complexity': ['warn', 15], // Relaxed from 10
-      'max-depth': ['warn', 4], // Relaxed from 3
-      'max-lines-per-function': ['warn', { max: 100, skipBlankLines: true, skipComments: true }],
-      'max-params': ['warn', 5], // Relaxed from 3
-      'max-nested-callbacks': ['warn', 4],
-      'sonarjs/cognitive-complexity': ['warn', 20],
-      'sonarjs/no-identical-functions': 'warn',
-      'sonarjs/no-duplicate-string': ['warn', { threshold: 5 }],
-      'sonarjs/no-collapsible-if': 'warn',
-      'sonarjs/no-collection-size-mischeck': 'warn',
-      'sonarjs/no-redundant-jump': 'warn',
-      'sonarjs/prefer-immediate-return': 'off', // Preference
+      'complexity': ['error', 15],
+      'max-depth': ['error', 4],
+      'max-lines-per-function': ['error', { max: 150, skipBlankLines: true, skipComments: true }],
+      'max-params': ['error', 4],
+      'max-nested-callbacks': ['error', 4],
+      'sonarjs/cognitive-complexity': ['error', 25],
+      'sonarjs/no-identical-functions': 'error',
+      'sonarjs/no-duplicate-string': ['error', { threshold: 5 }],
+      'sonarjs/no-collapsible-if': 'error',
+      'sonarjs/no-collection-size-mischeck': 'error',
+      'sonarjs/no-redundant-jump': 'error',
+      'sonarjs/prefer-immediate-return': 'off',
 
       // ================================
-      // Code Quality (Unicorn) - OFF by default
+      // Promise Handling
       // ================================
+      'promise/always-return': 'off',
+      'promise/catch-or-return': 'error',
+      'promise/no-return-wrap': 'error',
+      'promise/no-nesting': 'error',
+      'promise/prefer-await-to-then': 'error',
 
       // ================================
-      // Promise Handling (WARN)
-      // ================================
-      'promise/always-return': 'off', // Too strict
-      'promise/catch-or-return': 'warn',
-      'promise/no-return-wrap': 'warn',
-      'promise/no-nesting': 'warn',
-      'promise/prefer-await-to-then': 'off', // Preference
-
-      // ================================
-      // JSDoc Documentation (OFF - Use TypeScript)
+      // JSDoc Documentation (Strict)
       // ================================
       'jsdoc/require-jsdoc': 'off',
       'jsdoc/require-param': 'off',
       'jsdoc/require-returns': 'off',
-      'jsdoc/check-param-names': 'off',
-      'jsdoc/check-types': 'off',
+      'jsdoc/check-param-names': 'error',
+      'jsdoc/check-types': 'error',
 
       // ================================
-      // Next.js Rules (WARN)
+      // Next.js Rules
       // ================================
-      '@next/next/no-html-link-for-pages': 'warn',
-      '@next/next/no-img-element': 'warn',
-      '@next/next/no-head-element': 'warn',
-      '@next/next/no-sync-scripts': 'warn',
-      '@next/next/no-page-custom-font': 'warn',
+      '@next/next/no-html-link-for-pages': 'error',
+      '@next/next/no-img-element': 'error',
+      '@next/next/no-head-element': 'error',
+      '@next/next/no-sync-scripts': 'error',
+      '@next/next/no-page-custom-font': 'error',
 
       // ================================
       // Code Hygiene
       // ================================
-      'no-console': ['warn', { allow: ['warn', 'error', 'info'] }],
+      'no-console': ['error', { allow: ['warn', 'error', 'info'] }],
       'no-debugger': 'error',
-      'no-alert': 'warn',
+      'no-alert': 'error',
       'no-var': 'error',
-      'prefer-const': 'warn',
+      'prefer-const': 'error',
       'no-unreachable': 'error',
       'no-unreachable-loop': 'error',
-      'eqeqeq': ['warn', 'always'],
+      'eqeqeq': ['error', 'smart'],
       'no-unused-vars': 'off', // Use TypeScript version
       'no-undef': 'error',
       'no-redeclare': 'off', // Use TypeScript version
       '@typescript-eslint/no-redeclare': 'error',
-      'curly': 'off', // Preference
+      'curly': 'error',
       'brace-style': 'off', // Conflicts with Prettier
       '@typescript-eslint/brace-style': 'off',
       'comma-dangle': 'off', // Prettier handles this
@@ -241,7 +213,7 @@ module.exports = [
       '@typescript-eslint/quotes': 'off',
       'indent': 'off', // Causes stack overflow with TypeScript
       '@typescript-eslint/indent': 'off',
-      'no-multiple-empty-lines': ['warn', { max: 2 }],
+      'no-multiple-empty-lines': ['error', { max: 2 }],
       'no-trailing-spaces': 'off', // Prettier handles this
       'object-curly-spacing': 'off', // Prettier handles this
       '@typescript-eslint/object-curly-spacing': 'off',
@@ -276,6 +248,8 @@ module.exports = [
       'public/**',
       '*.d.ts',
       '.cache/**',
+      'playwright-report/**',
+      'test-results/**',
     ],
   },
 ];

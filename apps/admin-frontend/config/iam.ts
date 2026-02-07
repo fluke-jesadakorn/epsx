@@ -157,9 +157,6 @@ export function canAccessAdminRoute(route: string, userPermissions: string[]): b
   // PERMISSION REFACTOR: Client-side route checks are now permissive.
   // Backend enforces access based on the user's plan/permissions.
   return true;
-
-  // If no specific permissions required, admin access is sufficient
-  return true;
 }
 
 /**
@@ -209,9 +206,13 @@ export function validateAdminPermission(permission: string): {
   return { valid: true };
 }
 
+/**
+ * Get admin permission tier
+ * @param userPermissions
+ */
 export function getAdminPermissionTier(userPermissions: string[]): 'none' | 'basic' | 'manager' | 'super' {
   // PERMISSION REFACTOR: Simplified to just super or basic if admin.
-  if (!userPermissions || userPermissions.length === 0) return 'none';
+  if (!userPermissions || userPermissions.length === 0) {return 'none';}
 
   if (isSuperAdmin(userPermissions)) {
     return 'super';

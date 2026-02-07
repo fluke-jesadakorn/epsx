@@ -152,7 +152,7 @@ function NotAuthenticatedState({ className }: { className?: string }) {
                 connectBtn.click();
               } else {
                 const walletBtn = document.querySelector('button[aria-label*="wallet"], button[aria-label*="connect"]') as HTMLButtonElement;
-                if (walletBtn) walletBtn.click();
+                if (walletBtn) {walletBtn.click();}
               }
             }}
           >

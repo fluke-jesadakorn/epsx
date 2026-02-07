@@ -450,7 +450,7 @@ export function getPermissionAction(permission: string): string {
  * Check if session is expired
  */
 export function isSessionExpired(expiresAt: number | null): boolean {
-  if (!expiresAt) return true;
+  if (!expiresAt) {return true;}
   return Date.now() >= expiresAt;
 }
 
@@ -461,7 +461,7 @@ export function isSessionExpiringSoon(
   expiresAt: number | null,
   thresholdMs = 300000
 ): boolean {
-  if (!expiresAt) return true;
+  if (!expiresAt) {return true;}
   return Date.now() >= expiresAt - thresholdMs;
 }
 

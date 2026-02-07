@@ -73,7 +73,7 @@ const AUTHENTICATION_COOKIES = [
  * Clear all localStorage keys related to wallet state
  */
 function clearLocalStorage(preserveTheme = true): void {
-  if (typeof window === 'undefined') return;
+  if (typeof window === 'undefined') {return;}
 
   try {
     // Get theme before clearing if preservation is enabled
@@ -82,7 +82,7 @@ function clearLocalStorage(preserveTheme = true): void {
       // Try to get theme from cookies first, then fallback to localStorage for migration
       const cookies = document.cookie.split(';').reduce((acc, cookie) => {
         const [key, value] = cookie.trim().split('=');
-        if (key && value) acc[key] = value;
+        if (key && value) {acc[key] = value;}
         return acc;
       }, {} as Record<string, string>);
       themeValue = cookies.theme || window.localStorage.getItem('theme');
@@ -154,7 +154,7 @@ function clearLocalStorage(preserveTheme = true): void {
  * Clear all sessionStorage keys related to wallet state
  */
 function clearSessionStorage(): void {
-  if (typeof window === 'undefined') return;
+  if (typeof window === 'undefined') {return;}
 
   try {
     SESSION_STORAGE_KEYS.forEach(key => {
@@ -196,7 +196,7 @@ function clearSessionStorage(): void {
  * Clear authentication cookies
  */
 function clearAuthCookies(): void {
-  if (typeof window === 'undefined') return;
+  if (typeof window === 'undefined') {return;}
 
   try {
     AUTHENTICATION_COOKIES.forEach(cookieName => {
@@ -227,7 +227,7 @@ function clearAuthCookies(): void {
  * Invalidate QueryClient cache for wallet-related queries
  */
 function invalidateQueryClientCache(queryClient?: QueryClient): void {
-  if (!queryClient) return;
+  if (!queryClient) {return;}
 
   try {
     
@@ -291,7 +291,7 @@ function invalidateQueryClientCache(queryClient?: QueryClient): void {
  * Send cross-tab broadcast to reset state in other tabs
  */
 function broadcastStateReset(): void {
-  if (typeof window === 'undefined' || !window.BroadcastChannel) return;
+  if (typeof window === 'undefined' || !window.BroadcastChannel) {return;}
 
   try {
     const channel = new BroadcastChannel('wallet_state_reset');
@@ -422,7 +422,7 @@ export function listenForStateReset(onReset: () => void): () => void {
  * @returns true if state corruption is detected
  */
 export function detectStateCorruption(): boolean {
-  if (typeof window === 'undefined') return false;
+  if (typeof window === 'undefined') {return false;}
 
   try {
     // Check for conflicting state in localStorage
@@ -433,7 +433,7 @@ export function detectStateCorruption(): boolean {
     // Check for orphaned authentication state in cookies and localStorage (fallback)
     const cookies = document.cookie.split(';').reduce((acc, cookie) => {
       const [key, value] = cookie.trim().split('=');
-      if (key && value) acc[key] = value;
+      if (key && value) {acc[key] = value;}
       return acc;
     }, {} as Record<string, string>);
     

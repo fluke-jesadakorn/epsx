@@ -6,7 +6,7 @@
 /**
  * Format percentage with proper sign and precision
  */
-export function formatPercentage(value: number, precision: number = 1): string {
+export function formatPercentage(value: number, precision = 1): string {
   const sign = value >= 0 ? '+' : ''
   return `${sign}${value.toFixed(precision)}%`
 }
@@ -40,8 +40,8 @@ export function capitalize(str: string): string {
 /**
  * Truncate text to specified length
  */
-export function truncate(str: string, length: number = 50): string {
-  if (str.length <= length) return str
+export function truncate(str: string, length = 50): string {
+  if (str.length <= length) {return str}
   return str.slice(0, length) + '...'
 }
 
@@ -108,8 +108,8 @@ export function isValidPhone(phone: string): boolean {
  * Get EPS performance color class
  */
 export function getEPSPerformanceColor(growth: number): string {
-  if (growth > 0) return 'text-green-600'
-  if (growth < 0) return 'text-red-600'
+  if (growth > 0) {return 'text-green-600'}
+  if (growth < 0) {return 'text-red-600'}
   return 'text-gray-600'
 }
 
@@ -163,17 +163,17 @@ export function parseJWT(token: string): any {
  * Check if a value is empty (null, undefined, empty string, empty array, empty object)
  */
 export function isEmpty(value: any): boolean {
-  if (value === null || value === undefined) return true
-  if (typeof value === 'string' && value.trim() === '') return true
-  if (Array.isArray(value) && value.length === 0) return true
-  if (typeof value === 'object' && Object.keys(value).length === 0) return true
+  if (value === null || value === undefined) {return true}
+  if (typeof value === 'string' && value.trim() === '') {return true}
+  if (Array.isArray(value) && value.length === 0) {return true}
+  if (typeof value === 'object' && Object.keys(value).length === 0) {return true}
   return false
 }
 
 /**
  * Generate random ID
  */
-export function generateId(prefix: string = 'id'): string {
+export function generateId(prefix = 'id'): string {
   const timestamp = Date.now().toString(36)
   const randomStr = Math.random().toString(36).substr(2, 9)
   return `${prefix}_${timestamp}_${randomStr}`
@@ -190,7 +190,7 @@ export function generateSimpleId(): string {
  * Copy text to clipboard
  */
 export async function copyToClipboard(text: string): Promise<boolean> {
-  if (typeof window === 'undefined') return false
+  if (typeof window === 'undefined') {return false}
 
   try {
     if (navigator.clipboard) {
@@ -226,7 +226,7 @@ export function isBrowser(): boolean {
  * Check if code is running on mobile
  */
 export function isMobile(): boolean {
-  if (!isBrowser()) return false
+  if (!isBrowser()) {return false}
   return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
 }
 

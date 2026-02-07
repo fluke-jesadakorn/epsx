@@ -240,12 +240,13 @@ export const createPlanSchema = z.object({
   name: z.string().min(1, 'Plan name is required').max(100, 'Name is too long'),
   description: descriptionSchema,
   planType: z.string().min(1, 'Plan type is required'),
-  currentPrice: z.number().min(0, 'Price must be 0 or greater'),
+  currentPrice: z.number().min(-1, 'Price must be -1 (Free) or greater'),
   currency: z.string().length(3, 'Currency must be 3 characters (e.g., USD)'),
   targetAudience: z.enum(['web_users', 'api_developers', 'enterprises']),
   billingModel: z.enum(['subscription', 'pay_per_use', 'hybrid']),
   planCategory: z.enum(['standard', 'api', 'enterprise', 'custom']),
   isActive: z.boolean().default(true),
+  defaultExpiryDays: z.number().min(-1, 'Expiry days must be -1 or greater').default(30),
   metadata: z.record(z.string(), z.any()).optional()
 });
 
@@ -428,7 +429,7 @@ export const isValidPermission = (permission: string): boolean => {
  */
 export const isValidEmbeddedPermission = (permission: string): boolean => {
   const parts = permission.split(':');
-  if (parts.length !== 4) return false;
+  if (parts.length !== 4) {return false;}
 
   const timestampStr = parts[3] || '0';
   const timestamp = parseInt(timestampStr, 10);
@@ -466,7 +467,7 @@ export const isValidPhoneNumber = (phone: string): boolean => {
  */
 export const getErrorMessage = (error: z.ZodError): string => {
   const firstError = error.issues[0];
-  if (!firstError) return 'Validation error';
+  if (!firstError) {return 'Validation error';}
 
   return firstError.message;
 };
@@ -479,7 +480,7 @@ export const getErrorMessages = (error: z.ZodError): Record<string, string[]> =>
 
   error.issues.forEach(issue => {
     const path = issue.path.join('.');
-    if (!messages[path]) messages[path] = [];
+    if (!messages[path]) {messages[path] = [];}
     messages[path].push(issue.message);
   });
 

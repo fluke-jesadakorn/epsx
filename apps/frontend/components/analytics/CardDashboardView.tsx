@@ -271,7 +271,7 @@ export function CardDashboardView({ className = '' }: CardDashboardViewProps) {
   };
 
   const handleExport = (format: 'json' | 'csv') => {
-    if (!data) return;
+    if (!data) {return;}
 
     // Simple export implementation without dependencies
     const exportData = {
@@ -566,7 +566,7 @@ export function CardDashboardView({ className = '' }: CardDashboardViewProps) {
 
     if (active.id !== over?.id && data) {
       setData((prev) => {
-        if (!prev) return null;
+        if (!prev) {return null;}
 
         const oldIndex = prev.data.findIndex((item) => item.symbol === active.id);
         const newIndex = prev.data.findIndex((item) => item.symbol === over?.id);

@@ -6,7 +6,7 @@ import type { StockFinancialData } from '@/types/financialChartData';
 import { MarketCountry } from '../../types/market';
 
 // Server-side cache to store data temporarily with pagination-aware keys
-let serverCache: Map<
+const serverCache: Map<
   string,
   {
     data: StockFinancialData[];
@@ -16,7 +16,7 @@ let serverCache: Map<
 > = new Map();
 
 // Count cache for pagination
-let countCache: {
+const countCache: {
   count: number;
   timestamp: number;
   ttl: number;

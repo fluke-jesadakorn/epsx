@@ -10,12 +10,6 @@
 import { extractData } from '@/shared/api';
 import { adminApiClient } from '../api-client';
 
-// Re-export shared types
-export {
-    createWalletsClient, WalletsApi, type RecentWallet, type WalletStats as SharedWalletStats, type WalletActivity, type WalletInfo,
-    type WalletSearchFilters
-} from '@/shared/api/wallets';
-
 // Import local types
 import type {
     DisableReasonCategory,
@@ -28,6 +22,12 @@ import type {
     WalletStats,
     WalletSubscription,
 } from '@/components/wallet/types';
+
+// Re-export shared types
+export {
+    createWalletsClient, WalletsApi, type RecentWallet, type WalletStats as SharedWalletStats, type WalletActivity, type WalletInfo,
+    type WalletSearchFilters
+} from '@/shared/api/wallets';
 
 // Re-export for consumers
 export type { WalletActivityEvent, WalletData, WalletFilters, WalletPermission, WalletStats, WalletSubscription };
@@ -135,7 +135,7 @@ function mapWalletDtoToData(dto: WalletSummaryDto): WalletData {
             platforms.add('markets');
         }
     });
-    if (platforms.size === 0) platforms.add('analytics');
+    if (platforms.size === 0) {platforms.add('analytics');}
 
     const permissions: WalletPermission[] = dtoPermissions.map((p, idx) => ({
         id: `perm-${idx}`,
@@ -159,7 +159,7 @@ function mapWalletDtoToData(dto: WalletSummaryDto): WalletData {
     }));
 
     let status: 'active' | 'disabled' | 'pending' = 'active';
-    if (!dto.is_active) status = 'disabled';
+    if (!dto.is_active) {status = 'disabled';}
 
     const disableInfo = dto.metadata?.['disable_info'] as WalletData['disableInfo'] | undefined;
     const label = dto.metadata?.['label'] as string | undefined;
@@ -182,40 +182,12 @@ function mapWalletDtoToData(dto: WalletSummaryDto): WalletData {
 }
 
 function detectPlatform(permission: string): Platform {
-    if (permission.startsWith('epsx:analytics') || permission.startsWith('epsx:rankings')) return 'analytics';
-    if (permission.startsWith('epsx-pay:')) return 'pay';
-    if (permission.startsWith('epsx-token:')) return 'token';
-    if (permission.startsWith('epsx-markets:')) return 'markets';
+    if (permission.startsWith('epsx:analytics') || permission.startsWith('epsx:rankings')) {return 'analytics';}
+    if (permission.startsWith('epsx-pay:')) {return 'pay';}
+    if (permission.startsWith('epsx-token:')) {return 'token';}
+    if (permission.startsWith('epsx-markets:')) {return 'markets';}
     return 'analytics';
 }
-
-function mapStatsToFrontend(dto: WalletStatsDto): WalletStats {
-    return {
-        total: dto.total_users,
-        active: dto.active_users,
-        disabled: dto.inactive_users,
-        subscribed: 0,
-        changes: {
-            total: dto.new_users_30_days,
-            active: Math.round(dto.growth_rate * dto.active_users / 100),
-            disabled: 0,
-            subscribed: 0,
-        },
-        platformDistribution: {
-            analytics: dto.active_users,
-            pay: 0,
-            token: 0,
-            markets: 0,
-        },
-    };
-}
-
-// ============================================================================
-// WALLET MANAGEMENT API
-// ============================================================================
-
-
-// ... (existing exports)
 
 // ============================================================================
 // WALLET MANAGEMENT API
@@ -223,12 +195,15 @@ function mapStatsToFrontend(dto: WalletStatsDto): WalletStats {
 
 export const walletMgmt = {
     getWallet: async (address: string) => {
-        const res = await adminApiClient.get<any>(`/api/admin/wallets/${address}`);
-        const data = extractData<any>(res);
-        const dto = data.wallet || data;
+        const res = await adminApiClient.get<Record<string, unknown>>(`/api/admin/wallets/${address}`);
+        const data = extractData<Record<string, unknown>>(res);
+        if (!data) {
+            throw new Error('Wallet not found');
+        }
+        const dto = (data.wallet || data) as unknown as WalletSummaryDto;
         return mapWalletDtoToData(dto);
     },
-    updateMetadata: async (address: string, data: { label?: string, note?: string }) => {
+    updateWalletMetadata: async (address: string, data: { label?: string | null, note?: string | null }) => {
         await adminApiClient.put(`/api/admin/wallets/${address}`, { metadata: data });
     },
     disableWallet: async (address: string, data: DisableWalletRequest) => {
@@ -243,7 +218,10 @@ export const walletMgmt = {
     },
     revokePermission: async (address: string, permission: string) => {
         await adminApiClient.post('/api/admin/permissions/direct/revoke', { wallet_address: address, permission_string: permission });
+    },
+    searchWallets: async (query: string, limit = 10) => {
+        const res = await adminApiClient.get<WalletListResponse>('/api/admin/wallets', { search: query, limit: limit.toString() });
+        const data = extractData<WalletListResponse>(res);
+        return data?.data || data; // Handle potential wrapping
     }
 };
-
-// export default walletMgmt;

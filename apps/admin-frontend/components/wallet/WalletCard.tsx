@@ -74,10 +74,10 @@ export function WalletCard({
     isSelected = false,
     onSelect,
     onView,
-    onManage,
+    onManage: _onManage,
     onDisable,
     onEnable,
-    onEdit,
+    onEdit: _onEdit,
     onUpdateMetadata,
     className,
 }: WalletCardProps) {
@@ -137,7 +137,7 @@ export function WalletCard({
             <div className="absolute -left-16 -top-16 h-32 w-32 rounded-full bg-[#1fc7d4]/5 blur-[50px] transition-all duration-500 group-hover:bg-[#1fc7d4]/10" />
             <div className="absolute -right-16 -bottom-16 h-32 w-32 rounded-full bg-[#7645d9]/5 blur-[50px] transition-all duration-500 group-hover:bg-[#7645d9]/10" />
 
-            <div className="relative flex flex-col gap-6 rounded-[20px] bg-white/[0.02] p-4 sm:p-5 lg:flex-row lg:items-center lg:justify-between lg:gap-8">
+            <div className="relative flex flex-col gap-6 rounded-[20px] bg-white/[0.02] p-4 sm:p-5">
 
                 {/* 1. Identity Section */}
                 <div className="flex items-center gap-4 sm:gap-5 min-w-0">
@@ -233,7 +233,7 @@ export function WalletCard({
                 </div>
 
                 {/* 2. Stats Grid (Responsive) */}
-                <div className="grid grid-cols-2 gap-4 sm:flex sm:flex-wrap sm:items-center sm:gap-6 lg:gap-8 flex-1">
+                <div className="grid grid-cols-2 gap-4 sm:flex sm:flex-wrap sm:items-center sm:gap-6 flex-1">
                     {/* Plan */}
                     <div className="flex flex-col gap-1.5">
                         <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Plan</span>
@@ -247,7 +247,6 @@ export function WalletCard({
                             {wallet.subscriptions[0]?.planName || 'Free'}
                         </div>
                     </div>
-
 
 
                     {/* Platforms Breakdown */}
@@ -266,7 +265,7 @@ export function WalletCard({
                 </div>
 
                 {/* 3. Actions */}
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 lg:flex-col lg:border-l lg:border-white/5 lg:pl-6 lg:w-[160px]">
+                <div className="grid grid-cols-2 gap-3">
                     <Button
                         onClick={(e) => { e.stopPropagation(); onView?.(); }}
                         className="group/btn relative flex items-center justify-center gap-2 rounded-xl bg-white/5 px-4 py-2.5 text-xs font-bold text-white transition-all hover:bg-white/10 hover:shadow-lg hover:shadow-purple-500/10 active:scale-95 border border-white/5 hover:border-white/10 w-full"
@@ -282,7 +281,7 @@ export function WalletCard({
                                 className="flex items-center justify-center gap-2 h-10 w-full rounded-xl border border-transparent text-slate-400 transition-all hover:bg-white/5 hover:text-white hover:border-white/5 active:scale-95 text-xs font-bold"
                             >
                                 <MoreHorizontal size={16} />
-                                <span className="lg:inline">More Actions</span>
+                                <span className="truncate">More Actions</span>
                             </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-56 bg-slate-900/95 backdrop-blur-xl border-white/10 text-slate-200">

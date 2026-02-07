@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback } from 'react';
 // Storage utilities (inlined from lib/state/store.ts)
 const storage = {
   get: (key: string, storageType: 'localStorage' | 'sessionStorage' = 'localStorage') => {
-    if (typeof window === 'undefined') return null;
+    if (typeof window === 'undefined') {return null;}
     try {
       const item = window[storageType].getItem(key);
       return item ? JSON.parse(item) : null;
@@ -13,7 +13,7 @@ const storage = {
   },
 
   set: (key: string, value: unknown, storageType: 'localStorage' | 'sessionStorage' = 'localStorage') => {
-    if (typeof window === 'undefined') return;
+    if (typeof window === 'undefined') {return;}
     try {
       window[storageType].setItem(key, JSON.stringify(value));
     } catch (error) {
@@ -22,7 +22,7 @@ const storage = {
   },
 
   remove: (key: string, storageType: 'localStorage' | 'sessionStorage' = 'localStorage') => {
-    if (typeof window === 'undefined') return;
+    if (typeof window === 'undefined') {return;}
     try {
       window[storageType].removeItem(key);
     } catch (error) {
@@ -31,7 +31,7 @@ const storage = {
   },
 
   clear: (storageType: 'localStorage' | 'sessionStorage' = 'localStorage') => {
-    if (typeof window === 'undefined') return;
+    if (typeof window === 'undefined') {return;}
     try {
       window[storageType].clear();
     } catch (error) {
@@ -89,7 +89,7 @@ export function usePersistentState<T>(options: PersistentStateOptions<T>) {
 
   // Save to storage when state changes
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (typeof window === 'undefined') {return;}
 
     try {
       const valueToStore = version ? { ...state, _version: version } : state;

@@ -8,13 +8,13 @@ import { Key, Package } from 'lucide-react';
 // --- Utilities ---
 function formatTimeRemaining(expiryDate: string): string {
     const diff = new Date(expiryDate).getTime() - new Date().getTime();
-    if (diff <= 0) return "(Expired)";
+    if (diff <= 0) {return "(Expired)";}
 
     const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-    if (days > 0) return `(${days} days left)`;
+    if (days > 0) {return `(${days} days left)`;}
 
     const hours = Math.floor(diff / (1000 * 60 * 60));
-    if (hours > 0) return `(${hours} hours left)`;
+    if (hours > 0) {return `(${hours} hours left)`;}
 
     return "(Less than an hour left)";
 }
@@ -163,6 +163,13 @@ export function DraggablePlanItem({ id, label, description, isAssigned = false, 
     );
 }
 
+interface PlanItem {
+    id: string;
+    name: string;
+    expiresAt?: string;
+    isPending?: boolean;
+}
+
 export function DroppablePlanList({
     id,
     items,
@@ -173,11 +180,11 @@ export function DroppablePlanList({
     onDelete
 }: {
     id: string;
-    items: any[];
+    items: PlanItem[];
     emptyMessage: string;
-    pendingItems?: any[];
-    onEdit?: (item: any) => void;
-    onManage?: (item: any) => void;
+    pendingItems?: PlanItem[];
+    onEdit?: (item: PlanItem) => void;
+    onManage?: (item: PlanItem) => void;
     onDelete?: (id: string) => void;
 }) {
     const { setNodeRef, isOver } = useDroppable({ id });

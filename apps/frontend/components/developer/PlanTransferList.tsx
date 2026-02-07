@@ -143,7 +143,7 @@ export function PlanTransferList({
     const handleTouchStart = useCallback(
         (e: React.TouchEvent, item: PermissionItem, source: 'available' | 'selected') => {
             const touch = e.touches[0];
-            if (!touch) return;
+            if (!touch) {return;}
 
             const element = e.currentTarget as HTMLElement;
 
@@ -171,7 +171,7 @@ export function PlanTransferList({
     const handleTouchMove = useCallback(
         (e: React.TouchEvent) => {
             const touch = e.touches[0];
-            if (!touch) return;
+            if (!touch) {return;}
 
             if (!touchDrag) {
                 // If not dragging yet, cancel the long press timer on significant movement

@@ -2,6 +2,9 @@
 import { cookies } from 'next/headers';
 
 import { COOKIES, getServerAuthToken } from '@/shared/auth/cookies';
+
+import { createFrontendApiClient } from '@/shared/utils/api-client';
+
 export interface AuthUser {
   id: string;
   email?: string;
@@ -14,8 +17,6 @@ export interface AuthUser {
   package_tier?: string;
   name?: string;
 }
-
-import { createFrontendApiClient } from '@/shared/utils/api-client';
 
 export async function getCurrentUser(): Promise<AuthUser | null> {
   try {

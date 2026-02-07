@@ -42,7 +42,7 @@ export function PermissionCategoryGroup({
         onToggleAll(permissions.map((p) => p.permission_string));
     };
 
-    if (permissions.length === 0) return null;
+    if (permissions.length === 0) {return null;}
 
     return (
         <div className="mb-3">

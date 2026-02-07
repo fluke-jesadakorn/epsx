@@ -75,7 +75,7 @@ export function useApiClient(options?: {
   const pathname = usePathname();
 
   const platform = useMemo(() => {
-    if (options?.platform) return options.platform;
+    if (options?.platform) {return options.platform;}
 
     // Check URL path via usePathname
     if (pathname?.startsWith('/admin')) {

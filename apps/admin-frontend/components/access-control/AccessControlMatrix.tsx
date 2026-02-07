@@ -57,14 +57,14 @@ export function AccessControlMatrix({ className }: AccessControlMatrixProps) {
     const groupedPermissions = useMemo(() => {
         const filtered = permissions.filter(p =>
             (p.permission && p.permission.toLowerCase().includes(search.toLowerCase())) ||
-            (p.description && p.description.toLowerCase().includes(search.toLowerCase()))
+            (p.description?.toLowerCase().includes(search.toLowerCase()))
         );
 
         const groups: Record<string, PermissionDefinitionDto[]> = {};
 
         filtered.forEach(p => {
             const platform = p.platform || 'Other';
-            if (!groups[platform]) groups[platform] = [];
+            if (!groups[platform]) {groups[platform] = [];}
             groups[platform].push(p);
         });
 
@@ -73,9 +73,9 @@ export function AccessControlMatrix({ className }: AccessControlMatrixProps) {
         return Object.entries(groups).sort((a, b) => {
             const indexA = sortOrder.indexOf(a[0].toLowerCase());
             const indexB = sortOrder.indexOf(b[0].toLowerCase());
-            if (indexA !== -1 && indexB !== -1) return indexA - indexB;
-            if (indexA !== -1) return -1;
-            if (indexB !== -1) return 1;
+            if (indexA !== -1 && indexB !== -1) {return indexA - indexB;}
+            if (indexA !== -1) {return -1;}
+            if (indexB !== -1) {return 1;}
             return a[0].localeCompare(b[0]);
         });
     }, [permissions, search]);
@@ -84,7 +84,7 @@ export function AccessControlMatrix({ className }: AccessControlMatrixProps) {
     const togglePermission = async (policy: AccessPolicy, permissionKey: string) => {
         // Optimistic update ID
         const updateKey = `${policy.id}-${permissionKey}`;
-        if (isUpdating[updateKey]) return;
+        if (isUpdating[updateKey]) {return;}
 
         setIsUpdating(prev => ({ ...prev, [updateKey]: true }));
 

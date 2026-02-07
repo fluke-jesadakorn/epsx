@@ -75,8 +75,8 @@ function getClientIP(request: NextRequest): string {
     return forwarded.split(',')[0].trim();
   }
   
-  if (realIP) return realIP;
-  if (cfIP) return cfIP;
+  if (realIP) {return realIP;}
+  if (cfIP) {return cfIP;}
   
   return request.ip || '127.0.0.1';
 }

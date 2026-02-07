@@ -12,6 +12,9 @@ use axum::{
 };
 use crate::web::auth::AppState;
 use diesel_async::RunQueryDsl; // Ensure async execute is used
+use crate::core::constants::*;
+use crate::domain::permission_management::{PlanId, PlanRepositoryPort};
+use uuid::Uuid;
 
 #[derive(Serialize, ToSchema)]
 pub struct SeedPlansResponse {
@@ -47,6 +50,76 @@ pub async fn seed_subscription_plans(State(app_state): State<AppState>) -> (Stat
             );
         }
     };
+
+    // 0. Free Plan (Constant ID)
+    // We check if it exists using the repo (which we imported trait for)
+    let free_plan_id = PlanId::from_uuid(Uuid::parse_str(FREE_PLAN_ID).unwrap());
+    
+    // We can't easily check for existence with finding by ID if the ID isn't in DB yet.
+    // But we want to Insert with specific ID.
+    // The previous logic used gen_random_uuid().
+    
+    let free_plan_metadata = json!({
+        "permissions": ["epsx:rankings:view:5", "epsx:rankings:offset:100"],
+        "features": [
+            "View top 5 stock rankings",
+            "Basic market overview",
+            "Community access"
+        ],
+        "ranking_offset": FREE_PLAN_RANKING_OFFSET,
+        "rankings_limit": 5,
+        "limits": {
+            "analytics_queries_per_day": 5,
+            "stocks_tracked": 5,
+            "historical_data_months": 1
+        }
+    });
+
+    let free_plan_result = diesel::sql_query(
+        r#"
+        INSERT INTO plans (
+            id, name, slug, description, plan_type, plan_metadata,
+            price, currency, billing_cycle, is_active, is_promoted, display_order, created_by, tier_level, is_public
+        ) VALUES (
+            $1, -- Use explicit ID
+            $2, $3, $4, $5,
+            $6::jsonb,
+            $7, $8, $9, $10, $11, $12, $13, $14, $15
+        )
+        ON CONFLICT (id) DO UPDATE SET -- Conflict on ID now
+            name = EXCLUDED.name,
+            slug = EXCLUDED.slug,
+            description = EXCLUDED.description,
+            plan_type = EXCLUDED.plan_type,
+            plan_metadata = EXCLUDED.plan_metadata,
+            price = EXCLUDED.price,
+            currency = EXCLUDED.currency,
+            billing_cycle = EXCLUDED.billing_cycle,
+            is_active = EXCLUDED.is_active,
+            is_promoted = EXCLUDED.is_promoted,
+            display_order = EXCLUDED.display_order,
+            created_by = EXCLUDED.created_by,
+            tier_level = EXCLUDED.tier_level,
+            is_public = EXCLUDED.is_public
+        "#
+    )
+    .bind::<diesel::sql_types::Uuid, _>(Uuid::parse_str(FREE_PLAN_ID).unwrap())
+    .bind::<diesel::sql_types::Text, _>(FREE_PLAN_NAME)
+    .bind::<diesel::sql_types::Text, _>(FREE_PLAN_SLUG)
+    .bind::<diesel::sql_types::Text, _>(FREE_PLAN_DESCRIPTION)
+    .bind::<diesel::sql_types::Text, _>("subscription")
+    .bind::<diesel::sql_types::Jsonb, _>(&free_plan_metadata)
+    .bind::<diesel::sql_types::Nullable<diesel::sql_types::Numeric>, _>(BigDecimal::from_str("0").ok())
+    .bind::<diesel::sql_types::Text, _>("USD")
+    .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(None::<String>) // billing_cycle
+    .bind::<diesel::sql_types::Bool, _>(true) // is_active
+    .bind::<diesel::sql_types::Bool, _>(true) // is_promoted
+    .bind::<diesel::sql_types::Integer, _>(FREE_PLAN_TIER_LEVEL) // display_order
+    .bind::<diesel::sql_types::Text, _>("0x0000000000000000000000000000000000000000")
+    .bind::<diesel::sql_types::Integer, _>(0) // tier_level
+    .bind::<diesel::sql_types::Bool, _>(true) // is_public
+    .execute(&mut conn)
+    .await;
 
 
     // Starter Plan
@@ -371,12 +444,14 @@ pub async fn seed_subscription_plans(State(app_state): State<AppState>) -> (Stat
         Ok(())
     }
 
+    let free_seed = seed_permissions_for_plan(&mut conn, "free", &["epsx:rankings:view:5", "epsx:rankings:offset:100"], "epsx").await;
     let starter_seed = seed_permissions_for_plan(&mut conn, "starter", &["epsx:analytics:view:25", "epsx:rankings:view:25", "epsx:analytics:export", "epsx:alerts:create", "epsx:rankings:offset:1"], "epsx").await;
     let pro_seed = seed_permissions_for_plan(&mut conn, "pro", &["epsx:analytics:view:100", "epsx:rankings:view:100", "epsx:analytics:export", "epsx:analytics:advanced", "epsx:alerts:create", "epsx:alerts:manage", "epsx:portfolio:view", "epsx:portfolio:manage", "epsx:rankings:offset:1"], "epsx").await;
     let enterprise_seed = seed_permissions_for_plan(&mut conn, "enterprise", &["epsx:*:*", "epsx:api:access", "epsx:enterprise:*"], "epsx").await;
     let api_developer_seed = seed_permissions_for_plan(&mut conn, "api-developer", &["epsx:api:access", "epsx:analytics:view:unlimited", "epsx:rankings:view:unlimited"], "epsx").await;
     
     // Log seeding errors if any
+    if let Err(e) = free_seed { tracing::error!("Error seeding Free Plan permissions: {}", e); }
     if let Err(e) = starter_seed { tracing::error!("Error seeding Starter Plan permissions: {}", e); }
     if let Err(e) = pro_seed { tracing::error!("Error seeding Pro Plan permissions: {}", e); }
     if let Err(e) = enterprise_seed { tracing::error!("Error seeding Enterprise Plan permissions: {}", e); }
@@ -386,6 +461,7 @@ pub async fn seed_subscription_plans(State(app_state): State<AppState>) -> (Stat
     let mut inserted = 0;
     let mut errors = Vec::new();
 
+    if free_plan_result.is_ok() { inserted += 1; } else { errors.push("Free Plan".to_string()); }
     if starter_plan_result.is_ok() { inserted += 1; } else { errors.push("Starter Plan".to_string()); }
     if pro_plan_result.is_ok() { inserted += 1; } else { errors.push("Pro Plan".to_string()); }
     if enterprise_plan_result.is_ok() { inserted += 1; } else { errors.push("Enterprise Plan".to_string()); }

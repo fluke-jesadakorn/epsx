@@ -81,10 +81,6 @@
     ".next",
     "out",
     "dist",
-    "build",
-    "**/__tests__/**",
-    "**/__test__/**",
-    "**/*.test.*",
-    "**/*.spec.*"
+    "build"
   ]
 }

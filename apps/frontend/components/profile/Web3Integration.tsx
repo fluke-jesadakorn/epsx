@@ -31,7 +31,7 @@ export function Web3Integration(_props: Web3IntegrationProps) {
   const [showAddress, _setShowAddress] = useState(false);
 
   const _formatAddress = (addr: string) => {
-    if (!addr) return '';
+    if (!addr) {return '';}
     return showAddress
       ? addr
       : `${addr.slice(0, 6)}...${addr.slice(-4)}`;

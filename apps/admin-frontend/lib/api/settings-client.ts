@@ -5,6 +5,9 @@
  * This file is deprecated - import directly from @/shared/api instead.
  */
 
+// Create singleton instance for backward compatibility
+import { createSettingsClient, type SettingsApi as SettingsApiType } from '@/shared/api/settings';
+
 'use client';
 
 // Re-export everything from shared settings module
@@ -14,9 +17,6 @@ export {
     type NotificationSettings,
     type SecuritySettings, type SettingUpdate, type SystemSettings, type UpdateSettingsResponse
 } from '@/shared/api/settings';
-
-// Create singleton instance for backward compatibility
-import { createSettingsClient, type SettingsApi as SettingsApiType } from '@/shared/api/settings';
 
 let settingsApiInstance: SettingsApiType | null = null;
 

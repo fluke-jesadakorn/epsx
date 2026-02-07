@@ -5,6 +5,7 @@ import {
     DeveloperPortalStats,
     PermissionAnalytics,
     PlanStats,
+    RecentWalletsData,
     SystemMetrics,
     UserStats
 } from '@/hooks/useAnalyticsData';
@@ -43,9 +44,9 @@ async function handleAction<T>(
         }
 
         return res.data || (defaultValue as T);
-    } catch (error: any) {
+    } catch (error: unknown) {
         // Allow Next.js redirects to bubble up
-        if (error.digest?.startsWith('NEXT_REDIRECT')) {
+        if (error instanceof Error && (error as any).digest?.startsWith('NEXT_REDIRECT')) {
             throw error;
         }
 
@@ -109,9 +110,9 @@ export async function getApiKeysAction(): Promise<ApiKeysResponse> {
     );
 }
 
-export async function getRecentWalletsAction(limit = 10, days = 30): Promise<any> {
+export async function getRecentWalletsAction(limit = 10, days = 30): Promise<RecentWalletsData> {
     return handleAction(
-        (apiClient) => apiClient.get<any>(`/api/admin/web3/recent-wallets?limit=${limit}&days=${days}`),
+        (apiClient) => apiClient.get<RecentWalletsData>(`/api/admin/web3/recent-wallets?limit=${limit}&days=${days}`),
         'Failed to fetch recent wallets'
     );
 }

@@ -1,8 +1,8 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { API_ROUTES } from '@/shared/config/route-constants';
-import { createAdminApiClient, ApiResponse } from '@/shared/utils/api-client';
-import { ApiError } from '@/shared/utils/response-handler';
+import { createAdminApiClient, type ApiResponse } from '@/shared/utils/api-client';
+import { type ApiError } from '@/shared/utils/response-handler';
 
 /**
  * Hook for making admin API calls with error handling
@@ -32,7 +32,7 @@ export function useAdminApi() {
         return response.data ?? null;
       } else {
         // Handle API error
-        setError(response as any);
+        setError(response as unknown as ApiError);
         return null;
       }
     } catch (err) {
@@ -61,11 +61,11 @@ export function useAdminApi() {
     search?: string;
     role?: string;
   }) => {
-    return apiCall<any>(() => client.get(API_ROUTES.ADMIN.USERS, params));
+    return apiCall<unknown>(() => client.get(API_ROUTES.ADMIN.USERS, params));
   }, [apiCall, client]);
 
   const getUser = useCallback((userId: string) => {
-    return apiCall<any>(() => client.get(API_ROUTES.ADMIN.USER_DETAILS.replace(':id', userId)));
+    return apiCall<unknown>(() => client.get(API_ROUTES.ADMIN.USER_DETAILS.replace(':id', userId)));
   }, [apiCall, client]);
 
   const createUser = useCallback((userData: {
@@ -73,18 +73,18 @@ export function useAdminApi() {
     wallet_address?: string;
     role?: string;
   }) => {
-    return apiCall<any>(() => client.post(API_ROUTES.ADMIN.USERS, userData));
+    return apiCall<unknown>(() => client.post(API_ROUTES.ADMIN.USERS, userData));
   }, [apiCall, client]);
 
   const updateUser = useCallback((userId: string, userData: {
     email?: string;
     role?: string;
   }) => {
-    return apiCall<any>(() => client.put(API_ROUTES.ADMIN.USER_DETAILS.replace(':id', userId), userData));
+    return apiCall<unknown>(() => client.put(API_ROUTES.ADMIN.USER_DETAILS.replace(':id', userId), userData));
   }, [apiCall, client]);
 
   const deleteUser = useCallback((userId: string) => {
-    return apiCall<any>(() => client.delete(API_ROUTES.ADMIN.USER_DETAILS.replace(':id', userId)));
+    return apiCall<unknown>(() => client.delete(API_ROUTES.ADMIN.USER_DETAILS.replace(':id', userId)));
   }, [apiCall, client]);
 
   const grantPermission = useCallback((request: {
@@ -93,7 +93,7 @@ export function useAdminApi() {
     expires_at?: string;
     reason?: string;
   }) => {
-    return apiCall<any>(() => client.post(API_ROUTES.PERMISSIONS.GRANT, request));
+    return apiCall<unknown>(() => client.post(API_ROUTES.PERMISSIONS.GRANT, request));
   }, [apiCall, client]);
 
   const revokePermission = useCallback((request: {
@@ -101,30 +101,30 @@ export function useAdminApi() {
     permission: string;
     reason?: string;
   }) => {
-    return apiCall<any>(() => client.post(API_ROUTES.PERMISSIONS.REVOKE, request));
+    return apiCall<unknown>(() => client.post(API_ROUTES.PERMISSIONS.REVOKE, request));
   }, [apiCall, client]);
 
   const getUserPermissions = useCallback((userId: string) => {
-    return apiCall<any>(() => client.get(API_ROUTES.ADMIN.USER_PERMISSIONS.replace(':id', userId)));
+    return apiCall<unknown>(() => client.get(API_ROUTES.ADMIN.USER_PERMISSIONS.replace(':id', userId)));
   }, [apiCall, client]);
 
   const getSystemHealth = useCallback(() => {
-    return apiCall<any>(() => client.get(API_ROUTES.ADMIN.SYSTEM_STATUS));
+    return apiCall<unknown>(() => client.get(API_ROUTES.ADMIN.SYSTEM_STATUS));
   }, [apiCall, client]);
 
   const getSystemMetrics = useCallback(() => {
-    return apiCall<any>(() => client.get(API_ROUTES.ADMIN.SYSTEM_METRICS));
+    return apiCall<unknown>(() => client.get(API_ROUTES.ADMIN.SYSTEM_METRICS));
   }, [apiCall, client]);
 
   return {
     // State
     loading,
     error,
-    
+
     // Actions
     clearError,
     apiCall,
-    
+
     // Specific API methods
     getUsers,
     getUser,

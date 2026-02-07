@@ -50,7 +50,7 @@ export function PromotionManagement({ currentUser }: PromotionManagementProps) {
         const promos = response.data?.promotions || []
         setPromotions(promos.map(p => ({
           ...p,
-          discountType: p.discountType as 'percentage' | 'fixed',
+          discountType: p.discountType,
           discountValue: parseFloat(p.discountValue),
           maxDiscountAmount: p.maxDiscountAmount ? parseFloat(p.maxDiscountAmount) : null,
           minPurchaseAmount: parseFloat(p.minPurchaseAmount || '0'),

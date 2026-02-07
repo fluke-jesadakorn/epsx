@@ -1,5 +1,5 @@
 // Define currency formatting function directly to avoid import issues
-const fmtCurrency = (amount: number, currency: string = 'USD'): string => {
+const fmtCurrency = (amount: number, currency = 'USD'): string => {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency
@@ -24,9 +24,9 @@ export const dt = (date: string | Date, fmt: 'short' | 'medium' | 'long' = 'medi
 export const pct = (val: number, dec = 2): string => `${(val * 100).toFixed(dec)}%`
 
 export const prc = (price: number | null): string => {
-  if (price === null) return 'N/A'
-  if (price >= 1000) return price.toLocaleString('en-US', { maximumFractionDigits: 2 })
-  if (price >= 1) return price.toFixed(2)
+  if (price === null) {return 'N/A'}
+  if (price >= 1000) {return price.toLocaleString('en-US', { maximumFractionDigits: 2 })}
+  if (price >= 1) {return price.toFixed(2)}
   return price.toFixed(4)
 }
 

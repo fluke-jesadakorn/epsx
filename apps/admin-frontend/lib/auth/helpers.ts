@@ -8,12 +8,9 @@
 import {
   AdminSessionData,
   AdminUserProfile,
-  AdminJWTPayload,
   SecurityContext,
-  PermissionCheck,
   isAdminSession,
   isAdminUser,
-  isAdminJWT
 } from '@/types/auth-separation';
 
 // ============================================================================
@@ -31,28 +28,28 @@ export function hasAdminPermission(
   permission: string,
   securityContext?: SecurityContext
 ): boolean {
-  if (!user?.permissions) {return false;}
-  
+  if (!user?.permissions) { return false; }
+
   const permissions = Array.isArray(user.permissions) ? user.permissions : [];
-  
+
   // Check for admin wildcard permission
   if (permissions.includes('admin:*:*')) {
     return true;
   }
-  
+
   // Check for exact permission match
   if (permissions.includes(permission)) {
     return true;
   }
-  
+
   // Check for broader permissions (e.g., admin:users:* covers admin:users:view)
   if (permission.includes(':')) {
     const [platform, resource] = permission.split(':');
-    const hasMatchingPattern = permissions.some(p => 
-      p === `${platform}:${resource}:*` || 
+    const hasMatchingPattern = permissions.some(p =>
+      p === `${platform}:${resource}:*` ||
       p === `${platform}:*:*`
     );
-    
+
     if (hasMatchingPattern) {
       // Additional security checks for elevated permissions
       if (securityContext && isElevatedPermission(permission)) {
@@ -61,7 +58,7 @@ export function hasAdminPermission(
       return true;
     }
   }
-  
+
   return false;
 }
 
@@ -74,35 +71,35 @@ export function hasSystemAccess(
   user: AdminUserProfile | null | undefined,
   requiredLevel: 'standard' | 'elevated' | 'critical' = 'standard'
 ): boolean {
-  if (!user) {return false;}
-  
+  if (!user) { return false; }
+
   // Check security level hierarchy
   const levelHierarchy = {
     'standard': 1,
     'elevated': 2,
     'critical': 3
   };
-  
+
   const userLevel = levelHierarchy[user.securityLevel] || 0;
   const requiredLevelValue = levelHierarchy[requiredLevel] || 1;
-  
+
   return userLevel >= requiredLevelValue;
 }
 
 /**
  * Check if admin can perform bulk operations
  * @param user
- * @param operation
+ * @param _operation
  */
 export function canPerformBulkOperations(
   user: AdminUserProfile | null | undefined,
-  operation: string
+  _operation: string
 ): boolean {
-  if (!user) {return false;}
-  
+  if (!user) { return false; }
+
   // Bulk operations require elevated security level
-  if (user.securityLevel === 'standard') {return false;}
-  
+  if (user.securityLevel === 'standard') { return false; }
+
   // Check specific bulk operation permissions
   const bulkPermissions = [
     'admin:users:bulk_manage',
@@ -110,7 +107,7 @@ export function canPerformBulkOperations(
     'admin:system:bulk_operations',
     'admin:*:*'
   ];
-  
+
   return user.permissions.some(p => bulkPermissions.includes(p));
 }
 
@@ -128,11 +125,11 @@ function validateElevatedAccess(
   context: SecurityContext
 ): boolean {
   // MFA must be verified for elevated operations
-  if (!context.mfaVerified) {return false;}
-  
+  if (!context.mfaVerified) { return false; }
+
   // Device must be trusted for critical operations
-  if (user.securityLevel === 'critical' && !context.deviceTrusted) {return false;}
-  
+  if (user.securityLevel === 'critical' && !context.deviceTrusted) { return false; }
+
   return true;
 }
 
@@ -148,7 +145,7 @@ function isElevatedPermission(permission: string): boolean {
     'admin:permissions:bulk_',
     'admin:*:*'
   ];
-  
+
   return elevatedPatterns.some(pattern => permission.includes(pattern));
 }
 
@@ -165,7 +162,7 @@ export function hasAdminRole(
   user: AdminUserProfile | null | undefined,
   role: string
 ): boolean {
-  if (!user) {return false;}
+  if (!user) { return false; }
   return user.role === role || user.role === 'super_admin';
 }
 
@@ -178,7 +175,7 @@ export function isInDepartment(
   user: AdminUserProfile | null | undefined,
   department: string
 ): boolean {
-  if (!user?.department) {return false;}
+  if (!user?.department) { return false; }
   return user.department === department;
 }
 
@@ -191,7 +188,7 @@ export function hasClearanceLevel(
   user: AdminUserProfile | null | undefined,
   requiredLevel: number
 ): boolean {
-  if (!user) {return false;}
+  if (!user) { return false; }
   return user.clearanceLevel >= requiredLevel;
 }
 
@@ -206,18 +203,18 @@ export function hasClearanceLevel(
 export function validateAdminSession(
   session: AdminSessionData | null | undefined
 ): boolean {
-  if (!session || !isAdminSession(session)) {return false;}
-  
+  if (!session || !isAdminSession(session)) { return false; }
+
   // Check session expiry
-  if (Date.now() > session.expiresAt) {return false;}
-  
+  if (Date.now() > session.expiresAt) { return false; }
+
   // Validate user profile
-  if (!isAdminUser(session.user)) {return false;}
-  
+  if (!isAdminUser(session.user)) { return false; }
+
   // Check security context
   const context = session.securityContext;
-  if (!context.sessionId || !context.deviceTrusted) {return false;}
-  
+  if (!context.sessionId || !context.deviceTrusted) { return false; }
+
   return true;
 }
 
@@ -231,17 +228,17 @@ export function requiresSecurityUpgrade(
   targetOperation: string
 ): boolean {
   const context = session.securityContext;
-  
+
   // Critical operations require MFA
   if (targetOperation.includes('critical') && !context.mfaVerified) {
     return true;
   }
-  
+
   // System operations require elevated security
   if (targetOperation.includes('system') && context.securityLevel === 'standard') {
     return true;
   }
-  
+
   return false;
 }
 
@@ -259,7 +256,7 @@ export function createAuditContext(
   user: AdminUserProfile,
   session: AdminSessionData,
   operation: string
-): Record<string, any> {
+): Record<string, unknown> {
   return {
     adminId: user.id,
     adminEmail: user.email,
@@ -287,7 +284,7 @@ export function shouldAuditOperation(operation: string): boolean {
     'data_export',
     'bulk_operation'
   ];
-  
+
   return auditableOperations.some(op => operation.includes(op));
 }
 
@@ -325,17 +322,17 @@ export function getSecurityLevelColor(level: string): string {
 export function formatAdminPermissions(permissions: string[]): string[] {
   return permissions.map(permission => {
     // Handle admin wildcard
-    if (permission === 'admin:*:*') {return 'Full Admin Access';}
-    
+    if (permission === 'admin:*:*') { return 'Full Admin Access'; }
+
     // Format structured permissions
     const [platform, resource, action] = permission.split(':');
     if (platform === 'admin' && resource && action) {
       const resourceLabel = resource.charAt(0).toUpperCase() + resource.slice(1);
-      const actionLabel = action === '*' ? 'All Actions' : 
+      const actionLabel = action === '*' ? 'All Actions' :
         action.charAt(0).toUpperCase() + action.slice(1);
       return `${resourceLabel} - ${actionLabel}`;
     }
-    
+
     return permission;
   });
 }

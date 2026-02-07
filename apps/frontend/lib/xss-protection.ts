@@ -18,7 +18,7 @@ const HTML_ENTITIES: Record<string, string> = {
  * HTML encode dangerous characters
  */
 export function htmlEncode(input: string): string {
-  if (typeof input !== 'string') return '';
+  if (typeof input !== 'string') {return '';}
   
   return input.replace(DANGEROUS_CHARS, (char) => {
     return HTML_ENTITIES[char] || char.charCodeAt(0) < 32 ? '' : char;
@@ -29,7 +29,7 @@ export function htmlEncode(input: string): string {
  * Strict email validation with XSS protection
  */
 export function sanitizeEmail(email: string): string {
-  if (typeof email !== 'string') return '';
+  if (typeof email !== 'string') {return '';}
   
   // Remove all non-email characters
   const cleaned = email
@@ -46,7 +46,7 @@ export function sanitizeEmail(email: string): string {
  * Sanitize display name with length limits
  */
 export function sanitizeDisplayName(name: string): string {
-  if (typeof name !== 'string') return '';
+  if (typeof name !== 'string') {return '';}
 
   return name
     // eslint-disable-next-line no-control-regex
@@ -60,7 +60,7 @@ export function sanitizeDisplayName(name: string): string {
  * Sanitize URL parameters to prevent XSS in redirects
  */
 export function sanitizeRedirectUrl(url: string, allowedOrigins: string[] = []): string {
-  if (typeof url !== 'string') return '/';
+  if (typeof url !== 'string') {return '/';}
   
   try {
     const parsedUrl = new URL(url, window.location.origin);

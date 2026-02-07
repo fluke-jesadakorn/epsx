@@ -27,7 +27,7 @@ const formatPercentage = (value: number): string => {
   return `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`;
 };
 
-const formatCurrency = (value: number, currency: string = 'USD'): string => {
+const formatCurrency = (value: number, currency = 'USD'): string => {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency,
@@ -37,10 +37,10 @@ const formatCurrency = (value: number, currency: string = 'USD'): string => {
 };
 
 const getRankTheme = (rank: number): { color: string; glow: 'blue' | 'purple' | 'orange' | 'green' | 'none', label: string } => {
-  if (rank === 1) return { color: 'text-yellow-400', glow: 'orange', label: 'CHAMPION' };
-  if (rank === 2) return { color: 'text-slate-300', glow: 'blue', label: 'ELITE' };
-  if (rank === 3) return { color: 'text-amber-500', glow: 'orange', label: 'LEGEND' };
-  if (rank <= 5) return { color: 'text-blue-400', glow: 'blue', label: 'TOP 5' };
+  if (rank === 1) {return { color: 'text-yellow-400', glow: 'orange', label: 'CHAMPION' };}
+  if (rank === 2) {return { color: 'text-slate-300', glow: 'blue', label: 'ELITE' };}
+  if (rank === 3) {return { color: 'text-amber-500', glow: 'orange', label: 'LEGEND' };}
+  if (rank <= 5) {return { color: 'text-blue-400', glow: 'blue', label: 'TOP 5' };}
   return { color: 'text-blue-500', glow: 'none', label: `RANK #${rank}` };
 };
 

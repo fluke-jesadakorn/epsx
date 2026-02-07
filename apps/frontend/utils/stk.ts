@@ -23,7 +23,7 @@ export interface StockData {
 export const xform = (data: Record<string, unknown[]>): StockData[] =>
   Object.entries(data).map(([symbol, quarters]) => ({
     symbol,
-    quarters: (quarters as unknown[]).map(q => {
+    quarters: (quarters).map(q => {
       const item = q as Record<string, unknown>;
       return {
         price: item.price as number | null,
@@ -69,17 +69,17 @@ export const latest = (stock: StockData): Quarter => {
 }
 
 export const avgEps = (stock: StockData): number | null => {
-  const growth = stock.quarters.map(q => q.eps_growth).filter(g => g !== undefined && g !== null) as number[]
+  const growth = stock.quarters.map(q => q.eps_growth).filter(g => g !== undefined && g !== null)
   return growth.length ? Math.round(growth.reduce((a, b) => a + b, 0) / growth.length) : null
 }
 
 export const cmpLast = (stock: StockData) => stock.quarters[0]?.last_eps_vs_current_price || null
 
 export const align = (comp: { lastEpsGrowth: number | null; currentPriceGrowth: number | null } | null): 'pos' | 'neg' | 'neutral' | null => {
-  if (!comp || comp.lastEpsGrowth === null || comp.currentPriceGrowth === null) return null
+  if (!comp || comp.lastEpsGrowth === null || comp.currentPriceGrowth === null) {return null}
   const { lastEpsGrowth, currentPriceGrowth } = comp
-  if ((lastEpsGrowth > 0 && currentPriceGrowth > 0) || (lastEpsGrowth < 0 && currentPriceGrowth < 0)) return 'pos'
-  if ((lastEpsGrowth > 0 && currentPriceGrowth < 0) || (lastEpsGrowth < 0 && currentPriceGrowth > 0)) return 'neg'
+  if ((lastEpsGrowth > 0 && currentPriceGrowth > 0) || (lastEpsGrowth < 0 && currentPriceGrowth < 0)) {return 'pos'}
+  if ((lastEpsGrowth > 0 && currentPriceGrowth < 0) || (lastEpsGrowth < 0 && currentPriceGrowth > 0)) {return 'neg'}
   return 'neutral'
 }
 

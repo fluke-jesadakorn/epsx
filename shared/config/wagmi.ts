@@ -58,26 +58,32 @@ let cachedChains: Chain[] | null = null;
 const isMainnet = process.env.NEXT_PUBLIC_BLOCKCHAIN_NETWORK === 'mainnet';
 const isProduction = process.env.NODE_ENV === 'production';
 const defaultChainId = Number(process.env.NEXT_PUBLIC_CHAIN_ID);
+const isLocal = typeof window !== 'undefined'
+    ? (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+    : process.env.NEXT_PUBLIC_BLOCKCHAIN_NETWORK === 'local';
 
 // Determine default chains with environment awareness
 // In production mainnet: only BSC Mainnet
 // In production non-mainnet: BSC Testnet + BSC Mainnet
-// In development: Include Anvil Local for local testing
+// In development: Include Anvil Local ONLY for local testing (localhost)
 // Note: Function-based to ensure Anvil chain is created with correct hostname at runtime
 export function getDefaultChains(): Chain[] {
     // Return cached chains if available to maintain connector references
-    if (cachedChains) return cachedChains;
+    if (cachedChains) {return cachedChains;}
 
     if (isMainnet && isProduction) {
         cachedChains = [bsc];
     } else if (isProduction) {
         cachedChains = [bscTestnet, bsc];
-    } else {
-        // Development: include Anvil with dynamic RPC URL
+    } else if (isLocal) {
+        // Local: include Anvil with dynamic RPC URL
         const anvil = getAnvilLocalhost();
         cachedChains = defaultChainId === 31337
             ? [anvil, bscTestnet, bsc] // Anvil first when it's the default
             : [bscTestnet, anvil, bsc]; // Include Anvil in dev for switching
+    } else {
+        // Staging/Dev on remote: Only BSC Testnet and Mainnet
+        cachedChains = [bscTestnet, bsc];
     }
     return cachedChains;
 }

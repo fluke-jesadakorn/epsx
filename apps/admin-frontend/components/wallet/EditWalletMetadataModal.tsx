@@ -61,7 +61,6 @@ export function EditWalletMetadataModal({
     onClose,
     onSuccess,
 }: EditWalletMetadataModalProps) {
-    console.log('EditWalletMetadataModal rendered', { isOpen, walletAddress });
     const [isLoading, setIsLoading] = React.useState(false);
 
     const form = useForm<z.infer<typeof formSchema>>({

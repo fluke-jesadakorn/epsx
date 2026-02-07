@@ -34,35 +34,6 @@ export function useOptimisticUpdates<T>(
   const timeoutRefs = useRef<Map<string, NodeJS.Timeout>>(new Map());
   const retryTimeoutRefs = useRef<Map<string, NodeJS.Timeout>>(new Map());
 
-  const addOptimisticUpdate = useCallback((
-    id: string,
-    type: OptimisticUpdate<T>['type'],
-    data: T,
-    originalData?: T
-  ) => {
-    const update: OptimisticUpdate<T> = {
-      id,
-      type,
-      data,
-      originalData,
-      timestamp: Date.now(),
-      retryCount: 0
-    };
-
-    setPendingUpdates(prev => new Map(prev.set(id, update)));
-
-    // Set rollback timer if specified
-    if (rollbackDelay > 0) {
-      const timeoutId = setTimeout(() => {
-        rollbackUpdate(id);
-      }, rollbackDelay);
-      
-      timeoutRefs.current.set(id, timeoutId);
-    }
-
-    return update;
-  }, [rollbackDelay]);
-
   const confirmUpdate = useCallback((id: string) => {
     setPendingUpdates(prev => {
       const newMap = new Map(prev);
@@ -86,7 +57,7 @@ export function useOptimisticUpdates<T>(
 
   const rollbackUpdate = useCallback((id: string) => {
     const update = pendingUpdates.get(id);
-    if (!update) {return null;}
+    if (!update) { return null; }
 
     setPendingUpdates(prev => {
       const newMap = new Map(prev);
@@ -110,6 +81,35 @@ export function useOptimisticUpdates<T>(
     return update;
   }, [pendingUpdates]);
 
+  const addOptimisticUpdate = useCallback((
+    id: string,
+    type: OptimisticUpdate<T>['type'],
+    data: T,
+    originalData?: T
+  ) => {
+    const update: OptimisticUpdate<T> = {
+      id,
+      type,
+      data,
+      originalData,
+      timestamp: Date.now(),
+      retryCount: 0
+    };
+
+    setPendingUpdates(prev => new Map(prev.set(id, update)));
+
+    // Set rollback timer if specified
+    if (rollbackDelay > 0) {
+      const timeoutId = setTimeout(() => {
+        rollbackUpdate(id);
+      }, rollbackDelay);
+
+      timeoutRefs.current.set(id, timeoutId);
+    }
+
+    return update;
+  }, [rollbackDelay, rollbackUpdate]);
+
   const retryUpdate = useCallback((id: string, retryFn: () => Promise<void>) => {
     const update = pendingUpdates.get(id);
     if (!update || update.retryCount >= maxRetries) {
@@ -126,13 +126,15 @@ export function useOptimisticUpdates<T>(
     setPendingUpdates(prev => new Map(prev.set(id, updatedUpdate)));
 
     // Schedule retry
-    const retryTimeout = setTimeout(async () => {
-      try {
-        await retryFn();
-        confirmUpdate(id);
-      } catch (_error) {
-        retryUpdate(id, retryFn);
-      }
+    const retryTimeout = setTimeout(() => {
+      void (async () => {
+        try {
+          await retryFn();
+          confirmUpdate(id);
+        } catch (_error) {
+          retryUpdate(id, retryFn);
+        }
+      })();
     }, retryDelay * Math.pow(2, update.retryCount)); // Exponential backoff
 
     retryTimeoutRefs.current.set(id, retryTimeout);
@@ -157,7 +159,7 @@ export function useOptimisticUpdates<T>(
         case 'create':
           result.push(update.data);
           break;
-        
+
         case 'update': {
           const updateIndex = result.findIndex(item => String(item.id) === update.id);
           if (updateIndex !== -1) {
@@ -165,7 +167,7 @@ export function useOptimisticUpdates<T>(
           }
           break;
         }
-        
+
         case 'delete': {
           const deleteIndex = result.findIndex(item => String(item.id) === update.id);
           if (deleteIndex !== -1) {
@@ -183,7 +185,7 @@ export function useOptimisticUpdates<T>(
     // Clear all timers
     timeoutRefs.current.forEach(timeout => clearTimeout(timeout));
     retryTimeoutRefs.current.forEach(timeout => clearTimeout(timeout));
-    
+
     timeoutRefs.current.clear();
     retryTimeoutRefs.current.clear();
     setPendingUpdates(new Map());
@@ -224,13 +226,13 @@ export function useBackgroundSync({
   onSync,
   onError
 }: UseBackgroundSyncOptions = {}) {
-  const [isOnline, setIsOnline] = useState(navigator.onLine !== false);
+  const [isOnline, setIsOnline] = useState(false);
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
   const [syncInProgress, setSyncInProgress] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const sync = useCallback(async () => {
-    if (!onSync || syncInProgress || !isOnline) {return;}
+    if (!onSync || syncInProgress || !isOnline) { return; }
 
     setSyncInProgress(true);
     try {
@@ -244,15 +246,20 @@ export function useBackgroundSync({
   }, [onSync, syncInProgress, isOnline, onError]);
 
   // Setup online/offline detection
-  useState(() => {
+  useEffect(() => {
+    // Check if running in browser
+    if (typeof window === 'undefined') { return; }
+
+    setIsOnline(navigator.onLine !== false);
+
     const handleOnline = () => {
       setIsOnline(true);
       // Trigger immediate sync when coming back online
       if (enabled) {
-        sync();
+        void sync();
       }
     };
-    
+
     const handleOffline = () => setIsOnline(false);
 
     window.addEventListener('online', handleOnline);
@@ -262,12 +269,12 @@ export function useBackgroundSync({
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
-  });
+  }, [enabled, sync]);
 
   // Setup interval sync
   useEffect(() => {
     if (enabled && isOnline) {
-      intervalRef.current = setInterval(sync, syncInterval);
+      intervalRef.current = setInterval(() => { void sync(); }, syncInterval);
     }
 
     return () => {
@@ -278,7 +285,7 @@ export function useBackgroundSync({
   }, [enabled, isOnline, sync, syncInterval]);
 
   const forcSync = useCallback(() => {
-    sync();
+    void sync();
   }, [sync]);
 
   return {
@@ -301,7 +308,7 @@ export interface PerformanceMetric {
   value: number;
   timestamp: number;
   category: 'navigation' | 'resource' | 'measure' | 'custom';
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 /**
@@ -319,16 +326,16 @@ export function usePerformanceMonitor({
   const measurementRefs = useRef<Map<string, number>>(new Map());
 
   const startMeasurement = useCallback((name: string) => {
-    if (!enabled || Math.random() > sampleRate) {return;}
-    
+    if (!enabled || Math.random() > sampleRate) { return; }
+
     measurementRefs.current.set(name, performance.now());
   }, [enabled, sampleRate]);
 
-  const endMeasurement = useCallback((name: string, metadata?: Record<string, any>) => {
-    if (!enabled) {return;}
-    
+  const endMeasurement = useCallback((name: string, metadata?: Record<string, unknown>) => {
+    if (!enabled) { return; }
+
     const startTime = measurementRefs.current.get(name);
-    if (startTime === undefined) {return;}
+    if (startTime === undefined) { return; }
 
     const duration = performance.now() - startTime;
     measurementRefs.current.delete(name);
@@ -347,11 +354,11 @@ export function usePerformanceMonitor({
   }, [enabled, onMetric]);
 
   const recordCustomMetric = useCallback((
-    name: string, 
-    value: number, 
-    metadata?: Record<string, any>
+    name: string,
+    value: number,
+    metadata?: Record<string, unknown>
   ) => {
-    if (!enabled || Math.random() > sampleRate) {return;}
+    if (!enabled || Math.random() > sampleRate) { return; }
 
     const metric: PerformanceMetric = {
       name,
@@ -367,7 +374,7 @@ export function usePerformanceMonitor({
   }, [enabled, sampleRate, onMetric]);
 
   const getNavigationMetrics = useCallback(() => {
-    if (!enabled || !performance.getEntriesByType) {return [];}
+    if (!enabled) { return []; }
 
     const navEntries = performance.getEntriesByType('navigation') as PerformanceNavigationTiming[];
     return navEntries.map(entry => ({

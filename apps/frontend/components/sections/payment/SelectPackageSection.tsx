@@ -23,9 +23,9 @@ export function SelectPackageSection({
     BLOCKCHAIN_CONFIG.BSC.currency,
   );
 
-  if (isLoading) return <PaymentAuthLoadingUI />;
-  if (!isAuthenticated) return <PaymentAuthRequiredUI />;
-  if (!hasPaymentAccess) return <PaymentAccessRequiredUI user={user} />;
+  if (isLoading) {return <PaymentAuthLoadingUI />;}
+  if (!isAuthenticated) {return <PaymentAuthRequiredUI />;}
+  if (!hasPaymentAccess) {return <PaymentAccessRequiredUI user={user} />;}
 
   const handleCurrencyChange = (newCurrency: string) => {
     setCurrency(newCurrency);

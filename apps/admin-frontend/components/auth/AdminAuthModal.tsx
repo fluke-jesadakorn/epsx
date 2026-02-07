@@ -1,13 +1,12 @@
 'use client';
 
-import { Shield } from 'lucide-react';
+import { Shield , Loader2 } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { AuthModal } from '@/shared/components/auth';
 import { useSharedAuth } from '@/shared/components/auth/Provider';
-import { Loader2 } from 'lucide-react';
 
 interface AdminAuthModalProps {
     children: React.ReactNode;

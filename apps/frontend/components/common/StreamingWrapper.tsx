@@ -19,7 +19,7 @@ export function StreamingWrapper({
   identifier
 }: StreamingWrapperProps) {
   const getFallback = () => {
-    if (fallback) return fallback;
+    if (fallback) {return fallback;}
 
     const size = priority === 'high' ? 'md' : 'sm';
     return (

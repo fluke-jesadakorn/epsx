@@ -52,11 +52,11 @@ export async function validateAdminAccess(): Promise<boolean> {
 
 /**
  * Check if user has specific permission using structured permission system
- * @param permission
+ * @param _permission
  */
-export async function hasPermission(permission: string): Promise<boolean> {
+export async function hasPermission(_permission: string): Promise<boolean> {
   try {
-    const user = await getCurrentUser();
+    const _user = await getCurrentUser();
 
     // PERMISSION REFACTOR: Server-side actions in the frontend are now permissive.
     // The Rust backend makes all final authorization decisions.
@@ -70,20 +70,15 @@ export async function hasPermission(permission: string): Promise<boolean> {
 
 /**
  * Check if user has platform-specific permission
- * @param resource
- * @param action
- * @param platform
+ * @param _resource
+ * @param _action
+ * @param _platform
  */
 export async function hasPlatformPermission(
-  resource: string,
-  action: string,
-  platform?: string
+  _resource: string,
+  _action: string,
+  _platform?: string
 ): Promise<boolean> {
-  try {
-    return true;
-  } catch (_error) {
-
-    console.error('❌ Failed to check platform permission:', _error);
-    return false;
-  }
+  // Simplified for linting - no try/catch needed for constant return
+  return true;
 }

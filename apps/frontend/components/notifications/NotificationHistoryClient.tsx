@@ -10,18 +10,18 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select'
-// TODO: Implement these functions when backend is ready
-const markAllNotificationsRead = async () => {
-};
-
-const markNotificationRead = async (notificationId: string) => {
-};
 import { Notification } from '@/lib/api'
 import { Filter, RefreshCw, Search, Settings } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useMemo, useState, useTransition } from 'react'
 import { toast } from 'sonner'
+// TODO: Implement these functions when backend is ready
+const markAllNotificationsRead = async () => {
+};
+
+const markNotificationRead = async (notificationId: string) => {
+};
 
 interface NotificationHistoryClientProps {
   initialNotifications: Notification[]
@@ -66,10 +66,10 @@ function NotificationCard({ notification, onMarkAsRead, onCardClick }: {
     const diffHours = Math.floor(diffMs / 3600000)
     const diffDays = Math.floor(diffMs / 86400000)
 
-    if (diffMins < 1) return 'Just now'
-    if (diffMins < 60) return `${diffMins}m ago`
-    if (diffHours < 24) return `${diffHours}h ago`
-    if (diffDays < 7) return `${diffDays}d ago`
+    if (diffMins < 1) {return 'Just now'}
+    if (diffMins < 60) {return `${diffMins}m ago`}
+    if (diffHours < 24) {return `${diffHours}h ago`}
+    if (diffDays < 7) {return `${diffDays}d ago`}
     return date.toLocaleDateString()
   }
 
@@ -226,10 +226,10 @@ export function NotificationHistoryClient({
 
     // Sort groups by date
     const sortedGroups = Object.entries(groups).sort(([a], [b]) => {
-      if (a === 'Today') return -1
-      if (b === 'Today') return 1
-      if (a === 'Yesterday') return -1
-      if (b === 'Yesterday') return 1
+      if (a === 'Today') {return -1}
+      if (b === 'Today') {return 1}
+      if (a === 'Yesterday') {return -1}
+      if (b === 'Yesterday') {return 1}
       return new Date(b).getTime() - new Date(a).getTime()
     })
 

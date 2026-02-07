@@ -33,7 +33,7 @@ test.describe('Production Deployment Check', () => {
 
     // Check Web3 configuration and app initialization
     const web3Analysis = await page.evaluate(() => {
-      let results = {
+      const results = {
         clientConfigAvailable: false,
         web3ConfigValues: {},
         web3Initialized: false,

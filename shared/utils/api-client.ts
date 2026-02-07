@@ -21,6 +21,7 @@ import { getBackendUrl } from './url-resolver';
 // ============================================================================
 
 import type { ApiError, ApiResponse, PaginatedResponse } from '../types/api';
+
 export type { ApiError, ApiResponse, PaginatedResponse };
 
 export interface RequestConfig extends RequestInit {
@@ -51,6 +52,14 @@ export class UnifiedApiClient {
     this.isServerSide = options.serverSide ?? typeof window === 'undefined';
     this.baseURL = options.baseURL || this.getDefaultBaseURL();
     this.token = options.token;
+  }
+
+  public getPlatform(): Platform {
+    return this.platform;
+  }
+
+  public getBaseURL(): string {
+    return this.baseURL;
   }
 
   private getDefaultBaseURL(): string {
@@ -580,7 +589,7 @@ export class APIError extends Error implements ApiError {
   public status?: number; // Optional status for compatibility
   public requestId?: string;
 
-  constructor(message: string, code: string = 'UNKNOWN_ERROR', status?: number, details?: any) {
+  constructor(message: string, code = 'UNKNOWN_ERROR', status?: number, details?: any) {
     super(message);
     this.name = 'APIError';
     this.code = code;
@@ -654,8 +663,8 @@ export async function handleSimpleRequest<T>(
  */
 export async function retryRequest<T>(
   requestFn: () => Promise<ApiResponse<T>>,
-  maxRetries: number = 3,
-  baseDelay: number = 1000
+  maxRetries = 3,
+  baseDelay = 1000
 ): Promise<ApiResponse<T>> {
   let lastResult: ApiResponse<T> | undefined;
 

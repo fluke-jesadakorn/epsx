@@ -82,7 +82,7 @@ export const TOKEN_ADDRESSES = {
  * Get payment escrow contract address for current chain
  */
 export function getPaymentEscrowAddress(chainId: number): string {
-  const address = PAYMENT_ESCROW_ADDRESS[chainId as keyof typeof PAYMENT_ESCROW_ADDRESS];
+  const address = PAYMENT_ESCROW_ADDRESS[chainId];
   if (!address || address === '0x0000000000000000000000000000000000000000') {
     throw new Error(`Payment escrow contract not deployed on chain ${chainId}`);
   }
@@ -93,7 +93,7 @@ export function getPaymentEscrowAddress(chainId: number): string {
  * Get payment receiver address for direct token transfers
  */
 export function getPaymentReceiverAddress(chainId: number): string {
-  const address = PAYMENT_RECEIVER_ADDRESS[chainId as keyof typeof PAYMENT_RECEIVER_ADDRESS];
+  const address = PAYMENT_RECEIVER_ADDRESS[chainId];
   if (!address || address === '0x0000000000000000000000000000000000000000') {
     throw new Error(`Payment receiver not configured for chain ${chainId}`);
   }
@@ -138,7 +138,7 @@ export function getChecksummedAddress(address: string): string {
  * Development mode: Returns true for fallback address to allow testing
  */
 export function isPaymentEscrowDeployed(chainId: number): boolean {
-  const address = PAYMENT_ESCROW_ADDRESS[chainId as keyof typeof PAYMENT_ESCROW_ADDRESS];
+  const address = PAYMENT_ESCROW_ADDRESS[chainId];
   return Boolean(address &&
     address !== '0x0000000000000000000000000000000000000000' &&
     address.length === 42 // Valid Ethereum address length

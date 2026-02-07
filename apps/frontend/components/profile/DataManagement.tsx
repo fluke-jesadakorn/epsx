@@ -107,7 +107,7 @@ export function DataManagement({ user }: DataManagementProps) {
   };
 
   const formatDate = (timestamp?: number) => {
-    if (!timestamp) return 'Not available';
+    if (!timestamp) {return 'Not available';}
     return new Date(timestamp * 1000).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'long',

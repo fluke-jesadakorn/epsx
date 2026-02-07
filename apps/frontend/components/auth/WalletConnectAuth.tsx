@@ -177,7 +177,7 @@ export function WalletConnectAuth({
               const errorMessage = error instanceof Error ? error.message : 'Authentication failed';
               onAuthError?.(errorMessage);
             } finally {
-              if (safetyTimeout) clearTimeout(safetyTimeout);
+              if (safetyTimeout) {clearTimeout(safetyTimeout);}
               setIsAuthenticating(false);
               setIsSigningChallenge(false);
             }

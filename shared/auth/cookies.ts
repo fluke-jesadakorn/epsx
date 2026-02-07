@@ -141,12 +141,12 @@ export function buildCookieString(
   const opts = { ...COOKIE_OPTIONS, ...options };
   const parts = [`${name}=${value}`];
 
-  if ((opts as any).path) parts.push(`path=${(opts as any).path}`);
-  if ((opts as any).domain) parts.push(`domain=${(opts as any).domain}`);
-  if (opts.maxAge) parts.push(`max-age=${opts.maxAge}`);
-  if ((opts as any).sameSite) parts.push(`SameSite=${(opts as any).sameSite}`);
-  if ((opts as any).secure) parts.push('Secure');
-  if ((opts as any).httpOnly) parts.push('HttpOnly');
+  if ((opts as any).path) {parts.push(`path=${(opts as any).path}`);}
+  if ((opts as any).domain) {parts.push(`domain=${(opts as any).domain}`);}
+  if (opts.maxAge) {parts.push(`max-age=${opts.maxAge}`);}
+  if ((opts as any).sameSite) {parts.push(`SameSite=${(opts as any).sameSite}`);}
+  if ((opts as any).secure) {parts.push('Secure');}
+  if ((opts as any).httpOnly) {parts.push('HttpOnly');}
 
   return parts.join('; ');
 }
@@ -179,7 +179,7 @@ export function getCookieValue(
  * Check if browser has any cookies set
  */
 export function hasCookies(): boolean {
-  if (typeof document === 'undefined') return false;
+  if (typeof document === 'undefined') {return false;}
   return document.cookie.length > 0;
 }
 
@@ -187,7 +187,7 @@ export function hasCookies(): boolean {
  * Get all EPSX cookies from browser
  */
 export function getEpsxCookies(): Record<string, string> {
-  if (typeof document === 'undefined') return {};
+  if (typeof document === 'undefined') {return {};}
 
   const cookies = parseCookies(document.cookie);
   const epsxCookies: Record<string, string> = {};
@@ -206,7 +206,7 @@ export function getEpsxCookies(): Record<string, string> {
  * Clear all EPSX cookies
  */
 export function clearAllCookies(): void {
-  if (typeof document === 'undefined') return;
+  if (typeof document === 'undefined') {return;}
 
   const cookiesToClear = Object.values(COOKIES);
 
@@ -228,14 +228,14 @@ export function setClientCookie(
   value: string,
   maxAge?: number | null
 ): void {
-  if (typeof document === 'undefined') return;
+  if (typeof document === 'undefined') {return;}
 
   const options = COOKIE_OPTIONS.clientSide;
   const parts = [`${name}=${encodeURIComponent(value)}`];
 
   parts.push(`path=${options.path}`);
-  if (options.secure) parts.push('Secure');
-  if (options.sameSite) parts.push(`SameSite=${options.sameSite}`);
+  if (options.secure) {parts.push('Secure');}
+  if (options.sameSite) {parts.push(`SameSite=${options.sameSite}`);}
 
   // Handle maxAge (null means session cookie)
   if (maxAge !== null && maxAge !== undefined) {
@@ -249,7 +249,7 @@ export function setClientCookie(
  * Get a client-side cookie value
  */
 export function getClientCookie(name: string): string | null {
-  if (typeof document === 'undefined') return null;
+  if (typeof document === 'undefined') {return null;}
 
   const cookies = parseCookies(document.cookie);
   const value = cookies[name];
@@ -262,7 +262,7 @@ export function getClientCookie(name: string): string | null {
  * Remove a client-side cookie
  */
 export function removeClientCookie(name: string): void {
-  if (typeof document === 'undefined') return;
+  if (typeof document === 'undefined') {return;}
 
   const options = COOKIE_OPTIONS.clientSide;
   document.cookie = `${name}=; max-age=0; path=${options.path}; SameSite=${options.sameSite}${options.secure ? '; Secure' : ''
@@ -285,7 +285,7 @@ export function setClientCookieJSON<T extends Record<string, any>>(
  */
 export function getClientCookieJSON<T = any>(name: string): T | null {
   const value = getClientCookie(name);
-  if (!value) return null;
+  if (!value) {return null;}
 
   try {
     return JSON.parse(value) as T;
@@ -294,7 +294,6 @@ export function getClientCookieJSON<T = any>(name: string): T | null {
     return null;
   }
 }
-
 
 
 /**
@@ -349,11 +348,11 @@ export function getServerAuthToken(
 ): string | null {
   // Primary: Check session ID cookie
   let token = cookieStore.get(COOKIES.sid)?.value;
-  if (token) return token;
+  if (token) {return token;}
 
   // Secondary: Check access token
   token = cookieStore.get(COOKIES.access_token)?.value;
-  if (token) return token;
+  if (token) {return token;}
 
   return null;
 }

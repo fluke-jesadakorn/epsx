@@ -59,7 +59,7 @@ export default async function DynamicPricingSection({ initialAffiliateCode }: Dy
         .filter((plan: any) => plan.isActive)
         .filter((plan: any) => {
           const type = plan.planType?.toLowerCase();
-          return !type || !type.includes('api');
+          return !type?.includes('api');
         })
         .sort((a: any, b: any) => (a.displayOrder || 0) - (b.displayOrder || 0))
         .map(transformToPricingCard);
@@ -68,7 +68,7 @@ export default async function DynamicPricingSection({ initialAffiliateCode }: Dy
         .filter((plan: any) => plan.isActive)
         .filter((plan: any) => {
           const type = plan.planType?.toLowerCase();
-          return type && type.includes('api');
+          return type?.includes('api');
         })
         .sort((a: any, b: any) => (a.displayOrder || 0) - (b.displayOrder || 0))
         .map(transformToPricingCard);

@@ -272,7 +272,7 @@ export function DashboardClient({ user, permissions, dashboardData: _dashboardDa
               onClick={() => alert('Please use the wallet button in the navigation menu to connect')}
             >
               <Lock className="mr-2 h-5 w-5" />
-              🚪 Connect Wallet
+              🚪 Sign In with Wallet
             </Button>
           )}
 

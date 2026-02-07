@@ -70,7 +70,7 @@ function SmartCountrySelector({
   const selectedCountryLabel = options.find(c => c.value === selectedCountry)?.label || 'All Countries';
 
   const handleScroll = () => {
-    if (!scrollRef.current) return;
+    if (!scrollRef.current) {return;}
     
     const scrollTop = scrollRef.current.scrollTop;
     const itemHeight = 50;
@@ -250,10 +250,10 @@ export default function FilterForm({ filterOptions, currentParams }: FilterFormP
     params.set('limit', String(currentParams.limit));
     
     // Add other params if they exist
-    if (filters.country && filters.country !== 'all') params.set('country', filters.country);
-    if (filters.sort_by) params.set('sort_by', filters.sort_by);
-    if (filters.min_eps) params.set('min_eps', filters.min_eps);
-    if (filters.min_growth) params.set('min_growth', filters.min_growth);
+    if (filters.country && filters.country !== 'all') {params.set('country', filters.country);}
+    if (filters.sort_by) {params.set('sort_by', filters.sort_by);}
+    if (filters.min_eps) {params.set('min_eps', filters.min_eps);}
+    if (filters.min_growth) {params.set('min_growth', filters.min_growth);}
 
     router.push(`/analytics?${params.toString()}`);
     
@@ -290,9 +290,9 @@ export default function FilterForm({ filterOptions, currentParams }: FilterFormP
 
   const getActiveFilterCount = () => {
     let count = 0;
-    if (currentParams.country) count++;
-    if (currentParams.min_eps) count++;
-    if (currentParams.min_growth) count++;
+    if (currentParams.country) {count++;}
+    if (currentParams.min_eps) {count++;}
+    if (currentParams.min_growth) {count++;}
     return count;
   };
 

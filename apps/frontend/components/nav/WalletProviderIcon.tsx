@@ -92,7 +92,7 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
   }, [isConnected, address]);
 
   const handleCopyAddress = async () => {
-    if (!address) return;
+    if (!address) {return;}
     const success = await copyToClipboard(address);
     if (success) {
       setCopied(true);
@@ -106,7 +106,7 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
   };
 
   const handleSignIn = async () => {
-    if (!address) return;
+    if (!address) {return;}
     try {
       setIsAuthenticating(true);
       const challenge = await requestChallenge(address);
@@ -183,7 +183,7 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
     return (
       <button onClick={handleConnectRedirect} type="button" className={finalClassName}>
         <Wallet className={compact ? 'h-3 w-3 text-white' : 'h-4 w-4 text-white'} />
-        <span>Connect</span>
+        <span>Sign In</span>
       </button>
     );
   }
@@ -193,9 +193,9 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
   const providerInfo = walletProviders[connectorId] || walletProviders.injected;
 
   const getStatus = () => {
-    if (authRetryCount >= 3 && lastAuthError) return { text: 'Auth Failed', color: 'text-red-500' };
-    if (isAuthenticating) return { text: `Signing... (${authRetryCount + 1}/3)`, color: 'text-orange-500' };
-    if (isAuthenticated) return { text: 'Authenticated', color: 'text-emerald-500' };
+    if (authRetryCount >= 3 && lastAuthError) {return { text: 'Auth Failed', color: 'text-red-500' };}
+    if (isAuthenticating) {return { text: `Signing... (${authRetryCount + 1}/3)`, color: 'text-orange-500' };}
+    if (isAuthenticated) {return { text: 'Authenticated', color: 'text-emerald-500' };}
     return { text: 'Connected', color: 'text-slate-500' };
   };
 

@@ -78,7 +78,7 @@ export function TransferList<T>({
         const seen = new Set<string>()
         return filtered.filter(item => {
             const key = keyExtractor(item)
-            if (seen.has(key)) return false
+            if (seen.has(key)) {return false}
             seen.add(key)
             return true
         })
@@ -89,7 +89,7 @@ export function TransferList<T>({
         const seen = new Set<string>()
         return filtered.filter(item => {
             const key = keyExtractor(item)
-            if (seen.has(key)) return false
+            if (seen.has(key)) {return false}
             seen.add(key)
             return true
         })
@@ -123,7 +123,7 @@ export function TransferList<T>({
 
     // Bulk move selected items to the right
     const bulkMoveRight = useCallback(() => {
-        if (selectedAvailable.size === 0) return
+        if (selectedAvailable.size === 0) {return}
         const itemsToMove = allAvailable.filter(item => selectedAvailable.has(keyExtractor(item)))
         const existingKeys = new Set(selected.map(keyExtractor))
         const newItems = itemsToMove.filter(item => !existingKeys.has(keyExtractor(item)))
@@ -133,7 +133,7 @@ export function TransferList<T>({
 
     // Bulk move selected items to the left
     const bulkMoveLeft = useCallback(() => {
-        if (selectedSelected.size === 0) return
+        if (selectedSelected.size === 0) {return}
         onChange(selected.filter(item => !selectedSelected.has(keyExtractor(item))))
         setSelectedSelected(new Set())
     }, [selected, selectedSelected, keyExtractor, onChange])
@@ -208,7 +208,7 @@ export function TransferList<T>({
     // Touch handlers
     const handleTouchStart = useCallback((e: React.TouchEvent, item: T, source: 'available' | 'selected') => {
         const touch = e.touches[0]
-        if (!touch) return
+        if (!touch) {return}
 
         const element = e.currentTarget as HTMLElement
 
@@ -231,7 +231,7 @@ export function TransferList<T>({
 
     const handleTouchMove = useCallback((e: React.TouchEvent) => {
         const touch = e.touches[0]
-        if (!touch) return
+        if (!touch) {return}
 
         if (!touchDrag) {
             if (longPressTimer.current) {
@@ -303,7 +303,7 @@ export function TransferList<T>({
         e.preventDefault()
         const source = e.dataTransfer.getData('source')
 
-        if (!draggingItem) return
+        if (!draggingItem) {return}
 
         if (source !== target) {
             if (target === 'selected') {

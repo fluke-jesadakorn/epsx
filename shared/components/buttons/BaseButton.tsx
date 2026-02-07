@@ -511,8 +511,8 @@ export const PaginationButton = React.forwardRef<HTMLButtonElement, PaginationBu
   ...props
 }, ref) => {
   const getIcon = () => {
-    if (direction === 'previous') return '‹'
-    if (direction === 'next') return '›'
+    if (direction === 'previous') {return '‹'}
+    if (direction === 'next') {return '›'}
     return null
   }
 

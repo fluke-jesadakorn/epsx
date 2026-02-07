@@ -105,7 +105,7 @@ export function UpgradePrompt({
 }: UpgradePromptProps) {
   const [isDismissed, setIsDismissed] = useState(false);
 
-  if (isDismissed) return null;
+  if (isDismissed) {return null;}
 
   const tierInfo = TIER_INFO[requiredTier];
   const IconComponent = tierInfo.icon;

@@ -13,41 +13,10 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { RecentWalletsData } from '@/hooks/useAnalyticsData';
 import { logger } from '@/lib/logger';
 
-interface WalletConnection {
-  wallet_address: string;
-  metadata: any;
-  created_at: string;
-  last_auth_at?: string;
-  is_active: boolean;
-  active_permissions_count: number;
-  connection_info: {
-    is_new: boolean;
-    last_seen?: number;
-  };
-}
-
-interface WalletAnalytics {
-  total_in_period: number;
-  daily_breakdown: Array<{
-    date: string;
-    connections: number;
-  }>;
-  period_days: number;
-  avg_daily: number;
-}
-
-interface RecentWalletsData {
-  recent_wallets: WalletConnection[];
-  analytics: WalletAnalytics;
-  metadata: {
-    limit: number;
-    total_count: number;
-    has_more: boolean;
-    generated_at: string;
-  };
-}
+// Types moved to @/hooks/useAnalyticsData
 
 /**
  *
@@ -71,11 +40,11 @@ export function RecentWalletsPanel({ initialData }: { initialData?: RecentWallet
       // Use longer timeout (60s) for this endpoint as it performs complex aggregations
       const result = await getRecentWalletsAction(10, 30);
       setData(result);
-    } catch (err: any) {
-      if (err?.message === 'NEXT_REDIRECT' || err?.digest?.startsWith('NEXT_REDIRECT')) {
+    } catch (err: unknown) {
+      if (err instanceof Error && (err as any).message === 'NEXT_REDIRECT') {
         throw err;
       }
-      logger.error('Error fetching recent wallets', { error: err instanceof Error ? err.message : JSON.stringify(err) });
+      logger.error('Error fetching recent wallets', { error: err instanceof Error ? err.message : String(err) });
       setError(
         err instanceof Error ? err.message : 'Failed to load recent wallets'
       );

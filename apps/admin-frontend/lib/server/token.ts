@@ -86,7 +86,11 @@ export async function verifyJWTWithBackend(token: string): Promise<EPSXJWTPayloa
       return null;
     }
 
-    const sessionData = await response.json();
+    const sessionData = await response.json() as {
+      authenticated: boolean;
+      wallet_address: string;
+      permissions: string[]
+    };
 
     if (!sessionData.authenticated) {
       console.warn('⚠️ Backend returned unauthenticated session');
@@ -112,22 +116,15 @@ export async function verifyJWTWithBackend(token: string): Promise<EPSXJWTPayloa
       iat: claims.iat || Math.floor(Date.now() / 1000),
     } as EPSXJWTPayload;
 
-  } catch (error: any) {
-    if (error.code === 'ECONNREFUSED') {
+  } catch (error: unknown) {
+    const err = error as { code?: string; message?: string };
+    if (err.code === 'ECONNREFUSED') {
       console.error(`❌ Backend connection refused at ${config.backendUrl || 'http://127.0.0.1:8080'}. Is the backend running?`);
     } else {
       console.error('❌ Backend verification request failed:', error);
     }
     return null;
   }
-}
-
-/**
- * Deprecated: Legacy local verification
- * Replaced by verifyJWTWithBackend
- */
-async function verifyJWT(_token: string): Promise<EPSXJWTPayload | null> {
-  return verifyJWTWithBackend(_token);
 }
 
 /**

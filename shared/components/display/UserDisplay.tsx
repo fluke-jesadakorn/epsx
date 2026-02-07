@@ -31,7 +31,7 @@ export function UserWalletDisplay({
   }
 
   const formatAddress = (address: string) => {
-    if (showFullAddress) return address;
+    if (showFullAddress) {return address;}
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
   };
 
@@ -112,7 +112,7 @@ export function UserPermissionsDisplay({
 }) {
   const { user, isAuthenticated } = useSharedAuth();
 
-  if (!isAuthenticated || !user || !user.permissions.length) {
+  if (!isAuthenticated || !user?.permissions.length) {
     return null;
   }
 

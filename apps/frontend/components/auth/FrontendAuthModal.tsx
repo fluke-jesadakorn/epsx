@@ -40,7 +40,7 @@ export function FrontendAuthModal() {
                     </div>
                     <DialogTitle className="text-center text-xl">Sign In Required</DialogTitle>
                     <DialogDescription className="text-center">
-                        Connect your wallet to access full rankings and premium features
+                        Sign in with your wallet to access full rankings and premium features
                     </DialogDescription>
                 </DialogHeader>
                 <div className="flex flex-col gap-3 pt-4">
@@ -49,7 +49,7 @@ export function FrontendAuthModal() {
                         className="inline-flex items-center justify-center rounded-lg bg-gradient-to-r from-purple-500 to-pink-500 px-4 py-3 text-sm font-semibold text-white shadow-lg transition-all hover:from-purple-600 hover:to-pink-600 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-slate-900"
                     >
                         <Wallet className="mr-2 h-4 w-4" />
-                        Connect Wallet
+                        Sign In with Wallet
                     </button>
                     <button
                         onClick={closeSignInModal}

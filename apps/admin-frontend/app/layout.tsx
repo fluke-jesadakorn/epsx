@@ -18,6 +18,8 @@ import { Kanit } from 'next/font/google';
 import { headers } from 'next/headers';
 import { cookieToInitialState } from 'wagmi';
 
+import { getAuthUser } from '@/lib/server/auth';
+
 const kanit = Kanit({
   subsets: ['latin'],
   weight: ['200', '300', '400', '500', '600', '700', '800'],
@@ -59,8 +61,6 @@ export const viewport: Viewport = {
   maximumScale: 5,
   userScalable: true,
 };
-
-import { getAuthUser } from '@/lib/server/auth';
 
 /**
  *

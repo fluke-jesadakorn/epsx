@@ -6,6 +6,8 @@ import { redirect } from 'next/navigation';
 
 import { generateCodeChallenge, generateCodeVerifier, generateRandomString } from '@/shared/auth/pkce';
 
+import type { User } from '../../types/admin/iam';
+
 // OAuth authorization URL generation now handled by shared utilities
 async function getAuthorizationUrl(): Promise<{ url: string; codeVerifier: string; state: string }> {
   const codeVerifier = generateCodeVerifier();
@@ -18,10 +20,10 @@ async function getAuthorizationUrl(): Promise<{ url: string; codeVerifier: strin
 /**
  * Get server session with JWT verification
  */
-export async function getServerSession(): Promise<{ isAuthenticated: boolean; user: any | null }> {
+export async function getServerSession(): Promise<{ isAuthenticated: boolean; user: User | null }> {
   try {
     const { getSessionFromJWT } = await import('./token');
-    return await getSessionFromJWT();
+    return await getSessionFromJWT() as { isAuthenticated: boolean; user: User | null };
   } catch (_error) {
 
     console.error('❌ Admin: Failed to get server session:', _error);
@@ -32,16 +34,14 @@ export async function getServerSession(): Promise<{ isAuthenticated: boolean; us
 /**
  * Get authenticated admin user from JWT cookies
  */
-export async function getAuthUser(): Promise<any | null> {
+export async function getAuthUser(): Promise<User | null> {
   try {
     const { verifyJWTFromCookies } = await import('./token');
     const user = await verifyJWTFromCookies();
 
     // PERMISSION REFACTOR: Backend (Rust) enforces actual admin access.
     // If a valid JWT is present, we consider the user authenticated.
-    return user;
-
-    return user;
+    return user as User | null;
   } catch (_error) {
 
     console.error('❌ Admin: Failed to get auth user:', _error);
@@ -53,12 +53,12 @@ export async function getAuthUser(): Promise<any | null> {
  * Exchange authorization code for tokens (proper OAuth flow)
  * @param code
  * @param codeVerifier
- * @param state
+ * @param _state
  */
 export async function exchangeCodeForTokens(
   code: string,
   codeVerifier: string,
-  state: string
+  _state: string
 ): Promise<{ accessToken: string; idToken: string; refreshToken: string; expiresIn: number }> {
   try {
 
@@ -110,7 +110,7 @@ export async function exchangeCodeForTokens(
  * Fetch user info from OAuth userinfo endpoint
  * @param accessToken
  */
-export async function getUserInfo(accessToken: string): Promise<any> {
+export async function getUserInfo(accessToken: string): Promise<unknown> {
   // Use consolidated auth config for consistency
   const { authConfig } = await import('../../config/env');
   const apiUrl = authConfig.apiUrl;
@@ -199,7 +199,7 @@ export async function redirectToBackendAdminLogin(callbackUrl?: string): Promise
  * Require authentication - redirect to login if not authenticated
  * @param redirectPath
  */
-export async function requireAuth(redirectPath?: string): Promise<any> {
+export async function requireAuth(redirectPath?: string): Promise<unknown> {
   const user = await getAuthUser();
 
   if (!user) {
@@ -249,7 +249,12 @@ export async function hasPermission(_permission: string): Promise<boolean> {
   return true;
 }
 
-export async function requirePermission(_permission: string, redirectPath?: string): Promise<any> {
+/**
+ * Require specific permission
+ * @param _permission
+ * @param redirectPath
+ */
+export async function requirePermission(_permission: string, redirectPath?: string): Promise<unknown> {
   // PERMISSION REFACTOR: Admin-frontend is permissive; backend enforces access.
   return await requireAuth(redirectPath);
 }

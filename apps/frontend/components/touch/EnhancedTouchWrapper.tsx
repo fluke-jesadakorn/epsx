@@ -82,7 +82,7 @@ export function EnhancedTouchWrapper({
 
   // Haptic feedback helper
   const triggerHaptic = useCallback((type: 'light' | 'medium' | 'heavy' = 'light') => {
-    if (!enableHaptics || !navigator.vibrate) return;
+    if (!enableHaptics || !navigator.vibrate) {return;}
 
     const patterns = {
       light: [10],
@@ -95,7 +95,7 @@ export function EnhancedTouchWrapper({
 
   // Enhanced gesture handlers
   const handleSwipeLeft = useCallback(() => {
-    if (!enableSwipeActions || rightActions.length === 0) return;
+    if (!enableSwipeActions || rightActions.length === 0) {return;}
 
     triggerHaptic('light');
     setShowSwipeHint(true);
@@ -105,7 +105,7 @@ export function EnhancedTouchWrapper({
   }, [enableSwipeActions, rightActions.length, triggerHaptic]);
 
   const handleSwipeRight = useCallback(() => {
-    if (!enableSwipeActions || leftActions.length === 0) return;
+    if (!enableSwipeActions || leftActions.length === 0) {return;}
 
     triggerHaptic('light');
     setShowSwipeHint(true);
@@ -114,7 +114,7 @@ export function EnhancedTouchWrapper({
   }, [enableSwipeActions, leftActions.length, triggerHaptic]);
 
   const handleLongPress = useCallback(() => {
-    if (!enableLongPress) return;
+    if (!enableLongPress) {return;}
 
     triggerHaptic('heavy');
     setLongPressTriggered(true);
@@ -130,14 +130,14 @@ export function EnhancedTouchWrapper({
   }, [enableLongPress, enableQuickActions, quickActions.length, onLongPress, triggerHaptic]);
 
   const handleDoubleTap = useCallback(() => {
-    if (!enableDoubleTap) return;
+    if (!enableDoubleTap) {return;}
 
     triggerHaptic('medium');
     onDoubleTap?.();
   }, [enableDoubleTap, onDoubleTap, triggerHaptic]);
 
   const handlePinch = useCallback((scale: number) => {
-    if (!enablePinchZoom) return;
+    if (!enablePinchZoom) {return;}
 
     const newZoom = Math.max(0.5, Math.min(3, scale));
     setCurrentZoom(newZoom);
@@ -150,15 +150,15 @@ export function EnhancedTouchWrapper({
   }, [enablePinchZoom, onZoomChange, currentZoom, triggerHaptic]);
 
   const handlePinchEnd = useCallback(() => {
-    if (!enablePinchZoom) return;
+    if (!enablePinchZoom) {return;}
 
     // Snap to common zoom levels
     let snapZoom = currentZoom;
-    if (currentZoom < 0.75) snapZoom = 0.5;
-    else if (currentZoom < 1.25) snapZoom = 1;
-    else if (currentZoom < 1.75) snapZoom = 1.5;
-    else if (currentZoom < 2.5) snapZoom = 2;
-    else snapZoom = 3;
+    if (currentZoom < 0.75) {snapZoom = 0.5;}
+    else if (currentZoom < 1.25) {snapZoom = 1;}
+    else if (currentZoom < 1.75) {snapZoom = 1.5;}
+    else if (currentZoom < 2.5) {snapZoom = 2;}
+    else {snapZoom = 3;}
 
     if (Math.abs(snapZoom - currentZoom) > 0.1) {
       setCurrentZoom(snapZoom);

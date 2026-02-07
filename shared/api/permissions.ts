@@ -239,7 +239,7 @@ export class PermissionsApi {
    * Get expiring permissions (Admin)
    * GET /api/admin/permissions/expiring
    */
-  async getExpiringPermissions(days: number = 7): Promise<ApiResponse<PermissionEntry[]>> {
+  async getExpiringPermissions(days = 7): Promise<ApiResponse<PermissionEntry[]>> {
     return this.client.get<PermissionEntry[]>('/api/admin/permissions/expiring', { days });
   }
 

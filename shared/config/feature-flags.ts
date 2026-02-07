@@ -302,7 +302,7 @@ export function isFeatureEnabled(
   context: FeatureFlagContext = {}
 ): boolean {
   const config = FEATURE_FLAGS[flag];
-  if (!config) return false;
+  if (!config) {return false;}
 
   // Check if feature is deprecated
   if (config.deprecatedAt) {
@@ -373,7 +373,7 @@ export function isFeatureEnabled(
  */
 export function getEnabledFeatures(context: FeatureFlagContext = {}): string[] {
   return Object.keys(FEATURE_FLAGS).filter(flag =>
-    isFeatureEnabled(flag as keyof typeof FEATURE_FLAGS, context)
+    isFeatureEnabled(flag, context)
   );
 }
 
@@ -395,7 +395,7 @@ export function getAllFeatureFlags(): Record<string, FeatureFlagConfig> {
  * Check if user can toggle a feature flag (admin only)
  */
 export function canToggleFeature(flag: keyof typeof FEATURE_FLAGS, context: FeatureFlagContext): boolean {
-  if (!context.isAdmin) return false;
+  if (!context.isAdmin) {return false;}
 
   const hasPermission = context.userPermissions?.includes('admin:system:manage') ||
     context.userPermissions?.includes('admin:*:*');

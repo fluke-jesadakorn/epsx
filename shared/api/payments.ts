@@ -13,6 +13,12 @@
 import type { ApiResponse, UnifiedApiClient } from '../utils/api-client';
 
 // ============================================================================
+// FACTORY FUNCTION
+// ============================================================================
+
+import { createAdminApiClient, createFrontendApiClient } from '../utils/api-client';
+
+// ============================================================================
 // TYPES
 // ============================================================================
 
@@ -118,12 +124,6 @@ export class PaymentsApi {
         return this.client.get<{ payments: TransactionStatusData[]; total: number }>('/api/payments/history', params);
     }
 }
-
-// ============================================================================
-// FACTORY FUNCTION
-// ============================================================================
-
-import { createAdminApiClient, createFrontendApiClient } from '../utils/api-client';
 
 /**
  * Create a payments API client for frontend applications

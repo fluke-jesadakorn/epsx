@@ -52,16 +52,16 @@ interface SelectorOptions<R> {
 }
 
 const shallowEqual: EqualityFunction<unknown> = (prev, next) => {
-  if (prev === next) return true;
-  if (typeof prev !== 'object' || typeof next !== 'object') return false;
-  if (prev === null || next === null) return false;
+  if (prev === next) {return true;}
+  if (typeof prev !== 'object' || typeof next !== 'object') {return false;}
+  if (prev === null || next === null) {return false;}
 
   const objA = prev as Record<string, unknown>;
   const objB = next as Record<string, unknown>;
   const keysA = Object.keys(objA);
   const keysB = Object.keys(objB);
 
-  if (keysA.length !== keysB.length) return false;
+  if (keysA.length !== keysB.length) {return false;}
 
   for (const key of keysA) {
     if (!keysB.includes(key) || objA[key] !== objB[key]) {
@@ -309,11 +309,11 @@ export function useResponsive() {
   useEffect(() => {
     const updateBreakpoint = () => {
       const width = window.innerWidth;
-      if (width < 640) setBreakpoint('sm');
-      else if (width < 768) setBreakpoint('md');
-      else if (width < 1024) setBreakpoint('lg');
-      else if (width < 1280) setBreakpoint('xl');
-      else setBreakpoint('2xl');
+      if (width < 640) {setBreakpoint('sm');}
+      else if (width < 768) {setBreakpoint('md');}
+      else if (width < 1024) {setBreakpoint('lg');}
+      else if (width < 1280) {setBreakpoint('xl');}
+      else {setBreakpoint('2xl');}
     };
 
     updateBreakpoint();

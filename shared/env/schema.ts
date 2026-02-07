@@ -10,15 +10,15 @@ export const isServer = typeof window === 'undefined';
 // Helper to detect if running in development environment
 // Includes localhost, Tailscale IPs (100.x.x.x), and local network IPs
 const isDevHostname = (hostname: string): boolean => {
-  if (hostname === 'localhost') return true;
-  if (hostname === '127.0.0.1') return true;
+  if (hostname === 'localhost') {return true;}
+  if (hostname === '127.0.0.1') {return true;}
   // Tailscale IPs (CGNAT range)
-  if (hostname.startsWith('100.')) return true;
+  if (hostname.startsWith('100.')) {return true;}
   // Local network IPs
-  if (hostname.startsWith('192.168.')) return true;
-  if (hostname.startsWith('10.')) return true;
+  if (hostname.startsWith('192.168.')) {return true;}
+  if (hostname.startsWith('10.')) {return true;}
   // Docker/internal ranges
-  if (hostname.startsWith('172.')) return true;
+  if (hostname.startsWith('172.')) {return true;}
   return false;
 };
 
@@ -36,8 +36,8 @@ const getDefaultBackendUrl = () => {
       return `http://${hostname}:8080`;
     }
   }
-  if (isDev) return 'http://localhost:8080';
-  if (isStaging) return 'https://staging-api.epsx.io';
+  if (isDev) {return 'http://localhost:8080';}
+  if (isStaging) {return 'https://staging-api.epsx.io';}
   return 'https://api.epsx.io'; // Production default - api.epsx.io maps to backend service
 };
 
@@ -49,8 +49,8 @@ const getDefaultFrontendUrl = () => {
       return `http://${hostname}:3000`;
     }
   }
-  if (isDev) return 'http://localhost:3000';
-  if (isStaging) return 'https://staging.epsx.io';
+  if (isDev) {return 'http://localhost:3000';}
+  if (isStaging) {return 'https://staging.epsx.io';}
   return undefined; // Force explicit configuration in production
 };
 
@@ -62,21 +62,21 @@ const getDefaultAdminUrl = () => {
       return `http://${hostname}:3001`;
     }
   }
-  if (isDev) return 'http://localhost:3001';
-  if (isStaging) return 'https://staging-admin.epsx.io';
+  if (isDev) {return 'http://localhost:3001';}
+  if (isStaging) {return 'https://staging-admin.epsx.io';}
   return undefined; // Force explicit configuration in production
 };
 
 // Web3 Configuration Defaults
 const getDefaultBlockchainNetwork = () => {
-  if (isDev) return 'testnet';
-  if (isStaging) return 'testnet';
+  if (isDev) {return 'testnet';}
+  if (isStaging) {return 'testnet';}
   return 'mainnet'; // Production uses BSC mainnet
 };
 
 const getDefaultWalletConnectProjectId = () => {
-  if (isDev) return 'epsx-web3-dev';
-  if (isStaging) return 'epsx-web3-staging';
+  if (isDev) {return 'epsx-web3-dev';}
+  if (isStaging) {return 'epsx-web3-staging';}
   return 'epsx-web3-prod'; // Production WalletConnect project
 };
 
@@ -153,7 +153,7 @@ export const clientEnvSchema = z.object({
     .default(getDefaultBackendUrl())
     .refine(url => {
       // Skip validation during build or in browser (client-side)
-      if (isBuild || typeof window !== 'undefined') return true;
+      if (isBuild || typeof window !== 'undefined') {return true;}
       // Only enforce production validation on server-side
       return url !== undefined;
     }, {
@@ -167,7 +167,7 @@ export const clientEnvSchema = z.object({
     .default(getDefaultFrontendUrl() ?? '')
     .refine(url => {
       // Skip validation during build or in browser (client-side)
-      if (isBuild || typeof window !== 'undefined') return true;
+      if (isBuild || typeof window !== 'undefined') {return true;}
       // Only enforce production validation on server-side
       return url !== undefined;
     }, {
@@ -181,7 +181,7 @@ export const clientEnvSchema = z.object({
     .default(getDefaultAdminUrl() ?? '')
     .refine(url => {
       // Skip validation during build or in browser (client-side)
-      if (isBuild || typeof window !== 'undefined') return true;
+      if (isBuild || typeof window !== 'undefined') {return true;}
       // Only enforce production validation on server-side
       return url !== undefined;
     }, {

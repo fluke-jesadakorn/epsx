@@ -99,7 +99,7 @@ export function EmailManagement({ user }: EmailManagementProps) {
   };
 
   const handleVerifyEmail = async () => {
-    if (!emailState.verificationCode || emailState.verificationCode.length !== 6) {
+    if (emailState.verificationCode?.length !== 6) {
       setEmailState(prev => ({ ...prev, error: 'Please enter the 6-digit verification code' }));
       return;
     }

@@ -58,6 +58,5 @@ export default async function WalletManagementLayout({
 }
 
 
-
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';

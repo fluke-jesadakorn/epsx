@@ -97,7 +97,7 @@ export function sanitizeEmail(email: string): string {
 // Rate limiting helper (simple in-memory store)
 const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
 
-export function checkRateLimit(identifier: string, maxAttempts: number = 5, windowMs: number = 15 * 60 * 1000): boolean {
+export function checkRateLimit(identifier: string, maxAttempts = 5, windowMs: number = 15 * 60 * 1000): boolean {
   const now = Date.now();
   const record = rateLimitStore.get(identifier);
   

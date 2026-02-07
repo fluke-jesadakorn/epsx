@@ -30,7 +30,7 @@ export function PromotionalBanner({ className = '' }: PromotionalBannerProps) {
 
   // Update countdown timer
   useEffect(() => {
-    if (!activePromotion) return;
+    if (!activePromotion) {return;}
 
     const timer = setInterval(() => {
       const now = new Date().getTime();
@@ -88,11 +88,11 @@ export function PromotionalBanner({ className = '' }: PromotionalBannerProps) {
   };
 
   const getUsagePercentage = (promotion: Promotion) => {
-    if (!promotion.usageLimit) return 0;
+    if (!promotion.usageLimit) {return 0;}
     return Math.min((promotion.currentUsage / promotion.usageLimit) * 100, 100);
   };
 
-  if (!isVisible || !activePromotion) return null;
+  if (!isVisible || !activePromotion) {return null;}
 
   return (
     <div className={`relative overflow-hidden ${className}`}>

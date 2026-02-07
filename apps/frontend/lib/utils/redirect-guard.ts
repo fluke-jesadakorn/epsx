@@ -52,7 +52,7 @@ class RedirectGuard {
   /**
    * Record a redirect attempt
    */
-  private recordAttempt(path: string, timestamp: number, count: number = 1) {
+  private recordAttempt(path: string, timestamp: number, count = 1) {
     this.attempts.set(path, { path, timestamp, count });
   }
 
@@ -140,7 +140,7 @@ export function useRedirectGuardCleanup() {
  */
 const AUTH_PAGES = ['/auth', '/auth/signin', '/auth/login'];
 
-export function validateReturnUrl(returnUrl: string, fallback: string = '/dashboard'): string {
+export function validateReturnUrl(returnUrl: string, fallback = '/dashboard'): string {
   // Prevent auth pages from being returnUrl
   if (AUTH_PAGES.some(page => returnUrl.startsWith(page))) {
     console.warn('⚠️ Prevented auth page loop', {

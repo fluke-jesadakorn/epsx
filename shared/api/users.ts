@@ -329,7 +329,7 @@ export class UsersApi {
    * Get usage history
    * GET /api/developer-portal/usage-history
    */
-  async getUsageHistory(days: number = 7): Promise<ApiResponse<any>> {
+  async getUsageHistory(days = 7): Promise<ApiResponse<any>> {
     return this.client.get('/api/developer-portal/usage-history', { days });
   }
 
@@ -337,7 +337,7 @@ export class UsersApi {
    * Get top endpoints
    * GET /api/developer-portal/top-endpoints
    */
-  async getTopEndpoints(days: number = 7): Promise<ApiResponse<any>> {
+  async getTopEndpoints(days = 7): Promise<ApiResponse<any>> {
     return this.client.get('/api/developer-portal/top-endpoints', { days });
   }
 

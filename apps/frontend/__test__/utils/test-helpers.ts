@@ -162,7 +162,7 @@ export class ApiMockHelper {
   /**
    * Mock payment processing
    */
-  async mockPaymentFlow(shouldSucceed: boolean = true): Promise<void> {
+  async mockPaymentFlow(shouldSucceed = true): Promise<void> {
     await this.page.route('**/api/payments/**', async route => {
       const url = route.request().url();
       
@@ -237,7 +237,7 @@ export class NavigationHelper {
   /**
    * Navigate to route with tier-based access check
    */
-  async navigateToRoute(route: string, expectedAccess: boolean = true): Promise<void> {
+  async navigateToRoute(route: string, expectedAccess = true): Promise<void> {
     const response = await this.page.goto(route);
     
     if (expectedAccess) {
@@ -447,7 +447,7 @@ export class DataHelper {
   /**
    * Generate test transaction data
    */
-  generateTransactionData(count: number = 10): any[] {
+  generateTransactionData(count = 10): any[] {
     const transactions = [];
     const symbols = ['AAPL', 'GOOGL', 'MSFT', 'AMZN', 'TSLA'];
     const actions = ['BUY', 'SELL'];
@@ -585,8 +585,8 @@ export const utils = {
    */
   async waitForCondition(
     condition: () => Promise<boolean>,
-    timeout: number = 5000,
-    interval: number = 100
+    timeout = 5000,
+    interval = 100
   ): Promise<boolean> {
     const startTime = Date.now();
     
@@ -628,12 +628,12 @@ export const utils = {
     const { loadTime, firstContentfulPaint } = metrics;
     let score = 100;
     
-    if (loadTime > 3000) score -= 30;
-    else if (loadTime > 2000) score -= 20;
-    else if (loadTime > 1000) score -= 10;
+    if (loadTime > 3000) {score -= 30;}
+    else if (loadTime > 2000) {score -= 20;}
+    else if (loadTime > 1000) {score -= 10;}
     
-    if (firstContentfulPaint > 2000) score -= 20;
-    else if (firstContentfulPaint > 1500) score -= 10;
+    if (firstContentfulPaint > 2000) {score -= 20;}
+    else if (firstContentfulPaint > 1500) {score -= 10;}
     
     return Math.max(0, score);
   }

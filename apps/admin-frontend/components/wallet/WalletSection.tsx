@@ -57,7 +57,7 @@ export function WalletSection({ className, initialData }: WalletSectionProps) {
     const loadData = useCallback(async () => {
         setIsLoading(true);
         try {
-            const data = await fetchWalletsAction(filters, page, 4); // Limit to 4 for grid view
+            const data = await fetchWalletsAction(filters, page, 9); // Limit to 9 for grid view
             setWallets(data.wallets);
             setTotalPages(data.pagination?.total_pages ?? 1);
         } catch (err) {
@@ -134,7 +134,7 @@ export function WalletSection({ className, initialData }: WalletSectionProps) {
                         />
                     </div>
 
-                    <Select value={filters.status} onValueChange={(v: any) => setFilters(prev => ({ ...prev, status: v }))}>
+                    <Select value={filters.status} onValueChange={(v: unknown) => setFilters(prev => ({ ...prev, status: v as WalletFilters['status'] }))}>
                         <SelectTrigger className="w-[140px] h-12 bg-white/5 border-white/5 rounded-2xl font-bold text-sm">
                             <SelectValue placeholder="Status" />
                         </SelectTrigger>
@@ -146,7 +146,7 @@ export function WalletSection({ className, initialData }: WalletSectionProps) {
                         </SelectContent>
                     </Select>
 
-                    <Select value={filters.platform} onValueChange={(v: any) => setFilters(prev => ({ ...prev, platform: v }))}>
+                    <Select value={filters.platform} onValueChange={(v: unknown) => setFilters(prev => ({ ...prev, platform: v as WalletFilters['platform'] }))}>
                         <SelectTrigger className="w-[140px] h-12 bg-white/5 border-white/5 rounded-2xl font-bold text-sm">
                             <SelectValue placeholder="Platform" />
                         </SelectTrigger>
@@ -172,13 +172,13 @@ export function WalletSection({ className, initialData }: WalletSectionProps) {
             </div>
 
             {/* Wallet List */}
-            <div className="space-y-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                 {isLoading ? (
-                    Array.from({ length: 5 }).map((_, i) => (
-                        <Skeleton key={i} className="h-24 w-full rounded-xl" />
+                    Array.from({ length: 9 }).map((_, i) => (
+                        <Skeleton key={i} className="h-[300px] w-full rounded-[24px]" />
                     ))
                 ) : wallets.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-12 text-center border border-dashed border-border rounded-xl bg-muted/5">
+                    <div className="col-span-full flex flex-col items-center justify-center py-12 text-center border border-dashed border-border rounded-xl bg-muted/5">
                         <div className="p-4 rounded-full bg-muted/30 mb-4">
                             <Search className="h-8 w-8 text-muted-foreground/50" />
                         </div>
@@ -195,7 +195,7 @@ export function WalletSection({ className, initialData }: WalletSectionProps) {
                         </Button>
                     </div>
                 ) : (
-                    <div className="space-y-3 animate-in fade-in-50 duration-500">
+                    <>
                         {wallets.map((wallet) => (
                             <WalletCard
                                 key={wallet.walletAddress}
@@ -210,7 +210,7 @@ export function WalletSection({ className, initialData }: WalletSectionProps) {
                                 }}
                             />
                         ))}
-                    </div>
+                    </>
                 )}
             </div>
 
@@ -251,7 +251,7 @@ export function WalletSection({ className, initialData }: WalletSectionProps) {
                     isLoading={isActionLoading}
                 />
             )}
-            {reenableModalWallet && reenableModalWallet.disableInfo && (
+            {reenableModalWallet?.disableInfo && (
                 <ReenableWalletModal
                     walletAddress={reenableModalWallet.walletAddress}
                     disableInfo={reenableModalWallet.disableInfo}

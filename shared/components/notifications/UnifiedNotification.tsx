@@ -59,7 +59,7 @@ export function UnifiedNotification({
         }
 
         return () => {
-            if (interval) clearInterval(interval);
+            if (interval) {clearInterval(interval);}
         };
     }, [visible, duration, onClose]);
 
@@ -141,7 +141,7 @@ export function UnifiedNotification({
     const colorStyle = variantStyle.useDark ? typeStyle.dark : typeStyle.light;
 
     const getIcon = () => {
-        if (icon) return icon;
+        if (icon) {return icon;}
 
         if (iconType === 'emoji') {
             return (
@@ -174,7 +174,7 @@ export function UnifiedNotification({
         );
     };
 
-    if (!isVisible) return null;
+    if (!isVisible) {return null;}
 
     return (
         <div
@@ -421,7 +421,7 @@ export function UnifiedAlert({
     const isAdmin = variant === 'admin';
 
     const getIcon = () => {
-        if (icon) return icon;
+        if (icon) {return icon;}
 
         if (iconType === 'emoji') {
             return (

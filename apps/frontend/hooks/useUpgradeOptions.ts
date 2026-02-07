@@ -35,7 +35,7 @@ export function useUpgradeOptions(): UseUpgradeOptionsResult {
     useEffect(() => {
         const fetchUpgradeOptions = async () => {
             // Wait for plan access to be loaded (to know current tier)
-            if (accessLoading) return;
+            if (accessLoading) {return;}
 
             try {
                 setLoading(true);

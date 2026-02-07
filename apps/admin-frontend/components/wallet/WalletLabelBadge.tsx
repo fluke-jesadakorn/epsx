@@ -16,7 +16,7 @@ const LABEL_COLORS = [
     { bg: 'bg-cyan-100 dark:bg-cyan-900/40', text: 'text-cyan-700 dark:text-cyan-300', border: 'border-cyan-200 dark:border-cyan-800' },
     { bg: 'bg-orange-100 dark:bg-orange-900/40', text: 'text-orange-700 dark:text-orange-300', border: 'border-orange-200 dark:border-orange-800' },
     { bg: 'bg-indigo-100 dark:bg-indigo-900/40', text: 'text-indigo-700 dark:text-indigo-300', border: 'border-indigo-200 dark:border-indigo-800' },
-];
+] as const;
 
 /**
  * Simple hash function for consistent color assignment
@@ -38,7 +38,9 @@ function hashString(str: string): number {
  */
 export function getLabelColor(label: string) {
     const index = hashString(label.toLowerCase()) % LABEL_COLORS.length;
-    return LABEL_COLORS[index]!;
+    // index is guaranteed to be within [0, LABEL_COLORS.length - 1]
+    const color = LABEL_COLORS[index];
+    return color ?? LABEL_COLORS[0];
 }
 
 interface WalletLabelBadgeProps {

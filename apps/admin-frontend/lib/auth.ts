@@ -8,7 +8,7 @@
 import { create } from 'zustand';
 
 import { loginAction, logoutAction } from '@/shared/auth/actions';
-import { createAdminClient, UserInfoResponse } from '@/shared/auth/client';
+import { createAdminClient, type UserInfoResponse } from '@/shared/auth/client';
 
 // Web3 Admin Wallet interface (migrated from EnterpriseAdminUser)
 export interface AdminWallet {
@@ -22,6 +22,15 @@ export interface AdminWallet {
   dao_memberships: string[];
   is_admin: boolean;
   admin_permissions: string[];
+}
+
+/**
+ * Backend Web3 User Response
+ */
+interface ExtendedUserInfoResponse extends UserInfoResponse {
+  is_admin?: boolean;
+  admin_permissions?: string[];
+  role?: string;
 }
 
 // Web3 admin client instance
@@ -40,14 +49,14 @@ export interface Web3AdminAuthState {
 
 // Transform Web3 user to admin wallet format
 // Uses backend-provided role directly - no client-side derivation
-function transformWeb3UserToAdminWallet(web3User: UserInfoResponse): AdminWallet {
+function transformWeb3UserToAdminWallet(web3User: ExtendedUserInfoResponse): AdminWallet {
   const permissions = web3User.permissions || [];
   // Use backend-provided is_admin flag
-  const isAdmin = (web3User as any).is_admin ?? permissions.some(p => p.startsWith('admin:'));
+  const isAdmin = web3User.is_admin ?? permissions.some(p => p.startsWith('admin:'));
   // Use backend-provided admin_permissions
-  const adminPermissions: string[] = (web3User as any).admin_permissions || permissions.filter(p => p.startsWith('admin:'));
+  const adminPermissions: string[] = web3User.admin_permissions || permissions.filter(p => p.startsWith('admin:'));
   // Use backend-provided role
-  const role = ((web3User as any).role || (isAdmin ? 'admin' : 'user')) as 'user' | 'admin' | 'super_admin';
+  const role = (web3User.role || (isAdmin ? 'admin' : 'user')) as 'user' | 'admin' | 'super_admin';
 
   return {
     wallet_address: web3User.wallet_address,
@@ -91,7 +100,7 @@ export const useAuth = create<Web3AdminAuthState & {
 
       // Check if already authenticated
       if (adminWeb3Client.isAuthenticated()) {
-        const web3User = await adminWeb3Client.loadCurrentUser();
+        const web3User = await adminWeb3Client.loadCurrentUser() as ExtendedUserInfoResponse;
         if (web3User) {
           const adminWallet = transformWeb3UserToAdminWallet(web3User);
 
@@ -144,12 +153,10 @@ export const useAuth = create<Web3AdminAuthState & {
 
         // Call server action to set cookies
         if (result.user.access) {
-          console.log('🔐 Admin: Calling loginAction to persist session...');
           await loginAction(result.user.access, result.user);
-          console.log('✅ Admin: loginAction successful');
         }
 
-        const adminWallet = transformWeb3UserToAdminWallet(result.user);
+        const adminWallet = transformWeb3UserToAdminWallet(result.user as ExtendedUserInfoResponse);
 
         // Permission enforcement is now handled by the backend/middleware
         // We trust the session returned by the server
@@ -213,7 +220,6 @@ export const useAuth = create<Web3AdminAuthState & {
       // Call server action to clear HttpOnly cookies
       try {
         await logoutAction();
-        console.log('✅ Admin: Server session cleared');
       } catch (e) {
         console.error('❌ Admin: Failed to clear server session:', e);
       }
@@ -250,7 +256,7 @@ export const useAuth = create<Web3AdminAuthState & {
     try {
       const web3User = await adminWeb3Client.loadCurrentUser();
       if (web3User) {
-        const adminWallet = transformWeb3UserToAdminWallet(web3User);
+        const adminWallet = transformWeb3UserToAdminWallet(web3User as ExtendedUserInfoResponse);
 
         set({
           wallet: adminWallet,
@@ -304,10 +310,10 @@ export const useAuth = create<Web3AdminAuthState & {
 if (typeof window !== 'undefined') {
   // Subscribe to Web3 client user changes
   adminWeb3Client.subscribe((web3User) => {
-    const state = useAuth.getState();
+    const _state = useAuth.getState();
 
     if (web3User) {
-      const adminWallet = transformWeb3UserToAdminWallet(web3User);
+      const adminWallet = transformWeb3UserToAdminWallet(web3User as ExtendedUserInfoResponse);
 
       // Server handling permission enforcement - we just display state
       useAuth.setState({
@@ -336,7 +342,6 @@ if (typeof window !== 'undefined') {
 // Utility Functions for Web3 Enterprise Admin UI
 /**
  *
- * @param user
  * @param wallet
  */
 export function getAdminDisplayName(wallet: AdminWallet | null): string {

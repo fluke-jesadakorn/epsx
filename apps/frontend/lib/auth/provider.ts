@@ -65,7 +65,7 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
 
   // Cross-tab session invalidation listener (only for explicit disconnect)
   useEffect(() => {
-    if (typeof window === 'undefined' || !window.BroadcastChannel) return;
+    if (typeof window === 'undefined' || !window.BroadcastChannel) {return;}
 
     let channel: BroadcastChannel | null = null;
 
@@ -134,7 +134,7 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
 
   // Auto-check auth status when wallet connects (with proper hydration handling)
   useEffect(() => {
-    if (!isHydrated) return; // Wait for hydration
+    if (!isHydrated) {return;} // Wait for hydration
 
     if (address && isConnected) {
       // IMPORTANT: Always sync internal state with Wagmi state first
@@ -236,7 +236,7 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
   }, [address, isConnected, isHydrated]);
 
   const checkAuthStatus = useCallback(async () => {
-    if (!address) return;
+    if (!address) {return;}
 
     try {
       // Simplified auth status check - just check session
@@ -275,7 +275,7 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
   }, [address]);
 
   const refreshPermissions = useCallback(async () => {
-    if (!address) return false;
+    if (!address) {return false;}
 
     try {
       const response = await fetch(
@@ -565,7 +565,7 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
 
             // Note: We can't access latest Wagmi state here due to closure
             // The useEffect will handle state sync once Wagmi updates
-            if (attempts >= 5) break; // Give reasonable time for disconnect
+            if (attempts >= 5) {break;} // Give reasonable time for disconnect
           }
         } catch (wagmiError) {
           console.error('❌ Wagmi disconnect failed:', wagmiError);
@@ -580,7 +580,7 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
           const allKeys = [];
           for (let i = 0; i < window.localStorage.length; i++) {
             const key = window.localStorage.key(i);
-            if (key) allKeys.push(key);
+            if (key) {allKeys.push(key);}
           }
 
           // Find keys to remove
@@ -827,7 +827,7 @@ export function getTierDescription(tier: Web3AuthState['userTier']): string {
 }
 
 export function isPermissionExpired(permission: Web3Permission): boolean {
-  if (!permission.expires_at) return false;
+  if (!permission.expires_at) {return false;}
   return new Date(permission.expires_at) < new Date();
 }
 

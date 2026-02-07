@@ -13,6 +13,12 @@
 import type { ApiResponse, UnifiedApiClient } from '../utils/api-client';
 
 // ============================================================================
+// FACTORY FUNCTION
+// ============================================================================
+
+import { createAdminApiClient } from '../utils/api-client';
+
+// ============================================================================
 // TYPES
 // ============================================================================
 
@@ -210,7 +216,7 @@ export class SecurityApi {
     async isSystemUnderAlert(): Promise<boolean> {
         try {
             const res = await this.getSecurityMetrics();
-            if (!res.data) return false;
+            if (!res.data) {return false;}
 
             const criticalAlerts = res.data.alerts.filter(
                 a => a.severity === 'Critical' && !a.auto_resolved
@@ -256,9 +262,9 @@ export const getSeverityBadgeColor = (severity: string): string => {
  * Format threat score with level indicator
  */
 export const formatThreatScore = (score: number): string => {
-    if (score >= 80) return `${score.toFixed(1)} (Critical)`;
-    if (score >= 60) return `${score.toFixed(1)} (High)`;
-    if (score >= 40) return `${score.toFixed(1)} (Medium)`;
+    if (score >= 80) {return `${score.toFixed(1)} (Critical)`;}
+    if (score >= 60) {return `${score.toFixed(1)} (High)`;}
+    if (score >= 40) {return `${score.toFixed(1)} (Medium)`;}
     return `${score.toFixed(1)} (Low)`;
 };
 
@@ -276,12 +282,6 @@ export const getEventTypeIcon = (eventType: string): string => {
         default: return '⚠️';
     }
 };
-
-// ============================================================================
-// FACTORY FUNCTION
-// ============================================================================
-
-import { createAdminApiClient } from '../utils/api-client';
 
 /**
  * Create a security API client

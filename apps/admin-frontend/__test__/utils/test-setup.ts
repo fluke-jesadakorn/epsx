@@ -126,7 +126,7 @@ export class PerformanceMonitor {
    *
    */
   endMeasurement(): PerformanceMetrics | null {
-    if (!this.currentMetric || !this.currentMetric.startTime) {
+    if (!this.currentMetric?.startTime) {
        
       console.warn('⚠️ No active measurement to end');
       return null;

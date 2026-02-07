@@ -550,6 +550,9 @@ impl UnifiedWeb3AuthService {
         // Emit new wallet creation event for admin notifications
         self.emit_new_wallet_event(wallet_address, &connection_metadata).await;
 
+        // Auto-assign Free Plan to new wallet
+        self.assign_free_plan_to_wallet(wallet_address).await;
+
         Ok((wallet_address.to_string(), true))
     }
 
@@ -578,6 +581,170 @@ impl UnifiedWeb3AuthService {
         );
 
         // Future enhancement: SSE broadcasting, webhook delivery, real-time notification queue
+    }
+
+    /// Assign Free Plan to a newly created wallet
+    /// Auto-creates the Free Plan if it doesn't exist in the database
+    async fn assign_free_plan_to_wallet(&self, wallet_address: &str) {
+        use crate::core::constants::{FREE_PLAN_SLUG, FREE_PLAN_NAME, FREE_PLAN_RANKING_OFFSET, FREE_PLAN_RANKINGS_LIMIT};
+        
+        let wallet_address = wallet_address.to_lowercase();
+        
+        let mut conn = match self.db_pool.get().await {
+            Ok(c) => c,
+            Err(e) => {
+                warn!(
+                    wallet_address = %wallet_address,
+                    error = %e,
+                    "Failed to get DB connection for Free Plan assignment"
+                );
+                return;
+            }
+        };
+
+        // Get or create Free Plan
+        #[derive(QueryableByName)]
+        struct PlanIdResult {
+            #[diesel(sql_type = diesel::sql_types::Uuid)]
+            id: uuid::Uuid,
+        }
+
+        // First try to get existing Free Plan
+        let plan_id = match diesel::sql_query(
+            "SELECT id FROM plans WHERE slug = $1"
+        )
+        .bind::<diesel::sql_types::Text, _>(FREE_PLAN_SLUG)
+        .get_result::<PlanIdResult>(&mut conn)
+        .await
+        {
+            Ok(result) => result.id,
+            Err(diesel::result::Error::NotFound) => {
+                // Free Plan doesn't exist, create it now
+                info!("Free Plan not found, creating it automatically...");
+                
+                let free_plan_metadata = serde_json::json!({
+                    "permissions": [
+                        format!("epsx:rankings:view:{}", FREE_PLAN_RANKINGS_LIMIT),
+                        format!("epsx:rankings:offset:{}", FREE_PLAN_RANKING_OFFSET)
+                    ],
+                    "features": [
+                        format!("View top {} stock rankings", FREE_PLAN_RANKINGS_LIMIT),
+                        "Basic market overview",
+                        "Community access"
+                    ],
+                    "ranking_offset": FREE_PLAN_RANKING_OFFSET,
+                    "rankings_limit": FREE_PLAN_RANKINGS_LIMIT,
+                    "limits": {
+                        "analytics_queries_per_day": 5,
+                        "stocks_tracked": 5,
+                        "historical_data_months": 1
+                    }
+                });
+
+                match diesel::sql_query(
+                    r#"
+                    INSERT INTO plans (
+                        id, name, slug, description, plan_type, plan_metadata,
+                        price, currency, is_active, is_promoted, display_order, 
+                        created_by, tier_level, is_public,
+                        rate_limit_per_minute, rate_limit_per_hour, rate_limit_per_day, burst_capacity
+                    ) VALUES (
+                        gen_random_uuid(),
+                        $1, $2, $3, 'subscription',
+                        $4::jsonb,
+                        0, 'USD', true, true, 1, 
+                        'system:auto_create', 0, true,
+                        10, 100, 500, 5
+                    )
+                    RETURNING id
+                    "#
+                )
+                .bind::<diesel::sql_types::Text, _>(FREE_PLAN_NAME)
+                .bind::<diesel::sql_types::Text, _>(FREE_PLAN_SLUG)
+                .bind::<diesel::sql_types::Text, _>("Get started with basic analytics and stock rankings")
+                .bind::<diesel::sql_types::Jsonb, _>(&free_plan_metadata)
+                .get_result::<PlanIdResult>(&mut conn)
+                .await
+                {
+                    Ok(result) => {
+                        info!(
+                            plan_id = %result.id,
+                            "✅ Free Plan created automatically"
+                        );
+                        result.id
+                    }
+                    Err(e) => {
+                        warn!(
+                            error = %e,
+                            "Failed to create Free Plan automatically"
+                        );
+                        return;
+                    }
+                }
+            }
+            Err(e) => {
+                warn!(
+                    wallet_address = %wallet_address,
+                    error = %e,
+                    "Error looking up Free Plan - skipping auto-assignment"
+                );
+                return;
+            }
+        };
+
+        // Check if wallet already has this plan assigned
+        #[derive(QueryableByName)]
+        struct CountResult {
+            #[diesel(sql_type = diesel::sql_types::BigInt)]
+            count: i64,
+        }
+
+        let existing = diesel::sql_query(
+            "SELECT COUNT(*) as count FROM wallet_plan_assignments WHERE wallet_address = $1 AND plan_id = $2"
+        )
+        .bind::<diesel::sql_types::Text, _>(&wallet_address)
+        .bind::<diesel::sql_types::Uuid, _>(plan_id)
+        .get_result::<CountResult>(&mut conn)
+        .await
+        .map(|r| r.count > 0)
+        .unwrap_or(false);
+
+        if existing {
+            debug!(
+                wallet_address = %wallet_address,
+                "Wallet already has Free Plan assigned"
+            );
+            return;
+        }
+
+        // Insert Free Plan assignment
+        let now = Utc::now();
+        if let Err(e) = diesel::sql_query(
+            r#"
+            INSERT INTO wallet_plan_assignments (id, wallet_address, plan_id, is_active, assigned_at, assigned_by)
+            VALUES (gen_random_uuid(), $1, $2, true, $3, 'system:auto_assign')
+            ON CONFLICT (wallet_address, plan_id) DO NOTHING
+            "#
+        )
+        .bind::<diesel::sql_types::Text, _>(&wallet_address)
+        .bind::<diesel::sql_types::Uuid, _>(plan_id)
+        .bind::<diesel::sql_types::Timestamptz, _>(now)
+        .execute(&mut conn)
+        .await
+        {
+            warn!(
+                wallet_address = %wallet_address,
+                error = %e,
+                "Failed to assign Free Plan to wallet"
+            );
+            return;
+        }
+
+        info!(
+            wallet_address = %wallet_address,
+            plan_id = %plan_id,
+            "✅ Free Plan auto-assigned to new wallet"
+        );
     }
 
     /// Get manual permissions from normalized tables

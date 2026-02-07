@@ -564,7 +564,7 @@ export function parseJWTPayload(token: string): any {
  */
 export function isJWTExpired(token: string): boolean {
   const payload = parseJWTPayload(token);
-  if (!payload || !payload.exp) return true;
+  if (!payload?.exp) {return true;}
 
   return Date.now() >= payload.exp * 1000;
 }

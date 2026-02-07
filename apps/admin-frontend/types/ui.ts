@@ -6,7 +6,7 @@
 
 import type { ReactNode } from 'react';
 
-import type { User, Permission } from './core';
+import type { Permission, User } from './admin/iam';
 
 // Basic Notification interface for UI types
 interface Notification {
@@ -47,7 +47,7 @@ export type ComponentState = 'default' | 'hover' | 'active' | 'disabled' | 'load
 // Form Types
 // ============================================================================
 
-export interface FormProps<T = any> extends BaseComponentProps {
+export interface FormProps<T = unknown> extends BaseComponentProps {
   onSubmit: (data: T) => void | Promise<void>;
   onCancel?: () => void;
   isLoading?: boolean;
@@ -55,7 +55,7 @@ export interface FormProps<T = any> extends BaseComponentProps {
   validationMode?: 'onChange' | 'onBlur' | 'onSubmit';
 }
 
-export interface FieldProps<T = any> {
+export interface FieldProps<T = unknown> {
   name: string;
   label?: string;
   placeholder?: string;
@@ -96,7 +96,7 @@ export interface MultiSelectProps<T = string> {
 // Table Types
 // ============================================================================
 
-export interface TableColumn<T = any> {
+export interface TableColumn<T = unknown> {
   key: string;
   label: string;
   sortable?: boolean;
@@ -104,11 +104,11 @@ export interface TableColumn<T = any> {
   width?: string | number;
   minWidth?: string | number;
   align?: 'left' | 'center' | 'right';
-  render?: (value: any, item: T, index: number) => ReactNode;
+  render?: (value: unknown, item: T, index: number) => ReactNode;
   className?: string;
 }
 
-export interface TableProps<T = any> {
+export interface TableProps<T = unknown> {
   columns: TableColumn<T>[];
   data: T[];
   loading?: boolean;
@@ -469,20 +469,20 @@ export interface SearchProps {
   className?: string;
 }
 
-export interface FilterProps<T = any> {
+export interface FilterProps<T = unknown> {
   filters: T;
   onFiltersChange: (filters: T) => void;
   onReset?: () => void;
   className?: string;
 }
 
-export interface QuickFilterItem<T = any> {
+export interface QuickFilterItem<T = unknown> {
   label: string;
   value: T;
   count?: number;
 }
 
-export interface QuickFiltersProps<T = any> {
+export interface QuickFiltersProps<T = unknown> {
   items: QuickFilterItem<T>[];
   value: T;
   onChange: (value: T) => void;
@@ -592,11 +592,11 @@ export interface SkeletonProps {
 
 export type MouseEventHandler = (event: React.MouseEvent) => void;
 export type ChangeEventHandler<T = string> = (value: T) => void;
-export type SubmitEventHandler<T = any> = (data: T) => void | Promise<void>;
-export type SelectEventHandler<T = any> = (item: T) => void;
+export type SubmitEventHandler<T = unknown> = (data: T) => void | Promise<void>;
+export type SelectEventHandler<T = unknown> = (item: T) => void;
 
 // Generic event handlers for common operations
-export interface CRUDEventHandlers<T = any> {
+export interface CRUDEventHandlers<T = unknown> {
   onCreate?: (item: Partial<T>) => void | Promise<void>;
   onRead?: (id: string) => void | Promise<void>;
   onUpdate?: (id: string, data: Partial<T>) => void | Promise<void>;

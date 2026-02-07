@@ -8,7 +8,7 @@ export interface EmbeddedPermissionRequest {
   action: string;
   expiry_timestamp: number;
   reason?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface EmbeddedPermissionData {
@@ -23,7 +23,7 @@ export interface BulkEmbeddedPermissionRequest {
   user_ids: string[];
   permissions: EmbeddedPermissionData[];
   reason?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface ExtendPermissionRequest {

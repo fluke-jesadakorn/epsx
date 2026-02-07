@@ -33,8 +33,8 @@ export const cols = (res: TableApiResponse) =>
 // Apply access control masking
 export const mask = (val: string | number, lvl: number): string | number => {
   const n = Number(val)
-  if (lvl === 1 && n < 21) return 'Subscribe for access'
-  if (lvl === 2 && n < 11) return 'Premium content'
+  if (lvl === 1 && n < 21) {return 'Subscribe for access'}
+  if (lvl === 2 && n < 11) {return 'Premium content'}
   return val || '-'
 }
 

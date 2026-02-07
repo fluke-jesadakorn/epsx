@@ -302,7 +302,7 @@ export const TEST_DATA_GENERATORS = {
     timestamp: new Date().toISOString()
   }),
 
-  portfolioData: (balance: number = 100000) => ({
+  portfolioData: (balance = 100000) => ({
     balance,
     positions: Array.from({ length: 5 }, (_, i) => ({
       symbol: ['AAPL', 'GOOGL', 'MSFT', 'AMZN', 'TSLA'][i],

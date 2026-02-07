@@ -226,7 +226,7 @@ export interface WalletOperationError {
   code: string
   message: string
   field?: string
-  details?: Record<string, any>
+  details?: Record<string, unknown>
 }
 
 export interface WalletOperationResult<T = unknown> {

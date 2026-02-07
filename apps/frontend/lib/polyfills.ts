@@ -27,7 +27,7 @@ if (!anyMath.pow.__isPolyfilled) {
                 return new Function('b', 'e', 'return b ** e')(base, exponent);
             } catch (e) {
                 // Fallback: Loop
-                if (exponent < 0n) return 0n; // Simple fallback
+                if (exponent < 0n) {return 0n;} // Simple fallback
                 let res = 1n;
                 for (let i = 0n; i < exponent; i++) {
                     res *= base;
@@ -95,7 +95,7 @@ if (!anyMath.pow.__isPolyfilled) {
         const original = (Math as any)[func];
         if (original && !original.__isPolyfilled) {
             (Math as any)[func] = function (val: any) {
-                if (typeof val === 'bigint') return val;
+                if (typeof val === 'bigint') {return val;}
                 return original.call(Math, val);
             };
             (Math as any)[func].__isPolyfilled = true;
@@ -105,7 +105,7 @@ if (!anyMath.pow.__isPolyfilled) {
     // CRITICAL: Self-test the polyfill immediately
     try {
         const result = (Math.pow as any)(2n, 3n);
-        if ((result as any) !== 8n) {
+        if ((result) !== 8n) {
             console.error('[POLYFILL] Self-test failed: Math.pow(2n, 3n) !== 8n');
         }
     } catch (e) {

@@ -109,9 +109,9 @@ export function isValidPaymentMethod(method: string): method is PaymentMethod {
  * @param currency
  */
 export function formatCurrency(amount: number, currency = 'USD'): string {
-  return new Intl.NumberFormat('en-US', { 
-    style: 'currency', 
-    currency: currency === 'BNB' ? 'USD' : currency 
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: currency === 'BNB' ? 'USD' : currency
   }).format(amount);
 }
 
@@ -126,26 +126,26 @@ export const ADMIN_CONSTANTS = {
     SIDEBAR_WIDTH: '250px',
     SIDEBAR_COLLAPSED_WIDTH: '60px',
     HEADER_HEIGHT: '64px',
-    
+
     // Tables
     DEFAULT_PAGE_SIZE: 25,
     MAX_PAGE_SIZE: 100,
-    
+
     // Modals
     MODAL_SIZES: {
       SMALL: 'max-w-md',
-      MEDIUM: 'max-w-lg', 
+      MEDIUM: 'max-w-lg',
       LARGE: 'max-w-4xl',
       EXTRA_LARGE: 'max-w-6xl',
     },
-    
+
     // Animations (keeping as static values per zero-animation policy)
     TRANSITIONS: {
       NONE: 'transition-none',
       INSTANT: 'transition-none',
     },
   },
-  
+
   // Admin operation limits
   LIMITS: {
     BULK_USER_CREATE: 100,
@@ -154,11 +154,11 @@ export const ADMIN_CONSTANTS = {
     MAX_SEARCH_RESULTS: 1000,
     AUDIT_LOG_PAGE_SIZE: 50,
   },
-  
+
   // Admin notification types
   NOTIFICATION_TYPES: [
     'system_announcement',
-    'security_alert', 
+    'security_alert',
     'maintenance_notice',
     'feature_release',
     'policy_update',
@@ -166,7 +166,7 @@ export const ADMIN_CONSTANTS = {
     'billing_notification',
     'user_activity_alert'
   ] as const,
-  
+
   // Admin roles and permission levels
   ADMIN_ROLES: {
     SUPER_ADMIN: 'super_admin',
@@ -178,26 +178,26 @@ export const ADMIN_CONSTANTS = {
     ENTERPRISE_MANAGER: 'enterprise_manager',
     DEVELOPER_ADMIN: 'developer_admin',
   } as const,
-  
+
   // Admin dashboard metrics
   DASHBOARD_METRICS: {
     USER_STATS: [
       'total_users',
       'active_users_today',
-      'active_users_week', 
+      'active_users_week',
       'active_users_month',
       'new_users_today',
       'new_users_week',
       'new_users_month'
     ],
-    
+
     PERMISSION_STATS: [
       'total_permissions',
       'active_permissions',
       'expired_permissions',
       'temporary_permissions'
     ],
-    
+
     SYSTEM_STATS: [
       'api_requests_today',
       'error_rate',
@@ -205,7 +205,7 @@ export const ADMIN_CONSTANTS = {
       'active_sessions'
     ]
   } as const,
-  
+
   // Bulk operation types
   BULK_OPERATIONS: [
     'create_users',
@@ -217,7 +217,7 @@ export const ADMIN_CONSTANTS = {
     'remove_roles',
     'send_notifications'
   ] as const,
-  
+
   // Admin audit actions
   AUDIT_ACTIONS: [
     'user_created',
@@ -247,25 +247,25 @@ export const Z_INDEX_LAYERS = {
     CONTENT: 'z-0',
     ELEVATED_CONTENT: 'z-10',
   },
-  
+
   // Dropdowns and tooltips: z-[9999] to z-[10000]
   DROPDOWNS: {
     DROPDOWN: 'z-[10000]',
     TOOLTIP: 'z-[9999]',
   },
-  
+
   // Sidebar and navigation overlays: z-40 to z-50
   NAVIGATION: {
     OVERLAY_BACKDROP: 'z-40',  // Mobile sidebar backdrop
     SIDEBAR: 'z-50',           // Sidebar panels and navigation bars
   },
-  
-  // Modal dialogs and overlays: z-60 to z-70
+
+  // Modal dialog dialogs and overlays: z-60 to z-70
   MODALS: {
     MODAL_BACKDROP: 'z-60',    // Modal overlay backgrounds
     MODAL_CONTENT: 'z-70',     // Modal content (if needed to stack above backdrop)
   },
-  
+
   // Toast notifications: z-80 to z-90
   NOTIFICATIONS: {
     TOAST: 'z-80',             // Toast notification containers
@@ -285,14 +285,14 @@ export function getAdminRoleDisplayName(role: keyof typeof ADMIN_CONSTANTS.ADMIN
   const roleDisplayNames: Record<string, string> = {
     SUPER_ADMIN: 'Super Administrator',
     USER_MANAGER: 'User Manager',
-    SYSTEM_ADMIN: 'System Administrator', 
+    SYSTEM_ADMIN: 'System Administrator',
     CONTENT_MANAGER: 'Content Manager',
     COMPLIANCE_MANAGER: 'Compliance Manager',
     GOVERNANCE_MANAGER: 'Governance Manager',
     ENTERPRISE_MANAGER: 'Enterprise Manager',
     DEVELOPER_ADMIN: 'Developer Administrator',
   };
-  
+
   return roleDisplayNames[role] || role;
 }
 
@@ -311,7 +311,7 @@ export function getNotificationTypeDisplayName(type: typeof ADMIN_CONSTANTS.NOTI
     billing_notification: 'Billing Notification',
     user_activity_alert: 'User Activity Alert',
   };
-  
+
   return typeDisplayNames[type] || type;
 }
 
@@ -320,7 +320,7 @@ export function getNotificationTypeDisplayName(type: typeof ADMIN_CONSTANTS.NOTI
  * @param operation
  */
 export function isValidBulkOperation(operation: string): operation is typeof ADMIN_CONSTANTS.BULK_OPERATIONS[number] {
-  return ADMIN_CONSTANTS.BULK_OPERATIONS.includes(operation as any);
+  return (ADMIN_CONSTANTS.BULK_OPERATIONS as readonly string[]).includes(operation);
 }
 
 /**
@@ -333,7 +333,7 @@ export function getBulkOperationLimit(operation: string): number {
     update_users: ADMIN_CONSTANTS.LIMITS.BULK_USER_UPDATE,
     grant_permissions: ADMIN_CONSTANTS.LIMITS.BULK_PERMISSION_GRANT,
   };
-  
+
   return limits[operation] || 100; // Default limit
 }
 
@@ -358,7 +358,7 @@ export const CONSTANTS = {
   ASSET_DEFINITIONS,
   PAYMENT_CONFIGS,
   BLOCKCHAIN_NETWORKS,
-  
+
   // Admin-specific constants
   ...ADMIN_CONSTANTS,
   Z_INDEX_LAYERS,

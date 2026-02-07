@@ -1,0 +1,7 @@
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+
+/Users/fluke/Desktop/Work/epsx/apps/admin-frontend/hooks/useDashboardData.ts
+  36:44  error  Async arrow function has a complexity of 17. Maximum allowed is 15  complexity
+
+✖ 1 problem (1 error, 0 warnings)
+

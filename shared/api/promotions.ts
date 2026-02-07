@@ -60,9 +60,9 @@ export function createPromotionsClient(apiClient: UnifiedApiClient) {
   return {
     async getPromotions(params?: ListPromotionsParams): Promise<ApiResponse<PromotionsResponse>> {
       const query = new URLSearchParams()
-      if (params?.limit) query.append('limit', params.limit.toString())
-      if (params?.offset) query.append('offset', params.offset.toString())
-      if (params?.isActive !== undefined) query.append('is_active', params.isActive.toString())
+      if (params?.limit) {query.append('limit', params.limit.toString())}
+      if (params?.offset) {query.append('offset', params.offset.toString())}
+      if (params?.isActive !== undefined) {query.append('is_active', params.isActive.toString())}
 
       return apiClient.get(`/admin/promotions${query.toString() ? `?${query}` : ''}`)
     },

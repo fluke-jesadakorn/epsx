@@ -59,6 +59,55 @@ bun lint && bun type-check && bun format  # QA
 - **Cache**: Redis
 - **Architecture**: Clean architecture with repository pattern
 
+## Development Guidelines
+
+### Server-Side First Approach
+- **Default to Server Components**: Always prefer React Server Components (RSC) over Client Components.
+- **Data Fetching**: Use **Server Actions** for unified data fetching. Avoid client-side `fetch` unless absolutely necessary.
+- **SSR Priority**: Render pages server-side for better SEO, performance, and reduced client bundle size.
+
+### Unified Fetch Pattern (Server Actions)
+```typescript
+// ✅ Preferred: Server Action in actions.ts
+'use server'
+export async function getPlansAction() {
+  const response = await fetch(`${BACKEND_URL}/api/plans`, { ... });
+  return response.json();
+}
+
+// ❌ Avoid: Client-side fetch in components
+const [data] = useSWR('/api/plans', fetcher);
+```
+
+### Client-Side Only Exceptions
+The following features **MUST** remain client-side only due to browser/wallet dependencies:
+- **Payment Processing**: All payment flows (Stripe, crypto payments)
+- **Smart Contracts**: Contract interactions, transaction signing
+- **Web3 Wallet**: WAGMI hooks, RainbowKit, wallet connection, SIWE signing
+
+```typescript
+// These MUST use 'use client'
+'use client'
+import { useAccount, useSignMessage } from 'wagmi';
+import { useConnectModal } from '@rainbow-me/rainbowkit';
+```
+
+### Shared Component Discovery
+**Before implementing any component, always check `@shared/` first:**
+```
+shared/
+├── components/     # Reusable UI components
+├── hooks/         # Custom React hooks
+├── utils/         # Utility functions
+├── types/         # TypeScript definitions
+└── config/        # Shared configuration
+```
+
+### Component Reuse Principle
+- **Search before creating**: Check if a similar component exists in `shared/` or sibling apps.
+- **Refactor to shared**: If a component is used across multiple apps, refactor it to `shared/components/`.
+- **Avoid duplication**: Do not copy-paste components; import from `@shared/` instead.
+
 ## Authentication
 
 ### Web3-First System (Strict Bearer Token)

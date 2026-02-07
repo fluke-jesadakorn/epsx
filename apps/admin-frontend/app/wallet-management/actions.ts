@@ -1,6 +1,7 @@
 'use server';
 
 import {
+    PermissionSource,
     Platform,
     WalletData,
     WalletFilters,
@@ -35,13 +36,13 @@ function mapWalletDtoToData(dto: WalletSummaryDto): WalletData {
             platforms.add('markets');
         }
     });
-    if (platforms.size === 0) platforms.add('analytics');
+    if (platforms.size === 0) {platforms.add('analytics');}
 
     const permissions: WalletPermission[] = dtoPermissions.map((p, idx) => ({
         id: `perm-${idx}`,
         permission: p.permission,
         platform: detectPlatform(p.permission),
-        source: (p.source as any) || 'system',
+        source: (p.source as PermissionSource) || 'system',
         expiresAt: p.expires_at,
         isActive: p.is_active,
         createdAt: dto.created_at,
@@ -51,7 +52,7 @@ function mapWalletDtoToData(dto: WalletSummaryDto): WalletData {
         id: `sub-${idx}`,
         planId: s.plan_id,
         planName: s.plan_name,
-        status: s.status as any,
+        status: s.status as WalletSubscription['status'],
         priceDisplay: '',
         startedAt: s.started_at,
         expiresAt: s.expires_at,
@@ -59,9 +60,9 @@ function mapWalletDtoToData(dto: WalletSummaryDto): WalletData {
     }));
 
     let status: 'active' | 'disabled' | 'pending' = 'active';
-    if (!dto.is_active) status = 'disabled';
+    if (!dto.is_active) {status = 'disabled';}
 
-    const disableInfo = dto.metadata?.['disable_info'] as any;
+    const disableInfo = dto.metadata?.['disable_info'] as WalletData['disableInfo'];
     const label = dto.metadata?.['label'] as string | undefined;
     const note = dto.metadata?.['note'] as string | undefined;
 
@@ -74,7 +75,7 @@ function mapWalletDtoToData(dto: WalletSummaryDto): WalletData {
         platforms: Array.from(platforms),
         permissions,
         subscriptions,
-        groups: (dto.groups || []).map(g => ({ groupName: g.group_name, role: g.role })),
+        plans: (dto.groups || []).map(g => ({ planName: g.group_name, role: g.role })),
         metadata: dto.metadata,
         label,
         note,
@@ -82,10 +83,10 @@ function mapWalletDtoToData(dto: WalletSummaryDto): WalletData {
 }
 
 function detectPlatform(permission: string): Platform {
-    if (permission.startsWith('epsx:analytics') || permission.startsWith('epsx:rankings')) return 'analytics';
-    if (permission.startsWith('epsx-pay:')) return 'pay';
-    if (permission.startsWith('epsx-token:')) return 'token';
-    if (permission.startsWith('epsx-markets:')) return 'markets';
+    if (permission.startsWith('epsx:analytics') || permission.startsWith('epsx:rankings')) {return 'analytics';}
+    if (permission.startsWith('epsx-pay:')) {return 'pay';}
+    if (permission.startsWith('epsx-token:')) {return 'token';}
+    if (permission.startsWith('epsx-markets:')) {return 'markets';}
     return 'analytics';
 }
 
@@ -102,14 +103,14 @@ export async function fetchWalletsAction(filters: WalletFilters, page = 1, limit
         sort_by: filters.sortBy || 'created_at',
         sort_order: filters.sortOrder || 'desc',
     };
-    if (filters.search) params['search'] = filters.search;
-    if (filters.status && filters.status !== 'all') params['status'] = filters.status;
+    if (filters.search) {params['search'] = filters.search;}
+    if (filters.status && filters.status !== 'all') {params['status'] = filters.status;}
 
     const res = await apiClient.get<WalletListResponse>('/api/admin/wallets', params);
 
     if (!res.success) {
         // Gracefully handle 401 for client-side modal trigger or server-side redirect
-        if (res.error?.code === 'UNAUTHORIZED' || res.error?.code === 401 || res.error?.status === 401 || res.error?.message?.includes('Unauthorized')) {
+        if (res.error?.code === 'UNAUTHORIZED' || res.error?.code === '401' || res.error?.message?.includes('Unauthorized')) {
             await logout();
             redirect('/auth');
         }
@@ -136,7 +137,7 @@ export async function updateWalletMetadataAction(walletAddress: string, data: { 
     });
 
     if (!res.success) {
-        if (res.error?.code === 401 || res.error?.code === 'UNAUTHORIZED') {
+        if (res.error?.code === '401' || res.error?.code === 'UNAUTHORIZED') {
             await logout();
             redirect('/auth');
         }
@@ -149,7 +150,7 @@ export async function disableWalletAction(walletAddress: string, data: DisableWa
     const res = await apiClient.post(`/api/admin/wallets/${walletAddress}/disable`, data);
 
     if (!res.success) {
-        if (res.error?.code === 401 || res.error?.code === 'UNAUTHORIZED') {
+        if (res.error?.code === '401' || res.error?.code === 'UNAUTHORIZED') {
             await logout();
             redirect('/auth');
         }
@@ -162,12 +163,20 @@ export async function enableWalletAction(walletAddress: string, data: EnableWall
     const res = await apiClient.post(`/api/admin/wallets/${walletAddress}/enable`, data);
 
     if (!res.success) {
-        if (res.error?.code === 401 || res.error?.code === 'UNAUTHORIZED') {
+        if (res.error?.code === '401' || res.error?.code === 'UNAUTHORIZED') {
             await logout();
             redirect('/auth');
         }
         throw new Error(res.error?.message || 'Failed to enable wallet');
     }
+}
+
+interface ActivityLogEntry {
+    id: string;
+    action: string;
+    timestamp: string;
+    wallet_address: string;
+    details: unknown;
 }
 
 export async function fetchActivityLogsAction(walletAddress?: string, page = 1, limit = 10) {
@@ -181,10 +190,10 @@ export async function fetchActivityLogsAction(walletAddress?: string, page = 1, 
         ? `/api/admin/wallets/${walletAddress}/activity`
         : '/api/admin/audit-logs';
 
-    const res = await apiClient.get<any>(endpoint, params);
+    const res = await apiClient.get<Record<string, unknown>>(endpoint, params);
 
     if (!res.success || !res.data) {
-        if (res.error?.code === 401 || res.error?.code === 'UNAUTHORIZED') {
+        if (res.error?.code === '401' || res.error?.code === 'UNAUTHORIZED') {
             await logout();
             redirect('/auth');
         }
@@ -192,10 +201,10 @@ export async function fetchActivityLogsAction(walletAddress?: string, page = 1, 
     }
 
     // Map common format
-    const logs = res.data.entries || res.data.events || [];
+    const logs = (res.data.entries || res.data.events || []) as ActivityLogEntry[];
 
     // Simple mapper for display
-    return logs.map((log: any) => ({
+    return logs.map((log) => ({
         id: log.id,
         action: log.action,
         timestamp: log.timestamp,

@@ -190,7 +190,7 @@ export async function getServerFilterOptions(): Promise<FilterOptions> {
             response = await analyticsClient.getPublicFilters();
         }
 
-        if (!response || !response.success) {
+        if (!response?.success) {
             throw new Error('No filter options returned from API');
         }
 

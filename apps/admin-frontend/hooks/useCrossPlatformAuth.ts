@@ -23,7 +23,7 @@ export function useCrossPlatformAuth() {
 
     login: async () => { },
     logout: async () => { },
-    switchPlatform: async (platform: string) => { },
+    switchPlatform: async (_platform: string) => { },
   };
 }
 
@@ -49,8 +49,8 @@ export function usePlatformContext() {
       { id: 'epsx', code: 'epsx', name: 'EPSX', icon: BarChart3, description: 'Market analytics platform' },
       { id: 'epsx-pay', code: 'epsx-pay', name: 'EPSX Pay', icon: Coins, description: 'Payment processing' }
     ],
-    switchPlatform: (platform: string) => { },
-    switchToPlatform: (platform: string) => { },
+    switchPlatform: (_platform: string) => { },
+    switchToPlatform: (_platform: string) => { },
   };
 }
 

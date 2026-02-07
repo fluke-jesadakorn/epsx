@@ -120,7 +120,7 @@ export function PermissionsView({ className }: PermissionsViewProps) {
     };
 
     const handleSavePermission = async () => {
-        if (!selectedPerm) return;
+        if (!selectedPerm) {return;}
         setIsSavingPerm(true);
         try {
             const result = await updatePermissionAction(selectedPerm.id, {
@@ -141,13 +141,13 @@ export function PermissionsView({ className }: PermissionsViewProps) {
     };
 
     const handleDeletePermission = async () => {
-        if (!permDeleteConfirm) return;
+        if (!permDeleteConfirm) {return;}
         try {
             const result = await deletePermissionAction(permDeleteConfirm.id);
             if (result.success) {
                 toast.success('Permission deleted');
                 setPermissions(prev => prev.filter(p => p.id !== permDeleteConfirm.id));
-                if (selectedPerm?.id === permDeleteConfirm.id) setSelectedPerm(null);
+                if (selectedPerm?.id === permDeleteConfirm.id) {setSelectedPerm(null);}
                 setPermDeleteConfirm(null);
             } else {
                 toast.error(result.error);
@@ -159,7 +159,7 @@ export function PermissionsView({ className }: PermissionsViewProps) {
         setActiveDragId(event.active.id as string);
     };
 
-    const handleDragEnd = (event: DragEndEvent) => {
+    const handleDragEnd = (_event: DragEndEvent) => {
         setActiveDragId(null);
     };
 
@@ -332,7 +332,7 @@ export function PermissionsView({ className }: PermissionsViewProps) {
     );
 }
 
-function EmptyState({ icon: Icon, title, description }: { icon: any, title: string, description: string }) {
+function EmptyState({ icon: Icon, title, description }: { icon: React.ElementType, title: string, description: string }) {
     return (
         <div className="h-full flex flex-col items-center justify-center border border-dashed border-white/10 rounded-[32px] bg-slate-900/20 text-slate-500 p-8 text-center">
             <div className="h-20 w-20 rounded-full bg-white/5 flex items-center justify-center mb-6">
@@ -359,8 +359,8 @@ function CreatePermissionSheet({ open, onOpenChange, onSuccess }: { open: boolea
             } else {
                 toast.error(res.error);
             }
-        } catch (e: any) {
-            toast.error(e.message);
+        } catch (e: unknown) {
+            toast.error(e instanceof Error ? e.message : 'Failed to create permission');
         } finally {
             setSubmitting(false);
         }

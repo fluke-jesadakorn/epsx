@@ -10,12 +10,12 @@ import { useSharedAuth } from '@/shared/components/auth/Provider';
  * @param limit - The maximum number of items to return for unauthenticated users (default: 100)
  * @returns Limited data array for unauthenticated users, full data for authenticated users
  */
-export function useLimitedContent<T>(fullData: T[] | null | undefined, limit: number = 100): T[] {
+export function useLimitedContent<T>(fullData: T[] | null | undefined, limit = 100): T[] {
     const { isAuthenticated } = useSharedAuth();
 
     // Return full data for authenticated users
     if (isAuthenticated) {
-        return (fullData ?? []) as T[];
+        return (fullData ?? []);
     }
 
     // Return limited data for unauthenticated users
@@ -32,7 +32,7 @@ export function useLimitedContent<T>(fullData: T[] | null | undefined, limit: nu
  *
  * @returns Object with isLimited boolean and the limit count
  */
-export function useContentLimit(limit: number = 100): {
+export function useContentLimit(limit = 100): {
     isLimited: boolean;
     limit: number;
     canShowMore: boolean;

@@ -43,7 +43,7 @@ export const PermissionAwareNavItem: React.FC<PermissionAwareNavItemProps> = ({
   const isActive = pathname === item.href;
 
   const getBetaIndicator = () => {
-    if (!item.betaFeature) return null;
+    if (!item.betaFeature) {return null;}
     return <Sparkles className="h-3 w-3 ml-1 text-blue-400" />;
   };
 

@@ -45,7 +45,7 @@ export function WalletConnectionModal({ children, className }: WalletConnectionM
           onClick={() => setIsOpen(true)}
         >
           <Wallet className="h-4 w-4 text-orange-500" />
-          <span className="font-medium">Connect Wallet</span>
+          <span className="font-medium">Sign In with Wallet</span>
           <ChevronDown className="h-4 w-4 text-slate-400" />
         </Button>
       )}

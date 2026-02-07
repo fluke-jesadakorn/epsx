@@ -368,7 +368,7 @@ export function computeLinkHash(slug: string): `0x${string}` {
   const data = encoder.encode(slug);
   // In production, use viem's keccak256 or ethers.js
   // For now, return a placeholder that should be replaced with actual implementation
-  return `0x${Array.from(data).map(b => b.toString(16).padStart(2, '0')).join('').padEnd(64, '0')}` as `0x${string}`;
+  return `0x${Array.from(data).map(b => b.toString(16).padStart(2, '0')).join('').padEnd(64, '0')}`;
 }
 
 /**

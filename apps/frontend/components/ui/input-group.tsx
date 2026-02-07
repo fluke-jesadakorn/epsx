@@ -41,7 +41,7 @@ interface InputGroupLabelProps extends React.LabelHTMLAttributes<HTMLLabelElemen
 
 function InputGroupLabel({ required, className, children, ...props }: InputGroupLabelProps) {
   const context = React.useContext(InputGroupContext);
-  if (!context) throw new Error('InputGroupLabel must be used within an InputGroup');
+  if (!context) {throw new Error('InputGroupLabel must be used within an InputGroup');}
 
   return (
     <label
@@ -60,7 +60,7 @@ function InputGroupLabel({ required, className, children, ...props }: InputGroup
 
 function InputGroupField(props: InputProps) {
   const context = React.useContext(InputGroupContext);
-  if (!context) throw new Error('InputGroupField must be used within an InputGroup');
+  if (!context) {throw new Error('InputGroupField must be used within an InputGroup');}
 
   const { error: _, ...restProps } = props;
   return (
@@ -78,7 +78,7 @@ interface InputGroupErrorProps extends React.HTMLAttributes<HTMLParagraphElement
 
 function InputGroupError({ className, children, ...props }: InputGroupErrorProps) {
   const context = React.useContext(InputGroupContext);
-  if (!context) throw new Error('InputGroupError must be used within an InputGroup');
+  if (!context) {throw new Error('InputGroupError must be used within an InputGroup');}
 
   if (!context.error || !children) {
     return null;
@@ -99,7 +99,7 @@ interface InputGroupDescriptionProps extends React.HTMLAttributes<HTMLParagraphE
 
 function InputGroupDescription({ className, children, ...props }: InputGroupDescriptionProps) {
   const context = React.useContext(InputGroupContext);
-  if (!context) throw new Error('InputGroupDescription must be used within an InputGroup');
+  if (!context) {throw new Error('InputGroupDescription must be used within an InputGroup');}
 
   if (!children) {
     return null;

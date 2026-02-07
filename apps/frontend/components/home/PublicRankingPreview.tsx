@@ -89,7 +89,7 @@ export function PublicRankingPreview({
 
           // Rank styling based on position - matching production design
           const getRankStyle = (rank: number) => {
-            if (rank === 1) return {
+            if (rank === 1) {return {
               // Light Mode: Warm yellow/amber gradient
               // Dark Mode: Solid dark background with Gold border glow
               wrapper: 'bg-gradient-to-b from-amber-100 via-yellow-50 to-orange-50 dark:!bg-[#0f172a] dark:bg-none border-yellow-400 dark:border-yellow-500 shadow-[0_0_30px_rgba(251,191,36,0.3)] dark:shadow-[0_0_25px_rgba(234,179,8,0.3)]',
@@ -99,9 +99,9 @@ export function PublicRankingPreview({
               titleColor: 'text-amber-600 dark:text-amber-400',
               dividerColor: 'from-amber-500 to-yellow-500',
               button: 'bg-gradient-to-r from-green-600 via-green-500 to-emerald-600 hover:from-green-700 hover:via-green-600 hover:to-emerald-700 shadow-lg shadow-green-500/20',
-            };
+            };}
 
-            if (rank === 2) return {
+            if (rank === 2) {return {
               // Light Mode: Cool slate/gray gradient
               // Dark Mode: Solid dark background with Silver/gray border glow
               wrapper: 'bg-gradient-to-b from-slate-100 via-gray-50 to-slate-100 dark:!bg-[#0f172a] dark:bg-none border-slate-300 dark:border-slate-500 shadow-[0_0_30px_rgba(148,163,184,0.3)] dark:shadow-[0_0_25px_rgba(148,163,184,0.2)]',
@@ -111,9 +111,9 @@ export function PublicRankingPreview({
               titleColor: 'text-slate-500 dark:text-slate-400',
               dividerColor: 'from-slate-400 to-slate-500',
               button: 'bg-gradient-to-r from-green-600 via-green-500 to-emerald-600 hover:from-green-700 hover:via-green-600 hover:to-emerald-700 shadow-lg shadow-green-500/20',
-            };
+            };}
 
-            if (rank === 3) return {
+            if (rank === 3) {return {
               // Light Mode: Warm orange/bronze gradient
               // Dark Mode: Solid dark background with Bronze/orange border glow
               wrapper: 'bg-gradient-to-b from-orange-100 via-amber-50 to-orange-50 dark:!bg-[#0f172a] dark:bg-none border-orange-400 dark:border-orange-500 shadow-[0_0_30px_rgba(251,146,60,0.3)] dark:shadow-[0_0_25px_rgba(249,115,22,0.3)]',
@@ -123,7 +123,7 @@ export function PublicRankingPreview({
               titleColor: 'text-orange-600 dark:text-orange-400',
               dividerColor: 'from-orange-500 to-amber-600',
               button: 'bg-gradient-to-r from-green-600 via-green-500 to-emerald-600 hover:from-green-700 hover:via-green-600 hover:to-emerald-700 shadow-lg shadow-green-500/20',
-            };
+            };}
 
             return {
               // Default

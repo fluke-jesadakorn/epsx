@@ -21,6 +21,7 @@ import {
   validateSSENotification
 } from '../components/notifications/schemas';
 import { API_ROUTES } from '../config/route-constants';
+import { isApiResponse } from '../types/api';
 import { UnifiedApiClient } from '../utils/api-client';
 
 // ============================================================================
@@ -32,7 +33,7 @@ export class NotificationAPIError extends Error {
     message: string,
     public readonly code: string,
     public readonly status?: number,
-    public readonly details?: any
+    public readonly details?: Record<string, unknown>
   ) {
     super(message);
     this.name = 'NotificationAPIError';
@@ -41,7 +42,7 @@ export class NotificationAPIError extends Error {
 }
 
 export class NotificationNotFoundError extends NotificationAPIError {
-  constructor(notificationId: string, details?: any) {
+  constructor(notificationId: string, details?: Record<string, unknown>) {
     super(
       `Notification not found: ${notificationId}`,
       'NOTIFICATION_NOT_FOUND',
@@ -53,7 +54,7 @@ export class NotificationNotFoundError extends NotificationAPIError {
 }
 
 export class NotificationPermissionError extends NotificationAPIError {
-  constructor(operation: string, details?: any) {
+  constructor(operation: string, details?: Record<string, unknown>) {
     super(
       `Permission denied for operation: ${operation}`,
       'NOTIFICATION_PERMISSION_DENIED',
@@ -65,42 +66,62 @@ export class NotificationPermissionError extends NotificationAPIError {
 }
 
 export class NotificationValidationError extends NotificationAPIError {
-  constructor(message: string, details?: any) {
+  constructor(message: string, details?: Record<string, unknown>) {
     super(message, 'NOTIFICATION_VALIDATION_ERROR', 400, details);
     this.name = 'NotificationValidationError';
   }
 }
 
-function handleNotificationError(error: any, operation: string, details?: any): never {
-  const status = error?.status || error?.response?.status;
+const API_VERSION_HEADER = 'X-API-Version';
+const ACCESS_LEVEL_HEADER = 'X-Access-Level';
+const ADMIN_CONTEXT_HEADER = 'X-Admin-Context';
+const V1 = 'v1';
 
-  // Safe error message extraction - handle cases where error.error might be an object
-  let errorMessage = 'Unknown error occurred';
-  if (error?.error && typeof error.error === 'object') {
-    errorMessage = error.error.message || error.error.error || JSON.stringify(error.error);
-  } else {
-    errorMessage = error?.error || error?.message || 'Unknown error occurred';
+function getErrorMessage(error: unknown): string {
+  if (isApiResponse(error)) {
+    return error.error?.message ?? 'API error occurred';
   }
 
+  if (error && typeof error === 'object') {
+    const err = error as Record<string, unknown>;
+    const errProperty = err.error;
+    if (errProperty && typeof errProperty === 'object') {
+      const apiError = errProperty as Record<string, unknown>;
+      return (apiError.message as string | undefined) ?? (apiError.error as string | undefined) ?? JSON.stringify(errProperty);
+    }
+    return (err.error as string | undefined) ?? (err.message as string | undefined) ?? 'Unknown error occurred';
+  }
+
+  return String(error);
+}
+
+function handleNotificationError(error: unknown, operation: string, details?: Record<string, unknown>): never {
+  if (error instanceof NotificationAPIError) {
+    throw error;
+  }
+
+  const errorMessage = getErrorMessage(error);
+  let status: number | undefined;
+
+  if (isApiResponse(error)) {
+    status = (error as { status?: number }).status ?? 400;
+  } else if (error && typeof error === 'object') {
+    const err = error as Record<string, unknown>;
+    status = (err.status as number | undefined) ?? (err.response as { status?: number } | undefined)?.status;
+  }
+
+  const notificationId = details?.notificationId as string | undefined;
+
   if (status === 404) {
-    throw new NotificationNotFoundError(
-      details?.notificationId || 'unknown',
-      { operation, originalError: errorMessage }
-    );
+    throw new NotificationNotFoundError(notificationId ?? 'unknown', { operation, originalError: errorMessage });
   }
 
   if (status === 403) {
-    throw new NotificationPermissionError(operation, {
-      originalError: errorMessage,
-      ...details
-    });
+    throw new NotificationPermissionError(operation, { originalError: errorMessage, ...details });
   }
 
   if (status === 400) {
-    throw new NotificationValidationError(
-      `Failed to ${operation}: ${errorMessage}`,
-      { originalError: errorMessage, ...details }
-    );
+    throw new NotificationValidationError(`Failed to ${operation}: ${errorMessage}`, { originalError: errorMessage, ...details });
   }
 
   throw new NotificationAPIError(
@@ -121,7 +142,7 @@ export interface Notification {
   notification_type: NotificationType;
   title: string;
   message: string;
-  data?: Record<string, any>;
+  data?: Record<string, unknown>;
   priority: NotificationPriority;
   timestamp: string;
   expires_at?: string;
@@ -154,19 +175,16 @@ export interface NotificationFilters {
   wallet_address?: string;
 }
 
-export interface NotificationsResponse {
-  success: boolean;
-  data: {
-    notifications: Notification[];
-    total_count: number;
-    unread_count: number;
-    page: number;
-    limit: number;
-    total_pages: number;
-  };
-  api_version?: string;
-  access_level?: string;
+export interface NotificationsData {
+  notifications: Notification[];
+  total_count: number;
+  unread_count: number;
+  page: number;
+  limit: number;
+  total_pages: number;
 }
+
+export type NotificationsResponse = ApiResponse<NotificationsData>;
 
 export interface NotificationPreferences {
   email_enabled: boolean;
@@ -190,12 +208,8 @@ export interface NotificationPreferences {
   };
 }
 
-export interface NotificationPreferencesResponse {
-  success: boolean;
-  data: NotificationPreferences;
-  api_version?: string;
-  access_level?: string;
-}
+export type NotificationPreferencesResponse = ApiResponse<NotificationPreferences>;
+
 
 export interface SendNotificationRequest {
   recipient_wallet_address?: string;
@@ -205,24 +219,22 @@ export interface SendNotificationRequest {
   priority: NotificationPriority;
   title: string;
   message: string;
-  data?: Record<string, any>;
+  data?: Record<string, unknown>;
   action_url?: string;
   image_url?: string;
   expires_at?: string;
   schedule_at?: string;
 }
 
-export interface SendNotificationResponse {
-  success: boolean;
-  data: {
-    notification_id: string;
-    recipients_count: number;
-    scheduled: boolean;
-    delivery_status: 'sent' | 'scheduled' | 'failed';
-  };
-  message: string;
-  api_version?: string;
+export interface SendNotificationData {
+  notification_id: string;
+  recipients_count: number;
+  scheduled: boolean;
+  delivery_status: 'sent' | 'scheduled' | 'failed';
 }
+
+export type SendNotificationResponse = ApiResponse<SendNotificationData> & { message?: string };
+
 
 export interface NotificationStats {
   total_notifications: number;
@@ -241,12 +253,8 @@ export interface NotificationStats {
   }>;
 }
 
-export interface NotificationStatsResponse {
-  success: boolean;
-  data: NotificationStats;
-  api_version?: string;
-  access_level?: string;
-}
+export type NotificationStatsResponse = ApiResponse<NotificationStats>;
+
 
 export interface PushSubscription {
   endpoint: string;
@@ -258,16 +266,14 @@ export interface PushSubscription {
   device_type?: 'desktop' | 'mobile' | 'tablet';
 }
 
-export interface PushSubscriptionResponse {
-  success: boolean;
-  data: {
-    subscription_id: string;
-    active: boolean;
-    created_at: string;
-  };
-  message: string;
-  api_version?: string;
+export interface PushSubscriptionData {
+  subscription_id: string;
+  active: boolean;
+  created_at: string;
 }
+
+export type PushSubscriptionResponse = ApiResponse<PushSubscriptionData> & { message?: string };
+
 
 // ============================================================================
 // SSE TYPES
@@ -279,7 +285,7 @@ export interface SSENotification {
   notification_type: NotificationType;
   title: string;
   message: string;
-  data?: Record<string, any>;
+  data?: Record<string, unknown>;
   priority: NotificationPriority;
   timestamp: string;
   expires_at?: string;
@@ -331,13 +337,13 @@ export class NotificationsAPIClient {
         );
       }
 
-      const response = await this.client.get<NotificationsResponse>(
+      const response = await this.client.get<NotificationsData>(
         API_ROUTES.USERS.NOTIFICATIONS,
         filterValidation.data,
         {
           headers: {
-            'X-API-Version': 'v1',
-            'X-Access-Level': 'auth',
+            [API_VERSION_HEADER]: V1,
+            [ACCESS_LEVEL_HEADER]: 'auth',
           },
         }
       );
@@ -346,19 +352,17 @@ export class NotificationsAPIClient {
         handleNotificationError(response, 'fetch notifications', { filters });
       }
 
-      // The API client normalizes responses - response IS the full backend response
-      // with { success, data, api_version, access_level }
+      // The API client normalizes responses
       // Validate the full response against the schema
-      const validatedResponse = NotificationsResponseSchema.safeParse(response);
+      const validatedResponse = NotificationsResponseSchema.safeParse(response.data);
       if (!validatedResponse.success) {
         console.warn('API response validation failed:', validatedResponse.error);
         // Continue with unvalidated data but log the issue
       }
 
-      // Return the full response structure (with success, data, etc.)
-      return response as unknown as NotificationsResponse;
+      return response.data;
     } catch (error) {
-      if (error instanceof NotificationAPIError) throw error;
+      if (error instanceof NotificationAPIError) { throw error; }
       handleNotificationError(error, 'fetch notifications', { filters });
     }
   }
@@ -373,14 +377,14 @@ export class NotificationsAPIClient {
       undefined,
       {
         headers: {
-          'X-API-Version': 'v1',
-          'X-Access-Level': 'auth',
+          [API_VERSION_HEADER]: V1,
+          [ACCESS_LEVEL_HEADER]: 'auth',
         },
       }
     );
 
     if (!this.client.isApiSuccess(response)) {
-      throw new Error(`Failed to fetch unread count: ${response.error}`);
+      throw new Error(`Failed to fetch unread count: ${response.error?.message ?? 'Unknown error'}`);
     }
 
     return response.data;
@@ -397,8 +401,8 @@ export class NotificationsAPIClient {
         {},
         {
           headers: {
-            'X-API-Version': 'v1',
-            'X-Access-Level': 'auth',
+            [API_VERSION_HEADER]: V1,
+            [ACCESS_LEVEL_HEADER]: 'auth',
           },
         }
       );
@@ -409,7 +413,7 @@ export class NotificationsAPIClient {
 
       return response.data;
     } catch (error) {
-      if (error instanceof NotificationAPIError) throw error;
+      if (error instanceof NotificationAPIError) { throw error; }
       handleNotificationError(error, 'mark notification as read', { notificationId });
     }
   }
@@ -425,8 +429,8 @@ export class NotificationsAPIClient {
         {},
         {
           headers: {
-            'X-API-Version': 'v1',
-            'X-Access-Level': 'auth',
+            [API_VERSION_HEADER]: V1,
+            [ACCESS_LEVEL_HEADER]: 'auth',
           },
         }
       );
@@ -437,7 +441,7 @@ export class NotificationsAPIClient {
 
       return response.data;
     } catch (error) {
-      if (error instanceof NotificationAPIError) throw error;
+      if (error instanceof NotificationAPIError) { throw error; }
       handleNotificationError(error, 'mark all notifications as read');
     }
   }
@@ -452,16 +456,16 @@ export class NotificationsAPIClient {
       {},
       {
         headers: {
-          'X-API-Version': 'v1',
-          'X-Access-Level': 'auth',
+          [API_VERSION_HEADER]: V1,
+          [ACCESS_LEVEL_HEADER]: 'auth',
         },
       }
     );
 
     if (!this.client.isApiSuccess(response)) {
       // Don't throw error for acknowledgement failures - just log
-      console.warn(`Failed to acknowledge notification ${notificationId}: ${response.error?.message}`);
-      return { success: false, message: response.error?.message || 'Failed to acknowledge notification' };
+      console.warn(`Failed to acknowledge notification ${notificationId}: ${response.error?.message ?? 'Failed to acknowledge notification'}`);
+      return { success: false, message: response.error?.message ?? 'Failed to acknowledge notification' };
     }
 
     return response.data;
@@ -477,8 +481,8 @@ export class NotificationsAPIClient {
         `${API_ROUTES.USERS.NOTIFICATIONS}/${notificationId}`,
         {
           headers: {
-            'X-API-Version': 'v1',
-            'X-Access-Level': 'auth',
+            [API_VERSION_HEADER]: V1,
+            [ACCESS_LEVEL_HEADER]: 'auth',
           },
         }
       );
@@ -489,7 +493,7 @@ export class NotificationsAPIClient {
 
       return response.data;
     } catch (error) {
-      if (error instanceof NotificationAPIError) throw error;
+      if (error instanceof NotificationAPIError) { throw error; }
       handleNotificationError(error, 'delete notification', { notificationId });
     }
   }
@@ -504,8 +508,8 @@ export class NotificationsAPIClient {
         `${API_ROUTES.USERS.NOTIFICATIONS}/clear-all`,
         {
           headers: {
-            'X-API-Version': 'v1',
-            'X-Access-Level': 'auth',
+            [API_VERSION_HEADER]: V1,
+            [ACCESS_LEVEL_HEADER]: 'auth',
           },
         }
       );
@@ -516,7 +520,7 @@ export class NotificationsAPIClient {
 
       return response.data;
     } catch (error) {
-      if (error instanceof NotificationAPIError) throw error;
+      if (error instanceof NotificationAPIError) { throw error; }
       handleNotificationError(error, 'clear all notifications');
     }
   }
@@ -529,20 +533,20 @@ export class NotificationsAPIClient {
    * Get notification preferences
    * Route: GET /api/auth/notifications/preferences
    */
-  async getPreferences(): Promise<NotificationPreferencesResponse> {
-    const response = await this.client.get<NotificationPreferencesResponse>(
+  async getPreferences(): Promise<NotificationPreferences> {
+    const response = await this.client.get<NotificationPreferences>(
       `${API_ROUTES.USERS.NOTIFICATIONS}/preferences`,
       undefined,
       {
         headers: {
-          'X-API-Version': 'v1',
-          'X-Access-Level': 'auth',
+          [API_VERSION_HEADER]: V1,
+          [ACCESS_LEVEL_HEADER]: 'auth',
         },
       }
     );
 
     if (!this.client.isApiSuccess(response)) {
-      throw new Error(`Failed to fetch notification preferences: ${response.error}`);
+      throw new Error(`Failed to fetch notification preferences: ${response.error?.message ?? 'Unknown error'}`);
     }
 
     return response.data;
@@ -561,14 +565,14 @@ export class NotificationsAPIClient {
       preferences,
       {
         headers: {
-          'X-API-Version': 'v1',
-          'X-Access-Level': 'auth',
+          [API_VERSION_HEADER]: V1,
+          [ACCESS_LEVEL_HEADER]: 'auth',
         },
       }
     );
 
     if (!this.client.isApiSuccess(response)) {
-      throw new Error(`Failed to update notification preferences: ${response.error}`);
+      throw new Error(`Failed to update notification preferences: ${response.error?.message ?? 'Unknown error'}`);
     }
 
     return response.data;
@@ -582,20 +586,20 @@ export class NotificationsAPIClient {
    * Subscribe to push notifications
    * Route: POST /api/auth/notifications/push/subscribe
    */
-  async subscribeToPush(subscription: PushSubscription): Promise<PushSubscriptionResponse> {
-    const response = await this.client.post<PushSubscriptionResponse>(
+  async subscribeToPush(subscription: PushSubscription): Promise<PushSubscriptionData> {
+    const response = await this.client.post<PushSubscriptionData>(
       `${API_ROUTES.USERS.NOTIFICATIONS}/push/subscribe`,
       subscription,
       {
         headers: {
-          'X-API-Version': 'v1',
-          'X-Access-Level': 'auth',
+          [API_VERSION_HEADER]: V1,
+          [ACCESS_LEVEL_HEADER]: 'auth',
         },
       }
     );
 
     if (!this.client.isApiSuccess(response)) {
-      throw new Error(`Failed to subscribe to push notifications: ${response.error}`);
+      throw new Error(`Failed to subscribe to push notifications: ${response.error?.message ?? 'Unknown error'}`);
     }
 
     return response.data;
@@ -610,14 +614,14 @@ export class NotificationsAPIClient {
       `${API_ROUTES.USERS.NOTIFICATIONS}/push/unsubscribe`,
       {
         headers: {
-          'X-API-Version': 'v1',
-          'X-Access-Level': 'auth',
+          [API_VERSION_HEADER]: V1,
+          [ACCESS_LEVEL_HEADER]: 'auth',
         },
       }
     );
 
     if (!this.client.isApiSuccess(response)) {
-      throw new Error(`Failed to unsubscribe from push notifications: ${response.error}`);
+      throw new Error(`Failed to unsubscribe from push notifications: ${response.error?.message ?? 'Unknown error'}`);
     }
 
     return response.data;
@@ -632,19 +636,19 @@ export class NotificationsAPIClient {
     subscription_id?: string;
     created_at?: string;
   }> {
-    const response = await this.client.get(
+    const response = await this.client.get<{ data: { subscribed: boolean; subscription_id?: string; created_at?: string } }>(
       `${API_ROUTES.USERS.NOTIFICATIONS}/push/status`,
       undefined,
       {
         headers: {
-          'X-API-Version': 'v1',
-          'X-Access-Level': 'auth',
+          [API_VERSION_HEADER]: V1,
+          [ACCESS_LEVEL_HEADER]: 'auth',
         },
       }
     );
 
     if (!this.client.isApiSuccess(response)) {
-      throw new Error(`Failed to get push notification status: ${response.error}`);
+      throw new Error(`Failed to get push notification status: ${response.error?.message ?? 'Unknown error'}`);
     }
 
     return response.data.data;
@@ -658,7 +662,7 @@ export class NotificationsAPIClient {
    * Send notification (admin only)
    * Route: POST /api/admin/notifications/send
    */
-  async sendNotification(request: SendNotificationRequest): Promise<SendNotificationResponse> {
+  async sendNotification(request: SendNotificationRequest): Promise<SendNotificationData> {
     try {
       // Validate request payload
       const requestValidation = validateSendNotificationRequest(request);
@@ -669,14 +673,14 @@ export class NotificationsAPIClient {
         );
       }
 
-      const response = await this.client.post<SendNotificationResponse>(
+      const response = await this.client.post<SendNotificationData>(
         `${API_ROUTES.ADMIN.NOTIFICATIONS}/send`,
         requestValidation.data,
         {
           headers: {
-            'X-API-Version': 'v1',
-            'X-Access-Level': 'admin',
-            'X-Admin-Context': 'true',
+            [API_VERSION_HEADER]: V1,
+            [ACCESS_LEVEL_HEADER]: 'admin',
+            [ADMIN_CONTEXT_HEADER]: 'true',
           },
         }
       );
@@ -687,7 +691,7 @@ export class NotificationsAPIClient {
 
       return response.data;
     } catch (error) {
-      if (error instanceof NotificationAPIError) throw error;
+      if (error instanceof NotificationAPIError) { throw error; }
       handleNotificationError(error, 'send notification', { request });
     }
   }
@@ -698,14 +702,14 @@ export class NotificationsAPIClient {
    */
   async getNotificationStats(): Promise<NotificationStatsResponse> {
     try {
-      const response = await this.client.get<NotificationStatsResponse>(
+      const response = await this.client.get<NotificationStats>(
         `${API_ROUTES.ADMIN.NOTIFICATIONS}/stats`,
         undefined,
         {
           headers: {
-            'X-API-Version': 'v1',
-            'X-Access-Level': 'admin',
-            'X-Admin-Context': 'true',
+            [API_VERSION_HEADER]: V1,
+            [ACCESS_LEVEL_HEADER]: 'admin',
+            [ADMIN_CONTEXT_HEADER]: 'true',
           },
         }
       );
@@ -714,9 +718,9 @@ export class NotificationsAPIClient {
         handleNotificationError(response, 'fetch notification stats');
       }
 
-      return response.data;
+      return response;
     } catch (error) {
-      if (error instanceof NotificationAPIError) throw error;
+      if (error instanceof NotificationAPIError) { throw error; }
       handleNotificationError(error, 'fetch notification stats');
     }
   }
@@ -727,14 +731,14 @@ export class NotificationsAPIClient {
    */
   async getAllNotifications(filters: NotificationFilters = {}): Promise<NotificationsResponse> {
     try {
-      const response = await this.client.get<NotificationsResponse>(
+      const response = await this.client.get<NotificationsData>(
         API_ROUTES.ADMIN.NOTIFICATIONS,
         filters,
         {
           headers: {
-            'X-API-Version': 'v1',
-            'X-Access-Level': 'admin',
-            'X-Admin-Context': 'true',
+            [API_VERSION_HEADER]: V1,
+            [ACCESS_LEVEL_HEADER]: 'admin',
+            [ADMIN_CONTEXT_HEADER]: 'true',
           },
         }
       );
@@ -743,10 +747,9 @@ export class NotificationsAPIClient {
         handleNotificationError(response, 'fetch all notifications (admin)', { filters });
       }
 
-      // Return the full response structure (with success, data, etc.)
-      return response as unknown as NotificationsResponse;
+      return response;
     } catch (error) {
-      if (error instanceof NotificationAPIError) throw error;
+      if (error instanceof NotificationAPIError) { throw error; }
       handleNotificationError(error, 'fetch all notifications (admin)', { filters });
     }
   }
@@ -761,9 +764,9 @@ export class NotificationsAPIClient {
         `${API_ROUTES.ADMIN.NOTIFICATIONS}/${notificationId}`,
         {
           headers: {
-            'X-API-Version': 'v1',
-            'X-Access-Level': 'admin',
-            'X-Admin-Context': 'true',
+            [API_VERSION_HEADER]: V1,
+            [ACCESS_LEVEL_HEADER]: 'admin',
+            [ADMIN_CONTEXT_HEADER]: 'true',
           },
         }
       );
@@ -772,9 +775,9 @@ export class NotificationsAPIClient {
         handleNotificationError(response, 'delete admin notification', { notificationId });
       }
 
-      return response.data;
+      return response.data as { success: boolean; message: string };
     } catch (error) {
-      if (error instanceof NotificationAPIError) throw error;
+      if (error instanceof NotificationAPIError) { throw error; }
       handleNotificationError(error, 'delete admin notification', { notificationId });
     }
   }
@@ -795,13 +798,13 @@ export class NotificationsAPIClient {
   ): () => void {
     // Prevent multiple connection attempts
     if (this.sseConnection && this.sseConnection.readyState === EventSource.CONNECTING) {
-      console.log('⏭️ SSE: Connection already in progress, skipping duplicate request');
+      console.info('⏭️ SSE: Connection already in progress, skipping duplicate request');
       return () => { };
     }
 
     // Close existing connection if any with proper cleanup
     if (this.sseConnection) {
-      console.log('🔄 Closing existing SSE connection before creating new one');
+      console.info('🔄 Closing existing SSE connection before creating new one');
       this.cleanupSSEListeners();
       this.sseConnection.close();
       this.sseConnection = undefined;
@@ -817,81 +820,11 @@ export class NotificationsAPIClient {
       throw new Error(error);
     }
 
-    // Build SSE URL with parameters
-    const params = new URLSearchParams();
-    if (options.wallet_address) params.append('wallet_address', options.wallet_address);
-    if (options.types) params.append('types', options.types.join(','));
-    if (options.priority) params.append('priority', options.priority);
-
-    // Get token from cookies (EventSource doesn't support Authorization header)
-    // NOTE: access_token is HttpOnly, so we can't read it here.
-    // The middleware proxy at /api/proxy will inject the Authorization header for us.
-    const token = this.getTokenFromCookies();
-    const platform = this.client['platform'] as 'admin' | 'frontend' | undefined;
-
-    if (token) {
-      params.append('token', token);
-      console.log(`🔑 SSE [${platform}]: Client-side token found and added to URL`);
-    } else {
-      // access_token is HttpOnly, so this is expected.
-      // The proxy middleware will handle injecting the bearer token.
-      console.log(`ℹ️ SSE [${platform}]: No client-side token found (expected for HttpOnly cookies). Relying on Proxy Middleware injection.`);
-    }
-
-    // Only append query string if there are parameters
-    const queryString = params.toString();
-
-    // Client-side: Use direct backend URL with token parameter for SSE
-    // SSE cannot use proxy because proxy is server-side only and SSE needs persistent client connection
-    let baseURL: string;
-    if (typeof window !== 'undefined') {
-      // Client-side: use direct backend URL
-      const { getBackendUrl } = require('../utils/url-resolver');
-      baseURL = getBackendUrl('client');
-    } else {
-      // Server-side: use the client's baseURL (should not happen for SSE)
-      baseURL = this.client['baseURL'];
-    }
-
-    const sseUrl = `${baseURL}${API_ROUTES.NOTIFICATIONS.STREAM}${queryString ? '?' + queryString : ''}`;
-
-    // Comprehensive validation
-    if (!baseURL || typeof baseURL !== 'string') {
-      const error = `Invalid baseURL: "${baseURL}" (type: ${typeof baseURL})`;
-      console.error('❌ SSE Connection Error:', error);
-      throw new Error(error);
-    }
-
-    // Validate URL format
-    try {
-      // Use window.location.origin as base for relative URLs to ensure validation passes
-      const base = typeof window !== 'undefined' ? window.location.origin : 'http://localhost';
-      const urlObj = new URL(sseUrl, base);
-
-      console.log('✅ SSE URL validated:', {
-        protocol: urlObj.protocol,
-        host: urlObj.host,
-        pathname: urlObj.pathname,
-        search: urlObj.search,
-        fullURL: urlObj.toString(),
-        isRelative: !sseUrl.startsWith('http')
-      });
-    } catch (e) {
-      const error = `Invalid SSE URL format: "${sseUrl}"`;
-      console.error('❌ SSE URL validation failed:', error, e);
-      throw new Error(error);
-    }
-
-    // Pre-connection health check - simple connectivity test
-    if (baseURL && token) {
-      console.log(`🔍 SSE [${platform}]: Pre-connection check - baseURL: ${baseURL}, hasToken: true`);
-    } else {
-      console.warn(`⚠️ SSE [${platform}]: Pre-connection check - baseURL: ${baseURL ? 'valid' : 'missing'}, hasToken: ${!!token}`);
-    }
+    const { sseUrl, token, platform } = this.buildSSEUrl(options);
 
     // Create SSE connection with timestamp for error tracking
     const connectionStartTime = Date.now();
-    console.log('🔌 Creating EventSource connection to:', sseUrl);
+    console.info('🔌 Creating EventSource connection to:', sseUrl);
     this.sseConnection = new EventSource(sseUrl);
 
     // Generate unique listener ID
@@ -899,145 +832,32 @@ export class NotificationsAPIClient {
     this.sseListeners.set(listenerId, onNotification);
 
     // Handle SSE events - store handlers for proper cleanup
-    const openHandler = (event: Event) => {
-      console.log('✅ SSE connection opened');
-      this.isReconnecting = false; // Reset reconnection flag on successful connection
-      if (onOpen) onOpen(event);
+    this.sseEventHandlers.onopen = (event: Event) => {
+      console.info('✅ SSE connection opened');
+      this.isReconnecting = false;
+      if (onOpen) { onOpen(event); }
     };
-    this.sseEventHandlers.onopen = openHandler;
-    this.sseConnection.onopen = openHandler;
+    this.sseConnection.onopen = this.sseEventHandlers.onopen;
 
-    const messageHandler = (event: MessageEvent) => {
-      try {
-        // Check payload size to prevent WebSocket errors
-        const payloadSize = event.data.length;
-        const MAX_PAYLOAD_SIZE = 64 * 1024; // 64KB limit
-        if (payloadSize > MAX_PAYLOAD_SIZE) {
-          console.error(`SSE payload too large: ${payloadSize} bytes (max: ${MAX_PAYLOAD_SIZE})`);
-          return;
-        }
-
-        const rawData = JSON.parse(event.data);
-
-        // Validate SSE notification with Zod schema
-        const validatedNotification = validateSSENotification(rawData);
-        if (!validatedNotification) {
-          console.warn('Invalid SSE notification received, skipping:', rawData);
-          return;
-        }
-
-        onNotification(validatedNotification as SSENotification);
-
-        // Auto-acknowledge notification in background
-        this.acknowledgeNotification(validatedNotification.id).catch(err => {
-          console.debug(`Background acknowledgement failed for notification ${validatedNotification.id}:`, err);
-        });
-      } catch (error) {
-        console.error('Failed to parse SSE notification:', error);
-      }
+    this.sseEventHandlers.onmessage = (event: MessageEvent) => {
+      this.handleSSEMessage(event, onNotification);
     };
-    this.sseEventHandlers.onmessage = messageHandler;
-    this.sseConnection.onmessage = messageHandler;
+    this.sseConnection.onmessage = this.sseEventHandlers.onmessage;
 
-    // Handle ping events (connection establishment)
-    const pingHandler = (event: MessageEvent) => {
-      console.log('🏓 SSE ping received:', event.data);
+    this.sseEventHandlers.ping = (event: MessageEvent) => {
+      console.info('🏓 SSE ping received:', event.data);
     };
-    this.sseEventHandlers.ping = pingHandler;
-    this.sseConnection.addEventListener('ping', pingHandler);
+    this.sseConnection.addEventListener('ping', this.sseEventHandlers.ping);
 
-    const errorHandler = (event: Event) => {
-      const currentState = this.sseConnection?.readyState;
-
-      // Only log as error when connection is actually CLOSED
-      // For CONNECTING (0) and OPEN (1) states, these are transient or spurious events
-      if (currentState === EventSource.CLOSED) {
-        const timeSinceConnection = Date.now() - connectionStartTime;
-        const isImmediateFailure = timeSinceConnection < 1000;
-        const isExpectedFailure = isImmediateFailure || !token;
-
-        // Use debug level for expected failures (no auth, immediate close) to reduce console noise
-        // Use warn level for unexpected connection drops during active session
-        const logLevel = isExpectedFailure ? 'debug' : 'warn';
-        const logFn = console[logLevel];
-
-        logFn(`${isExpectedFailure ? 'ℹ️' : '⚠️'} SSE connection closed${isExpectedFailure ? ' (expected)' : ''}:`, {
-          readyState: currentState,
-          stateName: 'CLOSED',
-          url: sseUrl,
-          timestamp: new Date().toISOString(),
-          platform: platform,
-          hasToken: !!token,
-          timeSinceConnection,
-          reason: !token ? 'No authentication token' : isImmediateFailure ? 'Immediate closure (endpoint may not exist)' : 'Connection dropped'
-        });
-      } else if (currentState === EventSource.CONNECTING) {
-        // Connection is still connecting - this is likely a transient state event
-        // Only log as debug to reduce console noise
-        console.debug('⏳ SSE: Transient error during connection (still CONNECTING)');
-      } else if (currentState === EventSource.OPEN) {
-        // Connection is open but error fired - likely a transient network glitch
-        console.warn('⚠️ SSE: Error event fired while connection is OPEN (transient)');
-      }
-
-      // Only reconnect if connection is actually closed and not already reconnecting
-      if (currentState === EventSource.CLOSED && !this.isReconnecting) {
-        console.log('🔴 Connection is CLOSED, triggering cleanup and reconnect logic');
-
-        if (onError) onError(event);
-
-        // Auto-reconnect if enabled (but not immediately to avoid tight loops)
-        if (options.auto_reconnect !== false) {
-          this.isReconnecting = true; // Prevent multiple reconnect attempts
-          const interval = options.reconnect_interval || 5000;
-          console.log(`🔄 Scheduling reconnection in ${interval}ms...`);
-
-          setTimeout(() => {
-            // Double-check connection is still closed and not recreated
-            if (!this.sseConnection || this.sseConnection.readyState === EventSource.CLOSED) {
-              console.log('🔁 Attempting reconnection...');
-              this.connectToSSE(options, onNotification, onError, onOpen);
-            } else {
-              console.log('⏭️ Skipping reconnection, connection already exists:', this.sseConnection.readyState);
-              this.isReconnecting = false;
-            }
-          }, interval);
-        }
-      } else if (currentState === EventSource.CONNECTING) {
-        console.log('⏳ Connection is still CONNECTING, waiting...');
-      } else if (currentState === EventSource.OPEN) {
-        console.log('⚠️ Connection is OPEN but error event fired (transient error)');
-      } else if (this.isReconnecting) {
-        console.log('⏭️ Already reconnecting, skipping additional reconnect attempts');
-      }
+    this.sseEventHandlers.onerror = (event: Event) => {
+      this.handleSSEError(event, { options, onNotification, onError, onOpen, connectionStartTime, token, platform, sseUrl });
     };
-    this.sseEventHandlers.onerror = errorHandler;
-    this.sseConnection.onerror = errorHandler;
+    this.sseConnection.onerror = this.sseEventHandlers.onerror;
 
-    // Handle specific notification types (with event name as notification type)
-    const notificationHandler = (event: MessageEvent) => {
-      try {
-        // Check payload size to prevent WebSocket errors
-        const payloadSize = event.data.length;
-        const MAX_PAYLOAD_SIZE = 64 * 1024; // 64KB limit
-        if (payloadSize > MAX_PAYLOAD_SIZE) {
-          console.error(`SSE notification payload too large: ${payloadSize} bytes (max: ${MAX_PAYLOAD_SIZE})`);
-          return;
-        }
-
-        const notification: SSENotification = JSON.parse(event.data);
-        onNotification(notification);
-
-        // Auto-acknowledge notification in background
-        this.acknowledgeNotification(notification.id).catch(err => {
-          console.debug(`Background acknowledgement failed for notification ${notification.id}:`, err);
-        });
-      } catch (error) {
-        console.error('Failed to parse notification event:', error);
-      }
+    this.sseEventHandlers.notification = (event: MessageEvent) => {
+      this.handleSSEMessage(event, onNotification);
     };
-    this.sseEventHandlers.notification = notificationHandler;
-    this.sseConnection.addEventListener('notification', notificationHandler);
+    this.sseConnection.addEventListener('notification', this.sseEventHandlers.notification);
 
     // Return disconnect function with proper cleanup
     return () => {
@@ -1052,12 +872,134 @@ export class NotificationsAPIClient {
   }
 
   /**
+   * Internal handler for SSE messages
+   */
+  private async handleSSEMessage(event: MessageEvent, onNotification: (notification: SSENotification) => void): Promise<void> {
+    try {
+      // Check payload size
+      const data = event.data as string;
+      const payloadSize = data.length;
+      const MAX_PAYLOAD_SIZE = 64 * 1024; // 64KB limit
+      if (payloadSize > MAX_PAYLOAD_SIZE) {
+        console.error(`SSE payload too large: ${payloadSize} bytes (max: ${MAX_PAYLOAD_SIZE})`);
+        return;
+      }
+
+      const rawData = JSON.parse(data) as Record<string, unknown>;
+
+      // Validate SSE notification with Zod schema
+      const validatedNotification = validateSSENotification(rawData);
+      if (!validatedNotification) {
+        console.warn('Invalid SSE notification received, skipping:', rawData);
+        return;
+      }
+
+      const notification = validatedNotification as SSENotification;
+      onNotification(notification);
+
+      // Auto-acknowledge notification in background
+      try {
+        await this.acknowledgeNotification(notification.id);
+      } catch (err) {
+        console.info(`Background acknowledgement failed for notification ${notification.id}:`, err);
+      }
+    } catch (error) {
+      console.error('Failed to parse SSE notification:', error);
+    }
+  }
+
+  /**
+   * Internal handler for SSE errors
+   */
+  private handleSSEError(event: Event, context: {
+    options: SSEConnectionOptions;
+    onNotification: (notification: SSENotification) => void;
+    onError?: (error: Event) => void;
+    onOpen?: (event: Event) => void;
+    connectionStartTime: number;
+    token: string | null;
+    platform: string | undefined;
+    sseUrl: string;
+  }): void {
+    const { currentState, timeSinceConnection } = this.getSSEErrorState(context.connectionStartTime);
+
+    if (currentState === EventSource.CLOSED) {
+      this.logSSEClosedError(context, timeSinceConnection);
+    } else if (currentState === EventSource.CONNECTING) {
+      console.info('⏳ SSE: Transient error during connection (still CONNECTING)');
+    } else if (currentState === EventSource.OPEN) {
+      console.info('⚠️ SSE: Error event fired while connection is OPEN (transient)');
+    }
+
+    if (currentState === EventSource.CLOSED && !this.isReconnecting) {
+      this.triggerSSECleanupAndReconnect({ ...context, event });
+    } else if (this.isReconnecting) {
+      console.info('⏭️ Already reconnecting, skipping additional reconnect attempts');
+    }
+  }
+
+  private getSSEErrorState(connectionStartTime: number): { currentState: number | undefined, timeSinceConnection: number } {
+    return {
+      currentState: this.sseConnection?.readyState,
+      timeSinceConnection: Date.now() - connectionStartTime
+    };
+  }
+
+  private logSSEClosedError(context: { token: string | null, platform: string | undefined, sseUrl: string }, timeSinceConnection: number): void {
+    const { token, platform, sseUrl } = context;
+    const isImmediateFailure = timeSinceConnection < 1000;
+    const isExpectedFailure = isImmediateFailure || !token;
+
+    console.info(`${isExpectedFailure ? 'ℹ️' : '⚠️'} SSE connection closed${isExpectedFailure ? ' (expected)' : ''}:`, {
+      url: sseUrl,
+      platform,
+      hasToken: !!token,
+      timeSinceConnection,
+      reason: !token ? 'No authentication token' : isImmediateFailure ? 'Immediate closure' : 'Connection dropped'
+    });
+  }
+
+  /**
+   * Internal trigger for SSE cleanup and reconnect
+   */
+  private triggerSSECleanupAndReconnect(context: {
+    event: Event,
+    options: SSEConnectionOptions,
+    onNotification: (notification: SSENotification) => void,
+    onError?: (error: Event) => void,
+    onOpen?: (event: Event) => void
+  }): void {
+    const { event, options, onNotification, onError, onOpen } = context;
+    console.info('🔴 Connection is CLOSED, triggering cleanup and reconnect logic');
+
+    if (onError) { onError(event); }
+
+    if (options.auto_reconnect !== false) {
+      this.isReconnecting = true;
+      const interval = options.reconnect_interval ?? 5000;
+      console.info(`🔄 Scheduling reconnection in ${interval}ms...`);
+
+      if (typeof window !== 'undefined') {
+        window.setTimeout(() => {
+          if (!this.sseConnection || this.sseConnection.readyState === EventSource.CLOSED) {
+            console.info('🔁 Attempting reconnection...');
+            this.connectToSSE(options, onNotification, onError, onOpen);
+          } else {
+            console.info('⏭️ Skipping reconnection, connection already exists:', this.sseConnection.readyState);
+            this.isReconnecting = false;
+          }
+        }, interval);
+      }
+    }
+  }
+
+  /**
    * Clean up all SSE event listeners to prevent memory leaks
    */
   private cleanupSSEListeners(): void {
-    if (!this.sseConnection) return;
+    if (!this.sseConnection) { return; }
 
-    console.log('🧹 Cleaning up SSE event listeners');
+    console.info('🧹 Cleaning up SSE event listeners');
 
     // Remove addEventListener handlers
     if (this.sseEventHandlers.ping) {
@@ -1112,7 +1054,7 @@ export class NotificationsAPIClient {
   async isNotificationTypeEnabled(type: NotificationType): Promise<boolean> {
     try {
       const preferences = await this.getPreferences();
-      return (preferences.data.types as any)[type] || false;
+      return (preferences.types as Record<string, boolean>)[type] ?? false;
     } catch (error) {
       console.warn(`Failed to check notification type: ${error}`);
       return false;
@@ -1128,8 +1070,9 @@ export class NotificationsAPIClient {
       normal: '#3b82f6', // blue-500
       high: '#f59e0b',   // amber-500
       urgent: '#ef4444', // red-500
+      critical: '#ef4444', // red-500
     };
-    return (colors as any)[priority];
+    return (colors as Record<string, string>)[priority] ?? '#10b981';
   }
 
   /**
@@ -1145,7 +1088,7 @@ export class NotificationsAPIClient {
       payment: '💳',
       general: '📬',
     };
-    return (icons as any)[type];
+    return (icons as Record<string, string>)[type] ?? '📬';
   }
 
   /**
@@ -1160,10 +1103,10 @@ export class NotificationsAPIClient {
     const hours = Math.floor(diff / (1000 * 60 * 60));
     const days = Math.floor(diff / (1000 * 60 * 60 * 24));
 
-    if (minutes < 1) return 'Just now';
-    if (minutes < 60) return `${minutes}m ago`;
-    if (hours < 24) return `${hours}h ago`;
-    if (days < 7) return `${days}d ago`;
+    if (minutes < 1) { return 'Just now'; }
+    if (minutes < 60) { return `${minutes}m ago`; }
+    if (hours < 24) { return `${hours}h ago`; }
+    if (days < 7) { return `${days}d ago`; }
 
     return date.toLocaleDateString();
   }
@@ -1178,89 +1121,157 @@ export class NotificationsAPIClient {
       return null;
     }
 
-    // Get platform from client (accessing private property like we do for baseURL)
-    const platform = this.client['platform'] as 'admin' | 'frontend' | undefined;
+    const platform = this.client.getPlatform();
 
     try {
-      const cookies = document.cookie.split(';').reduce((acc, cookie) => {
-        const [key, value] = cookie.trim().split('=');
-        if (key && value) {
-          acc[key] = value;
-        }
-        return acc;
-      }, {} as Record<string, string>);
-
-      // Declare token variables
-      let token: string | null = null;
-      let tokenSource = 'unknown';
-
-      // Get user data from accessible client-side cookies
+      const cookies = this.parseBrowserCookies();
       const userCookie = cookies[COOKIES.user];
-      if (userCookie) {
-        try {
-          const user = JSON.parse(decodeURIComponent(userCookie));
-          // Return JWT access token for backend verification
-          token = user.access;
-        } catch (error) {
-          console.warn('Failed to parse user cookie:', error);
-        }
-
-        // Additional fallback: check for any JWT-like tokens
-        if (!token) {
-          const cookieNames = Object.keys(cookies);
-          for (const cookieName of cookieNames) {
-            const value = cookies[cookieName];
-            if (value && value.length > 50 && value.startsWith('eyJ')) { // JWT header
-              token = value;
-              tokenSource = `${cookieName} (JWT-like)`;
-              break;
-            }
-          }
-        }
-
-        // Validate token format - prefer JWT over legacy
-        if (token) {
-          // Preferred: JWT format (starts with eyJ - base64 encoded JSON header)
-          if (token.startsWith('eyJ')) {
-            console.log(`🔑 JWT token extracted from ${tokenSource}: ${token.substring(0, 20)}...`);
-            return token;
-          }
-
-          // DEPRECATED: Legacy web3_token_ format for backward compatibility
-          if (token.startsWith('web3_token_')) {
-            const wallet = token.substring(12); // Remove 'web3_token_' prefix
-            if (wallet.length >= 20 && wallet.startsWith('0x')) {
-              console.warn('⚠️ DEPRECATED: Legacy web3_token_ format detected. Please re-authenticate to get a JWT.');
-              console.log(`🔑 Legacy token extracted from ${tokenSource}: ${wallet.substring(0, 8)}...${wallet.substring(wallet.length - 6)}`);
-              return token;
-            } else {
-              console.warn('⚠️ Invalid Web3 token format in cookies');
-              return null;
-            }
-          }
-
-          // Fallback for other valid-looking tokens
-          if (token.length > 50) {
-            console.log(`🔑 Token extracted from ${tokenSource}: ${token.substring(0, 20)}...`);
-            return token;
-          } else {
-            console.warn('⚠️ Token too short or invalid format');
-            return null;
-          }
-        } else {
-          console.warn(`⚠️ No authentication token found in cookies for platform: ${platform}`);
-          console.warn(`🔍 Available cookie names: ${Object.keys(cookies).join(', ')}`);
-          return null;
-        }
+      if (!userCookie) {
+        console.warn(`⚠️ No user cookie found in cookies for platform: ${platform}`);
+        return null;
       }
 
+      return this.extractTokenFromUserCookie(userCookie, cookies, platform);
     } catch (error) {
       console.error('❌ Error extracting authentication token from cookies:', error);
       return null;
     }
+  }
 
-    // Fallback return (should never reach here)
+  /**
+   * Parse browser cookies into a record
+   */
+  private parseBrowserCookies(): Record<string, string> {
+    return document.cookie.split(';').reduce((acc, cookie) => {
+      const [key, value] = cookie.trim().split('=');
+      if (key && value) {
+        acc[key] = value;
+      }
+      return acc;
+    }, {} as Record<string, string>);
+  }
+
+  /**
+   * Extract token from user cookie with fallback to other JWT tokens
+   */
+  private extractTokenFromUserCookie(userCookie: string, cookies: Record<string, string>, platform: string | undefined): string | null {
+    let token: string | null = null;
+    let tokenSource = 'user-cookie';
+
+    try {
+      const user = JSON.parse(decodeURIComponent(userCookie)) as { access?: string };
+      token = user.access ?? null;
+    } catch (error) {
+      console.warn('Failed to parse user cookie:', error);
+    }
+
+    // Fallback: check for any JWT-like tokens
+    if (!token) {
+      for (const [cookieName, value] of Object.entries(cookies)) {
+        if (value && value.length > 50 && value.startsWith('eyJ')) {
+          token = value;
+          tokenSource = `${cookieName} (JWT-like)`;
+          break;
+        }
+      }
+    }
+
+    if (!token) {
+      console.warn(`⚠️ No authentication token found in cookies for platform: ${platform}`);
+      return null;
+    }
+
+    return this.validateAndLogToken(token, tokenSource);
+  }
+
+  /**
+   * Validate token format and log its extraction
+   */
+  private validateAndLogToken(token: string, source: string): string | null {
+    if (token.startsWith('eyJ')) {
+      console.info(`🔑 JWT token extracted from ${source}: ${token.substring(0, 20)}...`);
+      return token;
+    }
+
+    // DEPRECATED: Legacy format support
+    if (token.startsWith('web3_token_')) {
+      const wallet = token.substring(12);
+      if (wallet.length >= 20 && wallet.startsWith('0x')) {
+        console.warn('⚠️ DEPRECATED: Legacy web3_token_ format detected.');
+        return token;
+      }
+    }
+
+    if (token.length > 50) {
+      console.info(`🔑 Token extracted from ${source}: ${token.substring(0, 20)}...`);
+      return token;
+    }
+
+    console.warn('⚠️ Token invalid format or too short');
     return null;
+  }
+
+  /**
+   * Internal helper to build SSE URL and validate it
+   */
+  private buildSSEUrl(options: SSEConnectionOptions): { sseUrl: string; token: string | null; platform: string | undefined } {
+    const params = new URLSearchParams();
+    if (options.wallet_address) { params.append('wallet_address', options.wallet_address); }
+    if (options.types) { params.append('types', options.types.join(',')); }
+    if (options.priority) { params.append('priority', options.priority); }
+
+    const token = this.getTokenFromCookies();
+    const platform = this.client.getPlatform();
+
+    if (token) {
+      params.append('token', token);
+      console.info(`🔑 SSE [${platform}]: Client-side token found and added to URL`);
+    } else {
+      console.info(`ℹ️ SSE [${platform}]: No client-side token found. Relying on Proxy Middleware.`);
+    }
+
+    const queryString = params.toString();
+
+    let baseURL: string;
+    if (typeof window !== 'undefined') {
+      const { getBackendUrl } = require('../utils/url-resolver') as { getBackendUrl: (p: string) => string };
+      baseURL = getBackendUrl('client');
+    } else {
+      baseURL = this.client.getBaseURL();
+    }
+
+    const sseUrl = `${baseURL}${API_ROUTES.NOTIFICATIONS.STREAM}${queryString ? '?' + queryString : ''}`;
+
+    if (!baseURL || typeof baseURL !== 'string') {
+      const error = `Invalid baseURL: "${baseURL}"`;
+      console.error('❌ SSE Connection Error:', error);
+      throw new Error(error);
+    }
+
+    this.validateUrlFormat(sseUrl);
+
+    return { sseUrl, token, platform };
+  }
+
+  /**
+   * Validate URL format for SSE
+   */
+  private validateUrlFormat(sseUrl: string): void {
+    try {
+      const base = typeof window !== 'undefined' ? window.location.origin : 'http://localhost';
+      const urlObj = new URL(sseUrl, base);
+
+      console.info('✅ SSE URL validated:', {
+        protocol: urlObj.protocol,
+        host: urlObj.host,
+        pathname: urlObj.pathname,
+        fullURL: urlObj.toString(),
+      });
+    } catch (e) {
+      const error = `Invalid SSE URL format: "${sseUrl}"`;
+      console.error('❌ SSE URL validation failed:', error, e);
+      throw new Error(error);
+    }
   }
 }
 
@@ -1280,10 +1291,10 @@ export function createNotificationsClient(client: UnifiedApiClient): Notificatio
  */
 export function createPlatformNotificationsClient(platform: 'frontend' | 'admin' = 'frontend'): NotificationsAPIClient {
   if (platform === 'admin') {
-    const { createAdminApiClient } = require('../utils/api-client');
+    const { createAdminApiClient } = require('../utils/api-client') as { createAdminApiClient: () => UnifiedApiClient };
     return new NotificationsAPIClient(createAdminApiClient());
   } else {
-    const { createFrontendApiClient } = require('../utils/api-client');
+    const { createFrontendApiClient } = require('../utils/api-client') as { createFrontendApiClient: () => UnifiedApiClient };
     return new NotificationsAPIClient(createFrontendApiClient());
   }
 }

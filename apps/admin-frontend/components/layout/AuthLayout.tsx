@@ -7,6 +7,8 @@ import { MainLayout } from './MainLayout'
 
 import { useSharedAuth } from '@/shared/components/auth/Provider'
 
+import { AdminAuthModal } from '@/components/auth/AdminAuthModal'
+
 interface AuthLayoutProps {
   children: ReactNode
   user?: {
@@ -27,8 +29,6 @@ const NO_LAYOUT_PATHS = [
   '/request-access',
   '/permissions/policies'
 ]
-
-import { AdminAuthModal } from '@/components/auth/AdminAuthModal'
 
 /**
  * AuthLayout

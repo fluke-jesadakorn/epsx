@@ -28,8 +28,8 @@ export function groupPermissionsByPlatform(
     // Sort platforms: admin first, then alphabetically
     const sortedGrouped: Record<string, PermissionDefinition[]> = {};
     const platforms = Object.keys(grouped).sort((a, b) => {
-        if (a === 'admin') return -1;
-        if (b === 'admin') return 1;
+        if (a === 'admin') {return -1;}
+        if (b === 'admin') {return 1;}
         return a.localeCompare(b);
     });
 
@@ -79,7 +79,7 @@ export function filterPermissions(
     permissions: PermissionDefinition[],
     query: string
 ): PermissionDefinition[] {
-    if (!query.trim()) return permissions;
+    if (!query.trim()) {return permissions;}
 
     const lowerQuery = query.toLowerCase();
 

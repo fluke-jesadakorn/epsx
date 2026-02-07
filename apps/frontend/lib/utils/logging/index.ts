@@ -51,9 +51,9 @@ export class Logger {
   private context: string;
   private minLevel: LogLevel['level'];
   private entries: LogEntry[] = [];
-  private maxEntries: number = 1000;
+  private maxEntries = 1000;
 
-  constructor(context: string = 'App', minLevel: LogLevel['level'] = 'info') {
+  constructor(context = 'App', minLevel: LogLevel['level'] = 'info') {
     this.context = context;
     this.minLevel = minLevel;
   }
@@ -77,7 +77,7 @@ export class Logger {
   }
 
   private sanitizeMessage(message: string): string {
-    if (!message) return message;
+    if (!message) {return message;}
 
     // Remove common sensitive patterns
     return message
@@ -91,7 +91,7 @@ export class Logger {
   }
 
   private sanitizeData(data: unknown, seen = new WeakSet()): unknown {
-    if (data === null || data === undefined) return data;
+    if (data === null || data === undefined) {return data;}
 
     // Handle BigInt primitive type
     if (typeof data === 'bigint') {
@@ -104,10 +104,10 @@ export class Logger {
     }
 
     // Prevent circular references
-    if (seen.has(data as object)) {
+    if (seen.has(data)) {
       return '[Circular]';
     }
-    seen.add(data as object);
+    seen.add(data);
 
     // In production, limit data logging for security
     if (process.env.NODE_ENV === 'production') {
@@ -155,7 +155,7 @@ export class Logger {
     // Generic object handling
     try {
       const sanitized: Record<string, unknown> = {};
-      for (const [key, value] of Object.entries(data as object)) {
+      for (const [key, value] of Object.entries(data)) {
         sanitized[key] = this.sanitizeData(value, seen);
       }
       return sanitized;
@@ -166,10 +166,10 @@ export class Logger {
 
 
   private log(level: LogLevel['level'], message: string, data?: unknown): void {
-    if (!this.shouldLog(level)) return;
+    if (!this.shouldLog(level)) {return;}
 
     // Skip logging if console is not available (SSR/hydration safety)
-    if (typeof console === 'undefined') return;
+    if (typeof console === 'undefined') {return;}
 
     // Sanitize data to handle BigInt values before logging
     const safeData = data !== undefined ? this.sanitizeData(data, new WeakSet()) : undefined;
@@ -336,7 +336,7 @@ export class ConsoleReplacer {
   }
 
   restore(): void {
-    if (!this.isReplaced) return;
+    if (!this.isReplaced) {return;}
 
     Object.assign(console, this.originalConsole);
     this.isReplaced = false;

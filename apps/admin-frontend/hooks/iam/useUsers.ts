@@ -16,6 +16,15 @@ interface User {
   permissions: string[];
 }
 
+interface AdminUserStub {
+  id: string;
+  name?: string;
+  email?: string;
+  status: string;
+  updated_at: string;
+  permissions?: string[];
+}
+
 /**
  *
  * @param options
@@ -29,10 +38,10 @@ export const useUsers = (options: UseUsersOptions) => {
     try {
       // TODO: Implement with shared API client
       // Stub data for now
-      const adminUsers: any[] = [];
+      const adminUsers: unknown[] = [];
 
       // Transform AdminUser to our User interface and apply filters
-      let transformedUsers: User[] = adminUsers.map(
+      let transformedUsers: User[] = (adminUsers as AdminUserStub[]).map(
         (user) => ({
           id: user.id,
           name: user.name || user.email || 'Unknown User',
@@ -68,7 +77,7 @@ export const useUsers = (options: UseUsersOptions) => {
 
       setUsers(transformedUsers);
     } catch (_error) {
-       
+
       console.error('Error fetching users', {
         error: _error instanceof Error ? _error.message : String(_error),
         searchTerm: options.searchTerm,

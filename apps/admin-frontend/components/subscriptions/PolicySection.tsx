@@ -161,7 +161,7 @@ export function PolicySection({ initialPolicies, className }: PolicySectionProps
 
   // Delete handler
   const handleDeletePolicy = async () => {
-    if (!deleteConfirm) return;
+    if (!deleteConfirm) {return;}
 
     setIsDeleting(true);
     try {

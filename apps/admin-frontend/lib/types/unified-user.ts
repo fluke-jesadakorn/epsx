@@ -201,6 +201,7 @@ export interface UserProfileUpdateData {
   language?: string
 }
 
+// User status update types
 export interface UserStatusUpdateData {
   status: UserStatus
   reason?: string
@@ -226,7 +227,7 @@ export interface UserOperationError {
   code: string
   message: string
   field?: string
-  details?: Record<string, any>
+  details?: Record<string, unknown>
 }
 
 export interface UserOperationResult<T = unknown> {

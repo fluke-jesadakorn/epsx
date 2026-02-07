@@ -493,7 +493,7 @@ export default function PermissionsPage() {
       typeof user.permissions === 'object' && user.permissions !== null && !Array.isArray(user.permissions)
         ? Object.keys(user.permissions as Record<string, unknown>)
         : Array.isArray(user.permissions)
-          ? (user.permissions as string[])
+          ? (user.permissions)
           : [];
 
     const parsed = permissionStrings.map(perm => {

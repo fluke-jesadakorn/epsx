@@ -20,7 +20,7 @@ export default function PaginationButton({
   const router = useRouter();
 
   const handleClick = () => {
-    if (disabled) return;
+    if (disabled) {return;}
     
     const params = new URLSearchParams(currentParams);
     params.set('page', String(page));

@@ -120,7 +120,7 @@ export function DynamicPaymentWidget({
 
     // Get receiver address for this chain (direct transfer)
     const receiverAddress = useMemo(() => {
-        if (!isChainSupported) return null;
+        if (!isChainSupported) {return null;}
         try {
             return getAddress(getPaymentReceiverAddress(chainId));
         } catch {
@@ -130,7 +130,7 @@ export function DynamicPaymentWidget({
 
     // Get token address for selected token
     const tokenAddress = useMemo(() => {
-        if (!selectedToken || !isChainSupported) return null;
+        if (!selectedToken || !isChainSupported) {return null;}
         try {
             return getAddress(getTokenAddress(selectedToken.symbol, chainId));
         } catch {
@@ -140,7 +140,7 @@ export function DynamicPaymentWidget({
 
     // Calculate amount in token decimals
     const amountInDecimals = useMemo(() => {
-        if (!paymentData || !selectedToken) return 0n;
+        if (!paymentData || !selectedToken) {return 0n;}
         // Use 18 decimals for USDT/USDC on BSC (they use 18, not 6)
         return parseUnits(paymentData.amount.toString(), selectedToken.decimals);
     }, [paymentData, selectedToken]);
@@ -236,8 +236,8 @@ export function DynamicPaymentWidget({
         } catch (err: any) {
             // Handle specific status codes if the error object has them
             if (err.status === 404) {
-                if (context.linkSlug) setError('Payment link not found');
-                else setError('Resource not found');
+                if (context.linkSlug) {setError('Payment link not found');}
+                else {setError('Resource not found');}
             } else if (err.status === 410) {
                 setError('Payment link has expired or reached max uses');
             } else {
@@ -389,7 +389,6 @@ export function DynamicPaymentWidget({
     }, [recheckToken]);
 
 
-
     // Check token balance (Wallet)
     const { data: balanceData, refetch: refetchBalance } = useBalance({
         address,
@@ -443,9 +442,9 @@ export function DynamicPaymentWidget({
 
     // Determine current step for UI
     const currentStep = useMemo(() => {
-        if (submissionStep === 'confirmed') return 'complete'; // Only complete when backend confirms
-        if (isTransferring || isPaymentConfirming || submissionStep === 'submitting' || submissionStep === 'submitted') return 'paying';
-        if (isAddingToken) return 'adding-token';
+        if (submissionStep === 'confirmed') {return 'complete';} // Only complete when backend confirms
+        if (isTransferring || isPaymentConfirming || submissionStep === 'submitting' || submissionStep === 'submitted') {return 'paying';}
+        if (isAddingToken) {return 'adding-token';}
         return 'idle';
     }, [isTransferring, isPaymentConfirming, isPaymentConfirmed, isAddingToken, submissionStep]);
 
@@ -765,7 +764,6 @@ export function DynamicPaymentWidget({
                     )}
                 </div>
             )}
-
 
 
             {/* Pay Button */}

@@ -73,7 +73,7 @@ async function mockWalletConnection(page: Page, walletAddress: string, options: 
       },
       on: (event: string, handler: Function) => {
         // Store event handlers
-        if (!window.__ethEventHandlers) window.__ethEventHandlers = {};
+        if (!window.__ethEventHandlers) {window.__ethEventHandlers = {};}
         window.__ethEventHandlers[event] = handler;
       },
       removeListener: () => {},
@@ -788,7 +788,7 @@ test.describe('Web3 Wallet E2E - Complete Coverage', () => {
       
       // Simulate wallet disconnection during auth flow
       await page.evaluate(() => {
-        if (window.__ethEventHandlers && window.__ethEventHandlers.accountsChanged) {
+        if (window.__ethEventHandlers?.accountsChanged) {
           window.__ethEventHandlers.accountsChanged([]);
         }
       });
@@ -915,7 +915,7 @@ test.describe('Web3 Wallet E2E - Complete Coverage', () => {
         
         // Disconnect for next iteration
         await page.evaluate(() => {
-          if (window.__ethEventHandlers && window.__ethEventHandlers.accountsChanged) {
+          if (window.__ethEventHandlers?.accountsChanged) {
             window.__ethEventHandlers.accountsChanged([]);
           }
         });

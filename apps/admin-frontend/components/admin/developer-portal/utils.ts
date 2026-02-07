@@ -12,11 +12,11 @@ export interface AccessLevelConfig {
 export const getAccessLevelColor = (level: string): string => {
     const normalizedLevel = level.toLowerCase();
 
-    if (normalizedLevel.includes('bronze')) return 'text-amber-600';
-    if (normalizedLevel.includes('silver')) return 'text-gray-500';
-    if (normalizedLevel.includes('gold')) return 'text-yellow-500';
-    if (normalizedLevel.includes('platinum')) return 'text-purple-600';
-    if (normalizedLevel.includes('enterprise')) return 'text-blue-600';
+    if (normalizedLevel.includes('bronze')) {return 'text-amber-600';}
+    if (normalizedLevel.includes('silver')) {return 'text-gray-500';}
+    if (normalizedLevel.includes('gold')) {return 'text-yellow-500';}
+    if (normalizedLevel.includes('platinum')) {return 'text-purple-600';}
+    if (normalizedLevel.includes('enterprise')) {return 'text-blue-600';}
 
     // Default fallback
     return 'text-gray-600';

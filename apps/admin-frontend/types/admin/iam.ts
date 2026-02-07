@@ -193,11 +193,11 @@ export interface PolicyStatement {
   Effect: 'Allow' | 'Deny';
   Action: string | string[];
   Resource?: string | string[];
-  Condition?: Record<string, any>;
+  Condition?: Record<string, unknown>;
   Principal?: string | string[] | { [key: string]: string | string[] };
 }
 
-export interface Permission {
+export interface IamPermission {
   id: string;
   service: string;
   action: string;
@@ -225,7 +225,7 @@ export interface AuditLog {
   timestamp: string;
   ipAddress?: string;
   userAgent?: string;
-  details?: Record<string, any>;
+  details?: Record<string, unknown>;
 }
 
 export interface IAMStats {

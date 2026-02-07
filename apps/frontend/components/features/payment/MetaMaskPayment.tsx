@@ -61,14 +61,14 @@ export default function MetaMaskPayment({
 
   // Contract Addresses
   const getTokenContractAddress = () => {
-    if (!chain?.id) return null
+    if (!chain?.id) {return null}
     try {
       return getAddress(getTokenAddress(selectedToken, chain.id))
     } catch (e) { return null }
   }
 
   const getEscrowContractAddress = () => {
-    if (!chain?.id || !isPaymentEscrowDeployed(chain.id)) return null
+    if (!chain?.id || !isPaymentEscrowDeployed(chain.id)) {return null}
     try {
       return getAddress(getPaymentEscrowAddress(chain.id))
     } catch (e) { return null }
@@ -118,7 +118,7 @@ export default function MetaMaskPayment({
 
   // Get gas token symbol
   const getGasTokenSymbol = () => {
-    if (chain?.id === 56 || chain?.id === 97) return 'BNB'
+    if (chain?.id === 56 || chain?.id === 97) {return 'BNB'}
     return 'ETH'
   }
 
@@ -128,8 +128,8 @@ export default function MetaMaskPayment({
       setAutoConnectAttempted(true)
       const attemptConnect = async () => {
         const mm = connectors.find(c => c.name === 'MetaMask' || c.id === 'metaMask')
-        if (mm) await connect({ connector: mm })
-        else if (connectors[0]) await connect({ connector: connectors[0] })
+        if (mm) {await connect({ connector: mm })}
+        else if (connectors[0]) {await connect({ connector: connectors[0] })}
       }
       setTimeout(attemptConnect, 500)
     }

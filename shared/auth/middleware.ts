@@ -75,7 +75,7 @@ export function createAuthMiddleware(config: AuthMiddlewareConfig) {
                 const claims = decodeJwt(token);
 
                 // Check expiration
-                if (claims && claims.exp) {
+                if (claims?.exp) {
                     const currentTime = Math.floor(Date.now() / 1000);
                     if (claims.exp > currentTime) {
                         isAuthenticated = true;
@@ -103,8 +103,8 @@ export function createAuthMiddleware(config: AuthMiddlewareConfig) {
 
         // 4. Determine Route Type
         const isPublicRoute = publicRoutes.some(route => {
-            if (pathname === route) return true;
-            if (route === '/') return false;
+            if (pathname === route) {return true;}
+            if (route === '/') {return false;}
             return pathname.startsWith(`${route}/`);
         });
 

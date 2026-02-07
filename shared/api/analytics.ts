@@ -144,7 +144,7 @@ export class AnalyticsAPIClient {
     // Apply public API limits
     const publicFilters = {
       ...filters,
-      limit: Math.min(filters.limit || 10, 10), // Public API limit: max 10
+      limit: Math.min(filters.limit ?? 10, 10), // Public API limit: max 10
       // Remove financial filters for public access
       min_eps: undefined,
       max_eps: undefined,
@@ -324,7 +324,14 @@ export class AnalyticsAPIClient {
     revenue: number;
     growth_rate: number;
   }> {
-    const response = await this.client.get(
+    const response = await this.client.get<{
+      data: {
+        total_users: number;
+        active_users: number;
+        revenue: number;
+        growth_rate: number;
+      };
+    }>(
       API_ROUTES.ADMIN.ANALYTICS_OVERVIEW,
       undefined,
       {
@@ -354,7 +361,15 @@ export class AnalyticsAPIClient {
       new_today: number;
     };
   }> {
-    const response = await this.client.get(
+    const response = await this.client.get<{
+      data: {
+        user_metrics: {
+          total: number;
+          active: number;
+          new_today: number;
+        };
+      };
+    }>(
       API_ROUTES.ADMIN.ANALYTICS_USERS,
       undefined,
       {
@@ -381,7 +396,12 @@ export class AnalyticsAPIClient {
     permission_distribution: Record<string, number>;
     group_membership: Array<{ group: string; count: number }>;
   }> {
-    const response = await this.client.get(
+    const response = await this.client.get<{
+      data: {
+        permission_distribution: Record<string, number>;
+        group_membership: Array<{ group: string; count: number }>;
+      };
+    }>(
       API_ROUTES.ADMIN.ANALYTICS_PERMISSIONS,
       undefined,
       {
@@ -409,7 +429,13 @@ export class AnalyticsAPIClient {
     monthly_revenue: number;
     revenue_trends: Array<{ month: string; revenue: number }>;
   }> {
-    const response = await this.client.get(
+    const response = await this.client.get<{
+      data: {
+        total_revenue: number;
+        monthly_revenue: number;
+        revenue_trends: Array<{ month: string; revenue: number }>;
+      };
+    }>(
       API_ROUTES.ADMIN.ANALYTICS_REVENUE,
       undefined,
       {
@@ -436,7 +462,13 @@ export class AnalyticsAPIClient {
     cache_hit_rates: Record<string, number>;
     error_rates: Record<string, number>;
   }> {
-    const response = await this.client.get(
+    const response = await this.client.get<{
+      data: {
+        api_response_times: Record<string, number>;
+        cache_hit_rates: Record<string, number>;
+        error_rates: Record<string, number>;
+      };
+    }>(
       API_ROUTES.ADMIN.ANALYTICS_PERFORMANCE,
       undefined,
       {
@@ -487,7 +519,7 @@ export class AnalyticsAPIClient {
     }
 
     // Default to lowercase if no mapping found
-    return country?.toLowerCase() || '';
+    return country.toLowerCase();
   }
 
   /**
@@ -496,29 +528,33 @@ export class AnalyticsAPIClient {
   static buildAnalyticsUrl(baseUrl: string, filters: AnalyticsFilters): string {
     const params = new URLSearchParams();
 
-    if (filters.page) params.append('page', filters.page.toString());
-    if (filters.limit) params.append('limit', filters.limit.toString());
-    if (filters.sort_by) params.append('sort_by', filters.sort_by);
-    if (filters.country) params.append('country', this.normalizeCountryName(filters.country));
-    if (filters.sector) params.append('sector', filters.sector);
-    if (filters.exchange) params.append('exchange', filters.exchange);
-    if (filters.stock_type) params.append('stock_type', filters.stock_type);
+    // Mapping of field names to their extraction logic
+    const directFields: (keyof AnalyticsFilters)[] = ['page', 'limit', 'sort_by', 'sector', 'exchange', 'stock_type'];
+    directFields.forEach(field => {
+      const value = filters[field];
+      if (value !== undefined) {
+        params.append(field, value.toString());
+      }
+    });
 
-    // Financial filters (only for authenticated APIs)
-    if (filters.min_eps) params.append('min_eps', filters.min_eps.toString());
-    if (filters.max_eps) params.append('max_eps', filters.max_eps.toString());
-    if (filters.min_growth) params.append('min_growth', filters.min_growth.toString());
-    if (filters.max_growth) params.append('max_growth', filters.max_growth.toString());
-    if (filters.min_market_cap) params.append('min_market_cap', filters.min_market_cap.toString());
-    if (filters.max_market_cap) params.append('max_market_cap', filters.max_market_cap.toString());
-    if (filters.min_volume) params.append('min_volume', filters.min_volume.toString());
-    if (filters.max_volume) params.append('max_volume', filters.max_volume.toString());
-    if (filters.min_price) params.append('min_price', filters.min_price.toString());
-    if (filters.max_price) params.append('max_price', filters.max_price.toString());
-    if (filters.min_pe_ratio) params.append('min_pe_ratio', filters.min_pe_ratio.toString());
-    if (filters.max_pe_ratio) params.append('max_pe_ratio', filters.max_pe_ratio.toString());
-    if (filters.min_dividend_yield) params.append('min_dividend_yield', filters.min_dividend_yield.toString());
-    if (filters.max_dividend_yield) params.append('max_dividend_yield', filters.max_dividend_yield.toString());
+    if (filters.country) {
+      params.append('country', this.normalizeCountryName(filters.country));
+    }
+
+    // Range filters
+    const rangeFields: (keyof AnalyticsFilters)[] = [
+      'min_eps', 'max_eps', 'min_growth', 'max_growth',
+      'min_market_cap', 'max_market_cap', 'min_volume', 'max_volume',
+      'min_price', 'max_price', 'min_pe_ratio', 'max_pe_ratio',
+      'min_dividend_yield', 'max_dividend_yield'
+    ];
+
+    rangeFields.forEach(field => {
+      const value = filters[field];
+      if (value !== undefined) {
+        params.append(field, value.toString());
+      }
+    });
 
     const queryString = params.toString();
     return queryString ? `${baseUrl}?${queryString}` : baseUrl;

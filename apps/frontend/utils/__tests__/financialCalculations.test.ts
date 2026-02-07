@@ -91,9 +91,9 @@ describe('Financial Calculations', () => {
 describe('Stock Classification Business Rules', () => {
   describe('Growth Classification', () => {
     const classifyByGrowth = (epsGrowth: number) => {
-      if (epsGrowth > 20) return 'high-growth'
-      if (epsGrowth > 10) return 'moderate-growth'
-      if (epsGrowth > 0) return 'low-growth'
+      if (epsGrowth > 20) {return 'high-growth'}
+      if (epsGrowth > 10) {return 'moderate-growth'}
+      if (epsGrowth > 0) {return 'low-growth'}
       return 'declining'
     }
 
@@ -120,18 +120,18 @@ describe('Stock Classification Business Rules', () => {
 
   describe('Volatility Classification', () => {
     const classifyByVolatility = (prices: number[]) => {
-      if (prices.length < 2) return 'low-volatility'
+      if (prices.length < 2) {return 'low-volatility'}
       
       const volatility = Math.sqrt(
         prices.reduce((sum, price, i, arr) => {
-          if (i === 0) return 0
+          if (i === 0) {return 0}
           const change = (price - arr[i - 1]) / arr[i - 1]
           return sum + Math.pow(change, 2)
         }, 0) / (prices.length - 1)
       )
 
-      if (volatility > 0.05) return 'high-volatility'
-      if (volatility > 0.02) return 'moderate-volatility'
+      if (volatility > 0.05) {return 'high-volatility'}
+      if (volatility > 0.02) {return 'moderate-volatility'}
       return 'low-volatility'
     }
 

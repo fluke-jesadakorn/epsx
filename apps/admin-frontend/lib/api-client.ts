@@ -25,7 +25,7 @@ let clientInstance: UnifiedApiClient | null = null;
 /**
  * Get or create the admin API client singleton
  */
-function getAdminClient(): UnifiedApiClient {
+export function getAdminClient(): UnifiedApiClient {
     if (!clientInstance) {
         clientInstance = createAdminApiClient({
             serverSide: typeof window === 'undefined',

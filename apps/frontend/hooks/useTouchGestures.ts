@@ -87,7 +87,7 @@ export function useTouchGestures(options: TouchGestureOptions = {}) {
   }, []);
 
   const handleTouchStart = useCallback((e: TouchEvent) => {
-    if (!enabled) return;
+    if (!enabled) {return;}
 
     const touch = e.touches[0];
     const state = touchState.current;
@@ -121,7 +121,7 @@ export function useTouchGestures(options: TouchGestureOptions = {}) {
   }, [enabled, onPinchStart, onPanStart, onLongPress, longPressDelay, getDistance]);
 
   const handleTouchMove = useCallback((e: TouchEvent) => {
-    if (!enabled) return;
+    if (!enabled) {return;}
 
     const touch = e.touches[0];
     const state = touchState.current;
@@ -155,7 +155,7 @@ export function useTouchGestures(options: TouchGestureOptions = {}) {
   }, [enabled, isPinching, isPanning, onPinch, onPanMove, pinchThreshold, getDistance, clearTimers]);
 
   const handleTouchEnd = useCallback((_e: TouchEvent) => {
-    if (!enabled) return;
+    if (!enabled) {return;}
 
     const state = touchState.current;
     const deltaX = state.currentX - state.startX;
@@ -234,7 +234,7 @@ export function useTouchGestures(options: TouchGestureOptions = {}) {
   ]);
 
   const bind = useCallback(() => {
-    if (!enabled) return {};
+    if (!enabled) {return {};}
 
     return {
       onTouchStart: handleTouchStart,

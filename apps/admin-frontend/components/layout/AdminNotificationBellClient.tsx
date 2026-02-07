@@ -90,8 +90,8 @@ export function AdminNotificationBell() {
         id: n.id,
         title: n.title,
         message: n.message,
-        type: n.notification_type as any,
-        priority: n.priority as any,
+        type: n.notification_type,
+        priority: n.priority,
         timestamp: n.timestamp,
         wallet_address: n.wallet_address,
         read: !!n.read_at

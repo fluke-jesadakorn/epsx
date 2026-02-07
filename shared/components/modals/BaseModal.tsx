@@ -107,7 +107,7 @@ const Portal: React.FC<PortalProps> = ({ children }) => {
     return () => setMounted(false)
   }, [])
 
-  if (!mounted) return null
+  if (!mounted) {return null}
 
   return createPortal(
     children,
@@ -148,7 +148,7 @@ export const BaseModal = React.forwardRef<HTMLDivElement, BaseModalProps>(({
 
   // Handle escape key
   useEffect(() => {
-    if (!isOpen || !closeOnEscape) return
+    if (!isOpen || !closeOnEscape) {return}
 
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape' && !preventClose) {
@@ -195,7 +195,7 @@ export const BaseModal = React.forwardRef<HTMLDivElement, BaseModalProps>(({
 
   // Handle primary action
   const handlePrimaryAction = async () => {
-    if (!primaryAction || primaryActionLoading) return
+    if (!primaryAction || primaryActionLoading) {return}
 
     try {
       setPrimaryActionLoading(true)
@@ -207,7 +207,7 @@ export const BaseModal = React.forwardRef<HTMLDivElement, BaseModalProps>(({
     }
   }
 
-  if (!isOpen) return null
+  if (!isOpen) {return null}
 
   return (
     <Portal>

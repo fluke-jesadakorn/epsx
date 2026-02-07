@@ -92,9 +92,9 @@ export const getRankingLimitFromPermissions = (permissions: string[]): number =>
   for (const permission of permissions) {
     if (permission.startsWith('epsx:rankings:view:')) {
       const limitStr = permission.split(':')[3];
-      if (limitStr === 'unlimited') return -1;
+      if (limitStr === 'unlimited') {return -1;}
       const limit = parseInt(limitStr, 10);
-      if (!isNaN(limit)) return limit;
+      if (!isNaN(limit)) {return limit;}
     }
   }
   return 3; // Default free limit

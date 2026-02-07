@@ -48,7 +48,7 @@ export function BrowserNotifications({
       // Load settings from cookies first, fallback to localStorage for migration
       const cookies = document.cookie.split(';').reduce((acc, cookie) => {
         const [key, value] = cookie.trim().split('=');
-        if (key && value) acc[key] = value;
+        if (key && value) {acc[key] = value;}
         return acc;
       }, {} as Record<string, string>);
 
@@ -80,7 +80,7 @@ export function BrowserNotifications({
   }, [autoRequestPermission, permission, isSupported]);
 
   const requestPermission = async () => {
-    if (!isSupported) return;
+    if (!isSupported) {return;}
 
     try {
       const result = await Notification.requestPermission();
@@ -152,7 +152,7 @@ export function BrowserNotifications({
 
   // Public method to show notifications from other components
   const showAnalyticsAlert = useCallback((title: string, body: string, url?: string) => {
-    if (!settings.analytics) return;
+    if (!settings.analytics) {return;}
     showNotification(title, body, {
       tag: 'analytics',
       requireInteraction: true,
@@ -161,7 +161,7 @@ export function BrowserNotifications({
   }, [showNotification, settings.analytics]);
 
   const showSecurityAlert = useCallback((title: string, body: string, url?: string) => {
-    if (!settings.security) return;
+    if (!settings.security) {return;}
     showNotification(title, body, {
       tag: 'security',
       requireInteraction: true,
@@ -170,7 +170,7 @@ export function BrowserNotifications({
   }, [showNotification, settings.security]);
 
   const showSystemAlert = useCallback((title: string, body: string, url?: string) => {
-    if (!settings.system) return;
+    if (!settings.system) {return;}
     showNotification(title, body, {
       tag: 'system',
       requireInteraction: false,
@@ -179,7 +179,7 @@ export function BrowserNotifications({
   }, [showNotification, settings.system]);
 
   const showPermissionAlert = useCallback((title: string, body: string, url?: string) => {
-    if (!settings.permissions) return;
+    if (!settings.permissions) {return;}
     showNotification(title, body, {
       tag: 'permissions',
       requireInteraction: true,

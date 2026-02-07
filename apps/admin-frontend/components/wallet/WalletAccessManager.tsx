@@ -459,7 +459,7 @@ export function WalletAccessManager({
             ...filtered.filter(item => {
                 // If item has a pending ADD, remove it from available list
                 const pending = pendingChanges.get(item.id);
-                return !pending || pending.action !== 'add';
+                return pending?.action !== 'add';
             }),
             // If item has a pending REMOVE, add it back to available list
             ...Array.from(pendingChanges.values())
@@ -487,7 +487,7 @@ export function WalletAccessManager({
             ...filtered.filter(item => {
                 // If item has a pending REMOVE, remove it from authorized list
                 const pending = pendingChanges.get(item.id);
-                return !pending || pending.action !== 'remove';
+                return pending?.action !== 'remove';
             }),
             // If item has a pending ADD, add it to authorized list
             ...Array.from(pendingChanges.values())
@@ -810,7 +810,7 @@ export function WalletAccessManager({
                     : expiryModalItems?.[0]?.name || ''}
                 itemType={expiryModalItems && expiryModalItems.length > 1
                     ? 'items'
-                    : (expiryModalItems?.[0]?.type || 'permission') as any}
+                    : (expiryModalItems?.[0]?.type || 'permission') as 'permission' | 'plan' | 'items'}
                 isOpen={!!expiryModalItems}
                 onConfirm={handleExpiryConfirm}
                 onCancel={handleExpiryCancel}

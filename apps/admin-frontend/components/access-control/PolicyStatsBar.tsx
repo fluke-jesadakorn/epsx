@@ -4,9 +4,9 @@
  */
 'use client';
 
-import { CreditCard, Users, TrendingUp, Clock, Shield, Layers } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
+import { Clock, Layers, TrendingUp, Users } from 'lucide-react';
 import type { PolicyStats } from './types';
 
 interface PolicyStatsBarProps {
@@ -29,7 +29,7 @@ function StatCard({ icon, label, value, subLabel, iconBg, iconColor }: StatCardP
     <div className="relative overflow-hidden rounded-2xl bg-card border border-border p-4 sm:p-5 hover:shadow-lg hover:scale-[1.02] transition-all duration-300">
       {/* Subtle gradient background */}
       <div className="absolute inset-0 bg-gradient-to-br from-transparent via-transparent to-primary/5 pointer-events-none" />
-      
+
       <div className="relative flex items-start gap-4">
         <div className={cn(
           'flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-xl',
@@ -37,7 +37,7 @@ function StatCard({ icon, label, value, subLabel, iconBg, iconColor }: StatCardP
         )}>
           <div className={iconColor}>{icon}</div>
         </div>
-        
+
         <div className="flex-1 min-w-0">
           <p className="text-2xl sm:text-3xl font-bold text-foreground truncate">
             {value}
@@ -116,12 +116,12 @@ export function PolicyStatsBar({ stats, isLoading = false, className }: PolicySt
         label="Expiring Soon"
         value={stats.expiringSoon}
         subLabel="Within 7 days"
-        iconBg={stats.expiringSoon > 0 
-          ? "bg-amber-100 dark:bg-amber-900/30" 
+        iconBg={stats.expiringSoon > 0
+          ? "bg-amber-100 dark:bg-amber-900/30"
           : "bg-gray-100 dark:bg-gray-800/50"
         }
-        iconColor={stats.expiringSoon > 0 
-          ? "text-amber-600 dark:text-amber-400" 
+        iconColor={stats.expiringSoon > 0
+          ? "text-amber-600 dark:text-amber-400"
           : "text-gray-500 dark:text-gray-400"
         }
       />

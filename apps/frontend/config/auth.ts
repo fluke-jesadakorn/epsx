@@ -197,7 +197,7 @@ export function getUserAuthContext(): 'user' {
  * Check auth state expiry
  */
 export function isAuthStateExpired(authState: ProgressiveAuthState): boolean {
-  if (!authState.expiresAt) return false;
+  if (!authState.expiresAt) {return false;}
   return Date.now() >= authState.expiresAt;
 }
 
@@ -205,7 +205,7 @@ export function isAuthStateExpired(authState: ProgressiveAuthState): boolean {
  * Get time until auth state expires (in minutes)
  */
 export function getTimeUntilAuthExpiry(authState: ProgressiveAuthState): number | null {
-  if (!authState.expiresAt) return null;
+  if (!authState.expiresAt) {return null;}
   const timeLeft = authState.expiresAt - Date.now();
   return Math.max(0, Math.floor(timeLeft / (1000 * 60))); // Convert to minutes
 }

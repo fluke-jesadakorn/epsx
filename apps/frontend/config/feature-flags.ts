@@ -45,7 +45,7 @@ export const FEATURE_FLAGS = SHARED_FEATURE_FLAGS;
 export function shouldShowFeatureToUser(userId: string, featureName: string): boolean {
   // Use consolidated feature flag system
   if (featureName in SHARED_FEATURE_FLAGS) {
-    return isFeatureEnabled(featureName as keyof typeof SHARED_FEATURE_FLAGS, userId);
+    return isFeatureEnabled(featureName, userId);
   }
   
   // If feature not found in consolidated system, default to false

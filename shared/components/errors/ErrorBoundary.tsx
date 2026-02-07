@@ -39,7 +39,7 @@ export class SharedErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoun
     }
 
     override componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-        // eslint-disable-next-line no-console
+         
         console.error('ErrorBoundary caught an error:', error, errorInfo)
 
         if (this.props.onError) {

@@ -50,7 +50,7 @@ export interface ChatOptions {
 export class ChatApi {
     private baseUrl: string;
 
-    constructor(baseUrl: string = '/api') {
+    constructor(baseUrl = '/api') {
         this.baseUrl = baseUrl;
     }
 
@@ -137,7 +137,7 @@ export class ChatApi {
 /**
  * Create a chat API client
  */
-export function createChatClient(baseUrl: string = '/api'): ChatApi {
+export function createChatClient(baseUrl = '/api'): ChatApi {
     return new ChatApi(baseUrl);
 }
 

@@ -120,7 +120,7 @@ export function UnifiedPaymentFlow({
 
     // Token address for selected token
     const tokenAddress = useMemo(() => {
-        if (!isChainSupported) return null;
+        if (!isChainSupported) {return null;}
         try {
             return getTokenAddress(selectedToken.symbol, chainId);
         } catch {
@@ -130,7 +130,7 @@ export function UnifiedPaymentFlow({
 
     // Receiver address
     const receiverAddress = useMemo(() => {
-        if (!isChainSupported) return null;
+        if (!isChainSupported) {return null;}
         try {
             return getPaymentReceiverAddress(chainId);
         } catch {
@@ -140,7 +140,7 @@ export function UnifiedPaymentFlow({
 
     // Amount in token decimals
     const amountInDecimals = useMemo(() => {
-        if (!selectedPlan) return 0n;
+        if (!selectedPlan) {return 0n;}
         // Parse price string (remove $, USD, etc)
         const priceVal = selectedPlan.price.replace(/[^0-9.]/g, '');
         return parseUnits(priceVal, selectedToken.decimals);
@@ -169,7 +169,7 @@ export function UnifiedPaymentFlow({
 
     // Current plan tier level - use tier_level from planAccess if available
     const currentPlanTier = useMemo(() => {
-        if (!planAccess?.plan_name) return 0;
+        if (!planAccess?.plan_name) {return 0;}
         // planAccess.tier_level should come from the backend
         // If not available yet, default to 0 (will be added to backend response)
         return (planAccess as any).tier_level ?? 0;
@@ -182,8 +182,8 @@ export function UnifiedPaymentFlow({
     const getActionType = useCallback((plan: PricingCardData) => {
         const planTier = plan.tier_level ?? 0;
 
-        if (planTier === currentPlanTier) return 'extend';
-        if (planTier > currentPlanTier) return 'upgrade';
+        if (planTier === currentPlanTier) {return 'extend';}
+        if (planTier > currentPlanTier) {return 'upgrade';}
         if (planTier < currentPlanTier) {
             return 'downgrade';
         }
@@ -373,7 +373,7 @@ export function UnifiedPaymentFlow({
 
     // Get page title based on payment type
     const getPageTitle = () => {
-        if (title) return title;
+        if (title) {return title;}
         switch (paymentType) {
             case 'plan': return 'Choose Your Plan';
             case 'access-plan': return 'Join Group';
@@ -383,7 +383,7 @@ export function UnifiedPaymentFlow({
     };
 
     const getPageDescription = () => {
-        if (description) return description;
+        if (description) {return description;}
         switch (paymentType) {
             case 'plan': return 'Select a plan to unlock premium features and analytics';
             case 'access-plan': return 'Join this group to access shared permissions';
@@ -413,10 +413,10 @@ export function UnifiedPaymentFlow({
                         <Wallet className="h-10 w-10 text-amber-600 dark:text-amber-400" />
                     </div>
                     <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
-                        Connect to Continue
+                        Sign In to Continue
                     </h2>
                     <p className="text-gray-600 dark:text-gray-400 mb-6">
-                        Please connect and sign in with your wallet to proceed with payment.
+                        Please sign in with your wallet to proceed with payment.
                     </p>
                     <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-4 mb-6 text-left">
                         <div className="flex items-start gap-3 mb-3">

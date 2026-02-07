@@ -18,7 +18,7 @@ export type Platform = 'admin' | 'frontend'
 // COMPONENT PROPS INTERFACES
 // ============================================================================
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 export interface UIComponents {
     Badge: React.ComponentType<any>
     Button: React.ComponentType<any>
@@ -107,7 +107,7 @@ export function SharedPermissionDeniedModal({
     }
 
     const getRiskBadge = () => {
-        if (!error.risk_level) return null
+        if (!error.risk_level) {return null}
         const colors = {
             low: 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300',
             medium: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-300',
@@ -115,7 +115,7 @@ export function SharedPermissionDeniedModal({
             critical: 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-300'
         }
         return (
-            <Badge className={colors[error.risk_level as keyof typeof colors]}>
+            <Badge className={colors[error.risk_level]}>
                 {error.risk_level.toUpperCase()} RISK
             </Badge>
         )

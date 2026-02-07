@@ -127,7 +127,7 @@ export function AuthModal({
 
     // Handle sign message
     const handleSign = useCallback(async () => {
-        if (!address || !walletClient) return;
+        if (!address || !walletClient) {return;}
 
         try {
             setError(null);
@@ -142,7 +142,7 @@ export function AuthModal({
             console.log('[Auth] Signing message for address:', address);
             const signature = await walletClient.signMessage({
                 message: challengeData.message,
-                account: address as `0x${string}` // Explicitly pass account
+                account: address // Explicitly pass account
             });
 
             // Step 3: Verify signature with backend
@@ -232,10 +232,10 @@ export function AuthModal({
         setChallenge(null);
     }, [disconnect]);
 
-    if (!isOpen) return null;
+    if (!isOpen) {return null;}
 
     // Use portal to avoid z-index/stacking context issues
-    if (typeof document === 'undefined') return null;
+    if (typeof document === 'undefined') {return null;}
 
     const title = variant === 'admin' ? '🔐 Admin Access' : '🔗 Connect Wallet';
 

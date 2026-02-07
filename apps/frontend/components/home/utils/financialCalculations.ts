@@ -8,7 +8,7 @@ import type { StockFinancialData, QuarterData } from '@/types/financialChartData
  * Calculate percentage change between two values
  */
 export function calculatePercentageChange(current: number, previous: number): number {
-  if (previous === 0) return 0;
+  if (previous === 0) {return 0;}
   return ((current - previous) / previous) * 100;
 }
 
@@ -54,7 +54,7 @@ export function calculateVolatility(quarters: QuarterData[]): number | null {
     .map(q => q.eps_growth)
     .filter((growth): growth is number => growth !== undefined && growth !== null);
   
-  if (growthRates.length < 2) return null;
+  if (growthRates.length < 2) {return null;}
   
   const mean = growthRates.reduce((sum, rate) => sum + rate, 0) / growthRates.length;
   const variance = growthRates.reduce((sum, rate) => sum + Math.pow(rate - mean, 2), 0) / growthRates.length;
@@ -66,10 +66,10 @@ export function calculateVolatility(quarters: QuarterData[]): number | null {
  * Determine risk level based on volatility
  */
 export function getRiskLevel(volatility: number | null): 'low' | 'medium' | 'high' {
-  if (volatility === null) return 'medium';
+  if (volatility === null) {return 'medium';}
   
-  if (volatility < 10) return 'low';
-  if (volatility < 25) return 'medium';
+  if (volatility < 10) {return 'low';}
+  if (volatility < 25) {return 'medium';}
   return 'high';
 }
 
@@ -81,7 +81,7 @@ export function getTrendDirection(quarters: QuarterData[]): 'up' | 'down' | 'sid
     .map(q => q.eps_growth)
     .filter((growth): growth is number => growth !== undefined && growth !== null);
   
-  if (validGrowthRates.length < 2) return 'sideways';
+  if (validGrowthRates.length < 2) {return 'sideways';}
   
   let upCount = 0;
   let downCount = 0;
@@ -98,8 +98,8 @@ export function getTrendDirection(quarters: QuarterData[]): 'up' | 'down' | 'sid
     }
   }
   
-  if (upCount > downCount) return 'up';
-  if (downCount > upCount) return 'down';
+  if (upCount > downCount) {return 'up';}
+  if (downCount > upCount) {return 'down';}
   return 'sideways';
 }
 
@@ -107,7 +107,7 @@ export function getTrendDirection(quarters: QuarterData[]): 'up' | 'down' | 'sid
  * Calculate compound annual growth rate (CAGR)
  */
 export function calculateCAGR(startValue: number, endValue: number, periods: number): number | null {
-  if (startValue <= 0 || endValue <= 0 || periods <= 0) return null;
+  if (startValue <= 0 || endValue <= 0 || periods <= 0) {return null;}
   
   return (Math.pow(endValue / startValue, 1 / periods) - 1) * 100;
 }

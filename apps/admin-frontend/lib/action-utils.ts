@@ -2,7 +2,7 @@
  * Shared utilities for actions (not server actions)
  */
 
-export interface ActionResult<T = any> {
+export interface ActionResult<T = unknown> {
   success: boolean;
   data?: T;
   error?: string;

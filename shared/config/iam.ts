@@ -320,7 +320,7 @@ export function isValidPermission(permission: string): boolean {
  */
 export function parsePermission(permission: string): { platform: string; resource: string; action: string } | null {
   const parts = permission.split(':');
-  if (parts.length !== 3) return null;
+  if (parts.length !== 3) {return null;}
 
   return {
     platform: parts[0] || '',

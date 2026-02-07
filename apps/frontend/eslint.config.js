@@ -1,156 +1,34 @@
-const js = require('@eslint/js');
+const sharedConfig = require('../../shared/config/eslint.cjs');
 const typescript = require('@typescript-eslint/eslint-plugin');
-const typescriptParser = require('@typescript-eslint/parser');
 const nextjs = require('@next/eslint-plugin-next');
 const reactHooks = require('eslint-plugin-react-hooks');
+const globals = require('globals');
 
 module.exports = [
-  js.configs.recommended,
+  ...sharedConfig,
   {
-    files: ['**/*.{js,jsx,ts,tsx}'],
-    languageOptions: {
-      parser: typescriptParser,
-      parserOptions: {
-        ecmaVersion: 'latest',
-        sourceType: 'module',
-        ecmaFeatures: {
-          jsx: true,
-        },
-      },
-      globals: {
-        // Browser globals
-        window: 'readonly',
-        document: 'readonly',
-        console: 'readonly',
-        fetch: 'readonly',
-        URL: 'readonly',
-        URLSearchParams: 'readonly',
-        Buffer: 'readonly',
-        ReadableStream: 'readonly',
-        EventSource: 'readonly',
-        performance: 'readonly',
-        setTimeout: 'readonly',
-        clearTimeout: 'readonly',
-        setInterval: 'readonly',
-        clearInterval: 'readonly',
-        AbortSignal: 'readonly',
-        localStorage: 'readonly',
-        sessionStorage: 'readonly',
-        navigator: 'readonly',
-        location: 'readonly',
-        // DOM/HTML globals
-        HTMLElement: 'readonly',
-        HTMLDivElement: 'readonly',
-        HTMLButtonElement: 'readonly',
-        HTMLInputElement: 'readonly',
-        HTMLParagraphElement: 'readonly',
-        HTMLTableElement: 'readonly',
-        HTMLTableSectionElement: 'readonly',
-        HTMLTableRowElement: 'readonly',
-        HTMLTableCellElement: 'readonly',
-        HTMLTableCaptionElement: 'readonly',
-        HTMLTextAreaElement: 'readonly',
-        HTMLAnchorElement: 'readonly',
-        HTMLLabelElement: 'readonly',
-        HTMLLIElement: 'readonly',
-        HTMLUListElement: 'readonly',
-        HTMLSpanElement: 'readonly',
-        HTMLHeadingElement: 'readonly',
-        Element: 'readonly',
-        KeyboardEvent: 'readonly',
-        MouseEvent: 'readonly',
-        ErrorEvent: 'readonly',
-        MediaQueryListEvent: 'readonly',
-        // Web APIs
-        Response: 'readonly',
-        Request: 'readonly',
-        RequestInit: 'readonly',
-        Headers: 'readonly',
-        HeadersInit: 'readonly',
-        Blob: 'readonly',
-        BroadcastChannel: 'readonly',
-        MessageChannel: 'readonly',
-        MessageEvent: 'readonly',
-        CustomEvent: 'readonly',
-        PromiseRejectionEvent: 'readonly',
-        Notification: 'readonly',
-        NotificationOptions: 'readonly',
-        NotificationPermission: 'readonly',
-        FormData: 'readonly',
-        TextDecoder: 'readonly',
-        TextEncoder: 'readonly',
-        Storage: 'readonly',
-        Console: 'readonly',
-        ServiceWorkerRegistration: 'readonly',
-        screen: 'readonly',
-        alert: 'readonly',
-        confirm: 'readonly',
-        prompt: 'readonly',
-        btoa: 'readonly',
-        atob: 'readonly',
-        crypto: 'readonly',
-        requestAnimationFrame: 'readonly',
-        cancelAnimationFrame: 'readonly',
-        // Node.js globals
-        process: 'readonly',
-        NodeJS: 'readonly',
-        global: 'readonly',
-        require: 'readonly',
-        module: 'readonly',
-        exports: 'readonly',
-        __dirname: 'readonly',
-        __filename: 'readonly',
-        // React globals
-        React: 'readonly',
-        JSX: 'readonly',
-        // Test globals
-        expect: 'readonly',
-        test: 'readonly',
-        describe: 'readonly',
-        it: 'readonly',
-        jest: 'readonly',
-        beforeEach: 'readonly',
-        afterEach: 'readonly',
-        beforeAll: 'readonly',
-        afterAll: 'readonly',
-        // Missing globals
-        Node: 'readonly',
-        AbortController: 'readonly',
-        Touch: 'readonly',
-        TouchEvent: 'readonly',
-        PerformanceNavigationTiming: 'readonly',
-        defaultWeb3AuthState: 'readonly',
-        mockUser: 'readonly',
-      },
-    },
     plugins: {
       '@typescript-eslint': typescript,
       '@next/next': nextjs,
       'react-hooks': reactHooks,
     },
-    rules: {
-      // TypeScript rules
-      '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
-      '@typescript-eslint/no-explicit-any': 'warn',
-      
-      // Next.js rules
-      '@next/next/no-html-link-for-pages': 'error',
-      '@next/next/no-img-element': 'warn',
-      '@next/next/no-page-custom-font': 'warn',
-      
-      // General rules
-      'no-console': ['warn', { allow: ['warn', 'error'] }],
-      'jsdoc/require-*': 'off',
-      'no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
-      'no-var': 'warn',
-      'object-shorthand': ['warn', 'properties'],
-      'no-unreachable': 'warn',
-      'no-useless-catch': 'warn',
-      
-      // React rules
-      'react/jsx-uses-react': 'off',
-      'react/react-in-jsx-scope': 'off',
+    // Add any specific overrides for frontend app here if needed
+    files: ['**/*.{js,jsx,ts,tsx}'],
+    languageOptions: {
+      parserOptions: {
+        project: true, // Enable type-aware linting
+      },
+      globals: {
+        ...globals.browser,
+        ...globals.node,
+        React: 'readonly',
+        JSX: 'readonly',
+      }
     },
+    rules: {
+      // specific overrides for frontend can go here, but strict shared default is preferred.
+      'import/no-unresolved': 'off',
+    }
   },
   {
     files: ['**/*.spec.ts', '**/*.test.ts', '**/__test__/**'],

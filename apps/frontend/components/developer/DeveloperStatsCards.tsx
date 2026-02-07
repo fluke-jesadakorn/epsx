@@ -43,9 +43,9 @@ export function DeveloperStatsCards({ currentUser }: DeveloperStatsCardsProps) {
         : (hasApiKeys ? 'Default' : 'N/A');
 
     const getEarliestExpiry = () => {
-        if (!userGroupData?.plans?.length) return null;
+        if (!userGroupData?.plans?.length) {return null;}
         const expiringGroups = userGroupData.plans.filter(g => g.expires_at);
-        if (!expiringGroups.length) return null;
+        if (!expiringGroups.length) {return null;}
         const dates = expiringGroups.map(g => new Date(g.expires_at!));
         return new Date(Math.min(...dates.map(d => d.getTime())));
     };

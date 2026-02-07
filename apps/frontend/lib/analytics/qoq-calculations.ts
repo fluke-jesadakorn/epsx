@@ -79,7 +79,7 @@ export function getDisplayGrowthPercentage(ranking: UnifiedRankingItem): number 
  * Format growth percentage for display
  */
 export function formatGrowthPercentage(growth: number): string {
-  if (growth === 0) return '0.0%';
+  if (growth === 0) {return '0.0%';}
   return `${growth > 0 ? '+' : ''}${growth.toFixed(1)}%`;
 }
 

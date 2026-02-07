@@ -42,7 +42,6 @@ function parseSearchParams(
 }
 
 
-
 async function CardGrid({ params, isPortfolio }: { params: EPSQueryParams; isPortfolio?: boolean }) {
   // On the first page, fetch extra items to account for Top 5 special section
   const adjustedParams = {
@@ -54,7 +53,7 @@ async function CardGrid({ params, isPortfolio }: { params: EPSQueryParams; isPor
     ? await getPortfolioData(adjustedParams)
     : await getAnalyticsData(adjustedParams);
 
-  if (!data || !data.rankings || data.rankings.length === 0) {
+  if (!data?.rankings || data.rankings.length === 0) {
     return (
       <div className="py-12 text-center">
         <p className="mb-4 text-gray-600 dark:text-white">No data available</p>

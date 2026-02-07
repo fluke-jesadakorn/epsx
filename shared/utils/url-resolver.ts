@@ -143,8 +143,8 @@ export function getAdminUrl(context: URLContext | URLContextLegacy = URLContext.
 function getDefaultBackendUrl(): string {
   // check process.env first to respect dynamic config
   if (typeof process !== 'undefined') {
-    if (process.env.BACKEND_URL) return process.env.BACKEND_URL;
-    if (process.env.NEXT_PUBLIC_BACKEND_URL) return process.env.NEXT_PUBLIC_BACKEND_URL;
+    if (process.env.BACKEND_URL) {return process.env.BACKEND_URL;}
+    if (process.env.NEXT_PUBLIC_BACKEND_URL) {return process.env.NEXT_PUBLIC_BACKEND_URL;}
   }
 
   // In browser development, use the same host as the frontend but port 8080
@@ -156,15 +156,15 @@ function getDefaultBackendUrl(): string {
     }
   }
 
-  if (isDev) return 'http://127.0.0.1:8080';
-  if (isStaging) return 'https://staging-api.epsx.io';
+  if (isDev) {return 'http://127.0.0.1:8080';}
+  if (isStaging) {return 'https://staging-api.epsx.io';}
   return 'https://api.epsx.io'; // Production default
 }
 
 function getDefaultFrontendUrl(): string {
   if (typeof process !== 'undefined') {
-    if (process.env.FRONTEND_URL) return process.env.FRONTEND_URL;
-    if (process.env.NEXT_PUBLIC_APP_URL) return process.env.NEXT_PUBLIC_APP_URL;
+    if (process.env.FRONTEND_URL) {return process.env.FRONTEND_URL;}
+    if (process.env.NEXT_PUBLIC_APP_URL) {return process.env.NEXT_PUBLIC_APP_URL;}
   }
 
   // In browser development, use the same host but port 3000
@@ -175,15 +175,15 @@ function getDefaultFrontendUrl(): string {
     }
   }
 
-  if (isDev) return 'http://localhost:3000';
-  if (isStaging) return 'https://staging.epsx.io';
+  if (isDev) {return 'http://localhost:3000';}
+  if (isStaging) {return 'https://staging.epsx.io';}
   return 'https://epsx.io'; // Production default
 }
 
 function getDefaultAdminUrl(): string {
   if (typeof process !== 'undefined') {
-    if (process.env.ADMIN_FRONTEND_URL) return process.env.ADMIN_FRONTEND_URL;
-    if (process.env.NEXT_PUBLIC_ADMIN_URL) return process.env.NEXT_PUBLIC_ADMIN_URL;
+    if (process.env.ADMIN_FRONTEND_URL) {return process.env.ADMIN_FRONTEND_URL;}
+    if (process.env.NEXT_PUBLIC_ADMIN_URL) {return process.env.NEXT_PUBLIC_ADMIN_URL;}
   }
 
   // In browser development, use the same host but port 3001
@@ -194,8 +194,8 @@ function getDefaultAdminUrl(): string {
     }
   }
 
-  if (isDev) return 'http://localhost:3001';
-  if (isStaging) return 'https://staging-admin.epsx.io';
+  if (isDev) {return 'http://localhost:3001';}
+  if (isStaging) {return 'https://staging-admin.epsx.io';}
   return 'https://admin.epsx.io'; // Production default
 }
 
@@ -204,8 +204,8 @@ function getDefaultAdminUrl(): string {
  * @returns Current environment as enum
  */
 export function getCurrentEnvironment(): Environment {
-  if (isDev) return Environment.DEVELOPMENT;
-  if (isStaging) return Environment.STAGING;
+  if (isDev) {return Environment.DEVELOPMENT;}
+  if (isStaging) {return Environment.STAGING;}
   return Environment.PRODUCTION;
 }
 
@@ -425,7 +425,7 @@ export function getEnvironmentInfo() {
  * Only available in development
  */
 export function debugUrls(context: URLContext | URLContextLegacy = URLContext.SERVER) {
-  if (!isDev) return {};
+  if (!isDev) {return {};}
 
   return {
     context,

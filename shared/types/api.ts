@@ -16,7 +16,7 @@
  * Standard API Response Wrapper
  * All API endpoints must return this structure.
  */
-export interface ApiResponse<T = any> {
+export interface ApiResponse<T = unknown> {
   success: boolean;       // Check this first
   data: T | null;         // Payload if success=true, null if error
   error: ApiError | null; // Error details if success=false, null if success
@@ -29,7 +29,7 @@ export interface ApiResponse<T = any> {
 export interface ApiError {
   code: string;           // Machine-parsable (e.g., "VALIDATION_ERROR", "UNAUTHORIZED")
   message: string;        // Human-readable message
-  details?: Record<string, any>; // detailed validation errors or context
+  details?: Record<string, unknown>; // detailed validation errors or context
   requestId?: string;     // Optional trace ID for debugging
 }
 
@@ -43,7 +43,7 @@ export interface ApiMeta {
   total_pages?: number;
   trace_id?: string;
   timestamp?: string;
-  [key: string]: any;     // Allow extensibility
+  [key: string]: unknown;     // Allow extensibility
 }
 
 export interface ApiErrorDetail {
@@ -52,7 +52,7 @@ export interface ApiErrorDetail {
   code?: string;
 }
 
-export interface ActionResult<T = any> {
+export interface ActionResult<T = unknown> {
   success: boolean;
   data?: T;
   error?: string;

@@ -6,6 +6,11 @@ import { apiClient } from '@/lib/api-client'
 
 import type { AssetInfo, CreatePaymentRequest, CreatePaymentResponse } from '@/shared/types/payment'
 
+import { supportedAssets } from '@/app/constants/assets'
+
+import { logger } from '@/lib/utils/logging'
+import type { PaymentStatus } from '@/shared/types/api'
+
 async function getCreatePaymentSchema() {
   return z.object({
     currency: z.string(),
@@ -38,8 +43,6 @@ export async function createPayment(
   }
 }
 
-import { supportedAssets } from '@/app/constants/assets'
-
 // Get supported crypto assets
 async function getSupportedAssets(): Promise<AssetInfo[]> {
   return supportedAssets
@@ -50,9 +53,6 @@ export async function getAssetInfo(currency: string): Promise<AssetInfo | undefi
   const assets = await getSupportedAssets()
   return assets.find(asset => asset.currency === currency)
 }
-
-import { logger } from '@/lib/utils/logging'
-import type { PaymentStatus } from '@/shared/types/api'
 
 // Get payment status from backend
 export async function getPaymentStatus(): Promise<PaymentStatus | null> {

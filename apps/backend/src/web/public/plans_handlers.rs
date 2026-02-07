@@ -146,17 +146,12 @@ pub async fn get_public_plans(
             is_active: plan.is_active.unwrap_or(true),
             display_order: plan.display_order.unwrap_or(0),
         }
-    }).filter(|p| {
-        // Filter out free plans
-        let is_free = p.effective_price == 0.0 || p.name.to_lowercase() == "free plan";
-        if is_free { return false; }
-        
+    })
+    .filter(|p| {
+
+
         // Filter by category if requested
         if let Some(ref cat) = category_filter {
-            // Map plan_type to category-like string or check exact match
-            // "starter", "pro" -> subscription
-            // "enterprise" -> enterprise
-            // "api", "api_developer" -> api
             let p_type = p.plan_type.to_lowercase();
             match cat.as_str() {
                 "api" => p_type.contains("api"),
@@ -167,12 +162,41 @@ pub async fn get_public_plans(
         } else {
             true
         }
-    }).collect();
+    })
+    .collect();
+
+    // Append constant Free Plan
+
+    
+    // Sort by display_order
+    let mut final_plans = plans;
+    final_plans.sort_by_key(|p| p.display_order);
 
     (
         StatusCode::OK,
-        Json(ApiResponse::success(plans))
+        Json(ApiResponse::success(final_plans))
     )
+}
+
+fn get_constant_public_free_plan() -> PublicPlanResponse {
+    use crate::core::constants::*;
+    PublicPlanResponse {
+        id: FREE_PLAN_ID.to_string(),
+        name: FREE_PLAN_NAME.to_string(),
+        plan_type: "FREE".to_string(),
+        current_price: "0.00".to_string(),
+        effective_price: 0.0,
+        promotion_active: false,
+        promotion_status: "disabled".to_string(),
+        promotion_discount: 0.0,
+        promotion_ends_at: None,
+        currency: "USD".to_string(),
+        billing_cycle: "lifetime".to_string(),
+        features: vec!["Basic analytics".to_string(), "Rankings access".to_string()],
+        permissions: FREE_PLAN_DEFAULT_PERMISSIONS.iter().map(|s| s.to_string()).collect(),
+        is_active: true,
+        display_order: FREE_PLAN_TIER_LEVEL,
+    }
 }
 
 /// Get a single public plan by ID (no authentication required)
@@ -224,6 +248,7 @@ pub async fn get_public_plan_by_id(
     let plan = match db_plans.into_iter().find(|p| p.id == plan_uuid) {
         Some(p) => p,
         None => {
+
             tracing::warn!(plan_id = %plan_id, "⚠️ Plan not found");
             return (
                 StatusCode::NOT_FOUND,

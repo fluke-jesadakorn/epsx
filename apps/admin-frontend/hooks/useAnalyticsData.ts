@@ -3,6 +3,23 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback } from 'react';
 
+// ============================================================================
+// FETCHER (Legacy fetcher removed in favor of Server Action)
+// ============================================================================
+
+// ============================================================================
+// INDIVIDUAL DATA HOOKS (using shared types)
+// ============================================================================
+
+import {
+  getApiKeysAction,
+  getDeveloperPortalStatsAction,
+  getPermissionAnalyticsAction,
+  getPlanStatsAction,
+  getSystemMetricsAction,
+  getUserStatsAction
+} from '@/app/analytics/actions';
+
 
 // ============================================================================
 // TYPES & CONFIG (Restored locally after shared cleanup)
@@ -25,7 +42,7 @@ export interface PermissionAnalytics {
   total_groups?: number;
   total_permissions?: number;
   active_permissions?: number;
-  permission_usage?: any[];
+  permission_usage?: unknown[];
   expiring_soon?: number;
   expired?: number;
   health_score?: number;
@@ -43,8 +60,8 @@ export interface SystemMetrics {
 }
 
 export interface AnalyticsDashboardData {
-  summary: any;
-  trends: any[];
+  summary: unknown;
+  trends: unknown[];
   metrics?: {
     totalRequests?: number;
   };
@@ -59,7 +76,7 @@ export interface DeveloperPortalStats {
   active_modules: number;
   total_requests_today: number;
   total_requests_this_month: number;
-  top_modules_by_usage: any[];
+  top_modules_by_usage: unknown[];
 }
 
 export interface PlanStats {
@@ -99,7 +116,7 @@ export const combineLoadingStates = (...states: boolean[]) => states.some(Boolea
  *
  * @param {...any} errors
  */
-export const combineErrorStates = (...errors: any[]) => errors.some(Boolean);
+export const combineErrorStates = (...errors: unknown[]) => errors.some(Boolean);
 
 // ============================================================================
 // API KEYS TYPE (Admin-specific)
@@ -119,22 +136,39 @@ export interface ApiKeysResponse {
   api_keys?: ApiKey[];
 }
 
-// ============================================================================
-// FETCHER (Legacy fetcher removed in favor of Server Action)
-// ============================================================================
+export interface WalletConnection {
+  wallet_address: string;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  last_auth_at?: string;
+  is_active: boolean;
+  active_permissions_count: number;
+  connection_info: {
+    is_new: boolean;
+    last_seen?: number;
+  };
+}
 
-// ============================================================================
-// INDIVIDUAL DATA HOOKS (using shared types)
-// ============================================================================
+export interface WalletAnalytics {
+  total_in_period: number;
+  daily_breakdown: Array<{
+    date: string;
+    connections: number;
+  }>;
+  period_days: number;
+  avg_daily: number;
+}
 
-import {
-  getApiKeysAction,
-  getDeveloperPortalStatsAction,
-  getPermissionAnalyticsAction,
-  getPlanStatsAction,
-  getSystemMetricsAction,
-  getUserStatsAction
-} from '@/app/analytics/actions';
+export interface RecentWalletsData {
+  recent_wallets: WalletConnection[];
+  analytics: WalletAnalytics;
+  metadata: {
+    limit: number;
+    total_count: number;
+    has_more: boolean;
+    generated_at: string;
+  };
+}
 
 /**
  *
@@ -214,10 +248,10 @@ export function useSystemMetrics() {
 
 /**
  *
- * @param dateRange
- * @param selectedModule
+ * @param _dateRange
+ * @param _selectedModule
  */
-export function useAnalyticsDashboard(dateRange = '7d', selectedModule = 'all') {
+export function useAnalyticsDashboard(_dateRange = '7d', _selectedModule = 'all') {
   const { data, error, isLoading, refetch } = useQuery<DeveloperPortalStats>({
     queryKey: ['developer-portal-stats'],
     queryFn: getDeveloperPortalStatsAction,
@@ -289,6 +323,7 @@ export function useAnalyticsOverview() {
     // Data
     userStats,
     permissionAnalytics,
+    planStats,
     systemMetrics,
     dashboardData,
 

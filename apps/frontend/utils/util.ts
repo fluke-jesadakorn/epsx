@@ -23,10 +23,10 @@ export function debounce<T extends (...args: unknown[]) => unknown>(
 
     timeout = setTimeout(() => {
       timeout = null;
-      if (!immediate) func.apply(this, args);
+      if (!immediate) {func.apply(this, args);}
     }, wait);
 
-    if (callNow) func.apply(this, args);
+    if (callNow) {func.apply(this, args);}
   };
 }
 
@@ -80,7 +80,7 @@ export function deepClone<T>(obj: T): T {
 /**
  * Generate a unique ID
  */
-export function generateId(prefix: string = 'id'): string {
+export function generateId(prefix = 'id'): string {
   const timestamp = Date.now().toString(36);
   const randomStr = Math.random().toString(36).substr(2, 9);
   return `${prefix}_${timestamp}_${randomStr}`;
@@ -229,8 +229,8 @@ export const array = {
       const aVal = a[key];
       const bVal = b[key];
 
-      if (aVal < bVal) return direction === 'asc' ? -1 : 1;
-      if (aVal > bVal) return direction === 'asc' ? 1 : -1;
+      if (aVal < bVal) {return direction === 'asc' ? -1 : 1;}
+      if (aVal > bVal) {return direction === 'asc' ? 1 : -1;}
       return 0;
     });
   },
@@ -299,13 +299,13 @@ export const object = {
    * Deep merge objects
    */
   merge<T extends object>(target: T, ...sources: Partial<T>[]): T {
-    if (!sources.length) return target;
+    if (!sources.length) {return target;}
     const source = sources.shift();
 
     if (this.isObject(target) && this.isObject(source)) {
       for (const key in source) {
         if (this.isObject(source[key])) {
-          if (!target[key]) Object.assign(target, { [key]: {} });
+          if (!target[key]) {Object.assign(target, { [key]: {} });}
           this.merge(target[key] as object, source[key] as object);
         } else {
           Object.assign(target, { [key]: source[key] });
@@ -347,7 +347,7 @@ export const object = {
     const keys = path.split('.');
     const lastKey = keys.pop();
 
-    if (!lastKey) return;
+    if (!lastKey) {return;}
 
     let current: Record<string, unknown> = obj;
     for (const key of keys) {
@@ -365,7 +365,7 @@ export const object = {
  * Format file size in human readable format
  */
 export function formatFileSize(bytes: number): string {
-  if (bytes === 0) return '0 Bytes';
+  if (bytes === 0) {return '0 Bytes';}
 
   const k = 1024;
   const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
@@ -411,7 +411,7 @@ export function camelCase(str: string): string {
  * Calculate percentage change
  */
 export function calculatePercentageChange(oldValue: number, newValue: number): number {
-  if (oldValue === 0) return newValue === 0 ? 0 : 100;
+  if (oldValue === 0) {return newValue === 0 ? 0 : 100;}
   return ((newValue - oldValue) / oldValue) * 100;
 }
 
@@ -433,7 +433,7 @@ export function isBrowser(): boolean {
  * Check if code is running on mobile
  */
 export function isMobile(): boolean {
-  if (!isBrowser()) return false;
+  if (!isBrowser()) {return false;}
   return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 }
 
@@ -441,7 +441,7 @@ export function isMobile(): boolean {
  * Copy text to clipboard
  */
 export async function copyToClipboard(text: string): Promise<boolean> {
-  if (!isBrowser()) return false;
+  if (!isBrowser()) {return false;}
 
   try {
     if (navigator.clipboard) {

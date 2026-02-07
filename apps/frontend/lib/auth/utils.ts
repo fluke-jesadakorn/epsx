@@ -5,14 +5,14 @@
  */
 
 // Re-export shared JWT types and utilities
+import { getDisplayTierFromPermissions, getRankingLimitFromPermissions } from '@/app/constants/packages';
+import { authLogger, safeError } from '@/lib/utils/logging';
+
 export {
   decodeJWT, getJWTPermissions, getJWTTimeToExpiry, hasJWTPermission,
   isJWTAdmin, isJWTExpired, type CreateJWTClaimsOptions,
   type EPSXJWTPayload, type JWTUser
 } from '@/shared/auth/jwt';
-
-import { getDisplayTierFromPermissions, getRankingLimitFromPermissions } from '@/app/constants/packages';
-import { authLogger, safeError } from '@/lib/utils/logging';
 
 export interface JWTClaims {
   sub: string;                    // User ID
@@ -91,8 +91,8 @@ export function getPrimaryPlatform(permissions: string[]): string {
   const platforms = getAccessiblePlatforms(permissions);
 
   // Priority order: admin > epsx > others
-  if (platforms.includes('admin')) return 'admin';
-  if (platforms.includes('epsx')) return 'epsx';
+  if (platforms.includes('admin')) {return 'admin';}
+  if (platforms.includes('epsx')) {return 'epsx';}
 
   return platforms[0] || 'epsx';
 }
@@ -154,7 +154,7 @@ export function parseJWTForUI(token: string): JWTClaims | null {
  */
 export function isTokenExpired(token: string): boolean {
   const claims = parseJWTForUI(token);
-  if (!claims) return true;
+  if (!claims) {return true;}
 
   return Date.now() >= claims.exp * 1000;
 }
@@ -164,7 +164,7 @@ export function isTokenExpired(token: string): boolean {
  */
 export function getTimeToExpiry(token: string): number {
   const claims = parseJWTForUI(token);
-  if (!claims) return 0;
+  if (!claims) {return 0;}
 
   return (claims.exp * 1000) - Date.now();
 }
@@ -202,7 +202,7 @@ class SecureTokenRefreshManager {
    * Generate device fingerprint for security
    */
   private generateDeviceFingerprint(): string {
-    if (typeof window === 'undefined') return 'server';
+    if (typeof window === 'undefined') {return 'server';}
 
     const components = [
       navigator.userAgent,
@@ -219,7 +219,7 @@ class SecureTokenRefreshManager {
    * Start automatic token refresh monitoring
    */
   public startAutoRefresh(): void {
-    if (this.refreshTimer) return;
+    if (this.refreshTimer) {return;}
 
     this.refreshTimer = setInterval(async () => {
       await this.checkAndRefreshToken();
@@ -245,7 +245,7 @@ class SecureTokenRefreshManager {
         credentials: 'include'
       });
 
-      if (!response.ok) return;
+      if (!response.ok) {return;}
 
       const { needsRefresh, expiresIn } = await response.json();
 

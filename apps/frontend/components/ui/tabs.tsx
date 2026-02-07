@@ -104,7 +104,7 @@ const TabsContent = React.forwardRef<HTMLDivElement, TabsContentProps>(
     const { value: selectedValue } = context;
     const isActive = selectedValue === value;
 
-    if (!isActive) return null;
+    if (!isActive) {return null;}
 
     return (
       <div

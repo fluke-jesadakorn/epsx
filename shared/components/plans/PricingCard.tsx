@@ -31,10 +31,10 @@ interface PricingCardProps {
     className?: string
 }
 
-function getPlanIcon(planType: string = '') {
+function getPlanIcon(planType = '') {
     const type = planType.toLowerCase();
-    if (type.includes('enterprise') || type.includes('whale')) return <Crown className="w-6 h-6" />;
-    if (type.includes('pro')) return <Zap className="w-6 h-6" />;
+    if (type.includes('enterprise') || type.includes('whale')) {return <Crown className="w-6 h-6" />;}
+    if (type.includes('pro')) {return <Zap className="w-6 h-6" />;}
     return <Sparkles className="w-6 h-6" />;
 }
 
@@ -170,7 +170,7 @@ export function PricingCard({
                         )}
                         onClick={(e) => {
                             e.stopPropagation(); // Prevent card click if button clicked
-                            if (!isDisabled) onSelect(card);
+                            if (!isDisabled) {onSelect(card);}
                         }}
                     >
                         <span className="relative flex items-center justify-center gap-2">

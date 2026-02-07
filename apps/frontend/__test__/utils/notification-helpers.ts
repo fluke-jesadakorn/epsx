@@ -89,10 +89,10 @@ export async function getUnreadCount(page: Page): Promise<number> {
 
   try {
     const isVisible = await badge.isVisible({ timeout: 2000 })
-    if (!isVisible) return 0
+    if (!isVisible) {return 0}
 
     const text = await badge.textContent()
-    if (!text) return 0
+    if (!text) {return 0}
 
     const match = text.match(/(\d+)/)
     return match ? parseInt(match[1], 10) : 0

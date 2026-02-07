@@ -26,7 +26,7 @@ export default function StockRankingTable({
 }: StockRankingTableProps): React.JSX.Element {
   // Apply rank shift if needed (for future use)
   const processedData = React.useMemo(() => {
-    if (rankShift === 0) return data;
+    if (rankShift === 0) {return data;}
     
     // Future implementation: shift ranks without changing logic
     // This will allow different zones to show different ranking perspectives

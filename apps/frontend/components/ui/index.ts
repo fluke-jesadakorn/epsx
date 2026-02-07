@@ -6,6 +6,17 @@
 
 import React from 'react';
 
+import {
+  UnifiedLoader,
+  UnifiedLoading,
+  UnifiedProgressBar,
+  UnifiedSkeleton,
+  type UnifiedLoaderProps,
+  type UnifiedLoadingProps,
+  type UnifiedProgressBarProps,
+  type UnifiedSkeletonProps
+} from '@/shared/components/loaders/UnifiedLoader';
+
 // ============================================================================
 // BASIC PRIMITIVES - Re-export from shared
 // ============================================================================
@@ -70,17 +81,6 @@ export {
   type UnifiedCardSectionProps, type UnifiedCardSize, type UnifiedCardVariant, type UnifiedFeatureCardProps, type UnifiedListCardProps,
   type UnifiedListItem, type UnifiedStatsCardProps
 } from '@/shared/components/cards/CardVariants';
-
-import {
-  UnifiedLoader,
-  UnifiedLoading,
-  UnifiedProgressBar,
-  UnifiedSkeleton,
-  type UnifiedLoaderProps,
-  type UnifiedLoadingProps,
-  type UnifiedProgressBarProps,
-  type UnifiedSkeletonProps
-} from '@/shared/components/loaders/UnifiedLoader';
 
 export {
   UnifiedLoader, UnifiedLoading, UnifiedProgressBar, UnifiedSkeleton,

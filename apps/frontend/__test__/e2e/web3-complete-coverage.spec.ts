@@ -39,7 +39,7 @@ async function mockWallet(page: any, address: string, options: any = {}) {
       request: async ({ method, params: methodParams }: any) => {
         switch (method) {
           case 'eth_requestAccounts':
-            if (rejectConn) throw new Error('User rejected connection');
+            if (rejectConn) {throw new Error('User rejected connection');}
             return [addr];
           case 'eth_accounts':
             return [addr];
@@ -48,7 +48,7 @@ async function mockWallet(page: any, address: string, options: any = {}) {
           case 'eth_getBalance':
             return bal;
           case 'personal_sign':
-            if (rejectSign) throw new Error('User rejected signing');
+            if (rejectSign) {throw new Error('User rejected signing');}
             return '0x' + 'a'.repeat(130);
           case 'wallet_switchEthereumChain':
             return null;

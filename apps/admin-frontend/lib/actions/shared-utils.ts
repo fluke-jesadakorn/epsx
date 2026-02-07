@@ -11,8 +11,8 @@ import { ServerAuth } from '../server/helpers';
 export async function makeAuthenticatedRequest(
     endpoint: string,
     options: RequestInit = {}
-): Promise<any> {
-    const backendUrl = process.env.BACKEND_URL || 'http://127.0.0.1:8080';
+): Promise<unknown> {
+    const backendUrl = process.env.BACKEND_URL ?? 'http://127.0.0.1:8080';
     const headers = await ServerAuth.getAuthHeaders();
 
     const response = await fetch(`${backendUrl}${endpoint}`, {
@@ -30,7 +30,7 @@ export async function makeAuthenticatedRequest(
 
     // Handle empty responses
     const contentType = response.headers.get('content-type');
-    if (contentType && contentType.includes('application/json')) {
+    if (contentType?.includes('application/json')) {
         return response.json();
     }
 

@@ -152,11 +152,17 @@ pub const PRICE_SEARCH_WINDOW: i64 = DAY;
 // FREE PLAN CONSTANTS
 // ============================================================================
 
+/// Free Plan ID (Nil UUID)
+pub const FREE_PLAN_ID: &str = "00000000-0000-0000-0000-000000000000";
+
 /// Free Plan ranking offset - unauthenticated/no-plan users see ranks 101+
 pub const FREE_PLAN_RANKING_OFFSET: i32 = 100;
 
 /// Free Plan name
-pub const FREE_PLAN_NAME: &str = "Free Plan";
+pub const FREE_PLAN_NAME: &str = "Free";
+
+/// Free Plan description
+pub const FREE_PLAN_DESCRIPTION: &str = "Standard access to the platform";
 
 /// Free Plan slug
 pub const FREE_PLAN_SLUG: &str = "free";
@@ -166,3 +172,9 @@ pub const FREE_PLAN_TIER_LEVEL: i32 = 0;
 
 /// Free Plan rankings limit
 pub const FREE_PLAN_RANKINGS_LIMIT: i32 = 5;
+
+/// Free Plan default permissions - these are always granted to all users
+pub const FREE_PLAN_DEFAULT_PERMISSIONS: &[&str] = &[
+    "analytics:basic",
+    "markets:view",
+];

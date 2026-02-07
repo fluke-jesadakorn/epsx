@@ -59,14 +59,14 @@ export function WalletHub({ className }: WalletHubProps) {
 
     // State
     const [wallets, setWallets] = useState<WalletData[]>([]);
-    const [stats, setStats] = useState<WalletStats>(DEFAULT_STATS);
+    const [_stats, setStats] = useState<WalletStats>(DEFAULT_STATS);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [viewMode, setViewMode] = useState<'cards' | 'table'>('table');
 
     // Pagination
-    const [page, setPage] = useState(1);
-    const [totalPages, setTotalPages] = useState(1);
+    const [page, _setPage] = useState(1);
+    const [_totalPages, setTotalPages] = useState(1);
 
     // Filters
     const [filters, setFilters] = useState<WalletFilters>({
@@ -237,7 +237,7 @@ export function WalletHub({ className }: WalletHubProps) {
                         <div className="flex gap-2">
                             <Select
                                 value={filters.status}
-                                onValueChange={(v) => setFilters((prev) => ({ ...prev, status: v as any }))}
+                                onValueChange={(v) => setFilters((prev) => ({ ...prev, status: v as unknown as WalletFilters['status'] }))}
                             >
                                 <SelectTrigger className="w-32 h-10 bg-muted/30 border-border/50">
                                     <SelectValue placeholder="Status" />
@@ -252,7 +252,7 @@ export function WalletHub({ className }: WalletHubProps) {
 
                             <Select
                                 value={filters.sortBy}
-                                onValueChange={(v) => setFilters((prev) => ({ ...prev, sortBy: v as any }))}
+                                onValueChange={(v) => setFilters((prev) => ({ ...prev, sortBy: v as unknown as WalletFilters['sortBy'] }))}
                             >
                                 <SelectTrigger className="w-36 h-10 bg-muted/30 border-border/50">
                                     <SelectValue placeholder="Sort" />
@@ -429,7 +429,7 @@ export function WalletHub({ className }: WalletHubProps) {
             )}
 
             {/* Re-enable Modal */}
-            {reenableModalWallet && reenableModalWallet.disableInfo && (
+            {reenableModalWallet?.disableInfo && (
                 <ReenableWalletModal
                     walletAddress={reenableModalWallet.walletAddress}
                     disableInfo={reenableModalWallet.disableInfo}

@@ -2,6 +2,9 @@
 
 import { usePlanStats } from './useAnalyticsData';
 
+import { getPermissionsAction } from '@/app/wallet-management/access/permission-actions';
+import { useQuery } from '@tanstack/react-query';
+
 /**
  * Hook for Plan Analytics Dashboard
  * Acts as a bridge to the unified usePlanStats hook
@@ -33,15 +36,12 @@ export function usePlanAnalytics() {
 // import { usePlanAnalytics } from '@/hooks/usePlanPermissions';
 export default usePlanAnalytics;
 
-import { getPermissionsAction } from '@/app/wallet-management/access/permission-actions';
-import { useQuery } from '@tanstack/react-query';
-
 export function useAvailablePermissions() {
     const { data, isLoading, error } = useQuery({
         queryKey: ['available-permissions-list'],
         queryFn: async () => {
             const res = await getPermissionsAction();
-            if (!res.success) throw new Error(res.error);
+            if (!res.success) {throw new Error(res.error);}
             // Return permission strings
             return res.data?.map(p => p.permission_string) || [];
         }

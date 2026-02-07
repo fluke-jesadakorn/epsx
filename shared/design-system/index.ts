@@ -14,6 +14,13 @@
 // DESIGN TOKENS
 // ============================================================================
 
+// ============================================================================
+// DEFAULT EXPORT
+// ============================================================================
+
+import * as components from './components';
+import * as tokens from './tokens';
+
 export {
     // Animation system
     animation,
@@ -89,13 +96,6 @@ export const designSystemMeta = {
     description: 'Type-safe design system shared between Frontend and Admin-Frontend apps',
     author: 'EPSX Team',
 } as const;
-
-// ============================================================================
-// DEFAULT EXPORT
-// ============================================================================
-
-import * as components from './components';
-import * as tokens from './tokens';
 
 /**
  * Default export with all design system utilities

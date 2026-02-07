@@ -164,6 +164,21 @@ export function createMockUser(overrides: Partial<BackendUserSummary> = {}): Use
 }
 
 /**
+ * Internal helper for optional field validation
+ * @param d 
+ */
+function validateOptionalFields(d: Record<string, unknown>): boolean {
+  return (
+    (d.email === undefined || typeof d.email === 'string') &&
+    (d.display_name === undefined || typeof d.display_name === 'string') &&
+    (d.role === undefined || typeof d.role === 'string') &&
+    (d.status === undefined || typeof d.status === 'string') &&
+    (d.email_verified === undefined || typeof d.email_verified === 'boolean') &&
+    (d.last_login_at === undefined || typeof d.last_login_at === 'string')
+  );
+}
+
+/**
  * Validate backend user data
  * @param data
  */
@@ -188,19 +203,5 @@ export function validateBackendUser(data: unknown): data is BackendUserSummary {
     return false;
   }
 
-  // Allow optional fields to be missing or have correct types
-  const optionalFieldsValid = (
-    (d.email === undefined || typeof d.email === 'string') &&
-    (d.display_name === undefined || typeof d.display_name === 'string') &&
-    (d.role === undefined || typeof d.role === 'string') &&
-    (d.status === undefined || typeof d.status === 'string') &&
-    (d.email_verified === undefined || typeof d.email_verified === 'boolean') &&
-    (d.last_login_at === undefined || typeof d.last_login_at === 'string')
-  );
-
-  if (!optionalFieldsValid) {
-    return false;
-  }
-
-  return true;
+  return validateOptionalFields(d);
 }

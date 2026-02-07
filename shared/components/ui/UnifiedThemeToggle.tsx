@@ -145,7 +145,7 @@ export function UnifiedThemeToggle({
     };
 
     const getLabel = () => {
-        if (!showLabel) return null;
+        if (!showLabel) {return null;}
         return (
             <span className={cn(sizeStyle.text, 'hidden sm:inline font-medium')}>
                 {isDark ? 'Light' : 'Dark'}
@@ -154,7 +154,7 @@ export function UnifiedThemeToggle({
     };
 
     const handleToggle = () => {
-        if (!mounted) return;
+        if (!mounted) {return;}
 
         const newTheme = isDark ? 'light' : 'dark';
 

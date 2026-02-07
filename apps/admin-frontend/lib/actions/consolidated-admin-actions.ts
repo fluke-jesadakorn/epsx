@@ -1,6 +1,6 @@
 'use server';
 
-
+import { getAdminClient } from '../api-client';
 
 // ============================================================================
 // TYPES
@@ -36,7 +36,7 @@ export async function createAdminNotification(
   params: CreateNotificationParams
 ): Promise<ActionResult> {
   try {
-    const client = await getAdminClient();
+    const client = getAdminClient();
 
     // Map frontend priority to backend priority
     const priorityMap: Record<string, string> = {
@@ -65,7 +65,7 @@ export async function createAdminNotification(
       expires_at: params.expiresAt,
     };
 
-    const response = await client.post<any>('/api/admin/notifications/send', requestBody);
+    const response = await client.post<unknown>('/api/admin/notifications/send', requestBody);
 
     if (!response.success) {
       return {
@@ -116,9 +116,9 @@ export async function sendNotification(
  */
 export async function cleanupExpiredPermissionsAction(): Promise<ActionResult> {
   try {
-    const client = await getAdminClient();
+    const client = getAdminClient();
 
-    const response = await client.post<any>('/api/admin/permissions/cleanup');
+    const response = await client.post<unknown>('/api/admin/permissions/cleanup');
 
     if (!response.success) {
       return {

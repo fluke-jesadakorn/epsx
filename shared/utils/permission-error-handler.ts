@@ -83,7 +83,7 @@ export function handlePermissionError(
 
     // Log for debugging
     const prefix = platform === 'admin' ? '🔒 Admin Permission Denied:' : '🔒 Permission Denied:'
-    // eslint-disable-next-line no-console
+     
     console.error(prefix, {
         type: error.error_type,
         message: error.message,

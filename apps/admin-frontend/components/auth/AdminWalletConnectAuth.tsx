@@ -1,6 +1,6 @@
 'use client';
 
-import { AlertCircle, ChevronDown, Loader2, Wallet } from 'lucide-react';
+import { AlertCircle, ChevronDown, Loader2, Wallet , Check, Copy, ExternalLink, LogOut } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useAccount, useDisconnect } from 'wagmi';
 import { AuthModal } from '@/shared/components/auth';
@@ -11,7 +11,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Check, Copy, ExternalLink, LogOut } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface AdminWalletConnectAuthProps {

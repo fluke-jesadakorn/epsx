@@ -350,7 +350,7 @@ function RankingsList({ data, isLoading, onPageChange, onReset }: RankingsListPr
     return <RankingsListSkeleton />;
   }
 
-  if (!data || !data.rankings || data.rankings.length === 0) {
+  if (!data?.rankings || data.rankings.length === 0) {
     return <NoResultsState onReset={onReset} />;
   }
 
@@ -361,11 +361,11 @@ function RankingsList({ data, isLoading, onPageChange, onReset }: RankingsListPr
         <div className="overflow-x-auto">
           <div className="flex gap-4 pb-4" style={{ width: 'max-content' }}>
             {data.rankings.map((ranking, index: number) => (
-              <div key={ranking.symbol as string} className="w-80 flex-shrink-0">
+              <div key={ranking.symbol} className="w-80 flex-shrink-0">
                 <StockDataCard
-                  symbol={ranking.symbol as string}
-                  rank={(ranking.rank as number) || index + 1}
-                  epsGrowth={(ranking.epsGrowth as number) || 0}
+                  symbol={ranking.symbol}
+                  rank={(ranking.rank) || index + 1}
+                  epsGrowth={(ranking.epsGrowth) || 0}
                   price={(ranking as any).price || (ranking as any).price_current || (ranking as any).current_price || 0}
                   currency="USD"
                   companyName={(ranking as any).name || (ranking as any).companyName}
@@ -386,10 +386,10 @@ function RankingsList({ data, isLoading, onPageChange, onReset }: RankingsListPr
       <div className="mb-6 hidden sm:grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
         {data.rankings.map((ranking) => (
           <StockDataCard
-            key={ranking.symbol as string}
-            symbol={ranking.symbol as string}
-            rank={(ranking.rank as number) || 0}
-            epsGrowth={(ranking.epsGrowth as number) || 0}
+            key={ranking.symbol}
+            symbol={ranking.symbol}
+            rank={(ranking.rank) || 0}
+            epsGrowth={(ranking.epsGrowth) || 0}
             price={(ranking as any).price || (ranking as any).price_current || (ranking as any).current_price || 0}
             currency="USD"
             companyName={(ranking as any).name || (ranking as any).companyName}

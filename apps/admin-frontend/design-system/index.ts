@@ -15,6 +15,49 @@
 // ============================================================================
 
 // Re-export all shared tokens and components
+// ============================================================================
+// BACKWARDS COMPATIBILITY ALIASES
+// ============================================================================
+
+// Alias shared variants with 'admin' prefix for existing code
+import {
+  badgeVariants as _badgeVariants,
+  buttonVariants as _buttonVariants,
+  cardVariants as _cardVariants,
+  inputVariants as _inputVariants,
+  loadingVariants as _loadingVariants,
+  modalVariants as _modalVariants,
+  tableVariants as _tableVariants,
+  type BadgeVariants,
+  type ButtonVariants,
+  type CardVariants,
+  type InputVariants,
+  type LoadingVariants,
+  type ModalVariants,
+  type TableVariants,
+} from '@/shared/design-system';
+
+// ============================================================================
+// UTILITY FUNCTIONS
+// ============================================================================
+
+import designSystem, {
+  animation as _animation,
+  borderRadius as _borderRadius,
+  breakpoints as _breakpoints,
+  colors as _colors,
+  semanticColors as _semanticColors,
+  shadows as _shadows,
+  spacing as _spacing,
+  typography as _typography,
+  zIndex as _zIndex,
+} from '@/shared/design-system';
+
+// ============================================================================
+// DEFAULT EXPORT
+// ============================================================================
+
+
 export {
   animation, badgeVariants, borderRadius, breakpoints, buttonVariants,
   cardVariants,
@@ -44,28 +87,6 @@ export {
 // Re-export PancakeSwap x Windows Phone theme (admin-only)
 export { PancakePhoneTheme, type PancakePhoneThemeType } from './pancake-phone-theme';
 
-// ============================================================================
-// BACKWARDS COMPATIBILITY ALIASES
-// ============================================================================
-
-// Alias shared variants with 'admin' prefix for existing code
-import {
-  badgeVariants as _badgeVariants,
-  buttonVariants as _buttonVariants,
-  cardVariants as _cardVariants,
-  inputVariants as _inputVariants,
-  loadingVariants as _loadingVariants,
-  modalVariants as _modalVariants,
-  tableVariants as _tableVariants,
-  type BadgeVariants,
-  type ButtonVariants,
-  type CardVariants,
-  type InputVariants,
-  type LoadingVariants,
-  type ModalVariants,
-  type TableVariants,
-} from '@/shared/design-system';
-
 // Admin-prefixed aliases (for backwards compatibility)
 export const adminButtonVariants = _buttonVariants;
 export const adminCardVariants = _cardVariants;
@@ -83,22 +104,6 @@ export type AdminInputVariants = InputVariants;
 export type AdminTableVariants = TableVariants;
 export type AdminModalVariants = ModalVariants;
 export type AdminLoadingVariants = LoadingVariants;
-
-// ============================================================================
-// UTILITY FUNCTIONS
-// ============================================================================
-
-import {
-  animation as _animation,
-  borderRadius as _borderRadius,
-  breakpoints as _breakpoints,
-  colors as _colors,
-  semanticColors as _semanticColors,
-  shadows as _shadows,
-  spacing as _spacing,
-  typography as _typography,
-  zIndex as _zIndex,
-} from '@/shared/design-system';
 
 /**
  * Get design system tokens (non-hook version)
@@ -263,11 +268,5 @@ export function isValidBadgeVariant(
   ];
   return validVariants.includes(variant);
 }
-
-// ============================================================================
-// DEFAULT EXPORT
-// ============================================================================
-
-import designSystem from '@/shared/design-system';
 
 export default designSystem;

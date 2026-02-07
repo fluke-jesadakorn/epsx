@@ -37,12 +37,12 @@ export default function AuthPageClient({ serverHasSession }: AuthPageClientProps
 
     // Redirect if BOTH server and client confirm authentication
     useEffect(() => {
-        if (!mounted || redirectingRef.current) return;
+        if (!mounted || redirectingRef.current) {return;}
 
         const checkAndRedirect = async () => {
             // Only redirect if server confirms session AND client has user
             if (serverHasSession && isAuthenticated && user) {
-                if (redirectingRef.current) return;
+                if (redirectingRef.current) {return;}
                 redirectingRef.current = true;
 
                 const returnUrl = await getAndClearReturnUrlAction();
@@ -56,7 +56,7 @@ export default function AuthPageClient({ serverHasSession }: AuthPageClientProps
 
     const handleAuthSuccess = async () => {
         try {
-            if (redirectingRef.current) return;
+            if (redirectingRef.current) {return;}
             redirectingRef.current = true;
 
             const returnUrl = await getAndClearReturnUrlAction();

@@ -121,6 +121,38 @@ fn generate_api_key() -> String {
     format!("epsx_{}", key)
 }
 
+fn get_constant_free_plan() -> PlanResponse {
+    use crate::core::constants::*;
+    PlanResponse {
+        id: FREE_PLAN_ID.to_string(),
+        name: FREE_PLAN_NAME.to_string(),
+        description: Some(FREE_PLAN_DESCRIPTION.to_string()),
+        permission_plan_name: FREE_PLAN_NAME.to_string(),
+        current_price: Decimal::ZERO,
+        effective_price: 0.0,
+        promotion_active: false,
+        promotion_status: "disabled".to_string(),
+        promotion_discount: 0.0,
+        currency: "USD".to_string(),
+        target_audience: "all".to_string(),
+        billing_model: "lifetime".to_string(),
+        plan_type: "subscription".to_string(),
+        plan_category: "standard".to_string(),
+        is_active: true,
+        permissions: FREE_PLAN_DEFAULT_PERMISSIONS.iter().map(|s| s.to_string()).collect(),
+        metadata: Some(serde_json::json!({
+            "is_constant": true,
+            "can_delete": false,
+            "can_update": false
+        })),
+        created_at: Utc::now(), // Use current time or a fixed epoch
+        updated_at: None,
+        subscriber_count: 0,
+        revenue_last_30_days: Decimal::ZERO,
+        tier_level: FREE_PLAN_TIER_LEVEL,
+    }
+}
+
 
 /// Create Plan Handler
 #[utoipa::path(
@@ -210,10 +242,14 @@ pub async fn list_plans_handler(
 
     match query_handler.handle(ListPlansQuery { criteria }).await {
         Ok(plans) => {
-            let responses: Vec<PlanResponse> = plans.into_iter()
+            let mut responses: Vec<PlanResponse> = plans.into_iter()
                 .map(|p| map_plan_to_response(p, 0, Decimal::ZERO)) // TODO: Fetch real stats
                 .collect();
                 
+            // Remove manual appending of constant Free Plan
+            // Sort by tier_level
+            responses.sort_by_key(|p| p.tier_level);
+
             Ok(JsonResponse(PlanListResponse {
                 success: true,
                 message: "Plans retrieved".to_string(),
@@ -256,7 +292,9 @@ pub async fn get_plan_handler(
         Ok(Some(plan)) => {
              Ok(JsonResponse(map_plan_to_response(plan, 0, Decimal::ZERO)))
         },
-        Ok(None) => Err(StatusCode::NOT_FOUND),
+        Ok(None) => {
+            Err(StatusCode::NOT_FOUND)
+        },
         Err(e) => {
             tracing::error!("Failed to get plan: {}", e);
             Err(StatusCode::INTERNAL_SERVER_ERROR)
@@ -282,6 +320,8 @@ pub async fn update_plan_handler(
     let repo = app_state.domain_container.get_plan_repository_port()
         .ok_or(StatusCode::INTERNAL_SERVER_ERROR)?;
     
+
+
     let command_handler = UpdatePlanCommandHandler::new(repo.clone());
     let plan_id = PlanId::from_str(&id).map_err(|_| StatusCode::BAD_REQUEST)?;
     
@@ -350,6 +390,11 @@ pub async fn delete_plan_handler(
     let repo = app_state.domain_container.get_plan_repository_port()
         .ok_or(StatusCode::INTERNAL_SERVER_ERROR)?;
     
+    // Block deletion of constant Free Plan
+    if id == crate::core::constants::FREE_PLAN_ID {
+        return Err(StatusCode::FORBIDDEN);
+    }
+
     let command_handler = DeletePlanCommandHandler::new(repo.clone());
     let plan_id = PlanId::from_str(&id).map_err(|_| StatusCode::BAD_REQUEST)?;
 

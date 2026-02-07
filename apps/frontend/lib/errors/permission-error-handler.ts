@@ -5,6 +5,12 @@
  * @see shared/utils/permission-error-handler.ts for implementation
  */
 
+import {
+  fetchWithPermissionHandling as sharedFetchWithPermissionHandling,
+  handlePermissionError as sharedHandlePermissionError,
+  type BackendPermissionError
+} from '@/shared/utils/permission-error-handler';
+
 export type {
   BackendPermissionError,
   PermissionErrorEvent,
@@ -13,12 +19,6 @@ export type {
 
 export {
   extractPermissionError, getErrorMessage, isPermissionError, onPermissionError, PermissionDeniedError
-} from '@/shared/utils/permission-error-handler';
-
-import {
-  fetchWithPermissionHandling as sharedFetchWithPermissionHandling,
-  handlePermissionError as sharedHandlePermissionError,
-  type BackendPermissionError
 } from '@/shared/utils/permission-error-handler';
 
 /**

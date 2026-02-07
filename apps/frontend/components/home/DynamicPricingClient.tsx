@@ -80,7 +80,7 @@ export const DynamicPricingClient = ({
                         .filter((plan: any) => plan.is_active)
                         .filter((plan: any) => {
                             const type = plan.plan_type?.toLowerCase();
-                            return !type || !type.includes('api');
+                            return !type?.includes('api');
                         })
                         .sort((a: any, b: any) => (a.display_order || 0) - (b.display_order || 0))
                         .map(transformToPricingCard);
@@ -89,7 +89,7 @@ export const DynamicPricingClient = ({
                         .filter((plan: any) => plan.is_active)
                         .filter((plan: any) => {
                             const type = plan.plan_type?.toLowerCase();
-                            return type && type.includes('api');
+                            return type?.includes('api');
                         })
                         .sort((a: any, b: any) => (a.display_order || 0) - (b.display_order || 0))
                         .map(transformToPricingCard);

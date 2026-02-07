@@ -20,6 +20,7 @@
     "@rainbow-me/rainbowkit": "^2.2.10",
     "wagmi": "^2.15.5",
     "viem": "^2.41.2",
+    "eslint": "^9.0.0",
     "react": "19.2.3",
     "@types/react": "19.2.7",
     "@types/react-dom": "19.2.3",

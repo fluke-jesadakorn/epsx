@@ -70,7 +70,7 @@ export function PaymentHistoryTab({ initialData }: PaymentHistoryTabProps) {
                 setLoading(true);
             }
             // Don't clear error on silent updates to avoid flickering if it was already showing error
-            if (!silent) setError(null);
+            if (!silent) {setError(null);}
 
             const response = await base.get<PaymentHistoryData>('/api/payments/history', {
                 page: page.toString(),
@@ -93,7 +93,7 @@ export function PaymentHistoryTab({ initialData }: PaymentHistoryTabProps) {
             }
         } catch (err) {
             console.error('Error fetching payment history:', err);
-            if (!silent) setError('Unable to load payment history. Please try again later.');
+            if (!silent) {setError('Unable to load payment history. Please try again later.');}
         } finally {
             if (!silent) {
                 setLoading(false);
@@ -125,7 +125,7 @@ export function PaymentHistoryTab({ initialData }: PaymentHistoryTabProps) {
         // Better approach for Hybrid:
         // Identify if this is the "initial load" where we have data.
 
-        const isInitialLoad = initialData && page === initialData.pagination.page && payments === initialData.payments;
+        const isInitialLoad = page === initialData?.pagination.page && payments === initialData.payments;
 
         if (!isInitialLoad) {
             fetchPaymentHistory();
@@ -135,7 +135,7 @@ export function PaymentHistoryTab({ initialData }: PaymentHistoryTabProps) {
     // Polling effect for pending/confirming transactions
     useEffect(() => {
         const hasPending = payments.some(p => p.status === 'pending' || p.status === 'confirming');
-        if (!hasPending) return;
+        if (!hasPending) {return;}
 
         const intervalId = setInterval(() => {
             fetchPaymentHistory(true);
@@ -190,7 +190,7 @@ export function PaymentHistoryTab({ initialData }: PaymentHistoryTabProps) {
     };
 
     const getExplorerLink = (txHash?: string) => {
-        if (!txHash) return null;
+        if (!txHash) {return null;}
         // Use the configured chain ID from environment to generate the correct explorer URL
         // identifying if we are on local/testnet/mainnet
         return getExplorerTxUrl(Number(env.CHAIN_ID), txHash);

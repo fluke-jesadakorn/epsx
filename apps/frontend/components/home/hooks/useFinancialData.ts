@@ -27,7 +27,7 @@ function getLatestQuarterData(data: StockFinancialData): QuarterData | null {
  * Uses all quarters (including the 3rd calculation quarter) for accurate averaging
  */
 function calculateAvgEpsGrowth(data: StockFinancialData): number | null {
-  if (!data.quarters || data.quarters.length === 0) return null;
+  if (!data.quarters || data.quarters.length === 0) {return null;}
   
   // Use all available quarters for growth calculation (including the 3rd quarter)
   const growth = data.quarters

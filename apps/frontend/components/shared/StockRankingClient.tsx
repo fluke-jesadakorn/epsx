@@ -26,7 +26,7 @@ export default function StockRankingClient({
   
   // Apply rank shift if needed (for future use)
   const processedData = React.useMemo(() => {
-    if (rankShift === 0) return initialData;
+    if (rankShift === 0) {return initialData;}
     
     return initialData.map((item, index) => ({
       ...item,

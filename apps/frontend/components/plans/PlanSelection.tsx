@@ -36,7 +36,7 @@ export function PlanSelection({ currentUser, className }: PlanSelectionProps) {
       // Check cookies for existing affiliate code
       const cookies = document.cookie.split(';').reduce((acc, cookie) => {
         const [key, value] = cookie.trim().split('=')
-        if (key && value) acc[key] = value
+        if (key && value) {acc[key] = value}
         return acc
       }, {} as Record<string, string>)
 

@@ -70,7 +70,7 @@ interface FieldErrorProps {
 
 export function FieldError({ fieldName, fieldErrors }: FieldErrorProps) {
   const errors = fieldErrors?.[fieldName];
-  if (!errors || errors.length === 0) return null;
+  if (!errors || errors.length === 0) {return null;}
   
   return (
     <div className="mt-1 text-sm text-red-600">

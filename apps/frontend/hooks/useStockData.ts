@@ -105,7 +105,7 @@ export function useStockPreloader() {
   const [preloading, setPreloading] = useState(false);
 
   const preload = useCallback(async (symbols: string[]) => {
-    if (symbols.length === 0) return;
+    if (symbols.length === 0) {return;}
 
     setPreloading(true);
     try {

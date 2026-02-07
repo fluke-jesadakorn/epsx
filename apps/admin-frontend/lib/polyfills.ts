@@ -1,22 +1,30 @@
 // This polyfill resolves a specific issue with Next.js/Turbopack where implicit BigInt
 // exponentiation (**) is sometimes transpiled to Math.pow(), which normally crashes with BigInts.
 
+/**
+ * Interface for polyfilled Math.pow
+ */
+interface PolyfilledPow {
+    (base: number | bigint, exponent: number | bigint): number | bigint;
+    __isPolyfilled?: boolean;
+}
+
 // Access the global Math object safely
-const anyMath = Math as any;
+const math = Math as unknown as { pow: PolyfilledPow };
 
 // Prevent infinite recursion if the file is re-evaluated and check for existing polyfill
-if (!anyMath.pow.__isPolyfilled) {
+if (!math.pow.__isPolyfilled) {
     const originalPow = Math.pow;
 
     // Define the polyfill function
     // Override native math function to support BigInt
     // @ts-ignore - overriding native math function to support BigInt
-    Math.pow = function (base: number | bigint, exponent: number | bigint) {
+    Math.pow = function (base: number | bigint, exponent: number | bigint): number | bigint {
         // Case 1: Both BigInt
         if (typeof base === 'bigint' && typeof exponent === 'bigint') {
             try {
                 return new Function('b', 'e', 'return b ** e')(base, exponent);
-            } catch (e) {
+            } catch (_e) {
                 // Fallback: Loop
                 let res = 1n;
                 for (let i = 0n; i < exponent; i++) {
@@ -30,7 +38,7 @@ if (!anyMath.pow.__isPolyfilled) {
         if (typeof base === 'bigint' && typeof exponent === 'number') {
             try {
                 return new Function('b', 'e', 'return b ** e')(base, exponent);
-            } catch (e) {
+            } catch (_e) {
                 // Fallback: Loop (if exponent is integer)
                 if (Math.floor(exponent) === exponent && exponent >= 0) {
                     let res = 1n;
@@ -48,7 +56,7 @@ if (!anyMath.pow.__isPolyfilled) {
         if (typeof base === 'number' && typeof exponent === 'bigint') {
             try {
                 return new Function('b', 'e', 'return b ** e')(base, exponent);
-            } catch (e) {
+            } catch (_e) {
                 // Fallback: Loop or safe conversion
                 // 2 ** 3n -> 8 (number? or bigint?) Native ** returns BigInt if base is BigInt? 
                 // Actually 2 ** 3n is invalid in strict TS but valid in JS (returns number? No, throws TypeError usually).
@@ -77,13 +85,14 @@ if (!anyMath.pow.__isPolyfilled) {
     };
 
     // Mark as polyfilled to prevent re-wrapping
-    (Math.pow as any).__isPolyfilled = true;
+    (Math.pow as unknown as { __isPolyfilled: boolean }).__isPolyfilled = true;
 }
 
 // Validation: Mock localStorage for Server-Side Rendering
 // Some dependencies (like @walletconnect/keyvaluestorage) try to access localStorage during module initialization
 // even in SSR environments, causing crashes. We provide a dummy implementation to satisfy them.
 if (typeof window === 'undefined' && typeof global !== 'undefined') {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const g = global as any;
     if (!g.localStorage || typeof g.localStorage.getItem !== 'function') {
         g.localStorage = {
@@ -98,4 +107,3 @@ if (typeof window === 'undefined' && typeof global !== 'undefined') {
 }
 
 export { };
-

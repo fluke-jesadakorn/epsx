@@ -60,6 +60,7 @@ export function WalletDetailPanel({
     onDisable,
     onEnable,
     activityEvents = [],
+    isLoading: _isLoading,
 }: WalletDetailPanelProps) {
     const [isAssigning, setIsAssigning] = useState(false);
 
@@ -76,13 +77,13 @@ export function WalletDetailPanel({
             setLabelValue(wallet.label || '');
             setNoteValue(wallet.note || '');
         }
-    }, [wallet?.walletAddress, wallet?.label, wallet?.note]);
+    }, [wallet]);
 
     const isDisabled = wallet?.status === 'disabled';
     const activeSubscriptions = wallet?.subscriptions?.filter(s => s.status === 'active') ?? [];
 
     const handleAssignPermission = async (data: AssignPermissionData) => {
-        if (!onAssignPermission) {return;}
+        if (!onAssignPermission) { return; }
         setIsAssigning(true);
         try {
             await onAssignPermission(data);
@@ -93,7 +94,7 @@ export function WalletDetailPanel({
 
     // Save label
     const handleSaveLabel = useCallback(async () => {
-        if (!wallet) {return;}
+        if (!wallet) { return; }
         setIsSaving(true);
         try {
             await walletMgmt.updateWalletMetadata(wallet.walletAddress, {
@@ -109,7 +110,7 @@ export function WalletDetailPanel({
 
     // Save note
     const handleSaveNote = useCallback(async () => {
-        if (!wallet) {return;}
+        if (!wallet) { return; }
         setIsSaving(true);
         try {
             await walletMgmt.updateWalletMetadata(wallet.walletAddress, {

@@ -42,7 +42,7 @@ const Pagination = memo<PaginationProps>(({ pagination, onPageChange, onLimitCha
   const startItem = (page - 1) * limit + 1;
   const endItem = Math.min(page * limit, total);
 
-  if (totalPages <= 1) return null;
+  if (totalPages <= 1) {return null;}
 
   return (
     <div className="bg-white border border-gray-200 rounded-lg p-4">

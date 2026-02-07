@@ -250,7 +250,7 @@ export function APIKeyManager({ currentUser, onStatsChange }: APIKeyManagerProps
                       const isSelected = option.days === 0
                         ? !expiresAt
                         : (() => {
-                          if (!expiresAt) return false;
+                          if (!expiresAt) {return false;}
                           const targetDate = new Date();
                           targetDate.setDate(targetDate.getDate() + option.days);
                           const expiryDate = new Date(expiresAt);

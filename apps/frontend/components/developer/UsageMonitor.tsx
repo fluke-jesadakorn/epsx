@@ -47,7 +47,7 @@ export function UsageMonitor({ currentUser }: UsageMonitorProps) {
   const activeKeys = apiKeys.filter(k => k.status === 'active').length;
 
   // Process Stats
-  const stats = (statsRes?.success && statsRes.data) ? ((statsRes.data as any).data || statsRes.data) : {
+  const stats = (statsRes?.success && statsRes.data) ? ((statsRes.data).data || statsRes.data) : {
     total_requests: 0,
     average_success_rate: 100,
     requests_24h: 0,
@@ -55,10 +55,10 @@ export function UsageMonitor({ currentUser }: UsageMonitorProps) {
   };
 
   // Process History
-  const history = (historyRes?.success && historyRes.data) ? ((historyRes.data as any).data || historyRes.data) : [];
+  const history = (historyRes?.success && historyRes.data) ? ((historyRes.data).data || historyRes.data) : [];
 
   // Process Top Endpoints
-  const topEndpoints = (endpointsRes?.success && endpointsRes.data) ? ((endpointsRes.data as any).data || endpointsRes.data) : [];
+  const topEndpoints = (endpointsRes?.success && endpointsRes.data) ? ((endpointsRes.data).data || endpointsRes.data) : [];
 
   return (
     <div className="space-y-6">

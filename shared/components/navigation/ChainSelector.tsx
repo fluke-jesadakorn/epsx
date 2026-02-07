@@ -51,10 +51,17 @@ const allChains: ChainInfo[] = [
     },
 ];
 
-// Export filtered chains - Anvil (31337) only available in development
+// Export filtered chains - Anvil (31337) only available in local development
 export const supportedChains: ChainInfo[] = isProduction
     ? allChains.filter(chain => chain.id !== 31337)
-    : allChains;
+    : allChains.filter(chain => {
+        // Only show Anvil if on localhost
+        if (chain.id === 31337) {
+            return typeof window !== 'undefined' &&
+                (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+        }
+        return true;
+    });
 
 export function ChainSelector({ className = '', compact = false }: ChainSelectorProps) {
     const [isHydrated, setIsHydrated] = useState(false);
@@ -89,7 +96,7 @@ export function ChainSelector({ className = '', compact = false }: ChainSelector
     const isSupported = !!currentChain;
 
     const handleChainSwitch = async (targetChainId: number) => {
-        if (!isConnected || isSwitching || targetChainId === chainId) return;
+        if (!isConnected || isSwitching || targetChainId === chainId) {return;}
 
         try {
             console.log(`🔄 ChainSelector: Switching to chain ${targetChainId}...`);

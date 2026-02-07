@@ -82,7 +82,7 @@ interface ChainVerificationCardProps {
  * Truncate address for display: 0x1234...abcd
  */
 function truncateAddress(address: string): string {
-    if (!address || address.length < 12) return address;
+    if (!address || address.length < 12) {return address;}
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
 }
 
@@ -141,7 +141,7 @@ export function ChainVerificationCard({
      * Add network to MetaMask using wallet_addEthereumChain RPC
      */
     const handleAddNetwork = async (chain: ChainInfo) => {
-        if (!connector || isAddingNetwork) return;
+        if (!connector || isAddingNetwork) {return;}
 
         const config = getNetworkConfigs()[chain.id];
         if (!config) {
@@ -175,7 +175,7 @@ export function ChainVerificationCard({
     };
 
     const handleSwitchChain = async (chain: ChainInfo) => {
-        if (!isConnected || isSwitching) return;
+        if (!isConnected || isSwitching) {return;}
 
         setSelectedChain(chain);
         setErrorMessage(null);
@@ -196,7 +196,7 @@ export function ChainVerificationCard({
      */
     const getContractInfo = (chainIdNum: number) => {
         const hasContract = isPaymentEscrowDeployed(chainIdNum);
-        const address = hasContract ? PAYMENT_ESCROW_ADDRESS[chainIdNum as keyof typeof PAYMENT_ESCROW_ADDRESS] : null;
+        const address = hasContract ? PAYMENT_ESCROW_ADDRESS[chainIdNum] : null;
         const explorer = CHAIN_EXPLORERS[chainIdNum as keyof typeof CHAIN_EXPLORERS];
         return { hasContract, address, explorer };
     };

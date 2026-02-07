@@ -5,10 +5,10 @@ import ServerTopPerformers from '@/components/home/ServerTopPerformers';
 import { Crown, Rocket } from 'lucide-react';
 import { Suspense } from 'react';
 
+import type { StockFinancialData } from '@/types/financialChartData';
+
 // DISABLE ISR caching to show real Data Analytics data immediately
 export const revalidate = 0;
-
-import type { StockFinancialData } from '@/types/financialChartData';
 
 // Loading skeleton for Top Performers section
 function TopPerformersLoading() {

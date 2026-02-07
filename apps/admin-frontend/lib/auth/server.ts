@@ -58,7 +58,7 @@ export async function getServerSession(): Promise<ServerSession | null> {
     const user = createEnhancedAuthUser(payload);
     return {
       user,
-      expires: new Date(payload.exp * 1000).toISOString(),
+      expires: new Date((payload.exp || 0) * 1000).toISOString(),
       accessToken: jwt,
     };
   } catch (_error) {
@@ -93,7 +93,7 @@ export function hasPermission(user: EnhancedAuthUser | null, _permission: string
 /**
  * Check if user has required admin module (deprecated - use hasPermission instead)
  * @param user
- * @param module
+ * @param _module
  */
 export function hasAdminModule(user: EnhancedAuthUser | null, _module: string): boolean {
   return !!user;
@@ -144,15 +144,15 @@ export async function getUserContext() {
 /**
  * Check if user has platform-specific permission
  * @param user
- * @param resource
- * @param action
- * @param platform
+ * @param _resource
+ * @param _action
+ * @param _platform
  */
 export function hasPlatformPermission(
   user: EnhancedAuthUser | null,
-  resource: string,
-  action: string,
-  platform?: string
+  _resource: string,
+  _action: string,
+  _platform?: string
 ): boolean {
   return !!user;
 }

@@ -12,7 +12,7 @@ import { useAnalyticsFilters } from '@/hooks/useAnalyticsFilters';
 import {
   // AnalyticsClient, 
   UnifiedAnalyticsRankingsResponse
-} from '@/lib/api-client';
+, analyticsClient } from '@/lib/api-client';
 import {
   exportCurrentViewData,
   exportFilteredData,
@@ -28,6 +28,7 @@ import { CardDashboardView } from './CardDashboardView';
 import FilterPanel from './FilterPanel';
 import Pagination from './Pagination';
 
+
 // Rich filter options interface
 interface RichFilterOptions {
   countries: Array<{ value: string; label: string }>;
@@ -40,8 +41,6 @@ interface AnalyticsClientWrapperProps {
   initialData: UnifiedAnalyticsRankingsResponse | null;
   filterOptions: RichFilterOptions;
 }
-
-import { analyticsClient } from '@/lib/api-client';
 
 // API helper functions using new AnalyticsClient
 async function fetchEPSRankings(filters: AnalyticsFilters): Promise<UnifiedAnalyticsRankingsResponse | null> {
@@ -82,7 +81,7 @@ function AnalyticsClientWrapper({
 
   // Memoized calculation of Growth leaders - expensive array operations
   const calculateGrowthLeaders = useCallback((data: UnifiedAnalyticsRankingsResponse | null) => {
-    if (!data?.rankings || data.rankings.length === 0) return { growthLeaders: [], priceLeaders: [] };
+    if (!data?.rankings || data.rankings.length === 0) {return { growthLeaders: [], priceLeaders: [] };}
 
     // Calculate Growth Factor leaders using epsGrowth
     const growthLeaders = data.rankings
@@ -170,7 +169,7 @@ function AnalyticsClientWrapper({
 
   // Export handlers
   const handleExport = () => {
-    if (!data) return;
+    if (!data) {return;}
 
     const options = {
       format: exportFormat,
@@ -890,7 +889,7 @@ function AnalyticsClientWrapper({
                   )}
 
                   {/* Enhanced Empty state */}
-                  {!isLoading && data && data.rankings.length === 0 && (
+                  {!isLoading && data?.rankings.length === 0 && (
                     <div className="rounded-2xl border border-gray-200/50 bg-white/80 p-8 text-center backdrop-blur-xl dark:border-gray-600/20 dark:bg-slate-800/80">
                       <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-600">
                         <svg

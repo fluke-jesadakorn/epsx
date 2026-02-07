@@ -27,7 +27,7 @@ interface PaymentStatusSectionProps {
 
 // Helper to derive the overall payment status from transactions
 const getOverallPaymentStatus = (transactions: Transaction[]): 'pending' | 'completed' | 'failed' | 'processing' => {
-  if (transactions.length === 0) return 'pending';
+  if (transactions.length === 0) {return 'pending';}
 
   // Get the most recent transaction
   const latestTransaction = transactions[0];
@@ -46,7 +46,7 @@ const getOverallPaymentStatus = (transactions: Transaction[]): 'pending' | 'comp
 
 // Helper to get latest transaction details for display
 const getLatestTransactionDetails = (transactions: Transaction[]) => {
-  if (transactions.length === 0) return {};
+  if (transactions.length === 0) {return {};}
   const latest = transactions[0];
   return {
     transactionId: latest.blockchainData?.txHash || latest.orderNo,
@@ -64,9 +64,9 @@ export function PaymentStatusSection({
 }: PaymentStatusSectionProps) {
   const { isLoading, isAuthenticated, hasPaymentAccess, user } = usePaymentAuth();
 
-  if (isLoading) return <PaymentAuthLoadingUI />;
-  if (!isAuthenticated) return <PaymentAuthRequiredUI />;
-  if (!hasPaymentAccess) return <PaymentAccessRequiredUI user={user} />;
+  if (isLoading) {return <PaymentAuthLoadingUI />;}
+  if (!isAuthenticated) {return <PaymentAuthRequiredUI />;}
+  if (!hasPaymentAccess) {return <PaymentAccessRequiredUI user={user} />;}
 
   // Derive status from transactions instead of hardcoding
   const paymentStatus = getOverallPaymentStatus(transactions);

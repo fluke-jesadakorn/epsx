@@ -18,7 +18,7 @@ export function PaymentProgress({
     isPaymentConfirming,
     explorerUrl
 }: PaymentProgressProps) {
-    if (!approvalHash && !paymentHash) return null
+    if (!approvalHash && !paymentHash) {return null}
 
     const isApproving = step === 'approving'
     const hash = isApproving ? approvalHash : paymentHash

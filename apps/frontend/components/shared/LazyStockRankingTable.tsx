@@ -30,7 +30,7 @@ export default function LazyStockRankingTable({
 }: LazyStockRankingTableProps): React.JSX.Element {
   // Apply rank shift if needed (for future use)
   const processedData = React.useMemo(() => {
-    if (rankShift === 0) return data;
+    if (rankShift === 0) {return data;}
     
     return data.map((item, index) => ({
       ...item,

@@ -7,9 +7,23 @@ import {
     UpdatePlanRequest,
     UserPlanMembership
 } from '@/lib/api/plan-management-client';
-import { createAdminApiClient, extractArrayOrEmpty } from '@/shared/api';
+import { createAdminApiClient, extractArrayOrEmpty , extractData } from '@/shared/api';
 import { API_ROUTES } from '@/shared/config/route-constants';
 import { revalidatePath } from 'next/cache';
+
+// ============================================================================
+// WALLET ACTIONS
+// ============================================================================
+
+import type { PermissionSource, Platform } from '@/components/wallet/types';
+import {
+    DisableWalletRequest,
+    EnableWalletRequest,
+    WalletData,
+    WalletPermission,
+    WalletSubscription,
+    WalletSummaryDto
+} from '@/lib/api/wallet-management-client';
 
 // ============================================================================
 // HELPER FUNCTIONS
@@ -80,7 +94,7 @@ export async function getUserPermissionsAction(userId: string): Promise<string[]
     const apiClient = createAdminApiClient({ serverSide: true });
     const res = await apiClient.get<string[]>(`/api/auth/web3/plans/permissions/${userId}`);
     // If not found (404), return empty array
-    if (!res.success && (res.error as any)?.status === 404) return [];
+    if (!res.success && (res.error as any)?.status === 404) {return [];}
     return res.data || [];
 }
 
@@ -91,7 +105,7 @@ export async function grantPermissionAction(walletAddress: string, permission: s
         permission_string: permission,
         expires_at: expiresAt,
     });
-    if (!res.success) throw new Error(res.error?.message || 'Failed to grant permission');
+    if (!res.success) {throw new Error(res.error?.message || 'Failed to grant permission');}
 }
 
 export async function revokePermissionAction(walletAddress: string, permission: string) {
@@ -101,7 +115,7 @@ export async function revokePermissionAction(walletAddress: string, permission: 
         wallet_address: walletAddress,
         permission_string: permission,
     });
-    if (!res.success) throw new Error(res.error?.message || 'Failed to revoke permission');
+    if (!res.success) {throw new Error(res.error?.message || 'Failed to revoke permission');}
 }
 
 export async function assignUserToPlanAction(userId: string, planId: string, expiresAt?: string | null) {
@@ -112,7 +126,7 @@ export async function assignUserToPlanAction(userId: string, planId: string, exp
         expires_at: expiresAt,
         assignment_source: 'manual',
     });
-    if (!res.success) throw new Error(res.error?.message || 'Failed to assign plan');
+    if (!res.success) {throw new Error(res.error?.message || 'Failed to assign plan');}
 }
 
 export async function removeUserFromPlanAction(userId: string, planId: string) {
@@ -124,14 +138,22 @@ export async function removeUserFromPlanAction(userId: string, planId: string) {
 
     if (assignment) {
         const res = await apiClient.delete(`${API_ROUTES.ADMIN.PERMISSION_ASSIGNMENTS}/${assignment.id}`);
-        if (!res.success) throw new Error(res.error?.message || 'Failed to remove plan');
+        if (!res.success) {throw new Error(res.error?.message || 'Failed to remove plan');}
     }
 }
 
 export async function updatePlanAction(planId: string, data: UpdatePlanRequest) {
     const apiClient = createAdminApiClient({ serverSide: true });
-    const res = await apiClient.put(`${API_ROUTES.PERMISSIONS.PLANS}/${planId}`, data);
-    if (!res.success) throw new Error(res.error?.message || 'Failed to update plan');
+
+    // Map frontend priority_level to backend display_order
+    // Also allow direct display_order passing (for drag and drop)
+    const payload = {
+        ...data,
+        display_order: (data as any).display_order ?? data.priority_level
+    };
+
+    const res = await apiClient.put(`${API_ROUTES.PERMISSIONS.PLANS}/${planId}`, payload);
+    if (!res.success) {throw new Error(res.error?.message || 'Failed to update plan');}
     revalidatePath('/wallet-management/access/plans');
     return res.data;
 }
@@ -157,7 +179,7 @@ export async function createPlanAction(data: CreatePlanRequest) {
     };
 
     const res = await apiClient.post(API_ROUTES.PERMISSIONS.PLANS, backendRequest);
-    if (!res.success) throw new Error(res.error?.message || 'Failed to create plan');
+    if (!res.success) {throw new Error(res.error?.message || 'Failed to create plan');}
 
     revalidatePath('/wallet-management/access/plans');
     return res.data;
@@ -166,37 +188,22 @@ export async function createPlanAction(data: CreatePlanRequest) {
 export async function getPlanAction(planId: string): Promise<PermissionPlan> {
     const apiClient = createAdminApiClient({ serverSide: true });
     const res = await apiClient.get<PermissionPlan>(`${API_ROUTES.PERMISSIONS.PLANS}/${planId}`);
-    if (!res.success) throw new Error(res.error?.message || 'Failed to fetch plan');
+    if (!res.success) {throw new Error(res.error?.message || 'Failed to fetch plan');}
     return res.data!;
 }
 
 export async function deletePlanAction(planId: string) {
     const apiClient = createAdminApiClient({ serverSide: true });
     const res = await apiClient.delete(`${API_ROUTES.PERMISSIONS.PLANS}/${planId}`);
-    if (!res.success) throw new Error(res.error?.message || 'Failed to delete plan');
+    if (!res.success) {throw new Error(res.error?.message || 'Failed to delete plan');}
     revalidatePath('/wallet-management/access/plans');
 }
 
-// ============================================================================
-// WALLET ACTIONS
-// ============================================================================
-
-import type { PermissionSource, Platform } from '@/components/wallet/types';
-import {
-    DisableWalletRequest,
-    EnableWalletRequest,
-    WalletData,
-    WalletPermission,
-    WalletSubscription,
-    WalletSummaryDto
-} from '@/lib/api/wallet-management-client';
-import { extractData } from '@/shared/api';
-
 function detectPlatform(permission: string): Platform {
-    if (permission.startsWith('epsx:analytics') || permission.startsWith('epsx:rankings')) return 'analytics';
-    if (permission.startsWith('epsx-pay:')) return 'pay';
-    if (permission.startsWith('epsx-token:')) return 'token';
-    if (permission.startsWith('epsx-markets:')) return 'markets';
+    if (permission.startsWith('epsx:analytics') || permission.startsWith('epsx:rankings')) {return 'analytics';}
+    if (permission.startsWith('epsx-pay:')) {return 'pay';}
+    if (permission.startsWith('epsx-token:')) {return 'token';}
+    if (permission.startsWith('epsx-markets:')) {return 'markets';}
     return 'analytics';
 }
 
@@ -214,7 +221,7 @@ function mapWalletDtoToData(dto: WalletSummaryDto): WalletData {
             platforms.add('markets');
         }
     });
-    if (platforms.size === 0) platforms.add('analytics');
+    if (platforms.size === 0) {platforms.add('analytics');}
 
     const permissions: WalletPermission[] = dtoPermissions.map((p, idx) => ({
         id: `perm-${idx}`,
@@ -238,7 +245,7 @@ function mapWalletDtoToData(dto: WalletSummaryDto): WalletData {
     }));
 
     let status: 'active' | 'disabled' | 'pending' = 'active';
-    if (!dto.is_active) status = 'disabled';
+    if (!dto.is_active) {status = 'disabled';}
 
     const disableInfo = dto.metadata?.['disable_info'] as WalletData['disableInfo'] | undefined;
     const label = dto.metadata?.['label'] as string | undefined;
@@ -265,7 +272,7 @@ export async function fetchWalletDetailAction(walletAddress: string): Promise<Wa
     const res = await apiClient.get<any>(`/api/admin/wallets/${walletAddress}`);
     const responseData = extractData<{ wallet?: WalletSummaryDto } | WalletSummaryDto>(res);
     const walletDto = (responseData as any)?.wallet || responseData;
-    if (!walletDto || !walletDto.wallet_address) throw new Error('Wallet not found');
+    if (!walletDto?.wallet_address) {throw new Error('Wallet not found');}
     return mapWalletDtoToData(walletDto);
 }
 
@@ -274,17 +281,17 @@ export async function updateWalletMetadataAction(walletAddress: string, data: { 
     const res = await apiClient.put(`/api/admin/wallets/${walletAddress}`, {
         metadata: { label: data.label ?? undefined, note: data.note ?? undefined },
     });
-    if (!res.success) throw new Error(res.error?.message || 'Failed to update metadata');
+    if (!res.success) {throw new Error(res.error?.message || 'Failed to update metadata');}
 }
 
 export async function disableWalletAction(walletAddress: string, data: DisableWalletRequest): Promise<void> {
     const apiClient = createAdminApiClient({ serverSide: true });
     const res = await apiClient.post(`/api/admin/wallets/${walletAddress}/disable`, data);
-    if (!res.success) throw new Error(res.error?.message || 'Failed to disable wallet');
+    if (!res.success) {throw new Error(res.error?.message || 'Failed to disable wallet');}
 }
 
 export async function enableWalletAction(walletAddress: string, data: EnableWalletRequest): Promise<void> {
     const apiClient = createAdminApiClient({ serverSide: true });
     const res = await apiClient.post(`/api/admin/wallets/${walletAddress}/enable`, data);
-    if (!res.success) throw new Error(res.error?.message || 'Failed to enable wallet');
+    if (!res.success) {throw new Error(res.error?.message || 'Failed to enable wallet');}
 }

@@ -7,7 +7,7 @@ export const set = (key: string, val: unknown, ttl = 300000): void => {
 
 export const get = <T>(key: string): T | null => {
   const item = cache.get(key)
-  if (!item) return null
+  if (!item) {return null}
   if (Date.now() > item.expiry) {
     cache.delete(key)
     return null
@@ -23,7 +23,7 @@ export const stats = () => ({
 export const clean = (): void => {
   const now = Date.now()
   for (const [key, item] of cache.entries()) {
-    if (now > item.expiry) cache.delete(key)
+    if (now > item.expiry) {cache.delete(key)}
   }
 }
 

@@ -161,8 +161,8 @@ export function useNotificationBell(
           id: n.id,
           title: n.title,
           message: n.message,
-          type: n.notification_type as any,
-          priority: n.priority as any,
+          type: n.notification_type,
+          priority: n.priority,
           timestamp: n.timestamp,
           expires_at: n.expires_at,
           action_url: n.action_url,
@@ -247,7 +247,7 @@ export function useNotificationBell(
           status: 'unread',
         })
 
-        if (!isMounted) return
+        if (!isMounted) {return}
 
         // Safety check: ensure response has expected structure
         if (!data?.data?.notifications) {
@@ -261,8 +261,8 @@ export function useNotificationBell(
           id: n.id,
           title: n.title,
           message: n.message,
-          type: n.notification_type as any,
-          priority: n.priority as any,
+          type: n.notification_type,
+          priority: n.priority,
           timestamp: n.timestamp,
           expires_at: n.expires_at,
           action_url: n.action_url,
@@ -274,7 +274,7 @@ export function useNotificationBell(
         setNotifications(mappedNotifications)
         setCount(data.data.unread_count ?? 0)
       } catch (err) {
-        if (!isMounted) return
+        if (!isMounted) {return}
 
         // Silently fail if not authenticated - this is expected
         const apiError = err as any

@@ -115,7 +115,6 @@ export default function UnifiedProgressiveAuthGate({
   }
 
 
-
   // Show custom fallback if provided
   if (fallback) {
     return <>{fallback}</>;

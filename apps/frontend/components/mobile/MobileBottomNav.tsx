@@ -30,7 +30,7 @@ export function MobileBottomNav() {
   const pathname = usePathname();
 
   const isItemActive = (href: string) => {
-    if (href === '/') return pathname === '/';
+    if (href === '/') {return pathname === '/';}
     return pathname.startsWith(href);
   };
 

@@ -5,14 +5,14 @@ import type { PlanAccessData } from '@/shared/types/payment';
 import { createFrontendApiClient } from '@/shared/utils/api-client';
 import { useEffect, useState } from 'react';
 
+import { FREE_PLAN_RANKING_OFFSET, FREE_PLAN_TIER_LEVEL } from '@/shared/config/constants';
+
 interface UsePlanAccessResult {
     planAccess: PlanAccessData | null;
     loading: boolean;
     error: string | null;
     refetch: () => Promise<void>;
 }
-
-import { FREE_PLAN_RANKING_OFFSET, FREE_PLAN_TIER_LEVEL } from '@/shared/config/constants';
 
 const DEFAULT_FREE_TIER: PlanAccessData = {
     wallet_address: '',

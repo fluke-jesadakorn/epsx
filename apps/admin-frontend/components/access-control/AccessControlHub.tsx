@@ -126,7 +126,7 @@ export function AccessControlHub({ className }: AccessControlHubProps) {
 
   // Delete handler
   const handleDeletePolicy = async () => {
-    if (!deleteConfirm) return;
+    if (!deleteConfirm) {return;}
 
     setIsDeleting(true);
     try {

@@ -100,11 +100,6 @@
     ".next",
     "out",
     "dist",
-    "build",
-    "__test__",
-    "**/*.test.ts",
-    "**/*.test.tsx",
-    "**/*.spec.ts",
-    "**/*.spec.tsx"
+    "build"
   ]
 }

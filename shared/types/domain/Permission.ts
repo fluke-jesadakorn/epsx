@@ -264,8 +264,8 @@ export function isWildcardPermission(permission: EPSXPermission): boolean {
 }
 
 export function matchesPermissionPattern(permission: EPSXPermission, pattern: EPSXPermission): boolean {
-  if (pattern === permission) return true
-  if (!pattern.includes('*')) return false
+  if (pattern === permission) {return true}
+  if (!pattern.includes('*')) {return false}
 
   const permParts = permission.split(':')
   const patternParts = pattern.split(':')

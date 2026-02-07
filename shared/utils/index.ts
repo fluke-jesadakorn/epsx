@@ -18,11 +18,6 @@ import {
   prc
 } from './formatting/currency'
 
-export {
-  cur, fmtCurrency, formatBytes, formatCurrency, formatEPS, formatFileSize, formatLargeNumber, formatPrice,
-  prc
-}
-
 import {
   calculateDaysRemaining,
   calculateHoursRemaining,
@@ -41,15 +36,6 @@ import {
   getRelativeTime,
   isFutureDate
 } from './formatting/date'
-
-export {
-  calculateDaysRemaining,
-  calculateHoursRemaining, dt,
-  fmtDate, fmtRelativeTime, formatAnnouncementDate,
-  formatCompactDate, formatCountdown, formatDate, formatDateTime,
-  formatQuarterDate, formatRelativeTime, formatTimeRemaining,
-  getQuarterLabel, getRelativeTime, isFutureDate
-}
 
 import {
   camelCase,
@@ -75,6 +61,48 @@ import {
   truncate,
   truncateText
 } from './formatting/display'
+
+// ============================================================================
+// API CLIENT UTILITIES
+// ============================================================================
+import {
+  APIError,
+  createAdminApiClient,
+  createApiClient as createApiClientBase,
+  createFrontendApiClient,
+  handlePaginatedRequest,
+  handleSimpleRequest,
+  isApiError,
+  isApiResponse,
+  isPaginatedResponse,
+  retryRequest,
+  UnifiedApiClient,
+  type ApiError,
+  type ApiResponse,
+  type PaginatedResponse,
+  type Platform,
+  type RequestConfig
+} from './api-client'
+
+// ============================================================================
+// TAILWIND CLASS UTILITY
+// ============================================================================
+import clsx from 'clsx'
+import { twMerge } from 'tailwind-merge'
+
+export {
+  cur, fmtCurrency, formatBytes, formatCurrency, formatEPS, formatFileSize, formatLargeNumber, formatPrice,
+  prc
+}
+
+export {
+  calculateDaysRemaining,
+  calculateHoursRemaining, dt,
+  fmtDate, fmtRelativeTime, formatAnnouncementDate,
+  formatCompactDate, formatCountdown, formatDate, formatDateTime,
+  formatQuarterDate, formatRelativeTime, formatTimeRemaining,
+  getQuarterLabel, getRelativeTime, isFutureDate
+}
 
 export {
   camelCase, capitalize, clamp, copyToClipboardDisplay, epsGr, formatEPSGrowth, formatPercentage, generateId,
@@ -103,28 +131,6 @@ export {
   getNetworkName, isDev, isDev as isDevNetwork, isLocal, isLocal as isLocalNetwork, isProduction, isProduction as isProductionNetwork, isTestnet, isTestnet as isTestnetNetwork
 } from './env-helpers'
 
-// ============================================================================
-// API CLIENT UTILITIES
-// ============================================================================
-import {
-  APIError,
-  createAdminApiClient,
-  createApiClient as createApiClientBase,
-  createFrontendApiClient,
-  handlePaginatedRequest,
-  handleSimpleRequest,
-  isApiError,
-  isApiResponse,
-  isPaginatedResponse,
-  retryRequest,
-  UnifiedApiClient,
-  type ApiError,
-  type ApiResponse,
-  type PaginatedResponse,
-  type Platform,
-  type RequestConfig
-} from './api-client'
-
 export {
   APIError,
   createAdminApiClient,
@@ -143,12 +149,6 @@ export const createServerAdminClient = (baseURL?: string, token?: string) =>
 export const apiClient = createFrontendApiClient();
 export const createClient = createFrontendApiClient;
 export const createApiClient = createApiClientBase;
-
-// ============================================================================
-// TAILWIND CLASS UTILITY
-// ============================================================================
-import clsx from 'clsx'
-import { twMerge } from 'tailwind-merge'
 
 export function cn(...inputs: any[]) {
   return twMerge(clsx(inputs));

@@ -163,10 +163,9 @@ export function ApiKeyManager({ className = '' }: ApiKeyManagerProps) {
   };
 
   const formatApiKey = (key: string, isVisible: boolean) => {
-    if (isVisible) return key;
+    if (isVisible) {return key;}
     return `${key.slice(0, 8)}${'•'.repeat(32)}${key.slice(-8)}`;
   };
-
 
 
   // PERMISSION REFACTOR: Logic removed as frontend is now permissive.

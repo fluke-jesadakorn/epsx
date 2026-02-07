@@ -4,8 +4,8 @@ import { useQuery } from '@tanstack/react-query'
 import { Loader2, Wallet, X } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
+import { walletMgmt } from '@/lib/api/wallet-management-client'
 import { Input } from './input'
-
 
 interface WalletSuggestion {
     wallet_address: string
@@ -78,18 +78,18 @@ export function WalletAutocomplete({
             if (!shouldSearch) { return [] }
 
             try {
-                // Use the group management client to search users
-                const results = await planMgmt.searchUsers(debouncedQuery, 10, excludeGroupId)
+                // Use the wallet management client to search
+                const result = await walletMgmt.searchWallets(debouncedQuery, 10)
 
                 // Transform results to wallet suggestions
-                if (Array.isArray(results)) {
-                    return results.map((user: any) => ({
-                        wallet_address: user.wallet_address || user.user_id || user.id,
-                        user_id: user.user_id || user.id,
-                        tier: user.tier,
-                        permissions: user.permissions,
-                        groups: user.groups,
-                    })).filter((w: WalletSuggestion) => w.wallet_address)
+                if (result && Array.isArray(result.wallets)) {
+                    return result.wallets.map((wallet) => ({
+                        wallet_address: wallet.wallet_address,
+                        user_id: wallet.wallet_address, // Use address as ID if missing
+                        tier: 'Free',
+                        permissions: wallet.permissions?.map(p => p.permission) || [],
+                        groups: wallet.groups?.map(g => g.group_name) || [],
+                    }))
                 }
 
                 return []

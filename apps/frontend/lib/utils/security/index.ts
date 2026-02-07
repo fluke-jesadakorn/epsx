@@ -144,7 +144,7 @@ export class RateLimiter {
   private maxRequests: number;
   private windowMs: number;
 
-  constructor(maxRequests: number = 100, windowMs: number = 60000) {
+  constructor(maxRequests = 100, windowMs = 60000) {
     this.maxRequests = maxRequests;
     this.windowMs = windowMs;
   }
@@ -257,11 +257,11 @@ export const rateLimiter = new RateLimiter(getSecurityConfig().maxRequestsPerMin
 
 // Level utilities for user tiers
 export function calculateLevel(points: number): number {
-  if (points < 100) return 1;
-  if (points < 500) return 2;
-  if (points < 1000) return 3;
-  if (points < 2500) return 4;
-  if (points < 5000) return 5;
+  if (points < 100) {return 1;}
+  if (points < 500) {return 2;}
+  if (points < 1000) {return 3;}
+  if (points < 2500) {return 4;}
+  if (points < 5000) {return 5;}
   return Math.min(10, Math.floor(points / 1000) + 5);
 }
 

@@ -47,7 +47,7 @@ export interface EPSXJWTPayload extends JWTPayload {
 export function isJWTExpired(token: string): boolean {
   try {
     const payloadPart = token.split('.')[1];
-    if (!payloadPart) return true;
+    if (!payloadPart) {return true;}
     const payload = JSON.parse(atob(payloadPart));
     const currentTime = Math.floor(Date.now() / 1000);
     return payload.exp < currentTime;
@@ -62,7 +62,7 @@ export function isJWTExpired(token: string): boolean {
 export function getJWTTimeToExpiry(token: string): number {
   try {
     const payloadPart = token.split('.')[1];
-    if (!payloadPart) return 0;
+    if (!payloadPart) {return 0;}
     const payload = JSON.parse(atob(payloadPart));
     const currentTime = Math.floor(Date.now() / 1000);
     return Math.max(0, payload.exp - currentTime);
@@ -78,17 +78,17 @@ export function hasJWTPermission(
   payload: EPSXJWTPayload | JWTUser,
   permission: string
 ): boolean {
-  if (!payload.permissions) return false;
+  if (!payload.permissions) {return false;}
 
   const parsePermission = (
     permissionString: string
   ): { platform: string; resource: string; action: string } | null => {
     const parts = permissionString.split(':');
-    if (parts.length !== 3) return null;
+    if (parts.length !== 3) {return null;}
     const platform = parts[0];
     const resource = parts[1];
     const action = parts[2];
-    if (!platform || !resource || !action) return null;
+    if (!platform || !resource || !action) {return null;}
     return { platform, resource, action };
   };
 
@@ -97,11 +97,11 @@ export function hasJWTPermission(
     requiredPermission: string
   ): boolean => {
     const required = parsePermission(requiredPermission);
-    if (!required) return false;
+    if (!required) {return false;}
 
     for (const permStr of userPermissions) {
       const userPerm = parsePermission(permStr);
-      if (!userPerm) continue;
+      if (!userPerm) {continue;}
 
       if (
         userPerm.platform === required.platform &&
@@ -158,7 +158,7 @@ export function getJWTPermissions(payload: EPSXJWTPayload | JWTUser): string[] {
 export function decodeJWT(token: string): JWTUser | null {
   try {
     const payloadPart = token.split('.')[1];
-    if (!payloadPart) return null;
+    if (!payloadPart) {return null;}
     const payload = JSON.parse(atob(payloadPart));
 
     return {
@@ -242,7 +242,7 @@ export async function verifyJWT(token: string): Promise<EPSXJWTPayload | null> {
 export function decodeEPSXJWT(token: string): EPSXJWTPayload | null {
   try {
     const payloadPart = token.split('.')[1];
-    if (!payloadPart) return null;
+    if (!payloadPart) {return null;}
     const payload = JSON.parse(atob(payloadPart));
     return payload as EPSXJWTPayload;
   } catch {

@@ -9,10 +9,9 @@ import {
 } from '@/shared/components/ui/dropdown-menu';
 import { formatAddress } from '@/shared/auth/utils';
 import { useSharedAuth } from './Provider';
-import { Check, Copy, ExternalLink, LogOut, Wallet } from 'lucide-react';
+import { Check, Copy, ExternalLink, LogOut, Wallet , ChevronRight } from 'lucide-react';
 import { useState } from 'react';
 import Link from 'next/link';
-import { ChevronRight } from 'lucide-react';
 
 interface WalletProviderInfo {
     name: string;
@@ -62,7 +61,7 @@ export function ConnectedWalletDisplay({
     const providerInfo = walletProviders[connectorId.toLowerCase()] || walletProviders.injected;
 
     const handleCopyAddress = async () => {
-        if (!address) return;
+        if (!address) {return;}
         try {
             await navigator.clipboard.writeText(address);
             setCopied(true);
@@ -92,8 +91,8 @@ export function ConnectedWalletDisplay({
     };
 
     const getStatus = () => {
-        if (isAuthenticating) return { text: 'Signing...', color: 'text-orange-500' };
-        if (isAuthenticated) return { text: 'Authenticated', color: 'text-emerald-500' };
+        if (isAuthenticating) {return { text: 'Signing...', color: 'text-orange-500' };}
+        if (isAuthenticated) {return { text: 'Authenticated', color: 'text-emerald-500' };}
         return { text: 'Connected', color: 'text-slate-500' };
     };
 

@@ -36,7 +36,7 @@ export function AffiliateTracker({ children, onAffiliateDetected }: AffiliateTra
 
   // Track affiliate attribution
   const trackAffiliate = useCallback(async (code: string) => {
-    if (!code || isLoading) return;
+    if (!code || isLoading) {return;}
 
     setIsLoading(true);
     try {
@@ -98,7 +98,7 @@ export function AffiliateTracker({ children, onAffiliateDetected }: AffiliateTra
       // Check cookies for existing attribution, fallback to localStorage for migration
       const cookies = document.cookie.split(';').reduce((acc, cookie) => {
         const [key, value] = cookie.trim().split('=');
-        if (key && value) acc[key] = value;
+        if (key && value) {acc[key] = value;}
         return acc;
       }, {} as Record<string, string>);
 
@@ -187,8 +187,8 @@ export function AffiliateTracker({ children, onAffiliateDetected }: AffiliateTra
 
   // Get affiliate tier
   const getAffiliateTier = (code: string): string => {
-    if (['CRYPTOHUB', 'TRADEPRO'].includes(code)) return 'Elite';
-    if (['TECHPRO', 'APIDEVS'].includes(code)) return 'Premium';
+    if (['CRYPTOHUB', 'TRADEPRO'].includes(code)) {return 'Elite';}
+    if (['TECHPRO', 'APIDEVS'].includes(code)) {return 'Premium';}
     return 'Standard';
   };
 

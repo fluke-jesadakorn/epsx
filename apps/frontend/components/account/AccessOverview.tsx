@@ -1,6 +1,7 @@
 
 import { Badge } from '@/components/ui';
 import { PermissionBadge } from '@/components/ui/PermissionBadge';
+import { cn } from '@/lib/utils';
 import { AccessOverviewData, createUsersClient } from '@/shared/api/users';
 import { createFrontendApiClient } from '@/shared/utils/api-client';
 import { differenceInDays, format } from 'date-fns';
@@ -36,20 +37,10 @@ export async function AccessOverview() {
                 direct_permissions: responseData.direct_permissions || []
             };
         } else {
-            // Show empty state instead of mock data - users should see their real access level
-            data = {
-                current_tier: "Free User",
-                groups: [],
-                direct_permissions: []
-            };
-            if (!response.success && response.error) {
-                console.error('Error fetching access overview detailed:', JSON.stringify(response.error, null, 2));
-                // also try logging keys just in case
-                console.error('Error keys:', Object.keys(response.error));
-                console.error('Error message:', response.error.message);
-                console.error('Error code:', response.error.code);
-                error = 'Unable to load access details.';
-            }
+            // Backend always returns Free Plan, so if we get here it's an error
+            console.error('Error fetching access overview:', response.error);
+            error = 'Unable to load access details.';
+            data = null;
         }
     } catch (err) {
         console.error('Error fetching access overview:', err);
@@ -57,12 +48,12 @@ export async function AccessOverview() {
     }
 
     const getExpiryStatus = (dateStr?: string) => {
-        if (!dateStr) return { label: 'Permanent', color: 'text-green-600 bg-green-50/50 dark:bg-green-900/20 dark:text-green-400 border-green-200 dark:border-green-800' };
+        if (!dateStr) {return { label: 'Permanent', color: 'text-green-600 bg-green-50/50 dark:bg-green-900/20 dark:text-green-400 border-green-200 dark:border-green-800' };}
 
         const days = differenceInDays(new Date(dateStr), new Date());
 
-        if (days < 0) return { label: 'Expired', color: 'text-red-600 bg-red-50/50 dark:bg-red-900/20 dark:text-red-400 border-red-200 dark:border-red-800' };
-        if (days <= 7) return { label: `Expires in ${days} days`, color: 'text-orange-600 bg-orange-50/50 dark:bg-orange-900/20 dark:text-orange-400 border-orange-200 dark:border-orange-800' };
+        if (days < 0) {return { label: 'Expired', color: 'text-red-600 bg-red-50/50 dark:bg-red-900/20 dark:text-red-400 border-red-200 dark:border-red-800' };}
+        if (days <= 7) {return { label: `Expires in ${days} days`, color: 'text-orange-600 bg-orange-50/50 dark:bg-orange-900/20 dark:text-orange-400 border-orange-200 dark:border-orange-800' };}
         return { label: `Expires ${format(new Date(dateStr), 'MMM d, yyyy')}`, color: 'text-indigo-600 bg-indigo-50/50 dark:bg-indigo-900/20 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800' };
     };
 
@@ -132,10 +123,11 @@ export async function AccessOverview() {
                         {data.groups.length > 0 ? data.groups.map((group, idx) => {
                             const status = getExpiryStatus(group.expires_at);
                             const isPlan = group.source_type === 'plan';
+                            const isFree = group.name === 'Free'; // Identify Free Plan
                             // Use backend-provided days_remaining if available, otherwise calculate
                             const daysRemaining = group.days_remaining ?? (group.expires_at ? differenceInDays(new Date(group.expires_at), new Date()) : null);
                             const isExpiringSoon = daysRemaining !== null && daysRemaining >= 0 && daysRemaining <= 7;
-                            const canRenew = group.can_renew ?? (isPlan && daysRemaining !== null && daysRemaining <= 30);
+                            const canRenew = group.can_renew ?? (isPlan && !isFree && daysRemaining !== null && daysRemaining <= 30);
 
                             return (
                                 <div key={idx} className={`bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-6 shadow-xl border-2 transition-all duration-300 hover:shadow-2xl flex flex-col ${isPlan ? 'border-blue-300/50 dark:border-blue-700/50' : 'border-purple-300/50 dark:border-purple-700/50'}`}>
@@ -143,9 +135,14 @@ export async function AccessOverview() {
                                         <div className="flex items-center gap-2">
                                             <div className="text-3xl">{isPlan ? '💎' : '👥'}</div>
                                             {/* Source type badge */}
-                                            <Badge variant="outline" className="text-[9px] font-bold uppercase tracking-wider bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700">
-                                                {group.source_type === 'plan' ? '💳 Paid' :
-                                                    group.source_type === 'manual' ? '🔧 Manual' : '👑 Admin'}
+                                            <Badge variant="outline" className={cn(
+                                                "text-[9px] font-bold uppercase tracking-wider border",
+                                                isFree ? "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400" :
+                                                    "bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700"
+                                            )}>
+                                                {isFree ? '🌱 Free' :
+                                                    group.source_type === 'plan' ? '💳 Paid' :
+                                                        group.source_type === 'manual' ? '🔧 Manual' : '👑 Admin'}
                                             </Badge>
                                         </div>
                                         <Badge variant="outline" className={`text-[10px] font-bold uppercase tracking-wider ${status.color}`}>

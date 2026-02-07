@@ -15,6 +15,14 @@ interface ActivityLogSectionProps {
     initialEvents?: WalletActivityEvent[];
 }
 
+interface ActivityLogEntry {
+    id: string;
+    action: string;
+    timestamp: string;
+    wallet_address: string;
+    details: unknown;
+}
+
 export function ActivityLogSection({ className, initialEvents }: ActivityLogSectionProps) {
     const [events, setEvents] = useState<WalletActivityEvent[]>(initialEvents || []);
     const [isLoading, setIsLoading] = useState(!initialEvents);
@@ -23,16 +31,16 @@ export function ActivityLogSection({ className, initialEvents }: ActivityLogSect
         setIsLoading(true);
         try {
             // Use Server Action
-            const logs = await fetchActivityLogsAction(undefined, 1, 10);
+            const logs = await fetchActivityLogsAction(undefined, 1, 10) as ActivityLogEntry[];
 
             // Map to WalletActivityEvent
-            const mappedEvents: WalletActivityEvent[] = logs.map((log: any) => ({
+            const mappedEvents: WalletActivityEvent[] = logs.map((log) => ({
                 id: log.id,
                 type: mapActionToEventType(log.action),
-                description: formatActionDescription(log.action, log.details),
+                description: formatActionDescription(log.action),
                 timestamp: log.timestamp,
                 performedBy: log.wallet_address || 'System',
-                metadata: log.details || undefined
+                metadata: log.details && typeof log.details === 'object' ? (log.details as Record<string, unknown>) : undefined
             }));
             setEvents(mappedEvents);
         } catch (err) {
@@ -105,14 +113,14 @@ export function ActivityLogSection({ className, initialEvents }: ActivityLogSect
 
 // Helpers
 function mapActionToEventType(action: string): WalletActivityEvent['type'] {
-    if (action.includes('grant') || action.includes('permission')) return 'permission_granted';
-    if (action.includes('revoke')) return 'permission_revoked';
-    if (action.includes('disable')) return 'wallet_disabled';
-    if (action.includes('enable')) return 'wallet_enabled';
-    if (action.includes('login')) return 'login';
+    if (action.includes('grant') || action.includes('permission')) {return 'permission_granted';}
+    if (action.includes('revoke')) {return 'permission_revoked';}
+    if (action.includes('disable')) {return 'wallet_disabled';}
+    if (action.includes('enable')) {return 'wallet_enabled';}
+    if (action.includes('login')) {return 'login';}
     return 'wallet_created'; // fallback
 }
 
-function formatActionDescription(action: string, details: any): string {
+function formatActionDescription(action: string): string {
     return action.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
 }

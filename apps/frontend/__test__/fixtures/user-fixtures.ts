@@ -332,7 +332,7 @@ export function canUserAccessRoute(user: TestUser, route: string): boolean {
   // Check if any user permission grants access to this route
   for (const permission of user.permissions) {
     const allowedRoutes = PERMISSION_ROUTE_MAP[permission] || [];
-    if (allowedRoutes.includes(route)) return true;
+    if (allowedRoutes.includes(route)) {return true;}
 
     // Check for wildcard permission matches
     if (permission.endsWith(':*:*') || permission.endsWith(':*')) {
@@ -386,8 +386,8 @@ export function getUserRateLimit(user: TestUser): { perMinute: number; perHour: 
 
 // Subscription status helpers
 export function isUserSubscriptionActive(user: TestUser): boolean {
-  if (user.subscription_status === 'active') return true;
-  if (user.subscription_status === 'trial') return true;
+  if (user.subscription_status === 'active') {return true;}
+  if (user.subscription_status === 'trial') {return true;}
   if (user.subscription_status === 'cancelled' && user.subscription_expires_at) {
     return new Date(user.subscription_expires_at) > new Date();
   }
@@ -395,7 +395,7 @@ export function isUserSubscriptionActive(user: TestUser): boolean {
 }
 
 export function getSubscriptionDaysRemaining(user: TestUser): number {
-  if (!user.subscription_expires_at) return 0;
+  if (!user.subscription_expires_at) {return 0;}
   const expiryDate = new Date(user.subscription_expires_at);
   const now = new Date();
   const diffTime = expiryDate.getTime() - now.getTime();
@@ -413,9 +413,9 @@ export function getUserRankingLimit(user: TestUser): number {
   for (const perm of user.permissions) {
     if (perm.startsWith('epsx:rankings:view:')) {
       const limit = perm.split(':')[3];
-      if (limit === 'unlimited') return -1;
+      if (limit === 'unlimited') {return -1;}
       const parsed = parseInt(limit, 10);
-      if (!isNaN(parsed)) return parsed;
+      if (!isNaN(parsed)) {return parsed;}
     }
   }
   return 5; // Default fallback
@@ -426,7 +426,7 @@ export function getUserRankingLimit(user: TestUser): number {
  */
 export function userHasPermission(user: TestUser, permission: string): boolean {
   // Check for exact match
-  if (user.permissions.includes(permission)) return true;
+  if (user.permissions.includes(permission)) {return true;}
 
   // Check for wildcard matches
   for (const userPerm of user.permissions) {
@@ -435,11 +435,11 @@ export function userHasPermission(user: TestUser, permission: string): boolean {
       const requiredParts = permission.split(':');
 
       // Admin wildcard
-      if (userPerm === 'admin:*:*') return true;
+      if (userPerm === 'admin:*:*') {return true;}
 
       // Platform wildcard (epsx:*:*)
       if (userParts.length === 3 && userParts[1] === '*' && userParts[2] === '*') {
-        if (requiredParts[0] === userParts[0]) return true;
+        if (requiredParts[0] === userParts[0]) {return true;}
       }
 
       // Resource wildcard (epsx:analytics:*)
@@ -459,7 +459,7 @@ export function userHasPermission(user: TestUser, permission: string): boolean {
  */
 export function canUserViewRanking(user: TestUser, position: number): boolean {
   const limit = getUserRankingLimit(user);
-  if (limit === -1) return true; // Unlimited
+  if (limit === -1) {return true;} // Unlimited
   return position <= limit;
 }
 
@@ -477,10 +477,10 @@ export function deriveTierFromUserPermissions(user: TestUser): string {
     case -1: return 'ENTERPRISE';
     default:
       // Handle custom limits
-      if (limit <= 10) return 'BRONZE';
-      if (limit <= 30) return 'SILVER';
-      if (limit <= 75) return 'GOLD';
-      if (limit <= 150) return 'PLATINUM';
+      if (limit <= 10) {return 'BRONZE';}
+      if (limit <= 30) {return 'SILVER';}
+      if (limit <= 75) {return 'GOLD';}
+      if (limit <= 150) {return 'PLATINUM';}
       return 'ENTERPRISE';
   }
 }

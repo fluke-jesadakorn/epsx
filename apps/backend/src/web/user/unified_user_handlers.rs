@@ -327,15 +327,28 @@ pub async fn get_user_access_overview(
         }
     }
 
-    let plans: Vec<AccessPlanData> = plans_map.into_values().collect();
+    let mut plans: Vec<AccessPlanData> = plans_map.into_values().collect();
 
-    // Determine current tier
-    let current_tier = if plans.is_empty() {
+    // ALWAYS include the Free Plan as it represents default permissions
+    // This is a constant baseline that all users have
+    let free_plan = get_free_plan();
+    
+    // Check if Free Plan already exists in the list (shouldn't happen, but defensive)
+    let has_free_plan = plans.iter().any(|p| p.name == "Free");
+    if !has_free_plan {
+        // Insert Free Plan at the beginning so it's always first
+        plans.insert(0, free_plan);
+    }
+
+    // Determine current tier based on highest paid plan, or Free if only Free Plan exists
+    let current_tier = if plans.len() == 1 && plans[0].name == "Free" {
         "Free User".to_string()
     } else {
-        // Simple logic: Use the name of the first plan found
-        // Ideally should have a priority system
-        plans.as_slice().first().map(|g| g.name.clone()).unwrap_or("Standard User".to_string())
+        // If user has paid plans, use the first paid plan name
+        plans.iter()
+            .find(|p| p.name != "Free")
+            .map(|p| p.name.clone())
+            .unwrap_or("Standard User".to_string())
     };
 
     let overview_data = AccessOverviewData {
@@ -346,6 +359,27 @@ pub async fn get_user_access_overview(
 
     // Success response
     Ok(Json(UnifiedApiResponse::success(overview_data)))
+}
+
+/// Helper to get the canonical Free Plan
+/// This is ALWAYS returned to users as a baseline plan with default permissions
+/// Centralized definition effectively acting as a constant
+fn get_free_plan() -> AccessPlanData {
+    use crate::core::constants::{FREE_PLAN_NAME, FREE_PLAN_DESCRIPTION, FREE_PLAN_DEFAULT_PERMISSIONS};
+    
+    AccessPlanData {
+        name: FREE_PLAN_NAME.to_string(),
+        description: Some(FREE_PLAN_DESCRIPTION.to_string()),
+        source_type: "plan".to_string(), // Frontend expects 'plan' for badge logic
+        permissions: FREE_PLAN_DEFAULT_PERMISSIONS.iter().map(|s| s.to_string()).collect(),
+        expires_at: None,
+        assigned_at: None, 
+        assigned_by: Some("system".to_string()),
+        days_remaining: None,
+        can_renew: false,
+        renewal_price: None,
+        billing_cycle: None,
+    }
 }
 
 /// Get user permissions

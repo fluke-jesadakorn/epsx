@@ -44,6 +44,7 @@ pub struct CreatePlanRequest {
     pub auto_assign_enabled: Option<bool>,
     pub plan_metadata: Option<serde_json::Value>,
     pub is_public: Option<bool>,
+    pub default_expiry_days: Option<i32>,
 }
 
 #[derive(Debug, Deserialize, utoipa::ToSchema)]
@@ -62,6 +63,7 @@ pub struct UpdatePlanRequest {
     pub auto_assign_enabled: Option<bool>,
     pub plan_metadata: Option<serde_json::Value>,
     pub is_public: Option<bool>,
+    pub default_expiry_days: Option<i32>,
 }
 
 #[derive(Debug, Serialize)]
@@ -85,6 +87,7 @@ pub struct PlanResponse {
     pub updated_at: DateTime<Utc>,
     pub member_count: i32,
     pub is_public: bool,
+    pub default_expiry_days: Option<i32>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -93,6 +96,39 @@ pub struct ListPlansQuery {
     pub limit: Option<u32>,
     pub plan_type: Option<String>,
     pub is_active: Option<bool>,
+}
+
+fn get_constant_permission_plan() -> PlanResponse {
+    use crate::core::constants::*;
+    use serde_json::json;
+    use bigdecimal::BigDecimal;
+    use std::str::FromStr;
+
+    PlanResponse {
+        id: FREE_PLAN_ID.to_string(),
+        name: FREE_PLAN_NAME.to_string(),
+        slug: FREE_PLAN_SLUG.to_string(),
+        description: FREE_PLAN_DESCRIPTION.to_string(),
+        plan_type: "subscription".to_string(),
+        permissions: FREE_PLAN_DEFAULT_PERMISSIONS.iter().map(|s| s.to_string()).collect(),
+        price: BigDecimal::from_str("0.00").unwrap(),
+        currency: "USD".to_string(),
+        billing_cycle: "lifetime".to_string(),
+        is_active: true,
+        is_promoted: true,
+        display_order: FREE_PLAN_TIER_LEVEL,
+        max_members: None,
+        auto_assign_enabled: true,
+        plan_metadata: json!({
+            "features": ["Basic analytics", "Rankings access"],
+            "ranking_offset": FREE_PLAN_RANKING_OFFSET,
+        }),
+        created_at: Utc::now(), // Use a fixed time if stability is needed
+        updated_at: Utc::now(),
+        member_count: 0,
+        is_public: true,
+        default_expiry_days: Some(-1),
+    }
 }
 
 // ============================================================================
@@ -146,7 +182,7 @@ pub async fn create_plan(
         .unwrap_or(0.0);
 
     // Create domain aggregate
-    let plan = match Plan::create(CreatePlanParams {
+    let mut plan = match Plan::create(CreatePlanParams {
         name: req.name.clone(),
         slug,
         description: req.description.clone(),
@@ -189,7 +225,19 @@ pub async fn create_plan(
         return AdminResponse::server_error("Failed to create plan").into_response();
     }
 
-    // Build response
+    // Inject default_expiry_days into metadata if provided
+    if let Some(days) = req.default_expiry_days {
+        let mut metadata = plan.metadata().clone();
+        if let Some(obj) = metadata.as_object_mut() {
+            obj.insert("default_expiry_days".to_string(), serde_json::json!(days));
+        }
+        // Save again with metadata
+        let update_params = UpdatePlanParams {
+            metadata: Some(metadata),
+            ..Default::default()
+        };
+        let _ = plan.update(update_params);
+    }
     let response = PlanResponse {
         id: plan.id().to_string(),
         name: plan.name().to_string(),
@@ -210,6 +258,7 @@ pub async fn create_plan(
         updated_at: plan.updated_at(),
         member_count: 0,
         is_public: plan.is_public(),
+        default_expiry_days: plan.metadata().get("default_expiry_days").and_then(|v| v.as_i64()).map(|v| v as i32),
     };
 
     AdminResponse::created(response, "Permission plan created successfully").into_response()
@@ -238,16 +287,20 @@ pub async fn get_plan(
     State(app_state): State<AppState>,
     Path(plan_id): Path<String>,
 ) -> impl IntoResponse {
-    // Parse plan ID
+    // Check for constant Free Plan
+    // if plan_id == crate::core::constants::FREE_PLAN_ID {
+    //    return AdminResponse::success(get_constant_permission_plan()).into_response();
+    // }
+
     let plan_uuid = match Uuid::parse_str(&plan_id) {
         Ok(id) => id,
         Err(_) => return AdminResponse::bad_request("Invalid plan ID format").into_response(),
     };
 
-    let plan_id = PlanId::from_uuid(plan_uuid);
+    let plan_id_obj = PlanId::from_uuid(plan_uuid);
 
     // Fetch plan using Diesel repository
-    let plan = match app_state.plan_repo.find_by_id(&plan_id).await {
+    let plan = match app_state.plan_repo.find_by_id(&plan_id_obj).await {
         Ok(Some(g)) => g,
         Ok(None) => return AdminResponse::not_found("Permission plan").into_response(),
         Err(e) => {
@@ -306,6 +359,7 @@ pub async fn get_plan(
         updated_at: plan.updated_at(),
         member_count,
         is_public: plan.is_public(),
+        default_expiry_days: plan.metadata().get("default_expiry_days").and_then(|v| v.as_i64()).map(|v| v as i32),
     };
 
     AdminResponse::success(response).into_response()
@@ -426,7 +480,8 @@ pub async fn list_plans(
     };
 
     // Convert domain models to response DTOs
-    let plans: Vec<PlanResponse> = domain_plans.iter().map(|plan| {
+    let mut plans: Vec<PlanResponse> = domain_plans.iter()
+        .map(|plan| {
         let count = member_counts.get(plan.id().value()).unwrap_or(&0);
         PlanResponse {
             id: plan.id().to_string(),
@@ -448,8 +503,16 @@ pub async fn list_plans(
             updated_at: plan.updated_at(),
             member_count: *count as i32,
             is_public: plan.is_public(),
+            default_expiry_days: plan.metadata().get("default_expiry_days").and_then(|v| v.as_i64()).map(|v| v as i32),
         }
     }).collect();
+
+    // Append constant Free Plan if on first page
+    // if page == 1 {
+    //     plans.push(get_constant_permission_plan());
+    //     // Simple sort by display order
+    //     plans.sort_by_key(|p| p.display_order);
+    // }
 
     let pagination = create_pagination(page, limit, total as u64);
     AdminResponse::success_with_pagination(plans, pagination).into_response()
@@ -480,6 +543,20 @@ pub async fn update_plan(
     Path(plan_id): Path<String>,
     Json(req): Json<UpdatePlanRequest>,
 ) -> impl IntoResponse {
+    use crate::core::constants::FREE_PLAN_ID;
+    
+    // Check for constant Free Plan locking
+    if plan_id == FREE_PLAN_ID {
+        // Only allow updating certain fields if needed, but for now block price
+        if req.price.is_some() {
+            return AdminResponse::bad_request("Price of the Free Plan is locked and cannot be modified").into_response();
+        }
+    }
+    // Block updates to constant Free Plan
+    // if plan_id == crate::core::constants::FREE_PLAN_ID {
+    //    return AdminResponse::forbidden("Constant Free Plan cannot be modified").into_response();
+    // }
+
     // Parse plan ID
     let plan_uuid = match Uuid::parse_str(&plan_id) {
         Ok(id) => id,
@@ -526,6 +603,16 @@ pub async fn update_plan(
         is_public: req.is_public,
     };
 
+    // If default_expiry_days is provided, merge it into metadata
+    let mut update_params = update_params;
+    if let Some(days) = req.default_expiry_days {
+        let mut metadata = update_params.metadata.clone().unwrap_or_else(|| plan.metadata().clone());
+        if let Some(obj) = metadata.as_object_mut() {
+            obj.insert("default_expiry_days".to_string(), serde_json::json!(days));
+        }
+        update_params.metadata = Some(metadata);
+    }
+
     // Update the plan
     if let Err(e) = plan.update(update_params) {
         tracing::error!("Failed to update permission plan: {}", e);
@@ -559,6 +646,7 @@ pub async fn update_plan(
         updated_at: plan.updated_at(),
         member_count: 0, // We don't recalculate member count on update, acceptable trade-off for performance
         is_public: plan.is_public(),
+        default_expiry_days: plan.metadata().get("default_expiry_days").and_then(|v| v.as_i64()).map(|v| v as i32),
     };
 
     AdminResponse::success(response).into_response()
@@ -587,6 +675,11 @@ pub async fn delete_plan(
     State(app_state): State<AppState>,
     Path(plan_id): Path<String>,
 ) -> impl IntoResponse {
+    // Block deletion of constant Free Plan
+    if plan_id == crate::core::constants::FREE_PLAN_ID {
+        return AdminResponse::forbidden("Constant Free Plan cannot be deleted").into_response();
+    }
+
     // Parse plan ID
     let plan_uuid = match Uuid::parse_str(&plan_id) {
         Ok(id) => id,

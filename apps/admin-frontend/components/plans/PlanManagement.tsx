@@ -174,7 +174,7 @@ export function PlanManagement({ currentUser }: PlanManagementProps) {
   };
 
   const handleSaveOrder = async () => {
-    if (!hasChanges) return
+    if (!hasChanges) {return}
 
     setSaving(true)
     try {
@@ -392,7 +392,7 @@ export function PlanManagement({ currentUser }: PlanManagementProps) {
                 {activeId ? (
                   <div className="opacity-80 scale-105 shadow-2xl cursor-grabbing">
                     {/* Render a static version or clone of the card for overlay */}
-                    <PlanCard plan={plans.find(p => p.id === activeId)!} router={router} isOverlay />
+                    <PlanCard plan={plans.find(p => p.id === activeId)} router={router} isOverlay />
                   </div>
                 ) : null}
               </DragOverlay>
@@ -567,7 +567,7 @@ function PlanCard({ plan, router, isOverlay }: { plan: PlanResponse, router: any
 function PlanGroupSection({
   title, category, plans, onSelect, router
 }: any) {
-  if (plans.length === 0) return null
+  if (plans.length === 0) {return null}
 
   // Calculate Group Stats
   const groupRevenue = plans.reduce((sum: number, p: any) => sum + (Number(p.revenue_last_30_days) || 0), 0)

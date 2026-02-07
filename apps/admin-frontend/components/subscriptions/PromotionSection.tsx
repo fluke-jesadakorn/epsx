@@ -27,7 +27,7 @@ interface PromotionSectionProps {
 
 // Helper functions must be declared before use or safely outside
 function getUsagePercentage(promo: DisplayPromotion): number {
-  if (!promo.usageLimit) return 0;
+  if (!promo.usageLimit) {return 0;}
   return Math.min((promo.currentUsage / promo.usageLimit) * 100, 100);
 }
 
@@ -39,7 +39,7 @@ function getDiscountDisplay(promo: DisplayPromotion): string {
 }
 
 function isExpired(endDate?: string): boolean {
-  if (!endDate) return false;
+  if (!endDate) {return false;}
   return new Date(endDate) < new Date();
 }
 

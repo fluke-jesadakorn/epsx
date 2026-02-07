@@ -1,9 +1,9 @@
+import { useCallback, useEffect, useRef, useState } from 'react';
+
 'use client';
 
 // Frontend auth adapter for unified auth system
 export { useFrontendAuth } from './useFrontendAuth';
-
-import { useCallback, useEffect, useRef, useState } from 'react';
 
 // DEPRECATED: Generic data fetching hook using deprecated API client
 // Migrate to specific server actions instead of using this hook
@@ -16,7 +16,7 @@ export function useApi<T>(
   const [error, setError] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
-    if (options?.enabled === false) return;
+    if (options?.enabled === false) {return;}
 
     console.warn('useApi hook is deprecated. Please migrate to specific server actions.');
     setError('useApi hook is deprecated. Please use specific server actions instead.');
@@ -105,13 +105,13 @@ export function useDebounce<T>(value: T, delay: number): T {
 // Cookie storage hook (replaces localStorage)
 export function useCookieStorage<T>(key: string, initialValue: T, maxAge?: number) {
   const [storedValue, setStoredValue] = useState<T>(() => {
-    if (typeof window === 'undefined') return initialValue;
+    if (typeof window === 'undefined') {return initialValue;}
 
     try {
       // Try cookie first, then fallback to localStorage for migration
       const cookies = document.cookie.split(';').reduce((acc, cookie) => {
         const [k, v] = cookie.trim().split('=');
-        if (k && v) acc[k] = v;
+        if (k && v) {acc[k] = v;}
         return acc;
       }, {} as Record<string, string>);
 
