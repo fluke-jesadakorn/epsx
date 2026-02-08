@@ -8,99 +8,6 @@
 // CORE IAM CONFIGURATION
 // ============================================================================
 
-export const IAM_CONFIG = {
-  // Default permissions for new users
-  defaultPermissions: [
-    'epsx:analytics:view',
-    'epsx:profile:manage',
-    'epsx:notifications:receive'
-  ],
-
-  // Session configuration
-  session: {
-    cookieName: 'sess_id',
-    maxAge: 60 * 60 * 24 * 7, // 7 days
-  },
-
-  // Route protection configuration
-  routes: {
-    // Public routes that don't require authentication
-    public: [
-      '/',
-      '/login',
-      '/register',
-      '/api/auth',
-      '/api/public',
-      '/_next',
-      '/favicon.ico',
-      '/public',
-      '/static',
-    ],
-
-    // Protected routes with required permissions (structured format)
-    protected: {
-      // User-focused routes
-      '/dashboard': ['epsx:analytics:view'],
-      '/analytics': ['epsx:analytics:view'],
-      '/analytics/export': ['epsx:analytics:export'],
-      '/analytics/advanced': ['epsx:analytics:advanced'],
-      '/realtime': ['epsx:realtime:access'],
-      '/profile': ['epsx:profile:manage'],
-      '/billing': ['epsx:billing:manage'],
-      '/payment': ['epsx:payment:create'],
-      '/settings': ['epsx:profile:manage'],
-
-      // Admin-focused routes
-      '/admin': ['admin:*:*'],
-      '/admin/users': ['admin:users:manage'],
-      '/admin/users/create': ['admin:users:create'],
-      '/admin/users/permissions': ['admin:permissions:manage'],
-      '/admin/system': ['admin:system:manage'],
-      '/admin/audit': ['admin:audit:read'],
-      '/admin/notifications': ['admin:notifications:manage'],
-      '/admin/analytics': ['admin:analytics:view'],
-      '/admin/security': ['admin:security:manage'],
-
-      // API routes with permissions (user context)
-      '/api/analytics/export': ['epsx:analytics:export'],
-      '/api/analytics/advanced': ['epsx:analytics:advanced'],
-      '/api/payment/create': ['epsx:payment:create'],
-      '/api/profile': ['epsx:profile:manage'],
-
-      // API routes with permissions (admin context)
-      '/api/admin/users': ['admin:users:manage'],
-      '/api/admin/permissions': ['admin:permissions:manage'],
-      '/api/admin/system': ['admin:system:manage'],
-      '/api/admin/notifications': ['admin:notifications:manage'],
-      '/api/admin/analytics': ['admin:analytics:manage'],
-    },
-
-    // Routes that require authentication but no specific permissions
-    authenticated: ['/profile', '/settings', '/account', '/admin/profile'],
-  },
-
-  // API endpoints - both client-side and server-side configurations
-  api: {
-    // Client-side uses Next.js API routes
-    client: {
-      baseUrl: '/api',
-      endpoints: {
-        auth: '/api/auth',
-        permissions: '/api/iam/permissions',
-        users: '/api/users',
-        analytics: '/api/analytics',
-        admin: '/api/admin',
-      },
-    },
-
-    // Server-side uses direct backend URLs (configured via env)
-    server: {
-      timeout: 10000, // 10 seconds
-      retries: 3,
-    }
-  },
-} as const;
-
 // ============================================================================
 // STRUCTURED PERMISSION DEFINITIONS
 // ============================================================================
@@ -134,6 +41,7 @@ export const PERMISSIONS = {
   EPSX_PROFILE_VIEW: 'epsx:profile:view',
   EPSX_NOTIFICATIONS_RECEIVE: 'epsx:notifications:receive',
   EPSX_NOTIFICATIONS_MANAGE: 'epsx:notifications:manage',
+  EPSX_NOTIFICATIONS_SEND: 'epsx:notifications:send',
   EPSX_BILLING_MANAGE: 'epsx:billing:manage',
   EPSX_BILLING_VIEW: 'epsx:billing:view',
   EPSX_PAYMENT_CREATE: 'epsx:payment:create',
@@ -154,6 +62,103 @@ export const PERMISSIONS = {
   EPSX_TOKEN_GOVERNANCE_PROPOSE: 'epsx-token:governance:propose',
   EPSX_TOKEN_TOKENS_STAKE: 'epsx-token:tokens:stake',
   EPSX_TOKEN_TREASURY_VIEW: 'epsx-token:treasury:view',
+} as const;
+
+// ============================================================================
+// CORE IAM CONFIGURATION
+// ============================================================================
+
+export const IAM_CONFIG = {
+  // Default permissions for new users
+  defaultPermissions: [
+    PERMISSIONS.EPSX_ANALYTICS_VIEW,
+    PERMISSIONS.EPSX_PROFILE_MANAGE,
+    PERMISSIONS.EPSX_NOTIFICATIONS_RECEIVE
+  ],
+
+  // Session configuration
+  session: {
+    cookieName: 'sess_id',
+    maxAge: 60 * 60 * 24 * 7, // 7 days
+  },
+
+  // Route protection configuration
+  routes: {
+    // Public routes that don't require authentication
+    public: [
+      '/',
+      '/login',
+      '/register',
+      '/api/auth',
+      '/api/public',
+      '/_next',
+      '/favicon.ico',
+      '/public',
+      '/static',
+    ],
+
+    // Protected routes with required permissions (structured format)
+    protected: {
+      // User-focused routes
+      '/dashboard': [PERMISSIONS.EPSX_ANALYTICS_VIEW],
+      '/analytics': [PERMISSIONS.EPSX_ANALYTICS_VIEW],
+      '/analytics/export': [PERMISSIONS.EPSX_ANALYTICS_EXPORT],
+      '/analytics/advanced': [PERMISSIONS.EPSX_ANALYTICS_ADVANCED],
+      '/realtime': [PERMISSIONS.EPSX_REALTIME_ACCESS],
+      '/profile': [PERMISSIONS.EPSX_PROFILE_MANAGE],
+      '/billing': [PERMISSIONS.EPSX_BILLING_MANAGE],
+      '/payment': [PERMISSIONS.EPSX_PAYMENT_CREATE],
+      '/settings': [PERMISSIONS.EPSX_PROFILE_MANAGE],
+
+      // Admin-focused routes
+      '/admin': ['admin:*:*'],
+      '/admin/users': ['admin:users:manage'],
+      '/admin/users/create': ['admin:users:create'],
+      '/admin/users/permissions': ['admin:permissions:manage'],
+      '/admin/system': ['admin:system:manage'],
+      '/admin/audit': ['admin:audit:read'],
+      '/admin/notifications': [PERMISSIONS.ADMIN_NOTIFICATIONS_MANAGE],
+      '/admin/analytics': [PERMISSIONS.ADMIN_ANALYTICS_VIEW],
+      '/admin/security': [PERMISSIONS.ADMIN_SECURITY_MANAGE],
+
+      // API routes with permissions (user context)
+      '/api/analytics/export': [PERMISSIONS.EPSX_ANALYTICS_EXPORT],
+      '/api/analytics/advanced': [PERMISSIONS.EPSX_ANALYTICS_ADVANCED],
+      '/api/payment/create': [PERMISSIONS.EPSX_PAYMENT_CREATE],
+      '/api/profile': [PERMISSIONS.EPSX_PROFILE_MANAGE],
+
+      // API routes with permissions (admin context)
+      '/api/admin/users': [PERMISSIONS.ADMIN_USERS_MANAGE],
+      '/api/admin/permissions': [PERMISSIONS.ADMIN_PERMISSIONS_MANAGE],
+      '/api/admin/system': [PERMISSIONS.ADMIN_SYSTEM_MANAGE],
+      '/api/admin/notifications': [PERMISSIONS.ADMIN_NOTIFICATIONS_MANAGE],
+      '/api/admin/analytics': [PERMISSIONS.ADMIN_ANALYTICS_MANAGE],
+    },
+
+    // Routes that require authentication but no specific permissions
+    authenticated: ['/profile', '/settings', '/account', '/admin/profile'],
+  },
+
+  // API endpoints - both client-side and server-side configurations
+  api: {
+    // Client-side uses Next.js API routes
+    client: {
+      baseUrl: '/api',
+      endpoints: {
+        auth: '/api/auth',
+        permissions: '/api/iam/permissions',
+        users: '/api/users',
+        analytics: '/api/analytics',
+        admin: '/api/admin',
+      },
+    },
+
+    // Server-side uses direct backend URLs (configured via env)
+    server: {
+      timeout: 10000, // 10 seconds
+      retries: 3,
+    }
+  },
 } as const;
 
 // ============================================================================
@@ -191,27 +196,27 @@ export const PERMISSION_SETS = {
   ],
 
   PREMIUM_USER: [
-    'epsx:analytics:view',
-    'epsx:analytics:export',
-    'epsx:analytics:advanced',
-    'epsx:realtime:access',
-    'epsx:profile:manage',
-    'epsx:notifications:receive',
-    'epsx:billing:manage',
-    'epsx:payment:create'
+    PERMISSIONS.EPSX_ANALYTICS_VIEW,
+    PERMISSIONS.EPSX_ANALYTICS_EXPORT,
+    PERMISSIONS.EPSX_ANALYTICS_ADVANCED,
+    PERMISSIONS.EPSX_REALTIME_ACCESS,
+    PERMISSIONS.EPSX_PROFILE_MANAGE,
+    PERMISSIONS.EPSX_NOTIFICATIONS_RECEIVE,
+    PERMISSIONS.EPSX_BILLING_MANAGE,
+    PERMISSIONS.EPSX_PAYMENT_CREATE
   ],
 
   BASIC_USER: [
-    'epsx:analytics:view',
-    'epsx:profile:manage',
-    'epsx:notifications:receive',
-    'epsx:billing:view'
+    PERMISSIONS.EPSX_ANALYTICS_VIEW,
+    PERMISSIONS.EPSX_PROFILE_MANAGE,
+    PERMISSIONS.EPSX_NOTIFICATIONS_RECEIVE,
+    PERMISSIONS.EPSX_BILLING_VIEW
   ],
 
   FREE_USER: [
-    'epsx:analytics:view',
-    'epsx:profile:view',
-    'epsx:notifications:receive'
+    PERMISSIONS.EPSX_ANALYTICS_VIEW,
+    PERMISSIONS.EPSX_PROFILE_VIEW,
+    PERMISSIONS.EPSX_NOTIFICATIONS_RECEIVE
   ],
 
   // Platform-specific permission sets
@@ -287,8 +292,8 @@ export const CACHE_CONFIG = {
  * Get required permissions for a specific route
  */
 export function getRoutePermissions(route: string): string[] | null {
-  const permissions = IAM_CONFIG.routes.protected[route as keyof typeof IAM_CONFIG.routes.protected];
-  return permissions ? [...permissions] : null; // Convert readonly array to mutable array
+  const permissions = IAM_CONFIG.routes.protected[route as keyof typeof IAM_CONFIG.routes.protected] as readonly string[] | undefined;
+  return permissions ? (permissions as string[]) : null;
 }
 
 /**
@@ -320,7 +325,7 @@ export function isValidPermission(permission: string): boolean {
  */
 export function parsePermission(permission: string): { platform: string; resource: string; action: string } | null {
   const parts = permission.split(':');
-  if (parts.length !== 3) {return null;}
+  if (parts.length !== 3) { return null; }
 
   return {
     platform: parts[0] || '',
@@ -353,7 +358,7 @@ export function getPermissionPlatform(permission: string): string | null {
  */
 export function hasPermission(userPermissions: string[], _requiredPermission: string): boolean {
   // If user is authenticated (has any permissions), we are permissive on the client
-  return !!userPermissions && userPermissions.length > 0;
+  return userPermissions.length > 0;
 }
 
 /**
@@ -372,14 +377,14 @@ export function getPlatformPermissions(userPermissions: string[], platform: stri
 export function isAdmin(userPermissions: string[]): boolean {
   // PERMISSION REFACTOR: Client-side is permissive for any authenticated user.
   // Backend validates actual admin role.
-  return !!userPermissions && userPermissions.length > 0;
+  return userPermissions.length > 0;
 }
 
 /**
  * Check if user is super admin (has admin:*:* permission)
  */
 export function isSuperAdmin(userPermissions: string[]): boolean {
-  return !!userPermissions && userPermissions.length > 0;
+  return userPermissions.length > 0;
 }
 
 /**

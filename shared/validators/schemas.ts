@@ -13,7 +13,18 @@
  * - Type-safe validation with Zod
  */
 
-import { z } from 'zod';
+import { z, type ZodObject, type ZodRawShape } from 'zod';
+
+const MESSAGES = {
+  REQUIRED: 'This field is required',
+  NAME_TOO_LONG: 'Name is too long',
+  DESC_TOO_LONG: 'Description is too long',
+  MSG_TOO_LONG: 'Message is too long',
+  INVALID_EMAIL: 'Please enter a valid email address',
+  INVALID_URL: 'Please enter a valid URL',
+  INVALID_DATE: 'Please enter a valid date',
+  PERMISSION_REQUIRED: 'At least one permission is required',
+};
 
 // ============================================================================
 // BASE FIELD SCHEMAS (Building Blocks)
@@ -22,7 +33,7 @@ import { z } from 'zod';
 // Email validation with custom error messages
 export const emailSchema = z.string()
   .min(1, 'Email is required')
-  .email('Please enter a valid email address')
+  .email(MESSAGES.INVALID_EMAIL)
   .max(254, 'Email address is too long')
   .toLowerCase()
   .trim();
@@ -37,35 +48,35 @@ export const passwordSchema = z.string()
 // Name fields with reasonable constraints
 export const nameSchema = z.string()
   .min(1, 'Name is required')
-  .max(50, 'Name is too long')
+  .max(50, MESSAGES.NAME_TOO_LONG)
   .trim()
-  .regex(/^[a-zA-Z\s\-'\.]+$/, 'Name can only contain letters, spaces, hyphens, apostrophes, and periods');
+  .regex(/^[a-zA-Z\s\-'.]+$/, MESSAGES.NAME_TOO_LONG);
 
 // Optional name schema
 export const optionalNameSchema = z.string()
-  .max(50, 'Name is too long')
+  .max(50, MESSAGES.NAME_TOO_LONG)
   .trim()
-  .regex(/^[a-zA-Z\s\-'\.]*$/, 'Name can only contain letters, spaces, hyphens, apostrophes, and periods')
+  .regex(/^[a-zA-Z\s\-'.]*$/, MESSAGES.NAME_TOO_LONG)
   .optional();
 
 // Display name with more flexibility
 export const displayNameSchema = z.string()
   .min(1, 'Display name is required')
-  .max(100, 'Display name is too long')
+  .max(100, MESSAGES.NAME_TOO_LONG)
   .trim();
 
 export const optionalDisplayNameSchema = displayNameSchema.optional();
 
 // URL validation
 export const urlSchema = z.string()
-  .url('Please enter a valid URL')
+  .url(MESSAGES.INVALID_URL)
   .max(2048, 'URL is too long');
 
 export const optionalUrlSchema = urlSchema.optional().or(z.literal(''));
 
 // Date validation
 export const dateSchema = z.string()
-  .refine((date) => !isNaN(Date.parse(date)), 'Please enter a valid date');
+  .refine((date) => !isNaN(Date.parse(date)), MESSAGES.INVALID_DATE);
 
 export const optionalDateSchema = dateSchema.optional().or(z.literal(''));
 
@@ -82,7 +93,7 @@ export const reasonSchema = z.string()
   .trim();
 
 export const descriptionSchema = z.string()
-  .max(500, 'Description is too long')
+  .max(500, MESSAGES.DESC_TOO_LONG)
   .trim()
   .optional();
 
@@ -161,7 +172,7 @@ export const updateProfileSchema = z.object({
 // Grant permission schema
 export const grantPermissionSchema = z.object({
   userId: idSchema,
-  permissions: z.array(permissionSchema).min(1, 'At least one permission is required'),
+  permissions: z.array(permissionSchema).min(1, MESSAGES.PERMISSION_REQUIRED),
   expiryDate: optionalDateSchema,
   expiryTime: optionalTimeSchema,
   reason: reasonSchema
@@ -170,14 +181,14 @@ export const grantPermissionSchema = z.object({
 // Revoke permission schema
 export const revokePermissionSchema = z.object({
   userId: idSchema,
-  permissions: z.array(permissionSchema).min(1, 'At least one permission is required'),
+  permissions: z.array(permissionSchema).min(1, MESSAGES.PERMISSION_REQUIRED),
   reason: reasonSchema
 });
 
 // Temporary permission schema
 export const temporaryPermissionSchema = z.object({
   userId: idSchema,
-  permissions: z.array(permissionSchema).min(1, 'At least one permission is required'),
+  permissions: z.array(permissionSchema).min(1, MESSAGES.PERMISSION_REQUIRED),
   duration: z.number().min(1, 'Duration must be at least 1 minute').max(525600, 'Duration cannot exceed 1 year'),
   durationType: z.enum(['minutes', 'hours', 'days', 'weeks']),
   reason: reasonSchema
@@ -185,9 +196,9 @@ export const temporaryPermissionSchema = z.object({
 
 // Permission template schema
 export const permissionTemplateSchema = z.object({
-  name: z.string().min(1, 'Template name is required').max(100, 'Name is too long'),
+  name: z.string().min(1, 'Template name is required').max(100, MESSAGES.NAME_TOO_LONG),
   description: descriptionSchema,
-  permissions: z.array(permissionSchema).min(1, 'At least one permission is required'),
+  permissions: z.array(permissionSchema).min(1, MESSAGES.PERMISSION_REQUIRED),
   category: z.string().min(1, 'Category is required'),
   isSystem: z.boolean().default(false)
 });
@@ -237,7 +248,7 @@ export const passwordChangeSchema = z.object({
 
 // Create plan schema
 export const createPlanSchema = z.object({
-  name: z.string().min(1, 'Plan name is required').max(100, 'Name is too long'),
+  name: z.string().min(1, 'Plan name is required').max(100, MESSAGES.NAME_TOO_LONG),
   description: descriptionSchema,
   planType: z.string().min(1, 'Plan type is required'),
   currentPrice: z.number().min(-1, 'Price must be -1 (Free) or greater'),
@@ -262,7 +273,7 @@ export const updatePlanSchema = createPlanSchema.partial().extend({
 // Create notification schema
 export const createNotificationSchema = z.object({
   title: z.string().min(1, 'Title is required').max(200, 'Title is too long'),
-  message: z.string().min(1, 'Message is required').max(1000, 'Message is too long'),
+  message: z.string().min(1, 'Message is required').max(1000, MESSAGES.MSG_TOO_LONG),
   type: z.enum(['system', 'admin', 'data', 'feature', 'security']),
   priority: z.enum(['low', 'normal', 'high', 'urgent']),
   userId: idSchema.optional(),
@@ -274,7 +285,7 @@ export const createNotificationSchema = z.object({
 // Broadcast notification schema
 export const broadcastNotificationSchema = z.object({
   title: z.string().min(1, 'Title is required').max(200, 'Title is too long'),
-  message: z.string().min(1, 'Message is required').max(1000, 'Message is too long'),
+  message: z.string().min(1, 'Message is required').max(1000, MESSAGES.MSG_TOO_LONG),
   type: z.enum(['system', 'admin', 'data', 'feature', 'security']),
   priority: z.enum(['low', 'normal', 'high', 'urgent']),
   userIds: z.array(idSchema).optional(),
@@ -287,7 +298,7 @@ export const broadcastNotificationSchema = z.object({
 
 // Create API key schema
 export const createApiKeySchema = z.object({
-  clientName: z.string().min(1, 'Client name is required').max(100, 'Name is too long'),
+  clientName: z.string().min(1, 'Client name is required').max(100, MESSAGES.NAME_TOO_LONG),
   clientDescription: descriptionSchema,
   clientContactEmail: emailSchema.optional(),
   allowedModules: z.array(z.object({
@@ -296,7 +307,7 @@ export const createApiKeySchema = z.object({
     accessLevel: z.enum(['bronze', 'silver', 'gold', 'platinum', 'enterprise']),
     customQuotas: z.record(z.string(), z.any()).optional()
   })).min(1, 'At least one module is required'),
-  ipRestrictions: z.array(z.string().regex(/^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/, 'Invalid IP address')).optional(),
+  ipRestrictions: z.array(z.string().ip({ version: 'v4', message: 'Invalid IP address' })).optional(),
   expiresAt: optionalDateSchema,
   rateLimits: z.record(z.string(), z.number()).optional()
 });
@@ -372,7 +383,7 @@ export type FeedbackForm = z.infer<typeof feedbackSchema>;
  * Helper function to create conditional validation
  */
 export const createConditionalSchema = <T>(
-  condition: (data: any) => boolean,
+  condition: (data: unknown) => boolean,
   schema: z.ZodSchema<T>,
   fallback: z.ZodSchema<T>
 ) => {
@@ -408,8 +419,9 @@ export const createPlatformSchema = (platform: 'admin' | 'frontend') => {
   });
 
   return {
-    extend: <T extends z.ZodRawShape>(shape: T) => baseSchema.extend(shape),
-    merge: <T extends z.ZodObject<any, any>>(schema: T) => baseSchema.merge(schema)
+    extend: <T extends ZodRawShape>(shape: T) => baseSchema.extend(shape),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    merge: <T extends ZodObject<any, any>>(schema: T) => baseSchema.merge(schema)
   };
 };
 
@@ -421,6 +433,7 @@ export const createPlatformSchema = (platform: 'admin' | 'frontend') => {
  * Validate permission format: platform:resource:action or platform:resource:action:timestamp
  */
 export const isValidPermission = (permission: string): boolean => {
+  // eslint-disable-next-line security/detect-unsafe-regex
   return /^[a-zA-Z0-9_]+:[a-zA-Z0-9_*]+:[a-zA-Z0-9_*]+(?::\d+)?$/.test(permission);
 };
 
@@ -429,7 +442,7 @@ export const isValidPermission = (permission: string): boolean => {
  */
 export const isValidEmbeddedPermission = (permission: string): boolean => {
   const parts = permission.split(':');
-  if (parts.length !== 4) {return false;}
+  if (parts.length !== 4) { return false; }
 
   const timestampStr = parts[3] || '0';
   const timestamp = parseInt(timestampStr, 10);
@@ -467,7 +480,8 @@ export const isValidPhoneNumber = (phone: string): boolean => {
  */
 export const getErrorMessage = (error: z.ZodError): string => {
   const firstError = error.issues[0];
-  if (!firstError) {return 'Validation error';}
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+  if (firstError === undefined) { return 'Validation error'; }
 
   return firstError.message;
 };
@@ -480,7 +494,7 @@ export const getErrorMessages = (error: z.ZodError): Record<string, string[]> =>
 
   error.issues.forEach(issue => {
     const path = issue.path.join('.');
-    if (!messages[path]) {messages[path] = [];}
+    messages[path] ??= [];
     messages[path].push(issue.message);
   });
 

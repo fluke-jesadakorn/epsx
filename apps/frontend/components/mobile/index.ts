@@ -1,5 +1,5 @@
-export { MobileNav } from './MobileNav';
-export { MobileHeader } from './MobileHeader';
-export { MobileBottomNav } from './MobileBottomNav';
-export { MobileLayout } from './MobileLayout';
-export { MobileCard } from './MobileCard';
+export { MobileNav } from './mobile-nav';
+export { MobileHeader } from './Mobileheader';
+export { MobileBottomNav } from './mobile-bottom-nav';
+export { MobileLayout } from './mobile-layout';
+export { MobileCard } from './mobile-card';

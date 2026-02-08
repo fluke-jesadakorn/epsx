@@ -1,4 +1,4 @@
-import ServerCardDashboard from '@/components/analytics/ServerCardDashboard';
+import ServerCardDashboard from '@/components/analytics/server-card-dashboard';
 
 interface PortfolioPageProps {
   searchParams: {

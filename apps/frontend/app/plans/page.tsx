@@ -1,4 +1,4 @@
-import { PlanSelection } from '@/components/plans/PlanSelection'
+import { PlanSelection } from '@/components/plans/plan-selection'
 import { getCurrentUser } from '@/lib/server-actions'
 
 export const dynamic = 'force-dynamic'

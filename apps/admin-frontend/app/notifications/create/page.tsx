@@ -1,6 +1,6 @@
 'use client';
 
-import { SendNotificationForm } from '@/components/notifications/SendNotificationForm';
+import { SendNotificationForm } from '@/components/notifications/send-notification-form';
 import { useRouter } from 'next/navigation';
 
 export default function CreateNotificationPage() {

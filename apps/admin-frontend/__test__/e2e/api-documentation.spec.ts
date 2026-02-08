@@ -67,7 +67,7 @@ test.describe('API Documentation - E2E', () => {
     test('should filter by endpoint category', async ({ page }) => {
       await page.goto(`${ADMIN_URL}/docs/api`);
 
-      const categoryBtn = page.locator('button:has-text("Auth"), button:has-text("User")').first();
+      const categoryBtn = page.locator('button:has-text("auth"), button:has-text("user")').first();
       if (await categoryBtn.isVisible()) {
         await categoryBtn.click();
         await page.waitForTimeout(500);

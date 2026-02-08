@@ -73,7 +73,7 @@ test.describe('Group Management - E2E', () => {
     test('should add members to group', async ({ page }) => {
       await page.goto(`${ADMIN_URL}/permissions`);
 
-      const addMemberBtn = page.locator('button:has-text("Add Member"), button:has-text("Add User")').first();
+      const addMemberBtn = page.locator('button:has-text("Add Member"), button:has-text("Add user")').first();
       if (await addMemberBtn.isVisible()) {
         await addMemberBtn.click();
 

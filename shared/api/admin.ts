@@ -14,7 +14,8 @@
  * - Type-safe responses with proper error handling
  */
 
-import { UnifiedApiClient } from '../utils/api-client';
+import type { UnifiedApiClient } from '../utils/api-client';
+import { createAdminApiClient } from '../utils/api-client';
 
 // ============================================================================
 // ADMIN TYPES
@@ -633,7 +634,7 @@ export class AdminAPIClient {
           action: string;
           permission: string;
           wallet_address: string;
-           
+
           timestamp: string;
         }>;
       };
@@ -881,6 +882,5 @@ export function createAdminClient(client: UnifiedApiClient): AdminAPIClient {
  * Create admin client with automatic platform detection
  */
 export function createPlatformAdminClient(): AdminAPIClient {
-  const { createAdminApiClient } = require('../utils/api-client');
   return new AdminAPIClient(createAdminApiClient());
 }

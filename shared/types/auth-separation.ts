@@ -5,8 +5,8 @@
  * Uses permission groups instead of legacy tier system
  */
 
-import { JWTPayload } from 'jose';
-import { PermissionGroup } from './domain/User';
+import type { JWTPayload } from 'jose';
+import type { PermissionGroup } from './domain/user';
 
 // ============================================================================
 // BASE AUTHENTICATION TYPES
@@ -177,7 +177,7 @@ export interface SessionValidationResult {
   valid: boolean;
   sessionType?: 'admin' | 'user';
   user?: AuthenticatedUserProfile;
-  securityContext?: any;
+  securityContext?: unknown;
   error?: string;
 }
 
@@ -285,8 +285,9 @@ export function isAdminJWT(payload: AdminJWTPayload | UserJWTPayload): payload i
   return payload.token_type === 'admin_access';
 }
 
-export function isUserJWT(payload: AdminJWTPayload | UserJWTPayload | any): payload is UserJWTPayload {
-  return payload?.token_type === 'user_access';
+export function isUserJWT(payload: AdminJWTPayload | UserJWTPayload | unknown): payload is UserJWTPayload {
+  if (typeof payload !== 'object' || payload === null) { return false; }
+  return (payload as Record<string, unknown>).token_type === 'user_access';
 }
 
 export function isAdminUser(user: AuthenticatedUserProfile): user is AdminUserProfile {

@@ -69,7 +69,6 @@ test.describe('Admin Authentication Flows - E2E', () => {
 
     test('should handle session expiry gracefully', async ({ page }) => {
       await page.goto(ADMIN_URL);
-
        
       await page.evaluate(() => {
         localStorage.removeItem('web3_session');
@@ -108,7 +107,7 @@ test.describe('Admin Authentication Flows - E2E', () => {
     test('should redirect unauthorized users to access denied page', async ({ page }) => {
       await page.goto(`${ADMIN_URL}/system`);
 
-      await page.waitForSelector('text=Access Denied, text=Unauthorized, text=Permission', { timeout: 10000 });
+      await page.waitForSelector('text=Access Denied, text=Unauthorized, text=permission', { timeout: 10000 });
     });
 
     test('should show admin-only features for authorized users', async ({ page }) => {

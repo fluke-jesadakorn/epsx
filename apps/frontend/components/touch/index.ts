@@ -1,1 +1,1 @@
-export { EnhancedTouchWrapper } from './EnhancedTouchWrapper';
+export { EnhancedTouchWrapper } from './enhanced-touch-wrapper';

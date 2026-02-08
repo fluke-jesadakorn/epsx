@@ -151,7 +151,7 @@ export default function AuthDebugPage() {
                         >
                             Expire Refresh Token
                         </Button>
-                        <div className="w-px bg-border h-10 mx-2"></div>
+                        <div className="w-px bg-border h-10 mx-2" />
                         <Button onClick={handleTestApi} disabled={loading}>
                             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                             Test Protected API Call

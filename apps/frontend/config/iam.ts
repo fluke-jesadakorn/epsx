@@ -174,7 +174,6 @@ export function getUserPermissionTier(userPermissions: string[]): 'free' | 'tria
   return 'basic';
 }
 
-
 // Re-export shared utility functions with frontend context
 export const getRoutePermissions = sharedGetRoutePermissions;
 export const isPublicRoute = sharedIsPublicRoute;

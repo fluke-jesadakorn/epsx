@@ -1,5 +1,5 @@
 
-import { WalletSection } from '@/components/wallet/WalletSection';
+import { WalletSection } from '@/components/wallet/wallet-section';
 import { fetchWalletsAction } from '../actions';
 
 export default async function WalletsPage() {

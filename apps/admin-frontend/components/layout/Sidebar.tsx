@@ -263,7 +263,7 @@ export function Sidebar() {
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-xs font-bold text-foreground truncate">
-                {isWalletConnected ? 'Admin User' : 'Guest'}
+                {isWalletConnected ? 'Admin user' : 'Guest'}
               </p>
               <div className="flex items-center gap-1.5">
                 <div className={`w-1.5 h-1.5 rounded-full ${isWalletConnected ? 'bg-emerald-500' : 'bg-slate-500'}`} />

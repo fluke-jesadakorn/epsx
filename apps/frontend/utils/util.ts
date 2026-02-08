@@ -12,7 +12,7 @@ export function debounce<T extends (...args: unknown[]) => unknown>(
   wait: number,
   immediate?: boolean
 ): (..._args: Parameters<T>) => void {
-  let timeout: NodeJS.Timeout | null = null;
+  let timeout: ReturnType<typeof setTimeout> | null = null;
 
   return function (this: unknown, ...args: Parameters<T>) {
     const callNow = immediate && !timeout;
@@ -23,10 +23,10 @@ export function debounce<T extends (...args: unknown[]) => unknown>(
 
     timeout = setTimeout(() => {
       timeout = null;
-      if (!immediate) {func.apply(this, args);}
+      if (!immediate) { func.apply(this, args); }
     }, wait);
 
-    if (callNow) {func.apply(this, args);}
+    if (callNow) { func.apply(this, args); }
   };
 }
 
@@ -61,7 +61,7 @@ export function deepClone<T>(obj: T): T {
   }
 
   if (obj instanceof Array) {
-    return obj.map(item => deepClone(item)) as T;
+    return (obj as unknown as unknown[]).map(item => deepClone(item)) as unknown as T;
   }
 
   if (typeof obj === 'object') {
@@ -135,10 +135,10 @@ export const storage = {
   get<T>(key: string, defaultValue?: T): T | null {
     try {
       const item = localStorage.getItem(key);
-      return item ? JSON.parse(item) : defaultValue || null;
+      return item ? JSON.parse(item) as T : defaultValue ?? null;
     } catch (error) {
       logger.error('Failed to read from localStorage', error);
-      return defaultValue || null;
+      return defaultValue ?? null;
     }
   },
 
@@ -213,12 +213,12 @@ export const array = {
    * Group array by key
    */
   groupBy<T>(arr: T[], key: keyof T): Record<string, T[]> {
-    return arr.reduce((groups, item) => {
+    return arr.reduce<Partial<Record<string, T[]>>>((groups, item) => {
       const val = String(item[key]);
-      groups[val] = groups[val] || [];
+      groups[val] ??= [];
       groups[val].push(item);
       return groups;
-    }, {} as Record<string, T[]>);
+    }, {}) as Record<string, T[]>;
   },
 
   /**
@@ -229,8 +229,8 @@ export const array = {
       const aVal = a[key];
       const bVal = b[key];
 
-      if (aVal < bVal) {return direction === 'asc' ? -1 : 1;}
-      if (aVal > bVal) {return direction === 'asc' ? 1 : -1;}
+      if (aVal < bVal) { return direction === 'asc' ? -1 : 1; }
+      if (aVal > bVal) { return direction === 'asc' ? 1 : -1; }
       return 0;
     });
   },
@@ -250,13 +250,13 @@ export const array = {
    * Flatten nested arrays
    */
   flatten<T>(arr: (T | T[])[]): T[] {
-    return arr.reduce((acc: T[], val: T | T[]) => {
+    return arr.reduce<T[]>((acc: T[], val: T | T[]) => {
       if (Array.isArray(val)) {
         return acc.concat(array.flatten(val));
       } else {
         return acc.concat([val]);
       }
-    }, [] as T[]);
+    }, []);
   }
 };
 
@@ -299,21 +299,21 @@ export const object = {
    * Deep merge objects
    */
   merge<T extends object>(target: T, ...sources: Partial<T>[]): T {
-    if (!sources.length) {return target;}
+    if (!sources.length) { return target; }
     const source = sources.shift();
 
     if (this.isObject(target) && this.isObject(source)) {
       for (const key in source) {
         if (this.isObject(source[key])) {
-          if (!target[key]) {Object.assign(target, { [key]: {} });}
-          this.merge(target[key] as object, source[key] as object);
+          if (!target[key]) { Object.assign(target, { [key]: {} }); }
+          object.merge(target[key] as object, source[key] as object);
         } else {
           Object.assign(target, { [key]: source[key] });
         }
       }
     }
 
-    return this.merge(target, ...sources);
+    return object.merge(target, ...sources);
   },
 
   /**
@@ -331,7 +331,7 @@ export const object = {
     let current: unknown = obj;
 
     for (const key of keys) {
-      if (current == null || typeof current !== 'object') {
+      if (current === null || current === undefined || typeof current !== 'object') {
         return defaultValue as T;
       }
       current = (current as Record<string, unknown>)[key];
@@ -347,7 +347,7 @@ export const object = {
     const keys = path.split('.');
     const lastKey = keys.pop();
 
-    if (!lastKey) {return;}
+    if (!lastKey) { return; }
 
     let current: Record<string, unknown> = obj;
     for (const key of keys) {
@@ -365,7 +365,7 @@ export const object = {
  * Format file size in human readable format
  */
 export function formatFileSize(bytes: number): string {
-  if (bytes === 0) {return '0 Bytes';}
+  if (bytes === 0) { return '0 Bytes'; }
 
   const k = 1024;
   const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
@@ -403,7 +403,7 @@ export function kebabCase(str: string): string {
  */
 export function camelCase(str: string): string {
   return str
-    .replace(/[-_\s]+(.)?/g, (_, char) => char ? char.toUpperCase() : '')
+    .replace(/[-_\s]+(.)?/g, (_, char: string) => char ? char.toUpperCase() : '')
     .replace(/^[A-Z]/, char => char.toLowerCase());
 }
 
@@ -411,7 +411,7 @@ export function camelCase(str: string): string {
  * Calculate percentage change
  */
 export function calculatePercentageChange(oldValue: number, newValue: number): number {
-  if (oldValue === 0) {return newValue === 0 ? 0 : 100;}
+  if (oldValue === 0) { return newValue === 0 ? 0 : 100; }
   return ((newValue - oldValue) / oldValue) * 100;
 }
 
@@ -433,7 +433,7 @@ export function isBrowser(): boolean {
  * Check if code is running on mobile
  */
 export function isMobile(): boolean {
-  if (!isBrowser()) {return false;}
+  if (!isBrowser()) { return false; }
   return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 }
 
@@ -441,9 +441,10 @@ export function isMobile(): boolean {
  * Copy text to clipboard
  */
 export async function copyToClipboard(text: string): Promise<boolean> {
-  if (!isBrowser()) {return false;}
+  if (!isBrowser()) { return false; }
 
   try {
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     if (navigator.clipboard) {
       await navigator.clipboard.writeText(text);
       return true;

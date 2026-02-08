@@ -45,7 +45,7 @@ export function Breadcrumb({
 
   if (variant === 'pivot') {
     return (
-      <nav className={cn("mb-6", className)} aria-label="Breadcrumb">
+      <nav className={cn("mb-6", className)} aria-label="breadcrumb">
         {/* Windows Phone pivot-style breadcrumb */}
         <div className="flex items-center overflow-x-auto pb-2">
           <div className="flex items-center gap-1 min-w-max">
@@ -147,7 +147,7 @@ export function Breadcrumb({
 
   // Default variant
   return (
-    <nav className={cn("flex items-center gap-2 text-sm mb-4", className)} aria-label="Breadcrumb">
+    <nav className={cn("flex items-center gap-2 text-sm mb-4", className)} aria-label="breadcrumb">
       {allItems.map((item, index) => {
         const isLast = index === allItems.length - 1
         const Icon = item.icon

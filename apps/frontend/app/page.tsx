@@ -1,7 +1,7 @@
-import { StreamingWrapper } from '@/components/common/StreamingWrapper';
-import DynamicPricingSection from '@/components/home/DynamicPricingSection';
-import HeroSection from '@/components/home/HeroSection';
-import ServerTopPerformers from '@/components/home/ServerTopPerformers';
+import { StreamingWrapper } from '@/components/common/streaming-wrapper';
+import DynamicPricingSection from '@/components/home/dynamic-pricing-section';
+import HeroSection from '@/components/home/hero-section';
+import ServerTopPerformers from '@/components/home/server-top-performers';
 import { Crown, Rocket } from 'lucide-react';
 import { Suspense } from 'react';
 

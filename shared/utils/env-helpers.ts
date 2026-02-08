@@ -5,8 +5,10 @@
  * Features are hidden in production but code stays for future multi-chain support.
  */
 
+import { logger } from './logger';
+
 // Get blockchain network from environment
-const blockchainNetwork = process.env['NEXT_PUBLIC_BLOCKCHAIN_NETWORK'] || 'testnet';
+const blockchainNetwork = process.env['NEXT_PUBLIC_BLOCKCHAIN_NETWORK'] ?? 'testnet';
 
 /**
  * Check if running on localhost or 127.0.0.1
@@ -41,9 +43,9 @@ export const isDev = isLocal || isTestnet;
  * Get the current blockchain network name
  */
 export const getNetworkName = (): string => {
-    if (isLocal) {return 'Local (Anvil)';}
-    if (isTestnet) {return 'BSC Testnet';}
-    if (isProduction) {return 'BSC Mainnet';}
+    if (isLocal) { return 'Local (Anvil)'; }
+    if (isTestnet) { return 'BSC Testnet'; }
+    if (isProduction) { return 'BSC Mainnet'; }
     return 'Unknown';
 };
 
@@ -51,9 +53,9 @@ export const getNetworkName = (): string => {
  * Get the chain ID for current environment
  */
 export const getDefaultChainId = (): number => {
-    if (isLocal) {return 31337;}
-    if (isTestnet) {return 97;}
-    if (isProduction) {return 56;}
+    if (isLocal) { return 31337; }
+    if (isTestnet) { return 97; }
+    if (isProduction) { return 56; }
     return 97; // Default to testnet
 };
 
@@ -62,7 +64,12 @@ export const getDefaultChainId = (): number => {
  */
 export const devLog = (...args: unknown[]): void => {
     if (isDev) {
-        console.log('[DEV]', ...args);
+        const [message, ...rest] = args;
+        if (typeof message === 'string') {
+            logger.debug(message, ...rest);
+        } else {
+            logger.debug('Dev Log:', ...args);
+        }
     }
 };
 
@@ -71,6 +78,11 @@ export const devLog = (...args: unknown[]): void => {
  */
 export const devWarn = (...args: unknown[]): void => {
     if (isDev) {
-        console.warn('[DEV]', ...args);
+        const [message, ...rest] = args;
+        if (typeof message === 'string') {
+            logger.warn(message, ...rest);
+        } else {
+            logger.warn('Dev Warning:', ...args);
+        }
     }
 };

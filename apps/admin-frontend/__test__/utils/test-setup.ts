@@ -11,7 +11,8 @@
  * - Environment validation
  */
 
-import { test as base, expect, Page, APIRequestContext } from '@playwright/test';
+import type { Page, APIRequestContext } from '@playwright/test';
+import { test as base, expect } from '@playwright/test';
 
 import { getBackendUrl } from '@/shared/utils/url-resolver';
 import {

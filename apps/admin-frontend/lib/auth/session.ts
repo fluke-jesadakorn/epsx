@@ -94,7 +94,7 @@ export function createUserSession(
     exp: Math.floor(Date.now() / 1000) + (30 * 24 * 60 * 60), // 30 days (matches backend/cookies)
     iat: Math.floor(Date.now() / 1000),
     email: userinfo.email || '',
-    name: userinfo.name || userinfo.display_name || 'Unknown User',
+    name: userinfo.name || userinfo.display_name || 'Unknown user',
     role: userinfo.role || 'user',
     permissions: userinfo.permissions || ['epsx:user:read'],
     platform_context: userinfo.platform_context || 'epsx',

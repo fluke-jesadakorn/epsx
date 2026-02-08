@@ -1,6 +1,7 @@
 import { getDefaultConfig } from '@rainbow-me/rainbowkit';
+import { type Chain, http } from 'viem';
 import { bsc, bscTestnet } from 'viem/chains';
-import { cookieStorage, createConfig, createStorage, http, type Chain } from 'wagmi';
+import { cookieStorage, createConfig, createStorage } from 'wagmi';
 
 /**
  * Get the dynamic Anvil RPC URL based on the current browser hostname.
@@ -45,10 +46,7 @@ const createAnvilLocalhost = (): Chain => {
 // Use a cached chain instance to maintain connector references across renders
 let anvilLocalhost: Chain | null = null;
 const getAnvilLocalhost = (): Chain => {
-    if (!anvilLocalhost) {
-        anvilLocalhost = createAnvilLocalhost();
-    }
-    return anvilLocalhost;
+    return anvilLocalhost ??= createAnvilLocalhost();
 };
 
 // Cache chains array to maintain connector references
@@ -69,7 +67,7 @@ const isLocal = typeof window !== 'undefined'
 // Note: Function-based to ensure Anvil chain is created with correct hostname at runtime
 export function getDefaultChains(): Chain[] {
     // Return cached chains if available to maintain connector references
-    if (cachedChains) {return cachedChains;}
+    if (cachedChains) { return cachedChains; }
 
     if (isMainnet && isProduction) {
         cachedChains = [bsc];
@@ -89,7 +87,7 @@ export function getDefaultChains(): Chain[] {
 }
 
 export const DEFAULT_APP_NAME = 'EPSX';
-export const DEFAULT_PROJECT_ID = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || '04e0a500abfa1e095bf8f64b15fa2812';
+export const DEFAULT_PROJECT_ID = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID ?? '04e0a500abfa1e095bf8f64b15fa2812';
 export const DEFAULT_LEARN_MORE_URL = 'https://epsx.io';
 
 export interface WagmiConfigOptions {
@@ -110,11 +108,10 @@ export function getConfig({
     ssr = true,
 }: WagmiConfigOptions = {}) {
     const resolvedChains = chains ?? getDefaultChains();
-
     return getDefaultConfig({
         appName,
         projectId,
-        chains: resolvedChains as any,
+        chains: resolvedChains as [Chain, ...Chain[]],
         ssr,
         storage: createStorage({
             storage: cookieStorage,
@@ -128,10 +125,10 @@ export function getConfig({
  */
 export function getServerConfig() {
     const chains = getDefaultChains();
-    const transports = chains.reduce((acc, chain) => {
+    const transports = chains.reduce<Record<number, ReturnType<typeof http>>>((acc, chain) => {
         acc[chain.id] = http();
         return acc;
-    }, {} as Record<number, any>);
+    }, {});
 
     return createConfig({
         chains: chains as [Chain, ...Chain[]],

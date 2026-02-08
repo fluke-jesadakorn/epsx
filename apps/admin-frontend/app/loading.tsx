@@ -3,7 +3,7 @@
  * Shows while pages are loading
  */
 
-import { DashboardSkeleton } from '@/components/admin/DashboardSkeleton'
+import { DashboardSkeleton } from '@/components/admin/dashboard-skeleton'
 
 /**
  *

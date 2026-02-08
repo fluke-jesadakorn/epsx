@@ -485,7 +485,6 @@ export async function validatePermissions(permissions: string[]): Promise<{
   };
 }
 
-
 // Get permission statistics for dashboard
 /**
  *

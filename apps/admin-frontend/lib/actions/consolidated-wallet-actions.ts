@@ -71,7 +71,6 @@ export interface WalletProfileUpdateData {
   language?: string;
 }
 
-
 export interface PermissionHistoryEntry {
   id: string;
   walletAddress: string;
@@ -86,7 +85,6 @@ export interface PermissionHistoryEntry {
   reason?: string;
   expires?: Date;
 }
-
 
 // ============================================================================
 // USER LIST OPERATIONS
@@ -247,7 +245,6 @@ export async function deleteWallet(walletAddress: string): Promise<ActionResult<
   }
 }
 
-
 // ============================================================================
 // USER PERMISSION OPERATIONS
 // ============================================================================
@@ -325,7 +322,6 @@ export async function bulkUpdateWalletPermissions(changes: WalletPermissionChang
 // ============================================================================
 // BULK USER OPERATIONS
 // ============================================================================
-
 
 // ============================================================================
 // GROUP MANAGEMENT OPERATIONS
@@ -651,11 +647,9 @@ export async function validatePermissionAssignment(data: {
   }
 }
 
-
 // ============================================================================
 // ACTIVITY & HISTORY OPERATIONS
 // ============================================================================
-
 
 // ============================================================================
 // USER SEARCH OPERATIONS

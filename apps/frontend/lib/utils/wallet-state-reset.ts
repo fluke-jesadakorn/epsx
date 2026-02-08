@@ -10,7 +10,7 @@
  * - Session and authentication state
  */
 
-import { QueryClient } from '@tanstack/react-query';
+import type { QueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
 interface WalletStateResetOptions {
@@ -80,11 +80,11 @@ function clearLocalStorage(preserveTheme = true): void {
     let themeValue: string | null = null;
     if (preserveTheme) {
       // Try to get theme from cookies first, then fallback to localStorage for migration
-      const cookies = document.cookie.split(';').reduce((acc, cookie) => {
+      const cookies = document.cookie.split(';').reduce<Record<string, string>>((acc, cookie) => {
         const [key, value] = cookie.trim().split('=');
         if (key && value) {acc[key] = value;}
         return acc;
-      }, {} as Record<string, string>);
+      }, {});
       themeValue = cookies.theme || window.localStorage.getItem('theme');
     }
 
@@ -335,7 +335,6 @@ export function resetWalletState(options: WalletStateResetOptions = {}): void {
     preserveTheme = true,
   } = options;
 
-
   try {
     // Clear browser storage
     clearLocalStorage(preserveTheme);
@@ -355,7 +354,6 @@ export function resetWalletState(options: WalletStateResetOptions = {}): void {
     if (clearBroadcastState) {
       broadcastStateReset();
     }
-
 
     if (showToast) {
       toast.success('Wallet state reset successfully');
@@ -431,11 +429,11 @@ export function detectStateCorruption(): boolean {
     );
 
     // Check for orphaned authentication state in cookies and localStorage (fallback)
-    const cookies = document.cookie.split(';').reduce((acc, cookie) => {
+    const cookies = document.cookie.split(';').reduce<Record<string, string>>((acc, cookie) => {
       const [key, value] = cookie.trim().split('=');
       if (key && value) {acc[key] = value;}
       return acc;
-    }, {} as Record<string, string>);
+    }, {});
     
     const hasOidcSession = cookies.oidc_session !== null || window.localStorage.getItem('oidc_session') !== null;
     const hasAuthState = cookies.web3_auth_state !== null || window.localStorage.getItem('web3_auth_state') !== null;

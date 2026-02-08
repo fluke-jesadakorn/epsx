@@ -16,6 +16,10 @@
     "clsx": ">=2.0.0",
     "tailwind-merge": ">=2.0.0"
   },
+  "scripts": {
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix"
+  },
   "devDependencies": {
     "@rainbow-me/rainbowkit": "^2.2.10",
     "wagmi": "^2.15.5",

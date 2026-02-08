@@ -3,10 +3,12 @@
  * Provides common utilities, setup functions, and helper methods for E2E tests
  */
 
-import { Page, BrowserContext, expect } from '@playwright/test';
+import type { Page} from '@playwright/test';
+import { BrowserContext, expect } from '@playwright/test';
+import type { 
+  TestUser} from '../fixtures/user-fixtures';
 import { 
   TEST_USERS, 
-  TestUser, 
   generateMockJWT, 
   getUserByTier,
   initializeTestUsers

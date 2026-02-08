@@ -1,7 +1,8 @@
 import { createPaymentsClient, type PaymentValidateRequest } from '@/shared/api/payments';
 import { COOKIES } from '@/shared/auth/cookies';
 import { cookies } from 'next/headers';
-import { NextRequest, NextResponse } from 'next/server';
+import type { NextRequest} from 'next/server';
+import { NextResponse } from 'next/server';
 
 // Payment confirmation request body (client format)
 interface PaymentConfirmRequest {

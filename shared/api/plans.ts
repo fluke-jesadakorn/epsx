@@ -11,9 +11,10 @@
  * - Bulk plan operations
  */
 
-import { ApiResponse, isApiSuccess, PaginatedResponse } from '../types/api';
+import type { ApiResponse, PaginatedResponse } from '../types/api';
+import { isApiSuccess } from '../types/api';
 import type { PlanAccessData } from '../types/payment';
-import { UnifiedApiClient } from '../utils/api-client';
+import type { UnifiedApiClient } from '../utils/api-client';
 
 export { isApiSuccess };
 
@@ -30,7 +31,15 @@ export interface Plan {
   created_at: string;
   updated_at?: string;
   is_active: boolean;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
+  /**
+   * Price for plans that are fixed amount
+   */
+  current_price?: string | number;
+  /**
+   * List of features associated with the plan
+   */
+  features?: unknown[];
 }
 
 export interface SubscriptionResponse {
@@ -49,10 +58,11 @@ export interface SubscriptionResponse {
   expires_at?: string;
   auto_renew: boolean;
   created_at: string;
+  started_at?: string;
   updated_at: string;
-  metadata?: Record<string, any>;
-  current_usage?: Record<string, any>;
-  quota_limits?: Record<string, any>;
+  metadata?: Record<string, unknown>;
+  current_usage?: Record<string, unknown>;
+  quota_limits?: Record<string, unknown>;
 }
 
 export interface PublicPlan {
@@ -144,7 +154,7 @@ export interface CreatePlanRequest {
   name: string;
   description?: string;
   permissions: string[];
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface UpdatePlanRequest {
@@ -152,7 +162,15 @@ export interface UpdatePlanRequest {
   description?: string;
   permissions?: string[];
   is_active?: boolean;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
+}
+
+export interface UpdateSubscriptionRequest {
+  plan_id?: string;
+  status?: 'active' | 'cancelled' | 'expired' | 'paused';
+  expires_at?: string;
+  auto_renew?: boolean;
+  metadata?: Record<string, unknown>;
 }
 
 export interface PlanStats {
@@ -272,6 +290,22 @@ export class PlansApi {
    */
   async getSubscriptions(filters?: SubscriptionListQuery): Promise<ApiResponse<{ subscriptions: SubscriptionResponse[]; total: number }>> {
     return this.client.get<{ subscriptions: SubscriptionResponse[]; total: number }>('/api/admin/subscriptions', filters);
+  }
+
+  /**
+   * Get single subscription
+   * GET /api/admin/subscriptions/{subscription_id}
+   */
+  async getSubscription(subscription_id: string): Promise<ApiResponse<SubscriptionResponse>> {
+    return this.client.get<SubscriptionResponse>(`/api/admin/subscriptions/${subscription_id}`);
+  }
+
+  /**
+   * Update a subscription
+   * PUT /api/admin/subscriptions/{subscription_id}
+   */
+  async updateSubscription(subscription_id: string, data: UpdateSubscriptionRequest): Promise<ApiResponse<SubscriptionResponse>> {
+    return this.client.put<SubscriptionResponse>(`/api/admin/subscriptions/${subscription_id}`, data);
   }
 
   /**

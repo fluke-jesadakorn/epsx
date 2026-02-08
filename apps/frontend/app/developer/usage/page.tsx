@@ -1,4 +1,4 @@
-import { UsageMonitor } from '@/components/developer/UsageMonitor';
+import { UsageMonitor } from '@/components/developer/usage-monitor';
 import { getCurrentUser } from '@/lib/server-actions';
 
 export const dynamic = 'force-dynamic';

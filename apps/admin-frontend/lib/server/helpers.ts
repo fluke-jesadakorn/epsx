@@ -7,6 +7,7 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 
 import { COOKIES } from '@/shared/auth/cookies'
+import { logger } from '@/shared/utils/logger'
 
 interface JWTPayload {
   sub?: string
@@ -78,12 +79,12 @@ export class ServerAuth {
 
       // Extract user information from ID token
       const user = {
-        id: payload.sub || payload.user_id || '',
-        email: payload.email || '',
-        name: payload.name || payload.display_name || '',
-        role: payload.role || 'user',
-        permissions: payload.permissions || [],
-        packageTier: payload.package_tier || 'basic'
+        id: payload.sub ?? payload.user_id ?? '',
+        email: payload.email ?? '',
+        name: payload.name ?? payload.display_name ?? '',
+        role: payload.role ?? 'user',
+        permissions: payload.permissions ?? [],
+        packageTier: payload.package_tier ?? 'basic'
       }
 
       return {
@@ -92,9 +93,9 @@ export class ServerAuth {
         accessToken,
         idToken
       }
-    } catch (_error) {
+    } catch (error) {
 
-      console.error('Error getting admin session:', _error)
+      logger.error('Error getting admin session:', error)
       return { isLoggedIn: false }
     }
   }
@@ -143,15 +144,15 @@ export class ServerAuth {
         return null
       }
 
-      const payload = parts[1] || ''
+      const payload = parts[1] ?? ''
       // Add padding if needed
       const paddedPayload = payload + '='.repeat((4 - payload.length % 4) % 4)
       const decoded = Buffer.from(paddedPayload, 'base64').toString('utf8')
 
-      return JSON.parse(decoded)
-    } catch (_error) {
+      return JSON.parse(decoded) as JWTPayload
+    } catch (error) {
 
-      console.error('Error decoding JWT:', _error)
+      logger.error('Error decoding JWT:', error)
       return null
     }
   }
@@ -186,12 +187,12 @@ export class ServerAuth {
     if (!payload) { return null }
 
     return {
-      id: payload.sub || payload.user_id || '',
-      email: payload.email || '',
-      name: payload.name || payload.display_name || '',
-      role: payload.role || 'user',
-      permissions: payload.permissions || [],
-      packageTier: payload.package_tier || 'basic'
+      id: payload.sub ?? payload.user_id ?? '',
+      email: payload.email ?? '',
+      name: payload.name ?? payload.display_name ?? '',
+      role: payload.role ?? 'user',
+      permissions: payload.permissions ?? [],
+      packageTier: payload.package_tier ?? 'basic'
     }
   }
 
@@ -234,7 +235,7 @@ export class PermissionUtils {
    * @param permission
    */
   static getPlatform(permission: string): string {
-    return permission.split(':')[0] || 'unknown'
+    return permission.split(':')[0] ?? 'unknown'
   }
 
   // Extract resource from permission
@@ -243,7 +244,7 @@ export class PermissionUtils {
    * @param permission
    */
   static getResource(permission: string): string {
-    return permission.split(':')[1] || 'unknown'
+    return permission.split(':')[1] ?? 'unknown'
   }
 
   // Extract action from permission
@@ -252,7 +253,7 @@ export class PermissionUtils {
    * @param permission
    */
   static getAction(permission: string): string {
-    return permission.split(':')[2] || 'unknown'
+    return permission.split(':')[2] ?? 'unknown'
   }
 
   // Check if permission matches pattern

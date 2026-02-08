@@ -1,117 +1,161 @@
 'use client'
 
-import { ArrowLeft } from 'lucide-react'
+import {
+    ArrowLeft,
+    Calendar,
+    CheckCircle2,
+    Clock,
+    Edit3,
+    Hash,
+    RefreshCw,
+    Shield,
+    ShieldCheck,
+    Trash2,
+    User,
+} from 'lucide-react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 
-import { toast } from '@/hooks/use-toast'
+import { useToast } from '@/hooks/use-toast'
 import { logger } from '@/lib/logger'
-import { createPlansClient, isApiSuccess, type SubscriptionResponse, type UpdateSubscriptionRequest } from '@/shared/api/plans'
+import {
+    createPlansClient,
+    isApiSuccess,
+    type Plan,
+    type SubscriptionResponse,
+    type UpdateSubscriptionRequest,
+} from '@/shared/api/plans'
+import { Badge, Button as BaseButton, Card as BaseCard } from '@/shared/components/ui'
 import { createAdminApiClient } from '@/shared/utils/api-client'
 
-/**
- *
- */
-export default function SubscriptionDetailPage() {
-    const router = useRouter()
-    const params = useParams()
-    const subscriptionId = params['id'] as string
+interface TimelineItemProps {
+    label: string
+    value: string
+}
 
+interface InfoItemProps {
+    icon: React.ReactNode
+    label: string
+    value: string
+    mono?: boolean
+}
+
+/**
+ * Custom hook for subscription data fetching
+ */
+function useSubscriptionFetchers(subscriptionId: string) {
+    const { toast } = useToast()
+    const router = useRouter()
     const [subscription, setSubscription] = useState<SubscriptionResponse | null>(null)
     const [loading, setLoading] = useState(true)
-    const [isEditing, setIsEditing] = useState(false)
-    const [saving, setSaving] = useState(false)
-    const [plans, setPlans] = useState<any[]>([])
-    const [editData, setEditData] = useState<UpdateSubscriptionRequest>({
-        status: '',
-        plan_id: 0,
-        expires_at: '',
-        auto_renew: false
-    })
+    const [plans, setPlans] = useState<Plan[]>([])
 
-    useEffect(() => {
-        loadSubscription()
-        loadPlans()
-    }, [subscriptionId])
-
-    const loadSubscription = async () => {
+    const loadSubscription = useCallback(async () => {
+        if (!subscriptionId) {
+            return
+        }
         const adminClient = createPlansClient(createAdminApiClient())
         try {
             setLoading(true)
             const response = await adminClient.getSubscription(subscriptionId)
             if (isApiSuccess(response)) {
-                const data = (response.data as any)?.subscription || response.data
-                setSubscription(data)
-                setEditData({
-                    status: data.status,
-                    plan_id: data.plan_id,
-                    expires_at: data.expires_at?.split('T')[0] || '',
-                    auto_renew: data.auto_renew
-                })
+                setSubscription(response.data)
             } else {
                 toast({
-                    title: "Error",
-                    description: "Subscription not found",
-                    variant: "destructive"
+                    title: 'Error',
+                    description: response.error?.message ?? 'Subscription not found',
+                    variant: 'destructive',
                 })
                 router.push('/subscriptions')
             }
-        } catch (_error) {
-            logger.error('Failed to load subscription', { _error })
+        } catch (error) {
+            logger.error('Failed to load subscription', { error, subscriptionId })
             toast({
-                title: "Error",
-                description: "Failed to load subscription",
-                variant: "destructive"
+                title: 'Error',
+                description: 'Failed to load subscription data',
+                variant: 'destructive',
             })
             router.push('/subscriptions')
         } finally {
             setLoading(false)
         }
-    }
+    }, [subscriptionId, router, toast])
 
-    const loadPlans = async () => {
+    const loadPlans = useCallback(async () => {
         const adminClient = createPlansClient(createAdminApiClient())
         try {
-            const response = await adminClient.getPlans({ is_active: true })
+            const response = await adminClient.listPlans({ is_active: true })
             if (isApiSuccess(response)) {
-                setPlans((response.data as any)?.plans || response.data as any || [])
+                setPlans(response.data.data)
             }
-        } catch (_error) {
-            logger.error('Failed to load plans', { _error })
+        } catch (error) {
+            logger.error('Failed to load plans', { error })
         }
-    }
+    }, [])
+
+    useEffect(() => {
+        void loadSubscription()
+        void loadPlans()
+    }, [loadSubscription, loadPlans])
+
+    return { subscription, loading, plans, loadSubscription }
+}
+
+/**
+ * Custom hook for subscription detail logic
+ */
+function useSubscriptionDetails(subscriptionId: string) {
+    const { toast } = useToast()
+    const router = useRouter()
+    const { subscription, loading, plans, loadSubscription } = useSubscriptionFetchers(subscriptionId)
+
+    const [isEditing, setIsEditing] = useState(false)
+    const [saving, setSaving] = useState(false)
+    const [editData, setEditData] = useState<UpdateSubscriptionRequest>({
+        status: 'active',
+        plan_id: '',
+        expires_at: '',
+        auto_renew: false,
+    })
+
+    useEffect(() => {
+        if (subscription) {
+            setEditData({
+                status: subscription.status,
+                plan_id: subscription.plan_id,
+                expires_at: subscription.expires_at?.split('T')[0] ?? '',
+                auto_renew: subscription.auto_renew,
+            })
+        }
+    }, [subscription])
 
     const handleUpdate = async () => {
         const adminClient = createPlansClient(createAdminApiClient())
         try {
             setSaving(true)
-            const updatePayload: UpdateSubscriptionRequest = {
+            const response = await adminClient.updateSubscription(subscriptionId, {
                 ...editData,
-                expires_at: editData.expires_at || undefined
-            }
-
-            const response = await adminClient.updateSubscription(subscriptionId, updatePayload)
+                expires_at: editData.expires_at ?? undefined,
+            })
 
             if (isApiSuccess(response)) {
                 setIsEditing(false)
-                loadSubscription()
-                toast({
-                    title: "Success",
-                    description: "Subscription updated successfully",
-                })
+                void loadSubscription()
+                toast({ title: 'Success', description: 'Subscription updated successfully' })
             } else {
                 toast({
-                    title: "Error",
-                    description: response.error?.message || "Failed to update subscription",
-                    variant: "destructive"
+                    title: 'Error',
+                    description: response.error?.message ?? 'Failed to update subscription',
+                    variant: 'destructive',
                 })
             }
-        } catch (_error) {
+        } catch (error) {
+            logger.error('Error updating subscription', { error, subscriptionId })
             toast({
-                title: "Error",
-                description: "Failed to update subscription",
-                variant: "destructive"
+                title: 'Error',
+                description: 'Failed to update subscription',
+                variant: 'destructive',
             })
         } finally {
             setSaving(false)
@@ -119,61 +163,104 @@ export default function SubscriptionDetailPage() {
     }
 
     const handleCancel = async () => {
-        if (!confirm('Are you sure you want to cancel this subscription? This action cannot be undone.')) {
+        // eslint-disable-next-line no-alert
+        if (!window.confirm('Are you sure you want to cancel this subscription?')) {
             return
         }
-
         const adminClient = createPlansClient(createAdminApiClient())
         try {
             setSaving(true)
             const response = await adminClient.cancelSubscription(subscriptionId)
-
             if (isApiSuccess(response)) {
-                toast({
-                    title: "Success",
-                    description: "Subscription cancelled successfully",
-                })
+                toast({ title: 'Success', description: 'Subscription cancelled successfully' })
                 router.push('/subscriptions')
             } else {
                 toast({
-                    title: "Error",
-                    description: response.error?.message || "Failed to cancel subscription",
-                    variant: "destructive"
+                    title: 'Error',
+                    description: response.error?.message ?? 'Failed to cancel subscription',
+                    variant: 'destructive',
                 })
             }
-        } catch (_error) {
+        } catch (error) {
+            logger.error('Error cancelling subscription', { error, subscriptionId })
             toast({
-                title: "Error",
-                description: "Failed to cancel subscription",
-                variant: "destructive"
+                title: 'Error',
+                description: 'An unexpected error occurred during cancellation',
+                variant: 'destructive',
             })
         } finally {
             setSaving(false)
         }
     }
 
-    const getStatusColor = (status: string) => {
-        switch (status.toLowerCase()) {
-            case 'active':
-                return 'bg-success/10 text-success border border-success/20'
-            case 'expired':
-                return 'bg-warning/10 text-warning border border-warning/20'
-            case 'cancelled':
-                return 'bg-destructive/10 text-destructive border border-destructive/20'
-            default:
-                return 'bg-muted text-muted-foreground border border-border/50'
+    const statusBadge = useMemo(() => {
+        if (!subscription) {
+            return null
+        }
+        const status = subscription.status.toLowerCase()
+        const variants: Record<string, 'secondary' | 'outline' | 'destructive'> = {
+            active: 'secondary',
+            expired: 'outline',
+            cancelled: 'destructive',
+        }
+        return <Badge variant={variants[status] ?? 'outline'}>{status.toUpperCase()}</Badge>
+    }, [subscription])
+
+    return {
+        subscription,
+        loading,
+        isEditing,
+        setIsEditing,
+        saving,
+        plans,
+        editData,
+        setEditData,
+        handleUpdate,
+        handleCancel,
+        statusBadge,
+    }
+}
+
+/**
+ * Subscription Detail Page Component
+ */
+export default function SubscriptionDetailPage() {
+    const params = useParams()
+    const router = useRouter()
+    const subscriptionId = params['id'] as string
+
+    const {
+        subscription,
+        loading,
+        isEditing,
+        setIsEditing,
+        saving,
+        plans,
+        editData,
+        setEditData,
+        handleUpdate,
+        handleCancel,
+        statusBadge,
+    } = useSubscriptionDetails(subscriptionId)
+
+    const formatDate = (dateString?: string) => {
+        if (!dateString) {
+            return 'Never'
+        }
+        try {
+            return new Date(dateString).toLocaleString()
+        } catch (error) {
+            logger.warn('Failed to format date', { dateString, error })
+            return 'Invalid Date'
         }
     }
 
-    const formatDate = (dateString?: string) => {
-        if (!dateString) { return 'Never' }
-        return new Date(dateString).toLocaleString()
-    }
-
-    const formatUsage = (usage: Record<string, any>) => {
-        if (!usage || Object.keys(usage).length === 0) { return 'No usage data' }
+    const formatUsage = (usage?: Record<string, unknown>) => {
+        if (!usage || Object.keys(usage).length === 0) {
+            return 'No usage data'
+        }
         return Object.entries(usage)
-            .map(([key, value]) => `${key}: ${value}`)
+            .map(([key, value]) => `${key}: ${String(value)}`)
             .join(', ')
     }
 
@@ -182,8 +269,8 @@ export default function SubscriptionDetailPage() {
             <div className="min-h-screen p-6">
                 <div className="max-w-5xl mx-auto">
                     <div className="animate-pulse space-y-6">
-                        <div className="h-8 bg-primary/20 rounded-2xl w-1/3"></div>
-                        <div className="h-64 bg-card rounded-3xl border border-border/50"></div>
+                        <div className="h-8 bg-primary/20 rounded-2xl w-1/3" />
+                        <div className="h-64 bg-card rounded-3xl border border-border/50" />
                     </div>
                 </div>
             </div>
@@ -191,11 +278,20 @@ export default function SubscriptionDetailPage() {
     }
 
     if (!subscription) {
-        return null
+        return (
+            <div className="min-h-screen p-6 flex items-center justify-center">
+                <div className="text-center space-y-4">
+                    <h2 className="text-xl font-semibold">Subscription not found</h2>
+                    <BaseButton onClick={() => { router.push('/subscriptions') }}>
+                        Back to Subscriptions
+                    </BaseButton>
+                </div>
+            </div>
+        )
     }
 
     return (
-        <div className="min-h-screen p-6">
+        <div className="min-h-screen p-6 bg-background">
             <div className="max-w-5xl mx-auto space-y-6">
                 {/* Header */}
                 <div className="flex items-center justify-between">
@@ -207,231 +303,277 @@ export default function SubscriptionDetailPage() {
                             <ArrowLeft className="h-5 w-5" />
                         </Link>
                         <div>
-                            <h1 className="text-2xl font-bold bg-gradient-to-r from-primary via-secondary to-primary bg-clip-text text-transparent">
-                                Subscription Details
+                            <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+                                Subscription Management
                             </h1>
                             <div className="flex items-center gap-3 mt-1">
                                 <span className="text-lg font-semibold text-foreground">
                                     {subscription.plan_name}
                                 </span>
-                                <span className={`px-3 py-1 text-sm rounded-full font-semibold border ${getStatusColor(subscription.status)}`}>
-                                    {subscription.status.toUpperCase()}
-                                </span>
+                                {statusBadge}
                             </div>
                         </div>
                     </div>
                     <div className="flex gap-3">
                         {!isEditing && subscription.status !== 'cancelled' && (
-                            <button
-                                onClick={() => setIsEditing(true)}
-                                className="px-4 py-2 bg-secondary text-secondary-foreground rounded-xl font-semibold hover:opacity-90 transition-opacity"
-                            >
+                            <BaseButton onClick={() => { setIsEditing(true) }} variant="secondary">
+                                <Edit3 className="h-4 w-4 mr-2" />
                                 Edit
-                            </button>
+                            </BaseButton>
                         )}
                     </div>
                 </div>
 
-                {/* Basic Information */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="bg-card rounded-3xl p-6 border border-border/50 shadow-sm">
-                        <h3 className="font-bold text-foreground mb-4">Basic Information</h3>
-                        <div className="space-y-3">
-                            <div className="flex justify-between">
-                                <span className="text-muted-foreground">Subscription ID:</span>
-                                <span className="font-semibold font-mono text-sm">{subscription.id}</span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-muted-foreground">User ID:</span>
-                                <span className="font-semibold font-mono text-sm">{subscription.user_id}</span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-muted-foreground">Access Context:</span>
-                                <span className="font-semibold">{subscription.access_context}</span>
-                            </div>
-                            {subscription.api_key_name && (
-                                <div className="flex justify-between">
-                                    <span className="text-muted-foreground">API Key Name:</span>
-                                    <span className="font-semibold">{subscription.api_key_name}</span>
-                                </div>
-                            )}
-                            {subscription.api_key && (
-                                <div className="flex justify-between">
-                                    <span className="text-muted-foreground">API Key:</span>
-                                    <span className="font-mono text-sm bg-muted px-2 py-1 rounded">
-                                        {subscription.api_key.substring(0, 8)}...
-                                    </span>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-
-                    <div className="bg-card rounded-3xl p-6 border border-border/50 shadow-sm">
-                        <h3 className="font-bold text-foreground mb-4">Timeline</h3>
-                        <div className="space-y-3">
-                            <div className="flex justify-between">
-                                <span className="text-muted-foreground">Started:</span>
-                                <span className="font-semibold">{formatDate(subscription.started_at)}</span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-muted-foreground">Created:</span>
-                                <span className="font-semibold">{formatDate(subscription.created_at)}</span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-muted-foreground">Expires:</span>
-                                <span className="font-semibold">{formatDate(subscription.expires_at)}</span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-muted-foreground">Auto-renew:</span>
-                                <span className={`font-semibold ${subscription.auto_renew ? 'text-success' : 'text-destructive'}`}>
-                                    {subscription.auto_renew ? 'Yes' : 'No'}
-                                </span>
-                            </div>
-                            {subscription.last_billed_at && (
-                                <div className="flex justify-between">
-                                    <span className="text-muted-foreground">Last Billed:</span>
-                                    <span className="font-semibold">{formatDate(subscription.last_billed_at)}</span>
-                                </div>
-                            )}
-                            {subscription.next_billing_date && (
-                                <div className="flex justify-between">
-                                    <span className="text-muted-foreground">Next Billing:</span>
-                                    <span className="font-semibold">{formatDate(subscription.next_billing_date)}</span>
-                                </div>
-                            )}
-                        </div>
-                    </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <IdentityInfoCard subscription={subscription} />
+                    <TimelineCard
+                        subscription={subscription}
+                        formatDate={formatDate}
+                    />
                 </div>
 
-                {/* Current Usage */}
-                <div className="bg-card rounded-3xl p-6 border border-border/50 shadow-sm">
-                    <h3 className="font-bold text-foreground mb-4">Current Usage & Quotas</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div>
-                            <h4 className="font-semibold text-muted-foreground mb-2">Current Usage</h4>
-                            <p className="text-sm text-foreground/80 font-mono bg-muted p-3 rounded-xl border border-border/50">
-                                {formatUsage(subscription.current_usage || {})}
-                            </p>
-                        </div>
-                        <div>
-                            <h4 className="font-semibold text-muted-foreground mb-2">Quota Limits</h4>
-                            <p className="text-sm text-foreground/80 font-mono bg-muted p-3 rounded-xl border border-border/50">
-                                {formatUsage(subscription.quota_limits || {})}
-                            </p>
-                        </div>
-                    </div>
-                </div>
+                <UsageCard
+                    subscription={subscription}
+                    formatUsage={formatUsage}
+                />
 
-                {/* Edit Form */}
                 {isEditing && (
-                    <div className="bg-primary/5 rounded-3xl p-6 border border-primary/20">
-                        <h3 className="font-bold text-foreground mb-4">Edit Subscription</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div>
-                                <label className="block text-sm font-semibold text-muted-foreground mb-2">
-                                    Status
-                                </label>
-                                <select
-                                    value={editData.status}
-                                    onChange={(e) => setEditData({ ...editData, status: e.target.value })}
-                                    className="w-full px-4 py-3 rounded-xl border border-border bg-card text-foreground focus:ring-2 focus:ring-primary"
-                                >
-                                    <option value="active">Active</option>
-                                    <option value="expired">Expired</option>
-                                    <option value="cancelled">Cancelled</option>
-                                </select>
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-semibold text-muted-foreground mb-2">
-                                    Plan
-                                </label>
-                                <select
-                                    value={editData.plan_id}
-                                    onChange={(e) => setEditData({ ...editData, plan_id: parseInt(e.target.value) })}
-                                    className="w-full px-4 py-3 rounded-xl border border-border bg-card text-foreground focus:ring-2 focus:ring-primary"
-                                >
-                                    {plans.map(plan => (
-                                        <option key={plan.id} value={plan.id}>
-                                            {plan.name} - {Number(plan.current_price) === 0 ? 'Free' : `$${plan.current_price} ${plan.currency}`}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-semibold text-muted-foreground mb-2">
-                                    Expiry Date
-                                </label>
-                                <input
-                                    type="date"
-                                    value={editData.expires_at}
-                                    onChange={(e) => setEditData({ ...editData, expires_at: e.target.value })}
-                                    min={new Date().toISOString().split('T')[0]}
-                                    className="w-full px-4 py-3 rounded-xl border border-border bg-card text-foreground focus:ring-2 focus:ring-primary"
-                                />
-                            </div>
-
-                            <div className="flex items-center justify-center">
-                                <label className="flex items-center gap-3 cursor-pointer">
-                                    <input
-                                        type="checkbox"
-                                        checked={editData.auto_renew}
-                                        onChange={(e) => setEditData({ ...editData, auto_renew: e.target.checked })}
-                                        className="w-5 h-5 text-primary border-border rounded focus:ring-primary"
-                                    />
-                                    <span className="text-sm font-semibold text-muted-foreground">Auto-renew</span>
-                                </label>
-                            </div>
-                        </div>
-
-                        <div className="flex gap-4 mt-6">
-                            <button
-                                onClick={() => setIsEditing(false)}
-                                className="flex-1 px-6 py-3 rounded-xl border border-border text-foreground font-semibold hover:bg-muted transition-colors"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={handleUpdate}
-                                disabled={saving}
-                                className="flex-1 px-6 py-3 rounded-xl bg-primary text-primary-foreground font-semibold hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
-                            >
-                                {saving ? 'Updating...' : 'Update Subscription'}
-                            </button>
-                        </div>
-                    </div>
+                    <AdminOverridesCard
+                        editData={editData}
+                        setEditData={setEditData}
+                        plans={plans}
+                        saving={saving}
+                        onSave={handleUpdate}
+                        onCancel={() => { setIsEditing(false) }}
+                    />
                 )}
 
-                {/* Metadata */}
                 {subscription.metadata && Object.keys(subscription.metadata).length > 0 && (
-                    <div className="bg-card rounded-3xl p-6 border border-border/50 shadow-sm">
-                        <h3 className="font-bold text-foreground mb-4">Metadata</h3>
-                        <pre className="text-sm text-muted-foreground bg-muted p-4 rounded-xl border border-border/50 font-mono overflow-x-auto">
-                            {JSON.stringify(subscription.metadata, null, 2)}
-                        </pre>
-                    </div>
+                    <MetadataCard metadata={subscription.metadata} />
                 )}
 
-                {/* Footer Actions */}
                 <div className="flex gap-4 pt-4">
                     <Link href="/subscriptions" className="flex-1">
-                        <button className="w-full px-6 py-3 rounded-xl border border-border text-foreground font-semibold hover:bg-muted transition-colors">
-                            Back to Subscriptions
-                        </button>
+                        <BaseButton variant="outline" className="w-full">
+                            Return to Registry
+                        </BaseButton>
                     </Link>
 
                     {subscription.status === 'active' && !isEditing && (
-                        <button
-                            onClick={handleCancel}
+                        <BaseButton
+                            variant="destructive"
+                            className="flex-1"
+                            onClick={() => { void handleCancel() }}
                             disabled={saving}
-                            className="flex-1 px-6 py-3 rounded-xl bg-destructive text-destructive-foreground font-semibold hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
                         >
-                            {saving ? 'Cancelling...' : 'Cancel Subscription'}
-                        </button>
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            {saving ? 'Processing...' : 'Terminate Subscription'}
+                        </BaseButton>
                     )}
                 </div>
             </div>
+        </div>
+    )
+}
+
+function IdentityInfoCard({ subscription }: { subscription: SubscriptionResponse }) {
+    return (
+        <BaseCard className="md:col-span-2">
+            <div className="flex items-center gap-2 mb-6">
+                <Shield className="h-5 w-5 text-primary" />
+                <h3 className="font-bold text-lg">Identity & Context</h3>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-6 gap-x-8">
+                <InfoItem icon={<Hash />} label="Subscription ID" value={subscription.id} mono />
+                <InfoItem icon={<User />} label="User ID" value={subscription.user_id} mono />
+                <InfoItem icon={<ShieldCheck />} label="Access Context" value={subscription.access_context.toUpperCase()} />
+                {subscription.api_key_name && (
+                    <InfoItem icon={<Shield />} label="API Key" value={subscription.api_key_name} />
+                )}
+            </div>
+        </BaseCard>
+    )
+}
+
+function TimelineCard({ subscription, formatDate }: {
+    subscription: SubscriptionResponse,
+    formatDate: (d?: string) => string
+}) {
+    return (
+        <BaseCard>
+            <div className="flex items-center gap-2 mb-6">
+                <Calendar className="h-5 w-5 text-primary" />
+                <h3 className="font-bold text-lg">Timeline</h3>
+            </div>
+            <div className="space-y-4">
+                <TimelineItem label="Started" value={formatDate(subscription.started_at)} />
+                <TimelineItem label="Expires" value={formatDate(subscription.expires_at)} />
+                <div className="flex justify-between items-center py-2 border-t border-border/50 mt-2">
+                    <span className="text-sm text-muted-foreground flex items-center gap-2">
+                        <RefreshCw className="h-4 w-4" />
+                        Auto-renew
+                    </span>
+                    <span className={`font-bold ${subscription.auto_renew ? 'text-success' : 'text-destructive'}`}>
+                        {subscription.auto_renew ? 'Enabled' : 'Disabled'}
+                    </span>
+                </div>
+            </div>
+        </BaseCard>
+    )
+}
+
+function UsageCard({ subscription, formatUsage }: {
+    subscription: SubscriptionResponse,
+    formatUsage: (u?: Record<string, unknown>) => string
+}) {
+    return (
+        <BaseCard>
+            <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-2">
+                    <Clock className="h-5 w-5 text-primary" />
+                    <h3 className="font-bold text-lg">Current Utilization</h3>
+                </div>
+                <Badge variant="outline" className="font-mono">Real-time Data</Badge>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div>
+                    <h4 className="text-sm font-medium text-muted-foreground mb-3">Resource Consumption</h4>
+                    <div className="bg-muted/30 p-4 rounded-2xl border border-border/50 font-mono text-sm">
+                        {formatUsage(subscription.current_usage ?? {})}
+                    </div>
+                </div>
+                <div>
+                    <h4 className="text-sm font-medium text-muted-foreground mb-3">Hard Quota Limits</h4>
+                    <div className="bg-muted/30 p-4 rounded-2xl border border-border/50 font-mono text-sm">
+                        {formatUsage(subscription.quota_limits ?? {})}
+                    </div>
+                </div>
+            </div>
+        </BaseCard>
+    )
+}
+
+function AdminOverridesCard({ editData, setEditData, plans, saving, onSave, onCancel }: {
+    editData: UpdateSubscriptionRequest,
+    setEditData: (d: UpdateSubscriptionRequest) => void,
+    plans: Plan[],
+    saving: boolean,
+    onSave: () => void | Promise<void>,
+    onCancel: () => void
+}) {
+    return (
+        <BaseCard className="border-primary/20 bg-primary/5">
+            <h3 className="font-bold text-lg mb-6">Administrative Overrides</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                    <label className="text-sm font-medium text-muted-foreground">Lifecycle Status</label>
+                    <select
+                        value={editData.status}
+                        onChange={(e) => { setEditData({ ...editData, status: e.target.value as SubscriptionResponse['status'] }) }}
+                        className="w-full px-4 py-3 rounded-xl border border-border bg-card text-foreground focus:ring-2 focus:ring-primary outline-none"
+                    >
+                        <option value="active">Active</option>
+                        <option value="expired">Expired</option>
+                        <option value="cancelled">Cancelled</option>
+                        <option value="paused">Paused</option>
+                    </select>
+                </div>
+
+                <div className="space-y-2">
+                    <label className="text-sm font-medium text-muted-foreground">Assigned Plan</label>
+                    <select
+                        value={editData.plan_id}
+                        onChange={(e) => { setEditData({ ...editData, plan_id: e.target.value }) }}
+                        className="w-full px-4 py-3 rounded-xl border border-border bg-card text-foreground focus:ring-2 focus:ring-primary outline-none"
+                    >
+                        {plans.map(plan => (
+                            <option key={plan.id} value={plan.id}>
+                                {plan.name}
+                            </option>
+                        ))}
+                    </select>
+                </div>
+
+                <div className="space-y-2">
+                    <label className="text-sm font-medium text-muted-foreground">Expiration Date</label>
+                    <input
+                        type="date"
+                        value={editData.expires_at}
+                        onChange={(e) => { setEditData({ ...editData, expires_at: e.target.value }) }}
+                        min={new Date().toISOString().split('T')[0]}
+                        className="w-full px-4 py-3 rounded-xl border border-border bg-card text-foreground focus:ring-2 focus:ring-primary outline-none"
+                    />
+                </div>
+
+                <div className="flex items-center pt-8">
+                    <label className="flex items-center gap-3 cursor-pointer group">
+                        <div className="relative">
+                            <input
+                                type="checkbox"
+                                checked={editData.auto_renew}
+                                onChange={(e) => { setEditData({ ...editData, auto_renew: e.target.checked }) }}
+                                className="sr-only"
+                            />
+                            <div className={`w-12 h-6 rounded-full transition-colors ${editData.auto_renew ? 'bg-primary' : 'bg-muted'}`} />
+                            <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${editData.auto_renew ? 'translate-x-6' : ''}`} />
+                        </div>
+                        <span className="text-sm font-medium">Automatic Renewal</span>
+                    </label>
+                </div>
+            </div>
+
+            <div className="flex gap-4 mt-8">
+                <BaseButton variant="outline" className="flex-1" onClick={onCancel}>
+                    Abort Changes
+                </BaseButton>
+                <BaseButton
+                    className="flex-1"
+                    onClick={() => {
+                        void onSave()
+                    }}
+                    disabled={saving}
+                >
+                    <CheckCircle2 className="h-4 w-4 mr-2" />
+                    {saving ? 'Propagating...' : 'Commit Changes'}
+                </BaseButton>
+            </div>
+        </BaseCard>
+    )
+}
+
+function MetadataCard({ metadata }: { metadata: Record<string, unknown> }) {
+    return (
+        <BaseCard>
+            <h3 className="font-bold text-lg mb-4">Extended Metadata</h3>
+            <pre className="text-xs text-muted-foreground bg-muted/50 p-4 rounded-xl border border-border/50 font-mono overflow-x-auto">
+                {JSON.stringify(metadata, null, 2)}
+            </pre>
+        </BaseCard>
+    )
+}
+
+function InfoItem({ icon, label, value, mono = false }: InfoItemProps) {
+    return (
+        <div className="flex gap-4">
+            <div className="p-2 h-fit rounded-lg bg-primary/10 text-primary">
+                {icon}
+            </div>
+            <div className="space-y-1">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{label}</p>
+                <p className={`text-sm font-bold ${mono ? 'font-mono break-all' : ''}`}>{value}</p>
+            </div>
+        </div>
+    )
+}
+
+function TimelineItem({ label, value }: TimelineItemProps) {
+    return (
+        <div className="flex justify-between items-center py-2">
+            <div className="flex items-center gap-2">
+                <Clock className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">{label}</span>
+            </div>
+            <span className="text-sm font-bold">{value}</span>
         </div>
     )
 }

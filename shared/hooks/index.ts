@@ -11,7 +11,7 @@
 
 export {
   useAdminApiClient, useApiClient, useFrontendApiClient, type ApiClients, type Platform
-} from './useApiClient';
+} from './use-api-client';
 
 // ============================================================================
 // USER HOOKS
@@ -43,7 +43,7 @@ export {
 
 export {
   DEFAULT_POLLING_CONFIG, usePollingManager, useSmartPolling, type PollingPriority, type SmartPollingConfig, type UseSmartPollingOptions
-} from './useSmartPolling';
+} from './use-smart-polling';
 
 // ============================================================================
 // NOTIFICATION HOOKS
@@ -51,4 +51,4 @@ export {
 
 export {
   useNotificationBell
-} from './useNotificationBell';
+} from './use-notification-bell';

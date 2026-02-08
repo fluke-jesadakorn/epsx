@@ -4,7 +4,7 @@
  * Three-tier authentication: PUBLIC -> CONNECTED -> AUTHENTICATED
  */
 
-import { ReactNode } from 'react';
+import type { ReactNode } from 'react';
 
 // ============================================================================
 // CORE PROGRESSIVE AUTH TYPES

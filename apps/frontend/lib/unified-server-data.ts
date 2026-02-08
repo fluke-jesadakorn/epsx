@@ -3,11 +3,13 @@
  * Provides centralized data fetching for Server Components
  */
 
+import type { AnalyticsFiltersResponse, EPSRanking } from '@/shared/api/analytics';
 import { createPlatformAnalyticsClient } from '@/shared/api/analytics';
 import { COOKIES } from '@/shared/auth/cookies';
-import type { FilterOptions, SymbolCardData } from '@/shared/types/analytics';
+import type { CardDashboardResponse, FilterOptions, QuarterlyPerformanceData, SymbolCardData } from '@/shared/types/analytics';
+import { logger } from '@/shared/utils/logger';
 
-export type EPSQueryParams = {
+export interface EPSQueryParams {
     page: number;
     limit: number;
     country?: string;
@@ -16,7 +18,7 @@ export type EPSQueryParams = {
     min_eps?: number;
     min_growth?: number;
     search?: string;
-};
+}
 
 async function hasServerAccessToken(): Promise<boolean> {
     try {
@@ -36,7 +38,7 @@ export async function getAnalyticsData(params: EPSQueryParams) {
         const analyticsClient = createPlatformAnalyticsClient('frontend');
 
         // Sort by type in shared/api/analytics is restricted, so we cast to the expected type
-        const sort_by = params.sort_by as any;
+        const sort_by = params.sort_by as 'eps_growth' | 'market_cap' | 'volume' | 'price';
 
         const filters = {
             page: params.page,
@@ -50,26 +52,25 @@ export async function getAnalyticsData(params: EPSQueryParams) {
 
         // Use authenticated rankings when possible, fallback to public for guests
         // NOTE: The backend returns EPSRanking format which needs to be mapped to SymbolCardData
-        let response: any | null = null;
+        let response: CardDashboardResponse | null = null;
         const hasToken = await hasServerAccessToken();
         if (hasToken) {
             try {
                 response = await analyticsClient.getAuthenticatedRankings(filters);
-            } catch (error) {
-                console.warn('⚠️ Authenticated analytics failed, falling back to public data:', error);
+            } catch {
+                // Silent fallback
             }
         }
 
         if (!response) {
             try {
                 response = await analyticsClient.getPublicRankings(filters);
-            } catch (error) {
-                console.warn('⚠️ Public analytics fetch failed:', error);
+            } catch {
                 return {
                     rankings: [],
                     pagination: {
-                        page: params.page || 1,
-                        limit: params.limit || 10,
+                        page: params.page,
+                        limit: params.limit,
                         total: 0,
                         totalPages: 0,
                         hasNext: false,
@@ -80,12 +81,12 @@ export async function getAnalyticsData(params: EPSQueryParams) {
         }
 
         if (!response || (response.success === false)) {
-            console.warn('⚠️ Analytics data fetch failed or returned empty:', response?.message);
+            logger.warn('⚠️ Analytics data fetch failed or returned empty:', response?.message);
             return {
                 rankings: [],
                 pagination: {
-                    page: params.page || 1,
-                    limit: params.limit || 10,
+                    page: params.page ?? 1,
+                    limit: params.limit ?? 10,
                     total: 0,
                     totalPages: 0,
                     hasNext: false,
@@ -96,13 +97,15 @@ export async function getAnalyticsData(params: EPSQueryParams) {
 
         // Map backend EPSRanking data to frontend SymbolCardData
         // The backend returns loose structure that needs to be normalized
-        const rawRankings = response.data || [];
-        const mappedRankings: SymbolCardData[] = rawRankings.map((item: any, index: number) => {
+        // Map backend EPSRanking data to frontend SymbolCardData
+        // The backend returns loose structure that needs to be normalized
+        const rawRankings = (response.data as unknown as EPSRanking[]) ?? [];
+        const mappedRankings: SymbolCardData[] = rawRankings.map((item: EPSRanking, index: number) => {
             // Determine rank (use existing or calculate)
-            const rank = item.ranking_position || item.rank || ((params.page - 1) * params.limit) + index + 1;
+            const rank = (item.ranking_position ?? ((params.page - 1) * params.limit) + index + 1);
 
             // Map quarterly data if available
-            const quarterlyPerformance = (item.quarterly_data || item.quarterly_performance || []).map((q: any) => ({
+            const quarterlyPerformance: QuarterlyPerformanceData[] = (item.quarterly_data ?? []).map((q) => ({
                 quarter: q.quarter,
                 date: q.date,
                 price: q.price,
@@ -113,43 +116,43 @@ export async function getAnalyticsData(params: EPSQueryParams) {
             }));
 
             // Get latest data point for display
-            const latestData = quarterlyPerformance[0] || {};
+            const latestData = quarterlyPerformance[0] ?? ({ date: new Date().toISOString(), price: 0 } as QuarterlyPerformanceData);
 
             return {
                 rank: rank,
                 symbol: item.symbol,
-                company_name: item.name || item.company_name,
-                latest_date: latestData.date || new Date().toISOString(),
-                value: item.price_current || latestData.price || 0,
-                active_status: item.active_status || 'Active',
+                company_name: item.name,
+                latest_date: latestData.date,
+                value: item.price_current ?? latestData.price,
+                active_status: item.active_status,
                 quarterly_performance: quarterlyPerformance,
-                currency: item.currency || 'USD',
+                currency: 'USD',
 
                 // Mapped fields
-                current_eps: item.current_eps,
-                growth_factor: item.growth_factor,
-                price_current: item.price_current,
+                current_eps: item.current_eps ?? 0,
+                growth_factor: item.growth_factor ?? 0,
+                price_current: item.price_current ?? 0,
 
                 // Defaults for missing data
-                next_quarter_estimate: item.next_quarter_estimate,
-                next_earnings_date: item.next_earnings_date,
-                days_until_next_earnings: item.days_until_next_earnings,
-                progress_percentage: item.progress_percentage
+                next_quarter_estimate: undefined,
+                next_earnings_date: undefined,
+                days_until_next_earnings: undefined,
+                progress_percentage: 0
             };
         });
 
         return {
             rankings: mappedRankings,
             pagination: response.pagination,
-            processing_time_ms: response.processing_time_ms
+            processing_time_ms: 0
         };
     } catch (error) {
-        console.error('❌ Error in getAnalyticsData:', error);
+        logger.error('❌ Error in getAnalyticsData:', String(error));
         return {
             rankings: [],
             pagination: {
-                page: params.page || 1,
-                limit: params.limit || 10,
+                page: params.page,
+                limit: params.limit,
                 total: 0,
                 totalPages: 0,
                 hasNext: false,
@@ -175,34 +178,32 @@ export async function getPortfolioData(params: EPSQueryParams) {
 export async function getServerFilterOptions(): Promise<FilterOptions> {
     try {
         const analyticsClient = createPlatformAnalyticsClient('frontend');
-        let response: any | null = null;
+        let response: AnalyticsFiltersResponse | null = null;
         const hasToken = await hasServerAccessToken();
 
         if (hasToken) {
             try {
                 response = await analyticsClient.getAuthenticatedFilters();
-            } catch (error) {
-                console.warn('⚠️ Authenticated filters failed, falling back to public filters:', error);
+            } catch {
+                // Silent fallback
             }
         }
 
-        if (!response) {
-            response = await analyticsClient.getPublicFilters();
-        }
+        response ??= await analyticsClient.getPublicFilters();
 
-        if (!response?.success) {
+        if (!response.success) {
             throw new Error('No filter options returned from API');
         }
 
         // Transform from AnalyticsFiltersResponse to the expected FilterOptions format
         return {
-            countries: (response.data.countries || []).map((c: string) => ({ value: c, label: c })),
-            sectors: response.data.sectors || [],
-            exchanges: response.data.exchanges || [],
+            countries: (response.data.countries ?? []).map((c: string) => ({ value: c, label: c })),
+            sectors: response.data.sectors,
+            exchanges: response.data.exchanges,
             stock_types: [], // Backend doesn't return this yet in the unified client
         };
     } catch (error) {
-        console.error('❌ Error in getServerFilterOptions:', error);
+        logger.error('❌ Error in getServerFilterOptions:', String(error));
         // Fallback options
         return {
             countries: [{ value: 'america', label: 'United States' }],

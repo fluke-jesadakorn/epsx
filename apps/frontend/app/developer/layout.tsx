@@ -1,8 +1,8 @@
-import { GlobalAuthGuard } from '@/components/auth/GlobalAuthGuard';
+import { GlobalAuthGuard } from '@/components/auth/global-auth-guard';
 import { getCurrentUser } from '@/lib/server-actions';
 import { getDebugSessionInfo } from '@/lib/server-actions-user';
 import type { ReactNode } from 'react';
-import { DeveloperSidebarClient } from './DeveloperSidebarClient';
+import { DeveloperSidebarClient } from './developer-sidebar-client';
 
 export const dynamic = 'force-dynamic';
 

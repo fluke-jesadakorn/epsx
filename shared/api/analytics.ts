@@ -13,8 +13,9 @@
  */
 
 import { API_ROUTES } from '../config/route-constants';
-import { CardDashboardResponse } from '../types/analytics';
-import { UnifiedApiClient } from '../utils/api-client';
+import type { CardDashboardResponse } from '../types/analytics';
+import type { UnifiedApiClient } from '../utils/api-client';
+import { createAdminApiClient, createFrontendApiClient } from '../utils/api-client';
 
 // ============================================================================
 // ANALYTICS TYPES
@@ -537,7 +538,7 @@ export class AnalyticsAPIClient {
       }
     });
 
-    if (filters.country) {
+    if (filters.country !== undefined && filters.country !== '') {
       params.append('country', this.normalizeCountryName(filters.country));
     }
 
@@ -577,10 +578,8 @@ export function createAnalyticsClient(client: UnifiedApiClient): AnalyticsAPICli
  */
 export function createPlatformAnalyticsClient(platform: 'frontend' | 'admin' = 'frontend'): AnalyticsAPIClient {
   if (platform === 'admin') {
-    const { createAdminApiClient } = require('../utils/api-client');
     return new AnalyticsAPIClient(createAdminApiClient());
   } else {
-    const { createFrontendApiClient } = require('../utils/api-client');
     return new AnalyticsAPIClient(createFrontendApiClient());
   }
 }

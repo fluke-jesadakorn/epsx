@@ -1,5 +1,5 @@
 import { getInitialNotificationsAction } from '@/app/actions/notifications';
-import NotificationsClient from './NotificationsClient';
+import NotificationsClient from './notifications-client';
 
 interface NotificationsPageProps {
   searchParams: Promise<{

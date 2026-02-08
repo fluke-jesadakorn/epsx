@@ -7,10 +7,10 @@ import { Suspense } from 'react';
 function AccessDeniedPageContent() {
   const searchParams = useSearchParams();
 
-  const route = searchParams.get('route') || undefined;
-  const reason = searchParams.get('reason') || undefined;
-  const context = searchParams.get('context') || undefined;
-  const permission = searchParams.get('permission') || undefined;
+  const route = searchParams.get('route') ?? undefined;
+  const reason = searchParams.get('reason') ?? undefined;
+  const context = searchParams.get('context') ?? undefined;
+  const permission = searchParams.get('permission') ?? undefined;
 
   return (
     <AccessDeniedContent

@@ -4,7 +4,8 @@
  * User: test.user@example.com, Password: TestPassword123!
  */
 
-import { test, expect, Page, BrowserContext } from '@playwright/test';
+import type { Page, BrowserContext } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import { URL, URLContext, Service } from '@/shared/utils/url-resolver';
 
 // Test credentials - generic test account
@@ -212,7 +213,7 @@ test.describe('📊 Analytics Platform Authentication Complete Flow', () => {
     // Fill display name if field exists
     const displayNameField = page.locator('input[name="display_name"], input[name="displayName"], input[name="name"]');
     if (await displayNameField.isVisible()) {
-      await displayNameField.fill('Test Admin User');
+      await displayNameField.fill('Test Admin user');
     }
     console.log('✅ Registration form filled');
 

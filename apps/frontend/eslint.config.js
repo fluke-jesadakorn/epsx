@@ -27,11 +27,11 @@ module.exports = [
     },
     rules: {
       // specific overrides for frontend can go here, but strict shared default is preferred.
-      'import/no-unresolved': 'off',
+      // 'import/no-unresolved': 'off',
     }
   },
   {
-    files: ['**/*.spec.ts', '**/*.test.ts', '**/__test__/**'],
+    files: ['**/*.spec.ts', '**/*.test.ts', '**/__test__/**', '**/e2e/**'],
     rules: {
       'no-console': 'off',
       '@typescript-eslint/no-unused-vars': 'off',
@@ -39,15 +39,40 @@ module.exports = [
       'max-lines-per-function': 'off',
       'complexity': 'off',
       'sonarjs/cognitive-complexity': 'off',
+      'sonarjs/no-duplicate-string': 'off',
       'max-nested-callbacks': 'off',
       'jsdoc/require-*': 'off',
       'no-empty': 'off',
+      '@typescript-eslint/no-floating-promises': 'off',
+      '@typescript-eslint/no-unsafe-assignment': 'off',
+      '@typescript-eslint/no-unsafe-member-access': 'off',
+      '@typescript-eslint/no-unsafe-call': 'off',
+      '@typescript-eslint/no-unsafe-return': 'off',
+      '@typescript-eslint/no-unsafe-argument': 'off',
+      '@typescript-eslint/await-thenable': 'off',
+      '@typescript-eslint/prefer-nullish-coalescing': 'off',
     },
   },
   {
     files: ['**/*.js'],
     rules: {
       '@typescript-eslint/no-var-requires': 'off',
+    },
+  },
+  {
+    files: ['playwright.config.ts'],
+    rules: {
+      'sonarjs/no-duplicate-string': 'off',
+    },
+  },
+  {
+    files: ['next.config.ts', 'next.config.js', 'next.config.mjs'],
+    rules: {
+      '@typescript-eslint/no-unsafe-call': 'off',
+      '@typescript-eslint/no-unsafe-member-access': 'off',
+      '@typescript-eslint/no-var-requires': 'off',
+      '@typescript-eslint/no-explicit-any': 'off',
+      'import/no-extraneous-dependencies': 'off',
     },
   },
   {

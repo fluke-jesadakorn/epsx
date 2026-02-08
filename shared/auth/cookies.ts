@@ -1,3 +1,5 @@
+import { logger } from '../utils/logger';
+
 /**
  * OpenID Connect Compliant Cookie Configuration
  *
@@ -38,7 +40,6 @@ const prefix = isProduction ? '__Host-' : '';
 const SECONDS_MINUTE = 60;
 const SECONDS_HOUR = 60 * SECONDS_MINUTE;
 const SECONDS_DAY = 24 * SECONDS_HOUR;
-const SECONDS_WEEK = 7 * SECONDS_DAY;
 const SECONDS_MONTH = 30 * SECONDS_DAY;
 const SECONDS_YEAR = 365 * SECONDS_DAY;
 
@@ -51,7 +52,6 @@ export const COOKIES = {
   access_token: `${prefix}epsx.access_token`,
   refresh_token: `${prefix}epsx.refresh_token`,
   id_token: `${prefix}epsx.id_token`,
-
 
   // Client-side JavaScript accessible cookies
   user: `${prefix}epsx.user`,
@@ -69,6 +69,30 @@ export const COOKIES = {
 } as const;
 
 /**
+ * Server-side HttpOnly cookie names (auth tokens)
+ */
+export const HTTP_ONLY_COOKIES = [
+  'access_token',
+  'refresh_token',
+  'id_token',
+  'return_url',
+] as const;
+
+/**
+ * Client-side cookie names (those that are NOT HttpOnly)
+ */
+export const CLIENT_SIDE_COOKIES = [
+  'user',
+  'expires_at',
+  'auth_time',
+  'theme',
+  'browser_notifications',
+  'affiliate_attribution',
+  'affiliate_code',
+  'wallet_state',
+] as const;
+
+/**
  * Cookie configuration options
  */
 export const COOKIE_OPTIONS = {
@@ -78,7 +102,7 @@ export const COOKIE_OPTIONS = {
     secure: isProduction,
     sameSite: 'lax' as const,
     path: '/',
-    domain: undefined, // Required for __Host- prefix
+    domain: undefined as string | undefined, // Required for __Host- prefix
   },
 
   // Client-side JavaScript accessible cookies
@@ -95,7 +119,6 @@ export const COOKIE_OPTIONS = {
     access_token: SECONDS_MONTH,
     refresh_token: SECONDS_MONTH,
     id_token: SECONDS_MONTH,
-
 
     // Client-side data
     user: SECONDS_MONTH,
@@ -136,17 +159,23 @@ export function getCookieOptions(type: keyof typeof COOKIE_OPTIONS.maxAge) {
 export function buildCookieString(
   name: string,
   value: string,
-  options: Partial<typeof COOKIE_OPTIONS> = {}
+  options: Partial<typeof COOKIE_OPTIONS.httpOnly & { maxAge: number }> = {}
 ): string {
-  const opts = { ...COOKIE_OPTIONS, ...options };
+  const opts = { ...COOKIE_OPTIONS.httpOnly, ...options };
   const parts = [`${name}=${value}`];
 
-  if ((opts as any).path) {parts.push(`path=${(opts as any).path}`);}
-  if ((opts as any).domain) {parts.push(`domain=${(opts as any).domain}`);}
-  if (opts.maxAge) {parts.push(`max-age=${opts.maxAge}`);}
-  if ((opts as any).sameSite) {parts.push(`SameSite=${(opts as any).sameSite}`);}
-  if ((opts as any).secure) {parts.push('Secure');}
-  if ((opts as any).httpOnly) {parts.push('HttpOnly');}
+  parts.push(`path=${opts.path}`);
+  if (opts.domain) {
+    parts.push(`domain=${opts.domain}`);
+  }
+  if (opts.maxAge !== undefined) {
+    parts.push(`max-age=${opts.maxAge}`);
+  }
+  parts.push(`SameSite=${opts.sameSite}`);
+  if (opts.secure) {
+    parts.push('Secure');
+  }
+  parts.push('HttpOnly');
 
   return parts.join('; ');
 }
@@ -155,13 +184,13 @@ export function buildCookieString(
  * Parse cookies from cookie header string
  */
 export function parseCookies(cookieHeader: string): Record<string, string> {
-  return cookieHeader.split(';').reduce((acc, cookie) => {
+  return cookieHeader.split(';').reduce<Record<string, string>>((acc, cookie) => {
     const [key, value] = cookie.trim().split('=');
     if (key && value) {
       acc[key] = value;
     }
     return acc;
-  }, {} as Record<string, string>);
+  }, {});
 }
 
 /**
@@ -179,7 +208,7 @@ export function getCookieValue(
  * Check if browser has any cookies set
  */
 export function hasCookies(): boolean {
-  if (typeof document === 'undefined') {return false;}
+  if (typeof document === 'undefined') { return false; }
   return document.cookie.length > 0;
 }
 
@@ -187,7 +216,7 @@ export function hasCookies(): boolean {
  * Get all EPSX cookies from browser
  */
 export function getEpsxCookies(): Record<string, string> {
-  if (typeof document === 'undefined') {return {};}
+  if (typeof document === 'undefined') { return {}; }
 
   const cookies = parseCookies(document.cookie);
   const epsxCookies: Record<string, string> = {};
@@ -206,13 +235,14 @@ export function getEpsxCookies(): Record<string, string> {
  * Clear all EPSX cookies
  */
 export function clearAllCookies(): void {
-  if (typeof document === 'undefined') {return;}
+  if (typeof document === 'undefined') { return; }
 
   const cookiesToClear = Object.values(COOKIES);
 
   cookiesToClear.forEach(cookieName => {
-    document.cookie = `${cookieName}=; Max-Age=0; path=${(COOKIE_OPTIONS as any).httpOnly?.path || '/'}`;
-    document.cookie = `${cookieName}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=${(COOKIE_OPTIONS as any).httpOnly?.path || '/'}`;
+    const path = COOKIE_OPTIONS.httpOnly.path;
+    document.cookie = `${cookieName}=; Max-Age=0; path=${path}`;
+    document.cookie = `${cookieName}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=${path}`;
   });
 }
 
@@ -228,14 +258,14 @@ export function setClientCookie(
   value: string,
   maxAge?: number | null
 ): void {
-  if (typeof document === 'undefined') {return;}
+  if (typeof document === 'undefined') { return; }
 
   const options = COOKIE_OPTIONS.clientSide;
   const parts = [`${name}=${encodeURIComponent(value)}`];
 
   parts.push(`path=${options.path}`);
-  if (options.secure) {parts.push('Secure');}
-  if (options.sameSite) {parts.push(`SameSite=${options.sameSite}`);}
+  if (options.secure) { parts.push('Secure'); }
+  parts.push(`SameSite=${options.sameSite}`);
 
   // Handle maxAge (null means session cookie)
   if (maxAge !== null && maxAge !== undefined) {
@@ -249,7 +279,7 @@ export function setClientCookie(
  * Get a client-side cookie value
  */
 export function getClientCookie(name: string): string | null {
-  if (typeof document === 'undefined') {return null;}
+  if (typeof document === 'undefined') { return null; }
 
   const cookies = parseCookies(document.cookie);
   const value = cookies[name];
@@ -262,7 +292,7 @@ export function getClientCookie(name: string): string | null {
  * Remove a client-side cookie
  */
 export function removeClientCookie(name: string): void {
-  if (typeof document === 'undefined') {return;}
+  if (typeof document === 'undefined') { return; }
 
   const options = COOKIE_OPTIONS.clientSide;
   document.cookie = `${name}=; max-age=0; path=${options.path}; SameSite=${options.sameSite}${options.secure ? '; Secure' : ''
@@ -272,7 +302,7 @@ export function removeClientCookie(name: string): void {
 /**
  * Set JSON data in a client-side cookie
  */
-export function setClientCookieJSON<T extends Record<string, any>>(
+export function setClientCookieJSON<T>(
   name: string,
   data: T,
   maxAge?: number | null
@@ -283,25 +313,27 @@ export function setClientCookieJSON<T extends Record<string, any>>(
 /**
  * Get JSON data from a client-side cookie
  */
-export function getClientCookieJSON<T = any>(name: string): T | null {
+/**
+ * Get JSON data from a client-side cookie
+ */
+export function getClientCookieJSON<T = unknown>(name: string): T | null {
   const value = getClientCookie(name);
-  if (!value) {return null;}
+  if (value === null) { return null; }
 
   try {
     return JSON.parse(value) as T;
   } catch (error) {
-    console.warn(`Failed to parse JSON from cookie ${name}:`, error);
+    logger.warn(`Failed to parse JSON from cookie ${name}:`, error instanceof Error ? error.message : String(error));
     return null;
   }
 }
-
 
 /**
  * Clear all client-side cookies
  */
 export function clearClientSideCookies(): void {
   Object.entries(COOKIES).forEach(([key, name]) => {
-    if (!HTTP_ONLY_COOKIES.includes(key as any)) {
+    if (!HTTP_ONLY_COOKIES.includes(key as typeof HTTP_ONLY_COOKIES[number])) {
       removeClientCookie(name);
     }
   });
@@ -313,34 +345,11 @@ export function clearClientSideCookies(): void {
 export type CookieType = keyof typeof COOKIES;
 
 /**
- * Client-side cookie names (those that are NOT HttpOnly)
- */
-export const CLIENT_SIDE_COOKIES = [
-  'user',
-  'expires_at',
-  'auth_time',
-  'theme',
-  'browser_notifications',
-  'affiliate_attribution',
-  'affiliate_code',
-  'wallet_state',
-] as const;
-
-/**
- * Server-side HttpOnly cookie names (auth tokens)
- */
-export const HTTP_ONLY_COOKIES = [
-  'access_token',
-  'refresh_token',
-  'id_token',
-  'return_url',
-] as const;
-
-/**
  * Server-side utility to get auth token from cookies with fallback support.
  * This consolidates the token fetching logic used across server actions.
  * 
  * @param cookieStore - The Next.js cookies() store
+ * @param cookieStore.get - The get method of the cookie store
  * @returns The auth token if found, null otherwise
  */
 export function getServerAuthToken(
@@ -348,11 +357,11 @@ export function getServerAuthToken(
 ): string | null {
   // Primary: Check session ID cookie
   let token = cookieStore.get(COOKIES.sid)?.value;
-  if (token) {return token;}
+  if (token !== undefined && token !== '') { return token; }
 
   // Secondary: Check access token
   token = cookieStore.get(COOKIES.access_token)?.value;
-  if (token) {return token;}
+  if (token !== undefined && token !== '') { return token; }
 
   return null;
 }
@@ -361,12 +370,12 @@ export function getServerAuthToken(
  * Check if a cookie key corresponds to an HttpOnly cookie
  */
 export function isHttpOnlyCookie(cookieKey: keyof typeof COOKIES): boolean {
-  return HTTP_ONLY_COOKIES.includes(cookieKey as any);
+  return HTTP_ONLY_COOKIES.includes(cookieKey as typeof HTTP_ONLY_COOKIES[number]);
 }
 
 /**
  * Check if a cookie key corresponds to a client-side cookie
  */
 export function isClientSideCookie(cookieKey: keyof typeof COOKIES): boolean {
-  return CLIENT_SIDE_COOKIES.includes(cookieKey as any);
+  return CLIENT_SIDE_COOKIES.includes(cookieKey as typeof CLIENT_SIDE_COOKIES[number]);
 }

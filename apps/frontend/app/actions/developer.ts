@@ -7,7 +7,7 @@ import { getServerActionClient } from '@/shared/utils/server-fetch';
  * Fetch current user plans and basic stats
  */
 export async function getMyPlansAction() {
-    const client = await getServerActionClient();
+    const client = getServerActionClient();
     const usersClient = createUsersClient(client);
     return usersClient.getMyPlans();
 }
@@ -16,7 +16,7 @@ export async function getMyPlansAction() {
  * Fetch developer usage stats
  */
 export async function getUsageStatsAction() {
-    const client = await getServerActionClient();
+    const client = getServerActionClient();
     const usersClient = createUsersClient(client);
     return usersClient.getUsageStats();
 }
@@ -25,7 +25,7 @@ export async function getUsageStatsAction() {
  * Fetch user API keys
  */
 export async function getApiKeysAction(filters?: { limit?: number; offset?: number; status?: string }) {
-    const client = await getServerActionClient();
+    const client = getServerActionClient();
     const usersClient = createUsersClient(client);
     return usersClient.getApiKeys(filters);
 }
@@ -34,7 +34,7 @@ export async function getApiKeysAction(filters?: { limit?: number; offset?: numb
  * Fetch usage history (default 7 days)
  */
 export async function getUsageHistoryAction(days = 7) {
-    const client = await getServerActionClient();
+    const client = getServerActionClient();
     const usersClient = createUsersClient(client);
     return usersClient.getUsageHistory(days);
 }
@@ -43,7 +43,7 @@ export async function getUsageHistoryAction(days = 7) {
  * Fetch top endpoints (default 7 days)
  */
 export async function getTopEndpointsAction(days = 7) {
-    const client = await getServerActionClient();
+    const client = getServerActionClient();
     const usersClient = createUsersClient(client);
     return usersClient.getTopEndpoints(days);
 }
@@ -57,7 +57,7 @@ export async function createApiKeyAction(body: {
     permissions?: string[];
     plan_ids?: string[]
 }) {
-    const client = await getServerActionClient();
+    const client = getServerActionClient();
     const usersClient = createUsersClient(client);
     return usersClient.createApiKey(body);
 }
@@ -66,7 +66,7 @@ export async function createApiKeyAction(body: {
  * Delete/Revoke an API key
  */
 export async function deleteApiKeyAction(key_id: string, reason?: string) {
-    const client = await getServerActionClient();
+    const client = getServerActionClient();
     const usersClient = createUsersClient(client);
     return usersClient.deleteApiKey(key_id, reason);
 }

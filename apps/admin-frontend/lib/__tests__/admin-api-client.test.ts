@@ -186,13 +186,13 @@ describe('Admin API Client - Web3 Users', () => {
       const mockProfiles = [
         {
           id: 'user-basic-001',
-          name: 'Basic User',
+          name: 'Basic user',
           description: 'Basic trading features',
           permissions: ['basic-analytics', 'stock-ranking']
         },
         {
           id: 'user-premium-002',
-          name: 'Premium User',
+          name: 'Premium user',
           description: 'Premium features + advanced analytics',
           permissions: ['basic-analytics', 'stock-ranking', 'advanced-analytics', 'export-data']
         }

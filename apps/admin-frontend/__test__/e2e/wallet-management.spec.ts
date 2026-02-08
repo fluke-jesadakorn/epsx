@@ -74,7 +74,7 @@ test.describe('Wallet Management - E2E', () => {
     test('should assign permission to wallet', async ({ page }) => {
       await page.goto(`${ADMIN_URL}/wallet-management`);
 
-      const assignBtn = page.locator('button:has-text("Assign Permission"), button:has-text("Grant")').first();
+      const assignBtn = page.locator('button:has-text("Assign permission"), button:has-text("Grant")').first();
       if (await assignBtn.isVisible()) {
         await assignBtn.click();
 

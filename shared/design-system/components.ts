@@ -14,16 +14,15 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
-// ============================================================================
-// UTILITY FUNCTION
-// ============================================================================
-
-/**
- * Merge class names with Tailwind CSS class deduplication
- */
 export function cn(...inputs: ClassValue[]) {
     return twMerge(clsx(inputs));
 }
+
+/**
+ * Common shadow and text styles for interactive components
+ */
+const INTERACTIVE_SHADOWS = 'text-white shadow-lg hover:shadow-xl';
+const INSIGHT_SHADOW = 'shadow-lg hover:shadow-2xl';
 
 // ============================================================================
 // BUTTON VARIANTS
@@ -46,35 +45,35 @@ export const buttonVariants = cva(
                 // Primary actions (save, create, confirm)
                 primary: [
                     'bg-gradient-to-r from-orange-500 to-yellow-500',
-                    'text-white shadow-lg hover:shadow-xl',
+                    INTERACTIVE_SHADOWS,
                     'focus-visible:ring-orange-500',
                 ],
 
                 // Secondary actions (cancel, back)
                 secondary: [
                     'bg-gradient-to-r from-blue-500 to-purple-500',
-                    'text-white shadow-lg hover:shadow-xl',
+                    INTERACTIVE_SHADOWS,
                     'focus-visible:ring-blue-500',
                 ],
 
                 // Success actions (approve, activate)
                 success: [
                     'bg-gradient-to-r from-green-500 to-emerald-500',
-                    'text-white shadow-lg hover:shadow-xl',
+                    INTERACTIVE_SHADOWS,
                     'focus-visible:ring-green-500',
                 ],
 
                 // Destructive actions (delete, suspend, revoke)
                 destructive: [
                     'bg-gradient-to-r from-red-500 to-rose-500',
-                    'text-white shadow-lg hover:shadow-xl',
+                    INTERACTIVE_SHADOWS,
                     'focus-visible:ring-red-500',
                 ],
 
                 // Warning actions (pending, trial)
                 warning: [
                     'bg-gradient-to-r from-amber-500 to-orange-500',
-                    'text-white shadow-lg hover:shadow-xl',
+                    INTERACTIVE_SHADOWS,
                     'focus-visible:ring-amber-500',
                 ],
 
@@ -104,7 +103,7 @@ export const buttonVariants = cva(
                 // Analytics/Insight style
                 insight: [
                     'bg-gradient-to-r from-blue-500 to-indigo-500',
-                    'text-white shadow-lg hover:shadow-xl',
+                    INTERACTIVE_SHADOWS,
                     'focus-visible:ring-blue-500',
                 ],
             },
@@ -164,7 +163,7 @@ export const cardVariants = cva(
                     'bg-gradient-to-br from-blue-50 via-indigo-50 to-blue-100',
                     'dark:from-gray-800 dark:via-blue-900/20 dark:to-gray-700',
                     'border-blue-200/60 dark:border-blue-800/40',
-                    'shadow-lg hover:shadow-2xl',
+                    INSIGHT_SHADOW,
                 ],
 
                 // PancakeSwap-style card
@@ -172,7 +171,7 @@ export const cardVariants = cva(
                     'bg-gradient-to-br from-yellow-50 via-orange-50 to-yellow-100',
                     'dark:from-gray-800 dark:via-orange-900/20 dark:to-gray-700',
                     'border-yellow-200/60 dark:border-orange-800/40',
-                    'shadow-lg hover:shadow-2xl',
+                    INSIGHT_SHADOW,
                 ],
 
                 // User management card
@@ -180,7 +179,7 @@ export const cardVariants = cva(
                     'bg-gradient-to-br from-blue-50 via-indigo-50 to-blue-100',
                     'dark:from-gray-800 dark:via-blue-900/20 dark:to-gray-700',
                     'border-blue-200/60 dark:border-blue-800/40',
-                    'shadow-lg hover:shadow-2xl',
+                    INSIGHT_SHADOW,
                 ],
 
                 // Permission card
@@ -188,7 +187,7 @@ export const cardVariants = cva(
                     'bg-gradient-to-br from-purple-50 via-violet-50 to-purple-100',
                     'dark:from-gray-800 dark:via-purple-900/20 dark:to-gray-700',
                     'border-purple-200/60 dark:border-purple-800/40',
-                    'shadow-lg hover:shadow-2xl',
+                    INSIGHT_SHADOW,
                 ],
 
                 // Billing card
@@ -196,7 +195,7 @@ export const cardVariants = cva(
                     'bg-gradient-to-br from-green-50 via-emerald-50 to-green-100',
                     'dark:from-gray-800 dark:via-green-900/20 dark:to-gray-700',
                     'border-green-200/60 dark:border-green-800/40',
-                    'shadow-lg hover:shadow-2xl',
+                    INSIGHT_SHADOW,
                 ],
 
                 // Analytics card
@@ -204,7 +203,7 @@ export const cardVariants = cva(
                     'bg-gradient-to-br from-indigo-50 via-cyan-50 to-indigo-100',
                     'dark:from-gray-800 dark:via-indigo-900/20 dark:to-gray-700',
                     'border-indigo-200/60 dark:border-indigo-800/40',
-                    'shadow-lg hover:shadow-2xl',
+                    INSIGHT_SHADOW,
                 ],
 
                 // Warning card
@@ -581,7 +580,7 @@ export function getStatusBadgeVariant(
         enterprise: 'enterprise',
     };
 
-    return statusMap[status.toLowerCase()] || 'default';
+    return statusMap[status.toLowerCase()] ?? 'default';
 }
 
 /**
@@ -605,5 +604,5 @@ export function getActionButtonVariant(
         back: 'ghost',
     };
 
-    return actionMap[action.toLowerCase()] || 'primary';
+    return actionMap[action.toLowerCase()] ?? 'primary';
 }

@@ -53,7 +53,7 @@ export const TEST_USERS: Record<string, TestUser> = {
   FREE_USER: {
     id: 'user_free_001',
     email: 'free.user@epsx.io',
-    name: 'Free User',
+    name: 'Free user',
     role: 'user',
     permissions: [
       'epsx:rankings:view:3',
@@ -71,7 +71,7 @@ export const TEST_USERS: Record<string, TestUser> = {
   BRONZE_USER: {
     id: 'user_bronze_001',
     email: 'bronze.user@epsx.io',
-    name: 'Bronze User',
+    name: 'Bronze user',
     role: 'user',
     permissions: [
       'epsx:rankings:view:5',
@@ -92,7 +92,7 @@ export const TEST_USERS: Record<string, TestUser> = {
   SILVER_USER: {
     id: 'user_silver_001',
     email: 'silver.user@epsx.io',
-    name: 'Silver User',
+    name: 'Silver user',
     role: 'user',
     permissions: [
       'epsx:rankings:view:25',
@@ -116,7 +116,7 @@ export const TEST_USERS: Record<string, TestUser> = {
   GOLD_USER: {
     id: 'user_gold_001',
     email: 'gold.user@epsx.io',
-    name: 'Gold User',
+    name: 'Gold user',
     role: 'premium',
     permissions: [
       'epsx:rankings:view:50',
@@ -144,7 +144,7 @@ export const TEST_USERS: Record<string, TestUser> = {
   PLATINUM_USER: {
     id: 'user_platinum_001',
     email: 'platinum.user@epsx.io',
-    name: 'Platinum User',
+    name: 'Platinum user',
     role: 'premium',
     permissions: [
       'epsx:rankings:view:100',
@@ -174,7 +174,7 @@ export const TEST_USERS: Record<string, TestUser> = {
   ENTERPRISE_USER: {
     id: 'user_enterprise_001',
     email: 'enterprise.user@epsx.io',
-    name: 'Enterprise User',
+    name: 'Enterprise user',
     role: 'enterprise',
     permissions: [
       'epsx:rankings:view:unlimited',
@@ -195,7 +195,7 @@ export const TEST_USERS: Record<string, TestUser> = {
   EXPIRED_USER: {
     id: 'user_expired_001',
     email: 'expired.user@epsx.io',
-    name: 'Expired Subscription User',
+    name: 'Expired Subscription user',
     role: 'user',
     permissions: [
       'epsx:rankings:view:3',
@@ -214,7 +214,7 @@ export const TEST_USERS: Record<string, TestUser> = {
   TRIAL_USER: {
     id: 'user_trial_001',
     email: 'trial.user@epsx.io',
-    name: 'Trial User',
+    name: 'Trial user',
     role: 'user',
     permissions: [
       'epsx:rankings:view:50',
@@ -240,7 +240,7 @@ export const TEST_USERS: Record<string, TestUser> = {
   CANCELLED_USER: {
     id: 'user_cancelled_001',
     email: 'cancelled.user@epsx.io',
-    name: 'Cancelled Subscription User',
+    name: 'Cancelled Subscription user',
     role: 'user',
     permissions: [
       'epsx:rankings:view:25',
@@ -530,7 +530,7 @@ export function createTestUserWithPermissions(
   return {
     id: `test_user_${Date.now()}`,
     email: `test.user.${Date.now()}@epsx.io`,
-    name: 'Test User',
+    name: 'Test user',
     role: 'user',
     permissions,
     wallet_address: `0xa${Date.now()}234567890123456789012345678901234567890`,

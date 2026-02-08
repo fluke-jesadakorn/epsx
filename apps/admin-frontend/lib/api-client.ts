@@ -5,15 +5,16 @@
  * Re-exports shared UnifiedApiClient with admin platform configuration.
  */
 
-import {
+import type {
     ApiError,
     ApiResponse,
+    PaginatedResponse,
+    UnifiedApiClient} from '@/shared/api';
+import {
     createAdminApiClient,
     isApiError,
     isApiResponse,
-    isPaginatedResponse,
-    PaginatedResponse,
-    UnifiedApiClient,
+    isPaginatedResponse
 } from '@/shared/api';
 
 // ============================================================================

@@ -4,8 +4,8 @@
  * Consolidates AdminSessionValidator and UserSessionValidator types
  */
 
-import type { UserProfile, AdminUserProfile, PackageTier } from './User'
-import type { EPSXPermission } from './Permission'
+import type { EPSXPermission } from './permission'
+import type { AdminUserProfile, PackageTier, UserProfile } from './user'
 
 // ============================================================================
 // CORE SESSION TYPES
@@ -25,7 +25,7 @@ export interface SessionValidationRequest {
   ip_address?: string
   path?: string
   method?: string
-  additional_context?: Record<string, any>
+  additional_context?: Record<string, unknown>
 }
 
 /**
@@ -39,7 +39,7 @@ export interface BaseSessionData {
   lastAccessedAt: number
   ipAddress?: string
   userAgent?: string
-  
+
   // Backward compatibility with legacy validators
   permissions?: string[]
   packageTier?: string
@@ -223,7 +223,7 @@ export interface UserActiveSessions {
 /**
  * Session security event types
  */
-export type SessionSecurityEventType = 
+export type SessionSecurityEventType =
   | 'suspicious_login'
   | 'multiple_devices'
   | 'location_change'
@@ -240,7 +240,7 @@ export interface SessionSecurityEvent {
   userId: string
   eventType: SessionSecurityEventType
   severity: 'low' | 'medium' | 'high' | 'critical'
-  details: Record<string, any>
+  details: Record<string, unknown>
   detectedAt: number
   resolved: boolean
   resolvedAt?: number
@@ -421,7 +421,8 @@ export function getSessionDuration(session: BaseSessionData): number {
  * Validate session request context
  */
 export function validateSessionRequest(request: SessionValidationRequest): boolean {
-  return !!(request.app_type && ['admin', 'user'].includes(request.app_type))
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+  return Boolean(request.app_type && ['admin', 'user'].includes(request.app_type))
 }
 
 // ============================================================================
@@ -441,8 +442,8 @@ export type SessionResult = SessionValidationResponse
 export type SessionCache = SessionCacheEntry
 
 // Re-export domain types for validator use
-export type { UserProfile, AdminUserProfile, PackageTier } from './User'
-export type { EPSXPermission } from './Permission'
+export type { EPSXPermission } from './permission'
+export type { AdminUserProfile, PackageTier, UserProfile } from './user'
 
 // JWT payload types for backward compatibility
 export interface AdminJWTPayload {

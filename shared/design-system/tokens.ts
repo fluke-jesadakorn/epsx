@@ -14,8 +14,16 @@
  */
 
 // ============================================================================
-// COLOR SYSTEM
+// COLOR CONSTANTS
 // ============================================================================
+
+const HSL_SUCCESS_500 = 'hsl(142 71% 45%)';
+const HSL_WARNING_500 = 'hsl(45 93% 47%)';
+const HSL_ERROR_500 = 'hsl(0 85% 60%)';
+const HSL_INFO_500 = 'hsl(217 91% 60%)';
+const HSL_PRIMARY_500 = 'hsl(217 91% 60%)';
+const HSL_SECONDARY_500 = 'hsl(262 83% 58%)';
+const HSL_PREMIUM = 'hsl(250 84% 54%)';
 
 /**
  * Shared color palette with semantic naming
@@ -81,7 +89,7 @@ export const colors = {
         200: 'hsl(142 71% 75%)',
         300: 'hsl(142 71% 65%)',
         400: 'hsl(142 71% 55%)',
-        500: 'hsl(142 71% 45%)', // Main success
+        500: HSL_SUCCESS_500, // Main success
         600: 'hsl(142 66% 40%)',
         700: 'hsl(142 61% 35%)',
         800: 'hsl(142 56% 30%)',
@@ -94,7 +102,7 @@ export const colors = {
         200: 'hsl(45 93% 75%)',
         300: 'hsl(45 93% 65%)',
         400: 'hsl(45 93% 57%)',
-        500: 'hsl(45 93% 47%)', // Main warning
+        500: HSL_WARNING_500, // Main warning
         600: 'hsl(45 88% 42%)',
         700: 'hsl(45 83% 37%)',
         800: 'hsl(45 78% 32%)',
@@ -107,7 +115,7 @@ export const colors = {
         200: 'hsl(0 88% 75%)',
         300: 'hsl(0 88% 65%)',
         400: 'hsl(0 88% 58%)',
-        500: 'hsl(0 85% 60%)', // Main error
+        500: HSL_ERROR_500, // Main error
         600: 'hsl(0 83% 55%)',
         700: 'hsl(0 80% 50%)',
         800: 'hsl(0 77% 45%)',
@@ -148,8 +156,8 @@ export const colors = {
         purple: 'hsl(259 66% 56%)', // Purple (#7645d9)
         bg: 'hsl(250 24% 9%)', // Deep background
         bgSubtle: 'hsl(250 24% 15%)', // Subtle background
-        success: 'hsl(142 71% 45%)',
-        warning: 'hsl(45 93% 47%)',
+        success: HSL_SUCCESS_500,
+        warning: HSL_WARNING_500,
         info: 'hsl(184 72% 48%)',
     },
 
@@ -170,31 +178,31 @@ export const colors = {
     // Admin-specific semantic colors
     admin: {
         // User status colors
-        active: 'hsl(142 71% 45%)',
+        active: HSL_SUCCESS_500,
         inactive: 'hsl(215 16% 47%)',
-        pending: 'hsl(45 93% 47%)',
-        suspended: 'hsl(0 85% 60%)',
-        premium: 'hsl(250 84% 54%)',
+        pending: HSL_WARNING_500,
+        suspended: HSL_ERROR_500,
+        premium: HSL_PREMIUM,
 
         // Permission status colors
-        granted: 'hsl(142 71% 45%)',
-        denied: 'hsl(0 85% 60%)',
-        inherited: 'hsl(217 91% 60%)',
+        granted: HSL_SUCCESS_500,
+        denied: HSL_ERROR_500,
+        inherited: HSL_INFO_500,
 
         // Billing status colors
-        paid: 'hsl(142 71% 45%)',
-        overdue: 'hsl(0 85% 60%)',
-        trial: 'hsl(45 93% 47%)',
-        enterprise: 'hsl(250 84% 54%)',
+        paid: HSL_SUCCESS_500,
+        overdue: HSL_ERROR_500,
+        trial: HSL_WARNING_500,
+        enterprise: HSL_PREMIUM,
     },
 
     // Insight/Analytics colors
     insight: {
-        primary: 'hsl(217 91% 60%)',
-        secondary: 'hsl(262 83% 58%)',
-        success: 'hsl(142 71% 45%)',
-        warning: 'hsl(45 93% 47%)',
-        error: 'hsl(0 85% 60%)',
+        primary: HSL_PRIMARY_500,
+        secondary: HSL_SECONDARY_500,
+        success: HSL_SUCCESS_500,
+        warning: HSL_WARNING_500,
+        error: HSL_ERROR_500,
         info: 'hsl(184 93% 47%)',
         accent: 'hsl(217 91% 65%)',
     },
@@ -330,21 +338,25 @@ export const borderRadius = {
 /**
  * Elevation system with consistent shadows
  */
+const SHADOW_MD = '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)';
+const SHADOW_LG = '0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)';
+const SHADOW_2XL = '0 25px 50px -12px rgb(0 0 0 / 0.25)';
+
 export const shadows = {
     sm: '0 1px 2px 0 rgb(0 0 0 / 0.05)',
     default: '0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)',
-    md: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)',
-    lg: '0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)',
+    md: SHADOW_MD,
+    lg: SHADOW_LG,
     xl: '0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)',
-    '2xl': '0 25px 50px -12px rgb(0 0 0 / 0.25)',
+    '2xl': SHADOW_2XL,
     inner: 'inset 0 2px 4px 0 rgb(0 0 0 / 0.05)',
     none: '0 0 #0000',
 
     // Component-specific shadows
     cardHover: '0 20px 25px -5px rgb(0 0 0 / 0.1), 0 10px 10px -5px rgb(0 0 0 / 0.04)',
-    dropdown: '0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)',
-    modal: '0 25px 50px -12px rgb(0 0 0 / 0.25)',
-    buttonHover: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)',
+    dropdown: SHADOW_LG,
+    modal: SHADOW_2XL,
+    buttonHover: SHADOW_MD,
 } as const;
 
 // ============================================================================

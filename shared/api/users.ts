@@ -12,7 +12,7 @@
  * - Subscription management
  */
 
-import { ApiResponse, UnifiedApiClient } from '../utils/api-client';
+import type { ApiResponse, UnifiedApiClient } from '../utils/api-client';
 
 // ============================================================================
 // TYPES
@@ -28,7 +28,7 @@ export interface UserProfile {
   created_at: string;
   last_login?: string;
   status: 'active' | 'inactive' | 'suspended';
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface UserSettings {
@@ -44,7 +44,7 @@ export interface UserSettings {
 export interface UpdateProfileRequest {
   display_name?: string;
   email?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface UpdateSettingsRequest {
@@ -159,14 +159,7 @@ export class UsersApi {
    * GET /api/users/profile
    */
   async getProfile(): Promise<ApiResponse<UserProfile>> {
-    const response = await this.client.get<{ success: boolean, data: UserProfile }>('/api/users/profile');
-    if (response.success && response.data?.success && response.data.data) {
-      return {
-        ...response,
-        data: response.data.data
-      };
-    }
-    return response as any;
+    return await this.client.get<UserProfile>('/api/users/profile');
   }
 
   /**
@@ -321,32 +314,32 @@ export class UsersApi {
    * Get aggregated usage stats
    * GET /api/developer-portal/stats
    */
-  async getUsageStats(): Promise<ApiResponse<any>> {
-    return this.client.get('/api/developer-portal/stats');
+  async getUsageStats(): Promise<ApiResponse<Record<string, unknown>>> {
+    return this.client.get<Record<string, unknown>>('/api/developer-portal/stats');
   }
 
   /**
    * Get usage history
    * GET /api/developer-portal/usage-history
    */
-  async getUsageHistory(days = 7): Promise<ApiResponse<any>> {
-    return this.client.get('/api/developer-portal/usage-history', { days });
+  async getUsageHistory(days = 7): Promise<ApiResponse<Record<string, unknown>>> {
+    return this.client.get<Record<string, unknown>>('/api/developer-portal/usage-history', { days });
   }
 
   /**
    * Get top endpoints
    * GET /api/developer-portal/top-endpoints
    */
-  async getTopEndpoints(days = 7): Promise<ApiResponse<any>> {
-    return this.client.get('/api/developer-portal/top-endpoints', { days });
+  async getTopEndpoints(days = 7): Promise<ApiResponse<Record<string, unknown>>> {
+    return this.client.get<Record<string, unknown>>('/api/developer-portal/top-endpoints', { days });
   }
 
   /**
    * Get user assigned plans
    * GET /api/developer-portal/my-plans
    */
-  async getMyPlans(): Promise<ApiResponse<any>> {
-    return this.client.get('/api/developer-portal/my-plans');
+  async getMyPlans(): Promise<ApiResponse<Record<string, unknown>[]>> {
+    return this.client.get<Record<string, unknown>[]>('/api/developer-portal/my-plans');
   }
 
   // ============================================================================

@@ -10,6 +10,7 @@
  */
 
 import type { ApiResponse, PaginatedResponse } from '../types/api';
+import { logger } from './logger';
 
 // ============================================================================
 // DATA EXTRACTION
@@ -20,7 +21,7 @@ import type { ApiResponse, PaginatedResponse } from '../types/api';
  * Handles the double-wrapping: res.data contains the backend's response body,
  * and res.data.data contains the actual payload.
  */
-export function extractData<T>(response: ApiResponse<unknown>): T | undefined {
+export function extractData<T>(response: ApiResponse): T | undefined {
     // UnifiedApiClient returns the payload directly in response.data
     return response.data as T | undefined;
 }
@@ -32,7 +33,7 @@ export function extractData<T>(response: ApiResponse<unknown>): T | undefined {
  * @param response - The API response from UnifiedApiClient
  * @param context - Context string for error messages (e.g., 'getPermissionGroups')
  */
-export function extractArray<T>(response: ApiResponse<unknown>, context: string): T[] {
+export function extractArray<T>(response: ApiResponse, context: string): T[] {
     if (!isSuccess(response)) {
         const error = extractError(response);
         throw new Error(`${context} failed: ${error}`);
@@ -40,7 +41,7 @@ export function extractArray<T>(response: ApiResponse<unknown>, context: string)
 
     const data = extractData<T[]>(response);
     if (!Array.isArray(data)) {
-        console.error(`[${context}] Expected array but got:`, typeof data, data);
+        logger.error(`[${context}] Expected array but got:`, typeof data, data);
         throw new Error(`Invalid response: expected array in ${context}`);
     }
     return data;
@@ -50,7 +51,7 @@ export function extractArray<T>(response: ApiResponse<unknown>, context: string)
  * Extract data array with fallback to empty array if not found or not an array.
  * Use this when an empty result is acceptable.
  */
-export function extractArrayOrEmpty<T>(response: ApiResponse<unknown>): T[] {
+export function extractArrayOrEmpty<T>(response: ApiResponse): T[] {
     if (!isSuccess(response)) {
         return [];
     }
@@ -65,7 +66,7 @@ export function extractArrayOrEmpty<T>(response: ApiResponse<unknown>): T[] {
  * @param response - The API response from UnifiedApiClient
  * @param context - Context string for error messages
  */
-export function extractObject<T>(response: ApiResponse<unknown>, context: string): T {
+export function extractObject<T>(response: ApiResponse, context: string): T {
     if (!isSuccess(response)) {
         const error = extractError(response);
         throw new Error(`${context} failed: ${error}`);
@@ -73,7 +74,7 @@ export function extractObject<T>(response: ApiResponse<unknown>, context: string
 
     const data = extractData<T>(response);
     if (!data || typeof data !== 'object') {
-        console.error(`[${context}] Expected object but got:`, typeof data, data);
+        logger.error(`[${context}] Expected object but got:`, typeof data, data);
         throw new Error(`Invalid response: expected object in ${context}`);
     }
     return data;
@@ -82,9 +83,9 @@ export function extractObject<T>(response: ApiResponse<unknown>, context: string
 /**
  * Extract data with a fallback value if not present.
  */
-export function extractDataOrDefault<T>(response: ApiResponse<unknown>, defaultValue: T): T {
+export function extractDataOrDefault<T>(response: ApiResponse, defaultValue: T): T {
     const data = extractData<T>(response);
-    return data !== undefined && data !== null ? data : defaultValue;
+    return data ?? defaultValue;
 }
 
 // ============================================================================
@@ -95,15 +96,15 @@ export function extractDataOrDefault<T>(response: ApiResponse<unknown>, defaultV
  * Extract pagination metadata from API response.
  * Backend includes this in response.meta.pagination
  */
-export function extractPagination(response: ApiResponse<unknown>): PaginatedResponse<unknown>['pagination'] | undefined {
-    return response.meta?.pagination;
+export function extractPagination(response: ApiResponse): PaginatedResponse<unknown>['pagination'] | undefined {
+    return response.meta?.pagination as PaginatedResponse<unknown>['pagination'] | undefined;
 }
 
 /**
  * Extract the message from API response metadata.
  */
-export function extractMessage(response: ApiResponse<unknown>): string | undefined {
-    return response.meta?.message;
+export function extractMessage(response: ApiResponse): string | undefined {
+    return response.meta?.message as string | undefined;
 }
 
 // ============================================================================
@@ -114,7 +115,7 @@ export function extractMessage(response: ApiResponse<unknown>): string | undefin
  * Check if response indicates success.
  * Checks both the client wrapper success and the backend success flag.
  */
-export function isSuccess(response: ApiResponse<unknown>): boolean {
+export function isSuccess(response: ApiResponse): boolean {
     const backendSuccess = (response.data as { success?: boolean } | null)?.success;
     return response.success && backendSuccess !== false;
 }
@@ -123,7 +124,7 @@ export function isSuccess(response: ApiResponse<unknown>): boolean {
  * Extract error message from API response.
  * Checks multiple locations where error info may be present.
  */
-export function extractError(response: ApiResponse<unknown>): string {
+export function extractError(response: ApiResponse): string {
     const dataError = (response.data as { error?: { message?: string; reason?: string } } | null)?.error;
     return (
         response.error?.message ??
@@ -136,10 +137,10 @@ export function extractError(response: ApiResponse<unknown>): string {
 /**
  * Assert the response was successful, throw otherwise.
  */
-export function assertSuccess(response: ApiResponse<unknown>, context: string): void {
+export function assertSuccess(response: ApiResponse, context: string): void {
     if (!isSuccess(response)) {
         const error = extractError(response);
-        console.error(`[${context}] Request failed:`, error);
+        logger.error(`[${context}] Request failed:`, error);
         throw new Error(`${context} failed: ${error}`);
     }
 }

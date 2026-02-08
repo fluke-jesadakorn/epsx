@@ -1,4 +1,4 @@
-import { DashboardClient } from '@/components/dashboard/DashboardClient';
+import { DashboardClient } from '@/components/dashboard/dashboard-client';
 import { getSessionFromWeb3 } from '@/lib/server/token';
 
 // Force dynamic rendering for pages that use authentication
@@ -12,7 +12,7 @@ export default async function PersonalDashboardPage() {
   const user = session?.isAuthenticated && session.user ? {
     id: session.user.id || '',
     email: session.user.email || '',
-    name: session.user.name || session.user.email?.split('@')[0] || 'User',
+    name: session.user.name || session.user.email?.split('@')[0] || 'user',
     permissions: session.user.permissions || ['epsx:analytics:view'],
     package_tier: session.user.package_tier || 'FREE',
     wallet_address: session.user.wallet_address,

@@ -1,4 +1,4 @@
-import { Metadata } from 'next';
+import type { Metadata } from 'next';
 
 import { DeveloperPortalPage } from '@/components/admin/developer-portal';
 import { PageLayout } from '@/components/shared';

@@ -5,6 +5,7 @@
  */
 
 import { COOKIES } from '@/shared/auth/cookies';
+import { logger } from '@/shared/utils/logger';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { clearWeb3SessionAction, setWeb3SessionAction } from './auth-actions';
@@ -49,6 +50,15 @@ export interface AuthenticationResult {
   redirectUrl?: string;
 }
 
+interface UserCookieData {
+  wallet_address?: string;
+  sub?: string;
+  permissions?: string[];
+  groups?: string[];
+  isAdmin?: boolean;
+  auth_time?: string;
+}
+
 // ============================================================================
 // Web3 Session Management
 // ============================================================================
@@ -70,17 +80,21 @@ export async function getWeb3SessionFromCookies(): Promise<Web3SessionData | nul
     }
 
     // Parse user data from cookie
-    let userData = null;
+    let userData: UserCookieData | null = null;
     try {
-      userData = JSON.parse(decodeURIComponent(userCookie));
+      userData = JSON.parse(decodeURIComponent(userCookie)) as UserCookieData;
     } catch (parseError) {
-      console.warn('Failed to parse user cookie:', parseError);
+      logger.warn('Failed to parse user cookie:', parseError);
+      return null;
+    }
+
+    if (!userData) {
       return null;
     }
 
     const now = Date.now();
     const sessionData: Web3SessionData = {
-      walletAddress: userData.wallet_address || userData.sub,
+      walletAddress: userData.wallet_address ?? userData.sub ?? '',
       signature: '', // Not accessible (HttpOnly)
       message: '',   // Not accessible (HttpOnly)
       nonce: '',     // Not accessible (HttpOnly)
@@ -90,7 +104,7 @@ export async function getWeb3SessionFromCookies(): Promise<Web3SessionData | nul
 
     // Check if session has expired using new expiresAt calculation
     if (Date.now() > sessionData.expiresAt) {
-      console.warn('Admin session expired (read-only check)');
+      logger.warn('Admin session expired (read-only check)');
       // Do not clear cookies here in Server Components - just return null
       return null;
     }
@@ -120,21 +134,26 @@ export async function validateWeb3Session(_sessionData: Web3SessionData): Promis
       return null;
     }
 
-    let userData = null;
+    let userData: UserCookieData | null = null;
     try {
-      userData = JSON.parse(decodeURIComponent(userCookie));
+      userData = JSON.parse(decodeURIComponent(userCookie)) as UserCookieData;
     } catch (parseError) {
-      console.warn('Failed to parse user cookie:', parseError);
+      logger.warn('Failed to parse user cookie:', parseError);
       return null;
     }
 
+    if (!userData) {
+      return null;
+    }
+
+    const walletAddress = userData.wallet_address ?? userData.sub ?? '';
     const web3User: Web3AdminUser = {
-      walletAddress: userData.wallet_address || userData.sub,
+      walletAddress,
       chainId: 56, // BSC Mainnet - default
-      displayName: `Admin (${userData.wallet_address?.slice(0, 6)}...${userData.wallet_address?.slice(-4)})`,
-      permissions: userData.permissions || [],
-      groups: userData.groups || [],
-      isAdmin: userData.isAdmin || true, // Assume admin if user cookie exists
+      displayName: `Admin (${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)})`,
+      permissions: userData.permissions ?? [],
+      groups: userData.groups ?? [],
+      isAdmin: userData.isAdmin ?? true, // Assume admin if user cookie exists
       sessionExpiry: userData.auth_time ? parseInt(userData.auth_time) + 2592000000 : Date.now() + 2592000000,
       lastVerified: Date.now()
     };
@@ -225,7 +244,6 @@ export function getExpiringPermissions(_permissions: string[], _withinDays = 7):
   // Real expiry is enforced by the backend.
   return [];
 }
-
 
 // ============================================================================
 // Session Management

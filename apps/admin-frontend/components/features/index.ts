@@ -15,4 +15,4 @@ export {
   PermissionManagementFeature,
   ModuleCoordinatorFeature,
   DevAdminFeature,
-} from './AdminFeatureGate';
+} from './admin-feature-gate';

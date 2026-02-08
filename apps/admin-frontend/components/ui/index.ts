@@ -45,23 +45,23 @@ export {
     type UnifiedCardProps,
     type UnifiedCardSectionProps, type UnifiedCardSize, type UnifiedCardVariant, type UnifiedFeatureCardProps, type UnifiedListCardProps,
     type UnifiedListItem, type UnifiedStatsCardProps
-} from '@/shared/components/cards/CardVariants'
+} from '@/shared/components/cards/card-variants'
 
 export {
     UnifiedLoader, UnifiedLoading, UnifiedProgressBar, UnifiedSkeleton,
     type UnifiedLoaderProps, type UnifiedLoadingProps, type UnifiedProgressBarProps, type UnifiedSkeletonProps
-} from '@/shared/components/loaders/UnifiedLoader'
+} from '@/shared/components/loaders/unified-loader'
 
 export {
     AdminThemeToggle, AnimatedThemeToggle, GradientThemeToggle,
     MinimalThemeToggle, OptimizedThemeToggle, SimpleThemeToggle, ThemeToggle,
     ThemeToggleCSS, UnifiedThemeToggle, type ThemeToggleIconType,
     type ThemeToggleSize, type ThemeToggleVariant, type UnifiedThemeToggleProps
-} from '@/shared/components/ui/UnifiedThemeToggle'
+} from '@/shared/components/ui/unified-theme-toggle'
 
 export {
     MetroNotification, ProfessionalAlert, ProfessionalNotification, UnifiedAlert, UnifiedNotification, useAdminToast, useAnalyticsToast, useMetroToast, usePancakeToast, useProfessionalToast, useUnifiedToast, type UnifiedAlertProps, type UnifiedNotificationProps
-} from '@/shared/components/notifications/UnifiedNotification'
+} from '@/shared/components/notifications/unified-notification'
 
 // ============================================================================
 // ADMIN-SPECIFIC LOCAL COMPONENTS
@@ -82,8 +82,8 @@ export { Switch } from '@/shared/components/ui/switch'
 export { Separator } from './separator'
 
 // Admin-specific presentational components
-export * from './AnalyticsCard'
-export * from './PancakeButton'
-export * from './PancakeCard'
-export * from './StatsCard'
+export * from './analytics-card'
+export * from './pancake-button'
+export * from './pancake-card'
+export * from './stats-card'
 

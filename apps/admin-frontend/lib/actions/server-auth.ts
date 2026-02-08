@@ -49,7 +49,6 @@ export async function validateAdminAccess(): Promise<boolean> {
   }
 }
 
-
 /**
  * Check if user has specific permission using structured permission system
  * @param _permission

@@ -2,7 +2,8 @@
  * Comprehensive Frontend Functionality E2E Tests
  * Tests complete analytics platform workflows
  */
-import { test, expect, Page } from '@playwright/test';
+import type { Page } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 
 const TEST_EMAIL = 'jesadakorn.kirtnu@gmail.com';
 const TEST_PASSWORD = 'Aa_12345678';

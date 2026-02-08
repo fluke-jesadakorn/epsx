@@ -1,4 +1,5 @@
-import { createAdminApiClient, handleSimpleRequest, UnifiedApiClient } from '@/shared/utils/api-client';
+import type { UnifiedApiClient } from '@/shared/utils/api-client';
+import { createAdminApiClient, handleSimpleRequest } from '@/shared/utils/api-client';
 
 export interface PermissionDefinition {
     id: string;

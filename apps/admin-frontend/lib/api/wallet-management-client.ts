@@ -135,7 +135,7 @@ function mapWalletDtoToData(dto: WalletSummaryDto): WalletData {
             platforms.add('markets');
         }
     });
-    if (platforms.size === 0) {platforms.add('analytics');}
+    if (platforms.size === 0) { platforms.add('analytics'); }
 
     const permissions: WalletPermission[] = dtoPermissions.map((p, idx) => ({
         id: `perm-${idx}`,
@@ -159,7 +159,7 @@ function mapWalletDtoToData(dto: WalletSummaryDto): WalletData {
     }));
 
     let status: 'active' | 'disabled' | 'pending' = 'active';
-    if (!dto.is_active) {status = 'disabled';}
+    if (!dto.is_active) { status = 'disabled'; }
 
     const disableInfo = dto.metadata?.['disable_info'] as WalletData['disableInfo'] | undefined;
     const label = dto.metadata?.['label'] as string | undefined;
@@ -182,10 +182,10 @@ function mapWalletDtoToData(dto: WalletSummaryDto): WalletData {
 }
 
 function detectPlatform(permission: string): Platform {
-    if (permission.startsWith('epsx:analytics') || permission.startsWith('epsx:rankings')) {return 'analytics';}
-    if (permission.startsWith('epsx-pay:')) {return 'pay';}
-    if (permission.startsWith('epsx-token:')) {return 'token';}
-    if (permission.startsWith('epsx-markets:')) {return 'markets';}
+    if (permission.startsWith('epsx:analytics') || permission.startsWith('epsx:rankings')) { return 'analytics'; }
+    if (permission.startsWith('epsx-pay:')) { return 'pay'; }
+    if (permission.startsWith('epsx-token:')) { return 'token'; }
+    if (permission.startsWith('epsx-markets:')) { return 'markets'; }
     return 'analytics';
 }
 
@@ -223,5 +223,47 @@ export const walletMgmt = {
         const res = await adminApiClient.get<WalletListResponse>('/api/admin/wallets', { search: query, limit: limit.toString() });
         const data = extractData<WalletListResponse>(res);
         return data?.data || data; // Handle potential wrapping
+    },
+    fetchWallets: async (filters: WalletFilters, page = 1, limit = 50) => {
+        const queryParams: Record<string, string> = {
+            page: page.toString(),
+            limit: limit.toString(),
+            search: filters.search,
+            status: filters.status,
+            platform: filters.platform,
+            sort_by: filters.sortBy,
+            sort_order: filters.sortOrder,
+        };
+        const res = await adminApiClient.get<WalletListResponse>('/api/admin/wallets', queryParams);
+        const data = extractData<WalletListResponse>(res);
+        const responseData = data?.data || data;
+
+        return {
+            wallets: (responseData?.wallets || []).map(mapWalletDtoToData),
+            pagination: responseData?.pagination
+        };
+    },
+    fetchWalletStats: async (): Promise<WalletStats> => {
+        const res = await adminApiClient.get<WalletStatsDto>('/api/admin/wallets/stats');
+        const data = extractData<WalletStatsDto>(res);
+
+        return {
+            total: data?.total_users ?? 0,
+            active: data?.active_users ?? 0,
+            disabled: data?.inactive_users ?? 0,
+            subscribed: data?.active_users_30_days ?? 0,
+            changes: {
+                total: data?.new_users_30_days ?? 0,
+                active: 0,
+                disabled: 0,
+                subscribed: 0
+            },
+            platformDistribution: {
+                analytics: 0,
+                pay: 0,
+                token: 0,
+                markets: 0
+            }
+        };
     }
 };

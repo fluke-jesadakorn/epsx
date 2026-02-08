@@ -5,9 +5,9 @@
  */
 
 import type { JWTPayload } from 'jose'
-import type { EPSXPermission } from './Permission'
-import type { SessionData } from './Session'
-import type { AdminUserProfile, PackageTier, UserProfile, UserRole } from './User'
+import type { EPSXPermission } from './permission'
+import type { SessionData } from './session'
+import type { AdminUserProfile, PackageTier, UserProfile, UserRole } from './user'
 
 // Re-export core auth types from shared system
 export type {

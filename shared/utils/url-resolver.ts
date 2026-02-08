@@ -140,62 +140,70 @@ export function getAdminUrl(context: URLContext | URLContextLegacy = URLContext.
  * These provide consistent fallback URLs based on the current environment
  */
 
-function getDefaultBackendUrl(): string {
-  // check process.env first to respect dynamic config
-  if (typeof process !== 'undefined') {
-    if (process.env.BACKEND_URL) {return process.env.BACKEND_URL;}
-    if (process.env.NEXT_PUBLIC_BACKEND_URL) {return process.env.NEXT_PUBLIC_BACKEND_URL;}
-  }
+/**
+ * Helper to get environment variable override
+ */
+function getEnvOverride(key: string, publicKey: string): string | undefined {
+  if (typeof process === 'undefined') { return undefined; }
 
-  // In browser development, use the same host as the frontend but port 8080
+  const val = process.env[key];
+  if (val !== undefined && val !== '') { return val; }
+
+  const publicVal = process.env[publicKey];
+  if (publicVal !== undefined && publicVal !== '') { return publicVal; }
+
+  return undefined;
+}
+
+/**
+ * Helper to get development local URL based on window location
+ */
+function getDevLocalUrl(port: number): string | undefined {
   if (typeof window !== 'undefined' && isDev) {
     const hostname = window.location.hostname;
     // Don't redirect localhost to localhost - that's the default anyway
     if (hostname !== 'localhost' && hostname !== '127.0.0.1' && !hostname.startsWith('100.')) {
-      return `http://${hostname}:8080`;
+      return `http://${hostname}:${port}`;
     }
   }
+  return undefined;
+}
 
-  if (isDev) {return 'http://127.0.0.1:8080';}
-  if (isStaging) {return 'https://staging-api.epsx.io';}
+function getDefaultBackendUrl(): string {
+  // Check process.env first to respect dynamic config
+  const envUrl = getEnvOverride('BACKEND_URL', 'NEXT_PUBLIC_BACKEND_URL');
+  if (envUrl !== undefined) { return envUrl; }
+
+  // In browser development, use the same host as the frontend
+  const localUrl = getDevLocalUrl(8080);
+  if (localUrl !== undefined) { return localUrl; }
+
+  if (isDev) { return 'http://127.0.0.1:8080'; }
+  if (isStaging) { return 'https://staging-api.epsx.io'; }
   return 'https://api.epsx.io'; // Production default
 }
 
 function getDefaultFrontendUrl(): string {
-  if (typeof process !== 'undefined') {
-    if (process.env.FRONTEND_URL) {return process.env.FRONTEND_URL;}
-    if (process.env.NEXT_PUBLIC_APP_URL) {return process.env.NEXT_PUBLIC_APP_URL;}
-  }
+  const envUrl = getEnvOverride('FRONTEND_URL', 'NEXT_PUBLIC_APP_URL');
+  if (envUrl !== undefined) { return envUrl; }
 
-  // In browser development, use the same host but port 3000
-  if (typeof window !== 'undefined' && isDev) {
-    const hostname = window.location.hostname;
-    if (hostname !== 'localhost' && hostname !== '127.0.0.1' && !hostname.startsWith('100.')) {
-      return `http://${hostname}:3000`;
-    }
-  }
+  const localUrl = getDevLocalUrl(3000);
+  if (localUrl !== undefined) { return localUrl; }
 
-  if (isDev) {return 'http://localhost:3000';}
-  if (isStaging) {return 'https://staging.epsx.io';}
+  if (isDev) { return 'http://localhost:3000'; }
+  if (isStaging) { return 'https://staging.epsx.io'; }
   return 'https://epsx.io'; // Production default
 }
 
 function getDefaultAdminUrl(): string {
-  if (typeof process !== 'undefined') {
-    if (process.env.ADMIN_FRONTEND_URL) {return process.env.ADMIN_FRONTEND_URL;}
-    if (process.env.NEXT_PUBLIC_ADMIN_URL) {return process.env.NEXT_PUBLIC_ADMIN_URL;}
-  }
+  const envUrl = getEnvOverride('ADMIN_FRONTEND_URL', 'NEXT_PUBLIC_ADMIN_URL');
+  if (envUrl !== undefined) { return envUrl; }
 
-  // In browser development, use the same host but port 3001
-  if (typeof window !== 'undefined' && isDev) {
-    const hostname = window.location.hostname;
-    if (hostname !== 'localhost' && hostname !== '127.0.0.1' && !hostname.startsWith('100.')) {
-      return `http://${hostname}:3001`;
-    }
-  }
+  const localUrl = getDevLocalUrl(3001);
+  if (localUrl !== undefined) { return localUrl; }
 
-  if (isDev) {return 'http://localhost:3001';}
-  if (isStaging) {return 'https://staging-admin.epsx.io';}
+  if (isDev) { return 'http://localhost:3001'; }
+  if (isStaging) { return 'https://staging-admin.epsx.io'; }
   return 'https://admin.epsx.io'; // Production default
 }
 
@@ -204,8 +212,8 @@ function getDefaultAdminUrl(): string {
  * @returns Current environment as enum
  */
 export function getCurrentEnvironment(): Environment {
-  if (isDev) {return Environment.DEVELOPMENT;}
-  if (isStaging) {return Environment.STAGING;}
+  if (isDev) { return Environment.DEVELOPMENT; }
+  if (isStaging) { return Environment.STAGING; }
   return Environment.PRODUCTION;
 }
 
@@ -397,12 +405,7 @@ export const apiUrls = {
  * @returns Whether the URL is valid
  */
 export function isValidUrl(url: string): boolean {
-  try {
-    new globalThis.URL(url);
-    return true;
-  } catch {
-    return false;
-  }
+  return URL.validate(url);
 }
 
 /**
@@ -425,7 +428,7 @@ export function getEnvironmentInfo() {
  * Only available in development
  */
 export function debugUrls(context: URLContext | URLContextLegacy = URLContext.SERVER) {
-  if (!isDev) {return {};}
+  if (!isDev) { return {}; }
 
   return {
     context,

@@ -1,4 +1,4 @@
-import { Skeleton } from '@/components/common/Skeleton';
+import { Skeleton } from '@/components/common/skeleton';
 
 import type { Metadata } from 'next';
 
@@ -11,7 +11,7 @@ export default function LoadingPage() {
   return (
     <div className="container mx-auto p-4 space-y-8">
       <div className="flex items-center justify-center py-8">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
       </div>
 
       <div className="space-y-6">

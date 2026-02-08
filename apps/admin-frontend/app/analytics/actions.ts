@@ -1,6 +1,6 @@
 'use server';
 
-import {
+import type {
     ApiKeysResponse,
     DeveloperPortalStats,
     PermissionAnalytics,
@@ -8,16 +8,60 @@ import {
     RecentWalletsData,
     SystemMetrics,
     UserStats
-} from '@/hooks/useAnalyticsData';
+} from '@/hooks/use-analytics-data';
 import { logout } from '@/lib/auth/auth';
 import { createAdminApiClient, createPlansClient } from '@/shared/api';
-import { ApiResponse } from '@/shared/types/api';
-import { UnifiedApiClient } from '@/shared/utils/api-client';
+import type { ApiResponse } from '@/shared/types/api';
+import type { UnifiedApiClient } from '@/shared/utils/api-client';
+import { logger } from '@/shared/utils/logger';
 import { redirect } from 'next/navigation';
 
-/**
- * Generic helper to execute an API request with standard error handling and 401 redirect
- */
+function isNextRedirectError(error: unknown): boolean {
+    return error instanceof Error && (error as { digest?: string }).digest?.startsWith('NEXT_REDIRECT') === true;
+}
+
+async function processApiResponse<T>(
+    res: ApiResponse<T>,
+    errorMessage: string,
+    defaultValue?: T
+): Promise<T> {
+    if (!res.success) {
+        if (res.error?.code === '401' || res.error?.code === 'UNAUTHORIZED') {
+            await logout();
+            redirect('/auth');
+        }
+
+        logger.error(`${errorMessage}: ${res.error?.message} (${res.error?.code})`, { error: res.error });
+
+        if (defaultValue !== undefined) {
+            return defaultValue;
+        }
+
+        throw new Error(res.error?.message ?? errorMessage);
+    }
+
+    return res.data ?? (defaultValue as T);
+}
+
+function processApiError<T>(
+    error: unknown,
+    errorMessage: string,
+    defaultValue?: T
+): T {
+    // Allow Next.js redirects to bubble up
+    if (isNextRedirectError(error)) {
+        throw error;
+    }
+
+    logger.error(`${errorMessage}:`, error instanceof Error ? error.message : String(error));
+
+    if (defaultValue !== undefined) {
+        return defaultValue;
+    }
+
+    throw error as Error;
+}
+
 async function handleAction<T>(
     requestFn: (apiClient: UnifiedApiClient) => Promise<ApiResponse<T>>,
     errorMessage: string,
@@ -27,36 +71,9 @@ async function handleAction<T>(
 
     try {
         const res = await requestFn(apiClient);
-
-        if (!res.success) {
-            if (res.error?.code === '401' || res.error?.code === 'UNAUTHORIZED') {
-                await logout();
-                redirect('/auth');
-            }
-
-            console.error(`${errorMessage}: ${res.error?.message} (${res.error?.code})`);
-
-            if (defaultValue !== undefined) {
-                return defaultValue;
-            }
-
-            throw new Error(res.error?.message || errorMessage);
-        }
-
-        return res.data || (defaultValue as T);
+        return await processApiResponse(res, errorMessage, defaultValue);
     } catch (error: unknown) {
-        // Allow Next.js redirects to bubble up
-        if (error instanceof Error && (error as any).digest?.startsWith('NEXT_REDIRECT')) {
-            throw error;
-        }
-
-        console.error(`${errorMessage}:`, error);
-
-        if (defaultValue !== undefined) {
-            return defaultValue;
-        }
-
-        throw error;
+        return processApiError(error, errorMessage, defaultValue);
     }
 }
 

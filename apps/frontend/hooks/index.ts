@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 'use client';
 
 // Frontend auth adapter for unified auth system
-export { useFrontendAuth } from './useFrontendAuth';
+export { useFrontendAuth } from './useFrontendauth';
 
 // DEPRECATED: Generic data fetching hook using deprecated API client
 // Migrate to specific server actions instead of using this hook
@@ -109,11 +109,11 @@ export function useCookieStorage<T>(key: string, initialValue: T, maxAge?: numbe
 
     try {
       // Try cookie first, then fallback to localStorage for migration
-      const cookies = document.cookie.split(';').reduce((acc, cookie) => {
+      const cookies = document.cookie.split(';').reduce<Record<string, string>>((acc, cookie) => {
         const [k, v] = cookie.trim().split('=');
         if (k && v) {acc[k] = v;}
         return acc;
-      }, {} as Record<string, string>);
+      }, {});
 
       const item = cookies[key] || window.localStorage.getItem(key);
       return item ? JSON.parse(item) : initialValue;

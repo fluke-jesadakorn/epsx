@@ -3,14 +3,15 @@
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 
-import { PermissionTransferList } from '@/components/plans/PermissionTransferList'
-import { PageLoadingSpinner } from '@/components/ui/LoadingSpinner'
+import { PermissionTransferList } from '@/components/plans/Permissiontransfer-list'
+import { PageLoadingSpinner } from '@/components/ui/loading-spinner'
 import { toast } from '@/hooks/use-toast'
-import { useAvailablePermissions } from '@/hooks/usePlanPermissions'
+import { useAvailablePermissions } from '@/hooks/use-plan-permissions'
 import { createPlansClient, isApiSuccess } from '@/shared/api/plans'
 import { useSharedAuth } from '@/shared/components/auth/Provider'
 import { createAdminApiClient } from '@/shared/utils/api-client'
-import { PERMISSION_TEMPLATE_CONFIGS, PermissionTemplateName } from '@/types/permission-templates'
+import type { PermissionTemplateName } from '@/types/permission-templates'
+import { PERMISSION_TEMPLATE_CONFIGS } from '@/types/permission-templates'
 
 interface CreatePermissionTemplateRequest {
   name: string
@@ -22,7 +23,7 @@ interface CreatePermissionTemplateRequest {
   target_audience: string
   billing_model: string
   features: string[]
-  metadata: any
+  metadata: Record<string, unknown>
 }
 
 /**
@@ -45,7 +46,7 @@ export default function NewPlanPage() {
     features: [],
     metadata: {}
   })
-  const [customPermission, setCustomPermission] = useState('')
+
   const { permissions: availablePermissions, isLoading: loadingPermissions } = useAvailablePermissions()
 
   if (authLoading) {
@@ -122,7 +123,7 @@ export default function NewPlanPage() {
       } else {
         toast({
           title: "Error",
-          description: response.error || "Failed to create plan",
+          description: response.error?.message || "Failed to create plan",
           variant: "destructive"
         })
       }
@@ -172,7 +173,7 @@ export default function NewPlanPage() {
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-8">
+            <form onSubmit={(e) => void handleSubmit(e)} className="space-y-8">
               {/* Basic Info */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="space-y-2">

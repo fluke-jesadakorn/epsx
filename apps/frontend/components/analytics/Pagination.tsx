@@ -2,7 +2,7 @@
 
 import { memo } from 'react';
 import type { PaginationProps } from '@/types/analytics';
-import LimitSelector from './LimitSelector';
+import LimitSelector from './limit-selector';
 
 const Pagination = memo<PaginationProps>(({ pagination, onPageChange, onLimitChange, isLoading }) => {
   const { page, totalPages, hasNext, hasPrev, total, limit } = pagination;
@@ -140,6 +140,6 @@ const Pagination = memo<PaginationProps>(({ pagination, onPageChange, onLimitCha
   );
 });
 
-Pagination.displayName = 'Pagination';
+Pagination.displayName = 'pagination';
 
 export default Pagination;

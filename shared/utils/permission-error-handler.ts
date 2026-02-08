@@ -5,7 +5,7 @@
  * 
  * Single source of truth for both admin-frontend and frontend apps
  */
-
+import { logger } from './logger';
 // Backend permission error structure (from apps/backend/src/web/errors/permission_errors.rs)
 export interface BackendPermissionError {
     code: number
@@ -40,6 +40,28 @@ export interface PermissionErrorEvent {
 // Platform type for logging context
 export type Platform = 'admin' | 'frontend'
 
+export interface PermissionContext {
+    feature?: string
+    action?: string
+}
+
+/**
+ * Custom error class for permission errors
+ */
+export class PermissionDeniedError extends Error {
+    public readonly permissionError: BackendPermissionError
+
+    /**
+     * Create a new PermissionDeniedError
+     * @param error - Backend permission error
+     */
+    constructor(error: BackendPermissionError) {
+        super(error.message)
+        this.name = 'PermissionDeniedError'
+        this.permissionError = error
+    }
+}
+
 // Global permission error listeners
 const errorListeners = new Set<(event: PermissionErrorEvent) => void>()
 
@@ -70,7 +92,7 @@ function emitPermissionError(event: PermissionErrorEvent): void {
  */
 export function handlePermissionError(
     error: BackendPermissionError,
-    context?: { feature?: string; action?: string },
+    context?: PermissionContext,
     platform: Platform = 'frontend'
 ): void {
     const event: PermissionErrorEvent = {
@@ -83,8 +105,8 @@ export function handlePermissionError(
 
     // Log for debugging
     const prefix = platform === 'admin' ? '🔒 Admin Permission Denied:' : '🔒 Permission Denied:'
-     
-    console.error(prefix, {
+
+    logger.error(prefix, {
         type: error.error_type,
         message: error.message,
         current: error.current_group,
@@ -99,54 +121,70 @@ export function handlePermissionError(
  * @returns BackendPermissionError if response is 401/403, null otherwise
  */
 export async function extractPermissionError(response: Response): Promise<BackendPermissionError | null> {
-    if (response.status === 403 || response.status === 401) {
-        try {
-            const data = await response.json()
-            return {
-                code: response.status,
-                error_type: data.error_type ?? (response.status === 401 ? 'AuthenticationRequired' : 'PermissionDenied'),
-                message: data.message ?? data.error?.message ?? 'Permission denied',
-                permission: data.permission ?? data.error?.permission,
-                reason: data.reason ?? data.error?.reason,
-                current_group: data.current_group ?? data.error?.current_group,
-                required_group: data.required_group ?? data.error?.required_group,
-                upgrade_url: data.upgrade_url ?? data.error?.upgrade_url,
-                benefits: data.benefits ?? data.error?.benefits,
-                suggested_actions: data.suggested_actions ?? data.error?.suggested_actions,
-                expired_at: data.expired_at ?? data.error?.expired_at,
-                renewal_url: data.renewal_url ?? data.error?.renewal_url,
-                current_usage: data.current_usage ?? data.error?.current_usage,
-                limit: data.limit ?? data.error?.limit,
-                reset_at: data.reset_at ?? data.error?.reset_at,
-                risk_level: data.risk_level ?? data.error?.risk_level,
-                contact_support: data.contact_support ?? data.error?.contact_support
-            }
-        } catch {
-            return {
-                code: response.status,
-                error_type: response.status === 401 ? 'AuthenticationRequired' : 'PermissionDenied',
-                message: response.statusText ?? 'Permission denied'
-            }
+    if (response.status !== 403 && response.status !== 401) {
+        return null;
+    }
+
+    try {
+        const data = (await response.json()) as Partial<BackendPermissionError> & { error?: Partial<BackendPermissionError> };
+        return normalizeBackendError(data, response.status);
+    } catch {
+        return {
+            code: response.status,
+            error_type: response.status === 401 ? 'AuthenticationRequired' : 'PermissionDenied',
+            message: response.statusText || 'Permission denied'
         }
     }
-    return null
+}
+
+function normalizeBackendError(
+    data: Partial<BackendPermissionError> & { error?: Partial<BackendPermissionError> },
+    status: number
+): BackendPermissionError {
+    const err = data.error ?? {};
+    // Merge data and nested error object, with data taking precedence
+    const merged = { ...err, ...data };
+
+    const fallbackType = status === 401 ? 'AuthenticationRequired' : 'PermissionDenied';
+
+    return {
+        code: status,
+        error_type: merged.error_type ?? fallbackType,
+        message: merged.message ?? 'Permission denied',
+        permission: merged.permission,
+        reason: merged.reason,
+        current_group: merged.current_group,
+        required_group: merged.required_group,
+        upgrade_url: merged.upgrade_url,
+        benefits: merged.benefits,
+        suggested_actions: merged.suggested_actions,
+        expired_at: merged.expired_at,
+        renewal_url: merged.renewal_url,
+        current_usage: merged.current_usage,
+        limit: merged.limit,
+        reset_at: merged.reset_at,
+        risk_level: merged.risk_level,
+        contact_support: merged.contact_support
+    }
 }
 
 /**
  * Wrap fetch with automatic permission error handling
  * @param url - URL to fetch
  * @param options - Fetch options
- * @param context - Context for error handling
- * @param platform - Platform context for logging
+ * @param config - Context and platform config
  * @returns Fetch response
  * @throws PermissionDeniedError if response is 401/403
  */
 export async function fetchWithPermissionHandling(
     url: string,
     options?: RequestInit,
-    context?: { feature?: string; action?: string },
-    platform: Platform = 'frontend'
+    config: {
+        context?: PermissionContext,
+        platform?: Platform
+    } = {}
 ): Promise<Response> {
+    const { context, platform = 'frontend' } = config;
     const response = await fetch(url, options)
 
     const permError = await extractPermissionError(response)
@@ -156,23 +194,6 @@ export async function fetchWithPermissionHandling(
     }
 
     return response
-}
-
-/**
- * Custom error class for permission errors
- */
-export class PermissionDeniedError extends Error {
-    public readonly permissionError: BackendPermissionError
-
-    /**
-     * Create a new PermissionDeniedError
-     * @param error - Backend permission error
-     */
-    constructor(error: BackendPermissionError) {
-        super(error.message)
-        this.name = 'PermissionDeniedError'
-        this.permissionError = error
-    }
 }
 
 /**
@@ -198,12 +219,12 @@ export function getErrorMessage(error: BackendPermissionError): string {
         case 'UsageLimitExceeded':
             return `Usage limit reached (${error.current_usage}/${error.limit}). Upgrade for more`
         case 'SecurityRestriction':
-            return error.contact_support
+            return error.contact_support === true
                 ? 'Security restriction. Please contact support'
                 : error.message
         case 'AuthenticationRequired':
             return 'Please sign in to continue'
         default:
-            return error.message ?? 'Permission denied'
+            return error.message || 'Permission denied'
     }
 }

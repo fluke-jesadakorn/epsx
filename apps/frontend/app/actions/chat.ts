@@ -6,8 +6,8 @@ import type { ChatRequest, ChatResponse } from "@/types/chat.d";
 
 export async function chatQuery(request: ChatRequest): Promise<ChatResponse> {
   return await chatApiService.sendMsg(request.messages, {
-    temp: request.temperature || undefined,
-    maxTokens: request.maxTokens || undefined,
+    temp: request.temperature ?? undefined,
+    maxTokens: request.maxTokens ?? undefined,
   });
 }
 
@@ -17,7 +17,7 @@ export async function getChatHistory(conversationId: string) {
 
 export async function streamChat(request: ChatRequest): Promise<ReadableStream<Uint8Array>> {
   return await chatApiService.streamMsg(request.messages, {
-    temp: request.temperature || undefined,
-    maxTokens: request.maxTokens || undefined,
+    temp: request.temperature ?? undefined,
+    maxTokens: request.maxTokens ?? undefined,
   });
 }

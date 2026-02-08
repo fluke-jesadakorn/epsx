@@ -3,10 +3,10 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
-import { PaymentAnalytics } from '@/components/payments/PaymentAnalytics';
-import { PaymentLinksManagement } from '@/components/payments/PaymentLinksManagement';
-import { PaymentsManagement } from '@/components/payments/PaymentsManagement';
-import { UserAccessManagement } from '@/components/payments/UserAccessManagement';
+import { PaymentAnalytics } from '@/components/payments/payment-analytics';
+import { PaymentLinksManagement } from '@/components/payments/payment-links-management';
+import { PaymentsManagement } from '@/components/payments/payments-management';
+import { UserAccessManagement } from '@/components/payments/user-access-management';
 import { PageHeader, PageLayout, PageSkeleton, PageTabs, type TabItem } from '@/components/shared';
 import { useSharedAuth } from '@/shared/components/auth/Provider';
 

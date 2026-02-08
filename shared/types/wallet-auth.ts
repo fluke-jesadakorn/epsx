@@ -14,7 +14,7 @@ export interface WalletUser {
   wallet_address: string;
   user_id?: string; // Optional, often same as wallet_address
   permissions: string[]; // Structured permissions: "platform:resource:action"
-  tier?: string; // User's access tier (basic, premium, etc.)
+  tier?: string; // user's access tier (basic, premium, etc.)
   expires_at?: number; // Session expiration timestamp
 }
 
@@ -28,7 +28,7 @@ export interface PermissionInfo {
   expires_at?: string;
   granted_at: string;
   last_verified_at?: string;
-  verification_data?: Record<string, any>;
+  verification_data?: Record<string, unknown>;
 }
 
 /**
@@ -90,7 +90,7 @@ export interface Permission {
   is_active: boolean;
   expires_at?: string;
   granted_at: string;
-  verification_data?: Record<string, any>;
+  verification_data?: Record<string, unknown>;
 }
 
 /**
@@ -102,7 +102,7 @@ export interface Web3Permission {
   is_active: boolean;
   expires_at?: string;
   granted_at: string;
-  verification_data?: Record<string, any>;
+  verification_data?: Record<string, unknown>;
 }
 
 /**
@@ -356,7 +356,7 @@ export interface PermissionVerificationResult {
   permission: string;
   is_granted: boolean;
   verification_type: string;
-  verification_data: Record<string, any>;
+  verification_data: Record<string, unknown>;
   cached_until?: string;
 }
 
@@ -420,7 +420,6 @@ export function hasPermission(
   return userPermissions.includes(requiredPermission);
 }
 
-
 /**
  * Extract platform from permission string
 
@@ -450,7 +449,7 @@ export function getPermissionAction(permission: string): string {
  * Check if session is expired
  */
 export function isSessionExpired(expiresAt: number | null): boolean {
-  if (!expiresAt) {return true;}
+  if (!expiresAt) { return true; }
   return Date.now() >= expiresAt;
 }
 
@@ -461,7 +460,7 @@ export function isSessionExpiringSoon(
   expiresAt: number | null,
   thresholdMs = 300000
 ): boolean {
-  if (!expiresAt) {return true;}
+  if (!expiresAt) { return true; }
   return Date.now() >= expiresAt - thresholdMs;
 }
 

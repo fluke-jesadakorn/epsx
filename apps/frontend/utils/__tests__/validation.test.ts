@@ -31,14 +31,14 @@ describe('Validation Utilities', () => {
 
   describe('Permission Validation Business Rules', () => {
     const hasFeatureAccess = (userLevel: string, feature: string) => {
-      const featureMap: Record<string, string[]> = {
+      const featureMap: Record<string, string[] | undefined> = {
         'user-basic-001': ['basic-analytics', 'stock-ranking'],
         'user-premium-002': ['basic-analytics', 'stock-ranking', 'advanced-analytics', 'export-data'],
         'moderator-standard-003': ['basic-analytics', 'stock-ranking', 'advanced-analytics', 'user-management'],
         'admin-full-004': ['*'] // All features
       }
 
-      const userFeatures = featureMap[userLevel] || []
+      const userFeatures = featureMap[userLevel] ?? []
       return userFeatures.includes('*') || userFeatures.includes(feature)
     }
 
@@ -125,7 +125,7 @@ describe('Formatting Utilities', () => {
 describe('Input Validation Business Rules', () => {
   describe('Stock Symbol Validation', () => {
     const validateStockSymbol = (symbol: string): boolean => {
-      if (!symbol || typeof symbol !== 'string') {return false}
+      if (!symbol || typeof symbol !== 'string') { return false }
       // Stock symbols: 1-5 uppercase letters
       const symbolRegex = /^[A-Z]{1,5}$/
       return symbolRegex.test(symbol.trim())
@@ -151,7 +151,7 @@ describe('Input Validation Business Rules', () => {
 
   describe('Amount Validation', () => {
     const validateAmount = (amount: unknown): boolean => {
-      if (amount == null || amount === '') {return false}
+      if (amount === null || amount === undefined || amount === '') { return false }
       const num = Number(amount)
       return !isNaN(num) && isFinite(num) && num >= 0
     }

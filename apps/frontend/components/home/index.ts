@@ -1,19 +1,18 @@
 // Main component export
-export { default as FinancialDataTable } from './FinancialDataTable';
+export { default as FinancialDataTable } from './financial-data-table';
 
 // Sub-components
-export { FinancialCard } from './components/FinancialCard';
+export { FinancialCard } from './components/financial-card';
 export {
   GrowthIndicator,
   TrendIcon,
   AnimatedBadge,
-} from './components/GrowthIndicators';
-export { MetricCard, QuarterRow } from './components/MetricComponents';
+} from './components/growth-indicators';
+export { MetricCard, QuarterRow } from './components/metric-components';
 export {
   FinancialDataLoading,
   FinancialDataHeader,
-} from './components/LayoutComponents';
-
+} from './components/layout-components';
 
 // Hooks
 export {
@@ -21,8 +20,8 @@ export {
   getValidQuarters,
   isPositiveGrowth,
   getGrowthIndicator,
-} from './hooks/useFinancialData';
-export type { UseFinancialDataResult } from './hooks/useFinancialData';
+} from './hooks/use-financial-data';
+export type { UseFinancialDataResult } from './hooks/use-financial-data';
 
 // Utilities
 export {
@@ -34,8 +33,8 @@ export {
   getTrendDirection,
   calculateCAGR,
   getPerformanceMetrics,
-} from './utils/financialCalculations';
-export type { PerformanceMetrics } from './utils/financialCalculations';
+} from './utils/financial-calculations';
+export type { PerformanceMetrics } from './utils/financial-calculations';
 
 // Constants
 export {

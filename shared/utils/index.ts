@@ -87,8 +87,9 @@ import {
 // ============================================================================
 // TAILWIND CLASS UTILITY
 // ============================================================================
-import clsx from 'clsx'
+import clsx, { type ClassValue } from 'clsx'
 import { twMerge } from 'tailwind-merge'
+import { logger as appLogger } from './logger'
 
 export {
   cur, fmtCurrency, formatBytes, formatCurrency, formatEPS, formatFileSize, formatLargeNumber, formatPrice,
@@ -150,7 +151,7 @@ export const apiClient = createFrontendApiClient();
 export const createClient = createFrontendApiClient;
 export const createApiClient = createApiClientBase;
 
-export function cn(...inputs: any[]) {
+export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
@@ -165,7 +166,7 @@ export function cn(...inputs: any[]) {
  * const debouncedSearch = debounce((query: string) => search(query), 300);
  * input.addEventListener('input', (e) => debouncedSearch(e.target.value));
  */
-export function debounce<T extends (...args: any[]) => any>(
+export function debounce<T extends (...args: unknown[]) => unknown>(
   fn: T,
   delay: number
 ): (...args: Parameters<T>) => void {
@@ -183,7 +184,7 @@ export function debounce<T extends (...args: any[]) => any>(
  * const throttledScroll = throttle(() => updatePosition(), 100);
  * window.addEventListener('scroll', throttledScroll);
  */
-export function throttle<T extends (...args: any[]) => any>(
+export function throttle<T extends (...args: unknown[]) => unknown>(
   fn: T,
   limit: number
 ): (...args: Parameters<T>) => void {
@@ -216,7 +217,7 @@ export function sleep(ms: number): Promise<void> {
  * Consider structuredClone() for full support if available.
  */
 export function deepClone<T>(obj: T): T {
-  return JSON.parse(JSON.stringify(obj));
+  return JSON.parse(JSON.stringify(obj)) as T;
 }
 
 // ============================================================================
@@ -266,23 +267,38 @@ export const isDevEnvironment = typeof window !== 'undefined'
 export const isProdEnvironment = !isDevEnvironment;
 
 /** Development-only logging (no-op in production) */
-export function devLog(...args: any[]): void {
+export function devLog(...args: unknown[]): void {
   if (isDevEnvironment) {
-    console.log('[DEV]', ...args);
+    const [message, ...rest] = args;
+    if (typeof message === 'string') {
+      appLogger.debug(message, ...rest);
+    } else {
+      appLogger.debug('Dev Log:', ...args);
+    }
   }
 }
 
 /** Development-only warning (no-op in production) */
-export function devWarn(...args: any[]): void {
+export function devWarn(...args: unknown[]): void {
   if (isDevEnvironment) {
-    console.warn('[DEV]', ...args);
+    const [message, ...rest] = args;
+    if (typeof message === 'string') {
+      appLogger.warn(message, ...rest);
+    } else {
+      appLogger.warn('Dev Warning:', ...args);
+    }
   }
 }
 
 /** Development-only info (no-op in production) */
-export function devInfo(...args: any[]): void {
+export function devInfo(...args: unknown[]): void {
   if (isDevEnvironment) {
-    console.info('[DEV]', ...args);
+    const [message, ...rest] = args;
+    if (typeof message === 'string') {
+      appLogger.info(message, ...rest);
+    } else {
+      appLogger.info('Dev Info:', ...args);
+    }
   }
 }
 
@@ -296,10 +312,26 @@ export function safeError(error: unknown): { message: string; stack?: string } {
 
 /** Simple logger object */
 export const logger = {
-  debug: (...args: any[]) => isDevEnvironment && console.debug(...args),
-  info: (...args: any[]) => console.info(...args),
-  warn: (...args: any[]) => console.warn(...args),
-  error: (...args: any[]) => console.error(...args),
+  debug: (...args: unknown[]) => {
+    const [msg, ...rest] = args;
+    if (typeof msg === 'string') { appLogger.debug(msg, ...rest); }
+    else { appLogger.debug('Debug:', ...args); }
+  },
+  info: (...args: unknown[]) => {
+    const [msg, ...rest] = args;
+    if (typeof msg === 'string') { appLogger.info(msg, ...rest); }
+    else { appLogger.info('Info:', ...args); }
+  },
+  warn: (...args: unknown[]) => {
+    const [msg, ...rest] = args;
+    if (typeof msg === 'string') { appLogger.warn(msg, ...rest); }
+    else { appLogger.warn('Warn:', ...args); }
+  },
+  error: (...args: unknown[]) => {
+    const [msg, ...rest] = args;
+    if (typeof msg === 'string') { appLogger.error(msg, ...rest); }
+    else { appLogger.error('Error:', ...args); }
+  },
 };
 
 export default utils

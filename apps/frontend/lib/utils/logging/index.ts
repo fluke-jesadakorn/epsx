@@ -164,7 +164,6 @@ export class Logger {
     }
   }
 
-
   private log(level: LogLevel['level'], message: string, data?: unknown): void {
     if (!this.shouldLog(level)) {return;}
 
@@ -258,7 +257,7 @@ const developmentLogLevel = 'debug';
 
 export const logger = new Logger('App', isDevelopment ? developmentLogLevel : productionLogLevel);
 export const apiLogger = new Logger('API', isDevelopment ? developmentLogLevel : productionLogLevel);
-export const authLogger = new Logger('Auth', isDevelopment ? developmentLogLevel : productionLogLevel);
+export const authLogger = new Logger('auth', isDevelopment ? developmentLogLevel : productionLogLevel);
 export const analyticsLogger = new Logger('Analytics', isDevelopment ? developmentLogLevel : productionLogLevel);
 export const uiLogger = new Logger('UI', isDevelopment ? developmentLogLevel : productionLogLevel);
 

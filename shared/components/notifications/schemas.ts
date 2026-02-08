@@ -139,7 +139,7 @@ export const SendNotificationRequestSchema = z.object({
 }).refine(
   (data) => {
     // Must specify either recipient_wallet_address, recipient_group, or broadcast
-    return !!(data.recipient_wallet_address || data.recipient_group || data.broadcast)
+    return Boolean(data.recipient_wallet_address ?? data.recipient_group ?? data.broadcast)
   },
   {
     message: 'Must specify recipient_wallet_address, recipient_group, or broadcast',
@@ -203,8 +203,8 @@ export type NotificationPreferencesValidated = z.infer<typeof NotificationPrefer
 export function validateNotification(data: unknown): NotificationValidated | null {
   try {
     return NotificationSchema.parse(data)
-  } catch (error) {
-    console.error('Notification validation failed:', error)
+  } catch (_error) {
+    // console.error('Notification validation failed:', _error)
     return null
   }
 }
@@ -215,8 +215,8 @@ export function validateNotification(data: unknown): NotificationValidated | nul
 export function validateSSENotification(data: unknown): SSENotificationValidated | null {
   try {
     return SSENotificationSchema.parse(data)
-  } catch (error) {
-    console.error('SSE notification validation failed:', error)
+  } catch (_error) {
+    // console.error('SSE notification validation failed:', _error)
     return null
   }
 }

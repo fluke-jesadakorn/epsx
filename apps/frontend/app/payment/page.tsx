@@ -1,8 +1,8 @@
-import { GlobalAuthGuard } from '@/components/auth/GlobalAuthGuard';
+import { GlobalAuthGuard } from '@/components/auth/global-auth-guard';
 import { getCurrentUser } from '@/lib/server-actions';
 import { getDebugSessionInfo } from '@/lib/server-actions-user';
 import { redirect } from 'next/navigation';
-import { PaymentClient } from './PaymentClient';
+import { PaymentClient } from './payment-client';
 import { getPublicPlansAction } from '@/app/actions/plans';
 
 export const dynamic = 'force-dynamic';

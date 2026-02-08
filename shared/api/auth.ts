@@ -13,7 +13,8 @@
  */
 
 import { API_ROUTES } from '../config/route-constants';
-import { UnifiedApiClient } from '../utils/api-client';
+import type { UnifiedApiClient } from '../utils/api-client';
+import { logger } from '../utils/logger';
 
 // ============================================================================
 // AUTH TYPES
@@ -194,7 +195,7 @@ export class AuthAPIClient {
     }
 
     // Update client token if authentication successful
-    if (response.data.authenticated && response.data.access_token) {
+    if (response.data.authenticated && response.data.access_token !== undefined && response.data.access_token !== '') {
       this.client.setAuthToken(response.data.access_token);
     }
 
@@ -225,17 +226,15 @@ export class AuthAPIClient {
       }
 
       // Step 3: Verify signature
-      const verificationResult = await this.verifyWeb3Signature({
+      return await this.verifyWeb3Signature({
         wallet_address: walletAddress,
         signature,
         message: challenge.message,
         nonce: challenge.nonce,
         chain_id: chainId,
       });
-
-      return verificationResult;
     } catch (error) {
-      console.error('Web3 authentication failed:', error);
+      logger.error('Web3 authentication failed:', error);
       throw error;
     }
   }
@@ -251,7 +250,7 @@ export class AuthAPIClient {
   async validateSession(request?: SessionValidationRequest): Promise<SessionValidationResponse> {
     const response = await this.client.get<SessionValidationResponse>(
       API_ROUTES.AUTH.WEB3_SESSION,
-      request,
+      request as unknown as Record<string, unknown>,
       {
         headers: {
           'X-API-Version': 'v1',
@@ -273,7 +272,7 @@ export class AuthAPIClient {
    */
   async verifySession(token?: string): Promise<SessionValidationResponse> {
     const response = await this.client.post<SessionValidationResponse>(
-      API_ROUTES.AUTH.SESSION_VERIFY || API_ROUTES.AUTH.WEB3_SESSION, // Fallback to session route
+      API_ROUTES.AUTH.SESSION_VERIFY,
       { token },
       {
         headers: {
@@ -328,7 +327,7 @@ export class AuthAPIClient {
     access_token: string;
     permissions: string[];
   }): Promise<{ success: boolean; message: string }> {
-    const response = await this.client.post(
+    const response = await this.client.post<{ success: boolean; message: string }>(
       API_ROUTES.AUTH.WEB3_SESSION, // Updated to use standard session endpoint
       sessionData,
       {
@@ -352,7 +351,7 @@ export class AuthAPIClient {
    * Note: This may need to be moved to standardized endpoint
    */
   async clearSession(): Promise<{ success: boolean; message: string }> {
-    const response = await this.client.post(
+    const response = await this.client.post<{ success: boolean; message: string }>(
       API_ROUTES.AUTH.WEB3_LOGOUT, // Updated to use standard logout endpoint
       {},
       {
@@ -394,10 +393,10 @@ export class AuthAPIClient {
 
     if (!this.client.isApiSuccess(response)) {
       // Don't throw error for logout - just log it
-      console.warn(`Logout request failed: ${response.error}`);
+      logger.warn(`Logout request failed: ${response.error?.message ?? 'Unknown error'}`);
       return {
         success: false,
-        message: response.error?.message || 'Logout request failed',
+        message: response.error?.message ?? 'Logout request failed',
         logged_out: true, // Still consider locally logged out
       };
     }
@@ -437,7 +436,7 @@ export class AuthAPIClient {
    * Route: PUT /api/auth/users/profile
    */
   async updateUserProfile(updates: Partial<UserProfile>): Promise<{ success: boolean; message: string }> {
-    const response = await this.client.put(
+    const response = await this.client.put<{ success: boolean; message: string }>(
       API_ROUTES.AUTH.PROFILE,
       updates,
       {
@@ -503,7 +502,7 @@ export class AuthAPIClient {
         wallet_address: session.wallet_address,
         permissions: session.permissions,
       };
-    } catch (error) {
+    } catch (_error) {
       return {
         authenticated: false,
         permissions: [],
@@ -546,7 +545,7 @@ export class AuthAPIClient {
     message += `\nNonce: ${nonce}`;
     message += `\nIssued At: ${issuedAt}`;
 
-    if (expirationTime) {
+    if (expirationTime !== undefined && expirationTime !== '') {
       message += `\nExpiration Time: ${expirationTime}`;
     }
 
@@ -570,10 +569,10 @@ export function createAuthClient(client: UnifiedApiClient): AuthAPIClient {
  */
 export function createPlatformAuthClient(platform: 'frontend' | 'admin' = 'frontend'): AuthAPIClient {
   if (platform === 'admin') {
-    const { createAdminApiClient } = require('../utils/api-client');
+    const { createAdminApiClient } = require('../utils/api-client') as { createAdminApiClient: () => UnifiedApiClient };
     return new AuthAPIClient(createAdminApiClient());
   } else {
-    const { createFrontendApiClient } = require('../utils/api-client');
+    const { createFrontendApiClient } = require('../utils/api-client') as { createFrontendApiClient: () => UnifiedApiClient };
     return new AuthAPIClient(createFrontendApiClient());
   }
 }

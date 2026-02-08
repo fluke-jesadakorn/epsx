@@ -65,7 +65,7 @@ export async function createAdminNotification(
       expires_at: params.expiresAt,
     };
 
-    const response = await client.post<unknown>('/api/admin/notifications/send', requestBody);
+    const response = await client.post('/api/admin/notifications/send', requestBody);
 
     if (!response.success) {
       return {
@@ -118,7 +118,7 @@ export async function cleanupExpiredPermissionsAction(): Promise<ActionResult> {
   try {
     const client = getAdminClient();
 
-    const response = await client.post<unknown>('/api/admin/permissions/cleanup');
+    const response = await client.post('/api/admin/permissions/cleanup');
 
     if (!response.success) {
       return {

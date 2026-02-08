@@ -12,6 +12,7 @@
  */
 
 import { fetchWithTimeout } from '../utils/fetch-with-timeout';
+import { logger } from '../utils/logger';
 
 // Challenge request/response types
 export interface ChallengeRequest {
@@ -56,12 +57,12 @@ class DirectWeb3ApiClient {
     this.baseUrl =
       typeof window !== 'undefined'
         ? // Client-side: Try env var, then dynamic port replacement (3000 -> 8080)
-        process.env.NEXT_PUBLIC_BACKEND_URL ||
+        process.env.NEXT_PUBLIC_BACKEND_URL ??
         window.location.origin.replace(/:300[0-9]/, ':8080')
         : // Server-side: Try server env var, then default
-        process.env.BACKEND_URL || 'http://127.0.0.1:8080';
+        process.env.BACKEND_URL ?? 'http://127.0.0.1:8080';
 
-    console.log('[AUTH] DirectWeb3ApiClient initialized', {
+    logger.debug('[AUTH] DirectWeb3ApiClient initialized', {
       baseUrl: this.baseUrl,
       context: typeof window !== 'undefined' ? 'browser' : 'server',
       location: typeof window !== 'undefined' ? window.location.origin : 'N/A',
@@ -74,7 +75,7 @@ class DirectWeb3ApiClient {
   async requestChallenge(walletAddress: string): Promise<ChallengeResponse> {
     const url = `${this.baseUrl}/api/auth/web3/challenge`;
 
-    console.log('[AUTH] Requesting SIWE challenge', {
+    logger.debug('[AUTH] Requesting SIWE challenge', {
       wallet_address: walletAddress,
       url,
     });
@@ -93,29 +94,29 @@ class DirectWeb3ApiClient {
       });
 
       if (!response.ok) {
-        const errorData = await response
+        const errorData = (await response
           .json()
-          .catch(() => ({ error: 'Unknown error' }));
-        console.error('[AUTH] Error: Challenge request failed', {
+          .catch(() => ({ error: 'Unknown error' }))) as { error?: string };
+        logger.error('[AUTH] Error: Challenge request failed', {
           status: response.status,
           statusText: response.statusText,
           error: errorData,
         });
         throw new Error(
-          `Challenge request failed: ${errorData.error || response.statusText}`
+          `Challenge request failed: ${errorData.error ?? response.statusText}`
         );
       }
 
-      const challengeData: ChallengeResponse = await response.json();
+      const challengeData = (await response.json()) as ChallengeResponse;
 
       if (!challengeData.success) {
-        console.error('[AUTH] Error: Challenge generation failed', {
+        logger.error('[AUTH] Error: Challenge generation failed', {
           error: challengeData.error,
         });
-        throw new Error(challengeData.error || 'Challenge generation failed');
+        throw new Error(challengeData.error ?? 'Challenge generation failed');
       }
 
-      console.log('[AUTH] SIWE challenge received successfully', {
+      logger.debug('[AUTH] SIWE challenge received successfully', {
         wallet_address: challengeData.wallet_address,
         nonce: challengeData.nonce,
         expires_at: challengeData.expires_at,
@@ -124,7 +125,7 @@ class DirectWeb3ApiClient {
 
       return challengeData;
     } catch (error) {
-      console.error('[AUTH] Error: Challenge request network/timeout error', {
+      logger.error('[AUTH] Error: Challenge request network/timeout error', {
         name: error instanceof Error ? error.name : 'UnknownError',
         message: error instanceof Error ? error.message : String(error),
         url,
@@ -143,7 +144,7 @@ class DirectWeb3ApiClient {
   ): Promise<SignatureVerificationResponse> {
     const url = `${this.baseUrl}/api/auth/web3/verify`;
 
-    console.log('[AUTH] Verifying wallet signature', {
+    logger.debug('[AUTH] Verifying wallet signature', {
       wallet_address: request.wallet_address,
       url,
     });
@@ -160,40 +161,40 @@ class DirectWeb3ApiClient {
       });
 
       if (!response.ok) {
-        const errorData = await response
+        const errorData = (await response
           .json()
-          .catch(() => ({ error: 'Unknown error' }));
-        console.error('[AUTH] Error: Signature verification failed', {
+          .catch(() => ({ error: 'Unknown error' }))) as { error?: string };
+        logger.error('[AUTH] Error: Signature verification failed', {
           status: response.status,
           statusText: response.statusText,
           error: errorData,
         });
         throw new Error(
-          `Signature verification failed: ${errorData.error || response.statusText}`
+          `Signature verification failed: ${errorData.error ?? response.statusText}`
         );
       }
 
-      const verificationData: SignatureVerificationResponse =
-        await response.json();
+      const verificationData =
+        (await response.json()) as SignatureVerificationResponse;
 
       if (!verificationData.success) {
-        console.error('[AUTH] Error: Signature verification rejected', {
+        logger.error('[AUTH] Error: Signature verification rejected', {
           error: verificationData.error,
         });
         throw new Error(
-          verificationData.error || 'Signature verification failed'
+          verificationData.error ?? 'Signature verification failed'
         );
       }
 
-      console.log('[AUTH] Signature verification successful', {
+      logger.info('[AUTH] Signature verification successful', {
         wallet_address: verificationData.wallet_address,
-        permissions_count: verificationData.permissions?.length || 0,
+        permissions_count: verificationData.permissions.length,
         is_new_user: verificationData.is_new_user,
       });
 
       return verificationData;
     } catch (error) {
-      console.error('[AUTH] Error: Signature verification network/timeout error', {
+      logger.error('[AUTH] Error: Signature verification network/timeout error', {
         name: error instanceof Error ? error.name : 'UnknownError',
         message: error instanceof Error ? error.message : String(error),
         url,
@@ -212,7 +213,7 @@ class DirectWeb3ApiClient {
     signMessage: (message: string) => Promise<string>
   ): Promise<SignatureVerificationResponse> {
     try {
-      console.log('[AUTH] Starting complete wallet authentication flow', {
+      logger.debug('[AUTH] Starting complete wallet authentication flow', {
         wallet_address: walletAddress,
       });
 
@@ -220,9 +221,9 @@ class DirectWeb3ApiClient {
       const challenge = await this.requestChallenge(walletAddress);
 
       // Step 2: Sign message
-      console.log('[AUTH] Requesting signature for SIWE message...');
+      logger.debug('[AUTH] Requesting signature for SIWE message...');
       const signature = await signMessage(challenge.message);
-      console.log('[AUTH] Signature received from wallet');
+      logger.debug('[AUTH] Signature received from wallet');
 
       // Step 3: Verify signature
       const verification = await this.verifySignature({
@@ -232,15 +233,15 @@ class DirectWeb3ApiClient {
         nonce: challenge.nonce,
       });
 
-      console.log('[AUTH] Wallet authentication completed successfully!', {
+      logger.info('[AUTH] Wallet authentication completed successfully!', {
         wallet_address: verification.wallet_address,
-        permissions: verification.permissions?.length || 0,
+        permissions: verification.permissions.length,
         is_new_user: verification.is_new_user,
       });
 
       return verification;
     } catch (error) {
-      console.error('[AUTH] Error: Wallet authentication failed', { error });
+      logger.error('[AUTH] Error: Wallet authentication failed', { error });
       throw error instanceof Error
         ? error
         : new Error('Wallet authentication failed');

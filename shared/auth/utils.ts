@@ -10,5 +10,5 @@
 export function formatAddress(address: string | undefined): string {
     if (!address) {return '';}
     if (address.length < 10) {return address;}
-    return `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
+    return `${address.slice(0, 6)}...${address.slice(Math.max(0, address.length - 4))}`;
 }

@@ -15,7 +15,7 @@ import {
   type BaseCardProps,
   type DataCardProps,
   type StatusCardProps
-} from './cards/BaseCard'
+} from './cards/base-card'
 
 // Buttons - Import for local use and re-export
 import {
@@ -29,7 +29,7 @@ import {
   type IconButtonProps,
   type LoadingButtonProps,
   type PaginationButtonProps
-} from './buttons/BaseButton'
+} from './buttons/base-button'
 
 // Modals - Import for local use and re-export
 import {
@@ -39,7 +39,7 @@ import {
   type BaseModalProps,
   type ConfirmModalProps,
   type FormModalProps
-} from './modals/BaseModal'
+} from './modals/base-modal'
 
 // ============================================================================
 // FORM COMPONENTS
@@ -63,7 +63,7 @@ import {
   type FormItemProps,
   type FormLabelProps,
   type FormMessageProps
-} from './forms/BaseForm'
+} from './forms/base-form'
 
 // Input Components - Import for local use and re-export
 import {
@@ -77,7 +77,7 @@ import {
   type BaseRadioProps,
   type BaseSelectProps,
   type BaseTextareaProps
-} from './forms/BaseInput'
+} from './forms/base-input'
 
 export {
   BaseCard,
@@ -93,14 +93,14 @@ export {
   AnalyticsCard as PancakeAnalyticsCard, Card as PancakeCard, CardContent as PancakeCardContent, CardDescription as PancakeCardDescription, CardFooter as PancakeCardFooter, CardHeader as PancakeCardHeader,
   CardTitle as PancakeCardTitle, StatsCard as PancakeStatsCard, type AnalyticsCardProps as PancakeAnalyticsCardProps, type PancakeCardProps,
   type StatsCardProps as PancakeStatsCardProps
-} from './cards/PancakeCard'
+} from './cards/pancake-card'
 
 // Stock Data Card
 export {
   StockDataCard,
   StockDataCardSkeleton,
   type StockDataCardProps
-} from './cards/StockDataCard'
+} from './cards/stock-data-card'
 
 // Unified Card Variants (Frontend-style cards)
 export {
@@ -114,7 +114,7 @@ export {
   type UnifiedCardProps,
   type UnifiedCardSectionProps, type UnifiedCardSize, type UnifiedCardVariant, type UnifiedFeatureCardProps, type UnifiedListCardProps,
   type UnifiedListItem, type UnifiedStatsCardProps
-} from './cards/CardVariants'
+} from './cards/card-variants'
 
 export {
   ActionButton, BaseButton,
@@ -128,7 +128,7 @@ export {
 export {
   PancakeButton,
   type PancakeButtonProps
-} from './buttons/PancakeButton'
+} from './buttons/pancake-button'
 
 export {
   BaseModal,
@@ -157,7 +157,7 @@ export {
 // ============================================================================
 
 // Chain Selector
-export { ChainSelector } from './navigation/ChainSelector'
+export { ChainSelector } from './navigation/chain-selector'
 
 // ============================================================================
 // DEVELOPER PORTAL COMPONENTS
@@ -184,10 +184,10 @@ export const Components = {
 }
 
 // Legacy compatibility aliases
-export { BaseButton as Button } from './buttons/BaseButton'
-export { BaseCard as Card } from './cards/BaseCard'
-export { BaseForm } from './forms/BaseForm'
-export { BaseModal as Modal } from './modals/BaseModal'
+export { BaseButton as Button } from './buttons/base-button'
+export { BaseCard as Card } from './cards/base-card'
+export { BaseForm } from './forms/base-form'
+export { BaseModal as Modal } from './modals/base-modal'
 
 // ============================================================================
 // MIGRATION HELPERS
@@ -200,21 +200,21 @@ export { BaseModal as Modal } from './modals/BaseModal'
 export const MIGRATION_MAP = {
   // Admin components → Unified
   'AdminEPSCard': 'DataCard',
-  'PermissionAssignmentCard': 'BaseCard',
+  'PermissionAssignmentCard': 'base-card',
   'SystemHealthCard': 'StatusCard',
-  'AdminPaginationButton': 'PaginationButton',
+  'Adminpagination-button': 'pagination-button',
   'EditProfileButton': 'ActionButton',
   'CleanupButton': 'ActionButton',
 
   // Frontend components → Unified
-  'SubscriptionDetailsModal': 'BaseModal',
-  'WalletConnectionModal': 'BaseModal',
+  'SubscriptionDetailsModal': 'base-modal',
+  'wallet-connection-modal': 'base-modal',
   'StockCard': 'DataCard',
   'MetricCard': 'DataCard',
-  'FinancialCard': 'DataCard',
+  'financial-card': 'DataCard',
 
   // Form components → Unified
-  'Input': 'BaseInput',
+  'Input': 'base-input',
   'Select': 'BaseSelect',
   'Checkbox': 'BaseCheckbox',
   'FormField': 'FormFieldWrapper',

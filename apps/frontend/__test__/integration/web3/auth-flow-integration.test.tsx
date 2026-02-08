@@ -1,5 +1,6 @@
 import { testApiHandler } from 'next-test-api-route-handler';
-import { NextRequest, NextResponse } from 'next/server';
+import type { NextRequest} from 'next/server';
+import { NextResponse } from 'next/server';
 
 // Mock the auth handlers that would normally be in app/api/auth/web3/
 const mockWeb3ChallengeHandler = async (req: NextRequest) => {

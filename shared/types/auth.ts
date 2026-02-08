@@ -74,7 +74,12 @@ export interface AuthState {
   // Core Actions
   /** @deprecated Use authenticate for Web3 auth */
   login: () => Promise<void>
-  authenticate: (walletAddress: string, signature: string, message: string, nonce: string) => Promise<boolean>
+  authenticate: (params: {
+    walletAddress: string;
+    signature: string;
+    message: string;
+    nonce: string;
+  }) => Promise<boolean>
   logout: () => Promise<void>
   getUser: () => Promise<User | null>
   refreshSession: () => Promise<void>

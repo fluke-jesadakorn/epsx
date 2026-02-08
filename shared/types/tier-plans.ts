@@ -351,22 +351,24 @@ export interface TierMigrationResult {
 // TYPE GUARDS AND UTILITIES
 // ============================================================================
 
-export function isTierPlan(obj: any): obj is TierPlan {
-  return obj &&
-    typeof obj.id === 'string' &&
-    typeof obj.name === 'string' &&
-    typeof obj.tierDisplay === 'string' &&
-    Array.isArray(obj.permissions) &&
-    Array.isArray(obj.features) &&
-    typeof obj.price === 'number';
+export function isTierPlan(obj: unknown): obj is TierPlan {
+  if (typeof obj !== 'object' || obj === null) { return false; }
+  const plan = obj as Record<string, unknown>;
+  return typeof plan.id === 'string' &&
+    typeof plan.name === 'string' &&
+    typeof plan.tierDisplay === 'string' &&
+    Array.isArray(plan.permissions) &&
+    Array.isArray(plan.features) &&
+    typeof plan.price === 'number';
 }
 
-export function isTierAssignment(obj: any): obj is UserTierAssignment {
-  return obj &&
-    typeof obj.id === 'string' &&
-    typeof obj.userId === 'string' &&
-    typeof obj.tierPlanId === 'string' &&
-    typeof obj.assignedAt === 'string';
+export function isTierAssignment(obj: unknown): obj is UserTierAssignment {
+  if (typeof obj !== 'object' || obj === null) { return false; }
+  const assignment = obj as Record<string, unknown>;
+  return typeof assignment.id === 'string' &&
+    typeof assignment.userId === 'string' &&
+    typeof assignment.tierPlanId === 'string' &&
+    typeof assignment.assignedAt === 'string';
 }
 
 export function isActiveTierAssignment(assignment: UserTierAssignment): boolean {

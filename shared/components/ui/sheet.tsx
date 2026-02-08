@@ -6,7 +6,7 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { X } from "lucide-react"
 import * as React from "react"
 
-import { cn } from "@/shared/utils"
+import { cn } from "@shared/utils"
 
 const Sheet = SheetPrimitive.Root
 
@@ -95,7 +95,7 @@ const SheetHeader = ({
         {...props}
     />
 )
-SheetHeader.displayName = "SheetHeader"
+SheetHeader.displayName = "Sheetheader"
 
 const SheetFooter = ({
     className,

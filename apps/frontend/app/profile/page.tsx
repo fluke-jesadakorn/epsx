@@ -1,7 +1,7 @@
 import { Suspense } from 'react';
 import { redirect } from 'next/navigation';
 import { getServerSession } from '@/lib/session';
-import { WalletProfileClient } from '@/components/profile/WalletProfileClient';
+import { WalletProfileClient } from '@/components/profile/wallet-profile-client';
 import { Loader2 } from 'lucide-react';
 
 export const metadata = {

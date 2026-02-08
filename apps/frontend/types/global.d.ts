@@ -2,7 +2,7 @@
  * Global type declarations for the frontend application
  */
 
-import React from 'react';
+import type React from 'react';
 
 // Extend global namespace for JSX
 declare global {
@@ -20,8 +20,8 @@ declare global {
 // React namespace declaration
 declare global {
   namespace React {
-    interface FC<P = {}> extends React.FunctionComponent<P> {}
-    interface Component<P = {}, S = {}> extends React.Component<P, S> {}
+    interface FC<P = {}> extends FunctionComponent<P> {}
+    interface Component<P = {}, S = {}> extends Component<P, S> {}
   }
 }
 

@@ -4,21 +4,22 @@ import '@/lib/polyfills';
  * Modern, clean admin interface with system fonts
  */
 
-import { Metadata, Viewport } from 'next';
+import type { Metadata, Viewport } from 'next';
 
 import './globals.css';
 
-import { LayoutWrapper } from '@/components/layout/LayoutWrapper';
-import { ClientProviders } from '@/components/providers/ClientProviders';
-import { ErrorBoundary } from '@/components/providers/ErrorBoundary';
-import { ToastProvider } from '@/components/providers/ToastProvider';
-import { SafeThemeScript } from '@/shared/components/ui/SafeThemeScript';
+import { LayoutWrapper } from '@/components/layout/layout-wrapper';
+import { ClientProviders } from '@/components/providers/client-providers';
+import { ErrorBoundary } from '@/components/providers/error-boundary';
+import { ToastProvider } from '@/components/providers/toast-provider';
+import { SafeThemeScript } from '@/shared/components/ui/safe-theme-script';
 import { getServerConfig } from '@/shared/config/wagmi';
 import { Kanit } from 'next/font/google';
 import { headers } from 'next/headers';
 import { cookieToInitialState } from 'wagmi';
 
 import { getAuthUser } from '@/lib/server/auth';
+import { logger } from '@/shared/utils/logger';
 
 const kanit = Kanit({
   subsets: ['latin'],
@@ -91,7 +92,7 @@ export default async function RootLayout({
       initialState = cookieToInitialState(getServerConfig(), decodedCookie);
     } catch {
       // If all parsing fails, use undefined (fresh state)
-      console.warn('[Layout] Failed to parse wagmi cookie state, using fresh state');
+      logger.warn('[Layout] Failed to parse wagmi cookie state, using fresh state');
       initialState = undefined;
     }
   }

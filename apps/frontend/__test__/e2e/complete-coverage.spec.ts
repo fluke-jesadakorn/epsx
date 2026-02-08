@@ -2,7 +2,8 @@
  * Complete Coverage E2E Test Suite - Frontend
  * Tests ALL pages and modules with maximum coverage
  */
-import { test, expect, Page } from '@playwright/test';
+import type { Page } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 
 const TEST_EMAIL = 'jesadakorn.kirtnu@gmail.com';
 const TEST_PASSWORD = 'Aa_12345678';

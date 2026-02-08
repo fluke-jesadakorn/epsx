@@ -8,7 +8,7 @@ test.describe('Admin Permission Management - Comprehensive E2E Tests', () => {
   const TEST_USER = {
     email: 'jesadakorn.kirtnu@gmail.com',
     userId: 'test-user-id-123',
-    name: 'Test User'
+    name: 'Test user'
   };
 
   const ADMIN_USER = {
@@ -39,10 +39,10 @@ test.describe('Admin Permission Management - Comprehensive E2E Tests', () => {
 
       // Navigate to permissions page
       await page.goto(`${ADMIN_URL}/permissions`);
-      await page.waitForSelector('h1:has-text("Permission Management"), text=Permission', { timeout: 10000 });
+      await page.waitForSelector('h1:has-text("Permission Management"), text=permission', { timeout: 10000 });
 
       // Test permission granting form
-      const grantBtn = page.locator('button:has-text("Grant Permission")').first();
+      const grantBtn = page.locator('button:has-text("Grant permission")').first();
       if (await grantBtn.isVisible()) {
         await grantBtn.click();
         
@@ -227,7 +227,7 @@ test.describe('Admin Permission Management - Comprehensive E2E Tests', () => {
       await page.goto(`${ADMIN_URL}/permissions`);
       
       // Test invalid permission format
-      const grantBtn = page.locator('button:has-text("Grant Permission")').first();
+      const grantBtn = page.locator('button:has-text("Grant permission")').first();
       if (await grantBtn.isVisible()) {
         await grantBtn.click();
         
@@ -341,7 +341,7 @@ test.describe('Admin Permission Management - Comprehensive E2E Tests', () => {
       await page.goto(`${ADMIN_URL}/permissions`);
       
       // Try to grant duplicate permission
-      const grantBtn = page.locator('button:has-text("Grant Permission")').first();
+      const grantBtn = page.locator('button:has-text("Grant permission")').first();
       if (await grantBtn.isVisible()) {
         await grantBtn.click();
         
@@ -370,7 +370,7 @@ test.describe('Admin Permission Management - Comprehensive E2E Tests', () => {
     test('should validate expiry date constraints', async ({ page }) => {
       await page.goto(`${ADMIN_URL}/permissions`);
       
-      const grantBtn = page.locator('button:has-text("Grant Permission")').first();
+      const grantBtn = page.locator('button:has-text("Grant permission")').first();
       if (await grantBtn.isVisible()) {
         await grantBtn.click();
         

@@ -153,7 +153,7 @@ export class SecurityApi {
      */
     async getHighSeverityEvents(limit = 10): Promise<SecurityEvent[]> {
         const res = await this.getSecurityEvents({ severity: 'High', resolved: false, limit });
-        return res.data?.events || [];
+        return res.data?.events ?? [];
     }
 
     /**
@@ -161,7 +161,7 @@ export class SecurityApi {
      */
     async getCriticalAlerts(): Promise<SecurityAlert[]> {
         const res = await this.getSecurityMetrics();
-        return res.data?.alerts.filter(a => a.severity === 'Critical' && !a.auto_resolved) || [];
+        return res.data?.alerts.filter(a => a.severity === 'Critical' && !a.auto_resolved) ?? [];
     }
 
     /**
@@ -169,7 +169,7 @@ export class SecurityApi {
      */
     async getEventsByType(eventType: string, limit = 20): Promise<SecurityEvent[]> {
         const res = await this.getSecurityEvents({ event_type: eventType, limit });
-        return res.data?.events || [];
+        return res.data?.events ?? [];
     }
 
     /**
@@ -177,7 +177,7 @@ export class SecurityApi {
      */
     async getUnresolvedEvents(limit = 50): Promise<SecurityEvent[]> {
         const res = await this.getSecurityEvents({ resolved: false, limit });
-        return res.data?.events || [];
+        return res.data?.events ?? [];
     }
 
     /**
@@ -216,7 +216,7 @@ export class SecurityApi {
     async isSystemUnderAlert(): Promise<boolean> {
         try {
             const res = await this.getSecurityMetrics();
-            if (!res.data) {return false;}
+            if (!res.data) { return false; }
 
             const criticalAlerts = res.data.alerts.filter(
                 a => a.severity === 'Critical' && !a.auto_resolved
@@ -262,9 +262,9 @@ export const getSeverityBadgeColor = (severity: string): string => {
  * Format threat score with level indicator
  */
 export const formatThreatScore = (score: number): string => {
-    if (score >= 80) {return `${score.toFixed(1)} (Critical)`;}
-    if (score >= 60) {return `${score.toFixed(1)} (High)`;}
-    if (score >= 40) {return `${score.toFixed(1)} (Medium)`;}
+    if (score >= 80) { return `${score.toFixed(1)} (Critical)`; }
+    if (score >= 60) { return `${score.toFixed(1)} (High)`; }
+    if (score >= 40) { return `${score.toFixed(1)} (Medium)`; }
     return `${score.toFixed(1)} (Low)`;
 };
 

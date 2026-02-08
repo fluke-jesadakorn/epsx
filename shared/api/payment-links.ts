@@ -17,18 +17,22 @@ const getAdminApiBase = () => {
     if (typeof window !== 'undefined') {
         return '/api/admin';
     }
-    return process.env.NEXT_PUBLIC_BACKEND_URL
-        ? `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/admin`
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
+    return (typeof backendUrl === 'string' && backendUrl !== '')
+        ? `${backendUrl}/api/admin`
         : 'http://localhost:8080/api/admin';
 };
+
+const ERR_PAYMENT_LINK_NOT_FOUND = 'Payment link not found';
 
 // Public API base path
 const getPublicApiBase = () => {
     if (typeof window !== 'undefined') {
         return '/api/public';
     }
-    return process.env.NEXT_PUBLIC_BACKEND_URL
-        ? `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/public`
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
+    return (typeof backendUrl === 'string' && backendUrl !== '')
+        ? `${backendUrl}/api/public`
         : 'http://localhost:8080/api/public';
 };
 
@@ -82,11 +86,11 @@ export class PaymentLinksAPIClient {
         });
 
         if (!response.ok) {
-            const error = await response.json().catch(() => ({ message: 'Request failed' }));
-            throw new Error(error.message || `Failed to create payment link: ${response.status}`);
+            const error = (await response.json().catch(() => ({ message: 'Request failed' }))) as { message?: string };
+            throw new Error(error.message ?? `Failed to create payment link: ${response.status}`);
         }
 
-        return response.json();
+        return response.json() as Promise<PaymentLink>;
     }
 
     /**
@@ -96,12 +100,13 @@ export class PaymentLinksAPIClient {
         const headers = await this.getAuthHeaders();
         const searchParams = new URLSearchParams();
 
-        if (params?.context_type) {searchParams.append('context_type', params.context_type);}
-        if (params?.is_active !== undefined) {searchParams.append('is_active', String(params.is_active));}
-        if (params?.limit) {searchParams.append('limit', String(params.limit));}
-        if (params?.offset) {searchParams.append('offset', String(params.offset));}
+        if (params?.context_type !== undefined) { searchParams.append('context_type', params.context_type); }
+        if (params?.is_active !== undefined) { searchParams.append('is_active', String(params.is_active)); }
+        if (params?.limit !== undefined && params.limit !== 0) { searchParams.append('limit', String(params.limit)); }
+        if (params?.offset !== undefined) { searchParams.append('offset', String(params.offset)); }
 
-        const url = `${this.adminBase}/payment-links${searchParams.toString() ? `?${searchParams}` : ''}`;
+        const searchParamsStr = searchParams.toString();
+        const url = `${this.adminBase}/payment-links${searchParamsStr !== '' ? `?${searchParamsStr}` : ''}`;
 
         const response = await fetch(url, {
             method: 'GET',
@@ -112,7 +117,7 @@ export class PaymentLinksAPIClient {
             throw new Error(`Failed to list payment links: ${response.status}`);
         }
 
-        return response.json();
+        return response.json() as Promise<PaymentLinksListResponse>;
     }
 
     /**
@@ -128,12 +133,12 @@ export class PaymentLinksAPIClient {
 
         if (!response.ok) {
             if (response.status === 404) {
-                throw new Error('Payment link not found');
+                throw new Error(ERR_PAYMENT_LINK_NOT_FOUND);
             }
             throw new Error(`Failed to get payment link: ${response.status}`);
         }
 
-        return response.json();
+        return response.json() as Promise<PaymentLink>;
     }
 
     /**
@@ -146,7 +151,7 @@ export class PaymentLinksAPIClient {
 
         if (!response.ok) {
             if (response.status === 404) {
-                throw new Error('Payment link not found');
+                throw new Error(ERR_PAYMENT_LINK_NOT_FOUND);
             }
             if (response.status === 410) {
                 throw new Error('Payment link expired or max uses reached');
@@ -154,7 +159,7 @@ export class PaymentLinksAPIClient {
             throw new Error(`Failed to get payment link: ${response.status}`);
         }
 
-        return response.json();
+        return response.json() as Promise<PaymentLink>;
     }
 
     /**
@@ -174,12 +179,12 @@ export class PaymentLinksAPIClient {
 
         if (!response.ok) {
             if (response.status === 404) {
-                throw new Error('Payment link not found');
+                throw new Error(ERR_PAYMENT_LINK_NOT_FOUND);
             }
             throw new Error(`Failed to update payment link: ${response.status}`);
         }
 
-        return response.json();
+        return response.json() as Promise<PaymentLink>;
     }
 
     /**
@@ -195,7 +200,7 @@ export class PaymentLinksAPIClient {
 
         if (!response.ok) {
             if (response.status === 404) {
-                throw new Error('Payment link not found');
+                throw new Error(ERR_PAYMENT_LINK_NOT_FOUND);
             }
             throw new Error(`Failed to delete payment link: ${response.status}`);
         }
@@ -214,7 +219,7 @@ export class PaymentLinksAPIClient {
 
         if (!response.ok) {
             if (response.status === 404) {
-                throw new Error('Payment link not found');
+                throw new Error(ERR_PAYMENT_LINK_NOT_FOUND);
             }
             if (response.status === 410) {
                 throw new Error('Payment link no longer usable');
@@ -222,7 +227,7 @@ export class PaymentLinksAPIClient {
             throw new Error(`Failed to record usage: ${response.status}`);
         }
 
-        return response.json();
+        return response.json() as Promise<PaymentLink>;
     }
 }
 
@@ -251,6 +256,7 @@ export function computeLinkHash(slug: string): string {
  * Generate payment URL from slug
  */
 export function getPaymentUrl(slug: string, baseUrl?: string): string {
-    const base = baseUrl || process.env.NEXT_PUBLIC_APP_URL || 'https://epsx.io';
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+    const base = (baseUrl !== undefined && baseUrl !== '') ? baseUrl : (typeof appUrl === 'string' && appUrl !== '') ? appUrl : 'https://epsx.io';
     return `${base}/payment?link=${encodeURIComponent(slug)}`;
 }

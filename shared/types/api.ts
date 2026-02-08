@@ -29,7 +29,7 @@ export interface ApiResponse<T = unknown> {
 export interface ApiError {
   code: string;           // Machine-parsable (e.g., "VALIDATION_ERROR", "UNAUTHORIZED")
   message: string;        // Human-readable message
-  details?: Record<string, unknown>; // detailed validation errors or context
+  details?: unknown;      // detailed validation errors or context
   requestId?: string;     // Optional trace ID for debugging
 }
 
@@ -362,9 +362,9 @@ export interface UserSubscription {
   limits?: SubscriptionLimits;
   billing?: BillingInfo;
   auto_renew?: boolean;
-  current_usage?: Record<string, any>;
-  quota_limits?: Record<string, any>;
-  metadata?: Record<string, any>;
+  current_usage?: Record<string, unknown>;
+  quota_limits?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
   access_context?: string;
   api_key?: string;
   api_key_name?: string;
@@ -670,7 +670,7 @@ export interface HealthCheckResponse {
 export interface ExportRequest {
   type: 'users' | 'permissions' | 'analytics' | 'notifications';
   format: 'csv' | 'json' | 'xlsx';
-  filters?: Record<string, any>;
+  filters?: Record<string, unknown>;
   includeDeleted?: boolean;
 }
 
@@ -720,7 +720,7 @@ export interface RequestConfig extends Omit<RequestInit, 'body'> {
   retries?: number;
 }
 
-export type ApiResponseData<T extends (...args: unknown[]) => Promise<ApiResponse<unknown>>> =
+export type ApiResponseData<T extends (...args: unknown[]) => Promise<ApiResponse>> =
   T extends (...args: unknown[]) => Promise<ApiResponse<infer R>> ? R : never;
 
 export type ApiMethodParams<T extends (...args: unknown[]) => unknown> = Parameters<T>;
@@ -743,13 +743,16 @@ export function isApiSuccess<T>(response: ApiResponse<T>): response is ApiRespon
 }
 
 export function isApiError(error: unknown): error is ApiError {
+  if (typeof error !== 'object' || error === null) {
+    return false;
+  }
+
+  const err = error as Record<string, unknown>;
   return (
-    typeof error === 'object' &&
-    error !== null &&
-    'message' in error &&
-    'code' in error &&
-    typeof (error as any).message === 'string' &&
-    typeof (error as any).code === 'string'
+    'message' in err &&
+    'code' in err &&
+    typeof err.message === 'string' &&
+    typeof err.code === 'string'
   );
 }
 
@@ -764,8 +767,12 @@ export function isApiResponse<T>(response: unknown): response is ApiResponse<T> 
   );
 }
 
-export function isPaginatedResponse<T>(data: any): data is PaginatedResponse<T> {
-  return data && typeof data === 'object' && Array.isArray(data.data) && data.pagination;
+export function isPaginatedResponse<T>(data: unknown): data is PaginatedResponse<T> {
+  if (typeof data !== 'object' || data === null) {
+    return false;
+  }
+  const d = data as Record<string, unknown>;
+  return Array.isArray(d.data) && d.pagination !== undefined;
 }
 
 // Validation helpers

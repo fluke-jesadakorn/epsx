@@ -16,6 +16,7 @@
  * - eslint-plugin-jsdoc
  * - eslint-plugin-promise
  * - @next/eslint-plugin-next
+ * - eslint-plugin-react
  */
 
 const js = require('@eslint/js');
@@ -26,10 +27,11 @@ const jsxA11y = require('eslint-plugin-jsx-a11y');
 const importPlugin = require('eslint-plugin-import');
 const security = require('eslint-plugin-security');
 const sonarjs = require('eslint-plugin-sonarjs');
-const unicorn = require('eslint-plugin-unicorn');
+const unicorn = require('eslint-plugin-unicorn').default;
 const jsdoc = require('eslint-plugin-jsdoc');
 const promise = require('eslint-plugin-promise');
 const nextjs = require('@next/eslint-plugin-next');
+const react = require('eslint-plugin-react');
 const globals = require('globals');
 
 module.exports = [
@@ -57,6 +59,7 @@ module.exports = [
     },
     plugins: {
       '@typescript-eslint': typescript,
+      'react': react,
       'react-hooks': reactHooks,
       'jsx-a11y': jsxA11y,
       'import': importPlugin,
@@ -72,15 +75,15 @@ module.exports = [
       // TypeScript Rules (Strict)
       // ================================
       '@typescript-eslint/no-explicit-any': 'error',
-      '@typescript-eslint/no-unsafe-assignment': 'error', // Requires type-aware linting
-      '@typescript-eslint/no-unsafe-member-access': 'error', // Requires type-aware linting
-      '@typescript-eslint/no-unsafe-call': 'error', // Requires type-aware linting
-      '@typescript-eslint/no-unsafe-return': 'error', // Requires type-aware linting
-      '@typescript-eslint/no-unsafe-argument': 'error', // Requires type-aware linting
-      '@typescript-eslint/no-floating-promises': 'error', // Requires type-aware linting
-      '@typescript-eslint/no-misused-promises': 'error', // Requires type-aware linting
-      '@typescript-eslint/await-thenable': 'error', // Requires type-aware linting
-      '@typescript-eslint/require-await': 'error', // Requires type-aware linting
+      '@typescript-eslint/no-unsafe-assignment': 'error',
+      '@typescript-eslint/no-unsafe-member-access': 'error',
+      '@typescript-eslint/no-unsafe-call': 'error',
+      '@typescript-eslint/no-unsafe-return': 'error',
+      '@typescript-eslint/no-unsafe-argument': 'error',
+      '@typescript-eslint/no-floating-promises': 'error',
+      '@typescript-eslint/no-misused-promises': 'error',
+      '@typescript-eslint/await-thenable': 'error',
+      '@typescript-eslint/require-await': 'error',
       '@typescript-eslint/no-unused-vars': ['error', {
         argsIgnorePattern: '^_',
         varsIgnorePattern: '^_',
@@ -88,7 +91,7 @@ module.exports = [
       }],
       '@typescript-eslint/explicit-function-return-type': 'off',
       '@typescript-eslint/explicit-module-boundary-types': 'off',
-      '@typescript-eslint/strict-boolean-expressions': 'off',
+      '@typescript-eslint/strict-boolean-expressions': 'error',
       '@typescript-eslint/no-non-null-assertion': 'error',
       '@typescript-eslint/prefer-nullish-coalescing': 'error',
       '@typescript-eslint/prefer-optional-chain': 'error',
@@ -97,6 +100,15 @@ module.exports = [
       '@typescript-eslint/prefer-as-const': 'error',
       '@typescript-eslint/no-inferrable-types': 'error',
       '@typescript-eslint/naming-convention': 'off',
+      '@typescript-eslint/consistent-type-imports': ['error', { prefer: 'type-imports' }],
+      '@typescript-eslint/no-shadow': 'error',
+      '@typescript-eslint/no-use-before-define': ['error', { functions: false, classes: true, variables: true }],
+      '@typescript-eslint/consistent-type-definitions': ['error', 'interface'],
+      '@typescript-eslint/no-confusing-void-expression': ['error', { ignoreArrowShorthand: true }],
+      '@typescript-eslint/no-unnecessary-qualifier': 'error',
+      '@typescript-eslint/no-unnecessary-type-arguments': 'error',
+      '@typescript-eslint/prefer-reduce-type-parameter': 'error',
+      '@typescript-eslint/no-useless-empty-export': 'error',
 
       // ================================
       // React Hooks (ERROR)
@@ -124,7 +136,7 @@ module.exports = [
       // ================================
       'import/no-unresolved': 'off',
       'import/no-duplicates': 'error',
-      'import/no-cycle': 'off',
+      'import/no-cycle': 'error',
       'import/first': 'error',
       'import/newline-after-import': 'error',
       'import/order': 'off',
@@ -132,7 +144,7 @@ module.exports = [
       // ================================
       // Security (ERROR)
       // ================================
-      'security/detect-object-injection': 'off', // Too many false positives
+      'security/detect-object-injection': 'off',
       'security/detect-non-literal-regexp': 'error',
       'security/detect-unsafe-regex': 'error',
       'security/detect-buffer-noassert': 'error',
@@ -140,26 +152,26 @@ module.exports = [
       'security/detect-disable-mustache-escape': 'error',
       'security/detect-eval-with-expression': 'error',
       'security/detect-no-csrf-before-method-override': 'error',
-      'security/detect-non-literal-fs-filename': 'off', // Too many false positives
-      'security/detect-non-literal-require': 'off', // Too many false positives
-      'security/detect-possible-timing-attacks': 'off', // Too many false positives
+      'security/detect-non-literal-fs-filename': 'off',
+      'security/detect-non-literal-require': 'off',
+      'security/detect-possible-timing-attacks': 'off',
       'security/detect-pseudoRandomBytes': 'error',
 
       // ================================
-      // Complexity Limits (Stricter)
+      // Complexity Limits (Ultra-Strict)
       // ================================
-      'complexity': ['error', 15],
-      'max-depth': ['error', 4],
-      'max-lines-per-function': ['error', { max: 150, skipBlankLines: true, skipComments: true }],
-      'max-params': ['error', 4],
-      'max-nested-callbacks': ['error', 4],
-      'sonarjs/cognitive-complexity': ['error', 25],
+      'complexity': ['error', 12],
+      'max-depth': ['error', 3],
+      'max-lines-per-function': ['error', { max: 120, skipBlankLines: true, skipComments: true }],
+      'max-params': ['error', 3],
+      'max-nested-callbacks': ['error', 3],
+      'sonarjs/cognitive-complexity': ['error', 20],
       'sonarjs/no-identical-functions': 'error',
-      'sonarjs/no-duplicate-string': ['error', { threshold: 5 }],
+      'sonarjs/no-duplicate-string': ['error', { threshold: 4 }],
       'sonarjs/no-collapsible-if': 'error',
       'sonarjs/no-collection-size-mischeck': 'error',
       'sonarjs/no-redundant-jump': 'error',
-      'sonarjs/prefer-immediate-return': 'off',
+      'sonarjs/prefer-immediate-return': 'error',
 
       // ================================
       // Promise Handling
@@ -191,39 +203,97 @@ module.exports = [
       // ================================
       // Code Hygiene
       // ================================
-      'no-console': ['error', { allow: ['warn', 'error', 'info'] }],
+      'no-console': 'error',
       'no-debugger': 'error',
       'no-alert': 'error',
       'no-var': 'error',
       'prefer-const': 'error',
       'no-unreachable': 'error',
       'no-unreachable-loop': 'error',
-      'eqeqeq': ['error', 'smart'],
-      'no-unused-vars': 'off', // Use TypeScript version
+      'eqeqeq': ['error', 'always'],
+      'no-unused-vars': 'off',
       'no-undef': 'error',
-      'no-redeclare': 'off', // Use TypeScript version
+      'no-redeclare': 'off',
       '@typescript-eslint/no-redeclare': 'error',
-      'curly': 'error',
-      'brace-style': 'off', // Conflicts with Prettier
-      '@typescript-eslint/brace-style': 'off',
-      'comma-dangle': 'off', // Prettier handles this
-      'semi': 'off', // Prettier handles this
-      '@typescript-eslint/semi': 'off',
-      'quotes': 'off', // Prettier handles this
-      '@typescript-eslint/quotes': 'off',
-      'indent': 'off', // Causes stack overflow with TypeScript
-      '@typescript-eslint/indent': 'off',
-      'no-multiple-empty-lines': ['error', { max: 2 }],
-      'no-trailing-spaces': 'off', // Prettier handles this
-      'object-curly-spacing': 'off', // Prettier handles this
-      '@typescript-eslint/object-curly-spacing': 'off',
-      'array-bracket-spacing': 'off', // Prettier handles this
+      'curly': ['error', 'all'],
+      'no-multiple-empty-lines': ['error', { max: 1 }],
 
       // ================================
       // React Rules
       // ================================
       'react/jsx-uses-react': 'off',
       'react/react-in-jsx-scope': 'off',
+      'react/no-array-index-key': 'error',
+      'react/self-closing-comp': 'error',
+
+      // ================================
+      // Unicorn Rules (Strict)
+      // ================================
+      'unicorn/no-array-push-push': 'error',
+      'unicorn/no-instanceof-array': 'error',
+      'unicorn/no-useless-spread': 'error',
+      'unicorn/prefer-query-selector': 'error',
+      'unicorn/prefer-string-slice': 'error',
+      'unicorn/prefer-node-protocol': 'error',
+      'unicorn/no-unnecessary-await': 'error',
+      'unicorn/prefer-modern-math-apis': 'error',
+      'unicorn/no-typeof-undefined': 'error',
+      'unicorn/consistent-function-scoping': ['error', { checkArrowFunctions: false }],
+      'unicorn/filename-case': ['error', { case: 'kebabCase', ignore: ['README.md', 'Dockerfile'] }],
+
+      // ================================
+      // Additional Hygiene
+      // ================================
+      'no-implicit-coercion': 'error',
+      '@typescript-eslint/no-unused-expressions': 'error',
+      'no-lonely-if': 'error',
+      'no-unneeded-ternary': 'error',
+      'object-shorthand': ['error', 'always'],
+      'prefer-template': 'error',
+    },
+  },
+  {
+    // Disable no-undef for TypeScript files as TS compiler handles this
+    files: ['**/*.{ts,tsx}'],
+    rules: {
+      'no-undef': 'off',
+    },
+  },
+  {
+    // Test files globals and overrides
+    files: [
+      '**/*.spec.ts',
+      '**/*.spec.tsx',
+      '**/*.test.ts',
+      '**/*.test.tsx',
+      '**/__test__/**',
+      '**/tests/**'
+    ],
+    languageOptions: {
+      globals: {
+        ...globals.jest,
+        describe: 'readonly',
+        it: 'readonly',
+        expect: 'readonly',
+        beforeEach: 'readonly',
+        afterEach: 'readonly',
+        beforeAll: 'readonly',
+        afterAll: 'readonly',
+        jest: 'readonly',
+        vi: 'readonly', // For vitest if used
+      },
+    },
+    rules: {
+      'no-console': 'off',
+      '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/no-unsafe-assignment': 'off',
+      '@typescript-eslint/no-unsafe-call': 'off',
+      '@typescript-eslint/no-unsafe-member-access': 'off',
+      '@typescript-eslint/no-unsafe-argument': 'off',
+      '@typescript-eslint/no-unsafe-return': 'off',
+      'max-lines-per-function': 'off',
+      'complexity': 'off',
+      'sonarjs/cognitive-complexity': 'off',
     },
   },
   {

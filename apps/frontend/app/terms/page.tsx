@@ -5,7 +5,7 @@ import { Suspense } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
-import { SkeletonLoader } from "@/components/common/Skeleton";
+import { SkeletonLoader } from "@/components/common/skeleton";
 import { Button, Card, Form, FormControl, FormField, FormItem, FormMessage, InputWithIcon } from "@/components/ui";
 import { Send } from "lucide-react";
 

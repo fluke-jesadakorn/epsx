@@ -1,7 +1,7 @@
 // Environment utilities (minimal implementation)
 
 export function getCurrentEnvironment(): string {
-  return process.env.NODE_ENV || 'development';
+  return process.env.NODE_ENV;
 }
 
 export function getAssetConfig(): Record<string, unknown> {
@@ -17,7 +17,7 @@ export function getSupportedCurrencies(): string[] {
 }
 
 export function getMusePayApiUrl(): string {
-  return process.env.NEXT_PUBLIC_MUSEPAY_API_URL || '';
+  return process.env.NEXT_PUBLIC_MUSEPAY_API_URL ?? '';
 }
 
 export function getDatabaseName(): string {
@@ -33,7 +33,7 @@ export function getLevelNumber(level: string): number {
     'PLATINUM': 4,
     'ENTERPRISE': 5
   };
-  return levels[level] || 0;
+  return levels[level] ?? 0;
 }
 
 export function getLevelName(tier: string): string {
@@ -47,7 +47,7 @@ export function formatLevelAsNumber(level: string): number {
 export function getNextLevelName(currentLevel: string): string {
   const levels = ['FREE', 'BRONZE', 'SILVER', 'GOLD', 'PLATINUM', 'ENTERPRISE'];
   const currentIndex = levels.indexOf(currentLevel);
-  return levels[currentIndex + 1] || currentLevel;
+  return levels[currentIndex + 1] ?? currentLevel;
 }
 
 export function getLevelColor(level: string): string {
@@ -59,5 +59,5 @@ export function getLevelColor(level: string): string {
     'PLATINUM': '#E5E4E2',
     'ENTERPRISE': '#8B5CF6'
   };
-  return colors[level] || colors['FREE'];
+  return colors[level] ?? colors['FREE'];
 }

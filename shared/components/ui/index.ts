@@ -68,7 +68,7 @@ export {
     MinimalThemeToggle, OptimizedThemeToggle, SimpleThemeToggle, ThemeToggle,
     ThemeToggleCSS, UnifiedThemeToggle, type ThemeToggleIconType,
     type ThemeToggleSize, type ThemeToggleVariant, type UnifiedThemeToggleProps
-} from './UnifiedThemeToggle';
+} from './unified-theme-toggle';
 
 // Tooltip
 export {
@@ -81,7 +81,7 @@ export {
     SafeThemeScriptWithNonce,
     themeUtils,
     type ValidTheme
-} from './SafeThemeScript';
+} from './safe-theme-script';
 
 // Transfer List
 export { TransferList, type TransferListProps } from './transfer-list';

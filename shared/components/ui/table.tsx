@@ -29,7 +29,7 @@ const TableHeader = React.forwardRef<HTMLTableSectionElement, TableHeaderProps>(
     <thead ref={ref} className={cn("[&_tr]:border-b [&_tr]:border-white/10", className)} {...props} />
   )
 )
-TableHeader.displayName = "TableHeader"
+TableHeader.displayName = "Tableheader"
 
 export interface TableBodyProps extends React.HTMLAttributes<HTMLTableSectionElement> {}
 

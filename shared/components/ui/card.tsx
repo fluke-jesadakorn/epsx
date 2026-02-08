@@ -1,5 +1,6 @@
-import { cn } from '@/shared/utils/cn';
-import React, { HTMLAttributes, forwardRef } from 'react';
+import { cn } from '@shared/utils/cn';
+import type { HTMLAttributes} from 'react';
+import React, { forwardRef } from 'react';
 
 const Card = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
   ({ className, ...props }, ref) => {
@@ -28,7 +29,7 @@ const CardHeader = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
     />
   )
 );
-CardHeader.displayName = "CardHeader";
+CardHeader.displayName = "Cardheader";
 
 const CardTitle = forwardRef<HTMLParagraphElement, HTMLAttributes<HTMLHeadingElement>>(
   ({ className, ...props }, ref) => (
@@ -74,5 +75,4 @@ export { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 
 // Type export for backward compatibility
 export type CardProps = React.ComponentPropsWithoutRef<typeof Card>;
-
 

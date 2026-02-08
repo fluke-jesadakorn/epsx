@@ -4,13 +4,14 @@
  * Provides user-specific auth configuration and backward compatibility
  */
 
-import {
+import type {
   // Web3 Auth configuration types (OIDC removed)
   AuthConfig,
   AuthFeatures,
   ProgressiveAuthState,
   SessionConfig,
-  Web3Config,
+  Web3Config} from '@/shared/config/auth';
+import {
   // Legacy compatibility
   authConfig,
   // Web3 URL builders
@@ -184,7 +185,6 @@ export function hasWeb3Connection(authState: ProgressiveAuthState): boolean {
 export function canAccessPremiumFeatures(authState: ProgressiveAuthState): boolean {
   return authState.isAuthenticated;
 }
-
 
 /**
  * Get user auth context for progressive auth

@@ -33,9 +33,9 @@ const nextConfig: NextConfig = {
     },
   },
   // Improve HMR WebSocket reliability and fix SSR issues
-  /* eslint-disable @typescript-eslint/no-explicit-any */
+   
   webpack: (config: any, { dev, isServer, webpack }: { dev: boolean; isServer: boolean; webpack: any }) => {
-    /* eslint-enable @typescript-eslint/no-explicit-any */
+     
     if (dev && !isServer) {
       config.watchOptions = {
         poll: 1000,

@@ -1,7 +1,6 @@
 'use client';
 
-
-import { SettingsDashboard } from '@/components/admin/SettingsDashboard';
+import { SettingsDashboard } from '@/components/admin/settings-dashboard';
 import { PageHeader, PageLayout } from '@/components/shared';
 
 export const dynamic = 'force-dynamic';

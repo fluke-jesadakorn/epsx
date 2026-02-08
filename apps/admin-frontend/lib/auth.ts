@@ -13,7 +13,7 @@ import { createAdminClient, type UserInfoResponse } from '@/shared/auth/client';
 // Web3 Admin Wallet interface (migrated from EnterpriseAdminUser)
 export interface AdminWallet {
   wallet_address: string;
-  /** User's role from backend: 'user', 'admin', or 'super_admin' */
+  /** user's role from backend: 'user', 'admin', or 'super_admin' */
   role: 'user' | 'admin' | 'super_admin';
   permissions: string[];
   has_api_access: boolean;
@@ -160,7 +160,6 @@ export const useAuth = create<Web3AdminAuthState & {
 
         // Permission enforcement is now handled by the backend/middleware
         // We trust the session returned by the server
-
 
         set({
           wallet: adminWallet,
@@ -423,7 +422,7 @@ export function getEnterpriseTierIcon(tier: string): string {
  */
 export async function connectAdminWallet() {
   const { connectWallet } = useAuth.getState();
-  return await connectWallet();
+  await connectWallet();
 }
 
 // Web3 admin authentication helper
@@ -432,5 +431,5 @@ export async function connectAdminWallet() {
  */
 export async function authenticateAdminWallet() {
   const { authenticateAdmin } = useAuth.getState();
-  return await authenticateAdmin();
+  await authenticateAdmin();
 }

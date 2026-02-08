@@ -30,9 +30,9 @@ export interface Notification {
     sender?: NotificationSender;
     imageUrl?: string;
     actionUrl?: string;
-    customData?: Record<string, any>;
-    metadata?: Record<string, any>;
-    data?: Record<string, any>;
+    customData?: Record<string, unknown>;
+    metadata?: Record<string, unknown>;
+    data?: Record<string, unknown>;
     createdAt: string;
     created_at?: string;
     updatedAt?: string;
@@ -83,7 +83,7 @@ export interface NotificationCreateRequest {
     userId?: string;
     userIds?: string[];
     actionUrl?: string;
-    metadata?: Record<string, any>;
+    metadata?: Record<string, unknown>;
 }
 
 export interface NotificationUpdateRequest {
@@ -93,7 +93,7 @@ export interface NotificationUpdateRequest {
     priority?: NotificationPriority;
     read?: boolean;
     actionUrl?: string;
-    metadata?: Record<string, any>;
+    metadata?: Record<string, unknown>;
 }
 
 export interface BroadcastNotificationRequest {
@@ -103,7 +103,7 @@ export interface BroadcastNotificationRequest {
     priority: string;
     userIds?: string[];
     allUsers?: boolean;
-    metadata?: Record<string, any>;
+    metadata?: Record<string, unknown>;
 }
 
 export interface BroadcastNotificationResponse {

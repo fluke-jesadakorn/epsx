@@ -1,6 +1,6 @@
 'use server';
 
-import {
+import type {
     PermissionSource,
     Platform,
     WalletData,
@@ -8,7 +8,7 @@ import {
     WalletPermission,
     WalletSubscription
 } from '@/components/wallet/types';
-import {
+import type {
     DisableWalletRequest,
     EnableWalletRequest,
     WalletListResponse,
@@ -36,13 +36,13 @@ function mapWalletDtoToData(dto: WalletSummaryDto): WalletData {
             platforms.add('markets');
         }
     });
-    if (platforms.size === 0) {platforms.add('analytics');}
+    if (platforms.size === 0) { platforms.add('analytics'); }
 
     const permissions: WalletPermission[] = dtoPermissions.map((p, idx) => ({
         id: `perm-${idx}`,
         permission: p.permission,
         platform: detectPlatform(p.permission),
-        source: (p.source as PermissionSource) || 'system',
+        source: (p.source as PermissionSource) ?? 'system',
         expiresAt: p.expires_at,
         isActive: p.is_active,
         createdAt: dto.created_at,
@@ -60,7 +60,7 @@ function mapWalletDtoToData(dto: WalletSummaryDto): WalletData {
     }));
 
     let status: 'active' | 'disabled' | 'pending' = 'active';
-    if (!dto.is_active) {status = 'disabled';}
+    if (!dto.is_active) { status = 'disabled'; }
 
     const disableInfo = dto.metadata?.['disable_info'] as WalletData['disableInfo'];
     const label = dto.metadata?.['label'] as string | undefined;
@@ -83,10 +83,10 @@ function mapWalletDtoToData(dto: WalletSummaryDto): WalletData {
 }
 
 function detectPlatform(permission: string): Platform {
-    if (permission.startsWith('epsx:analytics') || permission.startsWith('epsx:rankings')) {return 'analytics';}
-    if (permission.startsWith('epsx-pay:')) {return 'pay';}
-    if (permission.startsWith('epsx-token:')) {return 'token';}
-    if (permission.startsWith('epsx-markets:')) {return 'markets';}
+    if (permission.startsWith('epsx:analytics') || permission.startsWith('epsx:rankings')) { return 'analytics'; }
+    if (permission.startsWith('epsx-pay:')) { return 'pay'; }
+    if (permission.startsWith('epsx-token:')) { return 'token'; }
+    if (permission.startsWith('epsx-markets:')) { return 'markets'; }
     return 'analytics';
 }
 
@@ -100,11 +100,11 @@ export async function fetchWalletsAction(filters: WalletFilters, page = 1, limit
     const params: Record<string, string> = {
         page: page.toString(),
         limit: limit.toString(),
-        sort_by: filters.sortBy || 'created_at',
-        sort_order: filters.sortOrder || 'desc',
+        sort_by: filters.sortBy ?? 'created_at',
+        sort_order: filters.sortOrder ?? 'desc',
     };
-    if (filters.search) {params['search'] = filters.search;}
-    if (filters.status && filters.status !== 'all') {params['status'] = filters.status;}
+    if (filters.search) { params['search'] = filters.search; }
+    if (filters.status && filters.status !== 'all') { params['status'] = filters.status; }
 
     const res = await apiClient.get<WalletListResponse>('/api/admin/wallets', params);
 
@@ -114,17 +114,17 @@ export async function fetchWalletsAction(filters: WalletFilters, page = 1, limit
             await logout();
             redirect('/auth');
         }
-        throw new Error(res.error?.message || 'Failed to fetch wallets');
+        throw new Error(res.error?.message ?? 'Failed to fetch wallets');
     }
 
     if (!res.data) {
         throw new Error('Failed to fetch wallets: No data');
     }
 
-    const responseData = res.data.data || res.data; // Handle potential double wrapping
-    const rawWallets = responseData.wallets || [];
+    const responseData = (res.data as any).data ?? res.data; // Handle potential double wrapping
+    const rawWallets = (responseData as any).wallets ?? [];
     const wallets = rawWallets.map(mapWalletDtoToData);
-    const pagination = responseData.pagination || { page: 1, limit: 20, total: wallets.length, total_pages: 1, has_next_page: false, has_previous_page: false };
+    const pagination = (responseData as any).pagination ?? { page: 1, limit: 20, total: wallets.length, total_pages: 1, has_next_page: false, has_previous_page: false };
 
     return { wallets, pagination };
 }
@@ -141,7 +141,7 @@ export async function updateWalletMetadataAction(walletAddress: string, data: { 
             await logout();
             redirect('/auth');
         }
-        throw new Error(res.error?.message || 'Failed to update metadata');
+        throw new Error(res.error?.message ?? 'Failed to update metadata');
     }
 }
 
@@ -154,7 +154,7 @@ export async function disableWalletAction(walletAddress: string, data: DisableWa
             await logout();
             redirect('/auth');
         }
-        throw new Error(res.error?.message || 'Failed to disable wallet');
+        throw new Error(res.error?.message ?? 'Failed to disable wallet');
     }
 }
 
@@ -167,7 +167,7 @@ export async function enableWalletAction(walletAddress: string, data: EnableWall
             await logout();
             redirect('/auth');
         }
-        throw new Error(res.error?.message || 'Failed to enable wallet');
+        throw new Error(res.error?.message ?? 'Failed to enable wallet');
     }
 }
 
@@ -197,11 +197,11 @@ export async function fetchActivityLogsAction(walletAddress?: string, page = 1, 
             await logout();
             redirect('/auth');
         }
-        throw new Error(res.error?.message || 'Failed to fetch activity logs');
+        throw new Error(res.error?.message ?? 'Failed to fetch activity logs');
     }
 
     // Map common format
-    const logs = (res.data.entries || res.data.events || []) as ActivityLogEntry[];
+    const logs = ((res.data.entries as ActivityLogEntry[] | undefined) ?? (res.data.events as ActivityLogEntry[] | undefined) ?? []) as ActivityLogEntry[];
 
     // Simple mapper for display
     return logs.map((log) => ({

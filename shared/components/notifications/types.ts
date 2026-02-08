@@ -41,7 +41,7 @@ export interface Notification {
   action_url?: string
   image_url?: string
   wallet_address?: string
-  data?: Record<string, any>
+  data?: Record<string, unknown>
   read: boolean
 }
 
@@ -55,7 +55,7 @@ export interface SSENotification {
   notification_type: string
   title: string
   message: string
-  data?: Record<string, any>
+  data?: Record<string, unknown>
   priority: string
   timestamp: string
   expires_at?: string

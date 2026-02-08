@@ -1,6 +1,7 @@
 'use server';
 
-import { CreatePermissionRequest, PermissionDefinition, permissionsClient } from '@/lib/api/permissions-client';
+import type { CreatePermissionRequest, PermissionDefinition} from '@/lib/api/permissions-client';
+import { permissionsClient } from '@/lib/api/permissions-client';
 import { getAdminServerActionClient } from '@/shared/utils/server-fetch';
 import { revalidatePath } from 'next/cache';
 

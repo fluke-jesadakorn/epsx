@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-test.describe('Analytics Pagination', () => {
+test.describe('Analytics pagination', () => {
   test.beforeEach(async ({ page }) => {
     // Navigate to analytics page
     await page.goto('http://localhost:3000/analytics');

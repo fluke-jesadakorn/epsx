@@ -137,7 +137,7 @@ export default function NewSubscriptionPage() {
 
                 <div className="bg-card rounded-3xl p-8 border border-border/50 shadow-sm relative overflow-hidden transition-all">
                     {/* Subtle decoration */}
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-3xl -mr-16 -mt-16"></div>
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-3xl -mr-16 -mt-16" />
 
                     <form onSubmit={handleSubmit} className="relative space-y-6">
                         {/* User and Plan Selection */}

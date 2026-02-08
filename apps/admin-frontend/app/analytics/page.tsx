@@ -6,7 +6,7 @@ import {
   getSystemMetricsAction,
   getUserStatsAction
 } from './actions';
-import AnalyticsDashboard from './AnalyticsDashboard';
+import AnalyticsDashboard from './analytics-dashboard';
 
 /**
  * Analytics Page (Server Component)

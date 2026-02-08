@@ -11,6 +11,7 @@
  */
 
 import type { UnifiedApiClient } from '../utils/api-client';
+import { logger } from '../utils/logger';
 
 // ============================================================================
 // FACTORY FUNCTION
@@ -111,30 +112,45 @@ interface RawSettingsData {
     };
 }
 
-function parseSettingsData(data: unknown): SystemSettings {
-    const raw = (data || {}) as RawSettingsData;
+function parseGeneralSettings(raw: RawSettingsData): GeneralSettings {
+    return {
+        systemName: String(raw.general?.systemName ?? DEFAULT_SETTINGS.general.systemName),
+        adminEmail: String(raw.general?.adminEmail ?? DEFAULT_SETTINGS.general.adminEmail),
+        maintenanceMode: Boolean(raw.general?.maintenanceMode),
+    };
+}
+
+function parseNotificationSettings(raw: RawSettingsData): NotificationSettings {
+    return {
+        emailNotifications: raw.notifications?.emailNotifications !== false,
+        pushNotifications: Boolean(raw.notifications?.pushNotifications),
+        smsNotifications: raw.notifications?.smsNotifications !== false,
+        securityAlerts: raw.notifications?.securityAlerts !== false,
+    };
+}
+
+function parseAppearanceSettings(raw: RawSettingsData): AppearanceSettings {
+    const rawTheme = String(raw.appearance?.theme);
+    const theme = (['light', 'dark', 'auto'].includes(rawTheme)
+        ? rawTheme
+        : DEFAULT_SETTINGS.appearance.theme) as 'light' | 'dark' | 'auto';
 
     return {
-        general: {
-            systemName: String(raw.general?.systemName || DEFAULT_SETTINGS.general.systemName),
-            adminEmail: String(raw.general?.adminEmail || DEFAULT_SETTINGS.general.adminEmail),
-            maintenanceMode: Boolean(raw.general?.maintenanceMode),
-        },
-        notifications: {
-            emailNotifications: raw.notifications?.emailNotifications !== false,
-            pushNotifications: Boolean(raw.notifications?.pushNotifications),
-            smsNotifications: raw.notifications?.smsNotifications !== false,
-            securityAlerts: raw.notifications?.securityAlerts !== false,
-        },
+        theme,
+        primaryColor: String(raw.appearance?.primaryColor ?? DEFAULT_SETTINGS.appearance.primaryColor),
+    };
+}
+
+function parseSettingsData(data: unknown): SystemSettings {
+    const raw = (data ?? {}) as RawSettingsData;
+
+    return {
+        general: parseGeneralSettings(raw),
+        notifications: parseNotificationSettings(raw),
         security: {
             sessionTimeout: Number(raw.security?.sessionTimeout) || DEFAULT_SETTINGS.security.sessionTimeout,
         },
-        appearance: {
-            theme: (['light', 'dark', 'auto'].includes(String(raw.appearance?.theme))
-                ? String(raw.appearance?.theme)
-                : DEFAULT_SETTINGS.appearance.theme) as 'light' | 'dark' | 'auto',
-            primaryColor: String(raw.appearance?.primaryColor || DEFAULT_SETTINGS.appearance.primaryColor),
-        },
+        appearance: parseAppearanceSettings(raw),
     };
 }
 
@@ -154,14 +170,14 @@ export class SettingsApi {
      */
     async getAll(): Promise<SystemSettings> {
         try {
-            const res = await this.client.get<{ data?: unknown } | unknown>('/api/admin/settings');
+            const res = await this.client.get('/api/admin/settings');
             const responseData = res.data as { data?: unknown } | undefined;
             const data = responseData && typeof responseData === 'object' && 'data' in responseData
                 ? responseData.data
                 : res.data;
             return parseSettingsData(data);
         } catch (error) {
-            console.error('Failed to fetch settings:', error);
+            logger.error('Failed to fetch settings:', error);
             return DEFAULT_SETTINGS;
         }
     }
@@ -174,9 +190,9 @@ export class SettingsApi {
             const res = await this.client.get<{ data?: { settings?: Record<string, unknown> } }>(
                 `/api/admin/settings/${category}`
             );
-            return res.data?.data?.settings || {};
+            return res.data?.data?.settings ?? {};
         } catch (error) {
-            console.error(`Failed to fetch ${category} settings:`, error);
+            logger.error(`Failed to fetch ${category} settings:`, error);
             return {};
         }
     }
@@ -212,9 +228,9 @@ export class SettingsApi {
             const res = await this.client.put<UpdateSettingsResponse>('/api/admin/settings', {
                 settings: updates,
             });
-            return res.data || { success: false, message: 'Unknown error', updated_count: 0 };
+            return res.data ?? { success: false, message: 'Unknown error', updated_count: 0 };
         } catch (error) {
-            console.error('Failed to update settings:', error);
+            logger.error('Failed to update settings:', error);
             return { success: false, message: 'Failed to update settings', updated_count: 0 };
         }
     }
@@ -225,10 +241,10 @@ export class SettingsApi {
     async reset(): Promise<SystemSettings> {
         try {
             const res = await this.client.post<{ data?: unknown }>('/api/admin/settings/reset', {});
-            const data = res.data?.data || {};
+            const data = res.data?.data ?? {};
             return parseSettingsData(data);
         } catch (error) {
-            console.error('Failed to reset settings:', error);
+            logger.error('Failed to reset settings:', error);
             return DEFAULT_SETTINGS;
         }
     }

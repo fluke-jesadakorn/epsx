@@ -61,25 +61,25 @@ export const xformPrice = (data: Record<string, unknown>): StockData[] =>
 
 // Stock data helpers
 export const latest = (stock: StockData): Quarter => {
-  const firstQuarter = stock.quarters[0];
-  if (!firstQuarter) {
+  if (stock.quarters.length === 0) {
     throw new Error('No quarters available in stock data');
   }
-  return firstQuarter;
+  return stock.quarters[0];
 }
 
 export const avgEps = (stock: StockData): number | null => {
-  const growth = stock.quarters.map(q => q.eps_growth).filter(g => g !== undefined && g !== null)
+  const growth = stock.quarters.map(q => q.eps_growth).filter((g): g is number => g !== undefined);
   return growth.length ? Math.round(growth.reduce((a, b) => a + b, 0) / growth.length) : null
 }
 
-export const cmpLast = (stock: StockData) => stock.quarters[0]?.last_eps_vs_current_price || null
+export const cmpLast = (stock: StockData) => stock.quarters[0]?.last_eps_vs_current_price ?? null
 
 export const align = (comp: { lastEpsGrowth: number | null; currentPriceGrowth: number | null } | null): 'pos' | 'neg' | 'neutral' | null => {
-  if (!comp || comp.lastEpsGrowth === null || comp.currentPriceGrowth === null) {return null}
+  // eslint-disable-next-line eqeqeq
+  if (comp?.lastEpsGrowth == null || comp.currentPriceGrowth == null) { return null }
   const { lastEpsGrowth, currentPriceGrowth } = comp
-  if ((lastEpsGrowth > 0 && currentPriceGrowth > 0) || (lastEpsGrowth < 0 && currentPriceGrowth < 0)) {return 'pos'}
-  if ((lastEpsGrowth > 0 && currentPriceGrowth < 0) || (lastEpsGrowth < 0 && currentPriceGrowth > 0)) {return 'neg'}
+  if ((lastEpsGrowth > 0 && currentPriceGrowth > 0) || (lastEpsGrowth < 0 && currentPriceGrowth < 0)) { return 'pos' }
+  if ((lastEpsGrowth > 0 && currentPriceGrowth < 0) || (lastEpsGrowth < 0 && currentPriceGrowth > 0)) { return 'neg' }
   return 'neutral'
 }
 

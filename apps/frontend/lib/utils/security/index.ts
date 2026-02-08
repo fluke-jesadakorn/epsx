@@ -15,11 +15,9 @@ export interface SecurityConfig {
   maxRequestsPerMinute: number;
 }
 
-
 // ============================================================================
 // Exports
 // ============================================================================
-
 
 export interface SecurityHeaders {
   'Content-Security-Policy'?: string;

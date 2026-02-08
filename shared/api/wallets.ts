@@ -11,7 +11,7 @@
  * - Wallet statistics
  */
 
-import { UnifiedApiClient, ApiResponse, PaginatedResponse } from '../utils/api-client';
+import type { ApiResponse, PaginatedResponse, UnifiedApiClient } from '../utils/api-client';
 
 // ============================================================================
 // TYPES
@@ -29,7 +29,7 @@ export interface WalletInfo {
   activity_count?: number;
   balance?: string;
   transaction_count?: number;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface WalletSearchFilters {
@@ -57,7 +57,7 @@ export interface WalletActivity {
   wallet_address: string;
   action: string;
   timestamp: string;
-  details?: Record<string, any>;
+  details?: Record<string, unknown>;
   ip_address?: string;
   user_agent?: string;
 }
@@ -180,7 +180,7 @@ export class WalletsApi {
    * Update wallet metadata
    * PUT /api/admin/wallets/{address}/metadata
    */
-  async updateWalletMetadata(address: string, metadata: Record<string, any>): Promise<ApiResponse<{ updated: boolean }>> {
+  async updateWalletMetadata(address: string, metadata: Record<string, unknown>): Promise<ApiResponse<{ updated: boolean }>> {
     return this.client.put<{ updated: boolean }>(`/api/admin/wallets/${address}/metadata`, { metadata });
   }
 

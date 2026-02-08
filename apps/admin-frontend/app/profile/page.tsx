@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import { Suspense } from 'react';
 
-import { AdminProfileClient } from '@/components/profile/AdminProfileClient';
+import { AdminProfileClient } from '@/components/profile/admin-profile-client';
 import { PageLayout } from '@/components/shared';
 import { getServerSessionAdmin } from '@/lib/session';
 

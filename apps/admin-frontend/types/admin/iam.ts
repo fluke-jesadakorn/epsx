@@ -1,10 +1,9 @@
 // IAM Types for AWS-style permission system
-import { PermissionSource } from '@/shared/types/domain/Permission';
-import { Group } from '@/shared/types/domain/User';
+import type { PermissionSource } from '@/shared/types/domain/permission';
+import type { Group } from '@/shared/types/domain/user';
 
 const POLICY_VERSION = '2012-10-17' as const;
 const ALLOW_EFFECT = 'Allow' as const;
-
 
 export interface UserWithPermissions extends User {
   group: Group;

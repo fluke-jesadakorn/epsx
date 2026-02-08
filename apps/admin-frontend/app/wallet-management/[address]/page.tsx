@@ -4,12 +4,13 @@
  */
 'use client';
 
-import { TrashDropZone } from '@/components/wallet/TrashDropZone';
+import { TrashDropZone } from '@/components/wallet/trash-drop-zone';
+import type {
+    DragEndEvent,
+    DragStartEvent} from '@dnd-kit/core';
 import {
     DndContext,
-    DragEndEvent,
     DragOverlay,
-    DragStartEvent,
     MouseSensor,
     TouchSensor,
     useSensor,
@@ -35,12 +36,13 @@ import {
     fetchWalletDetailAction,
     updateWalletMetadataAction
 } from '@/app/wallet-management/plan-actions';
-import { DisableWalletModal, type DisableWalletData } from '@/components/wallet/DisableWalletModal';
-import { ExpiryDatePicker } from '@/components/wallet/ExpiryDatePicker';
-import { ReenableWalletModal, type ReenableWalletData } from '@/components/wallet/ReenableWalletModal';
+import { DisableWalletModal, type DisableWalletData } from '@/components/wallet/disable-wallet-modal';
+import { ExpiryDatePicker } from '@/components/wallet/expiry-date-picker';
+import { ReenableWalletModal, type ReenableWalletData } from '@/components/wallet/reenable-wallet-modal';
 import type { WalletData, WalletStatus } from '@/components/wallet/types';
-import { DraggablePlanItem, DroppablePlanList } from '@/components/wallet/WalletComponents';
-import { AccessItem, useWalletAccess } from '@/hooks/useWalletAccess';
+import { DraggablePlanItem, DroppablePlanList } from '@/components/wallet/wallet-components';
+import type { AccessItem} from '@/hooks/use-wallet-access';
+import { useWalletAccess } from '@/hooks/use-wallet-access';
 import { cn, copyToClipboard } from '@/lib/utils';
 import { createPlansClient, type SubscriptionResponse } from '@/shared/api/plans';
 import { useSharedAuth } from '@/shared/components/auth/Provider';
@@ -126,7 +128,6 @@ export default function WalletDetailPage() {
     const [isSavingMetadata, setIsSavingMetadata] = useState(false);
     const [hasMetadataChanges, setHasMetadataChanges] = useState(false);
 
-
     // Filter State
     const [searchQuery, setSearchQuery] = useState('');
     const [assignedSearchQuery, setAssignedSearchQuery] = useState('');
@@ -140,7 +141,6 @@ export default function WalletDetailPage() {
 
     // Derived Plan Lists
     const allPlans = useMemo(() => [...accessData.authorizedPlans, ...accessData.availablePlans], [accessData.authorizedPlans, accessData.availablePlans]);
-
 
     // Load wallet data
     const loadWallet = useCallback(async () => {
@@ -217,7 +217,6 @@ export default function WalletDetailPage() {
         router.push(`/wallet-management/plans/${planId}?from=/wallet-management/${encodeURIComponent(walletAddress)}`);
     };
 
-
     // DND Handlers
     const handleDragStart = (event: DragStartEvent) => {
         const { active } = event;
@@ -247,7 +246,6 @@ export default function WalletDetailPage() {
                 toast.success(`Staged "${plan.name}" for assignment`);
             }
         }
-
 
         // If dropping from assigned list (Legacy/Global removal? - Disabled per request but logic exists)
         /* 
@@ -532,7 +530,7 @@ export default function WalletDetailPage() {
                                 {/* Section 2: Current Subscription (Detailed) */}
                                 {activeSub && (
                                     <div className="relative group">
-                                        <div className="absolute -inset-0.5 bg-gradient-to-br from-purple-500/10 to-blue-500/10 rounded-xl blur-sm opacity-75 group-hover:opacity-100 transition duration-1000"></div>
+                                        <div className="absolute -inset-0.5 bg-gradient-to-br from-purple-500/10 to-blue-500/10 rounded-xl blur-sm opacity-75 group-hover:opacity-100 transition duration-1000" />
                                         <div className="relative bg-slate-900 border border-white/10 rounded-xl p-4 space-y-4">
                                             <div className="flex items-center justify-between">
                                                 <div className="flex items-center gap-4">
@@ -656,7 +654,6 @@ export default function WalletDetailPage() {
                             </div>
                         </div>
                     </div>
-
 
                 </div>
 

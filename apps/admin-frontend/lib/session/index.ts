@@ -2,6 +2,7 @@ import { cookies } from 'next/headers';
 
 import { COOKIES } from '@/shared/auth/cookies';
 import { type User } from '@/shared/types/auth';
+import { logger } from '@/shared/utils/logger';
 import { getBackendUrl } from '@/shared/utils/url-resolver';
 
 export interface AdminSessionData {
@@ -10,10 +11,15 @@ export interface AdminSessionData {
   expiresAt?: number;
 }
 
+interface SessionResponse {
+  user?: User;
+  expiresAt?: number;
+}
+
 /**
  * Get server session for admin app
  */
-export async function getServerSessionAdmin(): Promise<AdminSessionData | null> {
+export async function getServerSessionAdmin(): Promise<AdminSessionData> {
   try {
     const cookieStore = await cookies();
     const accessToken = cookieStore.get(COOKIES.access_token)?.value;
@@ -37,12 +43,12 @@ export async function getServerSessionAdmin(): Promise<AdminSessionData | null> 
       return { isAuthenticated: false };
     }
 
-    const sessionData = await response.json();
+    const sessionData = await response.json() as SessionResponse;
 
     // Check if user has admin permissions
-    const hasAdminPermissions = sessionData.user?.permissions?.some((p: string) =>
+    const hasAdminPermissions = sessionData.user?.permissions.some((p: string) =>
       p.startsWith('admin:')
-    ) || false;
+    ) ?? false;
 
     if (!hasAdminPermissions) {
       return { isAuthenticated: false };
@@ -54,9 +60,9 @@ export async function getServerSessionAdmin(): Promise<AdminSessionData | null> 
       expiresAt: sessionData.expiresAt,
     };
 
-  } catch (_error) {
+  } catch (error) {
 
-    console.error('Failed to get admin server session:', _error);
+    logger.error('Failed to get admin server session:', error);
     return { isAuthenticated: false };
   }
 }

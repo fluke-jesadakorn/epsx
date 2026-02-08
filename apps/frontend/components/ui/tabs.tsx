@@ -26,7 +26,7 @@ const Tabs = React.forwardRef<HTMLDivElement, TabsProps>(
     );
   }
 );
-Tabs.displayName = 'Tabs';
+Tabs.displayName = 'tabs';
 
 interface TabsListProps {
   children: React.ReactNode;

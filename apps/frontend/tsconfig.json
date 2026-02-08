@@ -2,7 +2,7 @@
   "$schema": "https://json.schemastore.org/tsconfig",
   "display": "Next.js",
   "compilerOptions": {
-    "types": ["node"],
+    "types": ["node", "jest"],
     "plugins": [
       {
         "name": "next"
@@ -74,7 +74,8 @@
     ".next/types/**/*.ts",
     "../../shared/**/*.ts",
     "../../shared/**/*.tsx",
-    ".next/dev/types/**/*.ts"
+    ".next/dev/types/**/*.ts",
+    "scripts/**/*"
   ],
   "exclude": [
     "node_modules",

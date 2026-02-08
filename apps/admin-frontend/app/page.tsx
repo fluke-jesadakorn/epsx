@@ -1,22 +1,21 @@
 import { getRecentWalletsAction } from '@/app/analytics/actions';
-import DashboardClient from './DashboardClient';
+import type { RecentWalletsData } from '@/hooks/use-analytics-data';
+import { logger } from '@/shared/utils/logger';
+import DashboardClient from './dashboard-client';
 
 export const dynamic = 'force-dynamic';
 
 export default async function AdminDashboardPage() {
-  let initialRecentWallets = null;
+  let initialRecentWallets: RecentWalletsData | undefined = undefined;
 
   try {
     // Fetch recent wallets on server
     initialRecentWallets = await getRecentWalletsAction(10, 30);
-  } catch (error: any) {
-    // Re-throw Next.js redirect errors so they are handled correctly
-    if (error?.digest?.startsWith('NEXT_REDIRECT') || error?.message === 'NEXT_REDIRECT') {
-      throw error;
+  } catch (err: unknown) {
+    if (err instanceof Error && (err as { digest?: string }).digest?.startsWith('NEXT_REDIRECT')) {
+      throw err;
     }
-    console.error('Failed to pre-fetch recent wallets:', error);
-    // Be silent about error, client will switch to loading/error state if initial data missing? 
-    // Actually our Client Component sets loading=true if !initialData, so client fetch will retry.
+    logger.error('Failed to pre-fetch recent wallets:', err instanceof Error ? err.message : String(err));
   }
 
   return <DashboardClient initialRecentWallets={initialRecentWallets} />;

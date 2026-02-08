@@ -5,8 +5,9 @@
  */
 
 import { PageSkeleton } from '@/components/shared';
+import { logger } from '@/shared/utils/logger';
 import { Suspense } from 'react';
-import AuthPageClient from './AuthPageClient';
+import AuthPageClient from './auth-page-client';
 import { verifySessionAction } from './actions';
 
 export default async function AuthPage() {
@@ -15,7 +16,7 @@ export default async function AuthPage() {
   const session = await verifySessionAction();
   const serverHasSession = session.valid;
 
-  console.log('[AUTH] Server Page: session verification result', { serverHasSession });
+  logger.info('[AUTH] Server Page: session verification result', { serverHasSession });
 
   return (
     <Suspense fallback={<PageSkeleton showHeader={false} stats={0} rows={0} />}>

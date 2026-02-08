@@ -1,5 +1,5 @@
-import { APIKeyManager } from '@/components/developer/APIKeyManager';
-import { DeveloperStatsCards } from '@/components/developer/DeveloperStatsCards';
+import { APIKeyManager } from '@/components/developer/api-key-manager';
+import { DeveloperStatsCards } from '@/components/developer/developer-stats-cards';
 import { getCurrentUser } from '@/lib/server-actions';
 
 export const dynamic = 'force-dynamic';

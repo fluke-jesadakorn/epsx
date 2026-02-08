@@ -1,6 +1,6 @@
 import { PageHeader, PageLayout } from '@/components/shared';
-import { DashboardSection } from '@/components/wallet/DashboardSection';
-import { WalletTabsNavigation } from '@/components/wallet/WalletTabsNavigation';
+import { DashboardSection } from '@/components/wallet/dashboard-section';
+import { WalletTabsNavigation } from '@/components/wallet/wallet-tabs-navigation';
 import { fetchAccessManagementData, fetchWalletStats } from '@/lib/data/access-management';
 
 /**
@@ -56,7 +56,6 @@ export default async function WalletManagementLayout({
         </PageLayout>
     );
 }
-
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';

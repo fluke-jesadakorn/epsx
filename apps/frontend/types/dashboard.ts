@@ -1,4 +1,4 @@
-import { CountryOption } from './analytics';
+import type { CountryOption } from './analytics';
 
 export interface RichFilterOptions {
     countries: CountryOption[];

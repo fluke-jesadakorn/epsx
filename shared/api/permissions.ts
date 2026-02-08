@@ -12,8 +12,7 @@
  * - Bulk permission operations
  */
 
-import { UnifiedApiClient, ApiResponse, PaginatedResponse } from '../utils/api-client';
-import { API_ROUTES } from '../config/route-constants';
+import type { ApiResponse, PaginatedResponse, UnifiedApiClient } from '../utils/api-client';
 
 // ============================================================================
 // TYPES
@@ -26,7 +25,7 @@ export interface Permission {
   expires_at?: number;
   source: 'direct' | 'group' | 'tier';
   notes?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface PermissionEntry {

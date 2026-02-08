@@ -3,6 +3,8 @@
  * Consolidated date formatting functions from admin monolith
  */
 
+import { logger } from '../logger';
+
 /**
  * Format date value with flexible format options
  */
@@ -36,10 +38,10 @@ export function formatRelativeTime(date: Date | string): string {
   const then = new Date(date)
   const diffInSeconds = Math.floor((now.getTime() - then.getTime()) / 1000)
 
-  if (diffInSeconds < 60) {return 'just now'}
-  if (diffInSeconds < 3600) {return `${Math.floor(diffInSeconds / 60)}m ago`}
-  if (diffInSeconds < 86400) {return `${Math.floor(diffInSeconds / 3600)}h ago`}
-  if (diffInSeconds < 2592000) {return `${Math.floor(diffInSeconds / 86400)}d ago`}
+  if (diffInSeconds < 60) { return 'just now' }
+  if (diffInSeconds < 3600) { return `${Math.floor(diffInSeconds / 60)}m ago` }
+  if (diffInSeconds < 86400) { return `${Math.floor(diffInSeconds / 3600)}h ago` }
+  if (diffInSeconds < 2592000) { return `${Math.floor(diffInSeconds / 86400)}d ago` }
 
   return formatDate(date)
 }
@@ -80,7 +82,7 @@ export function formatQuarterDate(dateString: string): string {
       year: 'numeric'
     })
   } catch (error) {
-    console.error('Error formatting quarter date:', error)
+    logger.error('Error formatting quarter date:', error)
     return dateString
   }
 }
@@ -97,7 +99,7 @@ export function formatAnnouncementDate(dateString: string): string {
       year: 'numeric'
     })
   } catch (error) {
-    console.error('Error formatting announcement date:', error)
+    logger.error('Error formatting announcement date:', error)
     return dateString
   }
 }
@@ -113,7 +115,7 @@ export function formatCompactDate(dateString: string): string {
       day: 'numeric'
     })
   } catch (error) {
-    console.error('Error formatting compact date:', error)
+    logger.error('Error formatting compact date:', error)
     return dateString
   }
 }
@@ -140,7 +142,7 @@ export function getRelativeTime(dateString: string): string {
       return `${Math.abs(diffDays)} days ago`
     }
   } catch (error) {
-    console.error('Error getting relative time:', error)
+    logger.error('Error getting relative time:', error)
     return 'unknown'
   }
 }
@@ -171,7 +173,7 @@ export function formatTimeRemaining(dateString: string): string {
       return `${Math.max(1, diffMinutes)} minutes`
     }
   } catch (error) {
-    console.error('Error formatting time remaining:', error)
+    logger.error('Error formatting time remaining:', error)
     return 'Unknown time remaining'
   }
 }
@@ -198,7 +200,7 @@ export function getQuarterLabel(dateString: string): string {
 
     return `Q${quarter} ${year}`
   } catch (error) {
-    console.error('Error getting quarter label:', error)
+    logger.error('Error getting quarter label:', error)
     return 'Unknown Quarter'
   }
 }
@@ -212,7 +214,7 @@ export function isFutureDate(dateString: string): boolean {
     const now = new Date()
     return date > now
   } catch (error) {
-    console.error('Error checking if date is future:', error)
+    logger.error('Error checking if date is future:', error)
     return false
   }
 }
@@ -249,7 +251,7 @@ export function calculateDaysRemaining(announcementDate: string): number {
 
     return Math.max(0, diffDays)
   } catch (error) {
-    console.error('Error calculating days remaining:', error)
+    logger.error('Error calculating days remaining:', error)
     return 0
   }
 }
@@ -267,7 +269,7 @@ export function calculateHoursRemaining(announcementDate: string): number {
 
     return Math.max(0, diffHours)
   } catch (error) {
-    console.error('Error calculating hours remaining:', error)
+    logger.error('Error calculating hours remaining:', error)
     return 0
   }
 }

@@ -9,12 +9,12 @@ import { useTheme } from 'next-themes';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
-import { AdminWalletConnectAuth } from '@/components/auth/AdminWalletConnectAuth';
-import { AdminNotificationBell } from './AdminNotificationBellClient';
+import { AdminWalletConnectAuth } from '@/components/auth/AdminWalletConnectauth';
+import { AdminNotificationBell } from './admin-notification-bell-client';
 
-import { themeUtils } from '@/components/ui/SafeThemeScript';
-import { ChainSelector } from '@/shared/components/navigation/ChainSelector';
-import { UnifiedThemeToggle } from '@/shared/components/ui/UnifiedThemeToggle';
+import { themeUtils } from '@/components/ui/safe-theme-script';
+import { ChainSelector } from '@/shared/components/navigation/chain-selector';
+import { UnifiedThemeToggle } from '@/shared/components/ui/unified-theme-toggle';
 import { isProduction } from '@/shared/utils';
 
 interface User {

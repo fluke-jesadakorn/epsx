@@ -1,7 +1,7 @@
 import { Key } from 'lucide-react';
-import { Metadata } from 'next';
+import type { Metadata } from 'next';
 
-import { ApiKeyRequestForm } from '@/components/public/ApiKeyRequestForm';
+import { ApiKeyRequestForm } from '@/components/public/api-key-request-form';
 import { PageHeader, PageLayout } from '@/components/shared';
 
 export const metadata: Metadata = {

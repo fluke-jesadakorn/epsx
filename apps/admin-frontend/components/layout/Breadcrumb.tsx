@@ -13,7 +13,7 @@ interface BreadcrumbItem {
 const routeConfig: Record<string, BreadcrumbItem> = {
   '/': { label: 'Dashboard', href: '/', icon: '🏠' },
   '/users': { label: 'Users', href: '/users', icon: '👥' },
-  '/users/create': { label: 'Create User', href: '/users/create' },
+  '/users/create': { label: 'Create user', href: '/users/create' },
   '/users/bulk': { label: 'Bulk Operations', href: '/users/bulk' },
   '/analytics': { label: 'Analytics', href: '/analytics', icon: '📊' },
   '/analytics/eps': { label: 'EPS Analytics', href: '/analytics/eps' },

@@ -1,7 +1,7 @@
 // Shared stock data service
 
 import { CACHE_TTL } from '@/shared/config/constants';
-import { transformFinancialDataWithCurrentPrice } from '@/utils';
+import { logger } from '@/shared/utils/logger';
 import type { StockFinancialData } from '@/types/financialChartData';
 import { MarketCountry } from '../../types/market';
 
@@ -42,18 +42,18 @@ export async function getStockFinancialData(
     }
 
     // Stock data fetch not implemented: rankStocksByEpsWithChart utility not found
-    console.warn('[StockService] Data fetch not implemented, returning empty result');
+    logger.warn('[StockService] Data fetch not implemented, returning empty result');
     return [];
   } catch (error) {
-    console.error('[StockService] Error fetching stock data:', error);
+    logger.error('[StockService] Error fetching stock data:', error);
     // Return cached data if available, even if expired, as fallback
     const cacheKey = `${page}-${limit}-${country}-${quarters}`;
     const cachedData = serverCache.get(cacheKey);
     if (cachedData) {
-      console.warn('[StockService] Using stale cached data as fallback');
+      logger.warn('[StockService] Using stale cached data as fallback');
       return cachedData.data;
     }
-    console.warn('[StockService] No cached data available, returning empty result');
+    logger.warn('[StockService] No cached data available, returning empty result');
     return [];
   }
 }
@@ -75,14 +75,14 @@ export async function getStockFinancialDataCount(
     }
 
     // Count fetch not implemented: fetchScreenerStock utility not found
-    console.warn('[StockService] Count fetch not implemented, returning 0');
+    logger.warn('[StockService] Count fetch not implemented, returning 0');
     return 0;
   } catch (error) {
-    console.error('[StockService] Error getting stock count:', error);
+    logger.error('[StockService] Error getting stock count:', error);
     // Return cached count if available, or fallback to 0
     if (countCache) {
       console.warn('[StockService] Using stale cached count as fallback');
     }
-    return countCache?.count || 0;
+    return countCache?.count ?? 0;
   }
 }

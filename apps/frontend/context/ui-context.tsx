@@ -4,14 +4,14 @@ import React, { createContext, useCallback, useContext, useMemo, useState } from
 
 type ToastType = 'info' | 'success' | 'warning' | 'error'
 
-type Toast = {
+interface Toast {
     id: string
     type: ToastType
     title?: string
     message: string
 }
 
-type ToastApi = {
+interface ToastApi {
     info: (message: string, title?: string) => void
     success: (message: string, title?: string) => void
     warning: (message: string, title?: string) => void

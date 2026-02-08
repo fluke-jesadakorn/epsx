@@ -4,7 +4,6 @@ import { COOKIES } from '@/shared/auth/cookies';
 import { cookies } from 'next/headers';
 import type { Web3SessionData } from './auth';
 
-
 /**
  * Server Action to set Web3 session data in secure cookies
  */
@@ -61,7 +60,6 @@ export async function clearWeb3SessionAction(): Promise<void> {
 export async function logoutAction(): Promise<void> {
     await clearWeb3SessionAction();
 }
-
 
 /**
  * Server Action to retrieve and clear the return URL

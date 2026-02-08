@@ -14,13 +14,14 @@
  */
 
 import { COOKIES, getClientCookie, setClientCookie } from '../auth/cookies';
+import { logger } from './logger';
 import { getBackendUrl } from './url-resolver';
 
 // ============================================================================
 // CORE TYPES AND INTERFACES
 // ============================================================================
 
-import type { ApiError, ApiResponse, PaginatedResponse } from '../types/api';
+import { isApiError, isApiResponse, isApiSuccess, isPaginatedResponse, type ApiError, type ApiResponse, type PaginatedResponse } from '../types/api';
 
 export type { ApiError, ApiResponse, PaginatedResponse };
 
@@ -31,6 +32,50 @@ export interface RequestConfig extends RequestInit {
 }
 
 export type Platform = 'admin' | 'frontend';
+
+interface UserCookieData {
+  access?: string;
+  [key: string]: unknown;
+}
+
+// ============================================================================
+// ERROR CLASSES
+// ============================================================================
+
+export class APIError extends Error implements ApiError {
+  public code: string;
+  public details?: unknown;
+  public status?: number; // Optional status for compatibility
+  public requestId?: string;
+
+  constructor(message: string, code = 'UNKNOWN_ERROR', options: { status?: number; details?: unknown } = {}) {
+    super(message);
+    this.name = 'APIError';
+    this.code = code;
+    this.status = options.status;
+    this.details = options.details;
+  }
+
+  static fromResponse(response: {
+    status: number;
+    statusText: string;
+    data?: {
+      message?: string;
+      error?: { message?: string; code?: string; details?: unknown };
+      code?: string;
+      details?: unknown;
+    };
+  }): APIError {
+    const data = response.data;
+    const error = data?.error;
+
+    const message = data?.message ?? error?.message ?? `HTTP ${response.status}: ${response.statusText}`;
+    const code = data?.code ?? error?.code ?? 'HTTP_ERROR';
+    const details = data?.details ?? error?.details;
+
+    return new APIError(message, code, { status: response.status, details });
+  }
+}
 
 // ============================================================================
 // UNIFIED API CLIENT CLASS
@@ -50,7 +95,7 @@ export class UnifiedApiClient {
   }) {
     this.platform = options.platform;
     this.isServerSide = options.serverSide ?? typeof window === 'undefined';
-    this.baseURL = options.baseURL || this.getDefaultBaseURL();
+    this.baseURL = options.baseURL ?? this.getDefaultBaseURL();
     this.token = options.token;
   }
 
@@ -67,268 +112,253 @@ export class UnifiedApiClient {
   }
 
   private async getAuthHeaders(): Promise<HeadersInit> {
-    const headers: HeadersInit = {
+    const headers: Record<string, string> = {
       'Content-Type': 'application/json',
     };
 
     // Use provided token if available
     if (this.token) {
       headers['Authorization'] = `Bearer ${this.token}`;
-      return headers;
+      return headers as HeadersInit;
     }
 
-    // Server-side: attempt to get token from cookies (Next.js only)
-    if (this.isServerSide) {
-      try {
-        // Dynamic import to avoid bundling server modules in client
-        // This is safe because we're inside the isServerSide check
-        const { cookies } = await import('next/headers');
+    const token = this.isServerSide
+      ? await this.getServerSideToken()
+      : this.getClientSideToken();
 
-        // cookies() is an async function in newer Next.js versions
-        const cookieStore = await cookies();
-
-        // Get access token from unified cookies (no context separation)
-        const tokenCookie = cookieStore.get(COOKIES.access_token);
-
-        if (tokenCookie?.value) {
-          headers['Authorization'] = `Bearer ${tokenCookie.value}`;
-        }
-      } catch (error) {
-        // This is expected during build time or in non-request contexts
-        // We log only if we really expected to be in a request context (optional)
-        // console.debug(`[UnifiedApiClient] Server-side token retrieval skipped:`, error);
-      }
-    } else {
-      // Client-side: Get token from client-side cookies for direct backend calls
-      // access_token is HttpOnly, so we get it from the 'user' cookie
-      try {
-        const userCookie = getClientCookie(COOKIES.user);
-        if (userCookie) {
-          try {
-            const user = JSON.parse(userCookie);
-            if (user.access) {
-              headers['Authorization'] = `Bearer ${user.access}`;
-              // console.debug('[UnifiedApiClient] Token attached from client cookie');
-            } else {
-              console.warn('[UnifiedApiClient] Cookie found but missing access token', {
-                keys: Object.keys(user),
-                hasAccess: !!user.access
-              });
-            }
-          } catch (e) {
-            console.error('[UnifiedApiClient] Failed to parse user cookie JSON', e);
-          }
-        } else {
-          // Check if we have ANY epsx cookies
-          if (typeof document !== 'undefined') {
-            const hasEpsxCookies = document.cookie.split(';').some(c => c.trim().startsWith('epsx.'));
-            if (!hasEpsxCookies) {
-              console.warn('[UnifiedApiClient] No EPSX cookies found on client. User might be logged out.');
-            }
-          }
-        }
-      } catch (error) {
-        console.error('[UnifiedApiClient] Error reading client cookie', error);
-      }
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
     }
 
-    return headers;
+    return headers as HeadersInit;
+  }
+
+  private async getServerSideToken(): Promise<string | undefined> {
+    try {
+      const { cookies } = await import('next/headers');
+      const cookieStore = await cookies();
+      return cookieStore.get(COOKIES.access_token)?.value;
+    } catch {
+      return undefined;
+    }
+  }
+
+  private getClientSideToken(): string | undefined {
+    try {
+      const userCookie = getClientCookie(COOKIES.user);
+      if (!userCookie) {
+        this.logMissingClientCookies();
+        return undefined;
+      }
+
+      const user = JSON.parse(userCookie) as UserCookieData;
+      return user.access;
+    } catch (e) {
+      logger.error('[UnifiedApiClient] Failed to parse user cookie', e);
+      return undefined;
+    }
+  }
+
+  private logMissingClientCookies(): void {
+    if (typeof document === 'undefined') { return; }
+    const hasEpsxCookies = document.cookie.split(';').some(c => c.trim().startsWith('epsx.'));
+    if (!hasEpsxCookies) {
+      logger.warn('[UnifiedApiClient] No EPSX cookies found on client. User might be logged out.');
+    }
   }
 
   private async request<T>(
     endpoint: string,
     config: RequestConfig = {}
   ): Promise<ApiResponse<T>> {
-    const { timeout = 0, serverSide, platform, ...options } = config;
+    const { timeout = 0, ...options } = config;
     const url = `${this.baseURL}${endpoint}`;
 
     try {
       const headers = await this.getAuthHeaders();
-
-      const requestConfig: RequestInit = {
-        ...options,
-        headers: {
-          ...headers,
-          ...options.headers,
-        },
-        credentials: this.isServerSide ? undefined : 'include',
-        cache: this.isServerSide ? 'no-store' : 'default',
-      };
-
-      // Apply timeout if supported
-      if (timeout && !('signal' in requestConfig)) {
-        const controller = new AbortController();
-        setTimeout(() => controller.abort(), timeout);
-        requestConfig.signal = controller.signal;
-      }
+      const requestConfig = this.prepareRequestConfig(options, headers, timeout);
 
       const response = await fetch(url, requestConfig);
 
-      // Handle authentication errors
-      if (response.status === 401) {
-        // Attempt to refresh token IF not already retrying (avoid infinite loop)
-        // And IF this is not the refresh endpoint itself
-        if (!endpoint.includes('/api/auth/session/refresh') && !(headers as any)['x-retry']) {
-          try {
-            console.debug('[UnifiedApiClient] 401 detected, attempting token refresh...');
-
-            let refreshData: any = null;
-            let refreshSuccess = false;
-
-            if (this.isServerSide) {
-              // Server-side: Call backend directly with refresh token from cookies
-              const cookieStore = await import('next/headers').then(m => m.cookies());
-              const refreshToken = (await cookieStore).get(COOKIES.refresh_token)?.value;
-
-              if (refreshToken) {
-                const refreshResponse = await fetch(`${this.baseURL}/api/auth/session/refresh`, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ refresh_token: refreshToken }),
-                });
-
-                if (refreshResponse.ok) {
-                  refreshData = await refreshResponse.json();
-                  refreshSuccess = !!refreshData?.access_token;
-
-                  // Update server-side cookies
-                  if (refreshSuccess) {
-                    (await cookieStore).set(COOKIES.access_token, refreshData.access_token, {
-                      httpOnly: true,
-                      secure: process.env.NODE_ENV === 'production',
-                      sameSite: 'lax',
-                      path: '/',
-                      maxAge: refreshData.expires_in || 3600,
-                    });
-                    if (refreshData.refresh_token) {
-                      (await cookieStore).set(COOKIES.refresh_token, refreshData.refresh_token, {
-                        httpOnly: true,
-                        secure: process.env.NODE_ENV === 'production',
-                        sameSite: 'lax',
-                        path: '/',
-                        maxAge: 2592000,
-                      });
-                    }
-                  }
-                }
-              }
-            } else {
-              // Client-side: Use server action (which can handle HttpOnly cookies properly)
-              try {
-                const { refreshSessionAction } = await import('../auth/actions');
-                const refreshResult = await refreshSessionAction();
-                refreshSuccess = refreshResult.success;
-                refreshData = refreshResult.success ? { access_token: refreshResult.access_token } : null;
-              } catch {
-                // Server action might not be available, fall through
-              }
-            }
-
-            if (refreshSuccess && refreshData?.access_token) {
-              console.debug('[UnifiedApiClient] Token refreshed successfully, retrying request');
-
-              // Update internal token
-              this.setAuthToken(refreshData.access_token);
-
-              // For client-side, also update the user cookie with new access token
-              if (!this.isServerSide) {
-                try {
-                  const userCookie = getClientCookie(COOKIES.user);
-                  if (userCookie) {
-                    const user = JSON.parse(userCookie);
-                    user.access = refreshData.access_token;
-                    setClientCookie(COOKIES.user, JSON.stringify(user), 2592000);
-                  }
-                } catch {
-                  // Ignore cookie update errors
-                }
-              }
-
-              // Retry original request with new token
-              return this.request<T>(endpoint, {
-                ...config,
-                headers: {
-                  ...options.headers,
-                  'x-retry': 'true' // Flag to prevent infinite recursion
-                }
-              });
-            } else {
-              console.warn('[UnifiedApiClient] Token refresh attempt failed');
-            }
-          } catch (refreshError) {
-            console.error('[UnifiedApiClient] Error during token refresh:', refreshError);
-          }
-        }
-
-        // Return error if refresh failed or not attempted
-        return {
-          success: false,
-          data: null,
-          error: {
-            code: 'UNAUTHORIZED',
-            message: 'Unauthorized - please log in again',
-            requestId: (headers as any)['x-request-id'],
-          },
-          meta: {
-            timestamp: new Date().toISOString(),
-          }
-        };
+      if (response.status === 401 && !endpoint.includes('/api/auth/session/refresh')) {
+        const result = await this.handleUnauthorized(endpoint, config, headers as Record<string, string>);
+        if (result !== null) { return result as ApiResponse<T>; }
       }
 
-      // Parse response data
-      let data;
-      try {
-        data = response.ok ? await response.json() : null;
-      } catch {
-        data = null;
-      }
+      const data = await this.parseResponseData(response);
 
       if (!response.ok) {
-        const errorMessage = data?.message || data?.error || `HTTP ${response.status}: ${response.statusText}`;
-        // Don't log 404 errors - they are often expected (e.g., user has no permissions)
-        if (response.status !== 404) {
-          console.error(`[UnifiedApiClient] Error ${response.status} ${requestConfig.method || 'GET'} ${url}:`, errorMessage);
-        }
-        throw new APIError(
-          errorMessage,
-          data?.code || 'HTTP_ERROR',
-          response.status,
-          data?.details
-        );
+        this.handleErrorResponse(response, data, requestConfig.method ?? 'GET', url);
       }
 
       return this.normalizeResponse(response, data);
-
     } catch (error) {
-      // Handle AbortError (timeout)
-      if (error instanceof Error && error.name === 'AbortError') {
-        return {
-          success: false,
-          data: null,
-          error: {
-            code: 'TIMEOUT',
-            message: `Request timeout after ${timeout}ms`,
-            requestId: options.headers ? (options.headers as any)['x-request-id'] : undefined
-          }
-        };
-      }
+      return this.handleRequestError<T>(error, timeout, options.headers);
+    }
+  }
 
-      // Re-throw if it's already a handled response (shouldn't happen with this design, but for safety)
-      if (this.isApiSuccess(error as any) || (error as any).success === false) {
-        return error as any;
-      }
+  private prepareRequestConfig(options: RequestInit, headers: HeadersInit, timeout: number): RequestInit {
+    const requestConfig: RequestInit = {
+      ...options,
+      headers: { ...headers, ...options.headers },
+      credentials: this.isServerSide ? undefined : 'include',
+      cache: this.isServerSide ? 'no-store' : 'default',
+    };
+    this.applyTimeout(requestConfig, timeout);
+    return requestConfig;
+  }
 
-      // Handle network and other unexpected errors
-      const errorMessage = error instanceof Error ? error.message : 'Unknown network error';
+  private async handleUnauthorized(endpoint: string, config: RequestConfig, headers: Record<string, string>): Promise<unknown | null> {
+    if (headers['x-retry'] === 'true') { return null; }
+
+    const refreshResult = await this.handleTokenRefresh();
+    if (refreshResult.success === true && typeof refreshResult.access_token === 'string' && refreshResult.access_token !== '') {
+      return await this.request(endpoint, {
+        ...config,
+        headers: { ...config.headers, 'x-retry': 'true' }
+      });
+    }
+
+    return this.createUnauthorizedResponse(headers);
+  }
+
+  private applyTimeout(config: RequestInit, timeout: number): void {
+    if (timeout && !('signal' in config)) {
+      const controller = new AbortController();
+      setTimeout(() => controller.abort(), timeout);
+      config.signal = controller.signal;
+    }
+  }
+
+  private handleRequestError<T>(error: unknown, timeout: number, headers?: HeadersInit): ApiResponse<T> {
+    // Handle AbortError (timeout)
+    if (error instanceof Error && error.name === 'AbortError') {
       return {
         success: false,
-        data: null,
+        data: null as unknown as T,
         error: {
-          code: 'NETWORK_ERROR',
-          message: errorMessage,
-          details: { originalError: error }
+          code: 'TIMEOUT',
+          message: `Request timeout after ${timeout}ms`,
+          requestId: (headers as Record<string, string> | undefined)?.['x-request-id']
         }
       };
+    }
+
+    // Re-throw if it's already a handled response
+    if (this.isApiResponse<T>(error)) {
+      return error;
+    }
+
+    // Handle network and other unexpected errors
+    const errorMessage = error instanceof Error ? error.message : 'Unknown network error';
+    return {
+      success: false,
+      data: null as unknown as T,
+      error: {
+        code: 'NETWORK_ERROR',
+        message: errorMessage,
+        details: { originalError: error }
+      }
+    };
+  }
+
+  /**
+   * Internal helper to handle token refresh logic for 401 errors
+   */
+  private async handleTokenRefresh(): Promise<{ success: boolean; access_token?: string }> {
+    try {
+      logger.debug('[UnifiedApiClient] 401 detected, attempting token refresh...');
+
+      const result = this.isServerSide
+        ? await this.refreshServerToken()
+        : await this.refreshClientToken();
+
+      if (result.success && result.access_token) {
+        logger.debug('[UnifiedApiClient] Token refreshed successfully');
+        this.setAuthToken(result.access_token);
+        return result;
+      }
+
+      logger.warn('[UnifiedApiClient] Token refresh attempt failed');
+      return { success: false };
+    } catch (refreshError) {
+      logger.error('[UnifiedApiClient] Error during token refresh:', refreshError);
+      return { success: false };
+    }
+  }
+
+  private async refreshServerToken(): Promise<{ success: boolean; access_token?: string }> {
+    try {
+      const { cookies } = await import('next/headers');
+      const cookieStore = await cookies();
+      const refreshToken = cookieStore.get(COOKIES.refresh_token)?.value;
+
+      if (!refreshToken) { return { success: false }; }
+
+      const response = await fetch(`${this.baseURL}/api/auth/session/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refresh_token: refreshToken }),
+      });
+
+      if (!response.ok) { return { success: false }; }
+
+      const data = (await response.json()) as { access_token?: string; refresh_token?: string; expires_in?: number };
+      if (!data.access_token) { return { success: false }; }
+
+      this.updateServerCookies(cookieStore, data as { access_token: string; refresh_token?: string; expires_in?: number });
+      return { success: true, access_token: data.access_token };
+    } catch {
+      return { success: false };
+    }
+  }
+
+  private updateServerCookies(cookieStore: { set: (name: string, value: string, options: Record<string, unknown>) => void }, data: { access_token: string; refresh_token?: string; expires_in?: number }): void {
+    const isProd = process.env.NODE_ENV === 'production';
+    cookieStore.set(COOKIES.access_token, data.access_token, {
+      httpOnly: true,
+      secure: isProd,
+      sameSite: 'lax',
+      path: '/',
+      maxAge: data.expires_in ?? 3600,
+    } as Record<string, unknown>);
+
+    if (data.refresh_token) {
+      cookieStore.set(COOKIES.refresh_token, data.refresh_token, {
+        httpOnly: true,
+        secure: isProd,
+        sameSite: 'lax',
+        path: '/',
+        maxAge: 2592000,
+      } as Record<string, unknown>);
+    }
+  }
+
+  private async refreshClientToken(): Promise<{ success: boolean; access_token?: string }> {
+    try {
+      const { refreshSessionAction } = await import('../auth/actions');
+      const refreshResult = (await refreshSessionAction()) as { success: boolean; access_token?: string };
+
+      if (refreshResult.success && refreshResult.access_token) {
+        this.updateClientUserCookie(refreshResult.access_token);
+        return { success: true, access_token: refreshResult.access_token };
+      }
+      return { success: false };
+    } catch {
+      return { success: false };
+    }
+  }
+
+  private updateClientUserCookie(accessToken: string): void {
+    try {
+      const userCookie = getClientCookie(COOKIES.user);
+      if (userCookie) {
+        const user = JSON.parse(userCookie) as UserCookieData;
+        user.access = accessToken;
+        setClientCookie(COOKIES.user, JSON.stringify(user), 2592000);
+      }
+    } catch {
+      // Ignore
     }
   }
 
@@ -336,113 +366,169 @@ export class UnifiedApiClient {
    * Normalizes the response to ensure it adheres to the ApiResponse<T> contract.
    * Handles legacy responses, double-wrapping, and error conversion.
    */
-  private normalizeResponse<T>(response: Response, data: any): ApiResponse<T> {
-    const status = response.status;
+  private normalizeResponse<T>(response: Response, data: unknown): ApiResponse<T> {
     const isSuccess = response.ok;
 
-    // 1. If it's a known API Error (status >= 400)
     if (!isSuccess) {
-      // Try to extract structured error from data
-      let apiError: ApiError = {
-        code: 'HTTP_ERROR',
-        message: `HTTP ${status}: ${response.statusText}`,
-      };
-
-      if (data && typeof data === 'object') {
-        if (data.error && typeof data.error === 'object') {
-          // Already has strict error structure
-          apiError = data.error as ApiError;
-        } else if (data.message) {
-          // Simple message format
-          apiError.message = data.message;
-          apiError.code = data.code || `HTTP_${status}`;
-          apiError.details = data.details || data;
-        } else if (data.error) {
-          // String error
-          apiError.message = typeof data.error === 'string' ? data.error : JSON.stringify(data.error);
-          apiError.code = data.code || `HTTP_${status}`;
-        }
-      }
-
-      return {
-        success: false,
-        data: null,
-        error: apiError,
-        meta: {
-          timestamp: new Date().toISOString(),
-          trace_id: response.headers.get('x-request-id') || undefined
-        }
-      };
+      return this.normalizeErrorResponse<T>(response, data);
     }
 
-    // 2. Success Case - Check for Double Wrapping or Legacy Formats
-    // If the data itself IS an ApiResponse (has success, data, error keys), return it directly.
     if (this.isApiResponse<T>(data)) {
       return data;
     }
 
-    // 3. Fallback: Wrap raw data in standard success response
     return {
       success: true,
       data: data as T,
       error: null,
       meta: {
         timestamp: new Date().toISOString(),
-        trace_id: response.headers.get('x-request-id') || undefined
+        trace_id: response.headers.get('x-request-id') ?? undefined
       }
     };
   }
 
-  private isApiResponse<T>(data: any): data is ApiResponse<T> {
-    return data && typeof data === 'object' && 'success' in data && 'data' in data;
+  private normalizeErrorResponse<T>(_response: Response, data: unknown): ApiResponse<T> {
+    const status = _response.status;
+    let apiError: ApiError = {
+      code: 'HTTP_ERROR',
+      message: `HTTP ${status}: ${_response.statusText}`,
+    };
+
+    if (data !== null && typeof data === 'object') {
+      const anyData = data as Record<string, unknown>;
+      apiError = this.extractApiError(anyData, apiError.message, status);
+    }
+
+    return {
+      success: false,
+      data: null as unknown as T,
+      error: apiError,
+      meta: {
+        timestamp: new Date().toISOString(),
+        trace_id: _response.headers.get('x-request-id') ?? undefined
+      }
+    };
   }
 
+  private extractApiError(data: Record<string, unknown>, defaultMessage: string, status: number): ApiError {
+    if (data.error !== null && typeof data.error === 'object') {
+      const nestedError = data.error as Record<string, unknown>;
+      return {
+        code: (nestedError.code as string | undefined) ?? 'HTTP_ERROR',
+        message: (nestedError.message as string | undefined) ?? defaultMessage,
+        details: nestedError.details,
+        requestId: nestedError.requestId as string
+      };
+    }
+
+    if (typeof data.message === 'string' && data.message !== '') {
+      return {
+        message: data.message,
+        code: typeof data.code === 'string' && data.code !== '' ? data.code : `HTTP_${status}`,
+        details: data.details ?? data
+      };
+    }
+
+    if (data.error !== null && data.error !== undefined) {
+      return {
+        message: typeof data.error === 'string' ? data.error : JSON.stringify(data.error),
+        code: typeof data.code === 'string' && data.code !== '' ? data.code : `HTTP_${status}`
+      };
+    }
+
+    return { code: 'HTTP_ERROR', message: defaultMessage };
+  }
+
+  private isApiResponse<T>(data: unknown): data is ApiResponse<T> {
+    return Boolean(data && typeof data === 'object' && 'success' in (data as Record<string, unknown>) && 'data' in (data as Record<string, unknown>));
+  }
+
+  private createUnauthorizedResponse<T>(headers: HeadersInit): ApiResponse<T> {
+    return {
+      success: false,
+      data: null as unknown as T,
+      error: {
+        code: 'UNAUTHORIZED',
+        message: 'Unauthorized - please log in again',
+        requestId: (headers as Record<string, string>)['x-request-id'],
+      },
+      meta: {
+        timestamp: new Date().toISOString(),
+      }
+    };
+  }
+
+  private async parseResponseData(response: Response): Promise<unknown> {
+    try {
+      return response.ok ? await response.json() : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private handleErrorResponse(response: Response, data: unknown, method: string, url: string): never {
+    const parsedData = data as { message?: string; error?: string; code?: string; details?: unknown } | null;
+    const message = parsedData?.message;
+    const error = parsedData?.error;
+    const errorMessage = (typeof message === 'string' && message !== '') ? message : (typeof error === 'string' && error !== '' ? error : `HTTP ${response.status}: ${response.statusText}`);
+
+    if (response.status !== 404) {
+      logger.error(`[UnifiedApiClient] Error ${response.status} ${method} ${url}:`, errorMessage);
+    }
+
+    throw new APIError(
+      errorMessage,
+      parsedData?.code ?? 'HTTP_ERROR',
+      { status: response.status, details: parsedData?.details }
+    );
+  }
 
   // ============================================================================
   // GENERIC HTTP METHODS
   // ============================================================================
 
-  async get<T = any>(endpoint: string, params?: Record<string, any>, config?: RequestConfig): Promise<ApiResponse<T>> {
-    const queryString = params ? '?' + new URLSearchParams(
-      Object.entries(params).reduce((acc, [key, value]) => {
+  async get<T = unknown>(endpoint: string, params?: Record<string, unknown> | object, config?: RequestConfig): Promise<ApiResponse<T>> {
+    const queryString = params ? `?${new URLSearchParams(
+      Object.entries(params).reduce<Record<string, string>>((acc, [key, value]) => {
         if (value !== undefined && value !== null) {
           acc[key] = String(value);
         }
         return acc;
-      }, {} as Record<string, string>)
-    ).toString() : '';
+      }, {})
+    ).toString()}` : '';
 
-    return this.request<T>(`${endpoint}${queryString}`, {
+    return await this.request<T>(`${endpoint}${queryString}`, {
       method: 'GET',
       ...config
     });
   }
 
-  async post<T = any>(endpoint: string, data?: any, config?: RequestConfig): Promise<ApiResponse<T>> {
-    return this.request<T>(endpoint, {
+  async post<T = unknown>(endpoint: string, data?: unknown, config?: RequestConfig): Promise<ApiResponse<T>> {
+    return await this.request<T>(endpoint, {
       method: 'POST',
       body: data ? JSON.stringify(data) : undefined,
       ...config
     });
   }
 
-  async put<T = any>(endpoint: string, data?: any, config?: RequestConfig): Promise<ApiResponse<T>> {
-    return this.request<T>(endpoint, {
+  async put<T = unknown>(endpoint: string, data?: unknown, config?: RequestConfig): Promise<ApiResponse<T>> {
+    return await this.request<T>(endpoint, {
       method: 'PUT',
       body: data ? JSON.stringify(data) : undefined,
       ...config
     });
   }
 
-  async delete<T = any>(endpoint: string, config?: RequestConfig): Promise<ApiResponse<T>> {
-    return this.request<T>(endpoint, {
+  async delete<T = unknown>(endpoint: string, config?: RequestConfig): Promise<ApiResponse<T>> {
+    return await this.request<T>(endpoint, {
       method: 'DELETE',
       ...config
     });
   }
 
-  async patch<T = any>(endpoint: string, data?: any, config?: RequestConfig): Promise<ApiResponse<T>> {
-    return this.request<T>(endpoint, {
+  async patch<T = unknown>(endpoint: string, data?: unknown, config?: RequestConfig): Promise<ApiResponse<T>> {
+    return await this.request<T>(endpoint, {
       method: 'PATCH',
       body: data ? JSON.stringify(data) : undefined,
       ...config
@@ -469,10 +555,8 @@ export class UnifiedApiClient {
   // UTILITY METHODS
   // ============================================================================
 
-  isApiError(error: any): error is ApiError {
-    return error &&
-      typeof error.code === 'string' &&
-      typeof error.message === 'string';
+  isApiError(error: unknown): error is ApiError {
+    return isApiError(error);
   }
 
   isApiSuccess<T>(response: ApiResponse<T>): response is ApiResponse<T> & { success: true; data: T } {
@@ -487,10 +571,10 @@ export class UnifiedApiClient {
     serverSide: boolean;
   }>): UnifiedApiClient {
     return new UnifiedApiClient({
-      baseURL: overrides.baseURL || this.baseURL,
-      token: overrides.token || this.token,
-      platform: overrides.platform || this.platform,
-      serverSide: overrides.serverSide || this.isServerSide
+      baseURL: overrides.baseURL ?? this.baseURL,
+      token: overrides.token ?? this.token,
+      platform: overrides.platform ?? this.platform,
+      serverSide: overrides.serverSide ?? this.isServerSide
     });
   }
 
@@ -502,7 +586,7 @@ export class UnifiedApiClient {
     endpoint: string,
     config: RequestConfig = {}
   ): Promise<Response> {
-    const { timeout = 0, serverSide, platform, ...options } = config;
+    const { timeout = 0, serverSide: _serverSide, platform: _platform, ...options } = config;
     const url = `${this.baseURL}${endpoint}`;
 
     const baseHeaders = await this.getAuthHeaders();
@@ -527,7 +611,7 @@ export class UnifiedApiClient {
       requestConfig.signal = controller.signal;
     }
 
-    return fetch(url, requestConfig);
+    return await fetch(url, requestConfig);
   }
 }
 
@@ -579,31 +663,7 @@ export function createApiClient(baseURL?: string, token?: string): UnifiedApiCli
 // ERROR CLASSES
 // ============================================================================
 
-// ============================================================================
-// ERROR CLASSES
-// ============================================================================
-
-export class APIError extends Error implements ApiError {
-  public code: string;
-  public details?: any;
-  public status?: number; // Optional status for compatibility
-  public requestId?: string;
-
-  constructor(message: string, code = 'UNKNOWN_ERROR', status?: number, details?: any) {
-    super(message);
-    this.name = 'APIError';
-    this.code = code;
-    this.status = status;
-    this.details = details;
-  }
-
-  static fromResponse(response: { status: number; statusText: string; data?: any }): APIError {
-    const message = response.data?.message || response.data?.error?.message || `HTTP ${response.status}: ${response.statusText}`;
-    const code = response.data?.code || response.data?.error?.code || 'HTTP_ERROR';
-    const details = response.data?.details || response.data?.error?.details;
-    return new APIError(message, code, response.status, details);
-  }
-}
+// Classes moved to the top
 
 // ============================================================================
 // UTILITY FUNCTIONS FOR COMMON API PATTERNS
@@ -615,16 +675,16 @@ export class APIError extends Error implements ApiError {
 export async function handlePaginatedRequest<T>(
   client: UnifiedApiClient,
   endpoint: string,
-  params: Record<string, any> = {}
+  params: Record<string, unknown> = {}
 ): Promise<PaginatedResponse<T>> {
   const response = await client.get<PaginatedResponse<T>>(endpoint, params);
 
-  if (!response.success || !response.data) {
+  if (!response.success || response.data === null || response.data === undefined) {
+    const apiError = response.error;
     throw new APIError(
-      response.error?.message || 'Failed to fetch data',
-      response.error?.code || 'FETCH_ERROR',
-      0,
-      response.error?.details
+      apiError?.message ?? 'Failed to fetch data',
+      apiError?.code ?? 'FETCH_ERROR',
+      { status: 0, details: apiError?.details }
     );
   }
 
@@ -638,20 +698,27 @@ export async function handleSimpleRequest<T>(
   client: UnifiedApiClient,
   method: 'get' | 'post' | 'put' | 'delete' | 'patch',
   endpoint: string,
-  data?: any
+  data?: unknown
 ): Promise<T> {
   // DIAGNOSTIC LOG: Trace usage of this supposedly unused function
-  console.log(`[UnifiedApiClient] handleSimpleRequest called: ${method.toUpperCase()} ${endpoint}`);
+  logger.info(`[UnifiedApiClient] handleSimpleRequest called: ${method.toUpperCase()} ${endpoint}`);
 
-  const response = await client[method]<T>(endpoint, data);
+  let response: ApiResponse<T>;
+  if (method === 'get') {
+    response = await client.get<T>(endpoint, data as Record<string, unknown>);
+  } else if (method === 'delete') {
+    response = await client.delete<T>(endpoint, data as RequestConfig);
+  } else {
+    response = await client[method]<T>(endpoint, data);
+  }
 
-  if (!response.success || !response.data) {
-    console.error(`[UnifiedApiClient] handleSimpleRequest failed: ${response.error?.message || 'Unknown Error'}`);
+  if (response.success !== true || response.data === null || response.data === undefined) {
+    const apiError = response.error;
+    logger.error(`[UnifiedApiClient] handleSimpleRequest failed: ${apiError?.message ?? 'Unknown Error'}`);
     throw new APIError(
-      response.error?.message || 'Request failed',
-      response.error?.code || 'REQUEST_FAILED',
-      0,
-      response.error?.details
+      apiError?.message ?? 'Request failed',
+      apiError?.code ?? 'REQUEST_FAILED',
+      { status: 0, details: apiError?.details }
     );
   }
 
@@ -669,62 +736,42 @@ export async function retryRequest<T>(
   let lastResult: ApiResponse<T> | undefined;
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    try {
-      const result = await requestFn();
+    const result = await requestFn();
 
-      if (result.success) {
-        return result;
-      }
-
-      lastResult = result;
-
-      // Retry on network errors or 5xx (implied by code conventions)
-      const errorCode = result.error?.code || '';
-      const shouldRetry =
-        errorCode === 'NETWORK_ERROR' ||
-        errorCode === 'TIMEOUT' ||
-        errorCode.includes('HTTP_5') || // e.g. HTTP_500
-        errorCode === 'HTTP_429';
-
-      if (!shouldRetry) {
-        return result;
-      }
-
-      if (attempt === maxRetries) {
-        return result;
-      }
-
-      const delay = baseDelay * Math.pow(2, attempt);
-      await new Promise(resolve => setTimeout(resolve, delay));
-
-    } catch (error) {
-      throw error;
+    if (result.success) {
+      return result;
     }
+
+    lastResult = result;
+
+    // Retry on network errors or 5xx (implied by code conventions)
+    const errorCode = result.error?.code ?? '';
+    const shouldRetry =
+      errorCode === 'NETWORK_ERROR' ||
+      errorCode === 'TIMEOUT' ||
+      errorCode.includes('HTTP_5') || // e.g. HTTP_500
+      errorCode === 'HTTP_429';
+
+    if (!shouldRetry || attempt === maxRetries) {
+      return result;
+    }
+
+    const delay = baseDelay * Math.pow(2, attempt);
+    await new Promise(resolve => setTimeout(resolve, delay));
   }
 
-  return lastResult!;
+  if (!lastResult) {
+    throw new Error('Retry loop exited without result');
+  }
+
+  return lastResult;
 }
 
 // ============================================================================
 // TYPE GUARDS AND HELPERS
 // ============================================================================
 
-export function isApiError(error: any): error is ApiError {
-  return error &&
-    typeof error.code === 'string' &&
-    typeof error.message === 'string';
-}
-
-export function isApiResponse<T>(response: any): response is ApiResponse<T> {
-  return response &&
-    typeof response === 'object' &&
-    typeof response.success === 'boolean' &&
-    (response.data !== undefined || response.error !== undefined);
-}
-
-export function isPaginatedResponse<T>(data: any): data is PaginatedResponse<T> {
-  return data && typeof data === 'object' && Array.isArray(data.data) && 'pagination' in data;
-}
+export { isApiError, isApiResponse, isApiSuccess, isPaginatedResponse };
 
 // ============================================================================
 // EXPORTS

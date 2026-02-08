@@ -1,7 +1,7 @@
 class CoverageReporter {
-    onBegin(config, suite) { }
-    onTestBegin(test) { }
-    onTestEnd(test, result) { }
-    onEnd(result) { }
+    onBegin(_config, _suite) { }
+    onTestBegin(_test) { }
+    onTestEnd(_test, _result) { }
+    onEnd(_result) { }
 }
 module.exports = CoverageReporter;

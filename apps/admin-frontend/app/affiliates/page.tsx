@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
 
-import { AffiliateManagement, type Affiliate } from '@/components/affiliates/AffiliateManagement';
+import { AffiliateManagement, type Affiliate } from '@/components/affiliates/affiliate-management';
 import { PageLayout, PageSkeleton } from '@/components/shared';
 import { UnifiedAuth } from '@/lib/auth/auth';
 
@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic';
 async function AffiliatesDataWrapper(): Promise<React.JSX.Element> {
   const session = await UnifiedAuth.getSession();
 
-  if (!session?.user) {
+  if (!session.user) {
     notFound();
   }
 

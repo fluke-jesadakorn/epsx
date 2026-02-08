@@ -1,5 +1,5 @@
 import { Suspense } from 'react';
-import { AccessDenied } from '@/components/auth/AccessDenied';
+import { AccessDenied } from '@/components/auth/access-denied';
 
 interface AccessDeniedPageProps {
   searchParams: {

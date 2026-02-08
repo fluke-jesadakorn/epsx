@@ -85,7 +85,7 @@ export interface PermissionCheck {
   permission: EPSXPermission
   platform?: string
   scope?: PermissionScope
-  context?: Record<string, any>
+  context?: Record<string, unknown>
   requiresSubscription?: boolean
 }
 
@@ -144,7 +144,7 @@ export interface PermissionAssignment {
   grantedAt: number
   expiresAt?: number
   isActive: boolean
-  metadata?: Record<string, any>
+  metadata?: Record<string, unknown>
 }
 
 // ============================================================================
@@ -204,7 +204,7 @@ export interface PlatformPermissionContext {
   roles: string[]
   isPrimary: boolean
   accessLevel: PermissionScope
-  restrictions?: Record<string, any>
+  restrictions?: Record<string, unknown>
 }
 
 // ============================================================================
@@ -230,8 +230,8 @@ export interface PermissionPolicy {
   name: string
   description: string
   conditions: {
-    userAttributes?: Record<string, any>
-    timeConstraints?: Record<string, any>
+    userAttributes?: Record<string, unknown>
+    timeConstraints?: Record<string, unknown>
     platformRestrictions?: string[]
   }
   actions: {
@@ -264,8 +264,8 @@ export function isWildcardPermission(permission: EPSXPermission): boolean {
 }
 
 export function matchesPermissionPattern(permission: EPSXPermission, pattern: EPSXPermission): boolean {
-  if (pattern === permission) {return true}
-  if (!pattern.includes('*')) {return false}
+  if (pattern === permission) { return true }
+  if (!pattern.includes('*')) { return false }
 
   const permParts = permission.split(':')
   const patternParts = pattern.split(':')

@@ -1,6 +1,6 @@
 'use client';
 
-import { WalletConnectAuth } from '@/components/auth/WalletConnectAuth';
+import { WalletConnectAuth } from '@/components/auth/WalletConnectauth';
 import { useSharedAuth } from '@/shared/components/auth/Provider';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect } from 'react';

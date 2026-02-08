@@ -1,9 +1,9 @@
-import { GlobalErrorBoundary } from '@/components/error-boundaries/GlobalErrorBoundary';
+import { GlobalErrorBoundary } from '@/components/error-boundaries/Globalerror-boundary';
 import '@/lib/polyfills';
 import Script from 'next/script';
 
-import { NavigationClient } from '@/components/nav/NavigationClient';
-import { ClientProviders } from '@/components/providers/ClientProviders';
+import { NavigationClient } from '@/components/nav/navigation-client';
+import { ClientProviders } from '@/components/providers/client-providers';
 import { SharedOpenIDWeb3Provider } from '@/shared/components/auth/Provider';
 import { getServerConfig } from '@/shared/config/wagmi';
 import { initializeRuntimeEnvironment } from '@/shared/utils/runtime-env-validator';
@@ -13,7 +13,7 @@ import { Toaster } from 'sonner';
 import { cookieToInitialState } from 'wagmi';
 import './globals.css';
 
-import { SafeThemeScript } from '@/components/ui/SafeThemeScript';
+import { SafeThemeScript } from '@/components/ui/safe-theme-script';
 // Verify polyfills are active for debugging (both for server and client module load)
 if (typeof window !== 'undefined' && (Math.pow as any).__isPolyfilled) {
   console.log('[Layout] BigInt-safe Math polyfills verified active (Module)');
@@ -172,7 +172,6 @@ export default async function RootLayout({
 
               {/* Main content with mobile scroll optimization */}
               <main className="relative min-h-screen">{children}</main>
-
 
               {/* Toast notifications */}
               <Toaster

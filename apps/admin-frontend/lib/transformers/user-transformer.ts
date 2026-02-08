@@ -3,7 +3,7 @@
  * Transforms backend UserSummary data to frontend User interface
  */
 
-import type { User } from '@/shared/types/domain/User';
+import type { User } from '@/shared/types/domain/user';
 
 // Backend response interface (matches backend UserSummary)
 export interface BackendUserSummary {
@@ -42,20 +42,20 @@ export interface BackendUsersResponse {
  */
 export function transformBackendUser(backendUser: BackendUserSummary): User {
   // Use backend-provided values directly
-  const group = backendUser.group || 'user';
-  const permissions = backendUser.permissions || [];
+  const group = backendUser.group ?? 'user';
+  const permissions = backendUser.permissions;
   const platforms = derivePlatforms(permissions);
 
   return {
     // Identity mapping
     id: backendUser.id,
     walletAddress: backendUser.wallet_address,
-    email: backendUser.email || '',
+    email: backendUser.email ?? '',
     displayName: backendUser.display_name,
-    name: backendUser.display_name || 'User',
+    name: backendUser.display_name ?? 'user',
     firstName: backendUser.display_name?.split(' ')[0],
     lastName: backendUser.display_name?.split(' ').slice(1).join(' '),
-    role: (backendUser.group as unknown as 'user' | 'admin') || 'user',
+    role: (backendUser.group as unknown as ('user' | 'admin') | undefined) ?? 'user',
     phoneNumber: undefined,
     timezone: undefined,
     language: undefined,
@@ -67,7 +67,7 @@ export function transformBackendUser(backendUser: BackendUserSummary): User {
     group: group as unknown as 'Basic Access Group',
     permissionGroup: group as unknown as 'Basic Access Group',
     status: mapBackendStatus(backendUser.status, backendUser.is_active),
-    emailVerified: backendUser.email_verified || false,
+    emailVerified: backendUser.email_verified ?? false,
 
     // Timestamps
     createdAt: new Date(backendUser.created_at),
@@ -77,7 +77,7 @@ export function transformBackendUser(backendUser: BackendUserSummary): User {
     // Platform context
     permissions,
     platforms,
-    primaryPlatform: platforms[0] || 'epsx',
+    primaryPlatform: platforms[0] ?? 'epsx',
     platformContext: 'epsx',
   };
 }
@@ -148,7 +148,7 @@ export function createMockUser(overrides: Partial<BackendUserSummary> = {}): Use
     id: 'mock-user-id',
     wallet_address: '0x1234567890123456789012345678901234567890',
     email: 'user@example.com',
-    display_name: 'Mock User',
+    display_name: 'Mock user',
     group: 'user',
     status: 'active',
     is_active: true,

@@ -114,7 +114,7 @@ export const TEST_USERS: Record<string, TestUser> = {
   RESTRICTED_USER: {
     id: 'restricted-006',
     email: 'restricted@epsx.test',
-    name: 'Restricted User',
+    name: 'Restricted user',
     role: Role.Guest,
     features: [],
     description: 'Guest user for testing limited access'
@@ -137,7 +137,7 @@ export const TEST_USERS: Record<string, TestUser> = {
   TEMP_ACCESS_USER: {
     id: 'temp-user-008',
     email: 'temporary@epsx.test',
-    name: 'Temporary Access User',
+    name: 'Temporary Access user',
     role: Role.User,
     features: ['user-management'],
     description: 'User for temporary permission testing'

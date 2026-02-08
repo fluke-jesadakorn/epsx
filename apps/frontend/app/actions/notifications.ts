@@ -1,8 +1,9 @@
 'use server';
 
+import type { NotificationsResponse } from '@/shared/api/notifications';
 import { createNotificationsClient } from '@/shared/api/notifications';
+import { logger } from '@/shared/utils/logger';
 import { getServerActionClient } from '@/shared/utils/server-fetch';
-import type { NotificationFilters, NotificationsResponse } from '@/shared/api/notifications';
 
 /**
  * Get initial notifications for server-side rendering
@@ -12,7 +13,7 @@ export async function getInitialNotificationsAction(filters: {
   type?: string;
   priority?: string;
 }): Promise<NotificationsResponse> {
-  const client = await getServerActionClient();
+  const client = getServerActionClient();
   const notifications = createNotificationsClient(client);
 
   try {
@@ -23,7 +24,7 @@ export async function getInitialNotificationsAction(filters: {
       priority: filters.priority as any,
     });
   } catch (error) {
-    console.warn('Failed to fetch notifications:', error);
+    logger.warn('Failed to fetch notifications:', error);
     return {
       success: false,
       data: {
@@ -34,6 +35,10 @@ export async function getInitialNotificationsAction(filters: {
         limit: 20,
         total_pages: 0,
       },
+      error: {
+        code: 'FETCH_FAILED',
+        message: error instanceof Error ? error.message : 'Unknown error occurred',
+      },
     };
   }
 }
@@ -42,13 +47,13 @@ export async function getInitialNotificationsAction(filters: {
  * Mark notification as read
  */
 export async function markAsReadAction(notificationId: string): Promise<{ success: boolean; message: string }> {
-  const client = await getServerActionClient();
+  const client = getServerActionClient();
   const notifications = createNotificationsClient(client);
 
   try {
     return await notifications.markAsRead(notificationId);
   } catch (error) {
-    console.error('Failed to mark notification as read:', error);
+    logger.error('Failed to mark notification as read:', error);
     return { success: false, message: 'Failed to mark as read' };
   }
 }
@@ -57,13 +62,13 @@ export async function markAsReadAction(notificationId: string): Promise<{ succes
  * Mark all notifications as read
  */
 export async function markAllAsReadAction(): Promise<{ success: boolean; updated_count: number }> {
-  const client = await getServerActionClient();
+  const client = getServerActionClient();
   const notifications = createNotificationsClient(client);
 
   try {
     return await notifications.markAllAsRead();
   } catch (error) {
-    console.error('Failed to mark all notifications as read:', error);
+    logger.error('Failed to mark all notifications as read:', error);
     return { success: false, updated_count: 0 };
   }
 }
@@ -72,13 +77,13 @@ export async function markAllAsReadAction(): Promise<{ success: boolean; updated
  * Delete notification
  */
 export async function deleteNotificationAction(notificationId: string): Promise<{ success: boolean; message: string }> {
-  const client = await getServerActionClient();
+  const client = getServerActionClient();
   const notifications = createNotificationsClient(client);
 
   try {
     return await notifications.deleteNotification(notificationId);
   } catch (error) {
-    console.error('Failed to delete notification:', error);
+    logger.error('Failed to delete notification:', error);
     return { success: false, message: 'Failed to delete notification' };
   }
 }
@@ -87,13 +92,13 @@ export async function deleteNotificationAction(notificationId: string): Promise<
  * Clear all notifications
  */
 export async function clearAllNotificationsAction(): Promise<{ success: boolean; deleted_count: number }> {
-  const client = await getServerActionClient();
+  const client = getServerActionClient();
   const notifications = createNotificationsClient(client);
 
   try {
     return await notifications.clearAllNotifications();
   } catch (error) {
-    console.error('Failed to clear all notifications:', error);
+    logger.error('Failed to clear all notifications:', error);
     return { success: false, deleted_count: 0 };
   }
 }

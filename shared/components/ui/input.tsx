@@ -1,4 +1,4 @@
-import { cn } from "@/shared/utils/cn";
+import { cn } from "@shared/utils/cn";
 import { cva, type VariantProps } from "class-variance-authority";
 import * as React from "react";
 

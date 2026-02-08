@@ -199,6 +199,8 @@ export const FREE_PLAN_TIER_LEVEL = 0;
 /** Free Plan rankings limit */
 export const FREE_PLAN_RANKINGS_LIMIT = 5;
 
+/** EVM Address format description */
+const EVM_ADDRESS_FORMAT = "42-character string, beginning with '0x'";
 
 // ============================================================================
 // SUPPORTED CRYPTO ASSETS
@@ -222,7 +224,7 @@ export const SUPPORTED_ASSETS: AssetInfo[] = [
     chain: 'Ethereum',
     decimals: 6,
     depositThreshold: 1,
-    addressFormat: '42-character string, beginning with \'0x\'',
+    addressFormat: EVM_ADDRESS_FORMAT,
     contract_address: '0xdAC17F958D2ee523a2206206994597C13D831ec7'
   },
   {
@@ -232,7 +234,7 @@ export const SUPPORTED_ASSETS: AssetInfo[] = [
     chain: 'Binance Smart Chain',
     decimals: 18,
     depositThreshold: 1,
-    addressFormat: '42-character string, beginning with \'0x\'',
+    addressFormat: EVM_ADDRESS_FORMAT,
     contract_address: '0x55d398326f99059fF775485246999027B3197955'
   },
   {
@@ -242,7 +244,7 @@ export const SUPPORTED_ASSETS: AssetInfo[] = [
     chain: 'Arbitrum',
     decimals: 6,
     depositThreshold: 1,
-    addressFormat: '42-character string, beginning with \'0x\'',
+    addressFormat: EVM_ADDRESS_FORMAT,
     contract_address: '0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9'
   },
   {
@@ -252,7 +254,7 @@ export const SUPPORTED_ASSETS: AssetInfo[] = [
     chain: 'Ethereum',
     decimals: 6,
     depositThreshold: 1,
-    addressFormat: '42-character string, beginning with \'0x\'',
+    addressFormat: EVM_ADDRESS_FORMAT,
     contract_address: '0xA0b86a33E6441E95C5a7D2fAF8c8d11e8c38CE8D'
   },
   {
@@ -262,7 +264,7 @@ export const SUPPORTED_ASSETS: AssetInfo[] = [
     chain: 'Arbitrum',
     decimals: 6,
     depositThreshold: 1,
-    addressFormat: '42-character string, beginning with \'0x\'',
+    addressFormat: EVM_ADDRESS_FORMAT,
     contract_address: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831'
   }
 ] as const;
@@ -368,9 +370,6 @@ export function getBlockchainConfig(): BlockchainNetwork {
   const isMainnet = process.env.NEXT_PUBLIC_BLOCKCHAIN_NETWORK === 'mainnet';
   const mainnet = BLOCKCHAIN_NETWORKS.BSC_MAINNET;
   const testnet = BLOCKCHAIN_NETWORKS.BSC_TESTNET;
-  if (!mainnet || !testnet) {
-    throw new Error('Blockchain network configuration not found');
-  }
   return isMainnet ? mainnet : testnet;
 }
 
@@ -589,9 +588,6 @@ export function getAssetInfo(currency: CurrencyType): AssetInfo | undefined {
  */
 export function isFeatureEnabled(flag: keyof typeof FEATURE_FLAGS): boolean {
   const config = FEATURE_FLAGS[flag];
-  if (!config) {
-    return false;
-  }
 
   // Check environment restriction
   if (config.environments) {
@@ -625,7 +621,7 @@ export function getExplorerUrl(txHash: string, currency: CurrencyType): string {
 
   if (currency.includes('TRC20')) {
     const tronNetwork = BLOCKCHAIN_NETWORKS.TRON_MAINNET;
-    return tronNetwork ? `${tronNetwork.explorerUrl}${txHash}` : `https://tronscan.org/#/transaction/${txHash}`;
+    return `${tronNetwork.explorerUrl}${txHash}`;
   }
 
   return `${network.explorerUrl}${txHash}`;

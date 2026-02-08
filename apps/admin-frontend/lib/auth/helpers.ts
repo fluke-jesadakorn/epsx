@@ -5,10 +5,11 @@
 
 'use client';
 
-import {
+import type {
   AdminSessionData,
   AdminUserProfile,
-  SecurityContext,
+  SecurityContext} from '@/types/auth-separation';
+import {
   isAdminSession,
   isAdminUser,
 } from '@/types/auth-separation';

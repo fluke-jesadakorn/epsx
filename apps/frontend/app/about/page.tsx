@@ -1,5 +1,5 @@
-import { Metadata } from 'next';
-import DataTechSection from '@/components/about/DataTechSection';
+import type { Metadata } from 'next';
+import DataTechSection from '@/components/about/data-tech-section';
 
 export const metadata: Metadata = {
   title: 'About Us - EPSX Analytics Platform',

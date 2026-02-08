@@ -302,70 +302,67 @@ export function isFeatureEnabled(
   context: FeatureFlagContext = {}
 ): boolean {
   const config = FEATURE_FLAGS[flag];
-  if (!config) {return false;}
 
-  // Check if feature is deprecated
-  if (config.deprecatedAt) {
-    const deprecatedDate = new Date(config.deprecatedAt);
-    if (Date.now() > deprecatedDate.getTime()) {
-      console.warn(`Feature flag '${flag}' is deprecated as of ${config.deprecatedAt}`);
-    }
-  }
+  if (!checkStatus(config)) { return false; }
+  if (!checkEnvironment(config, context.environment)) { return false; }
+  if (!checkRoleRestrictions(config, context)) { return false; }
+  if (!checkPermissions(config, context.userPermissions)) { return false; }
+  if (!checkRollout(config, flag, context.userId)) { return false; }
 
-  // Check if feature is removed
-  if (config.removedAt) {
-    const removedDate = new Date(config.removedAt);
-    if (Date.now() > removedDate.getTime()) {
-      return false;
-    }
-  }
+  return checkOverrides(flag, config.defaultValue);
+}
 
-  // Check environment restriction
-  const currentEnv = (context.environment || process.env.NODE_ENV) as 'development' | 'staging' | 'production';
-  if (config.environments && !config.environments.includes(currentEnv)) {
+function checkStatus(config: FeatureFlagConfig): boolean {
+  return !(config.removedAt && Date.now() > new Date(config.removedAt).getTime());
+}
+
+function checkEnvironment(config: FeatureFlagConfig, env?: string): boolean {
+  const currentEnv = (env ?? process.env.NODE_ENV) as 'development' | 'staging' | 'production';
+  return !config.environments || config.environments.includes(currentEnv);
+}
+
+function checkRoleRestrictions(config: FeatureFlagConfig, context: FeatureFlagContext): boolean {
+  if (config.enabledForAdmin && !context.isAdmin) { return false; }
+  if (config.enabledForUsers && context.isAdmin) { return false; }
+  return true;
+}
+
+function checkPermissions(config: FeatureFlagConfig, currentPermissions?: string[]): boolean {
+  if (config.requiredPermissions && !hasRequiredPermissions(config.requiredPermissions, currentPermissions)) {
     return false;
   }
+  return true;
+}
 
-  // Check admin-only features
-  if (config.enabledForAdmin === true && !context.isAdmin) {
-    return false;
-  }
-
-  // Check user-only features  
-  if (config.enabledForUsers === true && context.isAdmin) {
-    return false;
-  }
-
-  // Check required permissions
-  if (config.requiredPermissions && context.userPermissions) {
-    const hasRequiredPermissions = config.requiredPermissions.some(permission =>
-      context.userPermissions?.includes(permission) ||
-      context.userPermissions?.includes('admin:*:*') ||
-      context.userPermissions?.includes('epsx:*:*')
-    );
-    if (!hasRequiredPermissions) {
-      return false;
-    }
-  }
-
-  // Check rollout percentage
+function checkRollout(config: FeatureFlagConfig, flag: string, userId?: string): boolean {
   if (config.rolloutPercentage !== undefined) {
-    const userId = context.userId || 'anonymous';
-    const hash = simpleHash(userId + flag);
+    const id = userId ?? 'anonymous';
+    const hash = simpleHash(id + flag);
     const percentage = (hash % 100) + 1;
-    if (percentage > config.rolloutPercentage) {
-      return false;
-    }
+    return percentage <= config.rolloutPercentage;
   }
+  return true;
+}
 
-  // Check environment variable override (highest priority)
+function checkOverrides(flag: string, defaultValue: boolean): boolean {
   const envVar = `NEXT_PUBLIC_ENABLE_${flag.toUpperCase()}`;
   const envValue = process.env[envVar];
-  if (envValue !== undefined) {
+  if (envValue) {
     return envValue.toLowerCase() === 'true';
   }
+  return defaultValue;
+}
 
-  return config.defaultValue;
+/**
+ * Helper to check if context has required permissions
+ */
+function hasRequiredPermissions(required: string[], current?: string[]): boolean {
+  if (!current) { return false; }
+  return required.some(permission =>
+    current.includes(permission) ||
+    current.includes('admin:*:*') ||
+    current.includes('epsx:*:*')
+  );
 }
 
 /**
@@ -395,12 +392,10 @@ export function getAllFeatureFlags(): Record<string, FeatureFlagConfig> {
  * Check if user can toggle a feature flag (admin only)
  */
 export function canToggleFeature(flag: keyof typeof FEATURE_FLAGS, context: FeatureFlagContext): boolean {
-  if (!context.isAdmin) {return false;}
+  if (!context.isAdmin) { return false; }
 
-  const hasPermission = context.userPermissions?.includes('admin:system:manage') ||
-    context.userPermissions?.includes('admin:*:*');
-
-  return hasPermission || false;
+  return (context.userPermissions?.includes('admin:system:manage') ??
+    context.userPermissions?.includes('admin:*:*')) ?? false;
 }
 
 /**
@@ -460,8 +455,8 @@ export function createFeatureContext(
     userId,
     userPermissions,
     isAdmin,
-    environment: (process.env.NODE_ENV as 'development' | 'staging' | 'production') || 'development',
-    userAgent: typeof window !== 'undefined' ? window.navigator?.userAgent : undefined
+    environment: (process.env.NODE_ENV as 'development' | 'staging' | 'production'),
+    userAgent: typeof window !== 'undefined' ? window.navigator.userAgent : undefined
   };
 }
 
@@ -495,8 +490,8 @@ export function getDeprecatedFeatures(): Array<{ flag: string; config: FeatureFl
  */
 export function getFeaturesByRollout(): Array<{ flag: string; percentage: number; config: FeatureFlagConfig }> {
   return Object.entries(FEATURE_FLAGS)
-    .filter(([_, config]) => config.rolloutPercentage !== undefined)
-    .map(([flag, config]) => ({ flag, percentage: config.rolloutPercentage!, config }));
+    .filter((entry): entry is [string, FeatureFlagConfig & { rolloutPercentage: number }] => entry[1].rolloutPercentage !== undefined)
+    .map(([flag, config]) => ({ flag, percentage: config.rolloutPercentage, config }));
 }
 
 /**

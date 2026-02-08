@@ -4,7 +4,7 @@ import React, { createContext, useContext, useMemo, useState } from 'react'
 
 type RootState = Record<string, unknown>
 
-type AppStateContextValue = {
+interface AppStateContextValue {
     state: RootState
     setState: React.Dispatch<React.SetStateAction<RootState>>
 }
@@ -28,7 +28,7 @@ export function AppStateProvider({
 export function useAppState() {
     const ctx = useContext(AppStateContext)
     if (!ctx) {
-        throw new Error('useAppState must be used within an AppStateProvider')
+        throw new Error('useAppState must be used within an Appstate-provider')
     }
     return ctx
 }

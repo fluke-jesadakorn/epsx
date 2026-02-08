@@ -52,7 +52,7 @@ export interface PaymentContext {
   expires_at?: string;            // Default: 24 hours from creation
   max_uses?: number;              // Default: null (multi-use)
   current_uses: number;
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -71,7 +71,7 @@ export interface CreatePaymentLinkRequest {
   currency: string;
   expires_at?: string;            // Default: 24 hours from creation
   max_uses?: number;              // Default: null (multi-use)
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 /**
@@ -85,7 +85,7 @@ export interface UpdatePaymentLinkRequest {
   expires_at?: string | null;
   max_uses?: number | null;
   is_active?: boolean;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 /**
@@ -189,9 +189,9 @@ export interface UserSubscription {
   created_at: string;
   updated_at: string;
   auto_renew: boolean;
-  current_usage: Record<string, any>;
-  quota_limits: Record<string, any>;
-  metadata?: Record<string, any>;
+  current_usage: Record<string, unknown>;
+  quota_limits: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
   access_context: string;
   api_key?: string;
   api_key_name?: string;

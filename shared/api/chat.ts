@@ -27,7 +27,7 @@ export interface ChatRequest {
 
 export interface ChatResponse {
     message: Message;
-    usage: {
+    usage?: {
         totalTokens: number;
         promptTokens: number;
         completionTokens: number;
@@ -57,8 +57,8 @@ export class ChatApi {
     private buildRequest(messages: Message[], opts?: ChatOptions): ChatRequest {
         return {
             messages,
-            temperature: opts?.temp || 0.7,
-            maxTokens: opts?.maxTokens || 1000,
+            temperature: opts?.temp ?? 0.7,
+            maxTokens: opts?.maxTokens ?? 1000,
         };
     }
 
@@ -78,13 +78,13 @@ export class ChatApi {
             throw new Error(`Chat API error: ${response.status}`);
         }
 
-        const result = await response.json();
+        const result = (await response.json()) as ChatResponse;
         return {
             message: {
                 role: 'assistant',
                 content: result.message.content,
             },
-            usage: result.usage || {
+            usage: result.usage ?? {
                 totalTokens: 0,
                 promptTokens: 0,
                 completionTokens: 0,
@@ -102,7 +102,7 @@ export class ChatApi {
             throw new Error(`Chat history API error: ${response.status}`);
         }
 
-        const data: ChatHistoryResponse = await response.json();
+        const data = (await response.json()) as ChatHistoryResponse;
         return data.messages;
     }
 

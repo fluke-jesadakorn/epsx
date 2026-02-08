@@ -38,7 +38,7 @@ test.describe('Navigation and Layout - E2E', () => {
     test('should navigate to permissions', async ({ page }) => {
       await page.goto(ADMIN_URL);
 
-      const permissionsLink = page.locator('a:has-text("Permission"), a[href*="permission"]').first();
+      const permissionsLink = page.locator('a:has-text("permission"), a[href*="permission"]').first();
       if (await permissionsLink.isVisible()) {
         await permissionsLink.click();
         await page.waitForURL('**/permission**', { timeout: 5000 });
@@ -123,7 +123,7 @@ test.describe('Navigation and Layout - E2E', () => {
     });
   });
 
-  test.describe('Header', () => {
+  test.describe('header', () => {
     test('should display header with logo', async ({ page }) => {
       await page.goto(ADMIN_URL);
 
@@ -261,13 +261,13 @@ test.describe('Navigation and Layout - E2E', () => {
     test('should display access denied page', async ({ page }) => {
       await page.goto(`${ADMIN_URL}/access-denied`);
 
-      await page.waitForSelector('text=Access Denied, text=Unauthorized, text=Permission', { timeout: 10000 });
+      await page.waitForSelector('text=Access Denied, text=Unauthorized, text=permission', { timeout: 10000 });
     });
 
     test('should display unauthorized page', async ({ page }) => {
       await page.goto(`${ADMIN_URL}/unauthorized`);
 
-      await page.waitForSelector('text=Unauthorized, text=Access, text=Permission', { timeout: 10000 });
+      await page.waitForSelector('text=Unauthorized, text=Access, text=permission', { timeout: 10000 });
     });
   });
 

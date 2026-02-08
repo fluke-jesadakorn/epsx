@@ -11,12 +11,12 @@ import type {
   UserProfile, 
   AdminUserProfile, 
   BaseUser
-} from './User'
+} from './user'
 import type {
   UserSessionData,
   AdminSessionData,
   WalletSessionData
-} from './Session'
+} from './session'
 import type {
   UserJWTPayload,
   AdminJWTPayload,
@@ -25,13 +25,13 @@ import type {
   LoginResponse,
   Web3AuthResponse,
   RegistrationResponse
-} from './Auth'
+} from './auth'
 import type {
   EPSXPermission,
   PermissionTemplate,
   PermissionRole,
   Permission
-} from './Permission'
+} from './permission'
 
 // ============================================================================
 // USER DOMAIN TYPES
@@ -89,7 +89,7 @@ export type {
   UnifiedUserData,
   SessionData as UserSessionData_Legacy,
   SubscriptionTier
-} from './User'
+} from './user'
 
 // ============================================================================
 // PERMISSION DOMAIN TYPES
@@ -131,7 +131,7 @@ export type {
   matchesPermissionPattern,
   resolveUserPermissions,
   hasEffectivePermission
-} from './Permission'
+} from './permission'
 
 // ============================================================================
 // SESSION DOMAIN TYPES
@@ -191,7 +191,7 @@ export type {
   AdminSession,
   SessionResult,
   SessionCache
-} from './Session'
+} from './session'
 
 // ============================================================================
 // AUTHENTICATION DOMAIN TYPES
@@ -269,7 +269,7 @@ export type {
   AdminClaims,
   AuthState as AuthState_Legacy,
   AuthResult
-} from './Auth'
+} from './auth'
 
 // ============================================================================
 // CONVENIENCE TYPE UNIONS
@@ -311,12 +311,12 @@ export const DomainTypes = {
   User: {
     Core: 'UserProfile' as const,
     Admin: 'AdminUserProfile' as const,
-    Session: 'UserSession' as const,
+    Session: 'Usersession' as const,
     Analytics: 'UserAnalyticsAccess' as const,
     Trading: 'UserTradingAccess' as const
   },
   Permission: {
-    Core: 'EPSXPermission' as const,
+    Core: 'EPSXpermission' as const,
     Template: 'PermissionTemplate' as const,
     Role: 'PermissionRole' as const,
     Validation: 'PermissionValidation' as const,

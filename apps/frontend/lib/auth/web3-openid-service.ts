@@ -12,10 +12,11 @@
  */
 
 import { logger } from '@/lib/shared';
-import {
-  openidApiClient,
+import type {
   UserInfoResponse,
-  Web3AuthRequest,
+  Web3AuthRequest} from './api-client';
+import {
+  openidApiClient
 } from './api-client';
 
 // Web3 Challenge Response

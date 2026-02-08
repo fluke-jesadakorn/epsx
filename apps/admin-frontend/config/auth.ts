@@ -6,13 +6,14 @@
 
 import { ROUTES } from '../lib/route-compatibility';
 
-import {
+import type {
   AuthFeatures,
   ProgressiveAuthState,
   SessionConfig,
   // Web3 Auth configuration types
   AuthConfig as SharedAuthConfig,
-  Web3Config,
+  Web3Config} from '@/shared/config/auth';
+import {
   buildLogoutUrl,
   // Web3 URL builders
   buildWeb3ChallengeUrl,

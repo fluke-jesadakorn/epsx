@@ -1,7 +1,7 @@
-import { GlobalAuthGuard } from '@/components/auth/GlobalAuthGuard';
+import { GlobalAuthGuard } from '@/components/auth/global-auth-guard';
 import { getCurrentUser } from '@/lib/server-actions';
 import { getDebugSessionInfo } from '@/lib/server-actions-user';
-import { PaymentClient } from '../../PaymentClient';
+import { PaymentClient } from '../../payment-client';
 
 export const dynamic = 'force-dynamic';
 
@@ -49,7 +49,7 @@ function getThemeConfig(type: PaymentType) {
                 decorGradient3: 'from-orange-400/30 to-amber-500/30',
                 headingGradient: 'from-amber-600 via-orange-600 to-rose-600',
                 icon: '🔑',
-                title: 'Unlock Permission',
+                title: 'Unlock permission',
                 description: 'Purchase specific access rights for advanced features',
             };
         case 'link':

@@ -258,4 +258,3 @@ async function setupTestEnvironment(): Promise<void> {
   global.TEST_CONFIG = testEnv;
 }
 
-export { };

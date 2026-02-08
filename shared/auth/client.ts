@@ -12,6 +12,7 @@
  * - Display exactly what backend tells us to display
  */
 
+import { logger } from '../utils/logger';
 import {
   clearClientSideCookies,
   COOKIES,
@@ -86,6 +87,19 @@ export interface UnifiedApiResponse<T = unknown> {
   };
 }
 
+export interface AuthVerifyResult {
+  success: boolean;
+  authenticated: boolean;
+  message?: string;
+  error?: string;
+  access_token: string;
+  refresh_token?: string;
+  expires_in?: number;
+  wallet_address: string;
+  tier_level?: string;
+  permissions?: string[];
+}
+
 /**
  * Shared Web3 Authentication Client
  * Used by both frontend and admin-frontend applications
@@ -112,11 +126,9 @@ export class SharedWeb3AuthClient {
   // ============================================================================
 
   isAuthenticated(): boolean {
-    return !!(
-      this.accessToken &&
-      this.tokenExpiry &&
-      this.tokenExpiry > Date.now()
-    );
+    return Boolean(this.accessToken !== null && this.accessToken !== '' &&
+      this.tokenExpiry !== null &&
+      this.tokenExpiry > Date.now());
   }
 
   getCurrentUser(): UserInfoResponse | null {
@@ -140,77 +152,76 @@ export class SharedWeb3AuthClient {
     if (typeof window === 'undefined') { return; }
 
     try {
-      // Load access token from cookies
-      const accessToken = getClientCookie(COOKIES.access_token);
-      if (accessToken) {
-        this.accessToken = accessToken;
-      } else {
-        this.accessToken = null;
-      }
-
-      // Load refresh token from cookies
-      this.refreshToken = getClientCookie(COOKIES.refresh_token);
-
-      // Load expiry from cookies
+      // Load basic tokens
+      this.accessToken = getClientCookie(COOKIES.access_token) ?? null;
+      this.refreshToken = getClientCookie(COOKIES.refresh_token) ?? null;
       const expiry = getClientCookie(COOKIES.expires_at);
-      this.tokenExpiry = expiry ? parseInt(expiry, 10) : null;
+      this.tokenExpiry = (expiry !== null && expiry !== '') ? parseInt(expiry, 10) : null;
 
-      // Load user from cookies
-      let storedUser = getClientCookieJSON<UserInfoResponse>(COOKIES.user);
+      // Load user
+      this.loadUserFromCookies();
 
-      // Fallback: decode user from JWT if cookie missing but token exists
-      if (!storedUser && this.accessToken) {
-        try {
-          const payloadPart = this.accessToken.split('.')[1];
-          if (payloadPart) {
-            const payload = JSON.parse(atob(payloadPart));
-            if (payload.sub?.startsWith('0x')) {
-              console.log('[AUTH] Decoded user identity from Access Token');
-              storedUser = {
-                sub: payload.sub,
-                wallet_address: payload.sub,
-                tier_level: payload.package_tier ?? payload.tier_level ?? 'basic',
-                auth_method: 'web3_siwe',
-                permissions: (payload.permissions as string[]) ?? [],
-                access: this.accessToken
-              };
-            }
-          }
-        } catch (_e) {
-          console.warn('Failed to decode access token for user recovery', _e);
-        }
-      }
-
-      if (storedUser) {
-        this.user = storedUser;
-      }
-
-      console.log('[AUTH] SharedWeb3AuthClient: Initial cookie state loaded', {
+      logger.info('[AUTH] SharedWeb3AuthClient: Initial cookie state loaded', {
         clientId: this.clientId,
-        hasAccessToken: !!this.accessToken,
-        hasUser: !!this.user,
-        wallet: this.user?.wallet_address?.slice(0, 8),
+        hasAccessToken: Boolean(this.accessToken),
+        hasUser: Boolean(this.user),
+        wallet: this.user?.wallet_address.slice(0, 8),
         isExpired: this.isExpired(),
-        source: storedUser ? 'cookie' : (this.accessToken ? 'jwt' : 'none')
       });
     } catch (error) {
-      console.warn('Failed to load tokens from cookies', { error });
+      logger.warn('Failed to load tokens from cookies', { error });
     }
+  }
+
+  private loadUserFromCookies(): void {
+    let storedUser = getClientCookieJSON<UserInfoResponse>(COOKIES.user);
+
+    // Fallback: decode user from JWT if cookie missing but token exists
+    if (!storedUser && this.accessToken !== null && this.accessToken !== '') {
+      storedUser = this.decodeUserFromToken(this.accessToken);
+    }
+
+    if (storedUser) {
+      this.user = storedUser;
+    }
+  }
+
+  private decodeUserFromToken(token: string): UserInfoResponse | null {
+    try {
+      const payloadPart = token.split('.')[1];
+      if (!payloadPart) { return null; }
+
+      const payload = JSON.parse(atob(payloadPart)) as Record<string, unknown>;
+      if (typeof payload.sub === 'string' && payload.sub.startsWith('0x')) {
+        logger.info('[AUTH] Decoded user identity from Access Token');
+        return {
+          sub: payload.sub,
+          wallet_address: payload.sub,
+          tier_level: (payload.package_tier as string | undefined) ?? (payload.tier_level as string | undefined) ?? 'basic',
+          auth_method: 'web3_siwe',
+          permissions: Array.isArray(payload.permissions) ? (payload.permissions as string[]) : [],
+          access: token
+        };
+      }
+    } catch (e) {
+      logger.warn('Failed to decode access token for user recovery', e);
+    }
+    return null;
   }
 
   private saveTokensToStorage(): void {
     if (typeof window === 'undefined') { return; }
 
     try {
-      if (this.accessToken) {
+      if (this.accessToken !== null && this.accessToken !== '') {
         setClientCookie(COOKIES.access_token, this.accessToken, this.tokenExpiry ? Math.floor((this.tokenExpiry - Date.now()) / 1000) : 3600);
       }
 
-      if (this.refreshToken) {
+      if (this.refreshToken !== null && this.refreshToken !== '') {
         setClientCookie(COOKIES.refresh_token, this.refreshToken, 2592000); // 30 days
       }
 
-      if (this.tokenExpiry) {
+      if (this.tokenExpiry !== null) {
         setClientCookie(COOKIES.expires_at, this.tokenExpiry.toString(), 2592000);
       }
 
@@ -218,12 +229,12 @@ export class SharedWeb3AuthClient {
         setClientCookieJSON(COOKIES.user, this.user, 2592000);
       }
 
-      console.log('[AUTH] Client: Session state updated and cookies set', {
+      logger.info('[AUTH] Client: Session state updated and cookies set', {
         clientId: this.clientId,
-        hasUser: !!this.user,
+        hasUser: Boolean(this.user),
       });
     } catch (error) {
-      console.warn('Failed to save tokens to cookies', { error });
+      logger.warn('Failed to save tokens to cookies', { error });
     }
   }
 
@@ -240,10 +251,9 @@ export class SharedWeb3AuthClient {
       // Also clear shared cookies
       clearClientSideCookies();
     } catch (error) {
-      console.warn('Failed to clear tokens from cookies', { error });
+      logger.warn('Failed to clear tokens from cookies', { error });
     }
   }
-
 
   // ============================================================================
   // WEB3 AUTHENTICATION FLOW
@@ -258,14 +268,14 @@ export class SharedWeb3AuthClient {
     const cached = this.challengeCache.get(cacheKey);
 
     // Return cached promise if request is in-flight or recent (within 60s)
-    if (cached && (now - cached.timestamp) < 60000) {
-      console.log('[AUTH] Reusing existing challenge request');
+    if (cached !== undefined && (now - cached.timestamp) < 60000) {
+      logger.info('[AUTH] Reusing existing challenge request');
       return cached.promise;
     }
 
     const challengeUrl = `${this.backendUrl}/api/auth/web3/challenge`;
 
-    console.log('[AUTH] Requesting Web3 challenge', {
+    logger.info('[AUTH] Requesting Web3 challenge', {
       url: challengeUrl,
       wallet_address: walletAddress,
       backend_url: this.backendUrl,
@@ -285,7 +295,7 @@ export class SharedWeb3AuthClient {
           signal: AbortSignal.timeout(10000), // 10s timeout
         });
 
-        console.log('[AUTH] Challenge response received', {
+        logger.info('[AUTH] Challenge response received', {
           status: response.status,
           ok: response.ok,
           statusText: response.statusText,
@@ -293,80 +303,11 @@ export class SharedWeb3AuthClient {
         });
 
         if (!response.ok) {
-          let errorData: unknown = null;
-          let errorMessage = `Challenge request failed: ${response.status} ${response.statusText}`;
-
-          // Read the response body only once
-          const contentType = response.headers.get('content-type');
-          try {
-            if (response.status === 404) {
-              // Specific error for 404 - endpoint not found
-              errorMessage = 'Authentication endpoint not found. The backend may need to be updated with Web3 authentication routes.';
-            } else if (contentType?.includes('application/json')) {
-              errorData = await response.json();
-              errorMessage = (errorData as { message?: string })?.message ?? errorMessage;
-            } else {
-              const errorText = await response.text();
-              errorMessage = `Challenge request failed: ${response.status} ${response.statusText}. ${errorText}`;
-              errorData = { text: errorText };
-            }
-          } catch (bodyReadError) {
-            console.warn('Failed to read error response body:', bodyReadError);
-            // Use only status information if body reading fails
-            if (response.status === 404) {
-              errorMessage = 'Authentication endpoint not found. The backend may need to be updated with Web3 authentication routes.';
-            }
-          }
-
-          // Special handling for 404 - likely route configuration issue
-          let errorDetails: {
-            url: string;
-            status: number;
-            statusText: string;
-            headers: Record<string, string>;
-            errorData: unknown;
-            troubleshooting: string;
-            requestBody: { wallet_address: string };
-            backendUrl: string;
-          };
-
-          if (response.status === 404) {
-            errorDetails = {
-              url: challengeUrl,
-              status: response.status,
-              statusText: response.statusText,
-              headers: Object.fromEntries(response.headers.entries()),
-              errorData,
-              troubleshooting: 'Authentication endpoint not found. The backend may need to be updated with the correct Web3 authentication routes (/api/auth/web3/*).',
-              requestBody: {
-                wallet_address: walletAddress,
-              },
-              backendUrl: this.backendUrl,
-            };
-
-            console.error('[AUTH] Error: Web3 challenge endpoint not found (404)', errorDetails);
-          } else {
-            errorDetails = {
-              url: challengeUrl,
-              status: response.status,
-              statusText: response.statusText,
-              headers: Object.fromEntries(response.headers.entries()),
-              errorData,
-              troubleshooting: this.getTroubleshootingHints(response.status),
-              requestBody: {
-                wallet_address: walletAddress,
-              },
-              backendUrl: this.backendUrl,
-            };
-
-            console.error('[AUTH] Error: Challenge request failed with full details:', errorDetails);
-          }
-
-          throw new Error(errorMessage);
+          await this.handleChallengeError(response, { url: challengeUrl, walletAddress });
         }
 
-        const challengeData = await response.json();
-        console.log('[AUTH] Challenge request successful', challengeData);
+        const challengeData = (await response.json()) as Web3ChallengeResponse;
+        logger.info('[AUTH] Challenge request successful', challengeData);
 
         // Clear cache after success
         setTimeout(() => this.challengeCache.delete(cacheKey), 60000);
@@ -391,7 +332,7 @@ export class SharedWeb3AuthClient {
         }
 
         const enhancedError = new Error(errorMessage);
-        console.error('[AUTH] Error: Challenge request', {
+        logger.error('[AUTH] Error: Challenge request', {
           url: challengeUrl,
           backend_url: this.backendUrl,
           original_error: error,
@@ -407,6 +348,68 @@ export class SharedWeb3AuthClient {
     this.challengeCache.set(cacheKey, { promise: challengePromise, timestamp: now });
 
     return challengePromise;
+  }
+
+  private async handleChallengeError(
+    response: Response,
+    context: { url: string; walletAddress: string; initialErrorData?: unknown }
+  ): Promise<never> {
+    const { url, walletAddress, initialErrorData } = context;
+    let errorData = initialErrorData ?? null;
+    let errorMessage = `Challenge request failed: ${response.status} ${response.statusText}`;
+
+    // Read the response body only once if not provided
+    if (!errorData) {
+      const contentType = response.headers.get('content-type');
+      try {
+        if (response.status === 404) {
+          errorMessage =
+            errorMessage =
+            'Authentication endpoint not found. The backend may need to be updated with Web3 authentication routes.';
+        } else if (contentType !== null && contentType.includes('application/json')) {
+          errorData = await response.json();
+          errorMessage =
+            (errorData as { message?: string }).message ?? errorMessage;
+        } else {
+          const errorText = await response.text();
+          errorMessage = `Challenge request failed: ${response.status} ${response.statusText}. ${errorText}`;
+          errorData = { text: errorText };
+        }
+      } catch (bodyReadError) {
+        logger.warn('Failed to read error response body:', bodyReadError);
+        if (response.status === 404) {
+          errorMessage =
+            'Authentication endpoint not found. The backend may need to be updated with Web3 authentication routes.';
+        }
+      }
+    }
+
+    const errorDetails = {
+      url,
+      status: response.status,
+      statusText: response.statusText,
+      headers: Object.fromEntries(response.headers.entries()),
+      errorData,
+      troubleshooting: this.getTroubleshootingHints(response.status),
+      requestBody: {
+        wallet_address: walletAddress,
+      },
+      backendUrl: this.backendUrl,
+    };
+
+    if (response.status === 404) {
+      logger.error(
+        '[AUTH] Error: Web3 challenge endpoint not found (404)',
+        errorDetails
+      );
+    } else {
+      logger.error(
+        '[AUTH] Error: Challenge request failed with full details:',
+        errorDetails
+      );
+    }
+
+    throw new Error(errorMessage);
   }
 
   /**
@@ -435,149 +438,97 @@ export class SharedWeb3AuthClient {
     message: string;
     nonce: string;
   }): Promise<{ success: boolean; user?: UserInfoResponse; error?: string }> {
-    // Prevent parallel authentication attempts
     if (this.authInProgress) {
-      return {
-        success: false,
-        error: 'Authentication already in progress. Please wait.',
-      };
+      return { success: false, error: 'Authentication already in progress. Please wait.' };
     }
 
     this.authInProgress = true;
 
     try {
-      // Call backend verify endpoint directly
       const response = await fetch(`${this.backendUrl}/api/auth/web3/verify`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(request),
-        signal: AbortSignal.timeout(15000), // 15s timeout for verification
+        signal: AbortSignal.timeout(15000),
       });
 
       if (!response.ok) {
-        let errorData: unknown = null;
-        let errorMessage = 'Verification failed';
-
-        try {
-          errorData = await response.json();
-          const errorPayload = errorData as { message?: string; error?: string };
-          errorMessage = errorPayload.message ?? errorPayload.error ?? `Verification failed: ${response.status} ${response.statusText}`;
-        } catch (_parseError) {
-          errorMessage = `Verification failed: ${response.status} ${response.statusText}`;
-        }
-
-        // Special handling for 404 - likely route configuration issue
-        if (response.status === 404) {
-          errorMessage = `Authentication endpoint not found. The backend may need to be updated with the correct Web3 authentication routes.`;
-          console.error('[AUTH] Error: Web3 authentication endpoint not found (404)', {
-            status: response.status,
-            statusText: response.statusText,
-            url: `${this.backendUrl}/api/auth/web3/verify`,
-            wallet_address: request.wallet_address,
-            troubleshooting: 'Check if backend has correct Web3 authentication routes deployed'
-          });
-        } else {
-          console.error('Web3 verification HTTP error', {
-            status: response.status,
-            statusText: response.statusText,
-            errorData,
-            wallet_address: request.wallet_address
-          });
-        }
-
-        throw new Error(errorMessage);
+        await this.handleAuthResponseError(response, request.wallet_address);
       }
 
-      const result = (await response.json()) as {
-        success?: boolean;
-        authenticated?: boolean;
-        message?: string;
-        error?: string;
-        access_token: string;
-        refresh_token?: string;
-        expires_in?: number;
-        wallet_address: string;
-        tier_level?: string;
-        permissions?: string[];
-      };
+      const result = (await response.json()) as AuthVerifyResult;
+      this.validateAuthResult(result, request.wallet_address);
+      this.updateStateFromAuthResult(result);
 
-      // Check if authentication was successful
-      if (!result.success || !result.authenticated) {
-        const errorMsg = result.message ?? result.error ?? 'Authentication failed';
-        console.error('Web3 authentication failed in backend', {
-          success: result.success,
-          authenticated: result.authenticated,
-          message: result.message,
-          error: result.error,
-          wallet_address: request.wallet_address
-        });
-        throw new Error(errorMsg);
-      }
-
-      // Store access token
-      console.log('[AUTH] Auth result from backend:', {
-        hasAccessToken: !!result.access_token,
-        accessTokenLength: result.access_token?.length || 0,
-        accessTokenPreview: result.access_token?.substring(0, 50) + '...',
-      });
-      this.accessToken = result.access_token;
-      this.refreshToken = result.refresh_token ?? null;
-      // Use backend-provided expiry, default to 1 hour if not specified
-      const expiresInSeconds = result.expires_in || 3600;
-      this.tokenExpiry = Date.now() + expiresInSeconds * 1000;
-
-      // Create user object from response
-      const user: UserInfoResponse = {
-        sub: result.wallet_address,
-        wallet_address: result.wallet_address,
-        tier_level: result.tier_level ?? 'free', // Default tier if not provided
-        auth_method: 'web3_siwe',
-        permissions: result.permissions ?? [],
-        access: result.access_token,
-      };
-
-      this.user = user;
-      console.log('[AUTH] Saving tokens to storage, accessToken is:', this.accessToken ? 'SET' : 'EMPTY');
-      this.saveTokensToStorage();
-      this.notifyListeners();
-
-      return { success: true, user };
+      return { success: true, user: this.user ?? undefined };
     } catch (error) {
-      let errorMessage = 'Authentication failed';
-
-      if (error instanceof TypeError && error.message.includes('fetch')) {
-        errorMessage = `Network error: Cannot connect to backend at ${this.backendUrl}. Please check your internet connection and ensure the backend service is running.`;
-        console.error('Web3 authentication network error', {
-          backend_url: this.backendUrl,
-          wallet_address: request.wallet_address,
-          error: error.message
-        });
-      } else if (error instanceof Error) {
-        if (error.name === 'TimeoutError' || error.name === 'AbortError') {
-          errorMessage = 'Verification timed out. Please try again.';
-        } else {
-          errorMessage = error.message;
-        }
-        console.error('Web3 authentication error', {
-          error: error.message,
-          wallet_address: request.wallet_address
-        });
-      } else {
-        console.error('Web3 authentication unknown error', {
-          error: String(error),
-          wallet_address: request.wallet_address
-        });
-      }
-
-      return {
-        success: false,
-        error: errorMessage,
-      };
+      const errorMessage = this.formatAuthErrorMessage(error, request.wallet_address);
+      return { success: false, error: errorMessage };
     } finally {
       this.authInProgress = false;
     }
+  }
+
+  private async handleAuthResponseError(response: Response, walletAddress: string): Promise<never> {
+    let errorMessage = 'Verification failed';
+    try {
+      const data = (await response.json()) as Record<string, unknown>; // Cast data to Record<string, unknown>
+      const errorPayload = data;
+      errorMessage = (errorPayload.message as string | undefined) ?? (errorPayload.error as string | undefined) ?? `Verification failed: ${response.status} ${response.statusText}`;
+    } catch (_e) {
+      errorMessage = `Verification failed: ${response.status} ${response.statusText}`;
+    }
+
+    if (response.status === 404) {
+      logger.error('[AUTH] Error: Web3 authentication endpoint not found (404)', {
+        status: response.status,
+        url: `${this.backendUrl}/api/auth/web3/verify`,
+        wallet_address: walletAddress,
+      });
+    }
+
+    throw new Error(errorMessage);
+  }
+
+  private validateAuthResult(result: AuthVerifyResult, walletAddress: string): void {
+    if (!result.success || !result.authenticated) {
+      const errorMsg = result.message ?? result.error ?? 'Authentication failed';
+      logger.error('Web3 authentication failed in backend', {
+        success: result.success,
+        authenticated: result.authenticated,
+        wallet_address: walletAddress
+      });
+      throw new Error(errorMsg);
+    }
+  }
+
+  private updateStateFromAuthResult(result: AuthVerifyResult): void {
+    this.accessToken = result.access_token;
+    this.refreshToken = result.refresh_token ?? null;
+    this.tokenExpiry = Date.now() + (result.expires_in ?? 3600) * 1000;
+
+    this.user = {
+      sub: result.wallet_address,
+      wallet_address: result.wallet_address,
+      tier_level: result.tier_level ?? 'free',
+      auth_method: 'web3_siwe',
+      permissions: result.permissions ?? [],
+      access: result.access_token,
+    };
+
+    this.saveTokensToStorage();
+    this.notifyListeners();
+  }
+
+  private formatAuthErrorMessage(error: unknown, walletAddress: string): string {
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      logger.error('Web3 authentication network error', { wallet_address: walletAddress });
+      return `Network error: Cannot connect to backend at ${this.backendUrl}.`;
+    }
+
+    const message = error instanceof Error ? error.message : String(error);
+    logger.error('Web3 authentication error', { error: message, wallet_address: walletAddress });
+    return message;
   }
 
   private async getWeb3Tokens(
@@ -598,7 +549,7 @@ export class SharedWeb3AuthClient {
       );
     }
 
-    return response.json();
+    return response.json() as Promise<Web3TokenResponse>;
   }
 
   // ============================================================================
@@ -606,16 +557,16 @@ export class SharedWeb3AuthClient {
   // ============================================================================
 
   private isExpired(): boolean {
-    if (!this.tokenExpiry) { return true; }
+    if (this.tokenExpiry === null) { return true; }
     return this.tokenExpiry <= Date.now();
   }
 
   // Refresh tokens using backend refresh endpoint
   async refreshTokens(): Promise<boolean> {
-    if (!this.refreshToken) {
+    if (this.refreshToken === null || this.refreshToken === '') {
       // refresh_token is HttpOnly, so we can't read it from JS
       // Don't clear cookies here - just return false and let the server handle it
-      console.log('No refresh token available in JS (may be HttpOnly)');
+      logger.info('No refresh token available in JS (may be HttpOnly)');
       return false;
     }
 
@@ -631,7 +582,7 @@ export class SharedWeb3AuthClient {
       });
 
       if (!response.ok) {
-        console.warn('Token refresh failed', response.status);
+        logger.warn('Token refresh failed', response.status);
         this.clearTokens();
         return false;
       }
@@ -643,7 +594,7 @@ export class SharedWeb3AuthClient {
         expires_in?: number;
       };
 
-      if (result.success && result.access_token) {
+      if (result.success && result.access_token !== undefined && result.access_token !== '') {
         this.accessToken = result.access_token;
         if (result.refresh_token) {
           this.refreshToken = result.refresh_token;
@@ -656,7 +607,7 @@ export class SharedWeb3AuthClient {
       this.clearTokens();
       return false;
     } catch (error) {
-      console.error('Token refresh request failed', error);
+      logger.error('Token refresh request failed', error);
       // Do NOT clear tokens on network error (might be temporary)
       // Only clear if we know for sure it's invalid (handled above in !response.ok)
       return false;
@@ -720,7 +671,7 @@ export class SharedWeb3AuthClient {
 
       // If refresh failed, do NOT clear session immediately if it's a background request (avoid logout loop)
       // Only clear if we really want to enforce logout. Current logic was clearing cookies aggressively.
-      console.warn('Authentication failed (401) and refresh failed. Request:', endpoint);
+      logger.warn('Authentication failed (401) and refresh failed. Request:', endpoint);
 
       return {
         success: false,
@@ -739,14 +690,10 @@ export class SharedWeb3AuthClient {
     response: Response
   ): Promise<UnifiedApiResponse<T>> {
     try {
-      const data = await response.json();
+      const data = await response.json() as unknown;
 
       // Backend returns unified response format
-      if (response.ok) {
-        return data; // Already in UnifiedApiResponse format
-      } else {
-        return data; // Error response in unified format
-      }
+      return data as UnifiedApiResponse<T>;
     } catch (error) {
       return {
         success: false,
@@ -774,9 +721,7 @@ export class SharedWeb3AuthClient {
     if (user?.access) {
       this.accessToken = user.access;
       // If we don't have an expiry yet, assume it's valid for at least a bit (hydration scenario)
-      if (!this.tokenExpiry) {
-        this.tokenExpiry = Date.now() + 3600 * 1000; // 1 hour safety buffer
-      }
+      this.tokenExpiry ??= Date.now() + 3600 * 1000; // 1 hour safety buffer
     }
 
     this.notifyListeners();
@@ -801,7 +746,7 @@ export class SharedWeb3AuthClient {
       this.notifyListeners();
       return user;
     } catch (error) {
-      console.warn('[AUTH] Failed to load current user', error);
+      logger.warn('[AUTH] Failed to load current user', error);
       // Don't auto-logout on network error, but do if 401
       if (error instanceof Error && error.message.includes('401')) {
         this.clearTokens();
@@ -810,39 +755,16 @@ export class SharedWeb3AuthClient {
     }
   }
 
-  private async fetchCurrentUser(): Promise<UserInfoResponse | null> {
-    // If we already have the user object in memory, return it (optimistic)
+  async fetchCurrentUser(): Promise<UserInfoResponse | null> {
     if (this.user) { return this.user; }
-
-    // Otherwise try to decode from token first (fastest)
     if (this.accessToken) {
-      try {
-        const payloadPart = this.accessToken.split('.')[1];
-        if (payloadPart) {
-          const payload = JSON.parse(atob(payloadPart));
-          if (payload.sub) {
-            return {
-              sub: payload.sub as string,
-              wallet_address: payload.sub as string, // JWT 'sub' is wallet address
-              tier_level: (payload.tier_level as string) ?? 'free',
-              auth_method: 'web3_siwe',
-              permissions: (payload.permissions as string[]) ?? [],
-              access: this.accessToken
-            };
-          }
-        }
-      } catch (e) {
-        // Ignore decode errors
-      }
+      return await Promise.resolve(this.decodeUserFromToken(this.accessToken));
     }
-
-    // Fallback: This would be where you call /api/auth/me if needed
-    // For now we rely on the token payload as the source of truth
     return null;
   }
 
   async logout(): Promise<void> {
-    const wasAuthenticated = !!this.accessToken;
+    const wasAuthenticated = Boolean(this.accessToken);
     this.clearTokens();
 
     if (wasAuthenticated) {
@@ -854,7 +776,7 @@ export class SharedWeb3AuthClient {
             'Content-Type': 'application/json',
           },
         });
-      } catch (e) {
+      } catch (_e) {
         // Ignore network errors during logout
       }
     }
@@ -878,33 +800,31 @@ export class SharedWeb3AuthClient {
   }
 
   getWalletAddress(): string | null {
-    return this.user?.wallet_address || null;
+    return this.user?.wallet_address ?? null;
   }
 
   getUserTier(): string {
-    return this.user?.tier_level || 'free';
+    return this.user?.tier_level ?? 'free';
   }
 
   getUserPermissions(): string[] {
-    return this.user?.permissions || [];
+    return this.user?.permissions ?? [];
   }
-
 
   // ============================================================================
   // OPENID CONNECT DISCOVERY (Compatibility)
   // ============================================================================
 
-
-  async getDiscoveryDocument(): Promise<any> {
+  async getDiscoveryDocument(): Promise<Record<string, unknown>> {
     const url = `${this.backendUrl}/.well-known/openid-configuration`;
     const response = await fetch(url);
-    return response.json();
+    return (await response.json()) as Record<string, unknown>;
   }
 
-  async getJwks(): Promise<any> {
+  async getJwks(): Promise<Record<string, unknown>> {
     const url = `${this.backendUrl}/.well-known/jwks.json`;
     const response = await fetch(url);
-    return response.json();
+    return (await response.json()) as Record<string, unknown>;
   }
 }
 
@@ -912,13 +832,13 @@ export class SharedWeb3AuthClient {
 export function createFrontendClient(): SharedWeb3AuthClient {
   return new SharedWeb3AuthClient(
     'epsx-frontend',
-    process.env['NEXT_PUBLIC_BACKEND_URL'] || 'http://127.0.0.1:8080'
+    process.env['NEXT_PUBLIC_BACKEND_URL'] ?? 'http://127.0.0.1:8080'
   );
 }
 
 export function createAdminClient(): SharedWeb3AuthClient {
   return new SharedWeb3AuthClient(
     'epsx-admin',
-    process.env['NEXT_PUBLIC_BACKEND_URL'] || 'http://127.0.0.1:8080'
+    process.env['NEXT_PUBLIC_BACKEND_URL'] ?? 'http://127.0.0.1:8080'
   );
 }

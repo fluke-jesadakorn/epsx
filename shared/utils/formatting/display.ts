@@ -3,6 +3,8 @@
  * Text formatting, truncation, and display helpers
  */
 
+import { logger } from '../logger';
+
 /**
  * Format percentage with proper sign and precision
  */
@@ -41,8 +43,8 @@ export function capitalize(str: string): string {
  * Truncate text to specified length
  */
 export function truncate(str: string, length = 50): string {
-  if (str.length <= length) {return str}
-  return str.slice(0, length) + '...'
+  if (str.length <= length) { return str }
+  return `${str.slice(0, length)}...`
 }
 
 /**
@@ -52,7 +54,7 @@ export function truncateText(text: string, maxLength: number): string {
   if (text.length <= maxLength) {
     return text
   }
-  return text.substr(0, maxLength - 3) + '...'
+  return `${text.slice(0, Math.max(0, maxLength - 3))}...`
 }
 
 /**
@@ -63,8 +65,8 @@ export function slugify(text: string): string {
     .toString()
     .toLowerCase()
     .replace(/\s+/g, '-')           // Replace spaces with -
-    .replace(/[^\w\-]+/g, '')       // Remove all non-word chars
-    .replace(/\-\-+/g, '-')         // Replace multiple - with single -
+    .replace(/[^w-]+/g, '')       // Remove all non-word chars
+    .replace(/-+/g, '-')            // Replace multiple - with single -
     .replace(/^-+/, '')             // Trim - from start of text
     .replace(/-+$/, '')             // Trim - from end of text
 }
@@ -84,7 +86,7 @@ export function kebabCase(str: string): string {
  */
 export function camelCase(str: string): string {
   return str
-    .replace(/[-_\s]+(.)?/g, (_, char) => char ? char.toUpperCase() : '')
+    .replace(/[-_\s]+(.)?/g, (_match: string, char: string | undefined) => char !== undefined ? char.toUpperCase() : '')
     .replace(/^[A-Z]/, char => char.toLowerCase())
 }
 
@@ -100,16 +102,16 @@ export function isValidEmail(email: string): boolean {
  * Validate phone number (basic validation)
  */
 export function isValidPhone(phone: string): boolean {
-  const phoneRegex = /^[\+]?[1-9][\d]{0,15}$/
-  return phoneRegex.test(phone.replace(/[\s\-\(\)]/g, ''))
+  const phoneRegex = /^[+]?[1-9][\d]{0,15}$/
+  return phoneRegex.test(phone.replace(/[\s\-()]/g, ''))
 }
 
 /**
  * Get EPS performance color class
  */
 export function getEPSPerformanceColor(growth: number): string {
-  if (growth > 0) {return 'text-green-600'}
-  if (growth < 0) {return 'text-red-600'}
+  if (growth > 0) { return 'text-green-600' }
+  if (growth < 0) { return 'text-red-600' }
   return 'text-gray-600'
 }
 
@@ -141,7 +143,7 @@ export function getGrowthIndicator(growthPercent: number): { emoji: string; colo
 /**
  * Parse a JWT token without verification (client-side only)
  */
-export function parseJWT(token: string): any {
+export function parseJWT(token: string): unknown {
   try {
     const parts = token.split('.');
     const base64Url = parts[1] || '';
@@ -149,12 +151,12 @@ export function parseJWT(token: string): any {
     const jsonPayload = decodeURIComponent(
       atob(base64)
         .split('')
-        .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+        .map(c => `%${(`00${c.charCodeAt(0).toString(16)}`).slice(-2)}`)
         .join('')
     )
-    return JSON.parse(jsonPayload)
+    return JSON.parse(jsonPayload) as unknown
   } catch (error) {
-    console.error('Error parsing JWT:', error)
+    logger.error('Error parsing JWT:', error)
     return null
   }
 }
@@ -162,11 +164,11 @@ export function parseJWT(token: string): any {
 /**
  * Check if a value is empty (null, undefined, empty string, empty array, empty object)
  */
-export function isEmpty(value: any): boolean {
-  if (value === null || value === undefined) {return true}
-  if (typeof value === 'string' && value.trim() === '') {return true}
-  if (Array.isArray(value) && value.length === 0) {return true}
-  if (typeof value === 'object' && Object.keys(value).length === 0) {return true}
+export function isEmpty(value: unknown): boolean {
+  if (value === null || value === undefined) { return true }
+  if (typeof value === 'string' && value.trim() === '') { return true }
+  if (Array.isArray(value) && value.length === 0) { return true }
+  if (typeof value === 'object' && Object.keys(value).length === 0) { return true }
   return false
 }
 
@@ -175,7 +177,7 @@ export function isEmpty(value: any): boolean {
  */
 export function generateId(prefix = 'id'): string {
   const timestamp = Date.now().toString(36)
-  const randomStr = Math.random().toString(36).substr(2, 9)
+  const randomStr = Math.random().toString(36).slice(2, 11)
   return `${prefix}_${timestamp}_${randomStr}`
 }
 
@@ -183,22 +185,19 @@ export function generateId(prefix = 'id'): string {
  * Simple random ID (legacy compatibility)
  */
 export function generateSimpleId(): string {
-  return Math.random().toString(36).substr(2, 9)
+  return Math.random().toString(36).slice(2, 11)
 }
 
 /**
  * Copy text to clipboard
  */
 export async function copyToClipboard(text: string): Promise<boolean> {
-  if (typeof window === 'undefined') {return false}
+  if (typeof window === 'undefined') { return false }
 
   try {
-    if (navigator.clipboard) {
-      await navigator.clipboard.writeText(text)
-      return true
-    }
-    throw new Error('Clipboard API not available')
-  } catch (error) {
+    await navigator.clipboard.writeText(text)
+    return true
+  } catch (_error) {
     // Fallback for older browsers
     try {
       const textArea = document.createElement('textarea')
@@ -209,7 +208,7 @@ export async function copyToClipboard(text: string): Promise<boolean> {
       document.body.removeChild(textArea)
       return true
     } catch (fallbackError) {
-      console.error('Failed to copy text to clipboard', fallbackError)
+      logger.error('Failed to copy text to clipboard', fallbackError)
       return false
     }
   }
@@ -226,7 +225,7 @@ export function isBrowser(): boolean {
  * Check if code is running on mobile
  */
 export function isMobile(): boolean {
-  if (!isBrowser()) {return false}
+  if (!isBrowser()) { return false }
   return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
 }
 

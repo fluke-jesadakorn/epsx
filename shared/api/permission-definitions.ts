@@ -5,7 +5,8 @@
  * titles and notes for display in the UI.
  */
 
-import { ApiResponse, UnifiedApiClient } from '../utils/api-client';
+import type { ApiResponse, UnifiedApiClient } from '../utils/api-client';
+import { logger } from '../utils/logger';
 
 // ============================================================================
 // PERMISSION DEFINITION TYPES
@@ -60,7 +61,11 @@ export async function loadPermissionDefinitions(apiClient: UnifiedApiClient): Pr
     // Avoid multiple concurrent loads
     if (cacheLoadPromise) {
         await cacheLoadPromise;
-        return permissionDefinitionsCache!;
+        const cached = permissionDefinitionsCache as Map<string, PermissionDefinition> | null;
+        if (cached) {
+            return cached;
+        }
+        return new Map();
     }
 
     cacheLoadPromise = (async () => {
@@ -79,24 +84,32 @@ export async function loadPermissionDefinitions(apiClient: UnifiedApiClient): Pr
                 // Check if response.data is the array directly or nested
                 const definitions: PermissionDefinition[] = Array.isArray(response.data)
                     ? response.data
-                    : (response.data as any).data || [];
+                    : (response.data as { data?: PermissionDefinition[] }).data ?? [];
 
                 for (const def of definitions) {
-                    if (def && def.permission_string) {
-                        permissionDefinitionsCache.set(def.permission_string, def);
-                    }
+                    cacheDefinition(def);
                 }
             } else {
                 permissionDefinitionsCache = new Map();
             }
         } catch (error) {
-            console.error('Failed to load permission definitions:', error);
+            logger.error('Failed to load permission definitions:', error);
             permissionDefinitionsCache = new Map();
         }
     })();
 
     await cacheLoadPromise;
-    return permissionDefinitionsCache!;
+    const finalCache = permissionDefinitionsCache as Map<string, PermissionDefinition> | null;
+    return finalCache ?? new Map();
+}
+
+/**
+ * Helper to cache a single definition
+ */
+function cacheDefinition(def: PermissionDefinition): void {
+    if (permissionDefinitionsCache !== null && typeof def.permission_string === 'string' && def.permission_string !== '') {
+        permissionDefinitionsCache.set(def.permission_string, def);
+    }
 }
 
 /**
@@ -108,7 +121,7 @@ export function getPermissionTitle(
     definitions: Map<string, PermissionDefinition>
 ): string {
     const def = definitions.get(permission);
-    if (def?.name) {
+    if (def !== undefined && typeof def.name === 'string' && def.name !== '') {
         return def.name;
     }
 
@@ -131,7 +144,7 @@ export function getPermissionNote(
     definitions: Map<string, PermissionDefinition>
 ): string | null {
     const def = definitions.get(permission);
-    return def?.description || null;
+    return def?.description ?? null;
 }
 
 /**

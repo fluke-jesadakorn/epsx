@@ -1,4 +1,5 @@
-import { test, expect, Page, Browser, BrowserContext } from '@playwright/test'
+import type { Page, BrowserContext } from '@playwright/test';
+import { test, expect, Browser } from '@playwright/test'
 import {
   genTestNotif,
   genBroadcastNotif,

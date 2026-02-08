@@ -1,4 +1,5 @@
-import { test as base, expect, Page, BrowserContext } from '@playwright/test';
+import type { Page, BrowserContext } from '@playwright/test';
+import { test as base, expect } from '@playwright/test';
 import { spawn } from 'child_process';
 import fs from 'fs';
 import path from 'path';

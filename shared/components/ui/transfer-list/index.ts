@@ -1,2 +1,2 @@
-export * from './TransferList';
+export * from './transfer-list';
 

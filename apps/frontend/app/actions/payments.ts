@@ -7,7 +7,7 @@ import { getServerActionClient } from '@/shared/utils/server-fetch';
  * Submit a transaction for backend monitoring
  */
 export async function submitTransactionAction(request: PaymentSubmitRequest) {
-    const client = await getServerActionClient();
+    const client = getServerActionClient();
     const paymentsApi = new PaymentsApi(client);
 
     return paymentsApi.submitTransaction(request);
@@ -17,7 +17,7 @@ export async function submitTransactionAction(request: PaymentSubmitRequest) {
  * Get the status of a transaction
  */
 export async function getTransactionStatusAction(transactionHash: string) {
-    const client = await getServerActionClient();
+    const client = getServerActionClient();
     const paymentsApi = new PaymentsApi(client);
 
     return paymentsApi.getTransactionStatus(transactionHash);
@@ -27,7 +27,7 @@ export async function getTransactionStatusAction(transactionHash: string) {
  * Validate a payment (used in confirmation logic)
  */
 export async function validatePaymentAction(request: PaymentValidateRequest) {
-    const client = await getServerActionClient();
+    const client = getServerActionClient();
     const paymentsApi = new PaymentsApi(client);
 
     return paymentsApi.validatePayment(request);
@@ -41,7 +41,7 @@ export async function getPaymentHistoryAction(params?: {
     offset?: number;
     status?: string;
 }) {
-    const client = await getServerActionClient();
+    const client = getServerActionClient();
     const paymentsApi = new PaymentsApi(client);
 
     return paymentsApi.getPaymentHistory(params);

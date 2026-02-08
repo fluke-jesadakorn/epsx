@@ -1,8 +1,7 @@
-// Stub stock actions
-export async function fetchEpsGrowthRanking() {
-  return [];
+export function fetchEpsGrowthRanking() {
+  return Promise.resolve([]);
 }
 
-export async function fetchStockData() {
-  return [];
+export function fetchStockData() {
+  return Promise.resolve([]);
 }

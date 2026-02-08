@@ -10,22 +10,22 @@ export const isServer = typeof window === 'undefined';
 // Helper to detect if running in development environment
 // Includes localhost, Tailscale IPs (100.x.x.x), and local network IPs
 const isDevHostname = (hostname: string): boolean => {
-  if (hostname === 'localhost') {return true;}
-  if (hostname === '127.0.0.1') {return true;}
+  if (hostname === 'localhost') { return true; }
+  if (hostname === '127.0.0.1') { return true; }
   // Tailscale IPs (CGNAT range)
-  if (hostname.startsWith('100.')) {return true;}
+  if (hostname.startsWith('100.')) { return true; }
   // Local network IPs
-  if (hostname.startsWith('192.168.')) {return true;}
-  if (hostname.startsWith('10.')) {return true;}
+  if (hostname.startsWith('192.168.')) { return true; }
+  if (hostname.startsWith('10.')) { return true; }
   // Docker/internal ranges
-  if (hostname.startsWith('172.')) {return true;}
+  if (hostname.startsWith('172.')) { return true; }
   return false;
 };
 
-export const isDev = (typeof process !== 'undefined' && process.env?.NODE_ENV === 'development') || (typeof window !== 'undefined' && isDevHostname(window.location.hostname)) || false;
-export const isProd = (typeof process !== 'undefined' && process.env?.NODE_ENV === 'production') || false;
-export const isStaging = (typeof process !== 'undefined' && process.env?.NODE_ENV === 'production' && process.env?.DEPLOYMENT_ENV === 'staging') || false;
-export const isBuild = (typeof process !== 'undefined' && (process.env?.NEXT_PHASE === 'phase-production-build' || process.env?.CI === 'true')) || false;
+export const isDev = (typeof process !== 'undefined' && process.env.NODE_ENV === 'development') || (typeof window !== 'undefined' && isDevHostname(window.location.hostname));
+export const isProd = (typeof process !== 'undefined' && process.env.NODE_ENV === 'production');
+export const isStaging = (typeof process !== 'undefined' && process.env.NODE_ENV === 'production' && process.env.DEPLOYMENT_ENV === 'staging');
+export const isBuild = (typeof process !== 'undefined' && (process.env.NEXT_PHASE === 'phase-production-build' || process.env.CI === 'true'));
 
 // URL defaults based on environment
 const getDefaultBackendUrl = () => {
@@ -36,8 +36,8 @@ const getDefaultBackendUrl = () => {
       return `http://${hostname}:8080`;
     }
   }
-  if (isDev) {return 'http://localhost:8080';}
-  if (isStaging) {return 'https://staging-api.epsx.io';}
+  if (isDev) { return 'http://localhost:8080'; }
+  if (isStaging) { return 'https://staging-api.epsx.io'; }
   return 'https://api.epsx.io'; // Production default - api.epsx.io maps to backend service
 };
 
@@ -49,8 +49,8 @@ const getDefaultFrontendUrl = () => {
       return `http://${hostname}:3000`;
     }
   }
-  if (isDev) {return 'http://localhost:3000';}
-  if (isStaging) {return 'https://staging.epsx.io';}
+  if (isDev) { return 'http://localhost:3000'; }
+  if (isStaging) { return 'https://staging.epsx.io'; }
   return undefined; // Force explicit configuration in production
 };
 
@@ -62,21 +62,21 @@ const getDefaultAdminUrl = () => {
       return `http://${hostname}:3001`;
     }
   }
-  if (isDev) {return 'http://localhost:3001';}
-  if (isStaging) {return 'https://staging-admin.epsx.io';}
+  if (isDev) { return 'http://localhost:3001'; }
+  if (isStaging) { return 'https://staging-admin.epsx.io'; }
   return undefined; // Force explicit configuration in production
 };
 
 // Web3 Configuration Defaults
 const getDefaultBlockchainNetwork = () => {
-  if (isDev) {return 'testnet';}
-  if (isStaging) {return 'testnet';}
+  if (isDev) { return 'testnet'; }
+  if (isStaging) { return 'testnet'; }
   return 'mainnet'; // Production uses BSC mainnet
 };
 
 const getDefaultWalletConnectProjectId = () => {
-  if (isDev) {return 'epsx-web3-dev';}
-  if (isStaging) {return 'epsx-web3-staging';}
+  if (isDev) { return 'epsx-web3-dev'; }
+  if (isStaging) { return 'epsx-web3-staging'; }
   return 'epsx-web3-prod'; // Production WalletConnect project
 };
 
@@ -101,7 +101,7 @@ export const serverEnvSchema = z.object({
     .url()
     .optional()
     .default(getDefaultBackendUrl())
-    .refine(url => isBuild || url !== undefined, {
+    .refine(url => isBuild || Boolean(url), {
       message: 'BACKEND_URL must be explicitly set in production environment'
     })
     .describe('Backend API URL for internal service communication and OIDC issuer'),
@@ -110,7 +110,7 @@ export const serverEnvSchema = z.object({
     .url()
     .optional()
     .default(getDefaultFrontendUrl() ?? '')
-    .refine(url => isBuild || url !== undefined, {
+    .refine(url => isBuild || Boolean(url), {
       message: 'FRONTEND_URL must be explicitly set in production environment'
     })
     .describe('Frontend application URL for CORS and redirect configuration'),
@@ -119,7 +119,7 @@ export const serverEnvSchema = z.object({
     .url()
     .optional()
     .default(getDefaultAdminUrl() ?? '')
-    .refine(url => isBuild || url !== undefined, {
+    .refine(url => isBuild || Boolean(url), {
       message: 'ADMIN_FRONTEND_URL must be explicitly set in production environment'
     })
     .describe('Admin frontend URL for CORS and admin-specific redirects'),
@@ -153,9 +153,9 @@ export const clientEnvSchema = z.object({
     .default(getDefaultBackendUrl())
     .refine(url => {
       // Skip validation during build or in browser (client-side)
-      if (isBuild || typeof window !== 'undefined') {return true;}
+      if (isBuild || typeof window !== 'undefined') { return true; }
       // Only enforce production validation on server-side
-      return url !== undefined;
+      return Boolean(url);
     }, {
       message: 'NEXT_PUBLIC_BACKEND_URL must be explicitly set in production environment'
     })
@@ -167,9 +167,9 @@ export const clientEnvSchema = z.object({
     .default(getDefaultFrontendUrl() ?? '')
     .refine(url => {
       // Skip validation during build or in browser (client-side)
-      if (isBuild || typeof window !== 'undefined') {return true;}
+      if (isBuild || typeof window !== 'undefined') { return true; }
       // Only enforce production validation on server-side
-      return url !== undefined;
+      return Boolean(url);
     }, {
       message: 'NEXT_PUBLIC_APP_URL must be explicitly set in production environment'
     })
@@ -181,9 +181,9 @@ export const clientEnvSchema = z.object({
     .default(getDefaultAdminUrl() ?? '')
     .refine(url => {
       // Skip validation during build or in browser (client-side)
-      if (isBuild || typeof window !== 'undefined') {return true;}
+      if (isBuild || typeof window !== 'undefined') { return true; }
       // Only enforce production validation on server-side
-      return url !== undefined;
+      return Boolean(url);
     }, {
       message: 'NEXT_PUBLIC_ADMIN_URL must be explicitly set in production environment'
     })
@@ -240,51 +240,58 @@ export const serverEnv = new Proxy({} as ServerEnv, {
         }
       }
     }
-    return (_serverEnv as any)[prop];
+    return _serverEnv[prop as keyof ServerEnv];
   }
 });
 
 export const clientEnv = new Proxy({} as ClientEnv, {
   get(target, prop) {
-    if (!_clientEnv) {
-      try {
-        // Check if we're in a browser environment or if process.env is not available
-        const envSource = (typeof process !== 'undefined' && process.env) ? process.env : {};
-        _clientEnv = clientEnvSchema.parse(envSource);
-      } catch (error) {
-        if (isBuild || typeof window !== 'undefined') {
-          // During build or in browser, provide fallback values to prevent failures
-          // In production browsers, Next.js embeds NEXT_PUBLIC_ variables at build time
-          _clientEnv = {
-            NEXT_PUBLIC_BACKEND_URL: (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_BACKEND_URL) || getDefaultBackendUrl(),
-            NEXT_PUBLIC_APP_URL: (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_APP_URL) || getDefaultFrontendUrl(),
-            NEXT_PUBLIC_ADMIN_URL: (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_ADMIN_URL) || getDefaultAdminUrl(),
-            NEXT_PUBLIC_BLOCKCHAIN_NETWORK: (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_BLOCKCHAIN_NETWORK) || getDefaultBlockchainNetwork(),
-            NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID) || getDefaultWalletConnectProjectId(),
-            NEXT_PUBLIC_CHAIN_ID: (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_CHAIN_ID) || '97',
-            // Payment addresses
-            NEXT_PUBLIC_PAYMENT_MAINNET_ADDRESS: (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_PAYMENT_MAINNET_ADDRESS) || '0x7877e415a13532d9E43Df7Fd2CC256f93a39ced7',
-            NEXT_PUBLIC_PAYMENT_TESTNET_ADDRESS: (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_PAYMENT_TESTNET_ADDRESS) || '0x7877e415a13532d9E43Df7Fd2CC256f93a39ced7'
-          } as ClientEnv;
-        } else {
-          // In development, log the error and provide safe fallbacks
-          console.warn('Environment validation failed, using fallbacks:', error);
-          _clientEnv = {
-            NEXT_PUBLIC_BACKEND_URL: getDefaultBackendUrl() || 'http://localhost:8080',
-            NEXT_PUBLIC_APP_URL: getDefaultFrontendUrl() || 'http://localhost:3000',
-            NEXT_PUBLIC_ADMIN_URL: getDefaultAdminUrl() || 'http://localhost:3001',
-            NEXT_PUBLIC_BLOCKCHAIN_NETWORK: getDefaultBlockchainNetwork(),
-            NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: getDefaultWalletConnectProjectId(),
-            NEXT_PUBLIC_CHAIN_ID: '97', // BSC Testnet default
-            NEXT_PUBLIC_PAYMENT_MAINNET_ADDRESS: '0x7877e415a13532d9E43Df7Fd2CC256f93a39ced7',
-            NEXT_PUBLIC_PAYMENT_TESTNET_ADDRESS: '0x7877e415a13532d9E43Df7Fd2CC256f93a39ced7'
-          } as ClientEnv;
-        }
-      }
-    }
-    return (_clientEnv as any)[prop];
+    _clientEnv ??= parseClientEnv();
+    return _clientEnv[prop as keyof ClientEnv];
   }
 });
+
+function parseClientEnv(): ClientEnv {
+  try {
+    const envSource = (typeof process !== 'undefined') ? process.env : {};
+    return clientEnvSchema.parse(envSource);
+  } catch (error) {
+    if (isBuild || typeof window !== 'undefined') {
+      return getFallbackClientEnv();
+    }
+    // In development, log the error and provide safe fallbacks
+    // eslint-disable-next-line no-console
+    console.warn('Environment validation failed, using fallbacks:', error);
+    return getDevFallbackClientEnv();
+  }
+}
+
+function getFallbackClientEnv(): ClientEnv {
+  const envObj = typeof process !== 'undefined' ? process.env : {};
+  return {
+    NEXT_PUBLIC_BACKEND_URL: envObj.NEXT_PUBLIC_BACKEND_URL ?? getDefaultBackendUrl(),
+    NEXT_PUBLIC_APP_URL: envObj.NEXT_PUBLIC_APP_URL ?? getDefaultFrontendUrl() ?? '',
+    NEXT_PUBLIC_ADMIN_URL: envObj.NEXT_PUBLIC_ADMIN_URL ?? getDefaultAdminUrl() ?? '',
+    NEXT_PUBLIC_BLOCKCHAIN_NETWORK: (envObj.NEXT_PUBLIC_BLOCKCHAIN_NETWORK as 'mainnet' | 'testnet' | undefined) ?? getDefaultBlockchainNetwork(),
+    NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: envObj.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID ?? getDefaultWalletConnectProjectId(),
+    NEXT_PUBLIC_CHAIN_ID: envObj.NEXT_PUBLIC_CHAIN_ID ?? '97',
+    NEXT_PUBLIC_PAYMENT_MAINNET_ADDRESS: envObj.NEXT_PUBLIC_PAYMENT_MAINNET_ADDRESS ?? '0x7877e415a13532d9E43Df7Fd2CC256f93a39ced7',
+    NEXT_PUBLIC_PAYMENT_TESTNET_ADDRESS: envObj.NEXT_PUBLIC_PAYMENT_TESTNET_ADDRESS ?? '0x7877e415a13532d9E43Df7Fd2CC256f93a39ced7'
+  } as ClientEnv;
+}
+
+function getDevFallbackClientEnv(): ClientEnv {
+  return {
+    NEXT_PUBLIC_BACKEND_URL: getDefaultBackendUrl(),
+    NEXT_PUBLIC_APP_URL: getDefaultFrontendUrl() ?? 'http://localhost:3000',
+    NEXT_PUBLIC_ADMIN_URL: getDefaultAdminUrl() ?? 'http://localhost:3001',
+    NEXT_PUBLIC_BLOCKCHAIN_NETWORK: getDefaultBlockchainNetwork(),
+    NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: getDefaultWalletConnectProjectId(),
+    NEXT_PUBLIC_CHAIN_ID: '97',
+    NEXT_PUBLIC_PAYMENT_MAINNET_ADDRESS: '0x7877e415a13532d9E43Df7Fd2CC256f93a39ced7',
+    NEXT_PUBLIC_PAYMENT_TESTNET_ADDRESS: '0x7877e415a13532d9E43Df7Fd2CC256f93a39ced7'
+  } as ClientEnv;
+}
 
 /**
  * Environment Getters - Simple, type-safe access to environment variables
@@ -322,6 +329,7 @@ export const env = {
   get DATABASE_URL() {
     if (!isServer) {
       if (process.env.NODE_ENV === 'development') {
+        // eslint-disable-next-line no-console
         console.warn('DATABASE_URL is server-only - returning undefined for client');
       }
       return undefined;
@@ -332,6 +340,7 @@ export const env = {
   get WEB3_APP_SECRET() {
     if (!isServer) {
       if (process.env.NODE_ENV === 'development') {
+        // eslint-disable-next-line no-console
         console.warn('WEB3_APP_SECRET is server-only - returning undefined for client');
       }
       return undefined;
@@ -342,17 +351,18 @@ export const env = {
   get WALLET_SIGNATURE_SECRET() {
     if (!isServer) {
       if (process.env.NODE_ENV === 'development') {
+        // eslint-disable-next-line no-console
         console.warn('WALLET_SIGNATURE_SECRET is server-only - returning undefined for client');
       }
       return undefined;
     }
-    return serverEnv.WALLET_SIGNATURE_SECRET;
+    return serverEnv.WEB3_APP_SECRET;
   },
-
 
   get REDIS_URL() {
     if (!isServer) {
       if (process.env.NODE_ENV === 'development') {
+        // eslint-disable-next-line no-console
         console.warn('REDIS_URL is server-only - returning undefined for client');
       }
       return undefined;
@@ -416,7 +426,9 @@ export const web3Urls = {
  */
 export function logEnvironmentDebugInfo() {
   if (typeof window !== 'undefined' && isDev) {
+    // eslint-disable-next-line no-console
     console.log('✅ EPSX Environment Schema Loaded (Web3-First)');
+    // eslint-disable-next-line no-console
     console.log('🔧 Client Environment Variables:', {
       BACKEND_URL: env.BACKEND_URL,
       APP_URL: env.APP_URL,

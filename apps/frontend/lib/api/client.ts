@@ -5,11 +5,12 @@
  * Provides domain-specific methods for frontend application.
  */
 
-import {
+import type {
   ApiResponse,
-  createFrontendApiClient,
   PaginatedResponse,
-  UnifiedApiClient,
+  UnifiedApiClient} from '@/shared/api';
+import {
+  createFrontendApiClient
 } from '@/shared/api';
 import { API_ROUTES } from '@/shared/config/route-constants';
 

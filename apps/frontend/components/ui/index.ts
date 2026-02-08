@@ -15,7 +15,7 @@ import {
   type UnifiedLoadingProps,
   type UnifiedProgressBarProps,
   type UnifiedSkeletonProps
-} from '@/shared/components/loaders/UnifiedLoader';
+} from '@/shared/components/loaders/unified-loader';
 
 // ============================================================================
 // BASIC PRIMITIVES - Re-export from shared
@@ -80,12 +80,12 @@ export {
   type UnifiedCardProps,
   type UnifiedCardSectionProps, type UnifiedCardSize, type UnifiedCardVariant, type UnifiedFeatureCardProps, type UnifiedListCardProps,
   type UnifiedListItem, type UnifiedStatsCardProps
-} from '@/shared/components/cards/CardVariants';
+} from '@/shared/components/cards/card-variants';
 
 export {
   UnifiedLoader, UnifiedLoading, UnifiedProgressBar, UnifiedSkeleton,
   type UnifiedLoaderProps, type UnifiedLoadingProps, type UnifiedProgressBarProps, type UnifiedSkeletonProps
-} from '@/shared/components/loaders/UnifiedLoader';
+} from '@/shared/components/loaders/unified-loader';
 
 // Frontend-specific loader aliases for backward compatibility
 export const PancakeSwapLoader: React.FC<Omit<UnifiedLoaderProps, 'variant'> & { variant?: 'pancake' | 'admin' | 'analytics' }> = ({ variant = 'pancake' as const, ...props }) => {
@@ -106,13 +106,13 @@ export {
   MinimalThemeToggle, OptimizedThemeToggle, ThemeToggle,
   ThemeToggleCSS, UnifiedThemeToggle, type ThemeToggleIconType,
   type ThemeToggleSize, type ThemeToggleVariant, type UnifiedThemeToggleProps
-} from '@/shared/components/ui/UnifiedThemeToggle';
+} from '@/shared/components/ui/unified-theme-toggle';
 
 export {
   MetroNotification, ProfessionalAlert, ProfessionalNotification, UnifiedAlert, UnifiedNotification, useAdminToast,
   useAnalyticsToast, useMetroToast, usePancakeToast, useProfessionalToast, useUnifiedToast,
   type UnifiedNotificationProps, type UnifiedAlertProps, type ToastNotification, type UseUnifiedToastProps
-} from '@/shared/components/notifications/UnifiedNotification';
+} from '@/shared/components/notifications/unified-notification';
 
 // ============================================================================
 // FRONTEND-SPECIFIC COMPONENTS - Keep local
@@ -122,7 +122,7 @@ export { Separator } from './separator';
 export { Checkbox } from './checkbox';
 export { InputWithIcon } from './input-with-icon';
 export { LoadingButton } from './loading-button';
-export { PermissionBadge } from './PermissionBadge';
+export { PermissionBadge } from './permission-badge';
 
 // ============================================================================
 // FORM COMPONENTS - Keep local wrapper for React Hook Form integration

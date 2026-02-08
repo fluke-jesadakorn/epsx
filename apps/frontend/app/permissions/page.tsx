@@ -1,6 +1,6 @@
 'use client';
 
-import { GlobalAuthGuard } from '@/components/auth/GlobalAuthGuard';
+import { GlobalAuthGuard } from '@/components/auth/global-auth-guard';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -18,13 +18,15 @@ import {
 } from '@/components/ui/tooltip';
 import { useAuth } from '@/lib/auth';
 import { cn } from '@/lib/utils';
+import type {
+  PermissionDefinition
+} from '@/shared/api/permission-definitions';
 import {
   getPermissionNote,
   getPermissionTitle,
-  loadPermissionDefinitions,
-  PermissionDefinition
+  loadPermissionDefinitions
 } from '@/shared/api/permission-definitions';
-import { useApiClient } from '@/shared/hooks/useApiClient';
+import { useApiClient } from '@/shared/hooks/use-api-client';
 import { formatDistanceToNow } from 'date-fns';
 import {
   AlertTriangle,

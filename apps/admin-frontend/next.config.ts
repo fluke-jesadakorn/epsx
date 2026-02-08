@@ -1,4 +1,8 @@
 import type { NextConfig } from 'next';
+import path from 'path';
+
+const SHARED_STUB = '../../shared/stubs/empty.ts';
+const ZOD_ALIAS = 'zod';
 
 const nextConfig: NextConfig = {
   // Enable standalone output for Docker deployment
@@ -7,20 +11,20 @@ const nextConfig: NextConfig = {
   // Enabled Turbopack for development
   turbopack: {
     resolveAlias: {
-      'thread-stream': '../../shared/stubs/empty.ts',
-      'thread-stream/test': '../../shared/stubs/empty.ts',
-      'pino-pretty': '../../shared/stubs/empty.ts',
-      'pino-elasticsearch': '../../shared/stubs/empty.ts',
-      'tap': '../../shared/stubs/empty.ts',
-      'tape': '../../shared/stubs/empty.ts',
-      'why-is-node-running': '../../shared/stubs/empty.ts',
-      'desm': '../../shared/stubs/empty.ts',
-      'fastbench': '../../shared/stubs/empty.ts',
-      'react-native': '../../shared/stubs/empty.ts',
-      'react-native-device-info': '../../shared/stubs/empty.ts',
-      'react-native-keychain': '../../shared/stubs/empty.ts',
-      'zod/mini': 'zod',
-      'zod/v4/core': 'zod',
+      'thread-stream': SHARED_STUB,
+      'thread-stream/test': SHARED_STUB,
+      'pino-pretty': SHARED_STUB,
+      'pino-elasticsearch': SHARED_STUB,
+      'tap': SHARED_STUB,
+      'tape': SHARED_STUB,
+      'why-is-node-running': SHARED_STUB,
+      'desm': SHARED_STUB,
+      'fastbench': SHARED_STUB,
+      'react-native': SHARED_STUB,
+      'react-native-device-info': SHARED_STUB,
+      'react-native-keychain': SHARED_STUB,
+      'zod/mini': ZOD_ALIAS,
+      'zod/v4/core': ZOD_ALIAS,
     },
   },
   // Ignore TypeScript errors during builds (errors should be fixed separately)
@@ -35,7 +39,7 @@ const nextConfig: NextConfig = {
   transpilePackages: ['@/shared'],
 
   // Improve HMR WebSocket reliability and fix module resolution
-  webpack: (config, { dev, isServer, webpack }) => {
+  webpack: (config: any, { dev, isServer, webpack }: any) => {
     // Only apply heavy Webpack custom logic if not using Turbopack
     // Note: Next.js 15+ will automatically prefer Turbopack if --turbo is used.
 
@@ -47,18 +51,17 @@ const nextConfig: NextConfig = {
     }
 
     // Web3/Wagmi build fix: Explicitly stub out problematic modules
-    const path = require('path');
-    const stubPath = path.join(process.cwd(), '../../shared/stubs/empty.ts');
+    const stubPath = path.join(process.cwd(), SHARED_STUB);
 
     // Ensure shared components can resolve modules from the app's node_modules
     const appNodeModules = path.resolve(process.cwd(), 'node_modules');
     config.resolve.modules = [
       appNodeModules,
-      ...(config.resolve.modules || ['node_modules']),
+      ...((config.resolve.modules as string[] | undefined) ?? ['node_modules']),
     ];
 
     config.resolve.alias = {
-      ...config.resolve.alias,
+      ...(config.resolve.alias as Record<string, string>),
       'thread-stream': stubPath,
       'thread-stream/test': stubPath,
       tap: stubPath,
@@ -74,7 +77,7 @@ const nextConfig: NextConfig = {
     // Standard Node.js polyfills for the browser (Client Component bundle)
     if (!isServer) {
       config.resolve.fallback = {
-        ...config.resolve.fallback,
+        ...(config.resolve.fallback as Record<string, boolean | string>),
         fs: false,
         net: false,
         tls: false,
@@ -128,6 +131,7 @@ const nextConfig: NextConfig = {
       })
     );
 
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     return config;
   },
 };

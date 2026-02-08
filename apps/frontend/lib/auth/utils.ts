@@ -41,7 +41,6 @@ interface RefreshConfig {
   monitoringEnabled: boolean;       // Enable security monitoring
 }
 
-
 interface RefreshResponse {
   access_token: string;
   expires_in: number;
@@ -367,7 +366,6 @@ class SecureTokenRefreshManager {
 
 // Export singleton instance
 export const secureTokenRefreshManager = new SecureTokenRefreshManager();
-
 
 // Export functions that are used in other modules
 export { getRankingLimitFromPermissions } from '@/app/constants/packages';

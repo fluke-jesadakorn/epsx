@@ -13,7 +13,7 @@
  * - Regulatory settings
  */
 
-import { UnifiedApiClient, ApiResponse, PaginatedResponse } from '../utils/api-client';
+import type { ApiResponse, PaginatedResponse, UnifiedApiClient } from '../utils/api-client';
 
 // ============================================================================
 // TYPES
@@ -58,7 +58,7 @@ export interface AuditLogEntry {
   action: string;
   resource_type: string;
   resource_id: string;
-  changes?: Record<string, any>;
+  changes?: Record<string, unknown>;
   ip_address?: string;
   user_agent?: string;
   result: 'success' | 'failure';
@@ -74,7 +74,7 @@ export interface SuspiciousActivity {
   description: string;
   evidence: Array<{
     type: string;
-    data: any;
+    data: unknown;
     timestamp: string;
   }>;
   status: 'new' | 'investigating' | 'resolved' | 'false_positive';
@@ -109,7 +109,7 @@ export interface RegulatorySettings {
   restricted_jurisdictions: string[];
   enhanced_monitoring_rules: Array<{
     rule_name: string;
-    criteria: Record<string, any>;
+    criteria: Record<string, unknown>;
     action: 'flag' | 'block' | 'monitor';
   }>;
 }

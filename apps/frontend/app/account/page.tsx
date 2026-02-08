@@ -1,6 +1,6 @@
 import { getPaymentHistoryAction } from '@/app/actions/payments';
-import { AccessOverview } from '@/components/account/AccessOverview';
-import { AccountClient } from '@/components/account/AccountClient';
+import { AccessOverview } from '@/components/account/access-overview';
+import { AccountClient } from '@/components/account/account-client';
 
 export const dynamic = 'force-dynamic';
 

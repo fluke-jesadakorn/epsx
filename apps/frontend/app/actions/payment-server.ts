@@ -11,7 +11,7 @@ import { supportedAssets } from '@/app/constants/assets'
 import { logger } from '@/lib/utils/logging'
 import type { PaymentStatus } from '@/shared/types/api'
 
-async function getCreatePaymentSchema() {
+function getCreatePaymentSchema() {
   return z.object({
     currency: z.string(),
     amount: z.string(),
@@ -25,7 +25,7 @@ export async function createPayment(
   data: CreatePaymentRequest
 ): Promise<CreatePaymentResponse> {
   try {
-    const schema = await getCreatePaymentSchema()
+    const schema = getCreatePaymentSchema()
     const validatedData = schema.parse(data)
 
     const result = await apiClient.post('/api/payments', validatedData)
@@ -44,8 +44,8 @@ export async function createPayment(
 }
 
 // Get supported crypto assets
-async function getSupportedAssets(): Promise<AssetInfo[]> {
-  return supportedAssets
+function getSupportedAssets(): Promise<AssetInfo[]> {
+  return Promise.resolve(supportedAssets)
 }
 
 // Get asset info by currency
@@ -87,7 +87,7 @@ export async function verifyPayment(transactionId: string): Promise<boolean> {
       return false
     }
 
-    return (result.data as { verified?: boolean })?.verified || false
+    return (result.data as { verified?: boolean } | null)?.verified ?? false
   } catch (error) {
     logger.error('Payment verification failed', error instanceof Error ? error.message : 'Unknown error')
     return false

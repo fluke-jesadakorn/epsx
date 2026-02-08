@@ -2,6 +2,7 @@
 
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
+import { logger } from '../utils/logger';
 import type { UserInfoResponse } from './client';
 import { COOKIES, COOKIE_OPTIONS, HTTP_ONLY_COOKIES } from './cookies';
 
@@ -15,17 +16,17 @@ export async function loginAction(
     refreshToken?: string
 ) {
     try {
-        console.log('[AUTH] loginAction called with:', {
-            hasAccessToken: !!accessToken,
-            tokenLength: accessToken?.length,
-            hasUser: !!user,
-            hasRefreshToken: !!refreshToken,
+        logger.info('[AUTH] loginAction called with:', {
+            hasAccessToken: Boolean(accessToken),
+            tokenLength: accessToken.length,
+            hasUser: Boolean(user),
+            hasRefreshToken: Boolean(refreshToken),
             cookieName: COOKIES.access_token,
             env: process.env.NODE_ENV,
         });
 
-        if (!accessToken) {
-            console.error('[AUTH] Error: loginAction: Missing access_token');
+        if (accessToken === '') {
+            logger.error('[AUTH] Error: loginAction: Missing access_token');
             return { success: false, error: 'Missing access_token' };
         }
 
@@ -33,7 +34,7 @@ export async function loginAction(
 
         // 1. Set Access Token (HttpOnly)
         // Log equivalent set-cookie header params for debugging
-        console.log('[AUTH] Setting access_token cookie:', {
+        logger.info('[AUTH] Setting access_token cookie:', {
             name: COOKIES.access_token,
             secure: COOKIE_OPTIONS.httpOnly.secure,
             sameSite: COOKIE_OPTIONS.httpOnly.sameSite,
@@ -47,15 +48,13 @@ export async function loginAction(
         });
 
         // 2. Set User Data (Client Accessible - but set from server)
-        if (user) {
-            cookieStore.set(COOKIES.user, JSON.stringify(user), {
-                ...COOKIE_OPTIONS.clientSide,
-                maxAge: COOKIE_OPTIONS.maxAge.user,
-            });
-        }
+        cookieStore.set(COOKIES.user, JSON.stringify(user), {
+            ...COOKIE_OPTIONS.clientSide,
+            maxAge: COOKIE_OPTIONS.maxAge.user,
+        });
 
         // 3. Set Refresh Token (HttpOnly) if available
-        if (refreshToken) {
+        if (refreshToken !== undefined && refreshToken !== '') {
             cookieStore.set(COOKIES.refresh_token, refreshToken, {
                 ...COOKIE_OPTIONS.httpOnly,
                 maxAge: COOKIE_OPTIONS.maxAge.refresh_token,
@@ -75,7 +74,7 @@ export async function loginAction(
             maxAge: COOKIE_OPTIONS.maxAge.expires_at,
         });
 
-        console.log('[AUTH] loginAction: All cookies set successfully', {
+        logger.info('[AUTH] loginAction: All cookies set successfully', {
             accessToken: COOKIES.access_token,
             user: COOKIES.user,
             authTime: COOKIES.auth_time,
@@ -84,7 +83,7 @@ export async function loginAction(
 
         return { success: true };
     } catch (error) {
-        console.error('Login action failed:', error);
+        logger.error('Login action failed:', error instanceof Error ? error.message : String(error));
         return { success: false, error: 'Internal server error' };
     }
 }
@@ -96,12 +95,12 @@ export async function logoutAction() {
     try {
         const cookieStore = await cookies();
 
-        console.log('[AUTH] logoutAction: Clearing session cookies...');
+        logger.info('[AUTH] logoutAction: Clearing session cookies...');
 
         // Clear all known cookies
         Object.entries(COOKIES).forEach(([key, cookieName]) => {
             // Determine options based on cookie type using HTTP_ONLY_COOKIES
-            const isHttpOnly = HTTP_ONLY_COOKIES.includes(key as any);
+            const isHttpOnly = (HTTP_ONLY_COOKIES as readonly string[]).includes(key);
             const options = isHttpOnly ? COOKIE_OPTIONS.httpOnly : COOKIE_OPTIONS.clientSide;
 
             // Explicitly delete with path and domain to ensure removal
@@ -113,9 +112,9 @@ export async function logoutAction() {
             });
         });
 
-        console.log('[AUTH] logoutAction: All cookies cleared');
+        logger.info('[AUTH] logoutAction: All cookies cleared');
     } catch (error) {
-        console.error('Logout action failed:', error);
+        logger.error('Logout action failed:', error instanceof Error ? error.message : String(error));
         return { success: false, error: 'Internal server error' };
     }
 
@@ -132,8 +131,8 @@ export async function refreshSessionAction() {
         const cookieStore = await cookies();
         const refreshToken = cookieStore.get(COOKIES.refresh_token)?.value;
 
-        if (!refreshToken) {
-            console.warn('[AUTH] refreshSessionAction: No refresh token found');
+        if (refreshToken === undefined || refreshToken === '') {
+            logger.warn('[AUTH] refreshSessionAction: No refresh token found');
             return { success: false, error: 'No refresh token available' };
         }
 
@@ -150,68 +149,81 @@ export async function refreshSessionAction() {
         });
 
         if (!response.ok) {
-            console.error('[AUTH] refreshSessionAction: Backend refresh failed', response.status);
+            logger.error('[AUTH] refreshSessionAction: Backend refresh failed', String(response.status));
             return { success: false, error: 'Token refresh failed' };
         }
 
-        const data = await response.json();
+        const data = (await response.json()) as {
+            access_token?: string;
+            expires_in?: number;
+            refresh_token?: string;
+            user?: Record<string, unknown>;
+        };
 
-        if (!data.access_token) {
-            console.error('[AUTH] refreshSessionAction: No access_token in response');
+        if (data.access_token === undefined || data.access_token === '') {
+            logger.error('[AUTH] refreshSessionAction: No access_token in response');
             return { success: false, error: 'Invalid refresh response' };
         }
 
-        // Update cookies with new tokens
-        cookieStore.set(COOKIES.access_token, data.access_token, {
-            ...COOKIE_OPTIONS.httpOnly,
-            maxAge: data.expires_in || COOKIE_OPTIONS.maxAge.access_token,
-        });
+        await updateSessionCookies(cookieStore, data);
 
-        if (data.refresh_token) {
-            cookieStore.set(COOKIES.refresh_token, data.refresh_token, {
-                ...COOKIE_OPTIONS.httpOnly,
-                maxAge: COOKIE_OPTIONS.maxAge.refresh_token,
-            });
-        }
-
-        // Update user data and sync access token to client cookie
-        // This is CRITICAL because api-client.ts reads headers['Authorization'] from this cookie on the client side
-        const existingUserCookie = cookieStore.get(COOKIES.user)?.value;
-        if (existingUserCookie) {
-            const existingUser = JSON.parse(existingUserCookie);
-
-            // Always update the access token in the user object
-            existingUser.access = data.access_token;
-
-            // Merge any new user data if provided by backend
-            if (data.user) {
-                Object.assign(existingUser, data.user);
-            }
-
-            cookieStore.set(COOKIES.user, JSON.stringify(existingUser), {
-                ...COOKIE_OPTIONS.clientSide,
-                maxAge: COOKIE_OPTIONS.maxAge.user,
-            });
-        } else if (data.user) {
-            // If no existing cookie but we have user data, create it
-            const newUser = { ...data.user, access: data.access_token };
-            cookieStore.set(COOKIES.user, JSON.stringify(newUser), {
-                ...COOKIE_OPTIONS.clientSide,
-                maxAge: COOKIE_OPTIONS.maxAge.user,
-            });
-        }
-
-        // Update expires_at
-        const expiresAt = Date.now() + ((data.expires_in || COOKIE_OPTIONS.maxAge.access_token) * 1000);
-        cookieStore.set(COOKIES.expires_at, expiresAt.toString(), {
-            ...COOKIE_OPTIONS.clientSide,
-            maxAge: COOKIE_OPTIONS.maxAge.expires_at,
-        });
-
-        console.log('[AUTH] refreshSessionAction: Token refreshed successfully');
+        logger.info('[AUTH] refreshSessionAction: Token refreshed successfully');
         return { success: true, access_token: data.access_token };
     } catch (error) {
-        console.error('[AUTH] refreshSessionAction error:', error);
+        logger.error('[AUTH] refreshSessionAction error:', error instanceof Error ? error.message : String(error));
         return { success: false, error: 'Internal server error' };
     }
 }
+
+/**
+ * Internal helper to update session cookies after token refresh
+ */
+async function updateSessionCookies(
+    cookieStore: any,
+    data: { access_token?: string; expires_in?: number; refresh_token?: string; user?: Record<string, unknown> }
+) {
+    if (data.access_token === undefined || data.access_token === '') { return; }
+
+    const accessToken = data.access_token;
+
+    // 1. Update Access Token
+    cookieStore.set(COOKIES.access_token, accessToken, {
+        ...COOKIE_OPTIONS.httpOnly,
+        maxAge: data.expires_in ?? COOKIE_OPTIONS.maxAge.access_token,
+    });
+
+    // 2. Update Refresh Token if provided
+    if (data.refresh_token !== undefined && data.refresh_token !== '') {
+        cookieStore.set(COOKIES.refresh_token, data.refresh_token, {
+            ...COOKIE_OPTIONS.httpOnly,
+            maxAge: COOKIE_OPTIONS.maxAge.refresh_token,
+        });
+    }
+
+    // 3. Update User Data
+    const existingUserCookie = cookieStore.get(COOKIES.user)?.value;
+    if (existingUserCookie !== undefined && existingUserCookie !== '') {
+        const existingUser = JSON.parse(existingUserCookie) as Record<string, unknown>;
+        existingUser.access = accessToken;
+        if (data.user) { Object.assign(existingUser, data.user); }
+
+        cookieStore.set(COOKIES.user, JSON.stringify(existingUser), {
+            ...COOKIE_OPTIONS.clientSide,
+            maxAge: COOKIE_OPTIONS.maxAge.user,
+        });
+    } else if (data.user) {
+        const newUser = { ...data.user, access: accessToken };
+        cookieStore.set(COOKIES.user, JSON.stringify(newUser), {
+            ...COOKIE_OPTIONS.clientSide,
+            maxAge: COOKIE_OPTIONS.maxAge.user,
+        });
+    }
+
+    // 4. Update expires_at
+    const expiresAt = Date.now() + ((data.expires_in ?? COOKIE_OPTIONS.maxAge.access_token) * 1000);
+    cookieStore.set(COOKIES.expires_at, expiresAt.toString(), {
+        ...COOKIE_OPTIONS.clientSide,
+        maxAge: COOKIE_OPTIONS.maxAge.expires_at,
+    });
+}
+

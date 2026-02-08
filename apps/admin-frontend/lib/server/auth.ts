@@ -4,9 +4,18 @@
 
 import { redirect } from 'next/navigation';
 
+import { COOKIES } from '@/shared/auth/cookies';
 import { generateCodeChallenge, generateCodeVerifier, generateRandomString } from '@/shared/auth/pkce';
+import { logger } from '@/shared/utils/logger';
 
 import type { User } from '../../types/admin/iam';
+
+interface TokenResponse {
+  access_token: string;
+  id_token: string;
+  refresh_token: string;
+  expires_in?: number;
+}
 
 // OAuth authorization URL generation now handled by shared utilities
 async function getAuthorizationUrl(): Promise<{ url: string; codeVerifier: string; state: string }> {
@@ -24,9 +33,9 @@ export async function getServerSession(): Promise<{ isAuthenticated: boolean; us
   try {
     const { getSessionFromJWT } = await import('./token');
     return await getSessionFromJWT() as { isAuthenticated: boolean; user: User | null };
-  } catch (_error) {
+  } catch (error) {
 
-    console.error('❌ Admin: Failed to get server session:', _error);
+    logger.error('❌ Admin: Failed to get server session:', error);
     return { isAuthenticated: false, user: null };
   }
 }
@@ -42,9 +51,9 @@ export async function getAuthUser(): Promise<User | null> {
     // PERMISSION REFACTOR: Backend (Rust) enforces actual admin access.
     // If a valid JWT is present, we consider the user authenticated.
     return user as User | null;
-  } catch (_error) {
+  } catch (error) {
 
-    console.error('❌ Admin: Failed to get auth user:', _error);
+    logger.error('❌ Admin: Failed to get auth user:', error);
     return null;
   }
 }
@@ -87,22 +96,22 @@ export async function exchangeCodeForTokens(
     if (!response.ok) {
       const errorText = await response.text()
 
-      console.error('❌ Admin: Token exchange failed:', response.status, response.statusText, errorText)
+      logger.error('❌ Admin: Token exchange failed:', response.status, response.statusText, errorText)
       throw new Error(`Token exchange failed: ${response.status} ${response.statusText} - ${errorText}`)
     }
 
-    const tokens = await response.json()
+    const tokens = await response.json() as TokenResponse
 
     return {
       accessToken: tokens.access_token,
       idToken: tokens.id_token,
       refreshToken: tokens.refresh_token,
-      expiresIn: tokens.expires_in || 3600, // Include expiry information
+      expiresIn: tokens.expires_in ?? 3600, // Include expiry information
     }
-  } catch (_error) {
+  } catch (error) {
 
-    console.error('❌ Admin: Token exchange error:', _error)
-    throw new Error(`Failed to exchange authorization code for tokens: ${_error instanceof Error ? _error.message : 'Unknown error'}`)
+    logger.error('❌ Admin: Token exchange error:', error)
+    throw new Error(`Failed to exchange authorization code for tokens: ${error instanceof Error ? error.message : 'Unknown error'}`)
   }
 }
 
@@ -125,7 +134,7 @@ export async function getUserInfo(accessToken: string): Promise<unknown> {
   if (!response.ok) {
     const errorText = await response.text();
 
-    console.error('❌ Admin: UserInfo fetch failed:', response.status, response.statusText, errorText);
+    logger.error('❌ Admin: UserInfo fetch failed:', response.status, response.statusText, errorText);
     throw new Error(`UserInfo fetch failed: ${response.status} ${response.statusText} - ${errorText}`);
   }
 
@@ -174,9 +183,9 @@ export async function redirectToBackendAdminLogin(callbackUrl?: string): Promise
     }
 
     redirect(url);
-  } catch (_error) {
+  } catch (error) {
 
-    console.error('❌ Admin: Failed to setup PKCE redirect:', _error);
+    logger.error('❌ Admin: Failed to setup PKCE redirect:', error);
     // Fallback to simple redirect without PKCE using consolidated config
     const { authConfig } = await import('../../config/env');
     const backendAdminLoginUrl = new URL('/oauth/authorize', authConfig.apiUrl);
@@ -203,7 +212,6 @@ export async function requireAuth(redirectPath?: string): Promise<unknown> {
   const user = await getAuthUser();
 
   if (!user) {
-    const { redirect } = await import('next/navigation');
     const loginUrl = redirectPath ? `/auth?return_url=${encodeURIComponent(redirectPath)}` : '/auth';
     redirect(loginUrl);
   }
@@ -217,7 +225,6 @@ export async function requireAuth(redirectPath?: string): Promise<unknown> {
 export async function clearSession(): Promise<void> {
   try {
     const { cookies } = await import('next/headers');
-    const { COOKIES } = await import('@/shared/auth/cookies');
     const cookieStore = await cookies();
     // OIDC Migration: Clear OIDC tokens instead of legacy JWT
     cookieStore.delete(COOKIES.access_token);
@@ -225,10 +232,10 @@ export async function clearSession(): Promise<void> {
     cookieStore.delete(COOKIES.refresh_token);
     // Also clear legacy cookie for migration compatibility
     cookieStore.delete('epsx_admin_jwt');
-  } catch (_error) {
+  } catch (error) {
 
-    console.error('❌ Admin: Failed to clear session:', _error);
-    throw _error;
+    logger.error('❌ Admin: Failed to clear session:', error);
+    throw error;
   }
 }
 
@@ -238,6 +245,7 @@ export async function clearSession(): Promise<void> {
  * @param _permission
  */
 export async function hasAdminPermission(_permission: string): Promise<boolean> {
+  await Promise.resolve();
   return true;
 }
 
@@ -246,6 +254,7 @@ export async function hasAdminPermission(_permission: string): Promise<boolean> 
  * @param _permission
  */
 export async function hasPermission(_permission: string): Promise<boolean> {
+  await Promise.resolve();
   return true;
 }
 

@@ -1,4 +1,4 @@
-import { NotificationManagement } from '@/components/notifications/NotificationManagement';
+import { NotificationManagement } from '@/components/notifications/notification-management';
 import { PageAuthRequired } from '@/components/shared';
 import { getCurrentUser } from '@/lib/auth/server';
 

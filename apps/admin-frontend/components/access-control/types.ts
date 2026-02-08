@@ -4,7 +4,7 @@
  */
 
 import type { PermissionPlan as PermissionGroup } from '@/lib/api/plan-management-client';
-import type { PlanResponse } from '@/shared/api/plans';
+import type { Plan as SharedPlan } from '@/shared/api/plans';
 
 // ============================================================================
 // POLICY TYPES
@@ -185,33 +185,32 @@ export const DEFAULT_POLICY_STATS: PolicyStats = {
 /**
  * Transform a PlanResponse to AccessPolicy
  */
-export function planToPolicy(plan: PlanResponse): AccessPolicy {
-  const price = typeof plan.current_price === 'string'
-    ? parseFloat(plan.current_price)
-    : plan.current_price;
-
-  const revenue = typeof plan.revenue_last_30_days === 'string'
-    ? parseFloat(plan.revenue_last_30_days)
-    : plan.revenue_last_30_days;
+export function planToPolicy(plan: SharedPlan): AccessPolicy {
+  let price = 0;
+  if (typeof plan.current_price === 'string') {
+    price = parseFloat(plan.current_price);
+  } else if (typeof plan.current_price === 'number') {
+    price = plan.current_price;
+  }
 
   return {
     id: `plan-${plan.id}`,
     name: plan.name,
-    description: plan.description || '',
+    description: plan.description ?? '',
     type: 'subscription',
-    permissions: plan.permissions || [],
-    memberCount: plan.subscriber_count || 0,
+    permissions: plan.permissions ?? [],
+    memberCount: plan.member_count ?? 0,
     isActive: plan.is_active,
 
     // Subscription-specific
     pricing: {
       amount: isNaN(price) ? 0 : price,
-      currency: plan.currency || 'USD',
-      cycle: plan.billing_model || 'monthly',
+      currency: (plan.metadata?.currency as string) ?? 'USD',
+      cycle: (plan.metadata?.billing_cycle as string) ?? 'monthly',
     },
-    revenue: isNaN(revenue) ? 0 : revenue,
-    tierLevel: plan.tier_level ?? 0,
-    planCategory: plan.plan_category,
+    revenue: 0, // Not available on SharedPlan directly
+    tierLevel: (plan.metadata?.tier_level as number) ?? 0,
+    planCategory: (plan.metadata?.plan_category as string) ?? 'standard',
 
     // Common
     createdAt: plan.created_at,

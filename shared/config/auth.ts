@@ -152,7 +152,7 @@ export function getWeb3Config(): Web3Config {
 
     // Server-side: use production domain if configured URLs suggest production
     const appUrl = env.APP_URL;
-    if (appUrl && appUrl.includes('epsx.io')) {
+    if (appUrl.includes('epsx.io')) {
       return 'epsx.io';
     }
 
@@ -271,14 +271,14 @@ export function buildAuthorizationUrl(
     client_id: config.clientId,
     redirect_uri: config.redirectUri,
     scope: config.scope.join(' '),
-    state: options.state || generateRandomString(32),
-    nonce: options.nonce || generateRandomString(32),
+    state: options.state ?? generateRandomString(32),
+    nonce: options.nonce ?? generateRandomString(32),
   });
 
   // Add PKCE parameters if provided
   if (options.codeChallenge) {
     params.append('code_challenge', options.codeChallenge);
-    params.append('code_challenge_method', options.codeChallengeMethod || 'S256');
+    params.append('code_challenge_method', options.codeChallengeMethod ?? 'S256');
   }
 
   return `${config.endpoints.authorize}?${params.toString()}`;
@@ -542,7 +542,7 @@ export function createPKCEChallenge(): {
 /**
  * Parse JWT payload (client-side only, for display purposes)
  */
-export function parseJWTPayload(token: string): any {
+export function parseJWTPayload(token: string): Record<string, unknown> | null {
   try {
     const parts = token.split('.');
     const base64Url = parts[1] || '';
@@ -550,10 +550,10 @@ export function parseJWTPayload(token: string): any {
     const jsonPayload = decodeURIComponent(
       atob(base64)
         .split('')
-        .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+        .map((c) => `%${  (`00${  c.charCodeAt(0).toString(16)}`).slice(-2)}`)
         .join('')
     );
-    return JSON.parse(jsonPayload);
+    return JSON.parse(jsonPayload) as Record<string, unknown>;
   } catch {
     return null;
   }
@@ -564,7 +564,7 @@ export function parseJWTPayload(token: string): any {
  */
 export function isJWTExpired(token: string): boolean {
   const payload = parseJWTPayload(token);
-  if (!payload?.exp) {return true;}
+  if (!payload || typeof payload.exp !== 'number') { return true; }
 
   return Date.now() >= payload.exp * 1000;
 }
@@ -574,7 +574,7 @@ export function isJWTExpired(token: string): boolean {
  */
 export function getJWTExpiry(token: string): number | null {
   const payload = parseJWTPayload(token);
-  return payload?.exp ? payload.exp * 1000 : null;
+  return (payload && typeof payload.exp === 'number') ? payload.exp * 1000 : null;
 }
 
 // ============================================================================

@@ -1,2 +1,2 @@
-export { NavbarSkeleton } from './NavbarSkeleton'
-export { NavigationClient } from './NavigationClient'
+export { NavbarSkeleton } from './Navbarskeleton'
+export { NavigationClient } from './navigation-client'

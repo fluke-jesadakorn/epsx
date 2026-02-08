@@ -1,4 +1,4 @@
-import { PermissionDefinition } from '@/lib/api/permissions-client';
+import type { PermissionDefinition } from '@/lib/api/permissions-client';
 
 /**
  * Extract platform prefix from permission string
@@ -6,7 +6,7 @@ import { PermissionDefinition } from '@/lib/api/permissions-client';
  */
 export function getPlatformFromPermission(permission: string): string {
     const parts = permission.split(':');
-    return parts[0] || 'other';
+    return parts[0] ?? 'other';
 }
 
 /**
@@ -19,17 +19,15 @@ export function groupPermissionsByPlatform(
 
     permissions.forEach((perm) => {
         const platform = getPlatformFromPermission(perm.permission_string);
-        if (!grouped[platform]) {
-            grouped[platform] = [];
-        }
+        grouped[platform] ??= [];
         grouped[platform].push(perm);
     });
 
     // Sort platforms: admin first, then alphabetically
     const sortedGrouped: Record<string, PermissionDefinition[]> = {};
     const platforms = Object.keys(grouped).sort((a, b) => {
-        if (a === 'admin') {return -1;}
-        if (b === 'admin') {return 1;}
+        if (a === 'admin') { return -1; }
+        if (b === 'admin') { return 1; }
         return a.localeCompare(b);
     });
 
@@ -54,7 +52,7 @@ export function getPlatformColorClass(platform: string): string {
         'epsx-token': 'text-purple-400',
     };
 
-    return colorMap[platform] || 'text-slate-400';
+    return colorMap[platform] ?? 'text-slate-400';
 }
 
 /**
@@ -68,7 +66,7 @@ export function getPlatformDisplayName(platform: string): string {
         'epsx-token': 'EPSX TOKEN',
     };
 
-    return nameMap[platform] || platform.toUpperCase();
+    return nameMap[platform] ?? platform.toUpperCase();
 }
 
 /**
@@ -79,15 +77,15 @@ export function filterPermissions(
     permissions: PermissionDefinition[],
     query: string
 ): PermissionDefinition[] {
-    if (!query.trim()) {return permissions;}
+    if (!query.trim()) { return permissions; }
 
     const lowerQuery = query.toLowerCase();
 
     return permissions.filter((perm) => {
         return (
             perm.permission_string.toLowerCase().includes(lowerQuery) ||
-            (perm.name && perm.name.toLowerCase().includes(lowerQuery)) ||
-            (perm.description && perm.description.toLowerCase().includes(lowerQuery))
+            (perm.name?.toLowerCase().includes(lowerQuery) ?? false) ||
+            (perm.description?.toLowerCase().includes(lowerQuery) ?? false)
         );
     });
 }

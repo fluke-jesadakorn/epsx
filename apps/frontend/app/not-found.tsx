@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 
-import { SkeletonLoader } from "@/components/common/Skeleton";
+import { SkeletonLoader } from "@/components/common/skeleton";
 
 export default function NotFound() {
   return (
