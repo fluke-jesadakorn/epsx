@@ -67,7 +67,7 @@ function escapeCSVField(field: string): string {
 }
 
 function formatValue(value: unknown): string {
-  if (value == null) {return '';}
+  if (value === null || value === undefined) {return '';}
 
   if (value instanceof Date) {
     return value.toISOString();
@@ -142,12 +142,14 @@ export interface AnalyticsDataPoint {
 }
 
 export function processAnalyticsData(rawData: Record<string, unknown>[]): AnalyticsDataPoint[] {
-  return rawData.map(item => ({
-    timestamp: (item.timestamp as string) || new Date().toISOString(),
-    value: parseFloat(item.value as string) || 0,
-    label: (item.label as string) || (item.name as string) || '',
-    metadata: (item.metadata as Record<string, unknown> | undefined) || {}
-  }));
+  return rawData.map(item => {
+    const timestamp = typeof item.timestamp === 'string' ? item.timestamp : new Date().toISOString();
+    const value = typeof item.value === 'string' ? parseFloat(item.value) || 0 : 0;
+    const label = (typeof item.label === 'string' ? item.label : '') || (typeof item.name === 'string' ? item.name : '');
+    const metadata = typeof item.metadata === 'object' && item.metadata !== null ? item.metadata as Record<string, unknown> : {};
+
+    return { timestamp, value, label, metadata };
+  });
 }
 
 export function aggregateByPeriod(
@@ -181,7 +183,10 @@ export function aggregateByPeriod(
     if (!grouped.has(key)) {
       grouped.set(key, []);
     }
-    grouped.get(key)!.push(item);
+    const group = grouped.get(key);
+    if (group !== undefined) {
+      group.push(item);
+    }
   }
 
   return Array.from(grouped.entries()).map(([key, items]) => ({
@@ -226,15 +231,17 @@ export class SimpleCache<T> {
 
     // If still full after cleanup, remove least recently accessed
     if (this.cache.size >= this.options.maxSize) {
-      const leastAccessed = Array.from(this.cache.entries())
-        .sort((a, b) => a[1].accessed - b[1].accessed)[0];
+      const entries = Array.from(this.cache.entries())
+        .sort((a, b) => a[1].accessed - b[1].accessed);
 
-      if (leastAccessed !== undefined) {
-        this.cache.delete(leastAccessed[0]);
+      if (entries.length > 0) {
+        this.cache.delete(entries[0][0]);
       }
     }
 
-    const processedValue = this.options.serialize ? JSON.parse(JSON.stringify(value)) : value;
+    const processedValue: T = this.options.serialize
+      ? (JSON.parse(JSON.stringify(value)) as T)
+      : value;
 
     this.cache.set(key, {
       value: processedValue,
@@ -396,12 +403,15 @@ export function registerServiceWorker(swUrl = '/sw.js'): Promise<ServiceWorkerRe
   return navigator.serviceWorker.register(swUrl);
 }
 
-export function unregisterServiceWorker(): Promise<boolean> {
+export async function unregisterServiceWorker(): Promise<boolean> {
   if (typeof window === 'undefined' || !('serviceWorker' in navigator)) {
-    return Promise.resolve(false);
+    return false;
   }
 
-  return navigator.serviceWorker.ready
-    .then(registration => registration.unregister())
-    .catch(() => false);
+  try {
+    const registration = await navigator.serviceWorker.ready;
+    return await registration.unregister();
+  } catch {
+    return false;
+  }
 }
