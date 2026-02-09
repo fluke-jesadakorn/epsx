@@ -73,10 +73,8 @@ export default async function DynamicPricingSection({ initialAffiliateCode }: Dy
       personalPlans = planData
         .filter((plan) => plan.isActive)
         .filter((plan) => {
-          // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
           const type = plan.planType?.toLowerCase();
-          // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-          return !type?.includes('api');
+          return !(type?.includes('api') ?? false);
         })
         .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0))
         .map(transformToPricingCard);
@@ -84,15 +82,13 @@ export default async function DynamicPricingSection({ initialAffiliateCode }: Dy
       apiPlans = planData
         .filter((plan) => plan.isActive)
         .filter((plan) => {
-          // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
           const type = plan.planType?.toLowerCase();
-          // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-          return type?.includes('api');
+          return type?.includes('api') ?? false;
         })
         .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0))
         .map(transformToPricingCard);
     }
-  } catch (error) {
+  } catch (_error) {
       // Error logged silently
   }
 

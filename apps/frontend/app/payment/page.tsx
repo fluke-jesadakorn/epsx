@@ -36,20 +36,20 @@ export default async function PaymentPage({ searchParams }: PaymentPageProps) {
   const initialPlans = plansResponse.success && plansResponse.data ? plansResponse.data : [];
 
   // Redirect query string patterns to new dynamic routes
-  if (resolvedSearchParams.plan != null && resolvedSearchParams.plan !== '') {
+  if (resolvedSearchParams.plan !== undefined && resolvedSearchParams.plan !== '') {
     redirect(`/payment/plan/${resolvedSearchParams.plan}`);
   }
-  if (resolvedSearchParams['access-plan'] != null && resolvedSearchParams['access-plan'] !== '') {
+  if (resolvedSearchParams['access-plan'] !== undefined && resolvedSearchParams['access-plan'] !== '') {
     redirect(`/payment/access-plan/${resolvedSearchParams['access-plan']}`);
   }
   // Legacy support for group param
-  if (resolvedSearchParams.group != null && resolvedSearchParams.group !== '') {
+  if (resolvedSearchParams.group !== undefined && resolvedSearchParams.group !== '') {
     redirect(`/payment/access-plan/${resolvedSearchParams.group}`);
   }
-  if (resolvedSearchParams.permission != null && resolvedSearchParams.permission !== '') {
+  if (resolvedSearchParams.permission !== undefined && resolvedSearchParams.permission !== '') {
     redirect(`/payment/permission/${resolvedSearchParams.permission}`);
   }
-  if (resolvedSearchParams.link != null && resolvedSearchParams.link !== '') {
+  if (resolvedSearchParams.link !== undefined && resolvedSearchParams.link !== '') {
     redirect(`/payment/link/${resolvedSearchParams.link}`);
   }
 
