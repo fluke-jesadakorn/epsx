@@ -52,9 +52,7 @@ export function useFinancialData(
   const avgGrowth = calculateAvgEpsGrowth(data);
 
   const displayPrice =
-    data.currentPrice !== undefined && data.currentPrice !== null
-      ? data.currentPrice
-      : (latestQuarter?.price ?? null);
+    data.currentPrice ?? (latestQuarter?.price ?? null);
 
   const hasGrowthData =
     data.quarters && data.quarters.length >= 2 &&

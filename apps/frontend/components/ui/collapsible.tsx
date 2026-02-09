@@ -21,7 +21,7 @@ interface CollapsibleProps {
 const Collapsible = React.forwardRef<HTMLDivElement, CollapsibleProps>(
   ({ open, defaultOpen = false, onOpenChange, children, className, ...props }, ref) => {
     const [internalOpen, setInternalOpen] = React.useState(defaultOpen);
-    const currentOpen = open !== undefined ? open : internalOpen;
+    const currentOpen = open ?? internalOpen;
     
     const handleOpenChange = React.useCallback((newOpen: boolean) => {
       if (open === undefined) {

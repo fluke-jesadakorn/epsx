@@ -18,7 +18,6 @@ export function useApi<T>(
   const fetchData = useCallback(async () => {
     if (options?.enabled === false) {return;}
 
-    console.warn('useApi hook is deprecated. Please migrate to specific server actions.');
     setError('useApi hook is deprecated. Please use specific server actions instead.');
     setLoading(false);
   }, [options?.enabled]);
@@ -131,8 +130,8 @@ export function useCookieStorage<T>(key: string, initialValue: T, maxAge?: numbe
         const maxAgeStr = maxAge ? `max-age=${maxAge}` : '';
         document.cookie = `${key}=${encodeURIComponent(JSON.stringify(valueToStore))}; path=/; ${maxAgeStr} SameSite=lax`;
       }
-    } catch (error) {
-      console.error(`Error setting cookie key "${key}":`, error);
+    } catch (_error) {
+      // Cookie setting failed silently
     }
   };
 
@@ -141,7 +140,6 @@ export function useCookieStorage<T>(key: string, initialValue: T, maxAge?: numbe
 
 // Deprecated localStorage hook (for migration only - useCookieStorage instead)
 export function useLocalStorage<T>(key: string, initialValue: T) {
-  console.warn(`useLocalStorage is deprecated. Migration to useCookieStorage recommended for key: ${key}`);
   return useCookieStorage(key, initialValue);
 }
 

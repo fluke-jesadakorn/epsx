@@ -117,10 +117,10 @@ function AnalyticsClientWrapper({
   useEffect(() => {
     // Only fetch if filters have changed from default
     const hasNonDefaultFilters = filters.page !== 1 ||
-      filters.country ||
-      filters.sector ||
-      filters.min_eps ||
-      filters.min_growth;
+      filters.country !== undefined ||
+      filters.sector !== undefined ||
+      filters.min_eps !== undefined ||
+      filters.min_growth !== undefined;
 
     if (!initialData || hasNonDefaultFilters) {
       const loadData = async () => {
