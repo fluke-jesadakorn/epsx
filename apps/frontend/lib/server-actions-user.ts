@@ -18,12 +18,39 @@ export interface AuthUser {
   name?: string;
 }
 
+function getStringValue(value: unknown, defaultValue = ''): string {
+  return typeof value === 'string' ? value : defaultValue;
+}
+
+function getNumberValue(value: unknown, defaultValue = 0): number {
+  return typeof value === 'number' ? value : defaultValue;
+}
+
+function mapPaymentToTransaction(payment: Record<string, unknown>) {
+  const paymentRef = getStringValue(payment.payment_reference);
+  const paymentId = getStringValue(payment.id);
+  const txHash = getStringValue(payment.tx_hash);
+
+  return {
+    orderNo: paymentRef || paymentId,
+    actualAmount: getNumberValue(payment.amount),
+    currency: getStringValue(payment.currency, 'USD'),
+    status: getStringValue(payment.status, 'pending'),
+    finishTime: getStringValue(payment.completed_at) || getStringValue(payment.created_at) || new Date().toISOString(),
+    blockchainData: {
+      txHash,  // Backend returns 'tx_hash' not 'transaction_hash'
+      network: 'BSC'
+    },
+    blockExplorerUrl: txHash !== '' ? `https://bscscan.com/tx/${txHash}` : ''
+  };
+}
+
 export async function getCurrentUser(): Promise<AuthUser | null> {
   try {
     const cookieStore = await cookies();
     const token = getServerAuthToken(cookieStore);
 
-    if (!token) {
+    if (token === null) {
       return null;
     }
 
@@ -80,7 +107,7 @@ export async function getPaymentHistory() {
     const cookieStore = await cookies();
     const token = getServerAuthToken(cookieStore);
 
-    if (!token) {
+    if (token === null) {
       return [];
     }
 
@@ -99,22 +126,8 @@ export async function getPaymentHistory() {
     }
 
     // Map backend response to Transaction format expected by PaymentStatusSection
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-    const payments = response.data.payments || [];
-    return payments.map((payment: Record<string, unknown>) => ({
-      orderNo: (payment.payment_reference as string) || (payment.id as string) || '',
-      actualAmount: (payment.amount as number) || 0,
-      currency: (payment.currency as string) || 'USD',
-      status: (payment.status as string) || 'pending',
-      finishTime: (payment.completed_at as string) || (payment.created_at as string) || new Date().toISOString(),
-      blockchainData: {
-        txHash: (payment.tx_hash as string) || '',  // Backend returns 'tx_hash' not 'transaction_hash'
-        network: 'BSC'
-      },
-      blockExplorerUrl: payment.tx_hash
-        ? `https://bscscan.com/tx/${payment.tx_hash}`
-        : ''
-    }));
+    const payments = response.data.payments;
+    return payments.map(mapPaymentToTransaction);
   } catch (_error) {
     return [];
   }
@@ -125,7 +138,7 @@ export async function checkFeatureAccess(feature: string) {
     const cookieStore = await cookies();
     const token = getServerAuthToken(cookieStore);
 
-    if (!token) {
+    if (token === null) {
       return {
         hasAccess: false,
         reason: 'Not authenticated',
@@ -173,7 +186,7 @@ export async function getPaymentStatus(paymentId?: string) {
     const cookieStore = await cookies();
     const token = getServerAuthToken(cookieStore);
 
-    if (!token) {
+    if (token === null) {
       return {
         status: 'unauthenticated',
         activeSubscription: null,
@@ -201,15 +214,15 @@ export async function getPaymentStatus(paymentId?: string) {
       : null;
 
     // Get specific payment if ID provided
-    if (paymentId) {
+    if (paymentId !== undefined) {
       const paymentResponse = await client.get<{ payment: { status: string } }>(
         `/api/payments/${paymentId}`,
         undefined,
         { cache: 'no-store' }
       );
+      const paymentStatus = paymentResponse.data?.payment.status;
       return {
-        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-        status: paymentResponse.data?.payment?.status ?? 'unknown',
+        status: typeof paymentStatus === 'string' ? paymentStatus : 'unknown',
         activeSubscription,
         paymentHistory: []
       };
@@ -229,22 +242,22 @@ export async function getPaymentStatus(paymentId?: string) {
   }
 }
 
-export async function getBatchStocks(_symbols: string[]) {
+export function getBatchStocks(_symbols: string[]) {
   // TODO: Implement when backend is ready
   return {
     success: true,
     data: {},
     errors: [],
-    cached: symbols,
+    cached: _symbols,
     fetched: []
   };
 }
 
-export async function preloadStocks(symbols: string[]) {
+export function preloadStocks(_symbols: string[]) {
   // TODO: Implement when backend is ready
 }
 
-export async function checkStockCacheStatus(symbols: string[]) {
+export function checkStockCacheStatus(symbols: string[]) {
   // TODO: Implement when backend is ready
   return {
     cached: {},
@@ -264,15 +277,19 @@ export async function getDebugSessionInfo() {
     const allCookies = cookieStore.getAll().map(c => `${c.name} (${c.value.length} chars)`);
     const rawHeader = headerStore.get('cookie');
 
+    const hasClientSession = clientSession !== undefined;
+    const hasAccessCookie = accessCookie !== undefined;
+    const hasRawHeader = rawHeader !== null;
+
     return {
-      foundClientSession: Boolean(clientSession),
-      foundAccessCookie: Boolean(accessCookie),
-      clientSessionLength: clientSession ? clientSession.length : 0,
-      clientSessionPreview: clientSession ? `${clientSession.slice(0, 10)  }...` : 'none',
-      accessCookieLength: accessCookie ? accessCookie.length : 0,
+      foundClientSession: hasClientSession,
+      foundAccessCookie: hasAccessCookie,
+      clientSessionLength: hasClientSession ? clientSession.length : 0,
+      clientSessionPreview: hasClientSession ? `${clientSession.slice(0, 10)  }...` : 'none',
+      accessCookieLength: hasAccessCookie ? accessCookie.length : 0,
       backendUrl: process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:8080',
       allCookieNames: allCookies,
-      rawCookieHeader: rawHeader ? (`${rawHeader.slice(0, 50)  }...`) : 'missing'
+      rawCookieHeader: hasRawHeader ? (`${rawHeader.slice(0, 50)  }...`) : 'missing'
     };
   } catch (e) {
     return { error: 'Failed to get debug info', details: String(e) };
