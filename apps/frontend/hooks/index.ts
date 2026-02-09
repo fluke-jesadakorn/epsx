@@ -36,7 +36,7 @@ export function useApi<T>(
 }
 
 // Form handling hook
-export function useForm<T extends Record<string, any>>(
+export function useForm<T extends Record<string, unknown>>(
   initialValues: T,
   onSubmit: (values: T) => Promise<void>
 ) {
@@ -45,7 +45,7 @@ export function useForm<T extends Record<string, any>>(
   const [errors, setErrors] = useState<Partial<Record<keyof T, string>>>({});
   const [formError, setFormError] = useState<string | null>(null);
 
-  const handleChange = (name: keyof T, value: any) => {
+  const handleChange = (name: keyof T, value: unknown) => {
     setValues(prev => ({ ...prev, [name]: value }));
     setErrors(prev => ({ ...prev, [name]: undefined }));
     setFormError(null);
