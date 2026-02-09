@@ -9,7 +9,6 @@ import {
   RefreshCw,
   RotateCcw,
   Save,
-  Settings,
   Shield,
   Zap
 } from 'lucide-react';
@@ -19,6 +18,7 @@ import { toast } from 'sonner';
 import { useSettings } from '@/components/providers/settings-provider';
 import { PageTabs, type TabItem } from '@/components/shared/page-layout';
 import { settingsApi } from '@/lib/api/settings-client';
+import { logger } from '@/shared/utils/logger';
 import type { SystemSettings } from '@/types/settings';
 import { DEFAULT_SETTINGS } from '@/types/settings';
 
@@ -41,182 +41,6 @@ interface SettingsContentProps {
     value: SystemSettings[T][typeof key]
   ) => void;
 }
-
-/**
- * Modernized Settings Dashboard with PancakeSwap aesthetic
- */
-export const SettingsDashboard: React.FC<SettingsDashboardProps> = () => {
-  const [activeView, setActiveView] = React.useState('general');
-  const [settings, setSettings] = React.useState<SystemSettings>(DEFAULT_SETTINGS);
-  const [loading, setLoading] = React.useState(true);
-  const [saving, setSaving] = React.useState(false);
-  const [resetting, setResetting] = React.useState(false);
-  const [hasChanges, setHasChanges] = React.useState(false);
-  const [originalSettings, setOriginalSettings] = React.useState<SystemSettings>(DEFAULT_SETTINGS);
-  const { applySettings: applyGlobalSettings } = useSettings();
-
-  // Load settings on mount
-  React.useEffect(() => {
-    const loadSettings = async () => {
-      try {
-        setLoading(true);
-        const data = await settingsApi.getAll();
-        setSettings(data);
-        setOriginalSettings(data);
-      } catch (error) {
-        console.error('Failed to load settings:', error);
-        toast.error('Failed to load settings. Using defaults.');
-        setSettings(DEFAULT_SETTINGS);
-        setOriginalSettings(DEFAULT_SETTINGS);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadSettings();
-  }, []);
-
-  // Track changes
-  React.useEffect(() => {
-    setHasChanges(JSON.stringify(settings) !== JSON.stringify(originalSettings));
-  }, [settings, originalSettings]);
-
-  const settingsViews = [
-    {
-      id: 'general',
-      label: 'General Settings',
-      icon: Settings,
-      description: 'Basic system configuration',
-    },
-    {
-      id: 'notifications',
-      label: 'Notifications',
-      icon: Bell,
-      description: 'Alert and notification preferences',
-    },
-    {
-      id: 'security',
-      label: 'Security',
-      icon: Shield,
-      description: 'Session and access settings',
-    },
-    {
-      id: 'appearance',
-      label: 'Appearance',
-      icon: Palette,
-      description: 'Theme and display options',
-    },
-  ];
-
-  const handleSettingChange = <T extends keyof SystemSettings>(
-    category: T,
-    key: keyof SystemSettings[T],
-    value: SystemSettings[T][typeof key]
-  ) => {
-    setSettings(prev => ({
-      ...prev,
-      [category]: {
-        ...prev[category],
-        [key]: value
-      }
-    }));
-  };
-
-  const handleSaveSettings = async () => {
-    try {
-      setSaving(true);
-      const response = await settingsApi.update(settings);
-
-      if (response.success) {
-        setOriginalSettings(settings);
-        applyGlobalSettings(settings); // Apply theme and accent color in real-time
-        toast.success(`Settings saved! (${response.updated_count} updated)`);
-      } else {
-        toast.error(response.message ?? 'Failed to save settings');
-      }
-    } catch (error) {
-      console.error('Error saving settings:', error);
-      toast.error('Failed to save settings. Please try again.');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleResetSettings = async () => {
-    if (!confirm('Reset all settings to default values? This cannot be undone.')) {
-      return;
-    }
-
-    try {
-      setResetting(true);
-      const defaultSettings = await settingsApi.reset();
-      setSettings(defaultSettings);
-      setOriginalSettings(defaultSettings);
-      applyGlobalSettings(defaultSettings); // Apply theme and accent color in real-time
-      toast.success('Settings reset to defaults!');
-    } catch (error) {
-      console.error('Error resetting settings:', error);
-      toast.error('Failed to reset settings. Please try again.');
-    } finally {
-      setResetting(false);
-    }
-  };
-
-  const tabs: TabItem[] = [
-    { id: 'general', label: 'Nodes', prefix: '🌍', gradient: 'primary' },
-    { id: 'notifications', label: 'Signals', prefix: '🔔', gradient: 'info' },
-    { id: 'security', label: 'Vault', prefix: '🔒', gradient: 'warning' },
-    { id: 'appearance', label: 'Optics', prefix: '🎨', gradient: 'purple' },
-  ];
-
-  return (
-    <div className="space-y-10">
-      {/* Global Control Bar */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-6 p-6 rounded-[32px] bg-slate-900/40 backdrop-blur-2xl border border-white/5 shadow-xl">
-        <PageTabs
-          tabs={tabs}
-          activeTab={activeView}
-          onTabChange={setActiveView}
-          className="bg-transparent border-none p-0 backdrop-blur-none shadow-none"
-        />
-
-        <div className="flex items-center gap-4">
-          <button
-            onClick={handleResetSettings}
-            disabled={resetting ?? loading}
-            className="flex items-center gap-3 px-8 py-4 rounded-2xl bg-white/5 hover:bg-white/10 text-[10px] font-black uppercase tracking-widest transition-all disabled:opacity-50"
-          >
-            {resetting ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCcw className="w-4 h-4" />}
-            Reset Logic
-          </button>
-
-          <button
-            onClick={handleSaveSettings}
-            disabled={saving ?? loading ?? !hasChanges}
-            className={`
-              flex items-center gap-3 px-10 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all
-              ${hasChanges
-                ? 'bg-gradient-to-r from-orange-400 to-red-500 text-white shadow-lg shadow-orange-500/20 active:scale-95'
-                : 'bg-white/5 text-muted-foreground cursor-not-allowed'}
-            `}
-          >
-            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-            {hasChanges ? 'Deploy Update' : 'Synchronized'}
-          </button>
-        </div>
-      </div>
-
-      <div className="relative">
-        <SettingsContent
-          loading={loading}
-          activeView={activeView}
-          settings={settings}
-          handleSettingChange={handleSettingChange}
-        />
-      </div>
-    </div>
-  );
-};
 
 const SettingsContent: React.FC<SettingsContentProps> = ({
   loading,
@@ -242,7 +66,6 @@ const SettingsContent: React.FC<SettingsContentProps> = ({
     case 'general':
       return (
         <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
-          {/* System Node Section */}
           <div className="relative overflow-hidden rounded-[40px] bg-slate-900/40 backdrop-blur-2xl border border-white/5 shadow-2xl">
             <div className="bg-gradient-to-r from-cyan-500/10 to-transparent p-12">
               <div className="flex items-center gap-8">
@@ -257,7 +80,6 @@ const SettingsContent: React.FC<SettingsContentProps> = ({
             </div>
 
             <div className="px-12 pb-16 space-y-12">
-              {/* System Name */}
               <div className="space-y-4">
                 <label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground ml-2">
                   System Designation
@@ -275,7 +97,6 @@ const SettingsContent: React.FC<SettingsContentProps> = ({
                 </div>
               </div>
 
-              {/* Admin Email */}
               <div className="space-y-4">
                 <label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground ml-2">
                   Authority Email Channel
@@ -293,7 +114,6 @@ const SettingsContent: React.FC<SettingsContentProps> = ({
                 </div>
               </div>
 
-              {/* Maintenance Toggle */}
               <div className="flex items-center justify-between p-8 rounded-[32px] bg-red-500/5 border border-red-500/10 hover:bg-red-500/10 transition-all">
                 <div className="flex items-center gap-6">
                   <div className="w-12 h-12 rounded-2xl bg-red-500/20 flex items-center justify-center">
@@ -305,7 +125,8 @@ const SettingsContent: React.FC<SettingsContentProps> = ({
                   </div>
                 </div>
                 <button
-                  onClick={() => handleSettingChange('general', 'maintenanceMode', !settings.general.maintenanceMode)}
+                  type="button"
+                  onClick={() => { handleSettingChange('general', 'maintenanceMode', !settings.general.maintenanceMode); }}
                   className={`relative w-24 h-12 rounded-full transition-all duration-300 ${settings.general.maintenanceMode ? 'bg-red-500' : 'bg-white/5'
                     }`}
                 >
@@ -334,7 +155,7 @@ const SettingsContent: React.FC<SettingsContentProps> = ({
             </div>
 
             <div className="px-12 pb-16 grid grid-cols-1 md:grid-cols-2 gap-8">
-              {Object.entries(settings.notifications).map(([key, value]) => (
+              {(Object.entries(settings.notifications) as Array<[keyof typeof settings.notifications, boolean]>).map(([key, value]) => (
                 <div
                   key={key}
                   className="flex items-center justify-between p-8 rounded-[32px] bg-white/5 border border-white/5 hover:bg-white/[0.08] transition-all"
@@ -351,7 +172,8 @@ const SettingsContent: React.FC<SettingsContentProps> = ({
                     </div>
                   </div>
                   <button
-                    onClick={() => handleSettingChange('notifications', key as keyof typeof settings.notifications, !value)}
+                    type="button"
+                    onClick={() => { handleSettingChange('notifications', key, !value); }}
                     className={`relative w-20 h-10 rounded-full transition-all duration-300 ${value ? 'bg-purple-500' : 'bg-white/5'
                       }`}
                   >
@@ -389,7 +211,10 @@ const SettingsContent: React.FC<SettingsContentProps> = ({
                   <input
                     type="number"
                     value={settings.security.sessionTimeout}
-                    onChange={(e) => handleSettingChange('security', 'sessionTimeout', parseInt(e.target.value) ?? 30)}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value);
+                      handleSettingChange('security', 'sessionTimeout', isNaN(val) ? 30 : val);
+                    }}
                     className="w-full h-16 bg-white/5 border border-white/10 rounded-2xl px-6 font-black text-lg transition-all focus:border-amber-500/50 focus:bg-white/[0.08] outline-none"
                   />
                   <div className="absolute right-6 top-1/2 -translate-y-1/2 opacity-20 pointer-events-none">
@@ -419,7 +244,6 @@ const SettingsContent: React.FC<SettingsContentProps> = ({
             </div>
 
             <div className="px-12 pb-16 space-y-12">
-              {/* Theme Mode */}
               <div className="space-y-4">
                 <label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground ml-2">
                   Luminosity Mode
@@ -428,7 +252,8 @@ const SettingsContent: React.FC<SettingsContentProps> = ({
                   {['light', 'dark', 'auto'].map((mode) => (
                     <button
                       key={mode}
-                      onClick={() => handleSettingChange('appearance', 'theme', mode as any)}
+                      type="button"
+                      onClick={() => { handleSettingChange('appearance', 'theme', mode as 'light' | 'dark' | 'auto'); }}
                       className={`p-6 rounded-[24px] border transition-all text-center ${settings.appearance.theme === mode
                         ? 'bg-pink-500/10 border-pink-500 shadow-lg shadow-pink-500/10'
                         : 'bg-white/5 border-white/5 hover:border-white/10'
@@ -442,7 +267,6 @@ const SettingsContent: React.FC<SettingsContentProps> = ({
                 </div>
               </div>
 
-              {/* Accent Color */}
               <div className="space-y-4">
                 <label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground ml-2">
                   Interface Accent Chroma
@@ -473,6 +297,7 @@ const SettingsContent: React.FC<SettingsContentProps> = ({
                     ].map((preset) => (
                       <button
                         key={preset.name}
+                        type="button"
                         onClick={() => handleSettingChange('appearance', 'primaryColor', preset.color)}
                         className="w-10 h-10 rounded-full border-2 border-white/10 hover:scale-110 transition-transform shadow-lg"
                         style={{ backgroundColor: preset.color }}
@@ -492,3 +317,154 @@ const SettingsContent: React.FC<SettingsContentProps> = ({
   }
 };
 
+/**
+ * Modernized Settings Dashboard with PancakeSwap aesthetic
+ */
+export const SettingsDashboard: React.FC<SettingsDashboardProps> = () => {
+  const [activeView, setActiveView] = React.useState('general');
+  const [settings, setSettings] = React.useState<SystemSettings>(DEFAULT_SETTINGS);
+  const [loading, setLoading] = React.useState(true);
+  const [saving, setSaving] = React.useState(false);
+  const [resetting, setResetting] = React.useState(false);
+  const [hasChanges, setHasChanges] = React.useState(false);
+  const [originalSettings, setOriginalSettings] = React.useState<SystemSettings>(DEFAULT_SETTINGS);
+  const { applySettings: applyGlobalSettings } = useSettings();
+
+  // Load settings on mount
+  React.useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        setLoading(true);
+        const data = await settingsApi.getAll();
+        setSettings(data);
+        setOriginalSettings(data);
+      } catch (error) {
+        logger.error('Failed to load settings:', error);
+        toast.error('Failed to load settings. Using defaults.');
+        setSettings(DEFAULT_SETTINGS);
+        setOriginalSettings(DEFAULT_SETTINGS);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    void loadSettings();
+  }, []);
+
+  // Track changes
+  React.useEffect(() => {
+    setHasChanges(JSON.stringify(settings) !== JSON.stringify(originalSettings));
+  }, [settings, originalSettings]);
+
+  const handleSettingChange = <T extends keyof SystemSettings>(
+    category: T,
+    key: keyof SystemSettings[T],
+    value: SystemSettings[T][typeof key]
+  ) => {
+    setSettings(prev => ({
+      ...prev,
+      [category]: {
+        ...prev[category],
+        [key]: value
+      }
+    }));
+  };
+
+  const handleSaveSettings = async () => {
+    try {
+      setSaving(true);
+      const response = await settingsApi.update(settings);
+
+      if (response.success) {
+        setOriginalSettings(settings);
+        applyGlobalSettings(settings); // Apply theme and accent color in real-time
+        toast.success(`Settings saved! (${response.updated_count ?? 0} updated)`);
+      } else {
+        toast.error(response.message ?? 'Failed to save settings');
+      }
+    } catch (error) {
+      logger.error('Error saving settings:', error);
+      toast.error('Failed to save settings. Please try again.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleResetSettings = async () => {
+    // eslint-disable-next-line no-alert
+    if (!confirm('Reset all settings to default values? This cannot be undone.')) {
+      return;
+    }
+
+    try {
+      setResetting(true);
+      const defaultSettings = await settingsApi.reset();
+      setSettings(defaultSettings);
+      setOriginalSettings(defaultSettings);
+      applyGlobalSettings(defaultSettings); // Apply theme and accent color in real-time
+      toast.success('Settings reset to defaults!');
+    } catch (error) {
+      logger.error('Error resetting settings:', error);
+      toast.error('Failed to reset settings. Please try again.');
+    } finally {
+      setResetting(false);
+    }
+  };
+
+  const tabs: TabItem[] = [
+    { id: 'general', label: 'Nodes', prefix: '🌍', gradient: 'primary' },
+    { id: 'notifications', label: 'Signals', prefix: '🔔', gradient: 'info' },
+    { id: 'security', label: 'Vault', prefix: '🔒', gradient: 'warning' },
+    { id: 'appearance', label: 'Optics', prefix: '🎨', gradient: 'purple' },
+  ];
+
+  return (
+    <div className="space-y-10">
+      {/* Global Control Bar */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-6 p-6 rounded-[32px] bg-slate-900/40 backdrop-blur-2xl border border-white/5 shadow-xl">
+        <PageTabs
+          tabs={tabs}
+          activeTab={activeView}
+          onTabChange={setActiveView}
+          className="bg-transparent border-none p-0 backdrop-blur-none shadow-none"
+        />
+
+        <div className="flex items-center gap-4">
+          <button
+            type="button"
+            onClick={() => { void handleResetSettings(); }}
+            disabled={resetting || loading}
+            className="flex items-center gap-3 px-8 py-4 rounded-2xl bg-white/5 hover:bg-white/10 text-[10px] font-black uppercase tracking-widest transition-all disabled:opacity-50"
+          >
+            {resetting ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCcw className="w-4 h-4" />}
+            Reset Logic
+          </button>
+
+          <button
+            type="button"
+            onClick={() => { void handleSaveSettings(); }}
+            disabled={saving || loading || !hasChanges}
+            className={`
+              flex items-center gap-3 px-10 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all
+              ${hasChanges
+                ? 'bg-gradient-to-r from-orange-400 to-red-500 text-white shadow-lg shadow-orange-500/20 active:scale-95'
+                : 'bg-white/5 text-muted-foreground cursor-not-allowed'}
+            `}
+          >
+            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+            {hasChanges ? 'Deploy Update' : 'Synchronized'}
+          </button>
+        </div>
+      </div>
+
+      <div className="relative">
+        <SettingsContent
+          loading={loading}
+          activeView={activeView}
+          settings={settings}
+          handleSettingChange={handleSettingChange}
+        />
+      </div>
+    </div>
+  );
+};

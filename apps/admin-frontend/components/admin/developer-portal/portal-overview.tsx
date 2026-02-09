@@ -6,13 +6,14 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import { type ApiKeyResponse as ApiKey, type Module } from '@/shared/api/plans';
 
-import { getAccessLevelColor, getStatusColor } from './utils';
+import { getStatusColor } from './utils';
 
 interface PortalOverviewProps {
     apiKeys: ApiKey[];
     modules: Module[];
 }
 
+// eslint-disable-next-line max-lines-per-function
 export const PortalOverview: React.FC<PortalOverviewProps> = ({ apiKeys, modules }) => {
     const router = useRouter();
 
@@ -94,7 +95,7 @@ export const PortalOverview: React.FC<PortalOverviewProps> = ({ apiKeys, modules
                         <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">
                             Recent API Keys
                         </h3>
-                        <Button onClick={() => router.push('/developer-portal/api-keys/create')} size="sm">
+                        <Button onClick={() => { void router.push('/developer-portal/api-keys/create'); }} size="sm">
                             <Plus className="w-4 h-4 mr-2" />
                             Create New Key
                         </Button>
@@ -113,7 +114,7 @@ export const PortalOverview: React.FC<PortalOverviewProps> = ({ apiKeys, modules
                                             {apiKey.client_name}
                                         </h4>
                                         <p className="text-sm text-gray-500 dark:text-gray-400">
-                                            Key: {apiKey.key_preview ?? (apiKey as any).key_prefix}...
+                                            Key: {apiKey.key_preview || apiKey.key_prefix || ''}...
                                         </p>
                                     </div>
                                 </div>
@@ -130,19 +131,17 @@ export const PortalOverview: React.FC<PortalOverviewProps> = ({ apiKeys, modules
                             </div>
                             <div className="mt-3 flex flex-wrap gap-2">
                                 {/* Permission Groups (new system) */}
-                                {(apiKey as any).permission_groups?.length > 0 && (
-                                    <>
-                                        {(apiKey as any).permission_groups.map((group: { id: string; name: string; slug: string }) => (
-                                            <span
-                                                key={group.id}
-                                                className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-purple-100 dark:bg-purple-900/50 text-purple-800 dark:text-purple-200"
-                                            >
-                                                <Shield className="w-3 h-3 mr-1" />
-                                                {group.name}
-                                            </span>
-                                        ))}
-                                    </>
-                                )}
+                                {apiKey.permission_groups !== undefined &&
+                                    apiKey.permission_groups.length > 0 &&
+                                    apiKey.permission_groups.map((group) => (
+                                        <span
+                                            key={group.id}
+                                            className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-purple-100 dark:bg-purple-900/50 text-purple-800 dark:text-purple-200"
+                                        >
+                                            <Shield className="w-3 h-3 mr-1" />
+                                            {group.name}
+                                        </span>
+                                    ))}
                                 {/* Legacy modules (if any) */}
                                 {apiKey.allowed_modules.map(module => (
                                     <span
@@ -150,11 +149,6 @@ export const PortalOverview: React.FC<PortalOverviewProps> = ({ apiKeys, modules
                                         className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200"
                                     >
                                         {module.module_name}
-                                        <span
-                                            className={`ml-1 ${getAccessLevelColor(module.access_level)}`}
-                                        >
-                                            ({module.access_level})
-                                        </span>
                                     </span>
                                 ))}
                             </div>

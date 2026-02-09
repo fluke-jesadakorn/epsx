@@ -83,7 +83,7 @@ export default function StockRankingAssignmentList({
       const response = await fetch('/api/admin/stock-ranking/assignments');
 
       if (!response.ok) {
-         
+
         console.error('Assignment API error:', response.status, response.statusText);
         setAssignments([]);
         return;
@@ -91,7 +91,7 @@ export default function StockRankingAssignmentList({
 
       const contentType = response.headers.get('content-type');
       if (!contentType?.includes('application/json')) {
-         
+
         console.error('Invalid response type:', contentType);
         setAssignments([]);
         return;
@@ -100,7 +100,7 @@ export default function StockRankingAssignmentList({
       const data = await response.json();
       setAssignments(data.assignments ?? []);
     } catch (_error) {
-       
+
       console.error('Failed to load assignments:', _error);
       setAssignments([]);
     } finally {
@@ -128,7 +128,7 @@ export default function StockRankingAssignmentList({
         throw new Error('Failed to revoke assignment');
       }
     } catch (_error) {
-       
+
       console.error('Error revoking assignment:', _error);
       alert('Failed to revoke assignment');
     }
@@ -159,7 +159,7 @@ export default function StockRankingAssignmentList({
         throw new Error('Failed to extend assignment');
       }
     } catch (_error) {
-       
+
       console.error('Error extending assignment:', _error);
       alert('Failed to extend assignment');
     }
@@ -167,8 +167,8 @@ export default function StockRankingAssignmentList({
 
   const filteredAssignments = assignments.filter(assignment => {
     const matchesPackage =
-      !filter.packageTier ?? assignment.packageTier === filter.packageTier;
-    const matchesStatus = !filter.status ?? assignment.status === filter.status;
+      filter.packageTier === '' || assignment.packageTier === filter.packageTier;
+    const matchesStatus = filter.status === '' || assignment.status === filter.status;
     const matchesSearch =
       !filter.search ||
       assignment.user?.email
@@ -183,7 +183,8 @@ export default function StockRankingAssignmentList({
   });
 
   const sortedAssignments = [...filteredAssignments].sort((a, b) => {
-    let aValue: any, bValue: any;
+    let aValue: number;
+    let bValue: number;
 
     switch (sortBy) {
       case 'assignedAt':
@@ -262,7 +263,7 @@ export default function StockRankingAssignmentList({
           Current Stock Ranking Assignments
         </h3>
         <button
-          onClick={loadAssignments}
+          onClick={() => { void loadAssignments(); }}
           className="px-3 py-1 text-sm bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded hover:bg-blue-200 dark:hover:bg-blue-900/50"
         >
           Refresh
@@ -316,7 +317,7 @@ export default function StockRankingAssignmentList({
           </label>
           <select
             value={sortBy}
-            onChange={e => setSortBy(e.target.value as any)}
+            onChange={e => { setSortBy(e.target.value as 'assignedAt' | 'expiresAt' | 'usageStats'); }}
             className="w-full px-3 py-2 border border-input rounded-md text-sm bg-background text-foreground"
           >
             <option value="assignedAt">Assignment Date</option>
@@ -437,11 +438,12 @@ export default function StockRankingAssignmentList({
                       <div className="flex space-x-2">
                         <button
                           onClick={() => {
+                            // eslint-disable-next-line no-alert
                             const newDate = prompt(
                               'Enter new expiration date (YYYY-MM-DD HH:MM):'
                             );
-                            if (newDate) {
-                              handleExtendAssignment(assignment.id, newDate);
+                            if (newDate !== null && newDate !== '') {
+                              void handleExtendAssignment(assignment.id, newDate);
                             }
                           }}
                           className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 text-sm"
@@ -449,7 +451,7 @@ export default function StockRankingAssignmentList({
                           Extend
                         </button>
                         <button
-                          onClick={() => handleRevokeAssignment(assignment.id)}
+                          onClick={() => { void handleRevokeAssignment(assignment.id); }}
                           className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 text-sm"
                         >
                           Revoke
@@ -501,6 +503,6 @@ export default function StockRankingAssignmentList({
           )}
         </ul>
       </div>
-    </div>
+    </div >
   );
 }

@@ -29,5 +29,5 @@ export interface DragDropContext {
     plans: PermissionPlan[];
     setPlans: (p: PermissionPlan[]) => void;
     selectedPlan: PermissionPlan | null;
-    setForm: (f: PlanEditFormState) => void;
+    setForm: React.Dispatch<React.SetStateAction<PlanEditFormState>>;
 }

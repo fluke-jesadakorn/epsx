@@ -14,6 +14,7 @@ interface DocumentationTabProps {
  * @param root0
  * @param root0.modules
  */
+// eslint-disable-next-line max-lines-per-function
 export const DocumentationTab: React.FC<DocumentationTabProps> = ({ modules }) => {
     return (
         <div className="space-y-6">

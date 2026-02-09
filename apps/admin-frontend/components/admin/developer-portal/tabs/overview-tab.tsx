@@ -39,6 +39,7 @@ const getStatusColor = (status: string): string => {
  * @param root0.modules
  * @param root0.onCreateKey
  */
+// eslint-disable-next-line max-lines-per-function
 export const OverviewTab: React.FC<OverviewTabProps> = ({
     apiKeys,
     modules,

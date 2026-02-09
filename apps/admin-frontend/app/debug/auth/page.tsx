@@ -10,8 +10,8 @@ import { expireAccessToken, expireRefreshToken, getServerSessionStatus } from '.
 interface ServerStatus {
     hasAccessToken: boolean;
     hasRefreshToken: boolean;
-    accessTokenValue?: string;
-    refreshTokenValue?: string;
+    accessTokenValue?: string | null;
+    refreshTokenValue?: string | null;
 }
 
 interface ApiResult {
@@ -126,22 +126,22 @@ export default function AuthDebugPage() {
                         <div className="grid grid-cols-2 gap-4">
                             <div className="p-3 border rounded-md">
                                 <div className="text-sm font-semibold mb-1">Access Token</div>
-                                {serverStatus?.hasAccessToken ? (
-                                    <div className="text-green-500 text-xs break-all">Present ({serverStatus.accessTokenValue})</div>
+                                {serverStatus?.hasAccessToken === true ? (
+                                    <div className="text-green-500 text-xs break-all">Present ({serverStatus.accessTokenValue ?? ''})</div>
                                 ) : (
                                     <div className="text-red-500 text-xs">Missing / Expired</div>
                                 )}
                             </div>
                             <div className="p-3 border rounded-md">
                                 <div className="text-sm font-semibold mb-1">Refresh Token</div>
-                                {serverStatus?.hasRefreshToken ? (
-                                    <div className="text-green-500 text-xs break-all">Present ({serverStatus.refreshTokenValue})</div>
+                                {serverStatus?.hasRefreshToken === true ? (
+                                    <div className="text-green-500 text-xs break-all">Present ({serverStatus.refreshTokenValue ?? ''})</div>
                                 ) : (
                                     <div className="text-red-500 text-xs">Missing / Expired</div>
                                 )}
                             </div>
                         </div>
-                        <Button variant="outline" size="sm" onClick={fetchServerStatus} className="w-full">
+                        <Button variant="outline" size="sm" onClick={() => { void fetchServerStatus(); }} className="w-full">
                             Refresh Server Status
                         </Button>
                     </CardContent>
@@ -158,20 +158,20 @@ export default function AuthDebugPage() {
                     <div className="flex flex-wrap gap-4">
                         <Button
                             variant="secondary"
-                            onClick={handleExpireAccess}
-                            disabled={loading || !serverStatus?.hasAccessToken}
+                            onClick={() => { void handleExpireAccess(); }}
+                            disabled={loading || serverStatus?.hasAccessToken !== true}
                         >
                             Expire Access Token
                         </Button>
                         <Button
                             variant="secondary"
-                            onClick={handleExpireRefresh}
-                            disabled={loading || !serverStatus?.hasRefreshToken}
+                            onClick={() => { void handleExpireRefresh(); }}
+                            disabled={loading || serverStatus?.hasRefreshToken !== true}
                         >
                             Expire Refresh Token
                         </Button>
                         <div className="w-px bg-border h-10 mx-2" />
-                        <Button onClick={handleTestApi} disabled={loading}>
+                        <Button onClick={() => { void handleTestApi(); }} disabled={loading}>
                             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                             Test Protected API Call
                         </Button>
@@ -180,7 +180,7 @@ export default function AuthDebugPage() {
                     {apiResult && (
                         <div className="mt-6">
                             <div className="text-sm font-semibold mb-2">API Result:</div>
-                            <div className={`p-4 rounded-md border ${apiResult.success ? 'bg-green-50/10 border-green-200 text-green-700' : 'bg-red-50/10 border-red-200 text-red-700'}`}>
+                            <div className={`p-4 rounded-md border ${apiResult.success === true ? 'bg-green-50/10 border-green-200 text-green-700' : 'bg-red-50/10 border-red-200 text-red-700'}`}>
                                 <div className="font-mono text-xs">
                                     {JSON.stringify(apiResult, null, 2)}
                                 </div>

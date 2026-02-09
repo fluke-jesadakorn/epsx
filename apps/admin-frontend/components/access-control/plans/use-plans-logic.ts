@@ -43,7 +43,7 @@ export function useLoadPlansAndPermissions() {
             if (permRes.success && permRes.data) {
                 setPermissions(permRes.data);
             }
-            if (planRes) {
+            if (Array.isArray(planRes)) {
                 setPlans(planRes);
             }
         } catch (error: unknown) {
@@ -96,8 +96,8 @@ export function usePlanEditForm() {
                 ? (plan.plan_metadata?.features as string[])
                 : [];
             setForm({
-                name: plan.name ?? '',
-                description: plan.description ?? '',
+                name: plan.name,
+                description: plan.description,
                 priority: plan.priority_level ?? 0,
                 price: plan.price ?? 0,
                 expiryDays: plan.default_expiry_days ?? 30,
@@ -217,8 +217,8 @@ export function usePlanDragAndDrop(ctx: DragDropContext) {
         ({ transform, activatorEvent, draggingNodeRect }) => {
             if (activatorEvent && draggingNodeRect) {
                 const event = activatorEvent as unknown as PointerEvent;
-                 
-                const offsetY = (event.clientY ?? 0) - draggingNodeRect.top;
+
+                const offsetY = event.clientY - draggingNodeRect.top;
                 return {
                     ...transform,
                     y: transform.y + offsetY - 10,
@@ -289,22 +289,20 @@ export function useQuickTogglePlan(ctx: {
     setPlans: (p: PermissionPlan[]) => void;
 }) {
     return useCallback(
-        async (
-            e: React.MouseEvent,
-            plan: PermissionPlan,
-            selectedPlan: PermissionPlan | null,
-            setSelectedPlan: (p: PermissionPlan | null) => void,
-            setForm: (
-                 
-                f: (prev: PlanEditFormState) => PlanEditFormState
-            ) => void
-        ) => {
+        async (params: {
+            e: React.MouseEvent;
+            plan: PermissionPlan;
+            selectedPlan: PermissionPlan | null;
+            setSelectedPlan: (p: PermissionPlan | null) => void;
+            setForm: (f: (prev: PlanEditFormState) => PlanEditFormState) => void;
+        }) => {
+            const { e, plan, selectedPlan, setSelectedPlan, setForm } = params;
             e.stopPropagation();
             if (plan.id === FREE_PLAN_ID) {
                 toast.error('Constant Free Plan status cannot be changed');
                 return;
             }
-             
+
             const newState = !(plan.is_active === true);
             try {
                 ctx.setPlans(

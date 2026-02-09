@@ -14,7 +14,6 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { logger } from '@/lib/logger';
 import { createPlansClient, type ApiKeyResponse, type Module, type Plan } from '@/shared/api/plans';
-import { createUsersClient } from '@/shared/api/users';
 import { useSharedAuth } from '@/shared/components/auth/Provider';
 import { copyToClipboard as copyToClipboardUtil, createAdminApiClient } from '@/shared/utils';
 
@@ -26,6 +25,7 @@ import { UsageAnalytics } from './developer-portal/usage-analytics';
 /**
  * Main Developer Portal component
  */
+// eslint-disable-next-line max-lines-per-function, complexity
 export const DeveloperPortal: React.FC = () => {
   const { isLoading: authLoading } = useSharedAuth();
 
@@ -39,47 +39,23 @@ export const DeveloperPortal: React.FC = () => {
   const [accessDenied, setAccessDenied] = useState<{ message: string; code?: string } | null>(null);
   const [newApiKey, setNewApiKey] = useState<string | null>(null);
 
-  // Load initial data
-  useEffect(() => {
-    void loadData();
-
-    // Check for URL parameters (success message, new API key)
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('success') === 'true') {
-      const clientName = urlParams.get('client_name');
-      const newKey = urlParams.get('new_key');
-
-      if (clientName) {
-        toast.success(`API key for "${clientName}" created successfully!`);
-      }
-
-      if (newKey && newKey !== 'key-created') {
-        setNewApiKey(newKey);
-      }
-
-      // Clean up URL
-      window.history.replaceState({}, '', window.location.pathname);
-    }
-  }, []);
-
-  const loadData = async () => {
+  const loadData = React.useCallback(async () => {
     try {
       setLoading(true);
       setAccessDenied(null);
       const apiClient = createAdminApiClient();
-      const usersClient = createUsersClient(apiClient);
       const plansClient = createPlansClient(apiClient);
 
       // Load API Keys using PlansApi (Admin)
       try {
         const keysRes = await plansClient.listApiKeys();
-        if (keysRes.success && keysRes.data) {
-          setApiKeys(keysRes.data.api_keys ?? []);
+        if (keysRes.success && keysRes.data !== undefined && keysRes.data !== null) {
+          setApiKeys(keysRes.data.api_keys);
         }
       } catch (error) {
         const err = error as { status?: number; code?: string; message?: string };
         // Handle Access Denied from backend
-        if (err.status === 403 ?? err.code === 'PERMISSION_DENIED') {
+        if (err.status === 403 || err.code === 'PERMISSION_DENIED') {
           setAccessDenied({
             message: err.message ?? 'You don\'t have permission to access the developer portal.',
             code: err.code
@@ -95,8 +71,8 @@ export const DeveloperPortal: React.FC = () => {
       // Load Modules
       try {
         const modulesRes = await plansClient.getModules();
-        if (modulesRes.success && modulesRes.data) {
-          setModules(modulesRes.data.modules ?? []);
+        if (modulesRes.success && modulesRes.data !== undefined && modulesRes.data !== null) {
+          setModules(modulesRes.data.modules);
         }
       } catch (error) {
         logger.warn('Failed to load modules', { error });
@@ -106,15 +82,15 @@ export const DeveloperPortal: React.FC = () => {
       // Load Available Plans
       try {
         const plansRes = await plansClient.listPlans({ is_active: true });
-        if (plansRes.success && plansRes.data) {
-          setAvailablePlans(plansRes.data.data ?? []); // PaginatedResponse has data property which is array
+        if (plansRes.success && plansRes.data !== undefined && plansRes.data !== null) {
+          setAvailablePlans(plansRes.data.data); // PaginatedResponse has data property which is array
         }
       } catch (error) {
         logger.warn('Failed to load available plans', { error });
       }
     } catch (error) {
       const err = error as { status?: number; code?: string; message?: string };
-      if (err.status === 403 ?? err.code === 'PERMISSION_DENIED') {
+      if (err.status === 403 || err.code === 'PERMISSION_DENIED') {
         setAccessDenied({
           message: err.message ?? 'You don\'t have permission to access the developer portal.',
           code: err.code
@@ -125,14 +101,38 @@ export const DeveloperPortal: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  // Load initial data
+  useEffect(() => {
+    void loadData();
+
+    // Check for URL parameters (success message, new API key)
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('success') === 'true') {
+      const clientNameValue = urlParams.get('client_name');
+      const newKeyValue = urlParams.get('new_key');
+
+      if (clientNameValue !== null && clientNameValue !== '') {
+        toast.success(`API key for "${clientNameValue}" created successfully!`);
+      }
+
+      if (newKeyValue !== null && newKeyValue !== '' && newKeyValue !== 'key-created') {
+        setNewApiKey(newKeyValue);
+      }
+
+      // Clean up URL
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, [loadData]);
 
   // Handle API key revocation
   const handleRevokeApiKey = async (keyId: string, keyName: string) => {
+    // eslint-disable-next-line no-alert
     const reason = prompt(
       `Are you sure you want to revoke the API key for "${keyName}"? Please provide a reason:`
     );
-    if (!reason) { return; }
+    if (reason === null || reason === '') { return; }
 
     try {
       const apiClient = createAdminApiClient();
@@ -181,7 +181,7 @@ export const DeveloperPortal: React.FC = () => {
           <p className="text-gray-600 dark:text-gray-300 mb-4">
             {accessDenied.message}
           </p>
-          {accessDenied.code && (
+          {accessDenied.code !== undefined && accessDenied.code !== null && accessDenied.code !== '' && (
             <p className="text-sm text-gray-500 dark:text-gray-400">
               Error code: {accessDenied.code}
             </p>

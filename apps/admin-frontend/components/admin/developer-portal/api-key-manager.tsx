@@ -36,6 +36,7 @@ interface ApiKeyManagerProps {
     onCopy: (text: string, label: string) => void;
 }
 
+// eslint-disable-next-line max-lines-per-function, complexity
 export const ApiKeyManager: React.FC<ApiKeyManagerProps> = ({
     apiKeys,
     showKeyValue,

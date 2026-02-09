@@ -66,7 +66,7 @@ export function AccessControlHub({ className }: AccessControlHubProps) {
       <PolicyFilters
         filters={filters}
         onFiltersChange={setFilters}
-        onRefresh={loadData}
+        onRefresh={() => { void loadData(); }}
         onCreatePlan={handleCreatePlan}
         onCreateGroup={handleCreateGroup}
         isLoading={isLoading}
@@ -85,7 +85,7 @@ export function AccessControlHub({ className }: AccessControlHubProps) {
           // Loading skeletons
           Array.from({ length: 5 }).map((_, i) => (
             <div
-              key={i}
+              key={`skeleton-${i}`}
               className="rounded-2xl bg-card border border-border p-6 animate-pulse"
             >
               <div className="flex items-center gap-4">
@@ -136,7 +136,7 @@ export function AccessControlHub({ className }: AccessControlHubProps) {
         policy={deleteConfirm?.policy ?? null}
         isOpen={deleteConfirm !== null}
         onClose={() => setDeleteConfirm(null)}
-        onConfirm={handleDeletePolicy}
+        onConfirm={() => { void handleDeletePolicy(); }}
         isDeleting={isDeleting}
       />
     </div>

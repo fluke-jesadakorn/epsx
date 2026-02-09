@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 
 enum PackageTier {
   FREE = 'free',
@@ -61,13 +61,12 @@ function PackageSelector({
       <div className="grid grid-cols-2 gap-3">
         {Object.values(PackageTier).map((tier) => (
           <button
-            key={tier}
+            key={`package-tier-${tier}`}
             onClick={() => onChange(tier)}
-            className={`p-4 rounded-lg border-2 text-left transition-all ${
-              selected === tier
-                ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-900 dark:text-blue-300'
-                : 'border-border hover:border-gray-300 dark:hover:border-gray-600 text-foreground'
-            }`}
+            className={`p-4 rounded-lg border-2 text-left transition-all ${selected === tier
+              ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-900 dark:text-blue-300'
+              : 'border-border hover:border-gray-300 dark:hover:border-gray-600 text-foreground'
+              }`}
           >
             <div className="font-medium">{tier}</div>
             <div className="text-sm opacity-75">
@@ -102,7 +101,7 @@ function PackagePreview({
   };
 
   const formatMarkets = (markets: string[]): string => {
-    if (markets.includes('*')) {return 'All Markets';}
+    if (markets.includes('*')) { return 'All Markets'; }
     return markets.join(', ');
   };
 
@@ -140,7 +139,7 @@ function PackagePreview({
             {Object.entries(config.advancedFeatures)
               .filter(([_, enabled]) => enabled)
               .map(([feature]) => feature.replace(/([A-Z])/g, ' $1').trim())
-               
+
               .join(', ') ?? 'None'}
           </div>
         </div>
@@ -211,7 +210,7 @@ function UserSelector({
         ) : (
           users.map((user) => (
             <div
-              key={user.id}
+              key={`user-selector-${user.id}`}
               className="flex items-center p-3 border-b border-border/50 last:border-b-0 hover:bg-muted/50"
             >
               <input
@@ -439,6 +438,7 @@ export default function StockRankingPackageAssignment({
   const [assignmentReason, setAssignmentReason] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [expirationDate, setExpirationDate] = useState('');
+  const [notifyUsers, setNotifyUsers] = useState(true);
   const [showPreview, setShowPreview] = useState(false);
 
   const { users, isLoading: isLoadingUsers, load: loadUsers } = useLoadUsers();
@@ -456,8 +456,7 @@ export default function StockRankingPackageAssignment({
       users.filter(
         (user) =>
           user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-          (user.name !== null && user.name.toLowerCase().includes(searchQuery.toLowerCase())) ||
+          (user.name !== undefined && user.name !== null && user.name.toLowerCase().includes(searchQuery.toLowerCase())) ||
           user.id.toLowerCase().includes(searchQuery.toLowerCase())
       ),
     [users, searchQuery]
@@ -546,7 +545,7 @@ export default function StockRankingPackageAssignment({
         </button>
         <button
           type="button"
-          onClick={() => void handleAssignment()}
+          onClick={() => { void handleAssignment(); }}
           disabled={selectedUsers.length === 0 || !assignmentReason.trim() || isSubmitting}
           className="px-6 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
         >

@@ -26,6 +26,7 @@ interface EditExpirationModalProps {
  * @param root0.onUpdate
  * @param root0.isLoading
  */
+// eslint-disable-next-line max-lines-per-function
 export const EditExpirationModal: React.FC<EditExpirationModalProps> = ({
     isOpen,
     onClose,

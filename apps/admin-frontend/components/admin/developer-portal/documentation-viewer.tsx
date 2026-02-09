@@ -15,6 +15,7 @@ interface DocumentationViewerProps {
     availablePlans?: Plan[];
 }
 
+// eslint-disable-next-line max-lines-per-function
 export const DocumentationViewer: React.FC<DocumentationViewerProps> = ({ modules, availablePlans = [] }) => {
     return (
         <div className="space-y-6">

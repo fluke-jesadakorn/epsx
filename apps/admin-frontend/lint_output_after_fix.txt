@@ -58,9 +58,6 @@ $ eslint .
   814:9   error  Unexpected constant nullishness on the left-hand side of a `??` expression                          no-constant-binary-expression
   814:9   error  Unnecessary conditional, expected left-hand side of `??` operator to be possibly null or undefined  @typescript-eslint/no-unnecessary-condition
 
-/Users/fluke/Desktop/Work/epsx/apps/admin-frontend/app/analytics/analytics-dashboard.tsx
-  156:1  warning  Unused eslint-disable directive (no problems were reported from 'complexity')
-
 /Users/fluke/Desktop/Work/epsx/apps/admin-frontend/app/audit-log/page.tsx
    73:59  error  Async arrow function has a complexity of 13. Maximum allowed is 12                                  complexity
   104:17  error  Unexpected any value in conditional. An explicit comparison or type conversion is required          @typescript-eslint/strict-boolean-expressions
@@ -1450,12 +1447,6 @@ The file was not found in any of the provided project(s): jest.setup.js
   361:9  error  Unexpected constant nullishness on the left-hand side of a `??` expression                          no-constant-binary-expression
   361:9  error  Unnecessary conditional, expected left-hand side of `??` operator to be possibly null or undefined  @typescript-eslint/no-unnecessary-condition
 
-/Users/fluke/Desktop/Work/epsx/apps/admin-frontend/lib/logger.ts
-  41:9  error  Unexpected console statement  no-console
-  45:9  error  Unexpected console statement  no-console
-  49:9  error  Unexpected console statement  no-console
-  53:9  error  Unexpected console statement  no-console
-
 /Users/fluke/Desktop/Work/epsx/apps/admin-frontend/lib/polyfills.ts
   16:6   error  Unexpected nullable boolean value in conditional. Please handle the nullish case explicitly         @typescript-eslint/strict-boolean-expressions
   22:16  error  Refactor this function to reduce its Cognitive Complexity from 24 to the 20 allowed                 sonarjs/cognitive-complexity
@@ -1478,16 +1469,16 @@ The file was not found in any of the provided project(s): jest.setup.js
   98:11  error  Unsafe member access .localStorage on an `any` value                                                @typescript-eslint/no-unsafe-member-access
 
 /Users/fluke/Desktop/Work/epsx/apps/admin-frontend/lib/server/auth.ts
-  175:9   error  Unexpected nullable string value in conditional. Please handle the nullish/empty cases explicitly  @typescript-eslint/strict-boolean-expressions
-  196:9   error  Unexpected nullable string value in conditional. Please handle the nullish/empty cases explicitly  @typescript-eslint/strict-boolean-expressions
-  215:22  error  Unexpected nullable string value in conditional. Please handle the nullish/empty cases explicitly  @typescript-eslint/strict-boolean-expressions
+  175:9   error  Unnecessary conditional, the types have no overlap  @typescript-eslint/no-unnecessary-condition
+  196:9   error  Unnecessary conditional, the types have no overlap  @typescript-eslint/no-unnecessary-condition
+  214:24  error  Unnecessary conditional, the types have no overlap  @typescript-eslint/no-unnecessary-condition
+  215:22  error  Unnecessary conditional, the types have no overlap  @typescript-eslint/no-unnecessary-condition
 
 /Users/fluke/Desktop/Work/epsx/apps/admin-frontend/next.config.ts
   46:9   error  Unexpected any value in conditional. An explicit comparison or type conversion is required  @typescript-eslint/strict-boolean-expressions
   46:17  error  Unexpected any value in conditional. An explicit comparison or type conversion is required  @typescript-eslint/strict-boolean-expressions
   78:10  error  Unexpected any value in conditional. An explicit comparison or type conversion is required  @typescript-eslint/strict-boolean-expressions
 
-✖ 1167 problems (1166 errors, 1 warning)
-  0 errors and 1 warning potentially fixable with the `--fix` option.
+✖ 1163 problems (1163 errors, 0 warnings)
 
 error: script "lint" exited with code 1

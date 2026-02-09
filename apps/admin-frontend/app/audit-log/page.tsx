@@ -78,15 +78,17 @@ export default function AuditLogPage(): React.JSX.Element {
 
         try {
             const client = createAdminApiClient();
-            const params = new URLSearchParams();
+            const queryParams: Record<string, string> = {
+                page: page.toString(),
+                page_size: pageSize.toString(),
+            };
 
-            params.set('page', page.toString());
-            params.set('page_size', pageSize.toString());
+            if (searchQuery !== '') { queryParams.search = searchQuery; }
+            if (selectedCategory !== 'all') { queryParams.category = selectedCategory; }
+            if (dateFrom !== '') { queryParams.from_date = dateFrom; }
+            if (dateTo !== '') { queryParams.to_date = dateTo; }
 
-            if (searchQuery) { params.set('search', searchQuery); }
-            if (selectedCategory !== 'all') { params.set('category', selectedCategory); }
-            if (dateFrom) { params.set('from_date', dateFrom); }
-            if (dateTo) { params.set('to_date', dateTo); }
+            const params = new URLSearchParams(queryParams);
 
             const response = await client.get<{
                 entries: AuditLogEntry[];
@@ -100,8 +102,8 @@ export default function AuditLogPage(): React.JSX.Element {
                 setLogs(generateMockAuditLogs());
                 setTotalPages(5);
             }
-        } catch (err) {
-            if (err && typeof err === 'object' && 'status' in err && err.status !== 404) {
+        } catch (err: unknown) {
+            if (err instanceof Object && 'status' in err && err.status !== 404) {
                 logger.error('Failed to fetch audit logs:', err);
             }
             setLogs(generateMockAuditLogs());
@@ -309,7 +311,7 @@ function AuditLogTable({
                     <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-4 text-indigo-500" />
                     <p className="text-muted-foreground">Loading audit logs...</p>
                 </div>
-            ) : error ? (
+            ) : typeof error === 'string' ? (
                 <div className="p-8 text-center">
                     <p className="text-red-500 mb-4">{error}</p>
                     <button
@@ -378,22 +380,29 @@ function AuditLogRow({ log }: { log: AuditLogEntry }): React.JSX.Element {
     const [isExpanded, setIsExpanded] = useState(false);
 
     const getActionIcon = (action: string): string => {
-        if (action.includes('permission')) { return '🔐'; }
-        if (action.includes('wallet')) { return '👛'; }
-        if (action.includes('plan')) { return '💳'; }
-        if (action.includes('login') ?? action.includes('auth')) { return '🔑'; }
-        if (action.includes('create')) { return '➕'; }
-        if (action.includes('delete') ?? action.includes('remove')) { return '🗑️'; }
-        if (action.includes('update') ?? action.includes('edit')) { return '✏️'; }
-        if (action.includes('disable')) { return '🚫'; }
-        if (action.includes('enable')) { return '✅'; }
-        return '📝';
+        const iconMap: Record<string, string> = {
+            permission: '🔐',
+            wallet: '👛',
+            plan: '💳',
+            login: '🔑',
+            auth: '🔑',
+            create: '➕',
+            delete: '🗑️',
+            remove: '🗑️',
+            update: '✏️',
+            edit: '✏️',
+            disable: '🚫',
+            enable: '✅',
+        };
+
+        const entry = Object.entries(iconMap).find(([key]) => action.includes(key));
+        return entry !== undefined ? entry[1] : '📝';
     };
 
     const getActionColor = (action: string): string => {
-        if (action.includes('create') ?? action.includes('enable')) { return 'text-emerald-600 bg-emerald-100 dark:bg-emerald-900/30'; }
-        if (action.includes('delete') ?? action.includes('disable') ?? action.includes('remove')) { return 'text-red-600 bg-red-100 dark:bg-red-900/30'; }
-        if (action.includes('update') ?? action.includes('edit')) { return 'text-blue-600 bg-blue-100 dark:bg-blue-900/30'; }
+        if (action.includes('create') || action.includes('enable')) { return 'text-emerald-600 bg-emerald-100 dark:bg-emerald-900/30'; }
+        if (action.includes('delete') || action.includes('disable') || action.includes('remove')) { return 'text-red-600 bg-red-100 dark:bg-red-900/30'; }
+        if (action.includes('update') || action.includes('edit')) { return 'text-blue-600 bg-blue-100 dark:bg-blue-900/30'; }
         if (action.includes('permission')) { return 'text-purple-600 bg-purple-100 dark:bg-purple-900/30'; }
         return 'text-muted-foreground bg-muted';
     };
@@ -489,7 +498,7 @@ function AuditLogRow({ log }: { log: AuditLogEntry }): React.JSX.Element {
                                 <span className="text-muted-foreground">Timestamp:</span>
                                 <p className="mt-1">{new Date(log.timestamp).toLocaleString()}</p>
                             </div>
-                            {log.ip_address && (
+                            {typeof log.ip_address === 'string' && log.ip_address !== '' && (
                                 <div>
                                     <span className="text-muted-foreground">IP Address:</span>
                                     <p className="mt-1">{log.ip_address}</p>

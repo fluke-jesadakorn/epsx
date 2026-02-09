@@ -41,7 +41,7 @@ export function RecentWalletsPanel({ initialData }: { initialData?: RecentWallet
       const result = await getRecentWalletsAction(10, 30);
       setData(result);
     } catch (err: unknown) {
-      if (err instanceof Error && (err as any).message === 'NEXT_REDIRECT') {
+      if (err instanceof Error && err.message === 'NEXT_REDIRECT') {
         throw err;
       }
       logger.error('Error fetching recent wallets', { error: err instanceof Error ? err.message : String(err) });
@@ -56,11 +56,11 @@ export function RecentWalletsPanel({ initialData }: { initialData?: RecentWallet
 
   useEffect(() => {
     if (!initialData) {
-      fetchRecentWallets();
+      void fetchRecentWallets();
     }
 
     // Set up auto-refresh every 30 seconds
-    const interval = setInterval(() => fetchRecentWallets(false), 30000);
+    const interval = setInterval(() => { void fetchRecentWallets(false); }, 30000);
     return () => clearInterval(interval);
   }, [fetchRecentWallets, initialData]);
 
@@ -99,7 +99,7 @@ export function RecentWalletsPanel({ initialData }: { initialData?: RecentWallet
         <div className="space-y-3">
           {Array.from({ length: 5 }).map((_, i) => (
             <div
-              key={i}
+              key={`recent-wallet-skeleton-${i}`}
               className="flex items-center justify-between rounded border p-3"
             >
               <div className="flex items-center gap-3">
@@ -117,7 +117,7 @@ export function RecentWalletsPanel({ initialData }: { initialData?: RecentWallet
     );
   }
 
-  if (error) {
+  if (typeof error === 'string') {
     return (
       <div className="h-full bg-card backdrop-blur-sm rounded-2xl sm:rounded-3xl shadow-xl border border-border p-6">
         <div className="flex items-center justify-between mb-6">
@@ -134,7 +134,7 @@ export function RecentWalletsPanel({ initialData }: { initialData?: RecentWallet
         <Button
           variant="outline"
           size="sm"
-          onClick={() => fetchRecentWallets(true)}
+          onClick={() => { void fetchRecentWallets(true); }}
           className="mt-4"
         >
           Try Again
@@ -174,7 +174,7 @@ export function RecentWalletsPanel({ initialData }: { initialData?: RecentWallet
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => fetchRecentWallets(true)}
+          onClick={() => { void fetchRecentWallets(true); }}
           disabled={refreshing}
           className="h-8 w-8 p-0"
         >
