@@ -152,7 +152,7 @@ export class ServerAuth {
       email: String(payload.email ?? ''),
       name: String(payload.name ?? payload.display_name ?? ''),
       role: String(payload.role ?? 'user'),
-      permissions: (payload.permissions as string[] | undefined) ?? [],
+      permissions: payload.permissions ?? [],
       packageTier: String(payload.package_tier ?? 'basic')
     }
   }

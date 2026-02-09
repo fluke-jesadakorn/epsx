@@ -79,22 +79,24 @@ class FeatureFlagService {
   private async loadFlags(): Promise<void> {
     try {
       // In production, load from configuration service
-      if (process.env.FEATURE_FLAGS_ENDPOINT) {
-        const response = await fetch(process.env.FEATURE_FLAGS_ENDPOINT, {
+      const endpoint = process.env.FEATURE_FLAGS_ENDPOINT;
+      if (endpoint !== undefined && endpoint !== '') {
+        const response = await fetch(endpoint, {
           headers: {
-            'Authorization': `Bearer ${process.env.FEATURE_FLAGS_API_KEY}`,
+            'Authorization': `Bearer ${process.env.FEATURE_FLAGS_API_KEY ?? ''}`,
           },
         });
-        
+
         if (response.ok) {
-          const remoteFlags = await response.json();
-          this.flags = { ...this.flags, ...remoteFlags };
+          const remoteFlags: unknown = await response.json();
+          this.flags = { ...this.flags, ...(remoteFlags as Record<string, boolean>) };
         }
       }
 
       // Override with environment variables
       this.loadFromEnvironment();
     } catch (_error) {
+      // Error loading flags, continue with defaults
     }
   }
 
@@ -120,8 +122,7 @@ class FeatureFlagService {
   public isEnabled(flagKey: string, userId?: string): boolean {
     const flag = this.flags[flagKey];
 
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-    if (!flag) {
+    if (flag === undefined) {
       return false;
     }
 
@@ -131,15 +132,14 @@ class FeatureFlagService {
     }
 
     // Check environment
-    if (flag.environment && !flag.environment.includes(this.userContext.environment)) {
+    if (flag.environment !== undefined && !flag.environment.includes(this.userContext.environment)) {
       return false;
     }
 
     // Check user group
-    if (flag.userGroups && this.userContext.userGroup) {
-      if (!flag.userGroups.includes(this.userContext.userGroup)) {
-        return false;
-      }
+    const userGroup = this.userContext.userGroup;
+    if (flag.userGroups !== undefined && userGroup !== null && userGroup !== undefined && !flag.userGroups.includes(userGroup)) {
+      return false;
     }
 
     // Check rollout percentage
@@ -167,9 +167,9 @@ class FeatureFlagService {
   }
 
   public updateFlag(key: string, updates: Partial<FeatureFlag>): void {
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-    if (this.flags[key]) {
-      this.flags[key] = { ...this.flags[key], ...updates };
+    const existingFlag = this.flags[key];
+    if (existingFlag !== undefined) {
+      this.flags[key] = { ...existingFlag, ...updates };
 
       // In production, persist changes to configuration service
       if (process.env.NODE_ENV === 'production') {
@@ -180,25 +180,26 @@ class FeatureFlagService {
 
   private async persistFlag(key: string, flag: FeatureFlag): Promise<void> {
     try {
-      if (process.env.FEATURE_FLAGS_ENDPOINT) {
-        await fetch(`${process.env.FEATURE_FLAGS_ENDPOINT}/${key}`, {
+      const endpoint = process.env.FEATURE_FLAGS_ENDPOINT;
+      if (endpoint !== undefined && endpoint !== '') {
+        await fetch(`${endpoint}/${key}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${process.env.FEATURE_FLAGS_API_KEY}`,
+            'Authorization': `Bearer ${process.env.FEATURE_FLAGS_API_KEY ?? ''}`,
           },
           body: JSON.stringify(flag),
         });
       }
     } catch (_error) {
+      // Error persisting flag, continue
     }
   }
 
   // Gradual rollout helpers
   public increaseRollout(flagKey: string, percentage: number): void {
     const flag = this.flags[flagKey];
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-    if (flag) {
+    if (flag !== undefined) {
       const newPercentage = Math.min(100, flag.rolloutPercentage + percentage);
       this.updateFlag(flagKey, { rolloutPercentage: newPercentage });
       // Increased rollout for feature flag
@@ -207,8 +208,7 @@ class FeatureFlagService {
 
   public decreaseRollout(flagKey: string, percentage: number): void {
     const flag = this.flags[flagKey];
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-    if (flag) {
+    if (flag !== undefined) {
       const newPercentage = Math.max(0, flag.rolloutPercentage - percentage);
       this.updateFlag(flagKey, { rolloutPercentage: newPercentage });
       // Decreased rollout for feature flag
