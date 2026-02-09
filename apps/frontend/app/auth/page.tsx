@@ -15,7 +15,6 @@ export default function AuthPage() {
     // Auto-redirect when authenticated
     useEffect(() => {
         if (isAuthenticated && user) {
-            console.log('[AUTH] auth: Authenticated, redirecting to', returnUrl);
             router.push(returnUrl);
             router.refresh();
         }
@@ -23,7 +22,6 @@ export default function AuthPage() {
 
     const handleAuthSuccess = async (walletAddress: string) => {
         // Shared auth provider handles the heavy lifting
-        console.log('[AUTH] auth: Auth success callback triggered for', walletAddress);
         toast.success('Authenticated successfully');
         // Redirection is handled by the useEffect above
     };
