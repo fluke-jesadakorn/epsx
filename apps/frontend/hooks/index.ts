@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-
 'use client';
+
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 // Frontend auth adapter for unified auth system
 export { useFrontendAuth } from './useFrontendauth';
@@ -15,7 +15,7 @@ export function useApi<T>(
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(() => {
     if (options?.enabled === false) {return;}
 
     setError('useApi hook is deprecated. Please use specific server actions instead.');
@@ -23,10 +23,10 @@ export function useApi<T>(
   }, [options?.enabled]);
 
   useEffect(() => {
-    void fetchData();
+    fetchData();
 
-    if (options?.refresh) {
-      const interval = setInterval(() => void fetchData(), options.refresh);
+    if (options?.refresh != null && options.refresh > 0) {
+      const interval = setInterval(() => fetchData(), options.refresh);
       return () => clearInterval(interval);
     }
     return undefined;
@@ -114,8 +114,8 @@ export function useCookieStorage<T>(key: string, initialValue: T, maxAge?: numbe
         return acc;
       }, {});
 
-      const item = cookies[key] || window.localStorage.getItem(key);
-      return item ? JSON.parse(item) : initialValue;
+      const item = cookies[key] ?? window.localStorage.getItem(key);
+      return (item != null && item !== '') ? (JSON.parse(item) as T) : initialValue;
     } catch (_error) {
       return initialValue;
     }
@@ -127,7 +127,7 @@ export function useCookieStorage<T>(key: string, initialValue: T, maxAge?: numbe
       setStoredValue(valueToStore);
       if (typeof window !== 'undefined') {
         // Store in cookie instead of localStorage
-        const maxAgeStr = maxAge ? `max-age=${maxAge}` : '';
+        const maxAgeStr = (maxAge != null && maxAge > 0) ? `max-age=${maxAge}` : '';
         document.cookie = `${key}=${encodeURIComponent(JSON.stringify(valueToStore))}; path=/; ${maxAgeStr} SameSite=lax`;
       }
     } catch (_error) {

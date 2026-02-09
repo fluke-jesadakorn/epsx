@@ -148,14 +148,17 @@ export const FRONTEND_AUTH_ERRORS = {
 /**
  * Progressive auth state helpers for frontend
  */
-export function createUserAuthState(
-  isAuthenticated: boolean,
-  permissions: string[],
-  walletAddress?: string,
-  expiresAt?: number
-): ProgressiveAuthState {
+interface UserAuthParams {
+  isAuthenticated: boolean;
+  permissions: string[];
+  walletAddress?: string;
+  expiresAt?: number;
+}
+
+export function createUserAuthState(params: UserAuthParams): ProgressiveAuthState {
+  const { isAuthenticated, permissions, walletAddress, expiresAt } = params;
   return {
-    level: isAuthenticated ? 'authenticated' : (walletAddress ? 'connected' : 'public'),
+    level: isAuthenticated ? 'authenticated' : ((walletAddress != null && walletAddress !== '') ? 'connected' : 'public'),
     walletAddress,
     isAuthenticated,
     permissions,
@@ -197,7 +200,7 @@ export function getUserAuthContext(): 'user' {
  * Check auth state expiry
  */
 export function isAuthStateExpired(authState: ProgressiveAuthState): boolean {
-  if (!authState.expiresAt) {return false;}
+  if (authState.expiresAt == null || authState.expiresAt === 0) {return false;}
   return Date.now() >= authState.expiresAt;
 }
 
@@ -205,7 +208,7 @@ export function isAuthStateExpired(authState: ProgressiveAuthState): boolean {
  * Get time until auth state expires (in minutes)
  */
 export function getTimeUntilAuthExpiry(authState: ProgressiveAuthState): number | null {
-  if (!authState.expiresAt) {return null;}
+  if (authState.expiresAt == null || authState.expiresAt === 0) {return null;}
   const timeLeft = authState.expiresAt - Date.now();
   return Math.max(0, Math.floor(timeLeft / (1000 * 60))); // Convert to minutes
 }
@@ -225,7 +228,18 @@ export function getSupportedWallets(): string[] {
 /**
  * Get current network configuration
  */
-export function getCurrentNetworkConfig(): any {
+interface NetworkConfig {
+  chainId: number;
+  networkId: string;
+  siweConfig: {
+    domain: string;
+    uri: string;
+    version: string;
+    statement?: string;
+  };
+}
+
+export function getCurrentNetworkConfig(): NetworkConfig {
   const config = getWeb3Config();
   return {
     chainId: config.chainId,
