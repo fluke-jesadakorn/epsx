@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unnecessary-condition, @typescript-eslint/strict-boolean-expressions, @typescript-eslint/no-floating-promises, @typescript-eslint/no-misused-promises, react-hooks/exhaustive-deps, max-depth, max-lines-per-function, sonarjs/cognitive-complexity */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/strict-boolean-expressions, @typescript-eslint/no-floating-promises, @typescript-eslint/no-misused-promises, max-depth, max-lines-per-function */
 'use client';
 
 /**
@@ -93,7 +93,7 @@ const PAYMENT_TOKENS: PaymentToken[] = [
     { symbol: 'USDC', name: 'USD Coin', decimals: 18 },
 ];
 
-// eslint-disable-next-line max-lines-per-function,complexity
+// eslint-disable-next-line complexity
 export function UnifiedPaymentFlow({
     paymentType,
     preselectedId,
@@ -184,7 +184,7 @@ export function UnifiedPaymentFlow({
         amount: amountInDecimals,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         onError: (msg: any) => {
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+             
             const errorMsg = msg;
             setError(typeof errorMsg === 'string' ? errorMsg : 'An error occurred');
             // Reset to confirm step so user can see the error and try again
@@ -300,7 +300,7 @@ export function UnifiedPaymentFlow({
             }
         } else {
             // Fetch if no initial plans
-            // eslint-disable-next-line @typescript-eslint/no-floating-promises
+             
             fetchPlans();
         }
     }, [initialPlans, preselectedId, transformPlans, fetchPlans]);
@@ -389,7 +389,7 @@ export function UnifiedPaymentFlow({
                         setTxHash(transferTxHash);
                         setStep('success');
                         // Refresh plan access
-                        // eslint-disable-next-line @typescript-eslint/no-floating-promises
+                         
                         refetchPlanAccess();
                     } else {
                         setError(result.error?.message ?? 'Payment submitted but verification pending');
@@ -398,8 +398,7 @@ export function UnifiedPaymentFlow({
                     setError('Payment confirmed but backend submission failed');
                 }
             };
-
-            // eslint-disable-next-line @typescript-eslint/no-floating-promises
+             
             submitPayment();
         }
     }, [isConfirmed, transferTxHash, step, selectedPlan, selectedToken, chainId, apiClient, refetchPlanAccess]);

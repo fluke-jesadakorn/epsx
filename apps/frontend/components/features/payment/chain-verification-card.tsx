@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unnecessary-condition, @typescript-eslint/strict-boolean-expressions, @typescript-eslint/no-floating-promises, @typescript-eslint/no-misused-promises, react-hooks/exhaustive-deps, max-depth, max-lines-per-function, sonarjs/cognitive-complexity */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unnecessary-condition, @typescript-eslint/strict-boolean-expressions, @typescript-eslint/no-floating-promises, @typescript-eslint/no-misused-promises, max-lines-per-function */
 'use client';
 
 /**
@@ -103,8 +103,7 @@ function truncateAddress(address: string): string {
     if (!address || address.length < 12) {return address;}
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
 }
-
-// eslint-disable-next-line max-lines-per-function
+ 
 export function ChainVerificationCard({
     onChainReady,
     className,
@@ -120,7 +119,7 @@ export function ChainVerificationCard({
      
     const deployedChains = useMemo(
         () => supportedChains.filter((chain) => {
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment,@typescript-eslint/no-unsafe-call
+             
             const deployed = isPaymentEscrowDeployed(chain.id);
             return typeof deployed === 'boolean' ? deployed : Boolean(deployed);
         }),
@@ -132,7 +131,7 @@ export function ChainVerificationCard({
     const isSupported = useMemo(
         () => {
             const inSupportedList = supportedChains.some((chain) => chain.id === chainId);
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment,@typescript-eslint/no-unsafe-call
+             
             const hasContract = isPaymentEscrowDeployed(chainId);
             const isDeployed = typeof hasContract === 'boolean' ? hasContract : Boolean(hasContract);
             return inSupportedList && isDeployed;
