@@ -7,16 +7,35 @@ import { UIProvider } from '@/context/ui-context';
 import { LoadingSpinner } from '@/components/common/loading-spinner';
 import { ErrorBoundary } from '@/components/common/error-boundary';
 
+interface UIState {
+  [key: string]: unknown;
+}
+
+interface UserState {
+  [key: string]: unknown;
+}
+
+interface NotificationState {
+  [key: string]: unknown;
+}
+
+interface ServerAuthState {
+  user?: unknown;
+  permissions?: unknown[];
+  packageTier?: string;
+  [key: string]: unknown;
+}
+
 interface StateProviderProps {
   children: React.ReactNode;
   initialState?: {
-    ui?: any;
-    user?: any;
-    notifications?: any;
+    ui?: UIState;
+    user?: UserState;
+    notifications?: NotificationState;
   };
   // SSR compatibility
-  serverAuthState?: any;
-  serverUserPreferences?: any;
+  serverAuthState?: ServerAuthState;
+  serverUserPreferences?: Record<string, unknown>;
 }
 
 // Performance-optimized provider wrapper
@@ -122,7 +141,7 @@ export function withStateProvider<P>(
     errorBoundary?: boolean;
   } = {}
 ) {
-  const WrappedComponent = React.forwardRef((props: any, ref: React.Ref<any>) => {
+  const WrappedComponent = React.forwardRef<unknown, P>((props, ref) => {
     const { initialState, errorBoundary = true } = options;
 
     const ComponentWithState = (
@@ -240,14 +259,21 @@ export function StateInspector() {
   );
 }
 
+interface DevTools {
+  getStore?: (store: string) => unknown;
+}
+
 function StateViewer({ store }: { store: string }) {
-  const [state, setState] = React.useState<any>(null);
+  const [state, setState] = React.useState<unknown>(null);
 
   React.useEffect(() => {
     const interval = setInterval(() => {
-      if (typeof window !== 'undefined' && window.__EPSX_DEV_TOOLS__ && (window.__EPSX_DEV_TOOLS__ as any).getStore) {
-        const storeState = (window.__EPSX_DEV_TOOLS__ as any).getStore(store);
-        setState(storeState);
+      if (typeof window !== 'undefined') {
+        const devTools = (window as unknown as Record<string, DevTools | undefined>).__EPSX_DEV_TOOLS__;
+        if (devTools?.getStore) {
+          const storeState = devTools.getStore(store);
+          setState(storeState);
+        }
       }
     }, 1000);
 

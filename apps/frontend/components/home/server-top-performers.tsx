@@ -50,7 +50,7 @@ const TopPerformersBox = ({ top3Data }: { top3Data: SymbolCardData[] }) => {
       {/* Analytics-style card grid */}
       <div className="grid grid-cols-1 justify-items-center gap-6 px-4 sm:grid-cols-2 lg:grid-cols-3">
         {top3Data.map(cardData => {
-          const latestQuarter = cardData.quarterly_performance?.[0];
+          const latestQuarter = cardData.quarterly_performance[0];
 
           return (
             <StockDataCard
@@ -82,7 +82,7 @@ export default async function ServerTopPerformers({ className }: ServerTopPerfor
       sort_by: 'growth_factor'
     } as any);
 
-    if (result.success && result.data && Array.isArray(result.data)) {
+    if (result.data && Array.isArray(result.data)) {
       data = (result.data as any[]).map((ranking: any, index: number) => {
         const qData = ranking?.quarterly_performance ?? ranking?.quarterly_data ?? [];
 

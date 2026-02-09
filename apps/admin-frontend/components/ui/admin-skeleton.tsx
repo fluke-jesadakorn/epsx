@@ -3,7 +3,7 @@
  * Provides consistent loading states across admin dashboard
  * Follows zero animation policy - no transitions or animations
  */
-
+/* eslint-disable react/no-array-index-key */
 import { cn } from '@/lib/utils'
 
 interface SkeletonProps {
@@ -64,8 +64,8 @@ export function TableSkeleton({ rows = 5, columns = 6 }: { rows?: number; column
       {/* Rows */}
       {Array.from({ length: rows }).map((_, rowIdx) => (
         <div key={`row-${rowIdx}`} className="flex gap-4">
-          {Array.from({ length: columns }).map((_, colIdx) => (
-            <Skeleton key={`cell-${rowIdx}-${colIdx}`} className="h-12 flex-1" />
+          {Array.from({ length: columns }).map((_, colIndex) => (
+            <Skeleton key={`cell-${rowIdx}-${colIndex}`} className="h-12 flex-1" />
           ))}
         </div>
       ))}

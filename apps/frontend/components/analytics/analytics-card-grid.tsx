@@ -13,7 +13,7 @@ interface AnalyticsCardGridProps {
 }
 
 function StockCard({ cardData, delay = 0 }: { cardData: SymbolCardData; delay?: number }): React.ReactElement {
-    const latestQuarter = cardData.quarterly_performance?.[0];
+    const latestQuarter = cardData.quarterly_performance[0];
     const isPremium = cardData.rank <= 5;
 
     return (
@@ -24,10 +24,10 @@ function StockCard({ cardData, delay = 0 }: { cardData: SymbolCardData; delay?: 
             <StockDataCard
                 symbol={cardData.symbol}
                 rank={cardData.rank}
-                epsGrowth={latestQuarter?.eps_growth || 0}
-                price={latestQuarter?.price || 0}
+                epsGrowth={latestQuarter.eps_growth || 0}
+                price={latestQuarter.price || 0}
                 currency={cardData.currency}
-                daysUntilNextAction={cardData.next_quarter_estimate?.days_until_announcement ?? 0}
+                daysUntilNextAction={cardData.next_quarter_estimate.days_until_announcement ?? 0}
                 companyName={cardData.company_name ?? cardData.name}
                 variant={isPremium ? 'premium' : 'standard'}
             />
@@ -42,7 +42,7 @@ export function AnalyticsCardGrid({ rankings, className }: AnalyticsCardGridProp
     }, [rankings]);
 
     // If no rankings data
-    if (!rankings || rankings.length === 0) {
+    if (rankings.length === 0) {
         return (
             <div className="py-12 text-center">
                 <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-800/50">

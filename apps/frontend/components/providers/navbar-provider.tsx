@@ -15,9 +15,6 @@ const NavbarContext = createContext<NavbarContextType>({
 
 export const useNavbarContext = () => {
   const context = useContext(NavbarContext);
-  if (!context) {
-    throw new Error('useNavbarContext must be used within navbar-provider');
-  }
   return context;
 };
 

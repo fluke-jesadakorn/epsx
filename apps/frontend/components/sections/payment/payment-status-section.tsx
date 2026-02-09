@@ -49,7 +49,7 @@ const getLatestTransactionDetails = (transactions: Transaction[]) => {
   if (transactions.length === 0) {return {};}
   const latest = transactions[0];
   return {
-    transactionId: latest.blockchainData?.txHash || latest.orderNo,
+    transactionId: latest.blockchainData.txHash || latest.orderNo,
     amount: latest.actualAmount,
     currency: latest.currency,
     timestamp: latest.finishTime,

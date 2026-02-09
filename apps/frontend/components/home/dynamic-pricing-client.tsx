@@ -42,7 +42,7 @@ export const DynamicPricingClient = ({
     const [personalPlans, setPersonalPlans] = useState<PricingCardData[]>(initialPersonalPlans);
     const [apiPlans, setApiPlans] = useState<PricingCardData[]>(initialApiPlans);
     const [affiliateCode, setAffiliateCode] = useState<string | null>(initialAffiliateCode);
-    const [affiliateInfo, setAffiliateInfo] = useState<any | null>(initialAffiliateInfo);
+    const [affiliateInfo, setAffiliateInfo] = useState<AffiliateInfo | null>(initialAffiliateInfo);
 
     // Extract affiliate code from URL parameters and set cookie
     useEffect(() => {
@@ -74,7 +74,7 @@ export const DynamicPricingClient = ({
                 const result = await response.json();
                 if (result.success && result.data && Array.isArray(result.data)) {
                     // Re-transform data (logic duplicated from server component - ideally shared but keeping inline for now)
-                    const transformToPricingCard = (plan: any): PricingCardData => {
+                    const transformToPricingCard = (plan: typeof planData[number]): PricingCardData => {
                         const hasDiscount = plan.currentPrice < plan.basePrice;
                         return {
                             id: plan.id,
@@ -93,21 +93,21 @@ export const DynamicPricingClient = ({
                     const planData = result.data;
 
                     const newPersonalPlans = planData
-                        .filter((plan: any) => plan.is_active)
-                        .filter((plan: any) => {
+                        .filter((plan) => plan.is_active)
+                        .filter((plan) => {
                             const type = plan.plan_type?.toLowerCase();
                             return !type?.includes('api');
                         })
-                        .sort((a: any, b: any) => (a.display_order ?? 0) - (b.display_order ?? 0))
+                        .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0))
                         .map(transformToPricingCard);
 
                     const newApiPlans = planData
-                        .filter((plan: any) => plan.is_active)
-                        .filter((plan: any) => {
+                        .filter((plan) => plan.is_active)
+                        .filter((plan) => {
                             const type = plan.plan_type?.toLowerCase();
                             return type?.includes('api');
                         })
-                        .sort((a: any, b: any) => (a.display_order ?? 0) - (b.display_order ?? 0))
+                        .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0))
                         .map(transformToPricingCard);
 
                     setPersonalPlans(newPersonalPlans);

@@ -42,7 +42,7 @@ export default async function HomePage(props: {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>
 }) {
   const searchParams = await props.searchParams;
-  const refCode = (searchParams?.ref ?? searchParams?.affiliate ?? searchParams?.aff) as string | undefined;
+  const refCode = (searchParams.ref ?? searchParams.affiliate ?? searchParams.aff) as string | undefined;
 
   // Use empty data for PublicRankingPreview component (unused in simplified homepage)
   const _initialData: StockFinancialData[] = [];

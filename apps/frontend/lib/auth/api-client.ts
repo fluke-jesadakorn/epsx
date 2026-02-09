@@ -21,6 +21,7 @@ export class OpenIDApiClient extends SharedWeb3AuthClient {
   }
 
   static getInstance(): OpenIDApiClient {
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     if (!OpenIDApiClient.instance) {
       OpenIDApiClient.instance = new OpenIDApiClient();
     }

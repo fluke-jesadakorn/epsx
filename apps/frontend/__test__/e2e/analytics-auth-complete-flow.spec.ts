@@ -46,8 +46,8 @@ test.describe('📊 Analytics Platform Authentication Complete Flow', () => {
   });
 
   test.afterEach(async () => {
-    await page?.close();
-    await context?.close();
+    await page.close();
+    await context.close();
   });
 
   test('📊 Complete OIDC Authorization Flow - Frontend Login', async () => {
@@ -495,9 +495,9 @@ test.describe('🔄 Cross-App Integration Tests', () => {
   });
 
   test.afterEach(async () => {
-    await frontendPage?.close();
-    await adminPage?.close();
-    await context?.close();
+    await frontendPage.close();
+    await adminPage.close();
+    await context.close();
   });
 
   test('🔄 Shared Session Between Frontend and Admin', async () => {

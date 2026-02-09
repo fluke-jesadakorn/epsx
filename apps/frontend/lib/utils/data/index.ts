@@ -56,8 +56,6 @@ export function arrayToCSV(data: Record<string, unknown>[], options: Partial<Exp
 }
 
 function escapeCSVField(field: string): string {
-  if (field == null) {return '';}
-
   const stringField = String(field);
 
   // If field contains comma, newline, or quote, wrap in quotes and escape internal quotes
@@ -148,7 +146,7 @@ export function processAnalyticsData(rawData: Record<string, unknown>[]): Analyt
     timestamp: (item.timestamp as string) || new Date().toISOString(),
     value: parseFloat(item.value as string) || 0,
     label: (item.label as string) || (item.name as string) || '',
-    metadata: (item.metadata as Record<string, unknown>) || {}
+    metadata: (item.metadata as Record<string, unknown> | undefined) || {}
   }));
 }
 
@@ -231,7 +229,7 @@ export class SimpleCache<T> {
       const leastAccessed = Array.from(this.cache.entries())
         .sort((a, b) => a[1].accessed - b[1].accessed)[0];
 
-      if (leastAccessed) {
+      if (leastAccessed !== undefined) {
         this.cache.delete(leastAccessed[0]);
       }
     }
