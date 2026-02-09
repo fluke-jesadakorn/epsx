@@ -32,10 +32,10 @@ export function PlanSelection({ currentUser: _currentUser, className }: PlanSele
   // Extract affiliate code from URL parameters
   useEffect(() => {
     const refCode = searchParams.get('ref') ?? searchParams.get('affiliate') ?? searchParams.get('aff')
-    if (refCode) {
+    if ((refCode?.length ?? 0) > 0) {
       setAffiliateCode(refCode)
       // Store in cookie for persistence
-      document.cookie = `affiliate_code=${encodeURIComponent(refCode)}; path=/; max-age=2592000; SameSite=lax`
+      document.cookie = `affiliate_code=${encodeURIComponent(refCode ?? '')}; path=/; max-age=2592000; SameSite=lax`
     } else {
       // Check cookies for existing affiliate code
       const cookies = document.cookie.split(';').reduce<Record<string, string>>((acc, cookie) => {
@@ -44,9 +44,9 @@ export function PlanSelection({ currentUser: _currentUser, className }: PlanSele
         return acc
       }, {})
 
-      const storedCode = cookies.affiliate_code || localStorage.getItem('affiliateCode')
-      if (storedCode) {
-        setAffiliateCode(decodeURIComponent(storedCode))
+      const storedCode = cookies.affiliate_code ?? localStorage.getItem('affiliateCode')
+      if ((storedCode?.length ?? 0) > 0) {
+        setAffiliateCode(decodeURIComponent(storedCode ?? ''))
       }
     }
   }, [searchParams])
@@ -62,7 +62,7 @@ export function PlanSelection({ currentUser: _currentUser, className }: PlanSele
 
         if (response.success && response.data && Array.isArray(response.data)) {
           const cards = response.data
-            .filter((plan: Plan) => plan.is_active)
+            .filter((plan: Plan) => (plan.is_active ?? false))
             .sort((a: Plan, b: Plan) => (a.display_order ?? 0) - (b.display_order ?? 0))
             .map((plan: Plan) => transformToPricingCard(plan))
 
@@ -79,7 +79,7 @@ export function PlanSelection({ currentUser: _currentUser, className }: PlanSele
       }
     }
 
-    fetchPlans()
+    void fetchPlans()
   }, [affiliateCode])
 
   // Transform backend plan to pricing card format
@@ -112,8 +112,8 @@ export function PlanSelection({ currentUser: _currentUser, className }: PlanSele
     const planId = card.id.toString()
     let paymentUrl = ''
 
-    if (affiliateCode) {
-      paymentUrl = `/payment/plan/${planId}?ref=${affiliateCode}`
+    if ((affiliateCode?.length ?? 0) > 0) {
+      paymentUrl = `/payment/plan/${planId}?ref=${affiliateCode ?? ''}`
     } else {
       paymentUrl = `/payment/plan/${planId}`
     }
@@ -121,7 +121,7 @@ export function PlanSelection({ currentUser: _currentUser, className }: PlanSele
     router.push(paymentUrl)
   }
 
-  if (error) {
+  if ((error?.length ?? 0) > 0) {
     return (
       <Alert variant="destructive">
         <AlertCircle className="h-4 w-4" />
@@ -133,7 +133,7 @@ export function PlanSelection({ currentUser: _currentUser, className }: PlanSele
   return (
     <div className={className}>
       {/* Affiliate attribution banner */}
-      {affiliateCode && affiliateInfo && (
+      {(affiliateCode?.length ?? 0) > 0 && affiliateInfo && (
         <div className="mb-8">
           <div className="bg-gradient-to-r from-purple-500 to-pink-500 text-white p-4 rounded-2xl text-center shadow-xl">
             <div className="flex items-center justify-center gap-2 text-lg font-semibold">
@@ -174,8 +174,8 @@ export function PlanSelection({ currentUser: _currentUser, className }: PlanSele
             }
 
             // Override button text if needed
-            const finalCard = buttonTextOverride
-              ? { ...card, buttonText: buttonTextOverride }
+            const finalCard = (buttonTextOverride?.length ?? 0) > 0
+              ? { ...card, buttonText: buttonTextOverride ?? '' }
               : card;
 
             return (

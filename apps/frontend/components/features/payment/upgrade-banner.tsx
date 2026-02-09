@@ -45,7 +45,7 @@ export function UpgradeBanner({
     const [_error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        if (!walletAddress || !newPlanId) {
+        if ((walletAddress?.length ?? 0) === 0 || !newPlanId) {
             setLoading(false);
             return;
         }
@@ -69,8 +69,8 @@ export function UpgradeBanner({
                     throw new Error(`HTTP error: ${response.status}`);
                 }
 
-                const result = await response.json();
-                if (result.success && result.data) {
+                const result: { success?: boolean; data?: UpgradePreviewData } = await response.json();
+                if ((result.success ?? false) && result.data) {
                     setPreview(result.data);
                 }
             } catch (_err) {
@@ -81,7 +81,7 @@ export function UpgradeBanner({
             }
         };
 
-        fetchPreview();
+        void fetchPreview();
     }, [newPlanId, walletAddress]);
 
     // Don't render anything if no preview or loading
