@@ -65,7 +65,7 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
 
   // Cross-tab session invalidation listener (only for explicit disconnect)
   useEffect(() => {
-    if (typeof window === 'undefined' || !window.BroadcastChannel) {return;}
+    if (typeof window === 'undefined' || window.BroadcastChannel === undefined) {return;}
 
     let channel: BroadcastChannel | null = null;
 
@@ -107,7 +107,7 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
               toast.info('Session was ended in another tab');
             }
           }
-        } catch (error) {
+        } catch (_error) {
         }
       };
 
@@ -121,10 +121,10 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
               channel.close();
             }
           }
-        } catch (error) {
+        } catch (_error) {
         }
       };
-    } catch (error) {
+    } catch (_error) {
       return () => { }; // No-op cleanup
     }
   }, [address]);
@@ -143,7 +143,7 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
       }));
 
       // Check auth status when we have an address (inline to avoid dependency issues)
-      (async () => {
+      void (async () => {
         try {
           // Check for session if wallet is connected
           const response = await fetch('/api/auth/session', {
@@ -178,12 +178,12 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
                     await permResponse.json();
                   setState(prev => ({
                     ...prev,
-                    permissions: permissions || [],
-                    userTier: user_tier || 'free',
-                    hasApiAccess: has_api_access || false,
+                    permissions: permissions ?? [],
+                    userTier: user_tier ?? 'free',
+                    hasApiAccess: has_api_access ?? false,
                   }));
                 }
-              } catch (permError) {
+              } catch (_permError) {
               }
               return;
             }
@@ -260,7 +260,7 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
         error: undefined,
       }));
       return false;
-    } catch (error) {
+    } catch (_error) {
       return false;
     }
   }, [address]);
@@ -282,9 +282,9 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
           await response.json();
         setState(prev => ({
           ...prev,
-          permissions: permissions || [],
-          userTier: user_tier || 'free',
-          hasApiAccess: has_api_access || false,
+          permissions: permissions ?? [],
+          userTier: user_tier ?? 'free',
+          hasApiAccess: has_api_access ?? false,
         }));
         return true;
       } else if (response.status === 405) {
@@ -298,7 +298,7 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
         return true; // Successfully set defaults
       }
       return false;
-    } catch (error) {
+    } catch (_error) {
       // Set default values on error
       setState(prev => ({
         ...prev,
