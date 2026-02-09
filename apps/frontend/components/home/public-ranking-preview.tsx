@@ -58,7 +58,7 @@ export function PublicRankingPreview({
     return (
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {Array.from({ length: 6 }).map((_, i) => (
-          <Card key={i} className="">
+          <Card key={`loading-${String(i)}`} className="">
             <CardHeader>
               <div className="h-4 w-3/4 rounded bg-gray-200" />
             </CardHeader>

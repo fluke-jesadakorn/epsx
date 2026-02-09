@@ -90,8 +90,8 @@ export function SelectPackage({
                   ${pkg.price}
                 </p>
                 <div className="text-xs sm:text-sm text-muted-foreground space-y-1">
-                  {pkg.features.map((feature, idx) => (
-                    <div key={idx} className="flex items-center gap-1">
+                  {pkg.features.map((feature) => (
+                    <div key={feature} className="flex items-center gap-1">
                       <Check className="h-3 w-3 text-green-500 flex-shrink-0" />
                       <span>{feature}</span>
                     </div>
@@ -122,8 +122,8 @@ export function SelectPackage({
                       ${pkg.price}
                     </p>
                     <div className="text-xs sm:text-sm text-muted-foreground space-y-1">
-                      {pkg.features.map((feature, idx) => (
-                        <div key={idx} className="flex items-center gap-1">
+                      {pkg.features.map((feature) => (
+                        <div key={feature} className="flex items-center gap-1">
                           <Check className="h-3 w-3 text-green-500 flex-shrink-0" />
                           <span>{feature}</span>
                         </div>

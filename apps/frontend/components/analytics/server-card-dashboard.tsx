@@ -93,7 +93,7 @@ function LoadingGrid() {
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
       {Array.from({ length: 12 }).map((_, i) => (
         <div
-          key={i}
+          key={`loading-${String(i)}`}
           className="animate-pulse rounded-lg border bg-white p-4 dark:bg-slate-900"
         >
           <div className="mb-3 flex items-center justify-between">
@@ -109,7 +109,7 @@ function LoadingGrid() {
           </div>
           <div className="space-y-2">
             {Array.from({ length: 3 }).map((_, j) => (
-              <div key={j} className="flex justify-between">
+              <div key={`item-${String(j)}`} className="flex justify-between">
                 <div className="h-3 w-1/3 rounded bg-gray-200" />
                 <div className="h-3 w-1/4 rounded bg-gray-200" />
               </div>

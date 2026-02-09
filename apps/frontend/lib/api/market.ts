@@ -86,7 +86,7 @@ export class MarketApiClient {
     try {
       const response = await this.client.get<PaginatedResponse<StockFinancialData>>(
         '/api/market-data/stocks',
-        params as Record<string, any>
+        params as Record<string, unknown>
       );
 
       if (!response.success) {
@@ -117,7 +117,7 @@ export class MarketApiClient {
     try {
       const response = await this.client.get<CountResponse>(
         '/api/market-data/stocks/count',
-        params as Record<string, any>
+        params as Record<string, unknown>
       );
 
       if (!response.success) {

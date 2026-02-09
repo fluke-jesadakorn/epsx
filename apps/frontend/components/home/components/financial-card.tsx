@@ -307,9 +307,9 @@ export function FinancialCard({
 
           {/* Quarter Rows */}
           <div className="space-y-2">
-            {validQuarters.map((quarter, idx) => (
+            {validQuarters.map((quarter) => (
               <QuarterRow
-                key={idx}
+                key={quarter}
                 quarter={quarter}
                 formatPrice={formatPrice}
                 formatDate={formatDate}

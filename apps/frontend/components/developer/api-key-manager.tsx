@@ -505,8 +505,8 @@ export function APIKeyManager({ currentUser, onStatsChange }: APIKeyManagerProps
                         <div className="text-[10px] font-bold text-gray-500 dark:text-gray-500 uppercase tracking-widest mb-2">Permissions</div>
                         <div className="flex flex-wrap gap-1.5">
                           {apiKey.scopes.length > 0 ? (
-                            apiKey.scopes.map((permission: string, idx: number) => (
-                              <Badge key={idx} variant="outline" className="px-2 py-0.5 text-[11px] border-amber-500/50 text-amber-400 bg-amber-900/10 font-mono">
+                            apiKey.scopes.map((permission: string) => (
+                              <Badge key={permission} variant="outline" className="px-2 py-0.5 text-[11px] border-amber-500/50 text-amber-400 bg-amber-900/10 font-mono">
                                 {permission}
                               </Badge>
                             ))

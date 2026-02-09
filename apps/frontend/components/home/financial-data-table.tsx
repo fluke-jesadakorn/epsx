@@ -171,7 +171,7 @@ function FinancialDataTable({
               <div className="flex justify-center mt-4">
                 <div className="flex gap-1">
                   {Array.from({ length: Math.min(5, safeData.length) }).map((_, i) => (
-                    <div key={i} className="w-2 h-2 bg-primary/30 rounded-full" />
+                    <div key={`dot-${String(i)}`} className="w-2 h-2 bg-primary/30 rounded-full" />
                   ))}
                 </div>
                 <p className="text-xs text-muted-foreground ml-3 self-center">

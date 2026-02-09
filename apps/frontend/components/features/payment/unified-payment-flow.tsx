@@ -575,8 +575,8 @@ export function UnifiedPaymentFlow({
                                 Included Features
                             </p>
                             <div className="grid grid-cols-2 gap-2">
-                                {selectedPlan.features.slice(0, 4).map((feature, idx) => (
-                                    <div key={idx} className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                                {selectedPlan.features.slice(0, 4).map((feature) => (
+                                    <div key={feature.text} className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
                                         <Check className="w-3 h-3 text-green-500" />
                                         <span className="truncate">{feature.text}</span>
                                     </div>

@@ -152,7 +152,7 @@ export function PlanSelection({ currentUser: _currentUser, className }: PlanSele
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 md:gap-12 lg:gap-16 px-4 py-8">
         {loading
           ? Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="animate-pulse bg-gray-200 dark:bg-gray-800 rounded-2xl h-[500px]" />
+            <div key={`plan-skeleton-${String(i)}`} className="animate-pulse bg-gray-200 dark:bg-gray-800 rounded-2xl h-[500px]" />
           ))
           : pricingCards.map((card) => {
             // Determine action type based on current plan

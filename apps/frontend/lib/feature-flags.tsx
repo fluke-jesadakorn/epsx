@@ -71,9 +71,9 @@ class FeatureFlagService {
     this.userContext = {
       environment: process.env.NODE_ENV as string,
     };
-    
+
     // Load flags from environment or external service
-    this.loadFlags();
+    void this.loadFlags();
   }
 
   private async loadFlags(): Promise<void> {
@@ -170,10 +170,10 @@ class FeatureFlagService {
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     if (this.flags[key]) {
       this.flags[key] = { ...this.flags[key], ...updates };
-      
+
       // In production, persist changes to configuration service
       if (process.env.NODE_ENV === 'production') {
-        this.persistFlag(key, this.flags[key]);
+        void this.persistFlag(key, this.flags[key]);
       }
     }
   }

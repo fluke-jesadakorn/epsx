@@ -136,8 +136,8 @@ function PackageCardContent({ pkg, isSelected, isDesktop = false }: PackageCardC
       </div>
 
       <div className="mb-8 flex min-h-[200px] flex-grow flex-col space-y-4">
-        {pkg.features.map((feature, idx) => (
-          <div key={idx} className="group/feature flex items-start">
+        {pkg.features.map((feature) => (
+          <div key={feature} className="group/feature flex items-start">
             <div
               className={cn(
                 'flex-shrink-0 rounded-full p-1.5',

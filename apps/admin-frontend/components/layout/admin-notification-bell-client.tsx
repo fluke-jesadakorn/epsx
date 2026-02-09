@@ -16,9 +16,20 @@ import {
 import { useSSENotifications } from '@/shared/hooks/use-sse-notifications'
 import { createAdminApiClient } from '@/shared/utils/api-client'
 
+interface SSENotificationData {
+  id: string
+  title: string
+  message: string
+  notification_type: 'security' | 'system' | 'info'
+  priority: 'critical' | 'high' | 'normal' | 'low'
+  timestamp: string
+  wallet_address: string
+}
+
 /**
  *
  */
+// eslint-disable-next-line max-lines-per-function
 export function AdminNotificationBell() {
   const pathname = usePathname()
   const [count, setCount] = useState(0)
@@ -27,55 +38,12 @@ export function AdminNotificationBell() {
   const [loading, setLoading] = useState(true)
 
   // Skip notification fetching on auth page to prevent 401 errors during login redirect
-  const isOnAuthPage = pathname === '/auth' ?? pathname?.startsWith('/auth')
+  const isOnAuthPage = pathname === '/auth' || pathname.startsWith('/auth')
 
   // Get auth context for session refresh
   const { refreshSession } = useSharedAuth()
 
-  // SSE real-time notifications for admin
-  const { isConnected: sseConnected, reconnect: reconnectSSE } = useSSENotifications({
-    apiClient: createAdminApiClient(),
-    autoConnect: !isOnAuthPage, // Don't auto-connect on auth page
-    refreshSession,
-    onNotification: (sseNotif) => {
-      // Add to notifications list
-      const newNotification: Notification = {
-        id: sseNotif.id,
-        title: sseNotif.title,
-        message: sseNotif.message,
-        type: sseNotif.notification_type as any,
-        priority: sseNotif.priority as any,
-        timestamp: sseNotif.timestamp,
-        wallet_address: sseNotif.wallet_address,
-        read: false,
-      }
-
-      setNotifications(prev => {
-        // Prevent duplicate notifications
-        if (prev.some(n => n.id === newNotification.id)) {
-          return prev
-        }
-        // Only increment count when actually adding a new notification
-        setCount(c => c + 1)
-        return [newNotification, ...prev]
-      })
-    },
-    onError: (error) => {
-      console.warn('Admin SSE connection error:', error)
-    },
-    onConnect: () => {
-    },
-  })
-
-  useEffect(() => {
-    // Skip fetching on auth page
-    if (isOnAuthPage) {
-      setLoading(false)
-      return
-    }
-    fetchNotifications()
-  }, [isOnAuthPage])
-
+  // Define fetchNotifications before SSE hook
   const fetchNotifications = async () => {
     try {
       setLoading(true)
@@ -99,10 +67,10 @@ export function AdminNotificationBell() {
 
       setNotifications(mappedNotifications)
       setCount(data.data.unread_count)
-    } catch (error) {
-      const apiError = error as any
-      if (apiError?.status !== 401) {
-        console.warn('Failed to fetch notifications:', error)
+    } catch (error: unknown) {
+      const apiError = error as Record<string, unknown>
+      if ((apiError.status as number) !== 401) {
+        // Silently fail
       }
       setNotifications([])
       setCount(0)
@@ -110,6 +78,50 @@ export function AdminNotificationBell() {
       setLoading(false)
     }
   }
+
+  // SSE real-time notifications for admin
+  const { isConnected: sseConnected, reconnect: _reconnectSSE } = useSSENotifications({
+    apiClient: createAdminApiClient(),
+    autoConnect: !isOnAuthPage, // Don't auto-connect on auth page
+    refreshSession,
+    onNotification: (sseNotif: SSENotificationData) => {
+      // Add to notifications list
+      const newNotification: Notification = {
+        id: sseNotif.id,
+        title: sseNotif.title,
+        message: sseNotif.message,
+        type: sseNotif.notification_type,
+        priority: sseNotif.priority,
+        timestamp: sseNotif.timestamp,
+        wallet_address: sseNotif.wallet_address,
+        read: false,
+      }
+
+      setNotifications(prev => {
+        // Prevent duplicate notifications
+        if (prev.some(n => n.id === newNotification.id)) {
+          return prev
+        }
+        // Only increment count when actually adding a new notification
+        setCount(c => c + 1)
+        return [newNotification, ...prev]
+      })
+    },
+    onError: () => {
+      // Silently fail
+    },
+    onConnect: () => {
+    },
+  })
+
+  useEffect(() => {
+    // Skip fetching on auth page
+    if (isOnAuthPage) {
+      setLoading(false)
+      return
+    }
+    void fetchNotifications()
+  }, [isOnAuthPage])
 
   const handleToggleDropdown = (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -131,8 +143,8 @@ export function AdminNotificationBell() {
       setCount(prev => Math.max(0, prev - 1))
 
       toast({ title: 'Notification deleted' })
-    } catch (error) {
-      console.error('Failed to delete notification:', error)
+    } catch {
+      // Silently fail
       toast({ title: 'Failed to delete notification', variant: 'destructive' })
     }
   }
@@ -211,13 +223,13 @@ export function AdminNotificationBell() {
                           </div>
                           <div className="mt-1.5 flex items-center gap-2 text-xs text-muted-foreground/70">
                             <span>{formatTimestamp(notification.timestamp)}</span>
-                            {notification.wallet_address && notification.wallet_address !== 'all' && (
+                            {notification.wallet_address !== undefined && notification.wallet_address !== 'all' && (
                               <span className="font-mono">{formatWalletAddress(notification.wallet_address)}</span>
                             )}
                           </div>
                         </div>
                         <button
-                          onClick={(e) => handleDeleteNotification(e, notification.id)}
+                          onClick={(e) => void handleDeleteNotification(e, notification.id)}
                           className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-opacity"
                           title="Delete"
                         >

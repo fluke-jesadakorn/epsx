@@ -215,7 +215,7 @@ export function UsageMonitor({ currentUser: _currentUser }: UsageMonitorProps) {
             ) : history.length === 0 ? (
               <div className="w-full text-center text-gray-500">No usage data available</div>
             ) : (
-              history.map((point, i) => {
+              history.map((point) => {
                 const maxCount = Math.max(...history.map(h => h.count), 1);
                 const heightPercent = (point.count / maxCount) * 100;
                 // Parse date - point.bucket is ISO string
@@ -223,7 +223,7 @@ export function UsageMonitor({ currentUser: _currentUser }: UsageMonitorProps) {
                 const label = date.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric' });
 
                 return (
-                  <div key={i} className="flex-1 flex flex-col items-center group relative">
+                  <div key={point.bucket} className="flex-1 flex flex-col items-center group relative">
                     <div
                       className="w-full bg-emerald-500/20 hover:bg-emerald-500/40 rounded-t transition-all relative"
                       style={{ height: `${Math.max(heightPercent, 5)}%` }} // Min 5% height for visibility
@@ -259,8 +259,8 @@ export function UsageMonitor({ currentUser: _currentUser }: UsageMonitorProps) {
             ) : topEndpoints.length === 0 ? (
               <div className="text-center text-gray-500 py-4">No endpoint usage data available</div>
             ) : (
-              topEndpoints.map((endpoint, idx) => (
-                <div key={idx} className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+              topEndpoints.map((endpoint) => (
+                <div key={endpoint.endpoint} className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
                   <div className="flex items-center gap-3">
                     <Badge className={
                       endpoint.method === 'GET' ? 'bg-blue-100 text-blue-700' :
