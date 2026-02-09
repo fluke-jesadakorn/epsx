@@ -1,4 +1,3 @@
-import { Key } from 'lucide-react';
 import type { Metadata } from 'next';
 
 import { ApiKeyRequestForm } from '@/components/public/api-key-request-form';
