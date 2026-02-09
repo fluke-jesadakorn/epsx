@@ -12,7 +12,8 @@ import type {
   SessionConfig,
   // Web3 Auth configuration types
   AuthConfig as SharedAuthConfig,
-  Web3Config} from '@/shared/config/auth';
+  Web3Config
+} from '@/shared/config/auth';
 import {
   buildLogoutUrl,
   // Web3 URL builders
@@ -171,12 +172,13 @@ export const ADMIN_AUTH_ERRORS = {
  * @param walletAddress
  * @param expiresAt
  */
-export function createAdminAuthState(
-  isAuthenticated: boolean,
-  permissions: string[],
-  walletAddress?: string,
-  expiresAt?: number
-): ProgressiveAuthState {
+export function createAdminAuthState(params: {
+  isAuthenticated: boolean;
+  permissions: string[];
+  walletAddress?: string;
+  expiresAt?: number;
+}): ProgressiveAuthState {
+  const { isAuthenticated, permissions, walletAddress, expiresAt } = params;
   return {
     level: isAuthenticated ? 'authenticated' : (walletAddress ? 'connected' : 'public'),
     walletAddress,
@@ -195,7 +197,7 @@ export function hasAdminAuthentication(authState: ProgressiveAuthState): boolean
 
   // Check for admin permissions
   return authState.permissions.some(permission =>
-    permission.startsWith('admin:') ?? permission === 'admin:*:*'
+    permission.startsWith('admin:') || permission === 'admin:*:*'
   );
 }
 

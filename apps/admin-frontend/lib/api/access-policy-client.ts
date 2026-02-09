@@ -159,7 +159,7 @@ export const accessPolicyClient = {
         system: 'system',
       };
       const planType = group.plan_type || 'manual';
-      const policyType: PolicyType = (typeMap[planType]) ?? 'manual';
+      const policyType: PolicyType = (typeMap[planType] as PolicyType | undefined) ?? 'manual';
       stats.byType[policyType] = (stats.byType[policyType] ?? 0) + 1;
     });
 

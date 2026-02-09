@@ -64,7 +64,7 @@ function PlanCard({
                     <Button
                         variant="ghost"
                         size="icon"
-                        onClick={onRemove}
+                        onClick={() => { void onRemove(); }}
                         className="h-8 w-8 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
                         title="Remove Plan"
                     >
@@ -116,7 +116,7 @@ export function WalletPlanSection({
 
     const filteredPlans = plans.filter(p =>
         p.name.toLowerCase().includes(search.toLowerCase()) ||
-        p.description?.toLowerCase().includes(search.toLowerCase())
+        (p.description?.toLowerCase() ?? '').includes(search.toLowerCase())
     );
 
     return (

@@ -89,7 +89,7 @@ function PlatformDistribution({
                 </h4>
                 <div className="space-y-3">
                     {platforms.map((platform) => {
-                        const count = distribution[platform.key] ?? 0;
+                        const count = (distribution[platform.key] as number | undefined) ?? 0;
                         const percentage = total > 0 ? Math.round((count / total) * 100) : 0;
 
                         return (
@@ -122,7 +122,7 @@ function StatsBarSkeleton() {
     return (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
             {Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="rounded-2xl bg-muted p-5 animate-pulse">
+                <div key={`skeleton-${i}`} className="rounded-2xl bg-muted p-5 animate-pulse">
                     <div className="flex items-center justify-between mb-3">
                         <div className="h-6 w-6 rounded bg-muted/80" />
                         <div className="h-5 w-16 rounded-full bg-muted/80" />

@@ -39,7 +39,7 @@ interface WalletStatusBadgeProps {
  * @param root0.className
  */
 export function WalletStatusBadge({ status, className }: WalletStatusBadgeProps) {
-    const config = STATUS_CONFIG[status] ?? STATUS_CONFIG.active;
+    const config = (STATUS_CONFIG[status] as ((typeof STATUS_CONFIG)[WalletStatus] | undefined)) ?? STATUS_CONFIG.active;
 
     return (
         <Badge className={cn('px-3 py-1 border font-medium', config.className, className)}>

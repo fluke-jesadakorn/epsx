@@ -57,7 +57,7 @@ function DraggablePermissionCard({
                     <p className="font-medium text-sm text-gray-900 dark:text-white truncate">
                         {permission.name}
                     </p>
-                    {permission.platform && (
+                    {permission.platform !== undefined && (
                         <p className="text-xs text-gray-500 capitalize">
                             {permission.platform}
                         </p>
@@ -139,7 +139,7 @@ export function WalletPermissionSection({
                         <DraggablePermissionCard
                             key={permission.id}
                             permission={permission}
-                            onRemove={() => onRemovePermission(permission.id)}
+                            onRemove={() => { void onRemovePermission(permission.id); }}
                         />
                     ))
                 )}

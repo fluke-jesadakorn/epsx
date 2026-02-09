@@ -1,4 +1,5 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-return, @typescript-eslint/strict-boolean-expressions */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-return */
+
 'use server';
 
 import { revalidatePath } from 'next/cache';
@@ -41,7 +42,7 @@ interface PermissionAuditLog {
   user_agent?: string;
 }
 
-const AUTH_REQUIRED_MSG = 'Authentication required';
+
 const PATH_PERMISSIONS = '/policies';
 const PATH_WALLET_MGMT = '/wallet-management';
 
@@ -64,7 +65,7 @@ export async function grantBatchPermissions(request: BatchPermissionRequest): Pr
   const cookieStore = await cookies();
   const token = cookieStore.get(COOKIES.access_token)?.value;
 
-  if (!token) {
+  if (token === undefined || token === '') {
     throw new Error(AUTH_REQUIRED_MSG);
   }
 
@@ -122,7 +123,7 @@ export async function revokeBatchPermissions(
   const cookieStore = await cookies();
   const token = cookieStore.get(COOKIES.access_token)?.value;
 
-  if (!token) {
+  if (token === undefined || token === '') {
     throw new Error(AUTH_REQUIRED_MSG);
   }
 
@@ -177,7 +178,7 @@ export async function createPermissionTemplate(template: Omit<PermissionTemplate
   const cookieStore = await cookies();
   const token = cookieStore.get(COOKIES.access_token)?.value;
 
-  if (!token) {
+  if (token === undefined || token === '') {
     throw new Error(AUTH_REQUIRED_MSG);
   }
 
@@ -220,7 +221,7 @@ export async function getPermissionTemplates(): Promise<PermissionTemplate[]> {
   const cookieStore = await cookies();
   const token = cookieStore.get(COOKIES.access_token)?.value;
 
-  if (!token) {
+  if (token === undefined || token === '') {
     throw new Error(AUTH_REQUIRED_MSG);
   }
 
@@ -295,7 +296,7 @@ export async function applyPermissionTemplate(params: {
   const cookieStore = await cookies();
   const token = cookieStore.get(COOKIES.access_token)?.value;
 
-  if (!token) {
+  if (token === undefined || token === '') {
     throw new Error(AUTH_REQUIRED_MSG);
   }
 
@@ -365,7 +366,7 @@ export async function getPermissionAuditLog(
   const cookieStore = await cookies();
   const token = cookieStore.get(COOKIES.access_token)?.value;
 
-  if (!token) {
+  if (token === undefined || token === '') {
     throw new Error(AUTH_REQUIRED_MSG);
   }
 
@@ -454,7 +455,7 @@ export async function exportPermissionsData(
   const cookieStore = await cookies();
   const token = cookieStore.get(COOKIES.access_token)?.value;
 
-  if (!token) {
+  if (token === undefined || token === '') {
     throw new Error(AUTH_REQUIRED_MSG);
   }
 
@@ -524,7 +525,7 @@ export async function getPermissionStatistics(): Promise<{
   const cookieStore = await cookies();
   const token = cookieStore.get(COOKIES.access_token)?.value;
 
-  if (!token) {
+  if (token === undefined || token === '') {
     throw new Error(AUTH_REQUIRED_MSG);
   }
 

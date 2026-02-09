@@ -65,7 +65,7 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
   }, []);
 
   // Cross-tab session invalidation listener (only for explicit disconnect)
-  // eslint-disable-next-line max-depth, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/strict-boolean-expressions
+   
   useEffect(() => {
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     if (typeof window === 'undefined' || window.BroadcastChannel === undefined) {return;}
@@ -74,24 +74,23 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
 
     try {
       channel = new BroadcastChannel('auth_session');
-
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+       
       const handleSessionMessage = (event: MessageEvent) => {
         try {
           // Only process explicit disconnect messages, ignore auto-disconnects
-          // eslint-disable-next-line sonarjs/no-collapsible-if, @typescript-eslint/strict-boolean-expressions, max-depth, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unnecessary-condition
+          // eslint-disable-next-line sonarjs/no-collapsible-if
           if (
             event.data?.type === 'SESSION_INVALIDATED' &&
             event.data?.source === 'web3_disconnect'
           ) {
             // Only invalidate if the wallet address matches
-            // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions, @typescript-eslint/no-unnecessary-condition, @typescript-eslint/no-unsafe-member-access
+             
             if (
               !event.data.walletAddress ||
               event.data.walletAddress === address
             ) {
               // Reset authentication state immediately
-              // eslint-disable-next-line max-depth
+               
               setState(prev => ({
                 ...prev,
                 isAuthenticated: false,
@@ -139,7 +138,7 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
   }, [address]);
 
   // Auto-check auth status when wallet connects (with proper hydration handling)
-  // eslint-disable-next-line max-depth, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/strict-boolean-expressions
+   
   useEffect(() => {
     if (!isHydrated) {return;} // Wait for hydration
 
@@ -157,18 +156,16 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
       void (async () => {
         try {
           // Check for session if wallet is connected
-          // eslint-disable-next-line max-depth
+           
           const response = await fetch('/api/auth/session', {
             credentials: 'include',
             cache: 'no-cache',
           });
-
-          // eslint-disable-next-line max-depth
+           
           if (response.ok) {
             // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
             const session = await response.json();
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/strict-boolean-expressions
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+             
             if (
               session.isAuthenticated &&
               session.user?.wallet_address === address
@@ -182,7 +179,7 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
               // Refresh permissions inline to avoid dependency issues
               // eslint-disable-next-line max-depth
               try {
-                // eslint-disable-next-line max-depth
+                 
                 const permResponse = await fetch(
                   `/api/auth/web3/permissions?wallet_address=${encodeURIComponent(address)}`,
                   {
@@ -196,7 +193,7 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
                   // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
                   const { permissions, user_tier, has_api_access } =
                     await permResponse.json();
-                  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+                   
                   setState(prev => ({
                     ...prev,
                     permissions: permissions ?? [],
@@ -248,8 +245,7 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
       }));
     }
   }, [address, isConnected, isHydrated]);
-
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/strict-boolean-expressions
+   
   const checkAuthStatus = useCallback(async () => {
     // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
     if (!address) {return;}
@@ -264,8 +260,7 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
       if (response.ok) {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         const session = await response.json();
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/strict-boolean-expressions
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+         
         if (
           session.isAuthenticated &&
           session.user?.wallet_address === address
@@ -291,8 +286,7 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
       return false;
     }
   }, [address]);
-
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/strict-boolean-expressions
+   
   const refreshPermissions = useCallback(async () => {
     // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
     if (!address) {return false;}
@@ -310,7 +304,7 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         const { permissions, user_tier, has_api_access } =
           await response.json();
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+         
         setState(prev => ({
           ...prev,
           permissions: permissions ?? [],
@@ -341,7 +335,7 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
     }
   }, [address]);
 
-  // eslint-disable-next-line max-lines-per-function, sonarjs/cognitive-complexity, complexity, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any
+  // eslint-disable-next-line max-lines-per-function, sonarjs/cognitive-complexity, complexity
   const authenticate = useCallback(async () => {
     // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
     if (!address) {
@@ -361,7 +355,7 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
     }
 
     // Request wallet access first to prevent authorization errors
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-explicit-any, @typescript-eslint/strict-boolean-expressions
+     
     try {
       const provider = await connector.getProvider?.();
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/strict-boolean-expressions, @typescript-eslint/no-explicit-any
@@ -447,7 +441,7 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
         );
       }
 
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       const challenge = await challengeResponse.json();
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       const messageString = challenge.message;
@@ -467,17 +461,17 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
       } catch (error: unknown) {
         // Handle user rejection gracefully
         const err = error as { code?: number; message?: string };
-        // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
+         
         if (
           err.code === 4001 ||
           err.message?.includes('User rejected') ||
           err.message?.includes('User denied')
         ) {
           throw new Error('Signature was cancelled by user');
-          // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+           
         } else if (err.message?.includes('Method not found') ?? false) {
           throw new Error('Wallet does not support message signing');
-          // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+           
         } else if (err.message?.includes('Connection lost') ?? false) {
           throw new Error('Wallet connection lost - please reconnect');
         } else {
@@ -504,7 +498,7 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
 
       if (!authResponse.ok) {
         const errorText = await authResponse.text();
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+         
         let errorData;
         try {
           // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
@@ -517,8 +511,7 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         throw new Error(errorData.error ?? 'Authentication failed');
       }
-
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+       
       await authResponse.json();
 
       // Success
@@ -546,16 +539,16 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
       // Handle common error types
       const err = error as { message?: string };
       let errorMessage = 'Authentication failed';
-      // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
+       
       if (
         err.message?.includes('User rejected') ||
         err.message?.includes('cancelled')
       ) {
         errorMessage = 'Wallet signature was cancelled';
-        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+         
       } else if (err.message?.includes('timeout') ?? false) {
         errorMessage = 'Request timeout. Please try again.';
-        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+         
       } else if (err.message?.includes('expired') ?? false) {
         errorMessage = 'Authentication expired - please try again';
       } else if (err.message) {
@@ -571,9 +564,9 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
 
       toast.error(errorMessage);
     }
-  }, [address, signMessageAsync, refreshPermissions, chain, connector, state.isAuthenticating]); // eslint-disable-line react-hooks/exhaustive-deps, no-shadow
+  }, [address, signMessageAsync, refreshPermissions, chain, connector, state.isAuthenticating]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // eslint-disable-next-line sonarjs/cognitive-complexity, complexity, @typescript-eslint/no-unnecessary-condition, @typescript-eslint/strict-boolean-expressions
+  // eslint-disable-next-line sonarjs/cognitive-complexity, complexity
   const disconnect = useCallback(async () => {
     try {
       // Step 1: Disconnect individual connector FIRST (if available)
@@ -613,7 +606,7 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
       }
 
       // Step 2: Clear storage to ensure clean state - ENHANCED VERSION
-      // eslint-disable-next-line max-depth
+       
       try {
         if (typeof window !== 'undefined') {
           // Get all localStorage keys that match our patterns
@@ -624,7 +617,7 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
           }
 
           // Find keys to remove
-          // eslint-disable-next-line max-depth
+           
           const keysToRemove = allKeys.filter(
             key =>
               key.startsWith('wagmi.') ||
@@ -731,8 +724,7 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
       router.refresh();
     }
   }, [wagmiDisconnect, state.isAuthenticated, address, isConnected, connector, router]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-assignment
+   
   const linkEmail = useCallback(
     async (email: string, password: string) => {
       // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
@@ -763,8 +755,7 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
     },
     [address, refreshPermissions]
   );
-
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-return
+   
   const generateApiKey = useCallback(
     async (name: string): Promise<string> => {
       // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions

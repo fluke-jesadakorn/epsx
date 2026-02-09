@@ -40,7 +40,7 @@ function buildFieldErrors(flattenedErrors: Record<string, string[] | undefined>)
   const fieldErrors: Record<string, string[]> = {};
   for (const [key, value] of Object.entries(flattenedErrors)) {
     if (Array.isArray(value)) {
-      fieldErrors[key] = value as string[];
+      fieldErrors[key] = value;
     }
   }
   return fieldErrors;
