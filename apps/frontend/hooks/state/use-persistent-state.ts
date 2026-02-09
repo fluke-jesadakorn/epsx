@@ -1,12 +1,22 @@
 import { useState, useEffect, useCallback } from 'react';
 
+interface VersionedData {
+  _version?: number;
+  [key: string]: unknown;
+}
+
 // Storage utilities (inlined from lib/state/store.ts)
 const storage = {
-  get: (key: string, storageType: 'localStorage' | 'sessionStorage' = 'localStorage') => {
-    if (typeof window === 'undefined') {return null;}
+  get: (key: string, storageType: 'localStorage' | 'sessionStorage' = 'localStorage'): unknown | null => {
+    if (typeof window === 'undefined') {
+      return null;
+    }
     try {
       const item = window[storageType].getItem(key);
-      return item ? JSON.parse(item) : null;
+      if (item !== null && item !== '') {
+        return JSON.parse(item) as unknown;
+      }
+      return null;
     } catch {
       return null;
     }
@@ -67,20 +77,28 @@ export function usePersistentState<T>(options: PersistentStateOptions<T>) {
     }
 
     try {
-      const item = storage.get(key, storageType);
+      const item: unknown = storage.get(key, storageType);
       if (item === null) {
         return defaultValue;
       }
 
+      // Type guard for versioned data
+      const isVersionedData = (value: unknown): value is VersionedData => {
+        return typeof value === 'object' && value !== null && '_version' in value;
+      };
+
       // Handle versioning and migration
-      if (version && migrate && item._version !== version) {
-        const migrated = migrate(item, item._version ?? 0);
-        const versionedState = { ...migrated, _version: version };
-        storage.set(key, versionedState, storageType);
-        return migrated;
+      if (migrate !== undefined && isVersionedData(item)) {
+        const itemVersion = typeof item._version === 'number' ? item._version : 0;
+        if (itemVersion !== version) {
+          const migrated = migrate(item, itemVersion);
+          const versionedState: VersionedData = { ...(migrated as Record<string, unknown>), _version: version };
+          storage.set(key, versionedState, storageType);
+          return migrated;
+        }
       }
 
-      return item._version ? item : item;
+      return isVersionedData(item) && item._version !== undefined ? (item as T) : (item as T);
     } catch (_error) {
       return defaultValue;
     }
@@ -181,16 +199,18 @@ export function useUserPreferences() {
       // Example migration from v1 to v2
       if (oldVersion < 2) {
         const oldPrefObj = oldPrefs as Record<string, unknown> | null;
+        const safeOldPrefObj = oldPrefObj ?? {};
+        const oldTrading = typeof safeOldPrefObj.trading === 'object' && safeOldPrefObj.trading !== null ? safeOldPrefObj.trading as Record<string, unknown> : {};
         return {
           ...defaultPreferences,
-          ...(oldPrefObj ?? {}),
+          ...safeOldPrefObj,
           trading: {
             ...defaultPreferences.trading,
-            ...(oldPrefObj?.trading ?? {})
+            ...oldTrading
           }
         };
       }
-      return (oldPrefs as UserPreferences) ?? defaultPreferences;
+      return (oldPrefs as UserPreferences | null) !== null ? (oldPrefs as UserPreferences) : defaultPreferences;
     }
   });
 }
@@ -221,8 +241,8 @@ export function useFormPersistence<T extends Record<string, unknown>>(
   );
 
   // Check if data has expired
-  const isExpired = ttl && (Date.now() - formData.timestamp) > ttl;
-  const currentValues = isExpired ? initialValues : formData.values;
+  const isExpired = ttl !== undefined && ttl !== 0 && !Number.isNaN(ttl) && (Date.now() - formData.timestamp) > ttl;
+  const currentValues = (isExpired === true) ? initialValues : formData.values;
 
   const updateField = useCallback((field: keyof T, value: unknown) => {
     setFormData(prev => ({
