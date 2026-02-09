@@ -26,20 +26,25 @@ import { useSmartPolling } from '@/hooks/use-smart-polling';
 import { logger } from '@/lib/logger';
 import { cn } from '@/lib/utils';
 
+interface TileDataResponse {
+  value?: string | number;
+  [key: string]: unknown;
+}
+
 interface LiveTileProps {
   tile: TileData;
-  fetcher?: () => Promise<any>;
+  fetcher?: () => Promise<TileDataResponse | null>;
   onClick?: (tile: TileData, action?: TileActionData) => void;
   className?: string;
 }
 
 /**
- *
- * @param root0
- * @param root0.tile
- * @param root0.fetcher
- * @param root0.onClick
- * @param root0.className
+ * Live Tile Component
+ * @param param0 Component props
+ * @param param0.tile Tile data to display
+ * @param param0.fetcher Optional async fetcher for real-time updates
+ * @param param0.onClick Optional click handler
+ * @param param0.className Optional CSS class
  */
 export function LiveTile({ tile, fetcher, onClick, className }: LiveTileProps) {
   const [isFlipping, setIsFlipping] = useState(false);
@@ -64,8 +69,8 @@ export function LiveTile({ tile, fetcher, onClick, className }: LiveTileProps) {
       customInterval: tile.refreshInterval,
       onSuccess: (newData) => {
         // Trigger flip animation if value changed significantly
-        const data = newData as Record<string, unknown> | null;
-        const newValue = data?.value as string | number | undefined;
+        const data = newData as TileDataResponse | null;
+        const newValue = data?.value;
         if (newValue !== undefined && newValue !== previousValueRef.current) {
           setIsFlipping(true);
           previousValueRef.current = newValue;
@@ -73,17 +78,17 @@ export function LiveTile({ tile, fetcher, onClick, className }: LiveTileProps) {
           flipTimeoutRef.current = setTimeout(() => setIsFlipping(false), 600);
         }
       },
-      onError: (error) => {
-        logger.error(`Tile ${tile.id} polling error`, { tileId: tile.id, error });
+      onError: (_error) => {
+        logger.error(`Tile ${tile.id} polling error`, { tileId: tile.id });
       }
     }
   );
 
   // Use fetched data if available, otherwise use provided tile data
-  const currentData = data ?? tile;
+  const currentData = (data as Partial<TileData>) ?? tile;
   const isConnected = connectionStatus !== 'offline';
-  const hasError = error ?? tile.hasError;
-  const loading = isLoading ?? tile.isLoading;
+  const hasError = error || tile.hasError;
+  const loading = isLoading || tile.isLoading;
 
   useEffect(() => {
     return () => {
@@ -133,7 +138,7 @@ export function LiveTile({ tile, fetcher, onClick, className }: LiveTileProps) {
   };
 
   const renderProgressBar = () => {
-    if (!tile.showProgress ?? !tile.metadata?.progress) { return null; }
+    if (!tile.showProgress || !tile.metadata?.progress) { return null; }
 
     const progress = Math.min(Math.max(tile.metadata.progress, 0), 100);
 
@@ -223,7 +228,7 @@ export function LiveTile({ tile, fetcher, onClick, className }: LiveTileProps) {
           <div className="text-center">
             <div className="text-2xl font-bold">
               {typeof currentData.value === 'number' && currentData.value > 999
-                ? `${(currentData.value / 1000).toFixed(1)  }K`
+                ? `${(currentData.value / 1000).toFixed(1)}K`
                 : currentData.value}
             </div>
             {renderTrend()}
@@ -282,14 +287,21 @@ export function LiveTile({ tile, fetcher, onClick, className }: LiveTileProps) {
 
 // Specialized tile variants for common use cases
 
+interface TrendData {
+  direction?: 'up' | 'down' | 'flat';
+  value?: string | number;
+  percentage?: boolean;
+  period?: string;
+}
+
 /**
- *
- * @param props
+ * User Stats Tile Component
+ * @param props Component props
  */
 export function UserStatsTile(props: Omit<LiveTileProps, 'tile'> & {
   userCount: number;
   activeCount: number;
-  trend?: any
+  trend?: TrendData;
 }) {
   const tile: TileData = {
     id: 'user-stats',
@@ -310,12 +322,12 @@ export function UserStatsTile(props: Omit<LiveTileProps, 'tile'> & {
 }
 
 /**
- *
- * @param props
+ * Security Alerts Tile Component
+ * @param props Component props
  */
 export function SecurityAlertsTile(props: Omit<LiveTileProps, 'tile'> & {
   alertCount: number;
-  severity: 'low' | 'medium' | 'high' | 'critical'
+  severity: 'low' | 'medium' | 'high' | 'critical';
 }) {
   const colors = {
     low: 'success' as const,
@@ -342,13 +354,13 @@ export function SecurityAlertsTile(props: Omit<LiveTileProps, 'tile'> & {
 }
 
 /**
- *
- * @param props
+ * Analytics Tile Component
+ * @param props Component props
  */
 export function AnalyticsTile(props: Omit<LiveTileProps, 'tile'> & {
   metric: string;
   value: string | number;
-  trend?: any;
+  trend?: TrendData;
   period?: string;
 }) {
   const tile: TileData = {
