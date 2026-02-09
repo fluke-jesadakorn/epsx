@@ -469,6 +469,21 @@ export class PlansApi {
   async updateApiKeyExpiration(keyId: string, expiresAt: string | null): Promise<ApiResponse<{ success: boolean }>> {
     return this.client.put<{ success: boolean }>(`/api/admin/developer/keys/${keyId}/expiration`, { expires_at: expiresAt });
   }
+
+  /**
+   * Create a new API key
+   * POST /api/admin/developer/keys
+   */
+  async createApiKey(data: {
+    client_name: string;
+    client_description?: string;
+    client_contact_email?: string;
+    allowed_modules: string[];
+    ip_restrictions?: string[];
+    expires_at?: string;
+  }): Promise<ApiResponse<ApiKeyResponse & { full_key: string }>> {
+    return this.client.post<ApiKeyResponse & { full_key: string }>('/api/admin/developer/keys', data);
+  }
 }
 
 // ============================================================================

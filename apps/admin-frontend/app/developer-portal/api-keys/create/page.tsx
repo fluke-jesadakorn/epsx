@@ -3,13 +3,13 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { Suspense } from 'react'
 
+import { getServerSession } from '@/lib/server/auth'
+import { createPlansClient } from '@/shared/api/plans'
 import { Button } from '@/shared/components/ui/button'
 import { Card } from '@/shared/components/ui/card'
 import { Input } from '@/shared/components/ui/input'
 import { Label } from '@/shared/components/ui/label'
 import { Textarea } from '@/shared/components/ui/textarea'
-import { getServerSession } from '@/lib/server/auth'
-import { createPlansClient } from '@/shared/api/plans'
 import { createAdminApiClient } from '@/shared/utils/api-client'
 
 // Force dynamic rendering since we use cookies for auth
@@ -27,70 +27,18 @@ function FormField({ id, label, required, children }: FormFieldProps) {
     <div className="space-y-2">
       <Label htmlFor={id} className="text-sm font-medium">
         {label}
-        {required && <span className="text-red-500 ml-1">*</span>}
+        {required === true && <span className="text-red-500 ml-1">*</span>}
       </Label>
       {children}
     </div>
   )
 }
 
-async function CreateApiKeyForm() {
-  const handleCreateApiKey = async (formData: FormData) => {
-    'use server'
+interface CreateApiKeyFormContentProps {
+  action: (formData: FormData) => Promise<void>
+}
 
-    const clientName = formData.get('client_name') as string
-    const clientDescription = formData.get('client_description') as string
-    const clientContactEmail = formData.get('client_contact_email') as string
-    const ipRestrictionsRaw = formData.get('ip_restrictions') as string
-    const expiresAt = formData.get('expires_at') as string
-
-    // Basic validation
-    if (!clientName.trim()) {
-      redirect('/developer-portal/api-keys/create?error=client-name-required')
-    }
-
-    const ipRestrictions = ipRestrictionsRaw
-      .split('\n')
-      .map(ip => ip.trim())
-      .filter(ip => ip.length > 0)
-
-    const createRequest = {
-      client_name: clientName.trim(),
-      client_description: clientDescription?.trim(),
-      client_contact_email: clientContactEmail?.trim(),
-      allowed_modules: [], // Will need to be configured separately
-      ip_restrictions: ipRestrictions,
-      expires_at: expiresAt ?? undefined
-    }
-
-    try {
-      // Call the actual API to create the API key
-      const apiClient = createAdminApiClient()
-      const plansClient = createPlansClient(apiClient)
-      const response = await plansClient.createApiKey({
-        client_name: createRequest.client_name,
-        client_description: createRequest.client_description,
-        client_contact_email: createRequest.client_contact_email,
-        allowed_modules: createRequest.allowed_modules,
-        ip_restrictions: createRequest.ip_restrictions ?? [],
-        expires_at: createRequest.expires_at,
-      })
-
-      if (response.success) {
-        const searchParams = new URLSearchParams({
-          success: 'true',
-          client_name: clientName,
-          new_key: response.data?.full_key ?? 'key-created'
-        })
-        redirect(`/developer-portal?${searchParams.toString()}`)
-      } else {
-        redirect('/developer-portal/api-keys/create?error=api-creation-failed')
-      }
-    } catch (_error) {
-      redirect('/developer-portal/api-keys/create?error=creation-failed')
-    }
-  }
-
+function CreateApiKeyFormContent({ action }: CreateApiKeyFormContentProps) {
   return (
     <div className="max-w-4xl mx-auto">
       <Card className="p-8">
@@ -104,7 +52,7 @@ async function CreateApiKeyForm() {
           </div>
         </div>
 
-        <form action={handleCreateApiKey} className="space-y-6">
+        <form action={action} className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <FormField id="client_name" label="Client Name" required>
               <Input
@@ -182,13 +130,73 @@ async function CreateApiKeyForm() {
   )
 }
 
+function CreateApiKeyForm() {
+  const handleCreateApiKey = async (formData: FormData) => {
+    'use server'
+
+    const clientName = formData.get('client_name') as string
+    const clientDescription = formData.get('client_description') as string
+    const clientContactEmail = formData.get('client_contact_email') as string
+    const ipRestrictionsRaw = formData.get('ip_restrictions') as string
+    const expiresAt = formData.get('expires_at') as string
+
+    // Basic validation
+    if (!clientName.trim()) {
+      redirect('/developer-portal/api-keys/create?error=client-name-required')
+    }
+
+    const ipRestrictions = ipRestrictionsRaw
+      .split('\n')
+      .map(ip => ip.trim())
+      .filter(ip => ip.length > 0)
+
+    const createRequest = {
+      client_name: clientName.trim(),
+      client_description: clientDescription.trim(),
+      client_contact_email: clientContactEmail.trim(),
+      allowed_modules: [] as string[],
+      ip_restrictions: ipRestrictions,
+      expires_at: expiresAt !== '' ? expiresAt : undefined
+    }
+
+    try {
+      // Call the actual API to create the API key
+      const apiClient = createAdminApiClient()
+      const plansClient = createPlansClient(apiClient)
+      const response = await plansClient.createApiKey({
+        client_name: createRequest.client_name,
+        client_description: createRequest.client_description,
+        client_contact_email: createRequest.client_contact_email,
+        allowed_modules: createRequest.allowed_modules,
+        ip_restrictions: createRequest.ip_restrictions,
+        expires_at: createRequest.expires_at,
+      })
+
+      if (response.success && response.data) {
+        const searchParams = new URLSearchParams({
+          success: 'true',
+          client_name: clientName,
+          new_key: response.data.full_key
+        })
+        redirect(`/developer-portal?${searchParams.toString()}`)
+      } else {
+        redirect('/developer-portal/api-keys/create?error=api-creation-failed')
+      }
+    } catch (_error) {
+      redirect('/developer-portal/api-keys/create?error=creation-failed')
+    }
+  }
+
+  return <CreateApiKeyFormContent action={handleCreateApiKey} />
+}
+
 /**
  *
  */
 export default async function CreateApiKeyPage() {
   // Verify admin session
   const session = await getServerSession()
-  if (!session?.user?.permissions?.some(p => p.startsWith('admin:'))) {
+  if (session.user?.permissions.some((p: string) => p.startsWith('admin:')) !== true) {
     redirect('/unauthorized')
   }
 

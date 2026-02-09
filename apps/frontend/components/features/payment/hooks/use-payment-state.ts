@@ -25,11 +25,11 @@ export function usePaymentState(preselectedPackage?: string) {
               p.plan_type.toLowerCase() === preselectedPackage.toLowerCase() ||
               p.name.toLowerCase() === preselectedPackage.toLowerCase()
           );
-          // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+           
           setSelectedPackage(selectedPlan?.id ?? plans[0]?.id ?? null);
         } else {
           const defaultPlan = plans[0];
-          // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+           
           setSelectedPackage(defaultPlan?.id || null);
         }
       } catch (_err) {

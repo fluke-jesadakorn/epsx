@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/strict-boolean-expressions, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access */
 
 import { Badge } from '@/components/ui';
 import { PermissionBadge } from '@/components/ui/permission-badge';

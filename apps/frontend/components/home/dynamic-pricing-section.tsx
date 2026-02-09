@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unnecessary-condition */
+ 
 import { getPublicPlansAction } from '@/app/actions/plans';
 import type { PricingCardData } from '@/shared/types/plans';
 import { DynamicPricingClient } from './dynamic-pricing-client';

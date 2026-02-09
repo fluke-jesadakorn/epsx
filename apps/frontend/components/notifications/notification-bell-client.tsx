@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+ 
 'use client'
 
 import { useSharedAuth } from '@/shared/components/auth/Provider'
@@ -126,7 +126,7 @@ export function NotificationBellClient() {
     try {
       await deleteNotificationAction(notificationId)
       void fetchNotifications() // Refresh the list
-    } catch (err) {
+    } catch (_err) {
       // Error logged silently
     }
   }

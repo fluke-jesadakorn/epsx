@@ -98,7 +98,7 @@ function SmartCountrySelector({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Countries</SelectItem>
-            {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
+            { }
             {countries?.map(country => {
               const countryObj = typeof country === 'string' 
                 ? { value: country, label: country } 
@@ -318,7 +318,7 @@ export default function FilterForm({ filterOptions, currentParams }: FilterFormP
                   )}
                 </div>
                 <p className="text-sm text-gray-600 dark:text-gray-400 font-normal">
-                  {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
+                  { }
                   ✨ {filterOptions.countries?.length || 68} countries • Lightning fast search
                 </p>
               </div>
@@ -424,7 +424,7 @@ export default function FilterForm({ filterOptions, currentParams }: FilterFormP
                     )}
                   </div>
                   <p className="text-sm text-slate-600 dark:text-slate-400 mt-1 font-medium tracking-wide">
-                    {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
+                    { }
                     ✨ <span className="font-semibold text-orange-600 dark:text-orange-400">{filterOptions.countries?.length || 68}</span> countries • <span className="italic">Lightning fast search</span>
                   </p>
                 </div>

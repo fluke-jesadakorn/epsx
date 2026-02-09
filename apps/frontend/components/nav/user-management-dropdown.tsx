@@ -24,7 +24,7 @@ interface UserManagementDropdownProps {
   compact?: boolean;
 }
 
-export function UserManagementDropdown({ className = '', compact = false }: UserManagementDropdownProps) {
+export function UserManagementDropdown({ className = '', _compact = false }: UserManagementDropdownProps) {
   const [isHydrated, setIsHydrated] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
 

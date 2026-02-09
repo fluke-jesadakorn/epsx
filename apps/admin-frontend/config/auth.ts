@@ -167,10 +167,11 @@ export const ADMIN_AUTH_ERRORS = {
 
 /**
  * Admin auth state helpers
- * @param isAuthenticated
- * @param permissions
- * @param walletAddress
- * @param expiresAt
+ * @param params Auth state parameters
+ * @param params.isAuthenticated Whether it is authenticated
+ * @param params.permissions List of permissions
+ * @param params.walletAddress User wallet address
+ * @param params.expiresAt Expiry timestamp
  */
 export function createAdminAuthState(params: {
   isAuthenticated: boolean;
@@ -180,7 +181,7 @@ export function createAdminAuthState(params: {
 }): ProgressiveAuthState {
   const { isAuthenticated, permissions, walletAddress, expiresAt } = params;
   return {
-    level: isAuthenticated ? 'authenticated' : (walletAddress ? 'connected' : 'public'),
+    level: isAuthenticated ? 'authenticated' : (walletAddress !== undefined && walletAddress !== '' ? 'connected' : 'public'),
     walletAddress,
     isAuthenticated,
     permissions,

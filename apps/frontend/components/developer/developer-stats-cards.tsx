@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/strict-boolean-expressions, @typescript-eslint/no-unnecessary-condition */
+ 
 'use client';
 
 import { getMyPlansAction } from '@/app/actions/developer';

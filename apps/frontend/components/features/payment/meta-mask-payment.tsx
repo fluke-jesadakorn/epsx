@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unnecessary-condition, @typescript-eslint/strict-boolean-expressions, @typescript-eslint/no-floating-promises, @typescript-eslint/no-misused-promises, react-hooks/exhaustive-deps, max-lines-per-function */
+/* eslint-disable max-lines-per-function */
 'use client'
 
 import { Alert, AlertDescription } from '@/components/ui/alert'

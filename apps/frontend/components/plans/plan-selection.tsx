@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unnecessary-condition */
+ 
 'use client'
 
 import { getPublicPlansAction } from '@/app/actions/plans'
@@ -29,6 +29,30 @@ export function PlanSelection({ currentUser: _currentUser, className }: PlanSele
   const router = useRouter()
   const searchParams = useSearchParams()
   const { planAccess } = usePlanAccess()
+
+  // Transform backend plan to pricing card format
+  const transformToPricingCard = (plan: Plan): PricingCardData => {
+    const price = typeof plan.current_price === 'string'
+      ? parseFloat(plan.current_price)
+      : plan.current_price
+    const isFree = price === 0
+
+    return {
+      id: plan.id,
+      title: plan.name,
+      price: isFree ? 'Free' : `$${price.toFixed(2)} ${plan.currency || 'USD'}`,
+      features: Array.isArray(plan.features)
+        ? plan.features.map(f => typeof f === 'string' ? { text: f, included: true } : f)
+        : [],
+      highlight: plan.is_highlighted ?? plan.is_promoted ?? false,
+      buttonText: isFree ? 'Start Free' : 'Get Started',
+      promotions: [],
+      badges: [],
+      tier_level: plan.tier_level,
+      plan_type: plan.plan_type,
+      description: plan.description
+    }
+  }
 
   // Extract affiliate code from URL parameters
   useEffect(() => {
@@ -82,30 +106,6 @@ export function PlanSelection({ currentUser: _currentUser, className }: PlanSele
 
     void fetchPlans()
   }, [affiliateCode])
-
-  // Transform backend plan to pricing card format
-  const transformToPricingCard = (plan: Plan): PricingCardData => {
-    const price = typeof plan.current_price === 'string'
-      ? parseFloat(plan.current_price)
-      : plan.current_price
-    const isFree = price === 0
-
-    return {
-      id: plan.id,
-      title: plan.name,
-      price: isFree ? 'Free' : `$${price.toFixed(2)} ${plan.currency || 'USD'}`,
-      features: Array.isArray(plan.features)
-        ? plan.features.map(f => typeof f === 'string' ? { text: f, included: true } : f)
-        : [],
-      highlight: plan.is_highlighted ?? plan.is_promoted ?? false,
-      buttonText: isFree ? 'Start Free' : 'Get Started',
-      promotions: [],
-      badges: [],
-      tier_level: plan.tier_level,
-      plan_type: plan.plan_type,
-      description: plan.description
-    }
-  }
 
   // Handle plan selection - redirect to payment
   const handlePlanClick = (card: PricingCardData) => {

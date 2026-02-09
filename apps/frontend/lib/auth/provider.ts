@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/strict-boolean-expressions, @typescript-eslint/no-unnecessary-condition, max-depth, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument */
+/* eslint-disable max-depth */
 'use client';
 
 import { useRouter } from 'next/navigation';
@@ -418,7 +418,7 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
     return `Wallet authorization failed: ${err.message ?? 'Unknown error'}`;
   };
 
-  // eslint-disable-next-line max-lines-per-function, sonarjs/cognitive-complexity, complexity
+  // eslint-disable-next-line max-lines-per-function, complexity
   const authenticate = useCallback(async () => {
     if (address === null || address === undefined) {
       toast.error('Please connect your wallet first');
@@ -486,7 +486,7 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
       }
        
       const challenge = await challengeResponse.json();
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+       
       const messageString = challenge.message;
 
       // Sign message with wallet
@@ -551,7 +551,7 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
             error: `Authentication failed: ${authResponse.status}`,
           };
         }
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+         
         throw new Error(errorData.error ?? 'Authentication failed');
       }
        
@@ -607,9 +607,9 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
 
       toast.error(errorMessage);
     }
-  }, [address, signMessageAsync, refreshPermissions, chain, connector, state.isAuthenticating]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [address, signMessageAsync, refreshPermissions, chain, connector, state.isAuthenticating]);  
 
-  // eslint-disable-next-line sonarjs/cognitive-complexity, complexity
+  // eslint-disable-next-line complexity
   const disconnect = useCallback(async () => {
     try {
       // Step 1: Disconnect individual connector FIRST (if available)
@@ -766,7 +766,7 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
       // Refresh page data without full reload
       router.refresh();
     }
-  }, [wagmiDisconnect, state.isAuthenticated, address, isConnected, connector, router]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [wagmiDisconnect, state.isAuthenticated, address, isConnected, connector, router]);  
    
   const linkEmail = useCallback(
     async (email: string, password: string) => {
@@ -789,7 +789,7 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
       if (!response.ok) {
          
         const error = await response.json();
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+         
         throw new Error(error.message ?? 'Failed to link email');
       }
 
@@ -819,13 +819,13 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
       if (!response.ok) {
          
         const error = await response.json();
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+         
         throw new Error(error.message ?? 'Failed to generate API key');
       }
        
       const { api_key } = await response.json();
       toast.success('API key generated successfully');
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+       
       return api_key;
     },
     [address, state.hasApiAccess]

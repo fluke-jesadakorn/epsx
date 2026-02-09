@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/strict-boolean-expressions */
+ 
 import { useAppState } from '@/context/app-state';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
@@ -118,7 +118,7 @@ export function useMemoizedSelector<R>(
   deps: unknown[] = [],
   options: SelectorOptions<R> = {}
 ): R {
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   const memoizedSelector = useMemo(() => selector, [...deps, selector]);
   return useStateSelector(memoizedSelector, options);
 }

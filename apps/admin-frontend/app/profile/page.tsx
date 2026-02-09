@@ -21,7 +21,7 @@ export default async function AdminProfilePage() {
   const session = await getServerSessionAdmin();
 
   // Redirect if not authenticated as admin
-  if (!session?.isAuthenticated ?? !session.user) {
+  if (!session.isAuthenticated || session.user === undefined) {
     redirect('/auth');
   }
 
@@ -46,8 +46,8 @@ function ProfileLoadingFallback() {
           </div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="h-16 bg-muted/30 rounded-xl" />
+          {['1', '2', '3', '4'].map((id) => (
+            <div key={id} className="h-16 bg-muted/30 rounded-xl" />
           ))}
         </div>
       </div>

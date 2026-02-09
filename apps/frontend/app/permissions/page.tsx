@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/strict-boolean-expressions */
+ 
 'use client';
 
 import { GlobalAuthGuard } from '@/components/auth/global-auth-guard';
@@ -55,11 +55,11 @@ import { useEffect, useState } from 'react';
 // } from '@/lib/actions/permissions';
 
 // TODO: Implement these functions when backend is ready
-// eslint-disable-next-line @typescript-eslint/require-await
+ 
 const getPermissionAnalytics = async () => null;
-// eslint-disable-next-line @typescript-eslint/require-await
+ 
 const getPermissionHistory = async (_limit: number) => [];
-// eslint-disable-next-line @typescript-eslint/require-await
+ 
 const exportPermissionsData = async (format: string) => ({
   data: format === 'json' ? '[]' : '',
   filename: `permissions.${format}`
@@ -143,7 +143,7 @@ interface AnalyticsData {
   };
 }
 
-/* eslint-disable max-lines-per-function,complexity,@typescript-eslint/strict-boolean-expressions */
+/* eslint-disable max-lines-per-function,complexity */
 function PermissionCard({ permission, definitions }: { permission: TimestampedPermission; definitions: Map<string, PermissionDefinition> }) {
   const platform = getPlatformFromPermission(permission.basePermission);
   const Icon = getPermissionIcon(permission.basePermission);
@@ -287,7 +287,7 @@ function PermissionCard({ permission, definitions }: { permission: TimestampedPe
 
   return cardContent;
 }
-/* eslint-enable max-lines-per-function,complexity,@typescript-eslint/strict-boolean-expressions */
+/* eslint-enable max-lines-per-function,complexity */
 
 function PermissionStats({
   permissions,
@@ -470,7 +470,7 @@ function PermissionHistory({ history }: { history: PermissionHistoryItem[] }) {
   );
 }
 
-/* eslint-disable max-lines-per-function,complexity,@typescript-eslint/no-floating-promises,promise/prefer-await-to-then,@typescript-eslint/strict-boolean-expressions,@typescript-eslint/no-misused-promises,no-empty */
+/* eslint-disable max-lines-per-function,complexity,promise/prefer-await-to-then,no-empty */
 export default function PermissionsPage() {
   const { user, isLoading: _isLoading } = useAuth();
   const { base } = useApiClient({ platform: 'frontend' });
@@ -857,4 +857,4 @@ export default function PermissionsPage() {
     </div>
   );
 }
-/* eslint-enable max-lines-per-function,complexity,@typescript-eslint/no-floating-promises,promise/prefer-await-to-then,@typescript-eslint/strict-boolean-expressions,@typescript-eslint/no-misused-promises,no-empty */
+/* eslint-enable max-lines-per-function,complexity,promise/prefer-await-to-then,no-empty */

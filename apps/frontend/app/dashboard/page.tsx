@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unnecessary-condition */
+ 
 import { DashboardClient } from '@/components/dashboard/dashboard-client';
 import { getSessionFromWeb3 } from '@/lib/server/token';
 

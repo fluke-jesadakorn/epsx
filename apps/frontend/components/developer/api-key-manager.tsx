@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-misused-promises */
+ 
 'use client';
 
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@/components/ui';

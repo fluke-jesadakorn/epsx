@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/strict-boolean-expressions */
+ 
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -24,6 +24,29 @@ export function PromotionalBanner({ className = '' }: PromotionalBannerProps) {
   const [activePromotion, setActivePromotion] = useState<Promotion | null>(null);
   const [isVisible, setIsVisible] = useState(false);
   const [timeLeft, setTimeLeft] = useState<string>('');
+
+  const fetchActivePromotion = () => {
+    try {
+      // For now, simulate an active promotion
+      // In a real implementation, this would fetch from the backend
+      const mockPromotion: Promotion = {
+        id: 1,
+        name: 'Black Friday Sale',
+        code: 'BLACKFRIDAY24',
+        discountType: 'percentage',
+        discountValue: 25,
+        description: '25% off all plans - Limited time offer!',
+        endDate: new Date(Date.now() + 86400000 * 7).toISOString(), // 7 days from now
+        usageLimit: 1000,
+        currentUsage: 347
+      };
+
+      setActivePromotion(mockPromotion);
+      setIsVisible(true);
+    } catch (_error) {
+      // Error logged silently
+    }
+  };
 
   useEffect(() => {
     void fetchActivePromotion();
@@ -56,29 +79,6 @@ export function PromotionalBanner({ className = '' }: PromotionalBannerProps) {
 
     return () => clearInterval(timer);
   }, [activePromotion]);
-
-  const fetchActivePromotion = async () => {
-    try {
-      // For now, simulate an active promotion
-      // In a real implementation, this would fetch from the backend
-      const mockPromotion: Promotion = {
-        id: 1,
-        name: 'Black Friday Sale',
-        code: 'BLACKFRIDAY24',
-        discountType: 'percentage',
-        discountValue: 25,
-        description: '25% off all plans - Limited time offer!',
-        endDate: new Date(Date.now() + 86400000 * 7).toISOString(), // 7 days from now
-        usageLimit: 1000,
-        currentUsage: 347
-      };
-
-      setActivePromotion(mockPromotion);
-      setIsVisible(true);
-    } catch (error) {
-      // Error logged silently
-    }
-  };
 
   const getDiscountText = (promotion: Promotion) => {
     if (promotion.discountType === 'percentage') {

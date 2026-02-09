@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
+ 
 import { createPaymentsClient, type PaymentValidateRequest } from '@/shared/api/payments';
 import { COOKIES } from '@/shared/auth/cookies';
 import { cookies } from 'next/headers';

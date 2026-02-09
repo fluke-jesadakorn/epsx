@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/strict-boolean-expressions, @typescript-eslint/no-floating-promises, @typescript-eslint/no-misused-promises, max-depth, max-lines-per-function */
+/* eslint-disable max-depth, max-lines-per-function */
 'use client';
 
 /**
@@ -140,7 +140,7 @@ export function UnifiedPaymentFlow({
     const tokenAddress = useMemo(() => {
         if (!isChainSupported) {return null;}
         try {
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+             
             return getTokenAddress(selectedToken.symbol, chainId);
         } catch (_err) {
             return null;
@@ -152,7 +152,7 @@ export function UnifiedPaymentFlow({
     const receiverAddress = useMemo(() => {
         if (!isChainSupported) {return null;}
         try {
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+             
             return getPaymentReceiverAddress(chainId);
         } catch (_err) {
             return null;
@@ -182,7 +182,7 @@ export function UnifiedPaymentFlow({
         tokenAddress,
         receiverAddress,
         amount: amountInDecimals,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         onError: (msg: any) => {
              
             const errorMsg = msg;
@@ -198,7 +198,7 @@ export function UnifiedPaymentFlow({
         if (!plan) {return 0;}
         // planAccess.tier_level should come from the backend
         // If not available yet, default to 0 (will be added to backend response)
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         const tierLevel = (planAccess as any)?.tier_level;
         return typeof tierLevel === 'number' ? tierLevel : 0;
     }, [planAccess]);

@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/strict-boolean-expressions */
+ 
 'use client';
 
 import { useState } from 'react';
@@ -32,12 +32,12 @@ export function SelectPackageSection({
     setCurrency(newCurrency);
   };
 
-  const getPackageType = (amount: string): string => {
-    const pkg = PACKAGES.find((p) => p.price.toString() === amount);
+  const getPackageType = (amt: string): string => {
+    const pkg = PACKAGES.find((p) => p.price.toString() === amt);
     return pkg?.id ?? 'silver';
   };
 
-  const handleNext = async () => {
+  const handleNext = () => {
     // You can add navigation or payment processing logic here
     if (typeof window !== 'undefined') {
       const packageType = getPackageType(amount);

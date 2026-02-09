@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/strict-boolean-expressions */
+ 
 'use client';
 
 import { Badge, Button } from '@/components/ui';
@@ -61,11 +61,11 @@ export function PaymentHistoryTab({ initialData }: PaymentHistoryTabProps) {
     const [error, setError] = useState<string | null>(null);
 
     // Pagination
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+     
     const [page, setPage] = useState(initialData?.pagination?.page ?? 1);
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+     
     const [totalPages, setTotalPages] = useState(initialData?.pagination?.total_pages ?? 1);
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+     
     const [totalItems, setTotalItems] = useState(initialData?.pagination?.total ?? 0);
 
     // Define fetchPaymentHistory before useEffect to avoid use-before-define
@@ -81,8 +81,7 @@ export function PaymentHistoryTab({ initialData }: PaymentHistoryTabProps) {
                 page: page.toString(),
                 per_page: '10'
             });
-
-            // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+             
             if (response && response.success && response.data) {
                 setPayments(response.data.payments);
                 setTotalPages(response.data.pagination.total_pages);
@@ -91,7 +90,7 @@ export function PaymentHistoryTab({ initialData }: PaymentHistoryTabProps) {
                 if (!response.success) {
                     throw new Error(response.error?.message ?? 'API reported failure');
                 }
-                // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+                 
                 if (response.success && !response.data) {
                     setPayments([]);
                     setTotalPages(1);

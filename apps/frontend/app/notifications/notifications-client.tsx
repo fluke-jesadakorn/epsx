@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-misused-promises */
+ 
 'use client';
 
 import { getInitialNotificationsAction, markAsReadAction, markAllAsReadAction, deleteNotificationAction, clearAllNotificationsAction } from '@/app/actions/notifications';

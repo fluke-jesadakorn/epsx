@@ -27,7 +27,7 @@ function StockCard({ cardData, delay = 0 }: { cardData: SymbolCardData; delay?: 
                 epsGrowth={latestQuarter.eps_growth || 0}
                 price={latestQuarter.price || 0}
                 currency={cardData.currency}
-                // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+                 
                 daysUntilNextAction={cardData.next_quarter_estimate.days_until_announcement ?? 0}
                 companyName={cardData.company_name ?? cardData.name}
                 variant={isPremium ? 'premium' : 'standard'}

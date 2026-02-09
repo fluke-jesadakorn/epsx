@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unnecessary-condition, @typescript-eslint/strict-boolean-expressions, react-hooks/exhaustive-deps, max-lines-per-function */
+/* eslint-disable max-lines-per-function */
 'use client';
 
 import { Button } from '@/components/ui/button';

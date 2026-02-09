@@ -318,7 +318,7 @@ curl -X GET "${baseUrl}/api/developer-portal/my-keys" \\
 
       {/* Endpoints */}
       <div className="space-y-4">
-        {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
+        { }
         {endpoints[selectedSection]?.map((endpoint) => (
           <Card key={endpoint.endpoint} className="overflow-hidden">
             <CardHeader className="bg-gray-50 dark:bg-gray-800/50">

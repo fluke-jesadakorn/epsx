@@ -9,6 +9,7 @@ import { generateCodeChallenge, generateCodeVerifier, generateRandomString } fro
 import { logger } from '@/shared/utils/logger';
 
 import type { User } from '../../types/admin/iam';
+import type { EPSXJWTPayload } from './token';
 
 interface TokenResponse {
   access_token: string;
@@ -26,13 +27,16 @@ async function getAuthorizationUrl(): Promise<{ url: string; codeVerifier: strin
   return { url: '/auth', codeVerifier, state };
 }
 
+// Re-export EPSXJWTPayload
+export type { EPSXJWTPayload };
+
 /**
  * Get server session with JWT verification
  */
-export async function getServerSession(): Promise<{ isAuthenticated: boolean; user: User | null }> {
+export async function getServerSession(): Promise<{ isAuthenticated: boolean; user: EPSXJWTPayload | null }> {
   try {
     const { getSessionFromJWT } = await import('./token');
-    return await getSessionFromJWT() as { isAuthenticated: boolean; user: User | null };
+    return await getSessionFromJWT() as { isAuthenticated: boolean; user: EPSXJWTPayload | null };
   } catch (error) {
 
     logger.error('❌ Admin: Failed to get server session:', error);

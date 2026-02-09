@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unnecessary-condition, @typescript-eslint/strict-boolean-expressions, complexity, sonarjs/cognitive-complexity */
+/* eslint-disable complexity */
 import { getRankingsAction } from '@/app/actions/analytics';
 import { StockDataCard } from '@/shared/components';
 

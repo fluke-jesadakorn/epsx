@@ -90,7 +90,7 @@ export class Logger {
       .replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, '***@***.***');
   }
 
-  /* eslint-disable complexity,max-depth,sonarjs/cognitive-complexity */
+  /* eslint-disable complexity,max-depth */
   private sanitizeData(data: unknown, seen = new WeakSet()): unknown {
     if (data === null || data === undefined) {return data;}
 
@@ -165,7 +165,7 @@ export class Logger {
       return String(data);
     }
   }
-  /* eslint-enable complexity,max-depth,sonarjs/cognitive-complexity */
+  /* eslint-enable complexity,max-depth */
 
   /* eslint-disable no-console */
   private log(level: LogLevel['level'], message: string, data?: unknown): void {
@@ -284,7 +284,7 @@ export interface SafeErrorResult {
   status?: number;
 }
 
-/* eslint-disable complexity,@typescript-eslint/no-explicit-any */
+/* eslint-disable complexity */
 export function safeError(error: unknown): SafeErrorResult {
   if (error instanceof Error) {
     return {
@@ -318,7 +318,7 @@ export function safeError(error: unknown): SafeErrorResult {
 
   return { message: 'Unknown error occurred' };
 }
-/* eslint-enable complexity,@typescript-eslint/no-explicit-any */
+/* eslint-enable complexity */
 
 // ============================================================================
 // Console Replacer

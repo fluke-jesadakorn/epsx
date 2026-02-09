@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-misused-promises */
+ 
 'use client';
 
 import { GlobalAuthGuard } from '@/components/auth/global-auth-guard';
@@ -69,7 +69,7 @@ export function ApiKeyManager({ className = '' }: ApiKeyManagerProps) {
 
   // Fetch API keys on mount
   useEffect(() => {
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+     
     if (isAuthenticated && hasApiAccess) {
       void fetchApiKeys();
     }
@@ -383,7 +383,7 @@ export function ApiKeyManager({ className = '' }: ApiKeyManagerProps) {
                     </div>
 
                     {/* Scopes */}
-                    {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
+                    { }
                     {key.scopes && key.scopes.length > 0 && (
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-medium text-slate-700 dark:text-slate-300">

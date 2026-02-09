@@ -192,7 +192,7 @@ class FrontendApiClient {
     sort_order?: 'asc' | 'desc';
   } = {}): Promise<UnifiedAnalyticsRankingsResponse | undefined> {
     const filteredParams = Object.fromEntries(
-      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+       
       Object.entries(params).filter(([, v]) => v !== undefined)
     );
     const response = await this.client.get<UnifiedAnalyticsRankingsResponse>(

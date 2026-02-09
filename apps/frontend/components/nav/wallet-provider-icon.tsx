@@ -143,12 +143,10 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
     }
   };
 
-  const handleDisconnect = async () => {
+  const handleDisconnect = () => {
     setIsDisconnecting(true);
     try {
       void logout();
-      void disconnect();
-    } catch (_error) {
       void disconnect();
     } finally {
       setIsDisconnecting(false);
