@@ -47,8 +47,7 @@ export async function getInitialAnalyticsData(filters: {
       country: filters.country,
       sector: filters.sector,
     });
-  } catch (error) {
-    console.error('Error fetching initial analytics data:', error);
+  } catch (_error) {
     return null;
   }
 }

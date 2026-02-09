@@ -175,8 +175,8 @@ export function CardDashboardView({ className = '' }: CardDashboardViewProps) {
             'Real Estate',
           ],
         });
-      } catch (error) {
-        console.error('Failed to load filter options:', error);
+      } catch (_error) {
+        // Filter options loading failed
       }
     };
 
@@ -238,8 +238,7 @@ export function CardDashboardView({ className = '' }: CardDashboardViewProps) {
         };
         setData(transformedData);
       }
-    } catch (error) {
-      console.error('Failed to load card dashboard data:', error);
+    } catch (_error) {
       setError('Failed to load dashboard data');
     } finally {
       setLoading(false);

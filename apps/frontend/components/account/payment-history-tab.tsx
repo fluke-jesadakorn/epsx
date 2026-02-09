@@ -91,8 +91,7 @@ export function PaymentHistoryTab({ initialData }: PaymentHistoryTabProps) {
                     setTotalItems(0);
                 }
             }
-        } catch (err) {
-            console.error('Error fetching payment history:', err);
+        } catch (_err) {
             if (!silent) {setError('Unable to load payment history. Please try again later.');}
         } finally {
             if (!silent) {

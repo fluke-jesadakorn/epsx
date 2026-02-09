@@ -58,8 +58,7 @@ async function fetchEPSRankings(filters: AnalyticsFilters): Promise<UnifiedAnaly
 
     const response = await analyticsClient.getRankings(queryParams);
     return response ?? null;
-  } catch (error) {
-    console.error('Error fetching EPS rankings:', error);
+  } catch (_error) {
     return null;
   }
 }
@@ -135,8 +134,7 @@ function AnalyticsClientWrapper({
           } else {
             setError('Failed to load rankings data');
           }
-        } catch (err) {
-          console.error('Error loading analytics data:', err);
+        } catch (_err) {
           setError('An error occurred while loading data');
         } finally {
           setIsLoading(false);
