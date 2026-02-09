@@ -27,6 +27,7 @@ interface NotificationsClientProps {
   focusId?: string | null;
 }
 
+// eslint-disable-next-line max-lines-per-function
 export default function NotificationsClient({ initialData, focusId }: NotificationsClientProps) {
   const _searchParams = useSearchParams();
   const notificationRefs = useRef<{ [key: string]: HTMLDivElement | null }>({})

@@ -64,6 +64,7 @@ async function fetchEPSRankings(filters: AnalyticsFilters): Promise<UnifiedAnaly
   }
 }
 
+// eslint-disable-next-line max-lines-per-function, complexity
 function AnalyticsClientWrapper({
   initialData,
   filterOptions

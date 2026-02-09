@@ -48,6 +48,7 @@ interface AccountClientProps {
   accessOverviewSlot: React.ReactNode;
 }
 
+// eslint-disable-next-line max-lines-per-function
 export function AccountClient({ initialPaymentHistory, accessOverviewSlot }: AccountClientProps) {
   const _router = useRouter();
   const { base } = useApiClient({ platform: 'frontend' });
