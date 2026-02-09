@@ -51,7 +51,7 @@ export function PaymentPageClient({ selectedPackageId, context }: PaymentPageCli
           context={context}
           className="mb-12"
           onPaymentSuccess={(txHash) => {
-            // eslint-disable-next-line no-console
+             
             // Could redirect or show success state
           }}
           onPaymentError={(error) => {
