@@ -9,13 +9,11 @@ export default async function PersonalDashboardPage() {
   const session = await getSessionFromWeb3();
 
   // Transform session data to structured format with null checks
-  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-  const user = session && session.isAuthenticated && session.user ? {
+  const user = (session?.isAuthenticated ?? false) && session.user ? {
     id: session.user.id ?? '',
-    email: session.user.email || '',
-    name: session.user.name || session.user.email.split('@')[0] || 'user',
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-    permissions: session.user.permissions || ['epsx:analytics:view'],
+    email: session.user.email ?? '',
+    name: session.user.name ?? session.user.email.split('@')[0] ?? 'user',
+    permissions: session.user.permissions ?? ['epsx:analytics:view'],
     package_tier: session.user.package_tier ?? 'FREE',
     wallet_address: session.user.wallet_address,
 

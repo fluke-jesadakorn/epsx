@@ -451,7 +451,7 @@ export async function copyToClipboard(text: string): Promise<boolean> {
   if (!isBrowser()) { return false; }
 
   try {
-    if (navigator.clipboard != null) {
+    if (navigator.clipboard !== undefined) {
       await navigator.clipboard.writeText(text);
       return true;
     }

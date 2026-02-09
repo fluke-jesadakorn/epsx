@@ -158,7 +158,7 @@ interface UserAuthParams {
 export function createUserAuthState(params: UserAuthParams): ProgressiveAuthState {
   const { isAuthenticated, permissions, walletAddress, expiresAt } = params;
   return {
-    level: isAuthenticated ? 'authenticated' : ((walletAddress != null && walletAddress !== '') ? 'connected' : 'public'),
+    level: isAuthenticated ? 'authenticated' : ((walletAddress !== undefined && walletAddress !== '') ? 'connected' : 'public'),
     walletAddress,
     isAuthenticated,
     permissions,
@@ -200,7 +200,7 @@ export function getUserAuthContext(): 'user' {
  * Check auth state expiry
  */
 export function isAuthStateExpired(authState: ProgressiveAuthState): boolean {
-  if (authState.expiresAt == null || authState.expiresAt === 0) {return false;}
+  if (authState.expiresAt === undefined || authState.expiresAt === 0) {return false;}
   return Date.now() >= authState.expiresAt;
 }
 
@@ -208,7 +208,7 @@ export function isAuthStateExpired(authState: ProgressiveAuthState): boolean {
  * Get time until auth state expires (in minutes)
  */
 export function getTimeUntilAuthExpiry(authState: ProgressiveAuthState): number | null {
-  if (authState.expiresAt == null || authState.expiresAt === 0) {return null;}
+  if (authState.expiresAt === undefined || authState.expiresAt === 0) {return null;}
   const timeLeft = authState.expiresAt - Date.now();
   return Math.max(0, Math.floor(timeLeft / (1000 * 60))); // Convert to minutes
 }
