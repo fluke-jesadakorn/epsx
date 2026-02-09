@@ -14,7 +14,7 @@ function AccessDeniedPageContent() {
 
   return (
     <AccessDeniedContent
-      reason={reason ? decodeURIComponent(reason) : undefined}
+      reason={reason !== undefined && reason !== '' ? decodeURIComponent(reason) : undefined}
       route={route}
       context={context}
       permission={permission}
