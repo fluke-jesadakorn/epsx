@@ -8,8 +8,7 @@ export async function getNotificationsAction(page = 1, limit = 20) {
         const client = createNotificationsClient(createAdminApiClient({ serverSide: true }));
         const response = await client.getAllNotifications({ page, limit });
         return { success: true, data: response.data };
-    } catch (error) {
-        console.error('Failed to fetch notifications:', error);
+    } catch (_error) {
         return { success: false, error: 'Failed to fetch notifications' };
     }
 }
@@ -19,8 +18,7 @@ export async function getNotificationStatsAction() {
         const client = createNotificationsClient(createAdminApiClient({ serverSide: true }));
         const response = await client.getNotificationStats();
         return { success: true, data: response.data };
-    } catch (error) {
-        console.error('Failed to fetch notification stats:', error);
+    } catch (_error) {
         return { success: false, error: 'Failed to fetch notification stats' };
     }
 }
@@ -30,8 +28,7 @@ export async function deleteNotificationAction(id: string) {
         const client = createNotificationsClient(createAdminApiClient({ serverSide: true }));
         const response = await client.deleteAdminNotification(id);
         return { success: response.success, message: response.message };
-    } catch (error) {
-        console.error('Failed to delete notification:', error);
+    } catch (_error) {
         return { success: false, error: 'Failed to delete notification' };
     }
 }
