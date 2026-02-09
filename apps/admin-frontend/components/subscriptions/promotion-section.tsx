@@ -27,8 +27,8 @@ interface PromotionSectionProps {
 
 // Helper functions must be declared before use or safely outside
 function getUsagePercentage(promo: DisplayPromotion): number {
-  if (promo.usageLimit == null ?? promo.usageLimit === 0) {return 0;}
-  return Math.min((promo.currentUsage / promo.usageLimit) * 100, 100);
+  if ((promo.usageLimit ?? 0) === 0) { return 0; }
+  return Math.min(((promo.currentUsage ?? 0) / (promo.usageLimit ?? 1)) * 100, 100);
 }
 
 function getDiscountDisplay(promo: DisplayPromotion): string {
@@ -39,7 +39,7 @@ function getDiscountDisplay(promo: DisplayPromotion): string {
 }
 
 function isExpired(endDate?: string): boolean {
-  if (endDate == null ?? endDate === '') {return false;}
+  if (!endDate || endDate === '') { return false; }
   return new Date(endDate) < new Date();
 }
 
@@ -95,8 +95,7 @@ export function PromotionSection({ initialPromotions, className, compactMode = f
         })));
         toast.success('Promotions refreshed');
       }
-    } catch (error) {
-      console.error('Failed to refresh promotions:', error);
+    } catch (_error) {
       toast.error('Failed to refresh promotions');
     } finally {
       setIsRefreshing(false);
@@ -169,7 +168,7 @@ export function PromotionSection({ initialPromotions, className, compactMode = f
           <Button
             variant="ghost"
             size="sm"
-            onClick={handleRefresh}
+            onClick={() => void handleRefresh()}
             disabled={isRefreshing}
             className="gap-1 text-xs"
           >

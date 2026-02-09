@@ -140,7 +140,7 @@ function PackagePreview({
             {Object.entries(config.advancedFeatures)
               .filter(([_, enabled]) => enabled)
               .map(([feature]) => feature.replace(/([A-Z])/g, ' $1').trim())
-              // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+               
               .join(', ') ?? 'None'}
           </div>
         </div>
@@ -519,7 +519,7 @@ export default function StockRankingPackageAssignment({
         />
       </div>
 
-      {/* eslint-disable-next-line @typescript-eslint/no-unsafe-assignment */}
+      { }
       <AssignmentForm
         reason={assignmentReason}
         expirationDate={expirationDate}

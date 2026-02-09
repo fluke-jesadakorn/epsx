@@ -1,94 +1,19 @@
 'use server';
 
 import type {
-    PermissionSource,
-    Platform,
-    WalletData,
-    WalletFilters,
-    WalletPermission,
-    WalletSubscription
+    WalletFilters
 } from '@/components/wallet/types';
 import type {
     DisableWalletRequest,
     EnableWalletRequest,
-    WalletListResponse,
-    WalletSummaryDto
+    WalletListResponse
 } from '@/lib/api/wallet-management-client';
 import { logout } from '@/lib/auth/auth';
 import { createAdminApiClient } from '@/shared/api';
 import { redirect } from 'next/navigation';
 
-// ============================================================================
-// MAPPERS (Duplicated from client to ensure server-side isolation)
-// ============================================================================
-
-function mapWalletDtoToData(dto: WalletSummaryDto): WalletData {
-    const platforms = new Set<Platform>();
-    const dtoPermissions = dto.permissions;
-    dtoPermissions.forEach(p => {
-        if (p.permission.startsWith('epsx:analytics') || p.permission.startsWith('epsx:rankings')) {
-            platforms.add('analytics');
-        } else if (p.permission.startsWith('epsx-pay:')) {
-            platforms.add('pay');
-        } else if (p.permission.startsWith('epsx-token:')) {
-            platforms.add('token');
-        } else if (p.permission.startsWith('epsx-markets:')) {
-            platforms.add('markets');
-        }
-    });
-    if (platforms.size === 0) { platforms.add('analytics'); }
-
-    const permissions: WalletPermission[] = dtoPermissions.map((p, idx) => ({
-        id: `perm-${idx}`,
-        permission: p.permission,
-        platform: detectPlatform(p.permission),
-        source: (p.source ?? 'system') as PermissionSource,
-        expiresAt: p.expires_at,
-        isActive: p.is_active,
-        createdAt: dto.created_at,
-    }));
-
-    const subscriptions: WalletSubscription[] = (dto.subscriptions ?? []).map((s, idx) => ({
-        id: `sub-${idx}`,
-        planId: s.plan_id,
-        planName: s.plan_name,
-        status: s.status as WalletSubscription['status'],
-        priceDisplay: '',
-        startedAt: s.started_at,
-        expiresAt: s.expires_at,
-        grantedPermissions: [],
-    }));
-
-    let status: 'active' | 'disabled' | 'pending' = 'active';
-    if (!dto.is_active) { status = 'disabled'; }
-
-    const disableInfo = dto.metadata?.['disable_info'] as WalletData['disableInfo'];
-    const label = dto.metadata?.['label'] as string | undefined;
-    const note = dto.metadata?.['note'] as string | undefined;
-
-    return {
-        walletAddress: dto.wallet_address,
-        status,
-        disableInfo,
-        createdAt: dto.created_at,
-        lastAuthAt: dto.last_auth_at,
-        platforms: Array.from(platforms),
-        permissions,
-        subscriptions,
-        plans: dto.groups.map(g => ({ planName: g.group_name, role: g.role })),
-        metadata: dto.metadata,
-        label,
-        note,
-    };
-}
-
-function detectPlatform(permission: string): Platform {
-    if (permission.startsWith('epsx:analytics') || permission.startsWith('epsx:rankings')) { return 'analytics'; }
-    if (permission.startsWith('epsx-pay:')) { return 'pay'; }
-    if (permission.startsWith('epsx-token:')) { return 'token'; }
-    if (permission.startsWith('epsx-markets:')) { return 'markets'; }
-    return 'analytics';
-}
+// Mappers moved to @/lib/mappers/wallet
+import { mapWalletDtoToData } from '@/lib/mappers/wallet';
 
 // ============================================================================
 // SERVER ACTIONS
@@ -110,9 +35,8 @@ async function checkAuthError(error?: { code?: string; message?: string } | null
     }
 }
 
-export async function fetchWalletsAction(filters: WalletFilters, page = 1, limit = 20) {
-    const apiClient = createAdminApiClient({ serverSide: true });
-
+// Helper to build query params
+function buildQueryParams(filters: WalletFilters, page: number, limit: number): Record<string, string> {
     const params: Record<string, string> = {
         page: page.toString(),
         limit: limit.toString(),
@@ -121,6 +45,41 @@ export async function fetchWalletsAction(filters: WalletFilters, page = 1, limit
     };
     if (filters.search !== '') { params['search'] = filters.search; }
     if (filters.status !== 'all') { params['status'] = filters.status; }
+    return params;
+}
+
+// Helper to extract data handling different response formats
+function extractWalletsData(rawData: WalletListResponse) {
+    const internalData = rawData.data;
+
+    // Use internal data if generally available, otherwise fallback to root properties
+    // The conditional usage of ?? handles the case where internalData is undefined
+    let rawWallets = rawData.wallets;
+    if (internalData?.wallets) {
+        rawWallets = internalData.wallets;
+    }
+    const wallets = rawWallets.map(mapWalletDtoToData);
+
+    let pagination = rawData.pagination;
+    if (internalData?.pagination) {
+        pagination = internalData.pagination;
+    }
+
+    pagination ??= {
+        page: 1,
+        limit: 20,
+        total: wallets.length,
+        total_pages: 1,
+        has_next_page: false,
+        has_previous_page: false
+    };
+
+    return { wallets, pagination };
+}
+
+export async function fetchWalletsAction(filters: WalletFilters, page = 1, limit = 20) {
+    const apiClient = createAdminApiClient({ serverSide: true });
+    const params = buildQueryParams(filters, page, limit);
 
     const res = await apiClient.get<WalletListResponse>('/api/admin/wallets', params);
 
@@ -129,16 +88,12 @@ export async function fetchWalletsAction(filters: WalletFilters, page = 1, limit
         throw new Error(res.error?.message ?? 'Failed to fetch wallets');
     }
 
-    if (!res.data) {
+    const rawData = res.data;
+    if (!rawData) {
         throw new Error('Failed to fetch wallets: No data');
     }
 
-    const responseData = res.data.data ?? res.data; // Handle potential double wrapping
-    const rawWallets = responseData.wallets ?? [];
-    const wallets = rawWallets.map(mapWalletDtoToData);
-    const pagination = responseData.pagination ?? { page: 1, limit: 20, total: wallets.length, total_pages: 1, has_next_page: false, has_previous_page: false };
-
-    return { wallets, pagination };
+    return extractWalletsData(rawData);
 }
 
 export async function updateWalletMetadataAction(walletAddress: string, data: { label?: string | null; note?: string | null }) {
@@ -185,26 +140,31 @@ interface ActivityLogEntry {
 export async function fetchActivityLogsAction(walletAddress?: string, page = 1, limit = 10) {
     const apiClient = createAdminApiClient({ serverSide: true });
 
-    // Fix complexity by grouping params
-    const endpoint = typeof walletAddress === 'string' && walletAddress.length > 0
-        ? `/api/admin/wallets/${walletAddress}/activity`
-        : '/api/admin/audit-logs';
+    let endpoint = '/api/admin/audit-logs';
+    if (walletAddress !== undefined && walletAddress.length > 0) {
+        endpoint = `/api/admin/wallets/${walletAddress}/activity`;
+    }
 
     const res = await apiClient.get<Record<string, unknown>>(endpoint, {
         page: page.toString(),
         page_size: limit.toString(),
     });
 
-    if (!res.success || !res.data) {
+    if (!res.success) {
         await checkAuthError(res.error);
         throw new Error(res.error?.message ?? 'Failed to fetch activity logs');
     }
 
+    const data = res.data;
+    if (!data) {
+        return [];
+    }
+
     // Map common format
-    const logs = ((res.data.entries as ActivityLogEntry[] | undefined) ?? (res.data.events as ActivityLogEntry[] | undefined) ?? []);
+    const entries = (data['entries'] ?? data['events'] ?? []) as ActivityLogEntry[];
 
     // Simple mapper for display
-    return logs.map((log) => ({
+    return entries.map((log) => ({
         id: log.id,
         action: log.action,
         timestamp: log.timestamp,

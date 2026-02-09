@@ -20,6 +20,7 @@ interface ApiKeyRowProps {
  * @param address
  */
 const truncateWallet = (address: string | undefined): string => {
+    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
     if (!address || address.length < 12) { return address ?? 'Unknown'; }
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
 };
@@ -68,6 +69,7 @@ interface ExtendedApiKey extends ApiKeyResponse {
     permission_groups?: Array<{ id: string; name: string }>;
 }
 
+// eslint-disable-next-line max-lines-per-function
 export const ApiKeyRow: React.FC<ApiKeyRowProps> = ({
     apiKey,
     onCopyWallet,
@@ -76,8 +78,11 @@ export const ApiKeyRow: React.FC<ApiKeyRowProps> = ({
     onEditExpiration,
 }) => {
     const extendedKey = apiKey as ExtendedApiKey;
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     const walletAddress = extendedKey.wallet_address ?? '';
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     const keyPrefix = extendedKey.key_prefix ?? apiKey.key_preview ?? '';
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     const permissionGroups = extendedKey.permission_groups ?? [];
 
     return (

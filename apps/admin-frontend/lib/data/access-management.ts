@@ -192,7 +192,7 @@ export async function fetchPolicyStats(): Promise<PolicyStats> {
         const revenue = typeof plan.revenue_last_30_days === 'string'
           ? parseFloat(plan.revenue_last_30_days)
           : plan.revenue_last_30_days ?? 0;
-        return sum + (isNaN(revenue as number) ? 0 : (revenue as number));
+        return sum + (isNaN(revenue) ? 0 : (revenue));
       }, 0);
 
       // Count subscribers
@@ -224,7 +224,7 @@ export async function fetchPolicyStats(): Promise<PolicyStats> {
 
     // Add analytics data
     if (analyticsRes.success && analyticsRes.data) {
-      const analytics = analyticsRes.data as AnalyticsData;
+      const analytics = analyticsRes.data;
       stats.totalMembers += analytics.total_active_memberships ?? 0;
       stats.expiringSoon = analytics.expiring_soon_count ?? 0;
     }

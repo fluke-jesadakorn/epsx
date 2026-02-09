@@ -77,18 +77,8 @@ export class ServerAuth {
         return { isLoggedIn: false }
       }
 
-      // Extract user information from ID token
-      const user = {
-        id: (payload.sub ?? payload.user_id ?? '') as string,
-        email: (payload.email ?? '') as string,
-        name: (payload.name ?? payload.display_name ?? '') as string,
-        role: (payload.role ?? 'user') as string,
-        permissions: (payload.permissions ?? []) as string[],
-        packageTier: (payload.package_tier ?? 'basic') as string
-      }
-
       return {
-        user,
+        user: this.extractUserFromPayload(payload),
         isLoggedIn: true,
         accessToken,
         idToken
@@ -156,6 +146,17 @@ export class ServerAuth {
     }
   }
 
+  private static extractUserFromPayload(payload: JWTPayload): AdminSession['user'] {
+    return {
+      id: String(payload.sub ?? payload.user_id ?? ''),
+      email: String(payload.email ?? ''),
+      name: String(payload.name ?? payload.display_name ?? ''),
+      role: String(payload.role ?? 'user'),
+      permissions: (payload.permissions as string[] | undefined) ?? [],
+      packageTier: String(payload.package_tier ?? 'basic')
+    }
+  }
+
   // Check if token is expired
   /**
    *
@@ -185,14 +186,7 @@ export class ServerAuth {
     const payload = this.decodeJWT(idToken)
     if (payload === null) { return null }
 
-    return {
-      id: (payload.sub ?? payload.user_id ?? '') as string,
-      email: (payload.email ?? '') as string,
-      name: (payload.name ?? payload.display_name ?? '') as string,
-      role: (payload.role ?? 'user') as string,
-      permissions: (payload.permissions ?? []) as string[],
-      packageTier: (payload.package_tier ?? 'basic') as string
-    }
+    return this.extractUserFromPayload(payload)
   }
 
   // Create authorization header for server requests

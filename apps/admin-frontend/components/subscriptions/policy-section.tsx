@@ -35,7 +35,7 @@ interface PolicySectionProps {
 /**
  * Filter and sort policies client-side
  */
-// eslint-disable-next-line max-lines-per-function
+ 
 function filterPolicies(policies: AccessPolicy[], filters: PolicyFiltersType): AccessPolicy[] {
   let result = [...policies];
 

@@ -19,7 +19,7 @@ interface PaymentStats {
 /**
  * Payment analytics component displaying comprehensive payment metrics
  */
-// eslint-disable-next-line max-lines-per-function, complexity
+// eslint-disable-next-line max-lines-per-function
 export function PaymentAnalytics() {
     const { base } = useApiClient({ platform: 'admin' });
     const [stats, setStats] = useState<PaymentStats | null>(null);
