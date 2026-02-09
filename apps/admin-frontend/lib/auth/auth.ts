@@ -3,6 +3,7 @@
  * Complete Web3 wallet-first authentication for admin users
  * Uses SIWE (Sign-In with Ethereum) standard with group-based permissions
  */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call, @typescript-eslint/strict-boolean-expressions */
 
 import { COOKIES } from '@/shared/auth/cookies';
 import { logger } from '@/shared/utils/logger';

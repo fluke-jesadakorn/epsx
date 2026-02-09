@@ -63,13 +63,16 @@ if (math.pow.__isPolyfilled !== true) {
 
     // Mark as polyfilled to prevent re-wrapping
     polyfilledPow.__isPolyfilled = true;
-    Math.pow = polyfilledPow as any;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (Math as unknown as Record<string, any>).pow = polyfilledPow;
 }
 
 // Validation: Mock localStorage for Server-Side Rendering
 if (typeof window === 'undefined' && typeof global !== 'undefined') {
-    const g = global as unknown as Record<string, any>;
-    const needsLocalStorage = !g.localStorage || typeof g.localStorage.getItem !== 'function';
+    const g = global as unknown as { localStorage?: Record<string, unknown> };
+    const storage = g.localStorage;
+    const needsLocalStorage = !storage || typeof storage.getItem !== 'function';
 
     if (needsLocalStorage) {
         g.localStorage = {

@@ -172,7 +172,7 @@ export async function redirectToBackendAdminLogin(callbackUrl?: string): Promise
     });
 
     // Store callback URL for after authentication
-    if (callbackUrl !== null && callbackUrl !== '') {
+    if (callbackUrl !== undefined && callbackUrl !== '') {
       cookieStore.set('oauth_redirect_to', callbackUrl, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
@@ -184,6 +184,9 @@ export async function redirectToBackendAdminLogin(callbackUrl?: string): Promise
 
     redirect(url);
   } catch (error) {
+    if (error instanceof Error && error.message === 'NEXT_REDIRECT') {
+      throw error;
+    }
 
     logger.error('❌ Admin: Failed to setup PKCE redirect:', error);
     // Fallback to simple redirect without PKCE using consolidated config
@@ -193,7 +196,7 @@ export async function redirectToBackendAdminLogin(callbackUrl?: string): Promise
     backendAdminLoginUrl.searchParams.set('redirect_uri', authConfig.callbackUrl);
     backendAdminLoginUrl.searchParams.set('scope', 'openid profile email permissions');
     backendAdminLoginUrl.searchParams.set('response_type', 'code');
-    if (callbackUrl !== null && callbackUrl !== '') {
+    if (callbackUrl !== undefined && callbackUrl !== '') {
       backendAdminLoginUrl.searchParams.set('state', encodeURIComponent(callbackUrl));
     }
     redirect(backendAdminLoginUrl.toString());
@@ -211,8 +214,11 @@ export async function redirectToBackendAdminLogin(callbackUrl?: string): Promise
 export async function requireAuth(redirectPath?: string): Promise<unknown> {
   const user = await getAuthUser();
 
-  if (user === null || user === undefined) {
-    const loginUrl = redirectPath !== null && redirectPath !== undefined && redirectPath !== '' ? `/auth?return_url=${encodeURIComponent(redirectPath)}` : '/auth';
+  if (user === null) {
+    let loginUrl = '/auth';
+    if (redirectPath !== undefined && redirectPath !== '') {
+      loginUrl = `/auth?return_url=${encodeURIComponent(redirectPath)}`;
+    }
     redirect(loginUrl);
   }
 

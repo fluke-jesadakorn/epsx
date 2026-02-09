@@ -1,7 +1,9 @@
 'use server';
 
+import { logger } from '@/lib/logger';
 import { COOKIES } from '@/shared/auth/cookies';
 import { cookies } from 'next/headers';
+
 import type { Web3SessionData } from './auth';
 
 /**
@@ -29,7 +31,7 @@ export async function setWeb3SessionAction(sessionData: Web3SessionData): Promis
             expires_at: sessionData.expiresAt
         }), cookieOptions);
     } catch (error) {
-        console.error('Failed to set Web3 session cookie:', error);
+        logger.auth.error('Failed to set Web3 session cookie', { error });
         throw error; // Re-throw for set as it's critical
     }
 }
@@ -49,7 +51,7 @@ export async function clearWeb3SessionAction(): Promise<void> {
         cookieStore.delete(COOKIES.sid);
     } catch (error) {
         // Find a way to handle this gracefully - usually happens if called during render
-        console.warn('Failed to clear cookies in clearWeb3SessionAction (likely called during render):', error);
+        logger.warn('Failed to clear cookies in clearWeb3SessionAction (likely called during render)', { error });
     }
 
 }
@@ -84,10 +86,10 @@ export async function getAndClearReturnUrlAction(): Promise<string> {
 
     // Check for invalid paths or external URLs
     const isInvalidPath = invalidPrefixes.some(prefix => returnUrl.startsWith(prefix));
-    const isExternalUrl = returnUrl.startsWith('http://') ?? returnUrl.startsWith('https://') ?? returnUrl.startsWith('//');
+    const isExternalUrl = returnUrl.startsWith('http://') || returnUrl.startsWith('https://') || returnUrl.startsWith('//');
 
-    if (isInvalidPath ?? isExternalUrl ?? !returnUrl.startsWith('/')) {
-        console.warn('[AUTH] Invalid return URL detected, defaulting to home:', returnUrl);
+    if (isInvalidPath || isExternalUrl || !returnUrl.startsWith('/')) {
+        logger.warn('[AUTH] Invalid return URL detected, defaulting to home', { returnUrl });
         return '/';
     }
 
