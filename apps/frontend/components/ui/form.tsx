@@ -40,15 +40,18 @@ const Form = <TFieldValues extends FieldValues>({
   onSubmit?: (data: TFieldValues) => void
   children: React.ReactNode
   className?: string
-}) => (
-  <BaseForm
-    onSubmit={onSubmit ? props.handleSubmit(onSubmit) : (e) => e.preventDefault()}
-    className={cn("space-y-4", className)}
-    {...(props as any)}
-  >
-    {children}
-  </BaseForm>
-)
+}) => {
+  const formProps = props as Record<string, unknown>;
+  return (
+    <BaseForm
+      onSubmit={onSubmit ? props.handleSubmit(onSubmit) : (e) => e.preventDefault()}
+      className={cn("space-y-4", className)}
+      {...formProps}
+    >
+      {children}
+    </BaseForm>
+  );
+}
 
 // Form field with React Hook Form Controller integration
 const FormField = <
@@ -98,7 +101,7 @@ const FormControl = React.forwardRef<HTMLDivElement, FormControlProps>(
   ({ className, ...props }, ref) => {
     return (
       <BaseFormControl
-        ref={ref as any}
+        ref={ref as React.ForwardedRef<HTMLDivElement>}
         className={cn("relative", className)}
         {...props}
       />

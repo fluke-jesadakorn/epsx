@@ -86,9 +86,10 @@ export function EmailManagement({ user }: EmailManagementProps) {
 
       toast.success('Verification code sent to your new email address');
 
-    } catch (error: any) {
+    } catch (err: unknown) {
       // Error logged silently
-      const errorMessage = error.message ?? 'Failed to send verification code';
+      const error = err as Record<string, unknown>;
+      const errorMessage = typeof error?.message === 'string' ? error.message : 'Failed to send verification code';
       setEmailState(prev => ({
         ...prev,
         isSending: false,
@@ -136,9 +137,10 @@ export function EmailManagement({ user }: EmailManagementProps) {
       // Refresh page to update user data
       router.refresh();
 
-    } catch (error: any) {
+    } catch (err: unknown) {
       // Error logged silently
-      const errorMessage = error.message ?? 'Failed to verify email';
+      const error = err as Record<string, unknown>;
+      const errorMessage = typeof error?.message === 'string' ? error.message : 'Failed to verify email';
       setEmailState(prev => ({
         ...prev,
         isVerifying: false,
