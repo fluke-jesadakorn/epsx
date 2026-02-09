@@ -40,10 +40,10 @@ interface SupportedToken {
 }
 
 // Get supported tokens for a chain
+// eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-argument,@typescript-eslint/no-unsafe-assignment
 function getSupportedTokens(chainId: number): SupportedToken[] {
     const tokens: SupportedToken[] = [];
     try {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-argument
         tokens.push({
             symbol: 'USDT',
             name: 'Tether USD',
@@ -52,7 +52,6 @@ function getSupportedTokens(chainId: number): SupportedToken[] {
         });
     } catch (_err) { /* Token not available on this chain */ }
     try {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-argument
         tokens.push({
             symbol: 'USDC',
             name: 'USD Coin',
@@ -121,10 +120,10 @@ export function DynamicPaymentWidget({
     );
 
     // Get receiver address for this chain (direct transfer)
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-return
     const receiverAddress = useMemo(() => {
         if (!isChainSupported) {return null;}
         try {
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-return
             return getAddress(getPaymentReceiverAddress(chainId));
         } catch (_err) {
             return null;
@@ -132,10 +131,10 @@ export function DynamicPaymentWidget({
     }, [chainId, isChainSupported]);
 
     // Get token address for selected token
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-return
     const tokenAddress = useMemo(() => {
         if (!selectedToken || !isChainSupported) {return null;}
         try {
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-return
             return getAddress(getTokenAddress(selectedToken.symbol, chainId));
         } catch (_err) {
             return null;
