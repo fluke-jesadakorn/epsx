@@ -45,9 +45,8 @@ function SmartCountrySelector({
   // Prepare options with "All Countries" at the top
   const options = [
     { value: 'all', label: 'All Countries' },
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-    ...(countries || []).map(country => typeof country === 'string' 
-      ? { value: country, label: country } 
+    ...(countries ?? []).map(country => typeof country === 'string'
+      ? { value: country, label: country }
       : country
     )
   ];
@@ -292,9 +291,9 @@ export default function FilterForm({ filterOptions, currentParams }: FilterFormP
 
   const getActiveFilterCount = () => {
     let count = 0;
-    if (currentParams.country) {count++;}
-    if (currentParams.min_eps) {count++;}
-    if (currentParams.min_growth) {count++;}
+    if ((currentParams.country?.length ?? 0) > 0) {count++;}
+    if (currentParams.min_eps !== undefined) {count++;}
+    if (currentParams.min_growth !== undefined) {count++;}
     return count;
   };
 

@@ -25,28 +25,28 @@ export default function StockRankingClient({
 }: StockRankingClientProps): React.JSX.Element {
   
   // Apply rank shift if needed (for future use)
-  const processedData = React.useMemo(() => {
+  const processedData: StockFinancialData[] = React.useMemo(() => {
     if (rankShift === 0) {return initialData;}
-    
+
     return initialData.map((item, index) => ({
       ...item,
       displayRank: index + 1 + rankShift,
-    }));
+    })) as StockFinancialData[];
   }, [initialData, rankShift]);
 
   return (
     <div className="w-full">
       {/* Custom header section */}
-      {(title ?? subtitle) && (
+      {((title?.length ?? 0) > 0 || (subtitle?.length ?? 0) > 0) && (
         <div className="text-center py-8">
-          {title && (
+          {(title?.length ?? 0) > 0 && (
             <h2 className="text-3xl sm:text-4xl font-bold mb-4">
               <span className="bg-gradient-to-r from-orange-500 via-yellow-400 to-orange-600 bg-clip-text text-transparent">
                 {title}
               </span>
             </h2>
           )}
-          {subtitle && (
+          {(subtitle?.length ?? 0) > 0 && (
             <p className="text-lg text-slate-600 dark:text-slate-300 max-w-2xl mx-auto">
               {subtitle}
             </p>

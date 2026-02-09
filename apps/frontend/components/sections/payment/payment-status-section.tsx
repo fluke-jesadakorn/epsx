@@ -45,11 +45,16 @@ const getOverallPaymentStatus = (transactions: Transaction[]): 'pending' | 'comp
 };
 
 // Helper to get latest transaction details for display
-const getLatestTransactionDetails = (transactions: Transaction[]) => {
+const getLatestTransactionDetails = (transactions: Transaction[]): {
+  transactionId?: string;
+  amount?: number;
+  currency?: string;
+  timestamp?: string;
+} => {
   if (transactions.length === 0) {return {};}
   const latest = transactions[0];
   return {
-    transactionId: latest.blockchainData.txHash || latest.orderNo,
+    transactionId: latest.blockchainData.txHash ?? latest.orderNo,
     amount: latest.actualAmount,
     currency: latest.currency,
     timestamp: latest.finishTime,
@@ -65,8 +70,8 @@ export function PaymentStatusSection({
   const { isLoading, isAuthenticated, hasPaymentAccess, user } = usePaymentAuth();
 
   if (isLoading) {return <PaymentAuthLoadingUI />;}
-  if (!isAuthenticated) {return <PaymentAuthRequiredUI />;}
-  if (!hasPaymentAccess) {return <PaymentAccessRequiredUI user={user} />;}
+  if (isAuthenticated === false) {return <PaymentAuthRequiredUI />;}
+  if (hasPaymentAccess === false) {return <PaymentAccessRequiredUI user={user} />;}
 
   // Derive status from transactions instead of hardcoding
   const paymentStatus = getOverallPaymentStatus(transactions);
@@ -94,7 +99,7 @@ export function PaymentStatusSection({
         {/* Transaction History */}
         <div id="history">
           <h3 className="text-xl font-semibold mb-4">Transaction History</h3>
-          {error ? (
+          {(error?.length ?? 0) > 0 ? (
             <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
               <p className="text-red-600 dark:text-red-400">{error}</p>
             </div>
