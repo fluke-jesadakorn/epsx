@@ -37,34 +37,120 @@ interface PlanManagementProps {
  * @param root0
  * @param root0.currentUser
  */
+function LoadingState() {
+  return (
+    <div className="max-w-7xl mx-auto space-y-8 animate-pulse">
+      <div className="text-center mb-12">
+        <div className="h-16 bg-primary/20 rounded-2xl w-96 mx-auto mb-6" />
+        <div className="h-6 bg-muted rounded-full w-64 mx-auto" />
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="bg-card border border-border rounded-3xl h-64" />
+        ))}
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="bg-card border border-border rounded-3xl h-32" />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function HeroSection() {
+  return (
+    <div className="text-center mb-8 sm:mb-12">
+      <div className="relative inline-block">
+        <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-foreground mb-4">
+          💳 <span className="bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">Dynamic Plans</span>
+        </h1>
+        <div className="absolute -top-2 -right-2 w-4 h-4 bg-primary rounded-full animate-ping" />
+      </div>
+      <p className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto">
+        Create and manage unlimited plans with context-specific features for web app, API, and admin access
+      </p>
+    </div>
+  );
+}
+
+function StatsGrid({ plans, avgRevenue }: { plans: PlanResponse[]; avgRevenue: number }) {
+  const activePlans = plans.filter(p => p.is_active);
+  const enterprisePlans = plans.filter(p => p.plan_category === 'enterprise' && p.is_active);
+
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 mb-6 sm:mb-8">
+      <div className="bg-card rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl border border-primary/20">
+        <div className="flex items-center justify-between mb-3 sm:mb-4">
+          <div className="text-xl sm:text-2xl">💳</div>
+          <span className="text-xs sm:text-sm font-medium text-muted-foreground">Total</span>
+        </div>
+        <div className="space-y-1">
+          <div className="text-2xl sm:text-3xl font-bold text-primary">{plans.length}</div>
+          <div className="text-xs sm:text-sm text-foreground/80">Plans</div>
+          <div className="text-xs text-muted-foreground">All time</div>
+        </div>
+      </div>
+
+      <div className="bg-card/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl border border-secondary/20">
+        <div className="flex items-center justify-between mb-3 sm:mb-4">
+          <div className="text-xl sm:text-2xl">✅</div>
+          <span className="text-xs sm:text-sm font-medium text-muted-foreground">Active</span>
+        </div>
+        <div className="space-y-1">
+          <div className="text-2xl sm:text-3xl font-bold text-secondary">{activePlans.length}</div>
+          <div className="text-xs sm:text-sm text-foreground/80">Active</div>
+          <div className="text-xs text-muted-foreground">Available</div>
+        </div>
+      </div>
+
+      <div className="bg-card/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl border border-secondary/20">
+        <div className="flex items-center justify-between mb-3 sm:mb-4">
+          <div className="text-xl sm:text-2xl">🏢</div>
+          <span className="text-xs sm:text-sm font-medium text-muted-foreground">Enterprise</span>
+        </div>
+        <div className="space-y-1">
+          <div className="text-2xl sm:text-3xl font-bold text-secondary">{enterprisePlans.length}</div>
+          <div className="text-xs sm:text-sm text-foreground/80">Enterprise</div>
+          <div className="text-xs text-muted-foreground">Premium</div>
+        </div>
+      </div>
+
+      <div className="bg-card/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl border border-success/20">
+        <div className="flex items-center justify-between mb-3 sm:mb-4">
+          <div className="text-xl sm:text-2xl">💵</div>
+          <span className="text-xs sm:text-sm font-medium text-muted-foreground">Price</span>
+        </div>
+        <div className="space-y-1">
+          <div className="text-xl sm:text-3xl font-bold text-success truncate">
+            ${avgRevenue.toFixed(2)}
+          </div>
+          <div className="text-xs sm:text-sm text-foreground/80">Average</div>
+          <div className="text-xs text-muted-foreground">USD</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function PlanManagement({ currentUser }: PlanManagementProps) {
   const { user: authUser } = useSharedAuth()
-  // Note: currentUser and authUser available for future permission checks
   const _user = currentUser || authUser
   const router = useRouter()
   const pathname = usePathname()
   const [plans, setPlans] = useState<PlanResponse[]>([])
   const [loading, setLoading] = useState(true)
   const [_selectedPlan, setSelectedPlan] = useState<PlanResponse | null>(null)
-
-  // Drag and Drop State
   const [hasChanges, setHasChanges] = useState(false)
   const [originalOrder, setOriginalOrder] = useState<PlanResponse[]>([])
   const [activeId, setActiveId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
 
   const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 8,
-      },
-    }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
-  // Load plans on component mount
   useEffect(() => {
     loadPlans()
   }, [])
@@ -74,127 +160,79 @@ export function PlanManagement({ currentUser }: PlanManagementProps) {
       setLoading(true)
       const apiClient = createAdminApiClient()
       const plansClient = createPlansClient(apiClient)
-
-      const response = await plansClient.getPlans({
-        limit: 100
-      })
+      const response = await plansClient.getPlans({ limit: 100 })
 
       if (isApiSuccess(response)) {
-        // Backend returns: { success, data: { plans: [...], has_more, total_count }, message }
-        // API client wraps backend response as-is in its own data field
-        // So response.data is the entire backend JSON response
         const backendResponse = response.data as any
-
-        // Sort plans by tier_level initially
-        const plansData = (backendResponse?.data?.plans || backendResponse?.plans || []).map((p: PlanResponse) => ({
-          ...p,
-          tier_level: p.tier_level ?? 0
-        })).sort((a: PlanResponse, b: PlanResponse) => (a.tier_level ?? 0) - (b.tier_level ?? 0))
+        const plansData = (backendResponse?.data?.plans || backendResponse?.plans || [])
+          .map((p: PlanResponse) => ({ ...p, tier_level: p.tier_level ?? 0 }))
+          .sort((a: PlanResponse, b: PlanResponse) => (a.tier_level ?? 0) - (b.tier_level ?? 0))
 
         setPlans(plansData)
         setOriginalOrder(plansData)
         setHasChanges(false)
+      } else if (response.error?.includes('Unauthorized') || response.error?.includes('log in')) {
+        console.warn('[PlanManagement] Session expired, redirecting...')
+        toast({ title: "Session Expired", description: "Please log in again to continue.", variant: "destructive" })
+        router.push(`/auth?returnUrl=${encodeURIComponent(pathname)}`)
       } else {
-        // Handle unauthorized access first
-        if (response.error?.includes('Unauthorized') || response.error?.includes('log in')) {
-          console.warn('[PlanManagement] Session expired, redirecting...')
-          toast({
-            title: "Session Expired",
-            description: "Please log in again to continue.",
-            variant: "destructive"
-          })
-
-          router.push(`/auth?returnUrl=${encodeURIComponent(pathname)}`)
-          return
-        }
-
         console.error('[PlanManagement] API error:', response.error)
-        toast({
-          title: "Error",
-          description: response.error || "Failed to load plans",
-          variant: "destructive"
-        })
+        toast({ title: "Error", description: response.error || "Failed to load plans", variant: "destructive" })
       }
     } catch (error) {
       console.error('[PlanManagement] Exception:', error)
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to load plans",
-        variant: "destructive"
-      })
+      toast({ title: "Error", description: error instanceof Error ? error.message : "Failed to load plans", variant: "destructive" })
     } finally {
       setLoading(false)
     }
   }
 
-  // Check for changes to enable save button
   const checkForChanges = (newPlans: PlanResponse[]) => {
     const hasChanged = newPlans.some((plan, index) => plan.id !== originalOrder[index]?.id)
     setHasChanges(hasChanged)
   }
 
-  // Helper for swapping items
   const arraySwap = <T,>(arr: T[], index1: number, index2: number): T[] => {
     const newArr = [...arr];
     const item1 = newArr[index1];
     const item2 = newArr[index2];
-
     if (item1 !== undefined && item2 !== undefined) {
       newArr[index1] = item2;
       newArr[index2] = item1;
     }
-
     return newArr;
   };
 
   const handleDragStart = (event: DragStartEvent) => {
-    const { active } = event;
-    setActiveId(active.id as string);
+    setActiveId(event.active.id as string);
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
-
     if (!over) {
       setActiveId(null);
       return;
     }
-
     if (active.id !== over.id) {
       setPlans((items) => {
         const oldIndex = items.findIndex((item) => item.id === active.id);
         const newIndex = items.findIndex((item) => item.id === over.id);
-
         const newPlans = arraySwap(items, oldIndex, newIndex);
         checkForChanges(newPlans);
         return newPlans;
       });
     }
-
     setActiveId(null);
   };
 
   const handleSaveOrder = async () => {
-    if (!hasChanges) {return}
-
+    if (!hasChanges) return;
     setSaving(true)
     try {
       const apiClient = createAdminApiClient()
       const plansClient = createPlansClient(apiClient)
-
-      // Update each plan's tier_level based on its new position
-      // Using index as tier_level
-      const updates = plans.map((plan, index) => ({
-        plan_id: plan.id,
-        tier_level: index
-      }))
-
-      await Promise.all(
-        updates.map(update =>
-          plansClient.updatePlan(update.plan_id, { tier_level: update.tier_level })
-        )
-      )
-
+      const updates = plans.map((plan, index) => ({ plan_id: plan.id, tier_level: index }))
+      await Promise.all(updates.map(u => plansClient.updatePlan(u.plan_id, { tier_level: u.tier_level })))
       toast({ title: 'Tier order saved successfully', description: 'Plan hierarchy has been updated.' })
       setOriginalOrder([...plans])
       setHasChanges(false)
@@ -211,46 +249,21 @@ export function PlanManagement({ currentUser }: PlanManagementProps) {
     setHasChanges(false)
   }
 
-  // Group plans for display - only show active plans in the main lists
   const standardPlans = plans.filter(p => p.plan_category === 'standard' && p.is_active)
   const apiPlans = plans.filter(p => p.plan_category === 'api' && p.is_active)
   const enterprisePlans = plans.filter(p => p.plan_category === 'enterprise' && p.is_active)
-  // We can treat custom plans as enterprise or separate, grouping with enterprise for now
   const activePlans = plans.filter(p => p.is_active)
-
   const totalRevenue = plans.reduce((sum, plan) => {
-    const revenue = typeof plan.revenue_last_30_days === 'string'
-      ? parseFloat(plan.revenue_last_30_days)
-      : plan.revenue_last_30_days
+    const revenue = typeof plan.revenue_last_30_days === 'string' ? parseFloat(plan.revenue_last_30_days) : plan.revenue_last_30_days
     return sum + (isNaN(revenue) ? 0 : revenue)
   }, 0)
   const avgRevenue = plans.length > 0 ? totalRevenue / plans.length : 0
 
-  if (loading) {
-    return (
-      <div className="max-w-7xl mx-auto space-y-8 animate-pulse">
-        <div className="text-center mb-12">
-          <div className="h-16 bg-primary/20 rounded-2xl w-96 mx-auto mb-6" />
-          <div className="h-6 bg-muted rounded-full w-64 mx-auto" />
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="bg-card border border-border rounded-3xl h-64" />
-          ))}
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="bg-card border border-border rounded-3xl h-32" />
-          ))}
-        </div>
-      </div>
-    )
-  }
+  if (loading) return <LoadingState />
 
   return (
     <div>
       <div className="space-y-6 sm:space-y-8">
-        {/* Background Decorations */}
         <div className="fixed inset-0 overflow-hidden pointer-events-none">
           <div className="absolute top-20 left-20 w-32 h-32 bg-primary/10 rounded-full blur-3xl animate-pulse" />
           <div className="absolute top-40 right-32 w-24 h-24 bg-secondary/10 rounded-full blur-2xl" />
@@ -258,20 +271,8 @@ export function PlanManagement({ currentUser }: PlanManagementProps) {
         </div>
 
         <div className="relative max-w-7xl mx-auto">
-          {/* Hero Section */}
-          <div className="text-center mb-8 sm:mb-12">
-            <div className="relative inline-block">
-              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-foreground mb-4">
-                💳 <span className="bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">Dynamic Plans</span>
-              </h1>
-              <div className="absolute -top-2 -right-2 w-4 h-4 bg-primary rounded-full animate-ping" />
-            </div>
-            <p className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto">
-              Create and manage unlimited plans with context-specific features for web app, API, and admin access
-            </p>
-          </div>
+          <HeroSection />
 
-          {/* Action Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 mb-8 sm:mb-12">
             <div
               className="relative group overflow-hidden rounded-2xl sm:rounded-3xl border border-success/20 bg-success/5 p-6 sm:p-8 cursor-pointer hover:bg-success/10 transition-all duration-300 active:scale-[0.98]"
@@ -302,58 +303,7 @@ export function PlanManagement({ currentUser }: PlanManagementProps) {
             </div>
           </div>
 
-          {/* Stats Grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 mb-6 sm:mb-8">
-            <div className="bg-card rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl border border-primary/20">
-              <div className="flex items-center justify-between mb-3 sm:mb-4">
-                <div className="text-xl sm:text-2xl">💳</div>
-                <span className="text-xs sm:text-sm font-medium text-muted-foreground">Total</span>
-              </div>
-              <div className="space-y-1">
-                <div className="text-2xl sm:text-3xl font-bold text-primary">{plans.length}</div>
-                <div className="text-xs sm:text-sm text-foreground/80">Plans</div>
-                <div className="text-xs text-muted-foreground">All time</div>
-              </div>
-            </div>
-
-            <div className="bg-card/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl border border-secondary/20">
-              <div className="flex items-center justify-between mb-3 sm:mb-4">
-                <div className="text-xl sm:text-2xl">✅</div>
-                <span className="text-xs sm:text-sm font-medium text-muted-foreground">Active</span>
-              </div>
-              <div className="space-y-1">
-                <div className="text-2xl sm:text-3xl font-bold text-secondary">{activePlans.length}</div>
-                <div className="text-xs sm:text-sm text-foreground/80">Active</div>
-                <div className="text-xs text-muted-foreground">Available</div>
-              </div>
-            </div>
-
-            <div className="bg-card/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl border border-secondary/20">
-              <div className="flex items-center justify-between mb-3 sm:mb-4">
-                <div className="text-xl sm:text-2xl">🏢</div>
-                <span className="text-xs sm:text-sm font-medium text-muted-foreground">Enterprise</span>
-              </div>
-              <div className="space-y-1">
-                <div className="text-2xl sm:text-3xl font-bold text-secondary">{enterprisePlans.length}</div>
-                <div className="text-xs sm:text-sm text-foreground/80">Enterprise</div>
-                <div className="text-xs text-muted-foreground">Premium</div>
-              </div>
-            </div>
-
-            <div className="bg-card/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl border border-success/20">
-              <div className="flex items-center justify-between mb-3 sm:mb-4">
-                <div className="text-xl sm:text-2xl">💵</div>
-                <span className="text-xs sm:text-sm font-medium text-muted-foreground">Price</span>
-              </div>
-              <div className="space-y-1">
-                <div className="text-xl sm:text-3xl font-bold text-success truncate">
-                  ${avgRevenue.toFixed(2)}
-                </div>
-                <div className="text-xs sm:text-sm text-foreground/80">Average</div>
-                <div className="text-xs text-muted-foreground">USD</div>
-              </div>
-            </div>
-          </div>
+          <StatsGrid plans={plans} avgRevenue={avgRevenue} />
           {/* Plans Lists by Group */}
           <div className="space-y-8">
             <DndContext
@@ -402,7 +352,6 @@ export function PlanManagement({ currentUser }: PlanManagementProps) {
         </div>
       </div>
 
-      {/* Unsaved Changes Bar */}
       {hasChanges && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-card text-card-foreground px-6 py-4 rounded-full shadow-2xl border border-border flex items-center gap-4 animate-in slide-in-from-bottom-10 fade-in duration-300">
           <div className="flex items-center gap-2">
@@ -431,9 +380,7 @@ export function PlanManagement({ currentUser }: PlanManagementProps) {
                   Saving...
                 </>
               ) : (
-                <>
-                  Save Changes
-                </>
+                'Save Changes'
               )}
             </button>
           </div>
