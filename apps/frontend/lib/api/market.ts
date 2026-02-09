@@ -57,12 +57,14 @@ export interface StockChart {
 // Market Data API Client Class
 // ============================================================================
 
+const API_REQUEST_FAILED = 'Request failed';
+
 export class MarketApiClient {
   private client: UnifiedApiClient;
 
   constructor(baseUrl?: string) {
     let clientBaseUrl = baseUrl;
-    if (!clientBaseUrl) {
+    if (clientBaseUrl === undefined) {
       if (typeof window === 'undefined') {
         // Server-side: use absolute URL
         clientBaseUrl = process.env.FRONTEND_URL ?? 'http://localhost:3000';
@@ -89,18 +91,16 @@ export class MarketApiClient {
         params as Record<string, unknown>
       );
 
-      if (!response.success) {
-        throw new Error(response.error?.message ?? 'Request failed');
+      if (!response.success || response.data === null) {
+        throw new Error(response.error?.message ?? API_REQUEST_FAILED);
       }
-
-      const data = response.data!;
 
       apiLogger.debug('Market data fetched', {
         params,
-        totalItems: data.pagination?.total
+        totalItems: response.data.pagination.total
       });
 
-      return data;
+      return response.data;
     } catch (error) {
       apiLogger.error('Failed to fetch stock data', {
         params,
@@ -120,11 +120,11 @@ export class MarketApiClient {
         params as Record<string, unknown>
       );
 
-      if (!response.success) {
-        throw new Error(response.error?.message ?? 'Request failed');
+      if (!response.success || response.data === null) {
+        throw new Error(response.error?.message ?? API_REQUEST_FAILED);
       }
 
-      return response.data!;
+      return response.data;
     } catch (error) {
       apiLogger.error('Failed to fetch stock count', {
         params,
@@ -143,13 +143,13 @@ export class MarketApiClient {
         `/api/market-data/stocks/${symbol}`
       );
 
-      if (!response.success) {
-        throw new Error(response.error?.message ?? 'Request failed');
+      if (!response.success || response.data === null) {
+        throw new Error(response.error?.message ?? API_REQUEST_FAILED);
       }
 
       apiLogger.debug('Individual stock data fetched', { symbol });
 
-      return response.data!;
+      return response.data;
     } catch (error) {
       apiLogger.error('Failed to fetch individual stock data', {
         symbol,
@@ -168,11 +168,11 @@ export class MarketApiClient {
         '/api/market-data/stocks/summary'
       );
 
-      if (!response.success) {
-        throw new Error(response.error?.message ?? 'Request failed');
+      if (!response.success || response.data === null) {
+        throw new Error(response.error?.message ?? API_REQUEST_FAILED);
       }
 
-      return response.data!;
+      return response.data;
     } catch (error) {
       apiLogger.error('Failed to fetch market summary', {
         error: safeError(error).message
@@ -190,11 +190,11 @@ export class MarketApiClient {
         `/api/market-data/prices/${symbol}`
       );
 
-      if (!response.success) {
-        throw new Error(response.error?.message ?? 'Request failed');
+      if (!response.success || response.data === null) {
+        throw new Error(response.error?.message ?? API_REQUEST_FAILED);
       }
 
-      return response.data!;
+      return response.data;
     } catch (error) {
       apiLogger.error('Failed to fetch stock price', {
         symbol,
@@ -214,11 +214,11 @@ export class MarketApiClient {
         { timeframe }
       );
 
-      if (!response.success) {
-        throw new Error(response.error?.message ?? 'Request failed');
+      if (!response.success || response.data === null) {
+        throw new Error(response.error?.message ?? API_REQUEST_FAILED);
       }
 
-      return response.data!;
+      return response.data;
     } catch (error) {
       apiLogger.error('Failed to fetch stock chart', {
         symbol,
@@ -249,11 +249,11 @@ export class MarketApiClient {
         { q: query, limit }
       );
 
-      if (!response.success) {
-        throw new Error(response.error?.message ?? 'Request failed');
+      if (!response.success || response.data === null) {
+        throw new Error(response.error?.message ?? API_REQUEST_FAILED);
       }
 
-      return response.data!;
+      return response.data;
     } catch (error) {
       apiLogger.error('Failed to search stocks', {
         query,
@@ -273,11 +273,11 @@ export class MarketApiClient {
         '/api/market-data/sectors'
       );
 
-      if (!response.success) {
-        throw new Error(response.error?.message ?? 'Request failed');
+      if (!response.success || response.data === null) {
+        throw new Error(response.error?.message ?? API_REQUEST_FAILED);
       }
 
-      return response.data!;
+      return response.data;
     } catch (error) {
       apiLogger.error('Failed to fetch sectors', {
         error: safeError(error).message
@@ -295,11 +295,11 @@ export class MarketApiClient {
         '/api/market-data/countries'
       );
 
-      if (!response.success) {
-        throw new Error(response.error?.message ?? 'Request failed');
+      if (!response.success || response.data === null) {
+        throw new Error(response.error?.message ?? API_REQUEST_FAILED);
       }
 
-      return response.data!;
+      return response.data;
     } catch (error) {
       apiLogger.error('Failed to fetch countries', {
         error: safeError(error).message
