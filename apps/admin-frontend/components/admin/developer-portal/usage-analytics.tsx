@@ -9,6 +9,11 @@ interface UsageAnalyticsProps {
     apiKeys: ApiKey[];
 }
 
+interface ExtendedApiKey extends ApiKey {
+    last_used_at?: string;
+    key_prefix?: string;
+}
+
 export const UsageAnalytics: React.FC<UsageAnalyticsProps> = ({ apiKeys }) => {
     return (
         <div className="space-y-6">
@@ -83,29 +88,33 @@ export const UsageAnalytics: React.FC<UsageAnalyticsProps> = ({ apiKeys }) => {
                                 </tr>
                             </thead>
                             <tbody>
-                                {apiKeys.map(apiKey => (
-                                    <tr key={apiKey.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                                        <td className="border border-gray-200 dark:border-gray-600 px-4 py-3 text-sm font-mono text-gray-900 dark:text-gray-100">
-                                            {apiKey.key_preview ?? (apiKey as any).key_prefix}...
-                                        </td>
-                                        <td className="border border-gray-200 dark:border-gray-600 px-4 py-3 text-sm text-gray-900 dark:text-gray-100">
-                                            {apiKey.client_name}
-                                        </td>
-                                        <td className="border border-gray-200 dark:border-gray-600 px-4 py-3 text-sm text-gray-900 dark:text-gray-100">
-                                            {Math.floor(
-                                                apiKey.total_requests * 0.1
-                                            ).toLocaleString()}
-                                        </td>
-                                        <td className="border border-gray-200 dark:border-gray-600 px-4 py-3 text-sm text-gray-900 dark:text-gray-100">
-                                            {apiKey.allowed_modules[0]?.module_name ?? 'N/A'}
-                                        </td>
-                                        <td className="border border-gray-200 dark:border-gray-600 px-4 py-3 text-sm text-gray-900 dark:text-gray-100">
-                                            {apiKey.last_used_at
-                                                ? new Date(apiKey.last_used_at).toLocaleDateString()
-                                                : 'Never'}
-                                        </td>
-                                    </tr>
-                                ))}
+                                {apiKeys.map(key => {
+                                    const apiKey = key as ExtendedApiKey;
+                                    const keyPreviewValue = apiKey.key_preview ?? apiKey.key_prefix ?? '';
+                                    return (
+                                        <tr key={apiKey.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                                            <td className="border border-gray-200 dark:border-gray-600 px-4 py-3 text-sm font-mono text-gray-900 dark:text-gray-100">
+                                                {keyPreviewValue !== '' ? `${keyPreviewValue}...` : '...'}
+                                            </td>
+                                            <td className="border border-gray-200 dark:border-gray-600 px-4 py-3 text-sm text-gray-900 dark:text-gray-100">
+                                                {apiKey.client_name}
+                                            </td>
+                                            <td className="border border-gray-200 dark:border-gray-600 px-4 py-3 text-sm text-gray-900 dark:text-gray-100">
+                                                {Math.floor(
+                                                    apiKey.total_requests * 0.1
+                                                ).toLocaleString()}
+                                            </td>
+                                            <td className="border border-gray-200 dark:border-gray-600 px-4 py-3 text-sm text-gray-900 dark:text-gray-100">
+                                                {apiKey.allowed_modules[0]?.module_name ?? 'N/A'}
+                                            </td>
+                                            <td className="border border-gray-200 dark:border-gray-600 px-4 py-3 text-sm text-gray-900 dark:text-gray-100">
+                                                {apiKey.last_used_at !== undefined && apiKey.last_used_at !== null && apiKey.last_used_at !== ''
+                                                    ? new Date(apiKey.last_used_at).toLocaleDateString()
+                                                    : 'Never'}
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
                             </tbody>
                         </table>
                     </div>

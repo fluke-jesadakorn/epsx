@@ -17,16 +17,49 @@ interface EditExpirationModalProps {
     isLoading?: boolean;
 }
 
-/**
- * Modal dialog for editing API key expiration date
- * @param root0
- * @param root0.isOpen
- * @param root0.onClose
- * @param root0.apiKey
- * @param root0.onUpdate
- * @param root0.isLoading
- */
-// eslint-disable-next-line max-lines-per-function
+const KeyInfo: React.FC<{ clientName: string; expiresAt?: string }> = ({ clientName, expiresAt }) => (
+    <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+        <div className="text-sm">
+            <div className="flex justify-between mb-1">
+                <span className="text-gray-500 dark:text-gray-400">API Key:</span>
+                <span className="font-medium text-gray-900 dark:text-gray-100">
+                    {clientName}
+                </span>
+            </div>
+            <div className="flex justify-between">
+                <span className="text-gray-500 dark:text-gray-400">Current Expiration:</span>
+                <span className="font-medium text-gray-900 dark:text-gray-100">
+                    {expiresAt !== undefined && expiresAt !== null && expiresAt !== ''
+                        ? new Date(expiresAt).toLocaleDateString()
+                        : 'Never'}
+                </span>
+            </div>
+        </div>
+    </div>
+);
+
+const PresetButtons: React.FC<{ onSetPreset: (days: number) => void; disabled: boolean }> = ({ onSetPreset, disabled }) => (
+    <div>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            Quick Presets
+        </label>
+        <div className="flex flex-wrap gap-2">
+            {[7, 30, 90, 365].map(days => (
+                <Button
+                    key={days}
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onSetPreset(days)}
+                    disabled={disabled}
+                >
+                    {days === 365 ? '1 Year' : `${days} Days`}
+                </Button>
+            ))}
+        </div>
+    </div>
+);
+
 export const EditExpirationModal: React.FC<EditExpirationModalProps> = ({
     isOpen,
     onClose,
@@ -34,15 +67,22 @@ export const EditExpirationModal: React.FC<EditExpirationModalProps> = ({
     onUpdate,
     isLoading = false,
 }) => {
-    const [expirationDate, setExpirationDate] = useState(
-        apiKey.expires_at
-            ? new Date(apiKey.expires_at).toISOString().slice(0, 16)
-            : ''
-    );
+    const getInitialDate = () => {
+        if (apiKey.expires_at !== undefined && apiKey.expires_at !== null && apiKey.expires_at !== '') {
+            try {
+                return new Date(apiKey.expires_at).toISOString().slice(0, 16);
+            } catch {
+                return '';
+            }
+        }
+        return '';
+    };
+
+    const [expirationDate, setExpirationDate] = useState(getInitialDate());
     const [removeExpiration, setRemoveExpiration] = useState(false);
     const [error, setError] = useState('');
 
-    if (!isOpen) {return null;}
+    if (!isOpen) { return null; }
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -51,7 +91,7 @@ export const EditExpirationModal: React.FC<EditExpirationModalProps> = ({
         try {
             if (removeExpiration) {
                 await onUpdate(apiKey.id, null);
-            } else if (expirationDate) {
+            } else if (expirationDate !== '') {
                 // Convert to ISO format with timezone
                 const isoDate = new Date(expirationDate).toISOString();
                 await onUpdate(apiKey.id, isoDate);
@@ -60,23 +100,18 @@ export const EditExpirationModal: React.FC<EditExpirationModalProps> = ({
                 return;
             }
             onClose();
-        } catch (err) {
+        } catch (_err) {
             setError('Failed to update expiration. Please try again.');
         }
     };
 
     const handleClose = () => {
-        setExpirationDate(
-            apiKey.expires_at
-                ? new Date(apiKey.expires_at).toISOString().slice(0, 16)
-                : ''
-        );
+        setExpirationDate(getInitialDate());
         setRemoveExpiration(false);
         setError('');
         onClose();
     };
 
-    // Quick date presets
     const setPreset = (days: number) => {
         const date = new Date();
         date.setDate(date.getDate() + days);
@@ -87,7 +122,6 @@ export const EditExpirationModal: React.FC<EditExpirationModalProps> = ({
     return (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md mx-4">
-                {/* Header */}
                 <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
                     <div className="flex items-center space-x-3">
                         <div className="p-2 bg-blue-100 dark:bg-blue-900/50 rounded-lg">
@@ -105,75 +139,11 @@ export const EditExpirationModal: React.FC<EditExpirationModalProps> = ({
                     </button>
                 </div>
 
-                {/* Body */}
-                <form onSubmit={handleSubmit}>
+                <form onSubmit={(e) => { void handleSubmit(e); }}>
                     <div className="p-6 space-y-4">
-                        {/* Key Info */}
-                        <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
-                            <div className="text-sm">
-                                <div className="flex justify-between mb-1">
-                                    <span className="text-gray-500 dark:text-gray-400">API Key:</span>
-                                    <span className="font-medium text-gray-900 dark:text-gray-100">
-                                        {apiKey.client_name}
-                                    </span>
-                                </div>
-                                <div className="flex justify-between">
-                                    <span className="text-gray-500 dark:text-gray-400">Current Expiration:</span>
-                                    <span className="font-medium text-gray-900 dark:text-gray-100">
-                                        {apiKey.expires_at
-                                            ? new Date(apiKey.expires_at).toLocaleDateString()
-                                            : 'Never'}
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
+                        <KeyInfo clientName={apiKey.client_name} expiresAt={apiKey.expires_at} />
+                        <PresetButtons onSetPreset={setPreset} disabled={removeExpiration} />
 
-                        {/* Quick Presets */}
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                Quick Presets
-                            </label>
-                            <div className="flex flex-wrap gap-2">
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => setPreset(7)}
-                                    disabled={removeExpiration}
-                                >
-                                    7 Days
-                                </Button>
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => setPreset(30)}
-                                    disabled={removeExpiration}
-                                >
-                                    30 Days
-                                </Button>
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => setPreset(90)}
-                                    disabled={removeExpiration}
-                                >
-                                    90 Days
-                                </Button>
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => setPreset(365)}
-                                    disabled={removeExpiration}
-                                >
-                                    1 Year
-                                </Button>
-                            </div>
-                        </div>
-
-                        {/* Date Input */}
                         <div>
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                 Custom Expiration Date
@@ -191,7 +161,6 @@ export const EditExpirationModal: React.FC<EditExpirationModalProps> = ({
                             />
                         </div>
 
-                        {/* Remove Expiration Option */}
                         <div className="flex items-center space-x-2">
                             <input
                                 type="checkbox"
@@ -213,13 +182,11 @@ export const EditExpirationModal: React.FC<EditExpirationModalProps> = ({
                             </label>
                         </div>
 
-                        {/* Error */}
-                        {error && (
+                        {error !== '' && (
                             <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
                         )}
                     </div>
 
-                    {/* Footer */}
                     <div className="p-6 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50 flex justify-end space-x-3 rounded-b-lg">
                         <Button
                             type="button"
@@ -231,7 +198,7 @@ export const EditExpirationModal: React.FC<EditExpirationModalProps> = ({
                         </Button>
                         <Button
                             type="submit"
-                            disabled={isLoading ?? (!expirationDate && !removeExpiration)}
+                            disabled={isLoading || (expirationDate === '' && !removeExpiration)}
                         >
                             {isLoading ? 'Updating...' : 'Update Expiration'}
                         </Button>
