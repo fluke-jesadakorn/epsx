@@ -12,6 +12,7 @@ export default async function AdminDashboardPage() {
     // Fetch recent wallets on server
     initialRecentWallets = await getRecentWalletsAction(10, 30);
   } catch (err: unknown) {
+    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
     if (err instanceof Error && (err as { digest?: string }).digest?.startsWith('NEXT_REDIRECT')) {
       throw err;
     }
