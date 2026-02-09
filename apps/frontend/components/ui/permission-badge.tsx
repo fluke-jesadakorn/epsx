@@ -100,7 +100,7 @@ function getPermissionIcon(permission: string): React.ElementType {
  * <PermissionBadge permission="epsx:analytics:view" showNote />
  * // Displays: "View Analytics" with tooltip showing "View basic analytics..."
  */
-// eslint-disable-next-line complexity
+ 
 export function PermissionBadge({
     permission,
     showNote = true,

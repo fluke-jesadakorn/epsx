@@ -20,7 +20,7 @@ const parseLimit = (
     permission: string | undefined,
     defaultValue: number
 ): number => {
-    if (!permission) {
+    if (permission === undefined || permission === '') {
         return defaultValue
     }
     const parts = permission.split(':')

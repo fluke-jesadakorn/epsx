@@ -142,8 +142,7 @@ interface AnalyticsData {
     recentlyGranted?: { permission: string; grantedAt: string }[];
   };
 }
-
-/* eslint-disable max-lines-per-function,complexity */
+ 
 function PermissionCard({ permission, definitions }: { permission: TimestampedPermission; definitions: Map<string, PermissionDefinition> }) {
   const platform = getPlatformFromPermission(permission.basePermission);
   const Icon = getPermissionIcon(permission.basePermission);
@@ -287,7 +286,6 @@ function PermissionCard({ permission, definitions }: { permission: TimestampedPe
 
   return cardContent;
 }
-/* eslint-enable max-lines-per-function,complexity */
 
 function PermissionStats({
   permissions,
@@ -470,7 +468,7 @@ function PermissionHistory({ history }: { history: PermissionHistoryItem[] }) {
   );
 }
 
-/* eslint-disable max-lines-per-function,complexity,promise/prefer-await-to-then,no-empty */
+/* eslint-disable no-empty */
 export default function PermissionsPage() {
   const { user, isLoading: _isLoading } = useAuth();
   const { base } = useApiClient({ platform: 'frontend' });
@@ -857,4 +855,4 @@ export default function PermissionsPage() {
     </div>
   );
 }
-/* eslint-enable max-lines-per-function,complexity,promise/prefer-await-to-then,no-empty */
+/* eslint-enable no-empty */

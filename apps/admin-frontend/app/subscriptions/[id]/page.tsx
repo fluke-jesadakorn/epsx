@@ -29,6 +29,8 @@ import {
 import { Badge, Button as BaseButton, Card as BaseCard } from '@/shared/components/ui'
 import { createAdminApiClient } from '@/shared/utils/api-client'
 
+const SUBSCRIPTIONS_ROUTE = '/subscriptions' as const;
+
 interface TimelineItemProps {
     label: string
     value: string
@@ -67,7 +69,7 @@ function useSubscriptionFetchers(subscriptionId: string) {
                     description: response.error?.message ?? 'Subscription not found',
                     variant: 'destructive',
                 })
-                router.push('/subscriptions')
+                router.push(SUBSCRIPTIONS_ROUTE)
             }
         } catch (error) {
             logger.error('Failed to load subscription', { error, subscriptionId })
@@ -76,7 +78,7 @@ function useSubscriptionFetchers(subscriptionId: string) {
                 description: 'Failed to load subscription data',
                 variant: 'destructive',
             })
-            router.push('/subscriptions')
+            router.push(SUBSCRIPTIONS_ROUTE)
         } finally {
             setLoading(false)
         }
@@ -173,7 +175,7 @@ function useSubscriptionDetails(subscriptionId: string) {
             const response = await adminClient.cancelSubscription(subscriptionId)
             if (isApiSuccess(response)) {
                 toast({ title: 'Success', description: 'Subscription cancelled successfully' })
-                router.push('/subscriptions')
+                router.push(SUBSCRIPTIONS_ROUTE)
             } else {
                 toast({
                     title: 'Error',
@@ -245,7 +247,7 @@ export default function SubscriptionDetailPage() {
     } = useSubscriptionDetails(subscriptionId)
 
     const formatDate = (dateString?: string) => {
-        if (!dateString) {
+        if (dateString === undefined || dateString === '') {
             return 'Never'
         }
         try {
@@ -257,7 +259,7 @@ export default function SubscriptionDetailPage() {
     }
 
     const formatUsage = (usage?: Record<string, unknown>) => {
-        if (!usage ?? Object.keys(usage).length === 0) {
+        if (usage === undefined || Object.keys(usage).length === 0) {
             return 'No usage data'
         }
         return Object.entries(usage)
@@ -283,7 +285,7 @@ export default function SubscriptionDetailPage() {
             <div className="min-h-screen p-6 flex items-center justify-center">
                 <div className="text-center space-y-4">
                     <h2 className="text-xl font-semibold">Subscription not found</h2>
-                    <BaseButton onClick={() => { router.push('/subscriptions') }}>
+                    <BaseButton onClick={() => { router.push(SUBSCRIPTIONS_ROUTE) }}>
                         Back to Subscriptions
                     </BaseButton>
                 </div>
@@ -298,7 +300,7 @@ export default function SubscriptionDetailPage() {
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
                         <Link
-                            href="/subscriptions"
+                            href={SUBSCRIPTIONS_ROUTE}
                             className="p-2 rounded-xl bg-card border border-border/50 hover:border-primary/50 transition-colors"
                         >
                             <ArrowLeft className="h-5 w-5" />
@@ -354,7 +356,7 @@ export default function SubscriptionDetailPage() {
                 )}
 
                 <div className="flex gap-4 pt-4">
-                    <Link href="/subscriptions" className="flex-1">
+                    <Link href={SUBSCRIPTIONS_ROUTE} className="flex-1">
                         <BaseButton variant="outline" className="w-full">
                             Return to Registry
                         </BaseButton>
@@ -388,7 +390,7 @@ function IdentityInfoCard({ subscription }: { subscription: SubscriptionResponse
                 <InfoItem icon={<Hash />} label="Subscription ID" value={subscription.id} mono />
                 <InfoItem icon={<User />} label="User ID" value={subscription.user_id} mono />
                 <InfoItem icon={<ShieldCheck />} label="Access Context" value={subscription.access_context.toUpperCase()} />
-                {subscription.api_key_name && (
+                {subscription.api_key_name !== undefined && subscription.api_key_name !== '' && (
                     <InfoItem icon={<Shield />} label="API Key" value={subscription.api_key_name} />
                 )}
             </div>
@@ -511,12 +513,12 @@ function AdminOverridesCard({ editData, setEditData, plans, saving, onSave, onCa
                         <div className="relative">
                             <input
                                 type="checkbox"
-                                checked={editData.auto_renew}
+                                checked={editData.auto_renew === true}
                                 onChange={(e) => { setEditData({ ...editData, auto_renew: e.target.checked }) }}
                                 className="sr-only"
                             />
-                            <div className={`w-12 h-6 rounded-full transition-colors ${editData.auto_renew ? 'bg-primary' : 'bg-muted'}`} />
-                            <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${editData.auto_renew ? 'translate-x-6' : ''}`} />
+                            <div className={`w-12 h-6 rounded-full transition-colors ${editData.auto_renew === true ? 'bg-primary' : 'bg-muted'}`} />
+                            <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${editData.auto_renew === true ? 'translate-x-6' : ''}`} />
                         </div>
                         <span className="text-sm font-medium">Automatic Renewal</span>
                     </label>

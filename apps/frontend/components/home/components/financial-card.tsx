@@ -1,4 +1,4 @@
-/* eslint-disable max-lines-per-function, complexity */
+ 
 import React from 'react';
 import { GRADIENTS, COLORS, TYPOGRAPHY, ANIMATIONS } from '../constants/styles';
 import { GrowthIndicator, TrendIcon, AnimatedBadge } from './growth-indicators';

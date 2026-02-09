@@ -89,8 +89,7 @@ export class Logger {
       .replace(/bearer\s+[^\s,}]+/gi, 'bearer ***')
       .replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, '***@***.***');
   }
-
-  /* eslint-disable complexity,max-depth */
+   
   private sanitizeData(data: unknown, seen = new WeakSet()): unknown {
     if (data === null || data === undefined) {return data;}
 
@@ -165,7 +164,6 @@ export class Logger {
       return String(data);
     }
   }
-  /* eslint-enable complexity,max-depth */
 
   /* eslint-disable no-console */
   private log(level: LogLevel['level'], message: string, data?: unknown): void {
@@ -283,8 +281,7 @@ export interface SafeErrorResult {
   code?: string;
   status?: number;
 }
-
-/* eslint-disable complexity */
+ 
 export function safeError(error: unknown): SafeErrorResult {
   if (error instanceof Error) {
     return {
@@ -318,7 +315,6 @@ export function safeError(error: unknown): SafeErrorResult {
 
   return { message: 'Unknown error occurred' };
 }
-/* eslint-enable complexity */
 
 // ============================================================================
 // Console Replacer

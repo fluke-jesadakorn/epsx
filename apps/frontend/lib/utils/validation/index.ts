@@ -123,7 +123,7 @@ export interface ValidationResult {
 }
 
 export class InputValidator {
-  /* eslint-disable complexity */
+   
   validate(value: unknown, rules: ValidationRule): ValidationResult {
     const errors: string[] = [];
 
@@ -188,9 +188,7 @@ export class InputValidator {
       value: this.convertType(value, rules.type)
     };
   }
-  /* eslint-enable complexity */
-
-  /* eslint-disable complexity */
+   
   private validateType(value: unknown, type: ValidationRule['type']): string | null {
     if (type === undefined) {
       return null;
@@ -228,7 +226,6 @@ export class InputValidator {
         return null;
     }
   }
-  /* eslint-enable complexity */
 
   private convertType(value: unknown, type?: ValidationRule['type']): unknown {
     if (type === undefined) {return value;}

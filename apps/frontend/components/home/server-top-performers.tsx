@@ -1,4 +1,4 @@
-/* eslint-disable complexity */
+ 
 import { getRankingsAction } from '@/app/actions/analytics';
 import { StockDataCard } from '@/shared/components';
 

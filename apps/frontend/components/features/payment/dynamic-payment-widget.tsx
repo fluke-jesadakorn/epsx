@@ -8,8 +8,6 @@
  * - Supports plan, group, product, campaign, and custom contexts
  */
 
-/* eslint-disable max-depth */
-
 'use client';
 
 import { AlertTriangle, CheckCircle, Loader2, RefreshCw } from 'lucide-react';
@@ -94,8 +92,7 @@ interface DynamicPaymentWidgetProps {
     onPaymentSuccess?: (txHash: string) => void;
     onPaymentError?: (error: Error) => void;
 }
-
-// eslint-disable-next-line max-lines-per-function,complexity
+ 
 export function DynamicPaymentWidget({
     context,
     className,
@@ -169,7 +166,7 @@ export function DynamicPaymentWidget({
     const apiClient = createFrontendApiClient();
 
     // Fetch payment context data
-    // eslint-disable-next-line complexity
+     
     const fetchPaymentData = useCallback(async () => {
         setLoading(true);
         setError(null);

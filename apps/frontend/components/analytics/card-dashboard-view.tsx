@@ -1,4 +1,4 @@
-/* eslint-disable max-lines-per-function */
+ 
 'use client';
 
 import { Button } from '@/components/ui/button';
@@ -125,8 +125,7 @@ interface AdvancedFilters {
   page: number;
   limit: number;
 }
-
-// eslint-disable-next-line complexity
+ 
 export function CardDashboardView({ className = '' }: CardDashboardViewProps) {
   const [data, setData] = useState<CardDashboardResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -366,8 +365,7 @@ export function CardDashboardView({ className = '' }: CardDashboardViewProps) {
   const formatPercentage = (value: number) => {
     return `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`;
   };
-
-  // eslint-disable-next-line complexity
+   
   const SymbolCard = ({ cardData, isOverlay = false }: { cardData: SymbolCardData; isOverlay?: boolean }) => {
     const quarters = cardData.quarterly_performance.slice(0, 2);
     const latestQuarter = quarters[0] as QuarterlyPerformanceData | undefined;

@@ -1,4 +1,4 @@
-/* eslint-disable max-depth */
+ 
 'use client';
 
 import { useRouter } from 'next/navigation';
@@ -78,8 +78,7 @@ function isEthProvider(data: unknown): data is EthProvider {
 function isValidAccountList(data: unknown): data is string[] {
   return Array.isArray(data) && data.length > 0 && typeof data[0] === 'string';
 }
-
-// eslint-disable-next-line max-lines-per-function
+ 
 export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
   const router = useRouter();
   const { address, isConnected, connector, chain } = useAccount();
@@ -417,8 +416,7 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
     }
     return `Wallet authorization failed: ${err.message ?? 'Unknown error'}`;
   };
-
-  // eslint-disable-next-line max-lines-per-function, complexity
+   
   const authenticate = useCallback(async () => {
     if (address === null || address === undefined) {
       toast.error('Please connect your wallet first');
@@ -608,8 +606,7 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
       toast.error(errorMessage);
     }
   }, [address, signMessageAsync, refreshPermissions, chain, connector, state.isAuthenticating]);  
-
-  // eslint-disable-next-line complexity
+   
   const disconnect = useCallback(async () => {
     try {
       // Step 1: Disconnect individual connector FIRST (if available)

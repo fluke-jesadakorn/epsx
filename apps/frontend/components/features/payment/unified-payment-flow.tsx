@@ -1,4 +1,4 @@
-/* eslint-disable max-depth, max-lines-per-function */
+ 
 'use client';
 
 /**
@@ -92,8 +92,7 @@ const PAYMENT_TOKENS: PaymentToken[] = [
     { symbol: 'USDT', name: 'Tether USD', decimals: 18 },
     { symbol: 'USDC', name: 'USD Coin', decimals: 18 },
 ];
-
-// eslint-disable-next-line complexity
+ 
 export function UnifiedPaymentFlow({
     paymentType,
     preselectedId,

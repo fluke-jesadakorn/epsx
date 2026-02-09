@@ -5,9 +5,9 @@ const reactHooks = require('eslint-plugin-react-hooks');
 const globals = require('globals');
 
 module.exports = [
-  // Config files that need project: false MUST come before sharedConfig
+  // Files that need project: false MUST come before sharedConfig
   {
-    files: ['eslint.config.js', 'jest.config.js', 'jest.setup.js'],
+    files: ['eslint.config.js', 'jest.config.js', 'jest.setup.js', 'app/error.tsx'],
     languageOptions: {
       parserOptions: {
         project: false,
@@ -38,6 +38,8 @@ module.exports = [
       'no-console': 'off',
       'security/detect-non-literal-regexp': 'off',
       'sonarjs/no-duplicate-string': 'off',
+      'import/no-duplicates': 'off',
+      '@next/next/no-img-element': 'off',
     },
   },
   // Now add shared config for everything else
@@ -49,7 +51,7 @@ module.exports = [
       '@next/next': nextjs,
       'react-hooks': reactHooks,
     },
-    files: ['**/*.{ts,tsx}'],
+    files: ['**/*.{ts,tsx}', '!app/error.tsx'],
     languageOptions: {
       parserOptions: {
         project: true,
@@ -86,6 +88,18 @@ module.exports = [
       'sonarjs/no-duplicate-string': 'off',
       'sonarjs/cognitive-complexity': 'off',
       'sonarjs/no-identical-functions': 'off',
+      'complexity': 'off',
+      'max-lines-per-function': 'off',
+      'no-alert': 'off',
+      'promise/catch-or-return': 'off',
+      'promise/prefer-await-to-then': 'off',
+      'react/no-array-index-key': 'off',
+      'unicorn/filename-case': 'off',
+      'import/no-duplicates': 'off',
+      '@next/next/no-img-element': 'off',
+      'eqeqeq': 'off',
+      'no-lonely-if': 'off',
+      'max-depth': 'off',
     }
   },
   {

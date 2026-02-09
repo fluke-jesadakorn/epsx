@@ -16,8 +16,7 @@ interface PaymentConfirmRequest {
 
 // Note: Blockchain validation is now handled by the backend API
 // Frontend only handles authentication and API communication
-
-// eslint-disable-next-line complexity
+ 
 export async function POST(req: NextRequest) {
     try {
         // 1. Authenticate user using Web3 cookies

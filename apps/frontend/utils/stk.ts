@@ -75,7 +75,7 @@ export const avgEps = (stock: StockData): number | null => {
 export const cmpLast = (stock: StockData) => stock.quarters[0]?.last_eps_vs_current_price ?? null
 
 export const align = (comp: { lastEpsGrowth: number | null; currentPriceGrowth: number | null } | null): 'pos' | 'neg' | 'neutral' | null => {
-  // eslint-disable-next-line eqeqeq
+   
   if (comp?.lastEpsGrowth == null || comp.currentPriceGrowth == null) { return null }
   const { lastEpsGrowth, currentPriceGrowth } = comp
   if ((lastEpsGrowth > 0 && currentPriceGrowth > 0) || (lastEpsGrowth < 0 && currentPriceGrowth < 0)) { return 'pos' }

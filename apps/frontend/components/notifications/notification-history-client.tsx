@@ -358,7 +358,7 @@ export function NotificationHistoryClient({
   }
 
   const handleClearHistory = () => {
-    // eslint-disable-next-line no-alert
+     
     if (!confirm('Are you sure you want to clear all notification history? This cannot be undone.')) {
       return
     }

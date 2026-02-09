@@ -1,6 +1,6 @@
 'use server';
 
-import type { CreatePermissionRequest, PermissionDefinition} from '@/lib/api/permissions-client';
+import type { CreatePermissionRequest, PermissionDefinition } from '@/lib/api/permissions-client';
 import { permissionsClient } from '@/lib/api/permissions-client';
 import { getAdminServerActionClient } from '@/shared/utils/server-fetch';
 import { revalidatePath } from 'next/cache';
@@ -13,7 +13,7 @@ export interface ActionResponse<T> {
 
 export async function getPermissionsAction(): Promise<ActionResponse<PermissionDefinition[]>> {
     try {
-        const client = await getAdminServerActionClient();
+        const client = getAdminServerActionClient();
         const permissions = await permissionsClient.listPermissions(client);
         return { success: true, data: permissions };
     } catch (error) {
@@ -27,7 +27,7 @@ export async function getPermissionsAction(): Promise<ActionResponse<PermissionD
 
 export async function createPermissionAction(data: CreatePermissionRequest): Promise<ActionResponse<PermissionDefinition>> {
     try {
-        const client = await getAdminServerActionClient();
+        const client = getAdminServerActionClient();
         const permission = await permissionsClient.createPermission(data, client);
         revalidatePath('/wallet-management/access');
         return { success: true, data: permission };
@@ -42,7 +42,7 @@ export async function createPermissionAction(data: CreatePermissionRequest): Pro
 
 export async function deletePermissionAction(id: string): Promise<ActionResponse<void>> {
     try {
-        const client = await getAdminServerActionClient();
+        const client = getAdminServerActionClient();
         await permissionsClient.deletePermission(id, client);
         revalidatePath('/wallet-management/access');
         return { success: true };
@@ -57,7 +57,7 @@ export async function deletePermissionAction(id: string): Promise<ActionResponse
 
 export async function updatePermissionAction(id: string, data: Partial<CreatePermissionRequest>): Promise<ActionResponse<PermissionDefinition>> {
     try {
-        const client = await getAdminServerActionClient();
+        const client = getAdminServerActionClient();
         const permission = await permissionsClient.updatePermission(id, data, client);
         revalidatePath('/wallet-management/access');
         return { success: true, data: permission };

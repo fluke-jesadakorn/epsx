@@ -25,8 +25,7 @@ function isPermissionError(error: Error): boolean {
          message.includes('forbidden') ||
          message.includes('permission denied');
 }
-
-// eslint-disable-next-line max-lines-per-function
+ 
 export default function Error({ error, reset }: ErrorPageProps) {
   React.useEffect(() => {
     // Error logging handled by error boundary

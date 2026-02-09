@@ -58,8 +58,7 @@ const walletProviders: Record<string, WalletProviderInfo> = {
     color: 'bg-gradient-to-r from-pink-500 to-violet-500',
   },
 };
-
-// eslint-disable-next-line max-lines-per-function, complexity
+ 
 export function WalletProviderIcon({ className = '', compact = false }: WalletProviderIconProps) {
   const router = useRouter();
   const pathname = usePathname();
