@@ -75,7 +75,7 @@ export function getStockFinancialDataCount(
   try {
     // Check count cache first
     const now = Date.now();
-    if (countCache !== null && countCache !== undefined && now - countCache.timestamp < countCache.ttl * 1000) {
+    if (countCache && now - countCache.timestamp < countCache.ttl * 1000) {
       return countCache.count;
     }
 

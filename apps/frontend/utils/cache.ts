@@ -28,7 +28,7 @@ export const clean = (): void => {
 }
 
 export const clear = (key?: string): void => {
-  if (key !== null && key !== undefined) {
+  if (key !== undefined) {
     cache.delete(key)
   } else {
     cache.clear()

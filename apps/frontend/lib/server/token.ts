@@ -55,6 +55,33 @@ export async function getWeb3SignatureFromCookies(): Promise<string | null> {
   }
 }
 
+function extractSubFromUserInfo(userInfo: Web3UserInfo): string {
+  if (typeof userInfo.wallet_address === 'string') {
+    return userInfo.wallet_address;
+  }
+  if (typeof userInfo.id === 'string') {
+    return userInfo.id;
+  }
+  return '';
+}
+
+async function fetchUserInfoFromWeb3Backend(sessionToken: string, walletAddress: string): Promise<unknown> {
+  const backendUrl = clientConfig.backendUrl || 'http://127.0.0.1:8080';
+  const response = await fetch(`${backendUrl}/api/auth/web3/user`, {
+    headers: {
+      'Authorization': `Bearer ${sessionToken}`,
+      'Content-Type': 'application/json',
+      'X-Wallet-Address': walletAddress
+    }
+  });
+
+  if (!response.ok) {
+    return null;
+  }
+
+  return response.json() as Promise<unknown>;
+}
+
 /**
  * Web3-First: Get user info from backend using Web3 session
  */
@@ -67,28 +94,12 @@ export async function getUserInfoFromWeb3(): Promise<EPSXJWTPayload | null> {
       return null;
     }
 
-    // Get user info from backend Web3 authentication endpoint
-    const backendUrl = clientConfig.backendUrl ?? 'http://127.0.0.1:8080';
-    const response = await fetch(`${backendUrl}/api/auth/web3/user`, {
-      headers: {
-        'Authorization': `Bearer ${sessionToken}`,
-        'Content-Type': 'application/json',
-        'X-Wallet-Address': walletAddress
-      }
-    });
-
-    if (!response.ok) {
-      return null;
-    }
-
-    const userInfo = await response.json() as unknown;
-
+    const userInfo = await fetchUserInfoFromWeb3Backend(sessionToken, walletAddress);
     if (!isWeb3UserInfo(userInfo)) {
       return null;
     }
 
-    // Convert to EPSXJWTPayload format for compatibility
-    const sub = typeof userInfo.wallet_address === 'string' ? userInfo.wallet_address : (typeof userInfo.id === 'string' ? userInfo.id : '');
+    const sub = extractSubFromUserInfo(userInfo);
     if (!sub) {
       return null;
     }
@@ -99,7 +110,7 @@ export async function getUserInfoFromWeb3(): Promise<EPSXJWTPayload | null> {
       wallet_address: typeof userInfo.wallet_address === 'string' ? userInfo.wallet_address : '',
       email: typeof userInfo.email === 'string' ? userInfo.email : '',
       name: typeof userInfo.name === 'string' ? userInfo.name : '',
-      permissions: Array.isArray(userInfo.permissions) ? userInfo.permissions : [],
+      permissions: Array.isArray(userInfo.permissions) ? (userInfo.permissions as string[]) : [],
       platform_context: userInfo.platform_context,
       exp: Math.floor(Date.now() / 1000) + (60 * 60), // 1 hour from now
       iat: Math.floor(Date.now() / 1000),

@@ -122,7 +122,7 @@ class FeatureFlagService {
   public isEnabled(flagKey: string, userId?: string): boolean {
     const flag = this.flags[flagKey];
 
-    if (flag === undefined) {
+    if (!flag) {
       return false;
     }
 
@@ -168,7 +168,7 @@ class FeatureFlagService {
 
   public updateFlag(key: string, updates: Partial<FeatureFlag>): void {
     const existingFlag = this.flags[key];
-    if (existingFlag !== undefined) {
+    if (existingFlag) {
       this.flags[key] = { ...existingFlag, ...updates };
 
       // In production, persist changes to configuration service
@@ -199,7 +199,7 @@ class FeatureFlagService {
   // Gradual rollout helpers
   public increaseRollout(flagKey: string, percentage: number): void {
     const flag = this.flags[flagKey];
-    if (flag !== undefined) {
+    if (flag) {
       const newPercentage = Math.min(100, flag.rolloutPercentage + percentage);
       this.updateFlag(flagKey, { rolloutPercentage: newPercentage });
       // Increased rollout for feature flag
@@ -208,7 +208,7 @@ class FeatureFlagService {
 
   public decreaseRollout(flagKey: string, percentage: number): void {
     const flag = this.flags[flagKey];
-    if (flag !== undefined) {
+    if (flag) {
       const newPercentage = Math.max(0, flag.rolloutPercentage - percentage);
       this.updateFlag(flagKey, { rolloutPercentage: newPercentage });
       // Decreased rollout for feature flag

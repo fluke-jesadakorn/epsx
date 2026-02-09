@@ -304,21 +304,25 @@ export const object = {
 
     if (object.isObject(target) && object.isObject(source)) {
       for (const key in source) {
-        const sourceValue = source[key];
-        const targetValue = target[key];
-
-        if (object.isObject(sourceValue)) {
-          if (targetValue === undefined || targetValue === null) {
-            Object.assign(target, { [key]: {} });
-          }
-          object.merge(target[key] as object, sourceValue as object);
-        } else {
-          Object.assign(target, { [key]: sourceValue });
-        }
+        this._mergeKey(target, source, key);
       }
     }
 
     return object.merge(target, ...sources);
+  },
+
+  _mergeKey<T extends object>(target: T, source: Partial<T>, key: string): void {
+    const sourceValue = source[key as keyof typeof source];
+    const targetValue = target[key as keyof T];
+
+    if (object.isObject(sourceValue)) {
+      if (targetValue === undefined || targetValue === null) {
+        Object.assign(target, { [key]: {} });
+      }
+      object.merge(target[key as keyof T] as object, sourceValue as object);
+    } else {
+      Object.assign(target, { [key]: sourceValue });
+    }
   },
 
   /**
@@ -451,11 +455,8 @@ export async function copyToClipboard(text: string): Promise<boolean> {
   if (!isBrowser()) { return false; }
 
   try {
-    if (navigator.clipboard !== undefined) {
-      await navigator.clipboard.writeText(text);
-      return true;
-    }
-    throw new Error('Clipboard API not available');
+    await navigator.clipboard.writeText(text);
+    return true;
   } catch (_error) {
     // Fallback for older browsers
     try {

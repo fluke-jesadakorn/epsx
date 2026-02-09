@@ -36,6 +36,16 @@ export interface ValidationResult<T> {
   error?: string;
 }
 
+function buildFieldErrors(flattenedErrors: Record<string, string[] | undefined>): Record<string, string[]> {
+  const fieldErrors: Record<string, string[]> = {};
+  for (const [key, value] of Object.entries(flattenedErrors)) {
+    if (Array.isArray(value)) {
+      fieldErrors[key] = value as string[];
+    }
+  }
+  return fieldErrors;
+}
+
 export function validateFormData<T>(
   schema: z.ZodSchema<T>,
   data: unknown
@@ -45,13 +55,7 @@ export function validateFormData<T>(
 
     if (!result.success) {
       const flattenedErrors = result.error.flatten().fieldErrors;
-      // Filter out undefined values to match Record<string, string[]> type
-      const fieldErrors: Record<string, string[]> = {};
-      for (const [key, value] of Object.entries(flattenedErrors)) {
-        if (Array.isArray(value)) {
-          fieldErrors[key] = value as string[];
-        }
-      }
+      const fieldErrors = buildFieldErrors(flattenedErrors);
       return {
         success: false,
         fieldErrors,
