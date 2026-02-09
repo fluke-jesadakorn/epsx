@@ -1,17 +1,16 @@
 'use client';
 
 import { useState } from 'react';
-import { 
-  Zap, 
-  ArrowRight, 
-  Check, 
-  Star, 
+import {
+  Zap,
+  ArrowRight,
+  Check,
+  Star,
   Shield,
   Clock
 } from 'lucide-react';
 import { Card, CardContent, Button, Badge } from '@/components/ui';
 import type { PermissionTemplateName } from '@/app/constants/packages';
-import { PERMISSION_TEMPLATES } from '@/app/constants/packages';
 
 interface PaymentWidgetProps {
   title?: string;
@@ -54,12 +53,12 @@ export default function PaymentWidget({
   templates = defaultTemplates,
   className = ''
 }: PaymentWidgetProps) {
-  const [selectedTemplate, setSelectedTemplate] = useState(templates.find(t => t.popular)?.id ?? templates[0]?.id);
+  const [selectedTemplate, setSelectedTemplate] = useState(templates.find(t => (t.popular ?? false))?.id ?? templates[0]?.id);
 
   const selectedTemplate_obj = templates.find(t => t.id === selectedTemplate);
 
   const handlePayNow = () => {
-    if (selectedTemplate_obj) {
+    if (selectedTemplate_obj !== undefined) {
       // Redirect to main payment page with Web3-first flow
       window.location.href = `/payment?package=${selectedTemplate_obj.id}`;
     }
@@ -90,7 +89,7 @@ export default function PaymentWidget({
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1 flex-wrap">
                       <span className="font-semibold text-gray-900 dark:text-white text-sm sm:text-base">{template.name}</span>
-                      {template.popular && (
+                      {(template.popular ?? false) && (
                         <Badge className="text-xs bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200 flex items-center gap-1">
                           <Star className="h-3 w-3" />
                           Popular
