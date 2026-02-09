@@ -6,7 +6,7 @@
 
 'use client';
 
-import { AlertTriangle, Check, CheckSquare, ChevronLeft, ChevronRight, Key, Loader2, Package, Plus, Search, Square, Users, X } from 'lucide-react';
+import { AlertTriangle, Check, CheckSquare, ChevronLeft, ChevronRight, Key, Loader2, Package, Plus, RefreshCw, Search, Shield, Square, Users, X } from 'lucide-react';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
@@ -615,6 +615,29 @@ interface ItemCardInfoProps {
     pendingChange?: PendingChange;
 }
 
+function ItemCardExpiry({ isAuthorized, expiresAt, isPendingAdd, pendingExpiresAt }: {
+    isAuthorized?: boolean;
+    expiresAt?: string | null;
+    isPendingAdd: boolean;
+    pendingExpiresAt?: string | null;
+}) {
+    if (isAuthorized === true && expiresAt !== null && expiresAt !== undefined) {
+        return (
+            <p className="text-xs text-amber-600 dark:text-amber-400 font-medium">
+                Expires: {new Date(expiresAt).toLocaleDateString()}
+            </p>
+        );
+    }
+    if (isPendingAdd === true && pendingExpiresAt !== null && pendingExpiresAt !== undefined) {
+        return (
+            <p className="text-xs text-green-600 dark:text-green-400 font-medium">
+                Will expire: {new Date(pendingExpiresAt).toLocaleDateString()}
+            </p>
+        );
+    }
+    return null;
+}
+
 function ItemCardInfo({ item, isAuthorized, isPendingAdd, pendingChange }: ItemCardInfoProps) {
     const config = (ITEM_CONFIG[item.type as keyof typeof ITEM_CONFIG] as typeof ITEM_CONFIG.permission | undefined) ?? ITEM_CONFIG.permission;
 
@@ -635,16 +658,12 @@ function ItemCardInfo({ item, isAuthorized, isPendingAdd, pendingChange }: ItemC
                         {item.permissionCount} permissions
                     </p>
                 )}
-                {isAuthorized === true && item.expiresAt !== null && item.expiresAt !== undefined && (
-                    <p className="text-xs text-amber-600 dark:text-amber-400 font-medium">
-                        Expires: {new Date(item.expiresAt).toLocaleDateString()}
-                    </p>
-                )}
-                {isPendingAdd === true && pendingChange?.expiresAt !== null && pendingChange?.expiresAt !== undefined && (
-                    <p className="text-xs text-green-600 dark:text-green-400 font-medium">
-                        Will expire: {new Date(pendingChange.expiresAt).toLocaleDateString()}
-                    </p>
-                )}
+                <ItemCardExpiry
+                    isAuthorized={isAuthorized}
+                    expiresAt={item.expiresAt}
+                    isPendingAdd={isPendingAdd}
+                    pendingExpiresAt={pendingChange?.expiresAt}
+                />
             </div>
         </>
     );
@@ -727,9 +746,116 @@ function ItemCard({ item, onClick, isAuthorized, isSelected, onSelect, pendingCh
 }
 
 // ============================================================================
-// MAIN COMPONENT
+// SUB-COMPONENTS
 // ============================================================================
 
+function WalletAccessInfoBar() {
+    return (
+        <div className="p-4 border-b border-gray-100 dark:border-gray-800 bg-blue-50/30 dark:bg-blue-900/10">
+            <p className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-2">
+                <Key className="h-4 w-4 text-blue-500" />
+                Need a new permission? <a href="/permissions" className="text-blue-600 dark:text-blue-400 hover:underline font-medium">Go to Permission Registry</a> to define it first.
+            </p>
+        </div>
+    );
+}
+
+function WalletAccessActionBar({ hasChanges, summary, onDiscard, onApply, isApplying }: {
+    hasChanges: boolean;
+    summary: { addPermissions: number; removePermissions: number; addPlans: number; removePlans: number };
+    onDiscard: () => void;
+    onApply: () => void;
+    isApplying: boolean;
+}) {
+    if (hasChanges === false) { return null; }
+
+    return (
+        <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-800 bg-amber-50/50 dark:bg-amber-900/10 animate-in fade-in slide-in-from-top-1">
+            <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4 text-sm">
+                    <span className="flex items-center gap-1 text-amber-600 dark:text-amber-400 font-medium">
+                        <AlertTriangle className="h-4 w-4" />
+                        Pending Changes:
+                    </span>
+                    {(summary.addPermissions > 0 || summary.addPlans > 0) && (
+                        <span className="text-green-600">
+                            +{(summary.addPermissions + summary.addPlans)} added
+                        </span>
+                    )}
+                    {(summary.removePermissions > 0 || summary.removePlans > 0) && (
+                        <span className="text-red-600">
+                            -{(summary.removePermissions + summary.removePlans)} removed
+                        </span>
+                    )}
+                </div>
+
+                <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm" onClick={onDiscard} disabled={isApplying} className="h-8">
+                        <X className="h-3.5 w-3.5 mr-1" />
+                        Discard
+                    </Button>
+                    <Button
+                        size="sm"
+                        onClick={onApply}
+                        disabled={isApplying}
+                        className="bg-green-600 hover:bg-green-700 h-8"
+                    >
+                        {isApplying === true ? (
+                            <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                        ) : (
+                            <Check className="h-3.5 w-3.5 mr-1" />
+                        )}
+                        Apply
+                    </Button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function WalletAccessHeader({ hasChanges, pendingCount, isLoading, onRefresh }: {
+    hasChanges: boolean;
+    pendingCount: number;
+    isLoading: boolean;
+    onRefresh: () => void;
+}) {
+    return (
+        <div className="flex items-center justify-between p-4 border-b border-gray-100 dark:border-gray-800">
+            <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                <Shield className="h-5 w-5 text-blue-600" />
+                Access Permissions
+                {hasChanges && (
+                    <Badge variant="outline" className="ml-2 text-amber-600 border-amber-300">
+                        {pendingCount} pending
+                    </Badge>
+                )}
+            </h3>
+            <Button
+                variant="ghost"
+                size="sm"
+                onClick={onRefresh}
+                disabled={isLoading}
+            >
+                <RefreshCw className={cn('h-4 w-4', isLoading === true && 'animate-spin')} />
+            </Button>
+        </div>
+    );
+}
+
+function WalletAccessError({ error, onRetry }: { error: string; onRetry: () => void }) {
+    return (
+        <div className="rounded-xl border border-red-200 dark:border-red-800 p-4">
+            <p className="text-red-600 dark:text-red-400">{error}</p>
+            <Button variant="outline" onClick={onRetry} className="mt-2">
+                Retry
+            </Button>
+        </div>
+    );
+}
+
+// ============================================================================
+// MAIN COMPONENT
+// ============================================================================
 /**
  *
  * @param root0
@@ -743,17 +869,10 @@ export function WalletAccessManager({
     onSaveComplete,
 }: WalletAccessManagerProps) {
     const {
-        data,
-        isLoading,
-        error,
-        batchAssignPermissions,
-        batchRevokePermissions,
-        batchAssignPlans,
-        batchRemovePlans,
-        refresh,
+        data, isLoading, error, batchAssignPermissions, batchRevokePermissions,
+        batchAssignPlans, batchRemovePlans, refresh,
     } = useWalletAccess(walletAddress);
 
-    // Extract hooks
     const pendingCtx = usePendingChanges({
         data, batchAssignPermissions, batchRevokePermissions, batchAssignPlans, batchRemovePlans, onSaveComplete
     });
@@ -765,194 +884,146 @@ export function WalletAccessManager({
         setExpiryModalItems: pendingCtx.setExpiryModalItems
     });
 
-    // Handle bulk operations
-    const stageBulkAssign = useCallback(() => {
-        const items = filterCtx.availableItems.filter(g => selectionCtx.selectedAvailable.has(g.id));
-        pendingCtx.stageBulkAssign(items);
-    }, [filterCtx.availableItems, selectionCtx.selectedAvailable, pendingCtx]);
-
-    const stageBulkRemove = useCallback(() => {
-        const items = filterCtx.authorizedItems.filter(item => selectionCtx.selectedAuthorized.has(item.id));
-        pendingCtx.stageBulkRemove(items);
-        selectionCtx.setSelectedAuthorized(new Set());
-    }, [filterCtx.authorizedItems, pendingCtx, selectionCtx]);
-
-    const handleDiscard = useCallback(() => {
-        pendingCtx.discardChanges();
-        selectionCtx.clearSelections();
-    }, [pendingCtx, selectionCtx]);
-
     const hasChanges = pendingCtx.pendingChanges.size > 0;
 
     if (error !== null) {
-        return (
-            <div className={cn('rounded-xl border border-red-200 dark:border-red-800 p-4', className)}>
-                <p className="text-red-600 dark:text-red-400">{error}</p>
-                <Button variant="outline" onClick={() => { void refresh(); }} className="mt-2">
-                    Retry
-                </Button>
-            </div>
-        );
+        return <WalletAccessError error={error} onRetry={() => { void refresh(); }} />;
     }
 
     return (
-        <>
-            <div className={cn('rounded-xl bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-gray-200 dark:border-gray-700', className)}>
-                {/* Header */}
-                <WalletAccessHeader
-                    hasChanges={hasChanges}
-                    pendingCount={pendingCtx.pendingChanges.size}
-                    isLoading={isLoading}
-                    onRefresh={() => { void refresh(); }}
-                />
+        <div className={cn('rounded-xl bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-gray-200 dark:border-gray-700', className)}>
+            <WalletAccessHeader
+                hasChanges={hasChanges}
+                pendingCount={pendingCtx.pendingChanges.size}
+                isLoading={isLoading}
+                onRefresh={() => { void refresh(); }}
+            />
 
-                <div className="p-4 border-b border-gray-100 dark:border-gray-800 bg-blue-50/30 dark:bg-blue-900/10">
-                    <p className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-2">
-                        <Key className="h-4 w-4 text-blue-500" />
-                        Need a new permission? <a href="/permissions" className="text-blue-600 dark:text-blue-400 hover:underline font-medium">Go to Permission Registry</a> to define it first.
-                    </p>
-                </div>
+            <WalletAccessActionBar
+                hasChanges={hasChanges}
+                summary={pendingCtx.changesSummary}
+                onDiscard={() => { pendingCtx.discardChanges(); selectionCtx.clearSelections(); }}
+                onApply={() => { void pendingCtx.applyChanges(); }}
+                isApplying={pendingCtx.isApplying}
+            />
 
-                {/* Action Bar */}
-                {hasChanges && (
-                    <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-800 bg-amber-50/50 dark:bg-amber-900/10 animate-in fade-in slide-in-from-top-1">
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-4 text-sm">
-                                <span className="flex items-center gap-1 text-amber-600 dark:text-amber-400 font-medium">
-                                    <AlertTriangle className="h-4 w-4" />
-                                    Pending Changes:
-                                </span>
-                                {(pendingCtx.changesSummary.addPermissions > 0 || pendingCtx.changesSummary.addPlans > 0) && (
-                                    <span className="text-green-600">
-                                        +{(pendingCtx.changesSummary.addPermissions + pendingCtx.changesSummary.addPlans)} added
-                                    </span>
-                                )}
-                                {(pendingCtx.changesSummary.removePermissions > 0 || pendingCtx.changesSummary.removePlans > 0) && (
-                                    <span className="text-red-600">
-                                        -{(pendingCtx.changesSummary.removePermissions + pendingCtx.changesSummary.removePlans)} removed
-                                    </span>
-                                )}
-                            </div>
+            <WalletAccessInfoBar />
 
-                            <div className="flex items-center gap-2">
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => { handleDiscard(); }}
-                                    disabled={pendingCtx.isApplying}
-                                    className="h-8"
-                                >
-                                    <X className="h-3.5 w-3.5 mr-1" />
-                                    Discard
-                                </Button>
-                                <Button
-                                    size="sm"
-                                    onClick={() => { void pendingCtx.applyChanges(); }}
-                                    disabled={pendingCtx.isApplying}
-                                    className="bg-green-600 hover:bg-green-700 h-8"
-                                >
-                                    {pendingCtx.isApplying ? (
-                                        <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
-                                    ) : (
-                                        <Check className="h-3.5 w-3.5 mr-1" />
-                                    )}
-                                    Apply
-                                </Button>
-                            </div>
-                        </div>
-                    </div>
-                )}
+            <WalletAccessColumns
+                isLoading={isLoading}
+                pendingCtx={pendingCtx}
+                selectionCtx={selectionCtx}
+                filterCtx={filterCtx}
+                dragCtx={dragCtx}
+            />
 
-                {/* Three-Column Layout */}
-                <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] gap-4 p-4 bg-gray-100 dark:bg-gray-800">
-                    <AvailableColumn
-                        ref={dragCtx.availableRef}
-                        items={filterCtx.availableItems}
-                        selectedItems={selectionCtx.selectedAvailable}
-                        isLoading={isLoading}
-                        search={filterCtx.availableSearch}
-                        pendingChanges={pendingCtx.pendingChanges}
-                        dragState={{ dropTarget: dragCtx.dropTarget, dragSource: dragCtx.dragSource }}
-                        onSearchChange={filterCtx.setAvailableSearch}
-                        onSelectAll={selectionCtx.handleSelectAllAvailable}
-                        onSelectItem={selectionCtx.handleSelectAvailable}
-                        onDragStart={(e, item) => dragCtx.handleDragStart(e, item, 'available')}
-                        onDragEnd={dragCtx.handleDragEnd}
-                        onDragOver={(e) => dragCtx.handleDragOver(e, 'available')}
-                        onDragLeave={dragCtx.handleDragLeave}
-                        onDrop={(e) => dragCtx.handleDrop(e, 'available')}
-                        onItemClick={pendingCtx.stageAssign}
-                    />
-
-                    {/* CENTRAL ACTIONS */}
-                    <div className="flex flex-row md:flex-col items-center justify-center gap-2 py-2 md:py-0">
-                        <Button
-                            variant="secondary"
-                            size="icon"
-                            disabled={selectionCtx.selectedAvailable.size === 0}
-                            onClick={stageBulkAssign}
-                            className={cn(
-                                "rounded-full transition-all shadow-sm w-10 h-10 md:w-12 md:h-12",
-                                selectionCtx.selectedAvailable.size > 0
-                                    ? "bg-white dark:bg-gray-700 text-green-600 hover:bg-green-50 hover:text-green-700 hover:shadow-md border-green-200"
-                                    : "opacity-50"
-                            )}
-                            title="Assign Selected"
-                        >
-                            <ChevronRight className="h-5 w-5 md:h-6 md:w-6 transform rotate-90 md:rotate-0" />
-                        </Button>
-
-                        <Button
-                            variant="secondary"
-                            size="icon"
-                            disabled={selectionCtx.selectedAuthorized.size === 0}
-                            onClick={stageBulkRemove}
-                            className={cn(
-                                "rounded-full transition-all shadow-sm w-10 h-10 md:w-12 md:h-12",
-                                selectionCtx.selectedAuthorized.size > 0
-                                    ? "bg-white dark:bg-gray-700 text-red-600 hover:bg-red-50 hover:text-red-700 hover:shadow-md border-red-200"
-                                    : "opacity-50"
-                            )}
-                            title="Revoke Selected"
-                        >
-                            <ChevronLeft className="h-5 w-5 md:h-6 md:w-6 transform rotate-90 md:rotate-0" />
-                        </Button>
-                    </div>
-
-                    <AuthorizedColumn
-                        ref={dragCtx.authorizedRef}
-                        items={filterCtx.authorizedItems}
-                        selectedItems={selectionCtx.selectedAuthorized}
-                        isLoading={isLoading}
-                        search={filterCtx.authorizedSearch}
-                        pendingChanges={pendingCtx.pendingChanges}
-                        dragState={{ dropTarget: dragCtx.dropTarget, dragSource: dragCtx.dragSource }}
-                        onSearchChange={filterCtx.setAuthorizedSearch}
-                        onSelectAll={selectionCtx.handleSelectAllAuthorized}
-                        onSelectItem={selectionCtx.handleSelectAuthorized}
-                        onDragStart={(e, item) => dragCtx.handleDragStart(e, item, 'authorized')}
-                        onDragEnd={dragCtx.handleDragEnd}
-                        onDragOver={(e) => dragCtx.handleDragOver(e, 'authorized')}
-                        onDragLeave={dragCtx.handleDragLeave}
-                        onDrop={(e) => dragCtx.handleDrop(e, 'authorized')}
-                        onItemClick={pendingCtx.stageRemove}
-                    />
-                </div>
-            </div>
-
-            {/* Expiry Date Picker Modal */}
             <ExpiryDatePicker
-                itemName={pendingCtx.expiryModalItems && pendingCtx.expiryModalItems.length > 1
+                itemName={pendingCtx.expiryModalItems !== null && pendingCtx.expiryModalItems.length > 1
                     ? `${pendingCtx.expiryModalItems.length} items`
                     : pendingCtx.expiryModalItems?.[0]?.name ?? ''}
-                itemType={pendingCtx.expiryModalItems && pendingCtx.expiryModalItems.length > 1
+                itemType={(pendingCtx.expiryModalItems !== null && pendingCtx.expiryModalItems.length > 1
                     ? 'items'
-                    : (pendingCtx.expiryModalItems?.[0]?.type ?? 'permission') as 'permission' | 'plan' | 'items'}
-                isOpen={Boolean(pendingCtx.expiryModalItems)}
+                    : (pendingCtx.expiryModalItems?.[0]?.type ?? 'permission')) as 'permission' | 'plan' | 'items'}
+                isOpen={pendingCtx.expiryModalItems !== null}
                 onConfirm={pendingCtx.handleExpiryConfirm}
                 onCancel={pendingCtx.handleExpiryCancel}
             />
-        </>
+        </div>
+    );
+}
+
+function WalletAccessColumns({
+    isLoading,
+    pendingCtx,
+    selectionCtx,
+    filterCtx,
+    dragCtx
+}: {
+    isLoading: boolean;
+    pendingCtx: ReturnType<typeof usePendingChanges>;
+    selectionCtx: ReturnType<typeof useSelection>;
+    filterCtx: ReturnType<typeof useSearchAndFilter>;
+    dragCtx: ReturnType<typeof useDragAndDrop>;
+}) {
+    return (
+        <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] gap-4 p-4 bg-gray-100 dark:bg-gray-800">
+            <AvailableColumn
+                ref={dragCtx.availableRef}
+                items={filterCtx.availableItems}
+                selectedItems={selectionCtx.selectedAvailable}
+                isLoading={isLoading}
+                search={filterCtx.availableSearch}
+                pendingChanges={pendingCtx.pendingChanges}
+                dragState={{ dropTarget: dragCtx.dropTarget, dragSource: dragCtx.dragSource }}
+                onSearchChange={filterCtx.setAvailableSearch}
+                onSelectAll={selectionCtx.handleSelectAllAvailable}
+                onSelectItem={selectionCtx.handleSelectAvailable}
+                onDragStart={(e, item) => dragCtx.handleDragStart(e, item, 'available')}
+                onDragEnd={dragCtx.handleDragEnd}
+                onDragOver={(e) => dragCtx.handleDragOver(e, 'available')}
+                onDragLeave={dragCtx.handleDragLeave}
+                onDrop={(e) => dragCtx.handleDrop(e, 'available')}
+                onItemClick={(item) => pendingCtx.stageAssign(item)}
+            />
+
+            <div className="flex flex-row md:flex-col items-center justify-center gap-2 py-2 md:py-0">
+                <Button
+                    variant="secondary"
+                    size="icon"
+                    disabled={selectionCtx.selectedAvailable.size === 0}
+                    onClick={() => {
+                        const items = filterCtx.availableItems.filter(g => selectionCtx.selectedAvailable.has(g.id));
+                        pendingCtx.stageBulkAssign(items);
+                    }}
+                    className={cn(
+                        "rounded-full transition-all shadow-sm w-10 h-10 md:w-12 md:h-12",
+                        selectionCtx.selectedAvailable.size > 0
+                            ? "bg-white dark:bg-gray-700 text-green-600 hover:bg-green-50 hover:text-green-700 hover:shadow-md border-green-200"
+                            : "opacity-50"
+                    )}
+                >
+                    <ChevronRight className="h-5 w-5 md:h-6 md:w-6 transform rotate-90 md:rotate-0" />
+                </Button>
+
+                <Button
+                    variant="secondary"
+                    size="icon"
+                    disabled={selectionCtx.selectedAuthorized.size === 0}
+                    onClick={() => {
+                        const items = filterCtx.authorizedItems.filter(item => selectionCtx.selectedAuthorized.has(item.id));
+                        pendingCtx.stageBulkRemove(items);
+                        selectionCtx.setSelectedAuthorized(new Set());
+                    }}
+                    className={cn(
+                        "rounded-full transition-all shadow-sm w-10 h-10 md:w-12 md:h-12",
+                        selectionCtx.selectedAuthorized.size > 0
+                            ? "bg-white dark:bg-gray-700 text-red-600 hover:bg-red-50 hover:text-red-700 hover:shadow-md border-red-200"
+                            : "opacity-50"
+                    )}
+                >
+                    <ChevronLeft className="h-5 w-5 md:h-6 md:w-6 transform rotate-90 md:rotate-0" />
+                </Button>
+            </div>
+
+            <AuthorizedColumn
+                ref={dragCtx.authorizedRef}
+                items={filterCtx.authorizedItems}
+                selectedItems={selectionCtx.selectedAuthorized}
+                isLoading={isLoading}
+                search={filterCtx.authorizedSearch}
+                pendingChanges={pendingCtx.pendingChanges}
+                dragState={{ dropTarget: dragCtx.dropTarget, dragSource: dragCtx.dragSource }}
+                onSearchChange={filterCtx.setAuthorizedSearch}
+                onSelectAll={selectionCtx.handleSelectAllAuthorized}
+                onSelectItem={selectionCtx.handleSelectAuthorized}
+                onDragStart={(e, item) => dragCtx.handleDragStart(e, item, 'authorized')}
+                onDragEnd={dragCtx.handleDragEnd}
+                onDragOver={(e) => dragCtx.handleDragOver(e, 'authorized')}
+                onDragLeave={dragCtx.handleDragLeave}
+                onDrop={(e) => dragCtx.handleDrop(e, 'authorized')}
+                onItemClick={(item) => pendingCtx.stageRemove(item)}
+            />
+        </div>
     );
 }
 

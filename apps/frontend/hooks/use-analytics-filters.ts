@@ -18,7 +18,7 @@ export function useAnalyticsFilters() {
       ...prev,
       ...newFilters,
       // Reset to page 1 when filters change (except when changing page)
-      page: 'page' in newFilters ? newFilters.page! : 1,
+      page: 'page' in newFilters ? (newFilters.page ?? 1) : 1,
     }));
   }, []);
 
@@ -36,10 +36,10 @@ export function useAnalyticsFilters() {
 
   const activeFilterCount = useMemo(() => {
     let count = 0;
-    if (filters.country) {count++;}
-    if (filters.sector) {count++;}
-    if (filters.min_eps) {count++;}
-    if (filters.min_growth) {count++;}
+    if (filters.country != null && filters.country !== '') {count++;}
+    if (filters.sector != null && filters.sector !== '') {count++;}
+    if (filters.min_eps != null) {count++;}
+    if (filters.min_growth != null) {count++;}
     return count;
   }, [filters]);
 

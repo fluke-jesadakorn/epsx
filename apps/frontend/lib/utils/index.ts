@@ -100,7 +100,7 @@ export function truncate(text: string, length: number, suffix = '...'): string {
  */
 export function generateId(prefix?: string): string {
   const id = Math.random().toString(36).slice(2) + Date.now().toString(36);
-  return prefix ? `${prefix}-${id}` : id;
+  return (prefix != null && prefix !== '') ? `${prefix}-${id}` : id;
 }
 
 /**
@@ -187,7 +187,7 @@ export function getEnvVar(key: string, fallback?: string): string {
  */
 export function safeJsonParse<T>(str: string, fallback?: T): T | null {
   try {
-    return JSON.parse(str);
+    return JSON.parse(str) as T;
   } catch {
     return fallback ?? null;
   }
@@ -266,7 +266,7 @@ export async function retry<T>(
     }
   }
 
-  throw lastError!;
+  throw new Error('Max retry attempts exceeded');
 }
 
 /**
@@ -280,7 +280,7 @@ export function sleep(ms: number): Promise<void> {
  * Utility function to check if an object is empty
  */
 export function isEmpty(obj: unknown): boolean {
-  if (obj == null) {return true;}
+  if (obj === null || obj === undefined) {return true;}
   if (Array.isArray(obj) || typeof obj === 'string') {return obj.length === 0;}
   if (typeof obj === 'object') {return Object.keys(obj).length === 0;}
   return false;

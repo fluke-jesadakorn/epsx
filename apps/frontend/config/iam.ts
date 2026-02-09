@@ -128,7 +128,7 @@ export const FRONTEND_PERMISSION_SETS = {
 export function hasUserPermissions(userPermissions: string[]): boolean {
   // PERMISSION REFACTOR: Client-side is permissive for authenticated users.
   // Backend enforces actual access control.
-  return Boolean(userPermissions) && userPermissions.length > 0;
+  return (userPermissions != null) && userPermissions.length > 0;
 }
 
 export function canAccessUserRoute(route: string, userPermissions: string[]): boolean {
@@ -139,7 +139,7 @@ export function canAccessUserRoute(route: string, userPermissions: string[]): bo
   }
 
   // Require at least authentication for non-public routes
-  return Boolean(userPermissions) && userPermissions.length > 0;
+  return (userPermissions != null) && userPermissions.length > 0;
 }
 
 /**
@@ -167,7 +167,7 @@ export function validateUserPermission(_permission: string): {
 export function getUserPermissionTier(userPermissions: string[]): 'free' | 'trial' | 'basic' | 'premium' | 'enterprise' {
   // PERMISSION REFACTOR: Tier detection now defaults to a base level if authenticated.
   // Real tier benefits are enforced by the backend.
-  if (!userPermissions || userPermissions.length === 0) {
+  if (userPermissions == null || userPermissions.length === 0) {
     return 'free';
   }
 

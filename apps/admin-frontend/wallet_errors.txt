@@ -1,16 +1,10 @@
 [baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
 
 /Users/fluke/Desktop/Work/epsx/apps/admin-frontend/components/wallet/wallet-access-manager.tsx
-  270:18  error  Prefer using an optional chain expression instead, as it's more concise and easier to read                                                 @typescript-eslint/prefer-optional-chain
-  292:18  error  Prefer using an optional chain expression instead, as it's more concise and easier to read                                                 @typescript-eslint/prefer-optional-chain
-  336:30  error  Define a constant instead of duplicating this literal 4 times                                                                              sonarjs/no-duplicate-string
-  610:1   error  Function 'ItemCard' has a complexity of 24. Maximum allowed is 12                                                                          complexity
-  614:20  error  Unnecessary conditional, expected left-hand side of `??` operator to be possibly null or undefined                                         @typescript-eslint/no-unnecessary-condition
-  665:62  error  Expected '!==' and instead saw '!='                                                                                                        eqeqeq
-  709:8   error  Function 'WalletAccessManager' has too many lines (214). Maximum allowed is 120                                                            max-lines-per-function
-  709:8   error  Function 'WalletAccessManager' has a complexity of 22. Maximum allowed is 12                                                               complexity
-  747:8   error  React Hook useCallback has an unnecessary dependency: 'selectionCtx.selectedAuthorized'. Either exclude it or remove the dependency array  react-hooks/exhaustive-deps
+  618:1  error  Function 'ItemCardInfo' has a complexity of 14. Maximum allowed is 12            complexity
+  773:8  error  Function 'WalletAccessManager' has too many lines (201). Maximum allowed is 120  max-lines-per-function
+  773:8  error  Function 'WalletAccessManager' has a complexity of 20. Maximum allowed is 12     complexity
 
-✖ 9 problems (9 errors, 0 warnings)
+✖ 3 problems (3 errors, 0 warnings)
 
 error: "eslint" exited with code 1

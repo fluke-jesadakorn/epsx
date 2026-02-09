@@ -17,7 +17,7 @@ export async function getServerSession(): Promise<SessionData | null> {
     const cookieStore = await cookies();
     const accessToken = cookieStore.get(COOKIES.access_token)?.value;
 
-    if (!accessToken) {
+    if (accessToken == null || accessToken === '') {
       return { isAuthenticated: false };
     }
 
@@ -35,8 +35,8 @@ export async function getServerSession(): Promise<SessionData | null> {
       return { isAuthenticated: false };
     }
 
-    const sessionData = await response.json();
-    
+    const sessionData = await response.json() as { user?: User; expiresAt?: number };
+
     return {
       isAuthenticated: true,
       user: sessionData.user,

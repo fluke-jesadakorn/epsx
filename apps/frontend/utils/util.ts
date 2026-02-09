@@ -304,13 +304,16 @@ export const object = {
 
     if (object.isObject(target) && object.isObject(source)) {
       for (const key in source) {
-        if (object.isObject(source[key])) {
-          if (target[key] === undefined || target[key] === null) {
+        const sourceValue = source[key];
+        const targetValue = target[key];
+
+        if (object.isObject(sourceValue)) {
+          if (targetValue === undefined || targetValue === null) {
             Object.assign(target, { [key]: {} });
           }
-          object.merge(target[key] as object, source[key] as object);
+          object.merge(target[key] as object, sourceValue as object);
         } else {
-          Object.assign(target, { [key]: source[key] });
+          Object.assign(target, { [key]: sourceValue });
         }
       }
     }
@@ -448,8 +451,7 @@ export async function copyToClipboard(text: string): Promise<boolean> {
   if (!isBrowser()) { return false; }
 
   try {
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-    if (navigator.clipboard) {
+    if (navigator.clipboard != null) {
       await navigator.clipboard.writeText(text);
       return true;
     }

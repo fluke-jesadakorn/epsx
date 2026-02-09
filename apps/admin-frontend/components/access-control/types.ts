@@ -11,7 +11,12 @@ import type { Plan as SharedPlan } from '@/shared/api/plans';
 // ============================================================================
 
 /** Policy type categories - maps to group_type + subscription */
-export type PolicyType = 'subscription' | 'manual' | 'web3_asset' | 'dao' | 'system';
+export type PolicyType =
+  | 'subscription'
+  | 'manual'
+  | 'web3_asset'
+  | 'dao'
+  | 'system';
 
 /** Policy source - where the data originates */
 export type PolicySource = 'plan' | 'group';
@@ -182,16 +187,18 @@ export const DEFAULT_POLICY_STATS: PolicyStats = {
 // TRANSFORM FUNCTIONS
 // ============================================================================
 
+const parsePrice = (price: string | number): number => {
+  if (typeof price === 'string') {
+    return parseFloat(price);
+  }
+  return price;
+};
+
 /**
  * Transform a PlanResponse to AccessPolicy
  */
 export function planToPolicy(plan: SharedPlan): AccessPolicy {
-  let price = 0;
-  if (typeof plan.current_price === 'string') {
-    price = parseFloat(plan.current_price);
-  } else if (typeof plan.current_price === 'number') {
-    price = plan.current_price;
-  }
+  const price = parsePrice(plan.current_price);
 
   return {
     id: `plan-${plan.id}`,
@@ -200,7 +207,7 @@ export function planToPolicy(plan: SharedPlan): AccessPolicy {
     type: 'subscription',
     permissions: plan.permissions ?? [],
     memberCount: plan.member_count ?? 0,
-    isActive: plan.is_active,
+    isActive: plan.is_active === true,
 
     // Subscription-specific
     pricing: {
@@ -236,6 +243,8 @@ export function groupToPolicy(group: PermissionGroup): AccessPolicy {
   };
 
   const policyType = typeMap[group.plan_type] ?? 'manual';
+  const isSystem =
+    group.is_system_plan === true || group.plan_type === 'system';
 
   return {
     id: `group-${group.id}`,
@@ -244,12 +253,12 @@ export function groupToPolicy(group: PermissionGroup): AccessPolicy {
     type: policyType,
     permissions: group.permissions ?? [],
     memberCount: group.member_count ?? 0,
-    isActive: group.is_active,
+    isActive: group.is_active === true,
 
     // Group-specific
     expiryDays: group.default_expiry_days,
     priorityLevel: group.priority_level ?? 0,
-    isSystemGroup: group.is_system_plan ?? group.plan_type === 'system',
+    isSystemGroup: isSystem,
     slug: group.slug,
 
     // Common
@@ -264,7 +273,7 @@ export function groupToPolicy(group: PermissionGroup): AccessPolicy {
  * Check if policy is a subscription type
  */
 export function isSubscriptionPolicy(policy: AccessPolicy): boolean {
-  return policy.sourceType === 'plan' ?? policy.type === 'subscription';
+  return policy.sourceType === 'plan' || policy.type === 'subscription';
 }
 
 /**
@@ -289,54 +298,55 @@ export function getPolicyEditUrl(policy: AccessPolicy): string {
 /**
  * Get the members URL for a policy
  */
-export function getPolicyMembersUrl(policy: AccessPolicy): string {
-  if (policy.sourceType === 'plan') {
-    // Redirect to edit page since subscribers view is deprecated
-    return `/subscriptions/plans/${policy.sourceId}/edit`;
-  }
-  // Groups are managed in wallet-management
-  return `/wallet-management/groups/${policy.sourceId}`;
-}
+export const getPolicyMembersUrl = getPolicyEditUrl;
 
 // ============================================================================
 // TYPE CONFIG
 // ============================================================================
 
 /** Visual configuration for policy types */
-export const POLICY_TYPE_CONFIG: Record<PolicyType, {
-  label: string;
-  icon: string;
-  gradient: string;
-  badgeClass: string;
-}> = {
+export const POLICY_TYPE_CONFIG: Record<
+  PolicyType,
+  {
+    label: string;
+    icon: string;
+    gradient: string;
+    badgeClass: string;
+  }
+> = {
   subscription: {
     label: 'Subscription',
     icon: '💳',
     gradient: 'from-blue-500/20 via-indigo-500/20 to-blue-500/20',
-    badgeClass: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800',
+    badgeClass:
+      'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800',
   },
   manual: {
     label: 'Manual',
     icon: '👥',
     gradient: 'from-amber-500/20 via-orange-500/20 to-amber-500/20',
-    badgeClass: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800',
+    badgeClass:
+      'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800',
   },
   web3_asset: {
     label: 'Web3 Asset',
     icon: '🔗',
     gradient: 'from-purple-500/20 via-pink-500/20 to-purple-500/20',
-    badgeClass: 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-400 dark:border-purple-800',
+    badgeClass:
+      'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-400 dark:border-purple-800',
   },
   dao: {
     label: 'DAO',
     icon: '🏛️',
     gradient: 'from-emerald-500/20 via-teal-500/20 to-emerald-500/20',
-    badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800',
+    badgeClass:
+      'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800',
   },
   system: {
     label: 'System',
     icon: '⚙️',
     gradient: 'from-gray-500/20 via-slate-500/20 to-gray-500/20',
-    badgeClass: 'bg-gray-50 text-gray-700 border-gray-200 dark:bg-gray-900/30 dark:text-gray-400 dark:border-gray-700',
+    badgeClass:
+      'bg-gray-50 text-gray-700 border-gray-200 dark:bg-gray-900/30 dark:text-gray-400 dark:border-gray-700',
   },
 };

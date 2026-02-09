@@ -1,4 +1,7 @@
-$ eslint .
+
+> epsx-admin-frontend@1.0.0 lint
+> eslint .
+
 [baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
 
 /Users/fluke/Desktop/Work/epsx/apps/admin-frontend/__test__/e2e/auth-flows.spec.ts
@@ -38,39 +41,27 @@ $ eslint .
   751:70  error  Unnecessary conditional, the types have no overlap                    @typescript-eslint/no-unnecessary-condition
 
 /Users/fluke/Desktop/Work/epsx/apps/admin-frontend/__test__/utils/test-setup.ts
-   65:15  error  Forbidden non-null assertion                                                                          @typescript-eslint/no-non-null-assertion
-   79:25  error  'PerformanceMonitor' was used before it was defined                                                   @typescript-eslint/no-use-before-define
-  130:10  error  Unexpected nullable number value in conditional. Please handle the nullish/zero/NaN cases explicitly  @typescript-eslint/strict-boolean-expressions
-  299:19  error  Unnecessary conditional, expected left-hand side of `??` operator to be possibly null or undefined    @typescript-eslint/no-unnecessary-condition
-  309:11  error  Unexpected nullable string value in conditional. Please handle the nullish/empty cases explicitly     @typescript-eslint/strict-boolean-expressions
-  417:20  error  Unexpected nullable string value in conditional. Please handle the nullish/empty cases explicitly     @typescript-eslint/strict-boolean-expressions
-  461:17  error  Unexpected nullable string value in conditional. Please handle the nullish/empty cases explicitly     @typescript-eslint/strict-boolean-expressions
-  471:26  error  Unexpected any value in conditional. An explicit comparison or type conversion is required            @typescript-eslint/strict-boolean-expressions
-  472:25  error  Unexpected any value in conditional. An explicit comparison or type conversion is required            @typescript-eslint/strict-boolean-expressions
-  478:20  error  Unnecessary conditional, expected left-hand side of `??` operator to be possibly null or undefined    @typescript-eslint/no-unnecessary-condition
-  508:18  error  Unexpected nullable string value in conditional. Please handle the nullish/empty cases explicitly     @typescript-eslint/strict-boolean-expressions
-  516:15  error  Unexpected object value in conditional. The condition is always true                                  @typescript-eslint/strict-boolean-expressions
-  516:15  error  Unnecessary conditional, value is always truthy                                                       @typescript-eslint/no-unnecessary-condition
-  517:16  error  Unexpected object value in conditional. The condition is always true                                  @typescript-eslint/strict-boolean-expressions
-  517:16  error  Unnecessary conditional, value is always truthy                                                       @typescript-eslint/no-unnecessary-condition
-  546:15  error  Unexpected nullable string value in conditional. Please handle the nullish/empty cases explicitly     @typescript-eslint/strict-boolean-expressions
-  551:20  error  Unexpected constant nullishness on the left-hand side of a `??` expression                            no-constant-binary-expression
-  551:20  error  Unnecessary conditional, expected left-hand side of `??` operator to be possibly null or undefined    @typescript-eslint/no-unnecessary-condition
-  670:3   error  Static async method 'validatePermissions' has no 'await' expression                                   @typescript-eslint/require-await
-  790:9   error  Unnecessary conditional, value is always falsy                                                        @typescript-eslint/no-unnecessary-condition
-  790:10  error  Unexpected object value in conditional. The condition is always true                                  @typescript-eslint/strict-boolean-expressions
-  806:9   error  Unexpected constant nullishness on the left-hand side of a `??` expression                            no-constant-binary-expression
-  806:9   error  Unnecessary conditional, expected left-hand side of `??` operator to be possibly null or undefined    @typescript-eslint/no-unnecessary-condition
-
-/Users/fluke/Desktop/Work/epsx/apps/admin-frontend/app/access-denied/page.tsx
-  17:15  error  Unexpected nullable string value in conditional. Please handle the nullish/empty cases explicitly  @typescript-eslint/strict-boolean-expressions
-
-/Users/fluke/Desktop/Work/epsx/apps/admin-frontend/app/affiliates/page.tsx
-  10:1  error  Async function 'AffiliatesDataWrapper' has too many lines (141). Maximum allowed is 120  max-lines-per-function
-
-/Users/fluke/Desktop/Work/epsx/apps/admin-frontend/app/analytics/actions.ts
-  29:13  error  Unexpected constant nullishness on the left-hand side of a `??` expression                          no-constant-binary-expression
-  29:13  error  Unnecessary conditional, expected left-hand side of `??` operator to be possibly null or undefined  @typescript-eslint/no-unnecessary-condition
+  304:3   warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-unnecessary-condition')
+  306:19  error    Unnecessary conditional, expected left-hand side of `??` operator to be possibly null or undefined                @typescript-eslint/no-unnecessary-condition
+  314:3   warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/strict-boolean-expressions')
+  317:11  error    Unexpected nullable string value in conditional. Please handle the nullish/empty cases explicitly                 @typescript-eslint/strict-boolean-expressions
+  425:20  error    Unexpected nullable string value in conditional. Please handle the nullish/empty cases explicitly                 @typescript-eslint/strict-boolean-expressions
+  469:17  error    Unexpected nullable string value in conditional. Please handle the nullish/empty cases explicitly                 @typescript-eslint/strict-boolean-expressions
+  479:26  error    Unexpected any value in conditional. An explicit comparison or type conversion is required                        @typescript-eslint/strict-boolean-expressions
+  480:25  error    Unexpected any value in conditional. An explicit comparison or type conversion is required                        @typescript-eslint/strict-boolean-expressions
+  486:20  error    Unnecessary conditional, expected left-hand side of `??` operator to be possibly null or undefined                @typescript-eslint/no-unnecessary-condition
+  516:18  error    Unexpected nullable string value in conditional. Please handle the nullish/empty cases explicitly                 @typescript-eslint/strict-boolean-expressions
+  524:15  error    Unexpected object value in conditional. The condition is always true                                              @typescript-eslint/strict-boolean-expressions
+  524:15  error    Unnecessary conditional, value is always truthy                                                                   @typescript-eslint/no-unnecessary-condition
+  525:16  error    Unexpected object value in conditional. The condition is always true                                              @typescript-eslint/strict-boolean-expressions
+  525:16  error    Unnecessary conditional, value is always truthy                                                                   @typescript-eslint/no-unnecessary-condition
+  554:15  error    Unexpected nullable string value in conditional. Please handle the nullish/empty cases explicitly                 @typescript-eslint/strict-boolean-expressions
+  559:20  error    Unexpected constant nullishness on the left-hand side of a `??` expression                                        no-constant-binary-expression
+  559:20  error    Unnecessary conditional, expected left-hand side of `??` operator to be possibly null or undefined                @typescript-eslint/no-unnecessary-condition
+  798:9   error    Unnecessary conditional, value is always falsy                                                                    @typescript-eslint/no-unnecessary-condition
+  798:10  error    Unexpected object value in conditional. The condition is always true                                              @typescript-eslint/strict-boolean-expressions
+  814:9   error    Unexpected constant nullishness on the left-hand side of a `??` expression                                        no-constant-binary-expression
+  814:9   error    Unnecessary conditional, expected left-hand side of `??` operator to be possibly null or undefined                @typescript-eslint/no-unnecessary-condition
 
 /Users/fluke/Desktop/Work/epsx/apps/admin-frontend/app/analytics/analytics-dashboard.tsx
   149:1   error  Function 'SummarySection' has a complexity of 13. Maximum allowed is 12                               complexity
@@ -96,21 +87,6 @@ $ eslint .
   394:13  error  Unnecessary conditional, expected left-hand side of `??` operator to be possibly null or undefined  @typescript-eslint/no-unnecessary-condition
   395:13  error  Unnecessary conditional, expected left-hand side of `??` operator to be possibly null or undefined  @typescript-eslint/no-unnecessary-condition
   491:30  error  Unexpected nullable string value in conditional. Please handle the nullish/empty cases explicitly   @typescript-eslint/strict-boolean-expressions
-
-/Users/fluke/Desktop/Work/epsx/apps/admin-frontend/app/auth/auth-page-client.tsx
-   41:13  error  Unexpected constant nullishness on the left-hand side of a `??` expression                          no-constant-binary-expression
-   41:13  error  Unnecessary conditional, expected left-hand side of `??` operator to be possibly null or undefined  @typescript-eslint/no-unnecessary-condition
-  102:14  error  Unexpected nullable string value in conditional. Please handle the nullish/empty cases explicitly   @typescript-eslint/strict-boolean-expressions
-
-/Users/fluke/Desktop/Work/epsx/apps/admin-frontend/app/dashboard-client.tsx
-  38:7   error  Unexpected nullable string value in conditional. Please handle the nullish/empty cases explicitly  @typescript-eslint/strict-boolean-expressions
-  67:36  error  Unexpected nullable string value in conditional. Please handle the nullish/empty cases explicitly  @typescript-eslint/strict-boolean-expressions
-
-/Users/fluke/Desktop/Work/epsx/apps/admin-frontend/app/debug/auth/actions.ts
-  17:27  error  Unexpected nullable string value in conditional. Please handle the nullish/empty cases explicitly  @typescript-eslint/strict-boolean-expressions
-  21:28  error  Unexpected nullable string value in conditional. Please handle the nullish/empty cases explicitly  @typescript-eslint/strict-boolean-expressions
-  24:9   error  Unsafe assignment of an `any` value                                                                @typescript-eslint/no-unsafe-assignment
-  24:20  error  Unexpected nullable string value in conditional. Please handle the nullish/empty cases explicitly  @typescript-eslint/strict-boolean-expressions
 
 /Users/fluke/Desktop/Work/epsx/apps/admin-frontend/app/debug/auth/page.tsx
    23:16  error  Function 'AuthDebugPage' has too many lines (156). Maximum allowed is 120                    max-lines-per-function
@@ -149,12 +125,6 @@ $ eslint .
   201:46  error  Unsafe call of a(n) `any` typed value                                                               @typescript-eslint/no-unsafe-call
   201:48  error  Unsafe member access .startsWith on an `any` value                                                  @typescript-eslint/no-unsafe-member-access
 
-/Users/fluke/Desktop/Work/epsx/apps/admin-frontend/app/error.tsx
-  19:16  error  Unnecessary conditional, expected left-hand side of `??` operator to be possibly null or undefined  @typescript-eslint/no-unnecessary-condition
-
-/Users/fluke/Desktop/Work/epsx/apps/admin-frontend/app/global-error.tsx
-  16:5  error  'error' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
-
 /Users/fluke/Desktop/Work/epsx/apps/admin-frontend/app/layout.tsx
    91:29  error  Unexpected nullable string value in conditional. Please handle the nullish/empty cases explicitly   @typescript-eslint/strict-boolean-expressions
   101:25  error  Unexpected nullable string value in conditional. Please handle the nullish/empty cases explicitly   @typescript-eslint/strict-boolean-expressions
@@ -164,9 +134,6 @@ $ eslint .
   12:9  error  Unexpected console statement  no-console
   23:9  error  Unexpected console statement  no-console
   34:9  error  Unexpected console statement  no-console
-
-/Users/fluke/Desktop/Work/epsx/apps/admin-frontend/app/page.tsx
-  15:33  error  Unexpected nullable boolean value in conditional. Please handle the nullish case explicitly  @typescript-eslint/strict-boolean-expressions
 
 /Users/fluke/Desktop/Work/epsx/apps/admin-frontend/app/payments/page.tsx
   38:7  error  Unnecessary conditional, expected left-hand side of `??` operator to be possibly null or undefined  @typescript-eslint/no-unnecessary-condition
@@ -181,10 +148,6 @@ $ eslint .
   52:13  error  Unnecessary conditional, expected left-hand side of `??` operator to be possibly null or undefined  @typescript-eslint/no-unnecessary-condition
   68:13  error  Unexpected constant nullishness on the left-hand side of a `??` expression                          no-constant-binary-expression
   68:13  error  Unnecessary conditional, expected left-hand side of `??` operator to be possibly null or undefined  @typescript-eslint/no-unnecessary-condition
-
-/Users/fluke/Desktop/Work/epsx/apps/admin-frontend/app/profile/error.tsx
-  22:5   error  Unexpected console statement                                                                       no-console
-  49:18  error  Unexpected nullable string value in conditional. Please handle the nullish/empty cases explicitly  @typescript-eslint/strict-boolean-expressions
 
 /Users/fluke/Desktop/Work/epsx/apps/admin-frontend/app/profile/page.tsx
   24:7   error  Unexpected constant nullishness on the left-hand side of a `??` expression                          no-constant-binary-expression
@@ -326,176 +289,83 @@ $ eslint .
   334:25  error  Promise-returning function provided to attribute where a void return was expected                                                                                   @typescript-eslint/no-misused-promises
 
 /Users/fluke/Desktop/Work/epsx/apps/admin-frontend/components/access-control/access-control-matrix.tsx
-   22:8   error  Function 'AccessControlMatrix' has too many lines (245). Maximum allowed is 120                                                                                     max-lines-per-function
-   35:19  error  Unsafe assignment of an error typed value                                                                                                                           @typescript-eslint/no-unsafe-assignment
-   37:17  error  Unsafe call of a(n) `error` type typed value                                                                                                                        @typescript-eslint/no-unsafe-call
-   40:25  error  Unsafe argument of type error typed assigned to a parameter of type `SetStateAction<AccessPolicy[]>`                                                                @typescript-eslint/no-unsafe-argument
-   41:28  error  Unsafe argument of type error typed assigned to a parameter of type `SetStateAction<PermissionDefinitionDto[]>`                                                     @typescript-eslint/no-unsafe-argument
-   43:13  error  Unexpected console statement                                                                                                                                        no-console
-   55:9   error  Promises must be awaited, end with a call to .catch, end with a call to .then with a rejection handler or be explicitly marked as ignored with the `void` operator  @typescript-eslint/no-floating-promises
-   60:45  error  Unexpected nullable boolean value in array predicate return type. Please handle the nullish case explicitly                                                         @typescript-eslint/strict-boolean-expressions
-   61:14  error  Prefer using an optional chain expression instead, as it's more concise and easier to read                                                                          @typescript-eslint/prefer-optional-chain
-   68:30  error  Unnecessary conditional, expected left-hand side of `??` operator to be possibly null or undefined                                                                  @typescript-eslint/no-unnecessary-condition
-   69:13  error  Prefer using nullish coalescing operator (`??=`) instead of an assignment expression, as it is simpler to read                                                      @typescript-eslint/prefer-nullish-coalescing
-   89:13  error  Unexpected nullable boolean value in conditional. Please handle the nullish case explicitly                                                                         @typescript-eslint/strict-boolean-expressions
-  111:13  error  Unexpected console statement                                                                                                                                        no-console
-  118:13  error  Promises must be awaited, end with a call to .catch, end with a call to .then with a rejection handler or be explicitly marked as ignored with the `void` operator  @typescript-eslint/no-floating-promises
-  179:48  error  Unnecessary conditional, expected left-hand side of `??` operator to be possibly null or undefined                                                                  @typescript-eslint/no-unnecessary-condition
-  241:75  error  Unexpected nullable boolean value in conditional. Please handle the nullish case explicitly                                                                         @typescript-eslint/strict-boolean-expressions
-  255:65  error  Unexpected nullable boolean value in conditional. Please handle the nullish case explicitly                                                                         @typescript-eslint/strict-boolean-expressions
-  256:65  error  Unexpected nullable boolean value in conditional. Please handle the nullish case explicitly                                                                         @typescript-eslint/strict-boolean-expressions
-  258:69  error  Promise-returning function provided to attribute where a void return was expected                                                                                   @typescript-eslint/no-misused-promises
-  258:77  error  Unexpected nullable boolean value in conditional. Please handle the nullish case explicitly                                                                         @typescript-eslint/strict-boolean-expressions
-  258:96  error  Unexpected nullable boolean value in conditional. Please handle the nullish case explicitly                                                                         @typescript-eslint/strict-boolean-expressions
+  43:34  error  Promise-returning function provided to attribute where a void return was expected  @typescript-eslint/no-misused-promises
 
 /Users/fluke/Desktop/Work/epsx/apps/admin-frontend/components/access-control/dual-pane-permission-selector.tsx
   18:8  error  Function 'DualPanePermissionSelector' has too many lines (150). Maximum allowed is 120  max-lines-per-function
+
+/Users/fluke/Desktop/Work/epsx/apps/admin-frontend/components/access-control/matrix/matrix-grid.tsx
+   18:8   error    Function 'MatrixGrid' has too many lines (161). Maximum allowed is 120                                            max-lines-per-function
+   41:33  error    Unnecessary conditional, expected left-hand side of `??` operator to be possibly null or undefined                @typescript-eslint/no-unnecessary-condition
+  134:45  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/strict-boolean-expressions')
+  136:49  error    Unexpected implicit coercion encountered. Use `Boolean(policy.isSystemGroup)` instead                             no-implicit-coercion
+  136:51  error    Unexpected nullable boolean value in conditional. Please handle the nullish case explicitly                       @typescript-eslint/strict-boolean-expressions
+  154:61  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/strict-boolean-expressions')
+
+/Users/fluke/Desktop/Work/epsx/apps/admin-frontend/components/access-control/matrix/use-matrix-logic.ts
+   22:19  error    Unsafe assignment of an error typed value                                                                         @typescript-eslint/no-unsafe-assignment
+   24:17  error    Unsafe call of a(n) `error` type typed value                                                                      @typescript-eslint/no-unsafe-call
+   27:25  error    Unsafe argument of type error typed assigned to a parameter of type `SetStateAction<AccessPolicy[]>`              @typescript-eslint/no-unsafe-argument
+   28:28  error    Unsafe argument of type error typed assigned to a parameter of type `SetStateAction<PermissionDefinitionDto[]>`   @typescript-eslint/no-unsafe-argument
+   30:13  error    Unexpected console statement                                                                                      no-console
+   43:9   warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/strict-boolean-expressions')
+   45:13  error    Unexpected value in conditional. A boolean expression is required                                                 @typescript-eslint/strict-boolean-expressions
+   46:18  error    Prefer using an optional chain expression instead, as it's more concise and easier to read                        @typescript-eslint/prefer-optional-chain
+   48:18  error    Unexpected nullable string value in conditional. Please handle the nullish/empty cases explicitly                 @typescript-eslint/strict-boolean-expressions
+   48:18  error    Prefer using an optional chain expression instead, as it's more concise and easier to read                        @typescript-eslint/prefer-optional-chain
+   55:30  error    Unnecessary conditional, expected left-hand side of `??` operator to be possibly null or undefined                @typescript-eslint/no-unnecessary-condition
+   56:13  error    Prefer using nullish coalescing operator (`??=`) instead of an assignment expression, as it is simpler to read    @typescript-eslint/prefer-nullish-coalescing
+  114:13  error    Unexpected console statement                                                                                      no-console
 
 /Users/fluke/Desktop/Work/epsx/apps/admin-frontend/components/access-control/permission-item.tsx
   46:18  error  Unexpected nullable string value in conditional. Please handle the nullish/empty cases explicitly  @typescript-eslint/strict-boolean-expressions
   51:18  error  Unexpected nullable string value in conditional. Please handle the nullish/empty cases explicitly  @typescript-eslint/strict-boolean-expressions
 
 /Users/fluke/Desktop/Work/epsx/apps/admin-frontend/components/access-control/plans-view.tsx
-  102:11   error  Unexpected object value in conditional. The condition is always true                                @typescript-eslint/strict-boolean-expressions
-  102:11   error  Unnecessary conditional, value is always truthy                                                     @typescript-eslint/no-unnecessary-condition
-  135:28   error  Unnecessary optional chain on a non-nullish value                                                   @typescript-eslint/no-unnecessary-condition
-  138:13   error  Unnecessary conditional, expected left-hand side of `??` operator to be possibly null or undefined  @typescript-eslint/no-unnecessary-condition
-  139:20   error  Unnecessary conditional, expected left-hand side of `??` operator to be possibly null or undefined  @typescript-eslint/no-unnecessary-condition
-  143:20   error  Unnecessary conditional, expected left-hand side of `??` operator to be possibly null or undefined  @typescript-eslint/no-unnecessary-condition
-  250:24   error  Unnecessary conditional, expected left-hand side of `??` operator to be possibly null or undefined  @typescript-eslint/no-unnecessary-condition
-  274:9    error  Unexpected constant nullishness on the left-hand side of a `??` expression                          no-constant-binary-expression
-  274:9    error  Unnecessary conditional, expected left-hand side of `??` operator to be possibly null or undefined  @typescript-eslint/no-unnecessary-condition
-  289:26   error  Unsafe return of a value of type `any`                                                              @typescript-eslint/no-unsafe-return
-  306:203  error  Async arrow function has too many parameters (5). Maximum allowed is 3                              max-params
-  317:26   error  Unsafe return of a value of type `any`                                                              @typescript-eslint/no-unsafe-return
-  325:26   error  Unsafe return of a value of type `any`                                                              @typescript-eslint/no-unsafe-return
-  332:8    error  Function 'PlansView' has too many lines (401). Maximum allowed is 120                               max-lines-per-function
-  332:8    error  Function 'PlansView' has a complexity of 18. Maximum allowed is 12                                  complexity
-  336:44   error  'setDeleteConfirm' is assigned a value but never used. Allowed unused vars must match /^_/u         @typescript-eslint/no-unused-vars
-  336:91   error  'setConfirmInput' is assigned a value but never used. Allowed unused vars must match /^_/u          @typescript-eslint/no-unused-vars
-  336:108  error  'deletePlan' is assigned a value but never used. Allowed unused vars must match /^_/u               @typescript-eslint/no-unused-vars
-  350:28   error  Unnecessary conditional, expected left-hand side of `??` operator to be possibly null or undefined  @typescript-eslint/no-unnecessary-condition
-  353:9    error  Unnecessary conditional, expected left-hand side of `??` operator to be possibly null or undefined  @typescript-eslint/no-unnecessary-condition
-  382:43   error  Promise-returning function provided to attribute where a void return was expected                   @typescript-eslint/no-misused-promises
-  395:51   error  Unsafe assignment of an error typed value                                                           @typescript-eslint/no-unsafe-assignment
-  396:53   error  Unsafe assignment of an error typed value                                                           @typescript-eslint/no-unsafe-assignment
-  396:53   error  Unsafe call of a(n) `error` type typed value                                                        @typescript-eslint/no-unsafe-call
-  397:55   error  Promise-returning function provided to attribute where a void return was expected                   @typescript-eslint/no-misused-promises
-  407:43   error  Promise-returning function provided to attribute where a void return was expected                   @typescript-eslint/no-misused-promises
-  421:59   error  Unsafe assignment of an error typed value                                                           @typescript-eslint/no-unsafe-assignment
-  422:61   error  Unsafe assignment of an error typed value                                                           @typescript-eslint/no-unsafe-assignment
-  422:61   error  Unsafe call of a(n) `error` type typed value                                                        @typescript-eslint/no-unsafe-call
-  423:63   error  Promise-returning function provided to attribute where a void return was expected                   @typescript-eslint/no-misused-promises
-  429:38   error  Unexpected nullable string value in conditional. Please handle the nullish/empty cases explicitly   @typescript-eslint/strict-boolean-expressions
-  439:69   error  Unsafe assignment of an error typed value                                                           @typescript-eslint/no-unsafe-assignment
-  439:69   error  Unsafe call of a(n) `error` type typed value                                                        @typescript-eslint/no-unsafe-call
-  473:52   error  Unsafe return of a value of type error                                                              @typescript-eslint/no-unsafe-return
-  473:52   error  Unsafe call of a(n) `error` type typed value                                                        @typescript-eslint/no-unsafe-call
-  474:47   error  Unsafe assignment of an error typed value                                                           @typescript-eslint/no-unsafe-assignment
-  474:47   error  Unsafe call of a(n) `error` type typed value                                                        @typescript-eslint/no-unsafe-call
-  482:46   error  Unsafe assignment of an error typed value                                                           @typescript-eslint/no-unsafe-assignment
-  483:47   error  Unexpected constant nullishness on the left-hand side of a `??` expression                          no-constant-binary-expression
-  483:47   error  Unnecessary conditional, expected left-hand side of `??` operator to be possibly null or undefined  @typescript-eslint/no-unnecessary-condition
-  483:48   error  Unexpected any value in conditional. An explicit comparison or type conversion is required          @typescript-eslint/strict-boolean-expressions
-  491:46   error  Unsafe assignment of an error typed value                                                           @typescript-eslint/no-unsafe-assignment
-  492:47   error  Unexpected constant nullishness on the left-hand side of a `??` expression                          no-constant-binary-expression
-  492:47   error  Unnecessary conditional, expected left-hand side of `??` operator to be possibly null or undefined  @typescript-eslint/no-unnecessary-condition
-  492:48   error  Unexpected any value in conditional. An explicit comparison or type conversion is required          @typescript-eslint/strict-boolean-expressions
-  495:38   error  Unexpected any value in conditional. An explicit comparison or type conversion is required          @typescript-eslint/strict-boolean-expressions
-  505:48   error  Unsafe assignment of an error typed value                                                           @typescript-eslint/no-unsafe-assignment
-  505:61   error  Unsafe member access .name on an `error` typed value                                                @typescript-eslint/no-unsafe-member-access
-  506:58   error  Unsafe call of a(n) `error` type typed value                                                        @typescript-eslint/no-unsafe-call
-  506:80   error  Unsafe return of a value of type `any`                                                              @typescript-eslint/no-unsafe-return
-  506:114  error  Unsafe call of a(n) `error` type typed value                                                        @typescript-eslint/no-unsafe-call
-  515:48   error  Unsafe assignment of an error typed value                                                           @typescript-eslint/no-unsafe-assignment
-  515:61   error  Unsafe member access .priority on an `error` typed value                                            @typescript-eslint/no-unsafe-member-access
-  518:49   error  Unexpected constant nullishness on the left-hand side of a `??` expression                          no-constant-binary-expression
-  518:49   error  Unnecessary conditional, expected left-hand side of `??` operator to be possibly null or undefined  @typescript-eslint/no-unnecessary-condition
-  519:49   error  Unsafe call of a(n) `error` type typed value                                                        @typescript-eslint/no-unsafe-call
-  519:71   error  Unsafe return of a value of type `any`                                                              @typescript-eslint/no-unsafe-return
-  523:53   error  Unsafe call of a(n) `error` type typed value                                                        @typescript-eslint/no-unsafe-call
-  523:75   error  Unsafe return of a value of type `any`                                                              @typescript-eslint/no-unsafe-return
-  526:45   error  Unsafe call of a(n) `error` type typed value                                                        @typescript-eslint/no-unsafe-call
-  534:42   error  Unexpected any value in conditional. An explicit comparison or type conversion is required          @typescript-eslint/strict-boolean-expressions
-  534:42   error  Unsafe call of a(n) `error` type typed value                                                        @typescript-eslint/no-unsafe-call
-  549:48   error  Unsafe assignment of an error typed value                                                           @typescript-eslint/no-unsafe-assignment
-  549:61   error  Unsafe member access .price on an `error` typed value                                               @typescript-eslint/no-unsafe-member-access
-  552:49   error  Unexpected constant nullishness on the left-hand side of a `??` expression                          no-constant-binary-expression
-  552:49   error  Unnecessary conditional, expected left-hand side of `??` operator to be possibly null or undefined  @typescript-eslint/no-unnecessary-condition
-  552:49   error  Unexpected constant nullishness on the left-hand side of a `??` expression                          no-constant-binary-expression
-  552:49   error  Unnecessary conditional, expected left-hand side of `??` operator to be possibly null or undefined  @typescript-eslint/no-unnecessary-condition
-  553:49   error  Unsafe call of a(n) `error` type typed value                                                        @typescript-eslint/no-unsafe-call
-  553:71   error  Unsafe return of a value of type `any`                                                              @typescript-eslint/no-unsafe-return
-  557:53   error  Unsafe call of a(n) `error` type typed value                                                        @typescript-eslint/no-unsafe-call
-  557:75   error  Unsafe return of a value of type `any`                                                              @typescript-eslint/no-unsafe-return
-  560:45   error  Unsafe call of a(n) `error` type typed value                                                        @typescript-eslint/no-unsafe-call
-  563:51   error  Unsafe assignment of an error typed value                                                           @typescript-eslint/no-unsafe-assignment
-  563:51   error  Unsafe call of a(n) `error` type typed value                                                        @typescript-eslint/no-unsafe-call
-  583:48   error  Unsafe assignment of an error typed value                                                           @typescript-eslint/no-unsafe-assignment
-  583:61   error  Unsafe member access .expiryDays on an `error` typed value                                          @typescript-eslint/no-unsafe-member-access
-  586:49   error  Unexpected constant nullishness on the left-hand side of a `??` expression                          no-constant-binary-expression
-  586:49   error  Unnecessary conditional, expected left-hand side of `??` operator to be possibly null or undefined  @typescript-eslint/no-unnecessary-condition
-  587:49   error  Unsafe call of a(n) `error` type typed value                                                        @typescript-eslint/no-unsafe-call
-  587:71   error  Unsafe return of a value of type `any`                                                              @typescript-eslint/no-unsafe-return
-  591:53   error  Unsafe call of a(n) `error` type typed value                                                        @typescript-eslint/no-unsafe-call
-  591:75   error  Unsafe return of a value of type `any`                                                              @typescript-eslint/no-unsafe-return
-  594:45   error  Unsafe call of a(n) `error` type typed value                                                        @typescript-eslint/no-unsafe-call
-  603:48   error  Unsafe assignment of an error typed value                                                           @typescript-eslint/no-unsafe-assignment
-  603:61   error  Unsafe member access .description on an `error` typed value                                         @typescript-eslint/no-unsafe-member-access
-  604:58   error  Unsafe call of a(n) `error` type typed value                                                        @typescript-eslint/no-unsafe-call
-  604:80   error  Unsafe return of a value of type `any`                                                              @typescript-eslint/no-unsafe-return
-  604:121  error  Unsafe call of a(n) `error` type typed value                                                        @typescript-eslint/no-unsafe-call
-  612:48   error  Unsafe assignment of an error typed value                                                           @typescript-eslint/no-unsafe-assignment
-  612:48   error  Unsafe call of a(n) `error` type typed value                                                        @typescript-eslint/no-unsafe-call
-  612:61   error  Unsafe member access .features on an `error` typed value                                            @typescript-eslint/no-unsafe-member-access
-  615:45   error  Unsafe call of a(n) `error` type typed value                                                        @typescript-eslint/no-unsafe-call
-  615:67   error  Unsafe return of a value of type `any`                                                              @typescript-eslint/no-unsafe-return
-  616:45   error  Unsafe call of a(n) `error` type typed value                                                        @typescript-eslint/no-unsafe-call
-  629:61   error  Unexpected any value in conditional. An explicit comparison or type conversion is required          @typescript-eslint/strict-boolean-expressions
-  629:61   error  Unsafe call of a(n) `error` type typed value                                                        @typescript-eslint/no-unsafe-call
-  631:62   error  Unsafe assignment of an error typed value                                                           @typescript-eslint/no-unsafe-assignment
-  631:75   error  Unsafe member access .is_public on an `error` typed value                                           @typescript-eslint/no-unsafe-member-access
-  632:63   error  Unsafe assignment of an error typed value                                                           @typescript-eslint/no-unsafe-assignment
-  632:63   error  Unsafe call of a(n) `error` type typed value                                                        @typescript-eslint/no-unsafe-call
-  634:57   error  Unsafe call of a(n) `error` type typed value                                                        @typescript-eslint/no-unsafe-call
-  634:79   error  Unsafe return of a value of type `any`                                                              @typescript-eslint/no-unsafe-return
-  635:57   error  Unsafe call of a(n) `error` type typed value                                                        @typescript-eslint/no-unsafe-call
-  640:42   error  Unexpected any value in conditional. An explicit comparison or type conversion is required          @typescript-eslint/strict-boolean-expressions
-  640:42   error  Unsafe call of a(n) `error` type typed value                                                        @typescript-eslint/no-unsafe-call
-  654:61   error  Unexpected any value in conditional. An explicit comparison or type conversion is required          @typescript-eslint/strict-boolean-expressions
-  654:61   error  Unsafe call of a(n) `error` type typed value                                                        @typescript-eslint/no-unsafe-call
-  656:62   error  Unsafe assignment of an error typed value                                                           @typescript-eslint/no-unsafe-assignment
-  656:75   error  Unsafe member access .is_active on an `error` typed value                                           @typescript-eslint/no-unsafe-member-access
-  657:63   error  Unsafe assignment of an error typed value                                                           @typescript-eslint/no-unsafe-assignment
-  657:63   error  Unsafe call of a(n) `error` type typed value                                                        @typescript-eslint/no-unsafe-call
-  659:57   error  Unsafe call of a(n) `error` type typed value                                                        @typescript-eslint/no-unsafe-call
-  659:79   error  Unsafe return of a value of type `any`                                                              @typescript-eslint/no-unsafe-return
-  660:57   error  Unsafe call of a(n) `error` type typed value                                                        @typescript-eslint/no-unsafe-call
-  665:42   error  Unexpected any value in conditional. An explicit comparison or type conversion is required          @typescript-eslint/strict-boolean-expressions
-  665:42   error  Unsafe call of a(n) `error` type typed value                                                        @typescript-eslint/no-unsafe-call
-  679:68   error  Unsafe assignment of an error typed value                                                           @typescript-eslint/no-unsafe-assignment
-  679:81   error  Unsafe member access .permissions on an `error` typed value                                         @typescript-eslint/no-unsafe-member-access
-  681:45   error  Unsafe call of a(n) `error` type typed value                                                        @typescript-eslint/no-unsafe-call
-  681:70   error  Unsafe return of a value of type `any`                                                              @typescript-eslint/no-unsafe-return
-  685:45   error  Unsafe call of a(n) `error` type typed value                                                        @typescript-eslint/no-unsafe-call
-  698:76   error  Unsafe return of a value of type error                                                              @typescript-eslint/no-unsafe-return
-  698:82   error  Unsafe call of a(n) `error` type typed value                                                        @typescript-eslint/no-unsafe-call
-  706:120  error  Unsafe member access .name on an `error` typed value                                                @typescript-eslint/no-unsafe-member-access
-  710:172  error  Unsafe member access .name on an `error` typed value                                                @typescript-eslint/no-unsafe-member-access
-  712:40   error  Unsafe assignment of an error typed value                                                           @typescript-eslint/no-unsafe-assignment
-  713:50   error  Unsafe return of a value of type error                                                              @typescript-eslint/no-unsafe-return
-  713:50   error  Unsafe call of a(n) `error` type typed value                                                        @typescript-eslint/no-unsafe-call
-  722:44   error  Unsafe return of a value of type error                                                              @typescript-eslint/no-unsafe-return
-  722:44   error  Unsafe call of a(n) `error` type typed value                                                        @typescript-eslint/no-unsafe-call
-  729:38   error  Unsafe assignment of an error typed value                                                           @typescript-eslint/no-unsafe-assignment
-  730:86   error  Unsafe member access .name on an `error` typed value                                                @typescript-eslint/no-unsafe-member-access
-  788:32   error  Promise-returning function provided to attribute where a void return was expected                   @typescript-eslint/no-misused-promises
-  814:37   error  Unexpected constant nullishness on the left-hand side of a `??` expression                          no-constant-binary-expression
-  814:37   error  Unnecessary conditional, expected left-hand side of `??` operator to be possibly null or undefined  @typescript-eslint/no-unnecessary-condition
-  880:17   error  Unexpected nullable boolean value in conditional. Please handle the nullish case explicitly         @typescript-eslint/strict-boolean-expressions
-  888:21   error  Unexpected nullable boolean value in conditional. Please handle the nullish case explicitly         @typescript-eslint/strict-boolean-expressions
-  908:88   error  Unnecessary conditional, expected left-hand side of `??` operator to be possibly null or undefined  @typescript-eslint/no-unnecessary-condition
-  908:104  error  Unnecessary optional chain on a non-nullish value                                                   @typescript-eslint/no-unnecessary-condition
+  70:5   warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/strict-boolean-expressions')
+  91:35  error    Promise-returning function provided to attribute where a void return was expected                                 @typescript-eslint/no-misused-promises
+  92:31  error    Promise-returning function provided to attribute where a void return was expected                                 @typescript-eslint/no-misused-promises
+  96:31  error    Promise-returning function provided to attribute where a void return was expected                                 @typescript-eslint/no-misused-promises
+
+/Users/fluke/Desktop/Work/epsx/apps/admin-frontend/components/access-control/plans/create-plan-sheet.tsx
+   25:8   error    Function 'CreatePlanSheet' has too many lines (170). Maximum allowed is 120                                       max-lines-per-function
+   82:30  error    Promise-returning function provided to attribute where a void return was expected                                 @typescript-eslint/no-misused-promises
+  154:33  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/strict-boolean-expressions')
+
+/Users/fluke/Desktop/Work/epsx/apps/admin-frontend/components/access-control/plans/plan-editor.tsx
+   25:9   warning  Unused eslint-disable directive (no problems were reported from 'no-unused-vars')
+   37:8   error    Function 'PlanEditor' has too many lines (317). Maximum allowed is 120                                            max-lines-per-function
+  128:33  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/strict-boolean-expressions')
+  173:33  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/strict-boolean-expressions')
+  215:33  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/strict-boolean-expressions')
+
+/Users/fluke/Desktop/Work/epsx/apps/admin-frontend/components/access-control/plans/plan-item.tsx
+   82:26  error    Unnecessary conditional, expected left-hand side of `??` operator to be possibly null or undefined                @typescript-eslint/no-unnecessary-condition
+   82:42  error    Unnecessary optional chain on a non-nullish value                                                                 @typescript-eslint/no-unnecessary-condition
+  136:9   warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/strict-boolean-expressions')
+
+/Users/fluke/Desktop/Work/epsx/apps/admin-frontend/components/access-control/plans/plan-list-sidebar.tsx
+   24:1   warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-explicit-any')
+   57:5   warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/strict-boolean-expressions')
+   61:18  error    Unnecessary conditional, expected left-hand side of `??` operator to be possibly null or undefined                @typescript-eslint/no-unnecessary-condition
+  139:30  error    Unexpected nullable string value in conditional. Please handle the nullish/empty cases explicitly                 @typescript-eslint/strict-boolean-expressions
+
+/Users/fluke/Desktop/Work/epsx/apps/admin-frontend/components/access-control/plans/types.ts
+  1:1  error  All imports in the declaration are only used as types. Use `import type`  @typescript-eslint/consistent-type-imports
+
+/Users/fluke/Desktop/Work/epsx/apps/admin-frontend/components/access-control/plans/use-plans-logic.ts
+   46:17  error    Unexpected object value in conditional. The condition is always true                                              @typescript-eslint/strict-boolean-expressions
+   46:17  error    Unnecessary conditional, value is always truthy                                                                   @typescript-eslint/no-unnecessary-condition
+   96:38  error    Unnecessary optional chain on a non-nullish value                                                                 @typescript-eslint/no-unnecessary-condition
+   99:23  error    Unnecessary conditional, expected left-hand side of `??` operator to be possibly null or undefined                @typescript-eslint/no-unnecessary-condition
+  100:30  error    Unnecessary conditional, expected left-hand side of `??` operator to be possibly null or undefined                @typescript-eslint/no-unnecessary-condition
+  104:30  error    Unnecessary conditional, expected left-hand side of `??` operator to be possibly null or undefined                @typescript-eslint/no-unnecessary-condition
+  220:17  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/strict-boolean-expressions')
+  221:34  error    Unnecessary conditional, expected left-hand side of `??` operator to be possibly null or undefined                @typescript-eslint/no-unnecessary-condition
+  264:36  error    Unsafe return of a value of type `any`                                                                            @typescript-eslint/no-unsafe-return
+  298:17  warning  Unused eslint-disable directive (no problems were reported from 'no-unused-vars')
+  301:11  error    Async arrow function has too many parameters (5). Maximum allowed is 3                                            max-params
+  307:13  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/strict-boolean-expressions')
 
 /Users/fluke/Desktop/Work/epsx/apps/admin-frontend/components/access-control/policy-card.tsx
    61:8   error  Function 'PolicyCard' has too many lines (282). Maximum allowed is 120                                max-lines-per-function
@@ -515,18 +385,16 @@ $ eslint .
   46:12  error  Unexpected nullable string value in conditional. Please handle the nullish/empty cases explicitly  @typescript-eslint/strict-boolean-expressions
 
 /Users/fluke/Desktop/Work/epsx/apps/admin-frontend/components/access-control/types.ts
-  188:8   error  Function 'planToPolicy' has a complexity of 16. Maximum allowed is 12                               complexity
-  201:18  error  Unnecessary conditional, expected left-hand side of `??` operator to be possibly null or undefined  @typescript-eslint/no-unnecessary-condition
-  208:18  error  Unnecessary conditional, expected left-hand side of `??` operator to be possibly null or undefined  @typescript-eslint/no-unnecessary-condition
-  209:15  error  Unnecessary conditional, expected left-hand side of `??` operator to be possibly null or undefined  @typescript-eslint/no-unnecessary-condition
-  212:17  error  Unnecessary conditional, expected left-hand side of `??` operator to be possibly null or undefined  @typescript-eslint/no-unnecessary-condition
-  213:20  error  Unnecessary conditional, expected left-hand side of `??` operator to be possibly null or undefined  @typescript-eslint/no-unnecessary-condition
-  243:18  error  Unnecessary conditional, expected left-hand side of `??` operator to be possibly null or undefined  @typescript-eslint/no-unnecessary-condition
-  245:18  error  Unnecessary conditional, expected left-hand side of `??` operator to be possibly null or undefined  @typescript-eslint/no-unnecessary-condition
-  257:16  error  Unnecessary conditional, expected left-hand side of `??` operator to be possibly null or undefined  @typescript-eslint/no-unnecessary-condition
-  267:10  error  Unexpected constant nullishness on the left-hand side of a `??` expression                          no-constant-binary-expression
-  267:10  error  Unnecessary conditional, expected left-hand side of `??` operator to be possibly null or undefined  @typescript-eslint/no-unnecessary-condition
-  292:17  error  Update this function so that its implementation is not identical to the one on line 280             sonarjs/no-identical-functions
+  193:8   error  Function 'planToPolicy' has a complexity of 16. Maximum allowed is 12                               complexity
+  206:18  error  Unnecessary conditional, expected left-hand side of `??` operator to be possibly null or undefined  @typescript-eslint/no-unnecessary-condition
+  213:18  error  Unnecessary conditional, expected left-hand side of `??` operator to be possibly null or undefined  @typescript-eslint/no-unnecessary-condition
+  214:15  error  Unnecessary conditional, expected left-hand side of `??` operator to be possibly null or undefined  @typescript-eslint/no-unnecessary-condition
+  217:17  error  Unnecessary conditional, expected left-hand side of `??` operator to be possibly null or undefined  @typescript-eslint/no-unnecessary-condition
+  218:20  error  Unnecessary conditional, expected left-hand side of `??` operator to be possibly null or undefined  @typescript-eslint/no-unnecessary-condition
+  248:18  error  Unnecessary conditional, expected left-hand side of `??` operator to be possibly null or undefined  @typescript-eslint/no-unnecessary-condition
+  250:18  error  Unnecessary conditional, expected left-hand side of `??` operator to be possibly null or undefined  @typescript-eslint/no-unnecessary-condition
+  262:16  error  Unnecessary conditional, expected left-hand side of `??` operator to be possibly null or undefined  @typescript-eslint/no-unnecessary-condition
+  297:17  error  Update this function so that its implementation is not identical to the one on line 285             sonarjs/no-identical-functions
 
 /Users/fluke/Desktop/Work/epsx/apps/admin-frontend/components/admin/developer-portal.tsx
    29:42  error  Arrow function has too many lines (261). Maximum allowed is 120                                     max-lines-per-function
@@ -627,13 +495,6 @@ $ eslint .
   122:42  error  Unexpected nullable string value in conditional. Please handle the nullish/empty cases explicitly   @typescript-eslint/strict-boolean-expressions
   233:39  error  Unnecessary conditional, expected left-hand side of `??` operator to be possibly null or undefined  @typescript-eslint/no-unnecessary-condition
 
-/Users/fluke/Desktop/Work/epsx/apps/admin-frontend/components/admin/developer-portal/modals/revoke-key-modal.tsx
-   39:62  error  Arrow function has too many lines (148). Maximum allowed is 120                                     max-lines-per-function
-   68:18  error  'err' is defined but never used. Allowed unused caught errors must match /^_/u                      @typescript-eslint/no-unused-vars
-  102:32  error  Promise-returning function provided to attribute where a void return was expected                   @typescript-eslint/no-misused-promises
-  122:34  error  Unexpected nullable string value in conditional. Please handle the nullish/empty cases explicitly   @typescript-eslint/strict-boolean-expressions
-  189:39  error  Unnecessary conditional, expected left-hand side of `??` operator to be possibly null or undefined  @typescript-eslint/no-unnecessary-condition
-
 /Users/fluke/Desktop/Work/epsx/apps/admin-frontend/components/admin/developer-portal/portal-overview.tsx
    16:62  error  Arrow function has too many lines (182). Maximum allowed is 120                                     max-lines-per-function
   116:51  error  Unnecessary conditional, expected left-hand side of `??` operator to be possibly null or undefined  @typescript-eslint/no-unnecessary-condition
@@ -645,13 +506,6 @@ $ eslint .
   135:53  error  Unexpected any. Specify a different type                                                            @typescript-eslint/no-explicit-any
   135:58  error  Unsafe member access .permission_groups on an `any` value                                           @typescript-eslint/no-unsafe-member-access
   154:84  error  Unsafe argument of type error typed assigned to a parameter of type `string`                        @typescript-eslint/no-unsafe-argument
-
-/Users/fluke/Desktop/Work/epsx/apps/admin-frontend/components/admin/developer-portal/shared/api-key-row.tsx
-   23:10  error  Unexpected nullable string value in conditional. Please handle the nullish/empty cases explicitly   @typescript-eslint/strict-boolean-expressions
-   71:52  error  Arrow function has too many lines (121). Maximum allowed is 120                                     max-lines-per-function
-   80:23  error  Unnecessary conditional, expected left-hand side of `??` operator to be possibly null or undefined  @typescript-eslint/no-unnecessary-condition
-  157:26  error  Unexpected nullable string value in conditional. Please handle the nullish/empty cases explicitly   @typescript-eslint/strict-boolean-expressions
-  168:26  error  Unexpected nullable string value in conditional. Please handle the nullish/empty cases explicitly   @typescript-eslint/strict-boolean-expressions
 
 /Users/fluke/Desktop/Work/epsx/apps/admin-frontend/components/admin/developer-portal/tabs/api-keys-tab.tsx
    41:54  error  Arrow function has too many lines (153). Maximum allowed is 120                                     max-lines-per-function
@@ -789,11 +643,9 @@ $ eslint .
   452:35  error  Promise-returning function provided to attribute where a void return was expected                                                                                   @typescript-eslint/no-misused-promises
 
 /Users/fluke/Desktop/Work/epsx/apps/admin-frontend/components/admin/stock-ranking-package-assignment.tsx
-  140:14  error    Unnecessary conditional, expected left-hand side of `??` operator to be possibly null or undefined              @typescript-eslint/no-unnecessary-condition
-  143:15  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-unnecessary-condition')
-  522:8   warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-unsafe-assignment')
-  526:22  error    Unsafe assignment of an error typed value                                                                       @typescript-eslint/no-unsafe-assignment
-  529:25  error    Unsafe assignment of an error typed value                                                                       @typescript-eslint/no-unsafe-assignment
+  140:14  error  Unnecessary conditional, expected left-hand side of `??` operator to be possibly null or undefined  @typescript-eslint/no-unnecessary-condition
+  526:22  error  Unsafe assignment of an error typed value                                                           @typescript-eslint/no-unsafe-assignment
+  529:25  error  Unsafe assignment of an error typed value                                                           @typescript-eslint/no-unsafe-assignment
 
 /Users/fluke/Desktop/Work/epsx/apps/admin-frontend/components/admin/usage-analytics-tab.tsx
    22:1   error  Function 'UsageAnalyticsTab' has too many lines (294). Maximum allowed is 120                                                                                       max-lines-per-function
@@ -939,13 +791,12 @@ $ eslint .
   107:8   error  Unexpected nullable string value in conditional. Please handle the nullish/empty cases explicitly  @typescript-eslint/strict-boolean-expressions
 
 /Users/fluke/Desktop/Work/epsx/apps/admin-frontend/components/payments/payment-analytics.tsx
-   22:1   warning  Unused eslint-disable directive (no problems were reported from 'complexity')
-   44:26  error    Unsafe argument of type error typed assigned to a parameter of type `SetStateAction<PaymentStats | null>`  @typescript-eslint/no-unsafe-argument
-   44:51  error    Unsafe member access .summary on an `error` typed value                                                    @typescript-eslint/no-unsafe-member-access
-   46:33  error    Unsafe argument of type error typed assigned to a parameter of type `string | undefined`                   @typescript-eslint/no-unsafe-argument
-   73:18  error    'e' is defined but never used. Allowed unused caught errors must match /^_/u                               @typescript-eslint/no-unused-vars
-  123:33  error    Promise-returning function provided to attribute where a void return was expected                          @typescript-eslint/no-misused-promises
-  156:18  error    Unexpected nullable string value in conditional. Please handle the nullish/empty cases explicitly          @typescript-eslint/strict-boolean-expressions
+   44:26  error  Unsafe argument of type error typed assigned to a parameter of type `SetStateAction<PaymentStats | null>`  @typescript-eslint/no-unsafe-argument
+   44:51  error  Unsafe member access .summary on an `error` typed value                                                    @typescript-eslint/no-unsafe-member-access
+   46:33  error  Unsafe argument of type error typed assigned to a parameter of type `string | undefined`                   @typescript-eslint/no-unsafe-argument
+   73:18  error  'e' is defined but never used. Allowed unused caught errors must match /^_/u                               @typescript-eslint/no-unused-vars
+  123:33  error  Promise-returning function provided to attribute where a void return was expected                          @typescript-eslint/no-misused-promises
+  156:18  error  Unexpected nullable string value in conditional. Please handle the nullish/empty cases explicitly          @typescript-eslint/strict-boolean-expressions
 
 /Users/fluke/Desktop/Work/epsx/apps/admin-frontend/components/payments/payment-links-management.tsx
    54:30  error  Too many nested callbacks (4). Maximum allowed is 3                                                max-nested-callbacks
@@ -1296,14 +1147,13 @@ $ eslint .
   49:9   error  Promises must be awaited, end with a call to .catch, end with a call to .then with a rejection handler or be explicitly marked as ignored with the `void` operator  @typescript-eslint/no-floating-promises
 
 /Users/fluke/Desktop/Work/epsx/apps/admin-frontend/components/subscriptions/policy-section.tsx
-   38:1   warning  Unused eslint-disable directive (no problems were reported from 'max-lines-per-function')
-   99:9   error    Unexpected nullable string value in conditional. Please handle the nullish/empty cases explicitly  @typescript-eslint/strict-boolean-expressions
-  116:9   error    Unexpected nullable string value in conditional. Please handle the nullish/empty cases explicitly  @typescript-eslint/strict-boolean-expressions
-  203:19  error    Promise-returning function provided to attribute where a void return was expected                  @typescript-eslint/no-misused-promises
-  222:19  error    Promise-returning function provided to attribute where a void return was expected                  @typescript-eslint/no-misused-promises
-  233:23  error    Do not use Array index in keys                                                                     react/no-array-index-key
-  259:25  error    Unexpected nullable boolean value in conditional. Please handle the nullish case explicitly        @typescript-eslint/strict-boolean-expressions
-  303:25  error    Promise-returning function provided to attribute where a void return was expected                  @typescript-eslint/no-misused-promises
+   99:9   error  Unexpected nullable string value in conditional. Please handle the nullish/empty cases explicitly  @typescript-eslint/strict-boolean-expressions
+  116:9   error  Unexpected nullable string value in conditional. Please handle the nullish/empty cases explicitly  @typescript-eslint/strict-boolean-expressions
+  203:19  error  Promise-returning function provided to attribute where a void return was expected                  @typescript-eslint/no-misused-promises
+  222:19  error  Promise-returning function provided to attribute where a void return was expected                  @typescript-eslint/no-misused-promises
+  233:23  error  Do not use Array index in keys                                                                     react/no-array-index-key
+  259:25  error  Unexpected nullable boolean value in conditional. Please handle the nullish case explicitly        @typescript-eslint/strict-boolean-expressions
+  303:25  error  Promise-returning function provided to attribute where a void return was expected                  @typescript-eslint/no-misused-promises
 
 /Users/fluke/Desktop/Work/epsx/apps/admin-frontend/components/subscriptions/promotion-section.tsx
    30:14   error  Unsafe member access .usageLimit on an `error` typed value                                          @typescript-eslint/no-unsafe-member-access
@@ -1461,13 +1311,6 @@ $ eslint .
   218:50  error  Unexpected object value in conditional. The condition is always true                                @typescript-eslint/strict-boolean-expressions
   218:50  error  Unnecessary conditional, value is always truthy                                                     @typescript-eslint/no-unnecessary-condition
 
-/Users/fluke/Desktop/Work/epsx/apps/admin-frontend/components/wallet/activity-log-section.tsx
-   43:30   error  Unnecessary conditional, expected left-hand side of `??` operator to be possibly null or undefined                                                                  @typescript-eslint/no-unnecessary-condition
-   44:27   error  Unexpected any value in conditional. An explicit comparison or type conversion is required                                                                          @typescript-eslint/strict-boolean-expressions
-   55:9    error  Promises must be awaited, end with a call to .catch, end with a call to .then with a rejection handler or be explicitly marked as ignored with the `void` operator  @typescript-eslint/no-floating-promises
-   73:163  error  Promise-returning function provided to attribute where a void return was expected                                                                                   @typescript-eslint/no-misused-promises
-  117:9    error  Unnecessary conditional, expected left-hand side of `??` operator to be possibly null or undefined                                                                  @typescript-eslint/no-unnecessary-condition
-
 /Users/fluke/Desktop/Work/epsx/apps/admin-frontend/components/wallet/add-resource-modal.tsx
    39:29  error  Unexpected nullable boolean value in array predicate return type. Please handle the nullish case explicitly  @typescript-eslint/strict-boolean-expressions
    46:14  error  Unexpected nullable string value in conditional. Please handle the nullish/empty cases explicitly            @typescript-eslint/strict-boolean-expressions
@@ -1508,38 +1351,6 @@ $ eslint .
    79:8   error  Function 'ReenableWalletModal' has too many lines (185). Maximum allowed is 120                    max-lines-per-function
   171:30  error  Unexpected nullable string value in conditional. Please handle the nullish/empty cases explicitly  @typescript-eslint/strict-boolean-expressions
   257:33  error  Promise-returning function provided to attribute where a void return was expected                  @typescript-eslint/no-misused-promises
-
-/Users/fluke/Desktop/Work/epsx/apps/admin-frontend/components/wallet/wallet-access-manager.tsx
-  139:32  error  Unnecessary conditional, comparison is always true, since `"plan" === "plan"` is true                                                      @typescript-eslint/no-unnecessary-condition
-  152:30  error  Unnecessary conditional, comparison is always true, since `"plan" === "plan"` is true                                                      @typescript-eslint/no-unnecessary-condition
-  268:40  error  Unexpected nullable boolean value in array predicate return type. Please handle the nullish case explicitly                                @typescript-eslint/strict-boolean-expressions
-  290:40  error  Unexpected nullable boolean value in array predicate return type. Please handle the nullish case explicitly                                @typescript-eslint/strict-boolean-expressions
-  336:30  error  Define a constant instead of duplicating this literal 4 times                                                                              sonarjs/no-duplicate-string
-  364:13  error  Unexpected constant nullishness on the left-hand side of a `??` expression                                                                 no-constant-binary-expression
-  364:13  error  Unnecessary conditional, expected left-hand side of `??` operator to be possibly null or undefined                                         @typescript-eslint/no-unnecessary-condition
-  364:13  error  Unexpected constant nullishness on the left-hand side of a `??` expression                                                                 no-constant-binary-expression
-  364:13  error  Unnecessary conditional, expected left-hand side of `??` operator to be possibly null or undefined                                         @typescript-eslint/no-unnecessary-condition
-  610:1   error  Function 'ItemCard' has a complexity of 23. Maximum allowed is 12                                                                          complexity
-  614:20  error  Unnecessary conditional, expected left-hand side of `??` operator to be possibly null or undefined                                         @typescript-eslint/no-unnecessary-condition
-  622:33  error  Unexpected nullable boolean value in conditional. Please handle the nullish case explicitly                                                @typescript-eslint/strict-boolean-expressions
-  626:18  error  Unexpected nullable boolean value in conditional. Please handle the nullish case explicitly                                                @typescript-eslint/strict-boolean-expressions
-  644:35  error  Unexpected nullable boolean value in conditional. Please handle the nullish case explicitly                                                @typescript-eslint/strict-boolean-expressions
-  665:62  error  Expected '!==' and instead saw '!='                                                                                                        eqeqeq
-  671:51  error  Unnecessary optional chain on a non-nullish value                                                                                          @typescript-eslint/no-unnecessary-condition
-  671:63  error  Expected '!==' and instead saw '!='                                                                                                        eqeqeq
-  709:8   error  Function 'WalletAccessManager' has too many lines (216). Maximum allowed is 120                                                            max-lines-per-function
-  709:8   error  Function 'WalletAccessManager' has a complexity of 25. Maximum allowed is 12                                                               complexity
-  747:8   error  React Hook useCallback has an unnecessary dependency: 'selectionCtx.selectedAuthorized'. Either exclude it or remove the dependency array  react-hooks/exhaustive-deps
-  755:11  error  'allAvailableSelected' is assigned a value but never used. Allowed unused vars must match /^_/u                                            @typescript-eslint/no-unused-vars
-  756:11  error  'allAuthorizedSelected' is assigned a value but never used. Allowed unused vars must match /^_/u                                           @typescript-eslint/no-unused-vars
-  758:9   error  Unexpected value in conditional. A boolean expression is required                                                                          @typescript-eslint/strict-boolean-expressions
-  762:51  error  Promise-returning function provided to attribute where a void return was expected                                                          @typescript-eslint/no-misused-promises
-  786:33  error  Promise-returning function provided to attribute where a void return was expected                                                          @typescript-eslint/no-misused-promises
-  809:35  error  Unexpected constant nullishness on the left-hand side of a `??` expression                                                                 no-constant-binary-expression
-  809:35  error  Unnecessary conditional, expected left-hand side of `??` operator to be possibly null or undefined                                         @typescript-eslint/no-unnecessary-condition
-  814:35  error  Unexpected constant nullishness on the left-hand side of a `??` expression                                                                 no-constant-binary-expression
-  814:35  error  Unnecessary conditional, expected left-hand side of `??` operator to be possibly null or undefined                                         @typescript-eslint/no-unnecessary-condition
-  834:45  error  Promise-returning function provided to attribute where a void return was expected                                                          @typescript-eslint/no-misused-promises
 
 /Users/fluke/Desktop/Work/epsx/apps/admin-frontend/components/wallet/wallet-activity-history.tsx
   45:22  error  Unexpected nullable string value in conditional. Please handle the nullish/empty cases explicitly  @typescript-eslint/strict-boolean-expressions
@@ -1680,9 +1491,6 @@ The file was not found in any of the provided project(s): eslint.config.js
   286:13  error  Unnecessary conditional, expected left-hand side of `??` operator to be possibly null or undefined  @typescript-eslint/no-unnecessary-condition
   286:14  error  Unexpected nullable string value in conditional. Please handle the nullish/empty cases explicitly   @typescript-eslint/strict-boolean-expressions
 
-/Users/fluke/Desktop/Work/epsx/apps/admin-frontend/hooks/use-wallet-detail.ts
-  12:1  error  All imports in the declaration are only used as types. Use `import type`  @typescript-eslint/consistent-type-imports
-
 /Users/fluke/Desktop/Work/epsx/apps/admin-frontend/jest.config.js
   0:0  error  Parsing error: "parserOptions.project" has been provided for @typescript-eslint/parser.
 The file was not found in any of the provided project(s): jest.config.js
@@ -1810,22 +1618,6 @@ The file was not found in any of the provided project(s): jest.setup.js
   165:5   error  Unexpected console statement                                                                       no-console
   309:5   error  Unexpected console statement                                                                       no-console
 
-/Users/fluke/Desktop/Work/epsx/apps/admin-frontend/lib/auth/helpers.ts
-   84:21  error  Unnecessary conditional, expected left-hand side of `??` operator to be possibly null or undefined  @typescript-eslint/no-unnecessary-condition
-   85:30  error  Unnecessary conditional, expected left-hand side of `??` operator to be possibly null or undefined  @typescript-eslint/no-unnecessary-condition
-  129:8   error  Unexpected nullable boolean value in conditional. Please handle the nullish case explicitly         @typescript-eslint/strict-boolean-expressions
-  132:45  error  Unexpected nullable boolean value in conditional. Please handle the nullish case explicitly         @typescript-eslint/strict-boolean-expressions
-  167:10  error  Unexpected constant nullishness on the left-hand side of a `??` expression                          no-constant-binary-expression
-  167:10  error  Unnecessary conditional, expected left-hand side of `??` operator to be possibly null or undefined  @typescript-eslint/no-unnecessary-condition
-  179:8   error  Unexpected nullable string value in conditional. Please handle the nullish/empty cases explicitly   @typescript-eslint/strict-boolean-expressions
-  207:7   error  Unexpected constant nullishness on the left-hand side of a `??` expression                          no-constant-binary-expression
-  207:7   error  Unnecessary conditional, expected left-hand side of `??` operator to be possibly null or undefined  @typescript-eslint/no-unnecessary-condition
-  217:7   error  Unexpected constant nullishness on the left-hand side of a `??` expression                          no-constant-binary-expression
-  217:7   error  Unnecessary conditional, expected left-hand side of `??` operator to be possibly null or undefined  @typescript-eslint/no-unnecessary-condition
-  301:20  error  Unnecessary conditional, expected left-hand side of `??` operator to be possibly null or undefined  @typescript-eslint/no-unnecessary-condition
-  330:33  error  Unexpected nullable string value in conditional. Please handle the nullish/empty cases explicitly   @typescript-eslint/strict-boolean-expressions
-  330:45  error  Unexpected nullable string value in conditional. Please handle the nullish/empty cases explicitly   @typescript-eslint/strict-boolean-expressions
-
 /Users/fluke/Desktop/Work/epsx/apps/admin-frontend/lib/auth/server.ts
    48:10  error  Unexpected nullable string value in conditional. Please handle the nullish/empty cases explicitly   @typescript-eslint/strict-boolean-expressions
    61:26  error  Unnecessary conditional, expected left-hand side of `??` operator to be possibly null or undefined  @typescript-eslint/no-unnecessary-condition
@@ -1850,12 +1642,9 @@ The file was not found in any of the provided project(s): jest.setup.js
   169:8   error  Async function 'fetchPolicyStats' has a complexity of 17. Maximum allowed is 12                              complexity
   185:52  error  Unnecessary optional chain on a non-nullish value                                                            @typescript-eslint/no-unnecessary-condition
   185:84  error  Unnecessary optional chain on a non-nullish value                                                            @typescript-eslint/no-unnecessary-condition
-  195:29  error  This assertion is unnecessary since it does not change the type of the expression                            @typescript-eslint/no-unnecessary-type-assertion
-  195:55  error  This assertion is unnecessary since it does not change the type of the expression                            @typescript-eslint/no-unnecessary-type-assertion
   205:22  error  Unnecessary conditional, expected left-hand side of `??` operator to be possibly null or undefined           @typescript-eslint/no-unnecessary-condition
   208:48  error  Unexpected nullable boolean value in array predicate return type. Please handle the nullish case explicitly  @typescript-eslint/strict-boolean-expressions
   221:37  error  Unnecessary conditional, expected left-hand side of `??` operator to be possibly null or undefined           @typescript-eslint/no-unnecessary-condition
-  227:25  error  This assertion is unnecessary since it does not change the type of the expression                            @typescript-eslint/no-unnecessary-type-assertion
 
 /Users/fluke/Desktop/Work/epsx/apps/admin-frontend/lib/hooks/use-optimistic-updates.ts
    24:8  error  Function 'useOptimisticUpdates' has too many lines (147). Maximum allowed is 120                    max-lines-per-function
@@ -1902,28 +1691,18 @@ The file was not found in any of the provided project(s): jest.setup.js
   196:9   error  Unexpected nullable string value in conditional. Please handle the nullish/empty cases explicitly  @typescript-eslint/strict-boolean-expressions
   215:22  error  Unexpected nullable string value in conditional. Please handle the nullish/empty cases explicitly  @typescript-eslint/strict-boolean-expressions
 
-/Users/fluke/Desktop/Work/epsx/apps/admin-frontend/lib/server/helpers.ts
-   65:3   error  Static async method 'getAdminSession' has a complexity of 13. Maximum allowed is 12   complexity
-   82:13  error  This assertion is unnecessary since it does not change the type of the expression     @typescript-eslint/no-unnecessary-type-assertion
-   83:16  error  This assertion is unnecessary since it does not change the type of the expression     @typescript-eslint/no-unnecessary-type-assertion
-   84:15  error  This assertion is unnecessary since it does not change the type of the expression     @typescript-eslint/no-unnecessary-type-assertion
-   85:15  error  This assertion is unnecessary since it does not change the type of the expression     @typescript-eslint/no-unnecessary-type-assertion
-   86:22  error  This assertion is unnecessary since it does not change the type of the expression     @typescript-eslint/no-unnecessary-type-assertion
-   87:22  error  This assertion is unnecessary since it does not change the type of the expression     @typescript-eslint/no-unnecessary-type-assertion
-  178:3   error  Static async method 'getUserFromToken' has a complexity of 13. Maximum allowed is 12  complexity
-  189:11  error  This assertion is unnecessary since it does not change the type of the expression     @typescript-eslint/no-unnecessary-type-assertion
-  190:14  error  This assertion is unnecessary since it does not change the type of the expression     @typescript-eslint/no-unnecessary-type-assertion
-  191:13  error  This assertion is unnecessary since it does not change the type of the expression     @typescript-eslint/no-unnecessary-type-assertion
-  192:13  error  This assertion is unnecessary since it does not change the type of the expression     @typescript-eslint/no-unnecessary-type-assertion
-  193:20  error  This assertion is unnecessary since it does not change the type of the expression     @typescript-eslint/no-unnecessary-type-assertion
-  194:20  error  This assertion is unnecessary since it does not change the type of the expression     @typescript-eslint/no-unnecessary-type-assertion
-
 /Users/fluke/Desktop/Work/epsx/apps/admin-frontend/next.config.ts
   46:9   error  Unexpected any value in conditional. An explicit comparison or type conversion is required  @typescript-eslint/strict-boolean-expressions
   46:17  error  Unexpected any value in conditional. An explicit comparison or type conversion is required  @typescript-eslint/strict-boolean-expressions
   78:10  error  Unexpected any value in conditional. An explicit comparison or type conversion is required  @typescript-eslint/strict-boolean-expressions
 
-✖ 1571 problems (1567 errors, 4 warnings)
-  16 errors and 4 warnings potentially fixable with the `--fix` option.
+✖ 1359 problems (1342 errors, 17 warnings)
+  3 errors and 17 warnings potentially fixable with the `--fix` option.
 
-error: script "lint" exited with code 1
+npm error Lifecycle script `lint` failed with error:
+npm error code 1
+npm error path /Users/fluke/Desktop/Work/epsx/apps/admin-frontend
+npm error workspace epsx-admin-frontend@1.0.0
+npm error location /Users/fluke/Desktop/Work/epsx/apps/admin-frontend
+npm error command failed
+npm error command sh -c eslint .

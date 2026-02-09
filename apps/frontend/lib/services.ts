@@ -2,11 +2,11 @@
 type ServiceArgs = unknown[];
 
 const authServiceInstance = {
-  login: async (..._args: ServiceArgs) => ({ success: false, error: 'Not implemented' }),
-  logout: async (..._args: ServiceArgs) => ({ success: true }),
-  getCurrentUser: async (..._args: ServiceArgs) => null,
-  refreshToken: async (..._args: ServiceArgs) => ({ success: false }),
-  validateSession: async (..._args: ServiceArgs) => false,
+  login: (..._args: ServiceArgs) => Promise.resolve({ success: false, error: 'Not implemented' }),
+  logout: (..._args: ServiceArgs) => Promise.resolve({ success: true }),
+  getCurrentUser: (..._args: ServiceArgs) => Promise.resolve(null),
+  refreshToken: (..._args: ServiceArgs) => Promise.resolve({ success: false }),
+  validateSession: (..._args: ServiceArgs) => Promise.resolve(false),
 };
 
 // Re-export the auth service singleton

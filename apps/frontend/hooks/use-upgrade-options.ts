@@ -63,7 +63,7 @@ export function useUpgradeOptions(): UseUpgradeOptionsResult {
 
                     let upgradeTarget: UpgradeOption | null = null;
 
-                    if (!currentPlanName || currentPlanName === FREE_PLAN_NAME) {
+                    if (currentPlanName == null || currentPlanName === '' || currentPlanName === FREE_PLAN_NAME) {
                         // If Free: Next is lowest price paid plan
                         upgradeTarget = candidates[0];
                     } else {
@@ -78,15 +78,15 @@ export function useUpgradeOptions(): UseUpgradeOptionsResult {
                         }
                     }
 
-                    if (upgradeTarget) {
+                    if (upgradeTarget != null) {
                         setNextPlan(upgradeTarget);
-                    } else if (candidates.length > 0 && (!currentPlanName || currentPlanName === FREE_PLAN_NAME)) {
+                    } else if (candidates.length > 0 && (currentPlanName == null || currentPlanName === '' || currentPlanName === FREE_PLAN_NAME)) {
                         setNextPlan(candidates[0]);
                     }
 
                     // Recommended: Pro Plan or similar
                     const rec = candidates.find(p => p.name.includes('Pro') || p.name.includes('Growth'));
-                    setRecommendedPlan(rec ?? candidates[Math.min(1, candidates.length - 1)] ?? null);
+                    setRecommendedPlan(rec ?? candidates[Math.min(1, candidates.length - 1)]);
                 }
             } catch (_err) {
       // Error logged silently
@@ -96,7 +96,7 @@ export function useUpgradeOptions(): UseUpgradeOptionsResult {
             }
         };
 
-        fetchUpgradeOptions();
+        void fetchUpgradeOptions();
     }, [accessLoading, planAccess]);
 
     return {
