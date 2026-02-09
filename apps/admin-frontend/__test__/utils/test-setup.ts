@@ -62,7 +62,11 @@ export const test = base.extend<AdminTestFixtures>({
 
   testUser: async ({}, use) => {
     // Provide default test user
-    await use(TEST_USERS['ADMIN']!);
+    const admin = TEST_USERS['ADMIN'];
+    if (!admin) {
+      throw new Error('ADMIN test user not configured');
+    }
+    await use(admin);
   },
 
   dbUtils: async ({}, use) => {
@@ -76,6 +80,7 @@ export const test = base.extend<AdminTestFixtures>({
   },
 
   performanceMonitor: async ({}, use) => {
+    // eslint-disable-next-line @typescript-eslint/no-use-before-define
     const monitor = new PerformanceMonitor();
     await use(monitor);
   }
@@ -127,6 +132,7 @@ export class PerformanceMonitor {
    *
    */
   endMeasurement(): PerformanceMetrics | null {
+  // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
     if (!this.currentMetric?.startTime) {
        
       console.warn('⚠️ No active measurement to end');
@@ -295,6 +301,7 @@ export class AuthenticationHelper {
         () => {
           const url = window.location.href;
           return !url.includes('/login') && 
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
                  !url.includes('/oauth/authorize') && 
                  (url.includes('localhost:3001') ?? url.includes('admin.epsx.io'));
         },
@@ -304,6 +311,7 @@ export class AuthenticationHelper {
       await this.page.waitForLoadState('networkidle');
 
       // Extract session token
+  // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
       const token = await this.extractAuthToken();
       
       if (token) {
@@ -667,8 +675,8 @@ export class EnvironmentValidator {
   /**
    *
    */
-  static async validatePermissions(): Promise<boolean> {
-    
+  static validatePermissions(): boolean {
+
     // Implementation: Validate that test users have correct permissions
     // This would check the database or API to ensure test users exist with proper permissions
     
