@@ -26,44 +26,9 @@ interface PermissionCategory {
  * @param root0
  * @param root0.user
  */
+// eslint-disable-next-line max-lines-per-function
 export function AdminPermissions({ user }: AdminPermissionsProps) {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(['admin']));
-  const [filterType, setFilterType] = useState<'all' | 'admin' | 'platform'>('all');
-
-  const formatDate = (timestamp?: number) => {
-    if (!timestamp) { return 'Not available'; }
-    return new Date(timestamp * 1000).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
-
-  const categorizePermissions = (): PermissionCategory[] => {
-    const permissions = user.permissions ?? [];
-    const categories = new Map<string, string[]>();
-
-    permissions.forEach(permission => {
-      const parts = permission.split(':');
-      const platform = parts[0] ?? 'unknown';
-
-      if (!categories.has(platform)) {
-        categories.set(platform, []);
-      }
-      categories.get(platform)!.push(permission);
-    });
-
-    return Array.from(categories.entries()).map(([platform, perms]) => ({
-      name: platform,
-      permissions: perms.sort(),
-      color: getColorForPlatform(platform),
-      icon: getIconForPlatform(platform),
-    }));
-  };
-
+  // Define helper functions before use
   const getColorForPlatform = (platform: string): string => {
     switch (platform) {
       case 'admin': return 'bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-300';
@@ -82,6 +47,46 @@ export function AdminPermissions({ user }: AdminPermissionsProps) {
       case 'epsx-token': return '🪙';
       default: return '🔐';
     }
+  };
+
+  const [searchTerm, setSearchTerm] = useState('');
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(['admin']));
+  const [filterType, setFilterType] = useState<'all' | 'admin' | 'platform'>('all');
+
+  const formatDate = (timestamp?: number) => {
+    if (timestamp === undefined || timestamp === 0) { return 'Not available'; }
+    return new Date(timestamp * 1000).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
+  const categorizePermissions = (): PermissionCategory[] => {
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+    const permissions = user.permissions ?? [];
+    const categories = new Map<string, string[]>();
+
+    permissions.forEach(permission => {
+      const parts = permission.split(':');
+       
+      const platform = parts[0] ?? 'unknown';
+
+      if (!categories.has(platform)) {
+        categories.set(platform, []);
+      }
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      categories.get(platform)!.push(permission);
+    });
+
+    return Array.from(categories.entries()).map(([platform, perms]) => ({
+      name: platform,
+      permissions: perms.sort(),
+      color: getColorForPlatform(platform),
+      icon: getIconForPlatform(platform),
+    }));
   };
 
   const toggleCategory = (categoryName: string) => {
@@ -109,8 +114,8 @@ export function AdminPermissions({ user }: AdminPermissionsProps) {
     .filter(category => category.permissions.length > 0);
 
   const getPermissionLevel = (permission: string): string => {
-    if (permission.includes(':admin') ?? permission.includes(':manage')) { return 'high'; }
-    if (permission.includes(':write') ?? permission.includes(':create') ?? permission.includes(':update')) { return 'medium'; }
+    if (permission.includes(':admin') || permission.includes(':manage')) { return 'high'; }
+    if (permission.includes(':write') || permission.includes(':create') || permission.includes(':update')) { return 'medium'; }
     return 'low';
   };
 
@@ -122,11 +127,12 @@ export function AdminPermissions({ user }: AdminPermissionsProps) {
     }
   };
 
-  const hasTemporaryPermissions = user.permissions?.some(p => /:\d+$/.test(p)) ?? false;
+  const hasTemporaryPermissions = user.permissions.some(p => /:\d+$/.test(p));
 
   return (
     <div className="space-y-6">
       {/* Permission Overview */}
+      { }
       <Card className="border-yellow-200 dark:border-slate-700">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -138,7 +144,7 @@ export function AdminPermissions({ user }: AdminPermissionsProps) {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="text-center p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
               <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
-                {user.permissions?.filter(p => p.startsWith('admin:')).length ?? 0}
+                {user.permissions.filter(p => p.startsWith('admin:')).length}
               </div>
               <div className="text-sm text-purple-700 dark:text-purple-300">
                 Admin Permissions
@@ -146,7 +152,7 @@ export function AdminPermissions({ user }: AdminPermissionsProps) {
             </div>
             <div className="text-center p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
               <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                {user.permissions?.filter(p => p.startsWith('epsx:')).length ?? 0}
+                {user.permissions.filter(p => p.startsWith('epsx:')).length}
               </div>
               <div className="text-sm text-blue-700 dark:text-blue-300">
                 Platform Permissions
@@ -154,7 +160,7 @@ export function AdminPermissions({ user }: AdminPermissionsProps) {
             </div>
             <div className="text-center p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
               <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-                {user.permissions?.filter(p => p.includes(':manage') ?? p.includes(':admin')).length ?? 0}
+                {user.permissions.filter(p => p.includes(':manage') || p.includes(':admin')).length}
               </div>
               <div className="text-sm text-green-700 dark:text-green-300">
                 Management Rights
@@ -162,7 +168,7 @@ export function AdminPermissions({ user }: AdminPermissionsProps) {
             </div>
             <div className="text-center p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
               <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
-                {user.permissions?.length ?? 0}
+                {user.permissions.length}
               </div>
               <div className="text-sm text-orange-700 dark:text-orange-300">
                 Total Permissions
@@ -170,13 +176,13 @@ export function AdminPermissions({ user }: AdminPermissionsProps) {
             </div>
           </div>
 
-          {user.permission_last_updated && (
+          {user.permission_last_updated !== undefined && user.permission_last_updated !== 0 && (
             <div className="flex items-center gap-2 p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
               <Clock className="h-4 w-4 text-slate-500" />
               <span className="text-sm text-slate-600 dark:text-slate-400">
                 Last updated: {formatDate(user.permission_last_updated)}
               </span>
-              {user.permission_version && (
+              {user.permission_version !== undefined && user.permission_version !== 0 && (
                 <Badge variant="outline" className="text-xs ml-auto">
                   v{user.permission_version}
                 </Badge>
@@ -278,11 +284,12 @@ export function AdminPermissions({ user }: AdminPermissionsProps) {
                         const isTemporary = /:\d+$/.test(permission);
                         const parts = permission.split(':');
                         const basePermission = isTemporary ? parts.slice(0, -1).join(':') : permission;
-                        const lastPart = parts[parts.length - 1]
-                        const expiryTimestamp = isTemporary && lastPart ? parseInt(lastPart) : undefined;
+                        const lastPart = parts[parts.length - 1] ?? '';
+                        const expiryTimestamp = (isTemporary && lastPart !== '') ? parseInt(lastPart, 10) : undefined;
 
                         return (
                           <div
+                            // eslint-disable-next-line react/no-array-index-key
                             key={index}
                             className="flex items-center justify-between p-3 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700"
                           >
@@ -290,7 +297,7 @@ export function AdminPermissions({ user }: AdminPermissionsProps) {
                               <div className="font-mono text-sm text-slate-900 dark:text-slate-100">
                                 {basePermission}
                               </div>
-                              {isTemporary && expiryTimestamp && (
+                              {isTemporary === true && expiryTimestamp !== undefined && expiryTimestamp !== 0 && (
                                 <div className="text-xs text-orange-600 dark:text-orange-400">
                                   Expires: {formatDate(expiryTimestamp)}
                                 </div>
