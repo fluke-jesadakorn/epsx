@@ -34,11 +34,7 @@ import {
 // Modals - Import for local use and re-export
 import {
   BaseModal,
-  ConfirmModal,
-  FormModal,
-  type BaseModalProps,
-  type ConfirmModalProps,
-  type FormModalProps
+  type BaseModalProps
 } from './modals/base-modal'
 
 // ============================================================================
@@ -132,11 +128,7 @@ export {
 
 export {
   BaseModal,
-  ConfirmModal,
-  FormModal,
-  type BaseModalProps,
-  type ConfirmModalProps,
-  type FormModalProps
+  type BaseModalProps
 }
 
 export {

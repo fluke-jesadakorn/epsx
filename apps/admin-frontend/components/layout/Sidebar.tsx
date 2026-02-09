@@ -18,7 +18,7 @@ import {
   Wallet
 } from 'lucide-react';
 
-import { useSharedAuth } from '@/shared/components/auth/Provider';
+import { useSharedAuth } from '@/shared/components/auth';
 
 interface NavItem {
   id: string;

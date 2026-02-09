@@ -6,7 +6,7 @@ import { useEffect } from 'react';
 import { WalletDetailView } from '@/components/wallet/wallet-detail-view';
 import { useWalletAccess } from '@/hooks/use-wallet-access';
 import { useSubscriptionData, useWalletData } from '@/hooks/use-wallet-detail';
-import { useSharedAuth } from '@/shared/components/auth/Provider';
+import { useSharedAuth } from '@/shared/components/auth';
 
 export default function WalletDetailPage() {
     const router = useRouter();

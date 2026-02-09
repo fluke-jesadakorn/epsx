@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { useSharedAuth } from '@/shared/components/auth/Provider';
+import { useSharedAuth } from '@/shared/components/auth';
 import { copyToClipboard as copyToClipboardUtil } from '@/utils/util';
 import { formatDistanceToNow } from 'date-fns';
 import {

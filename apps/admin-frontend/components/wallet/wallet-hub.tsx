@@ -30,7 +30,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { walletMgmt } from '@/lib/api/wallet-management-client';
 import { logger } from '@/lib/logger';
 import { cn } from '@/lib/utils';
-import { useSharedAuth } from '@/shared/components/auth/Provider';
+import { useSharedAuth } from '@/shared/components/auth';
 
 interface WalletHubProps {
     className?: string;

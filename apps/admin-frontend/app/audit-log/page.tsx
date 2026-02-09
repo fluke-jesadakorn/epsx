@@ -8,7 +8,7 @@ import { useRouter } from 'next/navigation';
 import React, { useEffect, useState } from 'react';
 
 import { PageAuthRequired, PageHeader, PageLayout, PageSkeleton } from '@/components/shared';
-import { useSharedAuth } from '@/shared/components/auth/Provider';
+import { useSharedAuth } from '@/shared/components/auth';
 
 import { AuditLogFilters } from './components/audit-log-filters';
 import { AuditLogTable } from './components/audit-log-table';

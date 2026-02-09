@@ -7,7 +7,7 @@ import { RecentWalletsPanel } from '@/components/admin/recent-wallets-panel';
 import { PageAuthRequired, PageHeader, PageLayout, PageSkeleton } from '@/components/shared';
 import type { RecentWalletsData } from '@/hooks/use-analytics-data';
 import { useDashboardData } from '@/hooks/use-dashboard-data';
-import { useSharedAuth } from '@/shared/components/auth/Provider';
+import { useSharedAuth } from '@/shared/components/auth';
 import { Shield } from 'lucide-react';
 
 /**

@@ -1,6 +1,6 @@
 'use client'
 
-import { cn } from '@shared/utils'
+import { cn } from '@/shared/utils'
 import { Check, Clock, Lock, Sparkles, TrendingUp } from 'lucide-react'
 
 export interface PricingCardData {

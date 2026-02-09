@@ -1,7 +1,7 @@
  
 'use client'
 
-import { useSharedAuth } from '@/shared/components/auth/Provider'
+import { useSharedAuth } from '@/shared/components/auth'
 import { formatTimestamp, getNotificationIcon, getPriorityColor } from '@/shared/components/notifications/utils'
 import { useNotificationBell } from '@/shared/hooks/use-notification-bell'
 import { createFrontendApiClient } from '@/shared/utils/api-client'

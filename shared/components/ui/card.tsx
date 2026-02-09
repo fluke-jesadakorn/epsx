@@ -1,4 +1,4 @@
-import { cn } from '@shared/utils/cn';
+import { cn } from '@/shared/utils/cn';
 import type { HTMLAttributes } from 'react';
 import React, { forwardRef } from 'react';
 

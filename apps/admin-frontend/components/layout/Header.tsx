@@ -9,7 +9,7 @@ import { useTheme } from 'next-themes';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
-import { AdminWalletConnectAuth } from '@/components/auth/AdminWalletConnectauth';
+import { AdminWalletConnectAuth } from '@/components/auth/admin-wallet-connect-auth';
 import { AdminNotificationBell } from './admin-notification-bell-client';
 
 import { themeUtils } from '@/components/ui/safe-theme-script';

@@ -45,7 +45,7 @@ import {
 } from '@/components/ui';
 import { navigationService } from '@/services/navigation.service';
 import { formatAddress } from '@/shared/auth/utils';
-import { useSharedAuth } from '@/shared/components/auth/Provider';
+import { useSharedAuth } from '@/shared/components/auth';
 import { ChainSelector } from '@/shared/components/navigation/chain-selector';
 import { devLog, isProduction } from '@/shared/utils';
 

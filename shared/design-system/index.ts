@@ -6,7 +6,7 @@
  *
  * Usage:
  * ```typescript
- * import { buttonVariants, colors, spacing, cn } from '@shared/design-system';
+ * import { buttonVariants, colors, spacing, cn } from '@/shared/design-system';
  * ```
  */
 

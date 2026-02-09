@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react'
 
 import { toast } from '@/hooks/use-toast'
 import { createNotificationsClient } from '@/shared/api/notifications'
-import { useSharedAuth } from '@/shared/components/auth/Provider'
+import { useSharedAuth } from '@/shared/components/auth'
 import { MAX_DROPDOWN_NOTIFICATIONS } from '@/shared/components/notifications/constants'
 import type { Notification } from '@/shared/components/notifications/types'
 import {

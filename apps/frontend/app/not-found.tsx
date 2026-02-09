@@ -1,10 +1,10 @@
 import { Suspense } from "react";
 
-import { SkeletonLoader } from "@/components/common/skeleton";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function NotFound() {
   return (
-      <Suspense fallback={<SkeletonLoader />}>
+      <Suspense fallback={<Skeleton />}>
       <div className="flex min-h-screen flex-col items-center justify-center">
         <h1 className="text-4xl font-bold mb-4">404</h1>
         <h2 className="text-xl mb-4">Page Not Found</h2>

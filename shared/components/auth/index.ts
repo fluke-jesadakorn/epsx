@@ -1,6 +1,6 @@
 /**
  * SHARED AUTH COMPONENTS INDEX
- * 
+ *
  * Consolidated exports for all shared authentication components.
  * Client-side permission validation has been removed in favor of backend enforcement.
  */
@@ -27,4 +27,8 @@ export {
 export {
   useProgressiveAuthStatus, withProgressiveAuth
 } from './unified-progressive-auth-gate';
+
+// Auth provider and context
+export { SharedOpenIDWeb3Provider, useSharedAuth, useAuth } from './provider';
+export type { SharedAuthContextValue } from './provider';
 

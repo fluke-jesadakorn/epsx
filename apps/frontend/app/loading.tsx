@@ -1,4 +1,4 @@
-import { Skeleton } from '@/components/common/skeleton';
+import { Skeleton } from '@/components/ui/skeleton';
 
 import type { Metadata } from 'next';
 

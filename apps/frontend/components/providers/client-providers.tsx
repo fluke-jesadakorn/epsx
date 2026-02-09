@@ -2,7 +2,6 @@
 
 import '@/lib/polyfills';
 
-import { OptimizedSuspenseBoundary } from '@/components/common/optimized-suspense-boundary';
 import { PerformanceProvider } from '@/components/common/performance-provider';
 import { Toaster } from '@/components/ui/toaster';
 import { CommonProviders } from '@/shared/components/providers/common-providers';
@@ -15,9 +14,7 @@ export function ClientProviders({ children, initialState }: { children: React.Re
     <CommonProviders>
       <UnifiedWeb3Provider initialState={initialState}>
         <PerformanceProvider>
-          <OptimizedSuspenseBoundary identifier="main content">
-            {children}
-          </OptimizedSuspenseBoundary>
+          {children}
           <Toaster />
         </PerformanceProvider>
       </UnifiedWeb3Provider>

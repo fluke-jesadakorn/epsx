@@ -3,7 +3,7 @@
 import { CheckSquare, ChevronLeft, ChevronRight, Search, Shield, Square, X } from 'lucide-react'
 import React, { useCallback } from 'react'
 
-import { cn } from '@shared/utils/cn'
+import { cn } from '@/shared/utils/cn'
 import { Button } from '../button'
 import { Input } from '../input'
 

@@ -4,7 +4,7 @@ import { Loader2 } from 'lucide-react';
 import { useEffect } from 'react';
 
 import { cn } from '@/lib/utils';
-import { useSharedAuth } from '@/shared/components/auth/Provider';
+import { useSharedAuth } from '@/shared/components/auth';
 
 import { DeletePlanDialog } from './plans/delete-plan-dialog';
 import { PlanEditor } from './plans/plan-editor';

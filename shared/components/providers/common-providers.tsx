@@ -1,6 +1,6 @@
 'use client';
 
-import { TooltipProvider } from '@shared/components/ui/tooltip';
+import { TooltipProvider } from '@/shared/components/ui/tooltip';
 import { ThemeProvider } from 'next-themes';
 import React from 'react';
 

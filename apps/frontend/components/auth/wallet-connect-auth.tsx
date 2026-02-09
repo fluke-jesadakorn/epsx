@@ -1,7 +1,7 @@
  
 'use client';
 
-import { useSharedAuth } from '@/shared/components/auth/Provider';
+import { useSharedAuth } from '@/shared/components/auth';
 import { AlertCircle, Loader2, RefreshCw, Shield } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useAccount, useSignMessage } from 'wagmi';

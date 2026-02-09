@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react'
 
 import { toast } from '@/hooks/use-toast'
 import { createPromotionsClient, isApiSuccess } from '@/shared/api/promotions'
-import { useSharedAuth } from '@/shared/components/auth/Provider'
+import { useSharedAuth } from '@/shared/components/auth'
 import { createAdminApiClient } from '@/shared/utils/api-client'
 
 import type { DisplayPromotion } from '@/components/promotions/types'

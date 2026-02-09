@@ -7,8 +7,6 @@ import Link from 'next/link';
 import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
-import { WithLoading } from '@/components/common/with-loading';
-
 import type { CSSProperties } from 'react';
 
 interface HeroSectionProps {
@@ -68,7 +66,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({ style, className }) => {
       </div>
 
       <div className="relative text-center space-y-12 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-20 z-[1]">
-        <WithLoading loading={loading} className="space-y-8">
+        <div className="space-y-8">
           {/* Main heading with enhanced Analytics-style typography */}
           <div className="space-y-6">
             <div className="inline-block animate-slide-up">
@@ -168,7 +166,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({ style, className }) => {
               );
             })}
           </div>
-        </WithLoading>
+        </div>
       </div>
     </div>
   );

@@ -5,7 +5,7 @@ import type { ReactNode } from 'react'
 
 import { MainLayout } from './main-layout'
 
-import { useSharedAuth } from '@/shared/components/auth/Provider'
+import { useSharedAuth } from '@/shared/components/auth'
 
 import { AdminAuthModal } from '@/components/auth/admin-auth-modal'
 

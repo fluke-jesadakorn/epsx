@@ -8,7 +8,7 @@ import { PaymentLinksManagement } from '@/components/payments/payment-links-mana
 import { PaymentsManagement } from '@/components/payments/payments-management';
 import { UserAccessManagement } from '@/components/payments/user-access-management';
 import { PageHeader, PageLayout, PageSkeleton, PageTabs, type TabItem } from '@/components/shared';
-import { useSharedAuth } from '@/shared/components/auth/Provider';
+import { useSharedAuth } from '@/shared/components/auth';
 
 type TabType = 'payments' | 'user-access' | 'payment-links' | 'analytics';
 

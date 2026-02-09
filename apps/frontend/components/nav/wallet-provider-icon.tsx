@@ -12,7 +12,7 @@ import {
 } from '@/components/ui';
 import { themeUtils } from '@/components/ui/safe-theme-script';
 import { formatAddress } from '@/shared/auth/utils';
-import { useSharedAuth } from '@/shared/components/auth/Provider';
+import { useSharedAuth } from '@/shared/components/auth';
 import { copyToClipboard } from '@/utils/util';
 import { Check, ChevronRight, Code, Copy, ExternalLink, LogOut, Moon, Settings, Sun, Wallet } from 'lucide-react';
 import Link from 'next/link';

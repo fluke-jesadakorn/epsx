@@ -8,7 +8,7 @@ import {
 import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
-import { useSharedAuth } from '@/shared/components/auth/Provider';
+import { useSharedAuth } from '@/shared/components/auth';
 import { copyToClipboard as copyToClipboardUtil } from '@/shared/utils';
 
 import { ApiKeyManager } from './developer-portal/api-key-manager';

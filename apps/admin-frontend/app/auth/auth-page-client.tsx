@@ -9,7 +9,7 @@
 import { PageLayout, PageSkeleton } from '@/components/shared';
 import { getAndClearReturnUrlAction } from '@/lib/auth/auth-actions';
 import { AuthModal } from '@/shared/components/auth';
-import { useSharedAuth } from '@/shared/components/auth/Provider';
+import { useSharedAuth } from '@/shared/components/auth';
 import { logger } from '@/shared/utils/logger';
 import { useRouter, useSearchParams } from 'next/navigation';
 import React, { useEffect, useState } from 'react';

@@ -1,10 +1,10 @@
-import { GlobalErrorBoundary } from '@/components/error-boundaries/Globalerror-boundary';
+import { GlobalErrorBoundary } from '@/components/error-boundaries/global-error-boundary';
 import '@/lib/polyfills';
 import Script from 'next/script';
 
 import { NavigationClient } from '@/components/nav/navigation-client';
 import { ClientProviders } from '@/components/providers/client-providers';
-import { SharedOpenIDWeb3Provider } from '@/shared/components/auth/Provider';
+import { SharedOpenIDWeb3Provider } from '@/shared/components/auth';
 import { getServerConfig } from '@/shared/config/wagmi';
 import { initializeRuntimeEnvironment } from '@/shared/utils/runtime-env-validator';
 import { Kanit } from 'next/font/google';

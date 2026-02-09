@@ -3,8 +3,7 @@
 import { AlertCircle, ChevronDown, Loader2, Wallet , Check, Copy, ExternalLink, LogOut } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useAccount, useDisconnect } from 'wagmi';
-import { AuthModal } from '@/shared/components/auth';
-import { useSharedAuth } from '@/shared/components/auth/Provider';
+import { AuthModal, useSharedAuth } from '@/shared/components/auth';
 import {
   DropdownMenu,
   DropdownMenuContent,

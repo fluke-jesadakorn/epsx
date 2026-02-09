@@ -8,7 +8,7 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { AuthModal } from '@/shared/components/auth';
-import { useSharedAuth } from '@/shared/components/auth/Provider';
+import { useSharedAuth } from '@/shared/components/auth';
 import { Loader2, Shield } from 'lucide-react';
 import { useEffect, useState } from 'react';
 

@@ -3,7 +3,7 @@
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
-import { useSharedAuth } from '@/shared/components/auth/Provider';
+import { useSharedAuth } from '@/shared/components/auth';
 import { copyToClipboard as copyToClipboardUtil } from '@/utils/util';
 import { Check, Copy, ExternalLink, LogOut, Wallet } from 'lucide-react';
 import { useState } from 'react';

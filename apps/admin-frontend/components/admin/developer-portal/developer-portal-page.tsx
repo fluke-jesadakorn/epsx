@@ -15,7 +15,7 @@ import { UsageAnalyticsTab } from './tabs/usage-analytics-tab';
 
 import { logger } from '@/lib/logger';
 import { createPlansClient, type ApiKeyResponse, type Module } from '@/shared/api/plans';
-import { useSharedAuth } from '@/shared/components/auth/Provider';
+import { useSharedAuth } from '@/shared/components/auth';
 import { isApiError, type ApiResponse } from '@/shared/types/api';
 import { copyToClipboard, createAdminApiClient } from '@/shared/utils';
 

@@ -5,7 +5,7 @@ import { useEffect } from 'react'
 
 import { PageLoadingSpinner } from '@/components/ui/loading-spinner'
 import { useAvailablePermissions } from '@/hooks/use-plan-permissions'
-import { useSharedAuth } from '@/shared/components/auth/Provider'
+import { useSharedAuth } from '@/shared/components/auth'
 
 import { PlanAdvancedPermissions } from '@/components/plans/edit/plan-advanced-permissions'
 import { PlanApiLimits } from '@/components/plans/edit/plan-api-limits'

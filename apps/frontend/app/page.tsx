@@ -1,4 +1,3 @@
-import { StreamingWrapper } from '@/components/common/streaming-wrapper';
 import DynamicPricingSection from '@/components/home/dynamic-pricing-section';
 import HeroSection from '@/components/home/hero-section';
 import ServerTopPerformers from '@/components/home/server-top-performers';
@@ -83,9 +82,7 @@ export default async function HomePage(props: {
           </Suspense>
 
           {/* Dynamic Pricing Section with affiliate tracking */}
-          <StreamingWrapper priority="medium" identifier="pricing">
-            <DynamicPricingSection initialAffiliateCode={refCode} />
-          </StreamingWrapper>
+          <DynamicPricingSection initialAffiliateCode={refCode} />
 
           {/* Data Rank Table with vibrant PancakeSwap-style card */}
           <div className="container mx-auto px-4 py-16">

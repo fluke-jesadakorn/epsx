@@ -1,7 +1,7 @@
 'use client';
 
 import { WalletConnectAuth } from '@/components/auth/WalletConnectauth';
-import { useSharedAuth } from '@/shared/components/auth/Provider';
+import { useSharedAuth } from '@/shared/components/auth';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect } from 'react';
 import { toast } from 'sonner';

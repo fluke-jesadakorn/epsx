@@ -49,7 +49,7 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import type { CreatePermissionRequest, PermissionDefinition } from '@/lib/api/permissions-client';
 import { cn } from '@/lib/utils';
-import { useSharedAuth } from '@/shared/components/auth/Provider';
+import { useSharedAuth } from '@/shared/components/auth';
 import { logger } from '@/shared/utils/logger';
 
 interface PermissionsViewProps {

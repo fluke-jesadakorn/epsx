@@ -7,7 +7,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useSharedAuth } from '@/shared/components/auth/Provider';
+import { useSharedAuth } from '@/shared/components/auth';
 import { UserAuthStatus, UserPermissionsDisplay, UserTierBadge, UserWalletDisplay } from '@/shared/components/display/user-display';
 import { AlertCircle, CheckCircle, Key, Settings, Shield, Users, Wallet } from 'lucide-react';
 import { useState } from 'react';

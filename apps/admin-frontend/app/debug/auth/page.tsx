@@ -2,7 +2,7 @@
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { useSharedAuth } from '@/shared/components/auth/Provider';
+import { useSharedAuth } from '@/shared/components/auth';
 import { Loader2, RefreshCw, ShieldAlert, ShieldCheck } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { expireAccessToken, expireRefreshToken, getServerSessionStatus } from './actions';

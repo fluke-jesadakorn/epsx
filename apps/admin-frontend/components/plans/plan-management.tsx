@@ -7,7 +7,7 @@ import { useEffect, useState } from 'react'
 
 import { toast } from '@/hooks/use-toast'
 import { createPlansClient, isApiSuccess, type PlanResponse } from '@/shared/api/plans'
-import { useSharedAuth } from '@/shared/components/auth/Provider'
+import { useSharedAuth } from '@/shared/components/auth'
 import { createAdminApiClient } from '@/shared/utils/api-client'
 import type {
   DragEndEvent,
