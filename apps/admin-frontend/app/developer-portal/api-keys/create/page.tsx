@@ -15,14 +15,6 @@ import { createAdminApiClient } from '@/shared/utils/api-client'
 // Force dynamic rendering since we use cookies for auth
 export const dynamic = 'force-dynamic'
 
-interface CreateApiKeyFormData {
-  client_name: string
-  client_description?: string
-  client_contact_email?: string
-  ip_restrictions: string[]
-  expires_at?: string
-}
-
 interface FormFieldProps {
   id: string
   label: string
