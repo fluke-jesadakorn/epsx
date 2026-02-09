@@ -15,7 +15,7 @@ import {
     Search,
     XCircle,
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 export interface PaymentHistoryItem {
     id: string;
@@ -55,7 +55,7 @@ export function PaymentHistoryTab({ initialData }: PaymentHistoryTabProps) {
 
     // Initialize state with initialData if provided
     const [payments, setPayments] = useState<PaymentHistoryItem[]>(initialData?.payments ?? []);
-    // If we have initial data (and it has items), we are not loading. 
+    // If we have initial data (and it has items), we are not loading.
     // If initial data is undefined, we are loading.
     const [loading, setLoading] = useState(!initialData);
     const [error, setError] = useState<string | null>(null);
@@ -68,7 +68,8 @@ export function PaymentHistoryTab({ initialData }: PaymentHistoryTabProps) {
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     const [totalItems, setTotalItems] = useState(initialData?.pagination?.total ?? 0);
 
-    const fetchPaymentHistory = async (silent = false) => {
+    // Define fetchPaymentHistory before useEffect to avoid use-before-define
+    const fetchPaymentHistory = useCallback(async (silent = false) => {
         try {
             if (!silent) {
                 setLoading(true);
@@ -104,7 +105,7 @@ export function PaymentHistoryTab({ initialData }: PaymentHistoryTabProps) {
                 setLoading(false);
             }
         }
-    };
+    }, [page, base, setPayments, setTotalPages, setTotalItems, setLoading, setError]);
 
     useEffect(() => {
         // Only fetch if we don't have initial data OR if page changed from initial
@@ -135,7 +136,7 @@ export function PaymentHistoryTab({ initialData }: PaymentHistoryTabProps) {
         if (!isInitialLoad) {
             void fetchPaymentHistory();
         }
-    }, [page, base]);
+    }, [page, fetchPaymentHistory, initialData]);
 
     // Polling effect for pending/confirming transactions
     useEffect(() => {
@@ -147,7 +148,7 @@ export function PaymentHistoryTab({ initialData }: PaymentHistoryTabProps) {
         }, 5000);
 
         return () => clearInterval(intervalId);
-    }, [payments]);
+    }, [payments, fetchPaymentHistory]);
 
     const getStatusBadge = (status: string) => {
         switch (status) {
