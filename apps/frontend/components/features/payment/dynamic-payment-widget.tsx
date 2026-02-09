@@ -181,7 +181,13 @@ export function DynamicPaymentWidget({
                 }
             } else if (context.planId) {
                 // Fetch plan details
-                const response = await apiClient.get<any>(`/api/public/plans/${context.planId}`);
+                interface PlanResponse {
+                    id: string;
+                    name: string;
+                    description?: string;
+                    price: number;
+                }
+                const response = await apiClient.get<PlanResponse>(`/api/public/plans/${context.planId}`);
                 if (response.success && response.data) {
                     const plan = response.data;
                     data = {
@@ -203,7 +209,13 @@ export function DynamicPaymentWidget({
                 }
             } else if (context.groupId) {
                 // Fetch group details
-                const response = await apiClient.get<any>(`/api/permissions/plans/${context.groupId}`);
+                interface GroupResponse {
+                    id: string;
+                    name: string;
+                    description?: string;
+                    price?: number;
+                }
+                const response = await apiClient.get<GroupResponse>(`/api/permissions/plans/${context.groupId}`);
                 if (response.success && response.data) {
                     const group = response.data;
                     data = {
@@ -232,15 +244,16 @@ export function DynamicPaymentWidget({
                 const defaultToken = supportedTokens.find(t => t.symbol === data?.currency) ?? supportedTokens[0];
                 setSelectedToken(defaultToken);
             }
-        } catch (err: any) {
+        } catch (err: unknown) {
             // Handle specific status codes if the error object has them
-            if (err.status === 404) {
+            const error = err as Record<string, unknown>;
+            if (error?.status === 404) {
                 if (context.linkSlug) {setError('Payment link not found');}
                 else {setError('Resource not found');}
-            } else if (err.status === 410) {
+            } else if (error?.status === 410) {
                 setError('Payment link has expired or reached max uses');
             } else {
-                setError(err.message ?? 'Failed to load payment details');
+                setError(typeof error?.message === 'string' ? error.message : 'Failed to load payment details');
             }
         } finally {
             setLoading(false);
@@ -288,9 +301,10 @@ export function DynamicPaymentWidget({
                         }
                     }
                 }
-            } catch (e: any) {
+            } catch (err: unknown) {
                 // Check for 404 which means not yet processed
-                if (e.status === 404) {
+                const error = err as Record<string, unknown>;
+                if (error?.status === 404) {
                     devLog('⏳ [Debug] Transaction not yet processed by backend (404)');
                     return;
                 }
@@ -327,8 +341,9 @@ export function DynamicPaymentWidget({
                     } else {
                         setError(response.error?.message ?? 'Failed to submit payment to backend');
                     }
-                } catch (err: any) {
-                    setError(`Backend submission failed: ${err.message ?? 'Unknown error'}`);
+                } catch (err: unknown) {
+                    const error = err as Record<string, unknown>;
+                    setError(`Backend submission failed: ${typeof error?.message === 'string' ? error.message : 'Unknown error'}`);
                 }
             };
 

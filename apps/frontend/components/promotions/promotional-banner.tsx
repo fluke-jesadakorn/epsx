@@ -25,7 +25,7 @@ export function PromotionalBanner({ className = '' }: PromotionalBannerProps) {
   const [timeLeft, setTimeLeft] = useState<string>('');
 
   useEffect(() => {
-    fetchActivePromotion();
+    void fetchActivePromotion();
   }, []);
 
   // Update countdown timer

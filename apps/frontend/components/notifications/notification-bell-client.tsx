@@ -79,7 +79,7 @@ export function NotificationBellClient() {
     e.stopPropagation()
     try {
       await deleteNotificationAction(notificationId)
-      fetchNotifications() // Refresh the list
+      void fetchNotifications() // Refresh the list
     } catch (_error) {
       // Error logged silently
     }

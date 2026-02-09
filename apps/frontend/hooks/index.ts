@@ -23,10 +23,10 @@ export function useApi<T>(
   }, [options?.enabled]);
 
   useEffect(() => {
-    fetchData();
+    void fetchData();
 
     if (options?.refresh) {
-      const interval = setInterval(fetchData, options.refresh);
+      const interval = setInterval(() => void fetchData(), options.refresh);
       return () => clearInterval(interval);
     }
     return undefined;

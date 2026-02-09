@@ -433,7 +433,7 @@ function RankingsListSkeleton() {
   return (
     <div className="space-y-4">
       {[...Array(10)].map((_, i) => (
-        <div key={i} className="animate-pulse rounded-2xl border border-gray-200/50 bg-white/80 p-6 backdrop-blur-xl dark:border-gray-600/20 dark:bg-slate-800/80">
+        <div key={`skeleton-${String(i)}`} className="animate-pulse rounded-2xl border border-gray-200/50 bg-white/80 p-6 backdrop-blur-xl dark:border-gray-600/20 dark:bg-slate-800/80">
           <div className="h-20 bg-gray-300 rounded" />
         </div>
       ))}

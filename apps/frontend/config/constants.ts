@@ -192,7 +192,7 @@ export function getNotificationTypeDisplayName(type: typeof FRONTEND_CONSTANTS.N
  * Validate subscription tier
  */
 export function isValidSubscriptionTier(tier: string): tier is typeof FRONTEND_CONSTANTS.SUBSCRIPTION_TIERS[number] {
-  return FRONTEND_CONSTANTS.SUBSCRIPTION_TIERS.includes(tier as any);
+  return (FRONTEND_CONSTANTS.SUBSCRIPTION_TIERS as readonly string[]).includes(tier);
 }
 
 /**
@@ -214,7 +214,7 @@ export function getUserOperationLimit(operation: string): number {
  * Check if wallet is supported
  */
 export function isSupportedWallet(walletType: string): boolean {
-  return FRONTEND_CONSTANTS.WEB3.WALLET_TYPES.includes(walletType as any);
+  return (FRONTEND_CONSTANTS.WEB3.WALLET_TYPES as readonly string[]).includes(walletType);
 }
 
 /**
@@ -240,7 +240,7 @@ export function getChainName(chainId: number): string {
  * Progressive auth level validation
  */
 export function isValidAuthLevel(level: string): level is keyof typeof FRONTEND_CONSTANTS.PROGRESSIVE_AUTH {
-  return Object.values(FRONTEND_CONSTANTS.PROGRESSIVE_AUTH).includes(level as any);
+  return (Object.values(FRONTEND_CONSTANTS.PROGRESSIVE_AUTH) as readonly string[]).includes(level);
 }
 
 /**

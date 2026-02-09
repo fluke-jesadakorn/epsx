@@ -68,9 +68,9 @@ export function usePublicBalance(
             }
         };
 
-        fetchBalance();
+        void fetchBalance();
         // Poll every 5 seconds
-        const interval = setInterval(fetchBalance, 5000);
+        const interval = setInterval(() => void fetchBalance(), 5000);
         return () => clearInterval(interval);
     }, [tokenAddress, userAddress, chainId]);
 

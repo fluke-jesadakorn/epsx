@@ -67,7 +67,7 @@ export function usePlanAccess(): UsePlanAccessResult {
     };
 
     useEffect(() => {
-        fetchPlanAccess();
+        void fetchPlanAccess();
     }, []);
 
     return {

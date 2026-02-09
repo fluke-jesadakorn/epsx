@@ -10,6 +10,20 @@ import { AlertTriangle, Bell, BellOff, CheckCircle, X } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
+interface EpsxNotificationsAPI {
+  analytics: (title: string, body: string, url?: string) => void;
+  security: (title: string, body: string, url?: string) => void;
+  system: (title: string, body: string, url?: string) => void;
+  permissions: (title: string, body: string, url?: string) => void;
+  show: (title: string, body: string, options?: NotificationOptions) => void;
+}
+
+declare global {
+  interface Window {
+    epsxNotifications?: EpsxNotificationsAPI;
+  }
+}
+
 interface BrowserNotificationsProps {
   className?: string;
   autoRequestPermission?: boolean;
@@ -189,7 +203,7 @@ export function BrowserNotifications({
   // Expose notification methods globally for other components
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      (window as any).epsxNotifications = {
+      window.epsxNotifications = {
         analytics: showAnalyticsAlert,
         security: showSecurityAlert,
         system: showSystemAlert,
@@ -393,8 +407,8 @@ export function BrowserNotifications({
 // Export notification helper hook for other components
 export function useBrowserNotifications() {
   const showNotification = useCallback((type: 'analytics' | 'security' | 'system' | 'permissions', title: string, body: string, url?: string) => {
-    if (typeof window !== 'undefined' && (window as any).epsxNotifications) {
-      (window as any).epsxNotifications[type](title, body, url);
+    if (typeof window !== 'undefined' && window.epsxNotifications) {
+      window.epsxNotifications[type](title, body, url);
     }
   }, []);
 

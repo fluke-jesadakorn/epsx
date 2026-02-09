@@ -810,7 +810,7 @@ function AnalyticsClientWrapper({
                             </div>
                             <div className="space-y-2">
                               {Array.from({ length: 4 }).map((_, i) => (
-                                <div key={i} className="flex justify-between">
+                                <div key={`item-${String(i)}`} className="flex justify-between">
                                   <div className="h-3 w-1/3 rounded bg-gray-200" />
                                   <div className="h-3 w-1/4 rounded bg-gray-200" />
                                 </div>

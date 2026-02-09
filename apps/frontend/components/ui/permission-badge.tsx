@@ -112,7 +112,7 @@ export function PermissionBadge({
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        loadPermissionDefinitions(base)
+        void loadPermissionDefinitions(base)
             .then(setDefinitions)
             .finally(() => setLoading(false));
     }, [base]);

@@ -119,7 +119,7 @@ export async function AccessOverview() {
                     </div>
 
                     <div className="grid sm:grid-cols-2 gap-6">
-                        {data.groups.length > 0 ? data.groups.map((group, idx) => {
+                        {data.groups.length > 0 ? data.groups.map((group) => {
                             const status = getExpiryStatus(group.expires_at);
                             const isPlan = group.source_type === 'plan';
                             const isFree = group.name === 'Free'; // Identify Free Plan
@@ -129,7 +129,7 @@ export async function AccessOverview() {
                             const canRenew = group.can_renew ?? (isPlan && !isFree && daysRemaining !== null && daysRemaining <= 30);
 
                             return (
-                                <div key={idx} className={`bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-6 shadow-xl border-2 transition-all duration-300 hover:shadow-2xl flex flex-col ${isPlan ? 'border-blue-300/50 dark:border-blue-700/50' : 'border-purple-300/50 dark:border-purple-700/50'}`}>
+                                <div key={group.id} className={`bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-6 shadow-xl border-2 transition-all duration-300 hover:shadow-2xl flex flex-col ${isPlan ? 'border-blue-300/50 dark:border-blue-700/50' : 'border-purple-300/50 dark:border-purple-700/50'}`}>
                                     <div className="flex items-center justify-between mb-4">
                                         <div className="flex items-center gap-2">
                                             <div className="text-3xl">{isPlan ? '💎' : '👥'}</div>
@@ -229,13 +229,13 @@ export async function AccessOverview() {
                                 <span className="text-xl">✨</span> External / Direct Access
                             </h4>
                             <div className="grid sm:grid-cols-2 gap-3">
-                                {data.direct_permissions.map((perm, idx) => {
+                                {data.direct_permissions.map((perm) => {
                                     const status = getExpiryStatus(perm.expires_at);
                                     const daysLabel = perm.days_remaining !== undefined && perm.days_remaining !== null && perm.days_remaining >= 0
                                         ? `${perm.days_remaining}d left`
                                         : status.label;
                                     return (
-                                        <div key={idx} className="flex items-center justify-between text-[11px] p-3 rounded-xl bg-gray-50/50 dark:bg-gray-900/40 border border-gray-100 dark:border-gray-800 group hover:border-indigo-200 dark:hover:border-indigo-800 transition-colors">
+                                        <div key={perm.permission} className="flex items-center justify-between text-[11px] p-3 rounded-xl bg-gray-50/50 dark:bg-gray-900/40 border border-gray-100 dark:border-gray-800 group hover:border-indigo-200 dark:hover:border-indigo-800 transition-colors">
                                             <div className="flex items-center gap-2 truncate mr-2">
                                                 <PermissionBadge permission={perm.permission} size="sm" showNote />
                                                 {perm.source && (
