@@ -6,6 +6,10 @@ import type { useApiClient } from '@/shared/hooks/use-api-client';
 
 export type PaymentContextType = 'plan' | 'group' | 'product' | 'campaign' | 'custom';
 
+interface PaymentLinksApiResponse {
+    payment_links?: PaymentLink[];
+}
+
 export interface PaymentLink {
     id: string;
     context_type: PaymentContextType;
@@ -23,7 +27,7 @@ export interface PaymentLink {
     url: string;
     link_hash: string;
     created_by: string;
-    metadata: Record<string, any>;
+    metadata: Record<string, unknown>;
     created_at: string;
     updated_at: string;
 }
@@ -64,14 +68,15 @@ export function usePaymentLinks(ctx: UsePaymentLinksContext) {
                 params.is_active = ctx.filterActive;
             }
 
-            const response = await ctx.base.get<any>('/api/admin/payment-links', params);
+            const response = await ctx.base.get<PaymentLinksApiResponse>('/api/admin/payment-links', params);
 
             if (response.success && response.data) {
                 setPaymentLinks(response.data.payment_links ?? []);
             } else {
-                throw new Error(response.error ?? response.message ?? 'Failed to load payment links');
+                const errorMsg = (response.error ?? response.message ?? 'Failed to load payment links') as string;
+                throw new Error(errorMsg);
             }
-        } catch (err) {
+        } catch (err: unknown) {
             setError(err instanceof Error ? err.message : 'Unknown error');
         } finally {
             setLoading(false);
@@ -113,6 +118,7 @@ export function usePaymentLinkForm(ctx: UsePaymentLinkFormContext) {
     }, []);
 
     const handleCreateLink = useCallback(
+        // eslint-disable-next-line complexity
         async (e: React.FormEvent) => {
             e.preventDefault();
             setFormLoading(true);
@@ -125,14 +131,14 @@ export function usePaymentLinkForm(ctx: UsePaymentLinkFormContext) {
 
                 const payload = {
                     context_type: form.context_type,
-                    context_id: form.context_id ?? undefined,
-                    slug: form.slug ?? undefined,
+                    context_id: form.context_id || undefined,
+                    slug: form.slug || undefined,
                     name: form.name,
-                    description: form.description ?? undefined,
+                    description: form.description || undefined,
                     amount: parseFloat(form.amount),
                     currency: form.currency,
                     expires_at: expiresAt,
-                    max_uses: form.max_uses ? parseInt(form.max_uses) : undefined,
+                    max_uses: form.max_uses !== '' ? parseInt(form.max_uses) : undefined,
                 };
 
                 const response = await ctx.base.post<PaymentLink>('/api/admin/payment-links', payload);
@@ -141,9 +147,10 @@ export function usePaymentLinkForm(ctx: UsePaymentLinkFormContext) {
                     resetForm();
                     ctx.onSuccess?.();
                 } else {
-                    throw new Error(response.error ?? response.message ?? 'Failed to create payment link');
+                    const errorMsg = (response.error ?? response.message ?? 'Failed to create payment link') as string;
+                    throw new Error(errorMsg);
                 }
-            } catch (err) {
+            } catch (err: unknown) {
                 setFormError(err instanceof Error ? err.message : 'Unknown error');
             } finally {
                 setFormLoading(false);
@@ -175,25 +182,29 @@ export function usePaymentLinkActions(ctx: UsePaymentLinkActionsContext) {
             setCopiedSlug(link.slug);
             setTimeout(() => setCopiedSlug(null), 2000);
         } else {
+            // eslint-disable-next-line no-alert
             alert('Failed to copy URL');
         }
     }, []);
 
     const handleDeleteLink = useCallback(
         async (id: string, onSuccess?: () => void) => {
+            // eslint-disable-next-line no-alert
             if (!confirm('Are you sure you want to deactivate this payment link?')) {
                 return;
             }
 
             try {
-                const response = await ctx.base.delete<any>(`/api/admin/payment-links/${id}`);
+                const response = await ctx.base.delete<Record<string, unknown>>(`/api/admin/payment-links/${id}`);
 
                 if (response.success) {
                     onSuccess?.();
                 } else {
-                    throw new Error(response.error ?? response.message ?? 'Failed to deactivate payment link');
+                    const errorMsg = (response.error ?? response.message ?? 'Failed to deactivate payment link') as string;
+                    throw new Error(errorMsg);
                 }
-            } catch (err) {
+            } catch (err: unknown) {
+                // eslint-disable-next-line no-alert
                 alert(err instanceof Error ? err.message : 'Failed to deactivate');
             }
         },
@@ -217,7 +228,7 @@ export function usePaymentLinkFilters() {
 
 export function usePaymentLinkFormatting() {
     const isExpired = useCallback((expiresAt?: string) => {
-        if (!expiresAt) {
+        if (expiresAt === undefined) {
             return false;
         }
         return new Date(expiresAt) < new Date();
