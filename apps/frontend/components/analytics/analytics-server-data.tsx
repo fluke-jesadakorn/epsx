@@ -1,6 +1,6 @@
 // Server component for fetching analytics filter options and initial data
 // Server-side data fetching for filter options
-export async function getFilterOptions() {
+export function getFilterOptions() {
   // Return static filter options data
   return {
     countries: [

@@ -20,7 +20,7 @@ export default function AuthPage() {
         }
     }, [isAuthenticated, user, returnUrl, router]);
 
-    const handleAuthSuccess = async (_walletAddress: string) => {
+    const handleAuthSuccess = (_walletAddress: string) => {
         // Shared auth provider handles the heavy lifting
         toast.success('Authenticated successfully');
         // Redirection is handled by the useEffect above
