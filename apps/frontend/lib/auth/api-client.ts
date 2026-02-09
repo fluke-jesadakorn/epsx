@@ -10,26 +10,32 @@ export type {
   Web3TokenResponse as OpenIDTokenResponse, UserInfoResponse, Web3AuthRequest
 } from '@/shared/auth/client';
 
+interface Web3SignatureRequest {
+  wallet_address: string;
+  signature: string;
+  message: string;
+  nonce: string;
+}
+
 export class OpenIDApiClient extends SharedWeb3AuthClient {
-  private static instance: OpenIDApiClient;
+  private static instance: OpenIDApiClient | null = null;
 
   private constructor() {
     super(
-      process.env.NEXT_PUBLIC_OAUTH_CLIENT_ID ?? 'epsx-frontend',
-      process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:8080'
+      process.env.NEXT_PUBLIC_OAUTH_CLIENT_ID ??= 'epsx-frontend',
+      process.env.NEXT_PUBLIC_BACKEND_URL ??= 'http://localhost:8080'
     );
   }
 
   static getInstance(): OpenIDApiClient {
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-    if (!OpenIDApiClient.instance) {
+    if (OpenIDApiClient.instance === null) {
       OpenIDApiClient.instance = new OpenIDApiClient();
     }
     return OpenIDApiClient.instance;
   }
 
   // Compatibility method
-  async authenticateWithWeb3(request: any) {
+  async authenticateWithWeb3(request: Web3SignatureRequest): Promise<unknown> {
     return this.authenticateWithSignature(request);
   }
 

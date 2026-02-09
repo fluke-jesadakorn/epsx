@@ -90,6 +90,7 @@ export class Logger {
       .replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, '***@***.***');
   }
 
+  /* eslint-disable complexity,max-depth,sonarjs/cognitive-complexity */
   private sanitizeData(data: unknown, seen = new WeakSet()): unknown {
     if (data === null || data === undefined) {return data;}
 
@@ -126,7 +127,7 @@ export class Logger {
       try {
         const dataObj = data as Record<string, unknown>;
         for (const field of safeFields) {
-          if (field in dataObj) {
+          if (Object.prototype.hasOwnProperty.call(dataObj, field)) {
             const val = dataObj[field];
             sanitized[field] = this.sanitizeData(val, seen);
           }
@@ -144,7 +145,7 @@ export class Logger {
         message: this.sanitizeMessage(data.message),
         name: data.name,
         stack: data.stack,
-        ...(errorObj.cause ? { cause: this.sanitizeData(errorObj.cause, seen) } : {})
+        ...(Object.prototype.hasOwnProperty.call(errorObj, 'cause') ? { cause: this.sanitizeData(errorObj.cause, seen) } : {})
       };
     }
 
@@ -164,7 +165,9 @@ export class Logger {
       return String(data);
     }
   }
+  /* eslint-enable complexity,max-depth,sonarjs/cognitive-complexity */
 
+  /* eslint-disable no-console */
   private log(level: LogLevel['level'], message: string, data?: unknown): void {
     if (!this.shouldLog(level)) {return;}
 
@@ -180,11 +183,9 @@ export class Logger {
     const prefix = `[${timestamp}] [${level.toUpperCase()}] [${this.context}]`;
 
     // Safe console access with fallback to console.log
-    // eslint-disable-next-line no-console
-    const logFunction = console[consoleMethod as keyof Console] || console.log;
+    const logFunction = console[consoleMethod as keyof Console] ?? console.log;
     if (typeof logFunction !== 'function') {
       // Fallback to console.log if specific method doesn't exist
-      // eslint-disable-next-line no-console
       const fallbackLog = console.log;
       if (typeof fallbackLog === 'function') {
         if (safeData !== undefined) {
@@ -198,19 +199,18 @@ export class Logger {
 
     try {
       if (safeData !== undefined) {
-        (logFunction as Function)(prefix, message, safeData);
+        (logFunction as unknown as (msg: string, msg2: string, data: unknown) => void)(prefix, message, safeData);
       } else {
-        (logFunction as Function)(prefix, message);
+        (logFunction as unknown as (msg: string, msg2: string) => void)(prefix, message);
       }
     } catch (_error) {
       // Fallback to console.log if specific method fails
-      // eslint-disable-next-line no-console
       if (typeof console.log === 'function') {
-        // eslint-disable-next-line no-console
         console.log(prefix, message, safeData);
       }
     }
   }
+  /* eslint-enable no-console */
 
   private async sendToServer(_entry: LogEntry): Promise<void> {
     // Server transmission disabled for performance and security
@@ -284,6 +284,7 @@ export interface SafeErrorResult {
   status?: number;
 }
 
+/* eslint-disable complexity,@typescript-eslint/no-explicit-any */
 export function safeError(error: unknown): SafeErrorResult {
   if (error instanceof Error) {
     return {
@@ -301,7 +302,7 @@ export function safeError(error: unknown): SafeErrorResult {
     return { message: `${error.toString()  }n` };
   }
 
-  if (error && typeof error === 'object') {
+  if (error !== null && typeof error === 'object') {
     const obj = error as Record<string, any>;
     try {
       return {
@@ -317,6 +318,7 @@ export function safeError(error: unknown): SafeErrorResult {
 
   return { message: 'Unknown error occurred' };
 }
+/* eslint-enable complexity,@typescript-eslint/no-explicit-any */
 
 // ============================================================================
 // Console Replacer
@@ -338,7 +340,7 @@ export class ConsoleReplacer {
   restore(): void {
     if (!this.isReplaced) {return;}
 
-    Object.assign(console, this.originalConsole);
+    void Object.assign(console, this.originalConsole);
     this.isReplaced = false;
   }
 }

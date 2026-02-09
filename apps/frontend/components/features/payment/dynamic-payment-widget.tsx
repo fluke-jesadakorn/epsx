@@ -40,7 +40,7 @@ interface SupportedToken {
 }
 
 // Get supported tokens for a chain
-// eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-argument,@typescript-eslint/no-unsafe-assignment
+ 
 function getSupportedTokens(chainId: number): SupportedToken[] {
     const tokens: SupportedToken[] = [];
     try {
@@ -120,7 +120,7 @@ export function DynamicPaymentWidget({
     );
 
     // Get receiver address for this chain (direct transfer)
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-return
+     
     const receiverAddress = useMemo(() => {
         if (!isChainSupported) {return null;}
         try {
@@ -131,7 +131,7 @@ export function DynamicPaymentWidget({
     }, [chainId, isChainSupported]);
 
     // Get token address for selected token
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-return
+     
     const tokenAddress = useMemo(() => {
         if (!selectedToken || !isChainSupported) {return null;}
         try {
@@ -285,7 +285,7 @@ export function DynamicPaymentWidget({
     const submittedRef = useMemo(() => ({ current: false }), []);
 
     // Poll backend for transaction status
-    // eslint-disable-next-line complexity
+     
     const pollBackendStatus = useCallback((hash: string) => {
         const intervalId = setInterval(async () => {
             try {

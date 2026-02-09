@@ -113,8 +113,8 @@ export function AddResourceModal({
                         Cancel
                     </Button>
                     <Button
-                        onClick={handleConfirm}
-                        disabled={!selectedId ?? isLoading}
+                        onClick={() => { void handleConfirm(); }}
+                        disabled={!selectedId || isLoading}
                         className="gap-2"
                     >
                         {isLoading && <Loader2 className="h-4 w-4 animate-spin" />}

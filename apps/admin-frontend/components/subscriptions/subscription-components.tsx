@@ -264,3 +264,47 @@ export function SubscriptionFilters({
         </div>
     );
 }
+
+export function SubscriptionLoading() {
+  return (
+    <div className="max-w-7xl mx-auto space-y-8 animate-pulse">
+      <div className="text-center mb-12">
+        <div className="h-16 bg-muted rounded-2xl w-96 mx-auto mb-6" />
+        <div className="h-6 bg-muted/60 rounded-full w-64 mx-auto" />
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={`skeleton-action-${i}`} className="bg-muted rounded-3xl h-64" />
+        ))}
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={`skeleton-stat-${i}`} className="bg-muted rounded-3xl h-32" />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+interface SubscriptionEmptyStateProps {
+  hasSubscriptions: boolean;
+}
+
+export function SubscriptionEmptyState({ hasSubscriptions }: SubscriptionEmptyStateProps) {
+  return (
+    <div className="text-center py-12">
+      <div className="h-20 w-20 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
+        <span className="text-4xl text-primary">📋</span>
+      </div>
+      <h3 className="text-xl font-semibold text-foreground mb-2">
+        No subscriptions found
+      </h3>
+      <p className="text-muted-foreground">
+        {hasSubscriptions
+          ? 'Try adjusting your filters or search terms'
+          : 'Start by creating your first subscription'
+        }
+      </p>
+    </div>
+  );
+}

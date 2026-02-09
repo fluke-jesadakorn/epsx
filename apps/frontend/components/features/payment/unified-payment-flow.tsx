@@ -135,7 +135,7 @@ export function UnifiedPaymentFlow({
     );
 
     // Token address for selected token
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+     
     const tokenAddress = useMemo(() => {
         if (!isChainSupported) {return null;}
         try {
@@ -147,7 +147,7 @@ export function UnifiedPaymentFlow({
     }, [selectedToken, chainId, isChainSupported]);
 
     // Receiver address
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+     
     const receiverAddress = useMemo(() => {
         if (!isChainSupported) {return null;}
         try {
@@ -170,7 +170,7 @@ export function UnifiedPaymentFlow({
     const { addToken, isAdding: isAddingToken, isTokenAdded } = useAddTokenToWallet();
 
     // Direct token transfer hook
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+     
     const {
         transfer,
         txHash: transferTxHash,
@@ -255,7 +255,7 @@ export function UnifiedPaymentFlow({
     }, []);
 
     // Function to fetch plans manually (for retry)
-    // eslint-disable-next-line complexity
+     
     const fetchPlans = useCallback(async () => {
         try {
             setLoading(true);
@@ -367,7 +367,7 @@ export function UnifiedPaymentFlow({
     };
 
     // Backend submission after payment confirmed
-    // eslint-disable-next-line complexity
+     
     useEffect(() => {
         if (isConfirmed && transferTxHash && step === 'pay') {
             // Submit to backend

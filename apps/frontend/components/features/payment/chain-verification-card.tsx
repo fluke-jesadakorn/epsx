@@ -116,7 +116,7 @@ export function ChainVerificationCard({
     const [isAddingNetwork, setIsAddingNetwork] = useState(false);
 
     // Filter chains to only show ones with deployed contracts
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+     
     const deployedChains = useMemo(
         () => supportedChains.filter((chain) => {
             // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment,@typescript-eslint/no-unsafe-call
@@ -127,7 +127,7 @@ export function ChainVerificationCard({
     );
 
     // Check if current chain is supported AND has contract deployed
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+     
     const isSupported = useMemo(
         () => {
             const inSupportedList = supportedChains.some((chain) => chain.id === chainId);
@@ -186,7 +186,7 @@ export function ChainVerificationCard({
                 params: [config],
             });
             // After adding, try to switch to it
-            // eslint-disable-next-line @typescript-eslint/no-floating-promises
+             
             switchChain({ chainId: chain.id });
         } catch (err: unknown) {
             const error = err as WalletError;
@@ -207,7 +207,7 @@ export function ChainVerificationCard({
         setErrorMessage(null);
 
         try {
-            // eslint-disable-next-line @typescript-eslint/no-floating-promises
+             
             switchChain({ chainId: chain.id });
         } catch (err: unknown) {
             // If network not found, suggest adding it

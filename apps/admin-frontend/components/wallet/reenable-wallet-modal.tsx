@@ -254,7 +254,7 @@ export function ReenableWalletModal({
                         Cancel
                     </Button>
                     <Button
-                        onClick={handleSubmit}
+                        onClick={() => { void handleSubmit(); }}
                         disabled={isLoading}
                         className="bg-green-600 hover:bg-green-700 text-white"
                     >

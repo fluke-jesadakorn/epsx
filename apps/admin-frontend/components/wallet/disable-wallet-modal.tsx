@@ -289,7 +289,7 @@ export function DisableWalletModal({
                         Cancel
                     </Button>
                     <Button
-                        onClick={handleSubmit}
+                        onClick={() => { void handleSubmit(); }}
                         disabled={isLoading}
                         className="bg-amber-600 hover:bg-amber-700 text-white"
                     >
