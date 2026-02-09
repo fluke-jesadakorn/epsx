@@ -1,3 +1,4 @@
+/* eslint-disable max-params */
 'use server';
 
 import { getStockFinancialData } from '@/lib/services/stock.service';

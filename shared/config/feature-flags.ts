@@ -303,6 +303,8 @@ export function isFeatureEnabled(
 ): boolean {
   const config = FEATURE_FLAGS[flag];
 
+  if (!config) { return false; }
+
   if (!checkStatus(config)) { return false; }
   if (!checkEnvironment(config, context.environment)) { return false; }
   if (!checkRoleRestrictions(config, context)) { return false; }

@@ -80,7 +80,7 @@ function InputGroupError({ className, children, ...props }: InputGroupErrorProps
   const context = React.useContext(InputGroupContext);
   if (!context) {throw new Error('InputGroupError must be used within an InputGroup');}
 
-  if ((context.error?.length ?? 0) === 0 || !children) {
+  if ((context.error?.length ?? 0) === 0 || children === null || children === undefined) {
     return null;
   }
 

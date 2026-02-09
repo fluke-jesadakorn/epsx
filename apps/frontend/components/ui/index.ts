@@ -95,7 +95,7 @@ export const EPSXLoader = UnifiedLoader;
 export const ProfessionalLoader = UnifiedLoader;
 export const MetroProgressBar = UnifiedProgressBar;
 export const ProfessionalProgressBar = UnifiedProgressBar;
-export const PancakeFlip: React.FC<{ variant?: 'pancake' | 'admin' | 'analytics', size?: any }> = ({ variant = 'pancake' as const, size = 'md' as const }) => {
+export const PancakeFlip: React.FC<{ variant?: 'pancake' | 'admin' | 'analytics'; size?: 'sm' | 'md' | 'lg' }> = ({ variant = 'pancake' as const, size = 'md' as const }) => {
   return React.createElement(UnifiedLoader, { variant, size, type: 'stack' });
 };
 export const ProfessionalSkeleton = UnifiedSkeleton;

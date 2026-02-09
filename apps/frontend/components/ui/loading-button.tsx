@@ -51,14 +51,14 @@ export const LoadingButton = React.forwardRef<HTMLButtonElement, LoadingButtonPr
         disabled={isLoading ?? props.disabled}
         {...props}
       >
-        {isLoading ? (
+        {isLoading === true ? (
           <>
             <Loader2 className="h-4 w-4 animate-spin" />
             <span className="ml-2">{loadingText ?? 'Loading...'}</span>
           </>
         ) : (
           <>
-            {icon && <span className="mr-2">{icon}</span>}
+            {icon !== undefined && icon !== null && <span className="mr-2">{icon}</span>}
             {children}
           </>
         )}

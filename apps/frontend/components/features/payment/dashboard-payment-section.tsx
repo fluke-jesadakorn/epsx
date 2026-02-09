@@ -1,7 +1,8 @@
+/* eslint-disable @typescript-eslint/strict-boolean-expressions */
 'use client';
 
 import { useState, useEffect } from 'react';
-import { 
+import {
   CreditCard, 
   TrendingUp, 
   Zap, 

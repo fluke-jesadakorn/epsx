@@ -25,7 +25,7 @@ export function useApi<T>(
   useEffect(() => {
     fetchData();
 
-    if (options?.refresh != null && options.refresh > 0) {
+    if (options?.refresh !== null && options.refresh !== undefined && options.refresh > 0) {
       const interval = setInterval(() => fetchData(), options.refresh);
       return () => clearInterval(interval);
     }
@@ -115,7 +115,7 @@ export function useCookieStorage<T>(key: string, initialValue: T, maxAge?: numbe
       }, {});
 
       const item = cookies[key] ?? window.localStorage.getItem(key);
-      return (item != null && item !== '') ? (JSON.parse(item) as T) : initialValue;
+      return (item !== null && item !== undefined && item !== '') ? (JSON.parse(item) as T) : initialValue;
     } catch (_error) {
       return initialValue;
     }

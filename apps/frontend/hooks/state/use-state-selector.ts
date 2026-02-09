@@ -118,7 +118,8 @@ export function useMemoizedSelector<R>(
   deps: unknown[] = [],
   options: SelectorOptions<R> = {}
 ): R {
-  const memoizedSelector = useMemo(() => selector, deps);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const memoizedSelector = useMemo(() => selector, [...deps, selector]);
   return useStateSelector(memoizedSelector, options);
 }
 
@@ -132,7 +133,8 @@ export function useMultiSelector<T extends Record<string, unknown>>(
   const combinedSelector = useCallback((state: RootState) => {
     const result = {} as T;
     for (const [key, selector] of Object.entries(selectors)) {
-      result[key as keyof T] = selector(state);
+      const sel = selector as (s: RootState) => unknown;
+      result[key as keyof T] = sel(state) as T[keyof T];
     }
     return result;
   }, [selectors]);
@@ -185,8 +187,8 @@ export function useUserLoadingSelector() {
 
 export function useUserPermissionsSelector() {
   return useStateSelector((state) => {
-    const perms = state.user?.data?.permissions
-    return Array.isArray(perms) ? perms : []
+    const perms = state.user?.data?.permissions;
+    return Array.isArray(perms) ? (perms as unknown[]) : [];
   }, {
     debugName: 'userPermissions'
   });

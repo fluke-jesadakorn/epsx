@@ -52,18 +52,18 @@ export function useAsyncAction<T extends (...args: unknown[]) => Promise<unknown
       }
 
       const transformedResult = options.transform ? options.transform(result) : result;
-      
-      setState(prev => ({ 
-        ...prev, 
-        loading: false, 
-        data: transformedResult 
+
+      setState(prev => ({
+        ...prev,
+        loading: false,
+        data: transformedResult
       }));
 
-      if (options.successMessage) {
+      if (options.successMessage !== null && options.successMessage !== undefined) {
         success(options.successMessage);
       }
 
-      if (options.onSuccess) {
+      if (options.onSuccess !== null && options.onSuccess !== undefined) {
         options.onSuccess(transformedResult);
       }
 
@@ -74,14 +74,14 @@ export function useAsyncAction<T extends (...args: unknown[]) => Promise<unknown
       }
 
       const error = err instanceof Error ? err : new Error('An error occurred');
-      
-      setState(prev => ({ 
-        ...prev, 
-        loading: false, 
-        error: error.message 
+
+      setState(prev => ({
+        ...prev,
+        loading: false,
+        error: error.message
       }));
 
-      if (options.errorMessage) {
+      if (options.errorMessage !== null && options.errorMessage !== undefined) {
         showError(options.errorMessage, error.message);
       }
 

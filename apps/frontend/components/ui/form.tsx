@@ -35,18 +35,18 @@ const Form = <TFieldValues extends FieldValues>({
   children,
   onSubmit,
   className,
+  handleSubmit,
   ...props
 }: UseFormReturn<TFieldValues> & {
   onSubmit?: (data: TFieldValues) => void
   children: React.ReactNode
   className?: string
 }) => {
-  const formProps = props as Record<string, unknown>;
   return (
     <BaseForm
-      onSubmit={onSubmit ? props.handleSubmit(onSubmit) : (e) => e.preventDefault()}
+      onSubmit={onSubmit ? handleSubmit(onSubmit) : (e) => e.preventDefault()}
       className={cn("space-y-4", className)}
-      {...formProps}
+      {...(props as Record<string, unknown>)}
     >
       {children}
     </BaseForm>

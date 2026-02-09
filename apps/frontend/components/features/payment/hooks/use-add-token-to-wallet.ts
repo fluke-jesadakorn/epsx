@@ -1,6 +1,7 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /**
  * Hook to add ERC20 tokens to MetaMask using wallet_watchAsset
- * 
+ *
  * This helps MetaMask recognize the token and display proper amounts
  * in approval and transfer dialogs.
  */

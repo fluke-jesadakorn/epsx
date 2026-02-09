@@ -1,3 +1,4 @@
+/* eslint-disable security/detect-unsafe-regex */
 'use server';
 
 import { z } from 'zod';

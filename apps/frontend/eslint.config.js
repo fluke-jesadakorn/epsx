@@ -13,7 +13,7 @@ module.exports = [
       'react-hooks': reactHooks,
     },
     // Add any specific overrides for frontend app here if needed
-    files: ['**/*.{js,jsx,ts,tsx}'],
+    files: ['**/*.{ts,tsx}'],
     languageOptions: {
       parserOptions: {
         project: true, // Enable type-aware linting
@@ -29,6 +29,18 @@ module.exports = [
       // STRICT POLICY FOR @apps/frontend
       // Already inherits ultra-strict rules from shared config
       // Additional enforcement on specific patterns:
+      '@typescript-eslint/strict-boolean-expressions': 'error',
+      '@typescript-eslint/prefer-nullish-coalescing': 'error',
+    }
+  },
+  {
+    plugins: {
+      '@typescript-eslint': typescript,
+      '@next/next': nextjs,
+      'react-hooks': reactHooks,
+    },
+    files: ['**/*.{js,jsx}'],
+    rules: {
       '@typescript-eslint/strict-boolean-expressions': 'error',
       '@typescript-eslint/prefer-nullish-coalescing': 'error',
     }
@@ -105,6 +117,13 @@ module.exports = [
       '@typescript-eslint/no-explicit-any': 'off',
       'sonarjs/no-duplicate-string': 'off',
       'import/no-extraneous-dependencies': 'off',
+    },
+  },
+  {
+    files: ['eslint.config.js', 'jest.config.js', 'jest.setup.js'],
+    rules: {
+      '@typescript-eslint/no-var-requires': 'off',
+      '@typescript-eslint/no-require-imports': 'off',
     },
   },
   {

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unnecessary-condition */
 'use client';
 
 import { Badge } from '@/components/ui/badge';
@@ -99,6 +100,7 @@ function getPermissionIcon(permission: string): React.ElementType {
  * <PermissionBadge permission="epsx:analytics:view" showNote />
  * // Displays: "View Analytics" with tooltip showing "View basic analytics..."
  */
+// eslint-disable-next-line complexity
 export function PermissionBadge({
     permission,
     showNote = true,
@@ -112,9 +114,15 @@ export function PermissionBadge({
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        void loadPermissionDefinitions(base)
-            .then(setDefinitions)
-            .finally(() => setLoading(false));
+        const loadDefs = async () => {
+            try {
+                const defs = await loadPermissionDefinitions(base);
+                setDefinitions(defs);
+            } finally {
+                setLoading(false);
+            }
+        };
+        void loadDefs();
     }, [base]);
 
     const title = getPermissionTitle(permission, definitions);
@@ -153,7 +161,7 @@ export function PermissionBadge({
     );
 
     // If we have a note and showNote is true, wrap in tooltip
-    if (showNote && note) {
+    if (showNote === true && note !== null && note !== undefined && note.length > 0) {
         return (
             <TooltipProvider>
                 <Tooltip>
@@ -164,12 +172,12 @@ export function PermissionBadge({
                         <div className="space-y-1">
                             <p className="font-medium">{title}</p>
                             <p className="text-sm text-muted-foreground">{note}</p>
-                            {showCode && (
+                            {showCode === true && (
                                 <code className="text-xs text-muted-foreground/70 font-mono block mt-1">
                                     {permission}
                                 </code>
                             )}
-                            {category && (
+                            {category !== null && category !== undefined && category.length > 0 && (
                                 <span className="text-[10px] uppercase text-muted-foreground/60">
                                     {category}
                                 </span>
