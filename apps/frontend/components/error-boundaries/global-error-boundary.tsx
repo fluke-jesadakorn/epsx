@@ -69,11 +69,9 @@ export class GlobalErrorBoundary extends Component<Props, State> {
       uiLogger.error(`Error caught by ${level} boundary`, error);
       uiLogger.error('Component error boundary triggered', errorContext);
     } catch (loggingError) {
-      // Fallback to native console if logging system fails
-      if (typeof console !== 'undefined' && console.error) {
-        console.error('Error boundary logging failed:', loggingError);
-        console.error('Original error:', error);
-      }
+      // Fallback logging failed silently
+      void loggingError;
+      void error;
     }
 
     // Call custom error handler if provided
