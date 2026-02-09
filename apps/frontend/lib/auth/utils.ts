@@ -119,6 +119,24 @@ interface JWTPayloadRaw {
   sid?: unknown;
 }
 
+function buildJWTClaims(payload: JWTPayloadRaw, sub: string, exp: number, iat: number): JWTClaims {
+  return {
+    sub,
+    email: typeof payload.email === 'string' ? payload.email : undefined,
+    name: typeof payload.name === 'string' ? payload.name : undefined,
+    permissions: Array.isArray(payload.permissions) ? (payload.permissions as string[]) : [],
+    roles: Array.isArray(payload.roles) ? (payload.roles as string[]) : [],
+    platform_context: typeof payload.platform_context === 'string' ? payload.platform_context : 'epsx',
+    security_level: typeof payload.security_level === 'number' ? payload.security_level : 1,
+    device_fingerprint: typeof payload.device_fingerprint === 'string' ? payload.device_fingerprint : '',
+    granted_by: typeof payload.granted_by === 'string' ? payload.granted_by : 'system',
+    exp,
+    iat,
+    jti: typeof payload.jti === 'string' ? payload.jti : '',
+    sid: typeof payload.sid === 'string' ? payload.sid : ''
+  };
+}
+
 /**
  * Client-side JWT parsing for UI control only
  * WARNING: This is for UI rendering only - never use for authorization decisions
@@ -144,21 +162,7 @@ export function parseJWTForUI(token: string): JWTClaims | null {
       return null;
     }
 
-    return {
-      sub: payload.sub,
-      email: typeof payload.email === 'string' ? payload.email : undefined,
-      name: typeof payload.name === 'string' ? payload.name : undefined,
-      permissions: Array.isArray(payload.permissions) ? payload.permissions as string[] : [],
-      roles: Array.isArray(payload.roles) ? payload.roles as string[] : [],
-      platform_context: typeof payload.platform_context === 'string' ? payload.platform_context : 'epsx',
-      security_level: typeof payload.security_level === 'number' ? payload.security_level : 1,
-      device_fingerprint: typeof payload.device_fingerprint === 'string' ? payload.device_fingerprint : '',
-      granted_by: typeof payload.granted_by === 'string' ? payload.granted_by : 'system',
-      exp: payload.exp,
-      iat: payload.iat,
-      jti: typeof payload.jti === 'string' ? payload.jti : '',
-      sid: typeof payload.sid === 'string' ? payload.sid : ''
-    };
+    return buildJWTClaims(payload, payload.sub, payload.exp, payload.iat);
   } catch (error) {
     authLogger.warn('Failed to parse JWT for UI', { error: safeError(error).message });
     return null;

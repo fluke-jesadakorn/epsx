@@ -61,7 +61,7 @@ export function validateFormData<T>(
 
     return {
       success: true,
-      data: result.data as T
+      data: result.data
     };
   } catch (_error) {
     return {
