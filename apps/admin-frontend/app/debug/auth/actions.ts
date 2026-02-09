@@ -14,13 +14,16 @@ export async function getServerSessionStatus() {
 
     return {
         hasAccessToken: Boolean(accessToken),
+        // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
         accessTokenValue: accessToken?.value ? `${accessToken.value.slice(0, 10)}...` : null,
         // accessTokenExp: accessToken?.maxAge, // maxAge not available on RequestCookie
 
         hasRefreshToken: Boolean(refreshToken),
+        // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
         refreshTokenValue: refreshToken?.value ? `${refreshToken.value.slice(0, 10)}...` : null,
 
         hasUser: Boolean(user),
+        // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions, @typescript-eslint/no-unsafe-assignment
         userValue: user?.value ? JSON.parse(user.value) : null
     };
 }
