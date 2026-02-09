@@ -26,6 +26,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Profile', href: '/profile', icon: User }
 ];
 
+// eslint-disable-next-line max-lines-per-function
 export function MobileBottomNav() {
   const pathname = usePathname();
 

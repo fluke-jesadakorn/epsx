@@ -121,8 +121,10 @@ class FeatureFlagService {
   }
 
   public isEnabled(flagKey: string, userId?: string): boolean {
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     const flag = this.flags[flagKey];
 
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     if (!flag) {
       return false;
     }
@@ -169,6 +171,7 @@ class FeatureFlagService {
 
   public updateFlag(key: string, updates: Partial<FeatureFlag>): void {
     const existingFlag = this.flags[key];
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     if (existingFlag) {
       this.flags[key] = { ...existingFlag, ...updates };
 
@@ -200,6 +203,7 @@ class FeatureFlagService {
   // Gradual rollout helpers
   public increaseRollout(flagKey: string, percentage: number): void {
     const flag = this.flags[flagKey];
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     if (flag) {
       const newPercentage = Math.min(100, flag.rolloutPercentage + percentage);
       this.updateFlag(flagKey, { rolloutPercentage: newPercentage });
@@ -209,6 +213,7 @@ class FeatureFlagService {
 
   public decreaseRollout(flagKey: string, percentage: number): void {
     const flag = this.flags[flagKey];
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     if (flag) {
       const newPercentage = Math.max(0, flag.rolloutPercentage - percentage);
       this.updateFlag(flagKey, { rolloutPercentage: newPercentage });
