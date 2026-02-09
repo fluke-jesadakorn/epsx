@@ -123,9 +123,9 @@ export interface AssignPermissionRequest {
 
 function mapWalletDtoToData(dto: WalletSummaryDto): WalletData {
     const platforms = new Set<Platform>();
-    const dtoPermissions = dto.permissions || [];
+    const dtoPermissions = dto.permissions ?? [];
     dtoPermissions.forEach(p => {
-        if (p.permission.startsWith('epsx:analytics') || p.permission.startsWith('epsx:rankings')) {
+        if (p.permission.startsWith('epsx:analytics') ?? p.permission.startsWith('epsx:rankings')) {
             platforms.add('analytics');
         } else if (p.permission.startsWith('epsx-pay:')) {
             platforms.add('pay');
@@ -141,13 +141,13 @@ function mapWalletDtoToData(dto: WalletSummaryDto): WalletData {
         id: `perm-${idx}`,
         permission: p.permission,
         platform: detectPlatform(p.permission),
-        source: (p.source as PermissionSource) || 'system',
+        source: (p.source as PermissionSource) ?? 'system',
         expiresAt: p.expires_at,
         isActive: p.is_active,
         createdAt: dto.created_at,
     }));
 
-    const subscriptions: WalletSubscription[] = (dto.subscriptions || []).map((s, idx) => ({
+    const subscriptions: WalletSubscription[] = (dto.subscriptions ?? []).map((s, idx) => ({
         id: `sub-${idx}`,
         planId: s.plan_id,
         planName: s.plan_name,
@@ -174,7 +174,7 @@ function mapWalletDtoToData(dto: WalletSummaryDto): WalletData {
         platforms: Array.from(platforms),
         permissions,
         subscriptions,
-        plans: (dto.groups || []).map(g => ({ planName: g.group_name, role: g.role })),
+        plans: (dto.groups ?? []).map(g => ({ planName: g.group_name, role: g.role })),
         metadata: dto.metadata,
         label,
         note,
@@ -182,7 +182,7 @@ function mapWalletDtoToData(dto: WalletSummaryDto): WalletData {
 }
 
 function detectPlatform(permission: string): Platform {
-    if (permission.startsWith('epsx:analytics') || permission.startsWith('epsx:rankings')) { return 'analytics'; }
+    if (permission.startsWith('epsx:analytics') ?? permission.startsWith('epsx:rankings')) { return 'analytics'; }
     if (permission.startsWith('epsx-pay:')) { return 'pay'; }
     if (permission.startsWith('epsx-token:')) { return 'token'; }
     if (permission.startsWith('epsx-markets:')) { return 'markets'; }
@@ -200,7 +200,7 @@ export const walletMgmt = {
         if (!data) {
             throw new Error('Wallet not found');
         }
-        const dto = (data.wallet || data) as unknown as WalletSummaryDto;
+        const dto = (data.wallet ?? data) as unknown as WalletSummaryDto;
         return mapWalletDtoToData(dto);
     },
     updateWalletMetadata: async (address: string, data: { label?: string | null, note?: string | null }) => {
@@ -222,7 +222,7 @@ export const walletMgmt = {
     searchWallets: async (query: string, limit = 10) => {
         const res = await adminApiClient.get<WalletListResponse>('/api/admin/wallets', { search: query, limit: limit.toString() });
         const data = extractData<WalletListResponse>(res);
-        return data?.data || data; // Handle potential wrapping
+        return data?.data ?? data; // Handle potential wrapping
     },
     fetchWallets: async (filters: WalletFilters, page = 1, limit = 50) => {
         const queryParams: Record<string, string> = {
@@ -236,10 +236,10 @@ export const walletMgmt = {
         };
         const res = await adminApiClient.get<WalletListResponse>('/api/admin/wallets', queryParams);
         const data = extractData<WalletListResponse>(res);
-        const responseData = data?.data || data;
+        const responseData = data?.data ?? data;
 
         return {
-            wallets: (responseData?.wallets || []).map(mapWalletDtoToData),
+            wallets: (responseData?.wallets ?? []).map(mapWalletDtoToData),
             pagination: responseData?.pagination
         };
     },

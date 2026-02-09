@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('Analytics and Monitoring - E2E', () => {
-  const ADMIN_URL = process.env.ADMIN_URL || 'http://localhost:3001';
+  const ADMIN_URL = process.env.ADMIN_URL ?? 'http://localhost:3001';
 
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize({ width: 1920, height: 1080 });

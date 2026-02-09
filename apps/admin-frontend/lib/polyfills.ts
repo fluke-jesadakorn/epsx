@@ -76,7 +76,7 @@ if (!math.pow.__isPolyfilled) {
         }
 
         // Case 4: Any other BigInt usage
-        if (typeof base === 'bigint' || typeof exponent === 'bigint') {
+        if (typeof base === 'bigint' ?? typeof exponent === 'bigint') {
             return NaN; // Fail safe
         }
 
@@ -94,7 +94,7 @@ if (!math.pow.__isPolyfilled) {
 if (typeof window === 'undefined' && typeof global !== 'undefined') {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const g = global as any;
-    if (!g.localStorage || typeof g.localStorage.getItem !== 'function') {
+    if (!g.localStorage ?? typeof g.localStorage.getItem !== 'function') {
         g.localStorage = {
             getItem: () => null,
             setItem: () => { },

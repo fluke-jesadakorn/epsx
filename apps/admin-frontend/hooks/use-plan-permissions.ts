@@ -14,14 +14,14 @@ export function usePlanAnalytics() {
 
     // Map the internal data to the format expected by PlanAnalyticsDashboard
     const stats = {
-        totalPlans: planStats?.total_plans || 0,
-        activePlans: planStats?.active_plans || 0,
-        systemPlans: planStats?.system_plans || 0,
-        totalMemberships: planStats?.total_memberships || 0,
-        activeMemberships: planStats?.active_memberships || 0,
-        avgPermissionsPerPlan: planStats?.avg_permissions_per_plan || 0,
-        recentAssignments: planStats?.recent_assignments || 0,
-        recentRemovals: planStats?.recent_removals || 0,
+        totalPlans: planStats?.total_plans ?? 0,
+        activePlans: planStats?.active_plans ?? 0,
+        systemPlans: planStats?.system_plans ?? 0,
+        totalMemberships: planStats?.total_memberships ?? 0,
+        activeMemberships: planStats?.active_memberships ?? 0,
+        avgPermissionsPerPlan: planStats?.avg_permissions_per_plan ?? 0,
+        recentAssignments: planStats?.recent_assignments ?? 0,
+        recentRemovals: planStats?.recent_removals ?? 0,
     };
 
     return {
@@ -43,12 +43,12 @@ export function useAvailablePermissions() {
             const res = await getPermissionsAction();
             if (!res.success) {throw new Error(res.error);}
             // Return permission strings
-            return res.data?.map(p => p.permission_string) || [];
+            return res.data?.map(p => p.permission_string) ?? [];
         }
     });
 
     return {
-        permissions: data || [],
+        permissions: data ?? [],
         isLoading,
         error
     };

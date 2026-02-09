@@ -34,8 +34,8 @@ export async function AccessOverview() {
             data = {
                 current_tier: responseData.current_tier,
                 // Map backend 'plans' to frontend 'groups'
-                groups: responseData.groups || responseData.plans || [],
-                direct_permissions: responseData.direct_permissions || []
+                groups: responseData.groups ?? responseData.plans ?? [],
+                direct_permissions: responseData.direct_permissions ?? []
             };
         } else {
             // Backend always returns Free Plan, so if we get here it's an error
@@ -80,7 +80,7 @@ export async function AccessOverview() {
             <div className="rounded-2xl border-2 border-red-200 bg-red-50/50 p-6 dark:border-red-900/50 dark:bg-red-900/20">
                 <div className="flex items-center gap-3">
                     <AlertTriangle className="h-6 w-6 text-red-500" />
-                    <p className="text-sm font-semibold text-red-700 dark:text-red-300">{error || 'No data available'}</p>
+                    <p className="text-sm font-semibold text-red-700 dark:text-red-300">{error ?? 'No data available'}</p>
                 </div>
             </div>
         );
@@ -154,7 +154,7 @@ export async function AccessOverview() {
                                     <div className="mb-4">
                                         <h4 className="text-xl font-bold text-gray-900 dark:text-white mb-1">{group.name}</h4>
                                         <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2 leading-relaxed">
-                                            {group.description || `Includes ${group.permissions.length} specialized permissions`}
+                                            {group.description ?? `Includes ${group.permissions.length} specialized permissions`}
                                         </p>
                                         {/* Show assigned date if available */}
                                         {group.assigned_at && (

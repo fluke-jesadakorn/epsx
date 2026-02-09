@@ -137,7 +137,7 @@ export async function searchWallets(query: string, filters?: Partial<WalletListF
 
     const response = await makeAuthenticatedRequest(`/api/admin/wallets/search?${params.toString()}`);
 
-    return createSuccessResult(response.users || []);
+    return createSuccessResult(response.users ?? []);
   } catch (_error) {
 
     logger.error('Failed to search users:', { error: _error });
@@ -605,7 +605,7 @@ export async function assignTemporaryPermission(data: {
 export async function getExpiringPermissions(days = 7): Promise<ActionResult<Permission[]>> {
   try {
     const response = await makeAuthenticatedRequest(`/api/admin/casbin/expiring-permissions?days=${days}`);
-    return createSuccessResult(response.permissions || []);
+    return createSuccessResult(response.permissions ?? []);
   } catch (_error) {
 
     logger.error('Failed to get expiring permissions', { error: _error });
@@ -639,7 +639,7 @@ export async function validatePermissionAssignment(data: {
       })
     });
 
-    return createSuccessResult({ conflicts: response.conflicts || [], warnings: response.warnings || [] });
+    return createSuccessResult({ conflicts: response.conflicts ?? [], warnings: response.warnings ?? [] });
   } catch (_error) {
 
     logger.error('Failed to validate permission assignment:', { error: _error });

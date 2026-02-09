@@ -81,7 +81,7 @@ export function PancakeButton({
   return (
     <button
       onClick={onClick}
-      disabled={disabled || loading}
+      disabled={disabled ?? loading}
       className={`
         ${fullWidth ? 'w-full' : ''}
         ${sizeClasses[size]}
@@ -96,7 +96,7 @@ export function PancakeButton({
         overflow-hidden
         transition-all
         duration-200
-        ${disabled || loading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
+        ${disabled ?? loading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
       `}
     >
       {/* Metro effect - only shown if metro is true */}

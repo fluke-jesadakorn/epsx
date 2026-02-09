@@ -120,7 +120,7 @@ export function DeveloperStatsCards({ currentUser }: DeveloperStatsCardsProps) {
                         {isLoading ? '...' : ((userGroupData?.total_requests ?? 0).toLocaleString())}
                     </div>
                     <div className="text-xs text-gray-500 dark:text-gray-400">
-                        {userGroupData?.total_api_keys || 0} API Key{(userGroupData?.total_api_keys || 0) !== 1 ? 's' : ''}
+                        {userGroupData?.total_api_keys ?? 0} API Key{(userGroupData?.total_api_keys ?? 0) !== 1 ? 's' : ''}
                     </div>
                 </div>
             </div>

@@ -27,7 +27,7 @@ interface PromotionSectionProps {
 
 // Helper functions must be declared before use or safely outside
 function getUsagePercentage(promo: DisplayPromotion): number {
-  if (promo.usageLimit == null || promo.usageLimit === 0) {return 0;}
+  if (promo.usageLimit == null ?? promo.usageLimit === 0) {return 0;}
   return Math.min((promo.currentUsage / promo.usageLimit) * 100, 100);
 }
 
@@ -39,7 +39,7 @@ function getDiscountDisplay(promo: DisplayPromotion): string {
 }
 
 function isExpired(endDate?: string): boolean {
-  if (endDate == null || endDate === '') {return false;}
+  if (endDate == null ?? endDate === '') {return false;}
   return new Date(endDate) < new Date();
 }
 
@@ -83,7 +83,7 @@ export function PromotionSection({ initialPromotions, className, compactMode = f
           discountType: p.discountType,
           discountValue: parseFloat(p.discountValue),
           maxDiscountAmount: p.maxDiscountAmount ? parseFloat(p.maxDiscountAmount) : null,
-          minPurchaseAmount: parseFloat(p.minPurchaseAmount || '0'),
+          minPurchaseAmount: parseFloat(p.minPurchaseAmount ?? '0'),
           usageLimit: p.usageLimit,
           currentUsage: p.currentUsage,
           isActive: p.isActive,
@@ -265,7 +265,7 @@ export function PromotionSection({ initialPromotions, className, compactMode = f
                   <div className="space-y-1">
                     <div className="flex items-center justify-between text-xs text-muted-foreground">
                       <span>Usage</span>
-                      <span>{promo.currentUsage}/{promo.usageLimit || '∞'}</span>
+                      <span>{promo.currentUsage}/{promo.usageLimit ?? '∞'}</span>
                     </div>
                     <div className="h-1.5 bg-muted rounded-full overflow-hidden">
                       <div

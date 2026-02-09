@@ -79,7 +79,7 @@ export const DeveloperPortal: React.FC = () => {
       } catch (error) {
         const err = error as { status?: number; code?: string; message?: string };
         // Handle Access Denied from backend
-        if (err.status === 403 || err.code === 'PERMISSION_DENIED') {
+        if (err.status === 403 ?? err.code === 'PERMISSION_DENIED') {
           setAccessDenied({
             message: err.message ?? 'You don\'t have permission to access the developer portal.',
             code: err.code
@@ -114,7 +114,7 @@ export const DeveloperPortal: React.FC = () => {
       }
     } catch (error) {
       const err = error as { status?: number; code?: string; message?: string };
-      if (err.status === 403 || err.code === 'PERMISSION_DENIED') {
+      if (err.status === 403 ?? err.code === 'PERMISSION_DENIED') {
         setAccessDenied({
           message: err.message ?? 'You don\'t have permission to access the developer portal.',
           code: err.code

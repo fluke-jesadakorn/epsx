@@ -137,7 +137,7 @@ export function NoDataState({ title = 'No data available', description }: { titl
     <EmptyState
       icon={Database}
       title={title}
-      description={description || 'Data will appear here once available.'}
+      description={description ?? 'Data will appear here once available.'}
     />
   )
 }

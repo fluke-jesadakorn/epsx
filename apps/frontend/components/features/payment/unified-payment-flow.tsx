@@ -195,7 +195,7 @@ export function UnifiedPaymentFlow({
     const transformPlans = useCallback((rawPlans: any[]): PricingCardData[] => {
         return rawPlans
             .filter((plan: any) => plan.is_active)
-            .sort((a: any, b: any) => (a.display_order || 0) - (b.display_order || 0))
+            .sort((a: any, b: any) => (a.display_order ?? 0) - (b.display_order ?? 0))
             .map((plan: any) => {
                 const price = typeof plan.current_price === 'string'
                     ? parseFloat(plan.current_price)
@@ -217,7 +217,7 @@ export function UnifiedPaymentFlow({
                         : typeof plan.features === 'string'
                             ? JSON.parse(plan.features).map((f: any) => typeof f === 'string' ? { text: f, included: true } : f)
                             : [],
-                    highlight: plan.is_highlighted || plan.is_promoted,
+                    highlight: plan.is_highlighted ?? plan.is_promoted,
                     buttonText: isFree ? 'Start Free' : 'Select Plan',
                     tier_level: plan.tier_level ?? 0,
                     plan_type: plan.plan_type,
@@ -245,7 +245,7 @@ export function UnifiedPaymentFlow({
                     }
                 }
             } else {
-                throw new Error(result.error?.message || 'Invalid API response format');
+                throw new Error(result.error?.message ?? 'Invalid API response format');
             }
         } catch (err) {
             console.error('Error fetching plans:', err);
@@ -344,7 +344,7 @@ export function UnifiedPaymentFlow({
             const submitPayment = async () => {
                 try {
                     // Extract numeric price
-                    const priceVal = parseFloat(selectedPlan?.price.replace(/[^0-9.]/g, '') || '0');
+                    const priceVal = parseFloat(selectedPlan?.price.replace(/[^0-9.]/g, '') ?? '0');
 
                     const result = await submitTransactionAction({
                         transaction_hash: transferTxHash,
@@ -360,7 +360,7 @@ export function UnifiedPaymentFlow({
                         // Refresh plan access
                         refetchPlanAccess();
                     } else {
-                        setError(result.error?.message || 'Payment submitted but verification pending');
+                        setError(result.error?.message ?? 'Payment submitted but verification pending');
                     }
                 } catch (err) {
                     console.error('Submit error:', err);

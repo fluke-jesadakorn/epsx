@@ -42,11 +42,11 @@ export function SubscriptionManagement({ currentUser: _currentUser }: Subscripti
       })
 
       if (isApiSuccess(response)) {
-        setSubscriptions((response.data as any)?.subscriptions || response.data as any || [])
+        setSubscriptions((response.data as any)?.subscriptions ?? response.data as any ?? [])
       } else {
         toast({
           title: "Error",
-          description: response.error || "Failed to load subscriptions",
+          description: response.error ?? "Failed to load subscriptions",
           variant: "destructive"
         })
       }
@@ -79,7 +79,7 @@ export function SubscriptionManagement({ currentUser: _currentUser }: Subscripti
       } else {
         toast({
           title: "Error",
-          description: response.error || "Failed to cancel subscription",
+          description: response.error ?? "Failed to cancel subscription",
           variant: "destructive"
         })
       }
@@ -93,8 +93,8 @@ export function SubscriptionManagement({ currentUser: _currentUser }: Subscripti
   }
 
   const filteredSubscriptions = subscriptions.filter(sub => {
-    const statusMatch = filterStatus === 'all' || sub.status === filterStatus
-    const contextMatch = filterContext === 'all' || sub.access_context === filterContext
+    const statusMatch = filterStatus === 'all' ?? sub.status === filterStatus
+    const contextMatch = filterContext === 'all' ?? sub.access_context === filterContext
     const searchMatch = searchTerm === '' ||
       sub.plan_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       sub.user_id.toLowerCase().includes(searchTerm.toLowerCase()) ||

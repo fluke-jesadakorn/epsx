@@ -122,9 +122,9 @@ export function BrowserNotifications({
     try {
       const notification = new Notification(title, {
         body,
-        icon: options.icon || '/favicon.ico',
-        tag: options.tag || 'epsx-notification',
-        requireInteraction: options.requireInteraction || false,
+        icon: options.icon ?? '/favicon.ico',
+        tag: options.tag ?? 'epsx-notification',
+        requireInteraction: options.requireInteraction ?? false,
         ...options
       });
 

@@ -44,12 +44,12 @@ export const useUsers = (options: UseUsersOptions) => {
       let transformedUsers: User[] = (adminUsers as AdminUserStub[]).map(
         (user) => ({
           id: user.id,
-          name: user.name || user.email || 'Unknown user',
-          email: user.email || '',
+          name: user.name ?? user.email ?? 'Unknown user',
+          email: user.email ?? '',
           packageTier: 'user', // Map from roles/permissions as needed
           status: user.status as 'active' | 'inactive' | 'suspended',
           lastActive: new Date(user.updated_at).toLocaleDateString(),
-          permissions: user.permissions || [], // Use structured permissions
+          permissions: user.permissions ?? [], // Use structured permissions
         })
       );
 

@@ -39,7 +39,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({ style, className }) => {
 
   return (
     <div
-      className={`relative w-full min-h-[85vh] flex items-center justify-center overflow-hidden ${className || ''}`}
+      className={`relative w-full min-h-[85vh] flex items-center justify-center overflow-hidden ${className ?? ''}`}
       style={style}
     >
       {/* Analytics-style floating elements */}

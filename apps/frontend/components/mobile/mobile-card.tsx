@@ -41,7 +41,7 @@ export function MobileCard({
 
   const cardContent = (
     <>
-      {(title || subtitle || action || showMoreButton) && (
+      {(title ?? subtitle ?? action ?? showMoreButton) && (
         <CardHeader className={`${paddingClasses[padding]} pb-3`}>
           <div className="flex items-center justify-between">
             <div className="flex-1 min-w-0">

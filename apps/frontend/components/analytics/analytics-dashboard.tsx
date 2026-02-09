@@ -70,10 +70,10 @@ export default function AnalyticsDashboard({
   const [activeTab, setActiveTab] = useState('list');
 
   // Use initial data if provided and no new data has been loaded
-  const currentData = data || initialData;
+  const currentData = data ?? initialData;
   const currentFilterOptions = filterOptions.countries.length > 0
     ? filterOptions
-    : (initialFilterOptions || filterOptions);
+    : (initialFilterOptions ?? filterOptions);
 
   const isLoading = filtersLoading || dataLoading;
 
@@ -299,7 +299,7 @@ function LeaderCategory({ title, leaders, colorScheme, valueKey }: LeaderCategor
           if (valueKey === 'analytics.growth_factor') {
             const analytics = leader.analytics as Record<string, unknown> | undefined;
             const growthFactor = analytics?.growth_factor as number | undefined;
-            displayValue = `${growthFactor?.toFixed(1) || 0}%`;
+            displayValue = `${growthFactor?.toFixed(1) ?? 0}%`;
           } else if (valueKey === 'quarterly_data') {
             const quarterlyData = leader.quarterly_data as Array<Record<string, unknown>> | undefined;
             const latestGrowth = (quarterlyData?.[0]?.price_growth as number) || 0;
@@ -366,9 +366,9 @@ function RankingsList({ data, isLoading, onPageChange, onReset }: RankingsListPr
                   symbol={ranking.symbol}
                   rank={(ranking.rank) || index + 1}
                   epsGrowth={(ranking.epsGrowth) || 0}
-                  price={(ranking as any).price || (ranking as any).price_current || (ranking as any).current_price || 0}
+                  price={(ranking as any).price ?? (ranking as any).price_current ?? (ranking as any).current_price ?? 0}
                   currency="USD"
-                  companyName={(ranking as any).name || (ranking as any).companyName}
+                  companyName={(ranking as any).name ?? (ranking as any).companyName}
                 />
               </div>
             ))}
@@ -390,9 +390,9 @@ function RankingsList({ data, isLoading, onPageChange, onReset }: RankingsListPr
             symbol={ranking.symbol}
             rank={(ranking.rank) || 0}
             epsGrowth={(ranking.epsGrowth) || 0}
-            price={(ranking as any).price || (ranking as any).price_current || (ranking as any).current_price || 0}
+            price={(ranking as any).price ?? (ranking as any).price_current ?? (ranking as any).current_price ?? 0}
             currency="USD"
-            companyName={(ranking as any).name || (ranking as any).companyName}
+            companyName={(ranking as any).name ?? (ranking as any).companyName}
           />
         ))}
       </div>

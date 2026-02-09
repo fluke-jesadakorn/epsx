@@ -142,7 +142,7 @@ export function PlanStatusBar({ className, planAccess: propPlanAccess }: PlanSta
                     <div>
                         <div className="flex items-center gap-2">
                             <h3 className="text-base font-bold text-white">
-                                {planName || FREE_PLAN_NAME}
+                                {planName ?? FREE_PLAN_NAME}
                             </h3>
                             {tierLevel > 0 && (
                                 <span className={cn(

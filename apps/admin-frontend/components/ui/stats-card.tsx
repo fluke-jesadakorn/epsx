@@ -66,7 +66,7 @@ export function StatsCard({
       default: { bg: 'bg-gradient-to-br from-purple-500/20 to-orange-500/20', text: 'text-purple-400 border border-purple-500/20' },
     };
 
-    return variantMap[variant] || variantMap.default;
+    return variantMap[variant] ?? variantMap.default;
   };
 
   // Use standard Tailwind classes instead of design system
@@ -99,7 +99,7 @@ export function StatsCard({
             <div className="text-right">
               <div className={cn(
                 'text-2xl font-bold leading-none',
-                textColor || 'text-foreground'
+                textColor ?? 'text-foreground'
               )}>
                 {value}
               </div>
@@ -259,9 +259,9 @@ export function StatsGrid({
     <div className={gridClasses}>
       {stats.map((stat, index) => (
         <StatsCard
-          key={stat.title || `stat-${index}`}
+          key={stat.title ?? `stat-${index}`}
           {...stat}
-          variant={stat.variant || variant}
+          variant={stat.variant ?? variant}
         />
       ))}
     </div>

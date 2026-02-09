@@ -66,7 +66,7 @@ export function DataManagement({ user }: DataManagementProps) {
 
     } catch (error: any) {
       console.error('Data export error:', error);
-      toast.error(error.message || 'Failed to export data');
+      toast.error(error.message ?? 'Failed to export data');
     } finally {
       setExportState({ isExporting: false });
     }
@@ -101,7 +101,7 @@ export function DataManagement({ user }: DataManagementProps) {
 
     } catch (error: any) {
       console.error('Account deletion error:', error);
-      toast.error(error.message || 'Failed to delete account');
+      toast.error(error.message ?? 'Failed to delete account');
       setDeletionState(prev => ({ ...prev, isDeleting: false }));
     }
   };
@@ -140,7 +140,7 @@ export function DataManagement({ user }: DataManagementProps) {
 
             <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-lg">
               <div className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-                {user.tier?.toUpperCase() || 'FREE'}
+                {user.tier?.toUpperCase() ?? 'FREE'}
               </div>
               <div className="text-sm text-slate-600 dark:text-slate-400">
                 Account Tier

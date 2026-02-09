@@ -9,7 +9,7 @@ import { toast } from 'sonner';
 export default function AuthPage() {
     const router = useRouter();
     const searchParams = useSearchParams();
-    const returnUrl = searchParams.get('return_url') || '/';
+    const returnUrl = searchParams.get('return_url') ?? '/';
     const { isAuthenticated, user } = useSharedAuth();
 
     // Auto-redirect when authenticated

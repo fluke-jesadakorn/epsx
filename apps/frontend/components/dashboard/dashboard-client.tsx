@@ -54,7 +54,7 @@ export function DashboardClient({ user, permissions, dashboardData: _dashboardDa
           <p className="text-xl text-gray-600 dark:text-gray-300 mb-4">
             Welcome{user ? ' back' : ''},{' '}
             <span className="font-semibold text-orange-600 dark:text-orange-400">
-              {user?.email || 'Guest user'}
+              {user?.email ?? 'Guest user'}
             </span>
             ! ✨
           </p>

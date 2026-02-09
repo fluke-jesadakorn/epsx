@@ -20,7 +20,7 @@ export function PlanApiLimits({ formData, setFormData }: PlanFormProps) {
                         onChange={(e) =>
                             setFormData({
                                 ...formData,
-                                api_calls_limit: parseInt(e.target.value) || 0,
+                                api_calls_limit: parseInt(e.target.value) ?? 0,
                             })
                         }
                         className="w-full px-4 py-3 rounded-xl border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-purple-500 focus:ring-2 focus:ring-purple-500 focus:outline-none"
@@ -40,7 +40,7 @@ export function PlanApiLimits({ formData, setFormData }: PlanFormProps) {
                         onChange={(e) =>
                             setFormData({
                                 ...formData,
-                                ranking_offset: parseInt(e.target.value) || 0,
+                                ranking_offset: parseInt(e.target.value) ?? 0,
                             })
                         }
                         className="w-full px-4 py-3 rounded-xl border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-purple-500 focus:ring-2 focus:ring-purple-500 focus:outline-none"
@@ -60,7 +60,7 @@ export function PlanApiLimits({ formData, setFormData }: PlanFormProps) {
                         onChange={(e) =>
                             setFormData({
                                 ...formData,
-                                analytics_queries: parseInt(e.target.value) || 0,
+                                analytics_queries: parseInt(e.target.value) ?? 0,
                             })
                         }
                         className="w-full px-4 py-3 rounded-xl border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-purple-500 focus:ring-2 focus:ring-purple-500 focus:outline-none"
@@ -80,7 +80,7 @@ export function PlanApiLimits({ formData, setFormData }: PlanFormProps) {
                         onChange={(e) =>
                             setFormData({
                                 ...formData,
-                                export_limit: parseInt(e.target.value) || 0,
+                                export_limit: parseInt(e.target.value) ?? 0,
                             })
                         }
                         className="w-full px-4 py-3 rounded-xl border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-purple-500 focus:ring-2 focus:ring-purple-500 focus:outline-none"

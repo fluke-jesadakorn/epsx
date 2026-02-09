@@ -51,7 +51,7 @@ const nextConfig: NextConfig = {
     const appNodeModules = path.resolve(process.cwd(), 'node_modules');
     config.resolve.modules = [
       appNodeModules,
-      ...(config.resolve.modules || ['node_modules']),
+      ...(config.resolve.modules ?? ['node_modules']),
     ];
 
     config.resolve.alias = {

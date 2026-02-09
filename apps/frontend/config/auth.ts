@@ -100,7 +100,7 @@ export function getUserRequiredAuthLevel(route: string) {
  */
 export function buildFrontendWeb3ChallengeUrl(walletAddress: string): string {
   // Create an OIDC-compatible config for Web3 challenge URL
-  const BACKEND_URL = process.env.BACKEND_URL || 'http://127.0.0.1:8080';
+  const BACKEND_URL = process.env.BACKEND_URL ?? 'http://127.0.0.1:8080';
   const oidcLikeConfig = {
     clientId: 'epsx-frontend',
     issuer: BACKEND_URL,
@@ -245,7 +245,7 @@ export function createSIWEMessage(walletAddress: string, nonce: string): string 
     `${domain} wants you to sign in with your Ethereum account:`,
     walletAddress,
     '',
-    statement || 'Sign in to EPSX with your Ethereum wallet',
+    statement ?? 'Sign in to EPSX with your Ethereum wallet',
     '',
     `URI: ${uri}`,
     `Version: ${version}`,

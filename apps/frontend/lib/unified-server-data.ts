@@ -80,13 +80,13 @@ export async function getAnalyticsData(params: EPSQueryParams) {
             }
         }
 
-        if (!response || (response.success === false)) {
-            logger.warn('⚠️ Analytics data fetch failed or returned empty:', response?.message);
+        if (!response.success) {
+            logger.warn('⚠️ Analytics data fetch failed or returned empty:', response.message);
             return {
                 rankings: [],
                 pagination: {
-                    page: params.page ?? 1,
-                    limit: params.limit ?? 10,
+                    page: params.page,
+                    limit: params.limit,
                     total: 0,
                     totalPages: 0,
                     hasNext: false,
@@ -99,13 +99,13 @@ export async function getAnalyticsData(params: EPSQueryParams) {
         // The backend returns loose structure that needs to be normalized
         // Map backend EPSRanking data to frontend SymbolCardData
         // The backend returns loose structure that needs to be normalized
-        const rawRankings = (response.data as unknown as EPSRanking[]) ?? [];
+        const rawRankings = (response.data as unknown as EPSRanking[]);
         const mappedRankings: SymbolCardData[] = rawRankings.map((item: EPSRanking, index: number) => {
             // Determine rank (use existing or calculate)
-            const rank = (item.ranking_position ?? ((params.page - 1) * params.limit) + index + 1);
+            const rank = item.ranking_position || ((params.page - 1) * params.limit) + index + 1;
 
             // Map quarterly data if available
-            const quarterlyPerformance: QuarterlyPerformanceData[] = (item.quarterly_data ?? []).map((q) => ({
+            const quarterlyPerformance: QuarterlyPerformanceData[] = item.quarterly_data.map((q) => ({
                 quarter: q.quarter,
                 date: q.date,
                 price: q.price,
@@ -197,7 +197,7 @@ export async function getServerFilterOptions(): Promise<FilterOptions> {
 
         // Transform from AnalyticsFiltersResponse to the expected FilterOptions format
         return {
-            countries: (response.data.countries ?? []).map((c: string) => ({ value: c, label: c })),
+            countries: response.data.countries.map((c: string) => ({ value: c, label: c })),
             sectors: response.data.sectors,
             exchanges: response.data.exchanges,
             stock_types: [], // Backend doesn't return this yet in the unified client

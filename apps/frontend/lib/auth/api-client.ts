@@ -15,8 +15,8 @@ export class OpenIDApiClient extends SharedWeb3AuthClient {
 
   private constructor() {
     super(
-      process.env.NEXT_PUBLIC_OAUTH_CLIENT_ID || 'epsx-frontend',
-      process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080'
+      process.env.NEXT_PUBLIC_OAUTH_CLIENT_ID ?? 'epsx-frontend',
+      process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:8080'
     );
   }
 

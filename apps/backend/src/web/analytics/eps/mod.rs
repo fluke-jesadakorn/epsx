@@ -12,7 +12,6 @@ pub mod errors;        // EPS-specific error handling
 
 // Internal modules for transform decomposition
 mod quarterly;         // Quarterly data generation logic
-mod price;             // Price growth calculations
 mod date_metrics;      // Date utilities and metrics
 mod estimate;          // Next quarter estimation
 mod system;            // System mode and config utilities

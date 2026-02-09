@@ -33,9 +33,9 @@ export function PaymentAnalytics() {
             const response = await base.get<any>('/api/payments/admin/analytics');
 
             if (response.success && response.data) {
-                setStats(response.data.analytics?.summary || null);
+                setStats(response.data.analytics?.summary ?? null);
             } else {
-                throw new Error(response.error || response.message || 'Failed to load analytics');
+                throw new Error(response.error ?? response.message ?? 'Failed to load analytics');
             }
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Unknown error loading analytics');

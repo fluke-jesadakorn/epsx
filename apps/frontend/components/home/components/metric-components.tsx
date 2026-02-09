@@ -108,7 +108,7 @@ export function QuarterRow({
               Price
             </div>
             <div className={`${TYPOGRAPHY.price} ${COLORS.primary.text} font-bold`}>
-              {quarter?.price !== undefined && quarter?.price !== null
+              {quarter.price !== undefined && quarter.price !== null
                 ? formatPrice(quarter.price)
                 : 'N/A'}
             </div>
@@ -120,7 +120,7 @@ export function QuarterRow({
               EPS
             </div>
             <div className={`${TYPOGRAPHY.price} ${COLORS.secondary.text} font-bold`}>
-              {quarter?.eps !== undefined ? quarter.eps.toFixed(4) : 'N/A'}
+              {quarter.eps !== undefined ? quarter.eps.toFixed(4) : 'N/A'}
             </div>
           </div>
           
@@ -130,7 +130,7 @@ export function QuarterRow({
               EPS %
             </div>
             <div className="flex items-center justify-center">
-              {quarter?.eps_growth !== undefined ? (
+              {quarter.eps_growth !== undefined ? (
                 <div className="flex items-center gap-1">
                   <div className={`
                     w-3 h-3 rounded-full flex items-center justify-center 
@@ -162,7 +162,7 @@ export function QuarterRow({
               Price %
             </div>
             <div className="flex items-center justify-center">
-              {quarter?.price_growth !== undefined && quarter.price_growth !== null ? (
+              {quarter.price_growth !== undefined && quarter.price_growth !== null ? (
                 <div className="flex items-center gap-1">
                   <div className={`
                     w-3 h-3 rounded-full flex items-center justify-center 
@@ -208,7 +208,7 @@ export function QuarterRow({
         {/* Price */}
         <div className="flex flex-col items-end">
           <span className={`${TYPOGRAPHY.price} ${COLORS.primary.text}`}>
-            {quarter?.price !== undefined && quarter?.price !== null
+            {quarter.price !== undefined && quarter.price !== null
               ? formatPrice(quarter.price)
               : 'N/A'}
           </span>
@@ -217,13 +217,13 @@ export function QuarterRow({
         {/* EPS */}
         <div className="flex flex-col items-end">
           <span className={`${TYPOGRAPHY.price} ${COLORS.secondary.text}`}>
-            {quarter?.eps !== undefined ? quarter.eps.toFixed(4) : 'N/A'}
+            {quarter.eps !== undefined ? quarter.eps.toFixed(4) : 'N/A'}
           </span>
         </div>
 
         {/* EPS Growth */}
         <div className="flex flex-col items-end">
-          {quarter?.eps_growth !== undefined ? (
+          {quarter.eps_growth !== undefined ? (
             <div className="flex items-center gap-1">
               <div className={`
                 w-4 h-4 rounded-full flex items-center justify-center 
@@ -250,7 +250,7 @@ export function QuarterRow({
 
         {/* Price Growth */}
         <div className="flex flex-col items-end">
-          {quarter?.price_growth !== undefined && quarter.price_growth !== null ? (
+          {quarter.price_growth !== undefined && quarter.price_growth !== null ? (
             <div className="flex items-center gap-1">
               <div className={`
                 w-4 h-4 rounded-full flex items-center justify-center 

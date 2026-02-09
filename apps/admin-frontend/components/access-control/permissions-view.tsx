@@ -171,7 +171,7 @@ export function PermissionsView({ className }: PermissionsViewProps) {
         setActiveDragId(null);
     };
 
-    if (authLoading || (isLoadingData && !permissions.length)) {
+    if (authLoading ?? (isLoadingData && !permissions.length)) {
         return <div className="p-8 flex justify-center"><Loader2 className="animate-spin" /></div>;
     }
 
@@ -219,7 +219,7 @@ export function PermissionsView({ className }: PermissionsViewProps) {
                                         <div className="flex items-center justify-between gap-2">
                                             <div className="min-w-0">
                                                 <p className="font-mono text-xs font-bold text-emerald-400 truncate">{perm.permission_string}</p>
-                                                <p className="text-xs text-muted-foreground line-clamp-1">{perm.name || 'Unnamed'}</p>
+                                                <p className="text-xs text-muted-foreground line-clamp-1">{perm.name ?? 'Unnamed'}</p>
                                             </div>
                                             {perm.is_system && <ShieldAlert className="w-3 h-3 text-amber-500 shrink-0" />}
                                         </div>
@@ -254,7 +254,7 @@ export function PermissionsView({ className }: PermissionsViewProps) {
                                             Delete
                                         </Button>
                                     )}
-                                    <Button size="sm" onClick={handleSavePermission} disabled={!hasPermChanges || isSavingPerm} className="bg-emerald-500 text-white hover:bg-emerald-600">
+                                    <Button size="sm" onClick={handleSavePermission} disabled={!hasPermChanges ?? isSavingPerm} className="bg-emerald-500 text-white hover:bg-emerald-600">
                                         {isSavingPerm && <Loader2 className="w-3 h-3 animate-spin mr-2" />}
                                         Save Changes
                                     </Button>
@@ -265,7 +265,7 @@ export function PermissionsView({ className }: PermissionsViewProps) {
                                     <div className="grid gap-2">
                                         <Label>Display Name</Label>
                                         <Input
-                                            value={permEditForm.name || ''}
+                                            value={permEditForm.name ?? ''}
                                             onChange={e => { setPermEditForm(p => ({ ...p, name: e.target.value })); setHasPermChanges(true); }}
                                             className="bg-white/5 border-white/10"
                                         />
@@ -273,7 +273,7 @@ export function PermissionsView({ className }: PermissionsViewProps) {
                                     <div className="grid gap-2">
                                         <Label>Category</Label>
                                         <Input
-                                            value={permEditForm.category || ''}
+                                            value={permEditForm.category ?? ''}
                                             onChange={e => { setPermEditForm(p => ({ ...p, category: e.target.value })); setHasPermChanges(true); }}
                                             className="bg-white/5 border-white/10"
                                         />
@@ -281,7 +281,7 @@ export function PermissionsView({ className }: PermissionsViewProps) {
                                     <div className="grid gap-2">
                                         <Label>Description</Label>
                                         <Textarea
-                                            value={permEditForm.description || ''}
+                                            value={permEditForm.description ?? ''}
                                             onChange={e => { setPermEditForm(p => ({ ...p, description: e.target.value })); setHasPermChanges(true); }}
                                             className="bg-white/5 border-white/10 min-h-[100px]"
                                         />

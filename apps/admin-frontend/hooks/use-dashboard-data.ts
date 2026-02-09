@@ -105,7 +105,7 @@ export function useDashboardData(isAuthenticated: boolean) {
                 updateSystemStats(systemRes);
 
                 // Check for permission errors
-                const hasAuthError = [walletsRes, permissionsRes, systemRes].some(r => r.status === 403 || r.status === 401);
+                const hasAuthError = [walletsRes, permissionsRes, systemRes].some(r => r.status === 403 ?? r.status === 401);
                 if (hasAuthError) {
                     setAccessError(walletsRes.error ?? permissionsRes.error ?? systemRes.error ?? 'Access denied by backend');
                 }

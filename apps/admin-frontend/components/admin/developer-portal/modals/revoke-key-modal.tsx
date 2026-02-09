@@ -186,7 +186,7 @@ export const RevokeKeyModal: React.FC<RevokeKeyModalProps> = ({
                         <Button
                             type="submit"
                             variant="destructive"
-                            disabled={isLoading || !selectedReason}
+                            disabled={isLoading ?? !selectedReason}
                             className="bg-red-600 hover:bg-red-700 text-white"
                         >
                             {isLoading ? 'Revoking...' : 'Revoke API Key'}

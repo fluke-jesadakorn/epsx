@@ -102,7 +102,7 @@ function PackagePreview({
   };
 
   const formatMarkets = (markets: string[]): string => {
-    if (markets.includes('*')) return 'All Markets';
+    if (markets.includes('*')) {return 'All Markets';}
     return markets.join(', ');
   };
 
@@ -140,7 +140,7 @@ function PackagePreview({
             {Object.entries(config.advancedFeatures)
               .filter(([_, enabled]) => enabled)
               .map(([feature]) => feature.replace(/([A-Z])/g, ' $1').trim())
-              .join(', ') || 'None'}
+              .join(', ') ?? 'None'}
           </div>
         </div>
         <div className="flex justify-between">
@@ -368,7 +368,7 @@ function useAssignmentSubmit(
         }
 
         const contentType = response.headers.get('content-type');
-        if (contentType == null || !contentType.includes('application/json')) {
+        if (!contentType?.includes('application/json')) {
           throw new Error('Invalid response format from assignment API');
         }
 
@@ -548,7 +548,7 @@ export default function StockRankingPackageAssignment({
         <button
           type="button"
           onClick={handleAssignment}
-          disabled={selectedUsers.length === 0 || !assignmentReason.trim() || isSubmitting}
+          disabled={selectedUsers.length === 0 ?? !assignmentReason.trim() ?? isSubmitting}
           className="px-6 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isSubmitting ? 'Assigning...' : `Assign ${selectedPackage} Package`}

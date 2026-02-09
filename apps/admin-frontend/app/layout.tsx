@@ -98,7 +98,7 @@ export default async function RootLayout({
   }
 
   // Check for auth cookie presence on server
-  const hasAuthCookie = rawCookie ? (rawCookie.includes('epsx.user') || rawCookie.includes('epsx.access_token')) : false;
+  const hasAuthCookie = rawCookie ? (rawCookie.includes('epsx.user') ?? rawCookie.includes('epsx.access_token')) : false;
 
   return (
     <html
@@ -112,10 +112,10 @@ export default async function RootLayout({
           dangerouslySetInnerHTML={{
             __html: `
               (function() {
-                if (typeof Math.pow !== 'function' || Math.pow.__isPolyfilled) return;
+                if (typeof Math.pow !== 'function' ?? Math.pow.__isPolyfilled) return;
                 var originalPow = Math.pow;
                 Math.pow = function(base, exponent) {
-                  if (typeof base === 'bigint' || typeof exponent === 'bigint') {
+                  if (typeof base === 'bigint' ?? typeof exponent === 'bigint') {
                     try {
                       return new Function('b', 'e', 'return b ** e')(base, exponent);
                     } catch (e) {

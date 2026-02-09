@@ -1,8 +1,8 @@
 import { test, expect, Page } from '@playwright/test'
 
 test.describe('Notification Creation and Deletion with Toast', () => {
-  const ADMIN_URL = process.env.ADMIN_URL || 'http://localhost:3001'
-  const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8080'
+  const ADMIN_URL = process.env.ADMIN_URL ?? 'http://localhost:3001'
+  const BACKEND_URL = process.env.BACKEND_URL ?? 'http://localhost:8080'
 
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize({ width: 1920, height: 1080 })

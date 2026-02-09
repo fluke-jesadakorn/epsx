@@ -23,7 +23,7 @@ import { logger } from '@/lib/logger';
  */
 export function RecentWalletsPanel({ initialData }: { initialData?: RecentWalletsData }) {
 
-  const [data, setData] = useState<RecentWalletsData | null>(initialData || null);
+  const [data, setData] = useState<RecentWalletsData | null>(initialData ?? null);
   const [loading, setLoading] = useState(!initialData);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);

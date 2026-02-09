@@ -132,7 +132,7 @@ export function PolicyFilters({
           </div>
 
           {/* Create Button */}
-          {(onCreatePlan || onCreateGroup) && (
+          {(onCreatePlan ?? onCreateGroup) && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button className="gap-2 h-10">

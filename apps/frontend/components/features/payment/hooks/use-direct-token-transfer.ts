@@ -66,7 +66,7 @@ export function useDirectTokenTransfer({
 
     // Handle errors
     useEffect(() => {
-        const error = writeError || receiptError
+        const error = writeError ?? receiptError
         if (error) {
             console.error('Transfer error:', error)
             const errorMessage = error.message.toLowerCase()

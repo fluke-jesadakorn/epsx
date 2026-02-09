@@ -55,7 +55,7 @@ function PlanCard({
                             {plan.name}
                         </h4>
                         <p className="text-sm text-gray-500 dark:text-gray-400">
-                            {plan.description || 'No description'}
+                            {plan.description ?? 'No description'}
                         </p>
                     </div>
                 </div>

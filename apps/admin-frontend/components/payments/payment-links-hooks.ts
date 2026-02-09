@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { copyToClipboard } from '@/lib/utils';
-import { useApiClient } from '@/shared/hooks/use-api-client';
+import type { useApiClient } from '@/shared/hooks/use-api-client';
 
 export type PaymentContextType = 'plan' | 'group' | 'product' | 'campaign' | 'custom';
 
@@ -125,10 +125,10 @@ export function usePaymentLinkForm(ctx: UsePaymentLinkFormContext) {
 
                 const payload = {
                     context_type: form.context_type,
-                    context_id: form.context_id || undefined,
-                    slug: form.slug || undefined,
+                    context_id: form.context_id ?? undefined,
+                    slug: form.slug ?? undefined,
                     name: form.name,
-                    description: form.description || undefined,
+                    description: form.description ?? undefined,
                     amount: parseFloat(form.amount),
                     currency: form.currency,
                     expires_at: expiresAt,

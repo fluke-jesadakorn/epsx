@@ -147,7 +147,7 @@ export function AccountClient({ initialPaymentHistory, accessOverviewSlot }: Acc
             <div className="space-y-1">
               <div className="text-sm font-medium text-gray-500 dark:text-gray-400">Current Address</div>
               <div className="text-sm font-mono font-bold text-gray-900 dark:text-gray-100 truncate">
-                {userProfile?.wallet_address || address || 'Not Connected'}
+                {userProfile?.wallet_address ?? address ?? 'Not Connected'}
               </div>
             </div>
           </div>
@@ -296,7 +296,7 @@ export function AccountClient({ initialPaymentHistory, accessOverviewSlot }: Acc
 
             <div className="lg:col-span-8">
               {/* Error/Success Alerts */}
-              {(prefsError || prefsSuccess) && (
+              {(prefsError ?? prefsSuccess) && (
                 <div className="mb-6 space-y-3">
                   {prefsError && (
                     <Alert variant="destructive" className="bg-red-50/50 dark:bg-red-900/20 border-red-200 dark:border-red-800">

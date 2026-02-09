@@ -135,7 +135,7 @@ function StatsGrid({ plans, avgRevenue }: { plans: PlanResponse[]; avgRevenue: n
 
 export function PlanManagement({ currentUser }: PlanManagementProps) {
   const { user: authUser } = useSharedAuth()
-  const _user = currentUser || authUser
+  const _user = currentUser ?? authUser
   const router = useRouter()
   const pathname = usePathname()
   const [plans, setPlans] = useState<PlanResponse[]>([])
@@ -164,20 +164,20 @@ export function PlanManagement({ currentUser }: PlanManagementProps) {
 
       if (isApiSuccess(response)) {
         const backendResponse = response.data as any
-        const plansData = (backendResponse?.data?.plans || backendResponse?.plans || [])
+        const plansData = (backendResponse?.data?.plans ?? backendResponse?.plans ?? [])
           .map((p: PlanResponse) => ({ ...p, tier_level: p.tier_level ?? 0 }))
           .sort((a: PlanResponse, b: PlanResponse) => (a.tier_level ?? 0) - (b.tier_level ?? 0))
 
         setPlans(plansData)
         setOriginalOrder(plansData)
         setHasChanges(false)
-      } else if (response.error?.includes('Unauthorized') || response.error?.includes('log in')) {
+      } else if (response.error?.includes('Unauthorized') ?? response.error?.includes('log in')) {
         console.warn('[PlanManagement] Session expired, redirecting...')
         toast({ title: "Session Expired", description: "Please log in again to continue.", variant: "destructive" })
         router.push(`/auth?returnUrl=${encodeURIComponent(pathname)}`)
       } else {
         console.error('[PlanManagement] API error:', response.error)
-        toast({ title: "Error", description: response.error || "Failed to load plans", variant: "destructive" })
+        toast({ title: "Error", description: response.error ?? "Failed to load plans", variant: "destructive" })
       }
     } catch (error) {
       console.error('[PlanManagement] Exception:', error)
@@ -226,7 +226,7 @@ export function PlanManagement({ currentUser }: PlanManagementProps) {
   };
 
   const handleSaveOrder = async () => {
-    if (!hasChanges) return;
+    if (!hasChanges) {return;}
     setSaving(true)
     try {
       const apiClient = createAdminApiClient()
@@ -259,7 +259,7 @@ export function PlanManagement({ currentUser }: PlanManagementProps) {
   }, 0)
   const avgRevenue = plans.length > 0 ? totalRevenue / plans.length : 0
 
-  if (loading) return <LoadingState />
+  if (loading) {return <LoadingState />}
 
   return (
     <div>
@@ -423,9 +423,9 @@ function PlanCard({ plan, router, isOverlay }: { plan: PlanResponse, router: any
   const isPopular = plan.subscriber_count > 10
 
   // Extract simple features from permissions
-  const featureTags = (plan.permissions || [])
+  const featureTags = (plan.permissions ?? [])
     .slice(0, 3)
-    .map(p => p.split(':').pop()?.replace(/_/g, ' ') || p)
+    .map(p => p.split(':').pop()?.replace(/_/g, ' ') ?? p)
     .map(s => s.charAt(0).toUpperCase() + s.slice(1))
 
   return (
@@ -475,7 +475,7 @@ function PlanCard({ plan, router, isOverlay }: { plan: PlanResponse, router: any
                 {tag}
               </span>
             ))}
-            {(plan.permissions?.length || 0) > 3 && (
+            {(plan.permissions?.length ?? 0) > 3 && (
               <span className="text-[10px] font-medium text-muted-foreground">+{plan.permissions!.length - 3} more</span>
             )}
           </div>
@@ -518,8 +518,8 @@ function PlanGroupSection({
   if (plans.length === 0) {return null}
 
   // Calculate Group Stats
-  const groupRevenue = plans.reduce((sum: number, p: any) => sum + (Number(p.revenue_last_30_days) || 0), 0)
-  const groupSubscribers = plans.reduce((sum: number, p: any) => sum + (p.subscriber_count || 0), 0)
+  const groupRevenue = plans.reduce((sum: number, p: any) => sum + (Number(p.revenue_last_30_days) ?? 0), 0)
+  const groupSubscribers = plans.reduce((sum: number, p: any) => sum + (p.subscriber_count ?? 0), 0)
 
   return (
     <SortableContext

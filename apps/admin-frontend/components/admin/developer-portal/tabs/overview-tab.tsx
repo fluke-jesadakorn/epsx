@@ -120,7 +120,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                                                 {apiKey.client_name}
                                             </h4>
                                             <p className="text-sm font-mono text-muted-foreground mt-1">
-                                                <span className="text-[#1fc7d4]/70">prefix_</span>{(apiKey as any).key_prefix || apiKey.key_preview}
+                                                <span className="text-[#1fc7d4]/70">prefix_</span>{(apiKey as any).key_prefix ?? apiKey.key_preview}
                                             </p>
                                         </div>
                                     </div>
@@ -198,7 +198,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                                     </span>
                                 </div>
                                 <p className="text-sm font-bold text-muted-foreground mb-4 line-clamp-2">
-                                    {module.description || 'No description available'}
+                                    {module.description ?? 'No description available'}
                                 </p>
                                 <div className="flex items-center text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em] bg-white/5 px-3 py-2 rounded-xl border border-white/5 w-fit">
                                     <span className="opacity-50 mr-2">Category:</span> {module.category}

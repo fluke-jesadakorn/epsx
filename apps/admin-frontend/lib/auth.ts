@@ -50,13 +50,13 @@ export interface Web3AdminAuthState {
 // Transform Web3 user to admin wallet format
 // Uses backend-provided role directly - no client-side derivation
 function transformWeb3UserToAdminWallet(web3User: ExtendedUserInfoResponse): AdminWallet {
-  const permissions = web3User.permissions || [];
+  const permissions = web3User.permissions ?? [];
   // Use backend-provided is_admin flag
   const isAdmin = web3User.is_admin ?? permissions.some(p => p.startsWith('admin:'));
   // Use backend-provided admin_permissions
-  const adminPermissions: string[] = web3User.admin_permissions || permissions.filter(p => p.startsWith('admin:'));
+  const adminPermissions: string[] = web3User.admin_permissions ?? permissions.filter(p => p.startsWith('admin:'));
   // Use backend-provided role
-  const role = (web3User.role || (isAdmin ? 'admin' : 'user')) as 'user' | 'admin' | 'super_admin';
+  const role = (web3User.role ?? (isAdmin ? 'admin' : 'user')) as 'user' | 'admin' | 'super_admin';
 
   return {
     wallet_address: web3User.wallet_address,
@@ -147,8 +147,8 @@ export const useAuth = create<Web3AdminAuthState & {
           nonce
         });
 
-        if (!result.success || !result.user) {
-          throw new Error(result.error || 'Authentication failed');
+        if (!result.success ?? !result.user) {
+          throw new Error(result.error ?? 'Authentication failed');
         }
 
         // Call server action to set cookies
@@ -381,7 +381,7 @@ export function getEnterprisePermissionLabels(permissions: string[]): string[] {
   };
 
   return permissions.map(permission => {
-    return permissionLabels[permission] || permission;
+    return permissionLabels[permission] ?? permission;
   });
 }
 
@@ -398,7 +398,7 @@ export function getEnterpriseTierDisplayName(tier: string): string {
     'Whale': 'Whale ($1M+ tokens)'
   };
 
-  return tierNames[tier] || tier;
+  return tierNames[tier] ?? tier;
 }
 
 /**
@@ -413,7 +413,7 @@ export function getEnterpriseTierIcon(tier: string): string {
     'Whale': '🐋'
   };
 
-  return tierIcons[tier] || '⭐';
+  return tierIcons[tier] ?? '⭐';
 }
 
 // Web3 wallet connection helper for admin

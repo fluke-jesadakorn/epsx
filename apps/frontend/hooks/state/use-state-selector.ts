@@ -151,7 +151,7 @@ export function useThemeSelector() {
 }
 
 export function useToastsSelector() {
-  return useStateSelector((state) => state.ui?.toasts || [], {
+  return useStateSelector((state) => state.ui?.toasts ?? [], {
     debugName: 'toasts'
   });
 }
@@ -176,7 +176,7 @@ export function useUserSelector() {
 }
 
 export function useUserLoadingSelector() {
-  return useStateSelector((state) => state.user?.loading || false, {
+  return useStateSelector((state) => state.user?.loading ?? false, {
     equalityFn: (prev, next) => prev === next,
     debugName: 'userLoading'
   });
@@ -193,21 +193,21 @@ export function useUserPermissionsSelector() {
 
 // Trading State Selectors
 export function useWatchlistSelector() {
-  return useStateSelector((state) => state.trading?.data?.watchlist || [], {
+  return useStateSelector((state) => state.trading?.data?.watchlist ?? [], {
     debugName: 'watchlist'
   });
 }
 
 export function usePortfolioSelector() {
-  return useStateSelector((state) => state.trading?.data?.portfolio || [], {
+  return useStateSelector((state) => state.trading?.data?.portfolio ?? [], {
     debugName: 'portfolio'
   });
 }
 
 export function usePortfolioTotalSelector() {
   return useStateSelector((state) => {
-    const portfolio = state.trading?.data?.portfolio || [];
-    return portfolio.reduce((total, item) => total + (item.value || 0), 0);
+    const portfolio = state.trading?.data?.portfolio ?? [];
+    return portfolio.reduce((total, item) => total + (item.value ?? 0), 0);
   }, {
     equalityFn: (prev, next) => prev === next,
     debugName: 'portfolioTotal'
@@ -222,14 +222,14 @@ export function useRealtimeDataSelector() {
 
 // Notification Selectors
 export function useNotificationsSelector() {
-  return useStateSelector((state) => state.notifications?.list || [], {
+  return useStateSelector((state) => state.notifications?.list ?? [], {
     debugName: 'notifications'
   });
 }
 
 export function useUnreadNotificationsSelector() {
   return useStateSelector((state) => {
-    const notifications = state.notifications?.list || [];
+    const notifications = state.notifications?.list ?? [];
     return notifications.filter((n) => !n.read);
   }, {
     debugName: 'unreadNotifications'
@@ -238,7 +238,7 @@ export function useUnreadNotificationsSelector() {
 
 export function useNotificationCountSelector() {
   return useStateSelector((state) => {
-    const notifications = state.notifications?.list || [];
+    const notifications = state.notifications?.list ?? [];
     return notifications.filter((n) => !n.read).length;
   }, {
     equalityFn: (prev, next) => prev === next,
@@ -254,7 +254,7 @@ export function useAnalyticsDataSelector() {
 }
 
 export function useRankingsSelector() {
-  return useStateSelector((state) => state.analytics?.rankings || [], {
+  return useStateSelector((state) => state.analytics?.rankings ?? [], {
     debugName: 'rankings'
   });
 }

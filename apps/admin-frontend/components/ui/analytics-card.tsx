@@ -53,7 +53,7 @@ export function AnalyticsIcon({ name, className = '', size = 24 }: AnalyticsIcon
     neutral: ArrowRight
   };
 
-  const IconComponent = icons[name as keyof typeof icons] || Users;
+  const IconComponent = icons[name as keyof typeof icons] ?? Users;
 
   return (
     <div className={`inline-flex items-center justify-center ${className}`}>
@@ -218,7 +218,7 @@ export function AnalyticsStatsCard({
         <div className="text-center flex flex-col justify-center">
           <div className="text-slate-400 font-medium text-sm mb-1">Info</div>
           <div className="bg-gradient-to-r from-purple-400 to-orange-400 bg-clip-text text-transparent font-semibold text-base">
-            {subtitle || 'Active'}
+            {subtitle ?? 'Active'}
           </div>
         </div>
       </div>

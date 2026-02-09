@@ -165,7 +165,7 @@ function AdvancedSettings({
           value={JSON.stringify(metadata, null, 2)}
           onChange={(e) => {
             try {
-              const parsed = JSON.parse(e.target.value || '{}');
+              const parsed = JSON.parse(e.target.value ?? '{}');
               onMetadataChange(parsed);
             } catch {
               // Invalid JSON - ignore
@@ -205,7 +205,7 @@ export default function NewSubscriptionPage() {
         try {
             const response = await adminClient.getPlans({ is_active: true })
             if (isApiSuccess(response)) {
-                setPlans((response.data as any)?.plans || response.data as any || [])
+                setPlans((response.data as any)?.plans ?? response.data as any ?? [])
             }
         } catch (_error) {
             logger.error('Failed to load plans', { _error })
@@ -233,7 +233,7 @@ export default function NewSubscriptionPage() {
             return
         }
 
-        if ((formData.access_context === 'external' || formData.access_context === 'both') && !formData.api_key_name?.trim()) {
+        if ((formData.access_context === 'external' ?? formData.access_context === 'both') && !formData.api_key_name?.trim()) {
             toast({
                 title: "Error",
                 description: "API key name is required for external access",
@@ -248,7 +248,7 @@ export default function NewSubscriptionPage() {
             const subscriptionData: CreateSubscriptionRequest = {
                 ...formData,
                 api_key_name: showApiKeyField ? formData.api_key_name : undefined,
-                expires_at: formData.expires_at || undefined
+                expires_at: formData.expires_at ?? undefined
             }
 
             const response = await adminClient.createSubscription(subscriptionData)
@@ -262,7 +262,7 @@ export default function NewSubscriptionPage() {
             } else {
                 toast({
                     title: "Error",
-                    description: response.error || "Failed to create subscription",
+                    description: response.error ?? "Failed to create subscription",
                     variant: "destructive"
                 })
             }
@@ -279,7 +279,7 @@ export default function NewSubscriptionPage() {
 
     const handleAccessContextChange = (context: string) => {
         setFormData({ ...formData, access_context: context })
-        setShowApiKeyField(context === 'external' || context === 'both')
+        setShowApiKeyField(context === 'external' ?? context === 'both')
     }
 
     const defaultExpiryDate = new Date()

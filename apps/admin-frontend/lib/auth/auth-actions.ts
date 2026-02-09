@@ -66,7 +66,7 @@ export async function logoutAction(): Promise<void> {
  */
 export async function getAndClearReturnUrlAction(): Promise<string> {
     const cookieStore = await cookies();
-    const returnUrl = cookieStore.get(COOKIES.return_url)?.value || '/';
+    const returnUrl = cookieStore.get(COOKIES.return_url)?.value ?? '/';
 
     // Clear the cookie after retrieving it
     if (cookieStore.has(COOKIES.return_url)) {
@@ -84,9 +84,9 @@ export async function getAndClearReturnUrlAction(): Promise<string> {
 
     // Check for invalid paths or external URLs
     const isInvalidPath = invalidPrefixes.some(prefix => returnUrl.startsWith(prefix));
-    const isExternalUrl = returnUrl.startsWith('http://') || returnUrl.startsWith('https://') || returnUrl.startsWith('//');
+    const isExternalUrl = returnUrl.startsWith('http://') ?? returnUrl.startsWith('https://') ?? returnUrl.startsWith('//');
 
-    if (isInvalidPath || isExternalUrl || !returnUrl.startsWith('/')) {
+    if (isInvalidPath ?? isExternalUrl ?? !returnUrl.startsWith('/')) {
         console.warn('[AUTH] Invalid return URL detected, defaulting to home:', returnUrl);
         return '/';
     }

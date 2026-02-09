@@ -152,7 +152,7 @@ export async function updatePlanAction(planId: string, data: UpdatePlanRequest):
     };
 
     const res = await apiClient.put<PermissionPlan>(`${API_ROUTES.PERMISSIONS.PLANS}/${planId}`, payload);
-    if (!res.success || !res.data) {
+    if (!res.success ?? !res.data) {
         throw new Error(res.error?.message ?? 'Failed to update plan');
     }
     revalidatePath('/wallet-management/access/plans');
@@ -180,7 +180,7 @@ export async function createPlanAction(data: CreatePlanRequest): Promise<Permiss
     };
 
     const res = await apiClient.post<PermissionPlan>(API_ROUTES.PERMISSIONS.PLANS, backendRequest);
-    if (!res.success || !res.data) {
+    if (!res.success ?? !res.data) {
         throw new Error(res.error?.message ?? 'Failed to create plan');
     }
 
@@ -203,7 +203,7 @@ export async function deletePlanAction(planId: string) {
 }
 
 function detectPlatform(permission: string): Platform {
-    if (permission.startsWith('epsx:analytics') || permission.startsWith('epsx:rankings')) { return 'analytics'; }
+    if (permission.startsWith('epsx:analytics') ?? permission.startsWith('epsx:rankings')) { return 'analytics'; }
     if (permission.startsWith('epsx-pay:')) { return 'pay'; }
     if (permission.startsWith('epsx-token:')) { return 'token'; }
     if (permission.startsWith('epsx-markets:')) { return 'markets'; }
@@ -212,9 +212,9 @@ function detectPlatform(permission: string): Platform {
 
 function mapWalletDtoToData(dto: WalletSummaryDto): WalletData {
     const platforms = new Set<Platform>();
-    const dtoPermissions = dto.permissions || [];
+    const dtoPermissions = dto.permissions ?? [];
     dtoPermissions.forEach(p => {
-        if (p.permission.startsWith('epsx:analytics') || p.permission.startsWith('epsx:rankings')) {
+        if (p.permission.startsWith('epsx:analytics') ?? p.permission.startsWith('epsx:rankings')) {
             platforms.add('analytics');
         } else if (p.permission.startsWith('epsx-pay:')) {
             platforms.add('pay');
@@ -230,13 +230,13 @@ function mapWalletDtoToData(dto: WalletSummaryDto): WalletData {
         id: `perm-${idx}`,
         permission: p.permission,
         platform: detectPlatform(p.permission),
-        source: (p.source as PermissionSource) || 'system',
+        source: (p.source as PermissionSource) ?? 'system',
         expiresAt: p.expires_at,
         isActive: p.is_active,
         createdAt: dto.created_at,
     }));
 
-    const subscriptions: WalletSubscription[] = (dto.subscriptions || []).map((s, idx) => ({
+    const subscriptions: WalletSubscription[] = (dto.subscriptions ?? []).map((s, idx) => ({
         id: `sub-${idx}`,
         planId: s.plan_id,
         planName: s.plan_name,
@@ -263,7 +263,7 @@ function mapWalletDtoToData(dto: WalletSummaryDto): WalletData {
         platforms: Array.from(platforms),
         permissions,
         subscriptions,
-        plans: (dto.groups || []).map(g => ({ planName: g.group_name, role: g.role })),
+        plans: (dto.groups ?? []).map(g => ({ planName: g.group_name, role: g.role })),
         metadata: dto.metadata,
         label,
         note,

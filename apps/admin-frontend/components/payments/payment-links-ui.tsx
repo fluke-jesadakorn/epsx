@@ -12,7 +12,7 @@ import {
     XMarkIcon,
 } from '@heroicons/react/24/outline';
 import React from 'react';
-import { CreatePaymentLinkForm, PaymentContextType, PaymentLink } from './payment-links-hooks';
+import type { CreatePaymentLinkForm, PaymentContextType, PaymentLink } from './payment-links-hooks';
 
 const CONTEXT_TYPES: { value: PaymentContextType; label: string; description: string }[] = [
     { value: 'plan', label: 'Plan', description: 'Plan payment' },
@@ -398,7 +398,7 @@ export function CreatePaymentLinkModal({
                                     </select>
                                 </div>
 
-                                {(form.context_type === 'plan' || form.context_type === 'group') && (
+                                {(form.context_type === 'plan' ?? form.context_type === 'group') && (
                                     <div>
                                         <label className="block text-sm font-medium text-muted-foreground mb-2">
                                             {form.context_type === 'plan' ? 'Plan ID' : 'Group ID'}

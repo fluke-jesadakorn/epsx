@@ -61,12 +61,12 @@ export const ApiKeysTab: React.FC<ApiKeysTabProps> = ({
             if (searchQuery.trim()) {
                 const query = searchQuery.toLowerCase();
                 const matchesClientName = key.client_name.toLowerCase().includes(query);
-                const walletAddress = (key as any).wallet_address?.toLowerCase() || '';
+                const walletAddress = (key as any).wallet_address?.toLowerCase() ?? '';
                 const matchesWallet = walletAddress.includes(query);
-                const keyPrefix = ((key as any).key_prefix || key.key_preview || '').toLowerCase();
+                const keyPrefix = ((key as any).key_prefix ?? key.key_preview ?? '').toLowerCase();
                 const matchesKeyPrefix = keyPrefix.includes(query);
 
-                return matchesClientName || matchesWallet || matchesKeyPrefix;
+                return matchesClientName ?? matchesWallet ?? matchesKeyPrefix;
             }
 
             return true;
@@ -164,7 +164,7 @@ export const ApiKeysTab: React.FC<ApiKeysTabProps> = ({
                                                 <Search className="w-8 h-8" />
                                             </div>
                                             <p className="text-muted-foreground font-bold">
-                                                {searchQuery || statusFilter !== 'all'
+                                                {searchQuery ?? statusFilter !== 'all'
                                                     ? 'No API keys match your current filters.'
                                                     : 'No API keys have been created yet.'}
                                             </p>

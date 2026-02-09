@@ -55,7 +55,7 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
 
     // Use backend-provided role directly (computed server-side)
     // Backend computes: "user" | "admin" | "super_admin" based on permissions
-    const role = data.role || 'user';
+    const role = data.role ?? 'user';
     const perms = Array.isArray(data.permissions) ? data.permissions : [];
 
     // Map backend response to AuthUser
@@ -148,14 +148,14 @@ export async function checkFeatureAccess(feature: string) {
     if (!response.success || !response.data) {
       return {
         hasAccess: false,
-        reason: response.error || 'Permission check failed',
+        reason: response.error ?? 'Permission check failed',
         limits: undefined
       };
     }
 
     return {
       hasAccess: response.data.has_permission,
-      reason: response.data.reason || (response.data.has_permission ? 'Access granted' : 'Access denied'),
+      reason: response.data.reason ?? (response.data.has_permission ? 'Access granted' : 'Access denied'),
       limits: response.data.limits
     };
   } catch (error) {
@@ -196,7 +196,7 @@ export async function getPaymentStatus(paymentId?: string) {
     }>('/api/subscriptions/my', undefined, { cache: 'no-store' });
 
     const activeSubscription = subResponse.success && subResponse.data?.subscriptions
-      ? subResponse.data.subscriptions.find(s => s.status === 'active') || null
+      ? subResponse.data.subscriptions.find(s => s.status === 'active') ?? null
       : null;
 
     // Get specific payment if ID provided
@@ -207,7 +207,7 @@ export async function getPaymentStatus(paymentId?: string) {
         { cache: 'no-store' }
       );
       return {
-        status: paymentResponse.data?.payment?.status || 'unknown',
+        status: paymentResponse.data?.payment?.status ?? 'unknown',
         activeSubscription,
         paymentHistory: []
       };
@@ -268,7 +268,7 @@ export async function getDebugSessionInfo() {
       clientSessionLength: clientSession ? clientSession.length : 0,
       clientSessionPreview: clientSession ? `${clientSession.slice(0, 10)  }...` : 'none',
       accessCookieLength: accessCookie ? accessCookie.length : 0,
-      backendUrl: process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080',
+      backendUrl: process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:8080',
       allCookieNames: allCookies,
       rawCookieHeader: rawHeader ? (`${rawHeader.slice(0, 50)  }...`) : 'missing'
     };

@@ -3,8 +3,8 @@ import { test, expect } from '@playwright/test';
 declare const sessionStorage: Storage;
 
 test.describe('Admin Authentication Flows - E2E', () => {
-  const ADMIN_URL = process.env.ADMIN_URL || 'http://localhost:3001';
-  const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8080';
+  const ADMIN_URL = process.env.ADMIN_URL ?? 'http://localhost:3001';
+  const BACKEND_URL = process.env.BACKEND_URL ?? 'http://localhost:8080';
 
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize({ width: 1920, height: 1080 });
@@ -230,7 +230,7 @@ test.describe('Admin Authentication Flows - E2E', () => {
     test('should validate CSRF protection', async ({ page }) => {
       await page.route('**/api/admin/**', route => {
         const headers = route.request().headers();
-        const hasCsrfToken = 'x-csrf-token' in headers || 'csrf-token' in headers;
+        const hasCsrfToken = 'x-csrf-token' in headers ?? 'csrf-token' in headers;
 
         if (!hasCsrfToken && route.request().method() === 'POST') {
           route.fulfill({ status: 403, body: JSON.stringify({ error: 'CSRF validation failed' }) });
@@ -261,7 +261,7 @@ test.describe('Admin Authentication Flows - E2E', () => {
 
       const connectBtn = page.locator('button:has-text("Connect Wallet")').first();
       const ariaLabel = await connectBtn.getAttribute('aria-label');
-      const hasAriaOrText = ariaLabel !== null || await connectBtn.textContent() !== '';
+      const hasAriaOrText = ariaLabel !== null ?? await connectBtn.textContent() !== '';
 
       expect(hasAriaOrText).toBe(true);
     });

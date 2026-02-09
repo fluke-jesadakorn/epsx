@@ -62,8 +62,8 @@ export function StateProvider({
           ...merged.user?.data,
           ...(serverAuthState && { 
             profile: serverAuthState.user,
-            permissions: serverAuthState.permissions || [],
-            packageTier: serverAuthState.packageTier || 'FREE'
+            permissions: serverAuthState.permissions ?? [],
+            packageTier: serverAuthState.packageTier ?? 'FREE'
           }),
           ...(serverUserPreferences && { 
             preferences: { 
@@ -148,7 +148,7 @@ export function withStateProvider<P>(
     return ComponentWithState;
   });
 
-  WrappedComponent.displayName = `withStateProvider(${Component.displayName || Component.name})`;
+  WrappedComponent.displayName = `withStateProvider(${Component.displayName ?? Component.name})`;
   
   return WrappedComponent;
 }

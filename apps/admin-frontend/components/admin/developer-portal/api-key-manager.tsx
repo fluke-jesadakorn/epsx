@@ -78,8 +78,8 @@ export const ApiKeyManager: React.FC<ApiKeyManagerProps> = ({
                                             </span>
                                             <span
                                                 className="text-xs text-gray-500 dark:text-gray-400 font-mono cursor-pointer hover:text-blue-600"
-                                                title={(apiKey as any).wallet_address || 'Unknown'}
-                                                onClick={() => onCopy((apiKey as any).wallet_address || '', 'Wallet address')}
+                                                title={(apiKey as any).wallet_address ?? 'Unknown'}
+                                                onClick={() => onCopy((apiKey as any).wallet_address ?? '', 'Wallet address')}
                                             >
                                                 {truncateWallet((apiKey as any).wallet_address)}
                                             </span>
@@ -88,12 +88,12 @@ export const ApiKeyManager: React.FC<ApiKeyManagerProps> = ({
                                     <TableCell>
                                         <div className="flex items-center space-x-2">
                                             <span className="font-mono text-sm text-gray-600 dark:text-gray-300">
-                                                {showKeyValue === apiKey.id ? (apiKey.key_preview || (apiKey as any).key_prefix) : maskKeyPrefix(apiKey.key_preview || (apiKey as any).key_prefix)}
+                                                {showKeyValue === apiKey.id ? (apiKey.key_preview ?? (apiKey as any).key_prefix) : maskKeyPrefix(apiKey.key_preview ?? (apiKey as any).key_prefix)}
                                             </span>
                                             <button
                                                 onClick={() =>
                                                     onCopy(
-                                                        `${apiKey.key_preview || (apiKey as any).key_prefix  }...`,
+                                                        `${apiKey.key_preview ?? (apiKey as any).key_prefix  }...`,
                                                         'API Key Prefix'
                                                     )
                                                 }

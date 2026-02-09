@@ -37,17 +37,17 @@ export function UsageMonitor({ currentUser }: UsageMonitorProps) {
   const apiKeys: KeyUsageSummary[] = (keysRes?.success && keysRes.data) ? (keysRes.data as any).api_keys?.map((k: any) => ({
     id: k.id,
     name: k.name,
-    total_requests: k.usage_count || 0,
+    total_requests: k.usage_count ?? 0,
     status: k.is_active ? 'active' : 'inactive',
     created_at: k.created_at,
     expires_at: null
-  })) || [] : [];
+  })) ?? [] : [];
 
   const totalKeys = apiKeys.length;
   const activeKeys = apiKeys.filter(k => k.status === 'active').length;
 
   // Process Stats
-  const stats = (statsRes?.success && statsRes.data) ? ((statsRes.data).data || statsRes.data) : {
+  const stats = (statsRes?.success && statsRes.data) ? ((statsRes.data).data ?? statsRes.data) : {
     total_requests: 0,
     average_success_rate: 100,
     requests_24h: 0,
@@ -55,10 +55,10 @@ export function UsageMonitor({ currentUser }: UsageMonitorProps) {
   };
 
   // Process History
-  const history = (historyRes?.success && historyRes.data) ? ((historyRes.data).data || historyRes.data) : [];
+  const history = (historyRes?.success && historyRes.data) ? ((historyRes.data).data ?? historyRes.data) : [];
 
   // Process Top Endpoints
-  const topEndpoints = (endpointsRes?.success && endpointsRes.data) ? ((endpointsRes.data).data || endpointsRes.data) : [];
+  const topEndpoints = (endpointsRes?.success && endpointsRes.data) ? ((endpointsRes.data).data ?? endpointsRes.data) : [];
 
   return (
     <div className="space-y-6">

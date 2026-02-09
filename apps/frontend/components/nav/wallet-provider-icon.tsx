@@ -128,7 +128,7 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
     } catch (error: any) {
       console.error('❌ Sign-in error:', error);
       if (error?.code !== 4001 && !error?.message?.includes('User rejected')) {
-        setLastAuthError(error?.message || 'Sign-in failed');
+        setLastAuthError(error?.message ?? 'Sign-in failed');
       }
     } finally {
       setIsAuthenticating(false);
@@ -189,7 +189,7 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
   }
 
   // Detect wallet provider
-  const connectorId = connector?.id?.toLowerCase() || 'injected';
+  const connectorId = connector?.id?.toLowerCase() ?? 'injected';
   const providerInfo = walletProviders[connectorId] || walletProviders.injected;
 
   const getStatus = () => {

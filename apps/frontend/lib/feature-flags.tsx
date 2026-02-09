@@ -143,7 +143,7 @@ class FeatureFlagService {
 
     // Check rollout percentage
     if (flag.rolloutPercentage < 100) {
-      const userHash = this.hashUserId(userId || this.userContext.userId || 'anonymous');
+      const userHash = this.hashUserId(userId ?? this.userContext.userId ?? 'anonymous');
       const userPercentile = userHash % 100;
       return userPercentile < flag.rolloutPercentage;
     }

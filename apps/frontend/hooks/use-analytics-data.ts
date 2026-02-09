@@ -30,7 +30,7 @@ export function useAnalyticsData(filters: AnalyticsFilters) {
     data: data as any, // Cast to any to match existing usage in components
     filterOptions,
     isLoading,
-    error: (error || null),
+    error: (error ?? null),
     refetch
   };
 }

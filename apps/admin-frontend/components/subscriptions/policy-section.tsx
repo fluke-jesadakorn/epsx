@@ -74,7 +74,7 @@ function filterPolicies(policies: AccessPolicy[], filters: PolicyFiltersType): A
         comparison = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
         break;
       case 'revenue':
-        comparison = (a.revenue || 0) - (b.revenue || 0);
+        comparison = (a.revenue ?? 0) - (b.revenue ?? 0);
         break;
       case 'type':
         comparison = a.type.localeCompare(b.type);

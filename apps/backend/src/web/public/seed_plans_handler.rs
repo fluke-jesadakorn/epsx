@@ -13,7 +13,6 @@ use axum::{
 use crate::web::auth::AppState;
 use diesel_async::RunQueryDsl; // Ensure async execute is used
 use crate::core::constants::*;
-use crate::domain::permission_management::{PlanId, PlanRepositoryPort};
 use uuid::Uuid;
 
 #[derive(Serialize, ToSchema)]
@@ -52,13 +51,6 @@ pub async fn seed_subscription_plans(State(app_state): State<AppState>) -> (Stat
     };
 
     // 0. Free Plan (Constant ID)
-    // We check if it exists using the repo (which we imported trait for)
-    let free_plan_id = PlanId::from_uuid(Uuid::parse_str(FREE_PLAN_ID).unwrap());
-    
-    // We can't easily check for existence with finding by ID if the ID isn't in DB yet.
-    // But we want to Insert with specific ID.
-    // The previous logic used gen_random_uuid().
-    
     let free_plan_metadata = json!({
         "permissions": ["epsx:rankings:view:5", "epsx:rankings:offset:100"],
         "features": [

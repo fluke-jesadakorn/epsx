@@ -100,7 +100,7 @@ export function AssignPermissionForm({
     const [reason, setReason] = useState<string>('');
     const [error, setError] = useState<string>('');
 
-    const availablePermissions = PERMISSION_OPTIONS[platform] || [];
+    const availablePermissions = PERMISSION_OPTIONS[platform] ?? [];
 
     const handlePlatformChange = (newPlatform: Platform) => {
         setPlatform(newPlatform);
@@ -109,7 +109,7 @@ export function AssignPermissionForm({
 
     const calculateExpiresAt = (): string | undefined => {
         if (duration === 'permanent') {return undefined;}
-        if (duration === 'custom') {return customDate || undefined;}
+        if (duration === 'custom') {return customDate ?? undefined;}
 
         const days = parseInt(duration);
         const date = new Date();

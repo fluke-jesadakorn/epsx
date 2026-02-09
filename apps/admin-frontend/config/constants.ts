@@ -84,7 +84,7 @@ export function getNetworkConfig(network: keyof typeof BLOCKCHAIN_NETWORKS): Net
  */
 export function calculatePermissionPrice(template: PermissionTemplateName): number {
   const prices = { basic: 10, advanced: 50, enterprise: 200 };
-  return prices[template] || 0;
+  return prices[template] ?? 0;
 }
 
 /**
@@ -293,7 +293,7 @@ export function getAdminRoleDisplayName(role: keyof typeof ADMIN_CONSTANTS.ADMIN
     DEVELOPER_ADMIN: 'Developer Administrator',
   };
 
-  return roleDisplayNames[role] || role;
+  return roleDisplayNames[role] ?? role;
 }
 
 /**
@@ -312,7 +312,7 @@ export function getNotificationTypeDisplayName(type: typeof ADMIN_CONSTANTS.NOTI
     user_activity_alert: 'User Activity Alert',
   };
 
-  return typeDisplayNames[type] || type;
+  return typeDisplayNames[type] ?? type;
 }
 
 /**
@@ -334,7 +334,7 @@ export function getBulkOperationLimit(operation: string): number {
     grant_permissions: ADMIN_CONSTANTS.LIMITS.BULK_PERMISSION_GRANT,
   };
 
-  return limits[operation] || 100; // Default limit
+  return limits[operation] ?? 100; // Default limit
 }
 
 /**

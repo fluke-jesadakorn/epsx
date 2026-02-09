@@ -87,8 +87,8 @@ export function WalletAutocomplete({
                         wallet_address: wallet.wallet_address,
                         user_id: wallet.wallet_address, // Use address as ID if missing
                         tier: 'Free',
-                        permissions: wallet.permissions?.map(p => p.permission) || [],
-                        groups: wallet.groups?.map(g => g.group_name) || [],
+                        permissions: wallet.permissions?.map(p => p.permission) ?? [],
+                        groups: wallet.groups?.map(g => g.group_name) ?? [],
                     }))
                 }
 
@@ -196,7 +196,7 @@ export function WalletAutocomplete({
                     ) : suggestions.length > 0 ? (
                         <ul className="py-1">
                             {suggestions.map((wallet, index) => (
-                                <li key={wallet.wallet_address || index}>
+                                <li key={wallet.wallet_address ?? index}>
                                     <button
                                         type="button"
                                         onClick={() => handleSelectWallet(wallet)}

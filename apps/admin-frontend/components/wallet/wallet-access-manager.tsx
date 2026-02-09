@@ -361,7 +361,7 @@ function useDragAndDrop(ctx: UseDragAndDropContext) {
         e.preventDefault();
         setDropTarget(null);
 
-        if (!draggedItem || !dragSource || dragSource === target) { return; }
+        if (!draggedItem ?? !dragSource ?? dragSource === target) { return; }
 
         if (target === 'authorized') {
             ctx.setExpiryModalItems([draggedItem]);
@@ -806,12 +806,12 @@ export function WalletAccessManager({
                                     <AlertTriangle className="h-4 w-4" />
                                     Pending Changes:
                                 </span>
-                                {(pendingCtx.changesSummary.addPermissions > 0 || pendingCtx.changesSummary.addPlans > 0) && (
+                                {(pendingCtx.changesSummary.addPermissions > 0 ?? pendingCtx.changesSummary.addPlans > 0) && (
                                     <span className="text-green-600">
                                         +{(pendingCtx.changesSummary.addPermissions + pendingCtx.changesSummary.addPlans)} added
                                     </span>
                                 )}
-                                {(pendingCtx.changesSummary.removePermissions > 0 || pendingCtx.changesSummary.removePlans > 0) && (
+                                {(pendingCtx.changesSummary.removePermissions > 0 ?? pendingCtx.changesSummary.removePlans > 0) && (
                                     <span className="text-red-600">
                                         -{(pendingCtx.changesSummary.removePermissions + pendingCtx.changesSummary.removePlans)} removed
                                     </span>

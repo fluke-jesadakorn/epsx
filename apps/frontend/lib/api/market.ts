@@ -65,7 +65,7 @@ export class MarketApiClient {
     if (!clientBaseUrl) {
       if (typeof window === 'undefined') {
         // Server-side: use absolute URL
-        clientBaseUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+        clientBaseUrl = process.env.FRONTEND_URL ?? 'http://localhost:3000';
       } else {
         // Client-side: use relative URL (empty string works for UnifiedApiClient to use relative paths)
         clientBaseUrl = '';
@@ -90,7 +90,7 @@ export class MarketApiClient {
       );
 
       if (!response.success) {
-        throw new Error(response.error?.message || 'Request failed');
+        throw new Error(response.error?.message ?? 'Request failed');
       }
 
       const data = response.data!;
@@ -121,7 +121,7 @@ export class MarketApiClient {
       );
 
       if (!response.success) {
-        throw new Error(response.error?.message || 'Request failed');
+        throw new Error(response.error?.message ?? 'Request failed');
       }
 
       return response.data!;
@@ -144,7 +144,7 @@ export class MarketApiClient {
       );
 
       if (!response.success) {
-        throw new Error(response.error?.message || 'Request failed');
+        throw new Error(response.error?.message ?? 'Request failed');
       }
 
       apiLogger.debug('Individual stock data fetched', { symbol });
@@ -169,7 +169,7 @@ export class MarketApiClient {
       );
 
       if (!response.success) {
-        throw new Error(response.error?.message || 'Request failed');
+        throw new Error(response.error?.message ?? 'Request failed');
       }
 
       return response.data!;
@@ -191,7 +191,7 @@ export class MarketApiClient {
       );
 
       if (!response.success) {
-        throw new Error(response.error?.message || 'Request failed');
+        throw new Error(response.error?.message ?? 'Request failed');
       }
 
       return response.data!;
@@ -215,7 +215,7 @@ export class MarketApiClient {
       );
 
       if (!response.success) {
-        throw new Error(response.error?.message || 'Request failed');
+        throw new Error(response.error?.message ?? 'Request failed');
       }
 
       return response.data!;
@@ -250,7 +250,7 @@ export class MarketApiClient {
       );
 
       if (!response.success) {
-        throw new Error(response.error?.message || 'Request failed');
+        throw new Error(response.error?.message ?? 'Request failed');
       }
 
       return response.data!;
@@ -274,7 +274,7 @@ export class MarketApiClient {
       );
 
       if (!response.success) {
-        throw new Error(response.error?.message || 'Request failed');
+        throw new Error(response.error?.message ?? 'Request failed');
       }
 
       return response.data!;
@@ -296,7 +296,7 @@ export class MarketApiClient {
       );
 
       if (!response.success) {
-        throw new Error(response.error?.message || 'Request failed');
+        throw new Error(response.error?.message ?? 'Request failed');
       }
 
       return response.data!;

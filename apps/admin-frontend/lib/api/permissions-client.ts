@@ -26,7 +26,7 @@ export const permissionsClient = {
      * List all available permission definitions
      */
     async listPermissions(client?: UnifiedApiClient): Promise<PermissionDefinition[]> {
-        const apiClient = client || createAdminApiClient();
+        const apiClient = client ?? createAdminApiClient();
         return handleSimpleRequest<PermissionDefinition[]>(apiClient, {
             method: 'get',
             endpoint: '/api/permissions/definitions'
@@ -37,7 +37,7 @@ export const permissionsClient = {
      * Create a new permission definition
      */
     async createPermission(data: CreatePermissionRequest, client?: UnifiedApiClient): Promise<PermissionDefinition> {
-        const apiClient = client || createAdminApiClient();
+        const apiClient = client ?? createAdminApiClient();
         return handleSimpleRequest<PermissionDefinition>(apiClient, {
             method: 'post',
             endpoint: '/api/permissions/definitions',
@@ -49,7 +49,7 @@ export const permissionsClient = {
      * Delete a permission definition
      */
     async deletePermission(id: string, client?: UnifiedApiClient): Promise<void> {
-        const apiClient = client || createAdminApiClient();
+        const apiClient = client ?? createAdminApiClient();
         return handleSimpleRequest<void>(apiClient, {
             method: 'delete',
             endpoint: `/api/permissions/definitions/${id}`
@@ -60,7 +60,7 @@ export const permissionsClient = {
      * Update a permission definition
      */
     async updatePermission(id: string, data: Partial<CreatePermissionRequest>, client?: UnifiedApiClient): Promise<PermissionDefinition> {
-        const apiClient = client || createAdminApiClient();
+        const apiClient = client ?? createAdminApiClient();
         return handleSimpleRequest<PermissionDefinition>(apiClient, {
             method: 'put',
             endpoint: `/api/permissions/definitions/${id}`,

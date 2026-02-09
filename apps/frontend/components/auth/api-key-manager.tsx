@@ -54,7 +54,7 @@ export function ApiKeyManager({ className = '' }: ApiKeyManagerProps) {
     });
 
     if (!response.success) {
-      throw new Error(response.error?.message || 'Failed to generate API key');
+      throw new Error(response.error?.message ?? 'Failed to generate API key');
     }
 
     return response.data;
@@ -81,9 +81,9 @@ export function ApiKeyManager({ className = '' }: ApiKeyManagerProps) {
       });
 
       if (response.success) {
-        setApiKeys(response.data?.api_keys || []);
+        setApiKeys(response.data?.api_keys ?? []);
       } else {
-        throw new Error(response.error?.message || 'Failed to fetch API keys');
+        throw new Error(response.error?.message ?? 'Failed to fetch API keys');
       }
     } catch (error) {
       console.error('Failed to fetch API keys:', error);
@@ -113,7 +113,7 @@ export function ApiKeyManager({ className = '' }: ApiKeyManagerProps) {
       toast.success('API key generated successfully');
     } catch (error: any) {
       console.error('Failed to generate API key:', error);
-      toast.error(error.message || 'Failed to generate API key');
+      toast.error(error.message ?? 'Failed to generate API key');
     } finally {
       setIsGenerating(false);
     }
@@ -133,7 +133,7 @@ export function ApiKeyManager({ className = '' }: ApiKeyManagerProps) {
         await fetchApiKeys();
         toast.success('API key deleted successfully');
       } else {
-        throw new Error(response.error?.message || 'Failed to delete API key');
+        throw new Error(response.error?.message ?? 'Failed to delete API key');
       }
     } catch (error) {
       console.error('Failed to delete API key:', error);

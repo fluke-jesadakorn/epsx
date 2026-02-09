@@ -380,19 +380,19 @@ function AuditLogRow({ log }: { log: AuditLogEntry }): React.JSX.Element {
         if (action.includes('permission')) { return '🔐'; }
         if (action.includes('wallet')) { return '👛'; }
         if (action.includes('plan')) { return '💳'; }
-        if (action.includes('login') || action.includes('auth')) { return '🔑'; }
+        if (action.includes('login') ?? action.includes('auth')) { return '🔑'; }
         if (action.includes('create')) { return '➕'; }
-        if (action.includes('delete') || action.includes('remove')) { return '🗑️'; }
-        if (action.includes('update') || action.includes('edit')) { return '✏️'; }
+        if (action.includes('delete') ?? action.includes('remove')) { return '🗑️'; }
+        if (action.includes('update') ?? action.includes('edit')) { return '✏️'; }
         if (action.includes('disable')) { return '🚫'; }
         if (action.includes('enable')) { return '✅'; }
         return '📝';
     };
 
     const getActionColor = (action: string): string => {
-        if (action.includes('create') || action.includes('enable')) { return 'text-emerald-600 bg-emerald-100 dark:bg-emerald-900/30'; }
-        if (action.includes('delete') || action.includes('disable') || action.includes('remove')) { return 'text-red-600 bg-red-100 dark:bg-red-900/30'; }
-        if (action.includes('update') || action.includes('edit')) { return 'text-blue-600 bg-blue-100 dark:bg-blue-900/30'; }
+        if (action.includes('create') ?? action.includes('enable')) { return 'text-emerald-600 bg-emerald-100 dark:bg-emerald-900/30'; }
+        if (action.includes('delete') ?? action.includes('disable') ?? action.includes('remove')) { return 'text-red-600 bg-red-100 dark:bg-red-900/30'; }
+        if (action.includes('update') ?? action.includes('edit')) { return 'text-blue-600 bg-blue-100 dark:bg-blue-900/30'; }
         if (action.includes('permission')) { return 'text-purple-600 bg-purple-100 dark:bg-purple-900/30'; }
         return 'text-muted-foreground bg-muted';
     };

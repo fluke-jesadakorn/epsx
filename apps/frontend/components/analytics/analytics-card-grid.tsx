@@ -28,7 +28,7 @@ function StockCard({ cardData, delay = 0 }: { cardData: SymbolCardData; delay?: 
                 price={latestQuarter?.price || 0}
                 currency={cardData.currency}
                 daysUntilNextAction={cardData.next_quarter_estimate?.days_until_announcement ?? 0}
-                companyName={cardData.company_name || cardData.name}
+                companyName={cardData.company_name ?? cardData.name}
                 variant={isPremium ? 'premium' : 'standard'}
             />
         </div>

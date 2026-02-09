@@ -11,8 +11,9 @@ import {
     PaymentLinksMobileCards,
     PaymentLinksTable,
 } from './payment-links-ui';
+import type {
+    CreatePaymentLinkForm} from './payment-links-hooks';
 import {
-    CreatePaymentLinkForm,
     usePaymentLinkActions,
     usePaymentLinkFilters,
     usePaymentLinkForm,

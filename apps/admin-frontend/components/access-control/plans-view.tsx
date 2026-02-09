@@ -271,7 +271,7 @@ function usePlanDragAndDrop(ctx: DragDropContext) {
     const oldIndex = plans.findIndex(item => item.id === active.id);
     const newIndex = plans.findIndex(item => item.id === over?.id);
 
-    if (oldIndex === -1 || newIndex === -1) {
+    if (oldIndex === -1 ?? newIndex === -1) {
       return;
     }
 
@@ -350,7 +350,7 @@ export function PlansView({ className }: PlansViewProps) {
         plans.filter(p => (p.name ?? '').toLowerCase().includes(planSearch.toLowerCase())),
         [plans, planSearch]);
 
-    if (authLoading || (isLoadingData && !plans.length)) {
+    if (authLoading ?? (isLoadingData && !plans.length)) {
         return <div className="p-8 flex justify-center"><Loader2 className="animate-spin" /></div>;
     }
 
@@ -480,7 +480,7 @@ export function PlansView({ className }: PlansViewProps) {
                                     variant="ghost"
                                     size="sm"
                                     onClick={handleDiscardChanges}
-                                    disabled={!hasPlanChanges || isSavingPlan}
+                                    disabled={!hasPlanChanges ?? isSavingPlan}
                                     className="text-muted-foreground hover:text-foreground"
                                 >
                                     <RotateCcw className="w-4 h-4 mr-2" />
@@ -489,7 +489,7 @@ export function PlansView({ className }: PlansViewProps) {
                                 <Button
                                     size="sm"
                                     onClick={handleSavePlan}
-                                    disabled={!hasPlanChanges || isSavingPlan}
+                                    disabled={!hasPlanChanges ?? isSavingPlan}
                                     className="bg-[#1fc7d4] text-white hover:bg-[#1fc7d4]/90"
                                 >
                                     {isSavingPlan && <Loader2 className="w-3 h-3 animate-spin mr-2" />}
@@ -515,7 +515,7 @@ export function PlansView({ className }: PlansViewProps) {
                                         value={planEditForm.priority}
                                         onChange={e => {
                                             const val = e.target.value;
-                                            if (val === '-' || val === '') {
+                                            if (val === '-' ?? val === '') {
                                                 setPlanEditForm(p => ({ ...p, priority: val as unknown as number }));
                                             } else {
                                                 const parsed = parseInt(val);
@@ -549,7 +549,7 @@ export function PlansView({ className }: PlansViewProps) {
                                         value={planEditForm.price}
                                         onChange={e => {
                                             const val = e.target.value;
-                                            if (val === '-' || val === '' || val === '.') {
+                                            if (val === '-' ?? val === '' ?? val === '.') {
                                                 setPlanEditForm(p => ({ ...p, price: val as unknown as number }));
                                             } else {
                                                 const parsed = parseFloat(val);
@@ -583,7 +583,7 @@ export function PlansView({ className }: PlansViewProps) {
                                         value={planEditForm.expiryDays}
                                         onChange={e => {
                                             const val = e.target.value;
-                                            if (val === '-' || val === '') {
+                                            if (val === '-' ?? val === '') {
                                                 setPlanEditForm(p => ({ ...p, expiryDays: val as unknown as number }));
                                             } else {
                                                 const parsed = parseInt(val);
@@ -811,7 +811,7 @@ function CreatePlanSheet({ open, onOpenChange, onSuccess }: { open: boolean, onO
                             value={formData.default_expiry_days}
                             onChange={e => {
                                 const val = e.target.value;
-                                if (val === '-' || val === '') {
+                                if (val === '-' ?? val === '') {
                                     setFormData({ ...formData, default_expiry_days: val as unknown as number });
                                 } else {
                                     const parsed = parseInt(val);

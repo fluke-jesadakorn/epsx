@@ -24,9 +24,9 @@ import { redirect } from 'next/navigation';
 
 function mapWalletDtoToData(dto: WalletSummaryDto): WalletData {
     const platforms = new Set<Platform>();
-    const dtoPermissions = dto.permissions || [];
+    const dtoPermissions = dto.permissions ?? [];
     dtoPermissions.forEach(p => {
-        if (p.permission.startsWith('epsx:analytics') || p.permission.startsWith('epsx:rankings')) {
+        if (p.permission.startsWith('epsx:analytics') ?? p.permission.startsWith('epsx:rankings')) {
             platforms.add('analytics');
         } else if (p.permission.startsWith('epsx-pay:')) {
             platforms.add('pay');
@@ -48,7 +48,7 @@ function mapWalletDtoToData(dto: WalletSummaryDto): WalletData {
         createdAt: dto.created_at,
     }));
 
-    const subscriptions: WalletSubscription[] = (dto.subscriptions || []).map((s, idx) => ({
+    const subscriptions: WalletSubscription[] = (dto.subscriptions ?? []).map((s, idx) => ({
         id: `sub-${idx}`,
         planId: s.plan_id,
         planName: s.plan_name,
@@ -75,7 +75,7 @@ function mapWalletDtoToData(dto: WalletSummaryDto): WalletData {
         platforms: Array.from(platforms),
         permissions,
         subscriptions,
-        plans: (dto.groups || []).map(g => ({ planName: g.group_name, role: g.role })),
+        plans: (dto.groups ?? []).map(g => ({ planName: g.group_name, role: g.role })),
         metadata: dto.metadata,
         label,
         note,
@@ -83,7 +83,7 @@ function mapWalletDtoToData(dto: WalletSummaryDto): WalletData {
 }
 
 function detectPlatform(permission: string): Platform {
-    if (permission.startsWith('epsx:analytics') || permission.startsWith('epsx:rankings')) { return 'analytics'; }
+    if (permission.startsWith('epsx:analytics') ?? permission.startsWith('epsx:rankings')) { return 'analytics'; }
     if (permission.startsWith('epsx-pay:')) { return 'pay'; }
     if (permission.startsWith('epsx-token:')) { return 'token'; }
     if (permission.startsWith('epsx-markets:')) { return 'markets'; }
@@ -110,7 +110,7 @@ export async function fetchWalletsAction(filters: WalletFilters, page = 1, limit
 
     if (!res.success) {
         // Gracefully handle 401 for client-side modal trigger or server-side redirect
-        if (res.error?.code === 'UNAUTHORIZED' || res.error?.code === '401' || res.error?.message?.includes('Unauthorized')) {
+        if (res.error?.code === 'UNAUTHORIZED' ?? res.error?.code === '401' ?? res.error?.message?.includes('Unauthorized')) {
             await logout();
             redirect('/auth');
         }
@@ -137,7 +137,7 @@ export async function updateWalletMetadataAction(walletAddress: string, data: { 
     });
 
     if (!res.success) {
-        if (res.error?.code === '401' || res.error?.code === 'UNAUTHORIZED') {
+        if (res.error?.code === '401' ?? res.error?.code === 'UNAUTHORIZED') {
             await logout();
             redirect('/auth');
         }
@@ -150,7 +150,7 @@ export async function disableWalletAction(walletAddress: string, data: DisableWa
     const res = await apiClient.post(`/api/admin/wallets/${walletAddress}/disable`, data);
 
     if (!res.success) {
-        if (res.error?.code === '401' || res.error?.code === 'UNAUTHORIZED') {
+        if (res.error?.code === '401' ?? res.error?.code === 'UNAUTHORIZED') {
             await logout();
             redirect('/auth');
         }
@@ -163,7 +163,7 @@ export async function enableWalletAction(walletAddress: string, data: EnableWall
     const res = await apiClient.post(`/api/admin/wallets/${walletAddress}/enable`, data);
 
     if (!res.success) {
-        if (res.error?.code === '401' || res.error?.code === 'UNAUTHORIZED') {
+        if (res.error?.code === '401' ?? res.error?.code === 'UNAUTHORIZED') {
             await logout();
             redirect('/auth');
         }
@@ -192,8 +192,8 @@ export async function fetchActivityLogsAction(walletAddress?: string, page = 1, 
 
     const res = await apiClient.get<Record<string, unknown>>(endpoint, params);
 
-    if (!res.success || !res.data) {
-        if (res.error?.code === '401' || res.error?.code === 'UNAUTHORIZED') {
+    if (!res.success ?? !res.data) {
+        if (res.error?.code === '401' ?? res.error?.code === 'UNAUTHORIZED') {
             await logout();
             redirect('/auth');
         }

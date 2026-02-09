@@ -84,35 +84,35 @@ export default async function ServerTopPerformers({ className }: ServerTopPerfor
 
     if (result.success && result.data && Array.isArray(result.data)) {
       data = (result.data as any[]).map((ranking: any, index: number) => {
-        const qData = ranking?.quarterly_performance || ranking?.quarterly_data || [];
+        const qData = ranking?.quarterly_performance ?? ranking?.quarterly_data ?? [];
 
         return {
-          rank: ranking?.rank || ranking?.ranking_position || index + 1,
-          symbol: ranking?.symbol || '',
-          latest_date: qData[0]?.date || ranking?.latest_date || new Date().toISOString(),
-          value: ranking?.value || ranking?.price_current || 0,
-          active_status: ranking?.active_status || 'unknown',
+          rank: ranking?.rank ?? ranking?.ranking_position ?? index + 1,
+          symbol: ranking?.symbol ?? '',
+          latest_date: qData[0]?.date ?? ranking?.latest_date ?? new Date().toISOString(),
+          value: ranking?.value ?? ranking?.price_current ?? 0,
+          active_status: ranking?.active_status ?? 'unknown',
           quarterly_performance: qData.map((q: any) => ({
-            quarter: q?.quarter || '',
-            date: q?.date || '',
-            price: q?.price || 0,
-            eps: q?.eps || 0,
-            eps_growth: q?.eps_growth || 0,
-            price_growth: q?.price_growth || 0,
+            quarter: q?.quarter ?? '',
+            date: q?.date ?? '',
+            price: q?.price ?? 0,
+            eps: q?.eps ?? 0,
+            eps_growth: q?.eps_growth ?? 0,
+            price_growth: q?.price_growth ?? 0,
           })),
           next_quarter_estimate: ranking?.next_quarter_estimate ? {
-            quarter: ranking.next_quarter_estimate.quarter || '',
-            estimated_eps: ranking.next_quarter_estimate.estimated_eps || 0,
-            announcement_date: ranking.next_quarter_estimate.announcement_date || '',
-            announcement_timestamp: ranking.next_quarter_estimate.announcement_timestamp || 0,
-            days_until_announcement: ranking.next_quarter_estimate.days_until_announcement || 0,
-            confidence: ranking.next_quarter_estimate.confidence || 'Medium'
+            quarter: ranking.next_quarter_estimate.quarter ?? '',
+            estimated_eps: ranking.next_quarter_estimate.estimated_eps ?? 0,
+            announcement_date: ranking.next_quarter_estimate.announcement_date ?? '',
+            announcement_timestamp: ranking.next_quarter_estimate.announcement_timestamp ?? 0,
+            days_until_announcement: ranking.next_quarter_estimate.days_until_announcement ?? 0,
+            confidence: ranking.next_quarter_estimate.confidence ?? 'Medium'
           } : undefined,
           currency: 'USD'
         };
       });
     } else {
-      error = (result as any).message || 'No valid data received';
+      error = (result as any).message ?? 'No valid data received';
     }
   } catch (err) {
     console.error('[ServerTopPerformers] Error:', err);
@@ -120,7 +120,7 @@ export default async function ServerTopPerformers({ className }: ServerTopPerfor
   }
 
   return (
-    <div className={`container mx-auto px-4 py-12 ${className || ''}`}>
+    <div className={`container mx-auto px-4 py-12 ${className ?? ''}`}>
       <div className="relative">
         <div className="absolute -top-8 -left-8 h-16 w-16 rounded-full bg-gradient-to-br from-orange-400/20 to-yellow-400/20 dark:from-orange-600/10 dark:to-yellow-600/10 blur-xl" />
         <div className="absolute -right-8 -bottom-8 h-20 w-20 rounded-full bg-gradient-to-br from-blue-400/20 to-cyan-400/20 dark:from-blue-700/10 dark:to-cyan-700/10 blur-xl" />

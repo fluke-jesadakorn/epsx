@@ -100,8 +100,8 @@ export function usePaymentTransaction({
                 setStep('submitted')
                 startPolling(txHash)
             } else {
-                devLog('❌ Failed to submit to backend:', result.error?.message || (result as any).error)
-                onError?.(`Failed to submit transaction: ${result.error?.message || JSON.stringify((result as any).error)}`)
+                devLog('❌ Failed to submit to backend:', result.error?.message ?? (result as any).error)
+                onError?.(`Failed to submit transaction: ${result.error?.message ?? JSON.stringify((result as any).error)}`)
             }
         } catch (error) {
             devLog('❌ Error submitting to backend:', error)
@@ -139,14 +139,14 @@ export function usePaymentTransaction({
                         devLog('❌ Payment failed:', status.error_message)
                         setStep('idle')
                         stopPolling()
-                        onError?.(status.error_message || 'Transaction failed on-chain')
+                        onError?.(status.error_message ?? 'Transaction failed on-chain')
                     } else if (status.status === 'confirming') {
                         setStep('confirming')
                     }
                 } else if ((result as any).status === 404) {
                     devLog('⏳ Transaction not yet processed by backend')
                 } else {
-                    devLog('Error polling status:', result.error?.message || 'Unknown error')
+                    devLog('Error polling status:', result.error?.message ?? 'Unknown error')
                 }
             } catch (error) {
                 devLog('Error polling status:', error)

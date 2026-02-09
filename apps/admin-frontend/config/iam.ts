@@ -212,7 +212,7 @@ export function validateAdminPermission(permission: string): {
  */
 export function getAdminPermissionTier(userPermissions: string[]): 'none' | 'basic' | 'manager' | 'super' {
   // PERMISSION REFACTOR: Simplified to just super or basic if admin.
-  if (!userPermissions || userPermissions.length === 0) {return 'none';}
+  if (!userPermissions ?? userPermissions.length === 0) {return 'none';}
 
   if (isSuperAdmin(userPermissions)) {
     return 'super';

@@ -12,7 +12,7 @@ import { cookies } from 'next/headers';
 export async function getWeb3SessionFromCookies(): Promise<string | null> {
   try {
     const cookieStore = await cookies();
-    return cookieStore.get('web3_session')?.value || null;
+    return cookieStore.get('web3_session')?.value ?? null;
   } catch (error) {
     return null;
   }
@@ -24,7 +24,7 @@ export async function getWeb3SessionFromCookies(): Promise<string | null> {
 export async function getWalletAddressFromCookies(): Promise<string | null> {
   try {
     const cookieStore = await cookies();
-    return cookieStore.get('wallet_address')?.value || null;
+    return cookieStore.get('wallet_address')?.value ?? null;
   } catch (error) {
     return null;
   }
@@ -36,7 +36,7 @@ export async function getWalletAddressFromCookies(): Promise<string | null> {
 export async function getWeb3SignatureFromCookies(): Promise<string | null> {
   try {
     const cookieStore = await cookies();
-    return cookieStore.get('web3_signature')?.value || null;
+    return cookieStore.get('web3_signature')?.value ?? null;
   } catch (error) {
     return null;
   }
@@ -72,12 +72,12 @@ export async function getUserInfoFromWeb3(): Promise<EPSXJWTPayload | null> {
 
     // Convert to EPSXJWTPayload format for compatibility
     return {
-      sub: userInfo.wallet_address || userInfo.id,
+      sub: userInfo.wallet_address ?? userInfo.id,
       id: userInfo.id,
       wallet_address: userInfo.wallet_address,
       email: userInfo.email,
       name: userInfo.name,
-      permissions: userInfo.permissions || [],
+      permissions: userInfo.permissions ?? [],
       platform_context: userInfo.platform_context,
       exp: Math.floor(Date.now() / 1000) + (60 * 60), // 1 hour from now
       iat: Math.floor(Date.now() / 1000),

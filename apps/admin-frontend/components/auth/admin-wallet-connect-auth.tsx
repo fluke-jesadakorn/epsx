@@ -47,11 +47,11 @@ export function AdminWalletConnectAuth({ className = '' }: AdminWalletConnectAut
     setIsHydrated(true);
   }, []);
 
-  if (!isHydrated || isLoading) {
+  if (!isHydrated ?? isLoading) {
     return <LoadingButton message="Loading..." className={className} />;
   }
 
-  const displayAddress = user?.wallet_address || address;
+  const displayAddress = user?.wallet_address ?? address;
   const formatAddress = (addr: string) => `${addr.slice(0, 6)}...${addr.slice(-4)}`;
 
   const copyToClipboard = async (text: string) => {

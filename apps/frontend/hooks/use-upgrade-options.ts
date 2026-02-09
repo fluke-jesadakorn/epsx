@@ -74,7 +74,7 @@ export function useUpgradeOptions(): UseUpgradeOptionsResult {
                         } else {
                             // If current is highest or unknown, fallback to first candidate or recommended
                             // Avoid showing downgrade
-                            upgradeTarget = candidates.find(p => p.price > (candidates[currentIndex]?.price || 0)) || null;
+                            upgradeTarget = candidates.find(p => p.price > (candidates[currentIndex]?.price ?? 0)) ?? null;
                         }
                     }
 
@@ -86,7 +86,7 @@ export function useUpgradeOptions(): UseUpgradeOptionsResult {
 
                     // Recommended: Pro Plan or similar
                     const rec = candidates.find(p => p.name.includes('Pro') || p.name.includes('Growth'));
-                    setRecommendedPlan(rec || candidates[Math.min(1, candidates.length - 1)] || null);
+                    setRecommendedPlan(rec ?? candidates[Math.min(1, candidates.length - 1)] ?? null);
                 }
             } catch (err) {
                 console.error('Failed to fetch upgrade options:', err);

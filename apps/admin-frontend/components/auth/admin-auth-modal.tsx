@@ -31,7 +31,7 @@ export function AdminAuthModal({ children, fallback, initialHasAuthCookie = fals
 
     // If we have an initial cookie, we can assume we're "checking" until proven otherwise
     // If no cookie, we can say checks are done (and failed) unless loading
-    const isChecking = isLoading || (initialHasAuthCookie && !isAuthenticated);
+    const isChecking = isLoading ?? (initialHasAuthCookie && !isAuthenticated);
 
     // Authenticated - render children immediately
     if (isAuthenticated && children) {

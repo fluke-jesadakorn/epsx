@@ -75,7 +75,7 @@ export function EmailManagement({ user }: EmailManagementProps) {
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.message || 'Failed to send verification code');
+        throw new Error(error.message ?? 'Failed to send verification code');
       }
 
       setEmailState(prev => ({
@@ -88,7 +88,7 @@ export function EmailManagement({ user }: EmailManagementProps) {
 
     } catch (error: any) {
       console.error('Email change error:', error);
-      const errorMessage = error.message || 'Failed to send verification code';
+      const errorMessage = error.message ?? 'Failed to send verification code';
       setEmailState(prev => ({
         ...prev,
         isSending: false,
@@ -119,7 +119,7 @@ export function EmailManagement({ user }: EmailManagementProps) {
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.message || 'Invalid verification code');
+        throw new Error(error.message ?? 'Invalid verification code');
       }
 
       // Success - email changed
@@ -138,7 +138,7 @@ export function EmailManagement({ user }: EmailManagementProps) {
 
     } catch (error: any) {
       console.error('Email verification error:', error);
-      const errorMessage = error.message || 'Failed to verify email';
+      const errorMessage = error.message ?? 'Failed to verify email';
       setEmailState(prev => ({
         ...prev,
         isVerifying: false,

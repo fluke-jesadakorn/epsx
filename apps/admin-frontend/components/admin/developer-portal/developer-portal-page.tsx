@@ -64,12 +64,12 @@ export const DeveloperPortalPage: React.FC = () => {
             try {
                 const keysRes = await plansClient.listApiKeys();
                 if (keysRes.success) {
-                    setApiKeys((keysRes.data as any)?.api_keys || []);
+                    setApiKeys((keysRes.data as any)?.api_keys ?? []);
                 }
             } catch (error: any) {
-                if (error?.status === 403 || error?.code === 'PERMISSION_DENIED') {
+                if (error?.status === 403 ?? error?.code === 'PERMISSION_DENIED') {
                     setAccessDenied({
-                        message: error?.message || "You don't have permission to access the developer portal.",
+                        message: error?.message ?? "You don't have permission to access the developer portal.",
                         code: error?.code,
                     });
                     return;
@@ -84,12 +84,12 @@ export const DeveloperPortalPage: React.FC = () => {
             try {
                 const modulesRes = await plansClient.getModules({ status: 'active' });
                 if (modulesRes.success) {
-                    setModules((modulesRes.data as any)?.modules || []);
+                    setModules((modulesRes.data as any)?.modules ?? []);
                 }
             } catch (error: any) {
-                if (error?.status === 403 || error?.code === 'PERMISSION_DENIED') {
+                if (error?.status === 403 ?? error?.code === 'PERMISSION_DENIED') {
                     setAccessDenied({
-                        message: error?.message || "You don't have permission to access the developer portal.",
+                        message: error?.message ?? "You don't have permission to access the developer portal.",
                         code: error?.code,
                     });
                     return;
@@ -100,9 +100,9 @@ export const DeveloperPortalPage: React.FC = () => {
                 setModules([]);
             }
         } catch (error: any) {
-            if (error?.status === 403 || error?.code === 'PERMISSION_DENIED') {
+            if (error?.status === 403 ?? error?.code === 'PERMISSION_DENIED') {
                 setAccessDenied({
-                    message: error?.message || "You don't have permission to access the developer portal.",
+                    message: error?.message ?? "You don't have permission to access the developer portal.",
                     code: error?.code,
                 });
                 return;

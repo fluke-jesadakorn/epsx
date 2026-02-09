@@ -184,12 +184,12 @@ export default function PolicyMonitor() {
           id: Date.now().toString(),
           user_id: `user${Math.floor(Math.random() * 10)}`,
           user_email: `user${Math.floor(Math.random() * 10)}@epsx.io`,
-          action_attempted: (['epsx:analytics:execute', 'epsx:analytics:view', 'epsx:portfolio:export'][Math.floor(Math.random() * 3)] || 'epsx:analytics:view'),
-          decision: (['allow', 'deny', 'require_mfa', 'require_approval'][Math.floor(Math.random() * 4)] as any || 'allow'),
+          action_attempted: (['epsx:analytics:execute', 'epsx:analytics:view', 'epsx:portfolio:export'][Math.floor(Math.random() * 3)] ?? 'epsx:analytics:view'),
+          decision: (['allow', 'deny', 'require_mfa', 'require_approval'][Math.floor(Math.random() * 4)] as any ?? 'allow'),
           decision_reason: 'Policy evaluation completed',
           evaluation_time_ms: Math.floor(Math.random() * 50) + 5,
           evaluated_at: new Date().toISOString(),
-          policy_name: (['Business Hours', 'Risk Control', 'Data Export'][Math.floor(Math.random() * 3)] || 'Business Hours'),
+          policy_name: (['Business Hours', 'Risk Control', 'Data Export'][Math.floor(Math.random() * 3)] ?? 'Business Hours'),
         };
 
         setLiveEvaluations(prev => [newEvaluation, ...prev.slice(0, 19)]); // Keep last 20
@@ -213,8 +213,8 @@ export default function PolicyMonitor() {
   };
 
   const getDecisionBadge = (decision: string) => {
-    const color = DECISION_COLORS[decision as keyof typeof DECISION_COLORS] || 'gray';
-    const Icon = DECISION_ICONS[decision as keyof typeof DECISION_ICONS] || ActivityIcon;
+    const color = DECISION_COLORS[decision as keyof typeof DECISION_COLORS] ?? 'gray';
+    const Icon = DECISION_ICONS[decision as keyof typeof DECISION_ICONS] ?? ActivityIcon;
 
     let variant: "default" | "destructive" | "outline" | "secondary" = "outline";
     if (decision === 'allow') { variant = 'default'; }
@@ -345,7 +345,7 @@ export default function PolicyMonitor() {
               <div>
                 <p className="text-xs sm:text-sm text-gray-600">Allowed</p>
                 <p className="text-lg sm:text-xl font-semibold">
-                  {calculatePercentage(stats.decision_breakdown.allow || 0, stats.evaluations_24h)}%
+                  {calculatePercentage(stats.decision_breakdown.allow ?? 0, stats.evaluations_24h)}%
                 </p>
               </div>
             </div>
@@ -357,7 +357,7 @@ export default function PolicyMonitor() {
               <div>
                 <p className="text-xs sm:text-sm text-gray-600">Blocked</p>
                 <p className="text-lg sm:text-xl font-semibold">
-                  {calculatePercentage(stats.decision_breakdown.deny || 0, stats.evaluations_24h)}%
+                  {calculatePercentage(stats.decision_breakdown.deny ?? 0, stats.evaluations_24h)}%
                 </p>
               </div>
             </div>
@@ -370,7 +370,7 @@ export default function PolicyMonitor() {
                 <p className="text-xs sm:text-sm text-gray-600">Pending</p>
                 <p className="text-lg sm:text-xl font-semibold">
                   {calculatePercentage(
-                    (stats.decision_breakdown.require_approval || 0) + (stats.decision_breakdown.require_mfa || 0),
+                    (stats.decision_breakdown.require_approval ?? 0) + (stats.decision_breakdown.require_mfa ?? 0),
                     stats.evaluations_24h
                   )}%
                 </p>
@@ -438,7 +438,7 @@ export default function PolicyMonitor() {
 
                 <div className="col-span-2">
                   <span className="text-xs text-gray-600">
-                    {evaluation.policy_name || 'Unknown'}
+                    {evaluation.policy_name ?? 'Unknown'}
                   </span>
                 </div>
 
@@ -476,7 +476,7 @@ export default function PolicyMonitor() {
                 <div className="flex items-center justify-between">
                   <div className="flex flex-col gap-1">
                     <span className="text-xs text-gray-600">
-                      {evaluation.policy_name || 'Unknown'}
+                      {evaluation.policy_name ?? 'Unknown'}
                     </span>
                     <div className="flex items-center gap-2 text-xs text-gray-500">
                       <ClockIcon className="h-3 w-3" />
@@ -510,7 +510,7 @@ export default function PolicyMonitor() {
             <div className="space-y-3">
               {Object.entries(stats.decision_breakdown).map(([decision, count]) => {
                 const percentage = calculatePercentage(count, stats.evaluations_24h);
-                const Icon = DECISION_ICONS[decision as keyof typeof DECISION_ICONS] || ActivityIcon;
+                const Icon = DECISION_ICONS[decision as keyof typeof DECISION_ICONS] ?? ActivityIcon;
 
                 return (
                   <div key={decision} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-0">

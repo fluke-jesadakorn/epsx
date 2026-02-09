@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
         }
 
         const body: PaymentConfirmRequest = await req.json();
-        const { plan_id, transaction_hash, amount, currency, network = process.env.NEXT_PUBLIC_DEFAULT_NETWORK || 'bsc-mainnet' } = body;
+        const { plan_id, transaction_hash, amount, currency, network = process.env.NEXT_PUBLIC_DEFAULT_NETWORK ?? 'bsc-mainnet' } = body;
 
         // Validate required fields
         if (!plan_id || !transaction_hash || !amount) {
@@ -79,11 +79,11 @@ export async function POST(req: NextRequest) {
             return NextResponse.json(
                 {
                     success: false,
-                    message: response.message || response.error || 'Backend validation failed',
+                    message: response.message ?? response.error ?? 'Backend validation failed',
                     details: response.data,
                     status: response.status
                 },
-                { status: response.status || 400 }
+                { status: response.status ?? 400 }
             );
         }
 

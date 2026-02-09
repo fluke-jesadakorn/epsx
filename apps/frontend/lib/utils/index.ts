@@ -179,7 +179,7 @@ export function getEnvVar(key: string, fallback?: string): string {
   if (value === undefined && fallback === undefined) {
     throw new Error(`Environment variable ${key} is not defined`);
   }
-  return value || fallback || '';
+  return value ?? fallback ?? '';
 }
 
 /**
@@ -189,7 +189,7 @@ export function safeJsonParse<T>(str: string, fallback?: T): T | null {
   try {
     return JSON.parse(str);
   } catch {
-    return fallback || null;
+    return fallback ?? null;
   }
 }
 

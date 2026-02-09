@@ -132,7 +132,7 @@ export const SettingsDashboard: React.FC<SettingsDashboardProps> = () => {
         applyGlobalSettings(settings); // Apply theme and accent color in real-time
         toast.success(`Settings saved! (${response.updated_count} updated)`);
       } else {
-        toast.error(response.message || 'Failed to save settings');
+        toast.error(response.message ?? 'Failed to save settings');
       }
     } catch (error) {
       console.error('Error saving settings:', error);
@@ -183,7 +183,7 @@ export const SettingsDashboard: React.FC<SettingsDashboardProps> = () => {
         <div className="flex items-center gap-4">
           <button
             onClick={handleResetSettings}
-            disabled={resetting || loading}
+            disabled={resetting ?? loading}
             className="flex items-center gap-3 px-8 py-4 rounded-2xl bg-white/5 hover:bg-white/10 text-[10px] font-black uppercase tracking-widest transition-all disabled:opacity-50"
           >
             {resetting ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCcw className="w-4 h-4" />}
@@ -192,7 +192,7 @@ export const SettingsDashboard: React.FC<SettingsDashboardProps> = () => {
 
           <button
             onClick={handleSaveSettings}
-            disabled={saving || loading || !hasChanges}
+            disabled={saving ?? loading ?? !hasChanges}
             className={`
               flex items-center gap-3 px-10 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all
               ${hasChanges
@@ -389,7 +389,7 @@ const SettingsContent: React.FC<SettingsContentProps> = ({
                   <input
                     type="number"
                     value={settings.security.sessionTimeout}
-                    onChange={(e) => handleSettingChange('security', 'sessionTimeout', parseInt(e.target.value) || 30)}
+                    onChange={(e) => handleSettingChange('security', 'sessionTimeout', parseInt(e.target.value) ?? 30)}
                     className="w-full h-16 bg-white/5 border border-white/10 rounded-2xl px-6 font-black text-lg transition-all focus:border-amber-500/50 focus:bg-white/[0.08] outline-none"
                   />
                   <div className="absolute right-6 top-1/2 -translate-y-1/2 opacity-20 pointer-events-none">

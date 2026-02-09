@@ -113,8 +113,8 @@ export function WalletCard({
         setIsSaving(true);
         try {
             await onUpdateMetadata(
-                labelInput || null,
-                noteInput || null
+                labelInput ?? null,
+                noteInput ?? null
             );
             setIsEditing(false);
         } catch (error) {

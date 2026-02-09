@@ -389,7 +389,7 @@ export default function WalletDetailPage() {
     const statusConfig = walletData.wallet ? STATUS_CONFIG[walletData.wallet.status] : STATUS_CONFIG.active;
     const hasPending = pendingDrops.length > 0;
 
-    if (authLoading || walletData.isLoading) {
+    if (authLoading ?? walletData.isLoading) {
         return (
             <div className="p-6">
                 <div className="max-w-6xl mx-auto space-y-6">
@@ -554,7 +554,7 @@ export default function WalletDetailPage() {
                                         <Button
                                             size="sm"
                                             onClick={() => metadataForm.handleSave(walletAddress, walletData.loadWallet)}
-                                            disabled={metadataForm.isSaving || !metadataForm.hasChanges}
+                                            disabled={metadataForm.isSaving ?? !metadataForm.hasChanges}
                                             className="bg-purple-600 hover:bg-purple-700 text-white h-8 text-xs font-medium"
                                         >
                                             {metadataForm.isSaving && <Loader2 className="mr-2 h-3 w-3 animate-spin" />}
@@ -679,7 +679,7 @@ export default function WalletDetailPage() {
                                             <Button
                                                 size="sm"
                                                 onClick={handleSavePendingChanges}
-                                                disabled={isSavingPending || !hasPending}
+                                                disabled={isSavingPending ?? !hasPending}
                                                 className="bg-purple-600 hover:bg-purple-700 text-white h-8 text-xs font-medium"
                                             >
                                                 {isSavingPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Save className="h-3 w-3 mr-1" />}

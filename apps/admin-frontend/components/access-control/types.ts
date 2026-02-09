@@ -214,7 +214,7 @@ export function planToPolicy(plan: SharedPlan): AccessPolicy {
 
     // Common
     createdAt: plan.created_at,
-    updatedAt: plan.updated_at || plan.created_at,
+    updatedAt: plan.updated_at ?? plan.created_at,
     sourceId: String(plan.id),
     sourceType: 'plan',
   };
@@ -235,26 +235,26 @@ export function groupToPolicy(group: PermissionGroup): AccessPolicy {
     system: 'system',
   };
 
-  const policyType = typeMap[group.plan_type] || 'manual';
+  const policyType = typeMap[group.plan_type] ?? 'manual';
 
   return {
     id: `group-${group.id}`,
     name: group.name,
-    description: group.description || '',
+    description: group.description ?? '',
     type: policyType,
-    permissions: group.permissions || [],
+    permissions: group.permissions ?? [],
     memberCount: group.member_count ?? 0,
     isActive: group.is_active,
 
     // Group-specific
     expiryDays: group.default_expiry_days,
     priorityLevel: group.priority_level ?? 0,
-    isSystemGroup: group.is_system_plan || group.plan_type === 'system',
+    isSystemGroup: group.is_system_plan ?? group.plan_type === 'system',
     slug: group.slug,
 
     // Common
     createdAt: group.created_at,
-    updatedAt: group.updated_at || group.created_at,
+    updatedAt: group.updated_at ?? group.created_at,
     sourceId: group.id,
     sourceType: 'group',
   };
@@ -264,7 +264,7 @@ export function groupToPolicy(group: PermissionGroup): AccessPolicy {
  * Check if policy is a subscription type
  */
 export function isSubscriptionPolicy(policy: AccessPolicy): boolean {
-  return policy.sourceType === 'plan' || policy.type === 'subscription';
+  return policy.sourceType === 'plan' ?? policy.type === 'subscription';
 }
 
 /**

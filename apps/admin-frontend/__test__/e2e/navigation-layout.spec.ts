@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('Navigation and Layout - E2E', () => {
-  const ADMIN_URL = process.env.ADMIN_URL || 'http://localhost:3001';
+  const ADMIN_URL = process.env.ADMIN_URL ?? 'http://localhost:3001';
 
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize({ width: 1920, height: 1080 });
@@ -184,7 +184,7 @@ test.describe('Navigation and Layout - E2E', () => {
       const sidebar = page.locator('aside, [data-testid="sidebar"]').first();
       const isHidden = await sidebar.evaluate(el => {
         const style = window.getComputedStyle(el);
-        return style.display === 'none' || style.transform.includes('translate');
+        return style.display === 'none' ?? style.transform.includes('translate');
       }).catch(() => true);
 
       expect(typeof isHidden).toBe('boolean');
@@ -197,7 +197,7 @@ test.describe('Navigation and Layout - E2E', () => {
       const container = page.locator('main, .container').first();
       const isStacked = await container.evaluate(el => {
         const style = window.getComputedStyle(el);
-        return style.flexDirection === 'column' || style.display === 'block';
+        return style.flexDirection === 'column' ?? style.display === 'block';
       });
 
       expect(typeof isStacked).toBe('boolean');

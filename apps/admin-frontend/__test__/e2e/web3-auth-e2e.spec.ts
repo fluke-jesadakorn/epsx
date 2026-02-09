@@ -45,7 +45,7 @@ const MOCK_USER_COOKIE = {
 };
 
 test.describe('Web3 Wallet Authentication E2E', () => {
-    const ADMIN_URL = process.env.ADMIN_URL || 'http://localhost:3001';
+    const ADMIN_URL = process.env.ADMIN_URL ?? 'http://localhost:3001';
 
     test.beforeEach(async ({ page }) => {
         await page.setViewportSize({ width: 1920, height: 1080 });

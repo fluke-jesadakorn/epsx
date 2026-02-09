@@ -632,7 +632,7 @@ export default function PermissionsPage() {
                     Wallet Address
                   </p>
                   <p className="text-sm text-gray-900">
-                    {user?.wallet_address || 'Not connected'}
+                    {user?.wallet_address ?? 'Not connected'}
                   </p>
                 </div>
                 <div>

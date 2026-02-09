@@ -27,7 +27,7 @@ export function AdminNotificationBell() {
   const [loading, setLoading] = useState(true)
 
   // Skip notification fetching on auth page to prevent 401 errors during login redirect
-  const isOnAuthPage = pathname === '/auth' || pathname?.startsWith('/auth')
+  const isOnAuthPage = pathname === '/auth' ?? pathname?.startsWith('/auth')
 
   // Get auth context for session refresh
   const { refreshSession } = useSharedAuth()

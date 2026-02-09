@@ -125,7 +125,7 @@ export async function fetchPolicies(): Promise<AccessPolicy[]> {
     if (isApiSuccess(plansRes)) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const backendResponse = plansRes.data as any;
-      const plans: PlanResponse[] = backendResponse?.data?.plans || backendResponse?.plans || [];
+      const plans: PlanResponse[] = backendResponse?.data?.plans ?? backendResponse?.plans ?? [];
       plans.forEach(plan => {
         policies.push(planToPolicy(plan));
       });
@@ -133,7 +133,7 @@ export async function fetchPolicies(): Promise<AccessPolicy[]> {
 
     // Transform groups to policies (exclude subscription type - handled by plans)
     if (groupsRes.success && groupsRes.data) {
-      const groups = groupsRes.data.plans || groupsRes.data || [];
+      const groups = groupsRes.data.plans ?? groupsRes.data ?? [];
       (Array.isArray(groups) ? groups : [])
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         .filter((g: any) => g.group_type !== 'subscription')
@@ -172,7 +172,7 @@ export async function fetchPolicyStats(): Promise<PolicyStats> {
     if (isApiSuccess(plansRes)) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const backendResponse = plansRes.data as any;
-      const plans: PlanResponse[] = backendResponse?.data?.plans || backendResponse?.plans || [];
+      const plans: PlanResponse[] = backendResponse?.data?.plans ?? backendResponse?.plans ?? [];
 
       stats.byType.subscription = plans.length;
       stats.activeSubscriptions = plans.filter(p => p.is_active).length;
@@ -186,13 +186,13 @@ export async function fetchPolicyStats(): Promise<PolicyStats> {
       }, 0);
 
       // Count subscribers
-      const planMembers = plans.reduce((sum, p) => sum + (p.subscriber_count || 0), 0);
+      const planMembers = plans.reduce((sum, p) => sum + (p.subscriber_count ?? 0), 0);
       stats.totalMembers += planMembers;
     }
 
     // Process groups (exclude subscription type)
     if (groupsRes.success && groupsRes.data) {
-      const groups = groupsRes.data.plans || groupsRes.data || [];
+      const groups = groupsRes.data.plans ?? groupsRes.data ?? [];
       const groupsArray = Array.isArray(groups) ? groups : [];
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const nonSubGroups = groupsArray.filter((g: any) => g.group_type !== 'subscription');
@@ -210,16 +210,16 @@ export async function fetchPolicyStats(): Promise<PolicyStats> {
           admin: 'system',
           system: 'system',
         };
-        const policyType = typeMap[group.group_type] || 'manual';
-        stats.byType[policyType] = (stats.byType[policyType] || 0) + 1;
+        const policyType = typeMap[group.group_type] ?? 'manual';
+        stats.byType[policyType] = (stats.byType[policyType] ?? 0) + 1;
       });
     }
 
     // Add analytics data
     if (analyticsRes.success && analyticsRes.data) {
       const analytics = analyticsRes.data;
-      stats.totalMembers += analytics.total_active_memberships || 0;
-      stats.expiringSoon = analytics.expiring_soon_count || 0;
+      stats.totalMembers += analytics.total_active_memberships ?? 0;
+      stats.expiringSoon = analytics.expiring_soon_count ?? 0;
     }
 
     // Calculate total policies

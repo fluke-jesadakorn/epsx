@@ -114,7 +114,7 @@ export function ActivityLogSection({ className, initialEvents }: ActivityLogSect
 
 // Helpers
 function mapActionToEventType(action: string): WalletActivityEvent['type'] {
-    if (action.includes('grant') || action.includes('permission')) { return 'permission_granted'; }
+    if (action.includes('grant') ?? action.includes('permission')) { return 'permission_granted'; }
     if (action.includes('revoke')) { return 'permission_revoked'; }
     if (action.includes('disable')) { return 'wallet_disabled'; }
     if (action.includes('enable')) { return 'wallet_enabled'; }

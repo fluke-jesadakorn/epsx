@@ -48,7 +48,7 @@ function generateBreadcrumbs(pathname: string): BreadcrumbItem[] {
   const breadcrumbs: BreadcrumbItem[] = []
 
   // Always start with dashboard
-  const dashboardItem = routeConfig['/'] || { label: 'Dashboard', href: '/', icon: '🏠' }
+  const dashboardItem = routeConfig['/'] ?? { label: 'Dashboard', href: '/', icon: '🏠' }
   breadcrumbs.push(dashboardItem)
 
   // Build path progressively
@@ -93,10 +93,10 @@ export function Breadcrumb() {
     return (
       <div className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm min-w-0">
         <span className="text-gray-600 dark:text-gray-300 flex-shrink-0">
-          {breadcrumbs[0]?.icon || '🏠'}
+          {breadcrumbs[0]?.icon ?? '🏠'}
         </span>
         <span className="font-semibold bg-gradient-to-r from-yellow-600 to-orange-600 dark:from-purple-400 dark:to-pink-400 bg-clip-text text-transparent truncate">
-          {breadcrumbs[0]?.label || 'Dashboard'}
+          {breadcrumbs[0]?.label ?? 'Dashboard'}
         </span>
       </div>
     )
@@ -113,7 +113,7 @@ export function Breadcrumb() {
           <div key={item.href} className="flex items-center gap-1 sm:gap-1.5 lg:gap-2 flex-shrink-0">
             {isFirst && (
               <span className="text-gray-600 dark:text-gray-300 flex-shrink-0">
-                {item.icon || '🏠'}
+                {item.icon ?? '🏠'}
               </span>
             )}
 

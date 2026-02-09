@@ -16,7 +16,7 @@ function isBackendConnectivityError(error: Error): boolean {
   const backendError = message.includes('/api/') &&
                        (message.includes('404') || message.includes('not found'));
 
-  return Boolean(statusMatch || networkError || backendError);
+  return Boolean(statusMatch ?? networkError ?? backendError);
 }
 
 function isPermissionError(error: Error): boolean {

@@ -542,13 +542,13 @@ export async function getPermissionStatistics(): Promise<{
       },
       recent_activity: [
         {
-          date: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] || '',
+          date: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] ?? '',
           granted: 45,
           revoked: 12,
           expired: 8
         },
         {
-          date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] || '',
+          date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] ?? '',
           granted: 38,
           revoked: 15,
           expired: 5

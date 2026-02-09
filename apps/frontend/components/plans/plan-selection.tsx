@@ -27,7 +27,7 @@ export function PlanSelection({ currentUser, className }: PlanSelectionProps) {
 
   // Extract affiliate code from URL parameters
   useEffect(() => {
-    const refCode = searchParams.get('ref') || searchParams.get('affiliate') || searchParams.get('aff')
+    const refCode = searchParams.get('ref') ?? searchParams.get('affiliate') ?? searchParams.get('aff')
     if (refCode) {
       setAffiliateCode(refCode)
       // Store in cookie for persistence
@@ -53,18 +53,18 @@ export function PlanSelection({ currentUser, className }: PlanSelectionProps) {
       try {
         setLoading(true)
         const response = await getPublicPlansAction({
-          affiliate_code: affiliateCode || undefined
+          affiliate_code: affiliateCode ?? undefined
         } as any)
 
         if (response.success && response.data && Array.isArray(response.data)) {
           const cards = response.data
             .filter((plan: Plan) => plan.is_active)
-            .sort((a: Plan, b: Plan) => (a.display_order || 0) - (b.display_order || 0))
+            .sort((a: Plan, b: Plan) => (a.display_order ?? 0) - (b.display_order ?? 0))
             .map((plan: Plan) => transformToPricingCard(plan))
 
           setPricingCards(cards)
         } else {
-          throw new Error(response.error?.message || 'Invalid API response')
+          throw new Error(response.error?.message ?? 'Invalid API response')
         }
       } catch (err) {
         console.error('[PlanSelection] Error fetching plans:', err)
@@ -92,7 +92,7 @@ export function PlanSelection({ currentUser, className }: PlanSelectionProps) {
       features: Array.isArray(plan.features)
         ? plan.features.map(f => typeof f === 'string' ? { text: f, included: true } : f)
         : [],
-      highlight: plan.is_highlighted || plan.is_promoted || false,
+      highlight: plan.is_highlighted ?? plan.is_promoted ?? false,
       buttonText: isFree ? 'Start Free' : 'Get Started',
       promotions: [],
       badges: [],
@@ -161,9 +161,9 @@ export function PlanSelection({ currentUser, className }: PlanSelectionProps) {
                 actionType = 'extend';
                 buttonTextOverride = 'Extend Plan';
                 isSelected = true;
-              } else if ((card.tier_level || 0) > planAccess.tier_level) {
+              } else if ((card.tier_level ?? 0) > planAccess.tier_level) {
                 actionType = 'upgrade';
-              } else if ((card.tier_level || 0) < planAccess.tier_level) {
+              } else if ((card.tier_level ?? 0) < planAccess.tier_level) {
                 actionType = 'downgrade';
                 buttonTextOverride = 'Switch Plan'; // Will queue after expiry
               }

@@ -26,18 +26,18 @@ function parseSearchParams(
   searchParams: ServerCardDashboardProps['searchParams']
 ): EPSQueryParams {
   return {
-    page: parseInt(searchParams.page || '1', 10),
-    limit: parseInt(searchParams.limit || '10', 10),
-    country: searchParams.country || undefined,
-    sector: searchParams.sector || undefined,
-    sort_by: searchParams.sort_by || 'growth_factor',
+    page: parseInt(searchParams.page ?? '1', 10),
+    limit: parseInt(searchParams.limit ?? '10', 10),
+    country: searchParams.country ?? undefined,
+    sector: searchParams.sector ?? undefined,
+    sort_by: searchParams.sort_by ?? 'growth_factor',
     min_eps: searchParams.min_eps
       ? parseFloat(searchParams.min_eps)
       : undefined,
     min_growth: searchParams.min_growth
       ? parseFloat(searchParams.min_growth)
       : undefined,
-    search: searchParams.search || undefined,
+    search: searchParams.search ?? undefined,
   };
 }
 

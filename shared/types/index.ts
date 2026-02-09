@@ -20,8 +20,6 @@ export * from './api';
 // Progressive authentication types (consolidated from both apps)
 export * from './progressive-auth';
 
-// Tier group types (unified tier and permission group system)
-export * from './tier-groups';
 // Wallet types
 export * from './analytics';
 export * from './notifications';
@@ -112,12 +110,6 @@ export type {
   ProgressiveAuthProps
 } from './progressive-auth';
 
-export type {
-  CreateTierAssignmentRequest, LegacyTierMappings,
-  // Tier Groups
-  TierGroup, TierGroupAnalytics, TierGroupListResponse, TierGroupRequest, UnifiedUserPermissions, UpdateTierGroupRequest,
-  UserTierAssignment
-} from './tier-groups';
 
 export type {
   AuthConfig, AuthenticatedUserProfile, BaseJWTPayload, LegacyJWTPayload,

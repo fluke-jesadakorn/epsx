@@ -209,7 +209,7 @@ export class PerformanceMonitor {
   private calculatePercentile(values: number[], percentile: number): number {
     const sorted = values.sort((a, b) => a - b);
     const index = Math.ceil((percentile / 100) * sorted.length) - 1;
-    return sorted[index] || 0;
+    return sorted[index] ?? 0;
   }
 
   /**
@@ -296,7 +296,7 @@ export class AuthenticationHelper {
           const url = window.location.href;
           return !url.includes('/login') && 
                  !url.includes('/oauth/authorize') && 
-                 (url.includes('localhost:3001') || url.includes('admin.epsx.io'));
+                 (url.includes('localhost:3001') ?? url.includes('admin.epsx.io'));
         },
         { timeout: 30000 }
       );
@@ -325,8 +325,8 @@ export class AuthenticationHelper {
    */
   async extractAuthToken(): Promise<string | null> {
     return await this.page.evaluate(() => {
-      return localStorage.getItem('auth_token') || 
-             document.cookie.split(';').find(c => c.trim().startsWith('session='))?.split('=')[1] || null;
+      return localStorage.getItem('auth_token') ?? 
+             document.cookie.split(';').find(c => c.trim().startsWith('session='))?.split('=')[1] ?? null;
     });
   }
 
@@ -475,7 +475,7 @@ export class SecurityTestHelper {
 
         results.push({
           payload,
-          blocked: blocked || sanitized,
+          blocked: blocked ?? sanitized,
           status: response.status(),
           responseTime: 0,
           sanitized
@@ -548,7 +548,7 @@ export class SecurityTestHelper {
       });
 
       return {
-        protected: response.status() === 403 || response.status() === 400,
+        protected: response.status() === 403 ?? response.status() === 400,
         status: response.status(),
         responseTime: 0
       };
@@ -803,7 +803,7 @@ export class GlobalTestSetup {
 
     // Validate environment
     const validation = await EnvironmentValidator.validateTestEnvironment();
-    if (!validation.database || !validation.api) {
+    if (!validation.database ?? !validation.api) {
       throw new Error(`Environment validation failed: ${validation.errors.join(', ')}`);
     }
 

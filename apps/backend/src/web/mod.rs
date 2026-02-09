@@ -1,17 +1,13 @@
 // Web layer implementation
 
-// pub mod api; // Removed - unused progressive_auth routes
 pub mod auth;
 pub mod admin;
-pub mod routes; // New contextual route architecture
-// Removed: permission_profile, permissions - replaced by auth/plans.rs
+pub mod routes;
 pub mod user;
 pub mod middleware;
-// pub mod modules; // Removed - empty placeholder routers, all stub implementations
 pub mod validation;
 pub mod health;
 pub mod analytics;
-// pub mod settings; // Removed - unused settings management routes
 pub mod admin_assignment;
 pub mod notifications;
 pub mod payments;
@@ -31,11 +27,6 @@ use std::sync::Arc;
 use tower_http::cors::CorsLayer;
 
 use crate::infrastructure::container::DomainContainer;
-
-// Legacy handlers removed - replaced by unified health module and analytics handlers
-// health_handler -> health::health_check_handler  
-// cache_handler -> analytics::eps_handlers::force_cache_refresh
-// premium_rankings_handler -> analytics::eps_handlers::get_unified_analytics_rankings_cached
 
 
 /// Configure CORS for frontend applications - Allow any origin with Next.js headers

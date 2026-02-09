@@ -53,16 +53,16 @@ export function PaymentHistoryTab({ initialData }: PaymentHistoryTabProps) {
     const { base } = useApiClient({ platform: 'frontend' });
 
     // Initialize state with initialData if provided
-    const [payments, setPayments] = useState<PaymentHistoryItem[]>(initialData?.payments || []);
+    const [payments, setPayments] = useState<PaymentHistoryItem[]>(initialData?.payments ?? []);
     // If we have initial data (and it has items), we are not loading. 
     // If initial data is undefined, we are loading.
     const [loading, setLoading] = useState(!initialData);
     const [error, setError] = useState<string | null>(null);
 
     // Pagination
-    const [page, setPage] = useState(initialData?.pagination?.page || 1);
-    const [totalPages, setTotalPages] = useState(initialData?.pagination?.total_pages || 1);
-    const [totalItems, setTotalItems] = useState(initialData?.pagination?.total || 0);
+    const [page, setPage] = useState(initialData?.pagination?.page ?? 1);
+    const [totalPages, setTotalPages] = useState(initialData?.pagination?.total_pages ?? 1);
+    const [totalItems, setTotalItems] = useState(initialData?.pagination?.total ?? 0);
 
     const fetchPaymentHistory = async (silent = false) => {
         try {
@@ -83,7 +83,7 @@ export function PaymentHistoryTab({ initialData }: PaymentHistoryTabProps) {
                 setTotalItems(response.data.pagination.total);
             } else {
                 if (!response.success) {
-                    throw new Error(response.error?.message || 'API reported failure');
+                    throw new Error(response.error?.message ?? 'API reported failure');
                 }
                 if (response.success && !response.data) {
                     setPayments([]);
@@ -257,7 +257,7 @@ export function PaymentHistoryTab({ initialData }: PaymentHistoryTabProps) {
                                     <div className="space-y-1">
                                         <div className="flex items-center gap-2">
                                             <span className="text-lg font-bold text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                                                {payment.plan_name || 'Protocol Access'}
+                                                {payment.plan_name ?? 'Protocol Access'}
                                             </span>
                                             {getStatusBadge(payment.status)}
                                         </div>
@@ -280,7 +280,7 @@ export function PaymentHistoryTab({ initialData }: PaymentHistoryTabProps) {
                                     <div className="flex gap-2">
                                         {payment.tx_hash && (
                                             <a
-                                                href={getExplorerLink(payment.tx_hash) || '#'}
+                                                href={getExplorerLink(payment.tx_hash) ?? '#'}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
                                                 className="p-3 bg-white dark:bg-gray-800 rounded-xl text-gray-400 hover:text-blue-500 shadow-sm hover:shadow-md transition-all border border-gray-100 dark:border-gray-700"

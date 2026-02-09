@@ -90,7 +90,7 @@ function FinancialDataTable({
         bg-gradient-to-br ${GRADIENTS.background}
         transition-all duration-500 
         relative overflow-hidden
-        ${className || ''}
+        ${className ?? ''}
       `}
     >
       {/* PancakeSwap-style floating decorative elements */}

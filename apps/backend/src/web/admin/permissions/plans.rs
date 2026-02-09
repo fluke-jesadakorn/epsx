@@ -98,38 +98,6 @@ pub struct ListPlansQuery {
     pub is_active: Option<bool>,
 }
 
-fn get_constant_permission_plan() -> PlanResponse {
-    use crate::core::constants::*;
-    use serde_json::json;
-    use bigdecimal::BigDecimal;
-    use std::str::FromStr;
-
-    PlanResponse {
-        id: FREE_PLAN_ID.to_string(),
-        name: FREE_PLAN_NAME.to_string(),
-        slug: FREE_PLAN_SLUG.to_string(),
-        description: FREE_PLAN_DESCRIPTION.to_string(),
-        plan_type: "subscription".to_string(),
-        permissions: FREE_PLAN_DEFAULT_PERMISSIONS.iter().map(|s| s.to_string()).collect(),
-        price: BigDecimal::from_str("0.00").unwrap(),
-        currency: "USD".to_string(),
-        billing_cycle: "lifetime".to_string(),
-        is_active: true,
-        is_promoted: true,
-        display_order: FREE_PLAN_TIER_LEVEL,
-        max_members: None,
-        auto_assign_enabled: true,
-        plan_metadata: json!({
-            "features": ["Basic analytics", "Rankings access"],
-            "ranking_offset": FREE_PLAN_RANKING_OFFSET,
-        }),
-        created_at: Utc::now(), // Use a fixed time if stability is needed
-        updated_at: Utc::now(),
-        member_count: 0,
-        is_public: true,
-        default_expiry_days: Some(-1),
-    }
-}
 
 // ============================================================================
 // HANDLERS
@@ -480,7 +448,7 @@ pub async fn list_plans(
     };
 
     // Convert domain models to response DTOs
-    let mut plans: Vec<PlanResponse> = domain_plans.iter()
+    let plans: Vec<PlanResponse> = domain_plans.iter()
         .map(|plan| {
         let count = member_counts.get(plan.id().value()).unwrap_or(&0);
         PlanResponse {
@@ -506,13 +474,6 @@ pub async fn list_plans(
             default_expiry_days: plan.metadata().get("default_expiry_days").and_then(|v| v.as_i64()).map(|v| v as i32),
         }
     }).collect();
-
-    // Append constant Free Plan if on first page
-    // if page == 1 {
-    //     plans.push(get_constant_permission_plan());
-    //     // Simple sort by display order
-    //     plans.sort_by_key(|p| p.display_order);
-    // }
 
     let pagination = create_pagination(page, limit, total as u64);
     AdminResponse::success_with_pagination(plans, pagination).into_response()

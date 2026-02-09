@@ -43,12 +43,12 @@ export function AdminPermissions({ user }: AdminPermissionsProps) {
   };
 
   const categorizePermissions = (): PermissionCategory[] => {
-    const permissions = user.permissions || [];
+    const permissions = user.permissions ?? [];
     const categories = new Map<string, string[]>();
 
     permissions.forEach(permission => {
       const parts = permission.split(':');
-      const platform = parts[0] || 'unknown';
+      const platform = parts[0] ?? 'unknown';
 
       if (!categories.has(platform)) {
         categories.set(platform, []);
@@ -109,8 +109,8 @@ export function AdminPermissions({ user }: AdminPermissionsProps) {
     .filter(category => category.permissions.length > 0);
 
   const getPermissionLevel = (permission: string): string => {
-    if (permission.includes(':admin') || permission.includes(':manage')) { return 'high'; }
-    if (permission.includes(':write') || permission.includes(':create') || permission.includes(':update')) { return 'medium'; }
+    if (permission.includes(':admin') ?? permission.includes(':manage')) { return 'high'; }
+    if (permission.includes(':write') ?? permission.includes(':create') ?? permission.includes(':update')) { return 'medium'; }
     return 'low';
   };
 
@@ -122,7 +122,7 @@ export function AdminPermissions({ user }: AdminPermissionsProps) {
     }
   };
 
-  const hasTemporaryPermissions = user.permissions?.some(p => /:\d+$/.test(p)) || false;
+  const hasTemporaryPermissions = user.permissions?.some(p => /:\d+$/.test(p)) ?? false;
 
   return (
     <div className="space-y-6">
@@ -138,7 +138,7 @@ export function AdminPermissions({ user }: AdminPermissionsProps) {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="text-center p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
               <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
-                {user.permissions?.filter(p => p.startsWith('admin:')).length || 0}
+                {user.permissions?.filter(p => p.startsWith('admin:')).length ?? 0}
               </div>
               <div className="text-sm text-purple-700 dark:text-purple-300">
                 Admin Permissions
@@ -146,7 +146,7 @@ export function AdminPermissions({ user }: AdminPermissionsProps) {
             </div>
             <div className="text-center p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
               <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                {user.permissions?.filter(p => p.startsWith('epsx:')).length || 0}
+                {user.permissions?.filter(p => p.startsWith('epsx:')).length ?? 0}
               </div>
               <div className="text-sm text-blue-700 dark:text-blue-300">
                 Platform Permissions
@@ -154,7 +154,7 @@ export function AdminPermissions({ user }: AdminPermissionsProps) {
             </div>
             <div className="text-center p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
               <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-                {user.permissions?.filter(p => p.includes(':manage') || p.includes(':admin')).length || 0}
+                {user.permissions?.filter(p => p.includes(':manage') ?? p.includes(':admin')).length ?? 0}
               </div>
               <div className="text-sm text-green-700 dark:text-green-300">
                 Management Rights
@@ -162,7 +162,7 @@ export function AdminPermissions({ user }: AdminPermissionsProps) {
             </div>
             <div className="text-center p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
               <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
-                {user.permissions?.length || 0}
+                {user.permissions?.length ?? 0}
               </div>
               <div className="text-sm text-orange-700 dark:text-orange-300">
                 Total Permissions

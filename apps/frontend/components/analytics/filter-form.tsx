@@ -67,7 +67,7 @@ function SmartCountrySelector({
     }
   }, [selectedCountry, options, isSheetOpen]);
 
-  const selectedCountryLabel = options.find(c => c.value === selectedCountry)?.label || 'All Countries';
+  const selectedCountryLabel = options.find(c => c.value === selectedCountry)?.label ?? 'All Countries';
 
   const handleScroll = () => {
     if (!scrollRef.current) {return;}
@@ -212,10 +212,10 @@ function SmartCountrySelector({
 export default function FilterForm({ filterOptions, currentParams }: FilterFormProps) {
   const router = useRouter();
   const [filters, setFilters] = useState({
-    country: currentParams.country || 'all',
+    country: currentParams.country ?? 'all',
     sort_by: currentParams.sort_by || 'growth_factor',
-    min_eps: currentParams.min_eps?.toString() || '',
-    min_growth: currentParams.min_growth?.toString() || '',
+    min_eps: currentParams.min_eps?.toString() ?? '',
+    min_growth: currentParams.min_growth?.toString() ?? '',
   });
 
   const [hasChanges, setHasChanges] = useState(false);
@@ -231,10 +231,10 @@ export default function FilterForm({ filterOptions, currentParams }: FilterFormP
   // Check if any filters have changed from current state
   useEffect(() => {
     const changes = 
-      filters.country !== (currentParams.country || 'all') ||
+      filters.country !== (currentParams.country ?? 'all') ||
       filters.sort_by !== (currentParams.sort_by || 'growth_factor') ||
-      filters.min_eps !== (currentParams.min_eps?.toString() || '') ||
-      filters.min_growth !== (currentParams.min_growth?.toString() || '');
+      filters.min_eps !== (currentParams.min_eps?.toString() ?? '') ||
+      filters.min_growth !== (currentParams.min_growth?.toString() ?? '');
     
     setHasChanges(changes);
   }, [filters, currentParams]);

@@ -116,7 +116,7 @@ export function withPaymentAuth<P extends object>(
     return <WrappedComponent {...props} ref={ref} />
   })
 
-  PaymentAuthComponent.displayName = `withPaymentAuth(${WrappedComponent.displayName || WrappedComponent.name})`
+  PaymentAuthComponent.displayName = `withPaymentAuth(${WrappedComponent.displayName ?? WrappedComponent.name})`
 
   return PaymentAuthComponent as unknown as ComponentType<P>
 }

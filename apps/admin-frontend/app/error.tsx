@@ -16,7 +16,7 @@ export default function Error({
   return (
     <ErrorContent
       title="Something Went Wrong"
-      message={error.message || 'An unexpected error occurred. Please try again.'}
+      message={error.message ?? 'An unexpected error occurred. Please try again.'}
       errorId={error.digest}
       onReset={reset}
     />

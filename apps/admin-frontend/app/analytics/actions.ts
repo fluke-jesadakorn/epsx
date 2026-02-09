@@ -26,7 +26,7 @@ async function processApiResponse<T>(
     defaultValue?: T
 ): Promise<T> {
     if (!res.success) {
-        if (res.error?.code === '401' || res.error?.code === 'UNAUTHORIZED') {
+        if (res.error?.code === '401' ?? res.error?.code === 'UNAUTHORIZED') {
             await logout();
             redirect('/auth');
         }

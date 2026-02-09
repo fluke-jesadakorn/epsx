@@ -65,7 +65,7 @@ export function AccessControlMatrix({ className }: AccessControlMatrixProps) {
         const groups: Record<string, PermissionDefinitionDto[]> = {};
 
         filtered.forEach(p => {
-            const platform = p.platform || 'Other';
+            const platform = p.platform ?? 'Other';
             if (!groups[platform]) {groups[platform] = [];}
             groups[platform].push(p);
         });
@@ -176,7 +176,7 @@ export function AccessControlMatrix({ className }: AccessControlMatrixProps) {
 
                             {/* Policy Columns */}
                             {policies.map(policy => {
-                                const config = POLICY_TYPE_CONFIG[policy.type] || POLICY_TYPE_CONFIG.manual;
+                                const config = POLICY_TYPE_CONFIG[policy.type] ?? POLICY_TYPE_CONFIG.manual;
                                 return (
                                     <div key={policy.id} className="w-[140px] p-3 text-center border-r border-border/50 flex flex-col items-center justify-end gap-2 hover:bg-muted/30 transition-colors group relative">
                                         <Badge variant="outline" className={cn("text-[10px] px-1.5 h-5 font-normal capitalize whitespace-nowrap", config.badgeClass)}>
@@ -229,8 +229,8 @@ export function AccessControlMatrix({ className }: AccessControlMatrixProps) {
                                                         <Badge variant="secondary" className="text-[9px] h-4 px-1">Sys</Badge>
                                                     )}
                                                 </div>
-                                                <div className="text-xs text-muted-foreground line-clamp-1" title={perm.description || ''}>
-                                                    {perm.description || 'No description'}
+                                                <div className="text-xs text-muted-foreground line-clamp-1" title={perm.description ?? ''}>
+                                                    {perm.description ?? 'No description'}
                                                 </div>
                                             </div>
 

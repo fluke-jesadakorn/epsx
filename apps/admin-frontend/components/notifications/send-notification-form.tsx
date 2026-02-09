@@ -95,7 +95,7 @@ export function SendNotificationForm({ onSuccess, onCancel }: SendNotificationFo
       onSuccess?.();
     } catch (err: any) {
       console.error('❌ Broadcast Failure:', err);
-      setError(err?.message || 'Signal transmission failed. Check console.');
+      setError(err?.message ?? 'Signal transmission failed. Check console.');
     } finally {
       setLoading(false);
     }

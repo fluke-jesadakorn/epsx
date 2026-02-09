@@ -178,26 +178,6 @@ pub async fn get_public_plans(
     )
 }
 
-fn get_constant_public_free_plan() -> PublicPlanResponse {
-    use crate::core::constants::*;
-    PublicPlanResponse {
-        id: FREE_PLAN_ID.to_string(),
-        name: FREE_PLAN_NAME.to_string(),
-        plan_type: "FREE".to_string(),
-        current_price: "0.00".to_string(),
-        effective_price: 0.0,
-        promotion_active: false,
-        promotion_status: "disabled".to_string(),
-        promotion_discount: 0.0,
-        promotion_ends_at: None,
-        currency: "USD".to_string(),
-        billing_cycle: "lifetime".to_string(),
-        features: vec!["Basic analytics".to_string(), "Rankings access".to_string()],
-        permissions: FREE_PLAN_DEFAULT_PERMISSIONS.iter().map(|s| s.to_string()).collect(),
-        is_active: true,
-        display_order: FREE_PLAN_TIER_LEVEL,
-    }
-}
 
 /// Get a single public plan by ID (no authentication required)
 /// GET /api/public/plans/:id

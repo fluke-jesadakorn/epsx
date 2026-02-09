@@ -214,9 +214,9 @@ export class SimpleCache<T> {
 
   constructor(options: CacheOptions = {}) {
     this.options = {
-      ttl: options.ttl || 5 * 60 * 1000, // 5 minutes default
-      maxSize: options.maxSize || 1000,
-      serialize: options.serialize || false
+      ttl: options.ttl ?? 5 * 60 * 1000, // 5 minutes default
+      maxSize: options.maxSize ?? 1000,
+      serialize: options.serialize ?? false
     };
   }
 

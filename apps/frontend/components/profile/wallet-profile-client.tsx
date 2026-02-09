@@ -40,7 +40,7 @@ export function WalletProfileClient({ wallet }: WalletProfileClientProps) {
   };
 
   // Use backend-provided role directly
-  const role = (wallet as any).role || 'user';
+  const role = (wallet as any).role ?? 'user';
   const roleDisplay = getRoleDisplayName(role);
 
   return (
@@ -53,7 +53,7 @@ export function WalletProfileClient({ wallet }: WalletProfileClientProps) {
               <Wallet className="h-10 w-10 text-white" />
             </div>
             <CardTitle className="text-lg text-slate-900 dark:text-slate-100">
-              {wallet.name || 'Wallet'}
+              {wallet.name ?? 'Wallet'}
             </CardTitle>
             <p className="text-sm text-slate-600 dark:text-slate-400">
               {wallet.email}
@@ -89,7 +89,7 @@ export function WalletProfileClient({ wallet }: WalletProfileClientProps) {
                   <div className="flex justify-between">
                     <span className="text-slate-600 dark:text-slate-400">Platform:</span>
                     <span className="font-medium text-slate-900 dark:text-slate-100">
-                      {wallet.platform_context || 'epsx'}
+                      {wallet.platform_context ?? 'epsx'}
                     </span>
                   </div>
                   {wallet.permission_last_updated && (
@@ -191,7 +191,7 @@ export function WalletProfileClient({ wallet }: WalletProfileClientProps) {
                         Platform Context
                       </label>
                       <div className="mt-1 p-3 bg-slate-50 dark:bg-slate-800 rounded-lg text-sm">
-                        {wallet.platform_context || 'epsx'}
+                        {wallet.platform_context ?? 'epsx'}
                       </div>
                     </div>
                   </div>

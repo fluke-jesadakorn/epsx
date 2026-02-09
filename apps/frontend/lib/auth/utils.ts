@@ -131,16 +131,16 @@ export function parseJWTForUI(token: string): JWTClaims | null {
       sub: payload.sub,
       email: payload.email,
       name: payload.name,
-      permissions: payload.permissions || [],
-      roles: payload.roles || [],
-      platform_context: payload.platform_context || 'epsx',
-      security_level: payload.security_level || 1,
-      device_fingerprint: payload.device_fingerprint || '',
-      granted_by: payload.granted_by || 'system',
+      permissions: payload.permissions ?? [],
+      roles: payload.roles ?? [],
+      platform_context: payload.platform_context ?? 'epsx',
+      security_level: payload.security_level ?? 1,
+      device_fingerprint: payload.device_fingerprint ?? '',
+      granted_by: payload.granted_by ?? 'system',
       exp: payload.exp,
       iat: payload.iat,
-      jti: payload.jti || '',
-      sid: payload.sid || ''
+      jti: payload.jti ?? '',
+      sid: payload.sid ?? ''
     };
   } catch (error) {
     authLogger.warn('Failed to parse JWT for UI', { error: safeError(error).message });

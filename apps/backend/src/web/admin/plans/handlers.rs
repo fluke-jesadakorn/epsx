@@ -121,38 +121,6 @@ fn generate_api_key() -> String {
     format!("epsx_{}", key)
 }
 
-fn get_constant_free_plan() -> PlanResponse {
-    use crate::core::constants::*;
-    PlanResponse {
-        id: FREE_PLAN_ID.to_string(),
-        name: FREE_PLAN_NAME.to_string(),
-        description: Some(FREE_PLAN_DESCRIPTION.to_string()),
-        permission_plan_name: FREE_PLAN_NAME.to_string(),
-        current_price: Decimal::ZERO,
-        effective_price: 0.0,
-        promotion_active: false,
-        promotion_status: "disabled".to_string(),
-        promotion_discount: 0.0,
-        currency: "USD".to_string(),
-        target_audience: "all".to_string(),
-        billing_model: "lifetime".to_string(),
-        plan_type: "subscription".to_string(),
-        plan_category: "standard".to_string(),
-        is_active: true,
-        permissions: FREE_PLAN_DEFAULT_PERMISSIONS.iter().map(|s| s.to_string()).collect(),
-        metadata: Some(serde_json::json!({
-            "is_constant": true,
-            "can_delete": false,
-            "can_update": false
-        })),
-        created_at: Utc::now(), // Use current time or a fixed epoch
-        updated_at: None,
-        subscriber_count: 0,
-        revenue_last_30_days: Decimal::ZERO,
-        tier_level: FREE_PLAN_TIER_LEVEL,
-    }
-}
-
 
 /// Create Plan Handler
 #[utoipa::path(

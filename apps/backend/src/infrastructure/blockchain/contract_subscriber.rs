@@ -11,7 +11,6 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::time::sleep;
 use tokio_tungstenite::{connect_async, tungstenite::Message as WsMessage};
 use tracing::{debug, error, info, warn};
 
@@ -35,6 +34,7 @@ struct JsonRpcRequest {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct JsonRpcResponse {
     jsonrpc: String,
     id: u64,
@@ -49,12 +49,14 @@ struct JsonRpcResponse {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct JsonRpcError {
     code: i32,
     message: String,
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct JsonRpcParams {
     #[serde(default)]
     subscription: String,
@@ -75,10 +77,10 @@ pub struct ContractSubscriber {
     config: ChainContractConfig,
     payment_verifier: Arc<PaymentVerifier>,
     state: SubscriptionState,
-    subscription_id: Option<String>,
-    reconnect_attempts: u32,
-    max_reconnect_attempts: u32,
-    backoff_seconds: u64,
+    _subscription_id: Option<String>,
+    _reconnect_attempts: u32,
+    _max_reconnect_attempts: u32,
+    _backoff_seconds: u64,
 }
 
 impl ContractSubscriber {
@@ -101,10 +103,10 @@ impl ContractSubscriber {
             config,
             payment_verifier,
             state: SubscriptionState::Disconnected,
-            subscription_id: None,
-            reconnect_attempts: 0,
-            max_reconnect_attempts: 10,
-            backoff_seconds: 1,
+            _subscription_id: None,
+            _reconnect_attempts: 0,
+            _max_reconnect_attempts: 10,
+            _backoff_seconds: 1,
         })
     }
 
@@ -372,28 +374,6 @@ impl ContractSubscriber {
         // The existing BscEventListener already handles HTTP polling
         // This is a fallback placeholder
         Err(AppError::infrastructure_error("Use BscEventListener for HTTP polling".to_string()))
-    }
-
-    /// Exponential backoff for reconnection
-    async fn backoff(&mut self) {
-        let delay = Duration::from_secs(self.backoff_seconds);
-        info!("⏳ Waiting {}s before reconnect...", self.backoff_seconds);
-        sleep(delay).await;
-
-        self.reconnect_attempts += 1;
-        self.backoff_seconds = (self.backoff_seconds * 2).min(32); // Max 32 seconds
-
-        if self.reconnect_attempts > self.max_reconnect_attempts {
-            warn!("⚠️ Max reconnection attempts reached");
-            self.reconnect_attempts = 0;
-            self.backoff_seconds = 1; // Reset
-        }
-    }
-
-    /// Reset reconnection state
-    fn reset_backoff(&mut self) {
-        self.reconnect_attempts = 0;
-        self.backoff_seconds = 1;
     }
 
     /// Get current state

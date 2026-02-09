@@ -86,7 +86,7 @@ export const UsageAnalytics: React.FC<UsageAnalyticsProps> = ({ apiKeys }) => {
                                 {apiKeys.map(apiKey => (
                                     <tr key={apiKey.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                                         <td className="border border-gray-200 dark:border-gray-600 px-4 py-3 text-sm font-mono text-gray-900 dark:text-gray-100">
-                                            {apiKey.key_preview || (apiKey as any).key_prefix}...
+                                            {apiKey.key_preview ?? (apiKey as any).key_prefix}...
                                         </td>
                                         <td className="border border-gray-200 dark:border-gray-600 px-4 py-3 text-sm text-gray-900 dark:text-gray-100">
                                             {apiKey.client_name}
@@ -97,7 +97,7 @@ export const UsageAnalytics: React.FC<UsageAnalyticsProps> = ({ apiKeys }) => {
                                             ).toLocaleString()}
                                         </td>
                                         <td className="border border-gray-200 dark:border-gray-600 px-4 py-3 text-sm text-gray-900 dark:text-gray-100">
-                                            {apiKey.allowed_modules[0]?.module_name || 'N/A'}
+                                            {apiKey.allowed_modules[0]?.module_name ?? 'N/A'}
                                         </td>
                                         <td className="border border-gray-200 dark:border-gray-600 px-4 py-3 text-sm text-gray-900 dark:text-gray-100">
                                             {apiKey.last_used_at

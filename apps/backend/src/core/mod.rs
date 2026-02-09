@@ -4,7 +4,6 @@ pub mod errors;
 pub mod error_recovery;
 pub mod telemetry;
 pub mod events;
-// pub mod db; // Removed - unused database abstraction layer (codebase uses SQLx directly)
 pub mod types;
 pub mod constants;
 // OIDC client credential service removed - using pure Web3 authentication

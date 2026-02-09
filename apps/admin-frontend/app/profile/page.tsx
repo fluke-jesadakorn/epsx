@@ -21,7 +21,7 @@ export default async function AdminProfilePage() {
   const session = await getServerSessionAdmin();
 
   // Redirect if not authenticated as admin
-  if (!session?.isAuthenticated || !session.user) {
+  if (!session?.isAuthenticated ?? !session.user) {
     redirect('/auth');
   }
 

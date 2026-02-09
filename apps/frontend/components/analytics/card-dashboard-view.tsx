@@ -215,7 +215,7 @@ export function CardDashboardView({ className = '' }: CardDashboardViewProps) {
             rank: index + 1,
             symbol: ranking.symbol,
             latest_date: new Date().toISOString().split('T')[0],
-            value: ranking.marketCap || 0,
+            value: ranking.marketCap ?? 0,
             active_status: 'Active',
             quarterly_performance: [],
             next_quarter_estimate: undefined
@@ -229,12 +229,12 @@ export function CardDashboardView({ className = '' }: CardDashboardViewProps) {
             hasPrev: response.pagination.page > 1
           },
           metadata: {
-            available_countries: (response.metadata as any)?.available_countries || [],
-            available_sectors: (response.metadata as any)?.available_sectors || [],
-            request_timestamp: (response.metadata as any)?.request_timestamp || new Date().toISOString(),
-            data_source: (response.metadata as any)?.data_source || 'analytics-api'
+            available_countries: (response.metadata as any)?.available_countries ?? [],
+            available_sectors: (response.metadata as any)?.available_sectors ?? [],
+            request_timestamp: (response.metadata as any)?.request_timestamp ?? new Date().toISOString(),
+            data_source: (response.metadata as any)?.data_source ?? 'analytics-api'
           },
-          processing_time_ms: (response.metadata as any)?.query_time || 0
+          processing_time_ms: (response.metadata as any)?.query_time ?? 0
         };
         setData(transformedData);
       }
@@ -354,9 +354,9 @@ export function CardDashboardView({ className = '' }: CardDashboardViewProps) {
   };
 
   const SymbolCard = ({ cardData, isOverlay = false }: { cardData: SymbolCardData; isOverlay?: boolean }) => {
-    const quarters = cardData.quarterly_performance?.slice(0, 2) || [];
-    const latestQuarter = quarters[0];
-    const previousQuarter = quarters[1];
+    const quarters = cardData.quarterly_performance.slice(0, 2);
+    const latestQuarter = quarters[0] as QuarterlyPerformanceData | undefined;
+    const previousQuarter = quarters[1] as QuarterlyPerformanceData | undefined;
 
     // Map status to action with visual indicators
     const getActionInfo = (status: string) => {
@@ -373,9 +373,9 @@ export function CardDashboardView({ className = '' }: CardDashboardViewProps) {
     const actionInfo = getActionInfo(cardData.active_status);
 
     // Use backend-calculated values (NO frontend calculations)
-    const nextDate = cardData.next_earnings_date_formatted || 'TBD';
-    const daysUntil = cardData.days_until_next_earnings || 0;
-    const progressPercentage = cardData.progress_percentage || 0;
+    const nextDate = cardData.next_earnings_date_formatted ?? 'TBD';
+    const daysUntil = cardData.days_until_next_earnings ?? 0;
+    const progressPercentage = cardData.progress_percentage ?? 0;
 
     return (
       <div className={`mx-auto w-full max-w-sm touch-manipulation overflow-hidden rounded-3xl border-2 border-transparent bg-white shadow-2xl shadow-pink-500/20 transition-all duration-300 dark:bg-slate-900 dark:shadow-cyan-500/20 ${isOverlay ? 'scale-105 cursor-grabbing shadow-2xl' : 'hover:border-pink-200 dark:hover:border-cyan-400/50'
@@ -438,21 +438,23 @@ export function CardDashboardView({ className = '' }: CardDashboardViewProps) {
         </div>
 
         {/* Main Growth with enhanced styling */}
-        <div className="bg-white py-6 text-center dark:bg-slate-900">
-          <div
-            className={`inline-flex items-center gap-2 rounded-2xl px-4 py-2 shadow-lg ${(latestQuarter?.eps_growth || 0) >= 0
-              ? 'bg-gradient-to-r from-green-400 to-emerald-500'
-              : 'bg-gradient-to-r from-red-400 to-red-500'
-              }`}
-          >
-            <span className="text-2xl">
-              {(latestQuarter?.eps_growth || 0) >= 0 ? '↗️' : '↘️'}
-            </span>
-            <span className="text-2xl font-bold text-white drop-shadow-sm">
-              {formatPercentage(latestQuarter?.eps_growth || 0)}
-            </span>
+        {latestQuarter ? (
+          <div className="bg-white py-6 text-center dark:bg-slate-900">
+            <div
+              className={`inline-flex items-center gap-2 rounded-2xl px-4 py-2 shadow-lg ${latestQuarter.eps_growth >= 0
+                ? 'bg-gradient-to-r from-green-400 to-emerald-500'
+                : 'bg-gradient-to-r from-red-400 to-red-500'
+                }`}
+            >
+              <span className="text-2xl">
+                {latestQuarter.eps_growth >= 0 ? '↗️' : '↘️'}
+              </span>
+              <span className="text-2xl font-bold text-white drop-shadow-sm">
+                {formatPercentage(latestQuarter.eps_growth)}
+              </span>
+            </div>
           </div>
-        </div>
+        ) : null}
 
         {/* Separator */}
         <div className="bg-white px-6 dark:bg-slate-900">
@@ -466,18 +468,18 @@ export function CardDashboardView({ className = '' }: CardDashboardViewProps) {
               {/* Previous Quarter */}
               <div className="rounded-2xl border border-purple-200/50 bg-gradient-to-r from-purple-50 to-pink-50 p-4 dark:border-cyan-400/20 dark:from-slate-800 dark:to-slate-700">
                 <div className="mb-2 text-sm font-semibold text-purple-600 dark:text-cyan-400">
-                  {previousQuarter?.date || 'Apr 30, 2025'}
+                  {previousQuarter.date || 'Apr 30, 2025'}
                 </div>
                 <div className="space-y-1 text-sm text-purple-700 dark:text-cyan-200">
                   <div>
                     • Growth:{' '}
-                    {formatPercentage(previousQuarter?.eps_growth || 0)} | EPS:{' '}
-                    {(previousQuarter?.eps || 0).toFixed(2)}
+                    {formatPercentage(previousQuarter.eps_growth || 0)} | EPS:{' '}
+                    {(previousQuarter.eps || 0).toFixed(2)}
                   </div>
                   <div>
                     • Price:{' '}
-                    {formatPercentage(previousQuarter?.price_growth || 0)} |{' '}
-                    {formatCurrency(previousQuarter?.price || 0)}
+                    {formatPercentage(previousQuarter.price_growth || 0)} |{' '}
+                    {formatCurrency(previousQuarter.price || 0)}
                   </div>
                 </div>
               </div>
@@ -485,17 +487,17 @@ export function CardDashboardView({ className = '' }: CardDashboardViewProps) {
               {/* Latest Quarter */}
               <div className="rounded-2xl border border-green-200/50 bg-gradient-to-r from-green-50 to-emerald-50 p-4 dark:border-cyan-400/20 dark:from-slate-800 dark:to-slate-700">
                 <div className="mb-2 text-sm font-semibold text-green-600 dark:text-cyan-400">
-                  {latestQuarter?.date || 'Jul 30, 2025'}
+                  {latestQuarter.date || 'Jul 30, 2025'}
                 </div>
                 <div className="space-y-1 text-sm text-green-700 dark:text-cyan-200">
                   <div>
-                    • Growth: {formatPercentage(latestQuarter?.eps_growth || 0)}{' '}
-                    | EPS: {(latestQuarter?.eps || 0).toFixed(2)}
+                    • Growth: {formatPercentage(latestQuarter.eps_growth || 0)}{' '}
+                    | EPS: {(latestQuarter.eps || 0).toFixed(2)}
                   </div>
                   <div>
                     • Price:{' '}
-                    {formatPercentage(latestQuarter?.price_growth || 0)} |{' '}
-                    {formatCurrency(latestQuarter?.price || 0)}
+                    {formatPercentage(latestQuarter.price_growth || 0)} |{' '}
+                    {formatCurrency(latestQuarter.price || 0)}
                   </div>
                 </div>
               </div>
@@ -655,9 +657,8 @@ export function CardDashboardView({ className = '' }: CardDashboardViewProps) {
             size="sm"
             onClick={loadData}
             className="flex items-center gap-2"
-            disabled={loading}
           >
-            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw className="h-4 w-4" />
             Refresh
           </Button>
 
@@ -721,7 +722,7 @@ export function CardDashboardView({ className = '' }: CardDashboardViewProps) {
               <Label htmlFor="min_eps">Min EPS</Label>
               <Input
                 type="number"
-                value={filters.min_eps || ''}
+                value={filters.min_eps ?? ''}
                 onChange={e =>
                   updateFilters({
                     min_eps: e.target.value
@@ -738,7 +739,7 @@ export function CardDashboardView({ className = '' }: CardDashboardViewProps) {
               <Label htmlFor="min_growth">Min Growth %</Label>
               <Input
                 type="number"
-                value={filters.min_growth || ''}
+                value={filters.min_growth ?? ''}
                 onChange={e =>
                   updateFilters({
                     min_growth: e.target.value
@@ -802,7 +803,7 @@ export function CardDashboardView({ className = '' }: CardDashboardViewProps) {
       )}
 
       {/* Cards grid */}
-      {data && data.data && data.data.length > 0 ? (
+      {data?.data && data.data.length > 0 ? (
         <DndContext
           sensors={sensors}
           collisionDetection={closestCenter}
@@ -815,7 +816,7 @@ export function CardDashboardView({ className = '' }: CardDashboardViewProps) {
           >
             <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {data.data.map(cardData =>
-                cardData && cardData.symbol ? (
+                cardData.symbol ? (
                   <SortableSymbolCard key={cardData.symbol} cardData={cardData} />
                 ) : null
               )}
@@ -841,7 +842,7 @@ export function CardDashboardView({ className = '' }: CardDashboardViewProps) {
       )}
 
       {/* Pagination */}
-      {data && data.pagination && data.pagination.totalPages > 1 && (
+      {data?.pagination && data.pagination.totalPages > 1 && (
         <div className="mt-8 flex items-center justify-center gap-2">
           <Button
             variant="outline"

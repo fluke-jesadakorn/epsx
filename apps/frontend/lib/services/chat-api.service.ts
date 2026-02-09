@@ -32,8 +32,8 @@ export class ChatApiService extends ChatApi {
   ): ChatRequest {
     return {
       messages,
-      temperature: opts?.temp || 0.7,
-      maxTokens: opts?.maxTokens || 1000,
+      temperature: opts?.temp ?? 0.7,
+      maxTokens: opts?.maxTokens ?? 1000,
     };
   }
 

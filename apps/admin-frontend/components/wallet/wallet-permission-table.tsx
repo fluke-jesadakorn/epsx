@@ -184,7 +184,7 @@ function PermissionRow({
                         size="sm"
                         onClick={() => onRevoke?.(permission.id)}
                         className="h-8 px-2 text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
-                        disabled={!permission.isActive || expired}
+                        disabled={!permission.isActive ?? expired}
                     >
                         <Trash2 className="h-4 w-4" />
                     </Button>

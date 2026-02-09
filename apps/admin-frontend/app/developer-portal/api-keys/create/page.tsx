@@ -68,7 +68,7 @@ async function CreateApiKeyForm() {
       client_contact_email: clientContactEmail?.trim(),
       allowed_modules: [], // Will need to be configured separately
       ip_restrictions: ipRestrictions,
-      expires_at: expiresAt || undefined
+      expires_at: expiresAt ?? undefined
     }
 
     try {
@@ -80,7 +80,7 @@ async function CreateApiKeyForm() {
         client_description: createRequest.client_description,
         client_contact_email: createRequest.client_contact_email,
         allowed_modules: createRequest.allowed_modules,
-        ip_restrictions: createRequest.ip_restrictions || [],
+        ip_restrictions: createRequest.ip_restrictions ?? [],
         expires_at: createRequest.expires_at,
       })
 
@@ -88,7 +88,7 @@ async function CreateApiKeyForm() {
         const searchParams = new URLSearchParams({
           success: 'true',
           client_name: clientName,
-          new_key: response.data?.full_key || 'key-created'
+          new_key: response.data?.full_key ?? 'key-created'
         })
         redirect(`/developer-portal?${searchParams.toString()}`)
       } else {

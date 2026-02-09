@@ -114,7 +114,7 @@ export function AddResourceModal({
                     </Button>
                     <Button
                         onClick={handleConfirm}
-                        disabled={!selectedId || isLoading}
+                        disabled={!selectedId ?? isLoading}
                         className="gap-2"
                     >
                         {isLoading && <Loader2 className="h-4 w-4 animate-spin" />}

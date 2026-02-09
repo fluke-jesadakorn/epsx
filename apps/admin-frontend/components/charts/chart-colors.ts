@@ -77,7 +77,7 @@ export type PancakeSwapColorKey = keyof typeof PancakeSwapColors.chartPalette
  * @param index
  */
 export function getChartColor(index: number): string {
-  return PancakeSwapColors.chartPalette[index % PancakeSwapColors.chartPalette.length] || PancakeSwapColors.chartPalette[0] || '#FFC107'
+  return PancakeSwapColors.chartPalette[index % PancakeSwapColors.chartPalette.length] ?? PancakeSwapColors.chartPalette[0] ?? '#FFC107'
 }
 
 /**

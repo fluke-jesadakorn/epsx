@@ -88,7 +88,7 @@ export const fetchPlans = async (): Promise<PaymentPackage[]> => {
     const result = await getPublicPlansAction();
 
     if (!result.success || !result.data || !Array.isArray(result.data)) {
-      throw new Error(result.message || 'Invalid API response format');
+      throw new Error(result.message ?? 'Invalid API response format');
     }
 
     const plans = result.data;
@@ -136,7 +136,7 @@ export const fetchPlans = async (): Promise<PaymentPackage[]> => {
         effective_price: effectivePrice,
         icon: getIconForPlan(plan.plan_type),
         description: getDescriptionForPlan(plan.plan_type),
-        popular: plan.is_highlighted || plan.plan_type === 'professional',
+        popular: plan.is_highlighted ?? plan.plan_type === 'professional',
         features: Array.isArray(plan.features)
           ? plan.features
           : typeof plan.features === 'string'

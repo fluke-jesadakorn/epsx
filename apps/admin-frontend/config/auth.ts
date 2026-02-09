@@ -195,7 +195,7 @@ export function hasAdminAuthentication(authState: ProgressiveAuthState): boolean
 
   // Check for admin permissions
   return authState.permissions.some(permission =>
-    permission.startsWith('admin:') || permission === 'admin:*:*'
+    permission.startsWith('admin:') ?? permission === 'admin:*:*'
   );
 }
 

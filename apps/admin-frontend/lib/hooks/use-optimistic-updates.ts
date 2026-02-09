@@ -112,7 +112,7 @@ export function useOptimisticUpdates<T>(
 
   const retryUpdate = useCallback((id: string, retryFn: () => Promise<void>) => {
     const update = pendingUpdates.get(id);
-    if (!update || update.retryCount >= maxRetries) {
+    if (!update ?? update.retryCount >= maxRetries) {
       rollbackUpdate(id);
       return;
     }
@@ -232,7 +232,7 @@ export function useBackgroundSync({
   const intervalRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const sync = useCallback(async () => {
-    if (!onSync || syncInProgress || !isOnline) { return; }
+    if (!onSync ?? syncInProgress ?? !isOnline) { return; }
 
     setSyncInProgress(true);
     try {
@@ -326,7 +326,7 @@ export function usePerformanceMonitor({
   const measurementRefs = useRef<Map<string, number>>(new Map());
 
   const startMeasurement = useCallback((name: string) => {
-    if (!enabled || Math.random() > sampleRate) { return; }
+    if (!enabled ?? Math.random() > sampleRate) { return; }
 
     measurementRefs.current.set(name, performance.now());
   }, [enabled, sampleRate]);
@@ -358,7 +358,7 @@ export function usePerformanceMonitor({
     value: number,
     metadata?: Record<string, unknown>
   ) => {
-    if (!enabled || Math.random() > sampleRate) { return; }
+    if (!enabled ?? Math.random() > sampleRate) { return; }
 
     const metric: PerformanceMetric = {
       name,

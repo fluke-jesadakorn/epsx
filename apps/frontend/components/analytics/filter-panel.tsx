@@ -107,7 +107,7 @@ const FilterPanel = memo<FilterPanelProps>(({ filters, options, onFiltersChange,
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Country</label>
           <select
-            value={filters.country || ''}
+            value={filters.country ?? ''}
             onChange={(e) => handleCountryChange(e.target.value)}
             className="w-full p-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500 min-h-[44px]"
             disabled={isLoading}
@@ -125,7 +125,7 @@ const FilterPanel = memo<FilterPanelProps>(({ filters, options, onFiltersChange,
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Sector</label>
           <select
-            value={filters.sector || ''}
+            value={filters.sector ?? ''}
             onChange={(e) => handleSectorChange(e.target.value)}
             className="w-full p-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500 min-h-[44px]"
             disabled={isLoading}

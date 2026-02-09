@@ -38,7 +38,7 @@ export function ErrorDisplay({
 }: ErrorDisplayProps) {
   if (!error) {return null;}
 
-  const errorMessage = typeof error === 'string' ? error : error.message || 'An unexpected error occurred';
+  const errorMessage = typeof error === 'string' ? error : error.message ?? 'An unexpected error occurred';
   const errorStack = typeof error === 'object' && error?.stack ? error.stack : undefined;
 
   // Context-specific styling and content
@@ -46,7 +46,7 @@ export function ErrorDisplay({
     switch (context) {
       case 'auth':
         return {
-          title: title || 'Authentication Required',
+          title: title ?? 'Authentication Required',
           message: 'Please sign in to continue accessing this feature.',
           icon: <LogOut className="h-8 w-8" />,
           bgColor: 'bg-blue-50 dark:bg-blue-950/50',
@@ -56,7 +56,7 @@ export function ErrorDisplay({
         };
       case 'permission':
         return {
-          title: title || 'Access Denied',
+          title: title ?? 'Access Denied',
           message: 'You don\'t have permission to access this resource.',
           icon: <AlertTriangle className="h-8 w-8" />,
           bgColor: 'bg-amber-50 dark:bg-amber-950/50',
@@ -66,7 +66,7 @@ export function ErrorDisplay({
         };
       case 'network':
         return {
-          title: title || 'Connection Error',
+          title: title ?? 'Connection Error',
           message: 'Unable to connect to the server. Please check your internet connection.',
           icon: <RefreshCw className="h-8 w-8" />,
           bgColor: 'bg-orange-50 dark:bg-orange-950/50',
@@ -76,7 +76,7 @@ export function ErrorDisplay({
         };
       case 'validation':
         return {
-          title: title || 'Invalid Data',
+          title: title ?? 'Invalid Data',
           message: 'Please check your input and try again.',
           icon: <AlertTriangle className="h-8 w-8" />,
           bgColor: 'bg-yellow-50 dark:bg-yellow-950/50',
@@ -86,7 +86,7 @@ export function ErrorDisplay({
         };
       case 'loading':
         return {
-          title: title || 'Loading Error',
+          title: title ?? 'Loading Error',
           message: 'Failed to load the requested data.',
           icon: <RefreshCw className="h-8 w-8" />,
           bgColor: 'bg-gray-50 dark:bg-gray-950/50',
@@ -96,7 +96,7 @@ export function ErrorDisplay({
         };
       default: // server
         return {
-          title: title || 'Server Error',
+          title: title ?? 'Server Error',
           message: 'A server error occurred. Please try again later.',
           icon: <AlertTriangle className="h-8 w-8" />,
           bgColor: 'bg-red-50 dark:bg-red-950/50',

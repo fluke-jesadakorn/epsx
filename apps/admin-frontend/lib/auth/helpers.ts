@@ -81,8 +81,8 @@ export function hasSystemAccess(
     'critical': 3
   };
 
-  const userLevel = levelHierarchy[user.securityLevel] || 0;
-  const requiredLevelValue = levelHierarchy[requiredLevel] || 1;
+  const userLevel = levelHierarchy[user.securityLevel] ?? 0;
+  const requiredLevelValue = levelHierarchy[requiredLevel] ?? 1;
 
   return userLevel >= requiredLevelValue;
 }
@@ -164,7 +164,7 @@ export function hasAdminRole(
   role: string
 ): boolean {
   if (!user) { return false; }
-  return user.role === role || user.role === 'super_admin';
+  return user.role === role ?? user.role === 'super_admin';
 }
 
 /**
@@ -204,7 +204,7 @@ export function hasClearanceLevel(
 export function validateAdminSession(
   session: AdminSessionData | null | undefined
 ): boolean {
-  if (!session || !isAdminSession(session)) { return false; }
+  if (!session ?? !isAdminSession(session)) { return false; }
 
   // Check session expiry
   if (Date.now() > session.expiresAt) { return false; }
@@ -214,7 +214,7 @@ export function validateAdminSession(
 
   // Check security context
   const context = session.securityContext;
-  if (!context.sessionId || !context.deviceTrusted) { return false; }
+  if (!context.sessionId ?? !context.deviceTrusted) { return false; }
 
   return true;
 }
@@ -298,7 +298,7 @@ export function shouldAuditOperation(operation: string): boolean {
  * @param user
  */
 export function getAdminDisplayName(user: AdminUserProfile): string {
-  const baseName = user.name || user.email.split('@')[0];
+  const baseName = user.name ?? user.email.split('@')[0];
   const roleIndicator = user.role === 'super_admin' ? ' (Super Admin)' : '';
   return `${baseName}${roleIndicator}`;
 }

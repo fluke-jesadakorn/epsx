@@ -16,8 +16,8 @@ const storage = {
     if (typeof window === 'undefined') {return;}
     try {
       window[storageType].setItem(key, JSON.stringify(value));
-    } catch (error) {
-      console.warn('Failed to save to storage:', error instanceof Error ? error.message : error);
+    } catch (_error) {
+      // Storage write failed silently
     }
   },
 
@@ -25,8 +25,8 @@ const storage = {
     if (typeof window === 'undefined') {return;}
     try {
       window[storageType].removeItem(key);
-    } catch (error) {
-      console.warn('Failed to remove from storage:', error instanceof Error ? error.message : error);
+    } catch (_error) {
+      // Storage removal failed silently
     }
   },
 
@@ -34,8 +34,8 @@ const storage = {
     if (typeof window === 'undefined') {return;}
     try {
       window[storageType].clear();
-    } catch (error) {
-      console.warn('Failed to clear storage:', error instanceof Error ? error.message : error);
+    } catch (_error) {
+      // Storage clear failed silently
     }
   }
 };
@@ -74,15 +74,14 @@ export function usePersistentState<T>(options: PersistentStateOptions<T>) {
 
       // Handle versioning and migration
       if (version && migrate && item._version !== version) {
-        const migrated = migrate(item, item._version || 0);
+        const migrated = migrate(item, item._version ?? 0);
         const versionedState = { ...migrated, _version: version };
         storage.set(key, versionedState, storageType);
         return migrated;
       }
 
       return item._version ? item : item;
-    } catch (error) {
-      console.warn(`Failed to load persisted state for key "${key}":`, error);
+    } catch (_error) {
       return defaultValue;
     }
   });
@@ -94,8 +93,8 @@ export function usePersistentState<T>(options: PersistentStateOptions<T>) {
     try {
       const valueToStore = version ? { ...state, _version: version } : state;
       storage.set(key, valueToStore, storageType);
-    } catch (error) {
-      console.warn(`Failed to persist state for key "${key}":`, error);
+    } catch (_error) {
+      // Persistence failed silently
     }
   }, [state, key, storageType, version]);
 
@@ -186,7 +185,7 @@ export function useUserPreferences() {
           ...oldPrefs,
           trading: {
             ...defaultPreferences.trading,
-            ...(oldPrefs.trading || {})
+            ...(oldPrefs.trading ?? {})
           }
         };
       }

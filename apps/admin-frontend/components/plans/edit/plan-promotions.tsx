@@ -87,7 +87,7 @@ export function PlanPromotions({ formData, setFormData }: PlanFormProps) {
                                 }
                                 value={formData.promo_value}
                                 onChange={(e) => {
-                                    const value = parseFloat(e.target.value) || 0
+                                    const value = parseFloat(e.target.value) ?? 0
                                     const newValue =
                                         formData.promo_type === 'percentage'
                                             ? Math.min(value, 100)
@@ -109,7 +109,7 @@ export function PlanPromotions({ formData, setFormData }: PlanFormProps) {
                                 onChange={(e) =>
                                     setFormData({
                                         ...formData,
-                                        promo_price: parseFloat(e.target.value) || 0,
+                                        promo_price: parseFloat(e.target.value) ?? 0,
                                     })
                                 }
                                 className="w-full px-4 py-3 rounded-xl border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-rose-500 focus:ring-2 focus:ring-rose-500 focus:outline-none"

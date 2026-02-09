@@ -87,14 +87,14 @@ export function PaymentsManagement() {
             const response = await base.get<any>('/api/payments/admin/list', params);
 
             if (response.success && response.data) {
-                setPayments(response.data.payments || []);
-                setStats(response.data.summary || null);
-                setTotalPages(response.data.pagination?.total_pages || 1);
+                setPayments(response.data.payments ?? []);
+                setStats(response.data.summary ?? null);
+                setTotalPages(response.data.pagination?.total_pages ?? 1);
             } else {
                 const resp = response as any;
                 const errorMessage = typeof resp.error === 'object'
-                    ? resp.error.message || JSON.stringify(resp.error)
-                    : resp.error || resp.message || 'Failed to load payments';
+                    ? resp.error.message ?? JSON.stringify(resp.error)
+                    : resp.error ?? resp.message ?? 'Failed to load payments';
                 throw new Error(errorMessage);
             }
         } catch (err) {
@@ -130,13 +130,13 @@ export function PaymentsManagement() {
             headers.join(','),
             ...payments.map(p => [
                 new Date(p.created_at).toISOString(),
-                p.wallet_address || '',
-                p.plan_name || '',
-                p.amount?.toString() || '',
-                p.currency || 'USDT',
-                p.status || '',
-                p.transaction_hash || '',
-                p.payment_reference || ''
+                p.wallet_address ?? '',
+                p.plan_name ?? '',
+                p.amount?.toString() ?? '',
+                p.currency ?? 'USDT',
+                p.status ?? '',
+                p.transaction_hash ?? '',
+                p.payment_reference ?? ''
             ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(','))
         ];
 
@@ -484,7 +484,7 @@ export function PaymentsManagement() {
                                                     </td>
                                                     <td className="px-4 py-4 whitespace-nowrap">
                                                         <div className="text-xs font-mono text-muted-foreground">
-                                                            {payment.wallet_address || 'N/A'}
+                                                            {payment.wallet_address ?? 'N/A'}
                                                         </div>
                                                     </td>
                                                     <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-foreground">

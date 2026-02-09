@@ -15,7 +15,7 @@ export default async function NotificationsPage({ searchParams }: NotificationsP
   const focusId = params.id;
 
   const initialData = await getInitialNotificationsAction({
-    page: parseInt(params.page || '1'),
+    page: parseInt(params.page ?? '1'),
     type: params.type,
     priority: params.priority,
   });

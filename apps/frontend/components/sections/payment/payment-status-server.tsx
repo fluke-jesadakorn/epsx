@@ -36,16 +36,16 @@ export async function PaymentStatusServer({
 
     // Map payment history to Transaction format expected by TransactionHistory
     transactions = userTransactions.map((tx: any) => ({
-      orderNo: tx.id || tx.orderNo || '',
-      actualAmount: tx.amount || 0,
-      currency: tx.currency || 'USD',
-      status: tx.status || 'pending',
-      finishTime: tx.finishTime || tx.createdAt || new Date().toISOString(),
-      blockchainData: tx.blockchainData || {
+      orderNo: tx.id ?? tx.orderNo ?? '',
+      actualAmount: tx.amount ?? 0,
+      currency: tx.currency ?? 'USD',
+      status: tx.status ?? 'pending',
+      finishTime: tx.finishTime ?? tx.createdAt ?? new Date().toISOString(),
+      blockchainData: tx.blockchainData ?? {
         txHash: '',
         network: 'BSC'
       },
-      blockExplorerUrl: tx.blockExplorerUrl || ''
+      blockExplorerUrl: tx.blockExplorerUrl ?? ''
     }));
   } catch (err) {
     // Check if this is a redirect error (user not authenticated)

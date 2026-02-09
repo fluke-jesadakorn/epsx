@@ -113,7 +113,7 @@ export const PortalOverview: React.FC<PortalOverviewProps> = ({ apiKeys, modules
                                             {apiKey.client_name}
                                         </h4>
                                         <p className="text-sm text-gray-500 dark:text-gray-400">
-                                            Key: {apiKey.key_preview || (apiKey as any).key_prefix}...
+                                            Key: {apiKey.key_preview ?? (apiKey as any).key_prefix}...
                                         </p>
                                     </div>
                                 </div>
@@ -188,7 +188,7 @@ export const PortalOverview: React.FC<PortalOverviewProps> = ({ apiKeys, modules
                                 </span>
                             </div>
                             <p className="text-sm text-gray-600 dark:text-gray-300 mb-3">
-                                {module.description || 'No description available'}
+                                {module.description ?? 'No description available'}
                             </p>
                             <div className="text-xs text-gray-500 dark:text-gray-400">
                                 <span className="font-medium">Category:</span>{' '}

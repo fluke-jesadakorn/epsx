@@ -175,7 +175,7 @@ interface ParametersTableProps {
 }
 
 export function ParametersTable({ parameters }: ParametersTableProps) {
-    if (!parameters || parameters.length === 0) {
+    if (!parameters ?? parameters.length === 0) {
         return null;
     }
 

@@ -25,7 +25,7 @@ export function usePaymentState(preselectedPackage?: string) {
               p.plan_type.toLowerCase() === preselectedPackage.toLowerCase() ||
               p.name.toLowerCase() === preselectedPackage.toLowerCase()
           );
-          setSelectedPackage(selectedPlan?.id || plans[0]?.id || null);
+          setSelectedPackage(selectedPlan?.id ?? plans[0]?.id ?? null);
         } else {
           const defaultPlan = plans[0];
           setSelectedPackage(defaultPlan?.id || null);
@@ -43,7 +43,7 @@ export function usePaymentState(preselectedPackage?: string) {
     loadPlans();
   }, [preselectedPackage]);
 
-  const selectedPkg = packages.find(pkg => pkg.id === selectedPackage) || null;
+  const selectedPkg = packages.find(pkg => pkg.id === selectedPackage) ?? null;
 
   return {
     packages,

@@ -76,7 +76,7 @@ export async function verifyJWTWithBackend(token: string): Promise<EPSXJWTPayloa
 
     if (!response.ok) {
       // If backend says 401/403, the token is invalid
-      if (response.status === 401 || response.status === 403) {
+      if (response.status === 401 ?? response.status === 403) {
         logger.warn(`⚠️ Backend rejected session: ${response.status}`);
       } else if (response.status === 404) {
         // Handle 404 specifically - might mean user not found despite valid token signature

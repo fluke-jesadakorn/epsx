@@ -24,7 +24,7 @@ export function PublicRankingPreview({
   className,
   initialData,
 }: PublicRankingPreviewProps) {
-  const [data, setData] = useState<StockFinancialData[]>(initialData || []);
+  const [data, setData] = useState<StockFinancialData[]>(initialData ?? []);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
 
@@ -137,7 +137,7 @@ export function PublicRankingPreview({
             };
           };
 
-          const displayRank = stock.rank || (index + 1);
+          const displayRank = stock.rank ?? (index + 1);
           // Force 1st styled card logic for 4th item if needed, but per request:
           // "Change card 1st and 4th same as 2nd and 3rd image"
           // This implies card 1 corresponds to Rank 1 styling, Card 2 to Rank 2, etc.
@@ -222,7 +222,7 @@ export function PublicRankingPreview({
                   <div className="text-2xl font-black text-white dark:text-slate-200 text-center">
                     ${stock.currentPrice
                       ? stock.currentPrice.toFixed(2)
-                      : latestQuarter?.price?.toFixed(2) || '0.00'}
+                      : latestQuarter?.price?.toFixed(2) ?? '0.00'}
                   </div>
                 </div>
               </div>

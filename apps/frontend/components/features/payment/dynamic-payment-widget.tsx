@@ -159,7 +159,7 @@ export function DynamicPaymentWidget({
     });
 
     // Get backend URL from environment
-    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080';
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:8080';
     const apiClient = createFrontendApiClient();
 
     // Fetch payment context data
@@ -213,7 +213,7 @@ export function DynamicPaymentWidget({
                         slug: `group-${group.id}`,
                         name: group.name,
                         description: group.description,
-                        amount: group.price || 0,
+                        amount: group.price ?? 0,
                         currency: 'USDT',
                         is_active: true,
                         is_usable: true,
@@ -229,7 +229,7 @@ export function DynamicPaymentWidget({
 
             // Set default token
             if (supportedTokens.length > 0 && !selectedToken) {
-                const defaultToken = supportedTokens.find(t => t.symbol === data?.currency) || supportedTokens[0];
+                const defaultToken = supportedTokens.find(t => t.symbol === data?.currency) ?? supportedTokens[0];
                 setSelectedToken(defaultToken);
             }
         } catch (err: any) {
@@ -240,7 +240,7 @@ export function DynamicPaymentWidget({
             } else if (err.status === 410) {
                 setError('Payment link has expired or reached max uses');
             } else {
-                setError(err.message || 'Failed to load payment details');
+                setError(err.message ?? 'Failed to load payment details');
             }
         } finally {
             setLoading(false);
@@ -284,7 +284,7 @@ export function DynamicPaymentWidget({
                             onPaymentSuccess?.(hash);
                         } else if (statusData.status === 'failed') {
                             clearInterval(intervalId);
-                            setError(statusData.error_message || 'Payment failed verification');
+                            setError(statusData.error_message ?? 'Payment failed verification');
                         }
                     }
                 }
@@ -294,7 +294,6 @@ export function DynamicPaymentWidget({
                     devLog('⏳ [Debug] Transaction not yet processed by backend (404)');
                     return;
                 }
-                console.error('Polling error:', e);
             }
         }, 3000);
 
@@ -309,35 +308,27 @@ export function DynamicPaymentWidget({
                 setSubmissionStep('submitting');
 
                 try {
-                    console.log('🚀 [Debug] Submitting payment to backend:', txHash);
-
                     const requestBody = {
                         transaction_hash: txHash,
                         // context_id is the plan/group ID to pass to backend
                         plan_id: paymentData?.context_id,
                         expected_amount: paymentData?.amount,
                         currency: paymentData?.currency,
-                        network: supportedChains.find(c => c.id === chainId)?.name || 'unknown'
+                        network: supportedChains.find(c => c.id === chainId)?.name ?? 'unknown'
                     };
-
-                    console.log('📦 [Debug] Request body:', JSON.stringify(requestBody));
 
                     // Use apiClient.post
                     const response = await apiClient.post('/api/payments/submit', requestBody);
-
-                    console.log('📥 [Debug] Submit response success:', response.success);
 
                     if (response.success) {
                         setSubmissionStep('submitted');
                         // Start polling
                         pollBackendStatus(txHash);
                     } else {
-                        console.error('❌ Failed to submit:', response);
-                        setError(response.error?.message || 'Failed to submit payment to backend');
+                        setError(response.error?.message ?? 'Failed to submit payment to backend');
                     }
                 } catch (err: any) {
-                    console.error('❌ Submission error:', err);
-                    setError(`Backend submission failed: ${err.message || 'Unknown error'}`);
+                    setError(`Backend submission failed: ${err.message ?? 'Unknown error'}`);
                 }
             };
 
@@ -398,7 +389,7 @@ export function DynamicPaymentWidget({
 
     // Check token balance (Public/RPC Direct) - Bypass wallet RPC issues
     const { balance: publicBalance } = usePublicBalance(
-        tokenAddress || undefined,
+        tokenAddress ?? undefined,
         address
     );
 
@@ -469,7 +460,7 @@ export function DynamicPaymentWidget({
                         Payment Unavailable
                     </h3>
                     <p className="text-gray-600 dark:text-gray-400">
-                        {error || 'This payment link is no longer available'}
+                        {error ?? 'This payment link is no longer available'}
                     </p>
                 </div>
             </div>
@@ -667,14 +658,14 @@ export function DynamicPaymentWidget({
                                 First, add {selectedToken.symbol} token to your wallet to view your balance and enable payments.
                             </p>
                             {/* Show on-chain balance */}
-                            {(publicBalance || balanceData) && (
+                            {(publicBalance ?? balanceData) && (
                                 <div className="mb-3">
                                     <p className="text-sm text-green-700 dark:text-green-300 font-medium">
-                                        ✅ On-chain balance: {publicBalance || balanceData?.formatted} {selectedToken.symbol}
+                                        ✅ On-chain balance: {publicBalance ?? balanceData?.formatted} {selectedToken.symbol}
                                     </p>
 
                                     {/* Show funding help if balance is 0 */}
-                                    {((publicBalance && parseFloat(publicBalance) === 0) || (!publicBalance && balanceData && parseFloat(balanceData.formatted) === 0)) && (
+                                    {((publicBalance && parseFloat(publicBalance) === 0) ?? (!publicBalance && balanceData && parseFloat(balanceData.formatted) === 0)) && (
                                         <div className="mt-2 text-xs bg-yellow-50 dark:bg-yellow-900/10 p-2 rounded border border-yellow-200 dark:border-yellow-800 text-yellow-800 dark:text-yellow-200">
                                             <strong>Need test tokens?</strong> Run this in your terminal:
                                             <code className="block mt-1 bg-white dark:bg-black/20 p-1 rounded select-all">
@@ -719,18 +710,18 @@ export function DynamicPaymentWidget({
             {chainId === 31337 && selectedToken && (
                 <div className="mb-6 space-y-3">
                     {/* On-chain balance display */}
-                    {(publicBalance || balanceData) && (
+                    {(publicBalance ?? balanceData) && (
                         <div className="p-3 bg-gray-50 dark:bg-white/5 rounded-lg border border-gray-200 dark:border-white/10">
                             <p className="text-sm font-medium flex items-center gap-2">
                                 <span>🔍 Diagnostics:</span>
                                 <span className={cn(
                                     publicBalance && parseFloat(publicBalance) > 0 ? "text-green-600" : "text-gray-600"
                                 )}>
-                                    Real On-Chain Balance: {publicBalance || '...'} {selectedToken.symbol}
+                                    Real On-Chain Balance: {publicBalance ?? '...'} {selectedToken.symbol}
                                 </span>
                             </p>
                             <p className="text-xs text-gray-500 mt-1">
-                                MetaMask sees: {balanceData?.formatted || '0'} {selectedToken.symbol}
+                                MetaMask sees: {balanceData?.formatted ?? '0'} {selectedToken.symbol}
                             </p>
                         </div>
                     )}

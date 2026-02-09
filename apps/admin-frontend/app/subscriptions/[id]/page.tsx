@@ -256,7 +256,7 @@ export default function SubscriptionDetailPage() {
     }
 
     const formatUsage = (usage?: Record<string, unknown>) => {
-        if (!usage || Object.keys(usage).length === 0) {
+        if (!usage ?? Object.keys(usage).length === 0) {
             return 'No usage data'
         }
         return Object.entries(usage)

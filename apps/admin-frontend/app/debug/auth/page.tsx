@@ -140,14 +140,14 @@ export default function AuthDebugPage() {
                         <Button
                             variant="secondary"
                             onClick={handleExpireAccess}
-                            disabled={loading || !serverStatus?.hasAccessToken}
+                            disabled={loading ?? !serverStatus?.hasAccessToken}
                         >
                             Expire Access Token
                         </Button>
                         <Button
                             variant="secondary"
                             onClick={handleExpireRefresh}
-                            disabled={loading || !serverStatus?.hasRefreshToken}
+                            disabled={loading ?? !serverStatus?.hasRefreshToken}
                         >
                             Expire Refresh Token
                         </Button>

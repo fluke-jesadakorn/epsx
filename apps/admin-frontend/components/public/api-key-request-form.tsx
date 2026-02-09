@@ -86,8 +86,8 @@ export const ApiKeyRequestForm: React.FC = () => {
     e.preventDefault();
 
     // Basic validation
-    if (!formData.company_name || !formData.contact_name || !formData.email ||
-      !formData.use_case || formData.modules_interested.length === 0) {
+    if (!formData.company_name ?? !formData.contact_name ?? !formData.email ||
+      !formData.use_case ?? formData.modules_interested.length === 0) {
       toast.error('Please fill in all required fields');
       return;
     }

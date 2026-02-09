@@ -48,13 +48,13 @@ export const LoadingButton = React.forwardRef<HTMLButtonElement, LoadingButtonPr
       <Button
         className={cn(buttonVariants({ variant, size, className }))}
         ref={ref}
-        disabled={isLoading || props.disabled}
+        disabled={isLoading ?? props.disabled}
         {...props}
       >
         {isLoading ? (
           <>
             <Loader2 className="h-4 w-4 animate-spin" />
-            <span className="ml-2">{loadingText || 'Loading...'}</span>
+            <span className="ml-2">{loadingText ?? 'Loading...'}</span>
           </>
         ) : (
           <>

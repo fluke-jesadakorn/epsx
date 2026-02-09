@@ -55,9 +55,9 @@ export async function createAdminNotification(
 
     const requestBody = {
       recipient_wallet_address: params.walletAddress,
-      broadcast: params.broadcast || false,
-      notification_type: typeMap[params.type] || 'system',
-      priority: priorityMap[params.priority] || 'normal',
+      broadcast: params.broadcast ?? false,
+      notification_type: typeMap[params.type] ?? 'system',
+      priority: priorityMap[params.priority] ?? 'normal',
       title: params.title,
       message: params.message,
       action_url: params.actionUrl,
@@ -70,7 +70,7 @@ export async function createAdminNotification(
     if (!response.success) {
       return {
         success: false,
-        error: response.error || 'Failed to create notification',
+        error: response.error ?? 'Failed to create notification',
       };
     }
 
@@ -123,7 +123,7 @@ export async function cleanupExpiredPermissionsAction(): Promise<ActionResult> {
     if (!response.success) {
       return {
         success: false,
-        error: response.error || 'Failed to cleanup permissions',
+        error: response.error ?? 'Failed to cleanup permissions',
       };
     }
 

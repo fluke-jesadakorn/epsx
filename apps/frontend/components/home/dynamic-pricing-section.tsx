@@ -10,14 +10,14 @@ export default async function DynamicPricingSection({ initialAffiliateCode }: Dy
   // Optimization: Do NOT read cookies here. Reading cookies forces dynamic rendering.
   // We strictly use the prop passed from the page (URL param).
   // If a user has a cookie but no URL param, the Client Component will handle fetching the discounted price.
-  const affiliateCode = initialAffiliateCode || null;
+  const affiliateCode = initialAffiliateCode ?? null;
 
   let personalPlans: PricingCardData[] = [];
   let apiPlans: PricingCardData[] = [];
 
   try {
     const response = await getPublicPlansAction({
-      affiliate_code: affiliateCode || undefined
+      affiliate_code: affiliateCode ?? undefined
     } as any);
 
     if (response.success && response.data && Array.isArray(response.data)) {
@@ -28,10 +28,10 @@ export default async function DynamicPricingSection({ initialAffiliateCode }: Dy
         basePrice: parseFloat(item.current_price) || 0,
         currentPrice: parseFloat(item.current_price) || 0,
         effectivePrice: parseFloat(item.current_price) || 0,
-        currency: item.currency || 'USD',
-        displayOrder: item.display_order || 0,
+        currency: item.currency ?? 'USD',
+        displayOrder: item.display_order ?? 0,
         isActive: item.is_active,
-        isHighlighted: item.is_highlighted || item.is_promoted || false,
+        isHighlighted: item.is_highlighted ?? item.is_promoted ?? false,
         features: Array.isArray(item.features) ? item.features : [],
         activePromotions: [],
         promotionalBadges: [],
@@ -49,8 +49,8 @@ export default async function DynamicPricingSection({ initialAffiliateCode }: Dy
           features: plan.features.map((feature: string) => ({ text: feature, included: true })),
           highlight: plan.isHighlighted,
           buttonText: plan.effectivePrice === 0 ? 'Start Free' : 'Get Started',
-          promotions: plan.activePromotions || [],
-          badges: plan.promotionalBadges || [],
+          promotions: plan.activePromotions ?? [],
+          badges: plan.promotionalBadges ?? [],
           savings: hasDiscount ? `Save ${plan.currency} ${(plan.basePrice - plan.currentPrice).toFixed(2)}` : undefined
         };
       };
@@ -61,7 +61,7 @@ export default async function DynamicPricingSection({ initialAffiliateCode }: Dy
           const type = plan.planType?.toLowerCase();
           return !type?.includes('api');
         })
-        .sort((a: any, b: any) => (a.displayOrder || 0) - (b.displayOrder || 0))
+        .sort((a: any, b: any) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0))
         .map(transformToPricingCard);
 
       apiPlans = planData
@@ -70,7 +70,7 @@ export default async function DynamicPricingSection({ initialAffiliateCode }: Dy
           const type = plan.planType?.toLowerCase();
           return type?.includes('api');
         })
-        .sort((a: any, b: any) => (a.displayOrder || 0) - (b.displayOrder || 0))
+        .sort((a: any, b: any) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0))
         .map(transformToPricingCard);
     }
   } catch (error) {

@@ -48,13 +48,12 @@ export function APIKeyManager({ currentUser, onStatsChange }: APIKeyManagerProps
         // Load user's own API keys
         const keysResponse = await users.getApiKeys();
         if (keysResponse.success && keysResponse.data) {
-          setApiKeys(keysResponse.data.api_keys || []);
+          setApiKeys(keysResponse.data.api_keys);
         }
 
         // Load user's assigned plans and flatten permissions
-        const walletAddress = currentUser.walletAddress || '';
+        const walletAddress = currentUser.walletAddress ?? '';
         if (!walletAddress) {
-          console.warn('No wallet address found for user');
           return;
         }
         const membershipsResponse = await plans.getWalletMemberships(walletAddress);
@@ -64,7 +63,7 @@ export function APIKeyManager({ currentUser, onStatsChange }: APIKeyManagerProps
           // Flatten permissions from all plans into unique list
           const allPermissions = new Set<string>();
           memberships.forEach((m) => {
-            if (m.permissions && Array.isArray(m.permissions)) {
+            if (Array.isArray(m.permissions)) {
               m.permissions.forEach((p: string) => allPermissions.add(p));
             }
           });
@@ -73,8 +72,8 @@ export function APIKeyManager({ currentUser, onStatsChange }: APIKeyManagerProps
           setAvailablePermissions(permissionsList);
           setHasPlans(memberships.length > 0);
         }
-      } catch (error) {
-        console.error('Failed to load data:', error);
+      } catch (_error) {
+        // Data loading failed silently
       } finally {
         setIsLoading(false);
       }
@@ -89,25 +88,25 @@ export function APIKeyManager({ currentUser, onStatsChange }: APIKeyManagerProps
     try {
       const keysResponse = await users.getApiKeys();
       if (keysResponse.success && keysResponse.data) {
-        setApiKeys(keysResponse.data.api_keys || []);
+        setApiKeys(keysResponse.data.api_keys);
       }
 
       // Also refresh available permissions/plans
-      const membershipsResponse = await plans.getWalletMemberships(currentUser.walletAddress || '');
+      const membershipsResponse = await plans.getWalletMemberships(currentUser.walletAddress ?? '');
       if (membershipsResponse.success && membershipsResponse.data) {
         const memberships = Array.isArray(membershipsResponse.data) ? membershipsResponse.data : [];
         setHasPlans(memberships.length > 0);
 
         const allPermissions = new Set<string>();
         memberships.forEach((m) => {
-          if (m.permissions && Array.isArray(m.permissions)) {
+          if (Array.isArray(m.permissions)) {
             m.permissions.forEach((p: string) => allPermissions.add(p));
           }
         });
         setAvailablePermissions(Array.from(allPermissions).sort());
       }
-    } catch (error) {
-      console.error('Failed to refresh data:', error);
+    } catch (_error) {
+      // Data refresh failed silently
     } finally {
       setIsLoading(false);
     }
@@ -146,8 +145,7 @@ export function APIKeyManager({ currentUser, onStatsChange }: APIKeyManagerProps
       } else {
         toast.error('Failed to create API key');
       }
-    } catch (error) {
-      console.error('Failed to generate API key:', error);
+    } catch (_error) {
       toast.error('Failed to generate API key');
     } finally {
       setIsLoading(false);
@@ -166,10 +164,8 @@ export function APIKeyManager({ currentUser, onStatsChange }: APIKeyManagerProps
       } else {
         toast.error('Failed to revoke API key');
       }
-    } catch (error: unknown) {
-      console.error('Failed to revoke API key:', error);
-      const errorMessage = (error as Record<string, unknown>)?.message || (error as Record<string, unknown>)?.error || 'Failed to revoke API key';
-      toast.error(`Error: ${errorMessage}`);
+    } catch (_error: unknown) {
+      toast.error('Failed to revoke API key');
     } finally {
       setIsLoading(false);
     }
@@ -329,10 +325,10 @@ export function APIKeyManager({ currentUser, onStatsChange }: APIKeyManagerProps
 
                 <Button
                   onClick={generateAPIKey}
-                  disabled={!newKeyName.trim() || isLoading || (availablePermissions.length > 0 && selectedPermissions.length === 0)}
+                  disabled={!newKeyName.trim() || (availablePermissions.length > 0 && selectedPermissions.length === 0)}
                   className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white shadow-lg shadow-amber-500/25"
                 >
-                  {isLoading ? 'Creating...' : 'Create API Key'}
+                  Create API Key
                 </Button>
 
                 {showNewKey && generatedKey && (
@@ -508,7 +504,7 @@ export function APIKeyManager({ currentUser, onStatsChange }: APIKeyManagerProps
                       <div>
                         <div className="text-[10px] font-bold text-gray-500 dark:text-gray-500 uppercase tracking-widest mb-2">Permissions</div>
                         <div className="flex flex-wrap gap-1.5">
-                          {apiKey.scopes?.length > 0 ? (
+                          {apiKey.scopes.length > 0 ? (
                             apiKey.scopes.map((permission: string, idx: number) => (
                               <Badge key={idx} variant="outline" className="px-2 py-0.5 text-[11px] border-amber-500/50 text-amber-400 bg-amber-900/10 font-mono">
                                 {permission}
@@ -524,7 +520,7 @@ export function APIKeyManager({ currentUser, onStatsChange }: APIKeyManagerProps
                       <div>
                         <div className="text-[10px] font-bold text-gray-500 dark:text-gray-500 uppercase tracking-widest mb-2">Usage</div>
                         <div className="text-sm font-semibold text-gray-200">
-                          {apiKey.usage_count?.toLocaleString() || 0} <span className="font-medium text-gray-500 text-xs">requests</span>
+                          {(apiKey.usage_count || 0).toLocaleString()} <span className="font-medium text-gray-500 text-xs">requests</span>
                         </div>
                       </div>
 

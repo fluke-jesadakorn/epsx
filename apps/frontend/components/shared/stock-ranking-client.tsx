@@ -37,7 +37,7 @@ export default function StockRankingClient({
   return (
     <div className="w-full">
       {/* Custom header section */}
-      {(title || subtitle) && (
+      {(title ?? subtitle) && (
         <div className="text-center py-8">
           {title && (
             <h2 className="text-3xl sm:text-4xl font-bold mb-4">

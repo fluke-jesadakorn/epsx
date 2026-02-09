@@ -23,13 +23,13 @@ export async function UserProvider({ children }: UserProviderProps) {
 
   const userData: UserData | null = user ? {
     user_id: user.id || '',
-    email: user.email || '',
-    role: user.role || 'user',
+    email: user.email ?? '',
+    role: user.role ?? 'user',
     permissions: Array.isArray(user.permissions)
       ? user.permissions
       : (user.permissions ? Object.keys(user.permissions) : ['user:read']),
-    package_tier: user.package_tier || 'FREE',
-    name: user.name || user.email || '',
+    package_tier: user.package_tier ?? 'FREE',
+    name: user.name ?? user.email ?? '',
   } : null;
 
   return <>{children(userData)}</>;

@@ -99,7 +99,7 @@ export function WalletDetailPanel({
         setIsSaving(true);
         try {
             await walletMgmt.updateWalletMetadata(wallet.walletAddress, {
-                label: labelValue.trim() || null,
+                label: labelValue.trim() ?? null,
             });
             setIsEditingLabel(false);
         } catch (error) {
@@ -115,7 +115,7 @@ export function WalletDetailPanel({
         setIsSaving(true);
         try {
             await walletMgmt.updateWalletMetadata(wallet.walletAddress, {
-                note: noteValue.trim() || null,
+                note: noteValue.trim() ?? null,
             });
             setIsEditingNote(false);
         } catch (error) {

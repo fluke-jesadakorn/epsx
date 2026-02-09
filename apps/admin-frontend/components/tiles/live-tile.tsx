@@ -80,10 +80,10 @@ export function LiveTile({ tile, fetcher, onClick, className }: LiveTileProps) {
   );
 
   // Use fetched data if available, otherwise use provided tile data
-  const currentData = data || tile;
+  const currentData = data ?? tile;
   const isConnected = connectionStatus !== 'offline';
-  const hasError = error || tile.hasError;
-  const loading = isLoading || tile.isLoading;
+  const hasError = error ?? tile.hasError;
+  const loading = isLoading ?? tile.isLoading;
 
   useEffect(() => {
     return () => {
@@ -133,7 +133,7 @@ export function LiveTile({ tile, fetcher, onClick, className }: LiveTileProps) {
   };
 
   const renderProgressBar = () => {
-    if (!tile.showProgress || !tile.metadata?.progress) { return null; }
+    if (!tile.showProgress ?? !tile.metadata?.progress) { return null; }
 
     const progress = Math.min(Math.max(tile.metadata.progress, 0), 100);
 

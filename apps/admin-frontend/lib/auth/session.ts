@@ -88,19 +88,19 @@ export function createUserSession(
   _refreshToken?: string
 ): SessionData {
   const user: EPSXJWTPayload = {
-    sub: userinfo.sub || userinfo.id || 'unknown',
+    sub: userinfo.sub ?? userinfo.id ?? 'unknown',
     iss: 'epsx-backend',
     aud: 'epsx-admin',
     exp: Math.floor(Date.now() / 1000) + (30 * 24 * 60 * 60), // 30 days (matches backend/cookies)
     iat: Math.floor(Date.now() / 1000),
-    email: userinfo.email || '',
-    name: userinfo.name || userinfo.display_name || 'Unknown user',
-    role: userinfo.role || 'user',
-    permissions: userinfo.permissions || ['epsx:user:read'],
-    platform_context: userinfo.platform_context || 'epsx',
-    primary_platform: userinfo.primary_platform || 'epsx',
-    package_tier: userinfo.package_tier || 'FREE',
-    wallet_address: userinfo.wallet_address || userinfo.sub || '',
+    email: userinfo.email ?? '',
+    name: userinfo.name ?? userinfo.display_name ?? 'Unknown user',
+    role: userinfo.role ?? 'user',
+    permissions: userinfo.permissions ?? ['epsx:user:read'],
+    platform_context: userinfo.platform_context ?? 'epsx',
+    primary_platform: userinfo.primary_platform ?? 'epsx',
+    package_tier: userinfo.package_tier ?? 'FREE',
+    wallet_address: userinfo.wallet_address ?? userinfo.sub ?? '',
   };
 
   return {

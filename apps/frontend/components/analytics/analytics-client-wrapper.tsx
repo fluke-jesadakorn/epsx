@@ -57,7 +57,7 @@ async function fetchEPSRankings(filters: AnalyticsFilters): Promise<UnifiedAnaly
     };
 
     const response = await analyticsClient.getRankings(queryParams);
-    return response || null;
+    return response ?? null;
   } catch (error) {
     console.error('Error fetching EPS rankings:', error);
     return null;
@@ -92,7 +92,7 @@ function AnalyticsClientWrapper({
     // For price leaders, use momentum data since quarterly_data is not available
     const priceLeaders = data.rankings
       .filter(ranking => ranking.momentum_1m !== null && ranking.momentum_1m !== undefined)
-      .sort((a, b) => (b.momentum_1m || 0) - (a.momentum_1m || 0))
+      .sort((a, b) => (b.momentum_1m ?? 0) - (a.momentum_1m ?? 0))
       .slice(0, 3);
 
     return { growthLeaders, priceLeaders };
@@ -200,9 +200,9 @@ function AnalyticsClientWrapper({
   const getExportDescription = () => {
     switch (exportType) {
       case 'current':
-        return `Export current page data (${data?.rankings?.length || 0} records)`;
+        return `Export current page data (${data?.rankings?.length ?? 0} records)`;
       case 'filtered':
-        return `Export all filtered data (${data?.pagination?.total_items || 0} total records)`;
+        return `Export all filtered data (${data?.pagination?.total_items ?? 0} total records)`;
       case 'leaders':
         return 'Export Growth performance leaders only';
       case 'full':
@@ -398,7 +398,7 @@ function AnalyticsClientWrapper({
                         <div className="space-y-3">
                           {priceLeaders.slice(0, 3).map((leader, index) => {
                             // Use momentum data since quarterly_data is not available
-                            const priceGrowth = leader.momentum_1m || 0;
+                            const priceGrowth = leader.momentum_1m ?? 0;
 
                             return (
                               <div key={leader.symbol} className="flex items-center justify-between rounded-xl bg-white/60 p-3 backdrop-blur-sm dark:bg-slate-800/60">
@@ -419,7 +419,7 @@ function AnalyticsClientWrapper({
                                     {priceGrowth >= 0 ? '+' : ''}{priceGrowth.toFixed(1)}%
                                   </span>
                                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                                    Vol: {(leader.volatility || 0).toFixed(1)}
+                                    Vol: {(leader.volatility ?? 0).toFixed(1)}
                                   </p>
                                 </div>
                               </div>
@@ -572,7 +572,7 @@ function AnalyticsClientWrapper({
                         <div className="flex flex-wrap items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
                           <span className="flex items-center gap-1">
                             <div className="h-2 w-2 rounded-full bg-blue-400" />
-                            Page {filters.page} of {data?.pagination.total_pages || 1}
+                            Page {filters.page} of {data?.pagination.total_pages ?? 1}
                           </span>
                           {hasActiveFilters && (
                             <span className="flex items-center gap-1">

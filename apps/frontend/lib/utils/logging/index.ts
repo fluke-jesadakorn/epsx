@@ -304,9 +304,9 @@ export function safeError(error: unknown): SafeErrorResult {
     const obj = error as Record<string, any>;
     try {
       return {
-        message: String(obj.message || obj.error || 'Unknown object error'),
-        stack: String(obj.stack || ''),
-        code: String(obj.code || obj.status || ''),
+        message: String(obj.message ?? obj.error ?? 'Unknown object error'),
+        stack: String(obj.stack ?? ''),
+        code: String(obj.code ?? obj.status ?? ''),
         status: typeof obj.status === 'number' ? obj.status : (typeof obj.statusCode === 'number' ? obj.statusCode : undefined)
       };
     } catch {

@@ -57,7 +57,7 @@ export function CurrentAccessCard({ className, paymentType = 'plan' }: CurrentAc
     const hasActivePlan = planAccess?.status === 'active' || planAccess?.status === 'expiring_soon';
     const isExpired = planAccess?.status === 'expired';
     const isExpiringSoon = planAccess?.status === 'expiring_soon';
-    const daysRemaining = planAccess?.days_remaining || 0;
+    const daysRemaining = planAccess?.days_remaining ?? 0;
 
     // Format expiration date
     const expiryDate = planAccess?.plan_expires_at
@@ -135,7 +135,7 @@ export function CurrentAccessCard({ className, paymentType = 'plan' }: CurrentAc
                                 Current {typeLabel}
                             </h3>
                             <p className="text-xl font-black text-gray-900 dark:text-white">
-                                {planAccess?.plan_name || 'Free Tier'}
+                                {planAccess?.plan_name ?? 'Free Tier'}
                             </p>
                         </div>
                     </div>

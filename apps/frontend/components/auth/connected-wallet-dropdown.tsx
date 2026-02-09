@@ -18,7 +18,7 @@ export function ConnectedWalletDropdown({ className }: ConnectedWalletDropdownPr
   const { user, logout } = useSharedAuth();
   const [copied, setCopied] = useState(false);
 
-  const displayAddress = user?.wallet_address || address;
+  const displayAddress = user?.wallet_address ?? address;
 
   const formatAddress = (addr: string) => {
     return `${addr.slice(0, 6)}...${addr.slice(-4)}`;

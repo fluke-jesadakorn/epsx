@@ -58,7 +58,7 @@ export async function getServerSession(): Promise<ServerSession | null> {
     const user = createEnhancedAuthUser(payload);
     return {
       user,
-      expires: new Date((payload.exp || 0) * 1000).toISOString(),
+      expires: new Date((payload.exp ?? 0) * 1000).toISOString(),
       accessToken: jwt,
     };
   } catch (_error) {
@@ -112,7 +112,7 @@ export function isAdmin(user: EnhancedAuthUser | null): boolean {
  */
 export async function requireAdminAuth(): Promise<EnhancedAuthUser> {
   const user = await getCurrentUser();
-  if (!user || !isAdmin(user)) {
+  if (!user ?? !isAdmin(user)) {
     throw new Error('Admin authentication required');
   }
   return user;
@@ -126,12 +126,12 @@ export async function getUserContext() {
     const user = await getCurrentUser();
     if (!user) { return null; }
 
-    const platform = user.platform_context || user.primary_platform || 'epsx';
+    const platform = user.platform_context ?? user.primary_platform ?? 'epsx';
 
     return {
       user,
       isAdmin: isAdmin(user),
-      permissions: user.permissions || [],
+      permissions: user.permissions ?? [],
       platform,
     };
   } catch (_error) {

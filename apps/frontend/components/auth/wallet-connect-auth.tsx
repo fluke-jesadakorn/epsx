@@ -169,7 +169,7 @@ export function WalletConnectAuth({
                   onAuthSuccess(address);
                 }
               } else {
-                throw new Error(result.error || 'Authentication verification failed');
+                throw new Error(result.error ?? 'Authentication verification failed');
               }
 
             } catch (error: unknown) {

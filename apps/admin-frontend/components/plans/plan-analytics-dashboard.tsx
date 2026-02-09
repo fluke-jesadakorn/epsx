@@ -28,7 +28,7 @@ export function PlanAnalyticsDashboard({ className }: PlanAnalyticsDashboardProp
 
     if (loading) {
         return (
-            <div className={`space-y-6 ${className || ''}`}>
+            <div className={`space-y-6 ${className ?? ''}`}>
                 <div>
                     <Skeleton className="h-8 w-48 mb-2" />
                     <Skeleton className="h-4 w-64" />
@@ -46,7 +46,7 @@ export function PlanAnalyticsDashboard({ className }: PlanAnalyticsDashboardProp
     }
 
     return (
-        <div className={`space-y-6 ${className || ''}`}>
+        <div className={`space-y-6 ${className ?? ''}`}>
             <div>
                 <h2 className="text-2xl font-bold">Plan Analytics</h2>
                 <p className="text-gray-600 mt-1">

@@ -98,7 +98,7 @@ export default function StockRankingAssignmentList({
       }
 
       const data = await response.json();
-      setAssignments(data.assignments || []);
+      setAssignments(data.assignments ?? []);
     } catch (_error) {
        
       console.error('Failed to load assignments:', _error);
@@ -167,8 +167,8 @@ export default function StockRankingAssignmentList({
 
   const filteredAssignments = assignments.filter(assignment => {
     const matchesPackage =
-      !filter.packageTier || assignment.packageTier === filter.packageTier;
-    const matchesStatus = !filter.status || assignment.status === filter.status;
+      !filter.packageTier ?? assignment.packageTier === filter.packageTier;
+    const matchesStatus = !filter.status ?? assignment.status === filter.status;
     const matchesSearch =
       !filter.search ||
       assignment.user?.email
@@ -217,7 +217,7 @@ export default function StockRankingAssignmentList({
       suspended: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300',
     };
 
-    return colors[status as keyof typeof colors] || 'bg-muted text-muted-foreground';
+    return colors[status as keyof typeof colors] ?? 'bg-muted text-muted-foreground';
   };
 
   const getTierBadge = (tier: PackageTier) => {
@@ -231,7 +231,7 @@ export default function StockRankingAssignmentList({
       [PackageTier.PREMIUM]: 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300',
     };
 
-    return colors[tier] || 'bg-muted text-muted-foreground';
+    return colors[tier] ?? 'bg-muted text-muted-foreground';
   };
 
   const isExpiringSoon = (assignment: AssignmentWithUser) => {

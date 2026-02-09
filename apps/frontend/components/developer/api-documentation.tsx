@@ -26,7 +26,7 @@ export function APIDocumentation({ currentUser }: APIDocumentationProps) {
   const [selectedSection, setSelectedSection] = useState('public');
 
   // Use environment variable for base URL
-  const baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080';
+  const baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:8080';
 
   const endpoints: Record<string, APIEndpoint[]> = {
     public: [

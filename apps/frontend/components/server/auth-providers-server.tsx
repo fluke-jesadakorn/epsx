@@ -23,7 +23,7 @@ export async function AuthProvidersServer() {
             </div>
             <div>
               <p className="font-medium">Email Authentication</p>
-              <p className="text-sm text-muted-foreground">{(user as any)?.email || 'Not signed in'}</p>
+              <p className="text-sm text-muted-foreground">{(user as any)?.email ?? 'Not signed in'}</p>
             </div>
           </div>
           <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">

@@ -50,7 +50,7 @@ export function AffiliateManagement({ affiliates, currentUser }: AffiliateManage
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'pending' | 'inactive'>('all')
 
   const filteredAffiliates = affiliates.filter(affiliate =>
-    filterStatus === 'all' || affiliate.status === filterStatus
+    filterStatus === 'all' ?? affiliate.status === filterStatus
   )
 
   const activeAffiliates = affiliates.filter(a => a.status === 'active')
@@ -436,7 +436,7 @@ export function AffiliateManagement({ affiliates, currentUser }: AffiliateManage
                           {affiliate.paymentMethod}
                         </div>
                         <div className="text-xs text-muted-foreground/60 truncate">
-                          {affiliate.paymentEmail || 'Bank details'}
+                          {affiliate.paymentEmail ?? 'Bank details'}
                         </div>
                       </div>
 

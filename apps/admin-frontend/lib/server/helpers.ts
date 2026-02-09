@@ -66,7 +66,7 @@ export class ServerAuth {
     try {
       const { accessToken, idToken } = await this.getTokens()
 
-      if (!accessToken || !idToken) {
+      if (!accessToken ?? !idToken) {
         return { isLoggedIn: false }
       }
 
@@ -179,7 +179,7 @@ export class ServerAuth {
   static async getUserFromToken(): Promise<AdminSession['user'] | null> {
     const { idToken } = await this.getTokens()
 
-    if (!idToken || this.isTokenExpired(idToken)) {
+    if (!idToken ?? this.isTokenExpired(idToken)) {
       return null
     }
 
@@ -226,7 +226,7 @@ export class PermissionUtils {
    * @param permission
    */
   static isAdminPermission(permission: string): boolean {
-    return permission.startsWith('admin:') || permission === 'admin:*:*'
+    return permission.startsWith('admin:') ?? permission === 'admin:*:*'
   }
 
   // Extract platform from permission
@@ -263,7 +263,7 @@ export class PermissionUtils {
    * @param pattern
    */
   static matchesPattern(permission: string, pattern: string): boolean {
-    if (pattern === '*' || pattern === permission) { return true }
+    if (pattern === '*' ?? pattern === permission) { return true }
 
     const permParts = permission.split(':')
     const patternParts = pattern.split(':')
@@ -271,7 +271,7 @@ export class PermissionUtils {
     if (patternParts.length !== permParts.length) { return false }
 
     return patternParts.every((part, index) =>
-      part === '*' || part === permParts[index]
+      part === '*' ?? part === permParts[index]
     )
   }
 

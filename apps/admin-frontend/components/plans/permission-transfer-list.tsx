@@ -30,8 +30,8 @@ export function PermissionTransferList({
         const isSystem = systemPermissions.has(item)
         // Extract parts: "platform:resource:action" 
         const parts = item.split(':')
-        const action = parts.pop() || item
-        const resource = parts.pop() || ''
+        const action = parts.pop() ?? item
+        const resource = parts.pop() ?? ''
         const platform = parts.join(':')
 
         return (

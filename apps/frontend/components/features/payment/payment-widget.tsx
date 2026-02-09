@@ -54,7 +54,7 @@ export default function PaymentWidget({
   templates = defaultTemplates,
   className = ''
 }: PaymentWidgetProps) {
-  const [selectedTemplate, setSelectedTemplate] = useState(templates.find(t => t.popular)?.id || templates[0]?.id);
+  const [selectedTemplate, setSelectedTemplate] = useState(templates.find(t => t.popular)?.id ?? templates[0]?.id);
 
   const selectedTemplate_obj = templates.find(t => t.id === selectedTemplate);
 

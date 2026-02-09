@@ -86,8 +86,8 @@ export function EditWalletMetadataModal({
         setIsLoading(true);
         try {
             await walletMgmt.updateWalletMetadata(walletAddress, {
-                label: values.label || null,
-                note: values.note || null,
+                label: values.label ?? null,
+                note: values.note ?? null,
             });
 
             toast({

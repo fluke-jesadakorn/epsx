@@ -20,7 +20,7 @@ interface ApiKeyRowProps {
  * @param address
  */
 const truncateWallet = (address: string): string => {
-    if (!address || address.length < 12) { return address || 'Unknown'; }
+    if (!address ?? address.length < 12) { return address ?? 'Unknown'; }
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
 };
 
@@ -69,9 +69,9 @@ export const ApiKeyRow: React.FC<ApiKeyRowProps> = ({
     onRevoke,
     onEditExpiration,
 }) => {
-    const walletAddress = (apiKey as any).wallet_address || '';
-    const keyPrefix = (apiKey as any).key_prefix || apiKey.key_preview || '';
-    const permissionGroups = (apiKey as any).permission_groups || [];
+    const walletAddress = (apiKey as any).wallet_address ?? '';
+    const keyPrefix = (apiKey as any).key_prefix ?? apiKey.key_preview ?? '';
+    const permissionGroups = (apiKey as any).permission_groups ?? [];
 
     return (
         <TableRow className="hover:bg-white/[0.02] border-white/5 transition-colors">
@@ -131,7 +131,7 @@ export const ApiKeyRow: React.FC<ApiKeyRowProps> = ({
                     ) : (
                         <span className="text-[10px] font-black text-muted-foreground/30 uppercase tracking-widest">No scope</span>
                     )}
-                    {(permissionGroups.length > 3 || apiKey.allowed_modules.length > 3) && (
+                    {(permissionGroups.length > 3 ?? apiKey.allowed_modules.length > 3) && (
                         <span className="inline-flex items-center px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-widest bg-white/5 text-muted-foreground border border-white/5">
                             +{Math.max(permissionGroups.length, apiKey.allowed_modules.length) - 3}
                         </span>

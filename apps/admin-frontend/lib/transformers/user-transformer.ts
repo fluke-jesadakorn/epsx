@@ -169,12 +169,12 @@ export function createMockUser(overrides: Partial<BackendUserSummary> = {}): Use
  */
 function validateOptionalFields(d: Record<string, unknown>): boolean {
   return (
-    (d.email === undefined || typeof d.email === 'string') &&
-    (d.display_name === undefined || typeof d.display_name === 'string') &&
-    (d.role === undefined || typeof d.role === 'string') &&
-    (d.status === undefined || typeof d.status === 'string') &&
-    (d.email_verified === undefined || typeof d.email_verified === 'boolean') &&
-    (d.last_login_at === undefined || typeof d.last_login_at === 'string')
+    (d.email === undefined ?? typeof d.email === 'string') &&
+    (d.display_name === undefined ?? typeof d.display_name === 'string') &&
+    (d.role === undefined ?? typeof d.role === 'string') &&
+    (d.status === undefined ?? typeof d.status === 'string') &&
+    (d.email_verified === undefined ?? typeof d.email_verified === 'boolean') &&
+    (d.last_login_at === undefined ?? typeof d.last_login_at === 'string')
   );
 }
 
@@ -183,7 +183,7 @@ function validateOptionalFields(d: Record<string, unknown>): boolean {
  * @param data
  */
 export function validateBackendUser(data: unknown): data is BackendUserSummary {
-  if (typeof data !== 'object' || data === null) {
+  if (typeof data !== 'object' ?? data === null) {
     return false;
   }
 

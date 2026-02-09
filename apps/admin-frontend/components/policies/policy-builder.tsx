@@ -218,7 +218,7 @@ export default function PolicyBuilder() {
       const testContext = {
         user_id: 'test-user',
         user_email: 'test@epsx.io',
-        action: formData.target_actions[0] || 'epsx:test:action',
+        action: formData.target_actions[0] ?? 'epsx:test:action',
         simulate_context: {
           time_of_day: 14,
           day_of_week: 2,
@@ -253,7 +253,7 @@ export default function PolicyBuilder() {
     try {
       setSaving(true);
 
-      if (!formData.name || formData.target_actions.length === 0 || formData.conditions.conditions.length === 0) {
+      if (!formData.name ?? formData.target_actions.length === 0 ?? formData.conditions.conditions.length === 0) {
         toast({
           title: "Validation Error",
           description: "Please fill in all required fields",
@@ -299,7 +299,7 @@ export default function PolicyBuilder() {
   };
 
   const selectedPolicyType = POLICY_TYPE_OPTIONS.find(opt => opt.value === formData.policy_type);
-  const IconComponent = selectedPolicyType?.icon || SettingsIcon;
+  const IconComponent = selectedPolicyType?.icon ?? SettingsIcon;
 
   return (
     <div className="space-y-6 sm:space-y-8">
@@ -338,7 +338,7 @@ export default function PolicyBuilder() {
 
           <Button
             onClick={handleSavePolicy}
-            disabled={saving || !formData.name}
+            disabled={saving ?? !formData.name}
             variant="admin"
           >
             <SaveIcon className="h-4 w-4 mr-2" />
@@ -413,8 +413,8 @@ export default function PolicyBuilder() {
               <Input
                 type="number"
                 placeholder="100"
-                value={formData.priority || ''}
-                onChange={(e) => setFormData(prev => ({ ...prev, priority: parseInt(e.target.value) || 100 }))}
+                value={formData.priority ?? ''}
+                onChange={(e) => setFormData(prev => ({ ...prev, priority: parseInt(e.target.value) ?? 100 }))}
                 className="rounded-2xl border-2 min-h-[44px]"
               />
             </div>
@@ -426,7 +426,7 @@ export default function PolicyBuilder() {
               className="w-full px-3 py-3 border-2 border-white/20 rounded-2xl bg-white/5 dark:bg-slate-800/50 backdrop-blur-sm text-foreground"
               rows={3}
               placeholder="Describe what this policy does..."
-              value={formData.description || ''}
+              value={formData.description ?? ''}
               onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
             />
           </div>
@@ -557,7 +557,7 @@ export default function PolicyBuilder() {
                         <label className="flex items-center gap-3 p-2 rounded-xl hover:bg-white/5">
                           <input
                             type="checkbox"
-                            checked={condition.negate || false}
+                            checked={condition.negate ?? false}
                             onChange={(e) => updateCondition(index, { negate: e.target.checked })}
                             className="h-5 w-5 rounded border-white/20 text-purple-500 focus:ring-purple-500/50"
                           />
@@ -623,7 +623,7 @@ export default function PolicyBuilder() {
               <Input
                 variant="glass"
                 placeholder="e.g., High-value trade requires approval"
-                value={formData.actions.message || ''}
+                value={formData.actions.message ?? ''}
                 onChange={(e) => setFormData(prev => ({
                   ...prev,
                   actions: {

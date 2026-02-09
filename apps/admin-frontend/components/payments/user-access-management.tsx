@@ -30,9 +30,9 @@ export function UserAccessManagement() {
             const response = await base.get<any>('/api/admin/plans/user-access/list', params);
 
             if (response.success && response.data) {
-                setUserAccess(response.data.users || []);
+                setUserAccess(response.data.users ?? []);
             } else {
-                throw new Error(response.error || response.message || 'Failed to load user access');
+                throw new Error(response.error ?? response.message ?? 'Failed to load user access');
             }
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Unknown error loading user access');
@@ -186,7 +186,7 @@ export function UserAccessManagement() {
                                                 <div className="grid grid-cols-2 gap-3">
                                                     <div className="bg-card rounded-xl p-3 border border-border/50">
                                                         <div className="text-sm font-medium text-muted-foreground">Plan</div>
-                                                        <div className="text-lg font-bold text-primary">{user.plan_name || 'None'}</div>
+                                                        <div className="text-lg font-bold text-primary">{user.plan_name ?? 'None'}</div>
                                                     </div>
                                                     <div className="bg-card rounded-xl p-3 border border-border/50">
                                                         <div className="text-sm font-medium text-muted-foreground">Days Left</div>
@@ -224,7 +224,7 @@ export function UserAccessManagement() {
                                                             </div>
                                                         </td>
                                                         <td className="px-4 py-4 whitespace-nowrap text-sm font-semibold text-foreground">
-                                                            {user.plan_name || 'No Plan'}
+                                                            {user.plan_name ?? 'No Plan'}
                                                         </td>
                                                         <td className="px-4 py-4 whitespace-nowrap">
                                                             <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${getStatusColor(user.status)}`}>

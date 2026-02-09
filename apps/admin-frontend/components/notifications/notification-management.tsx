@@ -57,7 +57,7 @@ export function NotificationManagement({ currentUser }: NotificationManagementPr
       ]);
 
       if (notificationsResponse.success) {
-        setNotifications(notificationsResponse.data?.notifications || []);
+        setNotifications(notificationsResponse.data?.notifications ?? []);
       } else {
         console.error('Failed to load notifications:', notificationsResponse.error);
         toast.error('Failed to load notifications');
@@ -70,8 +70,8 @@ export function NotificationManagement({ currentUser }: NotificationManagementPr
           unread: 0,
           sentToday: backendStats.sent_today,
           sentThisWeek: backendStats.sent_this_week,
-          byType: backendStats.by_type || {},
-          byPriority: backendStats.by_priority || {},
+          byType: backendStats.by_type ?? {},
+          byPriority: backendStats.by_priority ?? {},
         });
       }
     } catch (err) {

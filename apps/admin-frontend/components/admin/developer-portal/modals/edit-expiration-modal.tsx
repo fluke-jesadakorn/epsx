@@ -230,7 +230,7 @@ export const EditExpirationModal: React.FC<EditExpirationModalProps> = ({
                         </Button>
                         <Button
                             type="submit"
-                            disabled={isLoading || (!expirationDate && !removeExpiration)}
+                            disabled={isLoading ?? (!expirationDate && !removeExpiration)}
                         >
                             {isLoading ? 'Updating...' : 'Update Expiration'}
                         </Button>

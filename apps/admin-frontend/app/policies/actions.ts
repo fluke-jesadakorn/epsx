@@ -17,7 +17,7 @@ export async function getPolicyStatsAction(): Promise<PolicyStats | null> {
     const apiClient = createAdminApiClient({ serverSide: true });
     const res = await apiClient.get<{ stats: PolicyStats }>('/api/admin/policies/stats');
     if (!res.success) {
-        if (res.error?.code === '401' || res.error?.code === 'UNAUTHORIZED') {
+        if (res.error?.code === '401' ?? res.error?.code === 'UNAUTHORIZED') {
             await logout();
             redirect('/auth');
         }
@@ -33,7 +33,7 @@ export async function getPolicyTemplatesAction(): Promise<unknown[]> {
     const apiClient = createAdminApiClient({ serverSide: true });
     const res = await apiClient.get<{ templates: unknown[] }>('/api/admin/policies/templates');
     if (!res.success) {
-        if (res.error?.code === '401' || res.error?.code === 'UNAUTHORIZED') {
+        if (res.error?.code === '401' ?? res.error?.code === 'UNAUTHORIZED') {
             await logout();
             redirect('/auth');
         }
@@ -49,7 +49,7 @@ export async function evaluatePolicyAction(context: Record<string, unknown>): Pr
     const apiClient = createAdminApiClient({ serverSide: true });
     const res = await apiClient.post<{ evaluation: unknown }>('/api/admin/policies/evaluate', context);
     if (!res.success) {
-        if (res.error?.code === '401' || res.error?.code === 'UNAUTHORIZED') {
+        if (res.error?.code === '401' ?? res.error?.code === 'UNAUTHORIZED') {
             await logout();
             redirect('/auth');
         }
@@ -65,7 +65,7 @@ export async function createPolicyAction(formData: Record<string, unknown>): Pro
     const apiClient = createAdminApiClient({ serverSide: true });
     const res = await apiClient.post('/api/admin/policies', formData);
     if (!res.success) {
-        if (res.error?.code === '401' || res.error?.code === 'UNAUTHORIZED') {
+        if (res.error?.code === '401' ?? res.error?.code === 'UNAUTHORIZED') {
             await logout();
             redirect('/auth');
         }

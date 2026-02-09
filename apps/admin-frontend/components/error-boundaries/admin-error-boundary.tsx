@@ -149,9 +149,9 @@ export class AdminErrorBoundary extends Component<Props, State> {
     const { context } = this.props;
     const { retryCount } = this.state;
     
-    if (context === 'critical' || retryCount >= this.maxRetries) {return 'critical';}
-    if (context === 'page' || retryCount >= 2) {return 'high';}
-    if (context === 'feature' || retryCount >= 1) {return 'medium';}
+    if (context === 'critical' ?? retryCount >= this.maxRetries) {return 'critical';}
+    if (context === 'page' ?? retryCount >= 2) {return 'high';}
+    if (context === 'feature' ?? retryCount >= 1) {return 'medium';}
     return 'low';
   };
 
@@ -220,13 +220,13 @@ export class AdminErrorBoundary extends Component<Props, State> {
                 <CardTitle className="text-xl font-semibold">
                   {context === 'critical' && 'Critical Admin Error'}
                   {context === 'page' && 'Page Error'}
-                  {context === 'feature' && `${featureName || 'Feature'} Error`}
+                  {context === 'feature' && `${featureName ?? 'Feature'} Error`}
                 </CardTitle>
                 
                 <CardDescription>
                   {context === 'critical' && 'A critical admin function has failed. This may affect system operations.'}
                   {context === 'page' && 'This admin page encountered an error and cannot be displayed.'}
-                  {context === 'feature' && `The ${featureName || 'feature'} is temporarily unavailable.`}
+                  {context === 'feature' && `The ${featureName ?? 'feature'} is temporarily unavailable.`}
                 </CardDescription>
               </div>
             </CardHeader>
@@ -320,7 +320,7 @@ export function withAdminErrorBoundary<P extends object>(
     </AdminErrorBoundary>
   );
 
-  WrappedComponent.displayName = `withAdminErrorBoundary(${Component.displayName || Component.name})`;
+  WrappedComponent.displayName = `withAdminErrorBoundary(${Component.displayName ?? Component.name})`;
   
   return WrappedComponent;
 }

@@ -24,11 +24,11 @@ export default async function WalletManagementLayout({
 
     // Transform stats for DashboardSection
     const dashboardStats = {
-        totalWallets: walletStats?.total_users || 0,
-        activeCount: walletStats?.active_users || 0,
-        disabledCount: walletStats?.inactive_users || 0,
-        subscribedCount: data?.stats?.activeSubscriptions || 0,
-        expiringSoon: data?.stats?.expiringSoon || 0,
+        totalWallets: walletStats?.total_users ?? 0,
+        activeCount: walletStats?.active_users ?? 0,
+        disabledCount: walletStats?.inactive_users ?? 0,
+        subscribedCount: data?.stats?.activeSubscriptions ?? 0,
+        expiringSoon: data?.stats?.expiringSoon ?? 0,
     };
 
     return (

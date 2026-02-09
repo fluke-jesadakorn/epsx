@@ -17,7 +17,7 @@ export function SelectPackageSection({
   const { isLoading, isAuthenticated, hasPaymentAccess, user } = usePaymentAuth();
   const router = useRouter();
   const defaultPackage =
-    PACKAGES.find((pkg) => pkg.id === 'silver') || PACKAGES[0];
+    PACKAGES.find((pkg) => pkg.id === 'silver') ?? PACKAGES[0];
   const [amount, setAmount] = useState(defaultPackage.price.toString());
   const [currency, setCurrency] = useState<string>(
     BLOCKCHAIN_CONFIG.BSC.currency,
@@ -33,7 +33,7 @@ export function SelectPackageSection({
 
   const getPackageType = (amount: string): string => {
     const pkg = PACKAGES.find((p) => p.price.toString() === amount);
-    return pkg?.id || 'silver';
+    return pkg?.id ?? 'silver';
   };
 
   const handleNext = async () => {

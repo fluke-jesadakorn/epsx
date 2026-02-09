@@ -59,7 +59,7 @@ export function useTokenApproval({
 
     // Handle errors
     useEffect(() => {
-        const error = approvalError || receiptError
+        const error = approvalError ?? receiptError
         if (error) {
             console.error('Approval error:', error)
             const isUserRejection = error.message.toLowerCase().includes('user rejected') ||

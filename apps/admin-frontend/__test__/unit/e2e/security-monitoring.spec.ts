@@ -139,7 +139,7 @@ test.describe('Security Monitoring Dashboard', () => {
       
       await route.fulfill({
         json: {
-          user_id: userId || 'user_123',
+          user_id: userId ?? 'user_123',
           current_threat_score: 75.0,
           threat_level: 'High',
           is_under_threat: true,

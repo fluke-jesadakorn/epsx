@@ -65,7 +65,7 @@ export const accessPolicyClient = {
     // Transform plans to policies
     if (isApiSuccess(plansRes)) {
       const backendResponse = plansRes.data as unknown as PlansBackendResponse;
-      const plans: PlanResponse[] = backendResponse?.data?.plans || backendResponse?.plans || [];
+      const plans: PlanResponse[] = backendResponse?.data?.plans ?? backendResponse?.plans ?? [];
       plans.forEach(plan => {
         policies.push(planToPolicy(plan));
       });
@@ -125,7 +125,7 @@ export const accessPolicyClient = {
     // Process plans
     if (isApiSuccess(plansRes)) {
       const backendResponse = plansRes.data as unknown as PlansBackendResponse;
-      const plans: PlanResponse[] = backendResponse?.data?.plans || backendResponse?.plans || [];
+      const plans: PlanResponse[] = backendResponse?.data?.plans ?? backendResponse?.plans ?? [];
 
       stats.byType.subscription = plans.length;
       stats.activeSubscriptions = plans.filter(p => p.is_active).length;
@@ -135,12 +135,12 @@ export const accessPolicyClient = {
         const revenueText = plan.revenue_last_30_days;
         const revenue = typeof revenueText === 'string'
           ? parseFloat(revenueText)
-          : (revenueText || 0);
+          : (revenueText ?? 0);
         return sum + (isNaN(revenue) ? 0 : (revenue));
       }, 0);
 
       // Count subscribers
-      const planMembers = plans.reduce((sum, p) => sum + (p.subscriber_count || 0), 0);
+      const planMembers = plans.reduce((sum, p) => sum + (p.subscriber_count ?? 0), 0);
       stats.totalMembers += planMembers;
     }
 
@@ -158,13 +158,13 @@ export const accessPolicyClient = {
         admin: 'system',
         system: 'system',
       };
-      const policyType = typeMap[group.plan_type] || 'manual';
-      stats.byType[policyType] = (stats.byType[policyType] || 0) + 1;
+      const policyType = typeMap[group.plan_type] ?? 'manual';
+      stats.byType[policyType] = (stats.byType[policyType] ?? 0) + 1;
     });
 
     // Add group members from analytics
-    stats.totalMembers += analytics.total_active_memberships || 0;
-    stats.expiringSoon = analytics.expiring_soon_count || 0;
+    stats.totalMembers += analytics.total_active_memberships ?? 0;
+    stats.expiringSoon = analytics.expiring_soon_count ?? 0;
 
     // Calculate total policies
     stats.totalPolicies = Object.values(stats.byType).reduce((a, b) => a + b, 0);
@@ -214,7 +214,7 @@ export const accessPolicyClient = {
           comparison = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
           break;
         case 'revenue':
-          comparison = (a.revenue || 0) - (b.revenue || 0);
+          comparison = (a.revenue ?? 0) - (b.revenue ?? 0);
           break;
         case 'type':
           comparison = a.type.localeCompare(b.type);

@@ -33,7 +33,7 @@ export function WalletManagementTabs({ initialData, initialActivityLogs }: Walle
     const searchParams = useSearchParams();
 
     // Get active tab from URL or default to 'wallets'
-    const activeTab = searchParams.get('tab') || 'wallets';
+    const activeTab = searchParams.get('tab') ?? 'wallets';
 
     const handleTabChange = useCallback((value: string) => {
         const params = new URLSearchParams(searchParams);

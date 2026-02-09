@@ -63,7 +63,7 @@ export class EnvironmentValidator {
     }
 
     const variable = this.variables.find(v => v.key === key);
-    return process.env[key] || variable?.defaultValue;
+    return process.env[key] ?? variable?.defaultValue;
   }
 
   isValid(): boolean {
@@ -87,7 +87,7 @@ export class EnvironmentValidator {
         lines.push(`# Default: ${variable.defaultValue}`);
       }
 
-      lines.push(`${variable.key}=${variable.defaultValue || ''}`);
+      lines.push(`${variable.key}=${variable.defaultValue ?? ''}`);
     }
 
     return lines.join('\n');

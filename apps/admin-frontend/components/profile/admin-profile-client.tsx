@@ -36,7 +36,7 @@ export function AdminProfileClient({ user }: AdminProfileClientProps) {
   };
 
   const getAdminLevel = () => {
-    const adminPermissions = user.permissions?.filter(p => p.startsWith('admin:')) || [];
+    const adminPermissions = user.permissions?.filter(p => p.startsWith('admin:')) ?? [];
     if (adminPermissions.length >= 10) { return 'Super Admin'; }
     if (adminPermissions.length >= 5) { return 'Admin'; }
     return 'Limited Admin';
@@ -68,7 +68,7 @@ export function AdminProfileClient({ user }: AdminProfileClientProps) {
                 <Crown className="h-10 w-10 text-white" />
               </div>
               <CardTitle className="text-lg text-slate-900 dark:text-slate-100">
-                {user.name || 'Admin user'}
+                {user.name ?? 'Admin user'}
               </CardTitle>
               <p className="text-sm text-slate-600 dark:text-slate-400">
                 {user.email}
@@ -83,7 +83,7 @@ export function AdminProfileClient({ user }: AdminProfileClientProps) {
               <div className="space-y-4">
                 <div className="text-center">
                   <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
-                    {user.permissions?.filter(p => p.startsWith('admin:')).length || 0}
+                    {user.permissions?.filter(p => p.startsWith('admin:')).length ?? 0}
                   </div>
                   <div className="text-sm text-slate-600 dark:text-slate-400">
                     Admin Permissions
@@ -95,13 +95,13 @@ export function AdminProfileClient({ user }: AdminProfileClientProps) {
                     <div className="flex justify-between">
                       <span className="text-slate-600 dark:text-slate-400">Total Permissions:</span>
                       <span className="font-medium text-slate-900 dark:text-slate-100">
-                        {user.permissions?.length || 0}
+                        {user.permissions?.length ?? 0}
                       </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-slate-600 dark:text-slate-400">Platform:</span>
                       <span className="font-medium text-slate-900 dark:text-slate-100">
-                        {user.platform_context || 'admin'}
+                        {user.platform_context ?? 'admin'}
                       </span>
                     </div>
                     <div className="flex justify-between">
@@ -212,7 +212,7 @@ export function AdminProfileClient({ user }: AdminProfileClientProps) {
                           Platform Context
                         </label>
                         <div className="mt-1 p-3 bg-slate-50 dark:bg-slate-800 rounded-lg text-sm">
-                          {user.platform_context || 'admin'}
+                          {user.platform_context ?? 'admin'}
                         </div>
                       </div>
                     </div>
@@ -220,7 +220,7 @@ export function AdminProfileClient({ user }: AdminProfileClientProps) {
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t border-slate-200 dark:border-slate-700">
                       <div className="text-center p-4 bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 rounded-lg">
                         <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
-                          {user.permissions?.filter(p => p.startsWith('admin:')).length || 0}
+                          {user.permissions?.filter(p => p.startsWith('admin:')).length ?? 0}
                         </div>
                         <div className="text-sm text-purple-700 dark:text-purple-300">
                           Admin Permissions
@@ -228,7 +228,7 @@ export function AdminProfileClient({ user }: AdminProfileClientProps) {
                       </div>
                       <div className="text-center p-4 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-lg">
                         <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                          {user.permissions?.filter(p => p.includes(':manage') || p.includes(':admin')).length || 0}
+                          {user.permissions?.filter(p => p.includes(':manage') ?? p.includes(':admin')).length ?? 0}
                         </div>
                         <div className="text-sm text-blue-700 dark:text-blue-300">
                           Management Rights
@@ -236,7 +236,7 @@ export function AdminProfileClient({ user }: AdminProfileClientProps) {
                       </div>
                       <div className="text-center p-4 bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 rounded-lg">
                         <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-                          {user.permissions?.length || 0}
+                          {user.permissions?.length ?? 0}
                         </div>
                         <div className="text-sm text-green-700 dark:text-green-300">
                           Total Permissions

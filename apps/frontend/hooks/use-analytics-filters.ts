@@ -31,7 +31,7 @@ export function useAnalyticsFilters() {
   }, []);
 
   const hasActiveFilters = useMemo(() => {
-    return Boolean(filters.country || filters.sector || filters.min_eps || filters.min_growth);
+    return Boolean(filters.country ?? filters.sector ?? filters.min_eps ?? filters.min_growth);
   }, [filters]);
 
   const activeFilterCount = useMemo(() => {

@@ -212,7 +212,7 @@ export interface TestSession {
 export const TEST_SESSIONS: Record<string, TestSession> = {
   VALID_ADMIN: {
     sessionId: 'sess-admin-001',
-    userId: TEST_USERS['ADMIN']?.id || 'admin-001',
+    userId: TEST_USERS['ADMIN']?.id ?? 'admin-001',
     token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhZG1pbi0wMDEiLCJpYXQiOjE3MDAwMDAwMDAsImV4cCI6MTcwMDAwMzYwMH0.test_token_admin',
     expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
     createdAt: new Date().toISOString(),
@@ -223,7 +223,7 @@ export const TEST_SESSIONS: Record<string, TestSession> = {
   
   VALID_USER_MANAGER: {
     sessionId: 'sess-user-mgr-002',
-    userId: TEST_USERS['USER_MANAGER']?.id || 'user-mgr-002',
+    userId: TEST_USERS['USER_MANAGER']?.id ?? 'user-mgr-002',
     token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyLW1nci0wMDIiLCJpYXQiOjE3MDAwMDAwMDAsImV4cCI6MTcwMDAwMzYwMH0.test_token_user_mgr',
     expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
     createdAt: new Date().toISOString(),
@@ -278,7 +278,7 @@ export const SECURITY_EVENT_FIXTURES: Record<string, SecurityEvent> = {
     id: 'evt-login-001',
     eventType: 'LOGIN_SUCCESS',
     severity: 'LOW',
-    userId: TEST_USERS['ADMIN']?.id || 'admin-001',
+    userId: TEST_USERS['ADMIN']?.id ?? 'admin-001',
     endpoint: '/api/admin/auth/login',
     method: 'POST',
     statusCode: 200,
@@ -292,7 +292,7 @@ export const SECURITY_EVENT_FIXTURES: Record<string, SecurityEvent> = {
     id: 'evt-unauth-002',
     eventType: 'UNAUTHORIZED_ACCESS',
     severity: 'HIGH',
-    userId: TEST_USERS['RESTRICTED_USER']?.id || 'restricted-003',
+    userId: TEST_USERS['RESTRICTED_USER']?.id ?? 'restricted-003',
     endpoint: '/api/admin/admin-modules',
     method: 'GET',
     statusCode: 403,
@@ -320,7 +320,7 @@ export const SECURITY_EVENT_FIXTURES: Record<string, SecurityEvent> = {
     id: 'evt-rate-004',
     eventType: 'RATE_LIMIT_EXCEEDED',
     severity: 'MEDIUM',
-    userId: TEST_USERS['USER_MANAGER']?.id || 'user-mgr-002',
+    userId: TEST_USERS['USER_MANAGER']?.id ?? 'user-mgr-002',
     endpoint: '/api/admin/users',
     method: 'GET',
     statusCode: 429,
@@ -334,7 +334,7 @@ export const SECURITY_EVENT_FIXTURES: Record<string, SecurityEvent> = {
     id: 'evt-priv-005',
     eventType: 'PRIVILEGE_ESCALATION_ATTEMPT',
     severity: 'CRITICAL',
-    userId: TEST_USERS['USER_MANAGER']?.id || 'user-mgr-002',
+    userId: TEST_USERS['USER_MANAGER']?.id ?? 'user-mgr-002',
     endpoint: '/api/admin/admin-modules/assign',
     method: 'POST',
     statusCode: 403,
@@ -652,15 +652,15 @@ export interface TestEnvironmentConfig {
 
 export const TEST_ENVIRONMENT_CONFIG: TestEnvironmentConfig = {
   database: {
-    host: (process.env['TEST_DB_HOST']) || 'localhost',
-    port: parseInt((process.env['TEST_DB_PORT']) || '5432'),
-    name: (process.env['TEST_DB_NAME']) || 'epsx_test',
-    user: (process.env['TEST_DB_USER']) || 'test_user',
-    password: process.env['TEST_DB_PASSWORD'] || 'test_password'
+    host: (process.env['TEST_DB_HOST']) ?? 'localhost',
+    port: parseInt((process.env['TEST_DB_PORT']) ?? '5432'),
+    name: (process.env['TEST_DB_NAME']) ?? 'epsx_test',
+    user: (process.env['TEST_DB_USER']) ?? 'test_user',
+    password: process.env['TEST_DB_PASSWORD'] ?? 'test_password'
   },
   api: {
-    baseUrl: process.env['TEST_API_BASE_URL'] || getBackendUrl('server'),
-    timeout: parseInt(process.env['TEST_API_TIMEOUT'] || '30000')
+    baseUrl: process.env['TEST_API_BASE_URL'] ?? getBackendUrl('server'),
+    timeout: parseInt(process.env['TEST_API_TIMEOUT'] ?? '30000')
   },
   auth: {
     // Admin user must be promoted via database script: ./scripts/promote-admin.sh jesadakorn.kirtnu@gmail.com
@@ -668,9 +668,9 @@ export const TEST_ENVIRONMENT_CONFIG: TestEnvironmentConfig = {
     testPassword: 'Aa_12345678'
   },
   performance: {
-    maxResponseTime: parseInt(process.env['TEST_MAX_RESPONSE_TIME'] || '1000'),
-    maxConcurrentUsers: parseInt(process.env['TEST_MAX_CONCURRENT_USERS'] || '100'),
-    testDuration: parseInt(process.env['TEST_DURATION'] || '30000')
+    maxResponseTime: parseInt(process.env['TEST_MAX_RESPONSE_TIME'] ?? '1000'),
+    maxConcurrentUsers: parseInt(process.env['TEST_MAX_CONCURRENT_USERS'] ?? '100'),
+    testDuration: parseInt(process.env['TEST_DURATION'] ?? '30000')
   }
 };
 
@@ -749,7 +749,7 @@ export class TestUtilities {
   static generateRandomUser(): TestUser {
     const id = `random-${Date.now()}`;
     const roles = Object.values(Role).filter((role): role is Role => role !== undefined);
-    const randomRole = roles[Math.floor(Math.random() * roles.length)] || Role.User;
+    const randomRole = roles[Math.floor(Math.random() * roles.length)] ?? Role.User;
 
     return {
       id,

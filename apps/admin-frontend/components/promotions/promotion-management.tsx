@@ -25,7 +25,7 @@ interface PromotionManagementProps {
  */
 export function PromotionManagement({ currentUser }: PromotionManagementProps) {
   const { user: authUser } = useSharedAuth()
-  const _user = currentUser || authUser
+  const _user = currentUser ?? authUser
   const [promotions, setPromotions] = useState<DisplayPromotion[]>([])
   const [loading, setLoading] = useState(true)
   const [_selectedPromotion, setSelectedPromotion] = useState<DisplayPromotion | null>(null)
@@ -47,19 +47,19 @@ export function PromotionManagement({ currentUser }: PromotionManagementProps) {
       })
 
       if (isApiSuccess(response)) {
-        const promos = response.data?.promotions || []
+        const promos = response.data?.promotions ?? []
         setPromotions(promos.map(p => ({
           ...p,
           discountType: p.discountType,
           discountValue: parseFloat(p.discountValue),
           maxDiscountAmount: p.maxDiscountAmount ? parseFloat(p.maxDiscountAmount) : null,
-          minPurchaseAmount: parseFloat(p.minPurchaseAmount || '0'),
+          minPurchaseAmount: parseFloat(p.minPurchaseAmount ?? '0'),
           totalRevenue: parseFloat(p.totalRevenue),
         })))
       } else {
         toast({
           title: "Error",
-          description: response.error || "Failed to load promotions",
+          description: response.error ?? "Failed to load promotions",
           variant: "destructive"
         })
       }
@@ -82,7 +82,7 @@ export function PromotionManagement({ currentUser }: PromotionManagementProps) {
 
   const activePromotions = promotions.filter(p => p.isActive)
   const totalUsage = promotions.reduce((sum, p) => sum + p.currentUsage, 0)
-  const totalRevenue = promotions.reduce((sum, p) => sum + (typeof p.totalRevenue === 'number' ? p.totalRevenue : parseFloat(String(p.totalRevenue)) || 0), 0)
+  const totalRevenue = promotions.reduce((sum, p) => sum + (typeof p.totalRevenue === 'number' ? p.totalRevenue : parseFloat(String(p.totalRevenue)) ?? 0), 0)
   const _avgConversionRate = promotions.length > 0
     ? promotions.reduce((sum, p) => sum + p.conversionRate, 0) / promotions.length
     : 0
@@ -341,7 +341,7 @@ export function PromotionManagement({ currentUser }: PromotionManagementProps) {
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-sm font-medium text-muted-foreground">Usage</span>
                       <span className="text-sm text-muted-foreground/60">
-                        {promotion.currentUsage}/{promotion.usageLimit || '∞'}
+                        {promotion.currentUsage}/{promotion.usageLimit ?? '∞'}
                       </span>
                     </div>
                     <div className="bg-muted rounded-full h-2">
@@ -389,7 +389,7 @@ export function PromotionManagement({ currentUser }: PromotionManagementProps) {
                             {getDiscountDisplay(promotion)}
                           </span>
                           <span>•</span>
-                          <span>{formatDate(promotion.startDate || '')} - {formatDate(promotion.endDate || '')}</span>
+                          <span>{formatDate(promotion.startDate ?? '')} - {formatDate(promotion.endDate ?? '')}</span>
                           <span>•</span>
                           <span>{promotion.applicablePlans.join(', ')} plans</span>
                         </div>
@@ -403,12 +403,12 @@ export function PromotionManagement({ currentUser }: PromotionManagementProps) {
                       <div className="text-sm text-muted-foreground mb-2">
                         {promotion.conversionRate.toFixed(1)}% conversion
                       </div>
-                      {isExpired(promotion.endDate || '') && (
+                      {isExpired(promotion.endDate ?? '') && (
                         <div className="text-xs bg-destructive/10 text-destructive px-2 py-1 rounded-full border border-destructive/20 inline-block">
                           EXPIRED
                         </div>
                       )}
-                      {isUpcoming(promotion.startDate || '') && (
+                      {isUpcoming(promotion.startDate ?? '') && (
                         <div className="text-xs bg-info/10 text-info px-2 py-1 rounded-full border border-info/20 inline-block">
                           UPCOMING
                         </div>
@@ -422,7 +422,7 @@ export function PromotionManagement({ currentUser }: PromotionManagementProps) {
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-sm font-medium text-muted-foreground">Usage</span>
                         <span className="text-sm text-muted-foreground/60">
-                          {promotion.currentUsage}/{promotion.usageLimit || '∞'}
+                          {promotion.currentUsage}/{promotion.usageLimit ?? '∞'}
                         </span>
                       </div>
                       <div className="bg-muted rounded-full h-2">

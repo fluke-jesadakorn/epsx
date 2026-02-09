@@ -104,7 +104,7 @@ export function MobileNav({ user, onLogout }: MobileNavProps) {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate">
-                    {user.name || 'user'}
+                    {user.name ?? 'user'}
                   </p>
                   <p className="text-xs text-muted-foreground truncate">
                     {user.email}

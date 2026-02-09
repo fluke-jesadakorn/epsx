@@ -4,7 +4,6 @@
 pub mod adapters;
 pub mod event_bus;
 pub mod container;
-// pub mod integration; // Removed - empty module with only commented-out payment service
 pub mod cache;
 pub mod models; // Re-added - contains Diesel database models
 pub mod security;
@@ -24,7 +23,6 @@ pub use adapters::{
 // Re-export commonly needed services for backward compatibility
 pub use event_bus::{SimpleEventBus};
 pub use container::DomainContainer;
-// pub use integration::{ PaymentServiceIntegration }; // Removed - integration module doesn't exist
 pub use cache::{
     MemoryCache, RedisCache, UnifiedPermissionCache
 };

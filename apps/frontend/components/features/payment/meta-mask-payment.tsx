@@ -195,7 +195,7 @@ export default function MetaMaskPayment({
           </div>
           <div className="flex justify-between items-center">
             <span className="text-sm">Network</span>
-            <Badge variant="outline">{chain?.name || 'Unknown'}</Badge>
+            <Badge variant="outline">{chain?.name ?? 'Unknown'}</Badge>
           </div>
           <div className="flex justify-between items-center">
             <span className="text-sm flex items-center gap-1">

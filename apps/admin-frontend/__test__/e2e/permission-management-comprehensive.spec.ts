@@ -1,8 +1,8 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('Admin Permission Management - Comprehensive E2E Tests', () => {
-  const ADMIN_URL = process.env.ADMIN_URL || 'http://localhost:3001';
-  const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8080';
+  const ADMIN_URL = process.env.ADMIN_URL ?? 'http://localhost:3001';
+  const BACKEND_URL = process.env.BACKEND_URL ?? 'http://localhost:8080';
   
   // Test user data
   const TEST_USER = {
@@ -28,7 +28,7 @@ test.describe('Admin Permission Management - Comprehensive E2E Tests', () => {
       await page.waitForTimeout(2000);
       
       // Check if we're on login page
-      if (page.url().includes('/login') || page.url().includes('/auth')) {
+      if (page.url().includes('/login') ?? page.url().includes('/auth')) {
         await page.waitForSelector('button:has-text("Continue"), button:has-text("Sign In")', { timeout: 10000 });
         const continueBtn = page.locator('button:has-text("Continue"), button:has-text("Sign In")').first();
         if (await continueBtn.isVisible()) {
@@ -122,7 +122,7 @@ test.describe('Admin Permission Management - Comprehensive E2E Tests', () => {
           const hasExpiry = await card.locator('text=expires, text=Expires, text=expiry').isVisible();
           const hasTime = await card.locator('text=hour, text=minute, text=day').isVisible();
           
-          expect(hasExpiry || hasTime).toBe(true);
+          expect(hasExpiry ?? hasTime).toBe(true);
         }
       }
     });

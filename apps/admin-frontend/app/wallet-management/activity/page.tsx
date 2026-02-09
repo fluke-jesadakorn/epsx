@@ -6,7 +6,7 @@ export default async function ActivityPage() {
     const initialActivityLogsRaw = await fetchActivityLogsAction(undefined, 1, 10).catch(() => []);
 
     // Map activity logs to frontend format
-    const initialActivityLogs = (initialActivityLogsRaw || []).map((log) => {
+    const initialActivityLogs = (initialActivityLogsRaw ?? []).map((log) => {
         const details = log.details as Record<string, unknown> | undefined;
         const action = (details?.action as string | undefined) ?? log.action;
 
