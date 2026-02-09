@@ -14,8 +14,7 @@ const NavbarContext = createContext<NavbarContextType>({
 });
 
 export const useNavbarContext = () => {
-  const context = useContext(NavbarContext);
-  return context;
+  return useContext(NavbarContext);
 };
 
 interface NavbarProviderProps {

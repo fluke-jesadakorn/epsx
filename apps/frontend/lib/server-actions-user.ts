@@ -70,7 +70,7 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
       package_tier: (data as Record<string, unknown>).package_tier as string || 'FREE',
     };
 
-  } catch (error) {
+  } catch (_error) {
     return null;
   }
 }
@@ -114,7 +114,7 @@ export async function getPaymentHistory() {
         ? `https://bscscan.com/tx/${payment.tx_hash}`
         : ''
     }));
-  } catch (error) {
+  } catch (_error) {
     return [];
   }
 }
@@ -158,7 +158,7 @@ export async function checkFeatureAccess(feature: string) {
       reason: response.data.reason ?? (response.data.has_permission ? 'Access granted' : 'Access denied'),
       limits: response.data.limits
     };
-  } catch (error) {
+  } catch (_error) {
     return {
       hasAccess: false,
       reason: 'Error checking permissions',
@@ -218,7 +218,7 @@ export async function getPaymentStatus(paymentId?: string) {
       activeSubscription,
       paymentHistory: []
     };
-  } catch (error) {
+  } catch (_error) {
     return {
       status: 'error',
       activeSubscription: null,
@@ -227,7 +227,7 @@ export async function getPaymentStatus(paymentId?: string) {
   }
 }
 
-export async function getBatchStocks(symbols: string[]) {
+export async function getBatchStocks(_symbols: string[]) {
   // TODO: Implement when backend is ready
   return {
     success: true,

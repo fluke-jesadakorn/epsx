@@ -9,10 +9,10 @@ export default async function PersonalDashboardPage() {
   const session = await getSessionFromWeb3();
 
   // Transform session data to structured format with null checks
-  const user = session?.isAuthenticated && session.user ? {
+  const user = session && session.isAuthenticated && session.user ? {
     id: session.user.id ?? '',
     email: session.user.email || '',
-    name: session.user.name || session.user.email?.split('@')[0] || 'user',
+    name: session.user.name || session.user.email.split('@')[0] || 'user',
     permissions: session.user.permissions || ['epsx:analytics:view'],
     package_tier: session.user.package_tier ?? 'FREE',
     wallet_address: session.user.wallet_address,

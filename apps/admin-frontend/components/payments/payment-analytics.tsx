@@ -17,8 +17,9 @@ interface PaymentStats {
 }
 
 /**
- *
+ * Payment analytics component displaying comprehensive payment metrics
  */
+// eslint-disable-next-line max-lines-per-function, complexity
 export function PaymentAnalytics() {
     const { base } = useApiClient({ platform: 'admin' });
     const [stats, setStats] = useState<PaymentStats | null>(null);
@@ -30,7 +31,14 @@ export function PaymentAnalytics() {
             setLoading(true);
             setError(null);
 
-            const response = await base.get<any>('/api/payments/admin/analytics');
+            interface AnalyticsResponse {
+              success: boolean;
+              data?: {analytics?: {summary: PaymentStats}};
+              error?: string;
+              message?: string;
+            }
+
+            const response = await base.get<AnalyticsResponse>('/api/payments/admin/analytics');
 
             if (response.success && response.data) {
                 setStats(response.data.analytics?.summary ?? null);
@@ -38,6 +46,7 @@ export function PaymentAnalytics() {
                 throw new Error(response.error ?? response.message ?? 'Failed to load analytics');
             }
         } catch (err) {
+            // Silently fail
             setError(err instanceof Error ? err.message : 'Unknown error loading analytics');
         } finally {
             setLoading(false);
@@ -45,7 +54,7 @@ export function PaymentAnalytics() {
     }, [base]);
 
     useEffect(() => {
-        loadAnalytics();
+        void loadAnalytics();
     }, [loadAnalytics]);
 
     const formatCurrency = (amount: number, currency = 'USD') => {

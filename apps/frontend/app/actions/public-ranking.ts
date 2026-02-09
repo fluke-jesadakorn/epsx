@@ -55,6 +55,7 @@ export async function fetchPublicRankingData(page = 1, limit = 5) {
     return apiData.data.map(stock => {
       // Calculate growth from latest quarter's EPS growth, fallback to 0
       const latestQuarter = stock.quarterly_performance[0];
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
       const latestGrowth = latestQuarter ? latestQuarter.eps_growth : 0;
 
       return {
@@ -116,7 +117,9 @@ export async function fetchEpsCardData(page = 1, limit = 3) {
     return apiData.data.map(stock => {
       const latestQuarter = stock.quarterly_performance[0];
       // Use latest quarter's growth data, fallback to 0
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
       const epsGrowth = latestQuarter ? latestQuarter.eps_growth : 0;
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
       const priceGrowth = latestQuarter ? latestQuarter.price_growth : 0;
 
       return {
@@ -142,6 +145,7 @@ export async function fetchEpsCardData(page = 1, limit = 3) {
         },
         metricScore: "0",
         growthIndicator: epsGrowth > 0 ? "up" : "down",
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
         currentMetric: latestQuarter ? latestQuarter.eps.toString() : "0",
         predictedMetric: "0",
         lastAnalysisDate: stock.latest_date,
@@ -156,6 +160,7 @@ export async function fetchEpsCardData(page = 1, limit = 3) {
         },
         epsGrowth: `${epsGrowth.toFixed(2)}%`,
         lastEarningsDate: stock.latest_date,
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
         currentQuarterEps: latestQuarter ? latestQuarter.eps.toString() : "0",
         nextEps: "0",
         dataValue: stock.value.toString(),

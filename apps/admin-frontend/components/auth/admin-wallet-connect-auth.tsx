@@ -37,9 +37,9 @@ export function AdminWalletConnectAuth({ className = '' }: AdminWalletConnectAut
   const [isOpen, setIsOpen] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  const { address, isConnected } = useAccount();
+  const { address, isConnected: _isConnected } = useAccount();
   const { disconnect } = useDisconnect();
-  const { user, isLoading, error, logout } = useSharedAuth();
+  const { user, isLoading, error: _error, logout } = useSharedAuth();
 
   const isAuthenticated = Boolean(user);
 
@@ -47,7 +47,7 @@ export function AdminWalletConnectAuth({ className = '' }: AdminWalletConnectAut
     setIsHydrated(true);
   }, []);
 
-  if (!isHydrated ?? isLoading) {
+  if (!isHydrated || isLoading) {
     return <LoadingButton message="Loading..." className={className} />;
   }
 
@@ -59,8 +59,8 @@ export function AdminWalletConnectAuth({ className = '' }: AdminWalletConnectAut
       await navigator.clipboard.writeText(text);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    } catch (err) {
-      console.error('Failed to copy:', err);
+    } catch {
+      // Silently fail
     }
   };
 
@@ -74,8 +74,8 @@ export function AdminWalletConnectAuth({ className = '' }: AdminWalletConnectAut
     try {
       await logout();
       disconnect();
-    } catch (err) {
-      console.error('Disconnect error:', err);
+    } catch {
+      // Silently fail
     }
   };
 
@@ -99,7 +99,7 @@ export function AdminWalletConnectAuth({ className = '' }: AdminWalletConnectAut
             {displayAddress}
           </div>
           <DropdownMenuItem
-            onClick={() => copyToClipboard(displayAddress)}
+            onClick={() => void copyToClipboard(displayAddress)}
             className="flex items-center gap-2 px-3 py-2 rounded-md cursor-pointer"
           >
             {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
@@ -113,7 +113,7 @@ export function AdminWalletConnectAuth({ className = '' }: AdminWalletConnectAut
             View on Explorer
           </DropdownMenuItem>
           <DropdownMenuItem
-            onClick={handleDisconnect}
+            onClick={() => void handleDisconnect()}
             className="flex items-center gap-2 px-3 py-2 rounded-md text-red-400 hover:bg-red-500/20 cursor-pointer"
           >
             <LogOut className="h-4 w-4" />
@@ -149,7 +149,7 @@ export function AdminWalletConnectAuth({ className = '' }: AdminWalletConnectAut
           setIsOpen(false);
           window.location.reload();
         }}
-        onError={(err) => console.error('Auth error:', err)}
+        onError={() => {}}
       />
     </div>
   );

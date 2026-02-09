@@ -6,18 +6,18 @@ interface AsyncActionOptions {
   errorMessage?: string;
   loadingKey?: string;
   optimistic?: boolean;
-  onSuccess?: (result: any) => void;
+  onSuccess?: (result: unknown) => void;
   onError?: (error: Error) => void;
-  transform?: (result: any) => any;
+  transform?: (result: unknown) => unknown;
 }
 
 interface AsyncActionState {
   loading: boolean;
   error: string | null;
-  data: any;
+  data: unknown;
 }
 
-export function useAsyncAction<T extends (...args: any[]) => Promise<any>>(
+export function useAsyncAction<T extends (...args: unknown[]) => Promise<unknown>>(
   asyncFn: T,
   options: AsyncActionOptions = {}
 ) {

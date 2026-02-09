@@ -110,7 +110,6 @@ export type {
   ProgressiveAuthProps
 } from './progressive-auth';
 
-
 export type {
   AuthConfig, AuthenticatedUserProfile, BaseJWTPayload, LegacyJWTPayload,
   MigrationResult, PermissionValidation, SessionValidationResult, TokenValidationOptions

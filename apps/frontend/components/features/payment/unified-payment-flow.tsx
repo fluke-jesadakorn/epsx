@@ -50,6 +50,21 @@ import { PricingCard } from '@/shared/components/plans/pricing-card';
 type PaymentType = 'plan' | 'access-plan' | 'permission';
 type PaymentStep = 'select' | 'confirm' | 'pay' | 'success';
 
+interface RawPlan {
+    id: string;
+    name: string;
+    current_price: string | number;
+    base_price?: string | number;
+    is_active: boolean;
+    display_order?: number;
+    is_highlighted?: boolean;
+    is_promoted?: boolean;
+    features?: string[] | string;
+    tier_level?: number;
+    plan_type?: string;
+    description?: string;
+}
+
 interface UnifiedPaymentFlowProps {
     /** Payment type determines which endpoint to use */
     paymentType: PaymentType;
@@ -60,7 +75,7 @@ interface UnifiedPaymentFlowProps {
     /** Custom description */
     description?: string;
     className?: string;
-    initialPlans?: any[];
+    initialPlans?: RawPlan[];
 }
 
 /**
@@ -173,7 +188,8 @@ export function UnifiedPaymentFlow({
         if (!planAccess?.plan_name) {return 0;}
         // planAccess.tier_level should come from the backend
         // If not available yet, default to 0 (will be added to backend response)
-        return (planAccess as any).tier_level ?? 0;
+        const tierLevel = (planAccess as unknown as { tier_level?: number }).tier_level;
+        return tierLevel ?? 0;
     }, [planAccess]);
 
     // Is current plan expired?
@@ -192,11 +208,11 @@ export function UnifiedPaymentFlow({
     }, [currentPlanTier]);
 
     // Transform plans helper
-    const transformPlans = useCallback((rawPlans: any[]): PricingCardData[] => {
+    const transformPlans = useCallback((rawPlans: RawPlan[]): PricingCardData[] => {
         return rawPlans
-            .filter((plan: any) => plan.is_active)
-            .sort((a: any, b: any) => (a.display_order ?? 0) - (b.display_order ?? 0))
-            .map((plan: any) => {
+            .filter((plan) => plan.is_active)
+            .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0))
+            .map((plan) => {
                 const price = typeof plan.current_price === 'string'
                     ? parseFloat(plan.current_price)
                     : plan.current_price;
@@ -207,16 +223,18 @@ export function UnifiedPaymentFlow({
 
                 const isFree = price === 0;
 
+                const parsedFeatures = (Array.isArray(plan.features)
+                    ? plan.features
+                    : typeof plan.features === 'string'
+                        ? JSON.parse(plan.features)
+                        : []) as Array<string | { text: string; included: boolean }>;
+
                 return {
                     id: plan.id,
                     title: plan.name.replace(/\s+Plan$/i, ''),
                     price: isFree ? 'Free' : `${price}`,
                     originalPrice: basePrice ? `$${basePrice}` : undefined,
-                    features: Array.isArray(plan.features)
-                        ? plan.features.map((f: any) => typeof f === 'string' ? { text: f, included: true } : f)
-                        : typeof plan.features === 'string'
-                            ? JSON.parse(plan.features).map((f: any) => typeof f === 'string' ? { text: f, included: true } : f)
-                            : [],
+                    features: parsedFeatures.map((f) => typeof f === 'string' ? { text: f, included: true } : f),
                     highlight: plan.is_highlighted ?? plan.is_promoted,
                     buttonText: isFree ? 'Start Free' : 'Select Plan',
                     tier_level: plan.tier_level ?? 0,
@@ -352,7 +370,7 @@ export function UnifiedPaymentFlow({
                         expected_amount: priceVal,
                         currency: selectedToken.symbol,
                         // network: supportedChains.find(c => c.id === chainId)?.name || 'unknown' // Backend might not take this in submitTransactionAction type
-                    } as any);
+                    });
 
                     if (result.success) {
                         setTxHash(transferTxHash);

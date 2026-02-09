@@ -260,14 +260,14 @@ export function useRankingsSelector() {
 }
 
 // Performance monitoring hook
-export function useSelectorPerformance(name: string) {
+export function useSelectorPerformance(_name: string) {
   const renderCount = useRef(0);
   const lastRender = useRef(Date.now());
 
   useEffect(() => {
     renderCount.current++;
     const now = Date.now();
-    const timeSinceLastRender = now - lastRender.current;
+    const _timeSinceLastRender = now - lastRender.current;
     lastRender.current = now;
 
     if (process.env.NODE_ENV === 'development') {

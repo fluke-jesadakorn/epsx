@@ -64,8 +64,8 @@ export async function getStockFinancialData(
  * Returns 0 as fallback if no data available.
  */
 export async function getStockFinancialDataCount(
-  country: typeof MarketCountry = MarketCountry,
-  quarters = 2, // Currently unused but kept for future enhancements
+  _country: typeof MarketCountry = MarketCountry,
+  _quarters = 2, // Currently unused but kept for future enhancements
 ): Promise<number> {
   try {
     // Check count cache first

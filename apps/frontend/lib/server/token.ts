@@ -13,7 +13,7 @@ export async function getWeb3SessionFromCookies(): Promise<string | null> {
   try {
     const cookieStore = await cookies();
     return cookieStore.get('web3_session')?.value ?? null;
-  } catch (error) {
+  } catch (_error) {
     return null;
   }
 }
@@ -25,7 +25,7 @@ export async function getWalletAddressFromCookies(): Promise<string | null> {
   try {
     const cookieStore = await cookies();
     return cookieStore.get('wallet_address')?.value ?? null;
-  } catch (error) {
+  } catch (_error) {
     return null;
   }
 }
@@ -37,7 +37,7 @@ export async function getWeb3SignatureFromCookies(): Promise<string | null> {
   try {
     const cookieStore = await cookies();
     return cookieStore.get('web3_signature')?.value ?? null;
-  } catch (error) {
+  } catch (_error) {
     return null;
   }
 }
@@ -108,7 +108,7 @@ export async function getSessionFromWeb3(): Promise<{
     }
 
     return { isAuthenticated: true, user: userInfo };
-  } catch (error) {
+  } catch (_error) {
     return { isAuthenticated: false, user: null };
   }
 }

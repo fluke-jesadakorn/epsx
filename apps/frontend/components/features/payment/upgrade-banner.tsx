@@ -42,7 +42,7 @@ export function UpgradeBanner({
 }: UpgradeBannerProps) {
     const [preview, setPreview] = useState<UpgradePreviewData | null>(null);
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+    const [_error, setError] = useState<string | null>(null);
 
     useEffect(() => {
         if (!walletAddress || !newPlanId) {
@@ -73,7 +73,7 @@ export function UpgradeBanner({
                 if (result.success && result.data) {
                     setPreview(result.data);
                 }
-            } catch (err) {
+            } catch (_err) {
       // Error logged silently
                 setError('Unable to calculate upgrade credit');
             } finally {

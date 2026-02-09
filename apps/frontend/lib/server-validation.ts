@@ -63,7 +63,7 @@ export async function validateFormData<T>(
       success: true,
       data: result.data
     };
-  } catch (error) {
+  } catch (_error) {
     return {
       success: false,
       error: 'Validation failed'

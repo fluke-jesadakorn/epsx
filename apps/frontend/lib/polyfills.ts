@@ -25,7 +25,7 @@ if (!anyMath.pow.__isPolyfilled) {
             try {
                 // Use Function to avoid transpilation of ** to Math.pow
                 return new Function('b', 'e', 'return b ** e')(base, exponent);
-            } catch (e) {
+            } catch (_e) {
                 // Fallback: Loop
                 if (exponent < 0n) {return 0n;} // Simple fallback
                 let res = 1n;
@@ -40,7 +40,7 @@ if (!anyMath.pow.__isPolyfilled) {
         if (typeof base === 'bigint' && typeof exponent === 'number') {
             try {
                 return new Function('b', 'e', 'return b ** BigInt(e)')(base, exponent);
-            } catch (e) {
+            } catch (_e) {
                 // Fallback: Loop (if exponent is integer)
                 if (Math.floor(exponent) === exponent && exponent >= 0) {
                     let res = 1n;
@@ -58,7 +58,7 @@ if (!anyMath.pow.__isPolyfilled) {
         if (typeof base === 'number' && typeof exponent === 'bigint') {
             try {
                 return new Function('b', 'e', 'return BigInt(b) ** e')(base, exponent);
-            } catch (e) {
+            } catch (_e) {
                 // Fallback: Loop or safe conversion
                 // 2 ** 3n -> 8 (number? or bigint?) Native ** returns BigInt if base is BigInt? 
                 // Actually 2 ** 3n is invalid in strict TS but valid in JS (returns number? No, throws TypeError usually).

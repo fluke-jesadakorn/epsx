@@ -88,7 +88,7 @@ export function useUpgradeOptions(): UseUpgradeOptionsResult {
                     const rec = candidates.find(p => p.name.includes('Pro') || p.name.includes('Growth'));
                     setRecommendedPlan(rec ?? candidates[Math.min(1, candidates.length - 1)] ?? null);
                 }
-            } catch (err) {
+            } catch (_err) {
       // Error logged silently
                 setError('Failed to load upgrade options');
             } finally {

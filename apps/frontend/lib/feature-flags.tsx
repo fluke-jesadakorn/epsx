@@ -94,7 +94,7 @@ class FeatureFlagService {
 
       // Override with environment variables
       this.loadFromEnvironment();
-    } catch (error) {
+    } catch (_error) {
     }
   }
 
@@ -190,7 +190,7 @@ class FeatureFlagService {
           body: JSON.stringify(flag),
         });
       }
-    } catch (error) {
+    } catch (_error) {
     }
   }
 

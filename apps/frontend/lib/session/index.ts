@@ -42,8 +42,8 @@ export async function getServerSession(): Promise<SessionData | null> {
       user: sessionData.user,
       expiresAt: sessionData.expiresAt,
     };
-    
-  } catch (error) {
+
+  } catch (_error) {
     return { isAuthenticated: false };
   }
 }
