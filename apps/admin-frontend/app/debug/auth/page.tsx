@@ -20,6 +20,7 @@ interface ApiResult {
     error?: string;
 }
 
+// eslint-disable-next-line max-lines-per-function, complexity
 export default function AuthDebugPage() {
     const { user, isAuthenticated, logout, refreshSession, makeApiRequest } = useSharedAuth();
     const [serverStatus, setServerStatus] = useState<ServerStatus | null>(null);

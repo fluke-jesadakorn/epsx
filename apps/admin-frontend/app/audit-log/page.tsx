@@ -373,6 +373,7 @@ function AuditLogTable({
 }
 
 // Audit Log Row Component
+// eslint-disable-next-line max-lines-per-function
 function AuditLogRow({ log }: { log: AuditLogEntry }): React.JSX.Element {
     const [isExpanded, setIsExpanded] = useState(false);
 

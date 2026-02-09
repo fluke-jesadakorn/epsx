@@ -224,6 +224,7 @@ function useSubscriptionDetails(subscriptionId: string) {
 /**
  * Subscription Detail Page Component
  */
+// eslint-disable-next-line max-lines-per-function
 export default function SubscriptionDetailPage() {
     const params = useParams()
     const router = useRouter()

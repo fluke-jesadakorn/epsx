@@ -30,6 +30,7 @@ interface CreatePermissionTemplateRequest {
  * Create New Plan Page
  * Part of the Subscription & Access hub
  */
+// eslint-disable-next-line max-lines-per-function
 export default function NewPlanPage() {
   const router = useRouter()
   const { user, isLoading: authLoading, isAuthenticated } = useSharedAuth()

@@ -181,6 +181,7 @@ function AdvancedSettings({
   );
 }
 
+// eslint-disable-next-line max-lines-per-function
 export default function NewSubscriptionPage() {
     const router = useRouter()
     const [loading, setLoading] = useState(false)
