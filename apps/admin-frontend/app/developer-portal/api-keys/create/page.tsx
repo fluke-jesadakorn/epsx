@@ -87,8 +87,6 @@ async function CreateApiKeyForm() {
         redirect('/developer-portal/api-keys/create?error=api-creation-failed')
       }
     } catch (_error) {
-
-      console.error('Failed to create API key:', _error)
       redirect('/developer-portal/api-keys/create?error=creation-failed')
     }
   }
