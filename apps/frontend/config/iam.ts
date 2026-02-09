@@ -20,6 +20,11 @@ import {
   parsePermission as sharedParsePermission
 } from '@/shared/config/iam';
 
+const ANALYTICS_VIEW = 'epsx:analytics:view';
+const PROFILE_VIEW = 'epsx:profile:view';
+const PROFILE_MANAGE = 'epsx:profile:manage';
+const NOTIFICATIONS_RECEIVE = 'epsx:notifications:receive';
+
 /**
  * Frontend-specific IAM configuration
  * Extends shared IAM config with user/frontend context
@@ -36,12 +41,12 @@ export const IAM_CONFIG = {
       ...SHARED_IAM_CONFIG.routes.protected,
 
       // Frontend-specific routes
-      '/portfolio': ['epsx:analytics:view'],
-      '/permissions': ['epsx:profile:manage'],
+      '/portfolio': [ANALYTICS_VIEW],
+      '/permissions': [PROFILE_MANAGE],
 
       // Frontend API routes
-      '/api/auth/web3/permissions': ['epsx:profile:view'],
-      '/api/auth/session': ['epsx:profile:view'],
+      '/api/auth/web3/permissions': [PROFILE_VIEW],
+      '/api/auth/session': [PROFILE_VIEW],
     },
   },
 
@@ -85,33 +90,33 @@ export {
 export const FRONTEND_PERMISSION_SETS = {
   // User-specific permission sets (non-admin)
   FREE_USER: [
-    'epsx:analytics:view',
-    'epsx:profile:view',
-    'epsx:notifications:receive'
+    ANALYTICS_VIEW,
+    PROFILE_VIEW,
+    NOTIFICATIONS_RECEIVE
   ],
 
   TRIAL_USER: [
-    'epsx:analytics:view',
+    ANALYTICS_VIEW,
     'epsx:analytics:export',
-    'epsx:profile:manage',
-    'epsx:notifications:receive'
+    PROFILE_MANAGE,
+    NOTIFICATIONS_RECEIVE
   ],
 
   // Web3-specific permission sets
   WEB3_USER: [
-    'epsx:analytics:view',
-    'epsx:profile:manage',
-    'epsx:notifications:receive',
+    ANALYTICS_VIEW,
+    PROFILE_MANAGE,
+    NOTIFICATIONS_RECEIVE,
     'epsx:web3:connect'
   ],
 
   WEB3_PREMIUM: [
-    'epsx:analytics:view',
+    ANALYTICS_VIEW,
     'epsx:analytics:export',
     'epsx:analytics:advanced',
     'epsx:realtime:access',
-    'epsx:profile:manage',
-    'epsx:notifications:receive',
+    PROFILE_MANAGE,
+    NOTIFICATIONS_RECEIVE,
     'epsx:billing:manage',
     'epsx:web3:connect',
     'epsx:web3:transact'
@@ -128,7 +133,7 @@ export const FRONTEND_PERMISSION_SETS = {
 export function hasUserPermissions(userPermissions: string[]): boolean {
   // PERMISSION REFACTOR: Client-side is permissive for authenticated users.
   // Backend enforces actual access control.
-  return (userPermissions != null) && userPermissions.length > 0;
+  return userPermissions.length > 0;
 }
 
 export function canAccessUserRoute(route: string, userPermissions: string[]): boolean {
@@ -139,7 +144,7 @@ export function canAccessUserRoute(route: string, userPermissions: string[]): bo
   }
 
   // Require at least authentication for non-public routes
-  return (userPermissions != null) && userPermissions.length > 0;
+  return userPermissions.length > 0;
 }
 
 /**
@@ -167,7 +172,7 @@ export function validateUserPermission(_permission: string): {
 export function getUserPermissionTier(userPermissions: string[]): 'free' | 'trial' | 'basic' | 'premium' | 'enterprise' {
   // PERMISSION REFACTOR: Tier detection now defaults to a base level if authenticated.
   // Real tier benefits are enforced by the backend.
-  if (userPermissions == null || userPermissions.length === 0) {
+  if (userPermissions.length === 0) {
     return 'free';
   }
 

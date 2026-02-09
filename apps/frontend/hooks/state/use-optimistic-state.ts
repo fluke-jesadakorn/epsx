@@ -65,16 +65,18 @@ export function useOptimisticState<T>(
     if (timeout > 0) {
       const timeoutId = setTimeout(() => {
         rollback();
-        if (errorMessage) {
-          showError(errorMessage, 'Request timed out');
+        if (errorMessage ?? false) {
+          showError(errorMessage ?? '', 'Request timed out');
         }
       }, timeout);
       timeouts.current.set(updateId, timeoutId);
     }
 
     // Execute async action
-    const promise = asyncAction(...args)
-      .then((result) => {
+    const executeAction = async () => {
+      try {
+        const result = await asyncAction(...args);
+
         // Confirm optimistic update
         const update = optimisticUpdates.current.get(updateId);
         if (update) {
@@ -89,19 +91,23 @@ export function useOptimisticState<T>(
           setIsOptimistic(optimisticUpdates.current.size > 0);
         }
         return result;
-      })
-      .catch((error) => {
+      } catch (error) {
         // Rollback optimistic update
         rollback();
 
+        const err = error instanceof Error ? error : new Error(String(error));
         if (onError) {
-          onError(error, rollback);
-        } else if (errorMessage) {
-          showError(errorMessage, error.message);
+          onError(err, rollback);
+        } else if (errorMessage ?? false) {
+          const msg = err.message ?? String(error);
+          showError(errorMessage ?? '', msg);
         }
 
         throw error;
-      });
+      }
+    };
+
+    const promise = executeAction();
 
     return {
       promise,
@@ -199,34 +205,30 @@ export function useOptimisticList<T extends { id: string | number }>(
   }, [applyOptimisticUpdate]);
 
   const update = useCallback(<Args extends unknown[]>(
-    itemId: string | number,
-    updates: Partial<T>,
-    asyncAction: (...args: Args) => Promise<unknown>,
+    ctx: { itemId: string | number; updates: Partial<T>; asyncAction: (...args: Args) => Promise<unknown> },
     ...args: Args
   ) => {
     return applyOptimisticUpdate(
       (currentList) => currentList.map(item =>
-        item.id === itemId ? { ...item, ...updates } : item
+        item.id === ctx.itemId ? { ...item, ...ctx.updates } : item
       ),
-      asyncAction,
+      ctx.asyncAction,
       ...args
     );
   }, [applyOptimisticUpdate]);
 
   const move = useCallback(<Args extends unknown[]>(
-    fromIndex: number,
-    toIndex: number,
-    asyncAction: (...args: Args) => Promise<unknown>,
+    ctx: { fromIndex: number; toIndex: number; asyncAction: (...args: Args) => Promise<unknown> },
     ...args: Args
   ) => {
     return applyOptimisticUpdate(
       (currentList) => {
         const newList = [...currentList];
-        const [removed] = newList.splice(fromIndex, 1);
-        newList.splice(toIndex, 0, removed);
+        const [removed] = newList.splice(ctx.fromIndex, 1);
+        newList.splice(ctx.toIndex, 0, removed);
         return newList;
       },
-      asyncAction,
+      ctx.asyncAction,
       ...args
     );
   }, [applyOptimisticUpdate]);
@@ -278,14 +280,12 @@ export function useOptimisticForm<T extends Record<string, unknown>>(
   } = useOptimisticState(initialValues, options);
 
   const updateField = useCallback(<Args extends unknown[]>(
-    field: keyof T,
-    value: unknown,
-    asyncAction: (...args: Args) => Promise<unknown>,
+    ctx: { field: keyof T; value: unknown; asyncAction: (...args: Args) => Promise<unknown> },
     ...args: Args
   ) => {
     return applyOptimisticUpdate(
-      (currentValues) => ({ ...currentValues, [field]: value }),
-      asyncAction,
+      (currentValues) => ({ ...currentValues, [ctx.field]: ctx.value }),
+      ctx.asyncAction,
       ...args
     );
   }, [applyOptimisticUpdate]);

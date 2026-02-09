@@ -172,7 +172,7 @@ export async function redirectToBackendAdminLogin(callbackUrl?: string): Promise
     });
 
     // Store callback URL for after authentication
-    if (callbackUrl) {
+    if (callbackUrl !== null && callbackUrl !== '') {
       cookieStore.set('oauth_redirect_to', callbackUrl, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
@@ -193,7 +193,7 @@ export async function redirectToBackendAdminLogin(callbackUrl?: string): Promise
     backendAdminLoginUrl.searchParams.set('redirect_uri', authConfig.callbackUrl);
     backendAdminLoginUrl.searchParams.set('scope', 'openid profile email permissions');
     backendAdminLoginUrl.searchParams.set('response_type', 'code');
-    if (callbackUrl) {
+    if (callbackUrl !== null && callbackUrl !== '') {
       backendAdminLoginUrl.searchParams.set('state', encodeURIComponent(callbackUrl));
     }
     redirect(backendAdminLoginUrl.toString());
@@ -211,8 +211,8 @@ export async function redirectToBackendAdminLogin(callbackUrl?: string): Promise
 export async function requireAuth(redirectPath?: string): Promise<unknown> {
   const user = await getAuthUser();
 
-  if (!user) {
-    const loginUrl = redirectPath ? `/auth?return_url=${encodeURIComponent(redirectPath)}` : '/auth';
+  if (user === null || user === undefined) {
+    const loginUrl = redirectPath !== null && redirectPath !== undefined && redirectPath !== '' ? `/auth?return_url=${encodeURIComponent(redirectPath)}` : '/auth';
     redirect(loginUrl);
   }
 

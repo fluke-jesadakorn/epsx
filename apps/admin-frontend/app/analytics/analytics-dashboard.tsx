@@ -152,8 +152,7 @@ interface SummarySectionProps {
     dashboardData?: { metrics?: { totalRequests?: number } };
     permissionAnalytics?: PermissionAnalytics;
 }
-
-// eslint-disable-next-line complexity
+ 
 function SummarySection({ userStats, dashboardData, permissionAnalytics }: SummarySectionProps) {
     const totalUsers = userStats?.total_users ?? 0;
     const totalRequests = dashboardData?.metrics?.totalRequests ?? 0;
