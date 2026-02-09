@@ -36,6 +36,7 @@ const COMMON_REASONS = [
  * @param root0.onRevoke
  * @param root0.isLoading
  */
+// eslint-disable-next-line max-lines-per-function
 export const RevokeKeyModal: React.FC<RevokeKeyModalProps> = ({
     isOpen,
     onClose,
@@ -65,7 +66,7 @@ export const RevokeKeyModal: React.FC<RevokeKeyModalProps> = ({
         try {
             await onRevoke(apiKey.id, reason);
             onClose();
-        } catch (err) {
+        } catch (_err) {
             setError('Failed to revoke API key. Please try again.');
         }
     };
@@ -99,6 +100,7 @@ export const RevokeKeyModal: React.FC<RevokeKeyModalProps> = ({
                 </div>
 
                 {/* Body */}
+                {/* eslint-disable-next-line @typescript-eslint/no-misused-promises */}
                 <form onSubmit={handleSubmit}>
                     <div className="p-6 space-y-4">
                         {/* Warning */}
@@ -119,6 +121,7 @@ export const RevokeKeyModal: React.FC<RevokeKeyModalProps> = ({
                                         {apiKey.client_name}
                                     </span>
                                 </div>
+                                {/* eslint-disable-next-line @typescript-eslint/strict-boolean-expressions */}
                                 {apiKey.wallet_address && (
                                     <div className="flex justify-between">
                                         <span className="text-gray-500 dark:text-gray-400">Wallet:</span>
@@ -186,7 +189,7 @@ export const RevokeKeyModal: React.FC<RevokeKeyModalProps> = ({
                         <Button
                             type="submit"
                             variant="destructive"
-                            disabled={isLoading ?? !selectedReason}
+                            disabled={isLoading || !selectedReason}
                             className="bg-red-600 hover:bg-red-700 text-white"
                         >
                             {isLoading ? 'Revoking...' : 'Revoke API Key'}
