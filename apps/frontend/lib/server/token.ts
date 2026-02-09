@@ -50,12 +50,12 @@ export async function getUserInfoFromWeb3(): Promise<EPSXJWTPayload | null> {
     const sessionToken = await getWeb3SessionFromCookies();
     const walletAddress = await getWalletAddressFromCookies();
 
-    if (!sessionToken || !walletAddress) {
+    if (sessionToken === null || walletAddress === null) {
       return null;
     }
 
     // Get user info from backend Web3 authentication endpoint
-    const backendUrl = clientConfig.backendUrl || 'http://127.0.0.1:8080';
+    const backendUrl = clientConfig.backendUrl ?? 'http://127.0.0.1:8080';
     const response = await fetch(`${backendUrl}/api/auth/web3/user`, {
       headers: {
         'Authorization': `Bearer ${sessionToken}`,
@@ -85,11 +85,7 @@ export async function getUserInfoFromWeb3(): Promise<EPSXJWTPayload | null> {
       aud: 'epsx-frontend',
     } as EPSXJWTPayload;
 
-  } catch (error: unknown) {
-    const err = error as Record<string, unknown>;
-    if (err.code === 'ECONNREFUSED') {
-    } else {
-    }
+  } catch (_error: unknown) {
     return null;
   }
 }
@@ -104,7 +100,7 @@ export async function getSessionFromWeb3(): Promise<{
   try {
     const userInfo = await getUserInfoFromWeb3();
 
-    if (!userInfo) {
+    if (userInfo === null) {
       return { isAuthenticated: false, user: null };
     }
 

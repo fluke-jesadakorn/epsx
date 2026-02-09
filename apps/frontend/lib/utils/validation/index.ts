@@ -24,36 +24,43 @@ export class EnvironmentValidator {
     this.validated = false;
   }
 
+  private validateVariable(
+    variable: EnvironmentVariable,
+    result: { missing: string[]; invalid: string[]; warnings: string[] }
+  ): void {
+    const value = process.env[variable.key];
+
+    if ((value === undefined || value === '') && variable.required) {
+      result.missing.push(variable.key);
+      return;
+    }
+
+    if (value !== undefined && value !== '' && variable.validator !== undefined && !variable.validator(value)) {
+      result.invalid.push(variable.key);
+      return;
+    }
+
+    if ((value === undefined || value === '') && !variable.required && variable.defaultValue === undefined) {
+      result.warnings.push(`Optional environment variable ${variable.key} is not set`);
+    }
+  }
+
   validate(): { valid: boolean; missing: string[]; invalid: string[]; warnings: string[] } {
-    const missing: string[] = [];
-    const invalid: string[] = [];
-    const warnings: string[] = [];
+    const result = {
+      missing: [] as string[],
+      invalid: [] as string[],
+      warnings: [] as string[]
+    };
 
     for (const variable of this.variables) {
-      const value = process.env[variable.key];
-
-      if (!value && variable.required) {
-        missing.push(variable.key);
-        continue;
-      }
-
-      if (value && variable.validator && !variable.validator(value)) {
-        invalid.push(variable.key);
-        continue;
-      }
-
-      if (!value && !variable.required && !variable.defaultValue) {
-        warnings.push(`Optional environment variable ${variable.key} is not set`);
-      }
+      this.validateVariable(variable, result);
     }
 
     this.validated = true;
 
     return {
-      valid: missing.length === 0 && invalid.length === 0,
-      missing,
-      invalid,
-      warnings
+      valid: result.missing.length === 0 && result.invalid.length === 0,
+      ...result
     };
   }
 
@@ -182,6 +189,10 @@ export class InputValidator {
   }
 
   private validateType(value: unknown, type: ValidationRule['type']): string | null {
+    if (type === undefined) {
+      return null;
+    }
+
     switch (type) {
       case 'string':
         return typeof value !== 'string' ? 'Must be a string' : null;
@@ -216,7 +227,7 @@ export class InputValidator {
   }
 
   private convertType(value: unknown, type?: ValidationRule['type']): unknown {
-    if (!type) {return value;}
+    if (type === undefined) {return value;}
 
     switch (type) {
       case 'number':
@@ -286,11 +297,12 @@ export const commonRules = {
     type: 'string' as const,
     minLength: 8,
     pattern: commonPatterns.password,
-    custom: (value: string) => {
-      if (!/(?=.*[a-z])/.test(value)) {return 'Must contain at least one lowercase letter';}
-      if (!/(?=.*[A-Z])/.test(value)) {return 'Must contain at least one uppercase letter';}
-      if (!/(?=.*\d)/.test(value)) {return 'Must contain at least one number';}
-      if (!/(?=.*[@$!%*?&])/.test(value)) {return 'Must contain at least one special character';}
+    custom: (value: unknown) => {
+      const strValue = String(value);
+      if (!/(?=.*[a-z])/.test(strValue)) {return 'Must contain at least one lowercase letter';}
+      if (!/(?=.*[A-Z])/.test(strValue)) {return 'Must contain at least one uppercase letter';}
+      if (!/(?=.*\d)/.test(strValue)) {return 'Must contain at least one number';}
+      if (!/(?=.*[@$!%*?&])/.test(strValue)) {return 'Must contain at least one special character';}
       return true;
     }
   },
@@ -341,7 +353,7 @@ export class FormValidator {
 
   validateField(fieldName: string, value: unknown): ValidationResult {
     const rules = this.schema[fieldName];
-    if (!rules) {
+    if (rules === undefined) {
       return { valid: true, errors: [] };
     }
 
@@ -369,14 +381,14 @@ export const envValidator = new EnvironmentValidator();
 envValidator.add({
   key: 'NEXT_PUBLIC_BACKEND_URL',
   required: true,
-  validator: (value) => value.startsWith('http'),
+  validator: (value: string) => value.startsWith('http'),
   description: 'Backend API URL'
 });
 
 envValidator.add({
   key: 'NEXTAUTH_SECRET',
   required: true,
-  validator: (value) => value.length >= 32,
+  validator: (value: string) => value.length >= 32,
   description: 'NextAuth secret key (minimum 32 characters)'
 });
 
@@ -384,7 +396,7 @@ envValidator.add({
   key: 'NODE_ENV',
   required: true,
   defaultValue: 'development',
-  validator: (value) => ['development', 'production', 'test'].includes(value),
+  validator: (value: string) => ['development', 'production', 'test'].includes(value),
   description: 'Node environment'
 });
 
