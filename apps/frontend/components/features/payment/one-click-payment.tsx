@@ -27,6 +27,17 @@ import { usePaymentState } from './hooks/use-payment-state';
 import { usePaymentProcessing } from './hooks/use-payment-processing';
 import { PAYMENT_METHODS } from './constants';
 
+interface PaymentPackage {
+  id: string;
+  name: string;
+  icon?: string;
+  current_price?: number | string;
+  features?: string[];
+  original_plan_id?: number | string;
+  currency?: string;
+  [key: string]: unknown;
+}
+
 export default function OneClickPayment({
   className,
   preselectedPackage,
@@ -203,7 +214,7 @@ function ErrorState({ error, className }: { error: string; className?: string })
 }
 
 interface ConfirmationStateProps {
-  selectedPkg: any;
+  selectedPkg: PaymentPackage;
   setCurrentStep: (step: 'package') => void;
   className?: string;
 }
@@ -297,12 +308,18 @@ function PackageSelectionHeader() {
   );
 }
 
-function MobilePackageCards({ packages, selectedPackage, setSelectedPackage }: any) {
+interface MobilePackageCardsProps {
+  packages: PaymentPackage[];
+  selectedPackage: string;
+  setSelectedPackage: (id: string) => void;
+}
+
+function MobilePackageCards({ packages, selectedPackage, setSelectedPackage }: MobilePackageCardsProps) {
   return (
     <div className="mb-6 block md:hidden">
       <div className="overflow-x-auto pb-4">
         <div className="flex gap-4 px-2">
-          {packages.map((pkg: any) => (
+          {packages.map((pkg) => (
             <PackageCard
               key={`${pkg.id} - ${pkg.name}`}
               pkg={pkg}
@@ -322,10 +339,16 @@ function MobilePackageCards({ packages, selectedPackage, setSelectedPackage }: a
   );
 }
 
-function DesktopPackageCards({ packages, selectedPackage, setSelectedPackage }: any) {
+interface DesktopPackageCardsProps {
+  packages: PaymentPackage[];
+  selectedPackage: string;
+  setSelectedPackage: (id: string) => void;
+}
+
+function DesktopPackageCards({ packages, selectedPackage, setSelectedPackage }: DesktopPackageCardsProps) {
   return (
     <div className="mb-8 hidden gap-6 md:grid md:grid-cols-3">
-      {packages.map((pkg: any) => (
+      {packages.map((pkg) => (
         <PackageCard
           key={`${pkg.id} - ${pkg.name}`}
           pkg={pkg}
@@ -337,7 +360,12 @@ function DesktopPackageCards({ packages, selectedPackage, setSelectedPackage }: 
   );
 }
 
-function ContinueButton({ selectedPkg, setCurrentStep }: { selectedPkg: any; setCurrentStep: (step: 'payment') => void }) {
+interface ContinueButtonProps {
+  selectedPkg: PaymentPackage;
+  setCurrentStep: (step: 'payment') => void;
+}
+
+function ContinueButton({ selectedPkg, setCurrentStep }: ContinueButtonProps) {
   return (
     <div className="text-center">
       <Button
@@ -353,7 +381,7 @@ function ContinueButton({ selectedPkg, setCurrentStep }: { selectedPkg: any; set
 }
 
 interface PaymentStepProps {
-  selectedPkg: any;
+  selectedPkg: PaymentPackage;
   selectedPaymentMethod: string;
   setSelectedPaymentMethod: (method: string) => void;
   setCurrentStep: (step: 'package') => void;
@@ -464,7 +492,7 @@ function PaymentStep({
 }
 
 interface OrderSummaryProps {
-  selectedPkg: any;
+  selectedPkg: PaymentPackage;
   selectedPaymentMethod: string;
   isProcessing: boolean;
   handlePayment: () => void;

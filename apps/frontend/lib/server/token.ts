@@ -85,8 +85,9 @@ export async function getUserInfoFromWeb3(): Promise<EPSXJWTPayload | null> {
       aud: 'epsx-frontend',
     } as EPSXJWTPayload;
 
-  } catch (error: any) {
-    if (error.code === 'ECONNREFUSED') {
+  } catch (error: unknown) {
+    const err = error as Record<string, unknown>;
+    if (err.code === 'ECONNREFUSED') {
     } else {
     }
     return null;
