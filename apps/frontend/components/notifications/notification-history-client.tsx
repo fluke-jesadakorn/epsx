@@ -74,7 +74,7 @@ function NotificationCard({ notification, onMarkAsRead, onCardClick }: {
   }
 
   const handleCardClick = () => {
-    if (!notification.readAt && onCardClick) {
+    if (onCardClick !== undefined) {
       onCardClick(notification.id)
     }
   }
@@ -96,7 +96,7 @@ function NotificationCard({ notification, onMarkAsRead, onCardClick }: {
               <span className="text-xs text-gray-500 dark:text-gray-400">
                 {timeAgo(notification.createdAt)}
               </span>
-              {!notification.readAt && (
+              {(notification.readAt === null || notification.readAt === undefined) && (
                 <Badge variant="destructive" className="text-xs">
                   NEW
                 </Badge>
@@ -113,7 +113,7 @@ function NotificationCard({ notification, onMarkAsRead, onCardClick }: {
           </p>
 
           <div className="flex items-center gap-3">
-            {notification.actionUrl && (
+            {(notification.actionUrl !== null && notification.actionUrl !== undefined && notification.actionUrl !== '') && (
               <Link
                 href={notification.actionUrl}
                 onClick={(e) => e.stopPropagation()}
@@ -123,7 +123,7 @@ function NotificationCard({ notification, onMarkAsRead, onCardClick }: {
               </Link>
             )}
 
-            {!notification.readAt && onMarkAsRead && (
+            {(notification.readAt === null || notification.readAt === undefined) && onMarkAsRead && (
               <button
                 onClick={(e) => {
                   e.stopPropagation()
@@ -141,6 +141,197 @@ function NotificationCard({ notification, onMarkAsRead, onCardClick }: {
   )
 }
 
+function StatsHeader({ totalCount, unreadCount }: { totalCount: number; unreadCount: number }) {
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="bg-blue-50 dark:bg-blue-950 p-4 rounded-lg">
+        <h3 className="font-semibold text-blue-900 dark:text-blue-100">📊 Total</h3>
+        <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{totalCount}</p>
+      </div>
+      <div className="bg-red-50 dark:bg-red-950 p-4 rounded-lg">
+        <h3 className="font-semibold text-red-900 dark:text-red-100">🔔 Unread</h3>
+        <p className="text-2xl font-bold text-red-600 dark:text-red-400">{unreadCount}</p>
+      </div>
+      <div className="bg-green-50 dark:bg-green-950 p-4 rounded-lg">
+        <h3 className="font-semibold text-green-900 dark:text-green-100">✓ Read</h3>
+        <p className="text-2xl font-bold text-green-600 dark:text-green-400">{totalCount - unreadCount}</p>
+      </div>
+    </div>
+  )
+}
+
+function SearchFilters({
+  searchQuery,
+  setSearchQuery,
+  selectedType,
+  setSelectedType,
+  selectedPriority,
+  setSelectedPriority,
+  showUnreadOnly,
+  setShowUnreadOnly,
+  handleMarkAllAsRead,
+  handleClearHistory,
+  isPending,
+  unreadCount,
+  totalCount
+}: {
+  searchQuery: string
+  setSearchQuery: (q: string) => void
+  selectedType: string
+  setSelectedType: (t: string) => void
+  selectedPriority: string
+  setSelectedPriority: (p: string) => void
+  showUnreadOnly: boolean
+  setShowUnreadOnly: (s: boolean) => void
+  handleMarkAllAsRead: () => void
+  handleClearHistory: () => void
+  isPending: boolean
+  unreadCount: number
+  totalCount: number
+}) {
+  return (
+    <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-sm border border-gray-200 dark:border-gray-700">
+      <div className="flex flex-col lg:flex-row gap-4">
+        <div className="flex-1">
+          <div className="relative">
+            <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+            <Input
+              placeholder="Search notifications..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+        </div>
+
+        <div className="flex flex-col sm:flex-row gap-3">
+          <Select value={selectedType} onValueChange={setSelectedType}>
+            <SelectTrigger className="w-40">
+              <SelectValue placeholder="All Types" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Types</SelectItem>
+              <SelectItem value="system">🔧 System</SelectItem>
+              <SelectItem value="admin">👨‍💼 Admin</SelectItem>
+              <SelectItem value="data">📊 Data</SelectItem>
+              <SelectItem value="feature">✨ Feature</SelectItem>
+              <SelectItem value="security">🔒 Security</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select value={selectedPriority} onValueChange={setSelectedPriority}>
+            <SelectTrigger className="w-40">
+              <SelectValue placeholder="All Priorities" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Priorities</SelectItem>
+              <SelectItem value="critical">🔴 Critical</SelectItem>
+              <SelectItem value="high">🟡 High</SelectItem>
+              <SelectItem value="normal">🔵 Normal</SelectItem>
+              <SelectItem value="low">⚪ Low</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Button
+            variant={showUnreadOnly ? "default" : "outline"}
+            onClick={() => setShowUnreadOnly(!showUnreadOnly)}
+            className="whitespace-nowrap"
+          >
+            <Filter className="h-4 w-4 mr-2" />
+            Unread Only
+          </Button>
+        </div>
+      </div>
+
+      <div className="flex justify-between items-center mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+        <div className="flex gap-3">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              handleMarkAllAsRead()
+            }}
+            disabled={isPending || unreadCount === 0}
+          >
+            📝 Mark All as Read
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              handleClearHistory()
+            }}
+            disabled={isPending || totalCount === 0}
+          >
+            🗑️ Clear History
+          </Button>
+        </div>
+        <Link href="/notifications/preferences">
+          <Button variant="outline" size="sm">
+            <Settings className="h-4 w-4 mr-2" />
+            Preferences
+          </Button>
+        </Link>
+      </div>
+    </div>
+  )
+}
+
+function NotificationsList({
+  groupedNotifications,
+  handleMarkAsRead
+}: {
+  groupedNotifications: Array<[string, Notification[]]>
+  handleMarkAsRead: (id: string) => void
+}) {
+  if (groupedNotifications.length === 0) {
+    return (
+      <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+        <div className="text-6xl mb-4">📭</div>
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
+          No notifications found
+        </h3>
+        <p className="text-gray-600 dark:text-gray-400">
+          Try adjusting your filters or search terms
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <>
+      {groupedNotifications.map(([date, groupNotifications]) => (
+        <div key={date} className="space-y-3">
+          <div className="flex items-center gap-3">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+              {date}
+            </h2>
+            <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700" />
+            <Badge variant="outline">
+              {groupNotifications.length} {groupNotifications.length === 1 ? 'notification' : 'notifications'}
+            </Badge>
+          </div>
+
+          <div className="space-y-3">
+            {groupNotifications.map((notification) => (
+              <NotificationCard
+                key={notification.id}
+                notification={notification}
+                onMarkAsRead={(id) => {
+                  handleMarkAsRead(id)
+                }}
+                onCardClick={(id) => {
+                  handleMarkAsRead(id)
+                }}
+              />
+            ))}
+          </div>
+        </div>
+      ))}
+    </>
+  )
+}
+
 export function NotificationHistoryClient({
   initialNotifications,
   totalCount,
@@ -154,7 +345,7 @@ export function NotificationHistoryClient({
   const [isPending, startTransition] = useTransition()
   const router = useRouter()
 
-  const handleMarkAllAsRead = async () => {
+  const handleMarkAllAsRead = () => {
     startTransition(async () => {
       try {
         await markAllNotificationsRead()
@@ -166,19 +357,18 @@ export function NotificationHistoryClient({
     })
   }
 
-  const handleClearHistory = async () => {
+  const handleClearHistory = () => {
+    // eslint-disable-next-line no-alert
     if (!confirm('Are you sure you want to clear all notification history? This cannot be undone.')) {
       return
     }
-    
-    startTransition(async () => {
-      // Clear functionality - using deleteNotification for individual notifications
-      // For bulk clear, we'd need to call deleteNotification for each notification
+
+    startTransition(() => {
       toast.info('Bulk clear not implemented yet')
     })
   }
 
-  const handleMarkAsRead = async (notificationId: string) => {
+  const handleMarkAsRead = (notificationId: string) => {
     startTransition(async () => {
       try {
         await markNotificationRead(notificationId)
@@ -197,7 +387,7 @@ export function NotificationHistoryClient({
                            notification.body.toLowerCase().includes(searchQuery.toLowerCase())
       const matchesType = selectedType === 'all' || notification.type === selectedType
       const matchesPriority = selectedPriority === 'all' || notification.priority === selectedPriority
-      const matchesReadStatus = !showUnreadOnly || !notification.readAt
+      const matchesReadStatus = !showUnreadOnly || notification.readAt === null || notification.readAt === undefined
 
       return matchesSearch && matchesType && matchesPriority && matchesReadStatus
     })
@@ -218,9 +408,7 @@ export function NotificationHistoryClient({
         groupKey = date.toLocaleDateString()
       }
 
-      if (!groups[groupKey]) {
-        groups[groupKey] = []
-      }
+      groups[groupKey] ??= []
       groups[groupKey].push(notification)
     })
 
@@ -236,142 +424,29 @@ export function NotificationHistoryClient({
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      {/* Stats Header */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-blue-50 dark:bg-blue-950 p-4 rounded-lg">
-          <h3 className="font-semibold text-blue-900 dark:text-blue-100">📊 Total</h3>
-          <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{totalCount}</p>
-        </div>
-        <div className="bg-red-50 dark:bg-red-950 p-4 rounded-lg">
-          <h3 className="font-semibold text-red-900 dark:text-red-100">🔔 Unread</h3>
-          <p className="text-2xl font-bold text-red-600 dark:text-red-400">{unreadCount}</p>
-        </div>
-        <div className="bg-green-50 dark:bg-green-950 p-4 rounded-lg">
-          <h3 className="font-semibold text-green-900 dark:text-green-100">✓ Read</h3>
-          <p className="text-2xl font-bold text-green-600 dark:text-green-400">{totalCount - unreadCount}</p>
-        </div>
-      </div>
-
-      {/* Search and Filters */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-sm border border-gray-200 dark:border-gray-700">
-        <div className="flex flex-col lg:flex-row gap-4">
-          <div className="flex-1">
-            <div className="relative">
-              <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-              <Input
-                placeholder="Search notifications..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-          </div>
-          
-          <div className="flex flex-col sm:flex-row gap-3">
-            <Select value={selectedType} onValueChange={setSelectedType}>
-              <SelectTrigger className="w-40">
-                <SelectValue placeholder="All Types" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Types</SelectItem>
-                <SelectItem value="system">🔧 System</SelectItem>
-                <SelectItem value="admin">👨‍💼 Admin</SelectItem>
-                <SelectItem value="data">📊 Data</SelectItem>
-                <SelectItem value="feature">✨ Feature</SelectItem>
-                <SelectItem value="security">🔒 Security</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Select value={selectedPriority} onValueChange={setSelectedPriority}>
-              <SelectTrigger className="w-40">
-                <SelectValue placeholder="All Priorities" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Priorities</SelectItem>
-                <SelectItem value="critical">🔴 Critical</SelectItem>
-                <SelectItem value="high">🟡 High</SelectItem>
-                <SelectItem value="normal">🔵 Normal</SelectItem>
-                <SelectItem value="low">⚪ Low</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Button
-              variant={showUnreadOnly ? "default" : "outline"}
-              onClick={() => setShowUnreadOnly(!showUnreadOnly)}
-              className="whitespace-nowrap"
-            >
-              <Filter className="h-4 w-4 mr-2" />
-              Unread Only
-            </Button>
-          </div>
-        </div>
-
-        <div className="flex justify-between items-center mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-          <div className="flex gap-3">
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={handleMarkAllAsRead}
-              disabled={isPending || unreadCount === 0}
-            >
-              📝 Mark All as Read
-            </Button>
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={handleClearHistory}
-              disabled={isPending || totalCount === 0}
-            >
-              🗑️ Clear History
-            </Button>
-          </div>
-          <Link href="/notifications/preferences">
-            <Button variant="outline" size="sm">
-              <Settings className="h-4 w-4 mr-2" />
-              Preferences
-            </Button>
-          </Link>
-        </div>
-      </div>
+      <StatsHeader totalCount={totalCount} unreadCount={unreadCount} />
+      <SearchFilters
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+        selectedType={selectedType}
+        setSelectedType={setSelectedType}
+        selectedPriority={selectedPriority}
+        setSelectedPriority={setSelectedPriority}
+        showUnreadOnly={showUnreadOnly}
+        setShowUnreadOnly={setShowUnreadOnly}
+        handleMarkAllAsRead={handleMarkAllAsRead}
+        handleClearHistory={handleClearHistory}
+        isPending={isPending}
+        unreadCount={unreadCount}
+        totalCount={totalCount}
+      />
 
       {/* Notifications List */}
       <div className="space-y-6">
-        {groupedNotifications.length === 0 ? (
-          <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-            <div className="text-6xl mb-4">📭</div>
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
-              No notifications found
-            </h3>
-            <p className="text-gray-600 dark:text-gray-400">
-              Try adjusting your filters or search terms
-            </p>
-          </div>
-        ) : (
-          groupedNotifications.map(([date, notifications]) => (
-            <div key={date} className="space-y-3">
-              <div className="flex items-center gap-3">
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                  {date}
-                </h2>
-                <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700" />
-                <Badge variant="outline">
-                  {notifications.length} {notifications.length === 1 ? 'notification' : 'notifications'}
-                </Badge>
-              </div>
-              
-              <div className="space-y-3">
-                {notifications.map((notification) => (
-                  <NotificationCard
-                    key={notification.id}
-                    notification={notification}
-                    onMarkAsRead={handleMarkAsRead}
-                    onCardClick={handleMarkAsRead}
-                  />
-                ))}
-              </div>
-            </div>
-          ))
-        )}
+        <NotificationsList
+          groupedNotifications={groupedNotifications}
+          handleMarkAsRead={handleMarkAsRead}
+        />
       </div>
 
       {/* Load More */}
