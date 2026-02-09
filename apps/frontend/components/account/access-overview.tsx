@@ -39,12 +39,10 @@ export async function AccessOverview() {
             };
         } else {
             // Backend always returns Free Plan, so if we get here it's an error
-            console.error('Error fetching access overview:', response.error);
             error = 'Unable to load access details.';
             data = null;
         }
-    } catch (err) {
-        console.error('Error fetching access overview:', err);
+    } catch (_err) {
         error = 'Unable to load access details.';
     }
 

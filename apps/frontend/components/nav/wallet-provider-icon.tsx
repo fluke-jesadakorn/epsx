@@ -122,11 +122,9 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
         setAuthRetryCount(0);
         setLastAuthError(null);
       } else {
-        console.error('❌ Sign-in failed:', result.error);
         setLastAuthError(result.error ?? null);
       }
     } catch (error: any) {
-      console.error('❌ Sign-in error:', error);
       if (error?.code !== 4001 && !error?.message?.includes('User rejected')) {
         setLastAuthError(error?.message ?? 'Sign-in failed');
       }
@@ -140,8 +138,7 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
     try {
       await logout();
       await disconnect();
-    } catch (error) {
-      console.error('OIDC logout error:', error);
+    } catch (_error) {
       await disconnect();
     } finally {
       setIsDisconnecting(false);

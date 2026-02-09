@@ -85,13 +85,11 @@ function AnalyticsClientWrapper({
 
     // Calculate Growth Factor leaders using epsGrowth
     const growthLeaders = data.rankings
-      .filter(ranking => ranking.epsGrowth !== null && ranking.epsGrowth !== undefined)
       .sort((a, b) => (b.epsGrowth || 0) - (a.epsGrowth || 0))
       .slice(0, 3);
 
     // For price leaders, use momentum data since quarterly_data is not available
     const priceLeaders = data.rankings
-      .filter(ranking => ranking.momentum_1m !== null && ranking.momentum_1m !== undefined)
       .sort((a, b) => (b.momentum_1m ?? 0) - (a.momentum_1m ?? 0))
       .slice(0, 3);
 
@@ -200,9 +198,9 @@ function AnalyticsClientWrapper({
   const getExportDescription = () => {
     switch (exportType) {
       case 'current':
-        return `Export current page data (${data?.rankings?.length ?? 0} records)`;
+        return `Export current page data (${data?.rankings.length ?? 0} records)`;
       case 'filtered':
-        return `Export all filtered data (${data?.pagination?.total_items ?? 0} total records)`;
+        return `Export all filtered data (${data?.pagination.total_items ?? 0} total records)`;
       case 'leaders':
         return 'Export Growth performance leaders only';
       case 'full':
@@ -440,7 +438,7 @@ function AnalyticsClientWrapper({
           })()}
 
           {/* Rich Backend Analytics Metadata Section */}
-          {!isLoading && data && data.metadata && (
+          {data?.metadata && (
             <div className="mb-8">
               <div className="relative overflow-hidden rounded-3xl border border-purple-200/50 bg-white/80 p-6 shadow-2xl backdrop-blur-xl dark:border-purple-400/20 dark:bg-slate-800/80">
                 <div className="absolute inset-0 bg-gradient-to-br from-purple-50/50 via-transparent to-blue-50/50 dark:from-purple-900/10 dark:via-transparent dark:to-blue-900/10" />

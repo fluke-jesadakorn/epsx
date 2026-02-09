@@ -57,8 +57,8 @@ export function BrowserNotifications({
         try {
           const parsed = JSON.parse(savedSettings);
           setSettings(prev => ({ ...prev, ...parsed }));
-        } catch (error) {
-          console.error('Failed to parse notification settings:', error);
+        } catch (_error) {
+          // Notification settings parsing failed
         }
       }
     }
@@ -104,8 +104,7 @@ export function BrowserNotifications({
         toast.error('Browser notifications denied');
         setSettings(prev => ({ ...prev, enabled: false }));
       }
-    } catch (error) {
-      console.error('Failed to request notification permission:', error);
+    } catch (_error) {
       toast.error('Failed to enable notifications');
     }
   };
@@ -145,8 +144,8 @@ export function BrowserNotifications({
       };
 
       return notification;
-    } catch (error) {
-      console.error('Failed to show notification:', error);
+    } catch (_error) {
+      // Notification creation failed
     }
   }, [isSupported, permission, settings.enabled]);
 

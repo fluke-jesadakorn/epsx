@@ -76,8 +76,8 @@ export function AccountClient({ initialPaymentHistory, accessOverviewSlot }: Acc
       if (response && response.success && response.data) {
         setUserProfile(response.data);
       }
-    } catch (error) {
-      console.error('Error loading user info:', error);
+    } catch (_error) {
+      // User info loading failed silently
     }
   };
 
@@ -88,8 +88,8 @@ export function AccountClient({ initialPaymentHistory, accessOverviewSlot }: Acc
       if (response && response.success && response.data?.preferences) {
         setNotificationPrefs(response.data.preferences);
       }
-    } catch (error) {
-      console.error('Error loading notification preferences:', error);
+    } catch (_error) {
+      // Notification preferences loading failed silently
     } finally {
       setPrefsLoading(false);
     }
@@ -107,8 +107,7 @@ export function AccountClient({ initialPaymentHistory, accessOverviewSlot }: Acc
       } else {
         throw new Error('Failed to update preferences');
       }
-    } catch (error) {
-      console.error('Error updating notification preferences:', error);
+    } catch (_error) {
       setPrefsError('Failed to update preferences. Please try again.');
     }
   };
