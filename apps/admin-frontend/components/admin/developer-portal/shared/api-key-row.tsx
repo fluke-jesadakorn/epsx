@@ -78,11 +78,9 @@ export const ApiKeyRow: React.FC<ApiKeyRowProps> = ({
     onEditExpiration,
 }) => {
     const extendedKey = apiKey as ExtendedApiKey;
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     const walletAddress = extendedKey.wallet_address ?? '';
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     const keyPrefix = extendedKey.key_prefix ?? apiKey.key_preview ?? '';
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     const permissionGroups = extendedKey.permission_groups ?? [];
 
     return (
@@ -159,6 +157,7 @@ export const ApiKeyRow: React.FC<ApiKeyRowProps> = ({
                     title="Click to edit expiration"
                 >
                     <span className="text-xs font-black text-foreground group-hover:text-[#1fc7d4] transition-colors">
+                        {/* eslint-disable-next-line @typescript-eslint/strict-boolean-expressions */}
                         {apiKey.expires_at ? (
                             new Date(apiKey.expires_at).toLocaleDateString(undefined, {
                                 year: 'numeric',
@@ -170,6 +169,7 @@ export const ApiKeyRow: React.FC<ApiKeyRowProps> = ({
                         )}
                     </span>
                     <span className="text-[10px] font-black text-muted-foreground/50 uppercase tracking-widest">
+                        {/* eslint-disable-next-line @typescript-eslint/strict-boolean-expressions */}
                         {apiKey.expires_at ? 'Fixed Date' : 'Permanent'}
                     </span>
                 </button>
