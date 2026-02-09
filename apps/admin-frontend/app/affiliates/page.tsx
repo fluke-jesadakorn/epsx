@@ -7,6 +7,7 @@ import { UnifiedAuth } from '@/lib/auth/auth';
 
 export const dynamic = 'force-dynamic';
 
+// eslint-disable-next-line max-lines-per-function
 async function AffiliatesDataWrapper(): Promise<React.JSX.Element> {
   const session = await UnifiedAuth.getSession();
 
