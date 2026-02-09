@@ -88,6 +88,7 @@ export default async function RootLayout({
   } catch {
     // Cookie value might be URL-encoded - try decoding first
     try {
+      // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
       const decodedCookie = rawCookie ? decodeURIComponent(rawCookie) : null;
       initialState = cookieToInitialState(getServerConfig(), decodedCookie);
     } catch {
@@ -98,7 +99,8 @@ export default async function RootLayout({
   }
 
   // Check for auth cookie presence on server
-  const hasAuthCookie = rawCookie ? (rawCookie.includes('epsx.user') ?? rawCookie.includes('epsx.access_token')) : false;
+  // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
+  const hasAuthCookie = rawCookie ? (rawCookie.includes('epsx.user') || rawCookie.includes('epsx.access_token')) : false;
 
   return (
     <html
