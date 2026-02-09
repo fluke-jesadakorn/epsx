@@ -36,10 +36,10 @@ export function useAnalyticsFilters() {
 
   const activeFilterCount = useMemo(() => {
     let count = 0;
-    if (filters.country != null && filters.country !== '') {count++;}
-    if (filters.sector != null && filters.sector !== '') {count++;}
-    if (filters.min_eps != null) {count++;}
-    if (filters.min_growth != null) {count++;}
+    if (filters.country !== undefined && filters.country !== '') {count++;}
+    if (filters.sector !== undefined && filters.sector !== '') {count++;}
+    if (filters.min_eps !== undefined) {count++;}
+    if (filters.min_growth !== undefined) {count++;}
     return count;
   }, [filters]);
 

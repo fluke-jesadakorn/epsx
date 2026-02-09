@@ -53,7 +53,7 @@ function InputGroupLabel({ required, className, children, ...props }: InputGroup
       {...props}
     >
       {children}
-      {required && <span className="text-destructive ml-1">*</span>}
+      {(required ?? false) && <span className="text-destructive ml-1">*</span>}
     </label>
   );
 }
@@ -80,7 +80,7 @@ function InputGroupError({ className, children, ...props }: InputGroupErrorProps
   const context = React.useContext(InputGroupContext);
   if (!context) {throw new Error('InputGroupError must be used within an InputGroup');}
 
-  if (!context.error || !children) {
+  if ((context.error?.length ?? 0) === 0 || !children) {
     return null;
   }
 
@@ -101,7 +101,7 @@ function InputGroupDescription({ className, children, ...props }: InputGroupDesc
   const context = React.useContext(InputGroupContext);
   if (!context) {throw new Error('InputGroupDescription must be used within an InputGroup');}
 
-  if (!children) {
+  if (children === null || children === undefined) {
     return null;
   }
 

@@ -21,13 +21,13 @@ export function useAnalyticsData(filters: AnalyticsFilters) {
   });
 
   // Extract data from the response (which is CardDashboardResponse)
-  const data = response?.success ? response : null;
-  const error = queryError ? 'Failed to load analytics data' : (!response?.success ? response?.message : null);
+  const data = (response?.success ?? false) ? response : null;
+  const error = queryError ? 'Failed to load analytics data' : ((response?.success ?? true) ? null : response?.message);
 
   const filterOptions: RichFilterOptions = DEFAULT_FILTER_OPTIONS;
 
   return {
-    data: data as any, // Cast to any to match existing usage in components
+    data: data as unknown, // Cast to unknown to match existing usage in components
     filterOptions,
     isLoading,
     error: (error ?? null),
