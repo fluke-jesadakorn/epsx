@@ -260,7 +260,7 @@ export function DynamicPaymentWidget({
     // ============ Backend Submission Logic ============
     // State for backend submission
     const [submissionStep, setSubmissionStep] = useState<'idle' | 'submitting' | 'submitted' | 'confirmed'>('idle');
-    const hasSubmittedRef = useState(false); // Using ref-like state or ref to prevent duplicate submissions
+    const _hasSubmittedRef = useState(false); // Using ref-like state or ref to prevent duplicate submissions
     // actually, let's use a real ref for submission tracking to avoid re-renders triggering it
     const submittedRef = useMemo(() => ({ current: false }), []);
 
@@ -341,7 +341,7 @@ export function DynamicPaymentWidget({
 
     // ============ Token Verification (for local Anvil) ============
     // Check if token contract is accessible - important for Tailscale IP access
-    const [verificationKey, setVerificationKey] = useState(0);
+    const [_verificationKey, _setVerificationKey] = useState(0);
     const { data: tokenSymbolData, isLoading: isVerifyingToken, isError: tokenVerifyError, refetch: recheckToken } = useReadContract({
         address: tokenAddress as `0x${string}`,
         abi: [{ name: 'symbol', type: 'function', inputs: [], outputs: [{ type: 'string' }] }] as const,
@@ -373,12 +373,12 @@ export function DynamicPaymentWidget({
     // Handle recheck token button
     const handleRecheckToken = useCallback(() => {
         setTokenVerificationStatus('checking');
-        setVerificationKey(prev => prev + 1);
+        _setVerificationKey(prev => prev + 1);
         recheckToken();
     }, [recheckToken]);
 
     // Check token balance (Wallet)
-    const { data: balanceData, refetch: refetchBalance } = useBalance({
+    const { data: balanceData } = useBalance({
         address,
         token: tokenAddress as `0x${string}`,
         chainId,

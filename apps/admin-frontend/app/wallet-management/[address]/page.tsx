@@ -27,14 +27,12 @@ import { logger } from '@/shared/utils/logger';
 
 import {
     disableWalletAction,
-    enableWalletAction,
-    fetchWalletDetailAction,
-    updateWalletMetadataAction
+    enableWalletAction
 } from '@/app/wallet-management/plan-actions';
 import { DisableWalletModal, type DisableWalletData } from '@/components/wallet/disable-wallet-modal';
 import { ExpiryDatePicker } from '@/components/wallet/expiry-date-picker';
 import { ReenableWalletModal, type ReenableWalletData } from '@/components/wallet/reenable-wallet-modal';
-import type { WalletData, WalletStatus } from '@/components/wallet/types';
+import type { WalletStatus } from '@/components/wallet/types';
 import {
     WalletAssignedPlansCard,
     WalletAvailablePlansCard,
@@ -44,11 +42,9 @@ import {
 import type { AccessItem } from '@/hooks/use-wallet-access';
 import { useWalletAccess } from '@/hooks/use-wallet-access';
 import { cn, copyToClipboard } from '@/lib/utils';
-import { createPlansClient, type SubscriptionResponse } from '@/shared/api/plans';
 import { useSharedAuth } from '@/shared/components/auth/Provider';
 import { Button } from '@/shared/components/ui/button';
 import { Skeleton } from '@/shared/components/ui/skeleton';
-import { createAdminApiClient } from '@/shared/utils/api-client';
 
 const STATUS_CONFIG: Record<WalletStatus, { label: string; emoji: string; className: string }> = {
     active: {
@@ -68,100 +64,7 @@ const STATUS_CONFIG: Record<WalletStatus, { label: string; emoji: string; classN
     },
 };
 
-// ============================================================================
-// CUSTOM HOOKS
-// ============================================================================
-
-interface UseWalletDataContext {
-    walletAddress: string;
-    router: ReturnType<typeof useRouter>;
-}
-
-function useWalletData(ctx: UseWalletDataContext) {
-    const [wallet, setWallet] = useState<WalletData | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
-    const [isRefreshing, setIsRefreshing] = useState(false);
-
-    const loadWallet = useCallback(async () => {
-        if (ctx.walletAddress === '') { return; }
-
-        try {
-            setIsRefreshing(true);
-            const walletData = await fetchWalletDetailAction(ctx.walletAddress);
-            setWallet(walletData);
-        } catch (_err) {
-            logger.error('Failed to load wallet:', _err);
-            toast.error('Failed to load wallet details');
-            ctx.router.push('/wallet-management');
-        } finally {
-            setIsLoading(false);
-            setIsRefreshing(false);
-        }
-    }, [ctx.walletAddress, ctx.router]);
-
-    return { wallet, setWallet, isLoading, isRefreshing, loadWallet };
-}
-
-function useMetadataForm(wallet: WalletData | null) {
-    const [metadataForm, setMetadataForm] = useState({ label: '', note: '' });
-    const [isSaving, setIsSaving] = useState(false);
-    const [hasChanges, setHasChanges] = useState(false);
-
-    useEffect(() => {
-        if (wallet !== null) {
-            setMetadataForm({
-                label: wallet.label ?? '',
-                note: wallet.note ?? '',
-            });
-            setHasChanges(false);
-        }
-    }, [wallet]);
-
-    const handleSave = useCallback(async (walletAddress: string, loadWallet: () => Promise<void>) => {
-        if (wallet === null) { return; }
-        setIsSaving(true);
-        try {
-            await updateWalletMetadataAction(walletAddress, {
-                label: metadataForm.label ?? null,
-                note: metadataForm.note ?? null,
-            });
-            toast.success('Wallet metadata updated');
-            setHasChanges(false);
-            await loadWallet();
-        } catch (_err) {
-            logger.error('Failed to update metadata:', _err);
-            toast.error('Failed to save changes');
-        } finally {
-            setIsSaving(false);
-        }
-    }, [metadataForm, wallet]);
-
-    return { metadataForm, setMetadataForm, isSaving, hasChanges, setHasChanges, handleSave };
-}
-
-function usePlanAssignments(accessData: ReturnType<typeof useWalletAccess>['data']) {
-    const [pendingDrops, setPendingDrops] = useState<AccessItem[]>([]);
-    const [isSaving, setIsSaving] = useState(false);
-    const { assignPlan, refresh: refreshAccess } = useWalletAccess('');
-
-    const handleSave = useCallback(async () => {
-        if (pendingDrops.length === 0) { return; }
-        setIsSaving(true);
-        try {
-            await Promise.all(pendingDrops.map(plan => assignPlan(plan.id)));
-            toast.success('Access plans assigned successfully');
-            setPendingDrops([]);
-            refreshAccess();
-        } catch (_err) {
-            logger.error('Failed to save changes:', _err);
-            toast.error('Failed to assign plans');
-        } finally {
-            setIsSaving(false);
-        }
-    }, [pendingDrops, assignPlan, refreshAccess]);
-
-    return { pendingDrops, setPendingDrops, isSaving, handleSave };
-}
+import { useMetadataForm, useSubscriptionData, useWalletData } from '@/hooks/use-wallet-detail';
 
 interface UseWalletActionsContext {
     walletAddress: string;
@@ -215,37 +118,6 @@ function useWalletActions(ctx: UseWalletActionsContext) {
     return { isLoading, handleDisable, handleReenable };
 }
 
-function useSubscriptionData(walletAddress: string) {
-    const [activeSub, setActiveSub] = useState<SubscriptionResponse | null>(null);
-    const [isLoading, setIsLoading] = useState(false);
-
-    useEffect(() => {
-        if (walletAddress === '') { return; }
-
-        const loadSubscription = async () => {
-            setIsLoading(true);
-            try {
-                const client = createPlansClient(createAdminApiClient());
-                const res = await client.getSubscriptions({ limit: 100 });
-                if (res?.success === true && res.data?.subscriptions !== undefined) {
-                    const sub = res.data.subscriptions.find((s: SubscriptionResponse) =>
-                        s.user_id === walletAddress && s.status === 'active'
-                    );
-                    if (sub !== undefined) { setActiveSub(sub); }
-                }
-            } catch (_e) {
-                logger.error('Failed to load subscription details', _e);
-            } finally {
-                setIsLoading(false);
-            }
-        };
-
-        loadSubscription();
-    }, [walletAddress]);
-
-    return { activeSub, isLoading };
-}
-
 export default function WalletDetailPage() {
     const router = useRouter();
     const params = useParams();
@@ -277,7 +149,6 @@ export default function WalletDetailPage() {
     const [activeDragItem, setActiveDragItem] = useState<AccessItem | null>(null);
     const [pendingDrops, setPendingDrops] = useState<AccessItem[]>([]);
     const [editingItem, setEditingItem] = useState<{ item: AccessItem; type: 'plan' | 'permission' } | null>(null);
-    const [copied, setCopied] = useState(false);
     const [isSavingPending, setIsSavingPending] = useState(false);
 
     // Modal States
@@ -301,9 +172,9 @@ export default function WalletDetailPage() {
     // Load wallet on auth
     useEffect(() => {
         if (isAuthenticated && !authLoading) {
-            walletData.loadWallet();
+            void walletData.loadWallet();
         }
-    }, [isAuthenticated, authLoading, walletData.loadWallet]);
+    }, [isAuthenticated, authLoading, walletData]);
 
     // Derived Plan Lists
     const allPlans = useMemo(() => [...accessData.authorizedPlans, ...accessData.availablePlans], [accessData.authorizedPlans, accessData.availablePlans]);
@@ -363,9 +234,9 @@ export default function WalletDetailPage() {
             await Promise.all(pendingDrops.map(plan => assignPlan(plan.id)));
             toast.success('Access plans assigned successfully');
             setPendingDrops([]);
-            refreshAccess();
+            void refreshAccess();
         } catch (_err) {
-            console.error('Failed to save changes:', _err);
+            logger.error('Failed to save changes:', _err);
             toast.error('Failed to assign plans');
         } finally {
             setIsSavingPending(false);
@@ -376,13 +247,10 @@ export default function WalletDetailPage() {
         if (!walletData.wallet) { return; }
         const success = await copyToClipboard(walletData.wallet.walletAddress);
         if (success) {
-            setCopied(true);
             toast.success('Address copied!');
-            setTimeout(() => setCopied(false), 2000);
         }
     }, [walletData.wallet]);
 
-    const statusConfig = walletData.wallet ? STATUS_CONFIG[walletData.wallet.status] : STATUS_CONFIG.active;
     const hasPending = pendingDrops.length > 0;
 
     if (authLoading === true || walletData.isLoading === true) {
@@ -427,7 +295,7 @@ export default function WalletDetailPage() {
                         </div>
                         <Button
                             variant="outline"
-                            onClick={() => { walletData.loadWallet(); refreshAccess(); }}
+                            onClick={() => { void walletData.loadWallet(); void refreshAccess(); }}
                             disabled={walletData.isRefreshing === true}
                             className="gap-2"
                         >
@@ -470,14 +338,14 @@ export default function WalletDetailPage() {
                                     hasChanges={metadataForm.hasChanges}
                                     setHasChanges={metadataForm.setHasChanges}
                                     isSaving={metadataForm.isSaving}
-                                    onSave={() => metadataForm.handleSave(walletAddress, walletData.loadWallet)}
+                                    onSave={() => { void metadataForm.handleSave(walletAddress, walletData.loadWallet); }}
                                     onDiscard={() => {
-                                        if (walletData.wallet) {
+                                        if (walletData.wallet !== null) {
                                             metadataForm.setMetadataForm({ label: walletData.wallet.label ?? '', note: walletData.wallet.note ?? '' });
                                             metadataForm.setHasChanges(false);
                                         }
                                     }}
-                                    onCopyAddress={handleCopyAddress}
+                                    onCopyAddress={() => { void handleCopyAddress(); }}
                                 />
 
                                 {/* Section 2: Current Subscription (Detailed) */}
@@ -494,7 +362,8 @@ export default function WalletDetailPage() {
                                     onEdit={(item: AccessItem) => setEditingItem({ item, type: 'plan' })}
                                     onManage={(item: AccessItem) => handleManagePlan(item.id)}
                                     onDelete={(id: string) => {
-                                        if (pendingDrops.find(p => p.id === id) !== undefined) {
+                                        const pendingItem = pendingDrops.find(p => p.id === id);
+                                        if (pendingItem !== undefined) {
                                             setPendingDrops(prev => prev.filter(p => p.id !== id));
                                             toast.info('Removed from staging');
                                         } else {
@@ -602,7 +471,7 @@ export default function WalletDetailPage() {
                     />
                 )}
             </div>
-        </DndContext>
+        </DndContext >
     );
 }
 

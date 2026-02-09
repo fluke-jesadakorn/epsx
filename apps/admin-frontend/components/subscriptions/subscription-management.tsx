@@ -2,7 +2,7 @@
 
 import { CreditCard } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { PageHeader } from '@/components/shared';
 
@@ -11,13 +11,13 @@ import { createPlansClient, isApiSuccess, type SubscriptionResponse } from '@/sh
 import { createAdminApiClient } from '@/shared/utils/api-client';
 
 interface SubscriptionManagementProps {
-  currentUser: any
+  currentUser?: unknown
 }
 
 /**
- *
- * @param root0
- * @param root0.currentUser
+ * Subscription Management Component
+ * @param param0 Component props
+ * @param param0.currentUser Current user object
  */
 export function SubscriptionManagement({ currentUser: _currentUser }: SubscriptionManagementProps) {
   const router = useRouter()
@@ -27,11 +27,7 @@ export function SubscriptionManagement({ currentUser: _currentUser }: Subscripti
   const [filterContext, setFilterContext] = useState<'all' | 'internal' | 'external' | 'both'>('all')
   const [searchTerm, setSearchTerm] = useState('')
 
-  useEffect(() => {
-    loadSubscriptions()
-  }, [])
-
-  const loadSubscriptions = async () => {
+  const loadSubscriptions = useCallback(async () => {
     const adminClient = createPlansClient(createAdminApiClient())
     try {
       setLoading(true)
@@ -42,7 +38,8 @@ export function SubscriptionManagement({ currentUser: _currentUser }: Subscripti
       })
 
       if (isApiSuccess(response)) {
-        setSubscriptions((response.data as any)?.subscriptions ?? response.data as any ?? [])
+        const data = response.data as Record<string, SubscriptionResponse[] | undefined>;
+        setSubscriptions(data?.subscriptions ?? (Array.isArray(data) ? data : []))
       } else {
         toast({
           title: "Error",
@@ -59,9 +56,15 @@ export function SubscriptionManagement({ currentUser: _currentUser }: Subscripti
     } finally {
       setLoading(false)
     }
-  }
+  }, [filterStatus, filterContext]);
+
+  useEffect(() => {
+    void loadSubscriptions()
+  }, [loadSubscriptions])
 
   const handleCancelSubscription = async (subscriptionId: string) => {
+    // TODO: Replace with proper modal confirmation
+    // eslint-disable-next-line no-alert
     if (!confirm('Are you sure you want to cancel this subscription?')) {
       return
     }
@@ -71,7 +74,7 @@ export function SubscriptionManagement({ currentUser: _currentUser }: Subscripti
       const response = await adminClient.cancelSubscription(subscriptionId)
 
       if (isApiSuccess(response)) {
-        loadSubscriptions()
+        void loadSubscriptions()
         toast({
           title: "Success",
           description: "Subscription cancelled successfully",
@@ -83,7 +86,8 @@ export function SubscriptionManagement({ currentUser: _currentUser }: Subscripti
           variant: "destructive"
         })
       }
-    } catch (_error) {
+    } catch {
+      // Silently fail
       toast({
         title: "Error",
         description: "Failed to cancel subscription",
@@ -93,8 +97,8 @@ export function SubscriptionManagement({ currentUser: _currentUser }: Subscripti
   }
 
   const filteredSubscriptions = subscriptions.filter(sub => {
-    const statusMatch = filterStatus === 'all' ?? sub.status === filterStatus
-    const contextMatch = filterContext === 'all' ?? sub.access_context === filterContext
+    const statusMatch = filterStatus === 'all' || sub.status === filterStatus
+    const contextMatch = filterContext === 'all' || sub.access_context === filterContext
     const searchMatch = searchTerm === '' ||
       sub.plan_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       sub.user_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -176,7 +180,7 @@ export function SubscriptionManagement({ currentUser: _currentUser }: Subscripti
 
           <div
             className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-secondary/10 p-0.5 cursor-pointer"
-            onClick={() => loadSubscriptions()}
+            onClick={() => void loadSubscriptions()}
           >
             <div className="relative bg-secondary text-secondary-foreground rounded-2xl sm:rounded-3xl hover:opacity-90 transition-opacity">
               <div className="p-8">
@@ -257,7 +261,7 @@ export function SubscriptionManagement({ currentUser: _currentUser }: Subscripti
               </label>
               <select
                 value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value as any)}
+                onChange={(e) => setFilterStatus(e.target.value as 'all' | 'active' | 'expired' | 'cancelled')}
                 className="w-full px-4 py-3 bg-muted/50 border border-border/50 rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
               >
                 <option value="all">All Status</option>
@@ -273,7 +277,7 @@ export function SubscriptionManagement({ currentUser: _currentUser }: Subscripti
               </label>
               <select
                 value={filterContext}
-                onChange={(e) => setFilterContext(e.target.value as any)}
+                onChange={(e) => setFilterContext(e.target.value as 'all' | 'internal' | 'external' | 'both')}
                 className="w-full px-4 py-3 bg-muted/50 border border-border/50 rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
               >
                 <option value="all">All Context</option>
@@ -285,7 +289,7 @@ export function SubscriptionManagement({ currentUser: _currentUser }: Subscripti
 
             <div className="flex items-end">
               <button
-                onClick={loadSubscriptions}
+                onClick={() => void loadSubscriptions()}
                 className="w-full px-6 py-3 bg-primary text-primary-foreground rounded-xl font-semibold hover:opacity-90 transition-opacity border border-border/50 shadow-sm"
               >
                 Apply Filters
