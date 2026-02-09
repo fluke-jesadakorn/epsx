@@ -39,6 +39,33 @@ export interface Web3AuthActions {
   resetAuthState: () => void;
 }
 
+interface SessionMessage {
+  type?: string;
+  source?: string;
+  walletAddress?: string;
+  isAuthenticated?: boolean;
+  user?: unknown;
+}
+
+interface SessionData {
+  isAuthenticated?: boolean;
+  user?: {
+    wallet_address?: string;
+    [key: string]: unknown;
+  };
+  permissions?: unknown;
+  user_tier?: string;
+  has_api_access?: boolean;
+}
+
+function isSessionMessage(data: unknown): data is SessionMessage {
+  return typeof data === 'object' && data !== null && !Array.isArray(data);
+}
+
+function isSessionData(data: unknown): data is SessionData {
+  return typeof data === 'object' && data !== null && !Array.isArray(data);
+}
+
 // eslint-disable-next-line max-lines-per-function
 export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
   const router = useRouter();
@@ -65,30 +92,27 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
   }, []);
 
   // Cross-tab session invalidation listener (only for explicit disconnect)
-   
   useEffect(() => {
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-    if (typeof window === 'undefined' || window.BroadcastChannel === undefined) {return;}
+    if (typeof window === 'undefined' || !window.BroadcastChannel) {
+      return;
+    }
 
     let channel: BroadcastChannel | null = null;
 
     try {
       channel = new BroadcastChannel('auth_session');
-       
+
       const handleSessionMessage = (event: MessageEvent) => {
         try {
+          if (!isSessionMessage(event.data)) {
+            return;
+          }
+
           // Only process explicit disconnect messages, ignore auto-disconnects
-          // eslint-disable-next-line sonarjs/no-collapsible-if
-          if (
-            event.data?.type === 'SESSION_INVALIDATED' &&
-            event.data?.source === 'web3_disconnect'
-          ) {
+          if (event.data.type === 'SESSION_INVALIDATED' && event.data.source === 'web3_disconnect') {
             // Only invalidate if the wallet address matches
-             
-            if (
-              !event.data.walletAddress ||
-              event.data.walletAddress === address
-            ) {
+            const shouldInvalidate = event.data.walletAddress === null || event.data.walletAddress === undefined || event.data.walletAddress === address;
+            if (shouldInvalidate) {
               // Reset authentication state immediately
                
               setState(prev => ({
@@ -156,70 +180,65 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
       void (async () => {
         try {
           // Check for session if wallet is connected
-           
           const response = await fetch('/api/auth/session', {
             credentials: 'include',
             cache: 'no-cache',
           });
-           
-          if (response.ok) {
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-            const session = await response.json();
-             
-            if (
-              session.isAuthenticated &&
-              session.user?.wallet_address === address
-            ) {
-              setState(prev => ({
-                ...prev,
-                isConnected: true,
-                isAuthenticated: true,
-                walletAddress: address,
-              }));
-              // Refresh permissions inline to avoid dependency issues
-              // eslint-disable-next-line max-depth
-              try {
-                 
-                const permResponse = await fetch(
-                  `/api/auth/web3/permissions?wallet_address=${encodeURIComponent(address)}`,
-                  {
-                    method: 'GET',
-                    credentials: 'include',
-                  }
-                );
 
-                // eslint-disable-next-line max-depth
-                if (permResponse.ok) {
-                  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-                  const { permissions, user_tier, has_api_access } =
-                    await permResponse.json();
-                   
-                  setState(prev => ({
-                    ...prev,
-                    permissions: permissions ?? [],
-                    userTier: user_tier ?? 'free',
-                    hasApiAccess: has_api_access ?? false,
-                  }));
-                }
-              } catch (_permError) {
-                // Intentionally empty - permission refresh is best effort
-              }
-              return;
+          if (!response.ok) {
+            if (response.status !== 401 && response.status !== 500) {
+              // Handle other error statuses if needed
             }
-          } else if (response.status === 401) {
-            // 401 is expected in progressive auth when no session exists yet
-          } else if (response.status === 500) {
-            // 500 indicates backend/API issues - don't treat as auth failure
+            return;
           }
 
-          // Not authenticated but connected (normal state in progressive auth)
+          const session = await response.json() as unknown;
+          if (!isSessionData(session)) {
+            return;
+          }
+
+          if (!session.isAuthenticated || session.user?.wallet_address !== address) {
+            return;
+          }
+
           setState(prev => ({
             ...prev,
-            isConnected: true, // CRITICAL: Keep this true when Wagmi shows connected
-            isAuthenticated: false,
+            isConnected: true,
+            isAuthenticated: true,
             walletAddress: address,
-            error: undefined, // Clear any previous errors
           }));
+
+          // Refresh permissions inline to avoid dependency issues
+          try {
+            const permResponse = await fetch(
+              `/api/auth/web3/permissions?wallet_address=${encodeURIComponent(address)}`,
+              {
+                method: 'GET',
+                credentials: 'include',
+              }
+            );
+
+            if (!permResponse.ok) {
+              return;
+            }
+
+            const perms = await permResponse.json() as unknown;
+            if (!isSessionData(perms)) {
+              return;
+            }
+
+            setState(prev => {
+              const permsArray = Array.isArray(perms.permissions) ? (perms.permissions as Web3Permission[]) : [];
+              return {
+                ...prev,
+                permissions: permsArray,
+                userTier: typeof perms.user_tier === 'string' ? (perms.user_tier as 'free' | 'nft' | 'token' | 'dao' | 'enterprise') : 'free',
+                hasApiAccess: Boolean(perms.has_api_access),
+              };
+            });
+          } catch (_permError) {
+            // Intentionally empty - permission refresh is best effort
+          }
         } catch (_error) {
           // In progressive auth, treat network errors as non-critical but keep connected state
           setState(prev => ({
@@ -247,8 +266,9 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
   }, [address, isConnected, isHydrated]);
    
   const checkAuthStatus = useCallback(async () => {
-    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-    if (!address) {return;}
+    if (address === null || address === undefined) {
+      return;
+    }
 
     try {
       // Simplified auth status check - just check session
@@ -257,22 +277,33 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
         cache: 'no-cache',
       });
 
-      if (response.ok) {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-        const session = await response.json();
-         
-        if (
-          session.isAuthenticated &&
-          session.user?.wallet_address === address
-        ) {
-          setState(prev => ({
-            ...prev,
-            isConnected: true,
-            isAuthenticated: true,
-            walletAddress: address,
-          }));
-          return true;
-        }
+      if (!response.ok) {
+        setState(prev => ({
+          ...prev,
+          isAuthenticated: false,
+          error: undefined,
+        }));
+        return false;
+      }
+
+      const session = await response.json() as unknown;
+      if (!isSessionData(session)) {
+        setState(prev => ({
+          ...prev,
+          isAuthenticated: false,
+          error: undefined,
+        }));
+        return false;
+      }
+
+      if (session.isAuthenticated && session.user?.wallet_address === address) {
+        setState(prev => ({
+          ...prev,
+          isConnected: true,
+          isAuthenticated: true,
+          walletAddress: address,
+        }));
+        return true;
       }
 
       // Not authenticated but may be connected
@@ -288,8 +319,9 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
   }, [address]);
    
   const refreshPermissions = useCallback(async () => {
-    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-    if (!address) {return false;}
+    if (address === null || address === undefined) {
+      return false;
+    }
 
     try {
       const response = await fetch(
@@ -301,18 +333,21 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
       );
 
       if (response.ok) {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-        const { permissions, user_tier, has_api_access } =
-          await response.json();
-         
+        const perms = await response.json() as unknown;
+        if (!isSessionData(perms)) {
+          return false;
+        }
+
         setState(prev => ({
           ...prev,
-          permissions: permissions ?? [],
-          userTier: user_tier ?? 'free',
-          hasApiAccess: has_api_access ?? false,
+          permissions: Array.isArray(perms.permissions) ? (perms.permissions as Web3Permission[]) : [],
+          userTier: typeof perms.user_tier === 'string' ? (perms.user_tier as 'free' | 'nft' | 'token' | 'dao' | 'enterprise') : 'free',
+          hasApiAccess: Boolean(perms.has_api_access),
         }));
         return true;
-      } else if (response.status === 405) {
+      }
+
+      if (response.status === 405) {
         // Set default values when permissions endpoint is not available
         setState(prev => ({
           ...prev,
@@ -320,8 +355,9 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
           userTier: 'free',
           hasApiAccess: false,
         }));
-        return true; // Successfully set defaults
+        return true;
       }
+
       return false;
     } catch (_error) {
       // Set default values on error

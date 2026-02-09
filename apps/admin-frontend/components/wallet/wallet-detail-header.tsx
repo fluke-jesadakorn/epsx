@@ -1,7 +1,7 @@
+import { Button } from '@/components/ui/button';
 import type { UseWalletAccessReturn } from '@/hooks/use-wallet-access';
-import type { useWalletData } from '@/hooks/use-wallet-detail';
+import { useWalletData } from '@/hooks/use-wallet-detail';
 import { cn } from '@/lib/utils';
-import { Button } from '@/shared/components/ui/button';
 import { ArrowLeft, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 
