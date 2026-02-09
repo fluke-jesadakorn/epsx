@@ -5,14 +5,26 @@ import React, { Suspense } from 'react';
 import { SWRConfig } from 'swr';
 
 import UsageAnalyticsTab from '@/components/admin/usage-analytics-tab';
-import { PlanAnalyticsDashboard } from '@/components/plans/Plananalytics-dashboard';
+import { PlanAnalyticsDashboard } from '@/components/plans/plan-analytics-dashboard';
 import { PageHeader, PageLayout, PageSkeleton } from '@/components/shared';
 import { AnalyticsStatsCard, AnalyticsSummaryCard } from '@/components/ui/analytics-card';
 import { useAnalyticsOverview, useApiKeys, useRealTimeMetrics, type ApiKey, type DeveloperPortalStats, type PermissionAnalytics, type SystemMetrics, type UserStats } from '@/hooks/use-analytics-data';
 import { Button } from '@/shared/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/card';
 
-function ErrorCard({ error, onRetry }: { error: Error | { message?: string } | null | unknown; onRetry?: () => void }): React.JSX.Element {
+interface ErrorCardProps {
+    error: Error | { message?: string } | null | unknown;
+    onRetry?: () => void;
+}
+
+function ErrorCard({ error, onRetry }: ErrorCardProps): React.JSX.Element {
+    let errorMessage = 'Unknown error occurred';
+    if (error instanceof Error) {
+        errorMessage = error.message;
+    } else if (typeof error === 'object' && error !== null && 'message' in error) {
+        errorMessage = String((error as { message: string }).message);
+    }
+
     return (
         <Card className="border-red-200 dark:border-red-800">
             <CardContent className="p-6">
@@ -22,11 +34,9 @@ function ErrorCard({ error, onRetry }: { error: Error | { message?: string } | n
                         <p className="text-sm font-medium text-red-900 dark:text-red-100">
                             Failed to load data
                         </p>
-                        <p className="text-xs text-red-600 dark:text-red-400">
-                            {error instanceof Error ? error.message : typeof error === 'object' && error !== null && 'message' in error ? String(error.message) : 'Unknown error occurred'}
-                        </p>
+                        <p className="text-xs text-red-600 dark:text-red-400">{errorMessage}</p>
                     </div>
-                    {onRetry && (
+                    {onRetry !== undefined && (
                         <Button variant="outline" size="sm" onClick={onRetry}>
                             <RefreshCw className="w-4 h-4" />
                         </Button>
@@ -36,11 +46,6 @@ function ErrorCard({ error, onRetry }: { error: Error | { message?: string } | n
         </Card>
     );
 }
-
-/**
- * Analytics Page
- * Uses unified page components for consistent design
- */
 
 interface AnalyticsDashboardProps {
     initialData: {
@@ -54,7 +59,6 @@ interface AnalyticsDashboardProps {
 
 /**
  * Analytics Dashboard (Client Component)
- * Hydrated with server-side data via SWRConfig
  */
 export default function AnalyticsDashboard({ initialData }: AnalyticsDashboardProps): React.JSX.Element {
     return (
@@ -83,7 +87,6 @@ function AnalyticsContent(): React.JSX.Element {
 
     return (
         <PageLayout>
-            {/* Header */}
             <PageHeader
                 title="Analytics Dashboard"
                 subtitle="Real-time system performance and user activity"
@@ -117,7 +120,6 @@ function AnalyticsContent(): React.JSX.Element {
                 memoryUsage={memoryUsage}
             />
 
-            {/* API Usage Analytics */}
             <Card className="bg-slate-900/40 backdrop-blur-2xl border-white/5 shadow-xl rounded-[32px] overflow-hidden">
                 <CardHeader className="p-8 border-b border-white/5 bg-white/5">
                     <CardTitle className="text-lg font-black uppercase tracking-widest text-foreground">API Usage Analytics</CardTitle>
@@ -128,7 +130,7 @@ function AnalyticsContent(): React.JSX.Element {
                             <RefreshCw className="w-6 h-6 animate-spin mr-2 text-[#1fc7d4]" />
                             <span className="font-bold text-muted-foreground">Loading API usage data...</span>
                         </div>
-                    ) : apiKeysError ? (
+                    ) : apiKeysError !== null ? (
                         <ErrorCard error={apiKeysError} />
                     ) : (
                         <Suspense fallback={<div>Loading usage analytics...</div>}>
@@ -138,7 +140,6 @@ function AnalyticsContent(): React.JSX.Element {
                 </CardContent>
             </Card>
 
-            {/* Plan Analytics */}
             <Suspense fallback={<div>Loading plan analytics...</div>}>
                 <PlanAnalyticsDashboard />
             </Suspense>
@@ -146,63 +147,77 @@ function AnalyticsContent(): React.JSX.Element {
     );
 }
 
-function SummarySection({ userStats, dashboardData, permissionAnalytics }: { userStats?: UserStats; dashboardData?: { metrics?: { totalRequests?: number } }; permissionAnalytics?: PermissionAnalytics }) {
+interface SummarySectionProps {
+    userStats?: UserStats;
+    dashboardData?: { metrics?: { totalRequests?: number } };
+    permissionAnalytics?: PermissionAnalytics;
+}
+
+// eslint-disable-next-line complexity
+function SummarySection({ userStats, dashboardData, permissionAnalytics }: SummarySectionProps) {
+    const totalUsers = userStats?.total_users ?? 0;
+    const totalRequests = dashboardData?.metrics?.totalRequests ?? 0;
+    const totalPermissions = permissionAnalytics?.total_permissions ?? 0;
+    const healthScore = permissionAnalytics?.health_score ?? 0;
+
+    const cards = [
+        { title: 'Total Users', value: totalUsers.toLocaleString(), subtitle: 'Active users in system' },
+        { title: 'API Requests', value: totalRequests.toLocaleString(), subtitle: 'Total requests processed' },
+        { title: 'Active Permissions', value: totalPermissions.toLocaleString(), subtitle: 'Current permission sets' },
+        { title: 'System Health', value: `${healthScore}%`, subtitle: 'Overall health score' }
+    ];
+
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-            <AnalyticsSummaryCard
-                title="Total Users"
-                value={userStats?.total_users?.toLocaleString() ?? '0'}
-                subtitle="Active users in system"
-                className="bg-slate-900/40 backdrop-blur-2xl border-white/5 shadow-xl rounded-[32px] p-8"
-            />
-            <AnalyticsSummaryCard
-                title="API Requests"
-                value={dashboardData?.metrics?.totalRequests?.toLocaleString() ?? '0'}
-                subtitle="Total requests processed"
-                className="bg-slate-900/40 backdrop-blur-2xl border-white/5 shadow-xl rounded-[32px] p-8"
-            />
-            <AnalyticsSummaryCard
-                title="Active Permissions"
-                value={permissionAnalytics?.total_permissions?.toLocaleString() ?? '0'}
-                subtitle="Current permission sets"
-                className="bg-slate-900/40 backdrop-blur-2xl border-white/5 shadow-xl rounded-[32px] p-8"
-            />
-            <AnalyticsSummaryCard
-                title="System Health"
-                value={`${(permissionAnalytics?.health_score ?? 0)}%`}
-                subtitle="Overall health score"
-                className="bg-slate-900/40 backdrop-blur-2xl border-white/5 shadow-xl rounded-[32px] p-8"
-            />
+            {cards.map((card) => (
+                <AnalyticsSummaryCard
+                    key={card.title}
+                    title={card.title}
+                    value={card.value}
+                    subtitle={card.subtitle}
+                    className="bg-slate-900/40 backdrop-blur-2xl border-white/5 shadow-xl rounded-[32px] p-8"
+                />
+            ))}
         </div>
     );
 }
 
 const getTrendValue = (userStats?: UserStats) => {
-    if (userStats?.new_users_30_days && userStats.total_users) {
-        return `+${((userStats.new_users_30_days / userStats.total_users) * 100).toFixed(1)}%`;
+    const fresh = userStats?.new_users_30_days ?? 0;
+    const total = userStats?.total_users ?? 0;
+    if (fresh > 0 && total > 0) {
+        return `+${((fresh / total) * 100).toFixed(1)}%`;
     }
     return 'N/A';
 };
 
 const getPermissionTrend = (permissionAnalytics?: PermissionAnalytics) => {
-    return permissionAnalytics?.expired && permissionAnalytics.expired > 0 ? "down" : "neutral";
+    const expired = permissionAnalytics?.expired ?? 0;
+    return expired > 0 ? "down" : "neutral";
 };
 
 const getPermissionTrendValue = (permissionAnalytics?: PermissionAnalytics) => {
-    return permissionAnalytics?.expired ? `${permissionAnalytics.expired} expired` : "stable";
+    const expired = permissionAnalytics?.expired ?? 0;
+    return expired > 0 ? `${expired} expired` : "stable";
 };
 
 const getResponseTimeStatus = (responseTime: number) => {
-    if (responseTime > 500) {
-        return "red";
-    }
-    if (responseTime > 200) {
-        return "yellow";
-    }
+    if (responseTime > 500) { return "red"; }
+    if (responseTime > 200) { return "yellow"; }
     return "green";
 };
 
-function StatsSection({ activeUsers, userStats, permissionAnalytics, responseTime }: { activeUsers: number; userStats?: UserStats; permissionAnalytics?: PermissionAnalytics; responseTime: number }) {
+interface StatsSectionProps {
+    activeUsers: number;
+    userStats?: UserStats;
+    permissionAnalytics?: PermissionAnalytics;
+    responseTime: number;
+}
+
+function StatsSection({ activeUsers, userStats, permissionAnalytics, responseTime }: StatsSectionProps) {
+    const expiringSoon = permissionAnalytics?.expiring_soon ?? 0;
+    const statusColor = expiringSoon > 10 ? "yellow" : "green";
+
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             <AnalyticsStatsCard
@@ -218,12 +233,12 @@ function StatsSection({ activeUsers, userStats, permissionAnalytics, responseTim
             />
             <AnalyticsStatsCard
                 title="Expiring Permissions"
-                value={permissionAnalytics?.expiring_soon ?? 0}
+                value={expiringSoon}
                 subtitle="Need attention"
                 iconName="permissions"
                 trend={getPermissionTrend(permissionAnalytics)}
                 trendValue={getPermissionTrendValue(permissionAnalytics)}
-                statusColor={permissionAnalytics?.expiring_soon && permissionAnalytics.expiring_soon > 10 ? "yellow" : "green"}
+                statusColor={statusColor}
                 rank={2}
                 className="bg-slate-900/40 backdrop-blur-2xl border-white/5 shadow-xl rounded-[32px] overflow-hidden"
             />
@@ -242,7 +257,19 @@ function StatsSection({ activeUsers, userStats, permissionAnalytics, responseTim
     );
 }
 
-function MetricsGrid({ userStats, permissionAnalytics, systemMetrics, memoryUsage }: { userStats?: UserStats; permissionAnalytics?: PermissionAnalytics; systemMetrics?: SystemMetrics; memoryUsage: number }) {
+interface MetricsGridProps {
+    userStats?: UserStats;
+    permissionAnalytics?: PermissionAnalytics;
+    systemMetrics?: SystemMetrics;
+    memoryUsage: number;
+}
+
+function MetricsGrid({ userStats, permissionAnalytics, systemMetrics, memoryUsage }: MetricsGridProps) {
+    const activeRaw = userStats?.active_users ?? 0;
+    const newUsers = userStats?.new_users_30_days ?? 0;
+    const healthScore = permissionAnalytics?.health_score ?? 0;
+    const queryTime = systemMetrics?.database_query_time ?? 0;
+
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
             <Card className="bg-slate-900/40 backdrop-blur-2xl border-white/5 shadow-xl rounded-[32px] overflow-hidden group">
@@ -252,14 +279,10 @@ function MetricsGrid({ userStats, permissionAnalytics, systemMetrics, memoryUsag
                             <Users className="w-6 h-6" />
                         </div>
                         <div className="ml-6">
-                            <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em]">
-                                Active Users
-                            </p>
-                            <p className="text-3xl font-black text-foreground tracking-tighter mt-1">
-                                {userStats?.active_users?.toLocaleString() ?? '0'}
-                            </p>
+                            <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em]">Active Users</p>
+                            <p className="text-3xl font-black text-foreground tracking-tighter mt-1">{activeRaw.toLocaleString()}</p>
                             <p className="text-xs font-bold text-[#31d0aa] mt-0.5">
-                                {userStats?.new_users_30_days ? `+${userStats.new_users_30_days} this month` : 'No recent data'}
+                                {newUsers > 0 ? `+${newUsers} this month` : 'No recent data'}
                             </p>
                         </div>
                     </div>
@@ -273,15 +296,9 @@ function MetricsGrid({ userStats, permissionAnalytics, systemMetrics, memoryUsag
                             <Shield className="w-6 h-6" />
                         </div>
                         <div className="ml-6">
-                            <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em]">
-                                Status Score
-                            </p>
-                            <p className="text-3xl font-black text-foreground tracking-tighter mt-1">
-                                {permissionAnalytics?.health_score ? `${permissionAnalytics.health_score}%` : 'N/A'}
-                            </p>
-                            <p className="text-xs font-bold text-muted-foreground/60 mt-0.5">
-                                Permission health
-                            </p>
+                            <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em]">Status Score</p>
+                            <p className="text-3xl font-black text-foreground tracking-tighter mt-1">{healthScore > 0 ? `${healthScore}%` : 'N/A'}</p>
+                            <p className="text-xs font-bold text-muted-foreground/60 mt-0.5">Permission health</p>
                         </div>
                     </div>
                 </CardContent>
@@ -294,15 +311,9 @@ function MetricsGrid({ userStats, permissionAnalytics, systemMetrics, memoryUsag
                             <Activity className="w-6 h-6" />
                         </div>
                         <div className="ml-6">
-                            <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em]">
-                                Query Time
-                            </p>
-                            <p className="text-3xl font-black text-foreground tracking-tighter mt-1">
-                                {systemMetrics?.database_query_time ?? 0}ms
-                            </p>
-                            <p className="text-xs font-bold text-muted-foreground/60 mt-0.5">
-                                Database latency
-                            </p>
+                            <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em]">Query Time</p>
+                            <p className="text-3xl font-black text-foreground tracking-tighter mt-1">{queryTime}ms</p>
+                            <p className="text-xs font-bold text-muted-foreground/60 mt-0.5">Database latency</p>
                         </div>
                     </div>
                 </CardContent>
@@ -315,15 +326,9 @@ function MetricsGrid({ userStats, permissionAnalytics, systemMetrics, memoryUsag
                             <BarChart3 className="w-6 h-6" />
                         </div>
                         <div className="ml-6">
-                            <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em]">
-                                Memory
-                            </p>
-                            <p className="text-3xl font-black text-foreground tracking-tighter mt-1">
-                                {memoryUsage}%
-                            </p>
-                            <p className="text-xs font-bold text-muted-foreground/60 mt-0.5">
-                                System usage
-                            </p>
+                            <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em]">Memory</p>
+                            <p className="text-3xl font-black text-foreground tracking-tighter mt-1">{memoryUsage}%</p>
+                            <p className="text-xs font-bold text-muted-foreground/60 mt-0.5">System usage</p>
                         </div>
                     </div>
                 </CardContent>

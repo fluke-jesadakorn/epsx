@@ -20,7 +20,7 @@ export function useAccessControlMatrix() {
         try {
             // Load both datasets in parallel
             const [policiesData, permissionsData] = await Promise.all([
-                accessPolicyClient.getPolicies() as Promise<AccessPolicy[]>,
+                accessPolicyClient.getPolicies(),
                 planMgmt.getPermissionDefinitions() as Promise<
                     PermissionDefinitionDto[]
                 >,

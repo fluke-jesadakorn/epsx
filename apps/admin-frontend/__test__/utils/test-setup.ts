@@ -301,7 +301,7 @@ export class AuthenticationHelper {
         () => {
           const url = window.location.href;
           return !url.includes('/login') && 
-  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+   
                  !url.includes('/oauth/authorize') && 
                  (url.includes('localhost:3001') ?? url.includes('admin.epsx.io'));
         },
@@ -311,7 +311,7 @@ export class AuthenticationHelper {
       await this.page.waitForLoadState('networkidle');
 
       // Extract session token
-  // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
+   
       const token = await this.extractAuthToken();
       
       if (token) {

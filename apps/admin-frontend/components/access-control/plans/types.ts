@@ -1,4 +1,4 @@
-import { PermissionPlan } from '@/lib/api/plan-management-client';
+import type { PermissionPlan } from '@/lib/api/plan-management-client';
 
 export interface PlansViewProps {
     className?: string;

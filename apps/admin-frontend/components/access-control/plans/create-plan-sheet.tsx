@@ -151,7 +151,7 @@ export function CreatePlanSheet({
                             value={formData.default_expiry_days}
                             onChange={(e) => {
                                 const val = e.target.value;
-                                // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
+                                 
                                 if (val === '-' || val === '') {
                                     setFormData({
                                         ...formData,

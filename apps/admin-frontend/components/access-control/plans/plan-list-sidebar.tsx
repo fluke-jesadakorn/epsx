@@ -20,8 +20,7 @@ import { type PermissionPlan } from '@/lib/api/plan-management-client';
 import { CreatePlanSheet } from './create-plan-sheet';
 import { PlanItem, SortablePlanItem } from './plan-item';
 import { FREE_PLAN_ID } from './types';
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 export interface PlanListSidebarProps {
     plans: PermissionPlan[];
     selectedPlanId?: string;
@@ -53,8 +52,7 @@ export function PlanListSidebar({
 }: PlanListSidebarProps) {
     const [planSearch, setPlanSearch] = useState('');
     const [isCreatePlanOpen, setIsCreatePlanOpen] = useState(false);
-
-    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions -- plan.name check
+     
     const filteredPlans = useMemo(
         () =>
             plans.filter((p) =>

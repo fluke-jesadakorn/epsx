@@ -133,7 +133,7 @@ export function SortablePlanItem({
     } = useSortable({ id: plan.id, disabled });
 
     const style = {
-        // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions -- transform might be null
+         
         transform: transform ? CSS.Transform.toString(transform) : undefined,
         transition,
         touchAction: 'none' as const,

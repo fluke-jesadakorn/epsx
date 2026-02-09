@@ -56,8 +56,8 @@ export function useAccessControlHub() {
 
         try {
             const [policiesData, statsData] = await Promise.all([
-                accessPolicyClient.getPolicies() as Promise<AccessPolicy[]>,
-                accessPolicyClient.getStats() as Promise<PolicyStats>,
+                accessPolicyClient.getPolicies(),
+                accessPolicyClient.getStats(),
             ]);
 
             setPolicies(policiesData);

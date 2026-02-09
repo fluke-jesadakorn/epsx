@@ -165,6 +165,16 @@ export interface UpdatePlanRequest {
   metadata?: Record<string, unknown>;
 }
 
+export interface CreateSubscriptionRequest {
+  user_id: string;
+  plan_id: string | number;
+  access_context: 'internal' | 'external' | 'both';
+  api_key_name?: string;
+  expires_at?: string;
+  auto_renew: boolean;
+  metadata?: Record<string, unknown>;
+}
+
 export interface UpdateSubscriptionRequest {
   plan_id?: string;
   status?: 'active' | 'cancelled' | 'expired' | 'paused';
@@ -283,6 +293,14 @@ export class PlansApi {
   // ============================================================================
   // SUBSCRIPTION MANAGEMENT
   // ============================================================================
+
+  /**
+   * Create a new subscription
+   * POST /api/admin/subscriptions
+   */
+  async createSubscription(data: CreateSubscriptionRequest): Promise<ApiResponse<SubscriptionResponse>> {
+    return this.client.post<SubscriptionResponse>('/api/admin/subscriptions', data);
+  }
 
   /**
    * List all subscriptions

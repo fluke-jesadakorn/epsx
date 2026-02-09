@@ -22,7 +22,7 @@ export interface PlanEditorProps {
     selectedPlan: PermissionPlan | null;
     form: PlanEditFormState;
     setForm: (
-        // eslint-disable-next-line no-unused-vars
+         
         f: (prev: PlanEditFormState) => PlanEditFormState
     ) => void;
     setHasChanges: (hasChanges: boolean) => void;
@@ -125,7 +125,7 @@ export function PlanEditor({
                             value={form.priority}
                             onChange={(e) => {
                                 const val = e.target.value;
-                                // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
+                                 
                                 if (val === '-' || val === '') {
                                     setForm((p) => ({
                                         ...p,
@@ -170,7 +170,7 @@ export function PlanEditor({
                             value={form.price}
                             onChange={(e) => {
                                 const val = e.target.value;
-                                // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
+                                 
                                 if (val === '-' || val === '' || val === '.') {
                                     setForm((p) => ({ ...p, price: val as unknown as number }));
                                 } else {
@@ -212,7 +212,7 @@ export function PlanEditor({
                             value={form.expiryDays}
                             onChange={(e) => {
                                 const val = e.target.value;
-                                // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
+                                 
                                 if (val === '-' || val === '') {
                                     setForm((p) => ({
                                         ...p,

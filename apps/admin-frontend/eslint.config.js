@@ -1,113 +1,12 @@
 /**
  * Admin Frontend ESLint Configuration
- * Extends ultra-strict shared configuration with pragmatic adjustments
+ * Extends ultra-strict shared configuration
  */
 
 const sharedConfig = require('../../shared/config/eslint.cjs');
-const typescript = require('@typescript-eslint/eslint-plugin');
-const reactHooks = require('eslint-plugin-react-hooks');
-const sonarjs = require('eslint-plugin-sonarjs');
-const security = require('eslint-plugin-security');
-const jsdoc = require('eslint-plugin-jsdoc');
-const jsxA11y = require('eslint-plugin-jsx-a11y');
-const promise = require('eslint-plugin-promise');
-const importPlugin = require('eslint-plugin-import');
-const globals = require('globals');
 
 module.exports = [
   ...sharedConfig,
-  {
-    // Admin-specific globals and pragmatic rule adjustments
-    plugins: {
-      '@typescript-eslint': typescript,
-      'react-hooks': reactHooks,
-      sonarjs: sonarjs,
-      security: security,
-      jsdoc: jsdoc,
-      'jsx-a11y': jsxA11y,
-      promise: promise,
-      import: importPlugin,
-    },
-    languageOptions: {
-      parserOptions: {
-        project: true, // Enable type-aware linting
-      },
-      globals: {
-        ...globals.browser,
-        ...globals.node,
-        // Timer functions
-        setTimeout: 'readonly',
-        clearTimeout: 'readonly',
-        setInterval: 'readonly',
-        clearInterval: 'readonly',
-
-        // Browser APIs
-        performance: 'readonly',
-        crypto: 'readonly',
-        localStorage: 'readonly',
-        alert: 'readonly',
-        confirm: 'readonly',
-        prompt: 'readonly',
-        atob: 'readonly',
-        Blob: 'readonly',
-        Storage: 'readonly',
-        TextEncoder: 'readonly',
-
-        // DOM types
-        HTMLElement: 'readonly',
-        HTMLDivElement: 'readonly',
-        HTMLButtonElement: 'readonly',
-        HTMLFormElement: 'readonly',
-        HTMLInputElement: 'readonly',
-        HTMLTextAreaElement: 'readonly',
-        HTMLSpanElement: 'readonly',
-        HTMLParagraphElement: 'readonly',
-        HTMLHeadingElement: 'readonly',
-        HTMLImageElement: 'readonly',
-        HTMLTableElement: 'readonly',
-        HTMLTableRowElement: 'readonly',
-        HTMLTableCellElement: 'readonly',
-        HTMLTableSectionElement: 'readonly',
-        HTMLTableCaptionElement: 'readonly',
-        EventListener: 'readonly',
-        CustomEvent: 'readonly',
-        MouseEvent: 'readonly',
-        KeyboardEvent: 'readonly',
-        TouchEvent: 'readonly',
-        Node: 'readonly',
-
-        // Fetch/Network types
-        RequestInit: 'readonly',
-
-        // Performance API
-        PerformanceNavigationTiming: 'readonly',
-
-        // Test framework (Jest/Vitest/Playwright)
-        describe: 'readonly',
-        test: 'readonly',
-        expect: 'readonly',
-        beforeEach: 'readonly',
-        afterEach: 'readonly',
-        beforeAll: 'readonly',
-        afterAll: 'readonly',
-        it: 'readonly',
-        jest: 'readonly',
-
-        // App-specific
-        getAuthorizationUrl: 'readonly',
-        canManageGroups: 'readonly',
-        canManageWeb3Rules: 'readonly',
-        // Session storage
-        sessionStorage: 'readonly',
-        // Error handling
-        error: 'readonly',
-      },
-    },
-    rules: {
-      // Disable import/no-unresolved - TypeScript handles this better with path aliases
-      // 'import/no-unresolved': 'off',
-    },
-  },
   {
     files: ['**/*.spec.ts', '**/*.test.ts', '**/__test__/**'],
     rules: {

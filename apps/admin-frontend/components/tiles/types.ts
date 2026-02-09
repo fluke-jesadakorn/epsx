@@ -1,23 +1,25 @@
+import type React from 'react';
+
 // Windows Phone-inspired tile system types
 export interface TileData {
   id: string;
   title: string;
   value: string | number;
   subtitle?: string;
-  icon: any; // Lucide icon component
+  icon: React.ComponentType<{ className?: string }>; // Lucide icon component
   size: TileSize;
   color: TileColor;
   href?: string;
   refreshInterval?: number;
   showProgress?: boolean;
   trend?: TileTrend;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   priority?: TilePriority;
   lastUpdated?: Date;
   isLoading?: boolean;
   hasError?: boolean;
   isRealTime?: boolean;
-  fetcher?: () => Promise<any>;
+  fetcher?: () => Promise<unknown>;
 }
 
 export type TileSize = 'small' | 'square' | 'wide' | 'large';
@@ -25,10 +27,10 @@ export type TileColor = 'primary' | 'secondary' | 'success' | 'warning' | 'error
 export type TilePriority = 'critical' | 'important' | 'normal' | 'background';
 
 export interface TileTrend {
-  direction: 'up' | 'down' | 'flat';
-  value: number;
-  percentage: boolean;
-  period: string; // e.g., "vs yesterday", "vs last month"
+  direction?: 'up' | 'down' | 'flat';
+  value?: number | string;
+  percentage?: boolean;
+  period?: string; // e.g., "vs yesterday", "vs last month"
 }
 
 export interface TileGridConfig {
@@ -52,7 +54,7 @@ export interface SmartPollingConfig {
 
 export interface TileActionData {
   type: 'navigate' | 'modal' | 'action' | 'refresh';
-  payload?: any;
+  payload?: unknown;
   confirmRequired?: boolean;
   confirmMessage?: string;
 }

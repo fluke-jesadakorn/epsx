@@ -217,7 +217,7 @@ export function usePlanDragAndDrop(ctx: DragDropContext) {
         ({ transform, activatorEvent, draggingNodeRect }) => {
             if (activatorEvent && draggingNodeRect) {
                 const event = activatorEvent as unknown as PointerEvent;
-                // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions -- event.clientY might be undefined but fallback handled by ?? 0
+                 
                 const offsetY = (event.clientY ?? 0) - draggingNodeRect.top;
                 return {
                     ...transform,
@@ -295,7 +295,7 @@ export function useQuickTogglePlan(ctx: {
             selectedPlan: PermissionPlan | null,
             setSelectedPlan: (p: PermissionPlan | null) => void,
             setForm: (
-                // eslint-disable-next-line no-unused-vars
+                 
                 f: (prev: PlanEditFormState) => PlanEditFormState
             ) => void
         ) => {
@@ -304,7 +304,7 @@ export function useQuickTogglePlan(ctx: {
                 toast.error('Constant Free Plan status cannot be changed');
                 return;
             }
-            // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions -- Plan specific logic
+             
             const newState = !(plan.is_active === true);
             try {
                 ctx.setPlans(

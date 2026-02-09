@@ -66,8 +66,7 @@ export function PlansView({ className }: PlansViewProps) {
             void loadAllData();
         }
     }, [isAuthenticated, loadAllData]);
-
-    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions -- authLoading might be boolean
+     
     if (authLoading || (isLoadingData && plans.length === 0)) {
         return (
             <div className="p-8 flex justify-center">
