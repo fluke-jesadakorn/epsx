@@ -23,6 +23,23 @@ interface PlanResponse extends Plan {
   subscriber_count?: number;
 }
 
+interface GroupData {
+  group_type: string;
+  is_active?: boolean;
+}
+
+interface PlansApiResponse {
+  plans?: PlanResponse[];
+  data?: {
+    plans?: PlanResponse[];
+  };
+}
+
+interface AnalyticsData {
+  total_active_memberships?: number;
+  expiring_soon_count?: number;
+}
+
 // ============================================================================
 // TYPES
 // ============================================================================
@@ -77,11 +94,10 @@ const API_ROUTES_LOCAL = {
 export async function fetchWalletStats(): Promise<WalletStats> {
   try {
     const apiClient = createAdminApiClient({ serverSide: true });
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const response = await apiClient.get<any>(API_ROUTES_LOCAL.WALLETS.STATS);
+    const response = await apiClient.get<WalletStats>(API_ROUTES_LOCAL.WALLETS.STATS);
 
     if (response.success && response.data) {
-      return response.data as WalletStats;
+      return response.data;
     }
 
     return {
@@ -92,8 +108,8 @@ export async function fetchWalletStats(): Promise<WalletStats> {
       active_users_30_days: 0,
       growth_rate: 0
     };
-  } catch (error) {
-    console.error('[fetchWalletStats] Error:', error);
+  } catch {
+    // Silently fail
     return {
       total_users: 0,
       active_users: 0,
@@ -115,16 +131,14 @@ export async function fetchPolicies(): Promise<AccessPolicy[]> {
 
     const [plansRes, groupsRes] = await Promise.all([
       plansClient.listPlans({ limit: 100 }),
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      apiClient.get<{ plans: any[] }>(API_ROUTES_LOCAL.PERMISSIONS.PLANS),
+      apiClient.get<PlansApiResponse>(API_ROUTES_LOCAL.PERMISSIONS.PLANS),
     ]);
 
     const policies: AccessPolicy[] = [];
 
     // Transform plans to policies
     if (isApiSuccess(plansRes)) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const backendResponse = plansRes.data as any;
+      const backendResponse = plansRes.data as PlansApiResponse;
       const plans: PlanResponse[] = backendResponse?.data?.plans ?? backendResponse?.plans ?? [];
       plans.forEach(plan => {
         policies.push(planToPolicy(plan));
@@ -134,18 +148,17 @@ export async function fetchPolicies(): Promise<AccessPolicy[]> {
     // Transform groups to policies (exclude subscription type - handled by plans)
     if (groupsRes.success && groupsRes.data) {
       const groups = groupsRes.data.plans ?? groupsRes.data ?? [];
-      (Array.isArray(groups) ? groups : [])
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .filter((g: any) => g.group_type !== 'subscription')
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .forEach((group: any) => {
+      const groupsArray = Array.isArray(groups) ? groups : [];
+      groupsArray
+        .filter((g: GroupData) => g.group_type !== 'subscription')
+        .forEach((group: GroupData) => {
           policies.push(groupToPolicy(group));
         });
     }
 
     return policies;
-  } catch (error) {
-    console.error('[fetchPolicies] Error:', error);
+  } catch {
+    // Silently fail
     return [];
   }
 }
@@ -160,18 +173,15 @@ export async function fetchPolicyStats(): Promise<PolicyStats> {
 
     const [plansRes, groupsRes, analyticsRes] = await Promise.all([
       plansClient.listPlans({ limit: 100 }),
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      apiClient.get<{ plans: any[] }>(API_ROUTES_LOCAL.PERMISSIONS.PLANS),
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      apiClient.get<any>(API_ROUTES_LOCAL.PERMISSIONS.ANALYTICS),
+      apiClient.get<PlansApiResponse>(API_ROUTES_LOCAL.PERMISSIONS.PLANS),
+      apiClient.get<AnalyticsData>(API_ROUTES_LOCAL.PERMISSIONS.ANALYTICS),
     ]);
 
     const stats: PolicyStats = { ...DEFAULT_POLICY_STATS };
 
     // Process plans
     if (isApiSuccess(plansRes)) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const backendResponse = plansRes.data as any;
+      const backendResponse = plansRes.data as PlansApiResponse;
       const plans: PlanResponse[] = backendResponse?.data?.plans ?? backendResponse?.plans ?? [];
 
       stats.byType.subscription = plans.length;
@@ -181,7 +191,7 @@ export async function fetchPolicyStats(): Promise<PolicyStats> {
       stats.totalMRR = plans.reduce((sum, plan) => {
         const revenue = typeof plan.revenue_last_30_days === 'string'
           ? parseFloat(plan.revenue_last_30_days)
-          : plan.revenue_last_30_days;
+          : plan.revenue_last_30_days ?? 0;
         return sum + (isNaN(revenue as number) ? 0 : (revenue as number));
       }, 0);
 
@@ -194,14 +204,11 @@ export async function fetchPolicyStats(): Promise<PolicyStats> {
     if (groupsRes.success && groupsRes.data) {
       const groups = groupsRes.data.plans ?? groupsRes.data ?? [];
       const groupsArray = Array.isArray(groups) ? groups : [];
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const nonSubGroups = groupsArray.filter((g: any) => g.group_type !== 'subscription');
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      stats.activeGroups = nonSubGroups.filter((g: any) => g.is_active).length;
+      const nonSubGroups = groupsArray.filter((g: GroupData) => g.group_type !== 'subscription');
+      stats.activeGroups = nonSubGroups.filter((g: GroupData) => g.is_active).length;
 
       // Count by type
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      nonSubGroups.forEach((group: any) => {
+      nonSubGroups.forEach((group: GroupData) => {
         const typeMap: Record<string, PolicyType> = {
           manual: 'manual',
           web3_asset: 'web3_asset',
@@ -217,7 +224,7 @@ export async function fetchPolicyStats(): Promise<PolicyStats> {
 
     // Add analytics data
     if (analyticsRes.success && analyticsRes.data) {
-      const analytics = analyticsRes.data;
+      const analytics = analyticsRes.data as AnalyticsData;
       stats.totalMembers += analytics.total_active_memberships ?? 0;
       stats.expiringSoon = analytics.expiring_soon_count ?? 0;
     }
@@ -226,8 +233,8 @@ export async function fetchPolicyStats(): Promise<PolicyStats> {
     stats.totalPolicies = Object.values(stats.byType).reduce((a, b) => a + b, 0);
 
     return stats;
-  } catch (error) {
-    console.error('[fetchPolicyStats] Error:', error);
+  } catch {
+    // Silently fail
     return DEFAULT_POLICY_STATS;
   }
 }
@@ -250,8 +257,8 @@ export async function fetchPermissionStats(): Promise<{ count: number; platformC
     }
 
     return { count: 0, platformCount: 0 };
-  } catch (error) {
-    console.error('[fetchPermissionStats] Error:', error);
+  } catch {
+    // Silently fail
     return { count: 0, platformCount: 0 };
   }
 }
