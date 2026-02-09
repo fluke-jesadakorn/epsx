@@ -36,7 +36,7 @@ export default function MetaMaskPayment({
   planId,
   planName,
   amount,
-  currency,
+  currency: _currency,
   onSuccess,
   onError,
   className = ''

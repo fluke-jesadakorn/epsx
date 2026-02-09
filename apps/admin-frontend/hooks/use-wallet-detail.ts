@@ -5,7 +5,8 @@ import {
     updateWalletMetadataAction
 } from '@/app/wallet-management/plan-actions';
 import type { WalletData } from '@/components/wallet/types';
-import { createPlansClient, type SubscriptionResponse } from '@/shared/api/plans';
+import type { SubscriptionResponse } from '@/shared/api/plans';
+import { createPlansClient, isApiSuccess } from '@/shared/api/plans';
 import { createAdminApiClient } from '@/shared/utils/api-client';
 import { logger } from '@/shared/utils/logger';
 import { useRouter } from 'next/navigation';
@@ -92,7 +93,7 @@ export function useSubscriptionData(walletAddress: string) {
         try {
             const client = createPlansClient(createAdminApiClient());
             const res = await client.getSubscriptions({ limit: 100 });
-            if (res?.success === true && res.data?.subscriptions !== undefined) {
+            if (isApiSuccess(res)) {
                 const sub = res.data.subscriptions.find((s: SubscriptionResponse) =>
                     s.user_id === walletAddress && s.status === 'active'
                 );

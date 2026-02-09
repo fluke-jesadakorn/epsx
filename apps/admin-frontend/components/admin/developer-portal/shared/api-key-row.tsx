@@ -19,8 +19,8 @@ interface ApiKeyRowProps {
  * Truncate wallet address for display
  * @param address
  */
-const truncateWallet = (address: string): string => {
-    if (!address ?? address.length < 12) { return address ?? 'Unknown'; }
+const truncateWallet = (address: string | undefined): string => {
+    if (!address || address.length < 12) { return address ?? 'Unknown'; }
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
 };
 
@@ -55,13 +55,19 @@ const getStatusBadgeClass = (status: string): string => {
 
 /**
  * Reusable table row component for API key display
- * @param root0
- * @param root0.apiKey
- * @param root0.onCopyWallet
- * @param root0.onCopyKeyPrefix
- * @param root0.onRevoke
- * @param root0.onEditExpiration
+ * @param param0 Component props
+ * @param param0.apiKey The API key to display
+ * @param param0.onCopyWallet Callback for copying wallet address
+ * @param param0.onCopyKeyPrefix Callback for copying key prefix
+ * @param param0.onRevoke Callback for revoking key
+ * @param param0.onEditExpiration Callback for editing expiration
  */
+interface ExtendedApiKey extends ApiKeyResponse {
+    wallet_address?: string;
+    key_prefix?: string;
+    permission_groups?: Array<{ id: string; name: string }>;
+}
+
 export const ApiKeyRow: React.FC<ApiKeyRowProps> = ({
     apiKey,
     onCopyWallet,
@@ -69,9 +75,10 @@ export const ApiKeyRow: React.FC<ApiKeyRowProps> = ({
     onRevoke,
     onEditExpiration,
 }) => {
-    const walletAddress = (apiKey as any).wallet_address ?? '';
-    const keyPrefix = (apiKey as any).key_prefix ?? apiKey.key_preview ?? '';
-    const permissionGroups = (apiKey as any).permission_groups ?? [];
+    const extendedKey = apiKey as ExtendedApiKey;
+    const walletAddress = extendedKey.wallet_address ?? '';
+    const keyPrefix = extendedKey.key_prefix ?? apiKey.key_preview ?? '';
+    const permissionGroups = extendedKey.permission_groups ?? [];
 
     return (
         <TableRow className="hover:bg-white/[0.02] border-white/5 transition-colors">
@@ -111,7 +118,7 @@ export const ApiKeyRow: React.FC<ApiKeyRowProps> = ({
             <TableCell className="py-6 px-6">
                 <div className="flex flex-wrap gap-2 max-w-[240px]">
                     {permissionGroups.length > 0 ? (
-                        permissionGroups.slice(0, 3).map((group: { id: string; name: string }) => (
+                        permissionGroups.slice(0, 3).map((group) => (
                             <span
                                 key={group.id}
                                 className="inline-flex items-center px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-widest bg-purple-500/10 text-purple-400 border border-purple-500/10 shadow-[0_0_15px_rgba(168,85,247,0.05)]"
@@ -131,7 +138,7 @@ export const ApiKeyRow: React.FC<ApiKeyRowProps> = ({
                     ) : (
                         <span className="text-[10px] font-black text-muted-foreground/30 uppercase tracking-widest">No scope</span>
                     )}
-                    {(permissionGroups.length > 3 ?? apiKey.allowed_modules.length > 3) && (
+                    {(permissionGroups.length > 3 || apiKey.allowed_modules.length > 3) && (
                         <span className="inline-flex items-center px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-widest bg-white/5 text-muted-foreground border border-white/5">
                             +{Math.max(permissionGroups.length, apiKey.allowed_modules.length) - 3}
                         </span>

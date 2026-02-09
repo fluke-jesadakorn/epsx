@@ -331,6 +331,7 @@ export function initializeTestUsers(): void {
 export function canUserAccessRoute(user: TestUser, route: string): boolean {
   // Check if any user permission grants access to this route
   for (const permission of user.permissions) {
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     const allowedRoutes = PERMISSION_ROUTE_MAP[permission] || [];
     if (allowedRoutes.includes(route)) {return true;}
 
@@ -359,6 +360,7 @@ export function isFeatureRestricted(user: TestUser, feature: string): boolean {
 export function canUserAccessApiEndpoint(user: TestUser, endpoint: string): boolean {
   // Check if any user permission grants access to this API endpoint
   for (const permission of user.permissions) {
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     const allowedEndpoints = PERMISSION_API_MAP[permission] || [];
     if (allowedEndpoints.some(allowed => endpoint.startsWith(allowed))) {
       return true;

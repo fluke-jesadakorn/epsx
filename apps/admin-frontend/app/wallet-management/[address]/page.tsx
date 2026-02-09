@@ -5,6 +5,7 @@
 'use client';
 
 import { TrashDropZone } from '@/components/wallet/trash-drop-zone';
+import { useMetadataForm, useSubscriptionData, useWalletData } from '@/hooks/use-wallet-detail';
 import type {
     DragEndEvent,
     DragStartEvent
@@ -64,7 +65,6 @@ const STATUS_CONFIG: Record<WalletStatus, { label: string; emoji: string; classN
     },
 };
 
-import { useMetadataForm, useSubscriptionData, useWalletData } from '@/hooks/use-wallet-detail';
 
 interface UseWalletActionsContext {
     walletAddress: string;
@@ -94,7 +94,7 @@ function useWalletActions(ctx: UseWalletActionsContext) {
         } finally {
             setIsLoading(false);
         }
-    }, [ctx.walletAddress, ctx.onActionComplete]);
+    }, [ctx, ctx.walletAddress, ctx.onActionComplete]);
 
     const handleReenable = useCallback(async (data: ReenableWalletData) => {
         setIsLoading(true);
@@ -113,7 +113,7 @@ function useWalletActions(ctx: UseWalletActionsContext) {
         } finally {
             setIsLoading(false);
         }
-    }, [ctx.walletAddress, ctx.onActionComplete]);
+    }, [ctx, ctx.walletAddress, ctx.onActionComplete]);
 
     return { isLoading, handleDisable, handleReenable };
 }
@@ -368,6 +368,7 @@ export default function WalletDetailPage() {
                                             toast.info('Removed from staging');
                                         } else {
                                             const plan = accessData.authorizedPlans.find(g => g.id === id);
+                                            // eslint-disable-next-line no-alert
                                             if (window.confirm(`Are you sure you want to remove access to "${plan?.name ?? 'this plan'}"?`)) {
                                                 const handleRemove = async () => {
                                                     try {
