@@ -12,9 +12,12 @@ enum PackageTier {
   PREMIUM = 'premium'
 }
 
-type StockRankingType = any;
-type BulkStockRankingAssignmentResult = any;
-type StockRankingPackageData = any;
+type StockRankingType = string;
+interface BulkStockRankingAssignmentResult {
+  summary: { successful: number };
+  failed?: Array<{ id: string; error: string }>;
+  message?: string;
+}
 
 interface User {
   id: string;
@@ -88,7 +91,9 @@ function PackagePreview({
 }) {
   const config = StockRankingPackageConfigs.getConfigForTier(tier);
 
-  if (!show) return null;
+  if (!show) {
+    return null;
+  }
 
   const formatRankingTypes = (types: StockRankingType[]): string => {
     return types.map(type =>
@@ -215,9 +220,9 @@ function UserSelector({
                 className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-input rounded"
               />
               <div className="ml-3 flex-1">
-                <div className="text-sm font-medium text-foreground">{user.name || user.email}</div>
+                <div className="text-sm font-medium text-foreground">{user.name ?? user.email}</div>
                 <div className="text-xs text-muted-foreground">
-                  {user.email} • Current: {user.currentPackage || 'None'}
+                  {user.email} • Current: {user.currentPackage ?? 'None'}
                 </div>
               </div>
             </div>
@@ -287,6 +292,103 @@ function AssignmentForm({
   );
 }
 
+interface AssignmentPayload {
+  selectedUsers: string[];
+  selectedPackage: PackageTier;
+  assignmentReason: string;
+  expirationDate: string;
+}
+
+function useLoadUsers() {
+  const [users, setUsers] = React.useState<User[]>([]);
+  const [isLoading, setIsLoading] = React.useState(false);
+
+  const load = React.useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const response = await fetch('/api/admin/users');
+      if (response.ok) {
+        const contentType = response.headers.get('content-type');
+        if (contentType != null && contentType.includes('application/json')) {
+          const data = await response.json() as { users?: User[] };
+          setUsers(data.users ?? []);
+        }
+      }
+    } catch (e) {
+      console.error('Failed to load users:', e);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  return { users, isLoading, load };
+}
+
+function useAssignmentSubmit(
+  onComplete?: (result: BulkStockRankingAssignmentResult) => void
+) {
+  const [isLoading, setIsLoading] = React.useState(false);
+
+  const submit = React.useCallback(
+    async (payload: AssignmentPayload) => {
+      if (payload.selectedUsers.length === 0) {
+        alert('Please select at least one user');
+        return;
+      }
+      if (!payload.assignmentReason.trim()) {
+        alert('Please provide a reason for the assignment');
+        return;
+      }
+
+      setIsLoading(true);
+      try {
+        const assignmentData = {
+          user_ids: payload.selectedUsers,
+          assignments: [
+            {
+              module_id: 'stock-ranking-module-id',
+              access_level: payload.selectedPackage.toLowerCase(),
+              custom_quotas: null,
+              restrictions: null,
+              expires_at: payload.expirationDate != null ? new Date(payload.expirationDate).toISOString() : null
+            }
+          ],
+          reason: payload.assignmentReason
+        };
+
+        const response = await fetch('/api/admin/users/bulk/assign-modules', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(assignmentData)
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Assignment failed: ${response.status} ${errorText}`);
+        }
+
+        const contentType = response.headers.get('content-type');
+        if (contentType == null || !contentType.includes('application/json')) {
+          throw new Error('Invalid response format from assignment API');
+        }
+
+        const result = await response.json() as BulkStockRankingAssignmentResult;
+        onComplete?.(result);
+        return result;
+      } catch (e) {
+        console.error('Assignment error:', e);
+        alert('Failed to assign packages. Please try again.');
+        throw e;
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [onComplete]
+  );
+
+  return { submit, isLoading };
+}
+
 function AssignmentSummary({
   show,
   selectedCount,
@@ -298,7 +400,9 @@ function AssignmentSummary({
   packageTier: PackageTier;
   expirationDate: string;
 }) {
-  if (!show) return null;
+  if (!show) {
+    return null;
+  }
 
   const config = StockRankingPackageConfigs.getConfigForTier(packageTier);
 
@@ -336,105 +440,42 @@ export default function StockRankingPackageAssignment({
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
   const [assignmentReason, setAssignmentReason] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [users, setUsers] = useState<User[]>([]);
-  const [isLoading, setIsLoading] = useState({ users: false, assignment: false });
   const [expirationDate, setExpirationDate] = useState('');
-  const [notifyUsers, setNotifyUsers] = useState(true);
   const [showPreview, setShowPreview] = useState(false);
+
+  const { users, isLoading: isLoadingUsers, load: loadUsers } = useLoadUsers();
+
+  const { submit: submitAssignment, isLoading: isSubmitting } = useAssignmentSubmit((result) => {
+    setSelectedUsers([]);
+    setAssignmentReason('');
+    setExpirationDate('');
+    setShowPreview(false);
+    alert(`Successfully assigned ${result.summary.successful} users to ${selectedPackage} package`);
+    onAssignmentComplete?.(result);
+  });
 
   const filteredUsers = useMemo(
     () =>
       users.filter(
         (user) =>
           user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          user.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          (user.name != null && user.name.toLowerCase().includes(searchQuery.toLowerCase())) ||
           user.id.toLowerCase().includes(searchQuery.toLowerCase())
       ),
     [users, searchQuery]
   );
 
   useEffect(() => {
-    loadUsers();
-  }, []);
-
-  const loadUsers = async () => {
-    setIsLoading((prev) => ({ ...prev, users: true }));
-    try {
-      const response = await fetch('/api/admin/users');
-      if (response.ok) {
-        const contentType = response.headers.get('content-type');
-        if (contentType?.includes('application/json')) {
-          const data = await response.json();
-          setUsers(data.users || []);
-        }
-      }
-    } catch (e) {
-      console.error('Failed to load users:', e);
-    } finally {
-      setIsLoading((prev) => ({ ...prev, users: false }));
-    }
-  };
+    void loadUsers();
+  }, [loadUsers]);
 
   const handleAssignment = async () => {
-    if (selectedUsers.length === 0) {
-      alert('Please select at least one user');
-      return;
-    }
-    if (!assignmentReason.trim()) {
-      alert('Please provide a reason for the assignment');
-      return;
-    }
-
-    setIsLoading((prev) => ({ ...prev, assignment: true }));
-    try {
-      const assignmentData = {
-        user_ids: selectedUsers,
-        assignments: [
-          {
-            module_id: 'stock-ranking-module-id',
-            access_level: selectedPackage.toLowerCase(),
-            custom_quotas: null,
-            restrictions: null,
-            expires_at: expirationDate ? new Date(expirationDate).toISOString() : null
-          }
-        ],
-        reason: assignmentReason
-      };
-
-      const response = await fetch('/api/admin/users/bulk/assign-modules', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(assignmentData)
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Assignment failed: ${response.status} ${errorText}`);
-      }
-
-      const contentType = response.headers.get('content-type');
-      if (!contentType?.includes('application/json')) {
-        throw new Error('Invalid response format from assignment API');
-      }
-
-      const result = await response.json();
-      onAssignmentComplete?.({
-        summary: result.summary,
-        failed: result.failed || [],
-        message: result.message
-      });
-
-      setSelectedUsers([]);
-      setAssignmentReason('');
-      setExpirationDate('');
-      setShowPreview(false);
-      alert(`Successfully assigned ${result.summary.successful} users to ${selectedPackage} package`);
-    } catch (e) {
-      console.error('Assignment error:', e);
-      alert('Failed to assign packages. Please try again.');
-    } finally {
-      setIsLoading((prev) => ({ ...prev, assignment: false }));
-    }
+    await submitAssignment({
+      selectedUsers,
+      selectedPackage,
+      assignmentReason,
+      expirationDate
+    });
   };
 
   const resetForm = () => {
@@ -468,7 +509,7 @@ export default function StockRankingPackageAssignment({
           users={filteredUsers}
           selectedIds={selectedUsers}
           searchQuery={searchQuery}
-          isLoading={isLoading.users}
+          isLoading={isLoadingUsers}
           onSearchChange={setSearchQuery}
           onUserToggle={(id, selected) => {
             setSelectedUsers((prev) =>
@@ -507,10 +548,10 @@ export default function StockRankingPackageAssignment({
         <button
           type="button"
           onClick={handleAssignment}
-          disabled={selectedUsers.length === 0 || !assignmentReason.trim() || isLoading.assignment}
+          disabled={selectedUsers.length === 0 || !assignmentReason.trim() || isSubmitting}
           className="px-6 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {isLoading.assignment ? 'Assigning...' : `Assign ${selectedPackage} Package`}
+          {isSubmitting ? 'Assigning...' : `Assign ${selectedPackage} Package`}
         </button>
       </div>
     </div>
