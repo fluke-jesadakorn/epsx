@@ -72,93 +72,273 @@ interface PlansViewProps {
     className?: string;
 }
 
+interface PlanEditFormState {
+  name: string;
+  description: string;
+  priority: number;
+  price: number;
+  expiryDays: number;
+  permissions: string[];
+  is_public: boolean;
+  is_active: boolean;
+  features: string[];
+}
+
+function useLoadPlansAndPermissions() {
+  const [permissions, setPermissions] = useState<PermissionDefinition[]>([]);
+  const [plans, setPlans] = useState<PermissionPlan[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const load = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const [permRes, planRes] = await Promise.all([
+        getPermissionsAction(),
+        getPlansAction()
+      ]);
+      if (permRes.success && permRes.data) {
+        setPermissions(permRes.data);
+      }
+      if (planRes) {
+        setPlans(planRes);
+      }
+    } catch (error: unknown) {
+      logger.error('Failed to load data:', error instanceof Error ? error.message : String(error));
+      toast.error('Failed to load access data');
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  return { permissions, plans, isLoading, setPlans, load };
+}
+
+function usePlanEditForm() {
+  const [selectedPlan, setSelectedPlan] = useState<PermissionPlan | null>(null);
+  const [form, setForm] = useState<PlanEditFormState>({
+    name: '',
+    description: '',
+    priority: 0,
+    price: 0,
+    expiryDays: 30,
+    permissions: [],
+    is_public: true,
+    is_active: true,
+    features: []
+  });
+  const [hasChanges, setHasChanges] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const selectPlan = (plan: PermissionPlan) => {
+    setSelectedPlan(plan);
+    const features = Array.isArray(plan.plan_metadata?.features)
+      ? (plan.plan_metadata?.features as string[])
+      : [];
+    setForm({
+      name: plan.name ?? '',
+      description: plan.description ?? '',
+      priority: plan.priority_level ?? 0,
+      price: plan.price ?? 0,
+      expiryDays: plan.default_expiry_days ?? 30,
+      permissions: plan.permissions ?? [],
+      is_public: plan.is_public !== false,
+      is_active: plan.is_active !== false,
+      features
+    });
+    setHasChanges(false);
+  };
+
+  const savePlan = async (plans: PermissionPlan[], setPlans: (p: PermissionPlan[]) => void) => {
+    if (!selectedPlan) {
+      return;
+    }
+    setIsSaving(true);
+    try {
+      const updated = await updatePlanAction(selectedPlan.id, {
+        name: form.name,
+        description: form.description,
+        priority_level: form.priority,
+        price: selectedPlan.id === FREE_PLAN_ID ? undefined : form.price,
+        default_expiry_days: form.expiryDays,
+        permissions: form.permissions,
+        is_public: form.is_public,
+        is_active: form.is_active,
+        plan_metadata: {
+          ...selectedPlan.plan_metadata,
+          features: form.features
+        }
+      });
+      toast.success('Plan updated');
+      setPlans(plans.map(p => p.id === updated.id ? updated : p));
+      setSelectedPlan(updated);
+      setHasChanges(false);
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Failed to update plan');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const discardChanges = (selectPlanFn: (p: PermissionPlan) => void) => {
+    if (selectedPlan) {
+      selectPlanFn(selectedPlan);
+      toast.info('Changes discarded');
+    }
+  };
+
+  return { selectedPlan, form, setForm, hasChanges, setHasChanges, isSaving, selectPlan, savePlan, discardChanges };
+}
+
+interface PlanDeletionContext {
+  plans: PermissionPlan[];
+  setPlans: (p: PermissionPlan[]) => void;
+  selectedPlan: PermissionPlan | null;
+  setSelectedPlan: (p: PermissionPlan | null) => void;
+}
+
+function usePlanDeletion(ctx: PlanDeletionContext) {
+  const { plans, setPlans, selectedPlan, setSelectedPlan } = ctx;
+  const [deleteConfirm, setDeleteConfirm] = useState<PermissionPlan | null>(null);
+  const [confirmInput, setConfirmInput] = useState('');
+
+  useEffect(() => {
+    if (!deleteConfirm) {
+      setConfirmInput('');
+    }
+  }, [deleteConfirm]);
+
+  const deletePlan = async () => {
+    if (!deleteConfirm) {
+      return;
+    }
+    try {
+      await deletePlanAction(deleteConfirm.id);
+      toast.success('Plan deleted');
+      setPlans(plans.filter(p => p.id !== deleteConfirm.id));
+      if (selectedPlan?.id === deleteConfirm.id) {
+        setSelectedPlan(null);
+      }
+      setDeleteConfirm(null);
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Failed to delete plan');
+    }
+  };
+
+  return { deleteConfirm, setDeleteConfirm, confirmInput, setConfirmInput, deletePlan };
+}
+
+interface DragDropContext {
+  plans: PermissionPlan[];
+  setPlans: (p: PermissionPlan[]) => void;
+  selectedPlan: PermissionPlan | null;
+  setForm: (f: PlanEditFormState) => void;
+}
+
+function usePlanDragAndDrop(ctx: DragDropContext) {
+  const { plans, setPlans, selectedPlan, setForm } = ctx;
+  const [activeId, setActiveId] = useState<string | null>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 1 }
+    })
+  );
+
+  const snapToCursor = useCallback<Modifier>(({ transform, activatorEvent, draggingNodeRect }) => {
+    if (activatorEvent && draggingNodeRect) {
+      const event = activatorEvent as unknown as PointerEvent;
+      const offsetY = (event.clientY ?? 0) - draggingNodeRect.top;
+      return {
+        ...transform,
+        y: transform.y + offsetY - 10
+      };
+    }
+    return transform;
+  }, []);
+
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveId(event.active.id as string);
+  };
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    setActiveId(null);
+
+    if (active.id === over?.id) {
+      return;
+    }
+
+    const oldIndex = plans.findIndex(item => item.id === active.id);
+    const newIndex = plans.findIndex(item => item.id === over?.id);
+
+    if (oldIndex === -1 || newIndex === -1) {
+      return;
+    }
+
+    const newItems = arrayMove(plans, oldIndex, newIndex);
+    setPlans(newItems);
+
+    const updates = newItems.map((plan, index) => ({
+      id: plan.id,
+      display_order: index
+    }));
+
+    if (selectedPlan) {
+      const updatedSelected = updates.find(u => u.id === selectedPlan.id);
+      if (updatedSelected) {
+        setForm(prev => ({ ...prev, priority: updatedSelected.display_order }));
+      }
+    }
+
+    await Promise.all(updates.map(u =>
+      updatePlanAction(u.id, { display_order: u.display_order })
+    )).then(() => {
+      toast.success('Plans reordered');
+    }).catch(() => {
+      toast.error('Failed to reorder plans');
+    });
+  };
+
+  return { activeId, sensors, snapToCursor, handleDragStart, handleDragEnd };
+}
+
+function useQuickTogglePlan(ctx: { plans: PermissionPlan[]; setPlans: (p: PermissionPlan[]) => void }) {
+  return useCallback(async (e: React.MouseEvent, plan: PermissionPlan, selectedPlan: PermissionPlan | null, setSelectedPlan: (p: PermissionPlan | null) => void, setForm: (f: PlanEditFormState) => void) => {
+    e.stopPropagation();
+    if (plan.id === FREE_PLAN_ID) {
+      toast.error('Constant Free Plan status cannot be changed');
+      return;
+    }
+    const newState = !plan.is_active;
+    try {
+      ctx.setPlans(ctx.plans.map(p => p.id === plan.id ? { ...p, is_active: newState } : p));
+      if (selectedPlan?.id === plan.id) {
+        setSelectedPlan({ ...selectedPlan, is_active: newState });
+        setForm(prev => ({ ...prev, is_active: newState }));
+      }
+      await updatePlanAction(plan.id, { is_active: newState });
+      toast.success(`Plan ${newState ? 'activated' : 'deactivated'}`);
+    } catch {
+      ctx.setPlans(ctx.plans.map(p => p.id === plan.id ? { ...p, is_active: !newState } : p));
+      if (selectedPlan?.id === plan.id) {
+        setSelectedPlan({ ...selectedPlan, is_active: !newState });
+        setForm(prev => ({ ...prev, is_active: !newState }));
+      }
+      toast.error('Failed to update status');
+    }
+  }, [ctx]);
+}
+
 export function PlansView({ className }: PlansViewProps) {
     const { isAuthenticated, isLoading: authLoading } = useSharedAuth();
+    const { permissions, plans, isLoading: isLoadingData, setPlans, load: loadAllData } = useLoadPlansAndPermissions();
+    const { selectedPlan, form: _form, setForm, hasChanges: _hasChanges, setHasChanges: _setHasChanges, isSaving: _isSaving, selectPlan, savePlan: _savePlan, discardChanges: _discardChanges } = usePlanEditForm();
+    const { deleteConfirm: _deleteConfirm, setDeleteConfirm, confirmInput: _confirmInput, setConfirmInput, deletePlan } = usePlanDeletion({ plans, setPlans, selectedPlan, setSelectedPlan: selectPlan });
+    const { activeId, sensors, snapToCursor, handleDragStart, handleDragEnd } = usePlanDragAndDrop({ plans, setPlans, selectedPlan, setForm });
+    const handleQuickToggle = useQuickTogglePlan({ plans, setPlans });
 
-    // --- DATA STATE ---
-    const [permissions, setPermissions] = useState<PermissionDefinition[]>([]);
-    const [plans, setPlans] = useState<PermissionPlan[]>([]);
-    const [isLoadingData, setIsLoadingData] = useState(false);
-
-    // --- DRAG AND DROP STATE ---
-    const [activeId, setActiveId] = useState<string | null>(null);
-
-    const sensors = useSensors(
-        useSensor(PointerSensor, {
-            activationConstraint: {
-                distance: 1,
-            },
-        })
-    );
-
-    // Custom modifier to snap overlay closer to cursor
-    const snapToCursor = useCallback<Modifier>(({ transform, activatorEvent, draggingNodeRect }) => {
-        if (activatorEvent && draggingNodeRect) {
-            // Calculate how far down the item we clicked (offset)
-            // draggingNodeRect is the initial ClientRect of the item
-            // activatorEvent is the initial pointer event
-            const event = activatorEvent as unknown as PointerEvent;
-            const offsetY = (event.clientY || 0) - draggingNodeRect.top;
-
-            return {
-                ...transform,
-                // Add the offset to bring the top of the card down to the cursor
-                // Subtract 10px to give it a slight "pop" above the cursor or just keep it tight
-                y: transform.y + offsetY - 10,
-            };
-        }
-
-        return transform;
-    }, []);
-
-    // --- PLAN MODE STATE ---
     const [planSearch, setPlanSearch] = useState('');
-    const [selectedPlan, setSelectedPlan] = useState<PermissionPlan | null>(null);
-    const [planEditForm, setPlanEditForm] = useState<{
-        name: string;
-        description: string;
-        priority: number;
-        price: number;
-        expiryDays: number;
-        permissions: string[];
-        is_public: boolean;
-        is_active: boolean;
-        features: string[];
-    }>({ name: '', description: '', priority: 0, price: 0, expiryDays: 30, permissions: [], is_public: true, is_active: true, features: [] });
-
-    const [isSavingPlan, setIsSavingPlan] = useState(false);
-    const [hasPlanChanges, setHasPlanChanges] = useState(false);
     const [isCreatePlanOpen, setIsCreatePlanOpen] = useState(false);
-
-    const [planDeleteConfirm, setPlanDeleteConfirm] = useState<PermissionPlan | null>(null);
-    const [deleteConfirmationInput, setDeleteConfirmationInput] = useState('');
-
-    useEffect(() => {
-        if (!planDeleteConfirm) { setDeleteConfirmationInput(''); }
-    }, [planDeleteConfirm]);
-
-    // --- DATA FETCHING ---
-    const loadAllData = useCallback(async () => {
-        setIsLoadingData(true);
-        try {
-            const [permRes, planRes] = await Promise.all([
-                getPermissionsAction(),
-                getPlansAction()
-            ]);
-
-            if (permRes.success && permRes.data) {
-                setPermissions(permRes.data);
-            }
-            if (planRes) {
-                setPlans(planRes);
-            }
-        } catch (error: unknown) {
-            logger.error('Failed to load data:', error instanceof Error ? error.message : String(error));
-            toast.error('Failed to load access data');
-        } finally {
-            setIsLoadingData(false);
-        }
-    }, []);
 
     useEffect(() => {
         if (isAuthenticated) {
@@ -166,170 +346,9 @@ export function PlansView({ className }: PlansViewProps) {
         }
     }, [isAuthenticated, loadAllData]);
 
-    // --- DERIVED DATA ---
     const filteredPlans = useMemo(() =>
         plans.filter(p => (p.name ?? '').toLowerCase().includes(planSearch.toLowerCase())),
         [plans, planSearch]);
-
-    // --- EVENT HANDLERS ---
-    const handleSelectPlan = (plan: PermissionPlan) => {
-        setSelectedPlan(plan);
-        // Extract features from metadata
-        const features = Array.isArray(plan.plan_metadata?.features)
-            ? plan.plan_metadata?.features as string[]
-            : [];
-
-        setPlanEditForm({
-            name: plan.name ?? '',
-            description: plan.description ?? '',
-            priority: plan.priority_level ?? 0,
-            price: plan.price ?? 0,
-            expiryDays: plan.default_expiry_days ?? 30,
-            permissions: plan.permissions ?? [],
-            is_public: plan.is_public !== false,
-            is_active: plan.is_active !== false,
-            features
-        });
-        setHasPlanChanges(false);
-    };
-
-    // --- DRAG HANDLERS ---
-    const handleDragStart = (event: DragStartEvent) => {
-        setActiveId(event.active.id as string);
-    };
-
-    const handleReorderPlans = (updates: { id: string, display_order: number }[]) => {
-        toast.promise(
-            Promise.all(updates.map(u =>
-                updatePlanAction(u.id, {
-                    // We map back to priority_level for the API structure if needed, 
-                    // but check backend: usually display_order is what we want.
-                    // The backend model uses display_order but the PlanEditForm uses priority maps to priority_level.
-                    // Let's assume priority_level maps to display_order or vice versa.
-                    // Based on plans.rs: display_order: req.display_order 
-                    display_order: u.display_order
-                })
-            )),
-            {
-                loading: 'Reordering plans...',
-                success: 'Plans reordered',
-                error: 'Failed to reorder plans'
-            }
-        );
-    }
-
-    const handleDragEnd = async (event: DragEndEvent) => {
-        const { active, over } = event;
-        setActiveId(null);
-
-        if (active.id !== over?.id) {
-            // Find indices in the CURRENT plans state
-            const oldIndex = plans.findIndex((item) => item.id === active.id);
-            const newIndex = plans.findIndex((item) => item.id === over?.id);
-
-            if (oldIndex === -1 || newIndex === -1) { return; }
-
-            // Calculate new items array
-            const newItems = arrayMove(plans, oldIndex, newIndex);
-
-            // 1. Update UI state optimistically
-            setPlans(newItems);
-
-            // 2. Prepare updates for server
-            const updates = newItems.map((plan, index) => ({
-                id: plan.id,
-                display_order: index
-            }));
-
-            // 3. Update active selection if needed
-            if (selectedPlan) {
-                const updatedSelected = updates.find(u => u.id === selectedPlan.id);
-                if (updatedSelected) {
-                    setPlanEditForm(prev => ({ ...prev, priority: updatedSelected.display_order }));
-                }
-            }
-
-            // 4. Trigger Server Action (Side Effect)
-            void handleReorderPlans(updates);
-        }
-    };
-
-    const isFreePlan = (id?: string) => id === FREE_PLAN_ID;
-
-    const handleSavePlan = async () => {
-        if (!selectedPlan) { return; }
-        setIsSavingPlan(true);
-        try {
-            const updated = await updatePlanAction(selectedPlan.id, {
-                name: planEditForm.name,
-                description: planEditForm.description,
-                priority_level: planEditForm.priority,
-                price: isFreePlan(selectedPlan.id) ? undefined : planEditForm.price,
-                default_expiry_days: planEditForm.expiryDays,
-                permissions: planEditForm.permissions,
-                is_public: planEditForm.is_public,
-                is_active: planEditForm.is_active,
-                // Pass features in plan_metadata
-                plan_metadata: {
-                    ...selectedPlan.plan_metadata,
-                    features: planEditForm.features
-                }
-            });
-            toast.success('Plan updated');
-            setPlans(prev => prev.map(p => p.id === updated.id ? updated : p));
-            setSelectedPlan(updated);
-            setHasPlanChanges(false);
-        } catch (e: unknown) {
-            toast.error(e instanceof Error ? e.message : 'Failed to update plan');
-        }
-        finally { setIsSavingPlan(false); }
-    };
-
-    const handleDeletePlan = async () => {
-        if (!planDeleteConfirm) { return; }
-        try {
-            await deletePlanAction(planDeleteConfirm.id);
-            toast.success('Plan deleted');
-            setPlans(prev => prev.filter(p => p.id !== planDeleteConfirm.id));
-            if (selectedPlan?.id === planDeleteConfirm.id) { setSelectedPlan(null); }
-            setPlanDeleteConfirm(null);
-        } catch (e: unknown) {
-            toast.error(e instanceof Error ? e.message : 'Failed to delete plan');
-        }
-    };
-
-    const handleQuickToggle = async (e: React.MouseEvent, plan: PermissionPlan) => {
-        e.stopPropagation();
-        if (isFreePlan(plan.id)) {
-            toast.error('Constant Free Plan status cannot be changed');
-            return;
-        }
-        const newState = !plan.is_active;
-        try {
-            setPlans(prev => prev.map(p => p.id === plan.id ? { ...p, is_active: newState } : p));
-            if (selectedPlan?.id === plan.id) {
-                setSelectedPlan(prev => prev ? { ...prev, is_active: newState } : null);
-                setPlanEditForm(prev => ({ ...prev, is_active: newState }));
-            }
-
-            await updatePlanAction(plan.id, { is_active: newState });
-            toast.success(`Plan ${newState ? 'activated' : 'deactivated'}`);
-        } catch (_error) {
-            setPlans(prev => prev.map(p => p.id === plan.id ? { ...p, is_active: !newState } : p));
-            if (selectedPlan?.id === plan.id) {
-                setSelectedPlan(prev => prev ? { ...prev, is_active: !newState } : null);
-                setPlanEditForm(prev => ({ ...prev, is_active: !newState }));
-            }
-            toast.error('Failed to update status');
-        }
-    };
-
-    const handleDiscardChanges = () => {
-        if (selectedPlan) {
-            handleSelectPlan(selectedPlan);
-            toast.info('Changes discarded');
-        }
-    };
 
     if (authLoading || (isLoadingData && !plans.length)) {
         return <div className="p-8 flex justify-center"><Loader2 className="animate-spin" /></div>;
