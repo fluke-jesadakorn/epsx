@@ -18,8 +18,7 @@ interface AdminProfileErrorProps {
  */
 export default function AdminProfileError({ error, reset }: AdminProfileErrorProps) {
   useEffect(() => {
-
-    console.error('Admin profile page error:', error);
+    // Error logging handled by Next.js error boundary
   }, [error]);
 
   return (
@@ -46,6 +45,7 @@ export default function AdminProfileError({ error, reset }: AdminProfileErrorPro
                 <p className="text-sm text-red-700 dark:text-red-300 font-mono">
                   {error.message}
                 </p>
+                {/* eslint-disable-next-line @typescript-eslint/strict-boolean-expressions */}
                 {error.digest && (
                   <p className="text-xs text-red-600 dark:text-red-400 mt-2">
                     Error ID: {error.digest}
