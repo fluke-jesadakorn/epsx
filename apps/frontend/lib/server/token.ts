@@ -6,6 +6,19 @@ import { clientConfig } from '@/config/env';
 import { type EPSXJWTPayload } from '@/shared/auth/jwt';
 import { cookies } from 'next/headers';
 
+interface Web3UserInfo {
+  wallet_address?: string;
+  id?: string;
+  email?: string;
+  name?: string;
+  permissions?: unknown;
+  platform_context?: unknown;
+}
+
+function isWeb3UserInfo(data: unknown): data is Web3UserInfo {
+  return typeof data === 'object' && data !== null && !Array.isArray(data);
+}
+
 /**
  * Web3-First: Get Web3 session token from cookies
  */
@@ -68,16 +81,25 @@ export async function getUserInfoFromWeb3(): Promise<EPSXJWTPayload | null> {
       return null;
     }
 
-    const userInfo = await response.json();
+    const userInfo = await response.json() as unknown;
+
+    if (!isWeb3UserInfo(userInfo)) {
+      return null;
+    }
 
     // Convert to EPSXJWTPayload format for compatibility
+    const sub = typeof userInfo.wallet_address === 'string' ? userInfo.wallet_address : (typeof userInfo.id === 'string' ? userInfo.id : '');
+    if (!sub) {
+      return null;
+    }
+
     return {
-      sub: userInfo.wallet_address ?? userInfo.id,
-      id: userInfo.id,
-      wallet_address: userInfo.wallet_address,
-      email: userInfo.email,
-      name: userInfo.name,
-      permissions: userInfo.permissions ?? [],
+      sub,
+      id: typeof userInfo.id === 'string' ? userInfo.id : '',
+      wallet_address: typeof userInfo.wallet_address === 'string' ? userInfo.wallet_address : '',
+      email: typeof userInfo.email === 'string' ? userInfo.email : '',
+      name: typeof userInfo.name === 'string' ? userInfo.name : '',
+      permissions: Array.isArray(userInfo.permissions) ? userInfo.permissions : [],
       platform_context: userInfo.platform_context,
       exp: Math.floor(Date.now() / 1000) + (60 * 60), // 1 hour from now
       iat: Math.floor(Date.now() / 1000),

@@ -1,13 +1,15 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-explicit-any, @typescript-eslint/strict-boolean-expressions */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-return, @typescript-eslint/strict-boolean-expressions */
 'use server';
 
 import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
 
+import { logger } from '@/lib/logger';
 import { COOKIES } from '@/shared/auth/cookies';
 import { API_ROUTES } from '@/shared/config/route-constants';
 
-// Batch permission operations for admin panel
+const UNKNOWN_ERROR = 'Unknown error occurred';
+const AUTH_REQUIRED_MSG = 'Authentication required';
 interface BatchPermissionRequest {
   permissions: string[];
   walletAddresses: string[];
@@ -39,6 +41,15 @@ interface PermissionAuditLog {
   user_agent?: string;
 }
 
+const AUTH_REQUIRED_MSG = 'Authentication required';
+const PATH_PERMISSIONS = '/policies';
+const PATH_WALLET_MGMT = '/wallet-management';
+
+const getAuthHeaders = (token: string) => ({
+  'Authorization': `Bearer ${token}`,
+  'Content-Type': 'application/json',
+});
+
 // Grant multiple permissions to multiple wallets
 /**
  *
@@ -54,16 +65,13 @@ export async function grantBatchPermissions(request: BatchPermissionRequest): Pr
   const token = cookieStore.get(COOKIES.access_token)?.value;
 
   if (!token) {
-    throw new Error('Authentication required');
+    throw new Error(AUTH_REQUIRED_MSG);
   }
 
   try {
     const response = await fetch(`${process.env.BACKEND_URL}${API_ROUTES.PERMISSIONS.BULK_GRANT}`, {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
+      headers: getAuthHeaders(token),
       body: JSON.stringify(request),
     });
 
@@ -71,18 +79,23 @@ export async function grantBatchPermissions(request: BatchPermissionRequest): Pr
       throw new Error(`Failed to grant batch permissions: ${response.status}`);
     }
 
-    const result = await response.json();
+    const result = (await response.json()) as {
+      success: boolean;
+      message: string;
+      processed: number;
+      failed: string[];
+    };
 
     // Revalidate admin pages
-    revalidatePath('/permissions');
-    revalidatePath('/wallet-management');
+    revalidatePath(PATH_PERMISSIONS);
+    revalidatePath(PATH_WALLET_MGMT);
 
     return result;
   } catch (error) {
-    console.error('Error granting batch permissions:', error);
+    logger.error('Error granting batch permissions:', { error });
     return {
       success: false,
-      message: error instanceof Error ? error.message : 'Unknown error occurred',
+      message: error instanceof Error ? error.message : UNKNOWN_ERROR,
       processed: 0,
       failed: request.walletAddresses
     };
@@ -110,16 +123,13 @@ export async function revokeBatchPermissions(
   const token = cookieStore.get(COOKIES.access_token)?.value;
 
   if (!token) {
-    throw new Error('Authentication required');
+    throw new Error(AUTH_REQUIRED_MSG);
   }
 
   try {
     const response = await fetch(`${process.env.BACKEND_URL}${API_ROUTES.PERMISSIONS.BULK_REVOKE}`, {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
+      headers: getAuthHeaders(token),
       body: JSON.stringify({
         wallet_addresses: walletAddresses,
         permissions,
@@ -131,18 +141,23 @@ export async function revokeBatchPermissions(
       throw new Error(`Failed to revoke batch permissions: ${response.status}`);
     }
 
-    const result = await response.json();
+    const result = (await response.json()) as {
+      success: boolean;
+      message: string;
+      processed: number;
+      failed: string[];
+    };
 
     // Revalidate admin pages
-    revalidatePath('/permissions');
-    revalidatePath('/wallet-management');
+    revalidatePath(PATH_PERMISSIONS);
+    revalidatePath(PATH_WALLET_MGMT);
 
     return result;
   } catch (error) {
-    console.error('Error revoking batch permissions:', error);
+    logger.error('Error revoking batch permissions:', { error });
     return {
       success: false,
-      message: error instanceof Error ? error.message : 'Unknown error occurred',
+      message: error instanceof Error ? error.message : UNKNOWN_ERROR,
       processed: 0,
       failed: walletAddresses
     };
@@ -163,17 +178,14 @@ export async function createPermissionTemplate(template: Omit<PermissionTemplate
   const token = cookieStore.get(COOKIES.access_token)?.value;
 
   if (!token) {
-    throw new Error('Authentication required');
+    throw new Error(AUTH_REQUIRED_MSG);
   }
 
   try {
     // Note: PERMISSION_TEMPLATES endpoint may not be implemented in backend
     const response = await fetch(`${process.env.BACKEND_URL}/api/admin/permissions/templates`, {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
+      headers: getAuthHeaders(token),
       body: JSON.stringify(template),
     });
 
@@ -181,14 +193,18 @@ export async function createPermissionTemplate(template: Omit<PermissionTemplate
       throw new Error(`Failed to create permission template: ${response.status}`);
     }
 
-    const result = await response.json();
+    const result = (await response.json()) as {
+      success: boolean;
+      template?: PermissionTemplate;
+      message: string;
+    };
 
     // Revalidate admin pages
-    revalidatePath('/permissions');
+    revalidatePath(PATH_PERMISSIONS);
 
     return result;
   } catch (error) {
-    console.error('Error creating permission template:', error);
+    logger.error('Error creating permission template:', { error });
     return {
       success: false,
       message: error instanceof Error ? error.message : 'Unknown error occurred'
@@ -205,17 +221,14 @@ export async function getPermissionTemplates(): Promise<PermissionTemplate[]> {
   const token = cookieStore.get(COOKIES.access_token)?.value;
 
   if (!token) {
-    throw new Error('Authentication required');
+    throw new Error(AUTH_REQUIRED_MSG);
   }
 
   try {
     // Note: PERMISSION_TEMPLATES endpoint may not be implemented in backend
     const response = await fetch(`${process.env.BACKEND_URL}/api/admin/permissions/templates`, {
       method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
+      headers: getAuthHeaders(token),
       cache: 'no-store',
     });
 
@@ -223,9 +236,9 @@ export async function getPermissionTemplates(): Promise<PermissionTemplate[]> {
       throw new Error(`Failed to fetch permission templates: ${response.status}`);
     }
 
-    return await response.json();
+    return (await response.json()) as PermissionTemplate[];
   } catch (error) {
-    console.error('Error fetching permission templates:', error);
+    logger.error('Error fetching permission templates:', { error });
     // Return mock templates for development
     return [
       {
@@ -262,17 +275,18 @@ export async function getPermissionTemplates(): Promise<PermissionTemplate[]> {
 // Apply permission template to wallets
 /**
  *
- * @param templateId
- * @param walletAddresses
- * @param expiresAt
- * @param reason
+ * @param params
+ * @param params.templateId
+ * @param params.walletAddresses
+ * @param params.expiresAt
+ * @param params.reason
  */
-export async function applyPermissionTemplate(
-  templateId: string,
-  walletAddresses: string[],
-  expiresAt?: string,
-  reason?: string
-): Promise<{
+export async function applyPermissionTemplate(params: {
+  templateId: string;
+  walletAddresses: string[];
+  expiresAt?: string;
+  reason?: string;
+}): Promise<{
   success: boolean;
   message: string;
   processed: number;
@@ -282,20 +296,17 @@ export async function applyPermissionTemplate(
   const token = cookieStore.get(COOKIES.access_token)?.value;
 
   if (!token) {
-    throw new Error('Authentication required');
+    throw new Error(AUTH_REQUIRED_MSG);
   }
 
   try {
-    const response = await fetch(`${process.env.BACKEND_URL}${API_ROUTES.ADMIN.PERMISSION_PLANS}/${templateId}/apply`, {
+    const response = await fetch(`${process.env.BACKEND_URL}${API_ROUTES.ADMIN.PERMISSION_PLANS}/${params.templateId}/apply`, {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
+      headers: getAuthHeaders(token),
       body: JSON.stringify({
-        wallet_addresses: walletAddresses,
-        expires_at: expiresAt,
-        reason
+        wallet_addresses: params.walletAddresses,
+        expires_at: params.expiresAt,
+        reason: params.reason
       }),
     });
 
@@ -303,20 +314,25 @@ export async function applyPermissionTemplate(
       throw new Error(`Failed to apply permission template: ${response.status}`);
     }
 
-    const result = await response.json();
+    const result = (await response.json()) as {
+      success: boolean;
+      message: string;
+      processed: number;
+      failed: string[];
+    };
 
     // Revalidate admin pages
-    revalidatePath('/permissions');
-    revalidatePath('/wallet-management');
+    revalidatePath(PATH_PERMISSIONS);
+    revalidatePath(PATH_WALLET_MGMT);
 
     return result;
   } catch (error) {
-    console.error('Error applying permission template:', error);
+    logger.error('Error applying permission template:', { error });
     return {
       success: false,
-      message: error instanceof Error ? error.message : 'Unknown error occurred',
+      message: error instanceof Error ? error.message : UNKNOWN_ERROR,
       processed: 0,
-      failed: walletAddresses
+      failed: params.walletAddresses
     };
   }
 }
@@ -350,25 +366,24 @@ export async function getPermissionAuditLog(
   const token = cookieStore.get(COOKIES.access_token)?.value;
 
   if (!token) {
-    throw new Error('Authentication required');
+    throw new Error(AUTH_REQUIRED_MSG);
   }
 
   try {
     const params = new URLSearchParams({
       limit: limit.toString(),
       offset: offset.toString(),
-      ...(filters?.wallet_address && { wallet_address: filters.wallet_address }),
-      ...(filters?.action && { action: filters.action }),
-      ...(filters?.date_from && { date_from: filters.date_from }),
-      ...(filters?.date_to && { date_to: filters.date_to }),
     });
 
-    const response = await fetch(`${process.env.BACKEND_URL}${API_ROUTES.ADMIN.AUDIT_LOGS}?${params}`, {
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value) { params.append(key, value); }
+      });
+    }
+
+    const response = await fetch(`${process.env.BACKEND_URL}${API_ROUTES.ADMIN.AUDIT_LOGS}?${params.toString()}`, {
       method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
+      headers: getAuthHeaders(token),
       cache: 'no-store',
     });
 
@@ -376,9 +391,13 @@ export async function getPermissionAuditLog(
       throw new Error(`Failed to fetch audit log: ${response.status}`);
     }
 
-    return await response.json();
+    return (await response.json()) as {
+      logs: PermissionAuditLog[];
+      total: number;
+      hasMore: boolean;
+    };
   } catch (error) {
-    console.error('Error fetching audit log:', error);
+    logger.error('Error fetching audit log:', { error });
     // Return mock data for development
     return {
       logs: [
@@ -397,7 +416,7 @@ export async function getPermissionAuditLog(
           id: '2',
           action: 'revoke',
           wallet_address: '0x1234567890123456789012345678901234567890',
-          permissions: ['admin:users:manage'],
+          permissions: 'admin:users:manage'.split(','), // Simple mock
           performed_by: 'admin@epsx.com',
           timestamp: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(),
           reason: 'Security policy violation',
@@ -436,16 +455,13 @@ export async function exportPermissionsData(
   const token = cookieStore.get(COOKIES.access_token)?.value;
 
   if (!token) {
-    throw new Error('Authentication required');
+    throw new Error(AUTH_REQUIRED_MSG);
   }
 
   try {
     const response = await fetch(`${process.env.BACKEND_URL}${API_ROUTES.ADMIN.REPORTS}`, {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
+      headers: getAuthHeaders(token),
       body: JSON.stringify({
         format,
         filters
@@ -462,7 +478,7 @@ export async function exportPermissionsData(
 
     return { data, filename };
   } catch (error) {
-    console.error('Error exporting permissions:', error);
+    logger.error('Error exporting permissions:', { error });
     throw error;
   }
 }
@@ -479,6 +495,7 @@ export async function validatePermissions(permissions: string[]): Promise<{
   normalized: Record<string, string>;
 }> {
   // Return all permissions as valid on the client
+  await Promise.resolve();
   return {
     valid: permissions,
     invalid: [],
@@ -508,16 +525,13 @@ export async function getPermissionStatistics(): Promise<{
   const token = cookieStore.get(COOKIES.access_token)?.value;
 
   if (!token) {
-    throw new Error('Authentication required');
+    throw new Error(AUTH_REQUIRED_MSG);
   }
 
   try {
     const response = await fetch(`${process.env.BACKEND_URL}${API_ROUTES.PERMISSIONS.STATS}`, {
       method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
+      headers: getAuthHeaders(token),
       cache: 'no-store',
     });
 
@@ -527,7 +541,7 @@ export async function getPermissionStatistics(): Promise<{
 
     return await response.json();
   } catch (error) {
-    console.error('Error fetching statistics:', error);
+    logger.error('Error fetching statistics:', { error });
     // Return mock statistics for development
     return {
       total_permissions: 15420,

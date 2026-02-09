@@ -38,7 +38,7 @@ type StatusFilter = 'all' | 'active' | 'revoked' | 'expired';
  * @param root0.onEditExpiration
  * @param root0.onCreateKey
  */
-// eslint-disable-next-line max-lines-per-function, complexity
+// eslint-disable-next-line max-lines-per-function
 export const ApiKeysTab: React.FC<ApiKeysTabProps> = ({
     apiKeys,
     onCopyWallet,

@@ -21,9 +21,9 @@ export const commonSchemas = {
   password: passwordSchema,
   confirmPassword: z.string(),
   amount: z.string()
-    .regex(/^\d+(\.\d{1,2})?$/, 'Please enter a valid amount'),
+    .regex(/^\d+(\.\d{1,2})?$/u, 'Please enter a valid amount'),
   phone: z.string()
-    .regex(/^\+?[1-9]\d{1,14}$/, 'Please enter a valid phone number'),
+    .regex(/^\+?[1-9]\d{1,14}$/u, 'Please enter a valid phone number'),
   name: nameSchema,
   message: reasonSchema // Use shared reason schema for messages
 };
@@ -36,20 +36,20 @@ export interface ValidationResult<T> {
   error?: string;
 }
 
-export async function validateFormData<T>(
+export function validateFormData<T>(
   schema: z.ZodSchema<T>,
   data: unknown
-): Promise<ValidationResult<T>> {
+): ValidationResult<T> {
   try {
     const result = schema.safeParse(data);
-    
+
     if (!result.success) {
       const flattenedErrors = result.error.flatten().fieldErrors;
       // Filter out undefined values to match Record<string, string[]> type
       const fieldErrors: Record<string, string[]> = {};
       for (const [key, value] of Object.entries(flattenedErrors)) {
-        if (value !== undefined && value !== null && Array.isArray(value)) {
-          fieldErrors[key] = value;
+        if (Array.isArray(value)) {
+          fieldErrors[key] = value as string[];
         }
       }
       return {
@@ -58,10 +58,10 @@ export async function validateFormData<T>(
         error: 'Please fix the validation errors'
       };
     }
-    
+
     return {
       success: true,
-      data: result.data
+      data: result.data as T
     };
   } catch (_error) {
     return {

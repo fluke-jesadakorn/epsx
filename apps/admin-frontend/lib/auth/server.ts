@@ -3,6 +3,7 @@
  * Provides types and utilities for server-side authentication
  */
 
+import { logger } from '@/lib/logger';
 import { COOKIES } from '@/shared/auth/cookies';
 import type { EPSXJWTPayload } from '@/shared/auth/jwt';
 
@@ -45,7 +46,7 @@ export async function getServerSession(): Promise<ServerSession | null> {
     // OIDC Migration: Use only OIDC access token
     const jwt = cookieStore.get(COOKIES.access_token)?.value;
 
-    if (!jwt) { return null; }
+    if (jwt === undefined || jwt === '') { return null; }
 
     // Check expiration first
     if (isJWTExpired(jwt)) { return null; }
@@ -58,12 +59,11 @@ export async function getServerSession(): Promise<ServerSession | null> {
     const user = createEnhancedAuthUser(payload);
     return {
       user,
-      expires: new Date((payload.exp ?? 0) * 1000).toISOString(),
+      expires: new Date((payload.exp) * 1000).toISOString(),
       accessToken: jwt,
     };
   } catch (_error) {
-
-    console.error('❌ Failed to get server session:', _error);
+    logger.error('❌ Failed to get server session:', { error: _error });
     return null;
   }
 }
@@ -76,10 +76,9 @@ export async function getCurrentUser(): Promise<EnhancedAuthUser | null> {
     const session = await getServerSession();
     if (!session?.user) { return null; }
 
-    return createEnhancedAuthUser(session.user as EPSXJWTPayload);
+    return createEnhancedAuthUser(session.user);
   } catch (_error) {
-
-    console.error('❌ Failed to get current user:', _error);
+    logger.error('❌ Failed to get current user:', { error: _error });
     return null;
   }
 }
@@ -87,7 +86,7 @@ export async function getCurrentUser(): Promise<EnhancedAuthUser | null> {
 export function hasPermission(user: EnhancedAuthUser | null, _permission: string): boolean {
   // PERMISSION REFACTOR: Server-side checks in the frontend are now permissive.
   // The Rust backend makes all final authorization decisions.
-  return Boolean(user);
+  return user !== null;
 }
 
 /**
@@ -96,7 +95,7 @@ export function hasPermission(user: EnhancedAuthUser | null, _permission: string
  * @param _module
  */
 export function hasAdminModule(user: EnhancedAuthUser | null, _module: string): boolean {
-  return Boolean(user);
+  return user !== null;
 }
 
 /**
@@ -104,7 +103,7 @@ export function hasAdminModule(user: EnhancedAuthUser | null, _module: string): 
  * @param user
  */
 export function isAdmin(user: EnhancedAuthUser | null): boolean {
-  return Boolean(user);
+  return user !== null;
 }
 
 /**
@@ -112,7 +111,7 @@ export function isAdmin(user: EnhancedAuthUser | null): boolean {
  */
 export async function requireAdminAuth(): Promise<EnhancedAuthUser> {
   const user = await getCurrentUser();
-  if (!user ?? !isAdmin(user)) {
+  if (!user || !isAdmin(user)) {
     throw new Error('Admin authentication required');
   }
   return user;
@@ -131,28 +130,29 @@ export async function getUserContext() {
     return {
       user,
       isAdmin: isAdmin(user),
-      permissions: user.permissions ?? [],
+      permissions: user.permissions,
       platform,
     };
   } catch (_error) {
-
-    console.error('❌ Failed to get user context:', _error);
+    logger.error('❌ Failed to get user context:', { error: _error });
     return null;
   }
+}
+
+interface PlatformPermissionOptions {
+  resource: string;
+  action: string;
+  platform?: string;
 }
 
 /**
  * Check if user has platform-specific permission
  * @param user
- * @param _resource
- * @param _action
- * @param _platform
+ * @param _options
  */
 export function hasPlatformPermission(
   user: EnhancedAuthUser | null,
-  _resource: string,
-  _action: string,
-  _platform?: string
+  _options: PlatformPermissionOptions
 ): boolean {
-  return Boolean(user);
+  return user !== null;
 }

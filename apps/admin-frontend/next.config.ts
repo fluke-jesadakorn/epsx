@@ -43,7 +43,10 @@ const nextConfig: NextConfig = {
     // Only apply heavy Webpack custom logic if not using Turbopack
     // Note: Next.js 15+ will automatically prefer Turbopack if --turbo is used.
 
-    if (dev && !isServer) {
+    const isDev = Boolean(dev);
+    const isServerSide = Boolean(isServer);
+
+    if (isDev && !isServerSide) {
       config.watchOptions = {
         poll: 1000,
         aggregateTimeout: 300,
@@ -75,7 +78,7 @@ const nextConfig: NextConfig = {
       'zod/v4/core': require.resolve('zod'),
     };
     // Standard Node.js polyfills for the browser (Client Component bundle)
-    if (!isServer) {
+    if (!isServerSide) {
       config.resolve.fallback = {
         ...(config.resolve.fallback as Record<string, boolean | string>),
         fs: false,

@@ -100,21 +100,27 @@ export function truncate(text: string, length: number, suffix = '...'): string {
  */
 export function generateId(prefix?: string): string {
   const id = Math.random().toString(36).slice(2) + Date.now().toString(36);
-  return (prefix != null && prefix !== '') ? `${prefix}-${id}` : id;
+  return (prefix !== null && prefix !== undefined && prefix !== '') ? `${prefix}-${id}` : id;
 }
 
 /**
  * Utility function to deep clone an object
  */
 export function deepClone<T>(obj: T): T {
-  if (obj === null || typeof obj !== 'object') {return obj;}
-  if (obj instanceof Date) {return new Date(obj.getTime()) as T;}
-  if (Array.isArray(obj)) {return obj.map(item => deepClone(item)) as T;}
+  if (obj === null || typeof obj !== 'object') {
+    return obj;
+  }
+  if (obj instanceof Date) {
+    return new Date(obj.getTime()) as T;
+  }
+  if (Array.isArray(obj)) {
+    return (obj as unknown[]).map(item => deepClone(item as T)) as T;
+  }
 
   const cloned = {} as T;
   for (const key in obj) {
     if (Object.prototype.hasOwnProperty.call(obj, key)) {
-      cloned[key] = deepClone(obj[key]);
+      cloned[key] = deepClone((obj as Record<string, unknown>)[key] as T);
     }
   }
   return cloned;

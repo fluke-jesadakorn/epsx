@@ -24,12 +24,17 @@ const countCache: {
 
 const CACHE_TTL_SECONDS = CACHE_TTL.STOCK_DATA; // 5 minutes
 
-export async function getStockFinancialData(
-  page = 1,
-  limit = 10,
-  country: typeof MarketCountry = MarketCountry,
-  quarters = 2,
-): Promise<StockFinancialData[]> {
+interface GetStockDataParams {
+  page?: number;
+  limit?: number;
+  country?: typeof MarketCountry;
+  quarters?: number;
+}
+
+export function getStockFinancialData(
+  params: GetStockDataParams = {},
+): StockFinancialData[] {
+  const { page = 1, limit = 10, country = MarketCountry, quarters = 2 } = params;
   try {
     // Create a cache key that includes pagination parameters
     const cacheKey = `${page}-${limit}-${country}-${quarters}`;
@@ -63,14 +68,14 @@ export async function getStockFinancialData(
  * Returns cached count if available (even if expired), otherwise queries database.
  * Returns 0 as fallback if no data available.
  */
-export async function getStockFinancialDataCount(
+export function getStockFinancialDataCount(
   _country: typeof MarketCountry = MarketCountry,
   _quarters = 2, // Currently unused but kept for future enhancements
-): Promise<number> {
+): number {
   try {
     // Check count cache first
     const now = Date.now();
-    if (countCache && now - countCache.timestamp < countCache.ttl * 1000) {
+    if (countCache !== null && countCache !== undefined && now - countCache.timestamp < countCache.ttl * 1000) {
       return countCache.count;
     }
 
@@ -80,8 +85,6 @@ export async function getStockFinancialDataCount(
   } catch (error) {
     logger.error('[StockService] Error getting stock count:', error);
     // Return cached count if available, or fallback to 0
-    if (countCache) {
-    }
     return countCache?.count ?? 0;
   }
 }

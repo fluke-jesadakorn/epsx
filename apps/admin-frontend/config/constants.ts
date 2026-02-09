@@ -83,8 +83,8 @@ export function getNetworkConfig(network: keyof typeof BLOCKCHAIN_NETWORKS): Net
  * @param template
  */
 export function calculatePermissionPrice(template: PermissionTemplateName): number {
-  const prices = { basic: 10, advanced: 50, enterprise: 200 };
-  return prices[template] ?? 0;
+  const prices: Record<PermissionTemplateName, number> = { basic: 10, advanced: 50, enterprise: 200 };
+  return prices[template];
 }
 
 /**

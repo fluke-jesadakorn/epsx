@@ -3,7 +3,7 @@
  * Provides comprehensive error handling for admin interface
  * Prevents admin interface crashes and provides recovery options
  */
-/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-explicit-any, @typescript-eslint/strict-boolean-expressions */
+/* eslint-disable @typescript-eslint/strict-boolean-expressions */
 
 'use client';
 

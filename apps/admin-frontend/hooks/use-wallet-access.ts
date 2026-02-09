@@ -25,11 +25,11 @@ import {
 export type AccessItemType = 'permission' | 'plan';
 
 interface RawPlanData {
-  id: string;
-  name: string;
-  description?: string;
-  permissions?: string[];
-  member_count?: number;
+    id: string;
+    name: string;
+    description?: string;
+    permissions?: string[];
+    member_count?: number;
 }
 
 export interface AccessItem {
@@ -117,7 +117,7 @@ export function useWalletAccess(walletAddress: string | null): UseWalletAccessRe
             let walletPlans: Awaited<ReturnType<typeof getUserPlansAction>> = [];
             let walletPermissions: string[] = [];
 
-            if (walletAddress) {
+            if (walletAddress !== null && walletAddress !== '') {
                 try {
                     const result = await getUserPlansAction(walletAddress);
                     walletPlans = Array.isArray(result) ? result : [];
@@ -194,7 +194,7 @@ export function useWalletAccess(walletAddress: string | null): UseWalletAccessRe
 
     // Assign permission
     const assignPermission = useCallback(async (permissionId: string, expiresAt?: string) => {
-        if (!walletAddress) { return; }
+        if (walletAddress === null) { return; }
         try {
             await grantPermissionAction(walletAddress, permissionId, expiresAt);
             await loadData();
@@ -205,7 +205,7 @@ export function useWalletAccess(walletAddress: string | null): UseWalletAccessRe
 
     // Revoke permission
     const revokePermission = useCallback(async (permissionId: string) => {
-        if (!walletAddress) { return; }
+        if (walletAddress === null) { return; }
         try {
             await revokePermissionAction(walletAddress, permissionId);
             await loadData();
@@ -216,7 +216,7 @@ export function useWalletAccess(walletAddress: string | null): UseWalletAccessRe
 
     // Assign plan
     const assignPlan = useCallback(async (planId: string, expiresAt?: string) => {
-        if (!walletAddress) { return; }
+        if (walletAddress === null) { return; }
         try {
             await assignUserToPlanAction(walletAddress, planId, expiresAt ?? null);
             await loadData();
@@ -227,7 +227,7 @@ export function useWalletAccess(walletAddress: string | null): UseWalletAccessRe
 
     // Remove plan
     const removePlan = useCallback(async (planId: string) => {
-        if (!walletAddress) { return; }
+        if (walletAddress === null) { return; }
         try {
             await removeUserFromPlanAction(walletAddress, planId);
             await loadData();
@@ -238,11 +238,11 @@ export function useWalletAccess(walletAddress: string | null): UseWalletAccessRe
 
     // Batch assign permissions
     const batchAssignPermissions = useCallback(async (permissionIds: string[], expiresAt?: string) => {
-        if (!walletAddress || permissionIds.length === 0) { return; }
+        if (walletAddress === null || permissionIds.length === 0) { return; }
         try {
             await Promise.all(
                 permissionIds.map(permissionId =>
-                    grantPermissionAction(walletAddress, permissionId, expiresAt)
+                    grantPermissionAction(walletAddress as string, permissionId, expiresAt)
                 )
             );
             await loadData();
@@ -253,11 +253,11 @@ export function useWalletAccess(walletAddress: string | null): UseWalletAccessRe
 
     // Batch revoke permissions
     const batchRevokePermissions = useCallback(async (permissionIds: string[]) => {
-        if (!walletAddress || permissionIds.length === 0) { return; }
+        if (walletAddress === null || permissionIds.length === 0) { return; }
         try {
             await Promise.all(
                 permissionIds.map(permissionId =>
-                    revokePermissionAction(walletAddress, permissionId)
+                    revokePermissionAction(walletAddress as string, permissionId)
                 )
             );
             await loadData();
@@ -268,11 +268,11 @@ export function useWalletAccess(walletAddress: string | null): UseWalletAccessRe
 
     // Batch assign plans
     const batchAssignPlans = useCallback(async (planIds: string[], expiresAt?: string) => {
-        if (!walletAddress ?? planIds.length === 0) { return; }
+        if (walletAddress === null || planIds.length === 0) { return; }
         try {
             await Promise.all(
                 planIds.map(planId =>
-                    assignUserToPlanAction(walletAddress, planId, expiresAt ?? null)
+                    assignUserToPlanAction(walletAddress as string, planId, expiresAt ?? null)
                 )
             );
             await loadData();
@@ -283,10 +283,10 @@ export function useWalletAccess(walletAddress: string | null): UseWalletAccessRe
 
     // Batch remove plans
     const batchRemovePlans = useCallback(async (planIds: string[]) => {
-        if (!walletAddress ?? planIds.length === 0) { return; }
+        if (walletAddress === null || planIds.length === 0) { return; }
         try {
             await Promise.all(
-                planIds.map(planId => removeUserFromPlanAction(walletAddress, planId))
+                planIds.map(planId => removeUserFromPlanAction(walletAddress as string, planId))
             );
             await loadData();
         } catch (err) {

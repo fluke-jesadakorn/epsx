@@ -29,7 +29,7 @@ export const config = {
   isStaging,
 
   // Port for admin frontend (default from unified schema or environment)
-  port: process.env.PORT ? parseInt(process.env.PORT) : 3001,
+  port: (process.env.PORT !== undefined && process.env.PORT !== '') ? parseInt(process.env.PORT) : 3001,
 } as const;
 
 /**

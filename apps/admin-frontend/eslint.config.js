@@ -1,12 +1,73 @@
-/**
- * Admin Frontend ESLint Configuration
- * Extends ultra-strict shared configuration
- */
-
 const sharedConfig = require('../../shared/config/eslint.cjs');
 
 module.exports = [
   ...sharedConfig,
+  {
+    // Fix: "parserOptions.project" error for config files
+    files: [
+      'eslint.config.js',
+      'next.config.ts',
+      'next.config.js',
+      'jest.config.js',
+      'jest.setup.js',
+      'postcss.config.cjs',
+      'playwright.config.ts',
+    ],
+    languageOptions: {
+      parserOptions: {
+        project: null,
+      },
+    },
+    rules: {
+      '@typescript-eslint/no-unsafe-assignment': 'off',
+      '@typescript-eslint/no-unsafe-member-access': 'off',
+      '@typescript-eslint/no-unsafe-call': 'off',
+      '@typescript-eslint/no-unsafe-return': 'off',
+      '@typescript-eslint/no-unsafe-argument': 'off',
+      '@typescript-eslint/no-floating-promises': 'off',
+      '@typescript-eslint/no-misused-promises': 'off',
+      '@typescript-eslint/await-thenable': 'off',
+      '@typescript-eslint/require-await': 'off',
+      '@typescript-eslint/strict-boolean-expressions': 'off',
+      '@typescript-eslint/no-unnecessary-condition': 'off',
+      '@typescript-eslint/no-unnecessary-type-assertion': 'off',
+      '@typescript-eslint/prefer-nullish-coalescing': 'off',
+      '@typescript-eslint/no-confusing-void-expression': 'off',
+      '@typescript-eslint/dot-notation': 'off',
+      '@typescript-eslint/no-implied-eval': 'off',
+      '@typescript-eslint/no-throw-literal': 'off',
+      '@typescript-eslint/return-await': 'off',
+      '@typescript-eslint/no-unnecessary-type-arguments': 'off',
+      '@typescript-eslint/no-unnecessary-qualifier': 'off',
+      '@typescript-eslint/prefer-string-starts-ends-with': 'off',
+      '@typescript-eslint/restrict-plus-operands': 'off',
+      '@typescript-eslint/unbound-method': 'off',
+      '@typescript-eslint/prefer-optional-chain': 'off',
+      '@typescript-eslint/prefer-reduce-type-parameter': 'off',
+      '@typescript-eslint/no-useless-empty-export': 'off',
+      '@typescript-eslint/consistent-type-imports': 'off',
+    },
+  },
+  {
+    files: ['jest.setup.js'],
+    languageOptions: {
+      globals: {
+        jest: 'readonly',
+        beforeAll: 'readonly',
+        afterAll: 'readonly',
+        beforeEach: 'readonly',
+        afterEach: 'readonly',
+        describe: 'readonly',
+        it: 'readonly',
+        test: 'readonly',
+        expect: 'readonly',
+      },
+    },
+    rules: {
+      'no-undef': 'off',
+      'no-console': 'off',
+    },
+  },
   {
     files: ['**/*.spec.ts', '**/*.test.ts', '**/__test__/**'],
     rules: {
@@ -15,15 +76,14 @@ module.exports = [
       '@typescript-eslint/no-explicit-any': 'off',
       'max-lines-per-function': 'off',
       'complexity': 'off',
-      // 'sonarjs/cognitive-complexity': 'off',
       'max-nested-callbacks': 'off',
       'max-depth': 'off',
       'jsdoc/require-*': 'off',
       'no-empty': 'off',
-      'no-empty-pattern': 'off', // Playwright fixtures often have empty patterns
+      'no-empty-pattern': 'off',
       'sonarjs/no-duplicate-string': 'off',
       'promise/prefer-await-to-then': 'off',
-      'react-hooks/rules-of-hooks': 'off', // Playwright `use` is not a React hook
+      'react-hooks/rules-of-hooks': 'off',
       '@typescript-eslint/no-floating-promises': 'off',
       '@typescript-eslint/no-unsafe-assignment': 'off',
       '@typescript-eslint/no-unsafe-member-access': 'off',
@@ -32,6 +92,7 @@ module.exports = [
       '@typescript-eslint/no-unsafe-argument': 'off',
       '@typescript-eslint/await-thenable': 'off',
       '@typescript-eslint/prefer-nullish-coalescing': 'off',
+      '@typescript-eslint/require-await': 'off',
     },
   },
   {
@@ -51,6 +112,6 @@ module.exports = [
     },
   },
   {
-    ignores: ['.debug/**'],
+    ignores: ['.debug/**', '.next/**', 'node_modules/**', 'dist/**'],
   },
 ];

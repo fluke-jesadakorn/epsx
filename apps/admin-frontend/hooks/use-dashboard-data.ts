@@ -3,6 +3,8 @@
 import { APIError, createAdminApiClient, type ApiResponse } from '@/shared/utils/api-client';
 import { useEffect, useState } from 'react';
 
+import { logger } from '@/lib/logger';
+
 export interface DashboardStats {
     totalWallets: number;
     activeWallets: number;
@@ -105,12 +107,12 @@ export function useDashboardData(isAuthenticated: boolean) {
                 updateSystemStats(systemRes);
 
                 // Check for permission errors
-                const hasAuthError = [walletsRes, permissionsRes, systemRes].some(r => r.status === 403 ?? r.status === 401);
+                const hasAuthError = [walletsRes, permissionsRes, systemRes].some(r => r.status === 403 || r.status === 401);
                 if (hasAuthError) {
                     setAccessError(walletsRes.error ?? permissionsRes.error ?? systemRes.error ?? 'Access denied by backend');
                 }
             } catch (err) {
-                console.error('Failed to load dashboard data:', err);
+                logger.error('Failed to load dashboard data:', { err });
             }
         };
 

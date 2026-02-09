@@ -5,6 +5,7 @@
 
 'use server'
 
+import { logger } from '@/lib/logger';
 import { getAuthUser } from '@/lib/server/auth';
 import { getJWTFromCookies } from '@/lib/server/token';
 
@@ -15,8 +16,7 @@ export async function getBearerToken(): Promise<string | null> {
   try {
     return await getJWTFromCookies();
   } catch (_error) {
-
-    console.error('❌ Failed to get bearer token:', _error);
+    logger.error('❌ Failed to get bearer token:', { error: _error });
     return null;
   }
 }
@@ -28,8 +28,7 @@ export async function getCurrentUser() {
   try {
     return await getAuthUser();
   } catch (_error) {
-
-    console.error('❌ Failed to get current user:', _error);
+    logger.error('❌ Failed to get current user:', { error: _error });
     return null;
   }
 }
@@ -44,7 +43,7 @@ export async function validateAdminAccess(): Promise<boolean> {
     const user = await getCurrentUser();
     return Boolean(user);
   } catch (_error) {
-    console.error('❌ Failed to validate admin access:', _error);
+    logger.error('❌ Failed to validate admin access:', { error: _error });
     return false;
   }
 }
@@ -61,8 +60,7 @@ export async function hasPermission(_permission: string): Promise<boolean> {
     // The Rust backend makes all final authorization decisions.
     return true;
   } catch (_error) {
-
-    console.error('❌ Failed to check permission:', _error);
+    logger.error('❌ Failed to check permission:', { error: _error });
     return false;
   }
 }
@@ -79,5 +77,6 @@ export async function hasPlatformPermission(
   _platform?: string
 ): Promise<boolean> {
   // Simplified for linting - no try/catch needed for constant return
+  await Promise.resolve();
   return true;
 }

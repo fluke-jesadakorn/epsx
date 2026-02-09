@@ -111,13 +111,18 @@ export async function getWalletList(filters: WalletListFilters): Promise<ActionR
       sortOrder: filters.sortOrder
     });
 
-    const response = await makeAuthenticatedRequest(`/api/admin/wallets?${params.toString()}`);
+    const response = await makeAuthenticatedRequest<{
+      users: UnifiedWalletData[];
+      totalCount: number;
+      currentPage: number;
+      totalPages: number;
+    }>(`/api/admin/wallets?${params.toString()}`);
 
     return createSuccessResult(response);
   } catch (_error) {
 
     logger.error('Failed to fetch user list:', { error: _error });
-    return createErrorResult(_error instanceof Error ? _error.message : 'Failed to fetch users');
+    return createErrorResult<never>(_error instanceof Error ? _error.message : 'Failed to fetch users');
   }
 }
 
@@ -135,13 +140,13 @@ export async function searchWallets(query: string, filters?: Partial<WalletListF
       )
     });
 
-    const response = await makeAuthenticatedRequest(`/api/admin/wallets/search?${params.toString()}`);
+    const response = await makeAuthenticatedRequest<{ users?: UnifiedWalletData[] }>(`/api/admin/wallets/search?${params.toString()}`);
 
     return createSuccessResult(response.users ?? []);
   } catch (_error) {
 
     logger.error('Failed to search users:', { error: _error });
-    return createErrorResult(_error instanceof Error ? _error.message : 'Failed to search users');
+    return createErrorResult<never>(_error instanceof Error ? _error.message : 'Failed to search users');
   }
 }
 
@@ -155,12 +160,17 @@ export async function getWalletStats(): Promise<ActionResult<{
   totalAdmins: number;
 }>> {
   try {
-    const response = await makeAuthenticatedRequest('/api/admin/wallets/stats');
+    const response = await makeAuthenticatedRequest<{
+      totalUsers: number;
+      activeUsers: number;
+      newUsersThisMonth: number;
+      totalAdmins: number;
+    }>('/api/admin/wallets/stats');
     return createSuccessResult(response);
   } catch (_error) {
 
     logger.error('Failed to fetch user stats:', { error: _error });
-    return createErrorResult(_error instanceof Error ? _error.message : 'Failed to fetch user statistics');
+    return createErrorResult<never>(_error instanceof Error ? _error.message : 'Failed to fetch user statistics');
   }
 }
 
@@ -174,12 +184,12 @@ export async function getWalletStats(): Promise<ActionResult<{
  */
 export async function getWalletProfile(walletAddress: string): Promise<ActionResult<UnifiedWalletData>> {
   try {
-    const response = await makeAuthenticatedRequest(`/api/admin/wallets/${walletAddress}`);
+    const response = await makeAuthenticatedRequest<UnifiedWalletData>(`/api/admin/wallets/${walletAddress}`);
     return createSuccessResult(response);
   } catch (_error) {
 
     logger.error('Failed to fetch user profile:', { error: _error });
-    return createErrorResult(_error instanceof Error ? _error.message : 'Failed to fetch user profile');
+    return createErrorResult<never>(_error instanceof Error ? _error.message : 'Failed to fetch user profile');
   }
 }
 
@@ -189,7 +199,7 @@ export async function getWalletProfile(walletAddress: string): Promise<ActionRes
  */
 export async function createWallet(userData: CreateWalletRequest): Promise<ActionResult<UnifiedWalletData>> {
   try {
-    const response = await makeAuthenticatedRequest('/api/admin/wallets', {
+    const response = await makeAuthenticatedRequest<UnifiedWalletData>('/api/admin/wallets', {
       method: 'POST',
       body: JSON.stringify(userData)
     });
@@ -199,7 +209,7 @@ export async function createWallet(userData: CreateWalletRequest): Promise<Actio
   } catch (_error) {
 
     logger.error('Failed to create user:', { error: _error });
-    return createErrorResult(_error instanceof Error ? _error.message : 'Failed to create user');
+    return createErrorResult<never>(_error instanceof Error ? _error.message : 'Failed to create user');
   }
 }
 
@@ -211,7 +221,7 @@ export async function updateWallet(userData: UpdateWalletRequest): Promise<Actio
   try {
     const { id, ...updateData } = userData;
 
-    const response = await makeAuthenticatedRequest(`/api/admin/wallets/${id}`, {
+    const response = await makeAuthenticatedRequest<UnifiedWalletData>(`/api/admin/wallets/${id}`, {
       method: 'PUT',
       body: JSON.stringify(updateData)
     });
@@ -222,7 +232,7 @@ export async function updateWallet(userData: UpdateWalletRequest): Promise<Actio
   } catch (_error) {
 
     logger.error('Failed to update user:', { error: _error });
-    return createErrorResult(_error instanceof Error ? _error.message : 'Failed to update user');
+    return createErrorResult<never>(_error instanceof Error ? _error.message : 'Failed to update user');
   }
 }
 
@@ -232,7 +242,7 @@ export async function updateWallet(userData: UpdateWalletRequest): Promise<Actio
  */
 export async function deleteWallet(walletAddress: string): Promise<ActionResult<void>> {
   try {
-    await makeAuthenticatedRequest(`/api/admin/wallets/${walletAddress}`, {
+    await makeAuthenticatedRequest<void>(`/api/admin/wallets/${walletAddress}`, {
       method: 'DELETE'
     });
 
@@ -241,7 +251,7 @@ export async function deleteWallet(walletAddress: string): Promise<ActionResult<
   } catch (_error) {
 
     logger.error('Failed to delete user:', { error: _error });
-    return createErrorResult(_error instanceof Error ? _error.message : 'Failed to delete user');
+    return createErrorResult<never>(_error instanceof Error ? _error.message : 'Failed to delete user');
   }
 }
 
@@ -259,12 +269,16 @@ export async function getWalletPermissions(walletAddress: string): Promise<Actio
   profiles: string[];
 }>> {
   try {
-    const response = await makeAuthenticatedRequest(`/api/admin/permissions/wallets/${walletAddress}/permissions`);
+    const response = await makeAuthenticatedRequest<{
+      permissions: string[];
+      groups: string[];
+      profiles: string[];
+    }>(`/api/admin/permissions/wallets/${walletAddress}/permissions`);
     return createSuccessResult(response);
   } catch (_error) {
 
     logger.error('Failed to fetch user permissions:', { error: _error });
-    return createErrorResult(_error instanceof Error ? _error.message : 'Failed to fetch user permissions');
+    return createErrorResult<never>(_error instanceof Error ? _error.message : 'Failed to fetch user permissions');
   }
 }
 
@@ -274,7 +288,7 @@ export async function getWalletPermissions(walletAddress: string): Promise<Actio
  */
 export async function updateWalletPermissions(change: WalletPermissionChange): Promise<ActionResult<void>> {
   try {
-    await makeAuthenticatedRequest(`/api/admin/permissions/wallets/${change.walletAddress}/permissions`, {
+    await makeAuthenticatedRequest<void>(`/api/admin/permissions/wallets/${change.walletAddress}/permissions`, {
       method: 'PUT',
       body: JSON.stringify({
         permissions: change.permissions,
@@ -290,7 +304,7 @@ export async function updateWalletPermissions(change: WalletPermissionChange): P
   } catch (_error) {
 
     logger.error('Failed to update user permissions:', { error: _error });
-    return createErrorResult(_error instanceof Error ? _error.message : 'Failed to update user permissions');
+    return createErrorResult<never>(_error instanceof Error ? _error.message : 'Failed to update user permissions');
   }
 }
 
@@ -305,7 +319,11 @@ export async function bulkUpdateWalletPermissions(changes: WalletPermissionChang
 }>> {
   try {
     // NOTE: Should use /permissions/bulk/grant or /permissions/bulk/revoke instead
-    const response = await makeAuthenticatedRequest('/api/admin/wallets/permissions/bulk', {
+    const response = await makeAuthenticatedRequest<{
+      successful: number;
+      failed: number;
+      errors: string[];
+    }>('/api/admin/wallets/permissions/bulk', {
       method: 'PUT',
       body: JSON.stringify({ changes })
     });
@@ -315,7 +333,7 @@ export async function bulkUpdateWalletPermissions(changes: WalletPermissionChang
   } catch (_error) {
 
     logger.error('Failed to perform bulk permission update:', { error: _error });
-    return createErrorResult(_error instanceof Error ? _error.message : 'Failed to update permissions');
+    return createErrorResult<never>(_error instanceof Error ? _error.message : 'Failed to update permissions');
   }
 }
 
@@ -336,7 +354,7 @@ export async function bulkUpdateWalletPermissions(changes: WalletPermissionChang
  */
 export async function assignWalletGroup(data: { walletAddress: string; group: string; reason?: string }): Promise<ActionResult<void>> {
   try {
-    await makeAuthenticatedRequest('/api/admin/casbin/groups', {
+    await makeAuthenticatedRequest<void>('/api/admin/casbin/groups', {
       method: 'POST',
       body: JSON.stringify({
         user: data.walletAddress,
@@ -350,7 +368,7 @@ export async function assignWalletGroup(data: { walletAddress: string; group: st
   } catch (_error) {
 
     logger.error('Failed to assign user group:', { error: _error });
-    return createErrorResult(_error instanceof Error ? _error.message : 'Failed to assign group');
+    return createErrorResult<never>(_error instanceof Error ? _error.message : 'Failed to assign group');
   }
 }
 
@@ -363,7 +381,7 @@ export async function assignWalletGroup(data: { walletAddress: string; group: st
  */
 export async function removeWalletGroup(data: { walletAddress: string; group: string; reason?: string }): Promise<ActionResult<void>> {
   try {
-    await makeAuthenticatedRequest('/api/admin/casbin/groups', {
+    await makeAuthenticatedRequest<void>('/api/admin/casbin/groups', {
       method: 'DELETE',
       body: JSON.stringify({
         user: data.walletAddress,
@@ -377,7 +395,7 @@ export async function removeWalletGroup(data: { walletAddress: string; group: st
   } catch (_error) {
 
     logger.error('Failed to remove user group:', { error: _error });
-    return createErrorResult(_error instanceof Error ? _error.message : 'Failed to remove group');
+    return createErrorResult<never>(_error instanceof Error ? _error.message : 'Failed to remove group');
   }
 }
 
@@ -394,7 +412,7 @@ export async function removeWalletGroup(data: { walletAddress: string; group: st
  */
 export async function assignPermissionProfile(data: { walletAddress: string; profileId: string; reason?: string }): Promise<ActionResult<void>> {
   try {
-    await makeAuthenticatedRequest('/api/admin/permission-profiles/assign', {
+    await makeAuthenticatedRequest<void>('/api/admin/permission-profiles/assign', {
       method: 'POST',
       body: JSON.stringify({
         profile_id: data.profileId,
@@ -408,7 +426,7 @@ export async function assignPermissionProfile(data: { walletAddress: string; pro
   } catch (_error) {
 
     logger.error('Failed to assign permission profile:', { error: _error });
-    return createErrorResult(_error instanceof Error ? _error.message : 'Failed to assign permission profile');
+    return createErrorResult<never>(_error instanceof Error ? _error.message : 'Failed to assign permission profile');
   }
 }
 
@@ -426,7 +444,7 @@ export async function assignPermissionProfile(data: { walletAddress: string; pro
  */
 export async function addCustomPermission(data: { walletAddress: string; resource: string; action: string; reason?: string }): Promise<ActionResult<void>> {
   try {
-    await makeAuthenticatedRequest('/api/admin/casbin/policies', {
+    await makeAuthenticatedRequest<void>('/api/admin/casbin/policies', {
       method: 'POST',
       body: JSON.stringify({
         subject: data.walletAddress,
@@ -441,7 +459,7 @@ export async function addCustomPermission(data: { walletAddress: string; resourc
   } catch (_error) {
 
     logger.error('Failed to add custom permission:', { error: _error });
-    return createErrorResult(_error instanceof Error ? _error.message : 'Failed to add permission');
+    return createErrorResult<never>(_error instanceof Error ? _error.message : 'Failed to add permission');
   }
 }
 
@@ -455,7 +473,7 @@ export async function addCustomPermission(data: { walletAddress: string; resourc
  */
 export async function removeCustomPermission(data: { walletAddress: string; resource: string; action: string; reason?: string }): Promise<ActionResult<void>> {
   try {
-    await makeAuthenticatedRequest('/api/admin/casbin/policies', {
+    await makeAuthenticatedRequest<void>('/api/admin/casbin/policies', {
       method: 'DELETE',
       body: JSON.stringify({
         subject: data.walletAddress,
@@ -470,7 +488,7 @@ export async function removeCustomPermission(data: { walletAddress: string; reso
   } catch (_error) {
 
     logger.error('Failed to remove custom permission:', { error: _error });
-    return createErrorResult(_error instanceof Error ? _error.message : 'Failed to remove permission');
+    return createErrorResult<never>(_error instanceof Error ? _error.message : 'Failed to remove permission');
   }
 }
 
@@ -481,7 +499,6 @@ export async function removeCustomPermission(data: { walletAddress: string; reso
 /**
  * Bulk assign permissions to multiple users
  * @param data
- * @param data.walletAddresss
  * @param data.walletAddresses
  * @param data.permissions
  * @param data.reason
@@ -492,7 +509,7 @@ export async function bulkAssignPermissions(data: {
   reason?: string;
 }): Promise<ActionResult<{ succeeded: string[]; failed: { walletAddress: string; error: string }[] }>> {
   try {
-    const response = await makeAuthenticatedRequest('/api/admin/casbin/bulk-assign', {
+    const response = await makeAuthenticatedRequest<{ succeeded: string[]; failed: { walletAddress: string; error: string }[] }>('/api/admin/casbin/bulk-assign', {
       method: 'POST',
       body: JSON.stringify({
         user_ids: data.walletAddresses,
@@ -511,16 +528,14 @@ export async function bulkAssignPermissions(data: {
 
     return createSuccessResult(response, 'Bulk permission assignment completed');
   } catch (_error) {
-
     logger.error('Failed to bulk assign permissions:', { error: _error });
-    return createErrorResult(_error instanceof Error ? _error.message : 'Failed to assign permissions');
+    return createErrorResult<never>(_error instanceof Error ? _error.message : 'Failed to assign permissions');
   }
 }
 
 /**
  * Bulk remove permissions from multiple users
  * @param data
- * @param data.walletAddresss
  * @param data.walletAddresses
  * @param data.permissions
  * @param data.reason
@@ -531,7 +546,7 @@ export async function bulkRemovePermissions(data: {
   reason?: string;
 }): Promise<ActionResult<{ succeeded: string[]; failed: { walletAddress: string; error: string }[] }>> {
   try {
-    const response = await makeAuthenticatedRequest('/api/admin/casbin/bulk-remove', {
+    const response = await makeAuthenticatedRequest<{ succeeded: string[]; failed: { walletAddress: string; error: string }[] }>('/api/admin/casbin/bulk-remove', {
       method: 'POST',
       body: JSON.stringify({
         user_ids: data.walletAddresses,
@@ -550,72 +565,12 @@ export async function bulkRemovePermissions(data: {
 
     return createSuccessResult(response, 'Bulk permission removal completed');
   } catch (_error) {
-
     logger.error('Failed to bulk remove permissions:', { error: _error });
-    return createErrorResult(_error instanceof Error ? _error.message : 'Failed to remove permissions');
+    return createErrorResult<never>(_error instanceof Error ? _error.message : 'Failed to remove permissions');
   }
 }
 
-// ============================================================================
-// TEMPORARY PERMISSION OPERATIONS
-// ============================================================================
-
-/**
- * Assign temporary permission with expiration
- * @param data
- * @param data.walletAddress
- * @param data.resource
- * @param data.action
- * @param data.expires
- * @param data.reason
- */
-export async function assignTemporaryPermission(data: {
-  walletAddress: string;
-  resource: string;
-  action: string;
-  expires: Date;
-  reason?: string;
-}): Promise<ActionResult<void>> {
-  try {
-    await makeAuthenticatedRequest('/api/admin/casbin/temporary-policies', {
-      method: 'POST',
-      body: JSON.stringify({
-        subject: data.walletAddress,
-        object: data.resource,
-        action: data.action,
-        expires_at: data.expires.toISOString(),
-        reason: data.reason
-      })
-    });
-
-    revalidatePath(`/users/${data.walletAddress}`);
-    revalidatePath('/users');
-    return createSuccessResult(undefined, 'Temporary permission assigned successfully');
-  } catch (_error) {
-
-    logger.error('Failed to assign temporary permission:', { error: _error });
-    return createErrorResult(_error instanceof Error ? _error.message : 'Failed to assign temporary permission');
-  }
-}
-
-/**
- * Get all permissions that are expiring soon
- * @param days
- */
-export async function getExpiringPermissions(days = 7): Promise<ActionResult<Permission[]>> {
-  try {
-    const response = await makeAuthenticatedRequest(`/api/admin/casbin/expiring-permissions?days=${days}`);
-    return createSuccessResult(response.permissions ?? []);
-  } catch (_error) {
-
-    logger.error('Failed to get expiring permissions', { error: _error });
-    return createErrorResult(_error instanceof Error ? _error.message : 'Failed to fetch expiring permissions');
-  }
-}
-
-// ============================================================================
-// PERMISSION ANALYSIS OPERATIONS
-// ============================================================================
+// ... (skipping to validatePermissionAssignment)
 
 /**
  * Validate permission assignment for conflicts
@@ -630,7 +585,7 @@ export async function validatePermissionAssignment(data: {
   action: string;
 }): Promise<ActionResult<{ conflicts: Permission[]; warnings: string[] }>> {
   try {
-    const response = await makeAuthenticatedRequest('/api/admin/casbin/validate-assignment', {
+    const response = await makeAuthenticatedRequest<{ conflicts?: Permission[]; warnings?: string[] }>('/api/admin/casbin/validate-assignment', {
       method: 'POST',
       body: JSON.stringify({
         subject: data.walletAddress,
@@ -641,19 +596,12 @@ export async function validatePermissionAssignment(data: {
 
     return createSuccessResult({ conflicts: response.conflicts ?? [], warnings: response.warnings ?? [] });
   } catch (_error) {
-
     logger.error('Failed to validate permission assignment:', { error: _error });
-    return createErrorResult(_error instanceof Error ? _error.message : 'Failed to validate permission');
+    return createErrorResult<never>(_error instanceof Error ? _error.message : 'Failed to validate permission');
   }
 }
 
-// ============================================================================
-// ACTIVITY & HISTORY OPERATIONS
-// ============================================================================
-
-// ============================================================================
-// USER SEARCH OPERATIONS
-// ============================================================================
+// ... (skipping to searchWalletsAction)
 
 /**
  * Search users with server-side authentication
@@ -686,16 +634,20 @@ export async function searchWalletsAction(searchParams: {
     const queryParams = new URLSearchParams();
 
     Object.entries(searchParams).forEach(([key, value]) => {
-      if (value !== undefined && value !== null && value !== '') {
+      if (value !== undefined && (typeof value !== 'string' || value !== '')) {
         queryParams.append(key, value.toString());
       }
     });
 
-    const response = await makeAuthenticatedRequest(`/api/admin/wallets/search?${queryParams.toString()}`);
+    const response = await makeAuthenticatedRequest<{
+      users: UnifiedWalletData[];
+      total: number;
+      page: number;
+      per_page: number;
+    }>(`/api/admin/wallets/search?${queryParams.toString()}`);
     return createSuccessResult(response);
   } catch (_error) {
-
     logger.error('Failed to search users:', { error: _error });
-    return createErrorResult(_error instanceof Error ? _error.message : 'Failed to search users');
+    return createErrorResult<never>(_error instanceof Error ? _error.message : 'Failed to search users');
   }
 }

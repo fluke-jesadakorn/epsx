@@ -1,3 +1,5 @@
+'use client';
+
 /**
  * ADMIN SETTINGS CLIENT
  *
@@ -7,8 +9,6 @@
 
 // Create singleton instance for backward compatibility
 import { createSettingsClient, type SettingsApi as SettingsApiType } from '@/shared/api/settings';
-
-'use client';
 
 // Re-export everything from shared settings module
 export {
@@ -21,11 +21,9 @@ export {
 let settingsApiInstance: SettingsApiType | null = null;
 
 function getSettingsApiInstance(): SettingsApiType {
-    if (!settingsApiInstance) {
-        settingsApiInstance = createSettingsClient({
-            serverSide: typeof window === 'undefined',
-        });
-    }
+    settingsApiInstance ??= createSettingsClient({
+        serverSide: typeof window === 'undefined',
+    });
     return settingsApiInstance;
 }
 

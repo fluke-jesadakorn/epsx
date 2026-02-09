@@ -4,7 +4,6 @@
  * Wraps PlansAPIClient and groupMgmt to provide a unified interface
  * for managing both subscription plans and permission groups as "Access Policies"
  */
-/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-argument */
 
 'use client';
 
@@ -66,7 +65,7 @@ export const accessPolicyClient = {
     // Transform plans to policies
     if (isApiSuccess(plansRes)) {
       const backendResponse = plansRes.data as unknown as PlansBackendResponse;
-      const plans: PlanResponse[] = backendResponse?.data?.plans ?? backendResponse?.plans ?? [];
+      const plans: PlanResponse[] = backendResponse.data?.plans ?? backendResponse.plans ?? [];
       plans.forEach(plan => {
         policies.push(planToPolicy(plan));
       });
@@ -87,20 +86,20 @@ export const accessPolicyClient = {
    * ID format: "plan-{id}" or "group-{id}"
    */
   async getPolicy(policyId: string): Promise<AccessPolicy | null> {
-    const [sourceType, sourceId] = policyId.split('-', 2) as [string, string];
+    const [sourceType, sourceId] = policyId.split('-', 2);
 
-    if (sourceType === 'plan') {
+    if (sourceType === 'plan' && sourceId !== undefined) {
       const apiClient = createAdminApiClient();
       const plansClient = createPlansClient(apiClient);
       const res = await plansClient.getPlan(sourceId);
 
-      if (isApiSuccess(res) && res.data) {
+      if (isApiSuccess(res)) {
         return planToPolicy(res.data);
       }
       return null;
     }
 
-    if (sourceType === 'group') {
+    if (sourceType === 'group' && sourceId !== undefined) {
       const group = await planMgmt.getPlan(sourceId);
       return groupToPolicy(group);
     }
@@ -126,7 +125,7 @@ export const accessPolicyClient = {
     // Process plans
     if (isApiSuccess(plansRes)) {
       const backendResponse = plansRes.data as unknown as PlansBackendResponse;
-      const plans: PlanResponse[] = backendResponse?.data?.plans ?? backendResponse?.plans ?? [];
+      const plans: PlanResponse[] = backendResponse.data?.plans ?? backendResponse.plans ?? [];
 
       stats.byType.subscription = plans.length;
       stats.activeSubscriptions = plans.filter(p => p.is_active).length;
@@ -159,13 +158,14 @@ export const accessPolicyClient = {
         admin: 'system',
         system: 'system',
       };
-      const policyType = typeMap[group.plan_type] ?? 'manual';
+      const planType = group.plan_type || 'manual';
+      const policyType: PolicyType = (typeMap[planType]) ?? 'manual';
       stats.byType[policyType] = (stats.byType[policyType] ?? 0) + 1;
     });
 
     // Add group members from analytics
-    stats.totalMembers += analytics.total_active_memberships ?? 0;
-    stats.expiringSoon = analytics.expiring_soon_count ?? 0;
+    stats.totalMembers += analytics.total_active_memberships;
+    stats.expiringSoon = analytics.expiring_soon_count;
 
     // Calculate total policies
     stats.totalPolicies = Object.values(stats.byType).reduce((a, b) => a + b, 0);
@@ -258,7 +258,7 @@ export const accessPolicyClient = {
    */
   async deletePolicy(policyId: string): Promise<void> {
     const [sourceType, sourceId] = policyId.split('-', 2);
-    if (!sourceId) {return;}
+    if (sourceId === undefined || sourceId === '') { return; }
 
     if (sourceType === 'plan') {
       const apiClient = createAdminApiClient();
@@ -280,7 +280,7 @@ export const accessPolicyClient = {
    */
   async updatePolicy(policyId: string, updates: { permissions?: string[]; name?: string; description?: string }): Promise<void> {
     const [sourceType, sourceId] = policyId.split('-', 2);
-    if (!sourceId) {return;}
+    if (sourceId === undefined || sourceId === '') { return; }
 
     if (sourceType === 'plan') {
       const apiClient = createAdminApiClient();
@@ -294,7 +294,7 @@ export const accessPolicyClient = {
     }
 
     if (sourceType === 'group') {
-      await planMgmt.updatePlan(sourceId);
+      await planMgmt.updatePlan(sourceId, updates);
       return;
     }
 
@@ -311,12 +311,17 @@ export const accessPolicyClient = {
   /**
    * Assign user to group
    */
-  async assignUserToGroup(userId: string, planId: string, expiresAt?: string, reason?: string) {
+  async assignUserToGroup(params: {
+    userId: string;
+    planId: string;
+    expiresAt?: string;
+    reason?: string;
+  }) {
     return planMgmt.assignUserToPlan({
-      user_id: userId,
-      plan_id: planId,
-      expires_at: expiresAt,
-      reason,
+      user_id: params.userId,
+      plan_id: params.planId,
+      expires_at: params.expiresAt,
+      reason: params.reason,
     });
   },
 

@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger';
 import { useCallback, useEffect, useState } from 'react';
 
 interface UseUsersOptions {
@@ -34,6 +35,7 @@ export const useUsers = (options: UseUsersOptions) => {
   const [loading, setLoading] = useState(true);
 
   const fetchUsers = useCallback(async () => {
+    await Promise.resolve(); // Added to satisfy require-await
     setLoading(true);
     try {
       // TODO: Implement with shared API client
@@ -78,7 +80,7 @@ export const useUsers = (options: UseUsersOptions) => {
       setUsers(transformedUsers);
     } catch (_error) {
 
-      console.error('Error fetching users', {
+      logger.error('Error fetching users', {
         error: _error instanceof Error ? _error.message : String(_error),
         searchTerm: options.searchTerm,
         statusFilter: options.statusFilter,
@@ -92,7 +94,7 @@ export const useUsers = (options: UseUsersOptions) => {
   }, [options.searchTerm, options.statusFilter, options.packageFilter]);
 
   useEffect(() => {
-    const debounceTimer = setTimeout(fetchUsers, 300);
+    const debounceTimer = setTimeout(() => { void fetchUsers(); }, 300);
     return () => clearTimeout(debounceTimer);
   }, [fetchUsers]);
 

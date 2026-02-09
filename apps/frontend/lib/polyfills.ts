@@ -107,7 +107,7 @@ if (!(anyMath.pow as Record<string, boolean>)?.__isPolyfilled) {
         const result = (Math.pow as (a: number | bigint, b: number | bigint) => number | bigint)(2n, 3n);
         if ((result) !== 8n) {
         }
-    } catch (e) {
+    } catch (_e) {
     }
 }
 

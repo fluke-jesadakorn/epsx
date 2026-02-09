@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/strict-boolean-expressions, @typescript-eslint/no-unnecessary-condition */
+/* eslint-disable @typescript-eslint/no-unnecessary-condition */
 import { PageHeader, PageLayout } from '@/components/shared';
 import { DashboardSection } from '@/components/wallet/dashboard-section';
 import { WalletTabsNavigation } from '@/components/wallet/wallet-tabs-navigation';

@@ -1,154 +1,51 @@
-
 import {
   Activity,
-  AlertTriangle,
   BarChart3,
   BookOpen,
-  Copy,
   Key,
   Shield
 } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
-import { Button } from '@/components/ui/button';
-import { logger } from '@/lib/logger';
-import { createPlansClient, type ApiKeyResponse, type Module, type Plan } from '@/shared/api/plans';
 import { useSharedAuth } from '@/shared/components/auth/Provider';
-import { copyToClipboard as copyToClipboardUtil, createAdminApiClient } from '@/shared/utils';
+import { copyToClipboard as copyToClipboardUtil } from '@/shared/utils';
 
 import { ApiKeyManager } from './developer-portal/api-key-manager';
 import { DocumentationViewer } from './developer-portal/documentation-viewer';
+import { useDeveloperPortalData, useDeveloperPortalParams } from './developer-portal/hooks';
+import { NewApiKeyModal } from './developer-portal/new-api-key-modal';
 import { PortalOverview } from './developer-portal/portal-overview';
 import { UsageAnalytics } from './developer-portal/usage-analytics';
 
 /**
  * Main Developer Portal component
  */
-// eslint-disable-next-line max-lines-per-function, complexity
 export const DeveloperPortal: React.FC = () => {
   const { isLoading: authLoading } = useSharedAuth();
 
   const [activeTab, setActiveTab] = useState<
     'overview' | 'keys' | 'docs' | 'usage'
   >('overview');
-  const [apiKeys, setApiKeys] = useState<ApiKeyResponse[]>([]);
-  const [modules, setModules] = useState<Module[]>([]);
-  const [availablePlans, setAvailablePlans] = useState<Plan[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [accessDenied, setAccessDenied] = useState<{ message: string; code?: string } | null>(null);
   const [newApiKey, setNewApiKey] = useState<string | null>(null);
 
-  const loadData = React.useCallback(async () => {
-    try {
-      setLoading(true);
-      setAccessDenied(null);
-      const apiClient = createAdminApiClient();
-      const plansClient = createPlansClient(apiClient);
-
-      // Load API Keys using PlansApi (Admin)
-      try {
-        const keysRes = await plansClient.listApiKeys();
-        if (keysRes.success && keysRes.data !== undefined && keysRes.data !== null) {
-          setApiKeys(keysRes.data.api_keys);
-        }
-      } catch (error) {
-        const err = error as { status?: number; code?: string; message?: string };
-        // Handle Access Denied from backend
-        if (err.status === 403 || err.code === 'PERMISSION_DENIED') {
-          setAccessDenied({
-            message: err.message ?? 'You don\'t have permission to access the developer portal.',
-            code: err.code
-          });
-          return;
-        }
-        if (err.status !== 404) {
-          logger.warn('Failed to load API keys', { error });
-        }
-        setApiKeys([]);
-      }
-
-      // Load Modules
-      try {
-        const modulesRes = await plansClient.getModules();
-        if (modulesRes.success && modulesRes.data !== undefined && modulesRes.data !== null) {
-          setModules(modulesRes.data.modules);
-        }
-      } catch (error) {
-        logger.warn('Failed to load modules', { error });
-        setModules([]);
-      }
-
-      // Load Available Plans
-      try {
-        const plansRes = await plansClient.listPlans({ is_active: true });
-        if (plansRes.success && plansRes.data !== undefined && plansRes.data !== null) {
-          setAvailablePlans(plansRes.data.data); // PaginatedResponse has data property which is array
-        }
-      } catch (error) {
-        logger.warn('Failed to load available plans', { error });
-      }
-    } catch (error) {
-      const err = error as { status?: number; code?: string; message?: string };
-      if (err.status === 403 || err.code === 'PERMISSION_DENIED') {
-        setAccessDenied({
-          message: err.message ?? 'You don\'t have permission to access the developer portal.',
-          code: err.code
-        });
-        return;
-      }
-      logger.error('Failed to load developer portal data', { error });
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const {
+    apiKeys,
+    modules,
+    availablePlans,
+    loading,
+    accessDenied,
+    loadData,
+    handleRevokeApiKey,
+  } = useDeveloperPortalData();
 
   // Load initial data
   useEffect(() => {
     void loadData();
-
-    // Check for URL parameters (success message, new API key)
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('success') === 'true') {
-      const clientNameValue = urlParams.get('client_name');
-      const newKeyValue = urlParams.get('new_key');
-
-      if (clientNameValue !== null && clientNameValue !== '') {
-        toast.success(`API key for "${clientNameValue}" created successfully!`);
-      }
-
-      if (newKeyValue !== null && newKeyValue !== '' && newKeyValue !== 'key-created') {
-        setNewApiKey(newKeyValue);
-      }
-
-      // Clean up URL
-      window.history.replaceState({}, '', window.location.pathname);
-    }
   }, [loadData]);
 
-  // Handle API key revocation
-  const handleRevokeApiKey = async (keyId: string, keyName: string) => {
-    // eslint-disable-next-line no-alert
-    const reason = prompt(
-      `Are you sure you want to revoke the API key for "${keyName}"? Please provide a reason:`
-    );
-    if (reason === null || reason === '') { return; }
-
-    try {
-      const apiClient = createAdminApiClient();
-      const plansClient = createPlansClient(apiClient);
-      const response = await plansClient.revokeApiKey(keyId);
-      if (response.success) {
-        toast.success('API key revoked successfully');
-        void loadData();
-      } else {
-        toast.error('Failed to revoke API key');
-      }
-    } catch (_error) {
-      logger.error('Failed to revoke API key', { keyId, _error });
-      toast.error('Failed to revoke API key');
-    }
-  };
+  // Handle URL parameters
+  useDeveloperPortalParams(setNewApiKey);
 
   // Copy to clipboard
   const copyToClipboard = async (text: string, label: string) => {
@@ -181,11 +78,11 @@ export const DeveloperPortal: React.FC = () => {
           <p className="text-gray-600 dark:text-gray-300 mb-4">
             {accessDenied.message}
           </p>
-          {accessDenied.code !== undefined && accessDenied.code !== null && accessDenied.code !== '' && (
+          {accessDenied.code ? (
             <p className="text-sm text-gray-500 dark:text-gray-400">
               Error code: {accessDenied.code}
             </p>
-          )}
+          ) : null}
         </div>
       </div>
     );
@@ -269,53 +166,11 @@ export const DeveloperPortal: React.FC = () => {
 
       {/* New API Key Display */}
       {newApiKey && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-60">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md">
-            <div className="p-6 border-b border-gray-200 dark:border-gray-600">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                API Key Created
-              </h2>
-            </div>
-
-            <div className="p-6">
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
-                <div className="flex items-start">
-                  <AlertTriangle className="w-5 h-5 text-yellow-600 mt-0.5 mr-2" />
-                  <div>
-                    <h3 className="font-medium text-yellow-800">Important</h3>
-                    <p className="text-sm text-yellow-700 mt-1">
-                      This is the only time you&apos;ll see your API key. Please
-                      copy it and store it securely.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Your API Key
-                  </label>
-                  <button
-                    onClick={() => copyToClipboard(newApiKey, 'API Key')}
-                    className="p-1 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
-                  >
-                    <Copy className="w-4 h-4" />
-                  </button>
-                </div>
-                <code className="block text-sm font-mono text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800 p-3 rounded border border-gray-200 dark:border-gray-600 break-all">
-                  {newApiKey}
-                </code>
-              </div>
-            </div>
-
-            <div className="p-6 border-t border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 flex justify-end">
-              <Button onClick={() => setNewApiKey(null)}>
-                I&apos;ve Saved the Key
-              </Button>
-            </div>
-          </div>
-        </div>
+        <NewApiKeyModal
+          apiKey={newApiKey}
+          onClose={() => setNewApiKey(null)}
+          onCopy={copyToClipboard}
+        />
       )}
     </div>
   );

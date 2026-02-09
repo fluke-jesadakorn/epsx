@@ -201,10 +201,7 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
             walletAddress: address,
             error: undefined, // Clear any previous errors
           }));
-        } catch (error) {
-            'Failed to check auth status (non-critical in Web3-first mode):',
-            error
-          );
+        } catch (_error) {
           // In progressive auth, treat network errors as non-critical but keep connected state
           setState(prev => ({
             ...prev,
@@ -533,10 +530,7 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
 
           // Wait a moment for connector cleanup
           await new Promise(resolve => setTimeout(resolve, 150));
-        } catch (connectorError) {
-            '❌ Individual connector disconnect failed:',
-            connectorError
-          );
+        } catch (_connectorError) {
           // Continue with wagmi disconnect even if connector disconnect fails
         }
       }

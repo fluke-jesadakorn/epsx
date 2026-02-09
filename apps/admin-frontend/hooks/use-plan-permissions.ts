@@ -12,16 +12,27 @@ import { useQuery } from '@tanstack/react-query';
 export function usePlanAnalytics() {
     const { planStats, isLoading, error, refresh } = usePlanStats();
 
+    const ps = planStats ?? {
+        total_plans: 0,
+        active_plans: 0,
+        system_plans: 0,
+        total_memberships: 0,
+        active_memberships: 0,
+        avg_permissions_per_plan: 0,
+        recent_assignments: 0,
+        recent_removals: 0,
+    };
+
     // Map the internal data to the format expected by PlanAnalyticsDashboard
     const stats = {
-        totalPlans: planStats?.total_plans ?? 0,
-        activePlans: planStats?.active_plans ?? 0,
-        systemPlans: planStats?.system_plans ?? 0,
-        totalMemberships: planStats?.total_memberships ?? 0,
-        activeMemberships: planStats?.active_memberships ?? 0,
-        avgPermissionsPerPlan: planStats?.avg_permissions_per_plan ?? 0,
-        recentAssignments: planStats?.recent_assignments ?? 0,
-        recentRemovals: planStats?.recent_removals ?? 0,
+        totalPlans: ps.total_plans,
+        activePlans: ps.active_plans,
+        systemPlans: ps.system_plans,
+        totalMemberships: ps.total_memberships,
+        activeMemberships: ps.active_memberships,
+        avgPermissionsPerPlan: ps.avg_permissions_per_plan,
+        recentAssignments: ps.recent_assignments,
+        recentRemovals: ps.recent_removals,
     };
 
     return {
@@ -41,7 +52,7 @@ export function useAvailablePermissions() {
         queryKey: ['available-permissions-list'],
         queryFn: async () => {
             const res = await getPermissionsAction();
-            if (!res.success) {throw new Error(res.error);}
+            if (!res.success) { throw new Error(res.error); }
             // Return permission strings
             return res.data?.map(p => p.permission_string) ?? [];
         }

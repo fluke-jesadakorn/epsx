@@ -3,7 +3,6 @@
  * Complete Web3 wallet-first authentication for admin users
  * Uses SIWE (Sign-In with Ethereum) standard with group-based permissions
  */
-/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call, @typescript-eslint/strict-boolean-expressions */
 
 import { COOKIES } from '@/shared/auth/cookies';
 import { logger } from '@/shared/utils/logger';
@@ -76,7 +75,7 @@ export async function getWeb3SessionFromCookies(): Promise<Web3SessionData | nul
     // Note: signature and other auth data are HttpOnly and handled by backend
     // We can extract user info from the user cookie
 
-    if (!userCookie) {
+    if (userCookie === undefined) {
       return null;
     }
 
@@ -89,18 +88,20 @@ export async function getWeb3SessionFromCookies(): Promise<Web3SessionData | nul
       return null;
     }
 
-    if (!userData) {
-      return null;
-    }
-
     const now = Date.now();
+    const walletAddress = (userData.wallet_address !== undefined && userData.wallet_address !== '')
+      ? userData.wallet_address
+      : (userData.sub ?? '');
+
     const sessionData: Web3SessionData = {
-      walletAddress: userData.wallet_address ?? userData.sub ?? '',
+      walletAddress,
       signature: '', // Not accessible (HttpOnly)
       message: '',   // Not accessible (HttpOnly)
-      nonce: '',     // Not accessible (HttpOnly)
-      chainId: process.env['NEXT_PUBLIC_DEFAULT_CHAIN_ID'] ? parseInt(process.env['NEXT_PUBLIC_DEFAULT_CHAIN_ID']) : 56,    // BSC Mainnet - default for consistency
-      expiresAt: userData.auth_time ? parseInt(userData.auth_time) + 2592000000 : now + 2592000000, // 30 days default
+      nonce: '', // Not accessible (HttpOnly)
+      chainId: (process.env['NEXT_PUBLIC_DEFAULT_CHAIN_ID'] !== undefined && process.env['NEXT_PUBLIC_DEFAULT_CHAIN_ID'] !== '')
+        ? parseInt(process.env['NEXT_PUBLIC_DEFAULT_CHAIN_ID'])
+        : 56, // BSC Mainnet - default
+      expiresAt: userData.auth_time !== undefined ? parseInt(userData.auth_time) + 2592000000 : now + 2592000000, // 30 days default
     };
 
     // Check if session has expired using new expiresAt calculation
@@ -113,8 +114,7 @@ export async function getWeb3SessionFromCookies(): Promise<Web3SessionData | nul
     return sessionData;
 
   } catch (_error) {
-
-    console.error('❌ Failed to get Web3 session from cookies:', _error);
+    logger.error('❌ Failed to get Web3 session from cookies:', { error: _error });
     return null;
   }
 }
@@ -131,7 +131,7 @@ export async function validateWeb3Session(_sessionData: Web3SessionData): Promis
     const cookieStore = await cookies();
     const userCookie = cookieStore.get(COOKIES.user)?.value;
 
-    if (!userCookie) {
+    if (userCookie === undefined) {
       return null;
     }
 
@@ -143,11 +143,10 @@ export async function validateWeb3Session(_sessionData: Web3SessionData): Promis
       return null;
     }
 
-    if (!userData) {
-      return null;
-    }
+    const walletAddress = (userData.wallet_address !== undefined && userData.wallet_address !== '')
+      ? userData.wallet_address
+      : (userData.sub ?? '');
 
-    const walletAddress = userData.wallet_address ?? userData.sub ?? '';
     const web3User: Web3AdminUser = {
       walletAddress,
       chainId: 56, // BSC Mainnet - default
@@ -155,15 +154,14 @@ export async function validateWeb3Session(_sessionData: Web3SessionData): Promis
       permissions: userData.permissions ?? [],
       groups: userData.groups ?? [],
       isAdmin: userData.isAdmin ?? true, // Assume admin if user cookie exists
-      sessionExpiry: userData.auth_time ? parseInt(userData.auth_time) + 2592000000 : Date.now() + 2592000000,
+      sessionExpiry: userData.auth_time !== undefined ? parseInt(userData.auth_time) + 2592000000 : Date.now() + 2592000000, // 30 days default
       lastVerified: Date.now()
     };
 
     return web3User;
 
   } catch (_error) {
-
-    console.error('❌ Web3 validation error:', _error);
+    logger.error('❌ Web3 validation error:', { error: _error });
     return null;
   }
 }
@@ -306,8 +304,7 @@ export async function getAdminSession(): Promise<AdminSession> {
     };
 
   } catch (_error) {
-
-    console.error('❌ Session validation error:', _error);
+    logger.error('❌ Session validation error:', { error: _error });
     return {
       isAuthenticated: false,
       isLoggedIn: false,

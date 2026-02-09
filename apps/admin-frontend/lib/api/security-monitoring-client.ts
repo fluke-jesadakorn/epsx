@@ -1,3 +1,5 @@
+'use client';
+
 /**
  * ADMIN SECURITY MONITORING CLIENT
  *
@@ -7,8 +9,6 @@
 
 // Create singleton instance for backward compatibility
 import { createSecurityClient, type SecurityApi as SecurityApiType } from '@/shared/api/security';
-
-'use client';
 
 // Re-export everything from shared security module
 export {
@@ -20,11 +20,9 @@ export {
 let securityApiInstance: SecurityApiType | null = null;
 
 function getSecurityApiInstance(): SecurityApiType {
-  if (!securityApiInstance) {
-    securityApiInstance = createSecurityClient({
-      serverSide: typeof window === 'undefined',
-    });
-  }
+  securityApiInstance ??= createSecurityClient({
+    serverSide: typeof window === 'undefined',
+  });
   return securityApiInstance;
 }
 
@@ -35,17 +33,17 @@ function getSecurityApiInstance(): SecurityApiType {
 export const securityApi = {
   async getSecurityEvents(filters?: Parameters<SecurityApiType['getSecurityEvents']>[0]) {
     const res = await getSecurityApiInstance().getSecurityEvents(filters);
-    if (!res.data) {throw new Error('Failed to fetch security events');}
+    if (!res.data) { throw new Error('Failed to fetch security events'); }
     return res.data;
   },
   async getSecurityMetrics() {
     const res = await getSecurityApiInstance().getSecurityMetrics();
-    if (!res.data) {throw new Error('Failed to fetch security metrics');}
+    if (!res.data) { throw new Error('Failed to fetch security metrics'); }
     return res.data;
   },
   async getUserThreatAssessment(userId: string) {
     const res = await getSecurityApiInstance().getUserThreatAssessment(userId);
-    if (!res.data) {throw new Error('Failed to fetch user threat assessment');}
+    if (!res.data) { throw new Error('Failed to fetch user threat assessment'); }
     return res.data;
   },
   async getHighSeverityEvents(limit = 10) {

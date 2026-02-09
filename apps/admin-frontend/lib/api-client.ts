@@ -9,7 +9,8 @@ import type {
     ApiError,
     ApiResponse,
     PaginatedResponse,
-    UnifiedApiClient} from '@/shared/api';
+    UnifiedApiClient
+} from '@/shared/api';
 import {
     createAdminApiClient,
     isApiError,
@@ -27,11 +28,9 @@ let clientInstance: UnifiedApiClient | null = null;
  * Get or create the admin API client singleton
  */
 export function getAdminClient(): UnifiedApiClient {
-    if (!clientInstance) {
-        clientInstance = createAdminApiClient({
-            serverSide: typeof window === 'undefined',
-        });
-    }
+    clientInstance ??= createAdminApiClient({
+        serverSide: typeof window === 'undefined',
+    });
     return clientInstance;
 }
 

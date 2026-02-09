@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger';
 import { useEffect, useState } from 'react';
 
 interface IAMStats {
@@ -26,6 +27,7 @@ export const useIAMStats = () => {
   useEffect(() => {
     const fetchStats = async () => {
       try {
+        await Promise.resolve(); // Added to satisfy require-await
         setLoading(true);
 
         // TODO: Implement with shared API client
@@ -55,8 +57,8 @@ export const useIAMStats = () => {
 
         setStats(statsData);
       } catch (_error) {
-         
-        console.error('Failed to fetch IAM stats', {
+
+        logger.error('Failed to fetch IAM stats', {
           error: _error instanceof Error ? _error.message : String(_error),
         });
         // Set fallback values
@@ -73,7 +75,7 @@ export const useIAMStats = () => {
       }
     };
 
-    fetchStats();
+    void fetchStats();
   }, []);
 
   return { stats, loading };

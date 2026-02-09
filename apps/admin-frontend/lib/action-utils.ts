@@ -26,7 +26,7 @@ export function createSuccessResult<T>(data: T, message?: string): ActionResult<
  * Create error action result
  * @param error
  */
-export function createErrorResult(error: string): ActionResult {
+export function createErrorResult<T = unknown>(error: string): ActionResult<T> {
   return {
     success: false,
     error

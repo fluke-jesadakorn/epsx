@@ -1,0 +1,47 @@
+
+/Users/fluke/Desktop/Work/epsx/apps/admin-frontend/lib/actions/consolidated-wallet-actions.ts
+  125:30  error  Unexpected any. Specify a different type            @typescript-eslint/no-explicit-any
+  149:30  error  Unexpected any. Specify a different type            @typescript-eslint/no-explicit-any
+  173:30  error  Unexpected any. Specify a different type            @typescript-eslint/no-explicit-any
+  192:30  error  Unexpected any. Specify a different type            @typescript-eslint/no-explicit-any
+  212:30  error  Unexpected any. Specify a different type            @typescript-eslint/no-explicit-any
+  235:30  error  Unexpected any. Specify a different type            @typescript-eslint/no-explicit-any
+  254:30  error  Unexpected any. Specify a different type            @typescript-eslint/no-explicit-any
+  281:30  error  Unexpected any. Specify a different type            @typescript-eslint/no-explicit-any
+  307:30  error  Unexpected any. Specify a different type            @typescript-eslint/no-explicit-any
+  336:30  error  Unexpected any. Specify a different type            @typescript-eslint/no-explicit-any
+  371:30  error  Unexpected any. Specify a different type            @typescript-eslint/no-explicit-any
+  398:30  error  Unexpected any. Specify a different type            @typescript-eslint/no-explicit-any
+  429:30  error  Unexpected any. Specify a different type            @typescript-eslint/no-explicit-any
+  462:30  error  Unexpected any. Specify a different type            @typescript-eslint/no-explicit-any
+  491:30  error  Unexpected any. Specify a different type            @typescript-eslint/no-explicit-any
+  532:30  error  Unexpected any. Specify a different type            @typescript-eslint/no-explicit-any
+  569:30  error  Unexpected any. Specify a different type            @typescript-eslint/no-explicit-any
+  600:30  error  Unexpected any. Specify a different type            @typescript-eslint/no-explicit-any
+  637:11  error  Unnecessary conditional, the types have no overlap  @typescript-eslint/no-unnecessary-condition
+  637:34  error  Unnecessary conditional, the types have no overlap  @typescript-eslint/no-unnecessary-condition
+  651:30  error  Unexpected any. Specify a different type            @typescript-eslint/no-explicit-any
+
+/Users/fluke/Desktop/Work/epsx/apps/admin-frontend/lib/actions/permissions.ts
+  44:7   error  'PATH_PERMISSIONS' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  44:26  error  Define a constant instead of duplicating this literal 5 times                                sonarjs/no-duplicate-string
+  45:7   error  'PATH_WALLET_MGMT' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  45:26  error  Define a constant instead of duplicating this literal 4 times                                sonarjs/no-duplicate-string
+  92:57  error  Define a constant instead of duplicating this literal 4 times                                sonarjs/no-duplicate-string
+
+/Users/fluke/Desktop/Work/epsx/apps/admin-frontend/lib/api/access-policy-client.ts
+  163:19  error  This assertion is unnecessary since it does not change the type of the expression  @typescript-eslint/no-unnecessary-type-assertion
+  165:7   error  Unsafe assignment of an error typed value                                          @typescript-eslint/no-unsafe-assignment
+
+/Users/fluke/Desktop/Work/epsx/apps/admin-frontend/lib/auth/auth.ts
+  101:16  error  Unexpected nullable string value in conditional. Please handle the nullish/empty cases explicitly  @typescript-eslint/strict-boolean-expressions
+  102:18  error  Unexpected nullable string value in conditional. Please handle the nullish/empty cases explicitly  @typescript-eslint/strict-boolean-expressions
+  144:1   error  More than 1 blank line not allowed                                                                 no-multiple-empty-lines
+  156:22  error  Unexpected nullable string value in conditional. Please handle the nullish/empty cases explicitly  @typescript-eslint/strict-boolean-expressions
+
+/Users/fluke/Desktop/Work/epsx/apps/admin-frontend/lib/auth/server.ts
+  133:20  error  Unnecessary conditional, expected left-hand side of `??` operator to be possibly null or undefined  @typescript-eslint/no-unnecessary-condition
+
+✖ 33 problems (33 errors, 0 warnings)
+  2 errors and 0 warnings potentially fixable with the `--fix` option.
+

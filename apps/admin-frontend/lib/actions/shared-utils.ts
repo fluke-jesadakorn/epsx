@@ -8,10 +8,10 @@ import { ServerAuth } from '../server/helpers';
  * @param endpoint The API endpoint (e.g., /api/admin/wallets)
  * @param options Request options
  */
-export async function makeAuthenticatedRequest(
+export async function makeAuthenticatedRequest<T = unknown>(
     endpoint: string,
     options: RequestInit = {}
-): Promise<unknown> {
+): Promise<T> {
     const backendUrl = process.env.BACKEND_URL ?? 'http://127.0.0.1:8080';
     const headers = await ServerAuth.getAuthHeaders();
 
@@ -28,11 +28,15 @@ export async function makeAuthenticatedRequest(
         throw new Error(`HTTP ${response.status}: ${errorText}`);
     }
 
-    // Handle empty responses
-    const contentType = response.headers.get('content-type');
-    if (contentType?.includes('application/json')) {
-        return response.json();
+    if (response.status === 204) {
+        return undefined as unknown as Promise<T>;
     }
 
-    return null;
+    // Handle empty responses
+    const contentType = response.headers.get('content-type');
+    if (contentType?.includes('application/json') ?? false) {
+        return response.json() as Promise<T>;
+    }
+
+    throw new Error('Invalid response format: Expected JSON');
 }

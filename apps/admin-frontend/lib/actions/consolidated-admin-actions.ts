@@ -1,5 +1,6 @@
 'use server';
 
+import { logger } from '@/lib/logger';
 import { getAdminClient } from '../api-client';
 
 // ============================================================================
@@ -70,7 +71,7 @@ export async function createAdminNotification(
     if (!response.success) {
       return {
         success: false,
-        error: response.error ?? 'Failed to create notification',
+        error: typeof response.error === 'string' ? response.error : (response.error?.message ?? 'Failed to create notification'),
       };
     }
 
@@ -79,8 +80,7 @@ export async function createAdminNotification(
       data: response.data,
     };
   } catch (error) {
-
-    console.error('Failed to create admin notification:', error);
+    logger.error('Failed to create admin notification:', { error });
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Failed to create notification',
@@ -123,7 +123,7 @@ export async function cleanupExpiredPermissionsAction(): Promise<ActionResult> {
     if (!response.success) {
       return {
         success: false,
-        error: response.error ?? 'Failed to cleanup permissions',
+        error: typeof response.error === 'string' ? response.error : (response.error?.message ?? 'Failed to cleanup permissions'),
       };
     }
 
@@ -132,8 +132,7 @@ export async function cleanupExpiredPermissionsAction(): Promise<ActionResult> {
       data: response.data,
     };
   } catch (error) {
-
-    console.error('Failed to cleanup permissions:', error);
+    logger.error('Failed to cleanup permissions:', { error });
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Failed to cleanup permissions',

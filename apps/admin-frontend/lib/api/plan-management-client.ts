@@ -224,11 +224,13 @@ export const planMgmt = {
   createPlan: async (data: CreatePlanRequest) => {
     const res = await adminApiClient.post<PermissionPlan>(API_ROUTES.PERMISSIONS.PLANS, data);
     if (!res.success) { throw new Error(res.error?.message); }
+    if (!res.data) { throw new Error('Failed to create plan: No data returned'); }
     return res.data;
   },
   updatePlan: async (planId: string, data: UpdatePlanRequest) => {
     const res = await adminApiClient.put<PermissionPlan>(`${API_ROUTES.PERMISSIONS.PLANS}/${planId}`, data);
     if (!res.success) { throw new Error(res.error?.message); }
+    if (!res.data) { throw new Error('Failed to update plan: No data returned'); }
     return res.data;
   },
   deletePlan: async (planId: string) => {

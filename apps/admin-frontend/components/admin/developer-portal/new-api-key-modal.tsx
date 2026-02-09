@@ -1,0 +1,67 @@
+'use client';
+
+import { Button } from '@/components/ui/button';
+import { AlertTriangle, Copy } from 'lucide-react';
+import React from 'react';
+
+interface NewApiKeyModalProps {
+    apiKey: string;
+    onClose: () => void;
+    onCopy: (text: string, label: string) => void;
+}
+
+export const NewApiKeyModal: React.FC<NewApiKeyModalProps> = ({
+    apiKey,
+    onClose,
+    onCopy,
+}) => {
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-60">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md">
+                <div className="p-6 border-b border-gray-200 dark:border-gray-600">
+                    <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                        API Key Created
+                    </h2>
+                </div>
+
+                <div className="p-6">
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+                        <div className="flex items-start">
+                            <AlertTriangle className="w-5 h-5 text-yellow-600 mt-0.5 mr-2" />
+                            <div>
+                                <h3 className="font-medium text-yellow-800">Important</h3>
+                                <p className="text-sm text-yellow-700 mt-1">
+                                    This is the only time you&apos;ll see your API key. Please
+                                    copy it and store it securely.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+                        <div className="flex items-center justify-between mb-2">
+                            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                Your API Key
+                            </label>
+                            <button
+                                onClick={() => onCopy(apiKey, 'API Key')}
+                                className="p-1 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
+                            >
+                                <Copy className="w-4 h-4" />
+                            </button>
+                        </div>
+                        <code className="block text-sm font-mono text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800 p-3 rounded border border-gray-200 dark:border-gray-600 break-all">
+                            {apiKey}
+                        </code>
+                    </div>
+                </div>
+
+                <div className="p-6 border-t border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 flex justify-end">
+                    <Button onClick={onClose}>
+                        I&apos;ve Saved the Key
+                    </Button>
+                </div>
+            </div>
+        </div>
+    );
+};

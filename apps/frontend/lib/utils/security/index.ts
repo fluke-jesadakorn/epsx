@@ -123,8 +123,7 @@ export function sanitizeHtml(html: string): string {
   if (typeof html !== 'string') {
     return '';
   }
-
-  // eslint-disable-next-line security/detect-unsafe-regex
+   
   return html
     // eslint-disable-next-line security/detect-unsafe-regex
     .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '') // Remove script tags
