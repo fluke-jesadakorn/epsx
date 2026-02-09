@@ -81,7 +81,9 @@ export function hasSystemAccess(
     'critical': 3
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
   const userLevel = levelHierarchy[user.securityLevel] ?? 0;
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
   const requiredLevelValue = levelHierarchy[requiredLevel] ?? 1;
 
   return userLevel >= requiredLevelValue;
@@ -126,9 +128,11 @@ function validateElevatedAccess(
   context: SecurityContext
 ): boolean {
   // MFA must be verified for elevated operations
+  // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
   if (!context.mfaVerified) { return false; }
 
   // Device must be trusted for critical operations
+  // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
   if (user.securityLevel === 'critical' && !context.deviceTrusted) { return false; }
 
   return true;
@@ -164,7 +168,7 @@ export function hasAdminRole(
   role: string
 ): boolean {
   if (!user) { return false; }
-  return user.role === role ?? user.role === 'super_admin';
+  return user.role === role || user.role === 'super_admin';
 }
 
 /**
@@ -176,6 +180,7 @@ export function isInDepartment(
   user: AdminUserProfile | null | undefined,
   department: string
 ): boolean {
+  // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
   if (!user?.department) { return false; }
   return user.department === department;
 }
@@ -204,7 +209,7 @@ export function hasClearanceLevel(
 export function validateAdminSession(
   session: AdminSessionData | null | undefined
 ): boolean {
-  if (!session ?? !isAdminSession(session)) { return false; }
+  if (!session || !isAdminSession(session)) { return false; }
 
   // Check session expiry
   if (Date.now() > session.expiresAt) { return false; }
@@ -214,7 +219,7 @@ export function validateAdminSession(
 
   // Check security context
   const context = session.securityContext;
-  if (!context.sessionId ?? !context.deviceTrusted) { return false; }
+  if (!context.sessionId || !context.deviceTrusted) { return false; }
 
   return true;
 }
@@ -298,6 +303,7 @@ export function shouldAuditOperation(operation: string): boolean {
  * @param user
  */
 export function getAdminDisplayName(user: AdminUserProfile): string {
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
   const baseName = user.name ?? user.email.split('@')[0];
   const roleIndicator = user.role === 'super_admin' ? ' (Super Admin)' : '';
   return `${baseName}${roleIndicator}`;
@@ -327,6 +333,7 @@ export function formatAdminPermissions(permissions: string[]): string[] {
 
     // Format structured permissions
     const [platform, resource, action] = permission.split(':');
+    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
     if (platform === 'admin' && resource && action) {
       const resourceLabel = resource.charAt(0).toUpperCase() + resource.slice(1);
       const actionLabel = action === '*' ? 'All Actions' :
