@@ -17,9 +17,15 @@ export interface UseOptimisticUpdatesOptions {
   rollbackDelay?: number;
 }
 
+export interface AddOptimisticUpdateArgs<T> {
+  id: string;
+  type: OptimisticUpdate<T>['type'];
+  data: T;
+  originalData?: T;
+}
+
 /**
- *
- * @param options
+ * Hook for optimistic updates
  */
 export function useOptimisticUpdates<T>(
   options: UseOptimisticUpdatesOptions = {}
@@ -81,12 +87,8 @@ export function useOptimisticUpdates<T>(
     return update;
   }, [pendingUpdates]);
 
-  const addOptimisticUpdate = useCallback((
-    id: string,
-    type: OptimisticUpdate<T>['type'],
-    data: T,
-    originalData?: T
-  ) => {
+  const addOptimisticUpdate = useCallback((args: AddOptimisticUpdateArgs<T>) => {
+    const { id, type, data, originalData } = args;
     const update: OptimisticUpdate<T> = {
       id,
       type,
@@ -112,7 +114,7 @@ export function useOptimisticUpdates<T>(
 
   const retryUpdate = useCallback((id: string, retryFn: () => Promise<void>) => {
     const update = pendingUpdates.get(id);
-    if (!update ?? update.retryCount >= maxRetries) {
+    if (!update || update.retryCount >= maxRetries) {
       rollbackUpdate(id);
       return;
     }
@@ -148,39 +150,6 @@ export function useOptimisticUpdates<T>(
     return pendingUpdates.get(id);
   }, [pendingUpdates]);
 
-  const applyOptimisticUpdates = useCallback(<TItem extends { id: string | number }>(
-    items: TItem[],
-    updateMap: Map<string, OptimisticUpdate<TItem>>
-  ): TItem[] => {
-    const result = [...items];
-
-    updateMap.forEach(update => {
-      switch (update.type) {
-        case 'create':
-          result.push(update.data);
-          break;
-
-        case 'update': {
-          const updateIndex = result.findIndex(item => String(item.id) === update.id);
-          if (updateIndex !== -1) {
-            result[updateIndex] = update.data;
-          }
-          break;
-        }
-
-        case 'delete': {
-          const deleteIndex = result.findIndex(item => String(item.id) === update.id);
-          if (deleteIndex !== -1) {
-            result.splice(deleteIndex, 1);
-          }
-          break;
-        }
-      }
-    });
-
-    return result;
-  }, []);
-
   const clearAllPendingUpdates = useCallback(() => {
     // Clear all timers
     timeoutRefs.current.forEach(timeout => clearTimeout(timeout));
@@ -202,6 +171,42 @@ export function useOptimisticUpdates<T>(
     applyOptimisticUpdates,
     clearAllPendingUpdates
   };
+}
+
+/**
+ * Helper to apply optimistic updates to an array of items
+ */
+export function applyOptimisticUpdates<TItem extends { id: string | number }>(
+  items: TItem[],
+  updateMap: Map<string, OptimisticUpdate<TItem>>
+): TItem[] {
+  const result = [...items];
+
+  updateMap.forEach(update => {
+    switch (update.type) {
+      case 'create':
+        result.push(update.data);
+        break;
+
+      case 'update': {
+        const updateIndex = result.findIndex(item => String(item.id) === update.id);
+        if (updateIndex !== -1) {
+          result[updateIndex] = update.data;
+        }
+        break;
+      }
+
+      case 'delete': {
+        const deleteIndex = result.findIndex(item => String(item.id) === update.id);
+        if (deleteIndex !== -1) {
+          result.splice(deleteIndex, 1);
+        }
+        break;
+      }
+    }
+  });
+
+  return result;
 }
 
 // Hook for background sync
@@ -232,7 +237,7 @@ export function useBackgroundSync({
   const intervalRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const sync = useCallback(async () => {
-    if (!onSync ?? syncInProgress ?? !isOnline) { return; }
+    if (!onSync || syncInProgress || !isOnline) { return; }
 
     setSyncInProgress(true);
     try {
@@ -326,7 +331,7 @@ export function usePerformanceMonitor({
   const measurementRefs = useRef<Map<string, number>>(new Map());
 
   const startMeasurement = useCallback((name: string) => {
-    if (!enabled ?? Math.random() > sampleRate) { return; }
+    if (!enabled || Math.random() > sampleRate) { return; }
 
     measurementRefs.current.set(name, performance.now());
   }, [enabled, sampleRate]);
@@ -358,7 +363,7 @@ export function usePerformanceMonitor({
     value: number,
     metadata?: Record<string, unknown>
   ) => {
-    if (!enabled ?? Math.random() > sampleRate) { return; }
+    if (!enabled || Math.random() > sampleRate) { return; }
 
     const metric: PerformanceMetric = {
       name,

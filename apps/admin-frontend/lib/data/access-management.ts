@@ -17,14 +17,16 @@ import { createPlansClient, type Plan } from '@/shared/api/plans';
 import { isApiSuccess } from '@/shared/types/api';
 import { createAdminApiClient } from '@/shared/utils/api-client';
 
+import { type PermissionPlan } from '@/lib/api/plan-management-client';
+
 // Extended Plan type with analytics fields
 interface PlanResponse extends Plan {
   revenue_last_30_days?: string | number;
   subscriber_count?: number;
 }
 
-interface GroupData {
-  group_type: string;
+interface GroupData extends Partial<PermissionPlan> {
+  group_type?: string;
   is_active?: boolean;
 }
 
@@ -122,6 +124,16 @@ export async function fetchWalletStats(): Promise<WalletStats> {
 }
 
 /**
+ * Helper to extract plans from API response
+ */
+function extractPlans(data: PlansApiResponse | null | undefined): PlanResponse[] {
+  if (!data) {
+    return [];
+  }
+  return data.data?.plans ?? data.plans ?? [];
+}
+
+/**
  * Fetch all access policies (plans + groups) for server-side rendering
  */
 export async function fetchPolicies(): Promise<AccessPolicy[]> {
@@ -138,8 +150,7 @@ export async function fetchPolicies(): Promise<AccessPolicy[]> {
 
     // Transform plans to policies
     if (isApiSuccess(plansRes)) {
-      const backendResponse = plansRes.data as PlansApiResponse;
-      const plans: PlanResponse[] = backendResponse?.data?.plans ?? backendResponse?.plans ?? [];
+      const plans = extractPlans(plansRes.data as PlansApiResponse);
       plans.forEach(plan => {
         policies.push(planToPolicy(plan));
       });
@@ -147,12 +158,19 @@ export async function fetchPolicies(): Promise<AccessPolicy[]> {
 
     // Transform groups to policies (exclude subscription type - handled by plans)
     if (groupsRes.success && groupsRes.data) {
-      const groups = groupsRes.data.plans ?? groupsRes.data ?? [];
-      const groupsArray = Array.isArray(groups) ? groups : [];
+      const rawGroups = groupsRes.data.plans ?? groupsRes.data;
+      const groupsArray = (Array.isArray(rawGroups) ? rawGroups : []) as unknown as GroupData[];
       groupsArray
-        .filter((g: GroupData) => g.group_type !== 'subscription')
-        .forEach((group: GroupData) => {
-          policies.push(groupToPolicy(group));
+        .filter((g) => g.group_type !== 'subscription')
+        .forEach((group) => {
+          // Add plan_type if missing (mapping group_type to plan_type for groupToPolicy)
+          const planType = group.plan_type ?? group.group_type;
+          const normalizedGroup = {
+            ...group,
+            plan_type: planType ?? 'manual'
+          } as unknown as PermissionPlan;
+
+          policies.push(groupToPolicy(normalizedGroup));
         });
     }
 
@@ -161,6 +179,52 @@ export async function fetchPolicies(): Promise<AccessPolicy[]> {
     // Silently fail
     return [];
   }
+}
+
+/**
+ * Process plan statistics
+ */
+function processPlansStats(stats: PolicyStats, plans: PlanResponse[]): void {
+  stats.byType.subscription = plans.length;
+  stats.activeSubscriptions = plans.filter(p => p.is_active === true).length;
+
+  // Calculate MRR
+  stats.totalMRR = plans.reduce((sum, plan) => {
+    const rawRevenue = plan.revenue_last_30_days;
+    const revenue = typeof rawRevenue === 'string'
+      ? parseFloat(rawRevenue)
+      : (rawRevenue ?? 0);
+    return sum + (isNaN(revenue) ? 0 : (revenue));
+  }, 0);
+
+  // Count subscribers
+  const planMembers = plans.reduce((sum, p) => sum + (p.subscriber_count ?? 0), 0);
+  stats.totalMembers += planMembers;
+}
+
+/**
+ * Process group statistics
+ */
+function processGroupsStats(stats: PolicyStats, groupsResData: PlansApiResponse): void {
+  const rawGroups = groupsResData.plans ?? groupsResData;
+  const groupsArray = (Array.isArray(rawGroups) ? rawGroups : []) as unknown as GroupData[];
+  const nonSubGroups = groupsArray.filter((g) => g.group_type !== 'subscription');
+  stats.activeGroups = nonSubGroups.filter((g) => g.is_active === true).length;
+
+  // Count by type
+  nonSubGroups.forEach((group) => {
+    const typeMap: Record<string, PolicyType | undefined> = {
+      manual: 'manual',
+      web3_asset: 'web3_asset',
+      dao_membership: 'dao',
+      dao: 'dao',
+      admin: 'system',
+      system: 'system',
+    };
+    const typeKey = group.group_type ?? group.plan_type ?? 'manual';
+    const policyType = typeMap[typeKey] ?? 'manual';
+    stats.byType[policyType] = stats.byType[policyType] + 1;
+  });
 }
 
 /**
@@ -181,45 +245,13 @@ export async function fetchPolicyStats(): Promise<PolicyStats> {
 
     // Process plans
     if (isApiSuccess(plansRes)) {
-      const backendResponse = plansRes.data as PlansApiResponse;
-      const plans: PlanResponse[] = backendResponse?.data?.plans ?? backendResponse?.plans ?? [];
-
-      stats.byType.subscription = plans.length;
-      stats.activeSubscriptions = plans.filter(p => p.is_active).length;
-
-      // Calculate MRR
-      stats.totalMRR = plans.reduce((sum, plan) => {
-        const revenue = typeof plan.revenue_last_30_days === 'string'
-          ? parseFloat(plan.revenue_last_30_days)
-          : plan.revenue_last_30_days ?? 0;
-        return sum + (isNaN(revenue) ? 0 : (revenue));
-      }, 0);
-
-      // Count subscribers
-      const planMembers = plans.reduce((sum, p) => sum + (p.subscriber_count ?? 0), 0);
-      stats.totalMembers += planMembers;
+      const plans = extractPlans(plansRes.data as PlansApiResponse);
+      processPlansStats(stats, plans);
     }
 
     // Process groups (exclude subscription type)
     if (groupsRes.success && groupsRes.data) {
-      const groups = groupsRes.data.plans ?? groupsRes.data ?? [];
-      const groupsArray = Array.isArray(groups) ? groups : [];
-      const nonSubGroups = groupsArray.filter((g: GroupData) => g.group_type !== 'subscription');
-      stats.activeGroups = nonSubGroups.filter((g: GroupData) => g.is_active).length;
-
-      // Count by type
-      nonSubGroups.forEach((group: GroupData) => {
-        const typeMap: Record<string, PolicyType> = {
-          manual: 'manual',
-          web3_asset: 'web3_asset',
-          dao_membership: 'dao',
-          dao: 'dao',
-          admin: 'system',
-          system: 'system',
-        };
-        const policyType = typeMap[group.group_type] ?? 'manual';
-        stats.byType[policyType] = (stats.byType[policyType] ?? 0) + 1;
-      });
+      processGroupsStats(stats, groupsRes.data);
     }
 
     // Add analytics data
@@ -230,7 +262,8 @@ export async function fetchPolicyStats(): Promise<PolicyStats> {
     }
 
     // Calculate total policies
-    stats.totalPolicies = Object.values(stats.byType).reduce((a, b) => a + b, 0);
+    const total = Object.values(stats.byType).reduce((acc, count) => acc + count, 0);
+    stats.totalPolicies = total;
 
     return stats;
   } catch {

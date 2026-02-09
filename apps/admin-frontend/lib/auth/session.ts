@@ -5,6 +5,7 @@
 
 import { cookies } from 'next/headers';
 
+import { logger } from '@/lib/logger';
 import { getJWTFromCookies, verifyJWTFromCookies } from '@/lib/server/token';
 import { COOKIES } from '@/shared/auth/cookies';
 import type { EPSXJWTPayload } from '@/shared/auth/jwt';
@@ -37,8 +38,7 @@ export async function getSession(): Promise<SessionData> {
       expiresAt: payload.exp * 1000, // Convert to milliseconds
     };
   } catch (_error) {
-
-    console.error('❌ Failed to get session:', _error);
+    logger.auth.error('Failed to get session', { error: _error });
     return { isLoggedIn: false };
   }
 }
@@ -56,8 +56,7 @@ export async function clearSession(): Promise<void> {
     cookieStore.delete(COOKIES.refresh_token);
 
   } catch (_error) {
-
-    console.error('❌ Failed to clear session:', _error);
+    logger.auth.error('Failed to clear session', { error: _error });
   }
 }
 
@@ -77,6 +76,44 @@ interface OAuthUserInfo {
 }
 
 /**
+ * Get display name from userinfo
+ */
+function getDisplayName(userinfo: OAuthUserInfo): string {
+  return userinfo.name ?? userinfo.display_name ?? 'Unknown user';
+}
+
+/**
+ * Get subject from userinfo
+ */
+function getSubject(userinfo: OAuthUserInfo): string {
+  return userinfo.sub ?? userinfo.id ?? 'unknown';
+}
+
+/**
+ * Helper to build JWT payload from OAuth userinfo
+ */
+function buildPayload(userinfo: OAuthUserInfo): EPSXJWTPayload {
+  const now = Math.floor(Date.now() / 1000);
+  const sub = getSubject(userinfo);
+
+  return {
+    sub,
+    iss: 'epsx-backend',
+    aud: 'epsx-admin',
+    exp: now + (30 * 24 * 60 * 60), // 30 days
+    iat: now,
+    email: userinfo.email ?? '',
+    name: getDisplayName(userinfo),
+    role: userinfo.role ?? 'user',
+    permissions: userinfo.permissions ?? ['epsx:user:read'],
+    platform_context: userinfo.platform_context ?? 'epsx',
+    primary_platform: userinfo.primary_platform ?? 'epsx',
+    package_tier: userinfo.package_tier ?? 'FREE',
+    wallet_address: userinfo.wallet_address ?? userinfo.sub ?? '',
+  };
+}
+
+/**
  * Create user session data from userinfo (used in OAuth callback)
  * @param userinfo
  * @param _accessToken - Reserved for future token persistence
@@ -87,21 +124,7 @@ export function createUserSession(
   _accessToken?: string,
   _refreshToken?: string
 ): SessionData {
-  const user: EPSXJWTPayload = {
-    sub: userinfo.sub ?? userinfo.id ?? 'unknown',
-    iss: 'epsx-backend',
-    aud: 'epsx-admin',
-    exp: Math.floor(Date.now() / 1000) + (30 * 24 * 60 * 60), // 30 days (matches backend/cookies)
-    iat: Math.floor(Date.now() / 1000),
-    email: userinfo.email ?? '',
-    name: userinfo.name ?? userinfo.display_name ?? 'Unknown user',
-    role: userinfo.role ?? 'user',
-    permissions: userinfo.permissions ?? ['epsx:user:read'],
-    platform_context: userinfo.platform_context ?? 'epsx',
-    primary_platform: userinfo.primary_platform ?? 'epsx',
-    package_tier: userinfo.package_tier ?? 'FREE',
-    wallet_address: userinfo.wallet_address ?? userinfo.sub ?? '',
-  };
+  const user = buildPayload(userinfo);
 
   return {
     isLoggedIn: true,
