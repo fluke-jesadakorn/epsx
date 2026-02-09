@@ -183,7 +183,7 @@ export class Logger {
     const prefix = `[${timestamp}] [${level.toUpperCase()}] [${this.context}]`;
 
     // Safe console access with fallback to console.log
-    const logFunction = console[consoleMethod as keyof Console] ?? console.log;
+    const logFunction = (console[consoleMethod as keyof Console] as unknown) ?? console.log;
     if (typeof logFunction !== 'function') {
       // Fallback to console.log if specific method doesn't exist
       const fallbackLog = console.log;

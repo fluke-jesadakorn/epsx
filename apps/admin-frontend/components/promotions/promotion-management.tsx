@@ -4,16 +4,11 @@
 import { useEffect, useState } from 'react'
 
 import { toast } from '@/hooks/use-toast'
-import { createPromotionsClient, isApiSuccess, type Promotion } from '@/shared/api/promotions'
+import { createPromotionsClient, isApiSuccess } from '@/shared/api/promotions'
 import { useSharedAuth } from '@/shared/components/auth/Provider'
 import { createAdminApiClient } from '@/shared/utils/api-client'
 
-interface DisplayPromotion extends Omit<Promotion, 'discountValue' | 'maxDiscountAmount' | 'minPurchaseAmount' | 'totalRevenue'> {
-  discountValue: number;
-  maxDiscountAmount: number | null;
-  minPurchaseAmount: number;
-  totalRevenue: number;
-}
+import type { DisplayPromotion } from '@/components/promotions/types'
 
 interface PromotionManagementProps {
   currentUser?: any
@@ -349,7 +344,7 @@ export function PromotionManagement({ currentUser }: PromotionManagementProps) {
                       <div
                         className="bg-primary rounded-full h-2 transition-all duration-500"
                         style={{ width: `${getUsagePercentage(promotion)}%` }}
-                       />
+                      />
                     </div>
                   </div>
                 </div>
@@ -430,7 +425,7 @@ export function PromotionManagement({ currentUser }: PromotionManagementProps) {
                         <div
                           className="bg-primary rounded-full h-2 transition-all duration-500"
                           style={{ width: `${getUsagePercentage(promotion)}%` }}
-                         />
+                        />
                       </div>
                     </div>
 

@@ -123,7 +123,7 @@ export interface ValidationResult {
 }
 
 export class InputValidator {
-  /* eslint-disable @typescript-eslint/strict-boolean-expressions,sonarjs/cognitive-complexity */
+  /* eslint-disable @typescript-eslint/strict-boolean-expressions,sonarjs/cognitive-complexity,complexity */
   validate(value: unknown, rules: ValidationRule): ValidationResult {
     const errors: string[] = [];
 
@@ -188,7 +188,7 @@ export class InputValidator {
       value: this.convertType(value, rules.type)
     };
   }
-  /* eslint-enable @typescript-eslint/strict-boolean-expressions,sonarjs/cognitive-complexity */
+  /* eslint-enable @typescript-eslint/strict-boolean-expressions,sonarjs/cognitive-complexity,complexity */
 
   /* eslint-disable complexity */
   private validateType(value: unknown, type: ValidationRule['type']): string | null {
@@ -357,6 +357,7 @@ export class FormValidator {
     return this.validator.validateObject(formData, this.schema);
   }
 
+  /* eslint-disable @typescript-eslint/no-unnecessary-condition */
   validateField(fieldName: string, value: unknown): ValidationResult {
     const rules = this.schema[fieldName];
     if (rules === undefined) {
@@ -365,6 +366,7 @@ export class FormValidator {
 
     return this.validator.validate(value, rules);
   }
+  /* eslint-enable @typescript-eslint/no-unnecessary-condition */
 
   getFieldRules(fieldName: string): ValidationRule | undefined {
     return this.schema[fieldName];
@@ -372,7 +374,7 @@ export class FormValidator {
 
   getRequiredFields(): string[] {
     return Object.entries(this.schema)
-      .filter(([, rules]) => rules.required)
+      .filter(([, rules]) => rules.required === true)
       .map(([name]) => name);
   }
 }

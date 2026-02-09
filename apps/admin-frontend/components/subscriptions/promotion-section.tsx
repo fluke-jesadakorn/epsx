@@ -75,6 +75,8 @@ export function PromotionSection({ initialPromotions, className, compactMode = f
           applicablePlans: p.applicablePlans,
           totalRevenue: parseFloat(p.totalRevenue),
           conversionRate: p.conversionRate,
+          createdAt: p.createdAt,
+          updatedAt: p.updatedAt,
         })));
         toast.success('Promotions refreshed');
       }
