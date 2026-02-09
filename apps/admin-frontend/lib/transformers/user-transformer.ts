@@ -72,7 +72,7 @@ export function transformBackendUser(backendUser: BackendUserSummary): User {
     // Timestamps
     createdAt: new Date(backendUser.created_at),
     updatedAt: new Date(backendUser.updated_at),
-    lastLogin: backendUser.last_login_at ? new Date(backendUser.last_login_at) : undefined,
+    lastLogin: (backendUser.last_login_at !== undefined && backendUser.last_login_at !== '') ? new Date(backendUser.last_login_at) : undefined,
 
     // Platform context
     permissions,
@@ -101,7 +101,7 @@ export function transformBackendUsersResponse(
  * @param isActive
  */
 function mapBackendStatus(backendStatus?: string, isActive?: boolean): 'active' | 'disabled' | 'pending' | 'suspended' | 'trial' {
-  if (backendStatus) {
+  if (backendStatus !== undefined && backendStatus !== '') {
     const status = backendStatus.toLowerCase();
     switch (status) {
       case 'active':
@@ -113,10 +113,10 @@ function mapBackendStatus(backendStatus?: string, isActive?: boolean): 'active' 
       case 'deleted':
         return 'disabled';
       default:
-        return isActive ? 'active' : 'disabled';
+        return isActive === true ? 'active' : 'disabled';
     }
   }
-  return isActive ? 'active' : 'disabled';
+  return isActive === true ? 'active' : 'disabled';
 }
 
 /**
@@ -130,7 +130,7 @@ function derivePlatforms(permissions: string[]): string[] {
     const parts = permission.split(':');
     if (parts.length >= 1) {
       const platform = parts[0];
-      if (platform && platform !== 'admin') {
+      if (platform !== undefined && platform !== '' && platform !== 'admin') {
         platformSet.add(platform);
       }
     }
@@ -169,12 +169,12 @@ export function createMockUser(overrides: Partial<BackendUserSummary> = {}): Use
  */
 function validateOptionalFields(d: Record<string, unknown>): boolean {
   return (
-    (d.email === undefined ?? typeof d.email === 'string') &&
-    (d.display_name === undefined ?? typeof d.display_name === 'string') &&
-    (d.role === undefined ?? typeof d.role === 'string') &&
-    (d.status === undefined ?? typeof d.status === 'string') &&
-    (d.email_verified === undefined ?? typeof d.email_verified === 'boolean') &&
-    (d.last_login_at === undefined ?? typeof d.last_login_at === 'string')
+    (d.email === undefined || typeof d.email === 'string') &&
+    (d.display_name === undefined || typeof d.display_name === 'string') &&
+    (d.role === undefined || typeof d.role === 'string') &&
+    (d.status === undefined || typeof d.status === 'string') &&
+    (d.email_verified === undefined || typeof d.email_verified === 'boolean') &&
+    (d.last_login_at === undefined || typeof d.last_login_at === 'string')
   );
 }
 
@@ -183,7 +183,7 @@ function validateOptionalFields(d: Record<string, unknown>): boolean {
  * @param data
  */
 export function validateBackendUser(data: unknown): data is BackendUserSummary {
-  if (typeof data !== 'object' ?? data === null) {
+  if (typeof data !== 'object' || data === null) {
     return false;
   }
 

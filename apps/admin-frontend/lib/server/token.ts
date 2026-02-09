@@ -55,7 +55,7 @@ export async function verifyJWTWithBackend(token: string): Promise<EPSXJWTPayloa
   try {
     const walletAddress = getWalletAddressFromToken(token);
 
-    if (!walletAddress) {
+    if (walletAddress === null || walletAddress === '') {
       logger.error('❌ Could not extract wallet address from token');
       return null;
     }
@@ -76,7 +76,7 @@ export async function verifyJWTWithBackend(token: string): Promise<EPSXJWTPayloa
 
     if (!response.ok) {
       // If backend says 401/403, the token is invalid
-      if (response.status === 401 ?? response.status === 403) {
+      if (response.status === 401 || response.status === 403) {
         logger.warn(`⚠️ Backend rejected session: ${response.status}`);
       } else if (response.status === 404) {
         // Handle 404 specifically - might mean user not found despite valid token signature
@@ -135,7 +135,7 @@ export async function verifyJWTWithBackend(token: string): Promise<EPSXJWTPayloa
 export async function verifyJWTFromCookies(): Promise<EPSXJWTPayload | null> {
   try {
     const token = await getJWTFromCookies();
-    if (!token) { return null; }
+    if (token === null || token === '') { return null; }
 
     return await verifyJWTWithBackend(token);
   } catch (error) {

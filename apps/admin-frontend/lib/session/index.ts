@@ -24,7 +24,7 @@ export async function getServerSessionAdmin(): Promise<AdminSessionData> {
     const cookieStore = await cookies();
     const accessToken = cookieStore.get(COOKIES.access_token)?.value;
 
-    if (!accessToken) {
+    if (accessToken === undefined || accessToken === '') {
       return { isAuthenticated: false };
     }
 

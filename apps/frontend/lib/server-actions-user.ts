@@ -99,6 +99,7 @@ export async function getPaymentHistory() {
     }
 
     // Map backend response to Transaction format expected by PaymentStatusSection
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     const payments = response.data.payments || [];
     return payments.map((payment: Record<string, unknown>) => ({
       orderNo: (payment.payment_reference as string) || (payment.id as string) || '',
@@ -207,6 +208,7 @@ export async function getPaymentStatus(paymentId?: string) {
         { cache: 'no-store' }
       );
       return {
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
         status: paymentResponse.data?.payment?.status ?? 'unknown',
         activeSubscription,
         paymentHistory: []

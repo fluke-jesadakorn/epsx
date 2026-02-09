@@ -96,7 +96,7 @@ export function DynamicPaymentWidget({
     context,
     className,
     onPaymentSuccess,
-    onPaymentError,
+    onPaymentError: _onPaymentError,
 }: DynamicPaymentWidgetProps) {
     const { address, isConnected } = useAccount();
     const chainId = useChainId();

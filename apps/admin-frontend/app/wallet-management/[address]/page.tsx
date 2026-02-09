@@ -7,7 +7,8 @@
 import { TrashDropZone } from '@/components/wallet/trash-drop-zone';
 import type {
     DragEndEvent,
-    DragStartEvent} from '@dnd-kit/core';
+    DragStartEvent
+} from '@dnd-kit/core';
 import {
     DndContext,
     DragOverlay,
@@ -16,19 +17,13 @@ import {
     useSensor,
     useSensors
 } from '@dnd-kit/core';
-import {
-    ArrowLeft,
-    Copy,
-    ExternalLink,
-    Key, Loader2, Package,
-    RefreshCw,
-    Save,
-    ShieldCheck
-} from 'lucide-react';
+import { ArrowLeft, Copy, ExternalLink, Key, Loader2, Package, RefreshCw, Save, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
+
+import { logger } from '@/shared/utils/logger';
 
 import {
     disableWalletAction,
@@ -41,7 +36,7 @@ import { ExpiryDatePicker } from '@/components/wallet/expiry-date-picker';
 import { ReenableWalletModal, type ReenableWalletData } from '@/components/wallet/reenable-wallet-modal';
 import type { WalletData, WalletStatus } from '@/components/wallet/types';
 import { DraggablePlanItem, DroppablePlanList } from '@/components/wallet/wallet-components';
-import type { AccessItem} from '@/hooks/use-wallet-access';
+import type { AccessItem } from '@/hooks/use-wallet-access';
 import { useWalletAccess } from '@/hooks/use-wallet-access';
 import { cn, copyToClipboard } from '@/lib/utils';
 import { createPlansClient, type SubscriptionResponse } from '@/shared/api/plans';
@@ -87,14 +82,14 @@ function useWalletData(ctx: UseWalletDataContext) {
     const [isRefreshing, setIsRefreshing] = useState(false);
 
     const loadWallet = useCallback(async () => {
-        if (!ctx.walletAddress) { return; }
+        if (ctx.walletAddress === '') { return; }
 
         try {
             setIsRefreshing(true);
             const walletData = await fetchWalletDetailAction(ctx.walletAddress);
             setWallet(walletData);
         } catch (_err) {
-            console.error('Failed to load wallet:', _err);
+            logger.error('Failed to load wallet:', _err);
             toast.error('Failed to load wallet details');
             ctx.router.push('/wallet-management');
         } finally {
@@ -112,7 +107,7 @@ function useMetadataForm(wallet: WalletData | null) {
     const [hasChanges, setHasChanges] = useState(false);
 
     useEffect(() => {
-        if (wallet) {
+        if (wallet !== null) {
             setMetadataForm({
                 label: wallet.label ?? '',
                 note: wallet.note ?? '',
@@ -122,7 +117,7 @@ function useMetadataForm(wallet: WalletData | null) {
     }, [wallet]);
 
     const handleSave = useCallback(async (walletAddress: string, loadWallet: () => Promise<void>) => {
-        if (!wallet) { return; }
+        if (wallet === null) { return; }
         setIsSaving(true);
         try {
             await updateWalletMetadataAction(walletAddress, {
@@ -133,7 +128,7 @@ function useMetadataForm(wallet: WalletData | null) {
             setHasChanges(false);
             await loadWallet();
         } catch (_err) {
-            console.error('Failed to update metadata:', _err);
+            logger.error('Failed to update metadata:', _err);
             toast.error('Failed to save changes');
         } finally {
             setIsSaving(false);
@@ -157,7 +152,7 @@ function usePlanAssignments(accessData: ReturnType<typeof useWalletAccess>['data
             setPendingDrops([]);
             refreshAccess();
         } catch (_err) {
-            console.error('Failed to save changes:', _err);
+            logger.error('Failed to save changes:', _err);
             toast.error('Failed to assign plans');
         } finally {
             setIsSaving(false);
@@ -190,7 +185,7 @@ function useWalletActions(ctx: UseWalletActionsContext) {
             toast.success('Wallet disabled successfully');
             await ctx.onActionComplete();
         } catch (_err) {
-            console.error('Failed to disable wallet:', _err);
+            logger.error('Failed to disable wallet:', _err);
             toast.error(_err instanceof Error ? _err.message : 'Failed to disable wallet');
         } finally {
             setIsLoading(false);
@@ -209,7 +204,7 @@ function useWalletActions(ctx: UseWalletActionsContext) {
             toast.success('Wallet re-enabled successfully');
             await ctx.onActionComplete();
         } catch (_err) {
-            console.error('Failed to re-enable wallet:', _err);
+            logger.error('Failed to re-enable wallet:', _err);
             toast.error(_err instanceof Error ? _err.message : 'Failed to re-enable wallet');
         } finally {
             setIsLoading(false);
@@ -224,21 +219,21 @@ function useSubscriptionData(walletAddress: string) {
     const [isLoading, setIsLoading] = useState(false);
 
     useEffect(() => {
-        if (!walletAddress) { return; }
+        if (walletAddress === '') { return; }
 
         const loadSubscription = async () => {
             setIsLoading(true);
             try {
                 const client = createPlansClient(createAdminApiClient());
                 const res = await client.getSubscriptions({ limit: 100 });
-                if (res?.success && res.data?.subscriptions) {
+                if (res?.success === true && res.data?.subscriptions !== undefined) {
                     const sub = res.data.subscriptions.find((s: SubscriptionResponse) =>
                         s.user_id === walletAddress && s.status === 'active'
                     );
-                    if (sub) { setActiveSub(sub); }
+                    if (sub !== undefined) { setActiveSub(sub); }
                 }
             } catch (_e) {
-                console.error('Failed to load subscription details', _e);
+                logger.error('Failed to load subscription details', _e);
             } finally {
                 setIsLoading(false);
             }
@@ -321,7 +316,7 @@ export default function WalletDetailPage() {
             !assignedIds.has(g.id) &&
             !pendingIds.has(g.id) &&
             (g.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                g.description?.toLowerCase().includes(searchQuery.toLowerCase()))
+                (g.description?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false))
         );
     }, [accessData.availablePlans, accessData.authorizedPlans, pendingDrops, searchQuery]);
 
@@ -389,7 +384,7 @@ export default function WalletDetailPage() {
     const statusConfig = walletData.wallet ? STATUS_CONFIG[walletData.wallet.status] : STATUS_CONFIG.active;
     const hasPending = pendingDrops.length > 0;
 
-    if (authLoading ?? walletData.isLoading) {
+    if (authLoading === true || walletData.isLoading === true) {
         return (
             <div className="p-6">
                 <div className="max-w-6xl mx-auto space-y-6">
@@ -432,10 +427,10 @@ export default function WalletDetailPage() {
                         <Button
                             variant="outline"
                             onClick={() => { walletData.loadWallet(); refreshAccess(); }}
-                            disabled={walletData.isRefreshing}
+                            disabled={walletData.isRefreshing === true}
                             className="gap-2"
                         >
-                            <RefreshCw className={cn('h-4 w-4', walletData.isRefreshing && 'animate-spin')} />
+                            <RefreshCw className={cn('h-4 w-4', walletData.isRefreshing === true && 'animate-spin')} />
                             Refresh
                         </Button>
                     </div>
@@ -599,7 +594,7 @@ export default function WalletDetailPage() {
                                                         <div key={key}>
                                                             <span className="text-[10px] text-slate-500 uppercase font-medium">{key.replace('_', ' ')}</span>
                                                             <div className="text-sm font-mono text-slate-300">
-                                                                {value} / {subscriptionData.activeSub?.quota_limits?.[key] ?? '∞'}
+                                                                {String(value)} / {subscriptionData.activeSub?.quota_limits?.[key] !== undefined ? String(subscriptionData.activeSub.quota_limits[key]) : '∞'}
                                                             </div>
                                                         </div>
                                                     ))}
@@ -647,7 +642,7 @@ export default function WalletDetailPage() {
                                                     g.name.toLowerCase().includes(assignedSearchQuery.toLowerCase())
                                                 )}
                                                 emptyMessage="Drag plans here from the left to assign access"
-                                                onEdit={(item) => setEditingItem({ item, type: 'plan' })}
+                                                onEdit={(item) => setEditingItem({ item: item as unknown as AccessItem, type: 'plan' })}
                                                 onManage={(item) => handleManagePlan(item.id)}
                                                 onDelete={(id) => {
                                                     if (pendingDrops.find(p => p.id === id)) {
@@ -696,7 +691,7 @@ export default function WalletDetailPage() {
 
                 {/* DND Overlay */}
                 <DragOverlay>
-                    {activeDragItem && (
+                    {activeDragItem !== null && (
                         <div className={cn(
                             "flex items-center gap-2 px-3 py-2 bg-white dark:bg-gray-800 rounded-lg shadow-xl border opacity-90 scale-105 pointer-events-none",
                             activeDragItem.type === 'permission' ? "border-blue-500" : "border-purple-500"
@@ -712,10 +707,10 @@ export default function WalletDetailPage() {
                 </DragOverlay>
 
                 {/* Trash Zone */}
-                <TrashDropZone isDragging={Boolean(activeDragItem)} />
+                <TrashDropZone isDragging={activeDragItem !== null} />
 
                 {/* Disable/Re-enable Modals */}
-                {showDisableModal && (
+                {showDisableModal === true && (
                     <DisableWalletModal
                         walletAddress={walletData.wallet?.walletAddress ?? ''}
                         isOpen={true}
@@ -724,10 +719,10 @@ export default function WalletDetailPage() {
                         isLoading={walletActions.isLoading}
                     />
                 )}
-                {showReenableModal && walletData.wallet?.disableInfo && (
+                {showReenableModal === true && walletData.wallet?.disableInfo !== undefined && (
                     <ReenableWalletModal
                         walletAddress={walletData.wallet?.walletAddress ?? ''}
-                        disableInfo={walletData.wallet?.disableInfo}
+                        disableInfo={walletData.wallet.disableInfo}
                         isOpen={true}
                         onClose={() => setShowReenableModal(false)}
                         onConfirm={walletActions.handleReenable}
@@ -736,19 +731,19 @@ export default function WalletDetailPage() {
                 )}
 
                 {/* Expiry Date Picker for Editing */}
-                {editingItem && (
+                {editingItem !== null && (
                     <ExpiryDatePicker
                         itemName={editingItem.item.name}
                         itemType={editingItem.type}
                         isOpen={true}
                         onConfirm={async (date) => {
                             try {
-                                const expiry = date ? date.toISOString() : undefined;
+                                const expiry = date !== null ? date.toISOString() : undefined;
 
                                 // Check if item is in pending list
                                 const isPending = pendingDrops.some(p => p.id === editingItem.item.id);
 
-                                if (isPending) {
+                                if (isPending === true) {
                                     setPendingDrops(prev => prev.map(p =>
                                         p.id === editingItem.item.id
                                             ? { ...p, expiresAt: expiry }

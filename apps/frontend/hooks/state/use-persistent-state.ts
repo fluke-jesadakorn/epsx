@@ -47,7 +47,7 @@ interface PersistentStateOptions<T> {
   serialize?: (value: T) => string;
   deserialize?: (value: string) => T;
   version?: number;
-  migrate?: (oldValue: any, oldVersion: number) => T;
+  migrate?: (oldValue: unknown, oldVersion: number) => T;
 }
 
 export function usePersistentState<T>(options: PersistentStateOptions<T>) {
@@ -177,19 +177,20 @@ export function useUserPreferences() {
     key: 'epsx-user-preferences',
     defaultValue: defaultPreferences,
     version: 2,
-    migrate: (oldPrefs: any, oldVersion: number) => {
+    migrate: (oldPrefs: unknown, oldVersion: number) => {
       // Example migration from v1 to v2
       if (oldVersion < 2) {
+        const oldPrefObj = oldPrefs as Record<string, unknown> | null;
         return {
           ...defaultPreferences,
-          ...oldPrefs,
+          ...(oldPrefObj ?? {}),
           trading: {
             ...defaultPreferences.trading,
-            ...(oldPrefs.trading ?? {})
+            ...(oldPrefObj?.trading ?? {})
           }
         };
       }
-      return oldPrefs;
+      return (oldPrefs as UserPreferences) ?? defaultPreferences;
     }
   });
 }
@@ -204,16 +205,16 @@ export function useTemporaryPersistentState<T>(key: string, defaultValue: T) {
 }
 
 // Hook for form state persistence
-export function useFormPersistence<T extends Record<string, any>>(
+export function useFormPersistence<T extends Record<string, unknown>>(
   formId: string,
   initialValues: T,
-  options: { 
+  options: {
     clearOnSubmit?: boolean;
     ttl?: number; // Time to live in milliseconds
   } = {}
 ) {
   const { clearOnSubmit = true, ttl } = options;
-  
+
   const [formData, setFormData, { clear }] = useSessionStorage(
     `form-${formId}`,
     { values: initialValues, timestamp: Date.now() }
@@ -223,7 +224,7 @@ export function useFormPersistence<T extends Record<string, any>>(
   const isExpired = ttl && (Date.now() - formData.timestamp) > ttl;
   const currentValues = isExpired ? initialValues : formData.values;
 
-  const updateField = useCallback((field: keyof T, value: any) => {
+  const updateField = useCallback((field: keyof T, value: unknown) => {
     setFormData(prev => ({
       values: { ...prev.values, [field]: value },
       timestamp: Date.now()

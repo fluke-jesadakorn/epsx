@@ -58,7 +58,7 @@ export interface NotificationResponse {
   sender: 'system' | 'admin' | 'automated';
   imageUrl?: string;
   actionUrl?: string;
-  customData?: Record<string, any>;
+  customData?: Record<string, unknown>;
   createdAt: string;
   readAt?: string;
   clickedAt?: string;
@@ -75,7 +75,7 @@ export interface Notification {
   sender: 'system' | 'admin' | 'automated';
   imageUrl?: string;
   actionUrl?: string;
-  customData?: Record<string, any>;
+  customData?: Record<string, unknown>;
   createdAt: string;
   readAt?: string;
   clickedAt?: string;
@@ -316,7 +316,7 @@ class FrontendApiClient {
   // Generic HTTP Methods (delegate to UnifiedApiClient)
   // ============================================================================
 
-  async get<T = unknown>(endpoint: string, params?: Record<string, any>): Promise<ApiResponse<T>> {
+  async get<T = unknown>(endpoint: string, params?: Record<string, unknown>): Promise<ApiResponse<T>> {
     return this.client.get<T>(endpoint, params);
   }
 

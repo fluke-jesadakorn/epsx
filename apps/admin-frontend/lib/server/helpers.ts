@@ -66,25 +66,25 @@ export class ServerAuth {
     try {
       const { accessToken, idToken } = await this.getTokens()
 
-      if (!accessToken ?? !idToken) {
+      if (accessToken === undefined || idToken === undefined) {
         return { isLoggedIn: false }
       }
 
       // Decode ID token to get user info (basic JWT decode without verification)
       const payload = this.decodeJWT(idToken)
 
-      if (!payload) {
+      if (payload === null) {
         return { isLoggedIn: false }
       }
 
       // Extract user information from ID token
       const user = {
-        id: payload.sub ?? payload.user_id ?? '',
-        email: payload.email ?? '',
-        name: payload.name ?? payload.display_name ?? '',
-        role: payload.role ?? 'user',
-        permissions: payload.permissions ?? [],
-        packageTier: payload.package_tier ?? 'basic'
+        id: (payload.sub ?? payload.user_id ?? '') as string,
+        email: (payload.email ?? '') as string,
+        name: (payload.name ?? payload.display_name ?? '') as string,
+        role: (payload.role ?? 'user') as string,
+        permissions: (payload.permissions ?? []) as string[],
+        packageTier: (payload.package_tier ?? 'basic') as string
       }
 
       return {
@@ -94,7 +94,6 @@ export class ServerAuth {
         idToken
       }
     } catch (error) {
-
       logger.error('Error getting admin session:', error)
       return { isLoggedIn: false }
     }
@@ -163,10 +162,10 @@ export class ServerAuth {
    * @param token
    */
   static isTokenExpired(token?: string): boolean {
-    if (!token) { return true }
+    if (token === undefined || token === '') { return true }
 
     const payload = this.decodeJWT(token)
-    if (!payload?.exp) { return true }
+    if (payload?.exp === undefined || payload.exp === 0) { return true }
 
     const now = Math.floor(Date.now() / 1000)
     return payload.exp < now
@@ -179,20 +178,20 @@ export class ServerAuth {
   static async getUserFromToken(): Promise<AdminSession['user'] | null> {
     const { idToken } = await this.getTokens()
 
-    if (!idToken ?? this.isTokenExpired(idToken)) {
+    if (idToken === undefined || idToken === '' || this.isTokenExpired(idToken)) {
       return null
     }
 
     const payload = this.decodeJWT(idToken)
-    if (!payload) { return null }
+    if (payload === null) { return null }
 
     return {
-      id: payload.sub ?? payload.user_id ?? '',
-      email: payload.email ?? '',
-      name: payload.name ?? payload.display_name ?? '',
-      role: payload.role ?? 'user',
-      permissions: payload.permissions ?? [],
-      packageTier: payload.package_tier ?? 'basic'
+      id: (payload.sub ?? payload.user_id ?? '') as string,
+      email: (payload.email ?? '') as string,
+      name: (payload.name ?? payload.display_name ?? '') as string,
+      role: (payload.role ?? 'user') as string,
+      permissions: (payload.permissions ?? []) as string[],
+      packageTier: (payload.package_tier ?? 'basic') as string
     }
   }
 
@@ -207,7 +206,7 @@ export class ServerAuth {
       'Content-Type': 'application/json'
     }
 
-    if (accessToken && !this.isTokenExpired(accessToken)) {
+    if (accessToken !== undefined && accessToken !== '' && !this.isTokenExpired(accessToken)) {
       headers['Authorization'] = `Bearer ${accessToken}`
     }
 
@@ -226,7 +225,7 @@ export class PermissionUtils {
    * @param permission
    */
   static isAdminPermission(permission: string): boolean {
-    return permission.startsWith('admin:') ?? permission === 'admin:*:*'
+    return permission.startsWith('admin:') || permission === 'admin:*:*'
   }
 
   // Extract platform from permission
@@ -263,7 +262,7 @@ export class PermissionUtils {
    * @param pattern
    */
   static matchesPattern(permission: string, pattern: string): boolean {
-    if (pattern === '*' ?? pattern === permission) { return true }
+    if (pattern === '*' || pattern === permission) { return true }
 
     const permParts = permission.split(':')
     const patternParts = pattern.split(':')
@@ -271,7 +270,7 @@ export class PermissionUtils {
     if (patternParts.length !== permParts.length) { return false }
 
     return patternParts.every((part, index) =>
-      part === '*' ?? part === permParts[index]
+      part === '*' || part === permParts[index]
     )
   }
 

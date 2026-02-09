@@ -109,7 +109,7 @@ export default function AnalyticsDashboard({
         <FilterPanel
           filters={filters}
           options={{
-            countries: currentFilterOptions.countries.map((c: string | { value: string }) => typeof c === 'string' ? c : (c as { value: string }).value),
+            countries: currentFilterOptions.countries.map((c: string | { value: string }) => typeof c === 'string' ? c : c.value),
             sectors: currentFilterOptions.sectors,
             exchanges: currentFilterOptions.exchanges,
             stock_types: currentFilterOptions.stock_types
@@ -338,6 +338,18 @@ function QoQLeadersSkeleton() {
 }
 
 // Rankings list component
+interface StockRanking {
+  symbol: string;
+  rank?: number;
+  epsGrowth?: number;
+  price?: number;
+  price_current?: number;
+  current_price?: number;
+  name?: string;
+  companyName?: string;
+  [key: string]: unknown;
+}
+
 interface RankingsListProps {
   data: UnifiedAnalyticsRankingsResponse | null;
   isLoading: boolean;
@@ -360,15 +372,15 @@ function RankingsList({ data, isLoading, onPageChange, onReset }: RankingsListPr
       <div className="sm:hidden">
         <div className="overflow-x-auto">
           <div className="flex gap-4 pb-4" style={{ width: 'max-content' }}>
-            {data.rankings.map((ranking, index: number) => (
+            {data.rankings.map((ranking: StockRanking, index: number) => (
               <div key={ranking.symbol} className="w-80 flex-shrink-0">
                 <StockDataCard
                   symbol={ranking.symbol}
                   rank={(ranking.rank) || index + 1}
                   epsGrowth={(ranking.epsGrowth) || 0}
-                  price={(ranking as any).price ?? (ranking as any).price_current ?? (ranking as any).current_price ?? 0}
+                  price={ranking.price ?? ranking.price_current ?? ranking.current_price ?? 0}
                   currency="USD"
-                  companyName={(ranking as any).name ?? (ranking as any).companyName}
+                  companyName={ranking.name ?? ranking.companyName}
                 />
               </div>
             ))}
@@ -384,15 +396,15 @@ function RankingsList({ data, isLoading, onPageChange, onReset }: RankingsListPr
 
       {/* Desktop: Grid layout */}
       <div className="mb-6 hidden sm:grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {data.rankings.map((ranking) => (
+        {data.rankings.map((ranking: StockRanking) => (
           <StockDataCard
             key={ranking.symbol}
             symbol={ranking.symbol}
             rank={(ranking.rank) || 0}
             epsGrowth={(ranking.epsGrowth) || 0}
-            price={(ranking as any).price ?? (ranking as any).price_current ?? (ranking as any).current_price ?? 0}
+            price={ranking.price ?? ranking.price_current ?? ranking.current_price ?? 0}
             currency="USD"
-            companyName={(ranking as any).name ?? (ranking as any).companyName}
+            companyName={ranking.name ?? ranking.companyName}
           />
         ))}
       </div>

@@ -10,16 +10,16 @@
  */
 
 // Access the global Math object safely
-const anyMath = Math as any;
+const anyMath = Math as Record<string, unknown>;
 
 // Prevent infinite recursion if the file is re-evaluated and check for existing polyfill
-if (!anyMath.pow.__isPolyfilled) {
+if (!(anyMath.pow as Record<string, boolean>)?.__isPolyfilled) {
     const originalPow = Math.pow;
 
     // Define the polyfill function
     // Override native math function to support BigInt
     // @ts-ignore - overriding native math function to support BigInt
-    Math.pow = function (base: number | bigint, exponent: number | bigint) {
+    Math.pow = function (base: number | bigint, exponent: number | bigint): number | bigint {
         // Case 1: Both BigInt
         if (typeof base === 'bigint' && typeof exponent === 'bigint') {
             try {
@@ -87,24 +87,24 @@ if (!anyMath.pow.__isPolyfilled) {
     };
 
     // Mark as polyfilled to prevent re-wrapping
-    (Math.pow as any).__isPolyfilled = true;
+    (anyMath.pow as Record<string, boolean>).__isPolyfilled = true;
 
     // Also polyfill common Math functions that might be called with BigInt during transpilation
     const mathFuncs = ['floor', 'ceil', 'round', 'trunc', 'abs'];
     mathFuncs.forEach(func => {
-        const original = (Math as any)[func];
-        if (original && !original.__isPolyfilled) {
-            (Math as any)[func] = function (val: any) {
+        const original = anyMath[func] as (val: number | bigint) => number | bigint;
+        if (original && !(original as Record<string, boolean>).__isPolyfilled) {
+            anyMath[func] = function (val: number | bigint): number | bigint {
                 if (typeof val === 'bigint') {return val;}
                 return original.call(Math, val);
             };
-            (Math as any)[func].__isPolyfilled = true;
+            (anyMath[func] as Record<string, boolean>).__isPolyfilled = true;
         }
     });
 
     // CRITICAL: Self-test the polyfill immediately
     try {
-        const result = (Math.pow as any)(2n, 3n);
+        const result = (Math.pow as (a: number | bigint, b: number | bigint) => number | bigint)(2n, 3n);
         if ((result) !== 8n) {
         }
     } catch (e) {
@@ -115,8 +115,8 @@ if (!anyMath.pow.__isPolyfilled) {
 // Some dependencies (like @walletconnect/keyvaluestorage) try to access localStorage during module initialization
 // even in SSR environments, causing crashes. We provide a dummy implementation to satisfy them.
 if (typeof window === 'undefined' && typeof global !== 'undefined') {
-    const g = global as any;
-    if (!g.localStorage || typeof g.localStorage.getItem !== 'function') {
+    const g = global as Record<string, unknown>;
+    if (!g.localStorage || typeof (g.localStorage as Record<string, unknown>).getItem !== 'function') {
         g.localStorage = {
             getItem: () => null,
             setItem: () => { },
