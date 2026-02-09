@@ -24,6 +24,14 @@ import {
 
 export type AccessItemType = 'permission' | 'plan';
 
+interface RawPlanData {
+  id: string;
+  name: string;
+  description?: string;
+  permissions?: string[];
+  member_count?: number;
+}
+
 export interface AccessItem {
     id: string;
     type: AccessItemType;
@@ -76,8 +84,8 @@ export interface UseWalletAccessReturn {
 // ============================================================================
 
 /**
- *
- * @param walletAddress
+ * Hook for managing wallet permissions and plans
+ * @param walletAddress Wallet address to manage access for
  */
 export function useWalletAccess(walletAddress: string | null): UseWalletAccessReturn {
     const [isLoading, setIsLoading] = useState(false);
@@ -114,14 +122,14 @@ export function useWalletAccess(walletAddress: string | null): UseWalletAccessRe
                     const result = await getUserPlansAction(walletAddress);
                     walletPlans = Array.isArray(result) ? result : [];
                 } catch {
-                    // 404 means no plans assigned
+                    // Silently fail - 404 means no plans assigned
                 }
 
                 try {
                     const result = await getUserPermissionsAction(walletAddress);
                     walletPermissions = Array.isArray(result) ? result : [];
                 } catch {
-                    // 404 means no permissions assigned
+                    // Silently fail - 404 means no permissions assigned
                 }
             }
 
@@ -142,14 +150,14 @@ export function useWalletAccess(walletAddress: string | null): UseWalletAccessRe
             });
 
             // Convert plans to AccessItems
-            const planItems: AccessItem[] = plansRaw.map((g: any) => ({
-                id: g.id as string,
+            const planItems: AccessItem[] = (plansRaw as RawPlanData[]).map((g) => ({
+                id: g.id,
                 type: 'plan' as const,
-                name: g.name as string,
-                description: g.description as string | undefined,
-                permissionCount: (g.permissions as string[] | undefined)?.length ?? 0,
-                permissions: (g.permissions as string[] | undefined) ?? [],
-                memberCount: g.member_count as number | undefined,
+                name: g.name,
+                description: g.description,
+                permissionCount: g.permissions?.length ?? 0,
+                permissions: g.permissions ?? [],
+                memberCount: g.member_count,
             }));
 
             // Split into available/authorized
@@ -181,7 +189,7 @@ export function useWalletAccess(walletAddress: string | null): UseWalletAccessRe
 
     // Load on mount and wallet change
     useEffect(() => {
-        loadData();
+        void loadData();
     }, [loadData]);
 
     // Assign permission
@@ -230,7 +238,7 @@ export function useWalletAccess(walletAddress: string | null): UseWalletAccessRe
 
     // Batch assign permissions
     const batchAssignPermissions = useCallback(async (permissionIds: string[], expiresAt?: string) => {
-        if (!walletAddress ?? permissionIds.length === 0) { return; }
+        if (!walletAddress || permissionIds.length === 0) { return; }
         try {
             await Promise.all(
                 permissionIds.map(permissionId =>
@@ -245,7 +253,7 @@ export function useWalletAccess(walletAddress: string | null): UseWalletAccessRe
 
     // Batch revoke permissions
     const batchRevokePermissions = useCallback(async (permissionIds: string[]) => {
-        if (!walletAddress ?? permissionIds.length === 0) { return; }
+        if (!walletAddress || permissionIds.length === 0) { return; }
         try {
             await Promise.all(
                 permissionIds.map(permissionId =>

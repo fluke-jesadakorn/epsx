@@ -80,6 +80,7 @@ const PERMISSION_ICONS: Record<string, React.ElementType> = {
 function getPermissionIcon(permission: string): React.ElementType {
     const parts = permission.toLowerCase().split(':');
     for (const part of parts) {
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
         if (PERMISSION_ICONS[part]) {
             return PERMISSION_ICONS[part];
         }

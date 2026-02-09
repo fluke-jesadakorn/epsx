@@ -218,8 +218,8 @@ export function WalletSubscriptionCard({
                 )}
 
                 <div className="flex justify-between items-center text-xs text-slate-500 pt-2">
-                    <span>Started: {subscription.created_at ? new Date(subscription.created_at).toLocaleDateString() : 'Never'}</span>
-                    <span>Expires: {subscription.expires_at ? new Date(subscription.expires_at).toLocaleDateString() : 'Never'}</span>
+                    <span>Started: {subscription.created_at !== '' ? new Date(subscription.created_at).toLocaleDateString() : 'Never'}</span>
+                    <span>Expires: {subscription.expires_at !== undefined && subscription.expires_at !== '' ? new Date(subscription.expires_at).toLocaleDateString() : 'Never'}</span>
                 </div>
             </div>
         </div>

@@ -499,18 +499,22 @@ export default function WalletDetailPage() {
                                             toast.info('Removed from staging');
                                         } else {
                                             const plan = accessData.authorizedPlans.find(g => g.id === id);
-                                            if (confirm(`Are you sure you want to remove access to "${plan?.name ?? 'this plan'}"?`)) {
-                                                removePlan(id).then(() => {
-                                                    toast.success('Plan access revoked');
-                                                    refreshAccess();
-                                                }).catch(() => {
-                                                    toast.error('Failed to revoke plan access');
-                                                });
+                                            if (window.confirm(`Are you sure you want to remove access to "${plan?.name ?? 'this plan'}"?`)) {
+                                                const handleRemove = async () => {
+                                                    try {
+                                                        await removePlan(id);
+                                                        toast.success('Plan access revoked');
+                                                        void refreshAccess();
+                                                    } catch (_err) {
+                                                        toast.error('Failed to revoke plan access');
+                                                    }
+                                                };
+                                                void handleRemove();
                                             }
                                         }
                                     }}
                                     onDiscard={() => setPendingDrops([])}
-                                    onSave={handleSavePendingChanges}
+                                    onSave={() => { void handleSavePendingChanges(); }}
                                     isSaving={isSavingPending}
                                     hasPending={hasPending}
                                 />
@@ -550,9 +554,9 @@ export default function WalletDetailPage() {
                         isLoading={walletActions.isLoading}
                     />
                 )}
-                {showReenableModal === true && walletData.wallet?.disableInfo !== undefined && (
+                {showReenableModal === true && walletData.wallet.disableInfo !== undefined && (
                     <ReenableWalletModal
-                        walletAddress={walletData.wallet?.walletAddress ?? ''}
+                        walletAddress={walletData.wallet.walletAddress}
                         disableInfo={walletData.wallet.disableInfo}
                         isOpen={true}
                         onClose={() => setShowReenableModal(false)}
@@ -567,32 +571,32 @@ export default function WalletDetailPage() {
                         itemName={editingItem.item.name}
                         itemType={editingItem.type}
                         isOpen={true}
-                        onConfirm={async (date) => {
-                            try {
-                                const expiry = date !== null ? date.toISOString() : undefined;
+                        onConfirm={(date) => {
+                            const handleConfirm = async () => {
+                                try {
+                                    const expiry = date !== null ? date.toISOString() : undefined;
 
-                                // Check if item is in pending list
-                                const isPending = pendingDrops.some(p => p.id === editingItem.item.id);
+                                    // Check if item is in pending list
+                                    const isPending = pendingDrops.some(p => p.id === editingItem.item.id);
 
-                                if (isPending === true) {
-                                    setPendingDrops(prev => prev.map(p =>
-                                        p.id === editingItem.item.id
-                                            ? { ...p, expiresAt: expiry }
-                                            : p
-                                    ));
-                                    toast.success(`Updated pending expiry for "${editingItem.item.name}"`);
-                                } else {
-                                    if (editingItem.type === 'plan') {
+                                    if (isPending === true) {
+                                        setPendingDrops(prev => prev.map(p =>
+                                            p.id === editingItem.item.id
+                                                ? { ...p, expiresAt: expiry }
+                                                : p
+                                        ));
+                                        toast.success(`Updated pending expiry for "${editingItem.item.name}"`);
+                                    } else if (editingItem.type === 'plan') {
                                         await assignPlan(editingItem.item.id, expiry);
                                         toast.success(`Updated expiry for "${editingItem.item.name}"`);
-                                        refreshAccess();
+                                        void refreshAccess();
                                     }
-                                    // Add permission edit logic here if needed
+                                } catch (_err) {
+                                    toast.error('Failed to update expiry');
                                 }
-                            } catch (err) {
-                                toast.error('Failed to update expiry');
-                            }
-                            setEditingItem(null);
+                                setEditingItem(null);
+                            };
+                            void handleConfirm();
                         }}
                         onCancel={() => setEditingItem(null)}
                     />

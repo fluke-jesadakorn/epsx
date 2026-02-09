@@ -83,6 +83,7 @@ export function EnhancedTouchWrapper({
 
   // Haptic feedback helper
   const triggerHaptic = useCallback((type: 'light' | 'medium' | 'heavy' = 'light') => {
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     if (!enableHaptics || !navigator.vibrate) {return;}
 
     const patterns = {
