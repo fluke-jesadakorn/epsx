@@ -160,7 +160,7 @@ export const accessPolicyClient = {
       };
       const planType = group.plan_type || 'manual';
       const policyType: PolicyType = (typeMap[planType] as PolicyType | undefined) ?? 'manual';
-      stats.byType[policyType] = (stats.byType[policyType] ?? 0) + 1;
+      stats.byType[policyType] = stats.byType[policyType] + 1;
     });
 
     // Add group members from analytics

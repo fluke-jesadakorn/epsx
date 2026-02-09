@@ -3,7 +3,8 @@
 import { logger } from '@/lib/logger';
 import { createPlansClient, type ApiKeyResponse, type Module, type Plan } from '@/shared/api/plans';
 import { createAdminApiClient } from '@/shared/utils';
-import React, { useCallback, useEffect, useState } from 'react';
+import type React from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
 interface UseDeveloperPortalDataReturn {

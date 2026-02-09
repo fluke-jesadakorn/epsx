@@ -4,7 +4,7 @@ import { API_ROUTES } from '@/shared/config/route-constants';
 import { createAdminApiClient } from '@/shared/utils/api-client';
 import { logger } from '@/shared/utils/logger';
 import { useCallback, useState } from 'react';
-import { ActionType, AuditLogEntry } from '../types';
+import type { ActionType, AuditLogEntry } from '../types';
 
 interface UseAuditLogsProps {
     isAuthenticated: boolean;

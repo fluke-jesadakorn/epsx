@@ -7,7 +7,7 @@
  * - Quick stats and usage progress
  * - Supports compact mode for sidebar display
  */
-/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call */
+ 
 'use client';
 
 import { ChevronRight, Gift, Plus, RefreshCw } from 'lucide-react';

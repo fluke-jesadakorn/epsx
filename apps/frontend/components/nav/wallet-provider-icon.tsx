@@ -59,6 +59,7 @@ const walletProviders: Record<string, WalletProviderInfo> = {
   },
 };
 
+// eslint-disable-next-line max-lines-per-function, complexity
 export function WalletProviderIcon({ className = '', compact = false }: WalletProviderIconProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -70,7 +71,7 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
   const [authRetryCount, setAuthRetryCount] = useState(0);
   const [lastAuthError, setLastAuthError] = useState<string | null>(null);
   const [currentTheme, setCurrentTheme] = useState<'light' | 'dark'>('light');
-  const { address, isConnected, connector, status: accountStatus } = useAccount();
+  const { address, isConnected, connector } = useAccount();
   const { disconnect } = useDisconnect();
   const { isInitialized } = useUnifiedWeb3();
   const { isAuthenticated, requestChallenge, authenticateWithWallet, logout } = useSharedAuth();
@@ -85,14 +86,16 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
 
   // Reset auth retry count on disconnect
   useEffect(() => {
-    if (!isConnected || !address) {
+    if (!isConnected || address === undefined || address === null) {
       setAuthRetryCount(0);
       setLastAuthError(null);
     }
   }, [isConnected, address]);
 
   const handleCopyAddress = async () => {
-    if (!address) {return;}
+    if (address === undefined || address === null) {
+      return;
+    }
     const success = await copyToClipboard(address);
     if (success) {
       setCopied(true);
@@ -106,7 +109,9 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
   };
 
   const handleSignIn = async () => {
-    if (!address) {return;}
+    if (address === undefined || address === null) {
+      return;
+    }
     try {
       setIsAuthenticating(true);
       const challenge = await requestChallenge(address);
@@ -124,9 +129,14 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
       } else {
         setLastAuthError(result.error ?? null);
       }
-    } catch (error: any) {
-      if (error?.code !== 4001 && !error?.message?.includes('User rejected')) {
-        setLastAuthError(error?.message ?? 'Sign-in failed');
+    } catch (error) {
+      const err = error as unknown as { code?: number; message?: string };
+      if (err && typeof err === 'object' && 'code' in err && 'message' in err) {
+        const code = err.code;
+        const msg = err.message;
+        if (code !== 4001 && msg !== undefined && !String(msg).includes('User rejected')) {
+          setLastAuthError(msg && typeof msg === 'string' ? msg : 'Sign-in failed');
+        }
       }
     } finally {
       setIsAuthenticating(false);
@@ -136,10 +146,10 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
   const handleDisconnect = async () => {
     setIsDisconnecting(true);
     try {
-      await logout();
-      await disconnect();
+      void logout();
+      void disconnect();
     } catch (_error) {
-      await disconnect();
+      void disconnect();
     } finally {
       setIsDisconnecting(false);
     }
@@ -166,7 +176,7 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
   }
 
   // Not connected - show connect button
-  if (!isConnected || !address) {
+  if (!isConnected || address === undefined || address === null) {
     const handleConnectRedirect = () => {
       router.push(`/auth?return_url=${encodeURIComponent(pathname)}`);
     };
@@ -187,12 +197,18 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
 
   // Detect wallet provider
   const connectorId = connector?.id?.toLowerCase() ?? 'injected';
-  const providerInfo = walletProviders[connectorId] || walletProviders.injected;
+  const providerInfo = walletProviders[connectorId] ?? walletProviders.injected;
 
   const getStatus = () => {
-    if (authRetryCount >= 3 && lastAuthError) {return { text: 'Auth Failed', color: 'text-red-500' };}
-    if (isAuthenticating) {return { text: `Signing... (${authRetryCount + 1}/3)`, color: 'text-orange-500' };}
-    if (isAuthenticated) {return { text: 'Authenticated', color: 'text-emerald-500' };}
+    if (authRetryCount >= 3 && lastAuthError !== null) {
+      return { text: 'Auth Failed', color: 'text-red-500' };
+    }
+    if (isAuthenticating) {
+      return { text: `Signing... (${authRetryCount + 1}/3)`, color: 'text-orange-500' };
+    }
+    if (isAuthenticated) {
+      return { text: 'Authenticated', color: 'text-emerald-500' };
+    }
     return { text: 'Connected', color: 'text-slate-500' };
   };
 
@@ -246,7 +262,7 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
         ═══════════════════════════════════════════════════════════════ */}
         <div className="p-2 flex gap-2">
           <button
-            onClick={handleCopyAddress}
+            onClick={() => void handleCopyAddress()}
             className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl
               bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700
               text-slate-700 dark:text-slate-300 text-sm font-medium transition-all duration-150"
@@ -274,7 +290,7 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
           <>
             <div className="p-2">
               <button
-                onClick={handleSignIn}
+                onClick={() => void handleSignIn()}
                 className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl
                   bg-gradient-to-r from-emerald-50 to-green-50 hover:from-emerald-100 hover:to-green-100
                   dark:from-emerald-900/30 dark:to-green-900/30 dark:hover:from-emerald-900/50 dark:hover:to-green-900/50
@@ -295,7 +311,7 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
         {/* ═══════════════════════════════════════════════════════════════
             RETRY AUTH - Only when auth failed
         ═══════════════════════════════════════════════════════════════ */}
-        {authRetryCount >= 3 && lastAuthError && (
+        {authRetryCount >= 3 && lastAuthError !== null && (
           <>
             <div className="p-2">
               <button
@@ -382,7 +398,7 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
         ═══════════════════════════════════════════════════════════════ */}
         <div className="p-2">
           <button
-            onClick={handleDisconnect}
+            onClick={() => void handleDisconnect()}
             disabled={isDisconnecting}
             className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl
               bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/30

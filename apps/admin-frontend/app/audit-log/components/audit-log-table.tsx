@@ -2,7 +2,7 @@
 
 import { ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
 import React from 'react';
-import { AuditLogEntry } from '../types';
+import type { AuditLogEntry } from '../types';
 import { AuditLogRow } from './audit-log-row';
 
 interface AuditLogTableProps {

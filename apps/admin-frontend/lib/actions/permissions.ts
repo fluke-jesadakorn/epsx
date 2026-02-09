@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-return */
+/* eslint-disable @typescript-eslint/no-unsafe-return */
 
 'use server';
 
@@ -41,7 +41,6 @@ interface PermissionAuditLog {
   ip_address?: string;
   user_agent?: string;
 }
-
 
 const PATH_PERMISSIONS = '/policies';
 const PATH_WALLET_MGMT = '/wallet-management';

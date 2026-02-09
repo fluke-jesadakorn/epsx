@@ -29,7 +29,7 @@ export function useSubscriptionManagement() {
 
             if (isApiSuccess(response)) {
                 const data = response.data as Record<string, SubscriptionResponse[] | undefined>;
-                setSubscriptions(data?.subscriptions ?? (Array.isArray(data) ? data : []));
+                setSubscriptions(data.subscriptions ?? (Array.isArray(data) ? data : []));
             } else {
                 toast({
                     title: "Error",

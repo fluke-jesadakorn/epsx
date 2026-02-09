@@ -13,7 +13,7 @@ import { useSharedAuth } from '@/shared/components/auth/Provider';
 import { AuditLogFilters } from './components/audit-log-filters';
 import { AuditLogTable } from './components/audit-log-table';
 import { useAuditLogs } from './hooks/use-audit-logs';
-import { ActionType } from './types';
+import type { ActionType } from './types';
 
 /**
  * Audit Log Page Component

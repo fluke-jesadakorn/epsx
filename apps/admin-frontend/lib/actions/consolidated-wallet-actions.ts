@@ -634,9 +634,11 @@ export async function searchWalletsAction(searchParams: {
     const queryParams = new URLSearchParams();
 
     Object.entries(searchParams).forEach(([key, value]) => {
-      if (value !== undefined && (typeof value !== 'string' || value !== '')) {
-        queryParams.append(key, value.toString());
+
+      if (typeof value === 'string' && value === '') {
+        return;
       }
+      queryParams.append(key, value.toString());
     });
 
     const response = await makeAuthenticatedRequest<{

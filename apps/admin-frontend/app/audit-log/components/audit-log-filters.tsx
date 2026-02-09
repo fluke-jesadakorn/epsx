@@ -1,7 +1,8 @@
 'use client';
 
 import { Download, RefreshCw, Search } from 'lucide-react';
-import { ACTION_CATEGORIES, ActionType } from '../types';
+import type { ActionType } from '../types';
+import { ACTION_CATEGORIES } from '../types';
 
 interface AuditLogFiltersProps {
     searchQuery: string;

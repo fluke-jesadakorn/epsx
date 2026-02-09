@@ -66,7 +66,7 @@ export function usePolicySection(initialPolicies: AccessPolicy[]) {
 
     const getInitialFilters = (): PolicyFiltersType => {
         const typeParam = searchParams.get('type');
-        if (typeParam && ['subscription', 'manual', 'web3_asset', 'dao', 'system'].includes(typeParam)) {
+        if (typeParam !== null && ['subscription', 'manual', 'web3_asset', 'dao', 'system'].includes(typeParam)) {
             return {
                 ...DEFAULT_POLICY_FILTERS,
                 types: [typeParam as PolicyType],
@@ -81,7 +81,7 @@ export function usePolicySection(initialPolicies: AccessPolicy[]) {
 
     useEffect(() => {
         const typeParam = searchParams.get('type');
-        if (typeParam && ['subscription', 'manual', 'web3_asset', 'dao', 'system'].includes(typeParam)) {
+        if (typeParam !== null && ['subscription', 'manual', 'web3_asset', 'dao', 'system'].includes(typeParam)) {
             setFilters(prev => ({
                 ...prev,
                 types: [typeParam as PolicyType],

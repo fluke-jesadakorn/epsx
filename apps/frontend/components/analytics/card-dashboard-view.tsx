@@ -217,7 +217,7 @@ export function CardDashboardView({ className = '' }: CardDashboardViewProps) {
         sort_by: queryParams.sort_by,
         sort_order: 'desc'
       });
-      if (response && response.pagination && response.metadata) {
+      if (response?.pagination && response.metadata) {
         // Transform rankings data to card dashboard format
         const transformedData = {
           success: true,

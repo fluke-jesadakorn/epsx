@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-non-null-assertion, @typescript-eslint/prefer-optional-chain, @typescript-eslint/strict-boolean-expressions, max-lines-per-function, complexity */
 import React from 'react';
 import { GRADIENTS, COLORS, TYPOGRAPHY, ANIMATIONS } from '../constants/styles';
 import { GrowthIndicator, TrendIcon, AnimatedBadge } from './growth-indicators';

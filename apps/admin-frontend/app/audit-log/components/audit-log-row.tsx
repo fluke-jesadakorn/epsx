@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { AuditLogEntry } from '../types';
+import type { AuditLogEntry } from '../types';
 
 interface AuditLogRowProps {
     log: AuditLogEntry;
