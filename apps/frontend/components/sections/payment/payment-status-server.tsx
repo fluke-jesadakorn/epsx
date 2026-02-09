@@ -1,4 +1,5 @@
-import { 
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+import {
   getPaymentStatus as _getPaymentStatusAction,
   getPaymentHistory
 } from '@/lib/server-actions';

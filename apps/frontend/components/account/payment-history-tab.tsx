@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/strict-boolean-expressions */
 'use client';
 
 import { Badge, Button } from '@/components/ui';

@@ -5,7 +5,7 @@ import React, { useState } from 'react';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
-import { FormField, Input, Select, Textarea } from '@/components/ui/form-components';
+import { FormFieldWrapper as FormField, Input, Select, Textarea } from '@/components/ui/form-components';
 
 interface ApiKeyRequest {
   company_name: string;
@@ -86,8 +86,8 @@ export const ApiKeyRequestForm: React.FC = () => {
     e.preventDefault();
 
     // Basic validation
-    if (!formData.company_name ?? !formData.contact_name ?? !formData.email ||
-      !formData.use_case ?? formData.modules_interested.length === 0) {
+    if (!formData.company_name || !formData.contact_name || !formData.email ||
+      !formData.use_case || formData.modules_interested.length === 0) {
       toast.error('Please fill in all required fields');
       return;
     }
@@ -101,7 +101,7 @@ export const ApiKeyRequestForm: React.FC = () => {
       setIsSubmitted(true);
       toast.success('Your API key request has been submitted successfully!');
     } catch (_error) {
-       
+
       console.error('Failed to submit request:', _error);
       toast.error('Failed to submit request. Please try again.');
     } finally {
@@ -176,7 +176,7 @@ export const ApiKeyRequestForm: React.FC = () => {
           </h2>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <FormField id="company_name" label="Company Name" required>
+            <FormField label="Company Name" required>
               <Input
                 value={formData.company_name}
                 onChange={(e) => handleInputChange('company_name', e.target.value)}
@@ -184,19 +184,16 @@ export const ApiKeyRequestForm: React.FC = () => {
               />
             </FormField>
 
-            <FormField id="company_size" label="Company Size">
+            <FormField label="Company Size">
               <Select
                 value={formData.company_size}
                 onChange={(e) => handleInputChange('company_size', e.target.value)}
-              >
-                <option value="">Select company size</option>
-                {COMPANY_SIZES.map(size => (
-                  <option key={size.value} value={size.value}>{size.label}</option>
-                ))}
-              </Select>
+                placeholder="Select company size"
+                options={COMPANY_SIZES}
+              />
             </FormField>
 
-            <FormField id="website" label="Website">
+            <FormField label="Website">
               <Input
                 type="url"
                 value={formData.website}
@@ -215,7 +212,7 @@ export const ApiKeyRequestForm: React.FC = () => {
           </h2>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <FormField id="contact_name" label="Contact Name" required>
+            <FormField label="Contact Name" required>
               <Input
                 value={formData.contact_name}
                 onChange={(e) => handleInputChange('contact_name', e.target.value)}
@@ -223,7 +220,7 @@ export const ApiKeyRequestForm: React.FC = () => {
               />
             </FormField>
 
-            <FormField id="email" label="Email Address" required>
+            <FormField label="Email Address" required>
               <Input
                 type="email"
                 value={formData.email}
@@ -232,7 +229,7 @@ export const ApiKeyRequestForm: React.FC = () => {
               />
             </FormField>
 
-            <FormField id="phone" label="Phone Number">
+            <FormField label="Phone Number">
               <Input
                 type="tel"
                 value={formData.phone}
@@ -251,7 +248,7 @@ export const ApiKeyRequestForm: React.FC = () => {
           </h2>
 
           <div className="space-y-4">
-            <FormField id="use_case" label="Use Case Description" required>
+            <FormField label="Use Case Description" required>
               <Textarea
                 value={formData.use_case}
                 onChange={(e) => handleInputChange('use_case', e.target.value)}
@@ -261,28 +258,22 @@ export const ApiKeyRequestForm: React.FC = () => {
             </FormField>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FormField id="api_volume" label="Expected API Volume">
+              <FormField label="Expected API Volume">
                 <Select
                   value={formData.expected_volume}
                   onChange={(e) => handleInputChange('expected_volume', e.target.value)}
-                >
-                  <option value="">Select expected volume</option>
-                  {EXPECTED_VOLUMES.map(volume => (
-                    <option key={volume.value} value={volume.value}>{volume.label}</option>
-                  ))}
-                </Select>
+                  placeholder="Select expected volume"
+                  options={EXPECTED_VOLUMES}
+                />
               </FormField>
 
-              <FormField id="timeline" label="Integration Timeline">
+              <FormField label="Integration Timeline">
                 <Select
                   value={formData.integration_timeline}
                   onChange={(e) => handleInputChange('integration_timeline', e.target.value)}
-                >
-                  <option value="">Select timeline</option>
-                  {INTEGRATION_TIMELINES.map(timeline => (
-                    <option key={timeline.value} value={timeline.value}>{timeline.label}</option>
-                  ))}
-                </Select>
+                  placeholder="Select timeline"
+                  options={INTEGRATION_TIMELINES}
+                />
               </FormField>
             </div>
           </div>
@@ -320,7 +311,7 @@ export const ApiKeyRequestForm: React.FC = () => {
         <div className="bg-white border rounded-lg p-6">
           <h2 className="text-xl font-semibold text-gray-900 mb-4">Additional Information</h2>
 
-          <FormField id="details" label="Additional Details">
+          <FormField label="Additional Details">
             <Textarea
               value={formData.additional_info}
               onChange={(e) => handleInputChange('additional_info', e.target.value)}

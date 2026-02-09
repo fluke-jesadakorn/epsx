@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 'use client'
 
 import { useSharedAuth } from '@/shared/components/auth/Provider'

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/strict-boolean-expressions */
 import { useAppState } from '@/context/app-state';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 

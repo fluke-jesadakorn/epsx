@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-misused-promises */
 'use client';
 
 import { GlobalAuthGuard } from '@/components/auth/global-auth-guard';

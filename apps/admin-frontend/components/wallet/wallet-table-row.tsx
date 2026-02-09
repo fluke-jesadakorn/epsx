@@ -62,15 +62,15 @@ export function WalletTableRow({
                         <span className="font-mono text-xs font-medium text-foreground truncate max-w-[120px] md:max-w-none">
                             {wallet.walletAddress}
                         </span>
-                        {Boolean(wallet.label) && (
-                            <WalletLabelBadge label={wallet.label!} size="sm" className="hidden sm:inline-flex" />
-                        )}
+                        {wallet.label ? (
+                            <WalletLabelBadge label={wallet.label} size="sm" className="hidden sm:inline-flex" />
+                        ) : null}
                     </div>
-                    {Boolean(wallet.label) && (
+                    {wallet.label ? (
                         <span className="text-[10px] text-muted-foreground mt-0.5 sm:hidden truncate">
                             {wallet.label}
                         </span>
-                    )}
+                    ) : null}
                 </div>
             </td>
             <td className="p-4">

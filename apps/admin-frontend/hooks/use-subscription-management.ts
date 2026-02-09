@@ -28,12 +28,11 @@ export function useSubscriptionManagement() {
             });
 
             if (isApiSuccess(response)) {
-                const data = response.data as Record<string, SubscriptionResponse[] | undefined>;
-                setSubscriptions(data.subscriptions ?? (Array.isArray(data) ? data : []));
+                setSubscriptions(response.data.subscriptions);
             } else {
                 toast({
                     title: "Error",
-                    description: response.error ?? "Failed to load subscriptions",
+                    description: response.error?.message ?? "Failed to load subscriptions",
                     variant: "destructive"
                 });
             }
@@ -72,7 +71,7 @@ export function useSubscriptionManagement() {
             } else {
                 toast({
                     title: "Error",
-                    description: response.error ?? "Failed to cancel subscription",
+                    description: response.error?.message ?? "Failed to cancel subscription",
                     variant: "destructive"
                 });
             }

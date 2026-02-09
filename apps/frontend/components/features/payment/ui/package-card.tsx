@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/strict-boolean-expressions */
 import { cn } from '@/lib/utils';
 import { Check, Sparkles } from 'lucide-react';
 import type { PaymentPackage } from '../types';

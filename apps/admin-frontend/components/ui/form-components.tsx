@@ -13,6 +13,7 @@ import {
   Checkbox,
   Form,
   FormField,
+  FormFieldWrapper,
   Input,
   FormLabel as Label,
   Select,
@@ -69,6 +70,6 @@ interface FormFieldProps {
 }
 
 // Re-export with perfect backward compatibility
-export { Button, Checkbox, Form, FormField, Input, Label, Select, Textarea };
+export { Button, Checkbox, Form, FormField, FormFieldWrapper, Input, Label, Select, Textarea };
 export type { ButtonProps, FormFieldProps, InputProps, LabelProps };
 

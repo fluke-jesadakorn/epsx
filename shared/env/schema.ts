@@ -267,7 +267,7 @@ function parseClientEnv(): ClientEnv {
 }
 
 function getFallbackClientEnv(): ClientEnv {
-  const envObj = typeof process !== 'undefined' ? process.env : {};
+  const envObj = (typeof process !== 'undefined' ? process.env : {}) as Record<string, string | undefined>;
   return {
     NEXT_PUBLIC_BACKEND_URL: envObj.NEXT_PUBLIC_BACKEND_URL ?? getDefaultBackendUrl(),
     NEXT_PUBLIC_APP_URL: envObj.NEXT_PUBLIC_APP_URL ?? getDefaultFrontendUrl() ?? '',

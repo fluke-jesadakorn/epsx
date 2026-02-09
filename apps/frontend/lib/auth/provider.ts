@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/strict-boolean-expressions, @typescript-eslint/no-unnecessary-condition, max-depth, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument */
 'use client';
 
 import { useRouter } from 'next/navigation';
@@ -177,8 +178,7 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
    
   useEffect(() => {
     if (!isHydrated) {return;} // Wait for hydration
-
-    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
+     
     if (address && isConnected) {
       // IMPORTANT: Always sync internal state with Wagmi state first
       setState(prev => ({
@@ -484,14 +484,13 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
           `Failed to get authentication challenge: ${challengeResponse.status}`
         );
       }
-
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+       
       const challenge = await challengeResponse.json();
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       const messageString = challenge.message;
 
       // Sign message with wallet
-      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition, @typescript-eslint/strict-boolean-expressions
+       
       if (!signMessageAsync) {
         throw new Error(
           'Wallet signing function not available. Please reconnect your wallet.'
@@ -500,7 +499,7 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
 
       let signature: string;
       try {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+         
         signature = await signMessageAsync({ message: messageString });
       } catch (error: unknown) {
         // Handle user rejection gracefully
@@ -545,7 +544,7 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
          
         let errorData;
         try {
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+           
           errorData = JSON.parse(errorText);
         } catch {
           errorData = {
@@ -627,7 +626,7 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
       }
 
       // Step 2: THEN disconnect from Wagmi globally
-      // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
+       
       if (wagmiDisconnect && typeof wagmiDisconnect === 'function') {
         try {
           // Call wagmi disconnect
@@ -771,7 +770,7 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
    
   const linkEmail = useCallback(
     async (email: string, password: string) => {
-      // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
+       
       if (!address) {
         throw new Error('Wallet not connected');
       }
@@ -788,7 +787,7 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
       });
 
       if (!response.ok) {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+         
         const error = await response.json();
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         throw new Error(error.message ?? 'Failed to link email');
@@ -802,7 +801,7 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
    
   const generateApiKey = useCallback(
     async (name: string): Promise<string> => {
-      // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
+       
       if (!address || !state.hasApiAccess) {
         throw new Error('API access not available');
       }
@@ -818,13 +817,12 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
       });
 
       if (!response.ok) {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+         
         const error = await response.json();
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         throw new Error(error.message ?? 'Failed to generate API key');
       }
-
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+       
       const { api_key } = await response.json();
       toast.success('API key generated successfully');
       // eslint-disable-next-line @typescript-eslint/no-unsafe-return

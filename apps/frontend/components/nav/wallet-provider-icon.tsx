@@ -130,7 +130,7 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
         setLastAuthError(result.error ?? null);
       }
     } catch (error) {
-      const err = error as unknown as { code?: number; message?: string };
+      const err = error as { code?: number; message?: string };
       if (err && typeof err === 'object' && 'code' in err && 'message' in err) {
         const code = err.code;
         const msg = err.message;

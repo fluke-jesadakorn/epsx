@@ -7,268 +7,149 @@
  */
 
 // Import types for local use in union types
-import type { 
-  UserProfile, 
-  AdminUserProfile, 
-  BaseUser
-} from './user'
 import type {
-  UserSessionData,
-  AdminSessionData,
-  WalletSessionData
-} from './session'
-import type {
-  UserJWTPayload,
   AdminJWTPayload,
-  RefreshTokenPayload,
   APIKeyPayload,
   LoginResponse,
-  Web3AuthResponse,
-  RegistrationResponse
+  RefreshTokenPayload,
+  RegistrationResponse,
+  UserJWTPayload,
+  Web3AuthResponse
 } from './auth'
 import type {
   EPSXPermission,
-  PermissionTemplate,
+  Permission,
   PermissionRole,
-  Permission
+  PermissionTemplate
 } from './permission'
+import type {
+  AdminSessionData,
+  UserSessionData,
+  WalletSessionData
+} from './session'
+import type {
+  AdminUserProfile,
+  BaseUser,
+  UserProfile
+} from './user'
 
 // ============================================================================
 // USER DOMAIN TYPES
 // ============================================================================
 export type {
-  // Core user types
-  BaseUser,
-  UserRole,
-  UserStatus,
-  PackageTier,
-  UserProfile,
-  UserSession,
-  AdminUserProfile,
-  
-  // Business access types
-  UserAnalyticsAccess,
-  UserTradingAccess,
-  
-  // Billing & subscriptions
-  BillingStatus,
-  StockRankingPackage,
-  
-  // Module access
-  ModuleAccess,
-  ModuleQuota,
-  
+
+  // Activity tracking
+  ActivityRecord, AdminUserProfile,
   // Developer access
   ApiKey,
-  
-  // Activity tracking
-  ActivityRecord,
-  LoginRecord,
-  UsageMetrics,
-  
-  // API request/response types
-  UserListFilters,
-  UserListResponse,
-  UserProfileUpdateData,
-  UserStatusUpdateData,
-  UserRoleUpdateData,
-  BillingUpdateData,
-  UserOperationError,
-  UserOperationResult,
-  
+  // Core user types
+  BaseUser,
+  // Billing & subscriptions
+  BillingStatus, BillingUpdateData, canAccessFeature,
+  getUserTierLevel,
+  hasMinimumPermissionGroup, hasValidSubscription,
   // Type guards & helpers
   isAdminUser,
-  isPremiumUser,
-  hasValidSubscription,
-  canAccessFeature,
-  getUserTierLevel,
-  hasMinimumPermissionGroup,
-  
+  isPremiumUser, LoginRecord,
+  // Module access
+  ModuleAccess,
+  ModuleQuota, PackageTier, StockRankingPackage, SubscriptionTier, UnifiedUserData, UsageMetrics,
   // Legacy compatibility
   User,
-  UnifiedUserData,
-  SessionData as UserSessionData_Legacy,
-  SubscriptionTier
+  // Business access types
+  UserAnalyticsAccess,
+  // API request/response types
+  UserListFilters,
+  UserListResponse, UserOperationError,
+  UserOperationResult, UserProfile, UserProfileUpdateData, UserRole, UserRoleUpdateData, UserSession, SessionData as UserSessionData_Legacy, UserStatus, UserStatusUpdateData, UserTradingAccess
 } from './user'
 
 // ============================================================================
 // PERMISSION DOMAIN TYPES
 // ============================================================================
 export type {
-  // Core permission types
-  Permission,
-  ParsedPermission,
-  PermissionSource,
-  Platform,
-  TimestampedPermission,
-  PermissionExpiryDetails,
-  PermissionExpiryInfo,
-
+  BulkPermissionOperation, EffectivePermissions,
   // Business domain types
-  EPSXPermission,
-  PermissionTemplate,
-  PermissionCategory,
-  PermissionScope,
-  PermissionCheck,
-  PermissionValidation,
-  PermissionRole,
-  EffectivePermissions,
-  PermissionAssignment,
-  BulkPermissionOperation,
-  PermissionAnalytics,
-  
-  // Permission context & inheritance
-  PermissionInheritance,
-  PlatformPermissionContext,
-  
-  // Management types
-  PermissionRequest,
-  PermissionPolicy,
-  
+  EPSXPermission, hasEffectivePermission, isWildcardPermission,
+  matchesPermissionPattern, ParsedPermission,
   // Helper functions
   parsePermission,
-  isWildcardPermission,
-  matchesPermissionPattern,
-  resolveUserPermissions,
-  hasEffectivePermission
+  // Core permission types
+  Permission, PermissionAnalytics, PermissionAssignment, PermissionCategory, PermissionCheck, PermissionExpiryDetails,
+  PermissionExpiryInfo,
+  // Permission context & inheritance
+  PermissionInheritance, PermissionPolicy,
+  // Management types
+  PermissionRequest, PermissionRole, PermissionScope, PermissionSource, PermissionTemplate, PermissionValidation, Platform, PlatformPermissionContext, resolveUserPermissions, TimestampedPermission
 } from './permission'
 
 // ============================================================================
 // SESSION DOMAIN TYPES
 // ============================================================================
 export type {
-  // Core session types
-  SessionAppType,
-  SessionValidationRequest,
-  BaseSessionData,
-  UserSessionData,
-  AdminSessionData,
-  WalletSessionData,
-  SessionData,
-  
-  // Validation types
-  SessionValidationResponse,
-  SessionCacheEntry,
-  SessionRefreshRequest,
-  SessionRefreshResponse,
-  
-  // Management types
-  SessionCreateRequest,
-  SessionCreateResponse,
-  SessionTerminateRequest,
-  SessionTerminateResponse,
-  UserActiveSessions,
-  
-  // Security types
-  SessionSecurityEventType,
-  SessionSecurityEvent,
-  SessionSecurityPolicy,
-  
-  // Wallet session types
-  WalletAuthChallenge,
-  WalletAuthVerification,
-  WalletSessionStatus,
-  
-  // Analytics types
-  SessionAnalytics,
-  UserSessionPattern,
-  
-  // Configuration types
-  SessionValidatorConfig,
-  SessionValidatorStats,
-  
-  // Type guards & helpers
-  isUserSession,
-  isAdminSession,
+  AdminSession, AdminSessionData, BaseSessionData, getSessionDuration, getSessionTimeRemaining, isAdminSession,
   isSessionExpired,
   isSessionExpiringSoon,
-  getSessionTimeRemaining,
-  getSessionDuration,
-  validateSessionRequest,
-  
+  // Type guards & helpers
+  isUserSession,
+  // Analytics types
+  SessionAnalytics,
+  // Core session types
+  SessionAppType, SessionCache, SessionCacheEntry,
+  // Management types
+  SessionCreateRequest,
+  SessionCreateResponse, SessionData, SessionRefreshRequest,
+  SessionRefreshResponse, SessionResult, SessionSecurityEvent,
+  // Security types
+  SessionSecurityEventType, SessionSecurityPolicy, SessionTerminateRequest,
+  SessionTerminateResponse, SessionValidationRequest,
+  // Validation types
+  SessionValidationResponse,
+  // Configuration types
+  SessionValidatorConfig,
+  SessionValidatorStats, UserActiveSessions,
   // Legacy compatibility
-  UserSession as UserSession_Legacy,
-  AdminSession,
-  SessionResult,
-  SessionCache
+  UserSession as UserSession_Legacy, UserSessionData, UserSessionPattern, validateSessionRequest,
+  // Wallet session types
+  WalletAuthChallenge,
+  WalletAuthVerification, WalletSessionData, WalletSessionStatus
 } from './session'
 
 // ============================================================================
 // AUTHENTICATION DOMAIN TYPES
 // ============================================================================
 export type {
+  AdminClaims, AdminJWTPayload, APIKeyPayload, AuthenticationContext,
+  // Authentication state types
+  AuthenticationState, AuthProviderConfig, AuthResponse, AuthResult, AuthState as AuthState_Legacy,
   // Core auth types (re-exported from shared system)
   User as AuthUser,
-  AuthState as SharedAuthState,
-  AuthResponse,
-  
   // JWT token types
-  BaseJWTPayload,
-  UserJWTPayload,
-  AdminJWTPayload,
-  RefreshTokenPayload,
-  APIKeyPayload,
-  EPSXJWTPayload,
-  
+  BaseJWTPayload, EmailVerificationConfirmation, EmailVerificationRequest, EPSXJWTPayload, extractUserId, getTokenTimeRemaining, isAdminJWT, isAPIKeyToken, isRefreshToken, isTokenExpired,
+  isTokenExpiringSoon,
+  // Type guards & helpers
+  isUserJWT,
   // Authentication request/response types
   LoginRequest,
   LoginResponse,
   OAuthAuthorizationRequest,
   OAuthTokenRequest,
   OAuthTokenResponse,
-  OIDCUserInfo,
-  
-  // Web3 authentication types
-  Web3ConnectRequest,
-  Web3AuthChallenge,
-  SIWEMessage,
-  Web3AuthVerification,
-  Web3AuthResponse,
-  
-  // Firebase authentication types
-  FirebaseCustomClaims,
-  FirebaseTokenExchange,
-  FirebaseTokenExchangeResponse,
-  
+  // Configuration types
+  OIDCClientConfig, OIDCUserInfo, PasswordChangeRequest, PasswordResetConfirmation,
+  // Password & account management types
+  PasswordResetRequest, RefreshTokenPayload, RegistrationRequest,
+  RegistrationResponse, AuthState as SharedAuthState, SIWEMessage,
   // Multi-factor authentication types
   TwoFactorMethod,
   TwoFactorSetupRequest,
   TwoFactorSetupResponse,
   TwoFactorVerificationRequest,
   TwoFactorVerificationResponse,
-  
-  // Password & account management types
-  PasswordResetRequest,
-  PasswordResetConfirmation,
-  PasswordChangeRequest,
-  EmailVerificationRequest,
-  EmailVerificationConfirmation,
-  RegistrationRequest,
-  RegistrationResponse,
-  
-  // Authentication state types
-  AuthenticationState,
-  AuthenticationContext,
-  
-  // Configuration types
-  OIDCClientConfig,
-  AuthProviderConfig,
-  
-  // Type guards & helpers
-  isUserJWT,
-  isAdminJWT,
-  isRefreshToken,
-  isAPIKeyToken,
-  extractUserId,
-  isTokenExpired,
-  isTokenExpiringSoon,
-  getTokenTimeRemaining,
-  
   // Legacy compatibility
-  UserClaims,
-  AdminClaims,
-  AuthState as AuthState_Legacy,
-  AuthResult
+  UserClaims, UserJWTPayload, Web3AuthChallenge, Web3AuthResponse, Web3AuthVerification,
+  // Web3 authentication types
+  Web3ConnectRequest
 } from './auth'
 
 // ============================================================================

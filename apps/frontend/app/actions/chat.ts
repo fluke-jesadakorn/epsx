@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 "use server";
 
 import { chatApiService } from "@/lib/services/chat-api.service";

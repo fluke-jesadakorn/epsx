@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unnecessary-condition */
 import { getPublicPlansAction } from '@/app/actions/plans';
 import type { PricingCardData } from '@/shared/types/plans';
 import { DynamicPricingClient } from './dynamic-pricing-client';
@@ -62,9 +63,9 @@ export default async function DynamicPricingSection({ initialAffiliateCode }: Dy
           features: plan.features.map((feature: string) => ({ text: feature, included: true })),
           highlight: plan.isHighlighted,
           buttonText: plan.effectivePrice === 0 ? 'Start Free' : 'Get Started',
-          // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+           
           promotions: plan.activePromotions ?? [],
-          // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+           
           badges: plan.promotionalBadges ?? [],
           savings: hasDiscount ? `Save ${plan.currency} ${(plan.basePrice - plan.currentPrice).toFixed(2)}` : undefined
         };

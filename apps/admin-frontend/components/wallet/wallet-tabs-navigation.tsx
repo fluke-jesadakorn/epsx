@@ -36,7 +36,7 @@ export function WalletTabsNavigation() {
         <div className="bg-slate-900/40 backdrop-blur-2xl p-1.5 rounded-[32px] border border-white/5 shadow-xl max-w-2xl mx-auto mb-8">
             <div className="flex h-14 w-full justify-center gap-2 bg-transparent p-0">
                 {tabs.map((tab) => {
-                    const isActive = pathname === tab.href || (tab.href !== '/wallet-management' && pathname?.startsWith(tab.href));
+                    const isActive = pathname === tab.href || (tab.href !== '/wallet-management' && pathname.startsWith(tab.href));
                     const Icon = tab.icon;
                     return (
                         <Link

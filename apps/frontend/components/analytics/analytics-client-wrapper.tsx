@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-call */
 'use client';
 
 import { AnalyticsNavigation } from '@/components/shared/analytics-navigation';

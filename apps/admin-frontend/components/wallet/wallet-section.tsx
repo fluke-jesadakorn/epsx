@@ -26,6 +26,31 @@ interface WalletSectionProps {
     }
 }
 
+interface WalletEmptyStateProps {
+    onClearFilters: () => void;
+}
+
+function WalletEmptyState({ onClearFilters }: WalletEmptyStateProps) {
+    return (
+        <div className="col-span-full flex flex-col items-center justify-center py-12 text-center border border-dashed border-border rounded-xl bg-muted/5">
+            <div className="p-4 rounded-full bg-muted/30 mb-4">
+                <Search className="h-8 w-8 text-muted-foreground/50" />
+            </div>
+            <h3 className="text-lg font-semibold">No wallets found</h3>
+            <p className="text-sm text-muted-foreground max-w-sm mt-2">
+                Try adjusting your filters or search terms.
+            </p>
+            <Button
+                variant="link"
+                onClick={onClearFilters}
+                className="mt-2"
+            >
+                Clear all filters
+            </Button>
+        </div>
+    );
+}
+
 export function WalletSection({ className, initialData }: WalletSectionProps) {
     const {
         wallets,
@@ -60,25 +85,11 @@ export function WalletSection({ className, initialData }: WalletSectionProps) {
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                 {isLoading ? (
                     Array.from({ length: 9 }).map((_, i) => (
+                        // eslint-disable-next-line react/no-array-index-key
                         <Skeleton key={`skeleton-${i}`} className="h-[300px] w-full rounded-[24px]" />
                     ))
                 ) : wallets.length === 0 ? (
-                    <div className="col-span-full flex flex-col items-center justify-center py-12 text-center border border-dashed border-border rounded-xl bg-muted/5">
-                        <div className="p-4 rounded-full bg-muted/30 mb-4">
-                            <Search className="h-8 w-8 text-muted-foreground/50" />
-                        </div>
-                        <h3 className="text-lg font-semibold">No wallets found</h3>
-                        <p className="text-sm text-muted-foreground max-w-sm mt-2">
-                            Try adjusting your filters or search terms.
-                        </p>
-                        <Button
-                            variant="link"
-                            onClick={() => setFilters({ search: '', platform: 'all', status: 'all', sortBy: 'created_at', sortOrder: 'desc' })}
-                            className="mt-2"
-                        >
-                            Clear all filters
-                        </Button>
-                    </div>
+                    <WalletEmptyState onClearFilters={() => setFilters({ search: '', platform: 'all', status: 'all', sortBy: 'created_at', sortOrder: 'desc' })} />
                 ) : (
                     <>
                         {wallets.map((wallet) => (

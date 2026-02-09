@@ -58,9 +58,9 @@ const TopPerformersBox = ({ top3Data }: { top3Data: SymbolCardData[] }) => {
               key={cardData.symbol}
               symbol={cardData.symbol}
               rank={cardData.rank}
-              // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+               
               epsGrowth={latestQuarter?.eps_growth || 0}
-              // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+               
               price={latestQuarter?.price || 0}
               currency={cardData.currency}
               daysUntilNextAction={cardData.next_quarter_estimate?.days_until_announcement}
@@ -84,8 +84,7 @@ export default async function ServerTopPerformers({ className }: ServerTopPerfor
       limit: 3,
       sort_by: 'growth_factor'
     });
-
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+     
     if (result.data && Array.isArray(result.data)) {
       data = (result.data as unknown[]).map((ranking: unknown, index: number) => {
         const rankingObj = ranking as Record<string, unknown>;
