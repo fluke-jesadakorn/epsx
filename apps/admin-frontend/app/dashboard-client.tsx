@@ -35,6 +35,7 @@ export default function DashboardClient({ initialRecentWallets }: DashboardClien
   }
 
   // Show access error if backend rejected the request
+  // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
   if (accessError) {
     return (
       <PageLayout>
@@ -59,12 +60,15 @@ export default function DashboardClient({ initialRecentWallets }: DashboardClien
     );
   }
 
+  // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
+  const subtitle = `Welcome back, ${user?.wallet_address ? `${user.wallet_address.slice(0, 6)}...${user.wallet_address.slice(-4)}` : 'Admin'}`;
+
   return (
     <PageLayout>
       {/* Page Header */}
       <PageHeader
         title="EPSX Admin Center"
-        subtitle={`Welcome back, ${user?.wallet_address ? `${user.wallet_address.slice(0, 6)}...${user.wallet_address.slice(-4)}` : 'Admin'}`}
+        subtitle={subtitle}
         icon="Home"
         gradient="primary"
         centered
