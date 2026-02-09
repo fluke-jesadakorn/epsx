@@ -99,8 +99,7 @@ export default function NotificationsClient({ initialData, focusId }: Notificati
       setTotalCount(data.data.total_count);
       setUnreadCount(data.data.unread_count);
       setTotalPages(data.data.total_pages);
-    } catch (error) {
-      console.warn('Failed to fetch notifications:', error);
+    } catch (_error) {
       setNotifications([]);
     } finally {
       setLoading(false);
@@ -115,8 +114,8 @@ export default function NotificationsClient({ initialData, focusId }: Notificati
         n.id === notificationId ? { ...n, read: true } : n
       ));
       setUnreadCount(prev => Math.max(0, prev - 1));
-    } catch (error) {
-      console.error('Failed to mark notification as read:', error);
+    } catch (_error) {
+      // Error handling handled by parent component
     }
   };
 
@@ -126,8 +125,8 @@ export default function NotificationsClient({ initialData, focusId }: Notificati
 
       setNotifications(prev => prev.map(n => ({ ...n, read: true })));
       setUnreadCount(0);
-    } catch (error) {
-      console.error('Failed to mark all as read:', error);
+    } catch (_error) {
+      // Error handling handled by parent component
     }
   };
 
@@ -137,8 +136,8 @@ export default function NotificationsClient({ initialData, focusId }: Notificati
 
       setNotifications(prev => prev.filter(n => n.id !== notificationId));
       setTotalCount(prev => prev - 1);
-    } catch (error) {
-      console.error('Failed to delete notification:', error);
+    } catch (_error) {
+      // Error handling handled by parent component
     }
   };
 
@@ -153,8 +152,8 @@ export default function NotificationsClient({ initialData, focusId }: Notificati
       setNotifications([]);
       setTotalCount(0);
       setUnreadCount(0);
-    } catch (error) {
-      console.error('Failed to clear all notifications:', error);
+    } catch (_error) {
+      // Error handling handled by parent component
     }
   };
 

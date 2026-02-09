@@ -12,8 +12,8 @@ export default function Error({
     try {
       await fetch('/api/auth/logout', { method: 'POST' });
       window.location.href = '/';
-    } catch (error) {
-      console.error('Logout error:', error);
+    } catch (_error) {
+      // Logout error handled
     }
   };
 

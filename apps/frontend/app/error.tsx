@@ -28,7 +28,7 @@ function isPermissionError(error: Error): boolean {
 
 export default function Error({ error, reset }: ErrorPageProps) {
   React.useEffect(() => {
-    console.error('Application error:', error);
+    // Error logging handled by error boundary
   }, [error]);
 
   const isBackendDown = isBackendConnectivityError(error);

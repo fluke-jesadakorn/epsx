@@ -76,12 +76,6 @@ export async function POST(req: NextRequest) {
         const response = await paymentsApi.validatePayment(validateRequest);
 
         if (!response.success || !response.data) {
-            console.error('[Payment Confirmation] Backend validation failed:', {
-                success: response.success,
-                message: response.message,
-                error: response.error,
-            });
-
             return NextResponse.json(
                 {
                     success: false,

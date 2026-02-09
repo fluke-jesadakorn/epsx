@@ -16,7 +16,7 @@ import './globals.css';
 import { SafeThemeScript } from '@/components/ui/safe-theme-script';
 // Verify polyfills are active for debugging (both for server and client module load)
 if (typeof window !== 'undefined' && (Math.pow as any).__isPolyfilled) {
-  console.log('[Layout] BigInt-safe Math polyfills verified active (Module)');
+  // Polyfills verified active
 }
 
 // Initialize runtime environment validation
@@ -89,7 +89,6 @@ export default async function RootLayout({
       initialState = cookieToInitialState(getServerConfig(), decodedCookie);
     } catch {
       // If all parsing fails, use undefined (fresh state)
-      console.warn('[Layout] Failed to parse wagmi cookie state, using fresh state');
       initialState = undefined;
     }
   }
