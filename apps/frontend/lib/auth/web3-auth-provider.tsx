@@ -14,7 +14,6 @@ export function Web3AuthProvider({ children }: { children: React.ReactNode }) {
     <SharedOpenIDWeb3Provider
       clientId="epsx-frontend"
       onAuthError={(error) => {
-        console.error('Frontend auth error:', error);
       }}
     >
       {children}

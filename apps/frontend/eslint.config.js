@@ -26,8 +26,11 @@ module.exports = [
       }
     },
     rules: {
-      // specific overrides for frontend can go here, but strict shared default is preferred.
-      // 'import/no-unresolved': 'off',
+      // STRICT POLICY FOR @apps/frontend
+      // Already inherits ultra-strict rules from shared config
+      // Additional enforcement on specific patterns:
+      '@typescript-eslint/strict-boolean-expressions': 'error',
+      '@typescript-eslint/prefer-nullish-coalescing': 'error',
     }
   },
   {

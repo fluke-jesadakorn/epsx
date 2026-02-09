@@ -44,7 +44,6 @@ export async function getServerSession(): Promise<SessionData | null> {
     };
     
   } catch (error) {
-    console.error('Failed to get server session:', error);
     return { isAuthenticated: false };
   }
 }

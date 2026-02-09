@@ -106,10 +106,8 @@ if (!anyMath.pow.__isPolyfilled) {
     try {
         const result = (Math.pow as any)(2n, 3n);
         if ((result) !== 8n) {
-            console.error('[POLYFILL] Self-test failed: Math.pow(2n, 3n) !== 8n');
         }
     } catch (e) {
-        console.error('[POLYFILL] Self-test CRASHED:', e);
     }
 }
 

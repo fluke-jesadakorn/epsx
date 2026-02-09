@@ -14,7 +14,6 @@ export async function getWeb3SessionFromCookies(): Promise<string | null> {
     const cookieStore = await cookies();
     return cookieStore.get('web3_session')?.value || null;
   } catch (error) {
-    console.error('❌ Failed to get Web3 session from cookies:', error);
     return null;
   }
 }
@@ -27,7 +26,6 @@ export async function getWalletAddressFromCookies(): Promise<string | null> {
     const cookieStore = await cookies();
     return cookieStore.get('wallet_address')?.value || null;
   } catch (error) {
-    console.error('❌ Failed to get wallet address from cookies:', error);
     return null;
   }
 }
@@ -40,7 +38,6 @@ export async function getWeb3SignatureFromCookies(): Promise<string | null> {
     const cookieStore = await cookies();
     return cookieStore.get('web3_signature')?.value || null;
   } catch (error) {
-    console.error('❌ Failed to get Web3 signature from cookies:', error);
     return null;
   }
 }
@@ -68,7 +65,6 @@ export async function getUserInfoFromWeb3(): Promise<EPSXJWTPayload | null> {
     });
 
     if (!response.ok) {
-      console.error('❌ Failed to get user info from Web3 backend:', response.status);
       return null;
     }
 
@@ -91,9 +87,7 @@ export async function getUserInfoFromWeb3(): Promise<EPSXJWTPayload | null> {
 
   } catch (error: any) {
     if (error.code === 'ECONNREFUSED') {
-      console.error(`❌ Backend connection refused at ${clientConfig.backendUrl || 'http://127.0.0.1:8080'}. Is the backend running?`);
     } else {
-      console.error('❌ Failed to get user info from Web3 backend:', error);
     }
     return null;
   }
@@ -115,7 +109,6 @@ export async function getSessionFromWeb3(): Promise<{
 
     return { isAuthenticated: true, user: userInfo };
   } catch (error) {
-    console.error('❌ Failed to get session from Web3 backend:', error);
     return { isAuthenticated: false, user: null };
   }
 }

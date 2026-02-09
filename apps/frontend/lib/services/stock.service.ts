@@ -81,7 +81,6 @@ export async function getStockFinancialDataCount(
     logger.error('[StockService] Error getting stock count:', error);
     // Return cached count if available, or fallback to 0
     if (countCache) {
-      console.warn('[StockService] Using stale cached count as fallback');
     }
     return countCache?.count ?? 0;
   }

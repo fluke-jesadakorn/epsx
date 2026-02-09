@@ -35,7 +35,6 @@ class RedirectGuard {
 
     // Within time window - check count
     if (attempt.count >= this.MAX_ATTEMPTS) {
-      console.error('🚨 REDIRECT LOOP DETECTED', {
         path,
         attempts: attempt.count,
         timeWindow: `${this.TIME_WINDOW}ms`,
@@ -143,7 +142,6 @@ const AUTH_PAGES = ['/auth', '/auth/signin', '/auth/login'];
 export function validateReturnUrl(returnUrl: string, fallback = '/dashboard'): string {
   // Prevent auth pages from being returnUrl
   if (AUTH_PAGES.some(page => returnUrl.startsWith(page))) {
-    console.warn('⚠️ Prevented auth page loop', {
       attemptedReturnUrl: returnUrl,
       fallback
     });
@@ -152,7 +150,6 @@ export function validateReturnUrl(returnUrl: string, fallback = '/dashboard'): s
 
   // Ensure it's a valid path (starts with /)
   if (!returnUrl.startsWith('/')) {
-    console.warn('⚠️ Invalid returnUrl (must start with /)', {
       attemptedReturnUrl: returnUrl,
       fallback
     });

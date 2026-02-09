@@ -105,7 +105,6 @@ export async function POST(req: NextRequest) {
         });
 
     } catch (error) {
-        console.error('[Payment Confirmation] Error:', error);
 
         return NextResponse.json(
             {

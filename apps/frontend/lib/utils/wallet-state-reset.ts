@@ -93,7 +93,6 @@ function clearLocalStorage(preserveTheme = true): void {
       try {
         window.localStorage.removeItem(key);
       } catch (error) {
-        console.warn(`Failed to remove localStorage key: ${key}`, error);
       }
     });
 
@@ -102,7 +101,6 @@ function clearLocalStorage(preserveTheme = true): void {
       try {
         window.localStorage.removeItem(key);
       } catch (error) {
-        console.warn(`Failed to remove localStorage key: ${key}`, error);
       }
     });
 
@@ -111,7 +109,6 @@ function clearLocalStorage(preserveTheme = true): void {
       try {
         window.localStorage.removeItem(key);
       } catch (error) {
-        console.warn(`Failed to remove localStorage key: ${key}`, error);
       }
     });
 
@@ -135,7 +132,6 @@ function clearLocalStorage(preserveTheme = true): void {
       try {
         window.localStorage.removeItem(key);
       } catch (error) {
-        console.warn(`Failed to remove localStorage key: ${key}`, error);
       }
     });
 
@@ -146,7 +142,6 @@ function clearLocalStorage(preserveTheme = true): void {
     }
 
   } catch (error) {
-    console.error('❌ Failed to clear localStorage:', error);
   }
 }
 
@@ -161,7 +156,6 @@ function clearSessionStorage(): void {
       try {
         window.sessionStorage.removeItem(key);
       } catch (error) {
-        console.warn(`Failed to remove sessionStorage key: ${key}`, error);
       }
     });
 
@@ -183,12 +177,10 @@ function clearSessionStorage(): void {
       try {
         window.sessionStorage.removeItem(key);
       } catch (error) {
-        console.warn(`Failed to remove sessionStorage key: ${key}`, error);
       }
     });
 
   } catch (error) {
-    console.error('❌ Failed to clear sessionStorage:', error);
   }
 }
 
@@ -213,13 +205,11 @@ function clearAuthCookies(): void {
         try {
           document.cookie = cookieString;
         } catch (error) {
-          console.warn(`Failed to clear cookie: ${cookieName}`, error);
         }
       });
     });
 
   } catch (error) {
-    console.error('❌ Failed to clear authentication cookies:', error);
   }
 }
 
@@ -283,7 +273,6 @@ function invalidateQueryClientCache(queryClient?: QueryClient): void {
     });
 
   } catch (error) {
-    console.error('❌ Failed to invalidate QueryClient cache:', error);
   }
 }
 
@@ -306,12 +295,10 @@ function broadcastStateReset(): void {
       try {
         channel.close();
       } catch (closeError) {
-        console.warn('Channel close error:', closeError);
       }
     }
     
   } catch (error) {
-    console.warn('❌ Failed to broadcast state reset:', error);
   }
 }
 
@@ -360,7 +347,6 @@ export function resetWalletState(options: WalletStateResetOptions = {}): void {
     }
 
   } catch (error) {
-    console.error('❌ Error during wallet state reset:', error);
     
     if (showToast) {
       toast.error('Failed to reset wallet state completely');
@@ -390,7 +376,6 @@ export function listenForStateReset(onReset: () => void): () => void {
           onReset();
         }
       } catch (error) {
-        console.warn('Error handling cross-tab message:', error);
       }
     };
 
@@ -405,11 +390,9 @@ export function listenForStateReset(onReset: () => void): () => void {
           }
         }
       } catch (error) {
-        console.warn('Error cleaning up cross-tab listener:', error);
       }
     };
   } catch (error) {
-    console.warn('Failed to create cross-tab listener:', error);
     return () => {}; // No-op cleanup function
   }
 }
@@ -444,13 +427,11 @@ export function detectStateCorruption(): boolean {
     
     // If we have auth data but no wagmi data, or vice versa, it might be corrupted
     if ((hasAuthData && !hasWagmiData) || (!hasAuthData && hasWagmiData)) {
-      console.warn('⚠️ Potential wallet state corruption detected');
       return true;
     }
 
     return false;
   } catch (error) {
-    console.warn('Failed to detect state corruption:', error);
     return false;
   }
 }

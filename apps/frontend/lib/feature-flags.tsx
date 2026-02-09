@@ -95,7 +95,6 @@ class FeatureFlagService {
       // Override with environment variables
       this.loadFromEnvironment();
     } catch (error) {
-      console.warn('Failed to load feature flags, using defaults:', error);
     }
   }
 
@@ -122,7 +121,6 @@ class FeatureFlagService {
     const flag = this.flags[flagKey];
     
     if (!flag) {
-      console.warn(`Feature flag '${flagKey}' not found`);
       return false;
     }
 
@@ -191,7 +189,6 @@ class FeatureFlagService {
         });
       }
     } catch (error) {
-      console.error(`Failed to persist feature flag '${key}':`, error);
     }
   }
 
@@ -216,7 +213,6 @@ class FeatureFlagService {
 
   public emergencyDisable(flagKey: string): void {
     this.updateFlag(flagKey, { enabled: false, rolloutPercentage: 0 });
-    console.warn(`Emergency disabled feature flag '${flagKey}'`);
   }
 }
 

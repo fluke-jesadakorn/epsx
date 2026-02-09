@@ -68,7 +68,6 @@ export class DirectWeb3Api {
 
       return response.data;
     } catch (error) {
-      console.error('❌ Challenge request failed:', error);
       throw error;
     }
   }
@@ -93,7 +92,6 @@ export class DirectWeb3Api {
         is_new_user: response.data.is_new_user,
       };
     } catch (error) {
-      console.error('❌ Signature verification failed:', error);
       throw error;
     }
   }
@@ -123,7 +121,6 @@ export class DirectWeb3Api {
         nonce: challenge.nonce,
       });
     } catch (error) {
-      console.error('❌ Web3 authentication flow failed:', error);
       throw error;
     }
   }

@@ -38,7 +38,6 @@ function SubscribeForm() {
         alert('Failed to subscribe. Please try again.');
       }
     } catch (error) {
-      console.error('Subscription error:', error);
       alert('An error occurred. Please try again.');
     }
   };

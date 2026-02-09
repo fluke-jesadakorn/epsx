@@ -11,7 +11,6 @@ interface ProfileErrorProps {
 
 export default function ProfileError({ error, reset }: ProfileErrorProps) {
   useEffect(() => {
-    console.error('Profile page error:', error);
   }, [error]);
 
   return (

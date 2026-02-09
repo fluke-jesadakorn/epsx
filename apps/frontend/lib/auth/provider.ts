@@ -108,7 +108,6 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
             }
           }
         } catch (error) {
-          console.warn('Error handling cross-tab message:', error);
         }
       };
 
@@ -123,11 +122,9 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
             }
           }
         } catch (error) {
-          console.warn('Error cleaning up cross-tab channel:', error);
         }
       };
     } catch (error) {
-      console.warn('Failed to create cross-tab channel:', error);
       return () => { }; // No-op cleanup
     }
   }, [address]);
@@ -187,7 +184,6 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
                   }));
                 }
               } catch (permError) {
-                console.warn('Failed to fetch permissions:', permError);
               }
               return;
             }
@@ -206,7 +202,6 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
             error: undefined, // Clear any previous errors
           }));
         } catch (error) {
-          console.warn(
             'Failed to check auth status (non-critical in Web3-first mode):',
             error
           );
@@ -269,7 +264,6 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
       }));
       return false;
     } catch (error) {
-      console.warn('Auth status check failed:', error);
       return false;
     }
   }, [address]);
@@ -308,7 +302,6 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
       }
       return false;
     } catch (error) {
-      console.warn('Failed to fetch permissions:', error);
       // Set default values on error
       setState(prev => ({
         ...prev,
@@ -382,7 +375,6 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
       }
     } catch (error: unknown) {
       const err = error as { message?: string };
-      console.error('❌ Wallet authorization failed:', err.message);
       setState(prev => ({
         ...prev,
         isAuthenticating: false,
@@ -542,7 +534,6 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
           // Wait a moment for connector cleanup
           await new Promise(resolve => setTimeout(resolve, 150));
         } catch (connectorError) {
-          console.error(
             '❌ Individual connector disconnect failed:',
             connectorError
           );
@@ -568,7 +559,6 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
             if (attempts >= 5) {break;} // Give reasonable time for disconnect
           }
         } catch (wagmiError) {
-          console.error('❌ Wagmi disconnect failed:', wagmiError);
           // Continue with cleanup even if wagmi disconnect fails
         }
       }
@@ -600,7 +590,6 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
             try {
               window.localStorage.removeItem(key);
             } catch (e) {
-              console.error(`❌ Failed to remove ${key}:`, e);
             }
           });
 
@@ -616,12 +605,10 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
               document.cookie = `${cookieName}=; Max-Age=0; path=/; SameSite=Lax`;
               document.cookie = `${cookieName}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
             } catch (e) {
-              console.warn(`Could not clear cookie ${cookieName}:`, e);
             }
           });
         }
       } catch (storageError) {
-        console.error('❌ Storage cleanup error:', storageError);
       }
 
       // Step 3: Server-side session invalidation (if needed)
@@ -639,7 +626,6 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
             }),
           });
         } catch (error) {
-          console.warn('⚠️ Server-side session invalidation failed:', error);
           // Continue with cleanup
         }
       }
@@ -662,7 +648,6 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
       // Refresh page data without full reload
       router.refresh();
     } catch (error) {
-      console.error('❌ Error during wallet disconnect:', error);
 
       // Force state reset and storage cleanup even if there are errors
       setState({

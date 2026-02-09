@@ -524,7 +524,6 @@ export default function PermissionsPage() {
       getPermissionAnalytics()
         .then(setAnalytics)
         .catch(error => {
-          console.error('Failed to load analytics:', error);
         });
     }
   }, [activeTab, user]);
@@ -535,7 +534,6 @@ export default function PermissionsPage() {
       getPermissionHistory(20)
         .then(setHistory)
         .catch(error => {
-          console.error('Failed to load history:', error);
         });
     }
   }, [activeTab, user]);
@@ -555,7 +553,6 @@ export default function PermissionsPage() {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch (error) {
-      console.error('Failed to export permissions:', error);
     } finally {
       setIsExporting(false);
     }

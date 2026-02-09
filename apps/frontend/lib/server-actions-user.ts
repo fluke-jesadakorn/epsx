@@ -71,7 +71,6 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
     };
 
   } catch (error) {
-    console.error('❌ [Debug] error getting current user:', error);
     return null;
   }
 }
@@ -96,7 +95,6 @@ export async function getPaymentHistory() {
     });
 
     if (!response.success || !response.data) {
-      console.error('[getPaymentHistory] Failed to fetch or invalid response:', response.error);
       return [];
     }
 
@@ -117,7 +115,6 @@ export async function getPaymentHistory() {
         : ''
     }));
   } catch (error) {
-    console.error('[getPaymentHistory] Error:', error);
     return [];
   }
 }
@@ -162,7 +159,6 @@ export async function checkFeatureAccess(feature: string) {
       limits: response.data.limits
     };
   } catch (error) {
-    console.error('[checkFeatureAccess] Error:', error);
     return {
       hasAccess: false,
       reason: 'Error checking permissions',
@@ -223,7 +219,6 @@ export async function getPaymentStatus(paymentId?: string) {
       paymentHistory: []
     };
   } catch (error) {
-    console.error('[getPaymentStatus] Error:', error);
     return {
       status: 'error',
       activeSubscription: null,
