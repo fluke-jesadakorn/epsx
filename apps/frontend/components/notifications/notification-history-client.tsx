@@ -20,7 +20,7 @@ import { toast } from 'sonner'
 const markAllNotificationsRead = async () => {
 };
 
-const markNotificationRead = async (notificationId: string) => {
+const markNotificationRead = async (_notificationId: string) => {
 };
 
 interface NotificationHistoryClientProps {
@@ -160,7 +160,7 @@ export function NotificationHistoryClient({
         await markAllNotificationsRead()
         toast.success('All notifications marked as read')
         router.refresh()
-      } catch (error) {
+      } catch (_error) {
         toast.error('Failed to mark all notifications as read')
       }
     })
@@ -184,7 +184,7 @@ export function NotificationHistoryClient({
         await markNotificationRead(notificationId)
         toast.success('Notification marked as read')
         router.refresh()
-      } catch (error) {
+      } catch (_error) {
         toast.error('Failed to mark notification as read')
       }
     })

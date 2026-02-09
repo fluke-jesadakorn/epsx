@@ -31,7 +31,7 @@ export function NotificationBellClient() {
     notifications,
     count,
     loading,
-    error,
+    error: _error,
     isSSEConnected,
     fetchNotifications,
     markAsRead,
@@ -80,7 +80,7 @@ export function NotificationBellClient() {
     try {
       await deleteNotificationAction(notificationId)
       fetchNotifications() // Refresh the list
-    } catch (error) {
+    } catch (_error) {
       // Error logged silently
     }
   }

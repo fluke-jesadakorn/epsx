@@ -14,12 +14,12 @@ interface PlanSelectionProps {
   className?: string
 }
 
-export function PlanSelection({ currentUser, className }: PlanSelectionProps) {
+export function PlanSelection({ currentUser: _currentUser, className }: PlanSelectionProps) {
   const [pricingCards, setPricingCards] = useState<PricingCardData[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [affiliateCode, setAffiliateCode] = useState<string | null>(null)
-  const [affiliateInfo, setAffiliateInfo] = useState<any>(null)
+  const [affiliateInfo, _setAffiliateInfo] = useState<any>(null)
 
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -66,7 +66,7 @@ export function PlanSelection({ currentUser, className }: PlanSelectionProps) {
         } else {
           throw new Error(response.error?.message ?? 'Invalid API response')
         }
-      } catch (err) {
+      } catch (_err) {
       // Error logged silently
         setError('Failed to load plans. Please try again later.')
         setPricingCards([])

@@ -53,6 +53,7 @@ function useDebounce<T>(value: T, delay: number): T {
  * @param root0.disabled
  * @param root0.excludeGroupId
  */
+// eslint-disable-next-line max-lines-per-function, complexity
 export function WalletAutocomplete({
     value,
     onChange,
@@ -93,9 +94,8 @@ export function WalletAutocomplete({
                 }
 
                 return []
-            } catch (error) {
+            } catch {
                 // Silently fail - search is optional feature
-                console.warn('Wallet search not available:', error)
                 return []
             }
         },

@@ -12,9 +12,9 @@ import {
   UnifiedProgressBar,
   UnifiedSkeleton,
   type UnifiedLoaderProps,
-  type UnifiedLoadingProps,
-  type UnifiedProgressBarProps,
-  type UnifiedSkeletonProps
+  type UnifiedLoadingProps as _UnifiedLoadingProps,
+  type UnifiedProgressBarProps as _UnifiedProgressBarProps,
+  type UnifiedSkeletonProps as _UnifiedSkeletonProps
 } from '@/shared/components/loaders/unified-loader';
 
 // ============================================================================

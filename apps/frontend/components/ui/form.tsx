@@ -16,7 +16,7 @@ import {
   FormDescription as BaseFormDescription,
   FormMessage as BaseFormMessage,
   useFormField as useBaseFormField,
-  type BaseFormProps
+  type BaseFormProps as _BaseFormProps
 } from "@/shared/components"
 import { cn } from "@/lib/utils"
 import type {
