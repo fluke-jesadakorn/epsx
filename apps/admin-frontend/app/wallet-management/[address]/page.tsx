@@ -72,19 +72,182 @@ const STATUS_CONFIG: Record<WalletStatus, { label: string; emoji: string; classN
     },
 };
 
-function formatTimeAgo(timestamp: string): string {
-    const date = new Date(timestamp);
-    const now = new Date();
-    const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));
+// ============================================================================
+// CUSTOM HOOKS
+// ============================================================================
 
-    if (diffInHours < 1) { return 'Just now'; }
-    if (diffInHours < 24) { return `${diffInHours} hours ago`; }
+interface UseWalletDataContext {
+    walletAddress: string;
+    router: ReturnType<typeof useRouter>;
+}
 
-    const diffInDays = Math.floor(diffInHours / 24);
-    if (diffInDays === 1) { return 'Yesterday'; }
-    if (diffInDays < 30) { return `${diffInDays} days ago`; }
+function useWalletData(ctx: UseWalletDataContext) {
+    const [wallet, setWallet] = useState<WalletData | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
+    const [isRefreshing, setIsRefreshing] = useState(false);
 
-    return date.toLocaleDateString();
+    const loadWallet = useCallback(async () => {
+        if (!ctx.walletAddress) { return; }
+
+        try {
+            setIsRefreshing(true);
+            const walletData = await fetchWalletDetailAction(ctx.walletAddress);
+            setWallet(walletData);
+        } catch (_err) {
+            console.error('Failed to load wallet:', _err);
+            toast.error('Failed to load wallet details');
+            ctx.router.push('/wallet-management');
+        } finally {
+            setIsLoading(false);
+            setIsRefreshing(false);
+        }
+    }, [ctx.walletAddress, ctx.router]);
+
+    return { wallet, setWallet, isLoading, isRefreshing, loadWallet };
+}
+
+function useMetadataForm(wallet: WalletData | null) {
+    const [metadataForm, setMetadataForm] = useState({ label: '', note: '' });
+    const [isSaving, setIsSaving] = useState(false);
+    const [hasChanges, setHasChanges] = useState(false);
+
+    useEffect(() => {
+        if (wallet) {
+            setMetadataForm({
+                label: wallet.label ?? '',
+                note: wallet.note ?? '',
+            });
+            setHasChanges(false);
+        }
+    }, [wallet]);
+
+    const handleSave = useCallback(async (walletAddress: string, loadWallet: () => Promise<void>) => {
+        if (!wallet) { return; }
+        setIsSaving(true);
+        try {
+            await updateWalletMetadataAction(walletAddress, {
+                label: metadataForm.label ?? null,
+                note: metadataForm.note ?? null,
+            });
+            toast.success('Wallet metadata updated');
+            setHasChanges(false);
+            await loadWallet();
+        } catch (_err) {
+            console.error('Failed to update metadata:', _err);
+            toast.error('Failed to save changes');
+        } finally {
+            setIsSaving(false);
+        }
+    }, [metadataForm, wallet]);
+
+    return { metadataForm, setMetadataForm, isSaving, hasChanges, setHasChanges, handleSave };
+}
+
+function usePlanAssignments(accessData: ReturnType<typeof useWalletAccess>['data']) {
+    const [pendingDrops, setPendingDrops] = useState<AccessItem[]>([]);
+    const [isSaving, setIsSaving] = useState(false);
+    const { assignPlan, refresh: refreshAccess } = useWalletAccess('');
+
+    const handleSave = useCallback(async () => {
+        if (pendingDrops.length === 0) { return; }
+        setIsSaving(true);
+        try {
+            await Promise.all(pendingDrops.map(plan => assignPlan(plan.id)));
+            toast.success('Access plans assigned successfully');
+            setPendingDrops([]);
+            refreshAccess();
+        } catch (_err) {
+            console.error('Failed to save changes:', _err);
+            toast.error('Failed to assign plans');
+        } finally {
+            setIsSaving(false);
+        }
+    }, [pendingDrops, assignPlan, refreshAccess]);
+
+    return { pendingDrops, setPendingDrops, isSaving, handleSave };
+}
+
+interface UseWalletActionsContext {
+    walletAddress: string;
+    onActionComplete: () => Promise<void>;
+}
+
+function useWalletActions(ctx: UseWalletActionsContext) {
+    const [isLoading, setIsLoading] = useState(false);
+
+    const handleDisable = useCallback(async (data: DisableWalletData) => {
+        setIsLoading(true);
+        try {
+            await disableWalletAction(ctx.walletAddress, {
+                duration_days: data.duration === 'until_manual' ? null : data.duration,
+                reason_category: data.reasonCategory,
+                reason_details: data.reasonDetails,
+                affected_platforms: data.affectedPlatforms,
+                block_login: data.blockLogin,
+                pause_subscriptions: data.pauseSubscriptions,
+                notify_user: data.notifyUser,
+            });
+            toast.success('Wallet disabled successfully');
+            await ctx.onActionComplete();
+        } catch (_err) {
+            console.error('Failed to disable wallet:', _err);
+            toast.error(_err instanceof Error ? _err.message : 'Failed to disable wallet');
+        } finally {
+            setIsLoading(false);
+        }
+    }, [ctx.walletAddress, ctx.onActionComplete]);
+
+    const handleReenable = useCallback(async (data: ReenableWalletData) => {
+        setIsLoading(true);
+        try {
+            await enableWalletAction(ctx.walletAddress, {
+                platforms_to_enable: data.platformsToEnable,
+                restore_permissions: data.restorePermissions,
+                resume_subscriptions: data.resumeSubscriptions,
+                resolution_note: data.resolutionNote,
+            });
+            toast.success('Wallet re-enabled successfully');
+            await ctx.onActionComplete();
+        } catch (_err) {
+            console.error('Failed to re-enable wallet:', _err);
+            toast.error(_err instanceof Error ? _err.message : 'Failed to re-enable wallet');
+        } finally {
+            setIsLoading(false);
+        }
+    }, [ctx.walletAddress, ctx.onActionComplete]);
+
+    return { isLoading, handleDisable, handleReenable };
+}
+
+function useSubscriptionData(walletAddress: string) {
+    const [activeSub, setActiveSub] = useState<SubscriptionResponse | null>(null);
+    const [isLoading, setIsLoading] = useState(false);
+
+    useEffect(() => {
+        if (!walletAddress) { return; }
+
+        const loadSubscription = async () => {
+            setIsLoading(true);
+            try {
+                const client = createPlansClient(createAdminApiClient());
+                const res = await client.getSubscriptions({ limit: 100 });
+                if (res?.success && res.data?.subscriptions) {
+                    const sub = res.data.subscriptions.find((s: SubscriptionResponse) =>
+                        s.user_id === walletAddress && s.status === 'active'
+                    );
+                    if (sub) { setActiveSub(sub); }
+                }
+            } catch (_e) {
+                console.error('Failed to load subscription details', _e);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        loadSubscription();
+    }, [walletAddress]);
+
+    return { activeSub, isLoading };
 }
 
 export default function WalletDetailPage() {
@@ -100,104 +263,54 @@ export default function WalletDetailPage() {
         useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } })
     );
 
-    // Core Data State
-    const [wallet, setWallet] = useState<WalletData | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
-    const [isRefreshing, setIsRefreshing] = useState(false);
-    const [copied, setCopied] = useState(false);
+    // Extract custom hooks
+    const walletData = useWalletData({ walletAddress, router });
+    const metadataForm = useMetadataForm(walletData.wallet);
+    const subscriptionData = useSubscriptionData(walletAddress);
 
     // Access Management Hook
     const {
         data: accessData,
-        isLoading: isAccessLoading,
+        isLoading: _isAccessLoading,
         assignPlan,
         removePlan,
-        assignPermission,
-        revokePermission,
         refresh: refreshAccess
     } = useWalletAccess(walletAddress);
 
-    // DND & Pending Changes State
+    // DND & UI State
     const [activeDragItem, setActiveDragItem] = useState<AccessItem | null>(null);
     const [pendingDrops, setPendingDrops] = useState<AccessItem[]>([]);
+    const [editingItem, setEditingItem] = useState<{ item: AccessItem; type: 'plan' | 'permission' } | null>(null);
+    const [copied, setCopied] = useState(false);
     const [isSavingPending, setIsSavingPending] = useState(false);
-    const [editingItem, setEditingItem] = useState<{ item: AccessItem, type: 'plan' | 'permission' } | null>(null);
 
-    // Metadata Editing State
-    const [metadataForm, setMetadataForm] = useState({ label: '', note: '' });
-    const [isSavingMetadata, setIsSavingMetadata] = useState(false);
-    const [hasMetadataChanges, setHasMetadataChanges] = useState(false);
+    // Modal States
+    const [showDisableModal, setShowDisableModal] = useState(false);
+    const [showReenableModal, setShowReenableModal] = useState(false);
 
     // Filter State
     const [searchQuery, setSearchQuery] = useState('');
     const [assignedSearchQuery, setAssignedSearchQuery] = useState('');
 
-    // Modals
-    const [showDisableModal, setShowDisableModal] = useState(false);
-    const [showReenableModal, setShowReenableModal] = useState(false);
-    const [activeSub, setActiveSub] = useState<SubscriptionResponse | null>(null);
-    const [isLoadingSub, setIsLoadingSub] = useState(false);
-    const [isActionLoading, setIsActionLoading] = useState(false);
+    // Wallet actions
+    const walletActions = useWalletActions({
+        walletAddress,
+        onActionComplete: async () => {
+            setShowDisableModal(false);
+            setShowReenableModal(false);
+            await walletData.loadWallet();
+        }
+    });
+
+    // Load wallet on auth
+    useEffect(() => {
+        if (isAuthenticated && !authLoading) {
+            walletData.loadWallet();
+        }
+    }, [isAuthenticated, authLoading, walletData.loadWallet]);
 
     // Derived Plan Lists
     const allPlans = useMemo(() => [...accessData.authorizedPlans, ...accessData.availablePlans], [accessData.authorizedPlans, accessData.availablePlans]);
-
-    // Load wallet data
-    const loadWallet = useCallback(async () => {
-        if (!walletAddress) { return; }
-
-        try {
-            setIsRefreshing(true);
-            const walletData = await fetchWalletDetailAction(walletAddress);
-            setWallet(walletData);
-
-            if (walletData) {
-                setMetadataForm({
-                    label: walletData.label || '',
-                    note: walletData.note || '',
-                });
-                setHasMetadataChanges(false);
-            }
-        } catch (err) {
-            console.error('Failed to load wallet:', err);
-            toast.error('Failed to load wallet details');
-            router.push('/wallet-management');
-        } finally {
-            setIsLoading(false);
-            setIsRefreshing(false);
-        }
-    }, [walletAddress, router]);
-
-    useEffect(() => {
-        if (isAuthenticated && !authLoading) {
-            loadWallet();
-        }
-    }, [isAuthenticated, authLoading, loadWallet]);
-
-    useEffect(() => {
-        if (walletAddress) {
-            // Fetch detailed subscription info
-            const loadSubscription = async () => {
-                setIsLoadingSub(true);
-                try {
-                    const client = createPlansClient(createAdminApiClient());
-                    // Note: Ideally backend supports filtering by user_id, here we filter client-side as fallback
-                    const res = await client.getSubscriptions({ limit: 100 });
-                    if (res && res.success && res.data && res.data.subscriptions) {
-                        const sub = res.data.subscriptions.find((s: SubscriptionResponse) =>
-                            s.user_id === walletAddress && s.status === 'active'
-                        );
-                        if (sub) {setActiveSub(sub);}
-                    }
-                } catch (e) {
-                    console.error('Failed to load subscription details', e);
-                } finally {
-                    setIsLoadingSub(false);
-                }
-            };
-            loadSubscription();
-        }
-    }, [walletAddress]);
 
     // Computed
     const filteredAvailablePlans = useMemo(() => {
@@ -213,15 +326,14 @@ export default function WalletDetailPage() {
     }, [accessData.availablePlans, accessData.authorizedPlans, pendingDrops, searchQuery]);
 
     // Navigation Logic
-    const handleManagePlan = (planId: string) => {
+    const handleManagePlan = useCallback((planId: string) => {
         router.push(`/wallet-management/plans/${planId}?from=/wallet-management/${encodeURIComponent(walletAddress)}`);
-    };
+    }, [router, walletAddress]);
 
     // DND Handlers
-    const handleDragStart = (event: DragStartEvent) => {
+    const handleDragStart = useCallback((event: DragStartEvent) => {
         const { active } = event;
         const allPermissions = [...accessData.availablePermissions, ...accessData.authorizedPermissions];
-        // Note: normalized items for dragging
 
         const item = active.data.current?.type === 'plan'
             ? allPlans.find(p => p.id === active.id)
@@ -230,15 +342,14 @@ export default function WalletDetailPage() {
         if (item) {
             setActiveDragItem(item);
         }
-    };
+    }, [allPlans, accessData.availablePermissions, accessData.authorizedPermissions]);
 
-    const handleDragEnd = (event: DragEndEvent) => {
+    const handleDragEnd = useCallback((event: DragEndEvent) => {
         const { active, over } = event;
         setActiveDragItem(null);
 
         if (!over) { return; }
 
-        // Dropped Plan into Assigned List (Top Section)
         if (active.data.current?.type === 'plan' && over.id === 'assigned-plan-list') {
             const plan = accessData.availablePlans.find(g => g.id === active.id);
             if (plan && !pendingDrops.find(p => p.id === plan.id)) {
@@ -246,113 +357,39 @@ export default function WalletDetailPage() {
                 toast.success(`Staged "${plan.name}" for assignment`);
             }
         }
-
-        // If dropping from assigned list (Legacy/Global removal? - Disabled per request but logic exists)
-        /* 
-        if (accessData.authorizedPermissions.find(p => p.id === itemId)) {
-            revokePermission(itemId).then(() => {
-                toast.success('Permission revoked');
-                refreshAccess();
-            });
-        }
-        */
-    };
+    }, [accessData.availablePlans, pendingDrops]);
 
     // Save Actions
-    const handleSavePendingChanges = async () => {
-        if (pendingDrops.length === 0) {return;}
+    const handleSavePendingChanges = useCallback(async () => {
+        if (pendingDrops.length === 0) { return; }
         setIsSavingPending(true);
         try {
             await Promise.all(pendingDrops.map(plan => assignPlan(plan.id)));
             toast.success('Access plans assigned successfully');
             setPendingDrops([]);
             refreshAccess();
-        } catch (err) {
-            console.error('Failed to save changes:', err);
+        } catch (_err) {
+            console.error('Failed to save changes:', _err);
             toast.error('Failed to assign plans');
         } finally {
             setIsSavingPending(false);
         }
-    };
+    }, [pendingDrops, assignPlan, refreshAccess]);
 
-    const handleSaveMetadata = async () => {
-        if (!wallet) { return; }
-        setIsSavingMetadata(true);
-        try {
-            await updateWalletMetadataAction(wallet.walletAddress, {
-                label: metadataForm.label || null,
-                note: metadataForm.note || null,
-            });
-            toast.success('Wallet metadata updated');
-            setHasMetadataChanges(false);
-            await loadWallet();
-        } catch (err) {
-            console.error('Failed to update metadata:', err);
-            toast.error('Failed to save changes');
-        } finally {
-            setIsSavingMetadata(false);
-        }
-    };
-
-    const handleCopyAddress = async () => {
-        if (!wallet) { return; }
-        const success = await copyToClipboard(wallet.walletAddress);
+    const handleCopyAddress = useCallback(async () => {
+        if (!walletData.wallet) { return; }
+        const success = await copyToClipboard(walletData.wallet.walletAddress);
         if (success) {
             setCopied(true);
             toast.success('Address copied!');
             setTimeout(() => setCopied(false), 2000);
         }
-    };
+    }, [walletData.wallet]);
 
-    const handleDisableWallet = async (data: DisableWalletData) => {
-        if (!wallet) { return; }
-        setIsActionLoading(true);
-        try {
-            await disableWalletAction(wallet.walletAddress, {
-                duration_days: data.duration === 'until_manual' ? null : data.duration,
-                reason_category: data.reasonCategory,
-                reason_details: data.reasonDetails,
-                affected_platforms: data.affectedPlatforms,
-                block_login: data.blockLogin,
-                pause_subscriptions: data.pauseSubscriptions,
-                notify_user: data.notifyUser,
-            });
-            toast.success('Wallet disabled successfully');
-            setShowDisableModal(false);
-            await loadWallet();
-        } catch (err) {
-            console.error('Failed to disable wallet:', err);
-            toast.error(err instanceof Error ? err.message : 'Failed to disable wallet');
-        } finally {
-            setIsActionLoading(false);
-        }
-    };
-
-    const handleReenableWallet = async (data: ReenableWalletData) => {
-        if (!wallet) { return; }
-        setIsActionLoading(true);
-        try {
-            await enableWalletAction(wallet.walletAddress, {
-                platforms_to_enable: data.platformsToEnable,
-                restore_permissions: data.restorePermissions,
-                resume_subscriptions: data.resumeSubscriptions,
-                resolution_note: data.resolutionNote,
-            });
-            toast.success('Wallet re-enabled successfully');
-            setShowReenableModal(false);
-            await loadWallet();
-        } catch (err) {
-            console.error('Failed to re-enable wallet:', err);
-            toast.error(err instanceof Error ? err.message : 'Failed to re-enable wallet');
-        } finally {
-            setIsActionLoading(false);
-        }
-    };
-
-    const statusConfig = wallet ? STATUS_CONFIG[wallet.status] : STATUS_CONFIG.active;
+    const statusConfig = walletData.wallet ? STATUS_CONFIG[walletData.wallet.status] : STATUS_CONFIG.active;
     const hasPending = pendingDrops.length > 0;
 
-    if (authLoading || isLoading) {
+    if (authLoading || walletData.isLoading) {
         return (
             <div className="p-6">
                 <div className="max-w-6xl mx-auto space-y-6">
@@ -364,7 +401,7 @@ export default function WalletDetailPage() {
         );
     }
 
-    if (!wallet) { return null; }
+    if (!walletData.wallet) { return null; }
 
     return (
         <DndContext
@@ -394,11 +431,11 @@ export default function WalletDetailPage() {
                         </div>
                         <Button
                             variant="outline"
-                            onClick={() => { loadWallet(); refreshAccess(); }}
-                            disabled={isRefreshing}
+                            onClick={() => { walletData.loadWallet(); refreshAccess(); }}
+                            disabled={walletData.isRefreshing}
                             className="gap-2"
                         >
-                            <RefreshCw className={cn('h-4 w-4', isRefreshing && 'animate-spin')} />
+                            <RefreshCw className={cn('h-4 w-4', walletData.isRefreshing && 'animate-spin')} />
                             Refresh
                         </Button>
                     </div>
@@ -483,8 +520,8 @@ export default function WalletDetailPage() {
                                         <div className="space-y-2">
                                             <Label className="text-slate-400 text-xs font-normal">Label</Label>
                                             <Input
-                                                value={metadataForm.label}
-                                                onChange={(e) => { setMetadataForm(p => ({ ...p, label: e.target.value })); setHasMetadataChanges(true); }}
+                                                value={metadataForm.metadataForm.label}
+                                                onChange={(e) => { metadataForm.setMetadataForm(p => ({ ...p, label: e.target.value })); metadataForm.setHasChanges(true); }}
                                                 placeholder="e.g. Main Trading Wallet"
                                                 className="h-9 bg-slate-950/50 border-white/10 text-slate-200 text-sm placeholder:text-slate-600 focus:border-purple-500/50 focus:ring-purple-500/20"
                                             />
@@ -492,8 +529,8 @@ export default function WalletDetailPage() {
                                         <div className="space-y-2">
                                             <Label className="text-slate-400 text-xs font-normal">Private Note</Label>
                                             <Input
-                                                value={metadataForm.note}
-                                                onChange={(e) => { setMetadataForm(p => ({ ...p, note: e.target.value })); setHasMetadataChanges(true); }}
+                                                value={metadataForm.metadataForm.note}
+                                                onChange={(e) => { metadataForm.setMetadataForm(p => ({ ...p, note: e.target.value })); metadataForm.setHasChanges(true); }}
                                                 placeholder="Internal notes..."
                                                 className="h-9 bg-slate-950/50 border-white/10 text-slate-200 text-sm placeholder:text-slate-600 focus:border-purple-500/50 focus:ring-purple-500/20"
                                             />
@@ -504,23 +541,23 @@ export default function WalletDetailPage() {
                                             variant="ghost"
                                             size="sm"
                                             onClick={() => {
-                                                if (wallet) {
-                                                    setMetadataForm({ label: wallet.label || '', note: wallet.note || '' });
-                                                    setHasMetadataChanges(false);
+                                                if (walletData.wallet) {
+                                                    metadataForm.setMetadataForm({ label: walletData.wallet.label ?? '', note: walletData.wallet.note ?? '' });
+                                                    metadataForm.setHasChanges(false);
                                                 }
                                             }}
-                                            disabled={!hasMetadataChanges}
+                                            disabled={!metadataForm.hasChanges}
                                             className="text-slate-400 hover:text-white h-8 text-xs font-medium"
                                         >
                                             Discard
                                         </Button>
                                         <Button
                                             size="sm"
-                                            onClick={handleSaveMetadata}
-                                            disabled={isSavingMetadata || !hasMetadataChanges}
+                                            onClick={() => metadataForm.handleSave(walletAddress, walletData.loadWallet)}
+                                            disabled={metadataForm.isSaving || !metadataForm.hasChanges}
                                             className="bg-purple-600 hover:bg-purple-700 text-white h-8 text-xs font-medium"
                                         >
-                                            {isSavingMetadata && <Loader2 className="mr-2 h-3 w-3 animate-spin" />}
+                                            {metadataForm.isSaving && <Loader2 className="mr-2 h-3 w-3 animate-spin" />}
                                             <Save className="mr-2 h-3 w-3" />
                                             Update Details
                                         </Button>
@@ -528,7 +565,7 @@ export default function WalletDetailPage() {
                                 </Card>
 
                                 {/* Section 2: Current Subscription (Detailed) */}
-                                {activeSub && (
+                                {subscriptionData.activeSub && (
                                     <div className="relative group">
                                         <div className="absolute -inset-0.5 bg-gradient-to-br from-purple-500/10 to-blue-500/10 rounded-xl blur-sm opacity-75 group-hover:opacity-100 transition duration-1000" />
                                         <div className="relative bg-slate-900 border border-white/10 rounded-xl p-4 space-y-4">
@@ -540,13 +577,13 @@ export default function WalletDetailPage() {
                                                     <div>
                                                         <h4 className="text-sm font-bold text-white uppercase tracking-wider leading-none mb-1">Active Subscription</h4>
                                                         <p className="text-xs text-slate-400">
-                                                            {activeSub.plan_name}
+                                                            {subscriptionData.activeSub?.plan_name}
                                                         </p>
                                                     </div>
                                                 </div>
                                                 <div className="flex items-center gap-2">
                                                     <Badge className="bg-green-500/10 text-green-400 border-green-500/20 uppercase text-[10px] font-bold">Active</Badge>
-                                                    <Link href={`/subscriptions/${activeSub.id}`}>
+                                                    <Link href={`/subscriptions/${subscriptionData.activeSub?.id}`}>
                                                         <Button size="sm" variant="outline" className="h-7 text-xs gap-1 border-white/10 hover:bg-white/5">
                                                             Manage
                                                             <ExternalLink className="h-3 w-3" />
@@ -556,13 +593,13 @@ export default function WalletDetailPage() {
                                             </div>
 
                                             {/* Usage & Quotas */}
-                                            {activeSub.current_usage && Object.keys(activeSub.current_usage).length > 0 && (
+                                            {subscriptionData.activeSub?.current_usage && Object.keys(subscriptionData.activeSub.current_usage).length > 0 && (
                                                 <div className="mt-3 pt-3 border-t border-white/5 grid grid-cols-2 gap-4">
-                                                    {Object.entries(activeSub.current_usage).map(([key, value]) => (
+                                                    {Object.entries(subscriptionData.activeSub.current_usage).map(([key, value]) => (
                                                         <div key={key}>
                                                             <span className="text-[10px] text-slate-500 uppercase font-medium">{key.replace('_', ' ')}</span>
                                                             <div className="text-sm font-mono text-slate-300">
-                                                                {value} / {activeSub.quota_limits?.[key] || '∞'}
+                                                                {value} / {subscriptionData.activeSub?.quota_limits?.[key] ?? '∞'}
                                                             </div>
                                                         </div>
                                                     ))}
@@ -570,8 +607,8 @@ export default function WalletDetailPage() {
                                             )}
 
                                             <div className="flex justify-between items-center text-xs text-slate-500 pt-2">
-                                                <span>Started: {activeSub.created_at ? new Date(activeSub.created_at).toLocaleDateString() : 'Never'}</span>
-                                                <span>Expires: {activeSub.expires_at ? new Date(activeSub.expires_at).toLocaleDateString() : 'Never'}</span>
+                                                <span>Started: {subscriptionData.activeSub?.created_at ? new Date(subscriptionData.activeSub.created_at).toLocaleDateString() : 'Never'}</span>
+                                                <span>Expires: {subscriptionData.activeSub?.expires_at ? new Date(subscriptionData.activeSub.expires_at).toLocaleDateString() : 'Never'}</span>
                                             </div>
                                         </div>
                                     </div>
@@ -680,21 +717,21 @@ export default function WalletDetailPage() {
                 {/* Disable/Re-enable Modals */}
                 {showDisableModal && (
                     <DisableWalletModal
-                        walletAddress={wallet.walletAddress}
+                        walletAddress={walletData.wallet?.walletAddress ?? ''}
                         isOpen={true}
                         onClose={() => setShowDisableModal(false)}
-                        onConfirm={handleDisableWallet}
-                        isLoading={isActionLoading}
+                        onConfirm={walletActions.handleDisable}
+                        isLoading={walletActions.isLoading}
                     />
                 )}
-                {showReenableModal && wallet.disableInfo && (
+                {showReenableModal && walletData.wallet?.disableInfo && (
                     <ReenableWalletModal
-                        walletAddress={wallet.walletAddress}
-                        disableInfo={wallet.disableInfo}
+                        walletAddress={walletData.wallet?.walletAddress ?? ''}
+                        disableInfo={walletData.wallet?.disableInfo}
                         isOpen={true}
                         onClose={() => setShowReenableModal(false)}
-                        onConfirm={handleReenableWallet}
-                        isLoading={isActionLoading}
+                        onConfirm={walletActions.handleReenable}
+                        isLoading={walletActions.isLoading}
                     />
                 )}
 
