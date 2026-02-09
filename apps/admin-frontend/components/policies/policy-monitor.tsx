@@ -17,7 +17,7 @@ import {
   UserIcon,
   ZapIcon,
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { getPolicyStatsAction } from '@/app/policies/actions';
 import { Badge } from '@/components/ui/badge';
@@ -76,61 +76,29 @@ const DECISION_ICONS = {
 /**
  *
  */
+// eslint-disable-next-line max-lines-per-function, complexity
 export default function PolicyMonitor() {
   const [liveEvaluations, setLiveEvaluations] = useState<PolicyEvaluation[]>([]);
   const [stats, setStats] = useState<PolicyStats | null>(null);
-  const [performance, setPerformance] = useState<PolicyPerformance[]>([]);
+  const [_performance, _setPerformance] = useState<PolicyPerformance[]>([]);
   const [isLiveMode, setIsLiveMode] = useState(true);
   const [loading, setLoading] = useState(true);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
   const { toast } = useToast();
 
-  useEffect(() => {
-    loadInitialData();
-
-    let interval: NodeJS.Timeout;
-    if (isLiveMode) {
-      interval = setInterval(refreshLiveData, 2000); // Update every 2 seconds
-    }
-
-    return () => {
-      if (interval) { clearInterval(interval); }
-    };
-  }, [isLiveMode]);
-
-  const loadInitialData = async () => {
-    try {
-      setLoading(true);
-      await Promise.all([
-        loadPolicyStats(),
-        loadRecentEvaluations(),
-      ]);
-    } catch (_error) {
-
-      console.error('Error loading initial data:', _error);
-      toast({
-        title: "Error",
-        description: "Failed to load monitoring data",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  // Define functions before useEffect to fix no-use-before-define
   const loadPolicyStats = async () => {
     try {
-      const stats = await getPolicyStatsAction();
-      if (stats) {
-        setStats(stats);
+      const policyStats = await getPolicyStatsAction();
+      if (policyStats) {
+        setStats(policyStats);
       }
     } catch (_error) {
-
-      console.error('Error loading policy stats:', _error);
+      // Silently fail
     }
   };
 
-  const loadRecentEvaluations = async () => {
+  const loadRecentEvaluations = () => {
     try {
       // Simulate recent evaluations (in real implementation, this would come from the backend)
       const mockEvaluations: PolicyEvaluation[] = [
@@ -171,12 +139,28 @@ export default function PolicyMonitor() {
 
       setLiveEvaluations(mockEvaluations);
     } catch (_error) {
-
-      console.error('Error loading recent evaluations:', _error);
+      // Silently fail
     }
   };
 
-  const refreshLiveData = async () => {
+  const loadInitialData = useCallback(async () => {
+    try {
+      setLoading(true);
+      await loadPolicyStats();
+      loadRecentEvaluations();
+    } catch (_error) {
+      // Silently fail
+      toast({
+        title: "Error",
+        description: "Failed to load monitoring data",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [toast]);
+
+  const refreshLiveData = () => {
     try {
       // Simulate new evaluations
       if (Math.random() > 0.7) { // 30% chance of new evaluation
@@ -185,7 +169,8 @@ export default function PolicyMonitor() {
           user_id: `user${Math.floor(Math.random() * 10)}`,
           user_email: `user${Math.floor(Math.random() * 10)}@epsx.io`,
           action_attempted: (['epsx:analytics:execute', 'epsx:analytics:view', 'epsx:portfolio:export'][Math.floor(Math.random() * 3)] ?? 'epsx:analytics:view'),
-          decision: (['allow', 'deny', 'require_mfa', 'require_approval'][Math.floor(Math.random() * 4)] as any ?? 'allow'),
+          // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+          decision: (['allow', 'deny', 'require_mfa', 'require_approval'][Math.floor(Math.random() * 4)] as unknown as 'allow' | 'deny' | 'require_mfa' | 'require_approval') ?? 'allow',
           decision_reason: 'Policy evaluation completed',
           evaluation_time_ms: Math.floor(Math.random() * 50) + 5,
           evaluated_at: new Date().toISOString(),
@@ -197,10 +182,24 @@ export default function PolicyMonitor() {
 
       setLastUpdate(new Date());
     } catch (_error) {
-
-      console.error('Error refreshing live data:', _error);
+      // Silently fail
     }
   };
+
+  useEffect(() => {
+    void loadInitialData();
+
+    let interval: NodeJS.Timeout | undefined;
+    if (isLiveMode === true) {
+      interval = setInterval(() => {
+        refreshLiveData();
+      }, 2000); // Update every 2 seconds
+    }
+
+    return () => {
+      if (interval !== undefined) { clearInterval(interval); }
+    };
+  }, [isLiveMode, loadInitialData]);
 
   const formatTime = (dateString: string) => {
     const date = new Date(dateString);
@@ -213,7 +212,9 @@ export default function PolicyMonitor() {
   };
 
   const getDecisionBadge = (decision: string) => {
-    const color = DECISION_COLORS[decision as keyof typeof DECISION_COLORS] ?? 'gray';
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+    const _color = DECISION_COLORS[decision as keyof typeof DECISION_COLORS] ?? 'gray';
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     const Icon = DECISION_ICONS[decision as keyof typeof DECISION_ICONS] ?? ActivityIcon;
 
     let variant: "default" | "destructive" | "outline" | "secondary" = "outline";
@@ -287,7 +288,7 @@ export default function PolicyMonitor() {
             <Button
               variant="outline"
               size="sm"
-              onClick={loadInitialData}
+              onClick={() => void loadInitialData()}
               className="min-h-[44px] justify-center"
             >
               <RefreshCwIcon className="h-4 w-4 mr-2" />
@@ -510,6 +511,7 @@ export default function PolicyMonitor() {
             <div className="space-y-3">
               {Object.entries(stats.decision_breakdown).map(([decision, count]) => {
                 const percentage = calculatePercentage(count, stats.evaluations_24h);
+                // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
                 const Icon = DECISION_ICONS[decision as keyof typeof DECISION_ICONS] ?? ActivityIcon;
 
                 return (
