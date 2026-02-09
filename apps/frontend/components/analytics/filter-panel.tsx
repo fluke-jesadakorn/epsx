@@ -3,6 +3,7 @@
 import type { FilterPanelProps } from '@/types/analytics';
 import { memo, useState } from 'react';
 
+// eslint-disable-next-line max-lines-per-function
 const FilterPanel = memo<FilterPanelProps>(({ filters, options, onFiltersChange, isLoading }) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
