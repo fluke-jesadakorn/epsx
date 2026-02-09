@@ -35,7 +35,7 @@ export default function AdminPaymentsPage() {
     }
   }, [isAuthenticated, isLoading, router]);
 
-  if (isLoading ?? !isAuthenticated) {
+  if (isLoading || !isAuthenticated) {
     return <PageSkeleton showHeader showTabs tabCount={4} stats={4} rows={6} />;
   }
 
