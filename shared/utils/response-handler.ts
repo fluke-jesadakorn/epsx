@@ -669,19 +669,19 @@ export async function apiCallWithRetry<T>(
  * Type guards for error responses
  */
 export const isPermissionDeniedError = (response: ApiResponse): response is PermissionDeniedError => {
-  return !response.success && response.error.type === 'PERMISSION_DENIED'
+  return response.success === false && response.error.type === 'PERMISSION_DENIED'
 }
 
 export const isInsufficientTierError = (response: ApiResponse): response is InsufficientTierError => {
-  return !response.success && response.error.type === 'INSUFFICIENT_TIER'
+  return response.success === false && response.error.type === 'INSUFFICIENT_TIER'
 }
 
 export const isPermissionExpiredError = (response: ApiResponse): response is PermissionExpiredError => {
-  return !response.success && response.error.type === 'PERMISSION_EXPIRED'
+  return response.success === false && response.error.type === 'PERMISSION_EXPIRED'
 }
 
 export const isRateLimitExceededError = (response: ApiResponse): response is RateLimitExceededError => {
-  return !response.success && response.error.type === 'RATE_LIMIT_EXCEEDED'
+  return response.success === false && response.error.type === 'RATE_LIMIT_EXCEEDED'
 }
 
 /**

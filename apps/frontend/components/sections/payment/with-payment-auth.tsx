@@ -9,7 +9,7 @@ import { forwardRef } from 'react'
 function usePaymentAuth() {
   const router = useRouter()
   const { user, isLoading } = useAuth()
-  const isAuthenticated = !!user
+  const isAuthenticated = Boolean(user)
 
   const hasPaymentAccess = user?.permissions ?
     (Array.isArray(user.permissions)

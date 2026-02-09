@@ -177,11 +177,11 @@ export class SharedWeb3AuthClient {
     let storedUser = getClientCookieJSON<UserInfoResponse>(COOKIES.user);
 
     // Fallback: decode user from JWT if cookie missing but token exists
-    if (!storedUser && this.accessToken !== null && this.accessToken !== '') {
+    if (storedUser === null && this.accessToken !== null && this.accessToken !== '') {
       storedUser = this.decodeUserFromToken(this.accessToken);
     }
 
-    if (storedUser) {
+    if (storedUser !== null) {
       this.user = storedUser;
     }
   }
@@ -214,7 +214,7 @@ export class SharedWeb3AuthClient {
 
     try {
       if (this.accessToken !== null && this.accessToken !== '') {
-        setClientCookie(COOKIES.access_token, this.accessToken, this.tokenExpiry ? Math.floor((this.tokenExpiry - Date.now()) / 1000) : 3600);
+        setClientCookie(COOKIES.access_token, this.accessToken, this.tokenExpiry !== null ? Math.floor((this.tokenExpiry - Date.now()) / 1000) : 3600);
       }
 
       if (this.refreshToken !== null && this.refreshToken !== '') {
@@ -225,7 +225,7 @@ export class SharedWeb3AuthClient {
         setClientCookie(COOKIES.expires_at, this.tokenExpiry.toString(), 2592000);
       }
 
-      if (this.user) {
+      if (this.user !== null) {
         setClientCookieJSON(COOKIES.user, this.user, 2592000);
       }
 
@@ -355,21 +355,21 @@ export class SharedWeb3AuthClient {
     context: { url: string; walletAddress: string; initialErrorData?: unknown }
   ): Promise<never> {
     const { url, walletAddress, initialErrorData } = context;
-    let errorData = initialErrorData ?? null;
+    let errorData: unknown = initialErrorData ?? null;
     let errorMessage = `Challenge request failed: ${response.status} ${response.statusText}`;
 
     // Read the response body only once if not provided
-    if (!errorData) {
+    if (errorData === null) {
       const contentType = response.headers.get('content-type');
       try {
         if (response.status === 404) {
           errorMessage =
             errorMessage =
             'Authentication endpoint not found. The backend may need to be updated with Web3 authentication routes.';
-        } else if (contentType !== null && contentType.includes('application/json')) {
-          errorData = await response.json();
-          errorMessage =
-            (errorData as { message?: string }).message ?? errorMessage;
+        } else if (contentType?.includes('application/json') === true) {
+          errorData = (await response.json()) as unknown;
+          const message = (errorData as { message?: string }).message;
+          errorMessage = (message !== undefined && message !== '') ? message : errorMessage;
         } else {
           const errorText = await response.text();
           errorMessage = `Challenge request failed: ${response.status} ${response.statusText}. ${errorText}`;
@@ -438,7 +438,7 @@ export class SharedWeb3AuthClient {
     message: string;
     nonce: string;
   }): Promise<{ success: boolean; user?: UserInfoResponse; error?: string }> {
-    if (this.authInProgress) {
+    if (this.authInProgress === true) {
       return { success: false, error: 'Authentication already in progress. Please wait.' };
     }
 
@@ -491,7 +491,7 @@ export class SharedWeb3AuthClient {
   }
 
   private validateAuthResult(result: AuthVerifyResult, walletAddress: string): void {
-    if (!result.success || !result.authenticated) {
+    if (result.success === false || result.authenticated === false) {
       const errorMsg = result.message ?? result.error ?? 'Authentication failed';
       logger.error('Web3 authentication failed in backend', {
         success: result.success,
@@ -596,7 +596,7 @@ export class SharedWeb3AuthClient {
 
       if (result.success && result.access_token !== undefined && result.access_token !== '') {
         this.accessToken = result.access_token;
-        if (result.refresh_token) {
+        if (result.refresh_token !== undefined && result.refresh_token !== '') {
           this.refreshToken = result.refresh_token;
         }
         this.tokenExpiry = Date.now() + (result.expires_in ?? 3600) * 1000;
@@ -718,7 +718,7 @@ export class SharedWeb3AuthClient {
     this.user = user;
 
     // If user object contains an access token, hydrate that too
-    if (user?.access) {
+    if (user?.access !== undefined && user.access !== '') {
       this.accessToken = user.access;
       // If we don't have an expiry yet, assume it's valid for at least a bit (hydration scenario)
       this.tokenExpiry ??= Date.now() + 3600 * 1000; // 1 hour safety buffer
@@ -739,7 +739,7 @@ export class SharedWeb3AuthClient {
       this.user = user;
 
       // Sync user to storage
-      if (user) {
+      if (user !== null) {
         setClientCookieJSON(COOKIES.user, user);
       }
 
@@ -756,15 +756,15 @@ export class SharedWeb3AuthClient {
   }
 
   async fetchCurrentUser(): Promise<UserInfoResponse | null> {
-    if (this.user) { return this.user; }
-    if (this.accessToken) {
+    if (this.user !== null) { return this.user; }
+    if (this.accessToken !== null && this.accessToken !== '') {
       return await Promise.resolve(this.decodeUserFromToken(this.accessToken));
     }
     return null;
   }
 
   async logout(): Promise<void> {
-    const wasAuthenticated = Boolean(this.accessToken);
+    const wasAuthenticated = this.accessToken !== null && this.accessToken !== '';
     this.clearTokens();
 
     if (wasAuthenticated) {

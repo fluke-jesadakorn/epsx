@@ -31,7 +31,7 @@ export function PaymentPageClient({ selectedPackageId, context }: PaymentPageCli
   }, []);
 
   // Determine if this is a dynamic link payment
-  const isDynamicPayment = !!(context?.planId || context?.planId || context?.linkSlug);
+  const isDynamicPayment = Boolean(context?.planId || context?.planId || context?.linkSlug);
 
   // Loading fallback component
   const LoadingFallback = () => (

@@ -95,7 +95,7 @@ export class Logger {
 
     // Handle BigInt primitive type
     if (typeof data === 'bigint') {
-      return data.toString() + 'n';
+      return `${data.toString()  }n`;
     }
 
     // Handle primary types
@@ -297,7 +297,7 @@ export function safeError(error: unknown): SafeErrorResult {
   }
 
   if (typeof error === 'bigint') {
-    return { message: error.toString() + 'n' };
+    return { message: `${error.toString()  }n` };
   }
 
   if (error && typeof error === 'object') {

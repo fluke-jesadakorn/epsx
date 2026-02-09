@@ -63,7 +63,7 @@ export async function evaluatePolicyAction(context: Record<string, unknown>): Pr
 
 export async function createPolicyAction(formData: Record<string, unknown>): Promise<void> {
     const apiClient = createAdminApiClient({ serverSide: true });
-    const res = await apiClient.post<unknown>('/api/admin/policies', formData);
+    const res = await apiClient.post('/api/admin/policies', formData);
     if (!res.success) {
         if (res.error?.code === '401' || res.error?.code === 'UNAUTHORIZED') {
             await logout();

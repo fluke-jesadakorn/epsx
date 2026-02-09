@@ -51,10 +51,10 @@ export function PaymentAnalytics() {
     const formatCurrency = (amount: number, currency = 'USD') => {
         try {
             if (currency === 'USDT') {
-                return new Intl.NumberFormat('en-US', {
+                return `${new Intl.NumberFormat('en-US', {
                     minimumFractionDigits: 2,
                     maximumFractionDigits: 2,
-                }).format(amount) + ' USDT';
+                }).format(amount)  } USDT`;
             }
 
             return new Intl.NumberFormat('en-US', {

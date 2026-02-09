@@ -35,7 +35,7 @@ export function sanitizeEmail(email: string): string {
   const cleaned = email
     .toLowerCase()
     .replace(/[^a-z0-9@._-]/g, '')
-    .substring(0, 254); // RFC limit
+    .slice(0, 254); // RFC limit
   
   // Basic email format validation
   const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
@@ -53,7 +53,7 @@ export function sanitizeDisplayName(name: string): string {
     .replace(/[<>'"&`\x00-\x1f]/g, '') // Remove dangerous chars
     .replace(/\s+/g, ' ') // Normalize whitespace
     .trim()
-    .substring(0, 100); // Reasonable length limit
+    .slice(0, 100); // Reasonable length limit
 }
 
 /**

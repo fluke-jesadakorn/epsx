@@ -83,7 +83,7 @@ export function useTouchGestures(options: TouchGestureOptions = {}) {
   const getDistance = useCallback((touch1: Touch, touch2: Touch): number => {
     const deltaX = touch1.clientX - touch2.clientX;
     const deltaY = touch1.clientY - touch2.clientY;
-    return Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+    return Math.hypot(deltaX, deltaY);
   }, []);
 
   const handleTouchStart = useCallback((e: TouchEvent) => {

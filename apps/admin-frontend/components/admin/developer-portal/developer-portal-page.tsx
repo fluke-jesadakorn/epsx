@@ -282,14 +282,14 @@ export const DeveloperPortalPage: React.FC = () => {
                     onRevoke={(apiKey) =>
                         setRevokeModal({
                             isOpen: true,
-                            apiKey: apiKey,
+                            apiKey,
                             isLoading: false,
                         })
                     }
                     onEditExpiration={(apiKey) =>
                         setExpirationModal({
                             isOpen: true,
-                            apiKey: apiKey,
+                            apiKey,
                             isLoading: false,
                         })
                     }

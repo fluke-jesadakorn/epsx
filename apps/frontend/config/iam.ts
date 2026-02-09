@@ -128,7 +128,7 @@ export const FRONTEND_PERMISSION_SETS = {
 export function hasUserPermissions(userPermissions: string[]): boolean {
   // PERMISSION REFACTOR: Client-side is permissive for authenticated users.
   // Backend enforces actual access control.
-  return !!userPermissions && userPermissions.length > 0;
+  return Boolean(userPermissions) && userPermissions.length > 0;
 }
 
 export function canAccessUserRoute(route: string, userPermissions: string[]): boolean {
@@ -139,7 +139,7 @@ export function canAccessUserRoute(route: string, userPermissions: string[]): bo
   }
 
   // Require at least authentication for non-public routes
-  return !!userPermissions && userPermissions.length > 0;
+  return Boolean(userPermissions) && userPermissions.length > 0;
 }
 
 /**

@@ -33,7 +33,7 @@ export default function OneClickPayment({
 }: OneClickPaymentProps) {
   const { chain } = useAccount();
   const { user, isLoading: isAuthLoading, refreshUser } = useAuth();
-  const isAuthenticated = !!user;
+  const isAuthenticated = Boolean(user);
 
   const {
     packages,

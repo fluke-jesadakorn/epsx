@@ -244,7 +244,7 @@ export function UnifiedStatsCard({
         <UnifiedCard variant={variant} className={cn('min-w-48', className)}>
             <div className="flex items-start justify-between">
                 <div className="flex-1">
-                    {icon && (
+                    {Boolean(icon) && (
                         <div className="text-2xl mb-3">
                             {icon}
                         </div>
@@ -254,19 +254,19 @@ export function UnifiedStatsCard({
                         {value}
                     </div>
 
-                    {label && (
+                    {Boolean(label) && (
                         <div className="text-sm opacity-70 font-medium">
                             {label}
                         </div>
                     )}
                 </div>
 
-                {trend && percentage && (
+                {Boolean(trend) && Boolean(percentage) && (
                     <div className={cn(
                         'flex items-center space-x-1 text-sm font-medium',
-                        trendColors[trend]
+                        trendColors[trend as 'up' | 'down' | 'neutral']
                     )}>
-                        <span className="text-base">{trendIcons[trend]}</span>
+                        <span className="text-base">{trendIcons[trend as 'up' | 'down' | 'neutral']}</span>
                         <span>{percentage}</span>
                     </div>
                 )}
@@ -302,35 +302,35 @@ export function UnifiedListCard({
 }: UnifiedListCardProps) {
     return (
         <UnifiedCard variant={variant} className={className}>
-            {title && (
+            {Boolean(title) && (
                 <h3 className="font-semibold text-lg mb-4 opacity-90">{title}</h3>
             )}
 
             <div className="space-y-3">
                 {items.map((item) => {
-                    const Component = item.href ? 'a' : 'div';
+                    const Component = item.href !== undefined && item.href !== '' ? 'a' : 'div';
                     return (
                         <Component
                             key={item.title}
                             href={item.href}
                             className={cn(
                                 'flex items-center justify-between py-3 border-b border-gray-100 dark:border-gray-800 last:border-b-0',
-                                item.href && 'hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer rounded-md px-2 -mx-2'
+                                Boolean(item.href) && 'hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer rounded-md px-2 -mx-2'
                             )}
                         >
                             <div className="flex items-center space-x-3">
-                                {item.icon && (
+                                {Boolean(item.icon) && (
                                     <div className="text-lg">{item.icon}</div>
                                 )}
                                 <div>
                                     <div className="font-medium">{item.title}</div>
-                                    {item.subtitle && (
+                                    {Boolean(item.subtitle) && (
                                         <div className="text-sm opacity-70">{item.subtitle}</div>
                                     )}
                                 </div>
                             </div>
 
-                            {item.action && (
+                            {Boolean(item.action) && (
                                 <div className="text-sm opacity-70">{item.action}</div>
                             )}
                         </Component>
@@ -364,7 +364,7 @@ export function UnifiedFeatureCard({
 }: UnifiedFeatureCardProps) {
     return (
         <UnifiedCard variant={variant} className={cn('text-center', className)}>
-            {icon && (
+            {Boolean(icon) && (
                 <div className="text-3xl mb-4 flex justify-center">
                     {icon}
                 </div>
@@ -373,7 +373,7 @@ export function UnifiedFeatureCard({
             <h3 className="font-semibold text-lg mb-2">{title}</h3>
             <p className="opacity-70 mb-4">{description}</p>
 
-            {action && (
+            {Boolean(action) && (
                 <div className="mt-4">
                     {action}
                 </div>

@@ -163,7 +163,7 @@ function UserDropdown({ address, user, onDisconnect, onClose }: UserDropdownProp
                     >
                         {address?.slice(0, 8)}...{address?.slice(-6)}
                     </p>
-                    {user?.tier_level && (
+                    {user?.tier_level !== undefined && user.tier_level !== '' && (
                         <p
                             style={{
                                 margin: '0.5rem 0 0',

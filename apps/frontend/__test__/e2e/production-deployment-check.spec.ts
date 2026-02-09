@@ -52,7 +52,7 @@ test.describe('Production Deployment Check', () => {
         // Check if Web3 providers are available
         if (typeof window !== 'undefined') {
           try {
-            results.web3Initialized = !!(window as any).ethereum || !!(window as any).web3;
+            results.web3Initialized = Boolean((window as any).ethereum) || Boolean((window as any).web3);
           } catch (e) {
             results.web3Errors.push(`Web3 provider check failed: ${e.message}`);
           }

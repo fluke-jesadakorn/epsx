@@ -2,8 +2,8 @@
 
 import { Edit, Eye, MoreHorizontal, Star } from 'lucide-react';
 
-import { WalletLabelBadge } from './wallet-label-badge';
 import type { WalletData } from './types';
+import { WalletLabelBadge } from './wallet-label-badge';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -82,11 +82,11 @@ export function WalletTable({
                                             <span className="font-mono text-xs font-medium text-foreground truncate max-w-[120px] md:max-w-none">
                                                 {wallet.walletAddress}
                                             </span>
-                                            {wallet.label && (
+                                            {!!wallet.label && (
                                                 <WalletLabelBadge label={wallet.label} size="sm" className="hidden sm:inline-flex" />
                                             )}
                                         </div>
-                                        {wallet.label && (
+                                        {!!wallet.label && (
                                             <span className="text-[10px] text-muted-foreground mt-0.5 sm:hidden truncate">
                                                 {wallet.label}
                                             </span>

@@ -23,7 +23,7 @@ const mockWeb3ChallengeHandler = async (req: NextRequest) => {
 
   // Simulate successful challenge generation
   return NextResponse.json({
-    nonce: 'test_nonce_' + Date.now(),
+    nonce: `test_nonce_${  Date.now()}`,
     message: `epsx.io wants you to sign in with your Ethereum account:\n${body.wallet_address}\n\nSign in to EPSX analytics platform\n\nURI: https://epsx.io\nVersion: 1\nChain ID: 1\nNonce: test_nonce_${Date.now()}\nIssued At: ${new Date().toISOString()}`,
     expires_at: new Date(Date.now() + 15 * 60 * 1000).toISOString()
   });

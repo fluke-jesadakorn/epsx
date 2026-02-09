@@ -155,14 +155,14 @@ export const StatsCard = React.forwardRef<HTMLDivElement, StatsCardProps>(({
           <p className="text-sm font-medium text-muted-foreground">{title}</p>
           <div className="flex items-center space-x-2">
             <p className="text-2xl font-bold">{value}</p>
-            {change && (
+            {change !== undefined && change !== '' && (
               <span className={cn("text-sm font-medium", changeColorMap[changeType])}>
                 {change}
               </span>
             )}
           </div>
         </div>
-        {icon && (
+        {icon !== undefined && icon !== null && (
           <div className="text-muted-foreground">
             {icon}
           </div>
@@ -192,7 +192,7 @@ export const AnalyticsCard = React.forwardRef<HTMLDivElement, AnalyticsCardProps
     <Card ref={ref} className={cn("", className)} {...props}>
       <CardHeader>
         <CardTitle>{title}</CardTitle>
-        {subtitle && <CardDescription>{subtitle}</CardDescription>}
+        {subtitle !== undefined && subtitle !== '' && <CardDescription>{subtitle}</CardDescription>}
       </CardHeader>
       <CardContent>
         {children}

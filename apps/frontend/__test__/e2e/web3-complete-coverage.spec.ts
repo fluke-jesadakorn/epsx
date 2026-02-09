@@ -49,7 +49,7 @@ async function mockWallet(page: any, address: string, options: any = {}) {
             return bal;
           case 'personal_sign':
             if (rejectSign) {throw new Error('User rejected signing');}
-            return '0x' + 'a'.repeat(130);
+            return `0x${  'a'.repeat(130)}`;
           case 'wallet_switchEthereumChain':
             return null;
           case 'wallet_addEthereumChain':

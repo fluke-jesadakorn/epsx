@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 import { test, expect } from '@playwright/test';
-import { performance } from 'perf_hooks';
+import { performance } from 'node:perf_hooks';
 
 // Configuration for load testing
 const LOAD_TEST_CONFIG = {
@@ -174,11 +174,10 @@ test.describe('Web3 Authentication Load Testing', () => {
         const promise = (async () => {
           try {
             const { duration } = await measureResponseTime(async () => {
-              const response = await page.request.post('/api/auth/web3/challenge', {
+              return await page.request.post('/api/auth/web3/challenge', {
                 data: { wallet_address: walletAddress },
                 timeout: LOAD_TEST_CONFIG.timeout_ms
               });
-              return response;
             });
             
             results.push({ success: true, duration });
@@ -221,15 +220,14 @@ test.describe('Web3 Authentication Load Testing', () => {
         const promise = (async () => {
           try {
             const { duration } = await measureResponseTime(async () => {
-              const response = await page.request.post('/api/auth/web3/verify', {
+              return await page.request.post('/api/auth/web3/verify', {
                 data: {
                   message: `Mock SIWE message for ${walletAddress}`,
-                  signature: '0x' + 'a'.repeat(130),
+                  signature: `0x${  'a'.repeat(130)}`,
                   wallet_address: walletAddress
                 },
                 timeout: LOAD_TEST_CONFIG.timeout_ms
               });
-              return response;
             });
             
             results.push({ success: true, duration });
@@ -266,10 +264,9 @@ test.describe('Web3 Authentication Load Testing', () => {
         const promise = (async () => {
           try {
             const { duration } = await measureResponseTime(async () => {
-              const response = await page.request.get(`/api/auth/web3/permissions?wallet_address=${walletAddress}`, {
+              return await page.request.get(`/api/auth/web3/permissions?wallet_address=${walletAddress}`, {
                 timeout: LOAD_TEST_CONFIG.timeout_ms
               });
-              return response;
             });
             
             results.push({ success: true, duration });
@@ -321,7 +318,7 @@ test.describe('Web3 Authentication Load Testing', () => {
                     case 'eth_accounts':
                       return [address];
                     case 'personal_sign':
-                      return '0x' + 'a'.repeat(130);
+                      return `0x${  'a'.repeat(130)}`;
                     default:
                       return [];
                   }

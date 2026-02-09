@@ -1,5 +1,5 @@
 import type { NextConfig } from 'next';
-import path from 'path';
+import path from 'node:path';
 
 const SHARED_STUB = '../../shared/stubs/empty.ts';
 const ZOD_ALIAS = 'zod';

@@ -216,35 +216,55 @@ const CardTitleSection: React.FC<{
   size: CardSize;
   orientation: CardOrientation;
 }> = ({ title, subtitle, actions, size, orientation }) => {
-  if (!title && !subtitle && !actions) { return null; }
+  const hasTitle = Boolean(title);
+  const hasSubtitle = Boolean(subtitle);
+  const hasActions = Boolean(actions);
+
+  if (!hasTitle && !hasSubtitle && !hasActions) {
+    return null;
+  }
 
   const titleSize = size === 'sm' ? 'text-sm' : size === 'lg' ? 'text-lg' : 'text-base';
   const subtitleSize = size === 'sm' ? 'text-xs' : 'text-sm';
+  const sectionClasses = cn(
+    'card-title-section',
+    orientation === 'horizontal' ? 'flex-shrink-0 mr-4' : 'mb-3'
+  );
 
   return (
-    <div className={cn('card-title-section', orientation === 'horizontal' ? 'flex-shrink-0 mr-4' : 'mb-3')}>
+    <div className={sectionClasses}>
       <div className="flex items-start justify-between">
         <div className="flex-1">
-          {title && <h3 className={cn('font-semibold text-[hsl(var(--foreground))]', titleSize)}>{title}</h3>}
-          {subtitle && (
-            <p className={cn('text-[hsl(var(--muted-foreground))]', subtitleSize, title ? 'mt-1' : '')}>
+          {hasTitle && (
+            <h3 className={cn('font-semibold text-[hsl(var(--foreground))]', titleSize)}>
+              {title}
+            </h3>
+          )}
+          {hasSubtitle && (
+            <p className={cn(
+              'text-[hsl(var(--muted-foreground))]',
+              subtitleSize,
+              hasTitle ? 'mt-1' : ''
+            )}>
               {subtitle}
             </p>
           )}
         </div>
-        {actions && <div className="flex-shrink-0 ml-3">{actions}</div>}
+        {hasActions && (
+          <div className="flex-shrink-0 ml-3">{actions}</div>
+        )}
       </div>
     </div>
   );
 };
 
 const CardHeaderSection: React.FC<{ header?: React.ReactNode }> = ({ header }) => {
-  if (!header) { return null; }
+  if (header === undefined || header === null || header === false) { return null; }
   return <div className="card-header border-b border-[hsl(var(--border))] pb-3 mb-3">{header}</div>;
 };
 
 const CardFooterSection: React.FC<{ footer?: React.ReactNode }> = ({ footer }) => {
-  if (!footer) { return null; }
+  if (footer === undefined || footer === null || footer === false) { return null; }
   return <div className="card-footer border-t border-[hsl(var(--border))] pt-3 mt-3">{footer}</div>;
 };
 
@@ -253,7 +273,7 @@ const CardDescriptionSection: React.FC<{
   size: CardSize;
   orientation: CardOrientation;
 }> = ({ description, size, orientation }) => {
-  if (!description) { return null; }
+  if (description === undefined || description === null || description === false) { return null; }
   return (
     <div className={cn(
       'card-description text-[hsl(var(--foreground))]/80',
@@ -418,18 +438,18 @@ export const DataCard = React.forwardRef<HTMLDivElement, DataCardProps>(({
   return (
     <BaseCard ref={ref} variant="elevated" {...props}>
       <div className="flex items-center">
-        {icon && (
+        {icon !== undefined && icon !== null && icon !== false && (
           <div className="flex-shrink-0 mr-3 text-[hsl(var(--muted-foreground))]">
             {icon}
           </div>
         )}
         <div className="flex-1">
-          {value && (
+          {value !== undefined && value !== null && value !== false && (
             <div className="text-2xl font-bold text-[hsl(var(--foreground))]">
               {value}
             </div>
           )}
-          {label && (
+          {label !== undefined && label !== '' && (
             <div className="text-sm text-[hsl(var(--muted-foreground))]">
               {label}
             </div>
@@ -441,7 +461,7 @@ export const DataCard = React.forwardRef<HTMLDivElement, DataCardProps>(({
             )}>
               <span className="mr-1">{getTrendIcon(trend)}</span>
               {Math.abs(change)}%
-              {changeLabel && <span className="ml-1 text-[hsl(var(--muted-foreground))]">{changeLabel}</span>}
+              {changeLabel !== undefined && changeLabel !== '' && <span className="ml-1 text-[hsl(var(--muted-foreground))]">{changeLabel}</span>}
             </div>
           )}
         </div>
@@ -496,7 +516,7 @@ export const StatusCard = React.forwardRef<HTMLDivElement, StatusCardProps>(({
             {statusLabel ?? status}
           </span>
         </div>
-        {lastUpdated && (
+        {lastUpdated !== undefined && lastUpdated !== '' && (
           <span className="text-xs text-[hsl(var(--muted-foreground))]">
             {lastUpdated}
           </span>

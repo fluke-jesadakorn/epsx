@@ -298,7 +298,7 @@ export const SECURITY_LEVELS = {
 // ============================================================================
 
 export function getUserAuthMessage(actionName?: string, level?: AuthLevelType): string {
-  if (!actionName) {
+  if (actionName === undefined || actionName === '') {
     switch (level) {
       case AuthLevel.CONNECTED:
         return AUTH_MESSAGES.USER.CONNECT_WALLET;
@@ -321,11 +321,11 @@ export function getUserAuthMessage(actionName?: string, level?: AuthLevelType): 
 }
 
 export function getAdminAuthMessage(actionName?: string, level?: AuthLevelType, requireMFA?: boolean): string {
-  if (requireMFA) {
+  if (requireMFA === true) {
     return AUTH_MESSAGES.ADMIN.MFA_REQUIRED;
   }
 
-  if (!actionName) {
+  if (actionName === undefined || actionName === '') {
     switch (level) {
       case AuthLevel.CONNECTED:
         return AUTH_MESSAGES.ADMIN.CONNECT_WALLET;
@@ -372,7 +372,7 @@ export function hasRequiredPermissions(
   userPermissions: string[],
   requiredPermissions: string[]
 ): boolean {
-  if (requiredPermissions.length === 0) {return true;}
+  if (requiredPermissions.length === 0) { return true; }
 
   return requiredPermissions.every(required =>
     userPermissions.some(permission =>

@@ -17,11 +17,14 @@
 // COLOR CONSTANTS
 // ============================================================================
 
+// Base colors
+const BASE_BLUE_500 = 'hsl(217 91% 60%)';
+
 const HSL_SUCCESS_500 = 'hsl(142 71% 45%)';
 const HSL_WARNING_500 = 'hsl(45 93% 47%)';
 const HSL_ERROR_500 = 'hsl(0 85% 60%)';
-const HSL_INFO_500 = 'hsl(217 91% 60%)';
-const HSL_PRIMARY_500 = 'hsl(217 91% 60%)';
+const HSL_INFO_500 = BASE_BLUE_500;
+const HSL_PRIMARY_500 = BASE_BLUE_500;
 const HSL_SECONDARY_500 = 'hsl(262 83% 58%)';
 const HSL_PREMIUM = 'hsl(250 84% 54%)';
 
@@ -56,7 +59,7 @@ export const colors = {
         200: 'hsl(217 95% 85%)',
         300: 'hsl(217 95% 75%)',
         400: 'hsl(217 95% 65%)',
-        500: 'hsl(217 91% 60%)', // Main primary
+        500: HSL_PRIMARY_500, // Main primary
         600: 'hsl(217 95% 45%)',
         700: 'hsl(217 90% 40%)',
         800: 'hsl(217 85% 35%)',
@@ -71,7 +74,7 @@ export const colors = {
         200: 'hsl(262 90% 80%)',
         300: 'hsl(262 95% 75%)',
         400: 'hsl(262 100% 70%)',
-        500: 'hsl(262 83% 58%)', // Main secondary
+        500: HSL_SECONDARY_500, // Main secondary
         600: 'hsl(262 95% 65%)',
         700: 'hsl(262 90% 60%)',
         800: 'hsl(262 85% 55%)',
@@ -128,7 +131,7 @@ export const colors = {
         200: 'hsl(217 91% 75%)',
         300: 'hsl(217 91% 65%)',
         400: 'hsl(217 91% 58%)',
-        500: 'hsl(217 91% 60%)', // Main info
+        500: HSL_INFO_500, // Main info
         600: 'hsl(217 86% 55%)',
         700: 'hsl(217 81% 50%)',
         800: 'hsl(217 76% 45%)',

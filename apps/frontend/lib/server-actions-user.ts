@@ -268,14 +268,14 @@ export async function getDebugSessionInfo() {
     const rawHeader = headerStore.get('cookie');
 
     return {
-      foundClientSession: !!clientSession,
-      foundAccessCookie: !!accessCookie,
+      foundClientSession: Boolean(clientSession),
+      foundAccessCookie: Boolean(accessCookie),
       clientSessionLength: clientSession ? clientSession.length : 0,
-      clientSessionPreview: clientSession ? clientSession.substring(0, 10) + '...' : 'none',
+      clientSessionPreview: clientSession ? `${clientSession.slice(0, 10)  }...` : 'none',
       accessCookieLength: accessCookie ? accessCookie.length : 0,
       backendUrl: process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080',
       allCookieNames: allCookies,
-      rawCookieHeader: rawHeader ? (rawHeader.substring(0, 50) + '...') : 'missing'
+      rawCookieHeader: rawHeader ? (`${rawHeader.slice(0, 50)  }...`) : 'missing'
     };
   } catch (e) {
     return { error: 'Failed to get debug info', details: String(e) };

@@ -1,14 +1,14 @@
 import { X } from 'lucide-react'
 import React from 'react'
 import { cn } from '../../utils/cn'
-import type { IconType, NotificationType, NotificationVariant } from './unified-notification-types'
 import { typeStyles, variantStyles, type TypeStyle, type VariantStyle } from './notification-styles'
+import type { IconType, NotificationType, NotificationVariant } from './unified-notification-types'
 
 // Helper to get type/variant styles
 export function useNotificationStyles(type: NotificationType, variant: NotificationVariant) {
     const typeStyle = typeStyles[type]
     const variantStyle = variantStyles[variant]
-    const colorStyle = variantStyle.useDark ? typeStyle.dark ?? typeStyle.light : typeStyle.light
+    const colorStyle = variantStyle.useDark === true ? typeStyle.dark ?? typeStyle.light : typeStyle.light
     return { typeStyle, variantStyle, colorStyle }
 }
 
@@ -26,7 +26,7 @@ export function NotificationIcon({
     variantStyle: VariantStyle
 }) {
     const getIcon = () => {
-        if (icon) { return icon }
+        if (icon !== undefined && icon !== null) { return icon }
         if (iconType === 'emoji') {
             return (
                 <span className="text-lg font-bold">
@@ -90,7 +90,7 @@ export function NotificationCloseButton({
             onClick={onClose}
             className={cn(
                 'flex-shrink-0 p-1 rounded-md transition-colors hover:bg-black/10',
-                variantStyle.useDark ? 'text-white opacity-50 hover:opacity-100' : 'text-gray-500 hover:text-gray-700'
+                variantStyle.useDark === true ? 'text-white opacity-50 hover:opacity-100' : 'text-gray-500 hover:text-gray-700'
             )}
         >
             {variant === 'pancake' || variant === 'admin' ? (
@@ -115,18 +115,18 @@ export function NotificationContent({
 }) {
     return (
         <div className="flex-1 min-w-0">
-            {title && (
+            {title !== undefined && title !== '' && (
                 <h4 className={cn(
                     'font-semibold text-sm mb-1',
-                    variantStyle.useDark ? 'text-white' : colorStyle.text
+                    variantStyle.useDark === true ? 'text-white' : colorStyle.text
                 )}>
                     {title}
                 </h4>
             )}
             <p className={cn(
                 'text-sm',
-                variantStyle.useDark ? 'text-white opacity-90' : colorStyle.text,
-                !title && 'font-medium'
+                variantStyle.useDark === true ? 'text-white opacity-90' : colorStyle.text,
+                (title === undefined || title === '') && 'font-medium'
             )}>
                 {message}
             </p>

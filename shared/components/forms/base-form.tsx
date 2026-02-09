@@ -165,7 +165,7 @@ const FormLabel = React.forwardRef<HTMLLabelElement, FormLabelProps>(
           "text-sm font-medium leading-none",
           "peer-disabled:cursor-not-allowed peer-disabled:opacity-70",
           error && "text-red-600 dark:text-red-400",
-          required && "after:content-['*'] after:ml-0.5 after:text-red-500",
+          Boolean(required) && "after:content-['*'] after:ml-0.5 after:text-red-500",
           className
         )}
         htmlFor={formItemId}
@@ -241,7 +241,8 @@ const FormMessage = React.forwardRef<HTMLParagraphElement, FormMessageProps>(
     const { error, formMessageId } = useFormField()
     const body = error ? String(error.message) : children
 
-    if (!body) {
+    const hasBody = body !== null && body !== undefined && body !== '';
+    if (!hasBody) {
       return null
     }
 
@@ -292,12 +293,12 @@ const FormFieldWrapper: React.FC<FormFieldWrapperProps> = ({
       <FormControl>
         {children}
       </FormControl>
-      {description && (
+      {Boolean(description) && (
         <FormDescription>
           {description}
         </FormDescription>
       )}
-      {error && (
+      {Boolean(error) && (
         <FormMessage>
           {error}
         </FormMessage>

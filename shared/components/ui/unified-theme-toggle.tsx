@@ -112,68 +112,71 @@ export function UnifiedThemeToggle({
     const sizeStyle = sizeStyles[size];
     const isDark = (resolvedTheme ?? theme) === 'dark';
 
-    const getIcon = () => {
-        switch (iconType) {
-            case 'emoji':
-                return (
-                    <span className={cn('text-xl', size === 'sm' && 'text-base', size === 'lg' && 'text-2xl')}>
-                        {isDark ? '☀️' : '🌙'}
-                    </span>
-                );
-
-            case 'animated':
-                return (
-                    <div className="relative">
-                        <Sun className={cn(
-                            sizeStyle.icon,
-                            'rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0'
-                        )} />
-                        <Moon className={cn(
-                            sizeStyle.icon,
-                            'absolute top-0 left-0 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100'
-                        )} />
-                    </div>
-                );
-
-            default: // lucide
-                return isDark ? (
-                    <Sun className={cn(sizeStyle.icon, variant === 'minimal' && 'text-orange-500')} />
-                ) : (
-                    <Moon className={cn(sizeStyle.icon, variant === 'minimal' && 'text-orange-500')} />
-                );
-        }
-    };
-
-    const getLabel = () => {
-        if (!showLabel) { return null; }
-        return (
-            <span className={cn(sizeStyle.text, 'hidden sm:inline font-medium')}>
-                {isDark ? 'Light' : 'Dark'}
-            </span>
-        );
-    };
-
     const handleToggle = () => {
         if (!mounted) { return; }
-
         const newTheme = isDark ? 'light' : 'dark';
-
-        // Standard next-themes approach
         setTheme(newTheme);
-
-        // ALWAYS sync with the manual system (cookie and localStorage) 
-        // to ensure consistency across different implementations
-        try {
-            document.cookie = `theme=${newTheme}; path=/; max-age=31536000; SameSite=lax`;
-            localStorage.setItem('theme', newTheme);
-        } catch (_e) {
-            // console.warn('Failed to sync theme to storage:', e);
-        }
+        manualThemeSync(newTheme);
     };
 
-    const buttonContent = (
+    const button = (
+        <ThemeToggleButton
+            className={className} mounted={mounted} isDark={isDark} showLabel={showLabel}
+            size={size} variant={variant} iconType={iconType} onClick={handleToggle}
+            style={style} sizeStyle={sizeStyle}
+        />
+    );
+
+    if (showTooltip) {
+        return (
+            <TooltipProvider>
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        {button}
+                    </TooltipTrigger>
+                    <TooltipContent>
+                        <p>Toggle theme</p>
+                    </TooltipContent>
+                </Tooltip>
+            </TooltipProvider>
+        );
+    }
+
+    return button;
+}
+
+interface VariantStyle {
+    button: string;
+    active: string;
+    loading: string;
+}
+
+interface SizeStyle {
+    icon: string;
+    text: string;
+    button?: string;
+    padding?: string;
+}
+
+interface ThemeToggleButtonProps {
+    className?: string;
+    mounted: boolean;
+    isDark: boolean;
+    showLabel: boolean;
+    size: ThemeToggleSize;
+    variant: ThemeToggleVariant;
+    iconType: ThemeToggleIconType;
+    onClick: () => void;
+    style: VariantStyle;
+    sizeStyle: SizeStyle;
+}
+
+function ThemeToggleButton({
+    className, mounted, isDark, showLabel, size, variant, iconType, onClick, style, sizeStyle
+}: ThemeToggleButtonProps) {
+    return (
         <button
-            onClick={handleToggle}
+            onClick={onClick}
             disabled={!mounted}
             className={cn(
                 'relative rounded-2xl font-semibold flex items-center justify-center gap-2',
@@ -185,28 +188,55 @@ export function UnifiedThemeToggle({
             )}
             aria-label={mounted ? `Switch to ${isDark ? 'light' : 'dark'} theme` : 'Toggle theme (loading)'}
         >
-            {getIcon()}
-            {getLabel()}
+            <ThemeIcon iconType={iconType} isDark={isDark} size={size} sizeStyle={sizeStyle} variant={variant} />
+            <ThemeLabel showLabel={showLabel} isDark={isDark} sizeStyle={sizeStyle} />
             <span className="sr-only">Toggle theme</span>
         </button>
-    );
 
-    if (showTooltip) {
-        return (
-            <TooltipProvider>
-                <Tooltip>
-                    <TooltipTrigger asChild>
-                        {buttonContent}
-                    </TooltipTrigger>
-                    <TooltipContent>
-                        <p>Toggle theme</p>
-                    </TooltipContent>
-                </Tooltip>
-            </TooltipProvider>
-        );
+    )
+}
+
+function ThemeIcon({ iconType, isDark, size, sizeStyle, variant }: {
+    iconType: ThemeToggleIconType, isDark: boolean, size: ThemeToggleSize, sizeStyle: SizeStyle, variant: ThemeToggleVariant
+}) {
+    switch (iconType) {
+        case 'emoji':
+            return (
+                <span className={cn('text-xl', size === 'sm' && 'text-base', size === 'lg' && 'text-2xl')}>
+                    {isDark ? '☀️' : '🌙'}
+                </span>
+            );
+
+        case 'animated':
+            return (
+                <div className="relative">
+                    <Sun className={cn(
+                        sizeStyle.icon,
+                        'rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0'
+                    )} />
+                    <Moon className={cn(
+                        sizeStyle.icon,
+                        'absolute top-0 left-0 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100'
+                    )} />
+                </div>
+            );
+
+        default: // lucide
+            return isDark ? (
+                <Sun className={cn(sizeStyle.icon, variant === 'minimal' && 'text-orange-500')} />
+            ) : (
+                <Moon className={cn(sizeStyle.icon, variant === 'minimal' && 'text-orange-500')} />
+            );
     }
+}
 
-    return buttonContent;
+function ThemeLabel({ showLabel, isDark, sizeStyle }: { showLabel: boolean, isDark: boolean, sizeStyle: SizeStyle }) {
+    if (!showLabel) { return null; }
+    return (
+        <span className={cn(sizeStyle.text, 'hidden sm:inline font-medium')}>
+            {isDark ? 'Light' : 'Dark'}
+        </span>
+    );
 }
 
 // ============================================================================
@@ -247,3 +277,12 @@ export const ThemeToggleCSS = MinimalThemeToggle;
 export const OptimizedThemeToggle = AnimatedThemeToggle;
 
 export default UnifiedThemeToggle;
+
+function manualThemeSync(newTheme: string) {
+    try {
+        document.cookie = `theme=${newTheme}; path=/; max-age=31536000; SameSite=lax`;
+        localStorage.setItem('theme', newTheme);
+    } catch (_e) {
+        // console.warn('Failed to sync theme to storage:', e);
+    }
+}

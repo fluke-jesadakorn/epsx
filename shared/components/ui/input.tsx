@@ -29,7 +29,7 @@ const inputVariants = cva(
 
 export interface InputProps
   extends Omit<React.InputHTMLAttributes<HTMLInputElement>, "size">,
-    VariantProps<typeof inputVariants> {
+  VariantProps<typeof inputVariants> {
   error?: boolean;
 }
 
@@ -40,7 +40,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
         type={type}
         className={cn(
           inputVariants({ variant, size, className }),
-          error && "border-destructive focus-visible:ring-destructive/30"
+          Boolean(error) && "border-destructive focus-visible:ring-destructive/30"
         )}
         ref={ref}
         {...props}

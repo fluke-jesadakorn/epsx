@@ -91,7 +91,7 @@ export const reducer = (state: State, action: Action): State => {
         case actionTypes.DISMISS_TOAST: {
             const { toastId } = action
 
-            if (toastId) {
+            if (toastId !== undefined) {
                 addToRemoveQueue(toastId)
             } else {
                 state.toasts.forEach((t) => {

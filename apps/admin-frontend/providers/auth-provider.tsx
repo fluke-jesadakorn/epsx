@@ -130,7 +130,7 @@ export function AdminWeb3Provider({ children }: AdminWeb3ProviderProps): React.R
 
   // Always provide the context but conditionally render Web3 providers
   return (
-    <AdminWeb3Context.Provider value={{ isInitialized: mounted && !!config, isAdminMode: true }}>
+    <AdminWeb3Context.Provider value={{ isInitialized: mounted && Boolean(config), isAdminMode: true }}>
       {mounted && config ? (
         <WagmiProvider config={config}>
           <QueryClientProvider client={queryClient}>

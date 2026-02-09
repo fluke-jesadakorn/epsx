@@ -1,6 +1,6 @@
 'use client'
 
-import { PlanFormProps } from '@/components/plans/edit/types'
+import type { PlanFormProps } from '@/components/plans/edit/types'
 import * as Promo from '@/shared/utils/promo'
 
 export function PlanPromotions({ formData, setFormData }: PlanFormProps) {
@@ -116,11 +116,11 @@ export function PlanPromotions({ formData, setFormData }: PlanFormProps) {
                             />
                             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                                 Auto: $
-                                {Promo.calcPrice(
-                                    formData.current_price,
-                                    formData.promo_type,
-                                    formData.promo_value
-                                ).toFixed(2)}
+                                {Promo.calcPrice({
+                                    basePrice: formData.current_price,
+                                    type: formData.promo_type,
+                                    value: formData.promo_value,
+                                }).toFixed(2)}
                             </p>
                         </div>
                     </div>

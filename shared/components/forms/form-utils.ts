@@ -54,8 +54,8 @@ export function buildDescribedBy({
 }: DescribedByOptions) {
     return [
         ariaDescribedby,
-        helperText ? helperId : null,
-        error ? errorId : null
+        (helperText !== undefined && helperText !== null) ? helperId : null,
+        (error !== undefined && error !== null) ? errorId : null
     ].filter(Boolean).join(' ') || undefined
 }
 

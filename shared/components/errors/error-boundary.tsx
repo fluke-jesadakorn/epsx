@@ -55,7 +55,7 @@ export class SharedErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoun
     override render() {
         if (this.state.hasError && this.state.error) {
             // Custom fallback provided
-            if (this.props.fallback) {
+            if (this.props.fallback !== undefined && this.props.fallback !== null) {
                 if (typeof this.props.fallback === 'function') {
                     return this.props.fallback(this.state.error)
                 }

@@ -311,7 +311,7 @@ export function AnalyticsUserCard({
           <div className="relative shrink-0">
             <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-[#1fc7d4] to-[#7645d9] blur-md opacity-40 group-hover:opacity-60 transition-opacity" />
             <div className="relative flex h-14 w-14 sm:h-16 sm:w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-[#1fc7d4] to-[#7645d9] text-lg sm:text-xl font-black text-white shadow-inner shadow-white/20">
-              {avatarLabel && avatarLabel.substring(0, 2).toUpperCase()}
+              {avatarLabel && avatarLabel.slice(0, 2).toUpperCase()}
             </div>
             <div className="absolute -bottom-1 -right-1 rounded-full border-[3px] border-[#0f172a] bg-emerald-500 h-4 w-4 sm:h-5 sm:w-5" />
           </div>
@@ -320,7 +320,7 @@ export function AnalyticsUserCard({
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 mb-1">
               <span className="font-mono text-base sm:text-lg font-bold text-slate-100/90 tracking-tight text-ellipsis overflow-hidden whitespace-nowrap">
-                {address && address.length > 12 ? `${address.substring(0, 6)}...${address.substring(address.length - 6)}` : address}
+                {address && address.length > 12 ? `${address.slice(0, 6)}...${address.slice(Math.max(0, address.length - 6))}` : address}
               </span>
               <button
                 onClick={handleCopy}

@@ -11,7 +11,7 @@ export function GenericErrorUI(props: GenericErrorUIProps) {
     const { Card, CardHeader, CardTitle, CardDescription, CardContent, Button } = components
     const isAdmin = platform === 'admin'
 
-    if (Card && CardHeader && CardTitle && CardDescription && CardContent && Button) {
+    if (Card !== undefined && CardHeader !== undefined && CardTitle !== undefined && CardDescription !== undefined && CardContent !== undefined && Button !== undefined) {
         return <GenericErrorCard {...props} />
     }
 
@@ -47,7 +47,7 @@ function GenericErrorCard(props: GenericErrorUIProps) {
         <Card className={`border-gray-200 ${className}`}>
             <CardHeader>
                 <div className="flex items-center space-x-2">
-                    {AlertTriangle && <AlertTriangle className="h-5 w-5 text-gray-500" />}
+                    {AlertTriangle !== undefined && <AlertTriangle className="h-5 w-5 text-gray-500" />}
                     <CardTitle className="text-gray-800">
                         {isAdmin ? 'Admin Operation Failed' : 'Something Went Wrong'}
                     </CardTitle>
@@ -72,16 +72,16 @@ function GenericErrorCard(props: GenericErrorUIProps) {
                 )}
 
                 <div className="flex flex-wrap gap-2">
-                    {showRetry && onRetry && (
+                    {showRetry === true && onRetry !== undefined && (
                         <Button variant="outline" onClick={onRetry}>
-                            {RefreshCw && <RefreshCw className="h-4 w-4 mr-1" />}
+                            {RefreshCw !== undefined && <RefreshCw className="h-4 w-4 mr-1" />}
                             Try Again
                         </Button>
                     )}
 
-                    {showSupport && onSupport && (
+                    {showSupport === true && onSupport !== undefined && (
                         <Button variant="ghost" onClick={() => onSupport(error)}>
-                            {HelpCircle && <HelpCircle className="h-4 w-4 mr-1" />}
+                            {HelpCircle !== undefined && <HelpCircle className="h-4 w-4 mr-1" />}
                             {isAdmin ? 'Technical Support' : 'Get Help'}
                         </Button>
                     )}

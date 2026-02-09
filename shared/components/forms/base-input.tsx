@@ -43,7 +43,7 @@ const BaseInput = forwardRef<HTMLInputElement, BaseInputProps>(({
   const describedBy = buildDescribedBy({ ariaDescribedby, helperText, helperId, error, errorId })
 
   // Resolve state if error is present but state is default
-  const finalState = error && state === 'default' ? 'error' : state
+  const finalState = Boolean(error) && state === 'default' ? 'error' : state
 
   return (
     <div className={cn(containerClasses, fullWidth && 'w-full', containerClassName)}>
@@ -51,11 +51,7 @@ const BaseInput = forwardRef<HTMLInputElement, BaseInputProps>(({
 
       <div className="relative">
         {/* Start Icon */}
-        {startIcon && (
-          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[hsl(var(--muted-foreground))] pointer-events-none">
-            {startIcon}
-          </div>
-        )}
+        <InputIcon icon={startIcon} position="left" />
 
         <input
           ref={ref}
@@ -68,8 +64,8 @@ const BaseInput = forwardRef<HTMLInputElement, BaseInputProps>(({
             inputVariants[variant],
             inputSizes[inputSize],
             inputStates[finalState],
-            startIcon && 'pl-10',
-            endIcon && 'pr-10',
+            Boolean(startIcon) && 'pl-10',
+            Boolean(endIcon) && 'pr-10',
             disabledClasses,
             className
           )}
@@ -77,11 +73,7 @@ const BaseInput = forwardRef<HTMLInputElement, BaseInputProps>(({
         />
 
         {/* End Icon */}
-        {endIcon && (
-          <div className="absolute right-3 top-1/2 -translate-y-1/2 text-[hsl(var(--muted-foreground))] pointer-events-none">
-            {endIcon}
-          </div>
-        )}
+        <InputIcon icon={endIcon} position="right" />
       </div>
 
       <HelperContent
@@ -119,7 +111,7 @@ const BaseTextarea = forwardRef<HTMLTextAreaElement, BaseTextareaProps>(({
   const errorId = React.useId()
   const describedBy = buildDescribedBy({ ariaDescribedby, helperText, helperId, error, errorId })
 
-  const finalState = error && state === 'default' ? 'error' : state
+  const finalState = Boolean(error) && state === 'default' ? 'error' : state
 
   return (
     <div className={cn(containerClasses, fullWidth && 'w-full', containerClassName)}>
@@ -179,7 +171,7 @@ const BaseSelect = forwardRef<HTMLSelectElement, BaseSelectProps>(({
   const errorId = React.useId()
   const describedBy = buildDescribedBy({ ariaDescribedby, helperText, helperId, error, errorId })
 
-  const finalState = error && state === 'default' ? 'error' : state
+  const finalState = Boolean(error) && state === 'default' ? 'error' : state
 
   return (
     <div className={cn(containerClasses, fullWidth && 'w-full', containerClassName)}>
@@ -202,7 +194,7 @@ const BaseSelect = forwardRef<HTMLSelectElement, BaseSelectProps>(({
           )}
           {...props}
         >
-          {placeholder && (
+          {Boolean(placeholder) && (
             <option value="" disabled selected>
               {placeholder}
             </option>
@@ -265,7 +257,7 @@ const BaseCheckbox = forwardRef<HTMLInputElement, BaseCheckboxProps>(({
   const errorId = React.useId()
   const describedBy = buildDescribedBy({ ariaDescribedby, helperText, helperId, error, errorId })
 
-  const finalState = error && state === 'default' ? 'error' : state
+  const finalState = Boolean(error) && state === 'default' ? 'error' : state
 
   return (
     <div className={cn(containerClasses, containerClassName)}>
@@ -285,7 +277,7 @@ const BaseCheckbox = forwardRef<HTMLInputElement, BaseCheckboxProps>(({
           )}
           {...props}
         />
-        {label && (
+        {Boolean(label) && (
           <label htmlFor={inputId} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
             {label}
           </label>
@@ -327,7 +319,7 @@ const BaseRadio = forwardRef<HTMLInputElement, BaseRadioProps>(({
   const errorId = React.useId()
   const describedBy = buildDescribedBy({ ariaDescribedby, helperText, helperId, error, errorId })
 
-  const finalState = error && state === 'default' ? 'error' : state
+  const finalState = Boolean(error) && state === 'default' ? 'error' : state
 
   return (
     <div className={cn(containerClasses, containerClassName)}>
@@ -349,7 +341,7 @@ const BaseRadio = forwardRef<HTMLInputElement, BaseRadioProps>(({
           )}
           {...props}
         />
-        {label && (
+        {Boolean(label) && (
           <label htmlFor={inputId} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
             {label}
           </label>
@@ -374,7 +366,7 @@ BaseRadio.displayName = 'BaseRadio'
 // ============================================================================
 
 function LabelContent({ htmlFor, label }: { htmlFor: string, label?: string }) {
-  if (!label) { return null }
+  if (label === undefined || label === '') { return null }
   return (
     <label htmlFor={htmlFor} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
       {label}
@@ -393,20 +385,36 @@ function HelperContent({
   helperId: string,
   errorId: string
 }) {
-  if (!error && !helperText) { return null }
+  const hasError = Boolean(error);
+  const hasHelper = Boolean(helperText);
+  if (!hasError && !hasHelper) { return null }
 
   return (
     <>
-      {error ? (
+      {hasError ? (
         <p id={errorId} className="text-sm font-medium text-[hsl(var(--destructive))]">
           {error}
         </p>
-      ) : helperText ? (
+      ) : hasHelper ? (
         <p id={helperId} className="text-sm text-[hsl(var(--muted-foreground))]">
           {helperText}
         </p>
       ) : null}
     </>
+  )
+}
+
+function InputIcon({ icon, position }: { icon?: React.ReactNode; position: 'left' | 'right' }) {
+  if (icon === undefined || icon === null) { return null; }
+  return (
+    <div
+      className={cn(
+        "absolute top-1/2 -translate-y-1/2 text-[hsl(var(--muted-foreground))] pointer-events-none",
+        position === 'left' ? "left-3" : "right-3"
+      )}
+    >
+      {icon}
+    </div>
   )
 }
 

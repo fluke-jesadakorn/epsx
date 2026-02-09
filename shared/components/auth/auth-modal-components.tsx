@@ -34,7 +34,7 @@ export function ConnectStep({ connectors, connect, isConnecting, error }: Connec
                 ))}
             </div>
 
-            {error && (
+            {error !== null && error !== '' && (
                 <div className="auth-connection-error">
                     <div className="auth-error-title">
                         <span>⚠️</span>

@@ -96,7 +96,7 @@ export function SharedPermissionDeniedModal({
     const router = useRouter()
 
     const handleUpgrade = () => {
-        if (error.upgrade_url) {
+        if (typeof error.upgrade_url === 'string' && error.upgrade_url !== '') {
             router.push(error.upgrade_url)
         } else {
             router.push('/plans')
@@ -171,16 +171,16 @@ export function SharedPermissionDeniedModal({
                     <Button variant="outline" onClick={onClose}>
                         Close
                     </Button>
-                    {(error.upgrade_url ?? error.renewal_url) && (
+                    {(error.upgrade_url !== undefined || error.renewal_url !== undefined) && (
                         <Button
                             onClick={handleUpgrade}
                             className="bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-600 hover:to-pink-600"
                         >
-                            {error.renewal_url ? labels.renewLabel : labels.upgradeLabel}
+                            {error.renewal_url !== undefined ? labels.renewLabel : labels.upgradeLabel}
                         </Button>
                     )}
-                    {error.contact_support && (
-                        <Button variant="outline" onClick={() => router.push('/support')}>
+                    {Boolean(error.contact_support) && (
+                        <Button variant="outline" onClick={() => { router.push('/support'); }}>
                             Contact Support
                         </Button>
                     )}
@@ -199,7 +199,9 @@ function GroupInfo({ error, Badge, labels }: {
     Badge: UIComponents['Badge'],
     labels: PlatformLabels
 }) {
-    if (!error.current_group || !error.required_group) { return null }
+    const hasCurrent = error.current_group !== undefined && error.current_group !== '';
+    const hasRequired = error.required_group !== undefined && error.required_group !== '';
+    if (!hasCurrent || !hasRequired) { return null }
     return (
         <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-lg space-y-2">
             <div className="flex justify-between items-center">
@@ -230,7 +232,7 @@ function UsageLimitInfo({ error }: { error: BackendPermissionError }) {
                     style={{ width: `${Math.min((error.current_usage / error.limit) * 100, 100)}%` }}
                 />
             </div>
-            {error.reset_at && (
+            {error.reset_at !== undefined && error.reset_at !== '' && (
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
                     Resets: {new Date(error.reset_at).toLocaleString()}
                 </p>
@@ -240,7 +242,7 @@ function UsageLimitInfo({ error }: { error: BackendPermissionError }) {
 }
 
 function BenefitsList({ benefits }: { benefits?: string[] }) {
-    if (!benefits || benefits.length === 0) { return null }
+    if (benefits === undefined || benefits.length === 0) { return null }
     return (
         <div>
             <h4 className="font-semibold text-sm mb-2 text-slate-900 dark:text-slate-100">Upgrade Benefits:</h4>
@@ -257,7 +259,7 @@ function BenefitsList({ benefits }: { benefits?: string[] }) {
 }
 
 function SuggestedActionsList({ actions }: { actions?: string[] }) {
-    if (!actions || actions.length === 0) { return null }
+    if (actions === undefined || actions.length === 0) { return null }
     return (
         <div>
             <h4 className="font-semibold text-sm mb-2 text-slate-900 dark:text-slate-100">Suggested Actions:</h4>
@@ -287,7 +289,7 @@ function SecurityWarning({ error, labels, getRiskBadge }: {
             <p className="text-sm text-red-800 dark:text-red-200 mt-2">
                 {error.reason ?? labels.securityReason}
             </p>
-            {error.contact_support && (
+            {error.contact_support === true && (
                 <p className="text-xs text-red-600 dark:text-red-400 mt-2">
                     Please contact support if you believe this is an error.
                 </p>
@@ -300,7 +302,7 @@ function ExpirationInfo({ error, labels }: {
     error: BackendPermissionError,
     labels: PlatformLabels
 }) {
-    if (error.error_type !== 'PermissionExpired' || !error.expired_at) { return null }
+    if (error.error_type !== 'PermissionExpired' || error.expired_at === undefined || error.expired_at === '') { return null }
     return (
         <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 p-4 rounded-lg">
             <p className="text-sm text-yellow-800 dark:text-yellow-200">

@@ -7,7 +7,6 @@ import { logger } from '../../../utils/logger';
 
 interface UseWalletAuthProps {
     client: SharedWeb3AuthClient;
-    variant: 'user' | 'admin';
     setUser: (user: UserInfoResponse | null) => void;
     setIsLoading: (loading: boolean) => void;
     setError: (error: string | null) => void;
@@ -15,9 +14,11 @@ interface UseWalletAuthProps {
     onAuthError?: (error: string) => void;
 }
 
+/**
+ * Hook to handle Web3 wallet authentication logic.
+ */
 export function useWalletAuth({
     client,
-    // variant, // Unused
     setUser,
     setIsLoading,
     setError,
@@ -25,7 +26,42 @@ export function useWalletAuth({
     onAuthError,
 }: UseWalletAuthProps) {
 
-    const requestChallenge = useCallback(
+    const requestChallenge = useChallengeRequest({ client, setError, setIsSigningChallenge, onAuthError });
+    const syncServerSession = useServerSessionSync();
+
+    const authenticateWithWallet = useWalletSignatureAuth({
+        client,
+        setError,
+        setIsLoading,
+        onAuthError,
+        syncServerSession
+    });
+
+    const authenticateWithDirectApi = useDirectApiAuth({
+        setUser,
+        setError,
+        setIsLoading,
+        onAuthError
+    });
+
+    return {
+        requestChallenge,
+        authenticateWithWallet,
+        authenticateWithDirectApi,
+    };
+}
+
+// ============================================================================
+// INTERNAL HOOKS (Extracted to stay under line limits)
+// ============================================================================
+
+function useChallengeRequest({
+    client,
+    setError,
+    setIsSigningChallenge,
+    onAuthError
+}: Pick<UseWalletAuthProps, 'client' | 'setError' | 'setIsSigningChallenge' | 'onAuthError'>) {
+    return useCallback(
         async (walletAddress: string) => {
             try {
                 setError(null);
@@ -53,8 +89,33 @@ export function useWalletAuth({
         },
         [client, onAuthError, setError, setIsSigningChallenge]
     );
+}
 
-    const authenticateWithWallet = useCallback(
+function useServerSessionSync() {
+    return useCallback(async (user: UserInfoResponse) => {
+        logger.info('Web3 authentication successful - initiating server session');
+        const accessToken = user.access;
+
+        if (typeof accessToken === 'string' && accessToken !== '') {
+            const loginResult = await loginAction(accessToken, user);
+            if (loginResult.success !== true) {
+                const errorMsg = (typeof loginResult.error === 'string' && loginResult.error !== '') ? loginResult.error : 'Failed to create server session';
+                throw new Error(errorMsg);
+            }
+        }
+    }, []);
+}
+
+function useWalletSignatureAuth({
+    client,
+    setError,
+    setIsLoading,
+    onAuthError,
+    syncServerSession
+}: Pick<UseWalletAuthProps, 'client' | 'setError' | 'setIsLoading' | 'onAuthError'> & {
+    syncServerSession: (user: UserInfoResponse) => Promise<void>;
+}) {
+    return useCallback(
         async ({
             walletAddress,
             signature,
@@ -78,18 +139,10 @@ export function useWalletAuth({
                     nonce,
                 });
 
-                if (result.success === true && result.user !== null && result.user !== undefined) {
-                    logger.info('Web3 authentication successful - initiating server session');
-                    const accessToken = result.user.access;
-
-                    if (typeof accessToken === 'string' && accessToken !== '') {
-                        const loginResult = await loginAction(accessToken, result.user);
-                        if (loginResult.success !== true) {
-                            throw new Error(typeof loginResult.error === 'string' && loginResult.error !== '' ? loginResult.error : 'Failed to create server session');
-                        }
-                    }
+                if (result.success === true && result.user !== undefined) {
+                    await syncServerSession(result.user);
                 } else {
-                    const errorMsg = typeof result.error === 'string' && result.error !== '' ? result.error : 'Authentication failed';
+                    const errorMsg = (typeof result.error === 'string' && result.error !== '') ? result.error : 'Authentication failed';
                     setError(errorMsg);
                     onAuthError?.(errorMsg);
                 }
@@ -105,16 +158,24 @@ export function useWalletAuth({
                 setIsLoading(false);
             }
         },
-        [client, onAuthError, setError, setIsLoading]
+        [client, onAuthError, setError, setIsLoading, syncServerSession]
     );
+}
 
-    const authenticateWithDirectApi = useCallback((result: {
+function useDirectApiAuth({
+    setUser,
+    setError,
+    setIsLoading,
+    onAuthError
+}: Pick<UseWalletAuthProps, 'setUser' | 'setError' | 'setIsLoading' | 'onAuthError'>) {
+    return useCallback(async (result: {
         wallet_address: string;
         permissions: string[];
         tier_level?: string;
         is_new_user: boolean;
         access_token?: string;
     }) => {
+        await Promise.resolve();
         try {
             setError(null);
             setIsLoading(true);
@@ -134,18 +195,9 @@ export function useWalletAuth({
             const errorMessage = error instanceof Error ? error.message : 'Failed to process authentication result';
             setError(errorMessage);
             onAuthError?.(errorMessage);
-            // Non-async function cannot throw asynchronously in a way that is caught by caller if we don't return promise
-            // But since this is a callback, we should likely just handle it. 
-            // However, the original code threw. To match signature if it was expected to be async:
             throw new Error(errorMessage);
         } finally {
             setIsLoading(false);
         }
     }, [setUser, setError, setIsLoading, onAuthError]);
-
-    return {
-        requestChallenge,
-        authenticateWithWallet,
-        authenticateWithDirectApi,
-    };
 }

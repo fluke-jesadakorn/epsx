@@ -6,6 +6,7 @@
  */
 
 import { createPortal } from 'react-dom';
+import type { Connector } from 'wagmi';
 import { AuthStatusDisplay, ConnectStep, SignStep, SwitchChainStep } from './auth-modal-components';
 import './auth.css';
 import type { AuthResult } from './hooks/use-auth-modal-logic';
@@ -73,7 +74,7 @@ export function AuthModal({
                         isSwitching={isSwitching}
                         isWalletClientLoading={isWalletClientLoading}
                         address={address ?? undefined}
-                        connectors={connectors as any}
+                        connectors={connectors}
                         connect={connect}
                         walletClient={walletClient}
                         handleSwitchChain={handleSwitchChain}
@@ -97,6 +98,23 @@ export function AuthModal({
     );
 }
 
+interface AuthModalContentProps {
+    step: 'connect' | 'switch-chain' | 'sign' | 'authenticating' | 'success' | 'error';
+    error: string | null;
+    isSigning: boolean;
+    isConnecting: boolean;
+    isSwitching: boolean;
+    isWalletClientLoading: boolean;
+    address?: string;
+    connectors: readonly Connector[];
+    connect: (args: { connector: Connector }) => void;
+    walletClient: unknown;
+    handleSwitchChain: () => Promise<void>;
+    handleSign: () => Promise<void>;
+    handleRetry: () => void;
+    handleDisconnect: () => void;
+    variant: 'user' | 'admin';
+}
 
 /**
  * Internal helper to render the modal content based on current step
@@ -117,7 +135,7 @@ function AuthModalContent({
     handleRetry,
     handleDisconnect,
     variant,
-}: any) {
+}: AuthModalContentProps) {
     if (step === 'connect') {
         return (
             <ConnectStep

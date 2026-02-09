@@ -1,6 +1,6 @@
 // Type overrides to fix React types compatibility issues
 declare module '@epsx/ui' {
-  import { FC, ReactNode } from 'react';
+  import type { FC, ReactNode } from 'react';
   
   interface CardProps {
     children?: ReactNode;

@@ -28,19 +28,7 @@ export interface UnifiedNotificationProps {
     className?: string
 }
 
-export function UnifiedNotification({
-    type = 'info',
-    variant = 'default',
-    iconType = 'lucide',
-    title,
-    message,
-    icon,
-    duration = 5000,
-    onClose,
-    visible = true,
-    position = 'top-right',
-    className
-}: UnifiedNotificationProps) {
+function useNotificationTimer(visible: boolean, duration: number, onClose?: () => void) {
     const [isVisible, setIsVisible] = useState(visible)
     const [progress, setProgress] = useState(100)
 
@@ -68,9 +56,31 @@ export function UnifiedNotification({
         }
     }, [visible, duration, onClose])
 
-    const { typeStyle, variantStyle, colorStyle } = useNotificationStyles(type, variant)
+    return { isVisible, setIsVisible, progress }
+}
+
+export function UnifiedNotification({
+    type = 'info',
+    variant = 'default',
+    iconType = 'lucide',
+    title,
+    message,
+    icon,
+    duration = 5000,
+    onClose,
+    visible = true,
+    position = 'top-right',
+    className
+}: UnifiedNotificationProps) {
+    const { isVisible, setIsVisible, progress } = useNotificationTimer(visible, duration, onClose)
+    const styles = useNotificationStyles(type, variant)
 
     if (!isVisible) { return null }
+
+    const handleClose = () => {
+        setIsVisible(false)
+        onClose?.()
+    }
 
     return (
         <div
@@ -83,52 +93,17 @@ export function UnifiedNotification({
                 animation: 'slideIn 0.3s ease-out'
             }}
         >
-            <div
-                className={cn(
-                    'overflow-hidden rounded-lg',
-                    variantStyle.container,
-                    variantStyle.useDark ? colorStyle.bg : `${colorStyle.bg} ${colorStyle.text}`
-                )}
-            >
-                <NotificationProgressBar
-                    duration={duration}
-                    progress={progress}
-                    typeStyle={typeStyle}
-                />
-
-                <div className="p-4">
-                    <div className="flex items-start gap-3">
-                        <NotificationIcon
-                            icon={icon}
-                            iconType={iconType}
-                            variant={variant}
-                            typeStyle={typeStyle}
-                            variantStyle={variantStyle}
-                        />
-
-                        <NotificationContent
-                            title={title}
-                            message={message}
-                            variantStyle={variantStyle}
-                            colorStyle={colorStyle}
-                        />
-
-                        <NotificationCloseButton
-                            variant={variant}
-                            variantStyle={variantStyle}
-                            onClose={() => {
-                                setIsVisible(false)
-                                onClose?.()
-                            }}
-                        />
-                    </div>
-                </div>
-
-                {/* Metro accent strip for pancake/admin variants */}
-                {(variant === 'pancake' || variant === 'admin') && (
-                    <div className={cn('h-1 w-full', typeStyle.accent)} />
-                )}
-            </div>
+            <NotificationBody
+                title={title}
+                message={message}
+                icon={icon}
+                iconType={iconType}
+                variant={variant}
+                duration={duration}
+                progress={progress}
+                styles={styles}
+                onClose={handleClose}
+            />
 
             <style>{`
         @keyframes slideIn {
@@ -143,6 +118,77 @@ export function UnifiedNotification({
           }
         }
       `}</style>
+        </div>
+    )
+}
+
+interface NotificationBodyProps {
+    title?: string
+    message: string
+    icon?: React.ReactNode
+    iconType?: IconType
+    variant: NotificationVariant
+    duration: number
+    progress: number
+    styles: ReturnType<typeof useNotificationStyles>
+    onClose: () => void
+}
+
+function NotificationBody({
+    title,
+    message,
+    icon,
+    iconType,
+    variant,
+    duration,
+    progress,
+    styles,
+    onClose
+}: NotificationBodyProps) {
+    const { typeStyle, variantStyle, colorStyle } = styles
+
+    return (
+        <div
+            className={cn(
+                'overflow-hidden rounded-lg',
+                variantStyle.container,
+                variantStyle.useDark === true ? colorStyle.bg : `${colorStyle.bg} ${colorStyle.text}`
+            )}
+        >
+            <NotificationProgressBar
+                duration={duration}
+                progress={progress}
+                typeStyle={typeStyle}
+            />
+
+            <div className="p-4">
+                <div className="flex items-start gap-3">
+                    <NotificationIcon
+                        icon={icon}
+                        iconType={iconType}
+                        variant={variant}
+                        typeStyle={typeStyle}
+                        variantStyle={variantStyle}
+                    />
+
+                    <NotificationContent
+                        title={title}
+                        message={message}
+                        variantStyle={variantStyle}
+                        colorStyle={colorStyle}
+                    />
+
+                    <NotificationCloseButton
+                        variant={variant}
+                        variantStyle={variantStyle}
+                        onClose={onClose}
+                    />
+                </div>
+            </div>
+
+            {(variant === 'pancake' || variant === 'admin') && (
+                <div className={cn('h-1 w-full', typeStyle.accent)} />
+            )}
         </div>
     )
 }

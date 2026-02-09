@@ -98,9 +98,12 @@ export function SharedOpenIDWeb3Provider({
     const resolvedBackendUrl =
       backendUrl ??
       (typeof window !== 'undefined'
-        ? process.env.NEXT_PUBLIC_BACKEND_URL ??
-        window.location.origin.replace(/:300[0-9]/, ':8080')
-        : process.env.BACKEND_URL ?? 'http://localhost:8080');
+        ? (process.env.NEXT_PUBLIC_BACKEND_URL !== undefined && process.env.NEXT_PUBLIC_BACKEND_URL !== ''
+          ? process.env.NEXT_PUBLIC_BACKEND_URL
+          : window.location.origin.replace(/:300[0-9]/, ':8080'))
+        : (process.env.BACKEND_URL !== undefined && process.env.BACKEND_URL !== ''
+          ? process.env.BACKEND_URL
+          : 'http://localhost:8080'));
 
     logger.info('[AUTH] Provider: Configuration', {
       provided: backendUrl,
@@ -137,7 +140,7 @@ export function SharedOpenIDWeb3Provider({
     setError,
     setIsSigningChallenge,
     onAuthError,
-  }) as any;
+  });
 
   const { logout, refreshUser, refreshSession } = useSessionActions({
     client,
@@ -156,7 +159,7 @@ export function SharedOpenIDWeb3Provider({
   const openSignInModal = useCallback(() => setShowSignInModal(true), []);
   const closeSignInModal = useCallback(() => setShowSignInModal(false), []);
 
-  const isAuthenticated = user !== null && user !== undefined;
+  const isAuthenticated = user !== null;
 
   const contextValue: SharedAuthContextValue = useMemo(() => ({
     user,

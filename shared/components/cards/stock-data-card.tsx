@@ -37,10 +37,10 @@ const formatCurrency = (value: number, currency = 'USD'): string => {
 };
 
 const getRankTheme = (rank: number): { color: string; glow: 'blue' | 'purple' | 'orange' | 'green' | 'none', label: string } => {
-  if (rank === 1) {return { color: 'text-yellow-400', glow: 'orange', label: 'CHAMPION' };}
-  if (rank === 2) {return { color: 'text-slate-300', glow: 'blue', label: 'ELITE' };}
-  if (rank === 3) {return { color: 'text-amber-500', glow: 'orange', label: 'LEGEND' };}
-  if (rank <= 5) {return { color: 'text-blue-400', glow: 'blue', label: 'TOP 5' };}
+  if (rank === 1) { return { color: 'text-yellow-400', glow: 'orange', label: 'CHAMPION' }; }
+  if (rank === 2) { return { color: 'text-slate-300', glow: 'blue', label: 'ELITE' }; }
+  if (rank === 3) { return { color: 'text-amber-500', glow: 'orange', label: 'LEGEND' }; }
+  if (rank <= 5) { return { color: 'text-blue-400', glow: 'blue', label: 'TOP 5' }; }
   return { color: 'text-blue-500', glow: 'none', label: `RANK #${rank}` };
 };
 
@@ -91,7 +91,7 @@ export const StockDataCard = ({
             </span>
           </div>
 
-          {companyName && (
+          {companyName !== undefined && companyName !== '' && (
             <div className="text-sm font-semibold text-gray-300 mb-1 truncate max-w-[90%] mx-auto">
               {companyName}
             </div>

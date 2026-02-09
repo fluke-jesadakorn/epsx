@@ -171,7 +171,7 @@ export async function createPlanAction(data: CreatePlanRequest): Promise<Permiss
 
     const backendRequest = {
         name: data.name,
-        slug: slug,
+        slug,
         description: data.description ?? '',
         plan_type: 'subscription',
         permissions: data.permissions,

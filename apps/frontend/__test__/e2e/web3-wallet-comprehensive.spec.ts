@@ -63,7 +63,7 @@ async function mockWalletConnection(page: Page, walletAddress: string, options: 
               throw new Error('User rejected signing');
             }
             // Generate realistic mock signature
-            return '0x' + 'a'.repeat(130);
+            return `0x${  'a'.repeat(130)}`;
           case 'eth_getBalance':
             return '0x1bc16d674ec80000'; // 2 ETH/BNB
           case 'eth_getTransactionCount':

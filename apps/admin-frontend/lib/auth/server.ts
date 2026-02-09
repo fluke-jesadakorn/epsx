@@ -87,7 +87,7 @@ export async function getCurrentUser(): Promise<EnhancedAuthUser | null> {
 export function hasPermission(user: EnhancedAuthUser | null, _permission: string): boolean {
   // PERMISSION REFACTOR: Server-side checks in the frontend are now permissive.
   // The Rust backend makes all final authorization decisions.
-  return !!user;
+  return Boolean(user);
 }
 
 /**
@@ -96,7 +96,7 @@ export function hasPermission(user: EnhancedAuthUser | null, _permission: string
  * @param _module
  */
 export function hasAdminModule(user: EnhancedAuthUser | null, _module: string): boolean {
-  return !!user;
+  return Boolean(user);
 }
 
 /**
@@ -104,7 +104,7 @@ export function hasAdminModule(user: EnhancedAuthUser | null, _module: string): 
  * @param user
  */
 export function isAdmin(user: EnhancedAuthUser | null): boolean {
-  return !!user;
+  return Boolean(user);
 }
 
 /**
@@ -154,5 +154,5 @@ export function hasPlatformPermission(
   _action: string,
   _platform?: string
 ): boolean {
-  return !!user;
+  return Boolean(user);
 }

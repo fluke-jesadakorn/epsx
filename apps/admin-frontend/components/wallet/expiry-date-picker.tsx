@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils';
 
 interface ExpiryDatePickerProps {
     itemName: string;
-    itemType: 'permission' | 'group' | 'plan';
+    itemType: 'permission' | 'group' | 'plan' | 'items';
     isOpen: boolean;
     onConfirm: (expiresAt: Date | null) => void;
     onCancel: () => void;

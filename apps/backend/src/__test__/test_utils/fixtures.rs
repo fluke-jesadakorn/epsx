@@ -2,8 +2,6 @@
 // Provides common test data scenarios using Diesel
 
 use diesel::prelude::*;
-
-use diesel_async::*;
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
 use anyhow::Result;
@@ -101,9 +99,9 @@ impl WalletUserFixture {
 /// Test fixture builder for notifications
 pub struct NotificationFixture {
     pub id: Uuid,
-    pub wallet_address: String,
+    pub recipient_wallet_address: String,
     pub title: String,
-    pub message: String,
+    pub body: String,
     pub notification_type: String,
     pub created_at: DateTime<Utc>,
 }
@@ -112,9 +110,9 @@ impl Default for NotificationFixture {
     fn default() -> Self {
         Self {
             id: Uuid::new_v4(),
-            wallet_address: format!("0x{}", uuid::Uuid::new_v4().to_string().replace("-", "")),
+            recipient_wallet_address: format!("0x{}", uuid::Uuid::new_v4().to_string().replace("-", "")),
             title: "Test Notification".to_string(),
-            message: "This is a test notification".to_string(),
+            body: "This is a test notification".to_string(),
             notification_type: "info".to_string(),
             created_at: Utc::now(),
         }
@@ -123,12 +121,12 @@ impl Default for NotificationFixture {
 
 impl NotificationFixture {
     /// Create a custom notification fixture
-    pub fn new(wallet_address: String, title: String, message: String) -> Self {
+    pub fn new(recipient_wallet_address: String, title: String, body: String) -> Self {
         Self {
             id: Uuid::new_v4(),
-            wallet_address,
+            recipient_wallet_address,
             title,
-            message,
+            body,
             notification_type: "info".to_string(),
             created_at: Utc::now(),
         }
@@ -140,9 +138,9 @@ impl NotificationFixture {
             diesel::insert_into(wallet_notifications::table)
             .values((
                 wallet_notifications::id.eq(&self.id),
-                wallet_notifications::wallet_address.eq(&self.wallet_address),
+                wallet_notifications::recipient_wallet_address.eq(&self.recipient_wallet_address),
                 wallet_notifications::title.eq(&self.title),
-                wallet_notifications::message.eq(&self.message),
+                wallet_notifications::body.eq(&self.body),
                 wallet_notifications::notification_type.eq(&self.notification_type),
                 wallet_notifications::created_at.eq(&self.created_at),
             )), conn)
@@ -176,16 +174,16 @@ impl TestScenarios {
     /// Create notification scenario for a user
     pub async fn create_notification_scenario(
         conn: &mut diesel_async::AsyncPgConnection,
-        wallet_address: String,
+        recipient_wallet_address: String,
         count: usize,
     ) -> Result<Vec<NotificationFixture>> {
         let mut fixtures = Vec::new();
 
         for i in 0..count {
             let notification = NotificationFixture {
-                wallet_address: wallet_address.clone(),
+                recipient_wallet_address: recipient_wallet_address.clone(),
                 title: format!("Test Notification {}", i + 1),
-                message: format!("This is test notification number {}", i + 1),
+                body: format!("This is test notification number {}", i + 1),
                 ..Default::default()
             };
             notification.insert(conn).await?;

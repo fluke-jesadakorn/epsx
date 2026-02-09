@@ -6,15 +6,25 @@ export type PromoType = 'percentage' | 'fixed';
 export type PromoStatus = 'active' | 'upcoming' | 'expired' | 'disabled';
 
 /**
+ * Options for calculating price
+ */
+export interface CalcPriceOptions {
+  basePrice: number;
+  type: PromoType;
+  value: number;
+  customPrice?: number;
+}
+
+/**
  * Calculate discounted price based on promotion type
  */
-export function calcPrice(
-  basePrice: number,
-  type: PromoType,
-  value: number,
-  customPrice?: number
-): number {
-  if (customPrice && customPrice > 0) {
+export function calcPrice({
+  basePrice,
+  type,
+  value,
+  customPrice
+}: CalcPriceOptions): number {
+  if (customPrice !== undefined && customPrice > 0) {
     return customPrice;
   }
 

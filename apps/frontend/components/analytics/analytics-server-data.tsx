@@ -40,15 +40,13 @@ export async function getInitialAnalyticsData(filters: {
   try {
     const { analyticsClient } = await import('@/lib/api-client');
     
-    const response = await analyticsClient.getRankings({
+    return await analyticsClient.getRankings({
       page: filters.page,
       per_page: filters.limit,
       sort_by: filters.sort_by,
       country: filters.country,
       sector: filters.sector,
     });
-
-    return response;
   } catch (error) {
     console.error('Error fetching initial analytics data:', error);
     return null;

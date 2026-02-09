@@ -305,7 +305,7 @@ export function PermissionsView({ className }: PermissionsViewProps) {
                 </DragOverlay>
 
                 {/* Delete Confirmation */}
-                <Dialog open={!!permDeleteConfirm} onOpenChange={(o) => !o && setPermDeleteConfirm(null)}>
+                <Dialog open={Boolean(permDeleteConfirm)} onOpenChange={(o) => !o && setPermDeleteConfirm(null)}>
                     <DialogContent className="max-w-[400px]">
                         <DialogHeader>
                             <div className="h-12 w-12 rounded-full bg-red-500/10 flex items-center justify-center mb-4 mx-auto sm:mx-0">

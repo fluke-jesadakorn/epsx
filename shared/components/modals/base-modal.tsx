@@ -131,24 +131,24 @@ interface ModalHeaderProps {
 }
 
 const ModalHeader: React.FC<ModalHeaderProps> = ({ title, description, onClose, preventClose }) => {
-  if (!title && !description) { return null; }
+  if ((title === undefined || title === null) && (description === undefined || description === null)) { return null; }
 
   return (
     <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
       <div className="flex items-start justify-between">
         <div className="flex-1">
-          {title && (
+          {Boolean(title) && (
             <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
               {title}
             </h2>
           )}
-          {description && (
+          {Boolean(description) && (
             <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
               {description}
             </p>
           )}
         </div>
-        {!preventClose && (
+        {preventClose !== true && (
           <button
             onClick={onClose}
             className={cn(
@@ -183,7 +183,7 @@ const ModalFooter: React.FC<ModalFooterProps> = ({
   primaryActionLoading,
   onPrimaryClick
 }) => {
-  if (!footer && !primaryAction && !secondaryAction) { return null; }
+  if ((footer === undefined || footer === null) && primaryAction === undefined && secondaryAction === undefined) { return null; }
 
   return (
     <div className="px-6 py-4 bg-gray-50 dark:bg-gray-700 border-t border-gray-200 dark:border-gray-600">

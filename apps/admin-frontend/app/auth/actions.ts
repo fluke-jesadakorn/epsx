@@ -13,6 +13,6 @@ export async function verifySessionAction() {
     const token = getServerAuthToken(cookieStore);
 
     return {
-        valid: !!token
+        valid: Boolean(token)
     };
 }

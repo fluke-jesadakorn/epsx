@@ -31,7 +31,7 @@ export function useOptimisticState<T>(
     asyncAction: (...args: Args) => Promise<any>,
     ...args: Args
   ) => {
-    const updateId = Math.random().toString(36).substr(2, 9);
+    const updateId = Math.random().toString(36).slice(2, 11);
     const previousState = state;
     const optimisticState = updateFn(state);
 

@@ -11,16 +11,16 @@ const LABELS = {
     ACCESS_DENIED: 'Access Denied'
 }
 
-const getAlertRenderer = (c: UIComponentProps) => (c.Alert && c.AlertDescription ? PermissionDeniedAlert : null);
-const getFullPageRenderer = (c: UIComponentProps) => (c.Card && c.CardContent ? PermissionDeniedFullPage : null);
-const getCardRenderer = (c: UIComponentProps) => (c.Card && c.CardHeader && c.CardTitle && c.CardContent ? PermissionDeniedCard : null);
+const getAlertRenderer = (c: UIComponentProps) => (c.Alert !== undefined && c.AlertDescription !== undefined ? PermissionDeniedAlert : null);
+const getFullPageRenderer = (c: UIComponentProps) => (c.Card !== undefined && c.CardContent !== undefined ? PermissionDeniedFullPage : null);
+const getCardRenderer = (c: UIComponentProps) => (c.Card !== undefined && c.CardHeader !== undefined && c.CardTitle !== undefined && c.CardContent !== undefined ? PermissionDeniedCard : null);
 
 export function PermissionDeniedUI(props: PermissionDeniedUIProps) {
     const { variant = 'card', components, icons } = props
     const { ShieldAlert, LogIn, RefreshCw } = icons
     const { Button } = components
 
-    if (!(Button && ShieldAlert && LogIn && RefreshCw)) {
+    if (Button === undefined || ShieldAlert === undefined || LogIn === undefined || RefreshCw === undefined) {
         return <PermissionDeniedFallback {...props} />
     }
 
@@ -77,13 +77,13 @@ function PermissionDeniedAlert(props: PermissionDeniedUIProps) {
                         <p className="text-red-700 mt-1">{error.error.user_message}</p>
                     </div>
                     <div className="flex gap-2 ml-4">
-                        {onLogin && (
+                        {onLogin !== undefined && (
                             <Button variant="default" size="sm" onClick={onLogin}>
                                 <LogIn className="h-4 w-4 mr-1" />
                                 {isAdmin ? 'Admin Sign In' : 'Sign In'}
                             </Button>
                         )}
-                        {showRetry && onRetry && (
+                        {showRetry === true && onRetry !== undefined && (
                             <Button variant="outline" size="sm" onClick={onRetry}>
                                 <RefreshCw className="h-4 w-4" />
                             </Button>
@@ -127,7 +127,7 @@ function PermissionDeniedFullPage(props: PermissionDeniedUIProps) {
                 <Card>
                     <CardContent className="pt-6">
                         <div className="space-y-4">
-                            {error.error.permission && (
+                            {error.error.permission !== '' && (
                                 <div className="bg-red-50 p-3 rounded-lg">
                                     <p className="text-sm font-medium text-red-800 mb-1">Missing Permission:</p>
                                     <code className="text-sm text-red-700 bg-red-100 px-2 py-1 rounded font-mono">
@@ -137,21 +137,21 @@ function PermissionDeniedFullPage(props: PermissionDeniedUIProps) {
                             )}
 
                             <div className="flex flex-col space-y-2">
-                                {onLogin && (
+                                {onLogin !== undefined && (
                                     <Button onClick={onLogin} className="w-full">
                                         <LogIn className="h-4 w-4 mr-2" />
                                         {isAdmin ? 'Admin Sign In' : 'Sign In to Continue'}
                                     </Button>
                                 )}
 
-                                {showRetry && onRetry && (
+                                {showRetry === true && onRetry !== undefined && (
                                     <Button variant="outline" onClick={onRetry} className="w-full">
                                         <RefreshCw className="h-4 w-4 mr-2" />
                                         Try Again
                                     </Button>
                                 )}
 
-                                {showSupport && onSupport && (
+                                {showSupport === true && onSupport !== undefined && (
                                     <Button variant="ghost" onClick={() => { onSupport(error); }} className="w-full">
                                         <HelpCircle className="h-4 w-4 mr-2" />
                                         {isAdmin ? 'Contact System Admin' : 'Contact Support'}
@@ -212,7 +212,7 @@ function PermissionDeniedCard(props: PermissionDeniedUIProps) {
                 </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-                {error.error.permission && (
+                {error.error.permission !== '' && (
                     <div className="bg-red-50 p-3 rounded-lg">
                         <p className="text-sm font-medium text-red-800 mb-1">Missing Permission:</p>
                         <code className="text-sm text-red-700 bg-red-100 px-2 py-1 rounded font-mono">
@@ -222,21 +222,21 @@ function PermissionDeniedCard(props: PermissionDeniedUIProps) {
                 )}
 
                 <div className="flex flex-wrap gap-2">
-                    {onLogin && (
+                    {onLogin !== undefined && (
                         <Button onClick={onLogin}>
                             <LogIn className="h-4 w-4 mr-1" />
                             {isAdmin ? 'Admin Sign In' : 'Sign In'}
                         </Button>
                     )}
 
-                    {showRetry && onRetry && (
+                    {showRetry === true && onRetry !== undefined && (
                         <Button variant="outline" onClick={onRetry}>
                             <RefreshCw className="h-4 w-4 mr-1" />
                             Try Again
                         </Button>
                     )}
 
-                    {showSupport && onSupport && (
+                    {showSupport === true && onSupport !== undefined && (
                         <Button variant="ghost" onClick={() => { onSupport(error); }}>
                             <HelpCircle className="h-4 w-4 mr-1" />
                             {isAdmin ? 'System Admin' : 'Get Help'}

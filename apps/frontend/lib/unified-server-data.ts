@@ -45,7 +45,7 @@ export async function getAnalyticsData(params: EPSQueryParams) {
             limit: params.limit,
             country: params.country === 'all' ? undefined : params.country,
             sector: params.sector === 'all' ? undefined : params.sector,
-            sort_by: sort_by,
+            sort_by,
             min_eps: params.min_eps,
             min_growth: params.min_growth,
         };
@@ -119,7 +119,7 @@ export async function getAnalyticsData(params: EPSQueryParams) {
             const latestData = quarterlyPerformance[0] ?? ({ date: new Date().toISOString(), price: 0 } as QuarterlyPerformanceData);
 
             return {
-                rank: rank,
+                rank,
                 symbol: item.symbol,
                 company_name: item.name,
                 latest_date: latestData.date,

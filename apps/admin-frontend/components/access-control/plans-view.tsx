@@ -676,7 +676,7 @@ export function PlansView({ className }: PlansViewProps) {
             </div>
 
             {/* Delete Confirmation */}
-            <Dialog open={!!planDeleteConfirm} onOpenChange={(o) => !o && setPlanDeleteConfirm(null)}>
+            <Dialog open={Boolean(planDeleteConfirm)} onOpenChange={(o) => !o && setPlanDeleteConfirm(null)}>
                 <DialogContent className="max-w-[400px]">
                     <DialogHeader>
                         <div className="h-12 w-12 rounded-full bg-red-500/10 flex items-center justify-center mb-4 mx-auto sm:mx-0">

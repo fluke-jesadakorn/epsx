@@ -87,7 +87,7 @@ export function WalletConnectAuth({
     logout,
   } = useSharedAuth();
 
-  const isAuthenticated = !!user;
+  const isAuthenticated = Boolean(user);
 
   // Local state for authentication flow
   const [isAuthenticating, setIsAuthenticating] = useState(false);

@@ -1,5 +1,5 @@
 import { cn } from '@shared/utils/cn';
-import type { HTMLAttributes} from 'react';
+import type { HTMLAttributes } from 'react';
 import React, { forwardRef } from 'react';
 
 const Card = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
@@ -9,8 +9,8 @@ const Card = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
         ref={ref}
         className={cn(
           "rounded-[24px] border bg-card text-card-foreground shadow-sm transition-all duration-200",
-          className?.includes('glass') && "bg-slate-900/40 backdrop-blur-2xl border-white/5 shadow-xl hover:shadow-cyan-500/5",
-          className?.includes('pancake') && "bg-gradient-to-br from-[#1fc7d4]/5 to-[#7645d9]/5 border-[#1fc7d4]/10 shadow-lg shadow-cyan-500/5",
+          className?.includes('glass') === true && "bg-slate-900/40 backdrop-blur-2xl border-white/5 shadow-xl hover:shadow-cyan-500/5",
+          className?.includes('pancake') === true && "bg-gradient-to-br from-[#1fc7d4]/5 to-[#7645d9]/5 border-[#1fc7d4]/10 shadow-lg shadow-cyan-500/5",
           className
         )}
         {...props}

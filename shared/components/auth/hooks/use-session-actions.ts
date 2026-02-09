@@ -23,7 +23,7 @@ export function useSessionActions({
         try {
             await logoutAction();
         } catch (e: unknown) {
-            if (e instanceof Error && (e.message === 'NEXT_REDIRECT' || (e as { digest?: string }).digest?.startsWith('NEXT_REDIRECT'))) {
+            if (e instanceof Error && (e.message === 'NEXT_REDIRECT' || (e as { digest?: string }).digest?.startsWith('NEXT_REDIRECT') === true)) {
                 throw e;
             }
             logger.error('[AUTH] Error: Failed to clear server session:', e instanceof Error ? e.message : String(e));
@@ -51,7 +51,7 @@ export function useSessionActions({
             await client.logout();
             logger.info('Logout successful');
         } catch (err: unknown) {
-            if (err instanceof Error && (err.message === 'NEXT_REDIRECT' || (err as { digest?: string }).digest?.startsWith('NEXT_REDIRECT'))) {
+            if (err instanceof Error && (err.message === 'NEXT_REDIRECT' || (err as { digest?: string }).digest?.startsWith('NEXT_REDIRECT') === true)) {
                 throw err;
             }
             const errorMessage = err instanceof Error ? err.message : 'Logout failed';

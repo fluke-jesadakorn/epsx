@@ -116,14 +116,12 @@ export class DirectWeb3Api {
       const signature = await signMessage(challenge.message);
 
       // Step 3: Verify signature and save wallet
-      const result = await this.verifySignature({
+      return await this.verifySignature({
         wallet_address: walletAddress,
         signature,
         message: challenge.message,
         nonce: challenge.nonce,
       });
-
-      return result;
     } catch (error) {
       console.error('❌ Web3 authentication flow failed:', error);
       throw error;

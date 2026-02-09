@@ -143,7 +143,7 @@ export function useNotificationBell(
 
   // Fetch notifications from API using server actions
   const fetchNotifications = useCallback(async () => {
-    if (!isAuthenticated || !walletAddress) {
+    if (isAuthenticated === false || walletAddress === undefined || walletAddress === '') {
       setNotifications([])
       setCount(0)
       setLoading(false)
@@ -231,7 +231,7 @@ export function useNotificationBell(
   useEffect(() => {
     const { isAuthenticated: currentIsAuthenticated, walletAddress: currentWalletAddress } = optionsRef.current
 
-    if (!currentIsAuthenticated || !currentWalletAddress) {
+    if (currentIsAuthenticated === false || currentWalletAddress === undefined || currentWalletAddress === '') {
       setNotifications([])
       setCount(0)
       setLoading(false)
@@ -306,7 +306,7 @@ export function useNotificationBell(
 
   // Connect SSE when authenticated and enabled
   useEffect(() => {
-    if (sseEnabled && isAuthenticated && walletAddress && !isSSEConnected) {
+    if (sseEnabled === true && isAuthenticated === true && walletAddress !== undefined && walletAddress !== '' && isSSEConnected === false) {
       logger.info('🔌 Connecting SSE for authenticated user:', { walletAddress })
       reconnectSSE()
     }

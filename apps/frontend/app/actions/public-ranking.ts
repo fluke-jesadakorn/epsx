@@ -52,7 +52,7 @@ export async function fetchPublicRankingData(page = 1, limit = 5) {
       throw new Error('Invalid API response format');
     }
 
-    const transformedData = apiData.data.map(stock => {
+    return apiData.data.map(stock => {
       // Calculate growth from latest quarter's EPS growth, fallback to 0
       const latestQuarter = stock.quarterly_performance[0];
       const latestGrowth = latestQuarter ? latestQuarter.eps_growth : 0;
@@ -72,8 +72,6 @@ export async function fetchPublicRankingData(page = 1, limit = 5) {
         rank: stock.rank,
       };
     });
-
-    return transformedData;
   } catch (error) {
     logger.error('Failed to fetch public ranking data:', error);
     // Return empty array on error to prevent breaking the UI
@@ -115,7 +113,7 @@ export async function fetchEpsCardData(page = 1, limit = 3) {
     }
 
     // Transform API data to match TableDataMetrics format for ClientEpsCardSection
-    const transformedData = apiData.data.map(stock => {
+    return apiData.data.map(stock => {
       const latestQuarter = stock.quarterly_performance[0];
       // Use latest quarter's growth data, fallback to 0
       const epsGrowth = latestQuarter ? latestQuarter.eps_growth : 0;
@@ -166,8 +164,6 @@ export async function fetchEpsCardData(page = 1, limit = 3) {
         nextEarningsDate: stock.latest_date,
       };
     });
-
-    return transformedData;
   } catch (error) {
     logger.error('Failed to fetch EPS card data:', error);
     // Return empty array on error to prevent breaking the UI

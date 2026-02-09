@@ -753,7 +753,7 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
   const resetAuthState = useCallback(() => {
     // Clear any pending timers or promises by forcing a state reset
     setState({
-      isConnected: !!address,
+      isConnected: Boolean(address),
       isAuthenticated: false,
       isAuthenticating: false,
       permissions: [],

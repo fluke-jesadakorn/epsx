@@ -172,7 +172,9 @@ function normalizeBackendError(
  * Wrap fetch with automatic permission error handling
  * @param url - URL to fetch
  * @param options - Fetch options
- * @param config - Context and platform config
+ * @param config - Config object
+ * @param config.context - Context about the error
+ * @param config.platform - Platform context for logging
  * @returns Fetch response
  * @throws PermissionDeniedError if response is 401/403
  */

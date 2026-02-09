@@ -94,10 +94,12 @@ export function getBackendUrl(context: URLContext | URLContextLegacy = URLContex
 
   if (resolvedContext === 'server') {
     // Server-side: Use server-only environment variables
-    return serverEnv.BACKEND_URL || getDefaultBackendUrl();
+    const url = serverEnv.BACKEND_URL;
+    return url !== '' ? url : getDefaultBackendUrl();
   } else {
     // Client-side: Use client-accessible environment variables
-    return clientEnv.NEXT_PUBLIC_BACKEND_URL || getDefaultBackendUrl();
+    const url = clientEnv.NEXT_PUBLIC_BACKEND_URL;
+    return url !== '' ? url : getDefaultBackendUrl();
   }
 }
 
@@ -111,10 +113,12 @@ export function getFrontendUrl(context: URLContext | URLContextLegacy = URLConte
 
   if (resolvedContext === 'server') {
     // Server-side: Use server-only environment variables
-    return serverEnv.FRONTEND_URL || getDefaultFrontendUrl();
+    const url = serverEnv.FRONTEND_URL;
+    return url !== '' ? url : getDefaultFrontendUrl();
   } else {
     // Client-side: Use client-accessible environment variables
-    return clientEnv.NEXT_PUBLIC_APP_URL || getDefaultFrontendUrl();
+    const url = clientEnv.NEXT_PUBLIC_APP_URL;
+    return url !== '' ? url : getDefaultFrontendUrl();
   }
 }
 
@@ -128,10 +132,12 @@ export function getAdminUrl(context: URLContext | URLContextLegacy = URLContext.
 
   if (resolvedContext === 'server') {
     // Server-side: Use server-only environment variables
-    return serverEnv.ADMIN_FRONTEND_URL || getDefaultAdminUrl();
+    const url = serverEnv.ADMIN_FRONTEND_URL;
+    return url !== '' ? url : getDefaultAdminUrl();
   } else {
     // Client-side: Use client-accessible environment variables
-    return clientEnv.NEXT_PUBLIC_ADMIN_URL || getDefaultAdminUrl();
+    const url = clientEnv.NEXT_PUBLIC_ADMIN_URL;
+    return url !== '' ? url : getDefaultAdminUrl();
   }
 }
 

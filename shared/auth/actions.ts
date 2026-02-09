@@ -165,7 +165,7 @@ export async function refreshSessionAction() {
             return { success: false, error: 'Invalid refresh response' };
         }
 
-        await updateSessionCookies(cookieStore, data);
+        updateSessionCookies(cookieStore, data);
 
         logger.info('[AUTH] refreshSessionAction: Token refreshed successfully');
         return { success: true, access_token: data.access_token };
@@ -178,8 +178,8 @@ export async function refreshSessionAction() {
 /**
  * Internal helper to update session cookies after token refresh
  */
-async function updateSessionCookies(
-    cookieStore: any,
+function updateSessionCookies(
+    cookieStore: Awaited<ReturnType<typeof cookies>>,
     data: { access_token?: string; expires_in?: number; refresh_token?: string; user?: Record<string, unknown> }
 ) {
     if (data.access_token === undefined || data.access_token === '') { return; }

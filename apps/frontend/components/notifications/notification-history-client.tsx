@@ -225,15 +225,13 @@ export function NotificationHistoryClient({
     })
 
     // Sort groups by date
-    const sortedGroups = Object.entries(groups).sort(([a], [b]) => {
+    return Object.entries(groups).sort(([a], [b]) => {
       if (a === 'Today') {return -1}
       if (b === 'Today') {return 1}
       if (a === 'Yesterday') {return -1}
       if (b === 'Yesterday') {return 1}
       return new Date(b).getTime() - new Date(a).getTime()
     })
-
-    return sortedGroups
   }, [notifications, searchQuery, selectedType, selectedPriority, showUnreadOnly])
 
   return (

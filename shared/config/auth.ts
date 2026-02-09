@@ -276,7 +276,7 @@ export function buildAuthorizationUrl(
   });
 
   // Add PKCE parameters if provided
-  if (options.codeChallenge) {
+  if (options.codeChallenge !== undefined) {
     params.append('code_challenge', options.codeChallenge);
     params.append('code_challenge_method', options.codeChallengeMethod ?? 'S256');
   }
@@ -296,11 +296,11 @@ export function buildLogoutUrl(
 ): string {
   const params = new URLSearchParams();
 
-  if (options.postLogoutRedirectUri) {
+  if (options.postLogoutRedirectUri !== undefined) {
     params.append('post_logout_redirect_uri', options.postLogoutRedirectUri);
   }
 
-  if (options.idTokenHint) {
+  if (options.idTokenHint !== undefined) {
     params.append('id_token_hint', options.idTokenHint);
   }
 
@@ -550,7 +550,7 @@ export function parseJWTPayload(token: string): Record<string, unknown> | null {
     const jsonPayload = decodeURIComponent(
       atob(base64)
         .split('')
-        .map((c) => `%${  (`00${  c.charCodeAt(0).toString(16)}`).slice(-2)}`)
+        .map((c) => `%${(`00${c.charCodeAt(0).toString(16)}`).slice(-2)}`)
         .join('')
     );
     return JSON.parse(jsonPayload) as Record<string, unknown>;

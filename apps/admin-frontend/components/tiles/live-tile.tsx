@@ -223,7 +223,7 @@ export function LiveTile({ tile, fetcher, onClick, className }: LiveTileProps) {
           <div className="text-center">
             <div className="text-2xl font-bold">
               {typeof currentData.value === 'number' && currentData.value > 999
-                ? (currentData.value / 1000).toFixed(1) + 'K'
+                ? `${(currentData.value / 1000).toFixed(1)  }K`
                 : currentData.value}
             </div>
             {renderTrend()}

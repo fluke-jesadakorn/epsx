@@ -38,7 +38,7 @@ enum ConnectionState {
 const checkSessionExpiry = async (refreshSession: () => Promise<boolean>) => {
   try {
     const expiresAt = getClientCookie(COOKIES.expires_at)
-    if (!expiresAt) { return }
+    if (expiresAt === undefined || expiresAt === null || expiresAt === '') { return }
 
     const expiryTime = parseInt(expiresAt, 10)
     // If expired or expiring in less than 30 seconds
@@ -90,14 +90,13 @@ export function useSSENotifications(
     logger.debug(`🔌 SSE: Initiating connection #${currentConnectionId}...`)
 
     // Check for token expiry and refresh if needed
-    // Check for token expiry and refresh if needed
-    if (optionsRef.current.refreshSession) {
+    if (optionsRef.current.refreshSession !== undefined) {
       await checkSessionExpiry(optionsRef.current.refreshSession)
     }
 
     try {
       const { apiClient, walletAddress, types } = optionsRef.current
-      if (!apiClient) {
+      if (apiClient === undefined) {
         throw new Error('API client not available')
       }
       const client = createNotificationsClient(apiClient)
@@ -145,21 +144,23 @@ export function useSSENotifications(
                 }
                 optionsRef.current.onError?.('Connection lost. Reconnecting...')
 
-                // CRITICAL FIX: Attempt to refresh session if we encounter an error
                 // This handles the edge case where token expires but cookie is still valid
-                if (optionsRef.current.refreshSession) {
-                  logger.info('🔄 SSE: Connection dropped, attempting proactive session refresh...')
-                  try {
-                    const refreshed = await optionsRef.current.refreshSession()
-                    if (refreshed) {
-                      logger.info('✅ SSE: Session refreshed successfully after drop')
-                      // Reset reconnect attempts to give the new token a fair chance
-                      reconnectAttempts.current = 0
+                const attemptRefresh = async () => {
+                  if (optionsRef.current.refreshSession !== undefined) {
+                    logger.info('🔄 SSE: Connection dropped, attempting proactive session refresh...')
+                    try {
+                      const refreshed = await optionsRef.current.refreshSession()
+                      if (refreshed) {
+                        logger.info('✅ SSE: Session refreshed successfully after drop')
+                        // Reset reconnect attempts to give the new token a fair chance
+                        reconnectAttempts.current = 0
+                      }
+                    } catch (e) {
+                      logger.warn('⚠️ SSE: Session refresh failed during reconnect logic', e)
                     }
-                  } catch (e) {
-                    logger.warn('⚠️ SSE: Session refresh failed during reconnect logic', e)
                   }
                 }
+                await attemptRefresh()
 
                 reconnectAttempts.current++
                 if (reconnectAttempts.current < maxReconnectAttempts) {
@@ -269,7 +270,6 @@ export function useSSENotifications(
     }
 
     return () => {
-
       logger.debug('🧹 SSE: Cleanup triggered')
 
       // Cancel any pending operations without setting state

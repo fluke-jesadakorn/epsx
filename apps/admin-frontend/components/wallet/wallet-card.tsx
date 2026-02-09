@@ -157,7 +157,7 @@ export function WalletCard({
                     <div className="relative shrink-0">
                         <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-[#1fc7d4] to-[#7645d9] blur-md opacity-20 group-hover:opacity-40 transition-opacity" />
                         <div className="relative flex h-14 w-14 sm:h-16 sm:w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-[#1fc7d4] to-[#7645d9] text-lg sm:text-xl font-black text-white shadow-inner shadow-white/20">
-                            {wallet.walletAddress.substring(2, 4).toUpperCase()}
+                            {wallet.walletAddress.slice(2, 4).toUpperCase()}
                         </div>
                         <div className={cn(
                             "absolute -bottom-1 -right-1 h-4 w-4 rounded-full border-[3px] border-[#0f172a]",
@@ -169,7 +169,7 @@ export function WalletCard({
                     <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 mb-1.5">
                             <span className="font-mono text-base sm:text-lg font-bold text-slate-100/90 tracking-tight truncate">
-                                {wallet.walletAddress.substring(0, 6)}...{wallet.walletAddress.substring(wallet.walletAddress.length - 6)}
+                                {wallet.walletAddress.slice(0, 6)}...{wallet.walletAddress.slice(Math.max(0, wallet.walletAddress.length - 6))}
                             </span>
                             <button
                                 onClick={handleCopy}

@@ -36,7 +36,7 @@ export function useAuthModalLogic({
     const { switchChainAsync, isPending: isSwitching } = useSwitchChain();
     const { authenticateWithDirectApi } = useSharedAuth();
 
-    const isCorrectChain = chain && SUPPORTED_CHAINS.includes(chain.id);
+    const isCorrectChain = chain !== undefined && SUPPORTED_CHAINS.includes(chain.id);
 
     // Sign message hook
     const { handleSign, isSigning } = useSignMessage({
@@ -61,7 +61,7 @@ export function useAuthModalLogic({
         if (!isOpen) { return; }
 
         setError(null);
-        if (isConnected && address) {
+        if (isConnected && address !== undefined) {
             if (!isCorrectChain) {
                 setStep('switch-chain');
             } else if (walletClient) {
@@ -75,7 +75,7 @@ export function useAuthModalLogic({
     }, [isOpen, isConnected, address, isCorrectChain, walletClient]);
 
     useEffect(() => {
-        if (isConnected && address && step === 'connect') {
+        if (isConnected && address !== undefined && step === 'connect') {
             if (!isCorrectChain) {
                 setStep('switch-chain');
             } else if (walletClient) {
@@ -99,7 +99,7 @@ export function useAuthModalLogic({
 
     const handleRetry = useCallback(() => {
         setError(null);
-        if (isConnected && address) {
+        if (isConnected && address !== undefined) {
             setStep(isCorrectChain ? 'sign' : 'switch-chain');
         } else {
             setStep('connect');

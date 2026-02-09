@@ -174,7 +174,7 @@ export function hasUserAuthentication(authState: ProgressiveAuthState): boolean 
  * Check if user has Web3 wallet connected
  */
 export function hasWeb3Connection(authState: ProgressiveAuthState): boolean {
-  return authState.level !== 'public' && !!authState.walletAddress;
+  return authState.level !== 'public' && Boolean(authState.walletAddress);
 }
 
 /**
@@ -241,7 +241,7 @@ export function createSIWEMessage(walletAddress: string, nonce: string): string 
   const config = getWeb3Config();
   const { domain, uri, version, statement } = config.siweConfig;
 
-  const message = [
+  return [
     `${domain} wants you to sign in with your Ethereum account:`,
     walletAddress,
     '',
@@ -253,8 +253,6 @@ export function createSIWEMessage(walletAddress: string, nonce: string): string 
     `Nonce: ${nonce}`,
     `Issued At: ${new Date().toISOString()}`,
   ].join('\\n');
-
-  return message;
 }
 
 // Legacy compatibility exports (Web3-focused)

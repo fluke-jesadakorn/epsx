@@ -82,7 +82,7 @@ export function deepClone<T>(obj: T): T {
  */
 export function generateId(prefix = 'id'): string {
   const timestamp = Date.now().toString(36);
-  const randomStr = Math.random().toString(36).substr(2, 9);
+  const randomStr = Math.random().toString(36).slice(2, 11);
   return `${prefix}_${timestamp}_${randomStr}`;
 }
 
@@ -109,7 +109,7 @@ export function truncateText(text: string, maxLength: number): string {
   if (text.length <= maxLength) {
     return text;
   }
-  return text.substr(0, maxLength - 3) + '...';
+  return `${text.slice(0, Math.max(0, maxLength - 3))  }...`;
 }
 
 /**
@@ -371,7 +371,7 @@ export function formatFileSize(bytes: number): string {
   const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
 
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))  } ${  sizes[i]}`;
 }
 
 /**

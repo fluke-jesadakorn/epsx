@@ -107,7 +107,7 @@ const variantStyles = {
     'focus:ring-[hsl(var(--foreground))]/20'
   ],
   [BUTTON_VARIANTS.GHOST]: [
-    'bg-transparent hover:bg-[hsl(var(--accent))]',
+    `${TRANSPARENT_BG} hover:bg-[hsl(var(--accent))]`,
     'text-[hsl(var(--foreground))] hover:text-[hsl(var(--foreground))]/90',
     BORDER_TRANSPARENT,
     'focus:ring-[hsl(var(--foreground))]/20'
@@ -161,7 +161,7 @@ const variantStyles = {
   ],
   [BUTTON_VARIANTS.PANCAKE_OUTLINE]: [
     'border-2 border-yellow-400',
-    'bg-transparent',
+    TRANSPARENT_BG,
     'text-yellow-600 dark:text-yellow-400',
     'hover:bg-yellow-400 hover:text-black',
     'font-light',
@@ -177,7 +177,7 @@ const variantStyles = {
     PANCAKE_COMMON
   ],
   [BUTTON_VARIANTS.PANCAKE_LINK]: [
-    'bg-transparent',
+    TRANSPARENT_BG,
     'text-yellow-600 dark:text-yellow-400',
     'border border-transparent',
     'underline-offset-4 hover:underline',
@@ -333,7 +333,7 @@ const getButtonClasses = ({
 // ============================================================================
 
 const getButtonComponent = (as: React.ElementType | undefined, href: string | undefined): React.ElementType => {
-  return as ?? (href ? 'a' : 'button');
+  return as ?? (href !== undefined && href !== '' ? 'a' : 'button');
 };
 
 const getIsIconOnly = (icon: React.ReactNode, children: React.ReactNode): boolean => {
@@ -346,10 +346,24 @@ const getIsIconOnly = (icon: React.ReactNode, children: React.ReactNode): boolea
 
 export const BaseButton = React.forwardRef<HTMLButtonElement, BaseButtonProps>((props, ref) => {
   const {
-    children, variant = 'primary', size = 'md', shape = 'rounded',
-    loading = false, disabled = false, active = false, leftIcon,
-    rightIcon, icon, fullWidth = false, as, href, target,
-    className, loadingText, type = 'button', ...rest
+    variant = 'primary',
+    size = 'md',
+    shape = 'rounded',
+    loading = false,
+    disabled = false,
+    active = false,
+    fullWidth = false,
+    type = 'button',
+    as,
+    href,
+    target,
+    className,
+    loadingText,
+    leftIcon,
+    rightIcon,
+    icon,
+    children,
+    ...rest
   } = props;
 
   const isDisabled = disabled || loading;
@@ -360,18 +374,24 @@ export const BaseButton = React.forwardRef<HTMLButtonElement, BaseButtonProps>((
     variant, size, shape, fullWidth, active, isDisabled, isIconOnly
   });
 
+  const componentProps: Record<string, unknown> = {
+    ref,
+    className: cn(baseClasses, className),
+    'aria-disabled': isDisabled,
+    'aria-pressed': active,
+    ...rest
+  };
+
+  if (Component === 'button') {
+    componentProps.type = type;
+    componentProps.disabled = isDisabled;
+  } else if (Component === 'a') {
+    componentProps.href = href;
+    componentProps.target = target;
+  }
+
   return (
-    <Component
-      ref={ref}
-      className={cn(baseClasses, className)}
-      disabled={isDisabled}
-      type={Component === 'button' ? type : undefined}
-      href={Component === 'a' ? href : undefined}
-      target={Component === 'a' ? target : undefined}
-      aria-disabled={isDisabled}
-      aria-pressed={active}
-      {...rest}
-    >
+    <Component {...componentProps}>
       <ButtonContent
         loading={loading}
         loadingText={loadingText}

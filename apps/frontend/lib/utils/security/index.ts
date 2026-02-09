@@ -206,7 +206,7 @@ export function generateCSRFToken(): string {
   }
 
   // Fallback for server-side or unsupported browsers
-  return Math.random().toString(36).substring(2) + Math.random().toString(36).substring(2);
+  return Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
 }
 
 export function validateCSRFToken(token: string, expectedToken: string): boolean {
@@ -228,7 +228,7 @@ export function generateNonce(): string {
     return btoa(String.fromCharCode(...array));
   }
 
-  return btoa(Math.random().toString(36).substring(2));
+  return btoa(Math.random().toString(36).slice(2));
 }
 
 export function buildCSPHeader(nonce?: string): string {

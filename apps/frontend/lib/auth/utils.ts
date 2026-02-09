@@ -206,12 +206,12 @@ class SecureTokenRefreshManager {
     const components = [
       navigator.userAgent,
       navigator.language,
-      screen.width + 'x' + screen.height,
+      `${screen.width  }x${  screen.height}`,
       new Date().getTimezoneOffset(),
       navigator.hardwareConcurrency || 0
     ];
 
-    return btoa(components.join('|')).substring(0, 16);
+    return btoa(components.join('|')).slice(0, 16);
   }
 
   /**
@@ -268,8 +268,7 @@ class SecureTokenRefreshManager {
     this.refreshPromise = this.performRefresh();
 
     try {
-      const result = await this.refreshPromise;
-      return result;
+      return await this.refreshPromise;
     } finally {
       this.refreshPromise = null;
     }

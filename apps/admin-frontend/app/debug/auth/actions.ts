@@ -13,14 +13,14 @@ export async function getServerSessionStatus() {
     const user = cookieStore.get(COOKIES.user);
 
     return {
-        hasAccessToken: !!accessToken,
-        accessTokenValue: accessToken?.value ? `${accessToken.value.substring(0, 10)}...` : null,
+        hasAccessToken: Boolean(accessToken),
+        accessTokenValue: accessToken?.value ? `${accessToken.value.slice(0, 10)}...` : null,
         // accessTokenExp: accessToken?.maxAge, // maxAge not available on RequestCookie
 
-        hasRefreshToken: !!refreshToken,
-        refreshTokenValue: refreshToken?.value ? `${refreshToken.value.substring(0, 10)}...` : null,
+        hasRefreshToken: Boolean(refreshToken),
+        refreshTokenValue: refreshToken?.value ? `${refreshToken.value.slice(0, 10)}...` : null,
 
-        hasUser: !!user,
+        hasUser: Boolean(user),
         userValue: user?.value ? JSON.parse(user.value) : null
     };
 }

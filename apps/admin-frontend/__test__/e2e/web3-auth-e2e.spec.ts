@@ -21,7 +21,7 @@ const MOCK_CHALLENGE = {
 };
 
 // Mock signature (simulates MetaMask signature)
-const MOCK_SIGNATURE = '0x' + 'a'.repeat(130);
+const MOCK_SIGNATURE = `0x${  'a'.repeat(130)}`;
 
 // Mock successful verify response
 const MOCK_VERIFY_SUCCESS = {
@@ -141,7 +141,7 @@ test.describe('Web3 Wallet Authentication E2E', () => {
                             return `0x${wallet.chainId.toString(16)}`;
                         case 'personal_sign':
                             // Return mock signature
-                            return '0x' + 'a'.repeat(130);
+                            return `0x${  'a'.repeat(130)}`;
                         case 'wallet_switchEthereumChain':
                             return null;
                         default:

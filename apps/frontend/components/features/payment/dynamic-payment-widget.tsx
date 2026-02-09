@@ -357,7 +357,7 @@ export function DynamicPaymentWidget({
         functionName: 'symbol',
         chainId,
         query: {
-            enabled: !!tokenAddress && chainId === 31337, // Only verify on local Anvil
+            enabled: Boolean(tokenAddress) && chainId === 31337, // Only verify on local Anvil
             retry: 1,
             staleTime: 0,
         },
@@ -392,7 +392,7 @@ export function DynamicPaymentWidget({
         token: tokenAddress as `0x${string}`,
         chainId,
         query: {
-            enabled: !!address && !!tokenAddress,
+            enabled: Boolean(address) && Boolean(tokenAddress),
         },
     });
 

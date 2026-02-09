@@ -27,11 +27,10 @@ export const permissionsClient = {
      */
     async listPermissions(client?: UnifiedApiClient): Promise<PermissionDefinition[]> {
         const apiClient = client || createAdminApiClient();
-        return handleSimpleRequest<PermissionDefinition[]>(
-            apiClient,
-            'get',
-            '/api/permissions/definitions'
-        );
+        return handleSimpleRequest<PermissionDefinition[]>(apiClient, {
+            method: 'get',
+            endpoint: '/api/permissions/definitions'
+        });
     },
 
     /**
@@ -39,12 +38,11 @@ export const permissionsClient = {
      */
     async createPermission(data: CreatePermissionRequest, client?: UnifiedApiClient): Promise<PermissionDefinition> {
         const apiClient = client || createAdminApiClient();
-        return handleSimpleRequest<PermissionDefinition>(
-            apiClient,
-            'post',
-            '/api/permissions/definitions',
+        return handleSimpleRequest<PermissionDefinition>(apiClient, {
+            method: 'post',
+            endpoint: '/api/permissions/definitions',
             data
-        );
+        });
     },
 
     /**
@@ -52,11 +50,10 @@ export const permissionsClient = {
      */
     async deletePermission(id: string, client?: UnifiedApiClient): Promise<void> {
         const apiClient = client || createAdminApiClient();
-        return handleSimpleRequest<void>(
-            apiClient,
-            'delete',
-            `/api/permissions/definitions/${id}`
-        );
+        return handleSimpleRequest<void>(apiClient, {
+            method: 'delete',
+            endpoint: `/api/permissions/definitions/${id}`
+        });
     },
 
     /**
@@ -64,11 +61,10 @@ export const permissionsClient = {
      */
     async updatePermission(id: string, data: Partial<CreatePermissionRequest>, client?: UnifiedApiClient): Promise<PermissionDefinition> {
         const apiClient = client || createAdminApiClient();
-        return handleSimpleRequest<PermissionDefinition>(
-            apiClient,
-            'put',
-            `/api/permissions/definitions/${id}`,
+        return handleSimpleRequest<PermissionDefinition>(apiClient, {
+            method: 'put',
+            endpoint: `/api/permissions/definitions/${id}`,
             data
-        );
+        });
     }
 };

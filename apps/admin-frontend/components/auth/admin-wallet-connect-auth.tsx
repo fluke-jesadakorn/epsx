@@ -41,7 +41,7 @@ export function AdminWalletConnectAuth({ className = '' }: AdminWalletConnectAut
   const { disconnect } = useDisconnect();
   const { user, isLoading, error, logout } = useSharedAuth();
 
-  const isAuthenticated = !!user;
+  const isAuthenticated = Boolean(user);
 
   useEffect(() => {
     setIsHydrated(true);

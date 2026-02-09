@@ -37,7 +37,7 @@ export async function ConditionalFeature({
 export async function AdminFeature({ children, fallback }: FeatureGateProps) {
   const user = await getAuthUser();
   return (
-    <ConditionalFeature condition={!!user} fallback={fallback}>
+    <ConditionalFeature condition={Boolean(user)} fallback={fallback}>
       {children}
     </ConditionalFeature>
   );
@@ -52,7 +52,7 @@ export async function AdminModuleFeature({
 }: { module?: string } & FeatureGateProps) {
   const user = await getAuthUser();
   return (
-    <ConditionalFeature condition={!!user} fallback={fallback}>
+    <ConditionalFeature condition={Boolean(user)} fallback={fallback}>
       {children}
     </ConditionalFeature>
   );
@@ -64,7 +64,7 @@ export async function AdminModuleFeature({
 export async function SystemAdminFeature({ children, fallback }: FeatureGateProps) {
   const user = await getAuthUser();
   return (
-    <ConditionalFeature condition={!!user} fallback={fallback}>
+    <ConditionalFeature condition={Boolean(user)} fallback={fallback}>
       {children}
     </ConditionalFeature>
   );
@@ -79,7 +79,7 @@ export async function AdminPermissionFeature({
 }: { permission?: string } & FeatureGateProps) {
   const user = await getAuthUser();
   return (
-    <ConditionalFeature condition={!!user} fallback={fallback}>
+    <ConditionalFeature condition={Boolean(user)} fallback={fallback}>
       {children}
     </ConditionalFeature>
   );
@@ -91,7 +91,7 @@ export async function AdminPermissionFeature({
 export async function UserManagementFeature({ children, fallback }: FeatureGateProps) {
   const user = await getAuthUser();
   return (
-    <ConditionalFeature condition={!!user} fallback={fallback}>
+    <ConditionalFeature condition={Boolean(user)} fallback={fallback}>
       {children}
     </ConditionalFeature>
   );
@@ -103,7 +103,7 @@ export async function UserManagementFeature({ children, fallback }: FeatureGateP
 export async function AnalyticsFeature({ children, fallback }: FeatureGateProps) {
   const user = await getAuthUser();
   return (
-    <ConditionalFeature condition={!!user} fallback={fallback}>
+    <ConditionalFeature condition={Boolean(user)} fallback={fallback}>
       {children}
     </ConditionalFeature>
   );
@@ -115,7 +115,7 @@ export async function AnalyticsFeature({ children, fallback }: FeatureGateProps)
 export async function BillingFeature({ children, fallback }: FeatureGateProps) {
   const user = await getAuthUser();
   return (
-    <ConditionalFeature condition={!!user} fallback={fallback}>
+    <ConditionalFeature condition={Boolean(user)} fallback={fallback}>
       {children}
     </ConditionalFeature>
   );
@@ -127,7 +127,7 @@ export async function BillingFeature({ children, fallback }: FeatureGateProps) {
 export async function PermissionManagementFeature({ children, fallback }: FeatureGateProps) {
   const user = await getAuthUser();
   return (
-    <ConditionalFeature condition={!!user} fallback={fallback}>
+    <ConditionalFeature condition={Boolean(user)} fallback={fallback}>
       {children}
     </ConditionalFeature>
   );
@@ -139,7 +139,7 @@ export async function PermissionManagementFeature({ children, fallback }: Featur
 export async function ModuleCoordinatorFeature({ children, fallback }: FeatureGateProps) {
   const user = await getAuthUser();
   return (
-    <ConditionalFeature condition={!!user} fallback={fallback}>
+    <ConditionalFeature condition={Boolean(user)} fallback={fallback}>
       {children}
     </ConditionalFeature>
   );
@@ -152,7 +152,7 @@ export async function DevAdminFeature({ children, fallback }: FeatureGateProps) 
   const isDev = process.env.NODE_ENV === 'development';
   const user = await getAuthUser();
   return (
-    <ConditionalFeature condition={isDev && !!user} fallback={fallback}>
+    <ConditionalFeature condition={isDev && Boolean(user)} fallback={fallback}>
       {children}
     </ConditionalFeature>
   );

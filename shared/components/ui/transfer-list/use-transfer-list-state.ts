@@ -3,7 +3,7 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
 import type { TransferListProps } from './transfer-list'
 
-interface TouchDragState<T> {
+export interface TouchDragState<T> {
     item: T
     source: 'available' | 'selected'
     startY: number

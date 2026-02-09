@@ -56,7 +56,7 @@ export function PricingCard({
                 bgClass: 'bg-gray-900/40',
             }
         }
-        if (card.highlight) {
+        if (card.highlight === true) {
             return {
                 borderClass: 'border-blue-500/30 shadow-2xl shadow-blue-900/20',
                 bgClass: 'bg-gradient-to-b from-gray-800/90 to-gray-900/90',
@@ -92,7 +92,7 @@ export function PricingCard({
             )}
 
             {/* Popular/Highlight badge */}
-            {card.highlight && !isDisabled && (
+            {card.highlight === true && !isDisabled && (
                 <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 z-20">
                     <div className="bg-gradient-to-r from-blue-600 to-cyan-500 text-white text-xs font-bold px-4 py-1 rounded-full shadow-lg flex items-center gap-1 uppercase tracking-wider">
                         {card.title} ONLY
@@ -106,7 +106,7 @@ export function PricingCard({
                 <PricingCardFeatures features={card.features} />
 
                 {/* Affiliate Info */}
-                {affiliateInfo && affiliateCode && (
+                {affiliateInfo !== undefined && affiliateCode !== undefined && affiliateCode !== null && (
                     <div className="mb-6 p-4 bg-green-900/20 rounded-xl border border-green-800">
                         <div className="flex items-center gap-2 text-sm text-green-400">
                             <Sparkles className="h-4 w-4" />
@@ -124,7 +124,7 @@ export function PricingCard({
             </div>
 
             {/* Glow effect for highlighted cards */}
-            {card.highlight && (
+            {card.highlight === true && (
                 <div className="absolute -inset-px bg-gradient-to-b from-blue-500/20 to-transparent rounded-2xl pointer-events-none -z-10" />
             )}
         </div>
@@ -152,7 +152,7 @@ function PricingCardHeader({ card }: { card: PricingCardData }) {
                     </span>
                 )}
             </div>
-            {card.originalPrice && (
+            {card.originalPrice !== undefined && card.originalPrice !== '' && (
                 <p className="text-gray-500 line-through text-sm">
                     {card.originalPrice}
                 </p>

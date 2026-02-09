@@ -89,7 +89,7 @@ export function UnifiedPaymentFlow({
     const { user, isLoading: isAuthLoading } = useAuth();
     const { address, isConnected } = useAccount();
     const chainId = useChainId();
-    const isAuthenticated = !!user;
+    const isAuthenticated = Boolean(user);
 
     // Plan access hook
     const { planAccess, loading: planAccessLoading, refetch: refetchPlanAccess } = usePlanAccess();

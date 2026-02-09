@@ -42,7 +42,7 @@ export async function getCurrentUser() {
 export async function validateAdminAccess(): Promise<boolean> {
   try {
     const user = await getCurrentUser();
-    return !!user;
+    return Boolean(user);
   } catch (_error) {
     console.error('❌ Failed to validate admin access:', _error);
     return false;

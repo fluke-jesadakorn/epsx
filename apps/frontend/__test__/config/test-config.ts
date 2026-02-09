@@ -294,7 +294,7 @@ export const TEST_DATA_GENERATORS = {
   }),
 
   transaction: () => ({
-    id: `tx_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+    id: `tx_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`,
     symbol: ['AAPL', 'GOOGL', 'MSFT', 'AMZN'][Math.floor(Math.random() * 4)],
     action: ['BUY', 'SELL'][Math.floor(Math.random() * 2)],
     quantity: Math.floor(Math.random() * 100) + 1,

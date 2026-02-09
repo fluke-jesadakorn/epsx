@@ -73,7 +73,7 @@ export function extractObject<T>(response: ApiResponse, context: string): T {
     }
 
     const data = extractData<T>(response);
-    if (!data || typeof data !== 'object') {
+    if (data === null || data === undefined || typeof data !== 'object') {
         logger.error(`[${context}] Expected object but got:`, typeof data, data);
         throw new Error(`Invalid response: expected object in ${context}`);
     }

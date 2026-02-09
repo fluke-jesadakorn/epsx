@@ -15,7 +15,7 @@ export function PermissionExpiredUI(props: PermissionExpiredUIProps) {
     const { className, error, platform, components } = props
     const { Card, CardHeader, CardTitle, CardDescription, CardContent, Button } = components
 
-    if (Card && CardHeader && CardTitle && CardDescription && CardContent && Button) {
+    if (Card !== undefined && CardHeader !== undefined && CardTitle !== undefined && CardDescription !== undefined && CardContent !== undefined && Button !== undefined) {
         return <PermissionExpiredCard {...props} />
     }
 
@@ -81,21 +81,21 @@ function PermissionExpiredCard(props: PermissionExpiredUIProps) {
                 )}
 
                 <div className="flex flex-wrap gap-2">
-                    {!isAdmin && onUpgrade && (
+                    {!isAdmin && onUpgrade !== undefined && (
                         <Button onClick={() => onUpgrade()} className="bg-orange-600 hover:bg-orange-700">
                             <CreditCard className="h-4 w-4 mr-1" />
                             Renew Access
                         </Button>
                     )}
 
-                    {showRetry && onRetry && (
+                    {showRetry === true && onRetry !== undefined && (
                         <Button variant="outline" onClick={onRetry}>
                             <RefreshCw className="h-4 w-4 mr-1" />
                             Check Status
                         </Button>
                     )}
 
-                    {showSupport && onSupport && (
+                    {showSupport === true && onSupport !== undefined && (
                         <Button variant="ghost" onClick={() => { onSupport(error); }}>
                             <HelpCircle className="h-4 w-4 mr-1" />
                             {isAdmin ? 'System Admin' : 'Get Help'}

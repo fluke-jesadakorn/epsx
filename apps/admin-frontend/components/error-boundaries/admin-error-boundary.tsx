@@ -54,7 +54,7 @@ export class AdminErrorBoundary extends Component<Props, State> {
    * @param error
    */
   static getDerivedStateFromError(error: Error): Partial<State> {
-    const errorId = `admin_err_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    const errorId = `admin_err_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
     
     return {
       hasError: true,
@@ -100,7 +100,7 @@ export class AdminErrorBoundary extends Component<Props, State> {
     try {
       // Get basic admin session info for debugging (no sensitive data)
       return {
-        hasAdminToken: !!document.cookie.includes('admin_access_token'),
+        hasAdminToken: Boolean(document.cookie.includes('admin_access_token')),
         currentPath: window.location.pathname,
         referrer: document.referrer
       };

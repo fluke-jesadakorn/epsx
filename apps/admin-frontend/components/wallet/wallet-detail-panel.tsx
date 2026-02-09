@@ -331,7 +331,7 @@ export function WalletDetailPanel({
                                 <div className="space-y-4">
                                     <WalletPermissionTable
                                         permissions={wallet.permissions}
-                                        showActions={!!onRevokePermission}
+                                        showActions={Boolean(onRevokePermission)}
                                         onRevoke={onRevokePermission}
                                     />
 

@@ -94,7 +94,7 @@ export function AdminNotificationBell() {
         priority: n.priority,
         timestamp: n.timestamp,
         wallet_address: n.wallet_address,
-        read: !!n.read_at
+        read: Boolean(n.read_at)
       }))
 
       setNotifications(mappedNotifications)

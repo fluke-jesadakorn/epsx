@@ -101,10 +101,9 @@ export function usePersistentState<T>(options: PersistentStateOptions<T>) {
 
   const updateState = useCallback((value: T | ((prev: T) => T)) => {
     setState(prevState => {
-      const newState = typeof value === 'function'
+      return typeof value === 'function'
         ? (value as (prev: T) => T)(prevState)
         : value;
-      return newState;
     });
   }, []);
 

@@ -48,7 +48,7 @@ export function useSignMessage({
                 address,
                 walletClient,
                 variant,
-                loginAction,
+                loginAct: loginAction,
                 authenticateWithDirectApi
             });
 
@@ -68,6 +68,20 @@ export function useSignMessage({
     return { handleSign, isSigning };
 }
 
+interface VerifyAndLoginProps {
+    address: string;
+    walletClient: WalletClient;
+    variant: 'user' | 'admin';
+    loginAct: (token: string, data: Record<string, unknown>) => Promise<{ success: boolean; error?: string }>;
+    authenticateWithDirectApi: (user: {
+        wallet_address: string;
+        permissions: string[];
+        is_new_user: boolean;
+        access_token: string;
+        tier_level?: string;
+    }) => Promise<void>;
+}
+
 /**
  * Internal helper to handle verification and login logic
  */
@@ -75,9 +89,9 @@ async function verifyAndLogin({
     address,
     walletClient,
     variant,
-    loginAction,
+    loginAct,
     authenticateWithDirectApi
-}: any) {
+}: VerifyAndLoginProps) {
     const challengeData = await requestWalletChallenge(address);
 
     const signature = await walletClient.signMessage({
@@ -106,9 +120,9 @@ async function verifyAndLogin({
         expires_at: Date.now() + 2592000000,
     };
 
-    const actionResult = await loginAction(result.access_token, cookieData);
+    const actionResult = await loginAct(result.access_token, cookieData);
     if (actionResult.success !== true) {
-        throw new Error(typeof actionResult.error === 'string' && actionResult.error !== '' ? actionResult.error : 'Failed to save session');
+        throw new Error((typeof actionResult.error === 'string' && actionResult.error !== '') ? actionResult.error : 'Failed to save session');
     }
 
     await authenticateWithDirectApi({

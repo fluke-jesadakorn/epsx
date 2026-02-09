@@ -12,7 +12,7 @@ import { forwardRef } from 'react';
 // Hook for payment auth logic
 export function usePaymentAuth() {
   const { user, isLoading } = useAuth()
-  const isAuthenticated = !!user
+  const isAuthenticated = Boolean(user)
 
   // PERMISSION REFACTOR: Client-side is permissive.
   // Backend enforces payment access on every API request.

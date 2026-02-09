@@ -37,7 +37,7 @@ export async function createPayment(
     return result.data as CreatePaymentResponse
   } catch (error) {
     if (error instanceof z.ZodError) {
-      throw new Error('Invalid payment data: ' + error.message)
+      throw new Error(`Invalid payment data: ${  error.message}`)
     }
     throw error
   }

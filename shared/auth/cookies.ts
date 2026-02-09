@@ -165,7 +165,7 @@ export function buildCookieString(
   const parts = [`${name}=${value}`];
 
   parts.push(`path=${opts.path}`);
-  if (opts.domain) {
+  if (opts.domain !== undefined && opts.domain !== '') {
     parts.push(`domain=${opts.domain}`);
   }
   if (opts.maxAge !== undefined) {
@@ -186,7 +186,7 @@ export function buildCookieString(
 export function parseCookies(cookieHeader: string): Record<string, string> {
   return cookieHeader.split(';').reduce<Record<string, string>>((acc, cookie) => {
     const [key, value] = cookie.trim().split('=');
-    if (key && value) {
+    if (key !== '' && value !== '') {
       acc[key] = value;
     }
     return acc;
@@ -285,7 +285,7 @@ export function getClientCookie(name: string): string | null {
   const value = cookies[name];
 
   // Decode URL-encoded value
-  return value ? decodeURIComponent(value) : null;
+  return value !== '' ? decodeURIComponent(value) : null;
 }
 
 /**

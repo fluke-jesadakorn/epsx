@@ -675,7 +675,7 @@ export default function WalletDetailPage() {
                 </DragOverlay>
 
                 {/* Trash Zone */}
-                <TrashDropZone isDragging={!!activeDragItem} />
+                <TrashDropZone isDragging={Boolean(activeDragItem)} />
 
                 {/* Disable/Re-enable Modals */}
                 {showDisableModal && (

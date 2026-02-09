@@ -174,19 +174,19 @@ export const PERMISSION_SETS = {
   USER_MANAGER: [
     'admin:users:manage',
     'admin:permissions:view',
-    'admin:analytics:view'
+    PERMISSIONS.ADMIN_ANALYTICS_VIEW
   ],
 
   SYSTEM_ADMIN: [
     'admin:system:manage',
     'admin:audit:read',
     'admin:security:read',
-    'admin:analytics:view'
+    PERMISSIONS.ADMIN_ANALYTICS_VIEW
   ],
 
   CONTENT_MANAGER: [
     'admin:notifications:manage',
-    'admin:analytics:view',
+    PERMISSIONS.ADMIN_ANALYTICS_VIEW,
     'admin:users:read'
   ],
 

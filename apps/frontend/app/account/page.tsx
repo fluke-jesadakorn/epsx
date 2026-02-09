@@ -21,7 +21,7 @@ export default async function AccountPage() {
       pagination: {
         page: 1,
         per_page: limit,
-        total: total,
+        total,
         total_pages: Math.ceil(total / limit)
       }
     };

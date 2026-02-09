@@ -140,12 +140,12 @@ export const sessionStorage = {
    */
   get<T>(key: string, defaultValue?: T): T | null {
     try {
-      if (typeof window === 'undefined') { return defaultValue !== undefined ? defaultValue : null; }
+      if (typeof window === 'undefined') { return defaultValue ?? null; }
       const item = window.sessionStorage.getItem(key);
-      return item !== null ? (JSON.parse(item) as T) : (defaultValue !== undefined ? defaultValue : null);
+      return item !== null ? (JSON.parse(item) as T) : (defaultValue ?? null);
     } catch (error) {
       logger.error('Failed to read from sessionStorage:', error);
-      return defaultValue !== undefined ? defaultValue : null;
+      return defaultValue ?? null;
     }
   },
 
@@ -246,7 +246,7 @@ export function getBrowserInfo(): {
     const match = userAgent.match(/Chrome\/(\d+)/);
     return {
       name: 'Chrome',
-      version: (match !== null && match[1] !== undefined) ? match[1] : 'unknown',
+      version: match?.[1] ?? 'unknown',
       engine: 'Blink'
     }
   }
@@ -255,7 +255,7 @@ export function getBrowserInfo(): {
     const match = userAgent.match(/Firefox\/(\d+)/);
     return {
       name: 'Firefox',
-      version: (match !== null && match[1] !== undefined) ? match[1] : 'unknown',
+      version: match?.[1] ?? 'unknown',
       engine: 'Gecko'
     }
   }
@@ -268,7 +268,7 @@ function getOtherBrowserInfo(userAgent: string) {
     const match = userAgent.match(/Version\/(\d+)/);
     return {
       name: 'Safari',
-      version: (match !== null && match[1] !== undefined) ? match[1] : 'unknown',
+      version: match?.[1] ?? 'unknown',
       engine: 'WebKit'
     }
   }
@@ -277,7 +277,7 @@ function getOtherBrowserInfo(userAgent: string) {
     const match = userAgent.match(/Edge\/(\d+)/);
     return {
       name: 'Edge',
-      version: (match !== null && match[1] !== undefined) ? match[1] : 'unknown',
+      version: match?.[1] ?? 'unknown',
       engine: 'EdgeHTML'
     }
   }

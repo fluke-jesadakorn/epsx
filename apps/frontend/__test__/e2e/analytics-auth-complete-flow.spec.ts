@@ -349,13 +349,13 @@ test.describe('📊 Analytics Platform Authentication Complete Flow', () => {
     expect(codeChallenge).toBeTruthy();
     expect(codeChallenge).toMatch(/^[A-Za-z0-9_-]+$/); // Base64URL format
     expect(codeChallengeMethod).toBe('S256');
-    console.log('✅ PKCE parameters validated:', { codeChallenge: codeChallenge?.slice(0, 10) + '...', codeChallengeMethod });
+    console.log('✅ PKCE parameters validated:', { codeChallenge: `${codeChallenge?.slice(0, 10)  }...`, codeChallengeMethod });
 
     // Step 3: Verify state parameter
     const state = await form.locator('input[name="state"]').getAttribute('value');
     expect(state).toBeTruthy();
     expect(state).toMatch(/^[A-Za-z0-9_-]+$/);
-    console.log('✅ State parameter validated:', state?.slice(0, 10) + '...');
+    console.log('✅ State parameter validated:', `${state?.slice(0, 10)  }...`);
 
     // Step 4: Complete login to test PKCE flow
     await page.fill('input[name="email"]', TEST_CREDENTIALS.email);

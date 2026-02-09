@@ -99,7 +99,7 @@ export function truncate(text: string, length: number, suffix = '...'): string {
  * Utility function to generate a random ID
  */
 export function generateId(prefix?: string): string {
-  const id = Math.random().toString(36).substring(2) + Date.now().toString(36);
+  const id = Math.random().toString(36).slice(2) + Date.now().toString(36);
   return prefix ? `${prefix}-${id}` : id;
 }
 
@@ -203,7 +203,7 @@ export function formatFileSize(bytes: number): string {
   const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
 
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))  } ${  sizes[i]}`;
 }
 
 /**
@@ -224,9 +224,9 @@ export function getContrastColor(hexColor: string): string {
   const color = hexColor.replace('#', '');
 
   // Convert to RGB
-  const r = parseInt(color.substring(0, 2), 16);
-  const g = parseInt(color.substring(2, 4), 16);
-  const b = parseInt(color.substring(4, 6), 16);
+  const r = parseInt(color.slice(0, 2), 16);
+  const g = parseInt(color.slice(2, 4), 16);
+  const b = parseInt(color.slice(4, 6), 16);
 
   // Calculate luminance
   const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;

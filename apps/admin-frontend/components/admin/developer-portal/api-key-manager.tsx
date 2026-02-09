@@ -93,7 +93,7 @@ export const ApiKeyManager: React.FC<ApiKeyManagerProps> = ({
                                             <button
                                                 onClick={() =>
                                                     onCopy(
-                                                        (apiKey.key_preview || (apiKey as any).key_prefix) + '...',
+                                                        `${apiKey.key_preview || (apiKey as any).key_prefix  }...`,
                                                         'API Key Prefix'
                                                     )
                                                 }

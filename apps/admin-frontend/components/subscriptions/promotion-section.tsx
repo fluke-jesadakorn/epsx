@@ -27,7 +27,7 @@ interface PromotionSectionProps {
 
 // Helper functions must be declared before use or safely outside
 function getUsagePercentage(promo: DisplayPromotion): number {
-  if (!promo.usageLimit) {return 0;}
+  if (promo.usageLimit == null || promo.usageLimit === 0) {return 0;}
   return Math.min((promo.currentUsage / promo.usageLimit) * 100, 100);
 }
 
@@ -39,7 +39,7 @@ function getDiscountDisplay(promo: DisplayPromotion): string {
 }
 
 function isExpired(endDate?: string): boolean {
-  if (!endDate) {return false;}
+  if (endDate == null || endDate === '') {return false;}
   return new Date(endDate) < new Date();
 }
 
@@ -48,7 +48,7 @@ function isUpcoming(startDate: string): boolean {
 }
 
 function isActive(p: DisplayPromotion) {
-  return p.isActive && !isExpired(p.endDate);
+  return (p.isActive === true) && !isExpired(p.endDate);
 }
 
 export function PromotionSection({ initialPromotions, className, compactMode = false }: PromotionSectionProps) {
@@ -57,9 +57,9 @@ export function PromotionSection({ initialPromotions, className, compactMode = f
   const [showAll, setShowAll] = useState(false);
 
   // Stats
-  const activePromotions = promotions.filter(p => p.isActive && !isExpired(p.endDate));
-  const totalUsage = promotions.reduce((sum, p) => sum + p.currentUsage, 0);
-  const totalRevenue = promotions.reduce((sum, p) => sum + p.totalRevenue, 0);
+  const activePromotions = promotions.filter(p => (p.isActive === true) && !isExpired(p.endDate));
+  const totalUsage = promotions.reduce((sum, p) => sum + (p.currentUsage ?? 0), 0);
+  const totalRevenue = promotions.reduce((sum, p) => sum + (p.totalRevenue ?? 0), 0);
 
   // Displayed promotions (show first 6 unless expanded, or first 3 in compact mode)
   const limit = compactMode ? 3 : 6;
@@ -74,7 +74,7 @@ export function PromotionSection({ initialPromotions, className, compactMode = f
       const response = await promotionsClient.getPromotions({ limit: 100 });
 
       if (isApiSuccess(response)) {
-        const promos = response.data?.promotions || [];
+        const promos = response.data?.promotions ?? [];
         setPromotions(promos.map((p: Promotion) => ({
           id: p.id,
           name: p.name,
@@ -123,7 +123,7 @@ export function PromotionSection({ initialPromotions, className, compactMode = f
                 <div>
                   <div className="flex items-center gap-2 mb-1">
                     <code className="text-[10px] font-mono font-bold bg-muted px-1 py-0.5 rounded">{promo.code}</code>
-                    {promo.isActive && !expired && <div className="w-1.5 h-1.5 rounded-full bg-success animate-pulse" />}
+                    {(promo.isActive === true) && !expired && <div className="w-1.5 h-1.5 rounded-full bg-success animate-pulse" />}
                   </div>
                   <div className="font-semibold text-xs">{promo.name}</div>
                 </div>
@@ -235,7 +235,7 @@ export function PromotionSection({ initialPromotions, className, compactMode = f
                     'flex-shrink-0 w-48 bg-card rounded-xl border p-4 transition-all duration-200',
                     'hover:shadow-lg hover:border-success/30 hover:scale-[1.02] cursor-pointer',
                     expired && 'opacity-60',
-                    promo.isActive && !expired ? 'border-success/20' : 'border-border'
+                    (promo.isActive === true) && !expired ? 'border-success/20' : 'border-border'
                   )}
                   onClick={() => toast.info(`View promotion: ${promo.name}`)}
                 >
@@ -246,7 +246,7 @@ export function PromotionSection({ initialPromotions, className, compactMode = f
                         {promo.code}
                       </code>
                     </div>
-                    {promo.isActive && !expired && (
+                    {(promo.isActive === true) && !expired && (
                       <div className="w-2 h-2 rounded-full bg-success animate-pulse" />
                     )}
                   </div>
@@ -290,7 +290,7 @@ export function PromotionSection({ initialPromotions, className, compactMode = f
                         Upcoming
                       </span>
                     )}
-                    {!promo.isActive && !expired && !upcoming && (
+                    {(promo.isActive !== true) && !expired && !upcoming && (
                       <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
                         Inactive
                       </span>

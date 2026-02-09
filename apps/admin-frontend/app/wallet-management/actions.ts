@@ -122,9 +122,9 @@ export async function fetchWalletsAction(filters: WalletFilters, page = 1, limit
     }
 
     const responseData = (res.data as any).data ?? res.data; // Handle potential double wrapping
-    const rawWallets = (responseData as any).wallets ?? [];
+    const rawWallets = (responseData).wallets ?? [];
     const wallets = rawWallets.map(mapWalletDtoToData);
-    const pagination = (responseData as any).pagination ?? { page: 1, limit: 20, total: wallets.length, total_pages: 1, has_next_page: false, has_previous_page: false };
+    const pagination = (responseData).pagination ?? { page: 1, limit: 20, total: wallets.length, total_pages: 1, has_next_page: false, has_previous_page: false };
 
     return { wallets, pagination };
 }
@@ -201,7 +201,7 @@ export async function fetchActivityLogsAction(walletAddress?: string, page = 1, 
     }
 
     // Map common format
-    const logs = ((res.data.entries as ActivityLogEntry[] | undefined) ?? (res.data.events as ActivityLogEntry[] | undefined) ?? []) as ActivityLogEntry[];
+    const logs = ((res.data.entries as ActivityLogEntry[] | undefined) ?? (res.data.events as ActivityLogEntry[] | undefined) ?? []);
 
     // Simple mapper for display
     return logs.map((log) => ({

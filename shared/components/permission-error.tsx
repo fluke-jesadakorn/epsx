@@ -38,7 +38,7 @@ export function PermissionError({ error }: PermissionErrorProps) {
 
       <p className="text-red-700 mb-4">{error.user_message}</p>
 
-      {error.details.permission && (
+      {error.details.permission !== undefined && error.details.permission !== '' && (
         <div className="mb-4">
           <p className="text-sm font-medium text-red-800 mb-1">Required Permission:</p>
           <code className="bg-red-100 px-2 py-1 rounded text-sm text-red-800 font-mono">
@@ -47,7 +47,7 @@ export function PermissionError({ error }: PermissionErrorProps) {
         </div>
       )}
 
-      {error.details.required_group && (
+      {error.details.required_group !== undefined && error.details.required_group !== '' && (
         <div className="mb-4">
           <p className="text-sm font-medium text-red-800 mb-1">Required Permission Group:</p>
           <span className="bg-red-100 px-2 py-1 rounded text-sm text-red-800 font-medium">
@@ -56,7 +56,7 @@ export function PermissionError({ error }: PermissionErrorProps) {
         </div>
       )}
 
-      {error.details.current_group && (
+      {error.details.current_group !== undefined && error.details.current_group !== '' && (
         <div className="mb-4">
           <p className="text-sm font-medium text-red-800 mb-1">Your Current Group:</p>
           <span className="bg-red-100 px-2 py-1 rounded text-sm text-red-800 font-medium">
@@ -102,7 +102,7 @@ export function PermissionError({ error }: PermissionErrorProps) {
             </div>
           )}
 
-          {error.upgrade_info.upgrade_url && (
+          {error.upgrade_info.upgrade_url !== undefined && error.upgrade_info.upgrade_url !== '' && (
             <a
               href={error.upgrade_info.upgrade_url}
               className="inline-flex items-center bg-blue-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-blue-700 transition-colors"

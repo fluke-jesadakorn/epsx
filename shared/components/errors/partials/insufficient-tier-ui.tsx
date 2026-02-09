@@ -11,7 +11,7 @@ export function InsufficientTierUI(props: InsufficientTierUIProps) {
     const { variant = 'card', components } = props
     const { Card, CardHeader, CardTitle, CardContent, Button } = components
 
-    const hasBasicComponents = Card && CardHeader && CardTitle && CardContent && Button
+    const hasBasicComponents = Card !== undefined && CardHeader !== undefined && CardTitle !== undefined && CardContent !== undefined && Button !== undefined
 
     if (variant === 'full-page' && hasBasicComponents) {
         return <InsufficientTierFullPage {...props} />
@@ -101,9 +101,9 @@ function InsufficientTierFullPage(props: InsufficientTierUIProps) {
                         )}
 
                         <div className="flex flex-col space-y-2">
-                            {!isAdmin && onUpgrade && (
+                            {!isAdmin && onUpgrade !== undefined && (
                                 <Button
-                                    onClick={handleUpgrade}
+                                    onClick={() => handleUpgrade()}
                                     disabled={isUpgrading}
                                     className="w-full bg-yellow-600 hover:bg-yellow-700"
                                 >
@@ -116,14 +116,14 @@ function InsufficientTierFullPage(props: InsufficientTierUIProps) {
                                 </Button>
                             )}
 
-                            {showRetry && onRetry && (
+                            {showRetry === true && onRetry !== undefined && (
                                 <Button variant="outline" onClick={onRetry}>
                                     <RefreshCw className="h-4 w-4 mr-2" />
                                     {isAdmin ? 'Check Admin Permissions' : 'Check Current Plan'}
                                 </Button>
                             )}
 
-                            {showSupport && onSupport && (
+                            {showSupport === true && onSupport !== undefined && (
                                 <Button variant="ghost" onClick={() => { onSupport(error); }}>
                                     <HelpCircle className="h-4 w-4 mr-2" />
                                     {isAdmin ? 'Contact System Admin' : 'Contact Sales'}
@@ -175,9 +175,9 @@ function InsufficientTierCard(props: InsufficientTierUIProps) {
                 <p className="text-yellow-700">{error.error.user_message}</p>
 
                 <div className="flex flex-wrap gap-2">
-                    {!isAdmin && onUpgrade && (
+                    {!isAdmin && onUpgrade !== undefined && (
                         <Button
-                            onClick={handleUpgrade}
+                            onClick={() => handleUpgrade()}
                             disabled={isUpgrading}
                             className="bg-yellow-600 hover:bg-yellow-700"
                         >
@@ -190,7 +190,7 @@ function InsufficientTierCard(props: InsufficientTierUIProps) {
                         </Button>
                     )}
 
-                    {showRetry && onRetry && (
+                    {showRetry === true && onRetry !== undefined && (
                         <Button variant="outline" onClick={onRetry}>
                             <RefreshCw className="h-4 w-4 mr-1" />
                             Retry

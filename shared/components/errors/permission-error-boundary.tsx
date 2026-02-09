@@ -102,7 +102,7 @@ export class SharedPermissionErrorBoundary extends Component<PermissionErrorBoun
 
         if (hasError && permissionError) {
             // Custom fallback provided
-            if (fallback) {
+            if (fallback !== undefined && fallback !== null) {
                 if (typeof fallback === 'function') {
                     return fallback(permissionError)
                 }

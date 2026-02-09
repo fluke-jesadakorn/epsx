@@ -313,22 +313,22 @@ export function isFeatureEnabled(
 }
 
 function checkStatus(config: FeatureFlagConfig): boolean {
-  return !(config.removedAt && Date.now() > new Date(config.removedAt).getTime());
+  return !(config.removedAt !== undefined && Date.now() > new Date(config.removedAt).getTime());
 }
 
 function checkEnvironment(config: FeatureFlagConfig, env?: string): boolean {
   const currentEnv = (env ?? process.env.NODE_ENV) as 'development' | 'staging' | 'production';
-  return !config.environments || config.environments.includes(currentEnv);
+  return config.environments === undefined || config.environments.includes(currentEnv);
 }
 
 function checkRoleRestrictions(config: FeatureFlagConfig, context: FeatureFlagContext): boolean {
-  if (config.enabledForAdmin && !context.isAdmin) { return false; }
-  if (config.enabledForUsers && context.isAdmin) { return false; }
+  if (config.enabledForAdmin === true && context.isAdmin !== true) { return false; }
+  if (config.enabledForUsers === true && context.isAdmin === true) { return false; }
   return true;
 }
 
 function checkPermissions(config: FeatureFlagConfig, currentPermissions?: string[]): boolean {
-  if (config.requiredPermissions && !hasRequiredPermissions(config.requiredPermissions, currentPermissions)) {
+  if (config.requiredPermissions !== undefined && !hasRequiredPermissions(config.requiredPermissions, currentPermissions)) {
     return false;
   }
   return true;
@@ -347,7 +347,7 @@ function checkRollout(config: FeatureFlagConfig, flag: string, userId?: string):
 function checkOverrides(flag: string, defaultValue: boolean): boolean {
   const envVar = `NEXT_PUBLIC_ENABLE_${flag.toUpperCase()}`;
   const envValue = process.env[envVar];
-  if (envValue) {
+  if (envValue !== undefined && envValue !== '') {
     return envValue.toLowerCase() === 'true';
   }
   return defaultValue;
@@ -357,7 +357,7 @@ function checkOverrides(flag: string, defaultValue: boolean): boolean {
  * Helper to check if context has required permissions
  */
 function hasRequiredPermissions(required: string[], current?: string[]): boolean {
-  if (!current) { return false; }
+  if (current === undefined) { return false; }
   return required.some(permission =>
     current.includes(permission) ||
     current.includes('admin:*:*') ||
@@ -392,7 +392,7 @@ export function getAllFeatureFlags(): Record<string, FeatureFlagConfig> {
  * Check if user can toggle a feature flag (admin only)
  */
 export function canToggleFeature(flag: keyof typeof FEATURE_FLAGS, context: FeatureFlagContext): boolean {
-  if (!context.isAdmin) { return false; }
+  if (context.isAdmin !== true) { return false; }
 
   return (context.userPermissions?.includes('admin:system:manage') ??
     context.userPermissions?.includes('admin:*:*')) ?? false;
@@ -404,11 +404,11 @@ export function canToggleFeature(flag: keyof typeof FEATURE_FLAGS, context: Feat
 export function validateContext(context: FeatureFlagContext): { valid: boolean; errors: string[] } {
   const errors: string[] = [];
 
-  if (context.userId && typeof context.userId !== 'string') {
+  if (context.userId !== undefined && typeof context.userId !== 'string') {
     errors.push('userId must be a string');
   }
 
-  if (context.userPermissions && !Array.isArray(context.userPermissions)) {
+  if (context.userPermissions !== undefined && !Array.isArray(context.userPermissions)) {
     errors.push('userPermissions must be an array');
   }
 
@@ -416,7 +416,7 @@ export function validateContext(context: FeatureFlagContext): { valid: boolean; 
     errors.push('isAdmin must be a boolean');
   }
 
-  if (context.environment && !['development', 'staging', 'production'].includes(context.environment)) {
+  if (context.environment !== undefined && !['development', 'staging', 'production'].includes(context.environment)) {
     errors.push('environment must be development, staging, or production');
   }
 
@@ -481,7 +481,7 @@ export function createFeatureFlagHook() {
  */
 export function getDeprecatedFeatures(): Array<{ flag: string; config: FeatureFlagConfig }> {
   return Object.entries(FEATURE_FLAGS)
-    .filter(([_, config]) => config.deprecatedAt)
+    .filter(([_, config]) => config.deprecatedAt !== undefined)
     .map(([flag, config]) => ({ flag, config }));
 }
 

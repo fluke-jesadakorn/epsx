@@ -8,7 +8,7 @@ use anyhow::Result;
 use tracing::info;
 
 use crate::infrastructure::database::get_diesel_pool;
-
+use crate::infrastructure::database::diesel_connection_manager::TlsConnectionManager;
 use diesel_async::pooled_connection::deadpool::Object;
 
 /// Test database setup guard
@@ -34,7 +34,7 @@ impl TestDatabase {
     }
 
     /// Get a connection for testing
-    pub async fn get_connection(&self) -> Result<Object<>> {
+    pub async fn get_connection(&self) -> Result<impl std::ops::DerefMut<Target = diesel_async::AsyncPgConnection>> {
         let pool = get_diesel_pool().await?;
         pool.get().await.map_err(|e| anyhow::anyhow!("Failed to get test connection: {}", e))
     }

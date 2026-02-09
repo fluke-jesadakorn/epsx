@@ -177,7 +177,7 @@ export function UserAccessManagement() {
                                             >
                                                 <div className="flex items-center justify-between mb-3">
                                                     <div className="font-mono text-xs text-muted-foreground" title={user.wallet_address}>
-                                                        {user.wallet_address.substring(0, 10)}...{user.wallet_address.substring(user.wallet_address.length - 4)}
+                                                        {user.wallet_address.slice(0, 10)}...{user.wallet_address.slice(Math.max(0, user.wallet_address.length - 4))}
                                                     </div>
                                                     <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${getStatusColor(user.status)}`}>
                                                         {user.status === 'no_plan' ? 'No Plan' : user.status}
@@ -220,7 +220,7 @@ export function UserAccessManagement() {
                                                     <tr key={user.wallet_address} className="hover:bg-muted/30 transition-colors">
                                                         <td className="px-4 py-4 whitespace-nowrap">
                                                             <div className="text-xs font-mono text-muted-foreground" title={user.wallet_address}>
-                                                                {user.wallet_address.substring(0, 10)}...{user.wallet_address.substring(user.wallet_address.length - 4)}
+                                                                {user.wallet_address.slice(0, 10)}...{user.wallet_address.slice(Math.max(0, user.wallet_address.length - 4))}
                                                             </div>
                                                         </td>
                                                         <td className="px-4 py-4 whitespace-nowrap text-sm font-semibold text-foreground">

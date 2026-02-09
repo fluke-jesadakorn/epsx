@@ -1,8 +1,8 @@
 import type { Page, BrowserContext } from '@playwright/test';
 import { test as base, expect } from '@playwright/test';
-import { spawn } from 'child_process';
-import fs from 'fs';
-import path from 'path';
+import { spawn } from 'node:child_process';
+import fs from 'node:fs';
+import path from 'node:path';
 
 // Extend Playwright test to include coverage collection
 export const test = base.extend<{

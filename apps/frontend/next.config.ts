@@ -44,7 +44,7 @@ const nextConfig: NextConfig = {
     }
 
     // Web3/Wagmi build fix: Explicitly stub out problematic modules
-    const path = require('path');
+    const path = require('node:path');
     const stubPath = path.join(process.cwd(), '../../shared/stubs/empty.ts');
 
     // Ensure shared components can resolve modules from the app's node_modules

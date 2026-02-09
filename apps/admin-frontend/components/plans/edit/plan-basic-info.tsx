@@ -1,6 +1,6 @@
 'use client'
 
-import { PlanFormProps } from '@/components/plans/edit/types'
+import type { PlanFormProps } from '@/components/plans/edit/types'
 
 export function PlanBasicInfo({ formData, setFormData }: PlanFormProps) {
     return (

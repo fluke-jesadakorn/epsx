@@ -29,6 +29,7 @@ export interface RequestConfig extends RequestInit {
   timeout?: number;
   serverSide?: boolean;
   platform?: 'admin' | 'frontend';
+  token?: string;
 }
 
 export type Platform = 'admin' | 'frontend';
@@ -48,12 +49,13 @@ export class APIError extends Error implements ApiError {
   public status?: number; // Optional status for compatibility
   public requestId?: string;
 
-  constructor(message: string, code = 'UNKNOWN_ERROR', options: { status?: number; details?: unknown } = {}) {
+  constructor(message: string, code = 'UNKNOWN_ERROR', options: { status?: number; details?: unknown; requestId?: string } = {}) {
     super(message);
     this.name = 'APIError';
     this.code = code;
     this.status = options.status;
     this.details = options.details;
+    this.requestId = options.requestId;
   }
 
   static fromResponse(response: {
@@ -66,15 +68,54 @@ export class APIError extends Error implements ApiError {
       details?: unknown;
     };
   }): APIError {
-    const data = response.data;
-    const error = data?.error;
+    const { status, statusText, data } = response;
+    let message = `HTTP ${status}: ${statusText}`;
+    let code = 'HTTP_ERROR';
+    let details: unknown = undefined;
 
-    const message = data?.message ?? error?.message ?? `HTTP ${response.status}: ${response.statusText}`;
-    const code = data?.code ?? error?.code ?? 'HTTP_ERROR';
-    const details = data?.details ?? error?.details;
+    if (data !== undefined) {
+      const error = data.error;
+      message = determineErrorMessage({
+        dataMessage: data.message,
+        errorMessage: error?.message,
+        status,
+        statusText
+      });
+      code = determineErrorCode(data.code, error?.code);
+      details = data.details ?? error?.details;
+    }
 
-    return new APIError(message, code, { status: response.status, details });
+    return new APIError(message, code, { status, details });
   }
+}
+
+function determineErrorMessage(ctx: {
+  dataMessage?: string;
+  errorMessage?: string;
+  status: number;
+  statusText: string;
+}): string {
+  const { dataMessage, errorMessage, status, statusText } = ctx;
+  if (dataMessage !== undefined && dataMessage !== '') {
+    return dataMessage;
+  }
+  if (errorMessage !== undefined && errorMessage !== '') {
+    return errorMessage;
+  }
+  return `HTTP ${status}: ${statusText}`;
+}
+
+function determineErrorCode(
+  dataCode: string | undefined,
+  errorCode: string | undefined
+): string {
+  if (dataCode !== undefined && dataCode !== '') {
+    return dataCode;
+  }
+  if (errorCode !== undefined && errorCode !== '') {
+    return errorCode;
+  }
+  return 'HTTP_ERROR';
 }
 
 // ============================================================================
@@ -111,26 +152,28 @@ export class UnifiedApiClient {
     return getBackendUrl(this.isServerSide ? 'server' : 'client');
   }
 
-  private async getAuthHeaders(): Promise<HeadersInit> {
-    const headers: Record<string, string> = {
+  protected async getAuthHeaders(config?: RequestConfig): Promise<HeadersInit> {
+    const configHeaders = config?.headers ?? {};
+    const baseHeaders: Record<string, string> = {
       'Content-Type': 'application/json',
     };
 
-    // Use provided token if available
-    if (this.token) {
-      headers['Authorization'] = `Bearer ${this.token}`;
-      return headers as HeadersInit;
+    // Prioritize token from config, then instance token, then fetched token
+    const requestToken = config?.token ?? this.token;
+
+    if (requestToken !== undefined && requestToken !== '') {
+      baseHeaders['Authorization'] = `Bearer ${requestToken}`;
+    } else {
+      const fetchedToken = this.isServerSide
+        ? await this.getServerSideToken()
+        : this.getClientSideToken();
+
+      if (fetchedToken !== undefined && fetchedToken !== '') {
+        baseHeaders['Authorization'] = `Bearer ${fetchedToken}`;
+      }
     }
 
-    const token = this.isServerSide
-      ? await this.getServerSideToken()
-      : this.getClientSideToken();
-
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
-
-    return headers as HeadersInit;
+    return { ...baseHeaders, ...configHeaders } as HeadersInit;
   }
 
   private async getServerSideToken(): Promise<string | undefined> {
@@ -146,7 +189,7 @@ export class UnifiedApiClient {
   private getClientSideToken(): string | undefined {
     try {
       const userCookie = getClientCookie(COOKIES.user);
-      if (!userCookie) {
+      if (userCookie === null || userCookie === '') {
         this.logMissingClientCookies();
         return undefined;
       }
@@ -175,7 +218,7 @@ export class UnifiedApiClient {
     const url = `${this.baseURL}${endpoint}`;
 
     try {
-      const headers = await this.getAuthHeaders();
+      const headers = await this.getAuthHeaders(config);
       const requestConfig = this.prepareRequestConfig(options, headers, timeout);
 
       const response = await fetch(url, requestConfig);
@@ -188,7 +231,12 @@ export class UnifiedApiClient {
       const data = await this.parseResponseData(response);
 
       if (!response.ok) {
-        this.handleErrorResponse(response, data, requestConfig.method ?? 'GET', url);
+        this.handleErrorResponse({
+          response,
+          data,
+          method: requestConfig.method ?? 'GET',
+          url
+        });
       }
 
       return this.normalizeResponse(response, data);
@@ -212,7 +260,7 @@ export class UnifiedApiClient {
     if (headers['x-retry'] === 'true') { return null; }
 
     const refreshResult = await this.handleTokenRefresh();
-    if (refreshResult.success === true && typeof refreshResult.access_token === 'string' && refreshResult.access_token !== '') {
+    if (refreshResult.success && refreshResult.access_token !== undefined && refreshResult.access_token !== '') {
       return await this.request(endpoint, {
         ...config,
         headers: { ...config.headers, 'x-retry': 'true' }
@@ -223,7 +271,7 @@ export class UnifiedApiClient {
   }
 
   private applyTimeout(config: RequestInit, timeout: number): void {
-    if (timeout && !('signal' in config)) {
+    if (timeout !== 0 && !('signal' in config)) {
       const controller = new AbortController();
       setTimeout(() => controller.abort(), timeout);
       config.signal = controller.signal;
@@ -273,7 +321,7 @@ export class UnifiedApiClient {
         ? await this.refreshServerToken()
         : await this.refreshClientToken();
 
-      if (result.success && result.access_token) {
+      if (result.success && result.access_token !== undefined && result.access_token !== '') {
         logger.debug('[UnifiedApiClient] Token refreshed successfully');
         this.setAuthToken(result.access_token);
         return result;
@@ -293,7 +341,7 @@ export class UnifiedApiClient {
       const cookieStore = await cookies();
       const refreshToken = cookieStore.get(COOKIES.refresh_token)?.value;
 
-      if (!refreshToken) { return { success: false }; }
+      if (refreshToken === undefined || refreshToken === '') { return { success: false }; }
 
       const response = await fetch(`${this.baseURL}/api/auth/session/refresh`, {
         method: 'POST',
@@ -304,7 +352,7 @@ export class UnifiedApiClient {
       if (!response.ok) { return { success: false }; }
 
       const data = (await response.json()) as { access_token?: string; refresh_token?: string; expires_in?: number };
-      if (!data.access_token) { return { success: false }; }
+      if (data.access_token === undefined || data.access_token === '') { return { success: false }; }
 
       this.updateServerCookies(cookieStore, data as { access_token: string; refresh_token?: string; expires_in?: number });
       return { success: true, access_token: data.access_token };
@@ -323,7 +371,7 @@ export class UnifiedApiClient {
       maxAge: data.expires_in ?? 3600,
     } as Record<string, unknown>);
 
-    if (data.refresh_token) {
+    if (data.refresh_token !== undefined && data.refresh_token !== '') {
       cookieStore.set(COOKIES.refresh_token, data.refresh_token, {
         httpOnly: true,
         secure: isProd,
@@ -339,7 +387,7 @@ export class UnifiedApiClient {
       const { refreshSessionAction } = await import('../auth/actions');
       const refreshResult = (await refreshSessionAction()) as { success: boolean; access_token?: string };
 
-      if (refreshResult.success && refreshResult.access_token) {
+      if (refreshResult.success && refreshResult.access_token !== undefined && refreshResult.access_token !== '') {
         this.updateClientUserCookie(refreshResult.access_token);
         return { success: true, access_token: refreshResult.access_token };
       }
@@ -352,7 +400,7 @@ export class UnifiedApiClient {
   private updateClientUserCookie(accessToken: string): void {
     try {
       const userCookie = getClientCookie(COOKIES.user);
-      if (userCookie) {
+      if (userCookie !== null && userCookie !== '') {
         const user = JSON.parse(userCookie) as UserCookieData;
         user.access = accessToken;
         setClientCookie(COOKIES.user, JSON.stringify(user), 2592000);
@@ -390,14 +438,23 @@ export class UnifiedApiClient {
 
   private normalizeErrorResponse<T>(_response: Response, data: unknown): ApiResponse<T> {
     const status = _response.status;
+    const defaultMessage = `HTTP ${status}: ${_response.statusText}`;
+    const requestId = _response.headers.get('x-request-id') ?? undefined;
+
     let apiError: ApiError = {
       code: 'HTTP_ERROR',
-      message: `HTTP ${status}: ${_response.statusText}`,
+      message: defaultMessage,
+      status,
+      requestId
     };
 
     if (data !== null && typeof data === 'object') {
-      const anyData = data as Record<string, unknown>;
-      apiError = this.extractApiError(anyData, apiError.message, status);
+      apiError = this.extractApiError({
+        data: data as Record<string, unknown>,
+        defaultMessage,
+        status,
+        requestId
+      });
     }
 
     return {
@@ -406,42 +463,73 @@ export class UnifiedApiClient {
       error: apiError,
       meta: {
         timestamp: new Date().toISOString(),
-        trace_id: _response.headers.get('x-request-id') ?? undefined
+        trace_id: requestId
       }
     };
   }
 
-  private extractApiError(data: Record<string, unknown>, defaultMessage: string, status: number): ApiError {
-    if (data.error !== null && typeof data.error === 'object') {
-      const nestedError = data.error as Record<string, unknown>;
+  private extractApiError(ctx: {
+    data: Record<string, unknown>;
+    defaultMessage: string;
+    status: number;
+    requestId?: string;
+  }): ApiError {
+    const { data, defaultMessage, status, requestId } = ctx;
+    const error = data.error;
+    const message = data.message;
+    const code = data.code;
+    const details = data.details;
+
+    if (error !== null && typeof error === 'object') {
+      const nestedError = error as Record<string, unknown>;
       return {
-        code: (nestedError.code as string | undefined) ?? 'HTTP_ERROR',
-        message: (nestedError.message as string | undefined) ?? defaultMessage,
-        details: nestedError.details,
-        requestId: nestedError.requestId as string
+        code: (nestedError.code as string | undefined) ?? (typeof code === 'string' ? code : 'HTTP_ERROR'),
+        message: (nestedError.message as string | undefined) ?? (typeof message === 'string' ? message : defaultMessage),
+        details: nestedError.details ?? details,
+        status,
+        requestId: (nestedError.requestId as string | undefined) ?? requestId
       };
     }
 
-    if (typeof data.message === 'string' && data.message !== '') {
+    return this.fallbackErrorExtraction(ctx);
+  }
+
+  private fallbackErrorExtraction(ctx: {
+    data: Record<string, unknown>;
+    defaultMessage: string;
+    status: number;
+    requestId?: string;
+  }): ApiError {
+    const { data, defaultMessage, status, requestId } = ctx;
+    const message = data.message;
+    const code = data.code;
+    const details = data.details;
+    const error = data.error;
+
+    if (typeof message === 'string' && message !== '') {
       return {
-        message: data.message,
-        code: typeof data.code === 'string' && data.code !== '' ? data.code : `HTTP_${status}`,
-        details: data.details ?? data
+        message,
+        code: (typeof code === 'string' && code !== '') ? code : `HTTP_${status}`,
+        details: details ?? data,
+        status,
+        requestId
       };
     }
 
-    if (data.error !== null && data.error !== undefined) {
+    if (typeof error === 'string' && error !== '') {
       return {
-        message: typeof data.error === 'string' ? data.error : JSON.stringify(data.error),
-        code: typeof data.code === 'string' && data.code !== '' ? data.code : `HTTP_${status}`
+        message: error,
+        code: (typeof code === 'string' && code !== '') ? code : `HTTP_${status}`,
+        status,
+        requestId
       };
     }
 
-    return { code: 'HTTP_ERROR', message: defaultMessage };
+    return { code: 'HTTP_ERROR', message: defaultMessage, status, requestId };
   }
 
   private isApiResponse<T>(data: unknown): data is ApiResponse<T> {
-    return Boolean(data && typeof data === 'object' && 'success' in (data as Record<string, unknown>) && 'data' in (data as Record<string, unknown>));
+    return Boolean(data !== null && typeof data === 'object' && 'success' in (data as Record<string, unknown>) && 'data' in (data as Record<string, unknown>));
   }
 
   private createUnauthorizedResponse<T>(headers: HeadersInit): ApiResponse<T> {
@@ -461,17 +549,29 @@ export class UnifiedApiClient {
 
   private async parseResponseData(response: Response): Promise<unknown> {
     try {
-      return response.ok ? await response.json() : null;
+      const contentType = response.headers.get('content-type');
+      if (contentType?.includes('application/json') === true) {
+        return await response.json();
+      }
+      return null; // Or handle other content types if needed
     } catch {
       return null;
     }
   }
 
-  private handleErrorResponse(response: Response, data: unknown, method: string, url: string): never {
-    const parsedData = data as { message?: string; error?: string; code?: string; details?: unknown } | null;
+  private handleErrorResponse(options: {
+    response: Response;
+    data: unknown;
+    method: string;
+    url: string;
+  }): never {
+    const { response, data, method, url } = options;
+    const parsedData = data as { message?: string; error?: string; code?: string; details?: unknown; requestId?: string } | null;
     const message = parsedData?.message;
     const error = parsedData?.error;
-    const errorMessage = (typeof message === 'string' && message !== '') ? message : (typeof error === 'string' && error !== '' ? error : `HTTP ${response.status}: ${response.statusText}`);
+    const errorMessage = (typeof message === 'string' && message !== '')
+      ? message
+      : (typeof error === 'string' && error !== '' ? error : `HTTP ${response.status}: ${response.statusText}`);
 
     if (response.status !== 404) {
       logger.error(`[UnifiedApiClient] Error ${response.status} ${method} ${url}:`, errorMessage);
@@ -480,7 +580,7 @@ export class UnifiedApiClient {
     throw new APIError(
       errorMessage,
       parsedData?.code ?? 'HTTP_ERROR',
-      { status: response.status, details: parsedData?.details }
+      { status: response.status, details: parsedData?.details, requestId: parsedData?.requestId }
     );
   }
 
@@ -489,7 +589,7 @@ export class UnifiedApiClient {
   // ============================================================================
 
   async get<T = unknown>(endpoint: string, params?: Record<string, unknown> | object, config?: RequestConfig): Promise<ApiResponse<T>> {
-    const queryString = params ? `?${new URLSearchParams(
+    const queryString = (params !== undefined) ? `?${new URLSearchParams(
       Object.entries(params).reduce<Record<string, string>>((acc, [key, value]) => {
         if (value !== undefined && value !== null) {
           acc[key] = String(value);
@@ -507,7 +607,7 @@ export class UnifiedApiClient {
   async post<T = unknown>(endpoint: string, data?: unknown, config?: RequestConfig): Promise<ApiResponse<T>> {
     return await this.request<T>(endpoint, {
       method: 'POST',
-      body: data ? JSON.stringify(data) : undefined,
+      body: (data !== undefined && data !== null) ? JSON.stringify(data) : undefined,
       ...config
     });
   }
@@ -515,7 +615,7 @@ export class UnifiedApiClient {
   async put<T = unknown>(endpoint: string, data?: unknown, config?: RequestConfig): Promise<ApiResponse<T>> {
     return await this.request<T>(endpoint, {
       method: 'PUT',
-      body: data ? JSON.stringify(data) : undefined,
+      body: (data !== undefined && data !== null) ? JSON.stringify(data) : undefined,
       ...config
     });
   }
@@ -530,7 +630,7 @@ export class UnifiedApiClient {
   async patch<T = unknown>(endpoint: string, data?: unknown, config?: RequestConfig): Promise<ApiResponse<T>> {
     return await this.request<T>(endpoint, {
       method: 'PATCH',
-      body: data ? JSON.stringify(data) : undefined,
+      body: (data !== undefined && data !== null) ? JSON.stringify(data) : undefined,
       ...config
     });
   }
@@ -560,7 +660,7 @@ export class UnifiedApiClient {
   }
 
   isApiSuccess<T>(response: ApiResponse<T>): response is ApiResponse<T> & { success: true; data: T } {
-    return response.success && response.data !== null;
+    return response.success === true && response.data !== null;
   }
 
   // Create a new client with different configuration
@@ -589,7 +689,7 @@ export class UnifiedApiClient {
     const { timeout = 0, serverSide: _serverSide, platform: _platform, ...options } = config;
     const url = `${this.baseURL}${endpoint}`;
 
-    const baseHeaders = await this.getAuthHeaders();
+    const baseHeaders = await this.getAuthHeaders(config);
     const mergedHeaders = new Headers(baseHeaders);
 
     if (options.headers) {
@@ -605,7 +705,7 @@ export class UnifiedApiClient {
       cache: this.isServerSide ? 'no-store' : 'default',
     };
 
-    if (timeout && !('signal' in requestConfig)) {
+    if (timeout !== 0 && !('signal' in requestConfig)) {
       const controller = new AbortController();
       setTimeout(() => controller.abort(), timeout);
       requestConfig.signal = controller.signal;
@@ -679,12 +779,12 @@ export async function handlePaginatedRequest<T>(
 ): Promise<PaginatedResponse<T>> {
   const response = await client.get<PaginatedResponse<T>>(endpoint, params);
 
-  if (!response.success || response.data === null || response.data === undefined) {
+  if (response.success !== true || response.data === null) {
     const apiError = response.error;
     throw new APIError(
       apiError?.message ?? 'Failed to fetch data',
       apiError?.code ?? 'FETCH_ERROR',
-      { status: 0, details: apiError?.details }
+      { status: apiError?.status, details: apiError?.details, requestId: apiError?.requestId }
     );
   }
 
@@ -696,33 +796,48 @@ export async function handlePaginatedRequest<T>(
  */
 export async function handleSimpleRequest<T>(
   client: UnifiedApiClient,
-  method: 'get' | 'post' | 'put' | 'delete' | 'patch',
-  endpoint: string,
-  data?: unknown
+  options: {
+    method: 'get' | 'post' | 'put' | 'delete' | 'patch';
+    endpoint: string;
+    data?: unknown;
+  }
 ): Promise<T> {
+  const { method, endpoint, data } = options;
   // DIAGNOSTIC LOG: Trace usage of this supposedly unused function
   logger.info(`[UnifiedApiClient] handleSimpleRequest called: ${method.toUpperCase()} ${endpoint}`);
 
   let response: ApiResponse<T>;
-  if (method === 'get') {
-    response = await client.get<T>(endpoint, data as Record<string, unknown>);
-  } else if (method === 'delete') {
-    response = await client.delete<T>(endpoint, data as RequestConfig);
-  } else {
-    response = await client[method]<T>(endpoint, data);
+  switch (method) {
+    case 'get':
+      response = await client.get<T>(endpoint, data as Record<string, unknown>);
+      break;
+    case 'delete':
+      response = await client.delete<T>(endpoint, data as RequestConfig);
+      break;
+    default:
+      response = await client[method]<T>(endpoint, data);
+      break;
   }
 
-  if (response.success !== true || response.data === null || response.data === undefined) {
+  if (response.success !== true || response.data === null) {
     const apiError = response.error;
-    logger.error(`[UnifiedApiClient] handleSimpleRequest failed: ${apiError?.message ?? 'Unknown Error'}`);
-    throw new APIError(
-      apiError?.message ?? 'Request failed',
-      apiError?.code ?? 'REQUEST_FAILED',
-      { status: 0, details: apiError?.details }
-    );
+    const message = apiError?.message ?? 'Unknown error';
+    logger.error(`[UnifiedApiClient] handleSimpleRequest failed: ${message}`);
+    throw new APIError(message, apiError?.code ?? 'HTTP_ERROR', { status: apiError?.status, details: apiError?.details, requestId: apiError?.requestId });
   }
 
   return response.data;
+}
+
+function shouldRetryRequest(error: { code?: string } | null | undefined): boolean {
+  if (error === null || error === undefined) { return false; }
+  const errorCode = error.code ?? '';
+  return (
+    errorCode === 'NETWORK_ERROR' ||
+    errorCode === 'TIMEOUT' ||
+    errorCode.includes('HTTP_5') || // e.g. HTTP_500
+    errorCode === 'HTTP_429'
+  );
 }
 
 /**
@@ -738,21 +853,13 @@ export async function retryRequest<T>(
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     const result = await requestFn();
 
-    if (result.success) {
+    if (result.success === true) {
       return result;
     }
 
     lastResult = result;
 
-    // Retry on network errors or 5xx (implied by code conventions)
-    const errorCode = result.error?.code ?? '';
-    const shouldRetry =
-      errorCode === 'NETWORK_ERROR' ||
-      errorCode === 'TIMEOUT' ||
-      errorCode.includes('HTTP_5') || // e.g. HTTP_500
-      errorCode === 'HTTP_429';
-
-    if (!shouldRetry || attempt === maxRetries) {
+    if (!shouldRetryRequest(result.error) || attempt === maxRetries) {
       return result;
     }
 

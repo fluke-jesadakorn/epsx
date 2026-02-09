@@ -31,6 +31,8 @@ export interface ApiError {
   message: string;        // Human-readable message
   details?: unknown;      // detailed validation errors or context
   requestId?: string;     // Optional trace ID for debugging
+  status?: number;        // HTTP status code
+  platform?: string;      // Which application sent the request
 }
 
 /**

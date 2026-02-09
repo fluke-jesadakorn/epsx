@@ -39,7 +39,7 @@ export default function NotificationsClient({ initialData, focusId }: Notificati
       priority: n.priority,
       timestamp: n.timestamp,
       actionUrl: n.action_url,
-      read: !!n.read_at
+      read: Boolean(n.read_at)
     }))
   );
   const [loading, setLoading] = useState(false);
@@ -92,7 +92,7 @@ export default function NotificationsClient({ initialData, focusId }: Notificati
         priority: n.priority,
         timestamp: n.timestamp,
         actionUrl: n.action_url,
-        read: !!n.read_at
+        read: Boolean(n.read_at)
       }));
 
       setNotifications(mappedNotifications);

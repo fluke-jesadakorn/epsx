@@ -12,7 +12,7 @@ const WALLET_MGMT_TEST = '**/wallet-management.spec.ts';
 export default defineConfig({
   testDir: './__test__/e2e',
   fullyParallel: true,
-  forbidOnly: !!CI,
+  forbidOnly: Boolean(CI),
   retries: CI ? 2 : 0,
   workers: CI ? 1 : 2,
   timeout: 60000,

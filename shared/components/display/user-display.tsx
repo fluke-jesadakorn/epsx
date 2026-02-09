@@ -237,7 +237,7 @@ export function ConditionalDisplay({
     return <>{children}</>;
   }
 
-  return fallback ? <>{fallback}</> : null;
+  return fallback !== undefined && fallback !== null ? <>{fallback}</> : null;
 }
 
 // Loading state component

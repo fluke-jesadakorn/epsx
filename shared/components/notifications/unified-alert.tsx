@@ -1,8 +1,8 @@
 
 import React from 'react'
 import { cn } from '../../utils/cn'
-import type { IconType, NotificationType, NotificationVariant } from './unified-notification-types'
 import { typeStyles, variantStyles } from './notification-styles'
+import type { IconType, NotificationType, NotificationVariant } from './unified-notification-types'
 
 export interface UnifiedAlertProps {
     type?: NotificationType
@@ -27,7 +27,7 @@ export function UnifiedAlert({
     const isAdmin = variant === 'admin'
 
     const getIcon = () => {
-        if (icon) { return icon }
+        if (icon !== undefined && icon !== null) { return icon }
 
         if (iconType === 'emoji') {
             return (
@@ -54,7 +54,7 @@ export function UnifiedAlert({
                     {getIcon()}
                 </div>
                 <div className="flex-1">
-                    {title && (
+                    {title !== undefined && title !== '' && (
                         <h4 className={cn(
                             'font-semibold text-sm mb-1',
                             isAdmin ? 'text-white' : typeStyle.light.text

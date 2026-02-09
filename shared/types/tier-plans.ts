@@ -374,7 +374,7 @@ export function isTierAssignment(obj: unknown): obj is UserTierAssignment {
 export function isActiveTierAssignment(assignment: UserTierAssignment): boolean {
   return assignment.isActive &&
     assignment.status === 'active' &&
-    (!assignment.expiresAt || new Date(assignment.expiresAt) > new Date());
+    ((assignment.expiresAt === undefined || assignment.expiresAt === '') || new Date(assignment.expiresAt) > new Date());
 }
 
 export function getTierPlanDisplayName(tierPlan: TierPlan): string {

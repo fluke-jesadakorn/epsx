@@ -31,7 +31,7 @@ function tryRestoreFromCookies({
         const clientUser = client.getCurrentUser();
         const clientHasAuth = client.isAuthenticated();
 
-        if (clientUser !== null && clientUser !== undefined && clientHasAuth) {
+        if (clientUser !== null && clientHasAuth) {
             logger.info('[AUTH] Client successfully pre-loaded valid auth state');
             setUser(clientUser);
             setIsLoading(false);
@@ -52,7 +52,7 @@ function tryRestoreFromCookies({
                 : 'none',
         });
 
-        if (storedUser !== null && storedUser !== undefined) {
+        if (storedUser !== null) {
             logger.info('[AUTH] Restoring auth from cookies', {
                 clientId,
                 wallet: storedUser.wallet_address.slice(0, 8),
@@ -85,7 +85,7 @@ export function useAuthInitialization({
 
                 let hasStoredAuth = false;
 
-                if (initialUser !== null && initialUser !== undefined) {
+                if (initialUser !== null) {
                     logger.info('[AUTH] Provider: Hydrated from server state', {
                         wallet: initialUser.wallet_address,
                     });
@@ -134,7 +134,7 @@ export function useAuthInitialization({
 
         const unsubscribe = client.subscribe((newUser) => {
             setUser(newUser);
-            if (newUser !== null && newUser !== undefined) {
+            if (newUser !== null) {
                 logger.info('User state updated', { wallet_address: newUser.wallet_address });
             } else {
                 logger.info('User logged out');

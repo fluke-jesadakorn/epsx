@@ -165,7 +165,7 @@ function handleAuthenticatedOnLogin(
     request: NextRequest,
     options: { homePath: string; loginPath: string; noRedirect: boolean }
 ): NextResponse | null {
-    const { homePath, loginPath, noRedirect } = options;
+    const { homePath, noRedirect } = options;
     if (noRedirect) { return null; }
 
     const returnUrlCookie = request.cookies.get(COOKIES.return_url)?.value;

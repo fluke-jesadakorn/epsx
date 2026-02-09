@@ -23,7 +23,7 @@ function formatTimeRemaining(expiryDate: string): string {
 
 export function DraggablePermissionItem({ id, label, onRemove }: { id: string; label: string; onRemove?: () => void }) {
     const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
-        id: id,
+        id,
         data: { type: 'permission', id, name: label }
     });
 
@@ -108,7 +108,7 @@ export function DroppablePermissionList({
 
 export function DraggablePlanItem({ id, label, description, isAssigned = false, onManage }: { id: string; label: string; description?: string, isAssigned?: boolean, onManage?: () => void }) {
     const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
-        id: id,
+        id,
         data: { type: 'plan', id, name: label },
         disabled: isAssigned
     });

@@ -67,7 +67,7 @@ export function UnifiedLoader({
                 </div>
             )}
 
-            {message && (
+            {message !== undefined && message !== '' && (
                 <p className={cn('text-sm font-medium animate-pulse', style.text)}>
                     {message}
                 </p>

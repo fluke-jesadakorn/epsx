@@ -683,7 +683,7 @@ function AnalyticsClientWrapper({
                                   <Checkbox
                                     id="metadata"
                                     checked={includeMetadata}
-                                    onCheckedChange={(checked) => setIncludeMetadata(!!checked)}
+                                    onCheckedChange={(checked) => setIncludeMetadata(Boolean(checked))}
                                   />
                                   <Label htmlFor="metadata" className="text-sm">Include metadata</Label>
                                 </div>
@@ -691,7 +691,7 @@ function AnalyticsClientWrapper({
                                   <Checkbox
                                     id="quarterly"
                                     checked={includeQuarterlyData}
-                                    onCheckedChange={(checked) => setIncludeQuarterlyData(!!checked)}
+                                    onCheckedChange={(checked) => setIncludeQuarterlyData(Boolean(checked))}
                                   />
                                   <Label htmlFor="quarterly" className="text-sm">Include quarterly data</Label>
                                 </div>

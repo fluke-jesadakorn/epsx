@@ -64,8 +64,11 @@ const ITEM_CONFIG = {
     }
 };
 
+const TYPE_PERMISSION = 'permission';
+const TYPE_PLAN = 'plan';
+
 function ItemCard({ item, onClick, isAuthorized, isSelected, onSelect, pendingChange, onDragStart, onDragEnd }: ItemCardProps) {
-    const isPending = !!pendingChange;
+    const isPending = Boolean(pendingChange);
     const isPendingAdd = pendingChange?.action === 'add';
     const isPendingRemove = pendingChange?.action === 'remove';
     const config = ITEM_CONFIG[item.type as keyof typeof ITEM_CONFIG] || ITEM_CONFIG.permission;
@@ -108,24 +111,24 @@ function ItemCard({ item, onClick, isAuthorized, isSelected, onSelect, pendingCh
                     <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">
                         {item.name}
                     </p>
-                    {item.description && (
+                    {Boolean(item.description) && (
                         <p className="text-xs text-gray-600 dark:text-gray-400 truncate" title={item.description}>
                             {item.description}
                         </p>
                     )}
                     {/* Extra info based on type */}
-                    {item.type === 'plan' && item.permissionCount !== undefined && (
+                    {item.type === TYPE_PLAN && item.permissionCount !== undefined && (
                         <p className="text-xs text-purple-600 dark:text-purple-400 font-medium">
                             {item.permissionCount} permissions
                         </p>
                     )}
-                    {isAuthorized && item.expiresAt && (
+                    {isAuthorized === true && item.expiresAt != null && (
                         <p className="text-xs text-amber-600 dark:text-amber-400 font-medium">
                             Expires: {new Date(item.expiresAt).toLocaleDateString()}
                         </p>
                     )}
                     {/* Show pending expiry date */}
-                    {isPendingAdd && pendingChange?.expiresAt && (
+                    {isPendingAdd && pendingChange?.expiresAt != null && (
                         <p className="text-xs text-green-600 dark:text-green-400 font-medium">
                             Will expire: {new Date(pendingChange.expiresAt).toLocaleDateString()}
                         </p>
@@ -140,11 +143,11 @@ function ItemCard({ item, onClick, isAuthorized, isSelected, onSelect, pendingCh
                 ) : (
                     <span className={cn(
                         'flex-shrink-0 p-1 rounded',
-                        isAuthorized
+                        isAuthorized === true
                             ? 'text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20'
                             : 'text-green-500 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20'
                     )}>
-                        {isAuthorized ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+                        {isAuthorized === true ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
                     </span>
                 )}
             </div>
@@ -335,17 +338,15 @@ export function WalletAccessManager({
 
             pendingChanges.forEach((change) => {
                 if (change.action === 'add') {
-                    if (change.item.type === 'permission') {
+                    if (change.item.type === TYPE_PERMISSION) {
                         addPermissions.push(change.item.id);
-                    } else if (change.item.type === 'plan') {
+                    } else if (change.item.type === TYPE_PLAN) {
                         addPlans.push(change.item.id);
                     }
-                } else {
-                    if (change.item.type === 'permission') {
-                        removePermissions.push(change.item.id);
-                    } else if (change.item.type === 'plan') {
-                        removePlans.push(change.item.id);
-                    }
+                } else if (change.item.type === TYPE_PERMISSION) {
+                    removePermissions.push(change.item.id);
+                } else if (change.item.type === TYPE_PLAN) {
+                    removePlans.push(change.item.id);
                 }
             });
 
@@ -356,11 +357,11 @@ export function WalletAccessManager({
             pendingChanges.forEach((change) => {
                 if (change.action === 'add') {
                     const expiryKey = change.expiresAt || 'no-expiry';
-                    if (change.item.type === 'permission') {
+                    if (change.item.type === TYPE_PERMISSION) {
                         const arr = permissionsByExpiry.get(expiryKey) || [];
                         arr.push(change.item.id);
                         permissionsByExpiry.set(expiryKey, arr);
-                    } else if (change.item.type === 'plan') {
+                    } else if (change.item.type === TYPE_PLAN) {
                         const arr = plansByExpiry.get(expiryKey) || [];
                         arr.push(change.item.id);
                         plansByExpiry.set(expiryKey, arr);
@@ -463,7 +464,7 @@ export function WalletAccessManager({
             }),
             // If item has a pending REMOVE, add it back to available list
             ...Array.from(pendingChanges.values())
-                .filter(p => p.action === 'remove' && p.item.type === 'plan')
+                .filter(p => p.action === 'remove' && p.item.type === TYPE_PLAN)
                 .map(p => p.item)
         ].sort((a, b) => a.name.localeCompare(b.name));
     }, [data.availablePlans, availableSearch, pendingChanges]);
@@ -505,12 +506,10 @@ export function WalletAccessManager({
         let addPermissions = 0, removePermissions = 0, addPlans = 0, removePlans = 0;
         pendingChanges.forEach(change => {
             if (change.action === 'add') {
-                if (change.item.type === 'permission') { addPermissions++; }
+                if (change.item.type === TYPE_PERMISSION) { addPermissions++; }
                 else { addPlans++; }
-            } else {
-                if (change.item.type === 'permission') { removePermissions++; }
-                else { removePlans++; }
-            }
+            } else if (change.item.type === TYPE_PERMISSION) { removePermissions++; }
+            else { removePlans++; }
         });
         return { addPermissions, removePermissions, addPlans, removePlans };
     }, [pendingChanges]);
@@ -519,7 +518,7 @@ export function WalletAccessManager({
     const allAvailableSelected = availableItems.length > 0 && availableItems.every(item => selectedAvailable.has(item.id));
     const allAuthorizedSelected = authorizedItems.length > 0 && authorizedItems.every(item => selectedAuthorized.has(item.id));
 
-    if (error) {
+    if (error != null) {
         return (
             <div className={cn('rounded-xl border border-red-200 dark:border-red-800 p-4', className)}>
                 <p className="text-red-600 dark:text-red-400">{error}</p>
@@ -811,7 +810,7 @@ export function WalletAccessManager({
                 itemType={expiryModalItems && expiryModalItems.length > 1
                     ? 'items'
                     : (expiryModalItems?.[0]?.type || 'permission') as 'permission' | 'plan' | 'items'}
-                isOpen={!!expiryModalItems}
+                isOpen={Boolean(expiryModalItems)}
                 onConfirm={handleExpiryConfirm}
                 onCancel={handleExpiryCancel}
             />

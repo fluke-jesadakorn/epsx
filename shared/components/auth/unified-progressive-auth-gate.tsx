@@ -235,6 +235,28 @@ function AuthActions({
   );
 }
 
+function AuthTitle({ needsSignIn, needsProgressive, needsFullAuth }: { needsSignIn: boolean; needsProgressive: boolean; needsFullAuth: boolean }) {
+  return (
+    <h3 className="text-lg font-medium text-blue-900 dark:text-blue-100">
+      {needsSignIn && 'Sign In Required'}
+      {needsProgressive && 'Enhanced Authentication Required'}
+      {needsFullAuth && 'Account Verification Required'}
+    </h3>
+  );
+}
+
+function AuthDescription({ customMessage, actionName, requiredLevel }: { customMessage?: string; actionName?: string; requiredLevel: AuthLevel }) {
+  return (
+    <p className="text-sm text-blue-700 dark:text-blue-300">
+      {typeof customMessage === 'string' && customMessage !== '' ? customMessage : (
+        <>
+          {typeof actionName === 'string' && actionName !== '' ? `To ${actionName}, you` : 'You'} need {getAuthLevelDisplayName(requiredLevel).toLowerCase()}.
+        </>
+      )}
+    </p>
+  );
+}
+
 function AuthGateUI({
   needsSignIn,
   needsProgressive,
@@ -256,22 +278,20 @@ function AuthGateUI({
 
       {/* Title */}
       <div>
-        <h3 className="text-lg font-medium text-blue-900 dark:text-blue-100">
-          {needsSignIn && 'Sign In Required'}
-          {needsProgressive && 'Enhanced Authentication Required'}
-          {needsFullAuth && 'Account Verification Required'}
-        </h3>
+        <AuthTitle
+          needsSignIn={needsSignIn}
+          needsProgressive={needsProgressive}
+          needsFullAuth={needsFullAuth}
+        />
       </div>
 
       {/* Description */}
       <div>
-        <p className="text-sm text-blue-700 dark:text-blue-300">
-          {typeof customMessage === 'string' && customMessage !== '' ? customMessage : (
-            <>
-              {typeof actionName === 'string' && actionName !== '' ? `To ${actionName}, you` : 'You'} need {getAuthLevelDisplayName(requiredLevel).toLowerCase()}.
-            </>
-          )}
-        </p>
+        <AuthDescription
+          customMessage={customMessage}
+          actionName={actionName}
+          requiredLevel={requiredLevel}
+        />
       </div>
 
       {/* Current vs Required level info (admin only) */}

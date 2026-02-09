@@ -23,10 +23,8 @@ export async function GET(request: NextRequest) {
     });
 
     // Create redirect response
-    const response = NextResponse.redirect(new URL(returnUrl, request.url));
-
     // Double ensure cookies are cleared by setting headers manually if needed
     // (NextResponse.redirect usually handles this if we modified cookieStore)
 
-    return response;
+    return NextResponse.redirect(new URL(returnUrl, request.url));
 }

@@ -329,14 +329,12 @@ export function formatStockPrice(price: number): string {
  * Format percentage change for display
  */
 export function formatPercentageChange(change: number): string {
-  const formatted = new Intl.NumberFormat('en-US', {
+  return new Intl.NumberFormat('en-US', {
     style: 'percent',
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
     signDisplay: 'always',
   }).format(change / 100);
-
-  return formatted;
 }
 
 /**

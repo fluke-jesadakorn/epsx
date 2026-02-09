@@ -7,6 +7,7 @@ import { cn } from '@shared/utils/cn'
 import { Button } from '../button'
 import { Input } from '../input'
 
+import type { TouchDragState } from './use-transfer-list-state'
 import { useTransferListState } from './use-transfer-list-state'
 
 export interface TransferListProps<T> {
@@ -14,6 +15,10 @@ export interface TransferListProps<T> {
     selected: T[]
     onChange: (selected: T[]) => void
     renderItem: (item: T, type: 'available' | 'selected') => React.ReactNode
+    /**
+     * Unique key extractor for items
+     * @param item The item to extract key from
+     */
     keyExtractor: (item: T) => string
     filterItem?: (item: T, query: string) => boolean
     availableTitle?: string
@@ -84,7 +89,7 @@ function TransferListColumn<T>({
                     placeholder={placeholder}
                     className="pl-10 bg-white/5 border-white/10 h-10 rounded-xl focus:border-blue-500/50"
                 />
-                {search && (
+                {Boolean(search) && (
                     <button onClick={() => onSearchChange('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-600 hover:text-white">
                         <X className="w-3.5 h-3.5" />
                     </button>
@@ -119,7 +124,7 @@ function TransferListColumn<T>({
                             onClick={() => onClick(item)}
                             className={cn(
                                 "cursor-grab active:cursor-grabbing transition-all select-none touch-manipulation",
-                                draggingItem && keyExtractor(draggingItem) === keyExtractor(item) && "opacity-60"
+                                draggingItem !== null && keyExtractor(draggingItem) === keyExtractor(item) && "opacity-60"
                             )}
                         >
                             {renderItem(item)}
@@ -176,103 +181,21 @@ export function TransferList<T>(props: TransferListProps<T>) {
     const state = useTransferListState({ available: allAvailable, selected, onChange, keyExtractor, filterItem })
     const {
         leftSearch, setLeftSearch, rightSearch, setRightSearch,
-        draggingItem, setDraggingItem, selectedAvailable, setSelectedAvailable,
-        selectedSelected, setSelectedSelected, touchDrag, setTouchDrag,
-        dropTarget, setDropTarget, longPressTimer,
+        draggingItem, setDraggingItem, selectedAvailable,
+        selectedSelected, touchDrag,
+        dropTarget,
         availableListRef, selectedListRef, filteredAvailable, filteredSelected,
         moveRight, moveLeft, bulkMoveRight, bulkMoveLeft
     } = state
 
-    // Selection toggle handlers
-    const toggleSelection = useCallback((item: T, type: 'available' | 'selected') => {
-        const key = keyExtractor(item)
-        const setter = type === 'available' ? setSelectedAvailable : setSelectedSelected
-        setter(prev => {
-            const next = new Set(prev)
-            if (next.has(key)) { next.delete(key); } else { next.add(key); }
-            return next
-        })
-    }, [keyExtractor, setSelectedAvailable, setSelectedSelected])
+    const handlers = useTransferListHandlers({
+        state, keyExtractor, renderItem, showSelection
+    })
 
-    // Touch handlers
-    const handleTouchStart = useCallback((e: React.TouchEvent, item: T, source: 'available' | 'selected') => {
-        const touch = e.touches[0]
-        const element = e.currentTarget as HTMLElement
-        longPressTimer.current = setTimeout(() => {
-            // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-            if (navigator.vibrate) { navigator.vibrate(50); }
-            setTouchDrag({ item, source, startY: touch.clientY, currentY: touch.clientY, element })
-            setDraggingItem(item)
-            element.classList.add('scale-105', 'shadow-lg', 'z-50')
-        }, 200)
-    }, [longPressTimer, setTouchDrag, setDraggingItem])
-
-    const handleTouchMove = useCallback((e: React.TouchEvent) => {
-        const touch = e.touches[0]
-        if (!touchDrag) { return }
-        e.preventDefault()
-        setTouchDrag(prev => {
-            if (!prev) { return null }
-            return { ...prev, currentY: touch.clientY }
-        })
-
-        const availableRect = availableListRef.current?.getBoundingClientRect()
-        const selectedRect = selectedListRef.current?.getBoundingClientRect()
-        const x = touch.clientX
-        const y = touch.clientY
-
-        if (availableRect && x >= availableRect.left && x <= availableRect.right && y >= availableRect.top && y <= availableRect.bottom) {
-            setDropTarget('available')
-        } else if (selectedRect && x >= selectedRect.left && x <= selectedRect.right && y >= selectedRect.top && y <= selectedRect.bottom) {
-            setDropTarget('selected')
-        } else {
-            setDropTarget(null)
-        }
-    }, [touchDrag, availableListRef, selectedListRef, setTouchDrag, setDropTarget])
-
-    const handleTouchEnd = useCallback(() => {
-        if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; }
-        if (!touchDrag) { return }
-        if (touchDrag.element) { touchDrag.element.classList.remove('scale-105', 'shadow-lg', 'z-50'); }
-        if (dropTarget && dropTarget !== touchDrag.source) {
-            if (dropTarget === 'selected') { moveRight(touchDrag.item); } else { moveLeft(touchDrag.item); }
-        }
-        setTouchDrag(null); setDraggingItem(null); setDropTarget(null)
-    }, [longPressTimer, touchDrag, dropTarget, moveRight, moveLeft, setTouchDrag, setDraggingItem, setDropTarget])
-
-    // DnD Handlers
-    const handleDragStart = (e: React.DragEvent, item: T, source: 'available' | 'selected') => {
-        setDraggingItem(item)
-        e.dataTransfer.setData('key', keyExtractor(item))
-        e.dataTransfer.setData('source', source)
-        e.dataTransfer.effectAllowed = 'move'
-        const target = e.target as HTMLElement
-        target.classList.add('opacity-40')
-    }
-
-    const handleDrop = (e: React.DragEvent, target: 'available' | 'selected') => {
-        e.preventDefault()
-        const source = e.dataTransfer.getData('source')
-        if (!draggingItem || source === target) { return }
-        if (target === 'selected') { moveRight(draggingItem); } else { moveLeft(draggingItem); }
-    }
-
-    const renderItemWithSelection = useCallback((item: T, type: 'available' | 'selected') => {
-        if (!showSelection) { return renderItem(item, type); }
-        const key = keyExtractor(item)
-        const isChecked = type === 'available' ? selectedAvailable.has(key) : selectedSelected.has(key)
-        return (
-            <div className="flex items-center gap-2">
-                <button
-                    onClick={(e) => { e.stopPropagation(); toggleSelection(item, type); }}
-                    className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded flex-shrink-0"
-                >
-                    {isChecked ? <CheckSquare className="h-4 w-4 text-blue-600" /> : <Square className="h-4 w-4 text-gray-400" />}
-                </button>
-                <div className="flex-1 min-w-0">{renderItem(item, type)}</div>
-            </div>
-        )
-    }, [showSelection, renderItem, keyExtractor, selectedAvailable, selectedSelected, toggleSelection])
+    const {
+        handleTouchStart, handleTouchMove, handleTouchEnd,
+        handleDragStart, handleDrop, renderItemWithSelection
+    } = handlers
 
     return (
         <div
@@ -290,7 +213,7 @@ export function TransferList<T>(props: TransferListProps<T>) {
                 onDragStart={(e, i) => handleDragStart(e, i, 'available')}
                 onDragEnd={(e) => { (e.target as HTMLElement).classList.remove('opacity-40'); setDraggingItem(null); }}
                 onTouchStart={(e, i) => handleTouchStart(e, i, 'available')}
-                onClick={(item) => !touchDrag && !draggingItem && moveRight(item)}
+                onClick={(item) => touchDrag === null && draggingItem === null && moveRight(item)}
                 renderItem={(item) => renderItemWithSelection(item, 'available')}
                 emptyState={emptyStateAvailable} emptyText="No items available"
                 draggingItem={draggingItem} type="available"
@@ -316,7 +239,7 @@ export function TransferList<T>(props: TransferListProps<T>) {
                 onDragStart={(e, i) => handleDragStart(e, i, 'selected')}
                 onDragEnd={(e) => { (e.target as HTMLElement).classList.remove('opacity-40'); setDraggingItem(null); }}
                 onTouchStart={(e, i) => handleTouchStart(e, i, 'selected')}
-                onClick={(item) => !touchDrag && !draggingItem && moveLeft(item)}
+                onClick={(item) => touchDrag === null && draggingItem === null && moveLeft(item)}
                 renderItem={(item) => renderItemWithSelection(item, 'selected')}
                 emptyState={emptyStateSelected} emptyText="Drag items here"
                 draggingItem={draggingItem} type="selected"
@@ -328,6 +251,158 @@ export function TransferList<T>(props: TransferListProps<T>) {
                 .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 20px; border: 2px solid transparent; background-clip: content-box; }
                 .touch-manipulation { touch-action: manipulation; }
             ` }} />
+
+            {/* Global touch overlay */}
+            {/* Global touch overlay */}
+            <TransferListOverlay touchDrag={touchDrag} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd} />
         </div>
     )
+}
+
+function TransferListOverlay<T>({ touchDrag, onTouchMove, onTouchEnd }: {
+    touchDrag: TouchDragState<T> | null;
+    onTouchMove: (e: React.TouchEvent) => void;
+    onTouchEnd: () => void;
+}) {
+    if (!touchDrag) { return null; }
+    return (
+        <div
+            className="fixed inset-0 z-40 touch-none"
+            onTouchMove={onTouchMove}
+            onTouchEnd={onTouchEnd}
+        />
+    )
+}
+
+interface UseTransferListHandlersProps<T> {
+    state: {
+        draggingItem: T | null;
+        setDraggingItem: React.Dispatch<React.SetStateAction<T | null>>;
+        selectedAvailable: Set<string>;
+        setSelectedAvailable: React.Dispatch<React.SetStateAction<Set<string>>>;
+        selectedSelected: Set<string>;
+        setSelectedSelected: React.Dispatch<React.SetStateAction<Set<string>>>;
+        touchDrag: TouchDragState<T> | null;
+        setTouchDrag: React.Dispatch<React.SetStateAction<TouchDragState<T> | null>>;
+        dropTarget: 'available' | 'selected' | null;
+        setDropTarget: React.Dispatch<React.SetStateAction<'available' | 'selected' | null>>;
+        longPressTimer: React.MutableRefObject<ReturnType<typeof setTimeout> | null>;
+        availableListRef: React.RefObject<HTMLDivElement | null>;
+        selectedListRef: React.RefObject<HTMLDivElement | null>;
+        moveRight: (item: T) => void;
+        moveLeft: (item: T) => void;
+    };
+    keyExtractor: (item: T) => string;
+    renderItem: (item: T, type: 'available' | 'selected') => React.ReactNode;
+    showSelection: boolean;
+}
+
+function useTransferListHandlers<T>({
+    state, keyExtractor, renderItem, showSelection
+}: UseTransferListHandlersProps<T>) {
+    const {
+        draggingItem, setDraggingItem, selectedAvailable, setSelectedAvailable,
+        selectedSelected, setSelectedSelected, touchDrag, setTouchDrag,
+        dropTarget, setDropTarget, longPressTimer,
+        availableListRef, selectedListRef,
+        moveRight, moveLeft
+    } = state
+
+    // Selection toggle handlers
+    const toggleSelection = useCallback((item: T, type: 'available' | 'selected') => {
+        const key = keyExtractor(item)
+        const setter = type === 'available' ? setSelectedAvailable : setSelectedSelected
+        setter((prev: Set<string>) => {
+            const next = new Set(prev)
+            if (next.has(key)) { next.delete(key); } else { next.add(key); }
+            return next
+        })
+    }, [keyExtractor, setSelectedAvailable, setSelectedSelected])
+
+    // Touch handlers
+    const handleTouchStart = useCallback((e: React.TouchEvent, item: T, source: 'available' | 'selected') => {
+        const touch = e.touches[0]
+        const element = e.currentTarget as HTMLElement
+        longPressTimer.current = setTimeout(() => {
+            if (typeof navigator.vibrate === 'function') { navigator.vibrate(50); }
+            setTouchDrag({ item, source, startY: touch.clientY, currentY: touch.clientY, element })
+            setDraggingItem(item)
+            element.classList.add('scale-105', 'shadow-lg', 'z-50')
+        }, 200)
+    }, [longPressTimer, setTouchDrag, setDraggingItem])
+
+    const handleTouchMove = useCallback((e: React.TouchEvent) => {
+        const touch = e.touches[0]
+        if (!touchDrag) { return }
+        e.preventDefault()
+        setTouchDrag((prev) => {
+            if (!prev) { return null }
+            return { ...prev, currentY: touch.clientY }
+        })
+
+        const x = touch.clientX
+        const y = touch.clientY
+
+        if (isPointInRect({ x, y }, availableListRef.current?.getBoundingClientRect())) {
+            setDropTarget('available')
+        } else if (isPointInRect({ x, y }, selectedListRef.current?.getBoundingClientRect())) {
+            setDropTarget('selected')
+        } else {
+            setDropTarget(null)
+        }
+    }, [touchDrag, availableListRef, selectedListRef, setTouchDrag, setDropTarget])
+
+    const handleTouchEnd = useCallback(() => {
+        if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; }
+        if (!touchDrag) { return }
+        if (touchDrag.element) { touchDrag.element.classList.remove('scale-105', 'shadow-lg', 'z-50'); }
+        if (dropTarget !== null && dropTarget !== touchDrag.source) {
+            if (dropTarget === 'selected') { moveRight(touchDrag.item); } else { moveLeft(touchDrag.item); }
+        }
+        setTouchDrag(null); setDraggingItem(null); setDropTarget(null)
+    }, [longPressTimer, touchDrag, dropTarget, moveRight, moveLeft, setTouchDrag, setDraggingItem, setDropTarget])
+
+    // DnD Handlers
+    const handleDragStart = (e: React.DragEvent, item: T, source: 'available' | 'selected') => {
+        setDraggingItem(item)
+        e.dataTransfer.setData('key', keyExtractor(item))
+        e.dataTransfer.setData('source', source)
+        e.dataTransfer.effectAllowed = 'move'
+        const target = e.target as HTMLElement
+        target.classList.add('opacity-40')
+    }
+
+    const handleDrop = (e: React.DragEvent, target: 'available' | 'selected') => {
+        e.preventDefault()
+        const source = e.dataTransfer.getData('source')
+        if (draggingItem === null || source === target) { return }
+        if (target === 'selected') { moveRight(draggingItem); } else { moveLeft(draggingItem); }
+    }
+
+    const renderItemWithSelection = useCallback((item: T, type: 'available' | 'selected') => {
+        if (!showSelection) { return renderItem(item, type); }
+        const key = keyExtractor(item)
+        const isChecked = type === 'available' ? selectedAvailable.has(key) : selectedSelected.has(key)
+        return (
+            <div className="flex items-center gap-2">
+                <button
+                    onClick={(e) => { e.stopPropagation(); toggleSelection(item, type); }}
+                    className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded flex-shrink-0"
+                >
+                    {isChecked ? <CheckSquare className="h-4 w-4 text-blue-600" /> : <Square className="h-4 w-4 text-gray-400" />}
+                </button>
+                <div className="flex-1 min-w-0">{renderItem(item, type)}</div>
+            </div>
+        )
+    }, [showSelection, renderItem, keyExtractor, selectedAvailable, selectedSelected, toggleSelection])
+
+    return {
+        handleTouchStart, handleTouchMove, handleTouchEnd,
+        handleDragStart, handleDrop, toggleSelection, renderItemWithSelection
+    }
+}
+
+function isPointInRect(point: { x: number, y: number }, rect?: DOMRect) {
+    if (!rect) { return false }
+    return point.x >= rect.left && point.x <= rect.right && point.y >= rect.top && point.y <= rect.bottom
 }

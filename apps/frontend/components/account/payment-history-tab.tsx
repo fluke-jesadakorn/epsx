@@ -273,7 +273,7 @@ export function PaymentHistoryTab({ initialData }: PaymentHistoryTabProps) {
                                             {formatCurrency(payment.amount, payment.currency)}
                                         </div>
                                         <div className="text-[10px] font-mono font-bold text-gray-400 mt-0.5">
-                                            REF: {payment.payment_reference.substring(0, 8)}...
+                                            REF: {payment.payment_reference.slice(0, 8)}...
                                         </div>
                                     </div>
 

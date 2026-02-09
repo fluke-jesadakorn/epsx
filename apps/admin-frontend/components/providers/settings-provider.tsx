@@ -24,9 +24,9 @@ function applyAccentColor(color: string) {
         document.documentElement.style.setProperty('--accent-color', color);
         // Also set RGB values for transparency support
         const hex = color.replace('#', '');
-        const r = parseInt(hex.substring(0, 2), 16);
-        const g = parseInt(hex.substring(2, 4), 16);
-        const b = parseInt(hex.substring(4, 6), 16);
+        const r = parseInt(hex.slice(0, 2), 16);
+        const g = parseInt(hex.slice(2, 4), 16);
+        const b = parseInt(hex.slice(4, 6), 16);
         document.documentElement.style.setProperty('--accent-color-rgb', `${r}, ${g}, ${b}`);
     }
 }

@@ -261,6 +261,9 @@ export type CardVariants = VariantProps<typeof cardVariants>;
 // BADGE VARIANTS
 // ============================================================================
 
+const SHADOW_GREEN_TEXT_WHITE = 'text-white shadow-green-200/50';
+const SHADOW_RED_TEXT_WHITE = 'text-white shadow-red-200/50';
+
 /**
  * Status badge variants
  */
@@ -277,7 +280,7 @@ export const badgeVariants = cva(
                 // User status badges
                 active: [
                     'bg-gradient-to-r from-green-400 to-emerald-400',
-                    'text-white shadow-green-200/50',
+                    SHADOW_GREEN_TEXT_WHITE,
                 ],
                 inactive: [
                     'bg-gradient-to-r from-gray-300 to-slate-300',
@@ -290,7 +293,7 @@ export const badgeVariants = cva(
                 ],
                 suspended: [
                     'bg-gradient-to-r from-red-400 to-orange-500',
-                    'text-white shadow-red-200/50',
+                    SHADOW_RED_TEXT_WHITE,
                 ],
                 premium: [
                     'bg-gradient-to-r from-purple-400 to-pink-400',
@@ -300,11 +303,11 @@ export const badgeVariants = cva(
                 // Permission status badges
                 granted: [
                     'bg-gradient-to-r from-green-400 to-teal-400',
-                    'text-white shadow-green-200/50',
+                    SHADOW_GREEN_TEXT_WHITE,
                 ],
                 denied: [
                     'bg-gradient-to-r from-red-400 to-pink-400',
-                    'text-white shadow-red-200/50',
+                    SHADOW_RED_TEXT_WHITE,
                 ],
                 inherited: [
                     'bg-gradient-to-r from-blue-400 to-cyan-400',
@@ -314,11 +317,11 @@ export const badgeVariants = cva(
                 // Billing status badges
                 paid: [
                     'bg-gradient-to-r from-green-400 to-emerald-500',
-                    'text-white shadow-green-200/50',
+                    SHADOW_GREEN_TEXT_WHITE,
                 ],
                 overdue: [
                     'bg-gradient-to-r from-red-500 to-orange-500',
-                    'text-white shadow-red-200/50',
+                    SHADOW_RED_TEXT_WHITE,
                 ],
                 trial: [
                     'bg-gradient-to-r from-blue-400 to-indigo-400',
@@ -332,7 +335,7 @@ export const badgeVariants = cva(
                 // General status badges
                 success: [
                     'bg-gradient-to-r from-green-500 to-lime-400',
-                    'text-white shadow-green-200/50',
+                    SHADOW_GREEN_TEXT_WHITE,
                 ],
                 warning: [
                     'bg-gradient-to-r from-amber-400 to-yellow-400',
@@ -340,7 +343,7 @@ export const badgeVariants = cva(
                 ],
                 error: [
                     'bg-gradient-to-r from-red-500 to-rose-400',
-                    'text-white shadow-red-200/50',
+                    SHADOW_RED_TEXT_WHITE,
                 ],
                 info: [
                     'bg-gradient-to-r from-blue-400 to-sky-400',

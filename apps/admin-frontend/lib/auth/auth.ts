@@ -193,7 +193,7 @@ export async function clearWeb3Session(): Promise<void> {
 export function hasAdminAccess(user: Web3AdminUser | undefined): boolean {
   // PERMISSION REFACTOR: Client-side checks are now permissive.
   // Backend enforces actual access control.
-  return !!user;
+  return Boolean(user);
 }
 
 /**
@@ -210,7 +210,7 @@ export function checkAdminPermissions(_permissions: string[]): boolean {
  * @param _requiredPermission
  */
 export function hasPermission(user: Web3AdminUser | undefined, _requiredPermission: string): boolean {
-  return !!user;
+  return Boolean(user);
 }
 
 /**
