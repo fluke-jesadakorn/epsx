@@ -15,6 +15,53 @@ import {
   markAllAsReadAction,
   deleteNotificationAction,
 } from '@/app/actions/notifications'
+import type { Notification } from '@/shared/types/notification'
+
+interface NotificationItemProps {
+  notification: Notification
+  onNotificationClick: (id: string) => void
+  onDeleteNotification: (e: React.MouseEvent, id: string) => void
+}
+
+function NotificationItem({ notification, onNotificationClick, onDeleteNotification }: NotificationItemProps) {
+  return (
+    <div className="flex items-start gap-3 px-4 py-3 border-b border-orange-50 dark:border-slate-800 group">
+      <div className={`w-8 h-8 rounded-full ${getPriorityColor(notification.priority)} flex items-center justify-center flex-shrink-0`}>
+        <span className="text-sm">{getNotificationIcon(notification.type)}</span>
+      </div>
+      <div
+        className="flex-1 min-w-0 cursor-pointer"
+        onClick={() => {
+          onNotificationClick(notification.id)
+        }}
+      >
+        <div className="flex items-start justify-between gap-2">
+          <p className="text-sm font-medium text-slate-900 dark:text-slate-100 line-clamp-1">
+            {notification.title}
+          </p>
+          {!notification.read && (
+            <div className="w-2 h-2 rounded-full bg-orange-500 flex-shrink-0 mt-1.5" />
+          )}
+        </div>
+        <p className="text-xs text-slate-600 dark:text-slate-400 line-clamp-2 mt-0.5">
+          {notification.message}
+        </p>
+        <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">
+          {formatTimestamp(notification.timestamp)}
+        </p>
+      </div>
+      <button
+        onClick={(e) => {
+          onDeleteNotification(e, notification.id)
+        }}
+        className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-500 dark:text-slate-500 dark:hover:text-red-400 flex-shrink-0"
+        title="Delete notification"
+      >
+        ✕
+      </button>
+    </div>
+  )
+}
 
 export function NotificationBellClient() {
   const router = useRouter()
@@ -31,8 +78,6 @@ export function NotificationBellClient() {
     notifications,
     count,
     loading,
-    error: _error,
-    isSSEConnected,
     fetchNotifications,
     markAsRead,
     markAllAsRead,
@@ -80,7 +125,7 @@ export function NotificationBellClient() {
     try {
       await deleteNotificationAction(notificationId)
       void fetchNotifications() // Refresh the list
-    } catch (_error) {
+    } catch (err) {
       // Error logged silently
     }
   }
@@ -140,46 +185,24 @@ export function NotificationBellClient() {
 
                 <div className="max-h-96 overflow-y-auto">
                   {notifications.map((notification) => (
-                    <div
+                    <NotificationItem
                       key={notification.id}
-                      className="flex items-start gap-3 px-4 py-3 border-b border-orange-50 dark:border-slate-800 group"
-                    >
-                      <div className={`w-8 h-8 rounded-full ${getPriorityColor(notification.priority)} flex items-center justify-center flex-shrink-0`}>
-                        <span className="text-sm">{getNotificationIcon(notification.type)}</span>
-                      </div>
-                      <div
-                        className="flex-1 min-w-0 cursor-pointer"
-                        onClick={() => handleNotificationClick(notification.id)}
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <p className="text-sm font-medium text-slate-900 dark:text-slate-100 line-clamp-1">
-                            {notification.title}
-                          </p>
-                          {!notification.read && (
-                            <div className="w-2 h-2 rounded-full bg-orange-500 flex-shrink-0 mt-1.5" />
-                          )}
-                        </div>
-                        <p className="text-xs text-slate-600 dark:text-slate-400 line-clamp-2 mt-0.5">
-                          {notification.message}
-                        </p>
-                        <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">
-                          {formatTimestamp(notification.timestamp)}
-                        </p>
-                      </div>
-                      <button
-                        onClick={(e) => handleDeleteNotification(e, notification.id)}
-                        className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-500 dark:text-slate-500 dark:hover:text-red-400 flex-shrink-0"
-                        title="Delete notification"
-                      >
-                        ✕
-                      </button>
-                    </div>
+                      notification={notification}
+                      onNotificationClick={(id) => {
+                        void handleNotificationClick(id)
+                      }}
+                      onDeleteNotification={(e, id) => {
+                        void handleDeleteNotification(e, id)
+                      }}
+                    />
                   ))}
                 </div>
 
                 <div className="px-4 py-3 border-t border-orange-100 dark:border-slate-700 space-y-2">
                   <button
-                    onClick={markAllAsRead}
+                    onClick={() => {
+                      void markAllAsRead()
+                    }}
                     className="w-full flex items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-orange-600 hover:bg-orange-50 dark:text-orange-400 dark:hover:bg-orange-900/20"
                   >
                     <Bell className="h-4 w-4" />
