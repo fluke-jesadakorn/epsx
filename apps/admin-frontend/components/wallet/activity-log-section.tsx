@@ -40,7 +40,9 @@ export function ActivityLogSection({ className, initialEvents }: ActivityLogSect
                 type: mapActionToEventType(log.action),
                 description: formatActionDescription(log.action),
                 timestamp: log.timestamp,
+                // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
                 performedBy: log.wallet_address ?? 'System',
+                // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
                 metadata: log.details && typeof log.details === 'object' ? (log.details as Record<string, unknown>) : undefined
             }));
             setEvents(mappedEvents);
@@ -52,7 +54,7 @@ export function ActivityLogSection({ className, initialEvents }: ActivityLogSect
     }, []);
 
     useEffect(() => {
-        fetchLogs();
+        void fetchLogs();
     }, [fetchLogs]);
 
     return (
@@ -70,7 +72,7 @@ export function ActivityLogSection({ className, initialEvents }: ActivityLogSect
                 </div>
 
                 <div className="flex items-center gap-2">
-                    <Button variant="outline" size="sm" className="h-12 border-dashed rounded-2xl bg-white/5 border-white/10 hover:bg-white/10 font-bold" onClick={fetchLogs} disabled={isLoading}>
+                    <Button variant="outline" size="sm" className="h-12 border-dashed rounded-2xl bg-white/5 border-white/10 hover:bg-white/10 font-bold" onClick={() => void fetchLogs()} disabled={isLoading}>
                         <RefreshCw className={cn("h-4 w-4 mr-2", isLoading && "animate-spin")} />
                         Refresh
                     </Button>
@@ -114,7 +116,7 @@ export function ActivityLogSection({ className, initialEvents }: ActivityLogSect
 
 // Helpers
 function mapActionToEventType(action: string): WalletActivityEvent['type'] {
-    if (action.includes('grant') ?? action.includes('permission')) { return 'permission_granted'; }
+    if (action.includes('grant') || action.includes('permission')) { return 'permission_granted'; }
     if (action.includes('revoke')) { return 'permission_revoked'; }
     if (action.includes('disable')) { return 'wallet_disabled'; }
     if (action.includes('enable')) { return 'wallet_enabled'; }
