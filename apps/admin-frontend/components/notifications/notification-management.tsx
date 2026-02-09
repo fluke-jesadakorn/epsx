@@ -15,18 +15,32 @@ import {
   Trash2
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
 import { deleteNotificationAction, getNotificationsAction, getNotificationStatsAction } from '@/app/notifications/actions';
 import { StatsCard } from '@/components/admin/developer-portal/shared/stats-card';
 import { Button } from '@/components/ui/button';
 
-type Notification = any;
-type NotificationStats = any;
+interface Notification {
+  id: string;
+  title?: string;
+  message?: string;
+  priority?: string;
+  type?: string;
+}
+
+interface NotificationStats {
+  total: number;
+  unread?: number;
+  sentToday: number;
+  sentThisWeek: number;
+  byType?: Record<string, number>;
+  byPriority?: Record<string, number>;
+}
 
 interface NotificationManagementProps {
-  currentUser: any;
+  currentUser?: unknown;
 }
 
 /**
@@ -44,11 +58,7 @@ export function NotificationManagement({ currentUser }: NotificationManagementPr
   });
   const [deleting, setDeleting] = useState(false);
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
       const [notificationsResponse, statsResponse] = await Promise.all([
@@ -59,28 +69,32 @@ export function NotificationManagement({ currentUser }: NotificationManagementPr
       if (notificationsResponse.success) {
         setNotifications(notificationsResponse.data?.notifications ?? []);
       } else {
-        console.error('Failed to load notifications:', notificationsResponse.error);
+        // Silently fail
         toast.error('Failed to load notifications');
       }
 
       if (statsResponse.success && statsResponse.data) {
-        const backendStats = statsResponse.data;
+        const backendStats = statsResponse.data as Record<string, unknown>;
         setStats({
-          total: backendStats.total_notifications,
+          total: (backendStats.total_notifications as number) ?? 0,
           unread: 0,
-          sentToday: backendStats.sent_today,
-          sentThisWeek: backendStats.sent_this_week,
-          byType: backendStats.by_type ?? {},
-          byPriority: backendStats.by_priority ?? {},
+          sentToday: (backendStats.sent_today as number) ?? 0,
+          sentThisWeek: (backendStats.sent_this_week as number) ?? 0,
+          byType: (backendStats.by_type as Record<string, number>) || {},
+          byPriority: (backendStats.by_priority as Record<string, number>) || {},
         });
       }
-    } catch (err) {
-      console.error('Failed to load notifications:', err);
+    } catch {
+      // Silently fail
       toast.error('Failed to load notification data');
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    void loadData();
+  }, [loadData]);
 
   const showDeleteModal = (id: string, title: string) => {
     setDeleteModal({ show: true, id, title });
@@ -90,7 +104,7 @@ export function NotificationManagement({ currentUser }: NotificationManagementPr
     setDeleteModal({ show: false, id: '', title: '' });
   };
 
-  const confirmDelete = async () => {
+  const confirmDelete = useCallback(async () => {
     try {
       setDeleting(true);
       const result = await deleteNotificationAction(deleteModal.id);
@@ -108,16 +122,16 @@ export function NotificationManagement({ currentUser }: NotificationManagementPr
         hideDeleteModal();
         toast.success('Notification deleted successfully');
       } else {
-        console.error('Failed to delete notification:', result.error);
+        // Silently fail
         toast.error('Failed to delete notification');
       }
-    } catch (err) {
-      console.error('Failed to delete notification:', err);
+    } catch {
+      // Silently fail
       toast.error('Failed to delete notification');
     } finally {
       setDeleting(false);
     }
-  };
+  }, [deleteModal.id, stats]);
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
@@ -133,6 +147,7 @@ export function NotificationManagement({ currentUser }: NotificationManagementPr
       <div className="space-y-8 animate-in fade-in duration-500">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {Array.from({ length: 4 }).map((_, i) => (
+            // eslint-disable-next-line react/no-array-index-key
             <div key={i} className="h-32 rounded-[32px] bg-slate-900/40 backdrop-blur-2xl border border-white/5 animate-pulse" />
           ))}
         </div>
@@ -180,7 +195,7 @@ export function NotificationManagement({ currentUser }: NotificationManagementPr
       {/* Action Buttons */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
         <button
-          onClick={loadData}
+          onClick={() => void loadData()}
           className="group relative overflow-hidden rounded-[32px] bg-slate-900/40 backdrop-blur-2xl border border-white/5 p-1 transition-all hover:border-[#1fc7d4]/30 shadow-xl"
         >
           <div className="relative bg-card rounded-[28px] p-8 flex items-center justify-between transition-colors group-hover:bg-white/[0.02]">
