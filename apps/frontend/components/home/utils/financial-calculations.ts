@@ -1,4 +1,4 @@
-import type { StockFinancialData, QuarterData } from '@/types/financialChartData';
+import type { StockFinancialData, QuarterData } from '@/types/financial-chart-data';
 
 /**
  * Utility functions for financial data calculations
@@ -38,12 +38,11 @@ export function getBestAvailablePrice(data: StockFinancialData): number | null {
   }
   
   // Fall back to latest quarter price
-  if (data.quarters.length > 0) {
-    const latestQuarter = data.quarters[0];
-    return latestQuarter?.price ?? null;
+  if (data.quarters.length === 0) {
+    return null;
   }
-  
-  return null;
+  const latestQuarter = data.quarters[0];
+  return latestQuarter.price;
 }
 
 /**
@@ -52,7 +51,7 @@ export function getBestAvailablePrice(data: StockFinancialData): number | null {
 export function calculateVolatility(quarters: QuarterData[]): number | null {
   const growthRates = quarters
     .map(q => q.eps_growth)
-    .filter((growth): growth is number => growth !== undefined && growth !== null);
+    .filter((growth): growth is number => typeof growth === 'number');
   
   if (growthRates.length < 2) {return null;}
   
@@ -79,7 +78,7 @@ export function getRiskLevel(volatility: number | null): 'low' | 'medium' | 'hig
 export function getTrendDirection(quarters: QuarterData[]): 'up' | 'down' | 'sideways' {
   const validGrowthRates = quarters
     .map(q => q.eps_growth)
-    .filter((growth): growth is number => growth !== undefined && growth !== null);
+    .filter((growth): growth is number => typeof growth === 'number');
   
   if (validGrowthRates.length < 2) {return 'sideways';}
   
@@ -89,12 +88,10 @@ export function getTrendDirection(quarters: QuarterData[]): 'up' | 'down' | 'sid
   for (let i = 1; i < validGrowthRates.length; i++) {
     const current = validGrowthRates[i];
     const previous = validGrowthRates[i - 1];
-    if (current !== undefined && previous !== undefined) {
-      if (current > previous) {
-        upCount++;
-      } else if (current < previous) {
-        downCount++;
-      }
+    if (current > previous) {
+      upCount++;
+    } else if (current < previous) {
+      downCount++;
     }
   }
   
@@ -127,7 +124,7 @@ export interface PerformanceMetrics {
 export function getPerformanceMetrics(data: StockFinancialData): PerformanceMetrics {
   const growthRates = data.quarters
     .map(q => q.eps_growth)
-    .filter((growth): growth is number => growth !== undefined && growth !== null);
+    .filter((growth): growth is number => typeof growth === 'number');
   
   const avgGrowth = growthRates.length > 0 
     ? growthRates.reduce((sum, rate) => sum + rate, 0) / growthRates.length 

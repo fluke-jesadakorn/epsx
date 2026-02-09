@@ -1,5 +1,7 @@
 import type { NextConfig } from 'next';
 
+const STUB_PATH = '../../shared/stubs/empty.ts';
+
 const nextConfig: NextConfig = {
   // Enable standalone output for Docker deployment
   output: 'standalone',
@@ -19,21 +21,20 @@ const nextConfig: NextConfig = {
   // Silence Next.js 16 Turbopack warning (using webpack config for dev)
   turbopack: {
     resolveAlias: {
-      'thread-stream': '../../shared/stubs/empty.ts',
-      'pino-pretty': '../../shared/stubs/empty.ts',
-      'pino-elasticsearch': '../../shared/stubs/empty.ts',
-      'tap': '../../shared/stubs/empty.ts',
-      'tape': '../../shared/stubs/empty.ts',
-      'why-is-node-running': '../../shared/stubs/empty.ts',
-      'desm': '../../shared/stubs/empty.ts',
-      'fastbench': '../../shared/stubs/empty.ts',
-      'react-native': '../../shared/stubs/empty.ts',
-      'react-native-device-info': '../../shared/stubs/empty.ts',
-      'react-native-keychain': '../../shared/stubs/empty.ts',
+      'thread-stream': STUB_PATH,
+      'pino-pretty': STUB_PATH,
+      'pino-elasticsearch': STUB_PATH,
+      'tap': STUB_PATH,
+      'tape': STUB_PATH,
+      'why-is-node-running': STUB_PATH,
+      'desm': STUB_PATH,
+      'fastbench': STUB_PATH,
+      'react-native': STUB_PATH,
+      'react-native-device-info': STUB_PATH,
+      'react-native-keychain': STUB_PATH,
     },
   },
   // Improve HMR WebSocket reliability and fix SSR issues
-   
   webpack: (config: any, { dev, isServer, webpack }: { dev: boolean; isServer: boolean; webpack: any }) => {
      
     if (dev && !isServer) {

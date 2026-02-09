@@ -69,12 +69,28 @@ module.exports = [
     },
   },
   {
+    files: ['**/polyfills.ts', '**/polyfills.js'],
+    rules: {
+      '@typescript-eslint/no-unsafe-call': 'off',
+      '@typescript-eslint/no-unsafe-return': 'off',
+      '@typescript-eslint/no-unnecessary-condition': 'off',
+      '@typescript-eslint/strict-boolean-expressions': 'off',
+      'complexity': 'off',
+      'sonarjs/cognitive-complexity': 'off',
+      'max-depth': 'off',
+      'no-empty': 'off',
+    },
+  },
+  {
     files: ['next.config.ts', 'next.config.js', 'next.config.mjs'],
     rules: {
       '@typescript-eslint/no-unsafe-call': 'off',
       '@typescript-eslint/no-unsafe-member-access': 'off',
+      '@typescript-eslint/no-unsafe-assignment': 'off',
+      '@typescript-eslint/no-unsafe-return': 'off',
       '@typescript-eslint/no-var-requires': 'off',
       '@typescript-eslint/no-explicit-any': 'off',
+      'sonarjs/no-duplicate-string': 'off',
       'import/no-extraneous-dependencies': 'off',
     },
   },

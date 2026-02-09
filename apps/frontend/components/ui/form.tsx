@@ -101,7 +101,7 @@ const FormControl = React.forwardRef<HTMLDivElement, FormControlProps>(
   ({ className, ...props }, ref) => {
     return (
       <BaseFormControl
-        ref={ref as React.ForwardedRef<HTMLDivElement>}
+        ref={ref}
         className={cn("relative", className)}
         {...props}
       />

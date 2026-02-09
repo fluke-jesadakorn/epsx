@@ -1,5 +1,5 @@
 import { Zap } from 'lucide-react';
-import type { PaymentPackage } from './types';
+import type { PaymentPackage, ApiPaymentPlan } from './types';
 
 export const getIconForPlan = (planType: string): string => {
   switch (planType.toLowerCase()) {
@@ -81,51 +81,53 @@ export const PAYMENT_METHODS = [
   },
 ] as const;
 
+const parsePrice = (
+  currentPrice: number | string,
+  effectivePrice?: number
+): number => {
+  let price: number;
+
+  if (typeof currentPrice === 'string') {
+    price = parseFloat(currentPrice);
+  } else if (typeof currentPrice === 'number') {
+    price = currentPrice;
+  } else {
+    price = 0;
+  }
+
+  if ((isNaN(price) || price < 0) && typeof effectivePrice === 'number' && effectivePrice >= 0) {
+    price = effectivePrice;
+  }
+
+  return (isNaN(price) || price < 0) ? 0 : price;
+};
+
 // API helper function to fetch and transform plans
 export const fetchPlans = async (): Promise<PaymentPackage[]> => {
   const { getPublicPlansAction } = await import('@/app/actions/plans');
-  try {
-    const result = await getPublicPlansAction();
+  const result = await getPublicPlansAction();
 
-    if (!result.success || !result.data || !Array.isArray(result.data)) {
-      throw new Error(result.message ?? 'Invalid API response format');
-    }
+  if (!result.success || !result.data || !Array.isArray(result.data)) {
+    throw new Error(
+      typeof result.message === 'string' ? result.message : 'Invalid API response format'
+    );
+  }
 
-    const plans = result.data;
+  const plans = result.data as ApiPaymentPlan[];
 
-    return plans.map((plan: any, _index: number): PaymentPackage => {
-      let currentPrice: number;
-      if (typeof plan.current_price === 'string') {
-        currentPrice = parseFloat(plan.current_price);
-      } else if (typeof plan.current_price === 'number') {
-        currentPrice = plan.current_price;
-      } else {
-        currentPrice = 0;
-      }
+  return plans.map((plan: ApiPaymentPlan, _index: number): PaymentPackage => {
+      const currentPrice = parsePrice(plan.current_price, plan.effective_price);
 
-      if (isNaN(currentPrice) || currentPrice < 0) {
-        if (typeof plan.effective_price === 'number' && plan.effective_price >= 0) {
-          currentPrice = plan.effective_price;
-        } else if (typeof plan.effective_price === 'string') {
-          const parsed = parseFloat(plan.effective_price);
-          if (!isNaN(parsed) && parsed >= 0) {
-            currentPrice = parsed;
-          }
-        }
-      }
-
-      if (isNaN(currentPrice) || currentPrice < 0) {
-        currentPrice = 0;
-      }
-
-      const basePrice = plan.base_price
-        ? typeof plan.base_price === 'string'
-          ? parseFloat(plan.base_price)
-          : plan.base_price
-        : currentPrice;
+      const basePrice = plan.base_price ?? currentPrice;
 
       const effectivePrice = plan.effective_price ?? currentPrice;
       const originalPlanId = plan.id;
+
+      const features = Array.isArray(plan.features)
+        ? plan.features
+        : typeof plan.features === 'string'
+          ? JSON.parse(plan.features) as string[]
+          : getDefaultFeaturesForPlan(plan.plan_type);
 
       return {
         ...plan,
@@ -136,15 +138,8 @@ export const fetchPlans = async (): Promise<PaymentPackage[]> => {
         effective_price: effectivePrice,
         icon: getIconForPlan(plan.plan_type),
         description: getDescriptionForPlan(plan.plan_type),
-        popular: plan.is_highlighted ?? plan.plan_type === 'professional',
-        features: Array.isArray(plan.features)
-          ? plan.features
-          : typeof plan.features === 'string'
-            ? JSON.parse(plan.features)
-            : getDefaultFeaturesForPlan(plan.plan_type),
+        popular: (plan.is_highlighted ?? false) || plan.plan_type === 'professional',
+        features,
       };
     });
-  } catch (error) {
-    throw error;
-  }
 };

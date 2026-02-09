@@ -28,7 +28,11 @@ export const clean = (): void => {
 }
 
 export const clear = (key?: string): void => {
-  key ? cache.delete(key) : cache.clear()
+  if (key !== null && key !== undefined) {
+    cache.delete(key)
+  } else {
+    cache.clear()
+  }
 }
 
 // Stock-specific cache helpers

@@ -15,15 +15,15 @@ export function debounce<T extends (...args: unknown[]) => unknown>(
   let timeout: ReturnType<typeof setTimeout> | null = null;
 
   return function (this: unknown, ...args: Parameters<T>) {
-    const callNow = immediate && !timeout;
+    const callNow = immediate === true && timeout === null;
 
-    if (timeout) {
+    if (timeout !== null) {
       clearTimeout(timeout);
     }
 
     timeout = setTimeout(() => {
       timeout = null;
-      if (!immediate) { func.apply(this, args); }
+      if (immediate !== true) { func.apply(this, args); }
     }, wait);
 
     if (callNow) { func.apply(this, args); }
@@ -40,10 +40,10 @@ export function throttle<T extends (...args: unknown[]) => unknown>(
   let inThrottle: boolean;
 
   return function (this: unknown, ...args: Parameters<T>) {
-    if (!inThrottle) {
+    if (inThrottle !== true) {
       func.apply(this, args);
       inThrottle = true;
-      setTimeout(() => inThrottle = false, limit);
+      setTimeout(() => { inThrottle = false; }, limit);
     }
   };
 }
@@ -135,7 +135,7 @@ export const storage = {
   get<T>(key: string, defaultValue?: T): T | null {
     try {
       const item = localStorage.getItem(key);
-      return item ? JSON.parse(item) as T : defaultValue ?? null;
+      return (item !== null && item !== '') ? JSON.parse(item) as T : defaultValue ?? null;
     } catch (error) {
       logger.error('Failed to read from localStorage', error);
       return defaultValue ?? null;
@@ -302,10 +302,12 @@ export const object = {
     if (!sources.length) { return target; }
     const source = sources.shift();
 
-    if (this.isObject(target) && this.isObject(source)) {
+    if (object.isObject(target) && object.isObject(source)) {
       for (const key in source) {
-        if (this.isObject(source[key])) {
-          if (!target[key]) { Object.assign(target, { [key]: {} }); }
+        if (object.isObject(source[key])) {
+          if (target[key] === undefined || target[key] === null) {
+            Object.assign(target, { [key]: {} });
+          }
           object.merge(target[key] as object, source[key] as object);
         } else {
           Object.assign(target, { [key]: source[key] });
@@ -347,7 +349,7 @@ export const object = {
     const keys = path.split('.');
     const lastKey = keys.pop();
 
-    if (!lastKey) { return; }
+    if (lastKey === undefined || lastKey === '') { return; }
 
     let current: Record<string, unknown> = obj;
     for (const key of keys) {
@@ -403,7 +405,9 @@ export function kebabCase(str: string): string {
  */
 export function camelCase(str: string): string {
   return str
-    .replace(/[-_\s]+(.)?/g, (_, char: string) => char ? char.toUpperCase() : '')
+    .replace(/[-_\s]+(.)?/g, (_match, char: string | undefined) =>
+      (char !== undefined && char !== '') ? char.toUpperCase() : ''
+    )
     .replace(/^[A-Z]/, char => char.toLowerCase());
 }
 

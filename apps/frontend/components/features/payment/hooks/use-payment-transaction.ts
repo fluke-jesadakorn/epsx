@@ -125,7 +125,7 @@ export function usePaymentTransaction({
                 const result = await getTransactionStatusAction(txHash);
 
                 if (result.success && result.data) {
-                    const status = result.data as TransactionStatusData
+                    const status = result.data
                     setTxStatus(status)
 
                     devLog('📊 Transaction status:', status)

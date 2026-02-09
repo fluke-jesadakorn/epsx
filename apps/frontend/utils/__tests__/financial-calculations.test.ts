@@ -121,11 +121,13 @@ describe('Stock Classification Business Rules', () => {
   describe('Volatility Classification', () => {
     const classifyByVolatility = (prices: number[]) => {
       if (prices.length < 2) {return 'low-volatility'}
-      
+
       const volatility = Math.sqrt(
         prices.reduce((sum, price, i, arr) => {
           if (i === 0) {return 0}
-          const change = (price - arr[i - 1]) / arr[i - 1]
+          const prevPrice = arr[i - 1]
+          if (prevPrice === undefined) {return sum}
+          const change = (price - prevPrice) / prevPrice
           return sum + Math.pow(change, 2)
         }, 0) / (prices.length - 1)
       )

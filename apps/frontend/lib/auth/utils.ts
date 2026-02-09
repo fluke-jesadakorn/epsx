@@ -103,6 +103,22 @@ export function getRankingLimit(permissions: string[]): number {
   return getRankingLimitFromPermissions(permissions);
 }
 
+interface JWTPayloadRaw {
+  sub?: unknown;
+  email?: unknown;
+  name?: unknown;
+  permissions?: unknown;
+  roles?: unknown;
+  platform_context?: unknown;
+  security_level?: unknown;
+  device_fingerprint?: unknown;
+  granted_by?: unknown;
+  exp?: unknown;
+  iat?: unknown;
+  jti?: unknown;
+  sid?: unknown;
+}
+
 /**
  * Client-side JWT parsing for UI control only
  * WARNING: This is for UI rendering only - never use for authorization decisions
@@ -113,34 +129,35 @@ export function parseJWTForUI(token: string): JWTClaims | null {
       return null;
     }
 
-    // Basic JWT format validation
     const parts = token.split('.');
     if (parts.length !== 3) {
       return null;
     }
 
-    // Decode payload (no verification - UI only)
-    const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+    const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/'))) as JWTPayloadRaw;
 
-    // Validate required fields
-    if (!payload.sub || !payload.exp || !payload.iat) {
+    if (
+      typeof payload.sub !== 'string' ||
+      typeof payload.exp !== 'number' ||
+      typeof payload.iat !== 'number'
+    ) {
       return null;
     }
 
     return {
       sub: payload.sub,
-      email: payload.email,
-      name: payload.name,
-      permissions: payload.permissions ?? [],
-      roles: payload.roles ?? [],
-      platform_context: payload.platform_context ?? 'epsx',
-      security_level: payload.security_level ?? 1,
-      device_fingerprint: payload.device_fingerprint ?? '',
-      granted_by: payload.granted_by ?? 'system',
+      email: typeof payload.email === 'string' ? payload.email : undefined,
+      name: typeof payload.name === 'string' ? payload.name : undefined,
+      permissions: Array.isArray(payload.permissions) ? payload.permissions as string[] : [],
+      roles: Array.isArray(payload.roles) ? payload.roles as string[] : [],
+      platform_context: typeof payload.platform_context === 'string' ? payload.platform_context : 'epsx',
+      security_level: typeof payload.security_level === 'number' ? payload.security_level : 1,
+      device_fingerprint: typeof payload.device_fingerprint === 'string' ? payload.device_fingerprint : '',
+      granted_by: typeof payload.granted_by === 'string' ? payload.granted_by : 'system',
       exp: payload.exp,
       iat: payload.iat,
-      jti: payload.jti ?? '',
-      sid: payload.sid ?? ''
+      jti: typeof payload.jti === 'string' ? payload.jti : '',
+      sid: typeof payload.sid === 'string' ? payload.sid : ''
     };
   } catch (error) {
     authLogger.warn('Failed to parse JWT for UI', { error: safeError(error).message });
@@ -220,8 +237,8 @@ class SecureTokenRefreshManager {
   public startAutoRefresh(): void {
     if (this.refreshTimer) {return;}
 
-    this.refreshTimer = setInterval(async () => {
-      await this.checkAndRefreshToken();
+    this.refreshTimer = setInterval(() => {
+      void this.checkAndRefreshToken();
     }, 60000); // Check every minute
   }
 
@@ -246,9 +263,13 @@ class SecureTokenRefreshManager {
 
       if (!response.ok) {return;}
 
-      const { needsRefresh, expiresIn } = await response.json();
+      const data = await response.json() as { needsRefresh?: boolean; expiresIn?: number };
 
-      if (needsRefresh && expiresIn < this.config.refreshThresholdMinutes * 60) {
+      if (
+        data.needsRefresh === true &&
+        typeof data.expiresIn === 'number' &&
+        data.expiresIn < this.config.refreshThresholdMinutes * 60
+      ) {
         await this.refreshToken();
       }
     } catch (error) {
@@ -297,7 +318,7 @@ class SecureTokenRefreshManager {
           throw new Error(`Refresh failed with status: ${response.status}`);
         }
 
-        const data = await response.json();
+        const data = await response.json() as { access_token?: unknown; expires_in?: unknown };
 
         this.metrics.lastSuccessfulRefresh = Date.now();
         this.metrics.suspiciousActivity = false;
@@ -305,8 +326,8 @@ class SecureTokenRefreshManager {
         authLogger.info('Token refreshed successfully');
 
         return {
-          access_token: data.access_token,
-          expires_in: data.expires_in,
+          access_token: typeof data.access_token === 'string' ? data.access_token : '',
+          expires_in: typeof data.expires_in === 'number' ? data.expires_in : 0,
           success: true
         };
 

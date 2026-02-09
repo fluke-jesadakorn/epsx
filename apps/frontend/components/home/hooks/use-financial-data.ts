@@ -1,7 +1,7 @@
 import type {
   StockFinancialData,
   QuarterData,
-} from '@/types/financialChartData';
+} from '@/types/financial-chart-data';
 
 /**
  * Business logic hooks for financial data processing
@@ -19,7 +19,7 @@ export interface UseFinancialDataResult {
  * Get the latest quarter data from stock financial data
  */
 function getLatestQuarterData(data: StockFinancialData): QuarterData | null {
-  return data.quarters && data.quarters.length > 0 ? data.quarters[0] : null;
+  return data.quarters.length > 0 ? data.quarters[0] : null;
 }
 
 /**
@@ -27,12 +27,12 @@ function getLatestQuarterData(data: StockFinancialData): QuarterData | null {
  * Uses all quarters (including the 3rd calculation quarter) for accurate averaging
  */
 function calculateAvgEpsGrowth(data: StockFinancialData): number | null {
-  if (!data.quarters || data.quarters.length === 0) {return null;}
+  if (data.quarters.length === 0) {return null;}
   
   // Use all available quarters for growth calculation (including the 3rd quarter)
   const growth = data.quarters
     .map((q) => q.eps_growth)
-    .filter((g) => g !== undefined && g !== null && g !== 0) as number[];
+    .filter((g): g is number => typeof g === 'number' && g !== 0);
 
   return growth.length
     ? Math.round(growth.reduce((a, b) => a + b, 0) / growth.length)
@@ -55,11 +55,11 @@ export function useFinancialData(
     data.currentPrice ?? (latestQuarter?.price ?? null);
 
   const hasGrowthData =
-    data.quarters && data.quarters.length >= 2 &&
+    data.quarters.length >= 2 &&
     data.quarters[0].eps_growth !== undefined &&
     data.quarters[1].eps_growth !== undefined;
 
-  const hasValidData = data.quarters && data.quarters.length > 0 && latestQuarter !== null;
+  const hasValidData = data.quarters.length > 0 && latestQuarter !== null;
 
   return {
     latestQuarter,
@@ -76,7 +76,7 @@ export function useFinancialData(
  * We keep 3 quarters in the data for QoQ growth calculation but only display first 2.
  */
 export function getValidQuarters(quarters: QuarterData[]): QuarterData[] {
-  if (!quarters || quarters.length === 0) {
+  if (quarters.length === 0) {
     return [];
   }
 
