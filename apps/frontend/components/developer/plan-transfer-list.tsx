@@ -1,15 +1,9 @@
 'use client';
 
-import { useCallback, useMemo, useState } from 'react';
 import { usePlanTransferDrag } from './hooks/use-plan-transfer-drag';
 import { usePlanTransferHandlers } from './hooks/use-plan-transfer-handlers';
+import { usePlanTransferState } from './hooks/use-plan-transfer-state';
 import { PermissionList } from './ui/permission-list';
-
-interface PermissionItem {
-  id: string;
-  name: string;
-  code: string;
-}
 
 interface PlanTransferListProps {
   available: string[];
@@ -17,73 +11,23 @@ interface PlanTransferListProps {
   onChange: (selected: string[]) => void;
 }
 
-function formatPermissionName(permission: string): string {
-  const parts = permission.split(':');
-  const relevantParts = parts.slice(1);
-  return relevantParts
-    .map(part => part.charAt(0).toUpperCase() + part.slice(1).replace(/_/g, ' '))
-    .join(' ');
-}
-
-function toPermissionItem(permission: string): PermissionItem {
-  return {
-    id: permission,
-    name: formatPermissionName(permission),
-    code: permission,
-  };
-}
-
 export function PlanTransferList({
-  available: allAvailable,
+  available,
   selected,
   onChange,
 }: PlanTransferListProps) {
-  const [leftSearch, setLeftSearch] = useState('');
-  const [rightSearch, setRightSearch] = useState('');
-
-  const availableItems = useMemo(() => {
-    return allAvailable
-      .filter((perm) => !selected.includes(perm))
-      .map(toPermissionItem);
-  }, [allAvailable, selected]);
-
-  const selectedItems = useMemo(() => {
-    return selected.map(toPermissionItem);
-  }, [selected]);
-
-  const filteredAvailable = useMemo(() => {
-    const search = leftSearch.toLowerCase();
-    return availableItems.filter(
-      (item) =>
-        item.name.toLowerCase().includes(search) ||
-        item.code.toLowerCase().includes(search)
-    );
-  }, [availableItems, leftSearch]);
-
-  const filteredSelected = useMemo(() => {
-    const search = rightSearch.toLowerCase();
-    return selectedItems.filter(
-      (item) =>
-        item.name.toLowerCase().includes(search) ||
-        item.code.toLowerCase().includes(search)
-    );
-  }, [selectedItems, rightSearch]);
-
-  const moveRight = useCallback(
-    (item: PermissionItem) => {
-      if (!selected.includes(item.id)) {
-        onChange([...selected, item.id]);
-      }
-    },
-    [selected, onChange]
-  );
-
-  const moveLeft = useCallback(
-    (item: PermissionItem) => {
-      onChange(selected.filter((id) => id !== item.id));
-    },
-    [selected, onChange]
-  );
+  const {
+    leftSearch,
+    setLeftSearch,
+    rightSearch,
+    setRightSearch,
+    availableItems,
+    selectedItems,
+    filteredAvailable,
+    filteredSelected,
+    moveRight,
+    moveLeft,
+  } = usePlanTransferState({ available, selected, onChange });
 
   const {
     draggingItem,
@@ -97,58 +41,19 @@ export function PlanTransferList({
     handleTouchEnd,
   } = usePlanTransferDrag({ moveRight, moveLeft });
 
-  const handleDragStart = (
-    e: React.DragEvent,
-    item: PermissionItem,
-    source: 'available' | 'selected'
-  ) => {
-    setDraggingItem(item.id);
-    e.dataTransfer.setData('itemId', item.id);
-    e.dataTransfer.setData('source', source);
-    e.dataTransfer.effectAllowed = 'move';
-
-    const target = e.target as HTMLElement;
-    target.classList.add('opacity-40');
-  };
-
-  const handleDragEnd = (e: React.DragEvent) => {
-    setDraggingItem(null);
-    const target = e.target as HTMLElement;
-    target.classList.remove('opacity-40');
-  };
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-  };
-
-  const handleDrop = (e: React.DragEvent, target: 'available' | 'selected') => {
-    e.preventDefault();
-    const itemId = e.dataTransfer.getData('itemId');
-    const source = e.dataTransfer.getData('source');
-
-    if (source !== target) {
-      const item = toPermissionItem(itemId);
-      if (target === 'selected') {
-        moveRight(item);
-      } else {
-        moveLeft(item);
-      }
-    }
-  };
-
-  const handleItemClick = useCallback(
-    (item: PermissionItem, source: 'available' | 'selected') => {
-      if (touchDrag === null && draggingItem === null) {
-        if (source === 'available') {
-          moveRight(item);
-        } else {
-          moveLeft(item);
-        }
-      }
-    },
-    [touchDrag, draggingItem, moveRight, moveLeft]
-  );
+  const {
+    handleDragStart,
+    handleDragEnd,
+    handleDragOver,
+    handleDrop,
+    handleItemClick,
+  } = usePlanTransferHandlers({
+    setDraggingItem,
+    moveRight,
+    moveLeft,
+    touchDrag,
+    draggingItem,
+  });
 
   return (
     <div className="space-y-4">
