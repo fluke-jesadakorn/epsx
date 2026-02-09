@@ -50,11 +50,11 @@ export function PaymentPageClient({ selectedPackageId, context }: PaymentPageCli
         <DynamicPaymentWidget
           context={context}
           className="mb-12"
-          onPaymentSuccess={(txHash) => {
-             
+          onPaymentSuccess={(_txHash) => {
+
             // Could redirect or show success state
           }}
-          onPaymentError={(error) => {
+          onPaymentError={(_error) => {
           }}
         />
       </Suspense>

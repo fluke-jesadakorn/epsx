@@ -40,7 +40,7 @@ interface ApiKeyManagerProps {
 
 export function ApiKeyManager({ className = '' }: ApiKeyManagerProps) {
   const { isAuthenticated, getUserTier, makeApiRequest } = useSharedAuth();
-  const userTier = getUserTier();
+  const _userTier = getUserTier();
 
   // PERMISSION REFACTOR: Client-side is permissive. 
   // Backend enforces API access on every request.
@@ -85,7 +85,7 @@ export function ApiKeyManager({ className = '' }: ApiKeyManagerProps) {
       } else {
         throw new Error(response.error?.message ?? 'Failed to fetch API keys');
       }
-    } catch (error) {
+    } catch (_error) {
       // Error logged silently
       toast.error('Failed to load API keys');
     } finally {
@@ -135,7 +135,7 @@ export function ApiKeyManager({ className = '' }: ApiKeyManagerProps) {
       } else {
         throw new Error(response.error?.message ?? 'Failed to delete API key');
       }
-    } catch (error) {
+    } catch (_error) {
       // Error logged silently
       toast.error('Failed to delete API key');
     }

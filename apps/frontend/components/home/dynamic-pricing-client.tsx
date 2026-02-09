@@ -1,5 +1,4 @@
 'use client';
-'use client';
 
 import { PricingCard } from '@/shared/components/plans/pricing-card';
 import type { PricingCardData } from '@/shared/types/plans';
@@ -7,11 +6,28 @@ import { Star } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
+interface AffiliateInfo {
+    commission_rate?: number;
+}
+
+interface ApiPlanResponse {
+    id: string;
+    name: string;
+    plan_type: string;
+    current_price: string | number;
+    currency?: string;
+    display_order?: number;
+    is_active: boolean;
+    is_highlighted?: boolean;
+    is_promoted?: boolean;
+    features?: string[];
+}
+
 interface DynamicPricingClientProps {
     personalPlans: PricingCardData[];
     apiPlans: PricingCardData[];
     affiliateCode: string | null;
-    affiliateInfo: any | null;
+    affiliateInfo: AffiliateInfo | null;
 }
 
 export const DynamicPricingClient = ({

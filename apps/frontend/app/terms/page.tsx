@@ -37,7 +37,7 @@ function SubscribeForm() {
       } else {
         alert('Failed to subscribe. Please try again.');
       }
-    } catch (error) {
+    } catch (_error) {
       alert('An error occurred. Please try again.');
     }
   };

@@ -54,7 +54,9 @@ const SOURCE_CONFIG: Record<PermissionSource, { label: string; emoji: string; cl
 };
 
 function formatDate(dateString?: string): string {
-    if (!dateString) {return 'Never';}
+    if (dateString === undefined || dateString === '') {
+        return 'Never';
+    }
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', {
         month: 'short',
@@ -64,7 +66,9 @@ function formatDate(dateString?: string): string {
 }
 
 function isExpiringSoon(dateString?: string): boolean {
-    if (!dateString) {return false;}
+    if (dateString === undefined || dateString === '') {
+        return false;
+    }
     const date = new Date(dateString);
     const now = new Date();
     const daysUntilExpiry = (date.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
@@ -72,7 +76,9 @@ function isExpiringSoon(dateString?: string): boolean {
 }
 
 function isExpired(dateString?: string): boolean {
-    if (!dateString) {return false;}
+    if (dateString === undefined || dateString === '') {
+        return false;
+    }
     return new Date(dateString) < new Date();
 }
 
@@ -82,13 +88,13 @@ function SourceBadge({ source, planName }: { source: PermissionSource; planName?
     return (
         <Badge className={cn('text-xs px-2 py-0.5 gap-1', config.className)}>
             {config.emoji}
-            {source === 'auto' && planName ? `Auto: ${planName}` : config.label}
+            {(source === 'auto' && planName !== undefined && planName !== '') ? `Auto: ${planName}` : config.label}
         </Badge>
     );
 }
 
 function ExpiryBadge({ expiresAt }: { expiresAt?: string }) {
-    if (!expiresAt) {
+    if (expiresAt === undefined || expiresAt === '') {
         return (
             <span className="text-xs text-green-600 dark:text-green-400 flex items-center gap-1">
                 ∞ Permanent
@@ -130,6 +136,19 @@ function ExpiryBadge({ expiresAt }: { expiresAt?: string }) {
     );
 }
 
+function getStatusBadgeClass(isActive: boolean, expired: boolean): string {
+    return isActive && !expired
+        ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+        : 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400';
+}
+
+function getStatusText(isActive: boolean, expired: boolean): string {
+    if (isActive && !expired) {
+        return 'Active';
+    }
+    return expired ? 'Expired' : 'Inactive';
+}
+
 function PermissionRow({
     permission,
     showPlatform = false,
@@ -142,6 +161,7 @@ function PermissionRow({
     onRevoke?: (permissionId: string) => void;
 }) {
     const expired = isExpired(permission.expiresAt);
+    const isDisabled = !permission.isActive || expired;
 
     return (
         <TableRow className={cn(
@@ -168,13 +188,8 @@ function PermissionRow({
                 <ExpiryBadge expiresAt={permission.expiresAt} />
             </TableCell>
             <TableCell>
-                <Badge className={cn(
-                    'text-xs',
-                    permission.isActive && !expired
-                        ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
-                        : 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400'
-                )}>
-                    {permission.isActive && !expired ? 'Active' : expired ? 'Expired' : 'Inactive'}
+                <Badge className={cn('text-xs', getStatusBadgeClass(permission.isActive, expired))}>
+                    {getStatusText(permission.isActive, expired)}
                 </Badge>
             </TableCell>
             {showActions && (
@@ -184,7 +199,7 @@ function PermissionRow({
                         size="sm"
                         onClick={() => onRevoke?.(permission.id)}
                         className="h-8 px-2 text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
-                        disabled={!permission.isActive ?? expired}
+                        disabled={isDisabled}
                     >
                         <Trash2 className="h-4 w-4" />
                     </Button>
@@ -223,8 +238,10 @@ export function WalletPermissionTable({
     if (groupByPlatform) {
         // Group permissions by platform
         const grouped = permissions.reduce((acc, perm) => {
-            if (!acc[perm.platform]) {acc[perm.platform] = [];}
-            acc[perm.platform].push(perm);
+            const platform = perm.platform;
+            // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+            acc[platform] ??= [];
+            acc[platform].push(perm);
             return acc;
         }, {} as Record<Platform, WalletPermission[]>);
 

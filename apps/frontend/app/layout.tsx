@@ -81,7 +81,7 @@ export default async function RootLayout({
   let initialState;
   try {
     initialState = cookieToInitialState(getServerConfig(), cookie);
-  } catch (error) {
+  } catch (_error) {
     // Cookie value might be URL-encoded (e.g., '%7B%22stat...' instead of raw JSON)
     // Try decoding the cookie string first
     try {

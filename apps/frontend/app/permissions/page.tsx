@@ -523,7 +523,7 @@ export default function PermissionsPage() {
     if (activeTab === 'analytics' && user) {
       getPermissionAnalytics()
         .then(setAnalytics)
-        .catch(error => {
+        .catch(_error => {
         });
     }
   }, [activeTab, user]);
@@ -533,7 +533,7 @@ export default function PermissionsPage() {
     if (activeTab === 'history' && user) {
       getPermissionHistory(20)
         .then(setHistory)
-        .catch(error => {
+        .catch(_error => {
         });
     }
   }, [activeTab, user]);
@@ -552,7 +552,7 @@ export default function PermissionsPage() {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-    } catch (error) {
+    } catch (_error) {
     } finally {
       setIsExporting(false);
     }

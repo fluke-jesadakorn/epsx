@@ -26,7 +26,7 @@ interface DeveloperStatsCardsProps {
     currentUser: AuthUser;
 }
 
-export function DeveloperStatsCards({ currentUser }: DeveloperStatsCardsProps) {
+export function DeveloperStatsCards({ currentUser: _currentUser }: DeveloperStatsCardsProps) {
     const { data: response, isLoading } = useQuery({
         queryKey: ['developer-plans'],
         queryFn: getMyPlansAction,

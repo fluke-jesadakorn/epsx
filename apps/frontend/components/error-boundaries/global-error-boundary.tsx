@@ -92,7 +92,7 @@ export class GlobalErrorBoundary extends Component<Props, State> {
     this.setState({ errorInfo });
   }
 
-  private reportErrorToService(error: Error, errorInfo: ErrorInfo, context: any) {
+  private reportErrorToService(_error: Error, _errorInfo: ErrorInfo, _context: any) {
     // External error reporting disabled for security
     // Errors are handled locally only
   }

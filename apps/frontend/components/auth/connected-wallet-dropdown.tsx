@@ -14,7 +14,7 @@ interface ConnectedWalletDropdownProps {
 }
 
 export function ConnectedWalletDropdown({ className }: ConnectedWalletDropdownProps) {
-  const { address, connector } = useAccount();
+  const { address } = useAccount();
   const { user, logout } = useSharedAuth();
   const [copied, setCopied] = useState(false);
 
@@ -127,7 +127,7 @@ export function ConnectedWalletDropdown({ className }: ConnectedWalletDropdownPr
           onClick={async () => {
             try {
               await logout();
-            } catch (error) {
+            } catch (_error) {
       // Error logged silently
             }
           }}

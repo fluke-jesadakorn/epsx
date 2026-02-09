@@ -40,7 +40,7 @@ export interface PaymentHistoryData {
     pagination: PaymentHistoryPagination;
 }
 
-interface PaymentHistoryBody {
+interface _PaymentHistoryBody {
     success: boolean;
     data: PaymentHistoryData;
 }

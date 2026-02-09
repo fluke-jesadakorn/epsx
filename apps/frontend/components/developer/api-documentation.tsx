@@ -22,7 +22,7 @@ interface APIEndpoint {
   example: string;
 }
 
-export function APIDocumentation({ currentUser }: APIDocumentationProps) {
+export function APIDocumentation({ currentUser: _currentUser }: APIDocumentationProps) {
   const [selectedSection, setSelectedSection] = useState('public');
 
   // Use environment variable for base URL

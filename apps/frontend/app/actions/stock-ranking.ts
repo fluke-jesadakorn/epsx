@@ -25,7 +25,7 @@ export async function fetchStockRankingData(
  */
 export async function fetchStockRankingDataWithPermissions(
   userPermissions: string[],
-  isExpired = true,
+  _isExpired = true,
   page = 1,
   country?: typeof MarketCountry,
   quarters = 2,

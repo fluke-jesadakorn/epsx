@@ -45,7 +45,7 @@ export async function getAnalyticsFiltersAction() {
 
     try {
         return await analytics.getAuthenticatedFilters();
-    } catch (error) {
+    } catch (_error) {
         return await analytics.getPublicFilters();
     }
 }

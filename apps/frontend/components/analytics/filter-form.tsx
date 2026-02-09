@@ -220,7 +220,7 @@ export default function FilterForm({ filterOptions, currentParams }: FilterFormP
 
   const [hasChanges, setHasChanges] = useState(false);
   const [_isCompact, _setIsCompact] = useState(false);
-  const [isAnimating, setIsAnimating] = useState(false);
+  const [_isAnimating, _setIsAnimating] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
 
   // Handle client-side mounting only
@@ -241,7 +241,7 @@ export default function FilterForm({ filterOptions, currentParams }: FilterFormP
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setIsAnimating(true);
+    _setIsAnimating(true);
     
     const params = new URLSearchParams();
     
@@ -257,7 +257,7 @@ export default function FilterForm({ filterOptions, currentParams }: FilterFormP
 
     router.push(`/analytics?${params.toString()}`);
     
-    setTimeout(() => setIsAnimating(false), 1000);
+    setTimeout(() => _setIsAnimating(false), 1000);
   };
 
   const handleReset = () => {

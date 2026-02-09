@@ -24,7 +24,7 @@ interface KeyUsageSummary {
   expires_at: string | null;
 }
 
-export function UsageMonitor({ currentUser }: UsageMonitorProps) {
+export function UsageMonitor({ currentUser: _currentUser }: UsageMonitorProps) {
   // Use TanStack Query for all data fetching
   const { data: keysRes, isLoading: isLoadingKeys } = useQuery({ queryKey: ['dev-api-keys'], queryFn: () => getApiKeysAction({ limit: 100 }) });
   const { data: statsRes, isLoading: isLoadingStats } = useQuery({ queryKey: ['dev-usage-stats'], queryFn: getUsageStatsAction });

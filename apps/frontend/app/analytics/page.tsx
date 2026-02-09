@@ -1,7 +1,7 @@
 import PlanStatusBar from '@/components/analytics/plan-status-bar';
 import ServerCardDashboard from '@/components/analytics/server-card-dashboard';
 import { ProgressiveAuthBanner } from '@/components/auth/progressive-auth-banner';
-import { FrontendAuthModal } from '@/components/auth/frontend-auth-modal';
+import { FrontendAuthModal as _FrontendAuthModal } from '@/components/auth/frontend-auth-modal';
 import { AnalyticsAuthWrapper } from '@/components/auth/analytics-auth-wrapper';
 import { getMyPlanAccessAction } from '@/app/actions/plans';
 import { BarChart3, Sparkles, TrendingUp } from 'lucide-react';

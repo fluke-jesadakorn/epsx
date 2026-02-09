@@ -93,7 +93,7 @@ export const fetchPlans = async (): Promise<PaymentPackage[]> => {
 
     const plans = result.data;
 
-    return plans.map((plan: any, index: number): PaymentPackage => {
+    return plans.map((plan: any, _index: number): PaymentPackage => {
       let currentPrice: number;
       if (typeof plan.current_price === 'string') {
         currentPrice = parseFloat(plan.current_price);

@@ -27,7 +27,7 @@ interface NotificationsClientProps {
 }
 
 export default function NotificationsClient({ initialData, focusId }: NotificationsClientProps) {
-  const searchParams = useSearchParams();
+  const _searchParams = useSearchParams();
   const notificationRefs = useRef<{ [key: string]: HTMLDivElement | null }>({})
 
   const [notifications, setNotifications] = useState<Notification[]>(

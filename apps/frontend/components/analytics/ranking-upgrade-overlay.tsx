@@ -24,8 +24,8 @@ interface RankingUpgradeOverlayProps {
 export function RankingUpgradeOverlay({
     rank,
     rankingOffset,
-    totalRankings = 100,
-    planName,
+    totalRankings: _totalRankings = 100,
+    planName: _planName,
     variant = 'full',
 }: RankingUpgradeOverlayProps): React.ReactElement | null {
     // Don't show overlay for unlocked ranks (offset 0 = full access)

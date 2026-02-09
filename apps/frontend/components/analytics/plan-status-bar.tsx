@@ -59,7 +59,7 @@ function getTierConfig(tierLevel: number): TierConfig {
 
 export function PlanStatusBar({ className, planAccess: propPlanAccess }: PlanStatusBarProps): React.ReactElement {
     const { planAccess: hookPlanAccess, loading } = usePlanAccess();
-    const { nextPlan, loading: loadingUpgrade } = useUpgradeOptions();
+    const { nextPlan } = useUpgradeOptions();
 
     // Use prop if provided, otherwise fall back to hook
     const planAccess = propPlanAccess !== undefined ? propPlanAccess : hookPlanAccess;

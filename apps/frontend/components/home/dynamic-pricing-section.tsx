@@ -6,6 +6,19 @@ interface DynamicPricingSectionProps {
   initialAffiliateCode?: string | null;
 }
 
+interface PlanResponse {
+  id: string;
+  name: string;
+  plan_type: string;
+  current_price: string | number;
+  currency?: string;
+  display_order?: number;
+  is_active: boolean;
+  is_highlighted?: boolean;
+  is_promoted?: boolean;
+  features?: string[];
+}
+
 export default async function DynamicPricingSection({ initialAffiliateCode }: DynamicPricingSectionProps = {}) {
   // Optimization: Do NOT read cookies here. Reading cookies forces dynamic rendering.
   // We strictly use the prop passed from the page (URL param).
@@ -18,10 +31,10 @@ export default async function DynamicPricingSection({ initialAffiliateCode }: Dy
   try {
     const response = await getPublicPlansAction({
       affiliate_code: affiliateCode ?? undefined
-    } as any);
+    });
 
     if (response.success && response.data && Array.isArray(response.data)) {
-      const planData = response.data.map((item: any) => ({
+      const planData = response.data.map((item: PlanResponse) => ({
         id: item.id,
         name: item.name,
         planType: item.plan_type,
@@ -38,7 +51,7 @@ export default async function DynamicPricingSection({ initialAffiliateCode }: Dy
       }));
 
       // Use helper to transform (inline here since we can't easily share the one from Client)
-      const transformToPricingCard = (plan: any): PricingCardData => {
+      const transformToPricingCard = (plan: typeof planData[number]): PricingCardData => {
         const hasDiscount = plan.currentPrice < plan.basePrice;
 
         return {
@@ -56,21 +69,21 @@ export default async function DynamicPricingSection({ initialAffiliateCode }: Dy
       };
 
       personalPlans = planData
-        .filter((plan: any) => plan.isActive)
-        .filter((plan: any) => {
+        .filter((plan) => plan.isActive)
+        .filter((plan) => {
           const type = plan.planType?.toLowerCase();
           return !type?.includes('api');
         })
-        .sort((a: any, b: any) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0))
+        .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0))
         .map(transformToPricingCard);
 
       apiPlans = planData
-        .filter((plan: any) => plan.isActive)
-        .filter((plan: any) => {
+        .filter((plan) => plan.isActive)
+        .filter((plan) => {
           const type = plan.planType?.toLowerCase();
           return type?.includes('api');
         })
-        .sort((a: any, b: any) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0))
+        .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0))
         .map(transformToPricingCard);
     }
   } catch (error) {
