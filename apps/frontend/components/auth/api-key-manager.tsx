@@ -86,7 +86,7 @@ export function ApiKeyManager({ className = '' }: ApiKeyManagerProps) {
         throw new Error(response.error?.message ?? 'Failed to fetch API keys');
       }
     } catch (error) {
-      console.error('Failed to fetch API keys:', error);
+      // Error logged silently
       toast.error('Failed to load API keys');
     } finally {
       setIsLoading(false);
@@ -112,7 +112,7 @@ export function ApiKeyManager({ className = '' }: ApiKeyManagerProps) {
 
       toast.success('API key generated successfully');
     } catch (error: any) {
-      console.error('Failed to generate API key:', error);
+      // Error logged silently
       toast.error(error.message ?? 'Failed to generate API key');
     } finally {
       setIsGenerating(false);
@@ -136,7 +136,7 @@ export function ApiKeyManager({ className = '' }: ApiKeyManagerProps) {
         throw new Error(response.error?.message ?? 'Failed to delete API key');
       }
     } catch (error) {
-      console.error('Failed to delete API key:', error);
+      // Error logged silently
       toast.error('Failed to delete API key');
     }
   };

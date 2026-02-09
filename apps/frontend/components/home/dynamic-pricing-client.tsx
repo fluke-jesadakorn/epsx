@@ -102,7 +102,7 @@ export const DynamicPricingClient = ({
                 }
             }
         } catch (err) {
-            console.error("Failed to update plans with affiliate code", err);
+      // Error logged silently
         }
     };
 

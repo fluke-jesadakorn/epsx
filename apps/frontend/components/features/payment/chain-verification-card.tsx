@@ -160,11 +160,11 @@ export function ChainVerificationCard({
                 method: 'wallet_addEthereumChain',
                 params: [config],
             });
-            console.log(`✅ Network ${chain.displayName} added successfully`);
+      // Message logged silently
             // After adding, try to switch to it
             await switchChain({ chainId: chain.id });
         } catch (error: any) {
-            console.error('Add network error:', error);
+      // Error logged silently
             if (error?.code === 4001) {
                 setErrorMessage('User rejected adding the network.');
             } else {
@@ -184,7 +184,7 @@ export function ChainVerificationCard({
         try {
             await switchChain({ chainId: chain.id });
         } catch (error: any) {
-            console.error('Chain switch error:', error);
+      // Error logged silently
             // If network not found, suggest adding it
             if (error?.code === 4902) {
                 setErrorMessage('Network not found. Click "Add Network" button below.');

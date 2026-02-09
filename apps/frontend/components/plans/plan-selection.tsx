@@ -67,7 +67,7 @@ export function PlanSelection({ currentUser, className }: PlanSelectionProps) {
           throw new Error(response.error?.message ?? 'Invalid API response')
         }
       } catch (err) {
-        console.error('[PlanSelection] Error fetching plans:', err)
+      // Error logged silently
         setError('Failed to load plans. Please try again later.')
         setPricingCards([])
       } finally {

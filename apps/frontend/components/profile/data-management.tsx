@@ -65,7 +65,7 @@ export function DataManagement({ user }: DataManagementProps) {
       toast.success('Data exported successfully');
 
     } catch (error: any) {
-      console.error('Data export error:', error);
+      // Error logged silently
       toast.error(error.message ?? 'Failed to export data');
     } finally {
       setExportState({ isExporting: false });
@@ -100,7 +100,7 @@ export function DataManagement({ user }: DataManagementProps) {
       }, 2000);
 
     } catch (error: any) {
-      console.error('Account deletion error:', error);
+      // Error logged silently
       toast.error(error.message ?? 'Failed to delete account');
       setDeletionState(prev => ({ ...prev, isDeleting: false }));
     }

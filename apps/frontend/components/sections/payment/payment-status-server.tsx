@@ -61,7 +61,7 @@ export async function PaymentStatusServer({
       transactions = [];
       error = null; // No error - just empty state for unauthenticated users
     } else {
-      console.error('Failed to fetch transactions server-side:', err);
+      // Error logged silently
       error = 'Failed to load transaction history';
     }
   }

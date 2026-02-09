@@ -33,7 +33,7 @@ export function usePublicBalance(
                     ? 'http://127.0.0.1:8545'
                     : `http://${hostname}:8545`;
 
-                console.log('🔍 [usePublicBalance] Using RPC URL:', rpcUrl);
+      // Message logged silently
 
                 // Create a temporary public client
                 const publicClient = createPublicClient({
@@ -61,7 +61,7 @@ export function usePublicBalance(
                 const formatted = formatUnits(rawBalance, 18);
                 setBalance(formatted);
             } catch (err) {
-                console.error('Failed to fetch public balance:', err);
+      // Error logged silently
                 setError(err instanceof Error ? err.message : 'Failed to fetch');
             } finally {
                 setIsLoading(false);

@@ -37,7 +37,7 @@ export function PublicRankingPreview({
           setData(result);
         }
       } catch (error) {
-        console.error('Failed to fetch public rankings:', error);
+      // Error logged silently
       } finally {
         setIsLoading(false);
       }

@@ -248,7 +248,7 @@ export function UnifiedPaymentFlow({
                 throw new Error(result.error?.message ?? 'Invalid API response format');
             }
         } catch (err) {
-            console.error('Error fetching plans:', err);
+      // Error logged silently
             setError('Failed to load plans. Please try again.');
         } finally {
             setLoading(false);
@@ -363,7 +363,7 @@ export function UnifiedPaymentFlow({
                         setError(result.error?.message ?? 'Payment submitted but verification pending');
                     }
                 } catch (err) {
-                    console.error('Submit error:', err);
+      // Error logged silently
                     setError('Payment confirmed but backend submission failed');
                 }
             };

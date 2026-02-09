@@ -89,7 +89,7 @@ export function useUpgradeOptions(): UseUpgradeOptionsResult {
                     setRecommendedPlan(rec ?? candidates[Math.min(1, candidates.length - 1)] ?? null);
                 }
             } catch (err) {
-                console.error('Failed to fetch upgrade options:', err);
+      // Error logged silently
                 setError('Failed to load upgrade options');
             } finally {
                 setLoading(false);

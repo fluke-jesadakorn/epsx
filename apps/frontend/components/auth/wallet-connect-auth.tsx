@@ -141,7 +141,7 @@ export function WalletConnectAuth({
               // Safety timeout: reset state if stuck for too long
               safetyTimeout = setTimeout(() => {
                 if (isAuthenticating || isSigningChallenge) {
-                  console.warn('[AUTH] UI: Authentication timed out, resetting state');
+      // Warning logged silently
                   setIsAuthenticating(false);
                   setIsSigningChallenge(false);
                   onAuthError?.('Process timed out. Please try again.');
@@ -173,7 +173,7 @@ export function WalletConnectAuth({
               }
 
             } catch (error: unknown) {
-              console.error('❌ Authentication failed:', error);
+      // Error logged silently
               const errorMessage = error instanceof Error ? error.message : 'Authentication failed';
               onAuthError?.(errorMessage);
             } finally {

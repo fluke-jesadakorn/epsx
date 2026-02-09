@@ -86,7 +86,7 @@ export function getValidQuarters(quarters: QuarterData[]): QuarterData[] {
   
   // Additional safety check to ensure we never return more than 2 quarters
   if (limitedQuarters.length > 2) {
-    console.warn('getValidQuarters: More than 2 quarters detected, trimming to 2');
+      // Warning logged silently
     return limitedQuarters.slice(0, 2);
   }
   

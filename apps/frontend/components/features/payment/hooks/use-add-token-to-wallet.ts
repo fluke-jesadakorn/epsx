@@ -85,7 +85,7 @@ export function useAddTokenToWallet() {
                 return false;
             }
         } catch (error) {
-            console.error('Failed to add token to wallet:', error);
+      // Error logged silently
             devLog(`❌ Error adding token: ${error instanceof Error ? error.message : String(error)}`);
             return false;
         } finally {

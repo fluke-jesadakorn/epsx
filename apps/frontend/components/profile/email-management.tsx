@@ -87,7 +87,7 @@ export function EmailManagement({ user }: EmailManagementProps) {
       toast.success('Verification code sent to your new email address');
 
     } catch (error: any) {
-      console.error('Email change error:', error);
+      // Error logged silently
       const errorMessage = error.message ?? 'Failed to send verification code';
       setEmailState(prev => ({
         ...prev,
@@ -137,7 +137,7 @@ export function EmailManagement({ user }: EmailManagementProps) {
       router.refresh();
 
     } catch (error: any) {
-      console.error('Email verification error:', error);
+      // Error logged silently
       const errorMessage = error.message ?? 'Failed to verify email';
       setEmailState(prev => ({
         ...prev,

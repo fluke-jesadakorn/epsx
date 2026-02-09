@@ -74,7 +74,7 @@ export default async function DynamicPricingSection({ initialAffiliateCode }: Dy
         .map(transformToPricingCard);
     }
   } catch (error) {
-    console.error('[DynamicPricing] Error fetching plans on server:', error);
+      // Error logged silently
   }
 
   return (

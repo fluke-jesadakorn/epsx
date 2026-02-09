@@ -81,7 +81,7 @@ export function NotificationBellClient() {
       await deleteNotificationAction(notificationId)
       fetchNotifications() // Refresh the list
     } catch (error) {
-      console.error('Failed to delete notification:', error)
+      // Error logged silently
     }
   }
 

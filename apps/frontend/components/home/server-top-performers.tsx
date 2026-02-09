@@ -115,7 +115,7 @@ export default async function ServerTopPerformers({ className }: ServerTopPerfor
       error = (result as any).message ?? 'No valid data received';
     }
   } catch (err) {
-    console.error('[ServerTopPerformers] Error:', err);
+      // Error logged silently
     error = err instanceof Error ? err.message : 'Unknown error';
   }
 

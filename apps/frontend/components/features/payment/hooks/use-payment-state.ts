@@ -31,7 +31,7 @@ export function usePaymentState(preselectedPackage?: string) {
           setSelectedPackage(defaultPlan?.id || null);
         }
       } catch (err) {
-        console.error('Error loading plans:', err);
+      // Error logged silently
         setError('Failed to load plans. Please try again.');
         setPackages([]);
         setSelectedPackage(null);

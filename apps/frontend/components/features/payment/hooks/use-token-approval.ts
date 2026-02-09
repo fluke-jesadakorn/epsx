@@ -61,7 +61,7 @@ export function useTokenApproval({
     useEffect(() => {
         const error = approvalError ?? receiptError
         if (error) {
-            console.error('Approval error:', error)
+      // Error logged silently
             const isUserRejection = error.message.toLowerCase().includes('user rejected') ||
                 error.message.toLowerCase().includes('user denied')
 
@@ -92,7 +92,7 @@ export function useTokenApproval({
                 args: [spenderAddress as `0x${string}`, amount],
             })
         } catch (error) {
-            console.error('Approval preparation failed:', error)
+      // Error logged silently
             setStep('idle')
             onError?.(`Approval preparation failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
         }

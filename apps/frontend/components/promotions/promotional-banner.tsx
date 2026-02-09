@@ -75,7 +75,7 @@ export function PromotionalBanner({ className = '' }: PromotionalBannerProps) {
       setActivePromotion(mockPromotion);
       setIsVisible(true);
     } catch (error) {
-      console.error('Error fetching promotional data:', error);
+      // Error logged silently
     }
   };
 

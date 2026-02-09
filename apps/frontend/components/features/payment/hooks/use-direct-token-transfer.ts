@@ -68,7 +68,7 @@ export function useDirectTokenTransfer({
     useEffect(() => {
         const error = writeError ?? receiptError
         if (error) {
-            console.error('Transfer error:', error)
+      // Error logged silently
             const errorMessage = error.message.toLowerCase()
 
             const isUserRejection = errorMessage.includes('user rejected') ||
@@ -119,7 +119,7 @@ export function useDirectTokenTransfer({
                 args: [receiverAddress as `0x${string}`, amount],
             })
         } catch (error) {
-            console.error('Transfer preparation failed:', error)
+      // Error logged silently
             setIsTransferring(false)
             onError?.(`Transfer failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
         }

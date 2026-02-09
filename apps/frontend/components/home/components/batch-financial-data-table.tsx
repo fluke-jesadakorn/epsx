@@ -42,7 +42,7 @@ function BatchFinancialDataTable({
         const limitedResult = Array.isArray(result) ? result.slice(0, maxCards) : [];
         setData(limitedResult);
       } catch (err) {
-        console.error('Error fetching batch data:', err);
+      // Error logged silently
         setError(true);
       } finally {
         setLoading(false);

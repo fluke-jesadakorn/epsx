@@ -74,7 +74,7 @@ export function UpgradeBanner({
                     setPreview(result.data);
                 }
             } catch (err) {
-                console.error('Failed to fetch upgrade preview:', err);
+      // Error logged silently
                 setError('Unable to calculate upgrade credit');
             } finally {
                 setLoading(false);
