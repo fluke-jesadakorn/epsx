@@ -27,10 +27,10 @@ import {
 } from '../utils/notification-helpers'
 
 test.describe('Frontend Notifications - Complete Coverage', () => {
-  const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000'
-  const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8080'
-  const ADMIN_TOKEN = process.env.TEST_ADMIN_TOKEN || ''
-  const USER_WALLET = process.env.TEST_USER_WALLET || ''
+  const FRONTEND_URL = process.env.FRONTEND_URL ?? 'http://localhost:3000'
+  const BACKEND_URL = process.env.BACKEND_URL ?? 'http://localhost:8080'
+  const ADMIN_TOKEN = process.env.TEST_ADMIN_TOKEN ?? ''
+  const USER_WALLET = process.env.TEST_USER_WALLET ?? ''
 
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize({ width: 1920, height: 1080 })
@@ -334,7 +334,7 @@ test.describe('Frontend Notifications - Complete Coverage', () => {
           recipient: USER_WALLET,
         })
 
-        if (notifId) {
+        if (notifId !== null && notifId !== undefined && notifId !== '') {
           // Navigate with query param
           await page.goto(`${FRONTEND_URL}/notifications?id=${notifId}`)
           await page.waitForLoadState('networkidle')

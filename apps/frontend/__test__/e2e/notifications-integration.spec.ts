@@ -13,11 +13,11 @@ import {
 } from '../utils/notification-helpers'
 
 test.describe('Cross-App Notification Integration', () => {
-  const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000'
-  const ADMIN_URL = process.env.ADMIN_URL || 'http://localhost:3001'
-  const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8080'
-  const ADMIN_TOKEN = process.env.TEST_ADMIN_TOKEN || ''
-  const USER_WALLET = process.env.TEST_USER_WALLET || ''
+  const FRONTEND_URL = process.env.FRONTEND_URL ?? 'http://localhost:3000'
+  const ADMIN_URL = process.env.ADMIN_URL ?? 'http://localhost:3001'
+  const BACKEND_URL = process.env.BACKEND_URL ?? 'http://localhost:8080'
+  const ADMIN_TOKEN = process.env.TEST_ADMIN_TOKEN ?? ''
+  const USER_WALLET = process.env.TEST_USER_WALLET ?? ''
 
   let adminPage: Page
   let userPage: Page

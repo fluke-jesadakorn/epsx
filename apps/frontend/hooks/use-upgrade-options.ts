@@ -61,16 +61,19 @@ export function useUpgradeOptions(): UseUpgradeOptionsResult {
                     // Filter for candidates (paid plans)
                     const candidates = sortedPlans.filter(p => p.price > 0);
 
+                    const isFreePlan = currentPlanName === null || currentPlanName === '' || currentPlanName === FREE_PLAN_NAME;
                     let upgradeTarget: UpgradeOption | null = null;
 
-                    if (currentPlanName == null || currentPlanName === '' || currentPlanName === FREE_PLAN_NAME) {
+                    if (isFreePlan) {
                         // If Free: Next is lowest price paid plan
-                        upgradeTarget = candidates[0];
+                        upgradeTarget = candidates[0] ?? null;
                     } else {
                         // If Paid: Find current plan in list and pick next one
                         const currentIndex = candidates.findIndex(p => p.name === currentPlanName);
-                        if (currentIndex >= 0 && currentIndex < candidates.length - 1) {
-                            upgradeTarget = candidates[currentIndex + 1];
+                        const hasNextPlan = currentIndex >= 0 && currentIndex < candidates.length - 1;
+
+                        if (hasNextPlan) {
+                            upgradeTarget = candidates[currentIndex + 1] ?? null;
                         } else {
                             // If current is highest or unknown, fallback to first candidate or recommended
                             // Avoid showing downgrade
@@ -78,10 +81,10 @@ export function useUpgradeOptions(): UseUpgradeOptionsResult {
                         }
                     }
 
-                    if (upgradeTarget != null) {
+                    if (upgradeTarget !== null) {
                         setNextPlan(upgradeTarget);
-                    } else if (candidates.length > 0 && (currentPlanName == null || currentPlanName === '' || currentPlanName === FREE_PLAN_NAME)) {
-                        setNextPlan(candidates[0]);
+                    } else if (candidates.length > 0 && isFreePlan) {
+                        setNextPlan(candidates[0] ?? null);
                     }
 
                     // Recommended: Pro Plan or similar
