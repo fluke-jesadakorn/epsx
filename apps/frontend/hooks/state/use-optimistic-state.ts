@@ -65,7 +65,7 @@ export function useOptimisticState<T>(
     if (timeout > 0) {
       const timeoutId = setTimeout(() => {
         rollback();
-        if (errorMessage ?? false) {
+        if ((errorMessage?.length ?? 0) > 0) {
           showError(errorMessage ?? '', 'Request timed out');
         }
       }, timeout);
@@ -98,8 +98,8 @@ export function useOptimisticState<T>(
         const err = error instanceof Error ? error : new Error(String(error));
         if (onError) {
           onError(err, rollback);
-        } else if (errorMessage ?? false) {
-          const msg = err.message ?? String(error);
+        } else if ((errorMessage?.length ?? 0) > 0) {
+          const msg = err.message;
           showError(errorMessage ?? '', msg);
         }
 

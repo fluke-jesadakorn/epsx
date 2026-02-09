@@ -109,8 +109,8 @@ export function DataManagement({ user }: DataManagementProps) {
   };
 
   const formatDate = (timestamp?: number) => {
-    if (!timestamp) {return 'Not available';}
-    return new Date(timestamp * 1000).toLocaleDateString('en-US', {
+    if ((timestamp ?? 0) === 0) {return 'Not available';}
+    return new Date((timestamp ?? 0) * 1000).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'long',
       day: 'numeric',
@@ -133,7 +133,7 @@ export function DataManagement({ user }: DataManagementProps) {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-lg">
               <div className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-                {user.permissions?.length || 0}
+                {user.permissions.length}
               </div>
               <div className="text-sm text-slate-600 dark:text-slate-400">
                 Active Permissions
@@ -151,8 +151,8 @@ export function DataManagement({ user }: DataManagementProps) {
 
             <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-lg">
               <div className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-                <Badge variant={user.verified ? "default" : "secondary"}>
-                  {user.verified ? 'Verified' : 'Unverified'}
+                <Badge variant={(user.verified ?? false) ? "default" : "secondary"}>
+                  {(user.verified ?? false) ? 'Verified' : 'Unverified'}
                 </Badge>
               </div>
               <div className="text-sm text-slate-600 dark:text-slate-400">
@@ -197,7 +197,7 @@ export function DataManagement({ user }: DataManagementProps) {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => handleDataExport('minimal')}
+                onClick={() => void handleDataExport('minimal')}
                 disabled={exportState.isExporting}
                 className="w-full"
               >
@@ -221,7 +221,7 @@ export function DataManagement({ user }: DataManagementProps) {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => handleDataExport('full')}
+                onClick={() => void handleDataExport('full')}
                 disabled={exportState.isExporting}
                 className="w-full"
               >
@@ -245,7 +245,7 @@ export function DataManagement({ user }: DataManagementProps) {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => handleDataExport('analytics')}
+                onClick={() => void handleDataExport('analytics')}
                 disabled={exportState.isExporting}
                 className="w-full"
               >
@@ -344,7 +344,7 @@ export function DataManagement({ user }: DataManagementProps) {
                 <div className="flex gap-2">
                   <Button
                     variant="destructive"
-                    onClick={handleAccountDeletion}
+                    onClick={() => void handleAccountDeletion()}
                     disabled={
                       deletionState.isDeleting ||
                       deletionState.confirmationText !== 'DELETE MY ACCOUNT'

@@ -127,6 +127,14 @@ export const FRONTEND_PERMISSION_SETS = {
  * Frontend-specific utility functions
  */
 
+// Re-export shared utility functions with frontend context
+export const getRoutePermissions = sharedGetRoutePermissions;
+export const isPublicRoute = sharedIsPublicRoute;
+export const isAuthenticatedRoute = sharedIsAuthenticatedRoute;
+export const isValidPermission = sharedIsValidPermission;
+export const parsePermission = sharedParsePermission;
+export const buildPermission = sharedBuildPermission;
+
 /**
  * Check if user has permissions for frontend context (non-admin)
  */
@@ -178,14 +186,6 @@ export function getUserPermissionTier(userPermissions: string[]): 'free' | 'tria
 
   return 'basic';
 }
-
-// Re-export shared utility functions with frontend context
-export const getRoutePermissions = sharedGetRoutePermissions;
-export const isPublicRoute = sharedIsPublicRoute;
-export const isAuthenticatedRoute = sharedIsAuthenticatedRoute;
-export const isValidPermission = sharedIsValidPermission;
-export const parsePermission = sharedParsePermission;
-export const buildPermission = sharedBuildPermission;
 
 // Legacy function name compatibility
 export function getPermissionPlatform(permission: string): string | null {
