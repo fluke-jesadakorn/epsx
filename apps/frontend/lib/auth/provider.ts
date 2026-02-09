@@ -58,12 +58,24 @@ interface SessionData {
   has_api_access?: boolean;
 }
 
+interface EthProvider {
+  request?: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
+}
+
 function isSessionMessage(data: unknown): data is SessionMessage {
   return typeof data === 'object' && data !== null && !Array.isArray(data);
 }
 
 function isSessionData(data: unknown): data is SessionData {
   return typeof data === 'object' && data !== null && !Array.isArray(data);
+}
+
+function isEthProvider(data: unknown): data is EthProvider {
+  return typeof data === 'object' && data !== null && !Array.isArray(data);
+}
+
+function isValidAccountList(data: unknown): data is string[] {
+  return Array.isArray(data) && data.length > 0 && typeof data[0] === 'string';
 }
 
 // eslint-disable-next-line max-lines-per-function
@@ -371,15 +383,48 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
     }
   }, [address]);
 
+  const validateWalletAccess = async (provider: EthProvider, walletAddress: string): Promise<string[]> => {
+    const accounts = await provider.request?.({
+      method: 'eth_requestAccounts',
+    });
+
+    if (!isValidAccountList(accounts)) {
+      throw new Error('No accounts returned from wallet');
+    }
+
+    const normalizedAddress = walletAddress.toLowerCase();
+    const hasMatchingAccount = accounts.some(
+      (acc: string) => acc.toLowerCase() === normalizedAddress
+    );
+
+    if (!hasMatchingAccount) {
+      throw new Error('Connected wallet address not found in authorized accounts');
+    }
+
+    return accounts;
+  };
+
+  const handleWalletAuthError = (error: unknown): string => {
+    const err = error as { code?: number; message?: string };
+    if (err.code === 4001) {
+      return 'Wallet access denied by user';
+    }
+    if (err.code === 4100) {
+      return 'Wallet not authorized - please connect your wallet first';
+    }
+    if (typeof err.message === 'string' && err.message.includes('User rejected')) {
+      return 'Wallet access was rejected';
+    }
+    return `Wallet authorization failed: ${err.message ?? 'Unknown error'}`;
+  };
+
   // eslint-disable-next-line max-lines-per-function, sonarjs/cognitive-complexity, complexity
   const authenticate = useCallback(async () => {
-    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-    if (!address) {
+    if (address === null || address === undefined) {
       toast.error('Please connect your wallet first');
       return;
     }
 
-    // Enhanced wallet validation
     if (!connector) {
       toast.error('Wallet connector not found. Please reconnect your wallet.');
       return;
@@ -390,54 +435,17 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
       return;
     }
 
-    // Request wallet access first to prevent authorization errors
-     
     try {
       const provider = await connector.getProvider?.();
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/strict-boolean-expressions, @typescript-eslint/no-explicit-any
-      if (provider && typeof provider === 'object' && 'request' in provider && typeof (provider as any).request === 'function') {
-        // First, request account access to ensure proper authorization
-        try {
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-explicit-any
-          const accounts = await (provider as any).request({
-            method: 'eth_requestAccounts',
-          });
+      if (!isEthProvider(provider)) {
+        throw new Error('Wallet provider not available');
+      }
 
-          // Verify the current address is in the authorized accounts
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/strict-boolean-expressions
-          if (accounts && accounts.length > 0) {
-            const normalizedAddress = address.toLowerCase();
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-            const hasMatchingAccount = accounts.some(
-              (acc: string) => acc.toLowerCase() === normalizedAddress
-            );
-
-            // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-            if (!hasMatchingAccount) {
-              throw new Error(
-                'Connected wallet address not found in authorized accounts'
-              );
-            }
-          } else {
-            throw new Error('No accounts returned from wallet');
-          }
-        } catch (authError: unknown) {
-          // Handle specific authorization errors
-          const err = authError as { code?: number; message?: string };
-          if (err.code === 4001) {
-            throw new Error('Wallet access denied by user');
-          } else if (err.code === 4100) {
-            throw new Error(
-              'Wallet not authorized - please connect your wallet first'
-            );
-          } else if (err.message?.includes('User rejected')) {
-            throw new Error('Wallet access was rejected');
-          } else {
-            throw new Error(
-              `Wallet authorization failed: ${err.message ?? 'Unknown error'}`
-            );
-          }
-        }
+      try {
+        await validateWalletAccess(provider, address);
+      } catch (authError: unknown) {
+        const errorMessage = handleWalletAuthError(authError);
+        throw new Error(errorMessage);
       }
     } catch (error: unknown) {
       const err = error as { message?: string };

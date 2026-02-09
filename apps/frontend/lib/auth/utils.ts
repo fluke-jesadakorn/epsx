@@ -119,7 +119,14 @@ interface JWTPayloadRaw {
   sid?: unknown;
 }
 
-function buildJWTClaims(payload: JWTPayloadRaw, sub: string, exp: number, iat: number): JWTClaims {
+interface JWTClaimsData {
+  payload: JWTPayloadRaw;
+  sub: string;
+  exp: number;
+  iat: number;
+}
+
+function buildJWTClaims({ payload, sub, exp, iat }: JWTClaimsData): JWTClaims {
   return {
     sub,
     email: typeof payload.email === 'string' ? payload.email : undefined,
@@ -162,7 +169,12 @@ export function parseJWTForUI(token: string): JWTClaims | null {
       return null;
     }
 
-    return buildJWTClaims(payload, payload.sub, payload.exp, payload.iat);
+    return buildJWTClaims({
+      payload,
+      sub: payload.sub,
+      exp: payload.exp,
+      iat: payload.iat,
+    });
   } catch (error) {
     authLogger.warn('Failed to parse JWT for UI', { error: safeError(error).message });
     return null;

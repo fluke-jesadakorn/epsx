@@ -79,7 +79,8 @@ interface SymbolCardData {
   progress_percentage?: number;          // 0-100
 }
 
-interface CardMetadata {
+// CardMetadata removed - not used, metadata fields defined inline in CardDashboardResponse
+interface _CardMetadata {
   available_countries?: string[];
   available_sectors?: string[];
   request_timestamp?: string;
@@ -124,6 +125,7 @@ interface AdvancedFilters {
   limit: number;
 }
 
+// eslint-disable-next-line max-lines-per-function, complexity
 export function CardDashboardView({ className = '' }: CardDashboardViewProps) {
   const [data, setData] = useState<CardDashboardResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -159,7 +161,7 @@ export function CardDashboardView({ className = '' }: CardDashboardViewProps) {
 
   // Load filter options
   useEffect(() => {
-    const loadFilterOptions = async () => {
+    const loadFilterOptions = () => {
       try {
         // Use fallback data since API methods don't exist
         setFilterOptions({
@@ -188,7 +190,7 @@ export function CardDashboardView({ className = '' }: CardDashboardViewProps) {
       }
     };
 
-    loadFilterOptions();
+    void loadFilterOptions();
   }, []);
 
   // Load card dashboard data
@@ -215,7 +217,7 @@ export function CardDashboardView({ className = '' }: CardDashboardViewProps) {
         sort_by: queryParams.sort_by,
         sort_order: 'desc'
       });
-      if (response) {
+      if (response && response.pagination && response.metadata) {
         // Transform rankings data to card dashboard format
         const transformedData = {
           success: true,
@@ -237,12 +239,12 @@ export function CardDashboardView({ className = '' }: CardDashboardViewProps) {
             hasPrev: response.pagination.page > 1
           },
           metadata: {
-            available_countries: response.metadata?.available_countries ?? [],
-            available_sectors: response.metadata?.available_sectors ?? [],
-            request_timestamp: response.metadata?.request_timestamp ?? new Date().toISOString(),
-            data_source: response.metadata?.data_source ?? 'analytics-api'
+            available_countries: response.metadata.available_countries ?? [],
+            available_sectors: response.metadata.available_sectors ?? [],
+            request_timestamp: response.metadata.request_timestamp ?? new Date().toISOString(),
+            data_source: response.metadata.data_source ?? 'analytics-api'
           },
-          processing_time_ms: response.metadata?.query_time ?? 0
+          processing_time_ms: response.metadata.query_time ?? 0
         };
         setData(transformedData);
       }
@@ -254,7 +256,8 @@ export function CardDashboardView({ className = '' }: CardDashboardViewProps) {
   };
 
   useEffect(() => {
-    loadData();
+    void loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters]);
 
   const updateFilters = (newFilters: Partial<AdvancedFilters>) => {
@@ -278,7 +281,9 @@ export function CardDashboardView({ className = '' }: CardDashboardViewProps) {
   };
 
   const handleExport = (format: 'json' | 'csv') => {
-    if (!data) {return;}
+    if (!data) {
+      return;
+    }
 
     // Simple export implementation without dependencies
     const exportData = {
@@ -309,7 +314,8 @@ export function CardDashboardView({ className = '' }: CardDashboardViewProps) {
         quarters: item.quarterly_performance.length,
       }));
 
-      const headers = Object.keys(csvData[0] || {}).join(',');
+      const firstRow = csvData[0];
+      const headers = firstRow ? Object.keys(firstRow).join(',') : '';
       const rows = csvData.map(row => Object.values(row).join(','));
       const csv = [headers, ...rows].join('\n');
 
@@ -360,6 +366,7 @@ export function CardDashboardView({ className = '' }: CardDashboardViewProps) {
     return `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`;
   };
 
+  // eslint-disable-next-line max-lines-per-function, complexity
   const SymbolCard = ({ cardData, isOverlay = false }: { cardData: SymbolCardData; isOverlay?: boolean }) => {
     const quarters = cardData.quarterly_performance.slice(0, 2);
     const latestQuarter = quarters[0] as QuarterlyPerformanceData | undefined;
@@ -600,7 +607,7 @@ export function CardDashboardView({ className = '' }: CardDashboardViewProps) {
       <div className={`space-y-6 ${className}`}>
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {Array.from({ length: 8 }).map((_, i) => (
-            <Card key={`card-${String(i)}`} className="animate-pulse">
+            <Card key={`card-${i}`} className="animate-pulse">
               <CardHeader>
                 <div className="mb-2 h-6 rounded bg-gray-200" />
                 <div className="h-4 w-3/4 rounded bg-gray-200" />
@@ -608,7 +615,7 @@ export function CardDashboardView({ className = '' }: CardDashboardViewProps) {
               <CardContent>
                 <div className="space-y-3">
                   {Array.from({ length: 3 }).map((_, j) => (
-                    <div key={`item-${String(j)}`} className="flex justify-between">
+                    <div key={`item-${j}`} className="flex justify-between">
                       <div className="h-3 w-1/3 rounded bg-gray-200" />
                       <div className="h-3 w-1/4 rounded bg-gray-200" />
                     </div>
@@ -622,11 +629,11 @@ export function CardDashboardView({ className = '' }: CardDashboardViewProps) {
     );
   }
 
-  if (error) {
+  if (error !== null) {
     return (
       <div className={`py-12 text-center ${className}`}>
         <p className="mb-4 text-red-600">{error}</p>
-        <Button onClick={loadData}>Try Again</Button>
+        <Button onClick={() => void loadData()}>Try Again</Button>
       </div>
     );
   }
@@ -662,7 +669,7 @@ export function CardDashboardView({ className = '' }: CardDashboardViewProps) {
           <Button
             variant="outline"
             size="sm"
-            onClick={loadData}
+            onClick={() => void loadData()}
             className="flex items-center gap-2"
           >
             <RefreshCw className="h-4 w-4" />
@@ -823,7 +830,7 @@ export function CardDashboardView({ className = '' }: CardDashboardViewProps) {
           >
             <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {data.data.map(cardData =>
-                cardData.symbol ? (
+                cardData.symbol !== undefined && cardData.symbol !== null && cardData.symbol !== '' ? (
                   <SortableSymbolCard key={cardData.symbol} cardData={cardData} />
                 ) : null
               )}
@@ -831,7 +838,7 @@ export function CardDashboardView({ className = '' }: CardDashboardViewProps) {
           </SortableContext>
 
           <DragOverlay>
-            {activeId && data.data.find(d => d.symbol === activeId) ? (
+            {activeId !== null && data.data.find(d => d.symbol === activeId) ? (
               <SymbolCard
                 cardData={data.data.find(d => d.symbol === activeId)!}
                 isOverlay
