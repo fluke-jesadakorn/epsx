@@ -14,7 +14,6 @@ export default async function ServerFilters({ currentParams }: ServerFiltersProp
 
     // Minimal fallback if TradingView API returns empty data
     if (!filterOptions.countries.length && !filterOptions.sectors.length) {
-      console.warn('⚠️ TradingView API returned empty filter options, using minimal fallback');
       filterOptions = {
         countries: [{ value: 'america', label: 'United States' }],
         sectors: ['Technology', 'Financial'],
@@ -22,9 +21,7 @@ export default async function ServerFilters({ currentParams }: ServerFiltersProp
         stock_types: ['common'],
       };
     }
-  } catch (error) {
-    console.error('❌ TradingView filter API completely failed, using minimal fallback:', error);
-
+  } catch (_error) {
     // Minimal emergency fallback
     filterOptions = {
       countries: [{ value: 'america', label: 'United States' }],

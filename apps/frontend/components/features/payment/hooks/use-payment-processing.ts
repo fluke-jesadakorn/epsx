@@ -11,8 +11,7 @@ export function usePaymentProcessing() {
     try {
       await new Promise(resolve => setTimeout(resolve, 2000));
       setCurrentStep('confirmation');
-    } catch (error) {
-      console.error('Payment failed:', error);
+    } catch (_error) {
       alert('Payment failed. Please try again.');
     } finally {
       setIsProcessing(false);
@@ -21,13 +20,11 @@ export function usePaymentProcessing() {
 
   const handleMetaMaskSuccess = async (txHash: string, setCurrentStep: (step: PaymentStep) => void) => {
     setTransactionHash(txHash);
-    console.log('✅ Payment confirmed by backend:', txHash);
-    console.log('🔄 Refreshing user session...');
     setCurrentStep('confirmation');
   };
 
-  const handleMetaMaskError = (error: string) => {
-    console.error('MetaMask payment error:', error);
+  const handleMetaMaskError = (_error: string) => {
+    // MetaMask error handled by payment system
   };
 
   return {

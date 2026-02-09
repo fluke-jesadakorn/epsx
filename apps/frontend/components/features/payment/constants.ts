@@ -88,7 +88,6 @@ export const fetchPlans = async (): Promise<PaymentPackage[]> => {
     const result = await getPublicPlansAction();
 
     if (!result.success || !result.data || !Array.isArray(result.data)) {
-      console.error('[OneClickPayment] Invalid response format', result);
       throw new Error(result.message || 'Invalid API response format');
     }
 
@@ -105,13 +104,6 @@ export const fetchPlans = async (): Promise<PaymentPackage[]> => {
       }
 
       if (isNaN(currentPrice) || currentPrice < 0) {
-        console.warn('⚠️ Invalid current_price, trying effective_price as fallback:', {
-          plan_id: plan.id,
-          plan_name: plan.name,
-          current_price: plan.current_price,
-          effective_price: plan.effective_price
-        });
-
         if (typeof plan.effective_price === 'number' && plan.effective_price >= 0) {
           currentPrice = plan.effective_price;
         } else if (typeof plan.effective_price === 'string') {
@@ -123,14 +115,6 @@ export const fetchPlans = async (): Promise<PaymentPackage[]> => {
       }
 
       if (isNaN(currentPrice) || currentPrice < 0) {
-        console.error('❌ CRITICAL: Plan has invalid price after all fallbacks:', {
-          plan_id: plan.id,
-          plan_name: plan.name,
-          plan_type: plan.plan_type,
-          current_price: plan.current_price,
-          effective_price: plan.effective_price,
-          parsed_current: currentPrice
-        });
         currentPrice = 0;
       }
 
@@ -161,7 +145,6 @@ export const fetchPlans = async (): Promise<PaymentPackage[]> => {
       };
     });
   } catch (error) {
-    console.error('[OneClickPayment] Error fetching plans:', error);
     throw error;
   }
 };

@@ -57,7 +57,6 @@ export function usePlanAccess(): UsePlanAccessResult {
                 setPlanAccess(DEFAULT_FREE_TIER);
             }
         } catch (err) {
-            console.error('Failed to fetch plan access:', err);
             // UnifiedApiClient handles 401 refresh automatically via proxy
             // Just set default free tier on any error
             setError(err instanceof Error ? err.message : 'Failed to fetch plan');
