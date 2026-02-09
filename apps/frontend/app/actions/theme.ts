@@ -16,8 +16,8 @@ export async function getThemeSettings(): Promise<{
 }> {
   const cookieStore = await cookies();
 
-  const variant = (cookieStore.get(COOKIE_NAMES.THEME)?.value as ThemeVariant | undefined) || 'default';
-  const mode = (cookieStore.get(COOKIE_NAMES.THEME_MODE)?.value as ThemeMode | undefined) || 'system';
+  const variant = (cookieStore.get(COOKIE_NAMES.THEME)?.value as ThemeVariant | undefined) ?? 'default';
+  const mode = (cookieStore.get(COOKIE_NAMES.THEME_MODE)?.value as ThemeMode | undefined) ?? 'system';
   
   // Determine if dark mode is active
   let isDarkMode = false;

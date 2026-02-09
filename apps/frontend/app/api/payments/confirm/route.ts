@@ -17,6 +17,7 @@ interface PaymentConfirmRequest {
 // Note: Blockchain validation is now handled by the backend API
 // Frontend only handles authentication and API communication
 
+// eslint-disable-next-line complexity
 export async function POST(req: NextRequest) {
     try {
         // 1. Authenticate user using Web3 cookies
@@ -24,7 +25,7 @@ export async function POST(req: NextRequest) {
         const userCookie = cookieStore.get(COOKIES.user);
         const accessCookie = cookieStore.get(COOKIES.access_token);
 
-        if (!userCookie?.value || !accessCookie?.value) {
+        if ((userCookie?.value === null || userCookie?.value === undefined) || (accessCookie?.value === null || accessCookie?.value === undefined)) {
             return NextResponse.json(
                 { success: false, message: 'Authentication required' },
                 { status: 401 }
@@ -41,7 +42,7 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        if (!user?.wallet_address) {
+        if (user?.wallet_address === null || user?.wallet_address === undefined || typeof user?.wallet_address !== 'string') {
             return NextResponse.json(
                 { success: false, message: 'Invalid user session: missing wallet' },
                 { status: 401 }

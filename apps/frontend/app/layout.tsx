@@ -15,8 +15,11 @@ import './globals.css';
 
 import { SafeThemeScript } from '@/components/ui/safe-theme-script';
 // Verify polyfills are active for debugging (both for server and client module load)
-if (typeof window !== 'undefined' && (Math.pow as any).__isPolyfilled) {
-  // Polyfills verified active
+if (typeof window !== 'undefined') {
+  const mathPowAny = Math.pow as unknown as Record<string, unknown>;
+  if (mathPowAny.__isPolyfilled === true) {
+    // Polyfills verified active
+  }
 }
 
 // Initialize runtime environment validation
@@ -85,7 +88,7 @@ export default async function RootLayout({
     // Cookie value might be URL-encoded (e.g., '%7B%22stat...' instead of raw JSON)
     // Try decoding the cookie string first
     try {
-      const decodedCookie = cookie ? decodeURIComponent(cookie) : null;
+      const decodedCookie = cookie !== null && cookie !== undefined ? decodeURIComponent(cookie) : null;
       initialState = cookieToInitialState(getServerConfig(), decodedCookie);
     } catch {
       // If all parsing fails, use undefined (fresh state)
