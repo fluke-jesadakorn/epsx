@@ -34,7 +34,17 @@ export function UsageMonitor({ currentUser: _currentUser }: UsageMonitorProps) {
   const isLoading = isLoadingKeys || isLoadingStats || isLoadingHistory || isLoadingEndpoints;
 
   // Process API Keys
-  const apiKeys: KeyUsageSummary[] = (keysRes?.success && keysRes.data) ? (keysRes.data as any).api_keys?.map((k: any) => ({
+  interface KeyData {
+    id: string;
+    name: string;
+    usage_count?: number;
+    is_active: boolean;
+    created_at?: string;
+  }
+  interface KeysResponse {
+    api_keys?: KeyData[];
+  }
+  const apiKeys: KeyUsageSummary[] = (keysRes?.success && keysRes.data) ? (keysRes.data as KeysResponse).api_keys?.map((k: KeyData) => ({
     id: k.id,
     name: k.name,
     total_requests: k.usage_count ?? 0,

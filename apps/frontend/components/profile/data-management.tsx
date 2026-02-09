@@ -64,7 +64,8 @@ export function DataManagement({ user }: DataManagementProps) {
 
       toast.success('Data exported successfully');
 
-    } catch (error: any) {
+    } catch (err: unknown) {
+      const error = err as Record<string, unknown>;
       // Error logged silently
       toast.error(error.message ?? 'Failed to export data');
     } finally {
@@ -99,7 +100,8 @@ export function DataManagement({ user }: DataManagementProps) {
         window.location.href = '/api/auth/logout';
       }, 2000);
 
-    } catch (error: any) {
+    } catch (err: unknown) {
+      const error = err as Record<string, unknown>;
       // Error logged silently
       toast.error(error.message ?? 'Failed to delete account');
       setDeletionState(prev => ({ ...prev, isDeleting: false }));

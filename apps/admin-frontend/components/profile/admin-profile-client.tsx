@@ -21,11 +21,12 @@ interface AdminProfileClientProps {
  * @param root0
  * @param root0.user
  */
+// eslint-disable-next-line max-lines-per-function
 export function AdminProfileClient({ user }: AdminProfileClientProps) {
   const [activeTab, setActiveTab] = useState('account');
 
   const formatDate = (timestamp?: number) => {
-    if (!timestamp) { return 'Not available'; }
+    if (timestamp === undefined || timestamp === 0) { return 'Not available'; }
     return new Date(timestamp * 1000).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'long',
@@ -36,7 +37,7 @@ export function AdminProfileClient({ user }: AdminProfileClientProps) {
   };
 
   const getAdminLevel = () => {
-    const adminPermissions = user.permissions?.filter(p => p.startsWith('admin:')) ?? [];
+    const adminPermissions = user.permissions.filter(p => p.startsWith('admin:'));
     if (adminPermissions.length >= 10) { return 'Super Admin'; }
     if (adminPermissions.length >= 5) { return 'Admin'; }
     return 'Limited Admin';
@@ -83,7 +84,7 @@ export function AdminProfileClient({ user }: AdminProfileClientProps) {
               <div className="space-y-4">
                 <div className="text-center">
                   <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
-                    {user.permissions?.filter(p => p.startsWith('admin:')).length ?? 0}
+                    {user.permissions.filter(p => p.startsWith('admin:')).length}
                   </div>
                   <div className="text-sm text-slate-600 dark:text-slate-400">
                     Admin Permissions
@@ -95,7 +96,7 @@ export function AdminProfileClient({ user }: AdminProfileClientProps) {
                     <div className="flex justify-between">
                       <span className="text-slate-600 dark:text-slate-400">Total Permissions:</span>
                       <span className="font-medium text-slate-900 dark:text-slate-100">
-                        {user.permissions?.length ?? 0}
+                        {user.permissions.length}
                       </span>
                     </div>
                     <div className="flex justify-between">
@@ -106,11 +107,11 @@ export function AdminProfileClient({ user }: AdminProfileClientProps) {
                     </div>
                     <div className="flex justify-between">
                       <span className="text-slate-600 dark:text-slate-400">Status:</span>
-                      <Badge variant={user.verified ? "default" : "secondary"}>
-                        {user.verified ? 'Verified' : 'Unverified'}
+                      <Badge variant={user.verified === true ? "default" : "secondary"}>
+                        {user.verified === true ? 'Verified' : 'Unverified'}
                       </Badge>
                     </div>
-                    {user.permission_last_updated && (
+                    {user.permission_last_updated !== undefined && user.permission_last_updated !== 0 && (
                       <div className="text-xs text-slate-500 dark:text-slate-500 pt-2">
                         Last updated: {formatDate(user.permission_last_updated)}
                       </div>
@@ -220,7 +221,7 @@ export function AdminProfileClient({ user }: AdminProfileClientProps) {
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t border-slate-200 dark:border-slate-700">
                       <div className="text-center p-4 bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 rounded-lg">
                         <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
-                          {user.permissions?.filter(p => p.startsWith('admin:')).length ?? 0}
+                          {user.permissions.filter(p => p.startsWith('admin:')).length}
                         </div>
                         <div className="text-sm text-purple-700 dark:text-purple-300">
                           Admin Permissions
@@ -228,7 +229,7 @@ export function AdminProfileClient({ user }: AdminProfileClientProps) {
                       </div>
                       <div className="text-center p-4 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-lg">
                         <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                          {user.permissions?.filter(p => p.includes(':manage') ?? p.includes(':admin')).length ?? 0}
+                          {user.permissions.filter(p => p.includes(':manage') || p.includes(':admin')).length}
                         </div>
                         <div className="text-sm text-blue-700 dark:text-blue-300">
                           Management Rights
@@ -236,7 +237,7 @@ export function AdminProfileClient({ user }: AdminProfileClientProps) {
                       </div>
                       <div className="text-center p-4 bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 rounded-lg">
                         <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-                          {user.permissions?.length ?? 0}
+                          {user.permissions.length}
                         </div>
                         <div className="text-sm text-green-700 dark:text-green-300">
                           Total Permissions
