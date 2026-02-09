@@ -79,6 +79,14 @@ interface SymbolCardData {
   progress_percentage?: number;          // 0-100
 }
 
+interface CardMetadata {
+  available_countries?: string[];
+  available_sectors?: string[];
+  request_timestamp?: string;
+  data_source?: string;
+  query_time?: number;
+}
+
 interface CardDashboardResponse {
   success: boolean;
   data: SymbolCardData[];
@@ -229,12 +237,12 @@ export function CardDashboardView({ className = '' }: CardDashboardViewProps) {
             hasPrev: response.pagination.page > 1
           },
           metadata: {
-            available_countries: (response.metadata as any)?.available_countries ?? [],
-            available_sectors: (response.metadata as any)?.available_sectors ?? [],
-            request_timestamp: (response.metadata as any)?.request_timestamp ?? new Date().toISOString(),
-            data_source: (response.metadata as any)?.data_source ?? 'analytics-api'
+            available_countries: response.metadata?.available_countries ?? [],
+            available_sectors: response.metadata?.available_sectors ?? [],
+            request_timestamp: response.metadata?.request_timestamp ?? new Date().toISOString(),
+            data_source: response.metadata?.data_source ?? 'analytics-api'
           },
-          processing_time_ms: (response.metadata as any)?.query_time ?? 0
+          processing_time_ms: response.metadata?.query_time ?? 0
         };
         setData(transformedData);
       }

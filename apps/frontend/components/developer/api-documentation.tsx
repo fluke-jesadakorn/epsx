@@ -319,8 +319,8 @@ curl -X GET "${baseUrl}/api/developer-portal/my-keys" \\
       {/* Endpoints */}
       <div className="space-y-4">
         {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition */}
-        {endpoints[selectedSection]?.map((endpoint, idx) => (
-          <Card key={idx} className="overflow-hidden">
+        {endpoints[selectedSection]?.map((endpoint) => (
+          <Card key={endpoint.endpoint} className="overflow-hidden">
             <CardHeader className="bg-gray-50 dark:bg-gray-800/50">
               <div className="flex flex-wrap items-center gap-3">
                 <Badge className={`font-mono font-bold ${getMethodColor(endpoint.method)}`}>
@@ -351,8 +351,8 @@ curl -X GET "${baseUrl}/api/developer-portal/my-keys" \\
                         </tr>
                       </thead>
                       <tbody>
-                        {endpoint.parameters.map((param, paramIdx) => (
-                          <tr key={paramIdx} className="border-b dark:border-gray-800">
+                        {endpoint.parameters.map((param) => (
+                          <tr key={param.name} className="border-b dark:border-gray-800">
                             <td className="py-2 px-3">
                               <code className="bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded text-xs">
                                 {param.name}

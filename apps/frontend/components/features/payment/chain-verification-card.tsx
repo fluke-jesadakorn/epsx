@@ -28,6 +28,22 @@ interface NetworkConfig {
 }
 
 /**
+ * Error with code property from wallet/RPC
+ */
+interface WalletError extends Error {
+    code?: number;
+    [key: string]: unknown;
+}
+
+/**
+ * Ethereum provider interface for wallet_addEthereumChain
+ */
+interface EthereumProvider {
+    request(args: { method: string; params: unknown[] }): Promise<unknown>;
+    [key: string]: unknown;
+}
+
+/**
  * Get the local Anvil RPC URL based on current browser hostname.
  * Supports Tailscale IPs (100.x.x.x) and other local network IPs.
  */
@@ -125,7 +141,7 @@ export function ChainVerificationCard({
     // Handle switch errors
     useEffect(() => {
         if (switchError) {
-            const error = switchError as any;
+            const error = switchError as WalletError;
             if (error?.code === 4902) {
                 setErrorMessage('Network not found in wallet. Click "Add Network" to add it first.');
             } else if (error?.code === -32002) {
@@ -155,16 +171,17 @@ export function ChainVerificationCard({
         setErrorMessage(null);
 
         try {
-            const provider = await connector.getProvider();
-            await (provider as any).request({
+            const provider = await connector.getProvider() as EthereumProvider;
+            await provider.request({
                 method: 'wallet_addEthereumChain',
                 params: [config],
             });
       // Message logged silently
             // After adding, try to switch to it
             await switchChain({ chainId: chain.id });
-        } catch (error: any) {
+        } catch (err: unknown) {
       // Error logged silently
+            const error = err as WalletError;
             if (error?.code === 4001) {
                 setErrorMessage('User rejected adding the network.');
             } else {
@@ -183,9 +200,10 @@ export function ChainVerificationCard({
 
         try {
             await switchChain({ chainId: chain.id });
-        } catch (error: any) {
+        } catch (err: unknown) {
       // Error logged silently
             // If network not found, suggest adding it
+            const error = err as WalletError;
             if (error?.code === 4902) {
                 setErrorMessage('Network not found. Click "Add Network" button below.');
             }

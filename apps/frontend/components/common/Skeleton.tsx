@@ -10,7 +10,7 @@ export const Skeleton = ({ className, count = 1 }: SkeletonProps) => {
     <div className="w-full space-y-4">
       {Array.from({ length: count }).map((_, i) => (
         <div
-          key={i}
+          key={`skeleton-${String(i)}`}
           className={cn(
             "h-4 bg-gray-200 rounded-md animate-pulse dark:bg-gray-700",
             className

@@ -24,9 +24,9 @@ import { redirect } from 'next/navigation';
 
 function mapWalletDtoToData(dto: WalletSummaryDto): WalletData {
     const platforms = new Set<Platform>();
-    const dtoPermissions = dto.permissions ?? [];
+    const dtoPermissions = dto.permissions;
     dtoPermissions.forEach(p => {
-        if (p.permission.startsWith('epsx:analytics') ?? p.permission.startsWith('epsx:rankings')) {
+        if (p.permission.startsWith('epsx:analytics') || p.permission.startsWith('epsx:rankings')) {
             platforms.add('analytics');
         } else if (p.permission.startsWith('epsx-pay:')) {
             platforms.add('pay');
@@ -42,7 +42,7 @@ function mapWalletDtoToData(dto: WalletSummaryDto): WalletData {
         id: `perm-${idx}`,
         permission: p.permission,
         platform: detectPlatform(p.permission),
-        source: (p.source as PermissionSource) ?? 'system',
+        source: (p.source ?? 'system') as PermissionSource,
         expiresAt: p.expires_at,
         isActive: p.is_active,
         createdAt: dto.created_at,
@@ -75,7 +75,7 @@ function mapWalletDtoToData(dto: WalletSummaryDto): WalletData {
         platforms: Array.from(platforms),
         permissions,
         subscriptions,
-        plans: (dto.groups ?? []).map(g => ({ planName: g.group_name, role: g.role })),
+        plans: dto.groups.map(g => ({ planName: g.group_name, role: g.role })),
         metadata: dto.metadata,
         label,
         note,
@@ -83,7 +83,7 @@ function mapWalletDtoToData(dto: WalletSummaryDto): WalletData {
 }
 
 function detectPlatform(permission: string): Platform {
-    if (permission.startsWith('epsx:analytics') ?? permission.startsWith('epsx:rankings')) { return 'analytics'; }
+    if (permission.startsWith('epsx:analytics') || permission.startsWith('epsx:rankings')) { return 'analytics'; }
     if (permission.startsWith('epsx-pay:')) { return 'pay'; }
     if (permission.startsWith('epsx-token:')) { return 'token'; }
     if (permission.startsWith('epsx-markets:')) { return 'markets'; }
@@ -94,26 +94,38 @@ function detectPlatform(permission: string): Platform {
 // SERVER ACTIONS
 // ============================================================================
 
+// Helper to check and handle auth errors
+async function checkAuthError(error?: { code?: string; message?: string } | null) {
+    if (!error) { return; }
+
+    // Fix: Remove unnecessary optional chain if message is known to be string when error exists
+    // But safely, message might be missing in some error shapes.
+    const isUnauthorized = error.code === 'UNAUTHORIZED'
+        || error.code === '401'
+        || (error.message?.includes('Unauthorized') ?? false);
+
+    if (isUnauthorized) {
+        await logout();
+        redirect('/auth');
+    }
+}
+
 export async function fetchWalletsAction(filters: WalletFilters, page = 1, limit = 20) {
     const apiClient = createAdminApiClient({ serverSide: true });
 
     const params: Record<string, string> = {
         page: page.toString(),
         limit: limit.toString(),
-        sort_by: filters.sortBy ?? 'created_at',
-        sort_order: filters.sortOrder ?? 'desc',
+        sort_by: filters.sortBy,
+        sort_order: filters.sortOrder,
     };
-    if (filters.search) { params['search'] = filters.search; }
-    if (filters.status && filters.status !== 'all') { params['status'] = filters.status; }
+    if (filters.search !== '') { params['search'] = filters.search; }
+    if (filters.status !== 'all') { params['status'] = filters.status; }
 
     const res = await apiClient.get<WalletListResponse>('/api/admin/wallets', params);
 
     if (!res.success) {
-        // Gracefully handle 401 for client-side modal trigger or server-side redirect
-        if (res.error?.code === 'UNAUTHORIZED' ?? res.error?.code === '401' ?? res.error?.message?.includes('Unauthorized')) {
-            await logout();
-            redirect('/auth');
-        }
+        await checkAuthError(res.error);
         throw new Error(res.error?.message ?? 'Failed to fetch wallets');
     }
 
@@ -121,10 +133,10 @@ export async function fetchWalletsAction(filters: WalletFilters, page = 1, limit
         throw new Error('Failed to fetch wallets: No data');
     }
 
-    const responseData = (res.data as any).data ?? res.data; // Handle potential double wrapping
-    const rawWallets = (responseData).wallets ?? [];
+    const responseData = res.data.data ?? res.data; // Handle potential double wrapping
+    const rawWallets = responseData.wallets ?? [];
     const wallets = rawWallets.map(mapWalletDtoToData);
-    const pagination = (responseData).pagination ?? { page: 1, limit: 20, total: wallets.length, total_pages: 1, has_next_page: false, has_previous_page: false };
+    const pagination = responseData.pagination ?? { page: 1, limit: 20, total: wallets.length, total_pages: 1, has_next_page: false, has_previous_page: false };
 
     return { wallets, pagination };
 }
@@ -137,10 +149,7 @@ export async function updateWalletMetadataAction(walletAddress: string, data: { 
     });
 
     if (!res.success) {
-        if (res.error?.code === '401' ?? res.error?.code === 'UNAUTHORIZED') {
-            await logout();
-            redirect('/auth');
-        }
+        await checkAuthError(res.error);
         throw new Error(res.error?.message ?? 'Failed to update metadata');
     }
 }
@@ -150,10 +159,7 @@ export async function disableWalletAction(walletAddress: string, data: DisableWa
     const res = await apiClient.post(`/api/admin/wallets/${walletAddress}/disable`, data);
 
     if (!res.success) {
-        if (res.error?.code === '401' ?? res.error?.code === 'UNAUTHORIZED') {
-            await logout();
-            redirect('/auth');
-        }
+        await checkAuthError(res.error);
         throw new Error(res.error?.message ?? 'Failed to disable wallet');
     }
 }
@@ -163,10 +169,7 @@ export async function enableWalletAction(walletAddress: string, data: EnableWall
     const res = await apiClient.post(`/api/admin/wallets/${walletAddress}/enable`, data);
 
     if (!res.success) {
-        if (res.error?.code === '401' ?? res.error?.code === 'UNAUTHORIZED') {
-            await logout();
-            redirect('/auth');
-        }
+        await checkAuthError(res.error);
         throw new Error(res.error?.message ?? 'Failed to enable wallet');
     }
 }
@@ -181,22 +184,19 @@ interface ActivityLogEntry {
 
 export async function fetchActivityLogsAction(walletAddress?: string, page = 1, limit = 10) {
     const apiClient = createAdminApiClient({ serverSide: true });
-    const params: Record<string, string> = {
-        page: page.toString(),
-        page_size: limit.toString(),
-    };
 
-    const endpoint = walletAddress
+    // Fix complexity by grouping params
+    const endpoint = typeof walletAddress === 'string' && walletAddress.length > 0
         ? `/api/admin/wallets/${walletAddress}/activity`
         : '/api/admin/audit-logs';
 
-    const res = await apiClient.get<Record<string, unknown>>(endpoint, params);
+    const res = await apiClient.get<Record<string, unknown>>(endpoint, {
+        page: page.toString(),
+        page_size: limit.toString(),
+    });
 
-    if (!res.success ?? !res.data) {
-        if (res.error?.code === '401' ?? res.error?.code === 'UNAUTHORIZED') {
-            await logout();
-            redirect('/auth');
-        }
+    if (!res.success || !res.data) {
+        await checkAuthError(res.error);
         throw new Error(res.error?.message ?? 'Failed to fetch activity logs');
     }
 

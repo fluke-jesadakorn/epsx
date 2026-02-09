@@ -139,11 +139,12 @@ export class Logger {
 
     // In development, handle BigInt for safe logging but keep more details
     if (data instanceof Error) {
+      const errorObj = data as Record<string, unknown>;
       return {
         message: this.sanitizeMessage(data.message),
         name: data.name,
         stack: data.stack,
-        ...((data as any).cause ? { cause: this.sanitizeData((data as any).cause, seen) } : {})
+        ...(errorObj.cause ? { cause: this.sanitizeData(errorObj.cause, seen) } : {})
       };
     }
 

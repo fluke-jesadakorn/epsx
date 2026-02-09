@@ -87,10 +87,10 @@ export function FinancialCard({
         <div className="absolute inset-0 rounded-full bg-gradient-to-br from-blue-200/70 via-purple-100/60 to-indigo-100/50 dark:from-blue-900/40 dark:via-purple-900/30 dark:to-indigo-900/30 blur-[2px] z-[-1]" />
         <AnimatedBadge rank={index + 1} isHovered={isHovered}>
           <span className="flex items-center gap-1 text-xs sm:text-sm">
-            #{!isNaN(index) ? index + 1 : (data as any)?.rank ?? '?'}
-            {(index === 0 || (data as any)?.rank === 1) && <span className="text-xs">🏆</span>}
-            {(index === 1 || (data as any)?.rank === 2) && <span className="text-xs">🥈</span>}
-            {(index === 2 || (data as any)?.rank === 3) && <span className="text-xs">🥉</span>}
+            #{!isNaN(index) ? index + 1 : data?.rank ?? '?'}
+            {(index === 0 || data?.rank === 1) && <span className="text-xs">🏆</span>}
+            {(index === 1 || data?.rank === 2) && <span className="text-xs">🥈</span>}
+            {(index === 2 || data?.rank === 3) && <span className="text-xs">🥉</span>}
           </span>
         </AnimatedBadge>
       </div>

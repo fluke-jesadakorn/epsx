@@ -53,7 +53,7 @@ export default function NotificationsClient({ initialData, focusId }: Notificati
   const [focusedId, _setFocusedId] = useState<string | null>(focusId);
 
   useEffect(() => {
-    fetchNotifications();
+    void fetchNotifications();
   }, [filter, typeFilter, priorityFilter, page]);
 
   useEffect(() => {
@@ -69,7 +69,7 @@ export default function NotificationsClient({ initialData, focusId }: Notificati
         }
 
         if (!targetNotification.read) {
-          markAsRead(focusId);
+          void markAsRead(focusId);
         }
       }
     }

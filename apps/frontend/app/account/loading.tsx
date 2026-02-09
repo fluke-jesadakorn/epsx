@@ -34,7 +34,7 @@ export default function SettingsLoading() {
           <Skeleton className="h-6 w-[180px]" />
           <div className="space-y-4">
             {[...Array(4)].map((_, i) => (
-              <div key={i} className="flex justify-between items-center">
+              <div key={`pref-${String(i)}`} className="flex justify-between items-center">
                 <div className="space-y-1">
                   <Skeleton className="h-5 w-[160px]" />
                   <Skeleton className="h-4 w-[240px]" />

@@ -9,6 +9,15 @@ import { useAuth } from '@/lib/auth';
 import type { ComponentType} from 'react';
 import { forwardRef } from 'react';
 
+interface PaymentUser {
+  permissions?: string[] | Record<string, unknown>;
+  [key: string]: unknown;
+}
+
+interface PaymentAccessUIProps {
+  user?: PaymentUser;
+}
+
 // Hook for payment auth logic
 export function usePaymentAuth() {
   const { user, isLoading } = useAuth()
@@ -62,7 +71,7 @@ export function PaymentAuthRequiredUI() {
 }
 
 // Payment access required UI
-export function PaymentAccessRequiredUI({ user }: { user?: any }) {
+export function PaymentAccessRequiredUI({ user }: PaymentAccessUIProps) {
   return (
     <div className="flex items-center justify-center min-h-[400px]">
       <div className="text-center max-w-md mx-auto p-6">
@@ -101,7 +110,7 @@ export function PaymentAccessRequiredUI({ user }: { user?: any }) {
 export function withPaymentAuth<P extends object>(
   WrappedComponent: ComponentType<P>
 ) {
-  const PaymentAuthComponent = forwardRef((props: any, ref: React.Ref<any>) => {
+  const PaymentAuthComponent = forwardRef<unknown, P>((props: P, ref: React.Ref<unknown>) => {
     const { isLoading, isAuthenticated, hasPaymentAccess, user } = usePaymentAuth()
 
     if (isLoading) {return <PaymentAuthLoadingUI />}

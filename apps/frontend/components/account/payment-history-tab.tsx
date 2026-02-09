@@ -132,7 +132,7 @@ export function PaymentHistoryTab({ initialData }: PaymentHistoryTabProps) {
         const isInitialLoad = page === initialData?.pagination.page && payments === initialData.payments;
 
         if (!isInitialLoad) {
-            fetchPaymentHistory();
+            void fetchPaymentHistory();
         }
     }, [page, base]);
 
@@ -142,7 +142,7 @@ export function PaymentHistoryTab({ initialData }: PaymentHistoryTabProps) {
         if (!hasPending) {return;}
 
         const intervalId = setInterval(() => {
-            fetchPaymentHistory(true);
+            void fetchPaymentHistory(true);
         }, 5000);
 
         return () => clearInterval(intervalId);
@@ -215,7 +215,7 @@ export function PaymentHistoryTab({ initialData }: PaymentHistoryTabProps) {
                     </div>
                 </div>
                 <Button
-                    onClick={() => fetchPaymentHistory()}
+                    onClick={() => void fetchPaymentHistory()}
                     variant="ghost"
                     size="icon"
                     className="rounded-full hover:bg-white dark:hover:bg-gray-800 shadow-sm transition-all"
@@ -230,7 +230,7 @@ export function PaymentHistoryTab({ initialData }: PaymentHistoryTabProps) {
                     <XCircle className="h-10 w-10 text-red-400 mx-auto mb-4" />
                     <h3 className="text-lg font-bold text-red-800 dark:text-red-200">History Load Failed</h3>
                     <p className="text-sm text-red-700 dark:text-red-300 mt-2">{error}</p>
-                    <Button onClick={() => fetchPaymentHistory()} className="mt-4 bg-red-600 hover:bg-red-700">Try Again</Button>
+                    <Button onClick={() => void fetchPaymentHistory()} className="mt-4 bg-red-600 hover:bg-red-700">Try Again</Button>
                 </div>
             ) : loading && payments.length === 0 ? (
                 <div className="grid gap-4">

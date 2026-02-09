@@ -42,7 +42,7 @@ export function usePaymentState(preselectedPackage?: string) {
       }
     };
 
-    loadPlans();
+    void loadPlans();
   }, [preselectedPackage]);
 
   const selectedPkg = packages.find(pkg => pkg.id === selectedPackage) ?? null;

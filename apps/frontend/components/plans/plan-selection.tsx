@@ -9,9 +9,13 @@ import { AlertCircle, Star } from 'lucide-react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
 
+interface User {
+  [key: string]: unknown;
+}
+
 interface PlanSelectionProps {
-  currentUser?: any
-  className?: string
+  currentUser?: User;
+  className?: string;
 }
 
 export function PlanSelection({ currentUser: _currentUser, className }: PlanSelectionProps) {
@@ -19,7 +23,7 @@ export function PlanSelection({ currentUser: _currentUser, className }: PlanSele
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [affiliateCode, setAffiliateCode] = useState<string | null>(null)
-  const [affiliateInfo, _setAffiliateInfo] = useState<any>(null)
+  const [affiliateInfo, _setAffiliateInfo] = useState<Record<string, unknown> | null>(null)
 
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -54,7 +58,7 @@ export function PlanSelection({ currentUser: _currentUser, className }: PlanSele
         setLoading(true)
         const response = await getPublicPlansAction({
           affiliate_code: affiliateCode ?? undefined
-        } as any)
+        })
 
         if (response.success && response.data && Array.isArray(response.data)) {
           const cards = response.data

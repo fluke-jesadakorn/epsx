@@ -81,7 +81,7 @@ export interface Web3AssignmentRule {
 /**
  * Backend assignment DTO
  */
-interface AssignmentDto {
+export interface AssignmentDto {
   id: string;
   wallet_address: string;
   plan_id: string;
@@ -217,23 +217,23 @@ export const planMgmt = {
   },
   getPlan: async (planId: string) => {
     const res = await adminApiClient.get<Plan>(`${API_ROUTES.PERMISSIONS.PLANS}/${planId}`);
-    if (!res.success) {throw new Error(res.error?.message);}
-    if (!res.data) {throw new Error('Plan data not found');}
+    if (!res.success) { throw new Error(res.error?.message); }
+    if (!res.data) { throw new Error('Plan data not found'); }
     return res.data;
   },
   createPlan: async (data: CreatePlanRequest) => {
     const res = await adminApiClient.post<PermissionPlan>(API_ROUTES.PERMISSIONS.PLANS, data);
-    if (!res.success) {throw new Error(res.error?.message);}
+    if (!res.success) { throw new Error(res.error?.message); }
     return res.data;
   },
   updatePlan: async (planId: string, data: UpdatePlanRequest) => {
     const res = await adminApiClient.put<PermissionPlan>(`${API_ROUTES.PERMISSIONS.PLANS}/${planId}`, data);
-    if (!res.success) {throw new Error(res.error?.message);}
+    if (!res.success) { throw new Error(res.error?.message); }
     return res.data;
   },
   deletePlan: async (planId: string) => {
     const res = await adminApiClient.delete(`${API_ROUTES.PERMISSIONS.PLANS}/${planId}`);
-    if (!res.success) {throw new Error(res.error?.message);}
+    if (!res.success) { throw new Error(res.error?.message); }
   },
 
   // Permissions
@@ -258,7 +258,7 @@ export const planMgmt = {
       expires_at: data.expires_at,
       assignment_source: 'manual'
     });
-    if (!res.success) {throw new Error(res.error?.message);}
+    if (!res.success) { throw new Error(res.error?.message); }
   },
   removeUserFromPlan: async (userId: string, planId: string) => {
     // Need assignment ID... this is complex to restore fully without fetch.
@@ -274,8 +274,8 @@ export const planMgmt = {
   // Analytics and Monitoring
   getPlanAnalytics: async () => {
     const res = await adminApiClient.get<PlanAnalytics>(API_ROUTES.ADMIN.ANALYTICS_PERMISSIONS);
-    if (!res.success) {throw new Error(res.error?.message);}
-    if (!res.data) {throw new Error('Analytics data not found');}
+    if (!res.success) { throw new Error(res.error?.message); }
+    if (!res.data) { throw new Error('Analytics data not found'); }
     return res.data;
   },
   getExpiringMemberships: async (days = 7) => {

@@ -66,8 +66,8 @@ export function AccountClient({ initialPaymentHistory, accessOverviewSlot }: Acc
 
   // Load notification preferences and user info on component mount
   useEffect(() => {
-    loadNotificationPreferences();
-    loadUserInfo();
+    void loadNotificationPreferences();
+    void loadUserInfo();
   }, [base]);
 
   const loadUserInfo = async () => {

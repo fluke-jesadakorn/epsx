@@ -1,6 +1,7 @@
 'use server';
 
 import type {
+    AssignmentDto,
     CreatePlanRequest,
     PermissionPlan,
     UpdatePlanRequest,
@@ -28,27 +29,27 @@ import type {
 // HELPER FUNCTIONS
 // ============================================================================
 
-function mapAssignmentToMembership(assignment: Record<string, any>): UserPlanMembership {
+function mapAssignmentToMembership(assignment: AssignmentDto): UserPlanMembership {
     return {
-        id: assignment.id as string,
-        user_id: assignment.wallet_address as string,
-        plan_id: assignment.plan_id as string,
-        granted_by: (assignment.assigned_by as string | undefined) ?? 'system',
-        granted_at: assignment.assigned_at as string,
-        expires_at: (assignment.expires_at as string | undefined) ?? null,
-        is_active: assignment.is_active as boolean,
+        id: assignment.id,
+        user_id: assignment.wallet_address,
+        plan_id: assignment.plan_id,
+        granted_by: assignment.assigned_by ?? 'system',
+        granted_at: assignment.assigned_at,
+        expires_at: assignment.expires_at,
+        is_active: assignment.is_active,
         plan: {
-            id: assignment.plan_id as string,
-            name: assignment.plan_name as string,
-            slug: (assignment.plan_slug as string | undefined) ?? '',
-            description: (assignment.plan_description as string | undefined) ?? (assignment.plan_type as string | undefined) ?? '',
-            plan_type: (assignment.plan_type as string | undefined) ?? 'manual',
+            id: assignment.plan_id,
+            name: assignment.plan_name,
+            slug: assignment.plan_slug ?? '',
+            description: assignment.plan_description ?? assignment.plan_type ?? '',
+            plan_type: assignment.plan_type ?? 'manual',
             permissions: [],
             is_active: true,
-            created_at: assignment.assigned_at as string,
-            updated_at: assignment.assigned_at as string,
-            default_expiry_days: assignment.default_expiry_days as number | undefined,
-            priority_level: assignment.priority_level as number | undefined,
+            created_at: assignment.assigned_at,
+            updated_at: assignment.assigned_at,
+            default_expiry_days: assignment.default_expiry_days,
+            priority_level: assignment.priority_level,
         } as PermissionPlan
     };
 }
@@ -71,29 +72,29 @@ export async function getPlansAction(): Promise<PermissionPlan[]> {
 
 export async function getUserPlansAction(userId: string): Promise<UserPlanMembership[]> {
     const apiClient = createAdminApiClient({ serverSide: true });
-    const res = await apiClient.get<any>(API_ROUTES.ADMIN.PERMISSION_ASSIGNMENTS, {
+    const res = await apiClient.get<AssignmentDto[]>(API_ROUTES.ADMIN.PERMISSION_ASSIGNMENTS, {
         wallet_address: userId,
         is_active: true,
         limit: 100,
     });
-    return extractArrayOrEmpty<any>(res).map(mapAssignmentToMembership);
+    return extractArrayOrEmpty<AssignmentDto>(res).map(mapAssignmentToMembership);
 }
 
 export async function getPlanMembershipsAction(planId: string): Promise<UserPlanMembership[]> {
     const apiClient = createAdminApiClient({ serverSide: true });
-    const res = await apiClient.get<any>(API_ROUTES.ADMIN.PERMISSION_ASSIGNMENTS, {
+    const res = await apiClient.get<AssignmentDto[]>(API_ROUTES.ADMIN.PERMISSION_ASSIGNMENTS, {
         plan_id: planId,
         is_active: true,
         limit: 100,
     });
-    return extractArrayOrEmpty<any>(res).map(mapAssignmentToMembership);
+    return extractArrayOrEmpty<AssignmentDto>(res).map(mapAssignmentToMembership);
 }
 
 export async function getUserPermissionsAction(userId: string): Promise<string[]> {
     const apiClient = createAdminApiClient({ serverSide: true });
     const res = await apiClient.get<string[]>(`/api/auth/web3/plans/permissions/${userId}`);
     // If not found (404), return empty array
-    if (!res.success && (res.error as Record<string, any> | undefined)?.status === 404) { return []; }
+    if (!res.success && res.error?.code === '404') { return []; }
     return res.data ?? [];
 }
 
@@ -148,11 +149,11 @@ export async function updatePlanAction(planId: string, data: UpdatePlanRequest):
     // Also allow direct display_order passing (for drag and drop)
     const payload = {
         ...data,
-        display_order: (data as any).display_order ?? data.priority_level
+        display_order: data.display_order ?? data.priority_level
     };
 
     const res = await apiClient.put<PermissionPlan>(`${API_ROUTES.PERMISSIONS.PLANS}/${planId}`, payload);
-    if (!res.success ?? !res.data) {
+    if (!res.success || !res.data) {
         throw new Error(res.error?.message ?? 'Failed to update plan');
     }
     revalidatePath('/wallet-management/access/plans');
@@ -180,7 +181,7 @@ export async function createPlanAction(data: CreatePlanRequest): Promise<Permiss
     };
 
     const res = await apiClient.post<PermissionPlan>(API_ROUTES.PERMISSIONS.PLANS, backendRequest);
-    if (!res.success ?? !res.data) {
+    if (!res.success || !res.data) {
         throw new Error(res.error?.message ?? 'Failed to create plan');
     }
 
@@ -191,8 +192,8 @@ export async function createPlanAction(data: CreatePlanRequest): Promise<Permiss
 export async function getPlanAction(planId: string): Promise<PermissionPlan> {
     const apiClient = createAdminApiClient({ serverSide: true });
     const res = await apiClient.get<PermissionPlan>(`${API_ROUTES.PERMISSIONS.PLANS}/${planId}`);
-    if (!res.success) { throw new Error(res.error?.message ?? 'Failed to fetch plan'); }
-    return res.data!;
+    if (!res.success || !res.data) { throw new Error(res.error?.message ?? 'Failed to fetch plan'); }
+    return res.data;
 }
 
 export async function deletePlanAction(planId: string) {
@@ -203,7 +204,7 @@ export async function deletePlanAction(planId: string) {
 }
 
 function detectPlatform(permission: string): Platform {
-    if (permission.startsWith('epsx:analytics') ?? permission.startsWith('epsx:rankings')) { return 'analytics'; }
+    if (permission.startsWith('epsx:analytics') || permission.startsWith('epsx:rankings')) { return 'analytics'; }
     if (permission.startsWith('epsx-pay:')) { return 'pay'; }
     if (permission.startsWith('epsx-token:')) { return 'token'; }
     if (permission.startsWith('epsx-markets:')) { return 'markets'; }
@@ -212,9 +213,9 @@ function detectPlatform(permission: string): Platform {
 
 function mapWalletDtoToData(dto: WalletSummaryDto): WalletData {
     const platforms = new Set<Platform>();
-    const dtoPermissions = dto.permissions ?? [];
+    const dtoPermissions = dto.permissions;
     dtoPermissions.forEach(p => {
-        if (p.permission.startsWith('epsx:analytics') ?? p.permission.startsWith('epsx:rankings')) {
+        if (p.permission.startsWith('epsx:analytics') || p.permission.startsWith('epsx:rankings')) {
             platforms.add('analytics');
         } else if (p.permission.startsWith('epsx-pay:')) {
             platforms.add('pay');
@@ -230,7 +231,7 @@ function mapWalletDtoToData(dto: WalletSummaryDto): WalletData {
         id: `perm-${idx}`,
         permission: p.permission,
         platform: detectPlatform(p.permission),
-        source: (p.source as PermissionSource) ?? 'system',
+        source: (p.source ?? 'system') as PermissionSource,
         expiresAt: p.expires_at,
         isActive: p.is_active,
         createdAt: dto.created_at,
@@ -263,7 +264,7 @@ function mapWalletDtoToData(dto: WalletSummaryDto): WalletData {
         platforms: Array.from(platforms),
         permissions,
         subscriptions,
-        plans: (dto.groups ?? []).map(g => ({ planName: g.group_name, role: g.role })),
+        plans: dto.groups.map(g => ({ planName: g.group_name, role: g.role })),
         metadata: dto.metadata,
         label,
         note,
@@ -272,11 +273,24 @@ function mapWalletDtoToData(dto: WalletSummaryDto): WalletData {
 
 export async function fetchWalletDetailAction(walletAddress: string): Promise<WalletData> {
     const apiClient = createAdminApiClient({ serverSide: true });
-    const res = await apiClient.get<Record<string, any>>(`/api/admin/wallets/${walletAddress}`);
-    const responseData = extractData<{ wallet?: WalletSummaryDto } | WalletSummaryDto>(res);
-    const walletDto = (responseData as Record<string, any> | undefined)?.wallet ?? responseData;
-    if (!walletDto?.wallet_address) { throw new Error('Wallet not found'); }
-    return mapWalletDtoToData(walletDto as WalletSummaryDto);
+    // Define response union type
+    type WalletResponse = { wallet?: WalletSummaryDto } | WalletSummaryDto;
+
+    const res = await apiClient.get<WalletResponse>(`/api/admin/wallets/${walletAddress}`);
+    const data = extractData<WalletResponse>(res);
+
+    if (!data) { throw new Error('Wallet not found'); }
+
+    // Handle potential wrapping
+    if ('wallet_address' in data) {
+        return mapWalletDtoToData(data);
+    }
+
+    if ('wallet' in data && data.wallet) {
+        return mapWalletDtoToData(data.wallet);
+    }
+
+    throw new Error('Wallet not found');
 }
 
 export async function updateWalletMetadataAction(walletAddress: string, data: { label?: string | null; note?: string | null }): Promise<void> {

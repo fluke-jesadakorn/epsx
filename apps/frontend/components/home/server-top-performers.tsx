@@ -82,40 +82,45 @@ export default async function ServerTopPerformers({ className }: ServerTopPerfor
       page: 1,
       limit: 3,
       sort_by: 'growth_factor'
-    } as any);
+    });
 
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     if (result.data && Array.isArray(result.data)) {
-      data = (result.data as any[]).map((ranking: any, index: number) => {
-        const qData = ranking?.quarterly_performance ?? ranking?.quarterly_data ?? [];
+      data = (result.data as unknown[]).map((ranking: unknown, index: number) => {
+        const rankingObj = ranking as Record<string, unknown>;
+        const qData = Array.isArray(rankingObj?.quarterly_performance) ? rankingObj.quarterly_performance : Array.isArray(rankingObj?.quarterly_data) ? rankingObj.quarterly_data : [];
 
         return {
-          rank: ranking?.rank ?? ranking?.ranking_position ?? index + 1,
-          symbol: ranking?.symbol ?? '',
-          latest_date: qData[0]?.date ?? ranking?.latest_date ?? new Date().toISOString(),
-          value: ranking?.value ?? ranking?.price_current ?? 0,
-          active_status: ranking?.active_status ?? 'unknown',
-          quarterly_performance: qData.map((q: any) => ({
-            quarter: q?.quarter ?? '',
-            date: q?.date ?? '',
-            price: q?.price ?? 0,
-            eps: q?.eps ?? 0,
-            eps_growth: q?.eps_growth ?? 0,
-            price_growth: q?.price_growth ?? 0,
-          })),
-          next_quarter_estimate: ranking?.next_quarter_estimate ? {
-            quarter: ranking.next_quarter_estimate.quarter ?? '',
-            estimated_eps: ranking.next_quarter_estimate.estimated_eps ?? 0,
-            announcement_date: ranking.next_quarter_estimate.announcement_date ?? '',
-            announcement_timestamp: ranking.next_quarter_estimate.announcement_timestamp ?? 0,
-            days_until_announcement: ranking.next_quarter_estimate.days_until_announcement ?? 0,
-            confidence: ranking.next_quarter_estimate.confidence ?? 'Medium'
+          rank: typeof rankingObj?.rank === 'number' ? rankingObj.rank : typeof rankingObj?.ranking_position === 'number' ? rankingObj.ranking_position : index + 1,
+          symbol: typeof rankingObj?.symbol === 'string' ? rankingObj.symbol : '',
+          latest_date: typeof qData[0] === 'object' && qData[0] !== null && 'date' in qData[0] ? (qData[0] as Record<string, unknown>).date : typeof rankingObj?.latest_date === 'string' ? rankingObj.latest_date : new Date().toISOString(),
+          value: typeof rankingObj?.value === 'number' ? rankingObj.value : typeof rankingObj?.price_current === 'number' ? rankingObj.price_current : 0,
+          active_status: typeof rankingObj?.active_status === 'string' ? rankingObj.active_status : 'unknown',
+          quarterly_performance: (qData as unknown[]).map((q: unknown) => {
+            const qObj = q as Record<string, unknown>;
+            return {
+              quarter: typeof qObj?.quarter === 'string' ? qObj.quarter : '',
+              date: typeof qObj?.date === 'string' ? qObj.date : '',
+              price: typeof qObj?.price === 'number' ? qObj.price : 0,
+              eps: typeof qObj?.eps === 'number' ? qObj.eps : 0,
+              eps_growth: typeof qObj?.eps_growth === 'number' ? qObj.eps_growth : 0,
+              price_growth: typeof qObj?.price_growth === 'number' ? qObj.price_growth : 0,
+            };
+          }),
+          next_quarter_estimate: rankingObj?.next_quarter_estimate && typeof rankingObj.next_quarter_estimate === 'object' ? {
+            quarter: typeof (rankingObj.next_quarter_estimate as Record<string, unknown>).quarter === 'string' ? (rankingObj.next_quarter_estimate as Record<string, unknown>).quarter : '',
+            estimated_eps: typeof (rankingObj.next_quarter_estimate as Record<string, unknown>).estimated_eps === 'number' ? (rankingObj.next_quarter_estimate as Record<string, unknown>).estimated_eps : 0,
+            announcement_date: typeof (rankingObj.next_quarter_estimate as Record<string, unknown>).announcement_date === 'string' ? (rankingObj.next_quarter_estimate as Record<string, unknown>).announcement_date : '',
+            announcement_timestamp: typeof (rankingObj.next_quarter_estimate as Record<string, unknown>).announcement_timestamp === 'number' ? (rankingObj.next_quarter_estimate as Record<string, unknown>).announcement_timestamp : 0,
+            days_until_announcement: typeof (rankingObj.next_quarter_estimate as Record<string, unknown>).days_until_announcement === 'number' ? (rankingObj.next_quarter_estimate as Record<string, unknown>).days_until_announcement : 0,
+            confidence: typeof (rankingObj.next_quarter_estimate as Record<string, unknown>).confidence === 'string' ? (rankingObj.next_quarter_estimate as Record<string, unknown>).confidence : 'Medium'
           } : undefined,
           currency: 'USD'
         };
       });
     } else {
-      error = (result as any).message ?? 'No valid data received';
+      const resultObj = result as Record<string, unknown>;
+      error = typeof resultObj?.message === 'string' ? resultObj.message : 'No valid data received';
     }
   } catch (err) {
       // Error logged silently

@@ -56,6 +56,7 @@ interface PermissionsViewProps {
     className?: string;
 }
 
+// eslint-disable-next-line max-lines-per-function, complexity
 export function PermissionsView({ className }: PermissionsViewProps) {
     const { isAuthenticated, isLoading: authLoading } = useSharedAuth();
 
@@ -99,7 +100,7 @@ export function PermissionsView({ className }: PermissionsViewProps) {
 
     useEffect(() => {
         if (isAuthenticated) {
-            loadData();
+            void loadData();
         }
     }, [isAuthenticated, loadData]);
 
@@ -107,7 +108,7 @@ export function PermissionsView({ className }: PermissionsViewProps) {
     const filteredPermissions = useMemo(() =>
         permissions.filter(p =>
             p.permission_string.toLowerCase().includes(permSearch.toLowerCase()) ||
-            (p.name && p.name.toLowerCase().includes(permSearch.toLowerCase()))
+            (p.name !== null && p.name !== '' && p.name.toLowerCase().includes(permSearch.toLowerCase()))
         ),
         [permissions, permSearch]);
 
@@ -133,8 +134,9 @@ export function PermissionsView({ className }: PermissionsViewProps) {
             });
             if (result.success && result.data) {
                 toast.success('Permission updated');
-                setPermissions(prev => prev.map(p => p.id === result.data!.id ? result.data! : p));
-                setSelectedPerm(result.data);
+                const updated = result.data;
+                setPermissions(prev => prev.map(p => p.id === updated.id ? updated : p));
+                setSelectedPerm(updated);
                 setHasPermChanges(false);
             } else {
                 toast.error(result.error ?? 'Failed to update');
@@ -171,7 +173,7 @@ export function PermissionsView({ className }: PermissionsViewProps) {
         setActiveDragId(null);
     };
 
-    if (authLoading ?? (isLoadingData && !permissions.length)) {
+    if (authLoading || (isLoadingData && !permissions.length)) {
         return <div className="p-8 flex justify-center"><Loader2 className="animate-spin" /></div>;
     }
 
@@ -201,7 +203,7 @@ export function PermissionsView({ className }: PermissionsViewProps) {
                                 <CreatePermissionSheet
                                     open={isCreatePermOpen}
                                     onOpenChange={setIsCreatePermOpen}
-                                    onSuccess={loadData}
+                                    onSuccess={() => void loadData()}
                                 />
                             </div>
                         </CardHeader>
@@ -254,7 +256,7 @@ export function PermissionsView({ className }: PermissionsViewProps) {
                                             Delete
                                         </Button>
                                     )}
-                                    <Button size="sm" onClick={handleSavePermission} disabled={!hasPermChanges ?? isSavingPerm} className="bg-emerald-500 text-white hover:bg-emerald-600">
+                                    <Button size="sm" onClick={() => void handleSavePermission()} disabled={!hasPermChanges || isSavingPerm} className="bg-emerald-500 text-white hover:bg-emerald-600">
                                         {isSavingPerm && <Loader2 className="w-3 h-3 animate-spin mr-2" />}
                                         Save Changes
                                     </Button>
@@ -296,7 +298,7 @@ export function PermissionsView({ className }: PermissionsViewProps) {
 
                 {/* Drag Overlay */}
                 <DragOverlay>
-                    {activeDragId && (
+                    {activeDragId !== null && (
                         <div className="flex items-center gap-2 px-3 py-2 bg-slate-800 rounded-lg shadow-xl border border-emerald-500 opacity-90 scale-105 pointer-events-none text-white">
                             <Key className="h-4 w-4" />
                             <span className="font-medium text-sm">Permission Item</span>
@@ -327,7 +329,7 @@ export function PermissionsView({ className }: PermissionsViewProps) {
                             </Button>
                             <Button
                                 variant="destructive"
-                                onClick={handleDeletePermission}
+                                onClick={() => void handleDeletePermission()}
                                 className="bg-red-500 hover:bg-red-600 text-white shadow-lg shadow-red-500/20"
                             >
                                 Yes, Delete Permission
@@ -385,7 +387,7 @@ function CreatePermissionSheet({ open, onOpenChange, onSuccess }: { open: boolea
                     <SheetTitle>Create Permission</SheetTitle>
                     <SheetDescription>Define a new system permission.</SheetDescription>
                 </SheetHeader>
-                <form onSubmit={handleSubmit} className="space-y-6 pt-6 flex-1 flex flex-col overflow-y-auto">
+                <form onSubmit={(e) => void handleSubmit(e)} className="space-y-6 pt-6 flex-1 flex flex-col overflow-y-auto">
                     <div className="space-y-2">
                         <Label>Permission String *</Label>
                         <Input

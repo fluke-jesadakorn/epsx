@@ -141,7 +141,7 @@ function AnalyticsClientWrapper({
         }
       };
 
-      loadData();
+      void loadData();
     }
   }, [filters, initialData, setIsLoading]);
 

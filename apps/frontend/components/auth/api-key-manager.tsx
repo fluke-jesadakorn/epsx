@@ -70,7 +70,7 @@ export function ApiKeyManager({ className = '' }: ApiKeyManagerProps) {
   useEffect(() => {
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     if (isAuthenticated && hasApiAccess) {
-      fetchApiKeys();
+      void fetchApiKeys();
     }
   }, [isAuthenticated, hasApiAccess]);
 

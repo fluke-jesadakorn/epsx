@@ -22,7 +22,7 @@ export default function LoadingPage() {
 
         <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
           {[...Array(6)].map((_, i) => (
-            <div key={i} className="space-y-4">
+            <div key={`loading-item-${String(i)}`} className="space-y-4">
               <Skeleton className="h-[200px] w-full rounded-lg" />
               <div className="space-y-2">
                 <Skeleton className="h-4 w-full" />

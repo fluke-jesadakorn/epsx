@@ -5,8 +5,26 @@ import { useRouter } from 'next/navigation'
 import type { ComponentType} from 'react';
 import { forwardRef } from 'react'
 
+interface PaymentAuthUser {
+  permissions?: string[] | Record<string, unknown>;
+  [key: string]: unknown;
+}
+
+interface PaymentAuthState {
+  isLoading: boolean;
+  isAuthenticated: boolean;
+  hasPaymentAccess: boolean;
+  user: PaymentAuthUser | null;
+  router: ReturnType<typeof useRouter>;
+}
+
+interface PaymentAccessRequiredUIProps {
+  user: PaymentAuthUser | null;
+  router: ReturnType<typeof useRouter>;
+}
+
 // Hook for payment auth logic
-function usePaymentAuth() {
+function usePaymentAuth(): PaymentAuthState {
   const router = useRouter()
   const { user, isLoading } = useAuth()
   const isAuthenticated = Boolean(user)
@@ -66,7 +84,7 @@ function AuthRequiredUI() {
 }
 
 // Payment access required UI
-function PaymentAccessRequiredUI({ user, router }: { user: any; router: any }) {
+function PaymentAccessRequiredUI({ user, router }: PaymentAccessRequiredUIProps) {
   return (
     <div className="flex items-center justify-center min-h-[400px]">
       <div className="text-center max-w-md mx-auto p-6">
@@ -106,7 +124,7 @@ function PaymentAccessRequiredUI({ user, router }: { user: any; router: any }) {
 export function withPaymentAuth<P extends object>(
   WrappedComponent: ComponentType<P>
 ) {
-  const PaymentAuthComponent = forwardRef((props: any, ref: React.Ref<any>) => {
+  const PaymentAuthComponent = forwardRef<unknown, P>((props: P, ref: React.Ref<unknown>) => {
     const { isLoading, isAuthenticated, hasPaymentAccess, user, router } = usePaymentAuth()
 
     if (isLoading) {return <LoadingUI />}

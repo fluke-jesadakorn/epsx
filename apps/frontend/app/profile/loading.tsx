@@ -18,7 +18,7 @@ export default function ProfileLoading() {
               <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-6">
                 <div className="space-y-4">
                   {[...Array(5)].map((_, i) => (
-                    <div key={i} className="h-10 bg-slate-100 dark:bg-slate-700 rounded-lg" />
+                    <div key={`sidebar-item-${String(i)}`} className="h-10 bg-slate-100 dark:bg-slate-700 rounded-lg" />
                   ))}
                 </div>
               </div>
