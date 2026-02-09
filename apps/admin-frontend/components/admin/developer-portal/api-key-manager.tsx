@@ -1,3 +1,4 @@
+'use client';
 
 import { Copy, Plus, Trash2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -16,6 +17,17 @@ import {
 import { type ApiKeyResponse as ApiKey } from '@/shared/api/plans';
 
 import { maskKeyPrefix, truncateWallet } from './utils';
+
+interface PermissionGroup {
+    id: string;
+    name: string;
+}
+
+interface ExtendedApiKey extends ApiKey {
+    wallet_address?: string;
+    key_prefix?: string;
+    permission_groups?: PermissionGroup[];
+}
 
 interface ApiKeyManagerProps {
     apiKeys: ApiKey[];
@@ -69,7 +81,9 @@ export const ApiKeyManager: React.FC<ApiKeyManagerProps> = ({
                                 </TableCell>
                             </TableRow>
                         ) : (
-                            apiKeys.map((apiKey) => (
+                            apiKeys.map((key) => {
+                                const apiKey = key as ExtendedApiKey;
+                                return (
                                 <TableRow key={apiKey.id}>
                                     <TableCell>
                                         <div className="flex flex-col">
@@ -78,22 +92,22 @@ export const ApiKeyManager: React.FC<ApiKeyManagerProps> = ({
                                             </span>
                                             <span
                                                 className="text-xs text-gray-500 dark:text-gray-400 font-mono cursor-pointer hover:text-blue-600"
-                                                title={(apiKey as any).wallet_address ?? 'Unknown'}
-                                                onClick={() => onCopy((apiKey as any).wallet_address ?? '', 'Wallet address')}
+                                                title={apiKey.wallet_address ?? 'Unknown'}
+                                                onClick={() => onCopy(apiKey.wallet_address ?? '', 'Wallet address')}
                                             >
-                                                {truncateWallet((apiKey as any).wallet_address)}
+                                                {truncateWallet(apiKey.wallet_address)}
                                             </span>
                                         </div>
                                     </TableCell>
                                     <TableCell>
                                         <div className="flex items-center space-x-2">
                                             <span className="font-mono text-sm text-gray-600 dark:text-gray-300">
-                                                {showKeyValue === apiKey.id ? (apiKey.key_preview ?? (apiKey as any).key_prefix) : maskKeyPrefix(apiKey.key_preview ?? (apiKey as any).key_prefix)}
+                                                {showKeyValue === apiKey.id ? (apiKey.key_preview ?? apiKey.key_prefix) : maskKeyPrefix(apiKey.key_preview ?? apiKey.key_prefix ?? '')}
                                             </span>
                                             <button
                                                 onClick={() =>
                                                     onCopy(
-                                                        `${apiKey.key_preview ?? (apiKey as any).key_prefix  }...`,
+                                                        `${apiKey.key_preview ?? apiKey.key_prefix ?? ''}...`,
                                                         'API Key Prefix'
                                                     )
                                                 }
@@ -105,8 +119,8 @@ export const ApiKeyManager: React.FC<ApiKeyManagerProps> = ({
                                     </TableCell>
                                     <TableCell>
                                         <div className="flex flex-wrap gap-1">
-                                            {(apiKey as any).permission_groups?.length > 0 ? (
-                                                (apiKey as any).permission_groups.map((group: any) => (
+                                            {apiKey.permission_groups && apiKey.permission_groups.length > 0 ? (
+                                                apiKey.permission_groups.map((group) => (
                                                     <Badge key={group.id} variant="secondary" className="text-xs bg-purple-100 dark:bg-purple-900/50 text-purple-800 dark:text-purple-200 hover:bg-purple-200 border-none">
                                                         {group.name}
                                                     </Badge>
@@ -155,7 +169,8 @@ export const ApiKeyManager: React.FC<ApiKeyManagerProps> = ({
                                         )}
                                     </TableCell>
                                 </TableRow>
-                            ))
+                                );
+                            })
                         )}
                     </TableBody>
                 </Table>
