@@ -202,9 +202,9 @@ export function WalletProfileClient({ wallet }: WalletProfileClientProps) {
                         Current Permissions ({wallet.permissions.length})
                       </label>
                       <div className="max-h-32 overflow-y-auto space-y-1">
-                        {wallet.permissions.map((permission, index) => (
+                        {wallet.permissions.map((permission) => (
                           <Badge
-                            key={index}
+                            key={permission}
                             variant="secondary"
                             className="mr-2 mb-1 text-xs"
                           >

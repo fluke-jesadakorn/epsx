@@ -389,8 +389,8 @@ export function ApiKeyManager({ className = '' }: ApiKeyManagerProps) {
                           Scopes:
                         </span>
                         <div className="flex gap-1">
-                          {key.scopes.map((scope, index) => (
-                            <Badge key={index} variant="outline" className="text-xs">
+                          {key.scopes.map((scope) => (
+                            <Badge key={scope} variant="outline" className="text-xs">
                               {scope}
                             </Badge>
                           ))}

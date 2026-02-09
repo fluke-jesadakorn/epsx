@@ -412,7 +412,7 @@ function PermissionHistory({ history }: { history: PermissionHistoryItem[] }) {
 
   return (
     <div className="space-y-3">
-      {history.map((item, index) => {
+      {history.map((item) => {
         const getActionIcon = () => {
           switch (item.action) {
             case 'granted':
@@ -440,7 +440,7 @@ function PermissionHistory({ history }: { history: PermissionHistoryItem[] }) {
         };
 
         return (
-          <div key={index} className="flex items-start space-x-3 p-3 border rounded-lg">
+          <div key={`${item.permission}-${item.timestamp}`} className="flex items-start space-x-3 p-3 border rounded-lg">
             <div className="mt-0.5">{getActionIcon()}</div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between mb-1">
@@ -759,8 +759,8 @@ export default function PermissionsPage() {
                           </CardHeader>
                           <CardContent>
                             <div className="space-y-3">
-                              {analytics.usageStats?.mostUsedPermissions?.map((item, index: number) => (
-                                <div key={index} className="flex items-center justify-between">
+                              {analytics.usageStats?.mostUsedPermissions?.map((item) => (
+                                <div key={item.permission} className="flex items-center justify-between">
                                   <span className="text-sm font-medium">{item.permission}</span>
                                   <Badge variant="secondary">{item.usage} uses</Badge>
                                 </div>
@@ -779,8 +779,8 @@ export default function PermissionsPage() {
                         </CardHeader>
                         <CardContent>
                           <div className="space-y-3">
-                            {analytics.usageStats?.recentlyGranted?.map((item, index: number) => (
-                              <div key={index} className="flex items-center justify-between">
+                            {analytics.usageStats?.recentlyGranted?.map((item) => (
+                              <div key={`${item.permission}-${item.grantedAt}`} className="flex items-center justify-between">
                                 <span className="text-sm font-medium">{item.permission}</span>
                                 <span className="text-xs text-gray-500">
                                   {formatDistanceToNow(new Date(item.grantedAt), { addSuffix: true })}
@@ -832,9 +832,9 @@ export default function PermissionsPage() {
                     </div>
                   ) : (
                     <div className="space-y-3">
-                      {filteredPermissions.map((perm, index) => (
+                      {filteredPermissions.map((perm) => (
                         <PermissionCard
-                          key={`${perm.permission}-${index}`}
+                          key={perm.permission}
                           permission={perm}
                           definitions={permissionDefinitions}
                         />

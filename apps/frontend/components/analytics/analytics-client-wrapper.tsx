@@ -755,7 +755,7 @@ function AnalyticsClientWrapper({
                           <div className="flex gap-3">
                             {Array.from({ length: 4 }).map((_, index) => (
                               <div
-                                key={index}
+                                key={`skeleton-mobile-loading-${String(index)}`}
                                 className="w-72 flex-shrink-0 animate-pulse rounded-lg border border-gray-200 bg-white p-4"
                               >
                                 <div className="mb-3 flex items-center gap-3">
@@ -787,7 +787,7 @@ function AnalyticsClientWrapper({
                       <div className="mb-6 hidden sm:grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
                         {Array.from({ length: 6 }).map((_, index) => (
                           <div
-                            key={index}
+                            key={`skeleton-desktop-loading-${String(index)}`}
                             className="animate-pulse rounded-lg border border-gray-200 bg-white p-4"
                           >
                             <div className="mb-3 flex items-center gap-3">

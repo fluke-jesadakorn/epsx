@@ -262,8 +262,8 @@ function ConfirmationState({ selectedPkg, setCurrentStep, className }: Confirmat
                 What's included:
               </p>
               <div className="grid grid-cols-1 gap-1 sm:grid-cols-2">
-                {selectedPkg?.features.slice(0, 4).map((feature: string, index: number) => (
-                  <div key={index} className="flex items-center text-sm">
+                {selectedPkg?.features.slice(0, 4).map((feature: string) => (
+                  <div key={feature} className="flex items-center text-sm">
                     <Check className="mr-2 h-3 w-3 flex-shrink-0 text-green-500" />
                     {feature}
                   </div>

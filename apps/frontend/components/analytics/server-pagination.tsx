@@ -98,11 +98,11 @@ export default function ServerPagination({
 
         {/* Page numbers */}
         <div className="flex items-center gap-1 mx-2">
-          {visiblePages.map((pageNum, index) => {
+          {visiblePages.map((pageNum) => {
             if (pageNum === '...') {
               return (
-                <span 
-                  key={`dots-${index}`} 
+                <span
+                  key={`dots-${page}`}
                   className="flex items-center justify-center w-10 h-10 text-gray-400 dark:text-gray-500 text-sm font-medium"
                 >
                   ...
@@ -111,10 +111,10 @@ export default function ServerPagination({
             }
 
             const isCurrentPage = pageNum === page;
-            
+
             return (
               <PaginationButton
-                key={pageNum}
+                key={`page-${pageNum}`}
                 page={pageNum as number}
                 currentParams={currentParams}
                 disabled={isCurrentPage}

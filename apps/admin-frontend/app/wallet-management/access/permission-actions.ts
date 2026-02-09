@@ -17,7 +17,7 @@ export async function getPermissionsAction(): Promise<ActionResponse<PermissionD
         const permissions = await permissionsClient.listPermissions(client);
         return { success: true, data: permissions };
     } catch (error) {
-        console.error('Failed to fetch permissions:', error);
+        // Silently fail
         return {
             success: false,
             error: error instanceof Error ? error.message : 'Failed to fetch permissions'
@@ -32,7 +32,7 @@ export async function createPermissionAction(data: CreatePermissionRequest): Pro
         revalidatePath('/wallet-management/access');
         return { success: true, data: permission };
     } catch (error) {
-        console.error('Failed to create permission:', error);
+        // Silently fail
         return {
             success: false,
             error: error instanceof Error ? error.message : 'Failed to create permission'
@@ -47,7 +47,7 @@ export async function deletePermissionAction(id: string): Promise<ActionResponse
         revalidatePath('/wallet-management/access');
         return { success: true };
     } catch (error) {
-        console.error('Failed to delete permission:', error);
+        // Silently fail
         return {
             success: false,
             error: error instanceof Error ? error.message : 'Failed to delete permission'
@@ -62,7 +62,7 @@ export async function updatePermissionAction(id: string, data: Partial<CreatePer
         revalidatePath('/wallet-management/access');
         return { success: true, data: permission };
     } catch (error) {
-        console.error('Failed to update permission:', error);
+        // Silently fail
         return {
             success: false,
             error: error instanceof Error ? error.message : 'Failed to update permission'

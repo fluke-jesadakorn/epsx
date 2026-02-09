@@ -76,10 +76,10 @@ const Pagination = memo<PaginationProps>(({ pagination, onPageChange, onLimitCha
 
         {/* Page numbers */}
         <div className="flex items-center gap-1">
-          {visiblePages.map((pageNum, index) => {
+          {visiblePages.map((pageNum) => {
             if (pageNum === '...') {
               return (
-                <span key={`dots-${index}`} className="px-2 py-2 text-gray-400">
+                <span key={`dots-${page}`} className="px-2 py-2 text-gray-400">
                   ...
                 </span>
               );
@@ -88,7 +88,7 @@ const Pagination = memo<PaginationProps>(({ pagination, onPageChange, onLimitCha
             const isCurrentPage = pageNum === page;
             return (
               <button
-                key={pageNum}
+                key={`page-${pageNum}`}
                 onClick={() => onPageChange(pageNum as number)}
                 disabled={isLoading}
                 className={`min-w-[44px] min-h-[44px] px-3 py-2 text-sm font-medium rounded-lg transition-colors ${

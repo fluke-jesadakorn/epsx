@@ -120,8 +120,8 @@ export default function PaymentWidget({
           <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 mb-6">
             <h4 className="font-semibold mb-2 text-gray-900 dark:text-white">What&apos;s included:</h4>
             <ul className="space-y-1">
-              {selectedTemplate_obj.features.map((feature, index) => (
-                <li key={index} className="text-sm flex items-center gap-2">
+              {selectedTemplate_obj.features.map((feature) => (
+                <li key={feature} className="text-sm flex items-center gap-2">
                   <Check className="h-3 w-3 text-green-500 flex-shrink-0" />
                   <span className="text-gray-600 dark:text-gray-300">{feature}</span>
                 </li>

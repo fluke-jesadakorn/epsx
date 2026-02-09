@@ -153,9 +153,9 @@ function FinancialDataTable({
           <div className="block md:hidden">
             <div className="overflow-x-auto pb-4">
               <div className="flex gap-4 w-max">
-                {safeData.map((item, index) => (
+                {safeData.map((item) => (
                   <div
-                    key={`mobile-${item.symbol}-${index}`}
+                    key={item.symbol}
                     className="w-72 flex-shrink-0"
                     style={{
                       animationDelay: `${index * 150}ms`,
@@ -197,9 +197,9 @@ function FinancialDataTable({
                 max-w-full
               "
             >
-              {safeData.map((item, index) => (
+              {safeData.map((item) => (
                 <div
-                  key={`desktop-${item.symbol}-${index}`}
+                  key={`desktop-${item.symbol}`}
                   className="relative w-full max-w-full overflow-hidden"
                   style={{
                     animationDelay: `${index * 150}ms`,

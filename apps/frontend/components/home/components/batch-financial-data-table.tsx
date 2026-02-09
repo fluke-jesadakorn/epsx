@@ -125,7 +125,7 @@ function BatchFinancialDataTable({
               // Show skeleton cards while loading
               [...Array(maxCards)].map((_, index) => (
                 <div
-                  key={`skeleton-${index}`}
+                  key={`skeleton-loading-${maxCards}-${String(index)}`}
                   className={`${ANIMATIONS.fadeIn  } relative`}
                   style={{
                     animationDelay: `${index * 20}ms`, // Much faster - 20ms instead of 50ms
@@ -173,9 +173,9 @@ function BatchFinancialDataTable({
               </div>
             ) : (
               // Show actual data
-              data.map((item, index) => (
+              data.map((item) => (
                 <div
-                  key={`${item.symbol}-${index}`}
+                  key={item.symbol}
                   className={`${ANIMATIONS.fadeIn  } relative`}
                   style={{
                     animationDelay: `${index * 20}ms`, // Much faster - 20ms instead of 50ms

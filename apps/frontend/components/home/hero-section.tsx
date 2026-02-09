@@ -141,11 +141,11 @@ const HeroSection: React.FC<HeroSectionProps> = ({ style, className }) => {
                 icon: Users,
                 gradient: 'from-green-500 to-emerald-500',
               },
-            ].map((stat, index) => {
+            ].map((stat) => {
               const IconComponent = stat.icon;
               return (
                 <div
-                  key={index}
+                  key={stat.label}
                   className="relative bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl rounded-2xl p-8 shadow-2xl border border-orange-200/50 dark:border-orange-400/20 hover:scale-105 transition-all duration-300 group overflow-hidden"
                   style={{ animationDelay: `${index * 0.1}s` }}
                 >

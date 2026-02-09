@@ -46,8 +46,8 @@ export function FormWrapper({
               <p className="font-medium">Please fix the following errors:</p>
               <ul className="list-disc list-inside space-y-1 text-sm">
                 {Object.entries(fieldErrors).map(([field, errors]) =>
-                  errors.map((error, index) => (
-                    <li key={`${field}-${index}`}>
+                  errors.map((error) => (
+                    <li key={`${field}-${error}`}>
                       <span className="capitalize">{field}</span>: {error}
                     </li>
                   ))
@@ -74,8 +74,8 @@ export function FieldError({ fieldName, fieldErrors }: FieldErrorProps) {
   
   return (
     <div className="mt-1 text-sm text-red-600">
-      {errors.map((error, index) => (
-        <p key={index}>{error}</p>
+      {errors.map((error) => (
+        <p key={error}>{error}</p>
       ))}
     </div>
   );

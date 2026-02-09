@@ -79,11 +79,11 @@ export function Pagination({
       </Button>
 
       <div className="flex items-center gap-1">
-        {visiblePages.map((page, index) => {
+        {visiblePages.map((page) => {
           if (page === '...') {
             return (
               <div
-                key={`ellipsis-${index}`}
+                key={`ellipsis-${currentPage}`}
                 className="flex items-center justify-center px-3 py-2"
               >
                 <MoreHorizontal className="h-4 w-4" />
@@ -93,7 +93,7 @@ export function Pagination({
 
           return (
             <Button
-              key={page}
+              key={`page-${page}`}
               variant={page === currentPage ? 'default' : 'outline'}
               size="sm"
               onClick={() => onPageChange(page as number)}
