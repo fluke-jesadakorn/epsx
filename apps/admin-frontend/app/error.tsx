@@ -16,6 +16,7 @@ export default function Error({
   return (
     <ErrorContent
       title="Something Went Wrong"
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
       message={error.message ?? 'An unexpected error occurred. Please try again.'}
       errorId={error.digest}
       onReset={reset}
