@@ -53,10 +53,10 @@ export default function MetaMaskPayment({
     )
   }
 
-  const { address, isConnected, chain } = useAccount()
+  const { address: _address, isConnected, chain } = useAccount()
   const { connect, connectors } = useConnect()
   const [selectedToken, setSelectedToken] = useState<'USDT' | 'USDC'>('USDT')
-  const [estimatedGas, setEstimatedGas] = useState<string>('0.005')
+  const [estimatedGas, _setEstimatedGas] = useState<string>('0.005')
   const [autoConnectAttempted, setAutoConnectAttempted] = useState(false)
 
   // Contract Addresses
@@ -64,14 +64,14 @@ export default function MetaMaskPayment({
     if (!chain?.id) {return null}
     try {
       return getAddress(getTokenAddress(selectedToken, chain.id))
-    } catch (e) { return null }
+    } catch (_e) { return null }
   }
 
   const getEscrowContractAddress = () => {
     if (!chain?.id || !isPaymentEscrowDeployed(chain.id)) {return null}
     try {
       return getAddress(getPaymentEscrowAddress(chain.id))
-    } catch (e) { return null }
+    } catch (_e) { return null }
   }
 
   const tokenAddress = getTokenContractAddress()
