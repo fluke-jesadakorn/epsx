@@ -38,7 +38,7 @@ export default function AuthPageClient({ serverHasSession }: AuthPageClientProps
 
     // Redirect if BOTH server and client confirm authentication
     useEffect(() => {
-        if (!mounted ?? redirectingRef.current) { return; }
+        if (!mounted || redirectingRef.current) { return; }
 
         const checkAndRedirect = async () => {
             // Only redirect if server confirms session AND client has user
@@ -99,6 +99,7 @@ export default function AuthPageClient({ serverHasSession }: AuthPageClientProps
     // Show auth modal - server says no session (or stale client state after logout)
     return (
         <PageLayout>
+            {/* eslint-disable-next-line @typescript-eslint/strict-boolean-expressions */}
             {reason && (
                 <div className="fixed top-0 left-0 right-0 p-3 bg-destructive text-destructive-foreground text-center text-sm z-50">
                     {reason === 'no-session' && 'Your session has expired. Please sign in again.'}
