@@ -553,7 +553,13 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
         throw new Error(errorData.error ?? 'Authentication failed');
       }
        
-      await authResponse.json();
+      const authData = await authResponse.json() as { access_token?: string; refresh_token?: string; user?: Record<string, unknown> };
+
+      // Set server-side HttpOnly cookies via loginAction
+      const { loginAction } = await import('shared/auth/actions');
+      if (authData.access_token !== undefined && authData.access_token !== '') {
+        await loginAction(authData.access_token, authData.user ?? {}, authData.refresh_token);
+      }
 
       // Success
       setState(prev => ({

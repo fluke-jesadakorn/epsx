@@ -152,14 +152,15 @@ export class SharedWeb3AuthClient {
     if (typeof window === 'undefined') { return; }
 
     try {
-      // Load basic tokens
-      this.accessToken = getClientCookie(COOKIES.access_token) ?? null;
-      this.refreshToken = getClientCookie(COOKIES.refresh_token) ?? null;
+      // Load expiry from client-readable cookie
       const expiry = getClientCookie(COOKIES.expires_at);
       this.tokenExpiry = (expiry !== null && expiry !== '') ? parseInt(expiry, 10) : null;
 
-      // Load user
+      // Load user from client-readable cookie
       this.loadUserFromCookies();
+
+      // Extract access token from user.access field (since access_token cookie is now HttpOnly)
+      this.accessToken = this.user?.access ?? null;
 
       logger.info('[AUTH] SharedWeb3AuthClient: Initial cookie state loaded', {
         clientId: this.clientId,
@@ -213,14 +214,8 @@ export class SharedWeb3AuthClient {
     if (typeof window === 'undefined') { return; }
 
     try {
-      if (this.accessToken !== null && this.accessToken !== '') {
-        setClientCookie(COOKIES.access_token, this.accessToken, this.tokenExpiry !== null ? Math.floor((this.tokenExpiry - Date.now()) / 1000) : 3600);
-      }
-
-      if (this.refreshToken !== null && this.refreshToken !== '') {
-        setClientCookie(COOKIES.refresh_token, this.refreshToken, 2592000); // 30 days
-      }
-
+      // Only save client-readable cookies
+      // access_token and refresh_token are now HttpOnly and set server-side only
       if (this.tokenExpiry !== null) {
         setClientCookie(COOKIES.expires_at, this.tokenExpiry.toString(), 2592000);
       }
@@ -242,9 +237,8 @@ export class SharedWeb3AuthClient {
     if (typeof window === 'undefined') { return; }
 
     try {
-      // Clear auth tokens specific to this client
-      removeClientCookie(COOKIES.access_token);
-      removeClientCookie(COOKIES.refresh_token);
+      // Clear only client-readable cookies
+      // access_token and refresh_token are HttpOnly and cleared server-side only
       removeClientCookie(COOKIES.expires_at);
       removeClientCookie(COOKIES.user);
 

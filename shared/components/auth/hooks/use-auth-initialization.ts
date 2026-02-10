@@ -39,13 +39,12 @@ function tryRestoreFromCookies({
         }
 
         const storedUser = getClientCookieJSON<UserInfoResponse>(COOKIES.user);
-        const accessToken = getClientCookie(COOKIES.access_token);
         const tokenExpiry = getClientCookie(COOKIES.expires_at);
 
         logger.info('[AUTH] Provider: Cookie restoration check', {
             clientId,
             hasStoredUser: Boolean(storedUser),
-            hasAccessToken: Boolean(accessToken),
+            hasAccessToken: Boolean(storedUser?.access),
             hasTokenExpiry: Boolean(tokenExpiry),
             tokenExpiryValue: (tokenExpiry !== null && tokenExpiry !== '')
                 ? new Date(parseInt(tokenExpiry, 10)).toISOString()
