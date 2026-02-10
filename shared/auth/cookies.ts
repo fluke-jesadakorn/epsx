@@ -284,8 +284,8 @@ export function getClientCookie(name: string): string | null {
   const cookies = parseCookies(document.cookie);
   const value = cookies[name];
 
-  // Decode URL-encoded value
-  return value !== '' ? decodeURIComponent(value) : null;
+  // Decode URL-encoded value (check for both undefined and empty string)
+  return (value !== undefined && value !== '') ? decodeURIComponent(value) : null;
 }
 
 /**
