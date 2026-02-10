@@ -12,6 +12,7 @@ use tracing::{debug, info, warn};
 use crate::core::errors::AppError;
 use crate::domain::shared_kernel::services::eps_ranking_service::{EPSRankingService, EPSRankingParams};
 use crate::auth::UnifiedPermissionService;
+use crate::web::pagination::Pagination;
 use super::{types::*, enhancement::enhance_with_websocket_data};
 
 /// GET /api/analytics/eps-rankings
@@ -34,17 +35,19 @@ pub async fn get_eps_rankings(
         (crate::core::constants::FREE_PLAN_RANKING_OFFSET, -1) // Default free tier offset and limit for anonymous users
     };
 
-    debug!("Calculated ranking config: offset={}, limit={} for wallet: {:?}", 
+    debug!("Calculated ranking config: offset={}, limit={} for wallet: {:?}",
            rank_offset, limit_cap, wallet_address);
 
+    // Pagination with default 50, max 100 (params.page and params.limit are Option<i32>)
+    let pg = Pagination::from_signed(params.page, params.limit, 50, 100);
 
     // Convert query params to service params with defaults - FIXED: Use correct parameter structure
     let service_params = EPSRankingParams {
         country: params.country.clone(),
         sector: params.sector.clone(),
         sort_by: params.sort_by.clone().or(Some("growth_factor".to_string())),
-        page: params.page.unwrap_or(1), // FIXED: Add missing page parameter
-        limit: params.limit.unwrap_or(50), // FIXED: Use correct i32 type
+        page: pg.page as i32, // FIXED: Add missing page parameter
+        limit: pg.limit as i32, // FIXED: Use correct i32 type
         min_eps: params.min_eps, // FIXED: Use correct field name (not market_cap_min)
         min_growth: params.min_growth, // FIXED: Add missing min_growth parameter
         rank_offset, // SECURITY: Enforced from user permissions
@@ -97,24 +100,22 @@ pub async fn get_eps_rankings(
 
     // Log performance metrics
     debug!("EPS rankings query completed in {:?}", duration);
-    info!("Returning {} EPS rankings (total: {})", 
+    info!("Returning {} EPS rankings (total: {})",
           result.rankings.len(), result.pagination.total);
 
     // Convert to API response format
-    let page = params.page.unwrap_or(1);
-    let limit = params.limit.unwrap_or(50);
     let total = result.pagination.total;
-    let total_pages = ((total as f64 / limit as f64).ceil() as i32).max(1);
+    let total_pages = pg.total_pages(total as u64);
 
     let api_response = EPSRankingsApiResponse {
         data: result.rankings,
         pagination: EPSPaginationResponse {
-            page,
-            limit,
+            page: pg.page as i32,
+            limit: pg.limit as i32,
             total,
-            total_pages,
-            has_next: page < total_pages,
-            has_prev: page > 1,
+            total_pages: total_pages as i32,
+            has_next: pg.has_next(total as u64),
+            has_prev: pg.has_prev(),
         },
         access_info: super::types::AccessInfo {
             min_accessible_rank: rank_offset,

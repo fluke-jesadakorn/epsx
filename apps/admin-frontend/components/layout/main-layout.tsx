@@ -3,7 +3,7 @@
 import type { ReactNode} from 'react';
 import { Suspense } from 'react';
 
-import { Breadcrumb } from '../ui/breadcrumb';
+import { Breadcrumb } from './Breadcrumb';
 import { Header } from './header';
 import { Sidebar } from './Sidebar';
 

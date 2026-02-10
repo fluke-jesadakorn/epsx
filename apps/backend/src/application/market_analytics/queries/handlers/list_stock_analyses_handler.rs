@@ -6,6 +6,7 @@ use crate::application::market_analytics::queries::{
 use crate::domain::market_analytics::{
     StockAnalysisRepositoryPort, StockAnalysisSearchCriteria, MarketSector, Country
 };
+use crate::web::pagination::Pagination;
 
 /// Query handler for listing stock analyses
 pub struct ListStockAnalysesQueryHandler {
@@ -38,18 +39,16 @@ impl QueryHandler<ListStockAnalysesQuery> for ListStockAnalysesQueryHandler {
             None
         };
 
-        // 2. Build search criteria
-        let page = query.page.unwrap_or(1);
-        let limit = query.limit.unwrap_or(20).min(100) as i64; // Cap at 100
-        let offset = ((page - 1) * (limit as u32)) as i64;
+        // 2. Build search criteria with pagination
+        let pg = Pagination::standard(query.page, query.limit);
 
         let criteria = StockAnalysisSearchCriteria {
             sector,
             country,
             min_score: query.min_score,
             min_growth: query.min_growth,
-            limit: Some(limit),
-            offset: Some(offset),
+            limit: Some(pg.limit as i64),
+            offset: Some(pg.offset),
         };
 
         // 3. Get analyses and total count
@@ -78,8 +77,8 @@ impl QueryHandler<ListStockAnalysesQuery> for ListStockAnalysesQueryHandler {
         Ok(ListStockAnalysesResponse {
             analyses: summaries,
             total,
-            page,
-            limit: limit as u32,
+            page: pg.page,
+            limit: pg.limit,
         })
     }
 }

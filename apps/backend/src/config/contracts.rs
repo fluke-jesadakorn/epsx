@@ -42,7 +42,7 @@ impl Chain {
     }
 
     /// Parse from string
-    pub fn from_str(s: &str) -> Option<Self> {
+    pub fn parse(s: &str) -> Option<Self> {
         match s.to_lowercase().as_str() {
             "ethereum" | "eth" => Some(Chain::Ethereum),
             "polygon" | "matic" => Some(Chain::Polygon),
@@ -100,9 +100,7 @@ impl ChainContractConfig {
             .and_then(|addr| addr.parse::<H160>().ok());
 
         // Skip if no contract configured
-        if contract_address.is_none() {
-            return None;
-        }
+        contract_address?;
 
         // WebSocket URLs (with backup)
         let ws_url = env::var(format!("WS_URL_{}", suffix))
@@ -210,11 +208,11 @@ mod tests {
 
     #[test]
     fn test_chain_from_str() {
-        assert_eq!(Chain::from_str("bsc"), Some(Chain::Bsc));
-        assert_eq!(Chain::from_str("BSC"), Some(Chain::Bsc));
-        assert_eq!(Chain::from_str("binance"), Some(Chain::Bsc));
-        assert_eq!(Chain::from_str("ethereum"), Some(Chain::Ethereum));
-        assert_eq!(Chain::from_str("unknown"), None);
+        assert_eq!(Chain::parse("bsc"), Some(Chain::Bsc));
+        assert_eq!(Chain::parse("BSC"), Some(Chain::Bsc));
+        assert_eq!(Chain::parse("binance"), Some(Chain::Bsc));
+        assert_eq!(Chain::parse("ethereum"), Some(Chain::Ethereum));
+        assert_eq!(Chain::parse("unknown"), None);
     }
 
     #[test]

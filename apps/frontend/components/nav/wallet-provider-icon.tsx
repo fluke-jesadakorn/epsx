@@ -58,7 +58,7 @@ const walletProviders: Record<string, WalletProviderInfo> = {
     color: 'bg-gradient-to-r from-pink-500 to-violet-500',
   },
 };
- 
+
 export function WalletProviderIcon({ className = '', compact = false }: WalletProviderIconProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -115,12 +115,12 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
       setIsAuthenticating(true);
       const challenge = await requestChallenge(address);
       const signature = await signMessageAsync({ message: challenge.message });
-      const result = await authenticateWithWallet(
-        challenge.wallet_address,
+      const result = await authenticateWithWallet({
+        walletAddress: challenge.wallet_address,
         signature,
-        challenge.message,
-        challenge.nonce
-      );
+        message: challenge.message,
+        nonce: challenge.nonce,
+      });
 
       if (result.success) {
         setAuthRetryCount(0);

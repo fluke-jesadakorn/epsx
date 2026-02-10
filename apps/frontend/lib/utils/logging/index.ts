@@ -77,7 +77,7 @@ export class Logger {
   }
 
   private sanitizeMessage(message: string): string {
-    if (!message) {return message;}
+    if (!message) { return message; }
 
     // Remove common sensitive patterns
     return message
@@ -89,13 +89,13 @@ export class Logger {
       .replace(/bearer\s+[^\s,}]+/gi, 'bearer ***')
       .replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, '***@***.***');
   }
-   
+
   private sanitizeData(data: unknown, seen = new WeakSet()): unknown {
-    if (data === null || data === undefined) {return data;}
+    if (data === null || data === undefined) { return data; }
 
     // Handle BigInt primitive type
     if (typeof data === 'bigint') {
-      return `${data.toString()  }n`;
+      return `${data.toString()}n`;
     }
 
     // Handle primary types
@@ -121,7 +121,7 @@ export class Logger {
 
       // Safe field extraction in production
       const sanitized: Record<string, unknown> = {};
-      const safeFields = ['status', 'code', 'type', 'category', 'message', 'error', 'id', 'sub'];
+      const safeFields = ['status', 'code', 'type', 'category', 'message', 'error', 'id', 'sub', 'source', 'reason', 'event'];
 
       try {
         const dataObj = data as Record<string, unknown>;
@@ -131,6 +131,13 @@ export class Logger {
             sanitized[field] = this.sanitizeData(val, seen);
           }
         }
+
+        // If the object has no safe fields but we should log SOMETHING, 
+        // return at least its type or a string representation
+        if (Object.keys(sanitized).length === 0) {
+          return { _type: typeof data, _string: String(data).slice(0, 100) };
+        }
+
         return sanitized;
       } catch {
         return '[Unserializable]';
@@ -139,7 +146,7 @@ export class Logger {
 
     // In development, handle BigInt for safe logging but keep more details
     if (data instanceof Error) {
-      const errorObj = data as Record<string, unknown>;
+      const errorObj = data as unknown as Record<string, unknown>;
       return {
         message: this.sanitizeMessage(data.message),
         name: data.name,
@@ -167,10 +174,10 @@ export class Logger {
 
   /* eslint-disable no-console */
   private log(level: LogLevel['level'], message: string, data?: unknown): void {
-    if (!this.shouldLog(level)) {return;}
+    if (!this.shouldLog(level)) { return; }
 
     // Skip logging if console is not available (SSR/hydration safety)
-    if (typeof console === 'undefined') {return;}
+    if (typeof console === 'undefined') { return; }
 
     // Sanitize data to handle BigInt values before logging
     const safeData = data !== undefined ? this.sanitizeData(data, new WeakSet()) : undefined;
@@ -196,15 +203,27 @@ export class Logger {
     }
 
     try {
+      // Use direct console access to avoid "Illegal invocation" errors
+      const method = consoleMethod as keyof Console;
       if (safeData !== undefined) {
-        (logFunction as unknown as (msg: string, msg2: string, data: unknown) => void)(prefix, message, safeData);
+        if (typeof console[method] === 'function') {
+          (console[method] as Function)(prefix, message, safeData);
+        } else {
+          console.log(prefix, message, safeData);
+        }
       } else {
-        (logFunction as unknown as (msg: string, msg2: string) => void)(prefix, message);
+        if (typeof console[method] === 'function') {
+          (console[method] as Function)(prefix, message);
+        } else {
+          console.log(prefix, message);
+        }
       }
     } catch (_error) {
       // Fallback to console.log if specific method fails
-      if (typeof console.log === 'function') {
+      try {
         console.log(prefix, message, safeData);
+      } catch {
+        // Absolute last resort - ignore if even console.log fails
       }
     }
   }
@@ -281,7 +300,7 @@ export interface SafeErrorResult {
   code?: string;
   status?: number;
 }
- 
+
 export function safeError(error: unknown): SafeErrorResult {
   if (error instanceof Error) {
     return {
@@ -296,7 +315,7 @@ export function safeError(error: unknown): SafeErrorResult {
   }
 
   if (typeof error === 'bigint') {
-    return { message: `${error.toString()  }n` };
+    return { message: `${error.toString()}n` };
   }
 
   if (error !== null && typeof error === 'object') {
@@ -334,7 +353,7 @@ export class ConsoleReplacer {
   }
 
   restore(): void {
-    if (!this.isReplaced) {return;}
+    if (!this.isReplaced) { return; }
 
     void Object.assign(console, this.originalConsole);
     this.isReplaced = false;

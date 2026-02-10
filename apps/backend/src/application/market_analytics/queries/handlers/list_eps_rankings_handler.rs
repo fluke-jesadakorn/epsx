@@ -6,6 +6,7 @@ use crate::application::market_analytics::queries::{
 use crate::domain::market_analytics::{
     EPSRankingRepositoryPort, EPSRankingSearchCriteria, RankingType, RankingPeriod, SectorCategory, Country
 };
+use crate::web::pagination::Pagination;
 
 /// Query handler for listing EPS rankings
 pub struct ListEPSRankingsQueryHandler {
@@ -52,18 +53,16 @@ impl QueryHandler<ListEPSRankingsQuery> for ListEPSRankingsQueryHandler {
             None
         };
 
-        // 2. Build search criteria
-        let page = query.page.unwrap_or(1);
-        let limit = query.limit.unwrap_or(20).min(100) as i64;
-        let offset = ((page - 1) * (limit as u32)) as i64;
+        // 2. Build search criteria with pagination
+        let pg = Pagination::standard(query.page, query.limit);
 
         let criteria = EPSRankingSearchCriteria {
             ranking_type,
             time_period,
             sector_filter,
             country_filter,
-            limit: Some(limit),
-            offset: Some(offset),
+            limit: Some(pg.limit as i64),
+            offset: Some(pg.offset),
         };
 
         // 3. Get rankings and total count
@@ -90,8 +89,8 @@ impl QueryHandler<ListEPSRankingsQuery> for ListEPSRankingsQueryHandler {
         Ok(ListEPSRankingsResponse {
             rankings: summaries,
             total,
-            page,
-            limit: limit as u32,
+            page: pg.page,
+            limit: pg.limit,
         })
     }
 }

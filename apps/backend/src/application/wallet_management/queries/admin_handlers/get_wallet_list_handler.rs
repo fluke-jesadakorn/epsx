@@ -9,6 +9,7 @@ use crate::application::wallet_management::queries::admin_models::{
 use crate::application::wallet_management::wallet_management_repository::{
     WalletManagementRepository, WalletSearchCriteria,
 };
+use crate::web::pagination::Pagination;
 use async_trait::async_trait;
 use std::sync::Arc;
 use tracing::{error, info};
@@ -32,10 +33,9 @@ impl QueryHandler<GetWalletListQuery> for GetWalletListQueryHandler {
         // 1. Validate query
         query.validate()?;
 
-        // 2. Extract parameters with defaults
-        let page = query.page.unwrap_or(1);
-        let limit = query.limit.unwrap_or(50).min(1000); // Cap at 1000
-        let offset = (page - 1) * limit;
+        // 2. Extract parameters with pagination (default 50, max 1000)
+        // Note: query.page and query.limit are Option<i32>, so we use from_signed
+        let pg = Pagination::from_signed(query.page, query.limit, 50, 1000);
 
         // 3. Initialize repository
         let repo = WalletManagementRepository::new(self.db_pool.clone());
@@ -49,8 +49,8 @@ impl QueryHandler<GetWalletListQuery> for GetWalletListQueryHandler {
             sort_by: query.sort_by,
             sort_order: query.sort_order,
             exclude_plan_id: query.exclude_plan_id,
-            limit,
-            offset,
+            limit: pg.limit as i32,
+            offset: pg.offset as i32,
         };
 
         // 5. Fetch wallets using repository
@@ -87,20 +87,20 @@ impl QueryHandler<GetWalletListQuery> for GetWalletListQueryHandler {
             .collect();
 
         // 8. Build pagination
-        let total_pages = ((total as f64) / (limit as f64)).ceil() as i32;
+        let total_pages = pg.total_pages(total as u64) as i32;
         let pagination = PaginationDto {
-            page,
-            limit,
+            page: pg.page as i32,
+            limit: pg.limit as i32,
             total: total as i32,
             total_pages,
-            has_next_page: page < total_pages,
-            has_previous_page: page > 1,
+            has_next_page: pg.has_next(total as u64),
+            has_previous_page: pg.has_prev(),
         };
 
         info!(
             "✅ Successfully retrieved {} wallets (page {}/{})",
             wallets.len(),
-            page,
+            pg.page,
             total_pages
         );
 

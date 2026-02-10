@@ -25,7 +25,8 @@ export default function WalletDetailPage() {
         if (isAuthenticated && !authLoading) {
             void walletData.loadWallet();
         }
-    }, [isAuthenticated, authLoading, walletData]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isAuthenticated, authLoading]);
 
     return (
         <WalletDetailView

@@ -13,6 +13,9 @@ use diesel_async::{RunQueryDsl};
 use crate::schemas::primary::wallet_users;
 use crate::infrastructure::adapters::repositories::database_types::{WalletUserDb, NewWalletUserDb};
 
+// Define PostgreSQL LOWER() for type-safe case-insensitive queries
+diesel::sql_function!(fn lower(x: diesel::sql_types::Text) -> diesel::sql_types::Text);
+
 use crate::domain::wallet_management::{
     aggregates::{WalletUser, WalletMetadata},
     value_objects::{WalletAddress, Permission, PermissionType},
@@ -59,19 +62,12 @@ impl WalletUserRepositoryAdapter {
 #[async_trait]
 impl WalletUserRepositoryPort for WalletUserRepositoryAdapter {
     async fn find_by_wallet(&self, wallet_address: &WalletAddress) -> AppResult<Option<WalletUser>> {
-        use diesel::dsl::*;
+        let mut conn = self.db_pool.conn().await?;
 
-        let mut conn = self.db_pool.get().await
-            .map_err(|e| AppError::database_error(e.to_string())
-                .with_component("wallet_user_repository")
-                .with_operation("find_by_wallet"))?;
-
-        // Diesel query: case-insensitive wallet address lookup
+        // Diesel query: case-insensitive wallet address lookup using type-safe lower()
+        let wallet_addr_lower = wallet_address.as_str().to_lowercase();
         let db_user = wallet_users::table
-            .filter(sql::<diesel::sql_types::Bool>(&format!(
-                "LOWER(wallet_address) = LOWER('{}')",
-                wallet_address.as_str()
-            )))
+            .filter(lower(wallet_users::wallet_address).eq(wallet_addr_lower))
             .select(WalletUserDb::as_select())
             .first(&mut conn)
             .await
@@ -118,23 +114,14 @@ impl WalletUserRepositoryPort for WalletUserRepositoryAdapter {
             return Ok(Vec::new());
         }
 
-        let mut conn = self.db_pool.get().await
-            .map_err(|e| AppError::database_error(e.to_string())
-                .with_component("wallet_user_repository")
-                .with_operation("find_by_wallets"))?;
+        let mut conn = self.db_pool.conn().await?;
 
         let addresses_lower: Vec<String> = wallet_addresses.iter()
             .map(|w| w.as_str().to_lowercase())
             .collect();
 
         let db_users = wallet_users::table
-            .filter(diesel::dsl::sql::<diesel::sql_types::Bool>(&format!(
-                "LOWER(wallet_address) = ANY(ARRAY[{}])",
-                addresses_lower.iter()
-                    .map(|a| format!("'{}'", a.replace("'", "''")))
-                    .collect::<Vec<_>>()
-                    .join(",")
-            )))
+            .filter(lower(wallet_users::wallet_address).eq_any(addresses_lower))
             .order(wallet_users::created_at.desc())
             .select(WalletUserDb::as_select())
             .load(&mut conn)
@@ -173,10 +160,7 @@ impl WalletUserRepositoryPort for WalletUserRepositoryAdapter {
     }
 
     async fn save(&self, user: &WalletUser) -> AppResult<()> {
-        let mut conn = self.db_pool.get().await
-            .map_err(|e| AppError::database_error(e.to_string())
-                .with_component("wallet_user_repository")
-                .with_operation("save"))?;
+        let mut conn = self.db_pool.conn().await?;
 
         let metadata_json = user.wallet_metadata().to_json()
             .map_err(|e| AppError::validation_error(format!("Failed to serialize wallet metadata: {}", e))
@@ -213,17 +197,12 @@ impl WalletUserRepositoryPort for WalletUserRepositoryAdapter {
     }
 
     async fn delete(&self, wallet_address: &WalletAddress) -> AppResult<()> {
-        let mut conn = self.db_pool.get().await
-            .map_err(|e| AppError::database_error(e.to_string())
-                .with_component("wallet_user_repository")
-                .with_operation("delete"))?;
+        let mut conn = self.db_pool.conn().await?;
 
+        let wallet_addr_lower = wallet_address.as_str().to_lowercase();
         let rows_affected = diesel::delete(
             wallet_users::table.filter(
-                diesel::dsl::sql::<diesel::sql_types::Bool>(&format!(
-                    "LOWER(wallet_address) = LOWER('{}')",
-                    wallet_address.as_str().replace("'", "''")
-                ))
+                lower(wallet_users::wallet_address).eq(wallet_addr_lower)
             )
         )
         .execute(&mut conn)
@@ -244,10 +223,7 @@ impl WalletUserRepositoryPort for WalletUserRepositoryAdapter {
     }
 
     async fn find_eligible_for_web3_permissions(&self, chain_id: u64) -> AppResult<Vec<WalletUser>> {
-        let mut conn = self.db_pool.get().await
-            .map_err(|e| AppError::database_error(e.to_string())
-                .with_component("wallet_user_repository")
-                .with_operation("find_eligible_for_web3_permissions"))?;
+        let mut conn = self.db_pool.conn().await?;
 
         let query = format!(
             r#"
@@ -298,10 +274,7 @@ impl WalletUserRepositoryPort for WalletUserRepositoryAdapter {
             return Ok(());
         }
 
-        let mut conn = self.db_pool.get().await
-            .map_err(|e| AppError::database_error(e.to_string())
-                .with_component("wallet_user_repository")
-                .with_operation(format!("save_batch({} users)", users.len())))?;
+        let mut conn = self.db_pool.conn().await?;
 
         for user in users {
             let metadata_json = user.wallet_metadata().to_json()
@@ -339,10 +312,7 @@ impl WalletUserRepositoryPort for WalletUserRepositoryAdapter {
     }
 
     async fn health_check(&self) -> AppResult<()> {
-        let mut conn = self.db_pool.get().await
-            .map_err(|e| AppError::database_error(e.to_string())
-                .with_component("wallet_user_repository")
-                .with_operation("health_check"))?;
+        let mut conn = self.db_pool.conn().await?;
 
         use diesel::dsl::sql;
 
@@ -369,10 +339,7 @@ impl WalletUserRepositoryPort for WalletUserRepositoryAdapter {
 impl WalletUserSearchPort for WalletUserRepositoryAdapter {
     async fn find_by_permission(&self, permission: &Permission) -> AppResult<Vec<WalletUser>> {
         let permission_str = permission.as_str();
-        let mut conn = self.db_pool.get().await
-            .map_err(|e| AppError::database_error(e.to_string())
-                .with_component("wallet_user_repository")
-                .with_operation("find_by_permission"))?;
+        let mut conn = self.db_pool.conn().await?;
 
         let query = format!(
             r#"
@@ -439,10 +406,7 @@ impl WalletUserSearchPort for WalletUserRepositoryAdapter {
             PermissionType::DaoGovernance { .. } => "dao_governance",
         };
 
-        let mut conn = self.db_pool.get().await
-            .map_err(|e| AppError::database_error(e.to_string())
-                .with_component("wallet_user_repository")
-                .with_operation("find_by_permission_type"))?;
+        let mut conn = self.db_pool.conn().await?;
 
         let query = format!(
             r#"
@@ -498,10 +462,7 @@ impl WalletUserSearchPort for WalletUserRepositoryAdapter {
     }
 
     async fn find_by_permission_plan(&self, permission_plan: &str) -> AppResult<Vec<WalletUser>> {
-        let mut conn = self.db_pool.get().await
-            .map_err(|e| AppError::database_error(e.to_string())
-                .with_component("wallet_user_repository")
-                .with_operation("find_by_permission_plan"))?;
+        let mut conn = self.db_pool.conn().await?;
 
         let query = format!(r#"
             SELECT DISTINCT
@@ -559,10 +520,7 @@ impl WalletUserSearchPort for WalletUserRepositoryAdapter {
         limit: u32,
         offset: u32
     ) -> AppResult<WalletUserSearchResult> {
-        let mut conn = self.db_pool.get().await
-            .map_err(|e| AppError::database_error(e.to_string())
-                .with_component("wallet_user_repository")
-                .with_operation("find_by_criteria"))?;
+        let mut conn = self.db_pool.conn().await?;
 
         let mut where_clauses = vec!["1=1".to_string()];
 
@@ -637,10 +595,7 @@ impl WalletUserSearchPort for WalletUserRepositoryAdapter {
     }
 
     async fn count_by_criteria(&self, criteria: &WalletUserSearchCriteria) -> AppResult<u64> {
-        let mut conn = self.db_pool.get().await
-            .map_err(|e| AppError::database_error(e.to_string())
-                .with_component("wallet_user_repository")
-                .with_operation("count_by_criteria"))?;
+        let mut conn = self.db_pool.conn().await?;
 
         let mut where_clauses = vec!["1=1".to_string()];
 
@@ -739,10 +694,7 @@ impl WalletUserSearchPort for WalletUserRepositoryAdapter {
 #[async_trait]
 impl WalletUserAnalyticsPort for WalletUserRepositoryAdapter {
     async fn get_statistics(&self) -> AppResult<WalletUserStatistics> {
-        let mut conn = self.db_pool.get().await
-            .map_err(|e| AppError::database_error(e.to_string())
-                .with_component("wallet_user_repository")
-                .with_operation("get_statistics"))?;
+        let mut conn = self.db_pool.conn().await?;
 
         #[derive(diesel::QueryableByName)]
         struct StatsResult {
@@ -795,10 +747,7 @@ impl WalletUserAnalyticsPort for WalletUserRepositoryAdapter {
     }
 
     async fn get_web3_analytics(&self) -> AppResult<Web3Analytics> {
-        let mut conn = self.db_pool.get().await
-            .map_err(|e| AppError::database_error(e.to_string())
-                .with_component("wallet_user_repository")
-                .with_operation("get_web3_analytics"))?;
+        let mut conn = self.db_pool.conn().await?;
 
         #[derive(diesel::QueryableByName)]
         struct PermissionTypeRow {
@@ -957,10 +906,7 @@ impl WalletUserAnalyticsPort for WalletUserRepositoryAdapter {
     }
 
     async fn get_permission_distribution(&self) -> AppResult<HashMap<String, u64>> {
-        let mut conn = self.db_pool.get().await
-            .map_err(|e| AppError::database_error(e.to_string())
-                .with_component("wallet_user_repository")
-                .with_operation("get_permission_distribution"))?;
+        let mut conn = self.db_pool.conn().await?;
 
         #[derive(diesel::QueryableByName)]
         struct PermissionDistRow {
@@ -1009,10 +955,7 @@ impl WalletUserAnalyticsPort for WalletUserRepositoryAdapter {
         days: u32
     ) -> AppResult<Vec<(NaiveDate, u64)>> {
         let cutoff_date = Utc::now() - chrono::Duration::days(days as i64);
-        let mut conn = self.db_pool.get().await
-            .map_err(|e| AppError::database_error(e.to_string())
-                .with_component("wallet_user_repository")
-                .with_operation(format!("get_activity_patterns_by_chain(chain={}, days={})", chain_id, days)))?;
+        let mut conn = self.db_pool.conn().await?;
 
         #[derive(diesel::QueryableByName)]
         struct ActivityRow {
@@ -1060,10 +1003,7 @@ impl WalletUserAnalyticsPort for WalletUserRepositoryAdapter {
 
     async fn find_inactive_users(&self, days: u32) -> AppResult<Vec<WalletUser>> {
         let cutoff_date = Utc::now() - chrono::Duration::days(days as i64);
-        let mut conn = self.db_pool.get().await
-            .map_err(|e| AppError::database_error(e.to_string())
-                .with_component("wallet_user_repository")
-                .with_operation("find_inactive_users"))?;
+        let mut conn = self.db_pool.conn().await?;
 
         let query = format!(
             r#"
@@ -1111,10 +1051,7 @@ impl WalletUserAnalyticsPort for WalletUserRepositoryAdapter {
     }
 
     async fn get_plan_progression(&self) -> AppResult<HashMap<String, Vec<String>>> {
-        let mut conn = self.db_pool.get().await
-            .map_err(|e| AppError::database_error(e.to_string())
-                .with_component("wallet_user_repository")
-                .with_operation("get_plan_progression"))?;
+        let mut conn = self.db_pool.conn().await?;
 
         #[derive(diesel::QueryableByName)]
         struct ProgressionRow {

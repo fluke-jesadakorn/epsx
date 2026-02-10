@@ -518,11 +518,11 @@ impl TradingViewScanner {
             let symbol = first_stock.s.split(':').nth(1).unwrap_or(&first_stock.s);
             if symbol == "NVDA" {
                 // Focus on NVDA since we know it should have estimate 1.237
-                println!(
+                debug!(
                     "🔍 DEBUG: Processing TradingView response for symbol: {}",
                     symbol
                 );
-                println!("🔍 DEBUG: Total fields: {}", first_stock.d.len());
+                debug!("🔍 DEBUG: Total fields: {}", first_stock.d.len());
 
                 // Print ALL fields to see what data is available
                 for (idx, field) in first_stock.d.iter().enumerate() {
@@ -563,7 +563,7 @@ impl TradingViewScanner {
                         33 => "earnings_release_next_date",
                         _ => "unknown_field",
                     };
-                    println!("🔍 DEBUG: Field {} ({}): {:?}", idx, field_name, field);
+                    debug!("🔍 DEBUG: Field {} ({}): {:?}", idx, field_name, field);
                 }
             }
         }
@@ -830,9 +830,9 @@ impl TradingViewScanner {
                     .min_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
 
                 if symbol_str == "NVDA" {
-                    println!("DEBUG [NVDA]: Idx32(rel_date)={}, Idx33(next_rel_date)={}, Idx34(fy_date)={}", 
+                    debug!("DEBUG [NVDA]: Idx32(rel_date)={}, Idx33(next_rel_date)={}, Idx34(fy_date)={}",
                         earnings_release_date, earnings_release_next_date, earnings_report_date_fy);
-                    println!(
+                    debug!(
                         "DEBUG [NVDA]: Current TS={}, Selected={:?}",
                         current_timestamp, next_val
                     );
@@ -1013,7 +1013,7 @@ mod tests {
 
         assert!(result.next_earnings_date.is_some());
         let selected = result.next_earnings_date.unwrap();
-        println!("Selected: {}", selected);
+        debug!("Selected: {}", selected);
 
         assert_eq!(
             selected, 1740528000.0,

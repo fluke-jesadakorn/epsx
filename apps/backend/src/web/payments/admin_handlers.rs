@@ -14,7 +14,10 @@ use tracing::{info, error};
 
 use crate::{
     prelude::*,
-    web::middleware::UnifiedErrorResponse,
+    web::{
+        middleware::UnifiedErrorResponse,
+        pagination::Pagination,
+    },
     schemas::primary::{plans},
     schemas::payments::subscriptions,
 };
@@ -70,6 +73,32 @@ pub struct AdminPaymentInfo {
     pub completed_at: Option<DateTime<Utc>>,
     pub expires_at: Option<DateTime<Utc>>,
     pub metadata: serde_json::Value,
+}
+
+impl AdminPaymentInfo {
+    /// Create from PaymentDb with plan name
+    pub fn from_db(pay: crate::infrastructure::models::payment::PaymentDb, plan_name: String) -> Self {
+        Self {
+            id: pay.id,
+            payment_reference: pay.payment_reference,
+            wallet_address: pay.wallet_address,
+            amount: pay.amount.to_string().parse::<f64>().unwrap_or(0.0),
+            currency: pay.currency,
+            status: pay.status,
+            plan_id: pay.plan_id,
+            plan_name,
+            transaction_hash: pay.transaction_hash,
+            contract_address: pay.contract_address,
+            token_address: pay.token_address,
+            block_number: pay.block_number,
+            confirmations: pay.confirmations.unwrap_or(0),
+            created_at: pay.created_at.unwrap_or_else(Utc::now),
+            updated_at: pay.updated_at.unwrap_or_else(Utc::now),
+            completed_at: pay.completed_at,
+            expires_at: pay.expires_at,
+            metadata: pay.metadata.unwrap_or(serde_json::json!({})),
+        }
+    }
 }
 
 /// Pagination information
@@ -261,19 +290,19 @@ pub async fn admin_list_payments_handler(
     // Get PAYMENTS database connection
     let payments_pool = get_payments_pool().await.map_err(|e| {
         error!("Failed to get payments database pool: {}", e);
-        Json(create_error_response(500, "Database connection failed", "Failed to get payments database pool"))
+        Json(UnifiedErrorResponse::new(500, "Database connection failed", "Failed to get payments database pool"))
     })?;
     let mut payments_conn = payments_pool.get().await
         .map_err(|e| {
             error!("Failed to get payments database connection: {}", e);
-            Json(create_error_response(500, "Database connection failed", "Failed to establish payments database connection"))
+            Json(UnifiedErrorResponse::new(500, "Database connection failed", "Failed to establish payments database connection"))
         })?;
 
     // Get PRIMARY database connection for plan name lookups
     let mut primary_conn = app_state.db_pool.get().await
         .map_err(|e| {
             error!("Failed to get primary database connection: {}", e);
-            Json(create_error_response(500, "Database connection failed", "Failed to establish primary database connection"))
+            Json(UnifiedErrorResponse::new(500, "Database connection failed", "Failed to establish primary database connection"))
         })?;
 
     // Build query with filters
@@ -324,9 +353,7 @@ pub async fn admin_list_payments_handler(
     }
 
     // Apply pagination
-    let limit = params.limit.unwrap_or(20) as i64;
-    let page = params.page.unwrap_or(1);
-    let offset = ((page - 1) * params.limit.unwrap_or(20)) as i64;
+    let pg = Pagination::standard(params.page, params.limit);
 
     // Get total count (before pagination)
     let total_count: i64 = payments::table
@@ -338,13 +365,13 @@ pub async fn admin_list_payments_handler(
     // Fetch payments with pagination
     let payment_rows = query
         .order(payments::created_at.desc().nulls_last())
-        .limit(limit)
-        .offset(offset)
+        .limit(pg.limit as i64)
+        .offset(pg.offset)
         .load::<PaymentDb>(&mut payments_conn)
         .await
         .map_err(|e| {
             error!("Failed to query payments: {}", e);
-            Json(create_error_response(500, "Query failed", &format!("Failed to load payments: {}", e)))
+            Json(UnifiedErrorResponse::new(500, "Query failed", format!("Failed to load payments: {}", e)))
         })?;
 
     // Map to response format with plan name lookup
@@ -358,36 +385,17 @@ pub async fn admin_list_payments_handler(
             .await
             .unwrap_or_else(|_| "Unknown Plan".to_string());
 
-        payments_resp.push(AdminPaymentInfo {
-            id: pay_db.id,
-            payment_reference: pay_db.payment_reference,
-            wallet_address: pay_db.wallet_address,
-            amount: pay_db.amount.to_string().parse::<f64>().unwrap_or(0.0),
-            currency: pay_db.currency,
-            status: pay_db.status,
-            plan_id: pay_db.plan_id,
-            plan_name,
-            transaction_hash: pay_db.transaction_hash,
-            contract_address: pay_db.contract_address,
-            token_address: pay_db.token_address,
-            block_number: pay_db.block_number,
-            confirmations: pay_db.confirmations.unwrap_or(0),
-            created_at: pay_db.created_at.unwrap_or_else(Utc::now),
-            updated_at: pay_db.updated_at.unwrap_or_else(Utc::now),
-            completed_at: pay_db.completed_at,
-            expires_at: pay_db.expires_at,
-            metadata: pay_db.metadata.unwrap_or(serde_json::json!({})),
-        });
+        payments_resp.push(AdminPaymentInfo::from_db(pay_db, plan_name));
     }
 
-    let total_pages = ((total_count as f64) / (limit as f64)).ceil() as u32;
+    let total_pages = pg.total_pages(total_count as u64);
     let pagination = PaginationInfo {
-        page,
-        limit: limit as u32,
+        page: pg.page,
+        limit: pg.limit,
         total_count: total_count as u64,
         total_pages,
-        has_next: page < total_pages,
-        has_prev: page > 1,
+        has_next: pg.has_next(total_count as u64),
+        has_prev: pg.has_prev(),
     };
 
     // Calculate summary statistics from database
@@ -456,7 +464,7 @@ pub async fn admin_list_payments_handler(
         revenue_today: revenue_today_f64,
     };
 
-    info!("Found {} payments (page {} of {})", payments_resp.len(), page, total_pages);
+    info!("Found {} payments (page {} of {})", payments_resp.len(), pg.page, total_pages);
 
     Ok(Json(AdminPaymentListResponse {
         success: true,
@@ -483,19 +491,19 @@ pub async fn admin_get_payment_details_handler(
     // Get PAYMENTS database connection
     let payments_pool = get_payments_pool().await.map_err(|e| {
         error!("Failed to get payments database pool: {}", e);
-        Json(create_error_response(500, "Database connection failed", "Failed to get payments database pool"))
+        Json(UnifiedErrorResponse::new(500, "Database connection failed", "Failed to get payments database pool"))
     })?;
     let mut payments_conn = payments_pool.get().await
         .map_err(|e| {
             error!("Failed to get payments database connection: {}", e);
-            Json(create_error_response(500, "Database connection failed", "Failed to establish payments database connection"))
+            Json(UnifiedErrorResponse::new(500, "Database connection failed", "Failed to establish payments database connection"))
         })?;
 
     // Get PRIMARY database connection for plan name lookup
     let mut primary_conn = app_state.db_pool.get().await
         .map_err(|e| {
             error!("Failed to get primary database connection: {}", e);
-            Json(create_error_response(500, "Database connection failed", "Failed to establish primary database connection"))
+            Json(UnifiedErrorResponse::new(500, "Database connection failed", "Failed to establish primary database connection"))
         })?;
 
     // Fetch payment from database
@@ -514,33 +522,14 @@ pub async fn admin_get_payment_details_handler(
                 .await
                 .unwrap_or_else(|_| "Unknown Plan".to_string());
 
-            Some(AdminPaymentInfo {
-                id: pay_db.id,
-                payment_reference: pay_db.payment_reference,
-                wallet_address: pay_db.wallet_address,
-                amount: pay_db.amount.to_string().parse::<f64>().unwrap_or(0.0),
-                currency: pay_db.currency,
-                status: pay_db.status,
-                plan_id: pay_db.plan_id,
-                plan_name,
-                transaction_hash: pay_db.transaction_hash,
-                contract_address: pay_db.contract_address,
-                token_address: pay_db.token_address,
-                block_number: pay_db.block_number,
-                confirmations: pay_db.confirmations.unwrap_or(0),
-                created_at: pay_db.created_at.unwrap_or_else(Utc::now),
-                updated_at: pay_db.updated_at.unwrap_or_else(Utc::now),
-                completed_at: pay_db.completed_at,
-                expires_at: pay_db.expires_at,
-                metadata: pay_db.metadata.unwrap_or(serde_json::json!({})),
-            })
+            Some(AdminPaymentInfo::from_db(pay_db, plan_name))
         }
         Err(diesel::NotFound) => {
-            return Err(Json(create_error_response(404, "Payment not found", &format!("No payment found with ID: {}", payment_id))));
+            return Err(Json(UnifiedErrorResponse::new(404, "Payment not found", format!("No payment found with ID: {}", payment_id))));
         }
         Err(e) => {
             error!("Failed to query payment: {}", e);
-            return Err(Json(create_error_response(500, "Query failed", &format!("Failed to load payment: {}", e))));
+            return Err(Json(UnifiedErrorResponse::new(500, "Query failed", format!("Failed to load payment: {}", e))));
         }
     };
 
@@ -608,18 +597,18 @@ pub async fn admin_update_payment_status_handler(
     // Validate status transition
     let valid_statuses = ["created", "pending", "confirmed", "completed", "failed", "refunded", "expired", "cancelled"];
     if !valid_statuses.contains(&request.status.as_str()) {
-        return Err(Json(create_error_response(400, "Invalid status", &format!("Status must be one of: {:?}", valid_statuses))));
+        return Err(Json(UnifiedErrorResponse::new(400, "Invalid status", format!("Status must be one of: {:?}", valid_statuses))));
     }
 
     // Get PAYMENTS database connection
     let payments_pool = get_payments_pool().await.map_err(|e| {
         error!("Failed to get payments database pool: {}", e);
-        Json(create_error_response(500, "Database connection failed", "Failed to get payments database pool"))
+        Json(UnifiedErrorResponse::new(500, "Database connection failed", "Failed to get payments database pool"))
     })?;
     let mut payments_conn = payments_pool.get().await
         .map_err(|e| {
             error!("Failed to get payments database connection: {}", e);
-            Json(create_error_response(500, "Database connection failed", "Failed to establish payments database connection"))
+            Json(UnifiedErrorResponse::new(500, "Database connection failed", "Failed to establish payments database connection"))
         })?;
 
     // Get current payment status
@@ -630,10 +619,10 @@ pub async fn admin_update_payment_status_handler(
         .await
         .map_err(|e| {
             if matches!(e, diesel::NotFound) {
-                Json(create_error_response(404, "Payment not found", &format!("No payment found with ID: {}", payment_id)))
+                Json(UnifiedErrorResponse::new(404, "Payment not found", format!("No payment found with ID: {}", payment_id)))
             } else {
                 error!("Failed to get payment status: {}", e);
-                Json(create_error_response(500, "Query failed", "Failed to get current payment status"))
+                Json(UnifiedErrorResponse::new(500, "Query failed", "Failed to get current payment status"))
             }
         })?;
 
@@ -655,7 +644,7 @@ pub async fn admin_update_payment_status_handler(
         .await
         .map_err(|e| {
             error!("Failed to update payment status: {}", e);
-            Json(create_error_response(500, "Update failed", &format!("Failed to update payment: {}", e)))
+            Json(UnifiedErrorResponse::new(500, "Update failed", format!("Failed to update payment: {}", e)))
         })?;
 
     // Create audit log entry with actual admin wallet
@@ -710,12 +699,12 @@ pub async fn admin_process_refund_handler(
     // Get PAYMENTS database connection
     let payments_pool = get_payments_pool().await.map_err(|e| {
         error!("Failed to get payments database pool: {}", e);
-        Json(create_error_response(500, "Database connection failed", "Failed to get payments database pool"))
+        Json(UnifiedErrorResponse::new(500, "Database connection failed", "Failed to get payments database pool"))
     })?;
     let mut payments_conn = payments_pool.get().await
         .map_err(|e| {
             error!("Failed to get payments database connection: {}", e);
-            Json(create_error_response(500, "Database connection failed", "Failed to establish payments database connection"))
+            Json(UnifiedErrorResponse::new(500, "Database connection failed", "Failed to establish payments database connection"))
         })?;
 
     // Get current payment
@@ -726,16 +715,16 @@ pub async fn admin_process_refund_handler(
         .await
         .map_err(|e| {
             if matches!(e, diesel::NotFound) {
-                Json(create_error_response(404, "Payment not found", &format!("No payment found with ID: {}", payment_id)))
+                Json(UnifiedErrorResponse::new(404, "Payment not found", format!("No payment found with ID: {}", payment_id)))
             } else {
                 error!("Failed to query payment: {}", e);
-                Json(create_error_response(500, "Query failed", &format!("Failed to load payment: {}", e)))
+                Json(UnifiedErrorResponse::new(500, "Query failed", format!("Failed to load payment: {}", e)))
             }
         })?;
 
     // Validate refund eligibility
     if !["completed", "confirmed"].contains(&old_status.as_str()) {
-        return Err(Json(create_error_response(400, "Invalid refund", &format!("Cannot refund payment with status: {}", old_status))));
+        return Err(Json(UnifiedErrorResponse::new(400, "Invalid refund", format!("Cannot refund payment with status: {}", old_status))));
     }
 
     // Calculate refund amount
@@ -748,7 +737,7 @@ pub async fn admin_process_refund_handler(
 
     // Validate refund amount
     if refund_amount <= 0.0 || refund_amount > payment_amount_f64 {
-        return Err(Json(create_error_response(400, "Invalid refund amount", &format!("Refund amount must be between 0 and {}", payment_amount_f64))));
+        return Err(Json(UnifiedErrorResponse::new(400, "Invalid refund amount", format!("Refund amount must be between 0 and {}", payment_amount_f64))));
     }
 
     let processed_at = Utc::now();
@@ -764,7 +753,7 @@ pub async fn admin_process_refund_handler(
         .await
         .map_err(|e| {
             error!("Failed to update payment status: {}", e);
-            Json(create_error_response(500, "Update failed", &format!("Failed to update payment: {}", e)))
+            Json(UnifiedErrorResponse::new(500, "Update failed", format!("Failed to update payment: {}", e)))
         })?;
 
     // Cancel associated subscription if exists
@@ -825,19 +814,19 @@ pub async fn admin_list_subscriptions_handler(
     // Get PAYMENTS database connection (subscriptions table is in payments DB)
     let payments_pool = get_payments_pool().await.map_err(|e| {
         error!("Failed to get payments database pool: {}", e);
-        Json(create_error_response(500, "Database connection failed", "Failed to get payments database pool"))
+        Json(UnifiedErrorResponse::new(500, "Database connection failed", "Failed to get payments database pool"))
     })?;
     let mut payments_conn = payments_pool.get().await
         .map_err(|e| {
             error!("Failed to get payments database connection: {}", e);
-            Json(create_error_response(500, "Database connection failed", "Failed to establish payments database connection"))
+            Json(UnifiedErrorResponse::new(500, "Database connection failed", "Failed to establish payments database connection"))
         })?;
 
     // Get PRIMARY database connection (plans table is in primary DB)
     let mut primary_conn = app_state.db_pool.get().await
         .map_err(|e| {
             error!("Failed to get primary database connection: {}", e);
-            Json(create_error_response(500, "Database connection failed", "Failed to establish primary database connection"))
+            Json(UnifiedErrorResponse::new(500, "Database connection failed", "Failed to establish primary database connection"))
         })?;
 
     // Build query
@@ -859,9 +848,7 @@ pub async fn admin_list_subscriptions_handler(
     }
 
     // Apply pagination
-    let limit = params.limit.unwrap_or(50) as i64;
-    let page = params.page.unwrap_or(1);
-    let offset = ((page - 1) * params.limit.unwrap_or(50)) as i64;
+    let pg = Pagination::large(params.page, params.limit);
 
     // Get total count (before pagination) from PAYMENTS DB
     let total_count: i64 = subscriptions::table
@@ -873,13 +860,13 @@ pub async fn admin_list_subscriptions_handler(
     // Fetch subscriptions with pagination from PAYMENTS DB
     let subscription_rows = query
         .order(subscriptions::started_at.desc().nulls_last())
-        .limit(limit)
-        .offset(offset)
+        .limit(pg.limit as i64)
+        .offset(pg.offset)
         .load::<SubscriptionDb>(&mut payments_conn)
         .await
         .map_err(|e| {
             error!("Failed to query subscriptions: {}", e);
-            Json(create_error_response(500, "Query failed", &format!("Failed to load subscriptions: {}", e)))
+            Json(UnifiedErrorResponse::new(500, "Query failed", format!("Failed to load subscriptions: {}", e)))
         })?;
 
     // Map to response format with plan name lookup from PRIMARY DB
@@ -908,14 +895,14 @@ pub async fn admin_list_subscriptions_handler(
         });
     }
 
-    let total_pages = ((total_count as f64) / (limit as f64)).ceil() as u32;
+    let total_pages = pg.total_pages(total_count as u64);
     let pagination = PaginationInfo {
-        page,
-        limit: limit as u32,
+        page: pg.page,
+        limit: pg.limit,
         total_count: total_count as u64,
         total_pages,
-        has_next: page < total_pages,
-        has_prev: page > 1,
+        has_next: pg.has_next(total_count as u64),
+        has_prev: pg.has_prev(),
     };
 
     // Calculate summary statistics with real database queries
@@ -993,7 +980,7 @@ pub async fn admin_list_subscriptions_handler(
         monthly_revenue,
     };
 
-    info!("Found {} subscriptions (page {} of {})", subscriptions_resp.len(), page, total_pages);
+    info!("Found {} subscriptions (page {} of {})", subscriptions_resp.len(), pg.page, total_pages);
 
     Ok(Json(AdminSubscriptionListResponse {
         success: true,
@@ -1015,19 +1002,19 @@ pub async fn admin_get_payment_analytics_handler(
     // Get PAYMENTS database connection
     let payments_pool = get_payments_pool().await.map_err(|e| {
         error!("Failed to get payments database pool: {}", e);
-        Json(create_error_response(500, "Database connection failed", "Failed to get payments database pool"))
+        Json(UnifiedErrorResponse::new(500, "Database connection failed", "Failed to get payments database pool"))
     })?;
     let mut payments_conn = payments_pool.get().await
         .map_err(|e| {
             error!("Failed to get payments database connection: {}", e);
-            Json(create_error_response(500, "Database connection failed", "Failed to establish payments database connection"))
+            Json(UnifiedErrorResponse::new(500, "Database connection failed", "Failed to establish payments database connection"))
         })?;
 
     // Get PRIMARY database connection for plan name lookup
     let mut primary_conn = app_state.db_pool.get().await
         .map_err(|e| {
             error!("Failed to get primary database connection: {}", e);
-            Json(create_error_response(500, "Database connection failed", "Failed to establish primary database connection"))
+            Json(UnifiedErrorResponse::new(500, "Database connection failed", "Failed to establish primary database connection"))
         })?;
 
     // === 1. Daily Revenue (last 30 days) ===
@@ -1267,14 +1254,3 @@ pub async fn admin_get_payment_analytics_handler(
     }))
 }
 
-/// Helper function to create UnifiedErrorResponse
-fn create_error_response(code: u16, message: &str, reason: &str) -> UnifiedErrorResponse {
-    UnifiedErrorResponse {
-        success: false,
-        error: crate::web::middleware::bearer_middleware::ErrorDetails {
-            code,
-            message: message.to_string(),
-            reason: reason.to_string(),
-        },
-    }
-}

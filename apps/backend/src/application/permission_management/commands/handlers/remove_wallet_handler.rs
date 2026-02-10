@@ -29,7 +29,7 @@ impl RemoveWalletFromPlanCommandHandler {
 impl CommandHandler<RemoveWalletFromPlanCommand> for RemoveWalletFromPlanCommandHandler {
     async fn handle(&self, command: RemoveWalletFromPlanCommand) -> ApplicationResult<RemoveWalletFromPlanResponse> {
         // 1. Parse plan ID and wallet address
-        let plan_id = PlanId::from_str(&command.plan_id)
+        let plan_id = PlanId::parse(&command.plan_id)
             .map_err(|e| ApplicationError::validation("plan_id", e.to_string()))?;
 
         let wallet_address = WalletAddress::new(&command.wallet_address)

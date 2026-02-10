@@ -90,6 +90,34 @@ pub struct PlanResponse {
     pub default_expiry_days: Option<i32>,
 }
 
+impl PlanResponse {
+    /// Create from domain Plan with member count
+    pub fn from_plan(plan: &Plan, member_count: i32) -> Self {
+        Self {
+            id: plan.id().to_string(),
+            name: plan.name().to_string(),
+            slug: plan.slug().as_str().to_string(),
+            description: plan.description().to_string(),
+            plan_type: plan.plan_type().to_string(),
+            permissions: plan.permissions().iter().map(|p| p.as_str().to_string()).collect(),
+            price: plan.price().to_string().parse::<BigDecimal>().unwrap_or_else(|_| BigDecimal::from(0)),
+            currency: plan.currency().to_string(),
+            billing_cycle: plan.billing_cycle().to_string(),
+            is_active: plan.is_active(),
+            is_promoted: plan.is_promoted(),
+            display_order: plan.display_order(),
+            max_members: plan.max_members(),
+            auto_assign_enabled: plan.auto_assign_enabled(),
+            plan_metadata: plan.metadata().clone(),
+            created_at: plan.created_at(),
+            updated_at: plan.updated_at(),
+            member_count,
+            is_public: plan.is_public(),
+            default_expiry_days: plan.metadata().get("default_expiry_days").and_then(|v| v.as_i64()).map(|v| v as i32),
+        }
+    }
+}
+
 #[derive(Debug, Deserialize)]
 pub struct ListPlansQuery {
     pub page: Option<u32>,
@@ -206,30 +234,7 @@ pub async fn create_plan(
         };
         let _ = plan.update(update_params);
     }
-    let response = PlanResponse {
-        id: plan.id().to_string(),
-        name: plan.name().to_string(),
-        slug: plan.slug().as_str().to_string(),
-        description: plan.description().to_string(),
-        plan_type: plan.plan_type().to_string(),
-        permissions: plan.permissions().iter().map(|p| p.as_str().to_string()).collect(),
-        price: req.price.unwrap_or_else(|| BigDecimal::from(0)),
-        currency: plan.currency().to_string(),
-        billing_cycle: plan.billing_cycle().to_string(),
-        is_active: plan.is_active(),
-        is_promoted: plan.is_promoted(),
-        display_order: plan.display_order(),
-        max_members: plan.max_members(),
-        auto_assign_enabled: plan.auto_assign_enabled(),
-        plan_metadata: plan.metadata().clone(),
-        created_at: plan.created_at(),
-        updated_at: plan.updated_at(),
-        member_count: 0,
-        is_public: plan.is_public(),
-        default_expiry_days: plan.metadata().get("default_expiry_days").and_then(|v| v.as_i64()).map(|v| v as i32),
-    };
-
-    AdminResponse::created(response, "Permission plan created successfully").into_response()
+    AdminResponse::created(PlanResponse::from_plan(&plan, 0), "Permission plan created successfully").into_response()
 }
 
 /// Get a permission plan by ID
@@ -306,31 +311,7 @@ pub async fn get_plan(
         }
     };
 
-    // Build response from domain model
-    let response = PlanResponse {
-        id: plan.id().to_string(),
-        name: plan.name().to_string(),
-        slug: plan.slug().as_str().to_string(),
-        description: plan.description().to_string(),
-        plan_type: plan.plan_type().to_string(),
-        permissions: plan.permissions().iter().map(|p| p.as_str().to_string()).collect(),
-        price: plan.price().to_string().parse::<BigDecimal>().unwrap_or_else(|_| BigDecimal::from(0)),
-        currency: plan.currency().to_string(),
-        billing_cycle: plan.billing_cycle().to_string(),
-        is_active: plan.is_active(),
-        is_promoted: plan.is_promoted(),
-        display_order: plan.display_order(),
-        max_members: plan.max_members(),
-        auto_assign_enabled: plan.auto_assign_enabled(),
-        plan_metadata: plan.metadata().clone(),
-        created_at: plan.created_at(),
-        updated_at: plan.updated_at(),
-        member_count,
-        is_public: plan.is_public(),
-        default_expiry_days: plan.metadata().get("default_expiry_days").and_then(|v| v.as_i64()).map(|v| v as i32),
-    };
-
-    AdminResponse::success(response).into_response()
+    AdminResponse::success(PlanResponse::from_plan(&plan, member_count)).into_response()
 }
 
 /// List permission plans with pagination
@@ -359,9 +340,7 @@ pub async fn list_plans(
 ) -> impl IntoResponse {
     use crate::domain::permission_management::repository_ports::PlanSearchCriteria;
 
-    let page = query.page.unwrap_or(1);
-    let limit = query.limit.unwrap_or(20).min(100);
-    let offset = (page - 1) * limit;
+    let pg = crate::web::pagination::Pagination::standard(query.page, query.limit);
 
     // Build search criteria for Diesel repository
     let criteria = PlanSearchCriteria {
@@ -369,8 +348,8 @@ pub async fn list_plans(
         is_active: query.is_active,
         is_promoted: None,
         search_term: None,
-        limit: Some(limit as i64),
-        offset: Some(offset as i64),
+        limit: Some(pg.limit as i64),
+        offset: Some(pg.offset),
     };
 
     // Get total count using the same criteria (without limit/offset)
@@ -450,32 +429,11 @@ pub async fn list_plans(
     // Convert domain models to response DTOs
     let plans: Vec<PlanResponse> = domain_plans.iter()
         .map(|plan| {
-        let count = member_counts.get(plan.id().value()).unwrap_or(&0);
-        PlanResponse {
-            id: plan.id().to_string(),
-            name: plan.name().to_string(),
-            slug: plan.slug().as_str().to_string(),
-            description: plan.description().to_string(),
-            plan_type: plan.plan_type().to_string(),
-            permissions: plan.permissions().iter().map(|p| p.as_str().to_string()).collect(),
-            price: plan.price().to_string().parse::<BigDecimal>().unwrap_or_else(|_| BigDecimal::from(0)),
-            currency: plan.currency().to_string(),
-            billing_cycle: plan.billing_cycle().to_string(),
-            is_active: plan.is_active(),
-            is_promoted: plan.is_promoted(),
-            display_order: plan.display_order(),
-            max_members: plan.max_members(),
-            auto_assign_enabled: plan.auto_assign_enabled(),
-            plan_metadata: plan.metadata().clone(),
-            created_at: plan.created_at(),
-            updated_at: plan.updated_at(),
-            member_count: *count as i32,
-            is_public: plan.is_public(),
-            default_expiry_days: plan.metadata().get("default_expiry_days").and_then(|v| v.as_i64()).map(|v| v as i32),
-        }
-    }).collect();
+            let count = member_counts.get(plan.id().value()).unwrap_or(&0);
+            PlanResponse::from_plan(plan, *count as i32)
+        }).collect();
 
-    let pagination = create_pagination(page, limit, total as u64);
+    let pagination = create_pagination(pg.page, pg.limit, total as u64);
     AdminResponse::success_with_pagination(plans, pagination).into_response()
 }
 
@@ -586,31 +544,7 @@ pub async fn update_plan(
         return AdminResponse::server_error("Failed to update plan").into_response();
     }
 
-    // Build response from updated domain model
-    let response = PlanResponse {
-        id: plan.id().to_string(),
-        name: plan.name().to_string(),
-        slug: plan.slug().as_str().to_string(),
-        description: plan.description().to_string(),
-        plan_type: plan.plan_type().to_string(),
-        permissions: plan.permissions().iter().map(|p| p.as_str().to_string()).collect(),
-        price: plan.price().to_string().parse::<BigDecimal>().unwrap_or_else(|_| BigDecimal::from(0)),
-        currency: plan.currency().to_string(),
-        billing_cycle: plan.billing_cycle().to_string(),
-        is_active: plan.is_active(),
-        is_promoted: plan.is_promoted(),
-        display_order: plan.display_order(),
-        max_members: plan.max_members(),
-        auto_assign_enabled: plan.auto_assign_enabled(),
-        plan_metadata: plan.metadata().clone(),
-        created_at: plan.created_at(),
-        updated_at: plan.updated_at(),
-        member_count: 0, // We don't recalculate member count on update, acceptable trade-off for performance
-        is_public: plan.is_public(),
-        default_expiry_days: plan.metadata().get("default_expiry_days").and_then(|v| v.as_i64()).map(|v| v as i32),
-    };
-
-    AdminResponse::success(response).into_response()
+    AdminResponse::success(PlanResponse::from_plan(&plan, 0)).into_response()
 }
 
 /// Delete a permission plan
@@ -799,9 +733,7 @@ pub async fn get_plan_assignments(
         Err(_) => return AdminResponse::bad_request("Invalid plan ID format").into_response(),
     };
 
-    let page = query.page.unwrap_or(1);
-    let limit = query.limit.unwrap_or(20).min(100);
-    let offset = (page - 1) * limit;
+    let pg = crate::web::pagination::Pagination::standard(query.page, query.limit);
 
     let mut conn = match app_state.db_pool.get().await {
         Ok(conn) => conn,
@@ -855,8 +787,8 @@ pub async fn get_plan_assignments(
          LIMIT $2 OFFSET $3"
     )
     .bind::<diesel::sql_types::Uuid, _>(plan_uuid)
-    .bind::<diesel::sql_types::BigInt, _>(limit as i64)
-    .bind::<diesel::sql_types::BigInt, _>(offset as i64)
+    .bind::<diesel::sql_types::BigInt, _>(pg.limit as i64)
+    .bind::<diesel::sql_types::BigInt, _>(pg.offset)
     .load::<AssignmentRow>(&mut conn)
     .await
     {
@@ -867,6 +799,6 @@ pub async fn get_plan_assignments(
         }
     };
 
-    let pagination = create_pagination(page, limit, total as u64);
+    let pagination = create_pagination(pg.page, pg.limit, total as u64);
     AdminResponse::success_with_pagination(assignments, pagination).into_response()
 }

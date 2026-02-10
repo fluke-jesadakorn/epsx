@@ -6,7 +6,7 @@ use rsa::pkcs8::{EncodePrivateKey, EncodePublicKey, DecodePrivateKey, LineEnding
 use jsonwebtoken::{EncodingKey, DecodingKey};
 use std::fs;
 use std::path::Path;
-use tracing::{info, warn};
+use tracing::{error, info, warn};
 
 #[derive(Debug)]
 pub enum KeyError {
@@ -143,7 +143,7 @@ static KEY_MANAGER: OnceLock<JwtKeyManager> = OnceLock::new();
 /// Get global key manager instance
 pub fn get_key_manager() -> Result<&'static JwtKeyManager, KeyError> {
     KEY_MANAGER.get_or_init(|| JwtKeyManager::generate_or_load().unwrap_or_else(|e| {
-        eprintln!("Failed to initialize key manager: {}", e);
+        error!("Failed to initialize key manager: {}", e);
         std::process::exit(1);
     }));
     Ok(KEY_MANAGER.get().unwrap())

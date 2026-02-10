@@ -190,7 +190,7 @@ pub async fn create_assignment(
                     if days == -1 {
                         None
                     } else {
-                        Some(Utc::now() + chrono::Duration::try_days(days).unwrap_or_else(|| chrono::Duration::zero()))
+                        Some(Utc::now() + chrono::Duration::try_days(days).unwrap_or_else(chrono::Duration::zero))
                     }
                 }
             };
@@ -284,9 +284,7 @@ pub async fn list_assignments(
     State(app_state): State<AppState>,
     Query(query): Query<ListAssignmentsQuery>,
 ) -> impl IntoResponse {
-    let page = query.page.unwrap_or(1);
-    let limit = query.limit.unwrap_or(20).min(100);
-    let offset = (page - 1) * limit;
+    let pg = crate::web::pagination::Pagination::standard(query.page, query.limit);
 
     // Build query with optional filters
     let mut sql = String::from(
@@ -407,8 +405,8 @@ pub async fn list_assignments(
     ) {
         (Some(wallet), Some(plan_uuid), Some(is_active)) => {
             diesel::sql_query(&sql)
-                .bind::<diesel::sql_types::Integer, _>(limit as i32)
-                .bind::<diesel::sql_types::Integer, _>(offset as i32)
+                .bind::<diesel::sql_types::Integer, _>(pg.limit as i32)
+                .bind::<diesel::sql_types::Integer, _>(pg.offset as i32)
                 .bind::<diesel::sql_types::Text, _>(wallet.to_lowercase())
                 .bind::<diesel::sql_types::Uuid, _>(*plan_uuid)
                 .bind::<diesel::sql_types::Bool, _>(is_active)
@@ -417,8 +415,8 @@ pub async fn list_assignments(
         }
         (Some(wallet), Some(plan_uuid), None) => {
             diesel::sql_query(&sql)
-                .bind::<diesel::sql_types::Integer, _>(limit as i32)
-                .bind::<diesel::sql_types::Integer, _>(offset as i32)
+                .bind::<diesel::sql_types::Integer, _>(pg.limit as i32)
+                .bind::<diesel::sql_types::Integer, _>(pg.offset as i32)
                 .bind::<diesel::sql_types::Text, _>(wallet.to_lowercase())
                 .bind::<diesel::sql_types::Uuid, _>(*plan_uuid)
                 .load::<AssignmentRow>(&mut conn)
@@ -426,8 +424,8 @@ pub async fn list_assignments(
         }
         (Some(wallet), None, Some(is_active)) => {
             diesel::sql_query(&sql)
-                .bind::<diesel::sql_types::Integer, _>(limit as i32)
-                .bind::<diesel::sql_types::Integer, _>(offset as i32)
+                .bind::<diesel::sql_types::Integer, _>(pg.limit as i32)
+                .bind::<diesel::sql_types::Integer, _>(pg.offset as i32)
                 .bind::<diesel::sql_types::Text, _>(wallet.to_lowercase())
                 .bind::<diesel::sql_types::Bool, _>(is_active)
                 .load::<AssignmentRow>(&mut conn)
@@ -435,16 +433,16 @@ pub async fn list_assignments(
         }
         (Some(wallet), None, None) => {
             diesel::sql_query(&sql)
-                .bind::<diesel::sql_types::Integer, _>(limit as i32)
-                .bind::<diesel::sql_types::Integer, _>(offset as i32)
+                .bind::<diesel::sql_types::Integer, _>(pg.limit as i32)
+                .bind::<diesel::sql_types::Integer, _>(pg.offset as i32)
                 .bind::<diesel::sql_types::Text, _>(wallet.to_lowercase())
                 .load::<AssignmentRow>(&mut conn)
                 .await
         }
         (None, Some(plan_uuid), Some(is_active)) => {
             diesel::sql_query(&sql)
-                .bind::<diesel::sql_types::Integer, _>(limit as i32)
-                .bind::<diesel::sql_types::Integer, _>(offset as i32)
+                .bind::<diesel::sql_types::Integer, _>(pg.limit as i32)
+                .bind::<diesel::sql_types::Integer, _>(pg.offset as i32)
                 .bind::<diesel::sql_types::Uuid, _>(*plan_uuid)
                 .bind::<diesel::sql_types::Bool, _>(is_active)
                 .load::<AssignmentRow>(&mut conn)
@@ -452,24 +450,24 @@ pub async fn list_assignments(
         }
         (None, Some(plan_uuid), None) => {
             diesel::sql_query(&sql)
-                .bind::<diesel::sql_types::Integer, _>(limit as i32)
-                .bind::<diesel::sql_types::Integer, _>(offset as i32)
+                .bind::<diesel::sql_types::Integer, _>(pg.limit as i32)
+                .bind::<diesel::sql_types::Integer, _>(pg.offset as i32)
                 .bind::<diesel::sql_types::Uuid, _>(*plan_uuid)
                 .load::<AssignmentRow>(&mut conn)
                 .await
         }
         (None, None, Some(is_active)) => {
             diesel::sql_query(&sql)
-                .bind::<diesel::sql_types::Integer, _>(limit as i32)
-                .bind::<diesel::sql_types::Integer, _>(offset as i32)
+                .bind::<diesel::sql_types::Integer, _>(pg.limit as i32)
+                .bind::<diesel::sql_types::Integer, _>(pg.offset as i32)
                 .bind::<diesel::sql_types::Bool, _>(is_active)
                 .load::<AssignmentRow>(&mut conn)
                 .await
         }
         (None, None, None) => {
             diesel::sql_query(&sql)
-                .bind::<diesel::sql_types::Integer, _>(limit as i32)
-                .bind::<diesel::sql_types::Integer, _>(offset as i32)
+                .bind::<diesel::sql_types::Integer, _>(pg.limit as i32)
+                .bind::<diesel::sql_types::Integer, _>(pg.offset as i32)
                 .load::<AssignmentRow>(&mut conn)
                 .await
         }
@@ -504,7 +502,7 @@ pub async fn list_assignments(
         }
     }).collect();
 
-    let pagination = create_pagination(page, limit, total as u64);
+    let pagination = create_pagination(pg.page, pg.limit, total as u64);
     AdminResponse::success_with_pagination(assignments, pagination).into_response()
 }
 

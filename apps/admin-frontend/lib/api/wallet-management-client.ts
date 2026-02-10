@@ -65,11 +65,14 @@ export interface WalletSummaryDto {
     created_at: string;
     last_auth_at?: string;
     metadata?: Record<string, unknown>;
-    permissions: Array<{
+    platforms?: string[];
+    permissions?: Array<{
         permission: string;
+        platform?: string;
         expires_at?: string;
         is_active: boolean;
         source?: string;
+        created_at?: string;
     }>;
     groups: Array<{
         group_name: string;

@@ -1,12 +1,12 @@
- 
+
 'use client';
 
-import type { ErrorInfo, ReactNode } from 'react';
-import React, { Component } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { AlertTriangle, RefreshCw, Home, Bug } from 'lucide-react';
 import { safeError, uiLogger } from '@/lib/utils/logging';
+import { AlertTriangle, Bug, Home, RefreshCw } from 'lucide-react';
+import type { ErrorInfo, ReactNode } from 'react';
+import React, { Component } from 'react';
 
 interface Props {
   children: ReactNode;
@@ -30,7 +30,7 @@ interface State {
 export class GlobalErrorBoundary extends Component<Props, State> {
   public constructor(props: Props) {
     super(props);
-    
+
     this.state = {
       hasError: false,
       error: null,
@@ -55,7 +55,7 @@ export class GlobalErrorBoundary extends Component<Props, State> {
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     const { onError, level = 'global', context } = this.props;
-    
+
     // Log error with context - wrapped in try-catch to prevent recursive errors
     const errorContext = {
       level,
@@ -102,7 +102,7 @@ export class GlobalErrorBoundary extends Component<Props, State> {
     // Handle unhandled promise rejections (including wallet/database cleanup errors)
     window.addEventListener('unhandledrejection', (event: PromiseRejectionEvent) => {
       const error = event.reason;
-      
+
       // Handle wallet library and database cleanup errors that are safe to ignore
       if (error instanceof TypeError) {
         const msg = error.message;
@@ -125,7 +125,7 @@ export class GlobalErrorBoundary extends Component<Props, State> {
       if (error && typeof error === 'object' && error.name === 'TypeError') {
         const errorStr = error.toString();
         if (
-          errorStr.includes('null') && 
+          errorStr.includes('null') &&
           (errorStr.includes('onclose') || errorStr.includes('transaction'))
         ) {
           event.preventDefault();
@@ -133,8 +133,17 @@ export class GlobalErrorBoundary extends Component<Props, State> {
         }
       }
 
-      // Log other unhandled rejections
-      uiLogger.error('Unhandled promise rejection', { error, source: 'global-error-boundary' });
+      // Log other unhandled rejections with more context
+      const reason = event.reason;
+      uiLogger.error('Unhandled promise rejection', {
+        error: reason,
+        message: reason instanceof Error ? reason.message : String(reason),
+        source: 'global-error-boundary',
+        event: {
+          type: event.type,
+          timeStamp: event.timeStamp
+        }
+      });
     });
 
     // Handle general JavaScript errors
@@ -152,7 +161,7 @@ export class GlobalErrorBoundary extends Component<Props, State> {
         }
       }
 
-      uiLogger.error('Unhandled JavaScript error', { 
+      uiLogger.error('Unhandled JavaScript error', {
         error: event.error,
         source: 'global-error-boundary',
         filename: event.filename,
@@ -181,7 +190,7 @@ export class GlobalErrorBoundary extends Component<Props, State> {
 
   private renderGlobalError() {
     const { error, errorId } = this.state;
-    
+
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
         <Card className="max-w-md w-full mx-4 p-8">
@@ -189,15 +198,15 @@ export class GlobalErrorBoundary extends Component<Props, State> {
             <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/20">
               <AlertTriangle className="h-8 w-8 text-red-500" />
             </div>
-            
+
             <h1 className="mb-4 text-2xl font-bold text-gray-900 dark:text-white">
               Something went wrong
             </h1>
-            
+
             <p className="mb-6 text-gray-600 dark:text-gray-300">
               We encountered an unexpected error. Our team has been notified and is working on a fix.
             </p>
-            
+
             {process.env.NODE_ENV === 'development' && error && (
               <details className="mb-6 text-left">
                 <summary className="cursor-pointer text-sm text-gray-500 hover:text-gray-700">
@@ -210,23 +219,23 @@ export class GlobalErrorBoundary extends Component<Props, State> {
                 </pre>
               </details>
             )}
-            
+
             <div className="space-y-3">
               <Button onClick={this.handleReload} className="w-full">
                 <RefreshCw className="mr-2 h-4 w-4" />
                 Reload Page
               </Button>
-              
-              <Button 
-                onClick={this.handleGoHome} 
-                variant="outline" 
+
+              <Button
+                onClick={this.handleGoHome}
+                variant="outline"
                 className="w-full"
               >
                 <Home className="mr-2 h-4 w-4" />
                 Go to Home
               </Button>
             </div>
-            
+
             <p className="mt-4 text-xs text-gray-500">
               Error ID: {errorId}
             </p>
@@ -238,7 +247,7 @@ export class GlobalErrorBoundary extends Component<Props, State> {
 
   private renderPageError() {
     const { error, errorId } = this.state;
-    
+
     return (
       <div className="flex min-h-[400px] items-center justify-center">
         <Card className="max-w-sm w-full mx-4 p-6">
@@ -246,32 +255,32 @@ export class GlobalErrorBoundary extends Component<Props, State> {
             <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-orange-100 dark:bg-orange-900/20">
               <Bug className="h-6 w-6 text-orange-500" />
             </div>
-            
+
             <h2 className="mb-3 text-lg font-semibold text-gray-900 dark:text-white">
               Page Error
             </h2>
-            
+
             <p className="mb-4 text-sm text-gray-600 dark:text-gray-300">
               This page encountered an error and couldn't load properly.
             </p>
-            
+
             <div className="space-y-2">
               <Button onClick={this.handleRetry} size="sm" className="w-full">
                 <RefreshCw className="mr-2 h-4 w-4" />
                 Try Again
               </Button>
-              
-              <Button 
-                onClick={this.handleGoHome} 
-                variant="outline" 
-                size="sm" 
+
+              <Button
+                onClick={this.handleGoHome}
+                variant="outline"
+                size="sm"
                 className="w-full"
               >
                 <Home className="mr-2 h-4 w-4" />
                 Go Home
               </Button>
             </div>
-            
+
             {process.env.NODE_ENV === 'development' && (
               <p className="mt-3 text-xs text-gray-400">
                 Error: {error?.message} | ID: {errorId}
@@ -296,9 +305,9 @@ export class GlobalErrorBoundary extends Component<Props, State> {
               This component failed to render. Please refresh or try again.
             </p>
           </div>
-          <Button 
-            onClick={this.handleRetry} 
-            size="sm" 
+          <Button
+            onClick={this.handleRetry}
+            size="sm"
             variant="outline"
             className="border-red-300 text-red-700 hover:bg-red-100"
           >
@@ -311,7 +320,7 @@ export class GlobalErrorBoundary extends Component<Props, State> {
 
   private renderFeatureError() {
     const { context } = this.props;
-    
+
     return (
       <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4 dark:border-yellow-800 dark:bg-yellow-900/10">
         <div className="flex items-center">
@@ -324,9 +333,9 @@ export class GlobalErrorBoundary extends Component<Props, State> {
               This feature is temporarily unavailable.
             </p>
           </div>
-          <Button 
-            onClick={this.handleRetry} 
-            size="sm" 
+          <Button
+            onClick={this.handleRetry}
+            size="sm"
             variant="outline"
             className="border-yellow-300 text-yellow-700 hover:bg-yellow-100"
           >

@@ -33,7 +33,7 @@ impl CreatePlanCommandHandler {
 impl CommandHandler<CreatePlanCommand> for CreatePlanCommandHandler {
     async fn handle(&self, command: CreatePlanCommand) -> ApplicationResult<CreatePlanResponse> {
         // 1. Parse permission group ID
-        let plan_id = PlanId::from_str(&command.plan_id)
+        let plan_id = PlanId::parse(&command.plan_id)
             .map_err(|e| ApplicationError::validation("plan_id", e.to_string()))?;
 
         // 2. Create price value object - convert f64 to Decimal

@@ -538,7 +538,7 @@ impl OpenIDTokenService {
     }
 
     /// Validate refresh token
-    async fn validate_refresh_token(&self, token_id: &str) -> Result<RefreshTokenInfo, OpenIDTokenError> {
+    pub async fn validate_refresh_token(&self, token_id: &str) -> Result<RefreshTokenInfo, OpenIDTokenError> {
         use crate::schemas::primary::openid_refresh_tokens;
 
         #[derive(Queryable, Selectable)]

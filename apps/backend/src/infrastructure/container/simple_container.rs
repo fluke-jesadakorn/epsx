@@ -1,3 +1,4 @@
+#![allow(clippy::type_complexity)]
 use crate::prelude::TlsPool;
 // Enhanced Container - Web3-first service container
 // Provides comprehensive Web3 services with proper dependency injection

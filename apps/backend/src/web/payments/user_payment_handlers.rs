@@ -20,6 +20,7 @@ use crate::{
     web::{
         middleware::{UnifiedErrorResponse},
         auth::AppState,
+        pagination::Pagination,
     },
     schemas::payments::payments,
     schemas::primary::{plans},
@@ -74,18 +75,6 @@ pub struct UserPaymentInfo {
     pub payment_reference: String,
 }
 
-/// Helper function to create UnifiedErrorResponse
-fn create_error_response(code: u16, message: &str, reason: &str) -> UnifiedErrorResponse {
-    UnifiedErrorResponse {
-        success: false,
-        error: crate::web::middleware::bearer_middleware::ErrorDetails {
-            code,
-            message: message.to_string(),
-            reason: reason.to_string(),
-        },
-    }
-}
-
 /// GET /api/payments/history
 /// Returns paginated list of authenticated user's payments
 pub async fn get_user_payment_history(
@@ -97,8 +86,7 @@ pub async fn get_user_payment_history(
     info!("Getting payment history for wallet: {}", wallet_address);
 
     // Pagination defaults
-    let page = params.page.unwrap_or(1);
-    let per_page = params.per_page.unwrap_or(10).min(50);
+    let pg = Pagination::small(params.page, params.per_page);
 
     // NOTE: Changed to query DATABASE FIRST since confirm_payment_handler saves there
     // Blockchain provider is now supplementary (for historical data not in DB)
@@ -108,16 +96,13 @@ pub async fn get_user_payment_history(
     let payments_pool = get_payments_pool().await
         .map_err(|e| {
             error!("Failed to get payments database pool: {}", e);
-            Json(create_error_response(500, "Database connection failed", "Failed to get payments database pool"))
+            Json(UnifiedErrorResponse::new(500, "Database connection failed", "Failed to get payments database pool"))
         })?;
     let mut conn = payments_pool.get().await
         .map_err(|e| {
             error!("Failed to get database connection: {}", e);
-            Json(create_error_response(500, "Database connection failed", "Failed to establish database connection"))
+            Json(UnifiedErrorResponse::new(500, "Database connection failed", "Failed to establish database connection"))
         })?;
-
-    // Calculate offset for pagination
-    let offset = ((page - 1) * per_page) as i64;
 
     // 1. Get total count
     let mut count_query = payments::table.into_boxed()
@@ -133,7 +118,7 @@ pub async fn get_user_payment_history(
         .await
         .map_err(|e| {
             error!("Failed to count payments: {}", e);
-            Json(create_error_response(500, "Database query failed", "Failed to count payments"))
+            Json(UnifiedErrorResponse::new(500, "Database query failed", "Failed to count payments"))
         })?;
 
     // 2. Get payments data
@@ -146,13 +131,13 @@ pub async fn get_user_payment_history(
 
     let payments_list: Vec<PaymentDb> = data_query
         .order(payments::created_at.desc())
-        .limit(per_page as i64)
-        .offset(offset)
+        .limit(pg.limit as i64)
+        .offset(pg.offset)
         .load::<PaymentDb>(&mut conn)
         .await
         .map_err(|e| {
             error!("Failed to fetch payments: {}", e);
-            Json(create_error_response(500, "Database query failed", "Failed to fetch payments"))
+            Json(UnifiedErrorResponse::new(500, "Database query failed", "Failed to fetch payments"))
         })?;
 
     // Fetch plan names - need to use PRIMARY database since plans is there
@@ -160,12 +145,12 @@ pub async fn get_user_payment_history(
     let primary_pool = get_diesel_pool().await
         .map_err(|e| {
             error!("Failed to get primary database pool: {}", e);
-            Json(create_error_response(500, "Database connection failed", "Failed to get primary database pool"))
+            Json(UnifiedErrorResponse::new(500, "Database connection failed", "Failed to get primary database pool"))
         })?;
     let mut primary_conn = primary_pool.get().await
         .map_err(|e| {
             error!("Failed to get primary database connection: {}", e);
-            Json(create_error_response(500, "Database connection failed", "Failed to establish primary database connection"))
+            Json(UnifiedErrorResponse::new(500, "Database connection failed", "Failed to establish primary database connection"))
         })?;
 
     let mut payment_infos = Vec::new();
@@ -197,15 +182,15 @@ pub async fn get_user_payment_history(
         });
     }
 
-    let total_pages = ((total as f64) / (per_page as f64)).ceil() as u32;
+    let total_pages = pg.total_pages(total as u64);
 
     Ok(Json(PaymentHistoryResponse {
         success: true,
         data: PaymentHistoryData {
             payments: payment_infos,
             pagination: PaymentPaginationInfo {
-                page,
-                per_page,
+                page: pg.page,
+                per_page: pg.limit,
                 total: total as u64,
                 total_pages,
             },

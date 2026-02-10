@@ -11,7 +11,7 @@ use axum::{
 
 use diesel_async::RunQueryDsl;
 use serde::{Deserialize, Serialize};
-use tracing::{error, info};
+use tracing::{debug, error, info};
 use uuid::Uuid;
 use bigdecimal::BigDecimal;
 use std::str::FromStr;
@@ -20,7 +20,7 @@ use crate::{
     prelude::*,
     web::{
         auth::AppState,
-        middleware::{ErrorDetails, OpenIDUserContext, UnifiedErrorResponse},
+        middleware::{OpenIDUserContext, UnifiedErrorResponse},
     },
     infrastructure::database::get_payments_pool,
 };
@@ -78,9 +78,8 @@ pub async fn submit_transaction_handler(
     Json(payload): Json<SubmitTransactionRequest>,
 ) -> Result<Json<SubmitTransactionResponse>, Json<UnifiedErrorResponse>> {
     let wallet_address = user_context.wallet_address.to_lowercase();
-    
-    // Explicit debug print (bypasses tracing filters)
-    println!("DEBUG: api/payments/submit HIT by wallet: {}", wallet_address);
+
+    debug!("api/payments/submit HIT by wallet: {}", wallet_address);
 
     info!(
         "📥 Submitting transaction for monitoring: wallet={}, tx_hash={}, plan_id={}",
@@ -89,51 +88,22 @@ pub async fn submit_transaction_handler(
 
     // Validate transaction hash format
     if !payload.transaction_hash.starts_with("0x") || payload.transaction_hash.len() != 66 {
-        return Err(Json(UnifiedErrorResponse {
-            success: false,
-            error: ErrorDetails {
-                code: 400,
-                message: "Invalid transaction hash".to_string(),
-                reason: "Transaction hash must be 66 characters starting with 0x".to_string(),
-            },
-        }));
+        return Err(UnifiedErrorResponse::json(400, "Invalid transaction hash", "Transaction hash must be 66 characters starting with 0x"));
     }
 
     // Parse plan_id as UUID
-    let plan_uuid = Uuid::parse_str(&payload.plan_id).map_err(|_| {
-        Json(UnifiedErrorResponse {
-            success: false,
-            error: ErrorDetails {
-                code: 400,
-                message: "Invalid plan ID".to_string(),
-                reason: "Plan ID must be a valid UUID".to_string(),
-            },
-        })
-    })?;
+    let plan_uuid = Uuid::parse_str(&payload.plan_id)
+        .map_err(|_| UnifiedErrorResponse::json(400, "Invalid plan ID", "Plan ID must be a valid UUID"))?;
 
     // Get payments database connection
     let payments_pool = get_payments_pool().await.map_err(|e| {
         error!("Failed to get payments database pool: {}", e);
-        Json(UnifiedErrorResponse {
-            success: false,
-            error: ErrorDetails {
-                code: 500,
-                message: "Database error".to_string(),
-                reason: "Cannot connect to database".to_string(),
-            },
-        })
+        UnifiedErrorResponse::json(500, "Database error", "Cannot connect to database")
     })?;
-    
+
     let mut conn = payments_pool.get().await.map_err(|e| {
         error!("Failed to get database connection: {}", e);
-        Json(UnifiedErrorResponse {
-            success: false,
-            error: ErrorDetails {
-                code: 500,
-                message: "Database error".to_string(),
-                reason: "Cannot establish database connection".to_string(),
-            },
-        })
+        UnifiedErrorResponse::json(500, "Database error", "Cannot establish database connection")
     })?;
 
     // Check if transaction already exists (deduplication)
@@ -204,14 +174,7 @@ pub async fn submit_transaction_handler(
         }
         Err(e) => {
             error!("Failed to insert payment record: {}", e);
-            Err(Json(UnifiedErrorResponse {
-                success: false,
-                error: ErrorDetails {
-                    code: 500,
-                    message: "Failed to submit transaction".to_string(),
-                    reason: format!("Database error: {}", e),
-                },
-            }))
+            Err(UnifiedErrorResponse::json(500, "Failed to submit transaction", format!("Database error: {}", e)))
         }
     }
 }

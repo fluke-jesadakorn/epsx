@@ -100,12 +100,12 @@ impl PostgresPlanRepositoryAdapter {
 #[async_trait]
 impl PlanRepositoryPort for PostgresPlanRepositoryAdapter {
     async fn find_by_id(&self, id: &PlanId) -> AppResult<Option<Plan>> {
-        let mut conn = self.db_pool.get().await
-            .map_err(|e| AppError::database_error(e.to_string()))?;
+        let mut conn = self.db_pool.conn().await?;
 
          let plan_result = plans::table
             .filter(plans::id.eq(id.value()))
             .filter(plans::plan_type.eq("subscription"))
+            .select(PlanDb::as_select())
             .first::<PlanDb>(&mut conn)
             .await
             .optional()
@@ -123,8 +123,7 @@ impl PlanRepositoryPort for PostgresPlanRepositoryAdapter {
     }
 
     async fn find_all(&self, criteria: PlanSearchCriteria) -> AppResult<Vec<Plan>> {
-        let mut conn = self.db_pool.get().await
-            .map_err(|e| AppError::database_error(e.to_string()))?;
+        let mut conn = self.db_pool.conn().await?;
 
         let mut query = plans::table
             .filter(plans::plan_type.eq("subscription"))
@@ -161,6 +160,7 @@ impl PlanRepositoryPort for PostgresPlanRepositoryAdapter {
         }
 
         let plan_rows = query
+            .select(PlanDb::as_select())
             .load::<PlanDb>(&mut conn)
             .await
             .map_err(|e| {
@@ -180,8 +180,7 @@ impl PlanRepositoryPort for PostgresPlanRepositoryAdapter {
     }
 
     async fn save(&self, plan: &Plan) -> AppResult<()> {
-        let mut conn = self.db_pool.get().await
-            .map_err(|e| AppError::database_error(e.to_string()))?;
+        let mut conn = self.db_pool.conn().await?;
 
         let price_bd = Some(bigdecimal::BigDecimal::from_str(&plan.price().amount().to_string()).unwrap_or_default());
         let currency_str = Some(plan.price().currency().to_string());
@@ -293,8 +292,7 @@ impl PlanRepositoryPort for PostgresPlanRepositoryAdapter {
     }
 
     async fn delete(&self, id: &PlanId) -> AppResult<()> {
-        let mut conn = self.db_pool.get().await
-            .map_err(|e| AppError::database_error(e.to_string()))?;
+        let mut conn = self.db_pool.conn().await?;
 
         diesel::delete(plans::table)
             .filter(plans::id.eq(id.value()))
@@ -309,8 +307,7 @@ impl PlanRepositoryPort for PostgresPlanRepositoryAdapter {
     }
 
     async fn count(&self, criteria: PlanSearchCriteria) -> AppResult<i64> {
-        let mut conn = self.db_pool.get().await
-             .map_err(|e| AppError::database_error(e.to_string()))?;
+        let mut conn = self.db_pool.conn().await?;
 
         let mut query = plans::table
             .filter(plans::plan_type.eq("subscription"))

@@ -41,10 +41,7 @@ impl WalletUserSearchPort for PostgresWalletUserSearchAdapter {
         limit: u32,
         offset: u32
     ) -> AppResult<WalletUserSearchResult> {
-        let mut conn = self.db_pool.get().await
-            .map_err(|e| AppError::database_error(e.to_string())
-                .with_component("wallet_user_search_adapter")
-                .with_operation("find_by_criteria"))?;
+        let mut conn = self.db_pool.conn().await?;
 
         // Build dynamic SQL query
         let mut where_clauses = vec!["1=1".to_string()];
@@ -110,10 +107,7 @@ impl WalletUserSearchPort for PostgresWalletUserSearchAdapter {
     }
 
     async fn count_by_criteria(&self, criteria: &WalletUserSearchCriteria) -> AppResult<u64> {
-         let mut conn = self.db_pool.get().await
-            .map_err(|e| AppError::database_error(e.to_string())
-                .with_component("wallet_user_search_adapter")
-                .with_operation("count_by_criteria"))?;
+         let mut conn = self.db_pool.conn().await?;
 
         let mut where_clauses = vec!["1=1".to_string()];
         if let Some(ref pattern) = criteria.wallet_pattern {

@@ -147,7 +147,6 @@ pub const REFRESH_TOKEN_CLEANUP_INTERVAL: Duration = ONE_HOUR;
 /// Time window for finding prices near announcement (1 day before/after)
 pub const PRICE_SEARCH_WINDOW: i64 = DAY;
 
-/// Default notification delay (1 hour)
 // ============================================================================
 // FREE PLAN CONSTANTS
 // ============================================================================

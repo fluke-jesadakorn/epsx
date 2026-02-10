@@ -30,7 +30,7 @@ impl UpdatePermissionPlanCommandHandler {
 impl CommandHandler<UpdatePermissionPlanCommand> for UpdatePermissionPlanCommandHandler {
     async fn handle(&self, command: UpdatePermissionPlanCommand) -> ApplicationResult<UpdatePermissionPlanResponse> {
         // 1. Parse plan ID
-        let plan_id = PlanId::from_str(&command.plan_id)
+        let plan_id = PlanId::parse(&command.plan_id)
             .map_err(|e| ApplicationError::validation("plan_id", e.to_string()))?;
 
         // 2. Find plan

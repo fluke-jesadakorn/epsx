@@ -1,12 +1,15 @@
-# EPSX Platform - Docker Compose Configuration
-# Web3-First Architecture with Cloudflare Tunnel
-# All values parameterized via .env.docker - NO HARDCODED VALUES
+# EPSX Platform - Production Docker Compose
+# Server: Mac Mini (arm64) with Cloudflare Tunnel
+# Usage: docker compose --env-file .env.prod -f docker-compose.prod.yml up -d
+#
+# NOTE: Uses pre-built images (no build context on server).
+# Images are built on local Mac and transferred via docker save/load.
 
 services:
   # PostgreSQL Database
   postgres:
     image: postgres:17-alpine
-    container_name: epsx-postgres
+    container_name: epsx-prod-postgres
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${DB_NAME}
@@ -15,9 +18,10 @@ services:
       POSTGRES_INITDB_ARGS: "-E UTF8"
       PGDATA: /var/lib/postgresql/data/pgdata
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - prod_postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-databases-prod.sh:/docker-entrypoint-initdb.d/init-databases.sh:ro
     networks:
-      - epsx_internal
+      - epsx_prod
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
       interval: 10s
@@ -30,15 +34,15 @@ services:
   # Redis Cache and Session Store
   redis:
     image: redis:7-alpine
-    container_name: epsx-redis
+    container_name: epsx-prod-redis
     restart: unless-stopped
     command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
     volumes:
-      - redis_data:/data
+      - prod_redis_data:/data
     networks:
-      - epsx_internal
+      - epsx_prod
     healthcheck:
-      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "--raw", "incr", "ping"]
       interval: 10s
       timeout: 3s
       retries: 5
@@ -48,10 +52,8 @@ services:
 
   # Rust Backend API
   backend:
-    build:
-      context: ../../
-      dockerfile: apps/backend/Dockerfile
-    container_name: epsx-backend
+    image: epsx-backend:prod
+    container_name: epsx-prod-backend
     restart: unless-stopped
     depends_on:
       postgres:
@@ -71,12 +73,17 @@ services:
       FRONTEND_URL: ${FRONTEND_URL}
       ADMIN_FRONTEND_URL: ${ADMIN_FRONTEND_URL}
 
-      # Database
+      # Database (main)
       DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@postgres:5432/${DB_NAME}
       DATABASE_MAX_CONNECTIONS: ${DATABASE_MAX_CONNECTIONS}
       DATABASE_MIN_CONNECTIONS: ${DATABASE_MIN_CONNECTIONS}
       DATABASE_ACQUIRE_TIMEOUT: ${DATABASE_ACQUIRE_TIMEOUT}
       DATABASE_IDLE_TIMEOUT: ${DATABASE_IDLE_TIMEOUT}
+
+      # Additional Databases (same host, different DBs)
+      ANALYTICS_DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@postgres:5432/epsx_analytics_prod
+      NOTIFICATIONS_DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@postgres:5432/epsx_notifications_prod
+      PAYMENTS_DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@postgres:5432/epsx_payments_prod
 
       # Redis
       REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
@@ -109,7 +116,7 @@ services:
       HOST: 0.0.0.0
       PORT: 8080
     networks:
-      - epsx_internal
+      - epsx_prod
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"]
       interval: 30s
@@ -119,48 +126,27 @@ services:
 
   # Next.js Frontend
   frontend:
-    build:
-      context: ../../
-      dockerfile: apps/frontend/Dockerfile
-      args:
-        - NEXT_PUBLIC_BACKEND_URL=${BACKEND_URL}
-        - NEXT_PUBLIC_APP_URL=${FRONTEND_URL}
-        - NEXT_PUBLIC_ADMIN_URL=${ADMIN_FRONTEND_URL}
-        - NEXT_PUBLIC_BLOCKCHAIN_NETWORK=${BLOCKCHAIN_NETWORK}
-        - NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=${WALLETCONNECT_PROJECT_ID}
-        - NEXT_PUBLIC_CHAIN_ID=${CHAIN_ID}
-        - NEXT_PUBLIC_PAYMENT_MAINNET_ADDRESS=${COMPANY_WALLET_MAINNET}
-        - NEXT_PUBLIC_PAYMENT_TESTNET_ADDRESS=${COMPANY_WALLET_TESTNET}
-        - NEXT_PUBLIC_OAUTH_CLIENT_ID=${OAUTH_CLIENT_ID:-epsx-frontend}
-    container_name: epsx-frontend
+    image: epsx-frontend:prod
+    container_name: epsx-prod-frontend
     restart: unless-stopped
     depends_on:
       backend:
         condition: service_healthy
     environment:
-      # Environment
       NODE_ENV: ${NODE_ENV}
       ENV: ${ENV}
-
-      # Service URLs (client-accessible)
       NEXT_PUBLIC_BACKEND_URL: ${BACKEND_URL}
       NEXT_PUBLIC_APP_URL: ${FRONTEND_URL}
       NEXT_PUBLIC_ADMIN_URL: ${ADMIN_FRONTEND_URL}
-
-      # Web3 Configuration (client-accessible)
       NEXT_PUBLIC_BLOCKCHAIN_NETWORK: ${BLOCKCHAIN_NETWORK}
       NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: ${WALLETCONNECT_PROJECT_ID}
       NEXT_PUBLIC_CHAIN_ID: ${CHAIN_ID}
-
-      # Payment Configuration (client-accessible)
       NEXT_PUBLIC_PAYMENT_MAINNET_ADDRESS: ${COMPANY_WALLET_MAINNET}
       NEXT_PUBLIC_PAYMENT_TESTNET_ADDRESS: ${COMPANY_WALLET_TESTNET}
-
-      # Server Configuration
       PORT: 3000
       HOSTNAME: 0.0.0.0
     networks:
-      - epsx_internal
+      - epsx_prod
     healthcheck:
       test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:3000/api/health', (res) => process.exit(res.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))\"" ]
       interval: 30s
@@ -170,47 +156,27 @@ services:
 
   # Next.js Admin Frontend
   admin-frontend:
-    build:
-      context: ../../
-      dockerfile: apps/admin-frontend/Dockerfile
-      args:
-        - NEXT_PUBLIC_BACKEND_URL=${BACKEND_URL}
-        - NEXT_PUBLIC_APP_URL=${ADMIN_FRONTEND_URL}
-        - NEXT_PUBLIC_ADMIN_URL=${ADMIN_FRONTEND_URL}
-        - NEXT_PUBLIC_BLOCKCHAIN_NETWORK=${BLOCKCHAIN_NETWORK}
-        - NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=${WALLETCONNECT_PROJECT_ID}
-        - NEXT_PUBLIC_CHAIN_ID=${CHAIN_ID}
-        - NEXT_PUBLIC_PAYMENT_MAINNET_ADDRESS=${COMPANY_WALLET_MAINNET}
-        - NEXT_PUBLIC_PAYMENT_TESTNET_ADDRESS=${COMPANY_WALLET_TESTNET}
-    container_name: epsx-admin
+    image: epsx-admin-frontend:prod
+    container_name: epsx-prod-admin
     restart: unless-stopped
     depends_on:
       backend:
         condition: service_healthy
     environment:
-      # Environment
       NODE_ENV: ${NODE_ENV}
       ENV: ${ENV}
-
-      # Service URLs (client-accessible)
       NEXT_PUBLIC_BACKEND_URL: ${BACKEND_URL}
       NEXT_PUBLIC_APP_URL: ${ADMIN_FRONTEND_URL}
       NEXT_PUBLIC_ADMIN_URL: ${ADMIN_FRONTEND_URL}
-
-      # Web3 Configuration (client-accessible)
       NEXT_PUBLIC_BLOCKCHAIN_NETWORK: ${BLOCKCHAIN_NETWORK}
       NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: ${WALLETCONNECT_PROJECT_ID}
       NEXT_PUBLIC_CHAIN_ID: ${CHAIN_ID}
-
-      # Payment Configuration (client-accessible)
       NEXT_PUBLIC_PAYMENT_MAINNET_ADDRESS: ${COMPANY_WALLET_MAINNET}
       NEXT_PUBLIC_PAYMENT_TESTNET_ADDRESS: ${COMPANY_WALLET_TESTNET}
-
-      # Server Configuration
       PORT: 3000
       HOSTNAME: 0.0.0.0
     networks:
-      - epsx_internal
+      - epsx_prod
     healthcheck:
       test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:3000/api/health', (res) => process.exit(res.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))\"" ]
       interval: 30s
@@ -221,7 +187,7 @@ services:
   # Cloudflare Tunnel
   cloudflared:
     image: cloudflare/cloudflared:latest
-    container_name: epsx-cloudflared
+    container_name: epsx-prod-cloudflared
     restart: unless-stopped
     depends_on:
       backend:
@@ -230,21 +196,19 @@ services:
         condition: service_healthy
       admin-frontend:
         condition: service_healthy
-    command: tunnel --config /etc/cloudflared/config.yml run
+    command: tunnel run
     environment:
       TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN}
-    volumes:
-      - ../cloudflare/cloudflared-config.yml:/etc/cloudflared/config.yml:ro
     networks:
-      - epsx_internal
+      - epsx_prod
 
 networks:
-  epsx_internal:
+  epsx_prod:
     driver: bridge
-    name: epsx_network
+    name: epsx_prod_network
 
 volumes:
-  postgres_data:
-    name: epsx_postgres_data
-  redis_data:
-    name: epsx_redis_data
+  prod_postgres_data:
+    name: epsx_prod_postgres_data
+  prod_redis_data:
+    name: epsx_prod_redis_data

@@ -15,7 +15,7 @@
     "bun": ">=1.1.0"
   },
   "scripts": {
-    "dev": "dotenv -e ../../.env -- next dev -H 0.0.0.0 -p ${PORT:-3001} --turbo",
+    "dev": "NEXT_PUBLIC_OAUTH_CLIENT_ID=epsx-admin dotenv -e ../../.env -- next dev -H 0.0.0.0 -p ${PORT:-3001} --turbo",
     "build": "NODE_ENV=production dotenv -e ../../.env -- next build --webpack",
     "start": "dotenv -e ../../.env -- next start -p ${PORT:-3001}",
     "lint": "eslint .",

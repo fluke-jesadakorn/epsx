@@ -104,8 +104,8 @@ export async function getAnalyticsData(params: EPSQueryParams) {
             // Determine rank (use existing or calculate)
             const rank = item.ranking_position || ((params.page - 1) * params.limit) + index + 1;
 
-            // Map quarterly data if available
-            const quarterlyPerformance: QuarterlyPerformanceData[] = item.quarterly_data.map((q) => ({
+            // Map quarterly data if available (handle undefined/null case)
+            const quarterlyPerformance: QuarterlyPerformanceData[] = (item.quarterly_data ?? []).map((q) => ({
                 quarter: q.quarter,
                 date: q.date,
                 price: q.price,

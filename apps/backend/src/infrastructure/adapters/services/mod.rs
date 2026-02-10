@@ -5,7 +5,6 @@ pub mod permission_adapter;
 pub mod security_monitoring_service_adapter;
 pub mod tradingview;
 pub mod tradingview_websocket;
-pub mod websocket_earnings_service;
 pub mod notification_service_adapter;
 pub mod resilience_patterns;
 
@@ -30,7 +29,6 @@ pub use tradingview_websocket::{
   TradingViewWebSocketService,
   FrontendEPSData as WebSocketFrontendEPSData,
 };
-pub use websocket_earnings_service::WebSocketEarningsService;
 pub use notification_service_adapter::NotificationServiceAdapter;
 pub use resilience_patterns::{
   CircuitBreaker,

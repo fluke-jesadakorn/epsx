@@ -22,10 +22,7 @@ pub mod cache;
 
 // CORE AUTH MODULES (Web3-First)
 pub mod key_manager;
-pub mod permissions;
 pub mod granular_permissions;
-pub mod cleanup;
-pub mod types;
 
 // ============================================================================
 // EXPORTS - UNIFIED PERMISSION SYSTEM
@@ -63,14 +60,10 @@ pub use cache::{
 
 // CORE AUTH EXPORTS (Web3-First)
 pub use key_manager::KeyManager;
-pub use permissions::{Permission as LegacyPermission, UserClaims, check_permission_access, PermissionError, require_permission_pure, PermissionSets};
 pub use granular_permissions::{
     GranularPermissionClaim, PermissionSource as GranularPermissionSource, GranularPermissionSet, 
     PermissionValidationResult, ValidationContext as GranularValidationContext, GranularPermissionError
 };
-
-pub use cleanup::{TokenCleanupService, CleanupConfig, CleanupResult, CleanupError, start_cleanup_service, manual_cleanup, get_cleanup_stats};
-
 
 // ============================================================================
 // TEST MODULES (only included in test builds)

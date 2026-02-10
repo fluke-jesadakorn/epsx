@@ -1054,13 +1054,28 @@ impl UnifiedWeb3AuthService {
 
 
     /// Refresh tokens using refresh token
-    pub async fn refresh_tokens(&self, refresh_token: &str) -> Result<super::token_service::OpenIDTokenResponse, Web3AuthError> {
+    pub async fn refresh_tokens(&self, refresh_token: &str, client_id: &str) -> Result<(super::token_service::OpenIDTokenResponse, String, Vec<String>), Web3AuthError> {
         if let Some(ref openid_service) = self.openid_service {
-            // Use default frontend client_id
-            match openid_service.refresh_tokens(refresh_token, "epsx-frontend").await {
-                Ok(response) => Ok(response),
-                Err(e) => Err(Web3AuthError::InvalidSignature(format!("Token refresh failed: {}", e))),
-            }
+            // 1. Validate refresh token and get wallet address
+            let refresh_info = openid_service.validate_refresh_token(refresh_token).await
+                .map_err(|e| Web3AuthError::InvalidSignature(format!("Invalid refresh token: {}", e)))?;
+
+            // 2. Fetch ALL permissions (DB + Blockchain: NFT, Token, DAO)
+            let permissions = self.get_wallet_permissions(&refresh_info.wallet_address).await?;
+
+            // 3. Issue new tokens with full permissions
+            let response = openid_service.issue_tokens_for_user(
+                &refresh_info.wallet_address,
+                &permissions,
+                client_id,
+            ).await
+                .map_err(|e| Web3AuthError::InvalidSignature(format!("Token generation failed: {}", e)))?;
+
+            // 4. Revoke old refresh token (rotation)
+            openid_service.revoke_refresh_token(refresh_token).await
+                .map_err(|e| Web3AuthError::DatabaseError(format!("Failed to revoke token: {}", e)))?;
+
+            Ok((response, refresh_info.wallet_address, permissions))
         } else {
             Err(Web3AuthError::DatabaseError("OpenID service not configured".to_string()))
         }

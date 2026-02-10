@@ -133,9 +133,7 @@ impl PermissionParser {
                  } else if let Ok(val) = val_str.parse::<i32>() {
                      // If still default (-2), set specific limit
                      // If specific limit exists, take the higher one (ignore if we have unlimited/-1)
-                     if max_limit == -2 {
-                         max_limit = val;
-                     } else if max_limit != -1 && val > max_limit { 
+                     if max_limit == -2 || (max_limit != -1 && val > max_limit) {
                          max_limit = val;
                      }
                  }

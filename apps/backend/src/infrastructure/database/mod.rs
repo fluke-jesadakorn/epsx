@@ -8,6 +8,7 @@ pub use diesel_connection_manager::{
     DieselConnectionManager,
     DieselServerlessConfig,
     DieselPoolStats,
+    PoolExt,
     get_diesel_pool,
     get_analytics_pool,
     get_notifications_pool,

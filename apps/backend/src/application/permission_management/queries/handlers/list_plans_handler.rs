@@ -4,6 +4,7 @@ use crate::application::permission_management::queries::{
     ListPermissionPlansQuery, ListPermissionPlansResponse, PermissionPlanSummary
 };
 use crate::domain::permission_management::{PermissionPlanRepositoryPort, PlanAssignmentRepositoryPort, repository_ports::PlanSearchCriteria};
+use crate::web::pagination::Pagination;
 
 /// Query handler for listing permission plans
 pub struct ListPermissionPlansQueryHandler {
@@ -26,9 +27,7 @@ impl ListPermissionPlansQueryHandler {
 #[async_trait]
 impl QueryHandler<ListPermissionPlansQuery> for ListPermissionPlansQueryHandler {
     async fn handle(&self, query: ListPermissionPlansQuery) -> ApplicationResult<ListPermissionPlansResponse> {
-        let page = query.page.unwrap_or(1);
-        let limit = query.limit.unwrap_or(20);
-        let offset = ((page - 1) * limit) as i64;
+        let pg = Pagination::standard(query.page, query.limit);
 
         // 1. Build search criteria
         let criteria = PlanSearchCriteria {
@@ -36,8 +35,8 @@ impl QueryHandler<ListPermissionPlansQuery> for ListPermissionPlansQueryHandler 
             is_active: query.is_active,
             is_promoted: query.is_promoted,
             search_term: query.search_term,
-            limit: Some(limit as i64),
-            offset: Some(offset),
+            limit: Some(pg.limit as i64),
+            offset: Some(pg.offset),
         };
 
         // 2. Find plans
@@ -72,8 +71,8 @@ impl QueryHandler<ListPermissionPlansQuery> for ListPermissionPlansQueryHandler 
         Ok(ListPermissionPlansResponse {
             plans: summaries,
             total,
-            page,
-            limit,
+            page: pg.page,
+            limit: pg.limit,
         })
     }
 }

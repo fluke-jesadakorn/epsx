@@ -794,9 +794,7 @@ pub async fn search_wallets(
 ) -> Result<Json<serde_json::Value>, StatusCode> {
   info!("🔍 Admin: Searching wallets with filters");
 
-  let page = query.page.unwrap_or(1).max(1);
-  let limit = query.limit.unwrap_or(20).min(100); // Cap at 100 for performance
-  let offset = (page - 1) * limit;
+  let pg = crate::web::pagination::Pagination::from_signed(query.page, query.limit, 20, 100);
 
   // We'll use a simplified approach with fixed query parameters as the complex
   // dynamic query building with parameters is complex for this file
@@ -859,7 +857,7 @@ pub async fn search_wallets(
     LIMIT {}
     OFFSET {}
     "#,
-    where_clause, order_by, limit, offset
+    where_clause, order_by, pg.limit, pg.offset
   );
 
   // Query wallets with permission counts from normalized tables
@@ -944,8 +942,8 @@ pub async fn search_wallets(
   );
   
   let wallets = match diesel::sql_query(&search_query)
-  .bind::<diesel::sql_types::BigInt, _>(limit as i64)
-  .bind::<diesel::sql_types::BigInt, _>(offset as i64)
+  .bind::<diesel::sql_types::BigInt, _>(pg.limit as i64)
+  .bind::<diesel::sql_types::BigInt, _>(pg.offset)
   .load::<SearchWalletRow>(&mut conn)
   .await {
     Ok(rows) => rows,
@@ -1034,16 +1032,16 @@ pub async fn search_wallets(
     }));
   }
 
-  let total_pages = (total_count as f64 / limit as f64).ceil() as i64;
-  let has_more = page < total_pages as i32;
+  let total_pages = pg.total_pages(total_count as u64);
+  let has_more = pg.has_next(total_count as u64);
 
   let response = serde_json::json!({
     "wallets": formatted_wallets,
     "total_count": total_count,
     "has_more": has_more,
     "metadata": {
-      "page": page,
-      "limit": limit,
+      "page": pg.page,
+      "limit": pg.limit,
       "total_pages": total_pages,
       "applied_filters": {
         "search": query.search,
@@ -1056,7 +1054,7 @@ pub async fn search_wallets(
     }
   });
 
-  info!("✅ Admin: Successfully searched {} wallets (page {} of {})", formatted_wallets.len(), page, total_pages);
+  info!("✅ Admin: Successfully searched {} wallets (page {} of {})", formatted_wallets.len(), pg.page, total_pages);
   Ok(Json(response))
 }
 

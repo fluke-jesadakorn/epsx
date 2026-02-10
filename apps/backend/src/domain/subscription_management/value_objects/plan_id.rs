@@ -32,7 +32,7 @@ impl PlanId {
     }
 
     /// Parse from string
-    pub fn from_str(s: &str) -> Result<Self, AppError> {
+    pub fn parse(s: &str) -> Result<Self, AppError> {
         use std::str::FromStr;
         <Self as FromStr>::from_str(s)
     }

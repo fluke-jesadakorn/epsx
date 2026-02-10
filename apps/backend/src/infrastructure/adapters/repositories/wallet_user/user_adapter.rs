@@ -27,10 +27,7 @@ impl WalletUserRepositoryPort for PostgresWalletUserRepositoryAdapter {
     async fn find_by_wallet(&self, wallet_address: &WalletAddress) -> AppResult<Option<WalletUser>> {
         use diesel::dsl::*;
 
-        let mut conn = self.db_pool.get().await
-            .map_err(|e| AppError::database_error(e.to_string())
-                .with_component("wallet_user_repository")
-                .with_operation("find_by_wallet"))?;
+        let mut conn = self.db_pool.conn().await?;
 
         // Diesel query: case-insensitive wallet address lookup
         let db_user = wallet_users::table
@@ -84,10 +81,7 @@ impl WalletUserRepositoryPort for PostgresWalletUserRepositoryAdapter {
             return Ok(Vec::new());
         }
 
-        let mut conn = self.db_pool.get().await
-            .map_err(|e| AppError::database_error(e.to_string())
-                .with_component("wallet_user_repository")
-                .with_operation("find_by_wallets"))?;
+        let mut conn = self.db_pool.conn().await?;
 
         let addresses_lower: Vec<String> = wallet_addresses.iter()
             .map(|w| w.as_str().to_lowercase())
@@ -139,10 +133,7 @@ impl WalletUserRepositoryPort for PostgresWalletUserRepositoryAdapter {
     }
 
     async fn save(&self, user: &WalletUser) -> AppResult<()> {
-        let mut conn = self.db_pool.get().await
-            .map_err(|e| AppError::database_error(e.to_string())
-                .with_component("wallet_user_repository")
-                .with_operation("save"))?;
+        let mut conn = self.db_pool.conn().await?;
 
         let metadata_json = user.wallet_metadata().to_json()
             .map_err(|e| AppError::validation_error(format!("Failed to serialize wallet metadata: {}", e))
@@ -183,10 +174,7 @@ impl WalletUserRepositoryPort for PostgresWalletUserRepositoryAdapter {
             return Ok(());
         }
 
-        let mut conn = self.db_pool.get().await
-            .map_err(|e| AppError::database_error(e.to_string())
-                .with_component("wallet_user_repository")
-                .with_operation(format!("save_batch({} users)", users.len())))?;
+        let mut conn = self.db_pool.conn().await?;
 
         for user in users {
             let metadata_json = user.wallet_metadata().to_json()
@@ -224,10 +212,7 @@ impl WalletUserRepositoryPort for PostgresWalletUserRepositoryAdapter {
     }
 
     async fn delete(&self, wallet_address: &WalletAddress) -> AppResult<()> {
-        let mut conn = self.db_pool.get().await
-            .map_err(|e| AppError::database_error(e.to_string())
-                .with_component("wallet_user_repository")
-                .with_operation("delete"))?;
+        let mut conn = self.db_pool.conn().await?;
 
         let _rows_affected = diesel::delete(
             wallet_users::table.filter(

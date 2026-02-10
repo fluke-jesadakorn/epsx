@@ -114,6 +114,21 @@ impl Manager for TlsConnectionManager {
 // Global Pool Type Definition - explicitly using our custom manager
 pub type TlsPool = Pool<TlsConnectionManager>;
 
+/// Extension trait for TlsPool to reduce DB connection boilerplate
+#[async_trait]
+pub trait PoolExt {
+    /// Get a connection from the pool, mapping errors to AppError
+    async fn conn(&self) -> crate::core::errors::AppResult<deadpool::managed::Object<TlsConnectionManager>>;
+}
+
+#[async_trait]
+impl PoolExt for TlsPool {
+    async fn conn(&self) -> crate::core::errors::AppResult<deadpool::managed::Object<TlsConnectionManager>> {
+        self.get().await
+            .map_err(|e| crate::core::errors::AppError::database_error(e.to_string()))
+    }
+}
+
 /// Global Diesel async connection pool that persists across serverless invocations
 static GLOBAL_DIESEL_POOL: OnceLock<TlsPool> = OnceLock::new();
 
@@ -218,10 +233,12 @@ impl DieselConnectionManager {
 
         // Create the pool with simplified configuration
         use deadpool::managed::Timeouts;
-        let mut timeouts = Timeouts::default();
-        timeouts.wait = Some(std::time::Duration::from_secs(config.acquire_timeout_secs));
-        timeouts.create = Some(std::time::Duration::from_secs(config.acquire_timeout_secs));
-        timeouts.recycle = Some(std::time::Duration::from_secs(config.acquire_timeout_secs));
+        let timeout_dur = Some(std::time::Duration::from_secs(config.acquire_timeout_secs));
+        let timeouts = Timeouts {
+            wait: timeout_dur,
+            create: timeout_dur,
+            recycle: timeout_dur,
+        };
 
         let pool = TlsPool::builder(manager)
             .max_size(config.max_size)

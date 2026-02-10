@@ -36,8 +36,7 @@ impl SubscriptionRepositoryAdapter {
 
     /// Find subscription by ID
     pub async fn find_by_id(&self, id: Uuid) -> AppResult<Option<SubscriptionDb>> {
-        let mut conn = self.db_pool.get().await
-            .map_err(|e| AppError::database_error(format!("Failed to get database connection: {}", e)))?;
+        let mut conn = self.db_pool.conn().await?;
 
         debug!("Finding subscription by ID: {}", id);
 
@@ -56,8 +55,7 @@ impl SubscriptionRepositoryAdapter {
 
     /// Find subscriptions by wallet address
     pub async fn find_by_wallet(&self, wallet_address: &str) -> AppResult<Vec<SubscriptionDb>> {
-        let mut conn = self.db_pool.get().await
-            .map_err(|e| AppError::database_error(format!("Failed to get database connection: {}", e)))?;
+        let mut conn = self.db_pool.conn().await?;
 
         debug!("Finding subscriptions for wallet: {}", wallet_address);
 
@@ -77,8 +75,7 @@ impl SubscriptionRepositoryAdapter {
 
     /// Find all subscriptions with criteria
     pub async fn find_all(&self, criteria: SubscriptionSearchCriteria) -> AppResult<Vec<SubscriptionDb>> {
-        let mut conn = self.db_pool.get().await
-            .map_err(|e| AppError::database_error(format!("Failed to get database connection: {}", e)))?;
+        let mut conn = self.db_pool.conn().await?;
 
         debug!("Finding all subscriptions with criteria: {:?}", criteria);
 
@@ -120,8 +117,7 @@ impl SubscriptionRepositoryAdapter {
 
     /// Save a new subscription
     pub async fn save(&self, subscription: NewSubscriptionDb) -> AppResult<()> {
-        let mut conn = self.db_pool.get().await
-            .map_err(|e| AppError::database_error(format!("Failed to get database connection: {}", e)))?;
+        let mut conn = self.db_pool.conn().await?;
 
         info!(
             "Saving subscription for wallet {} on plan {}",
@@ -143,8 +139,7 @@ impl SubscriptionRepositoryAdapter {
 
     /// Update subscription status
     pub async fn update_status(&self, id: Uuid, status: &str) -> AppResult<()> {
-        let mut conn = self.db_pool.get().await
-            .map_err(|e| AppError::database_error(format!("Failed to get database connection: {}", e)))?;
+        let mut conn = self.db_pool.conn().await?;
 
         info!("Updating subscription {} status to {}", id, status);
 
@@ -163,8 +158,7 @@ impl SubscriptionRepositoryAdapter {
 
     /// Cancel subscription
     pub async fn cancel(&self, id: Uuid) -> AppResult<()> {
-        let mut conn = self.db_pool.get().await
-            .map_err(|e| AppError::database_error(format!("Failed to get database connection: {}", e)))?;
+        let mut conn = self.db_pool.conn().await?;
 
         warn!("Cancelling subscription: {}", id);
 
@@ -186,8 +180,7 @@ impl SubscriptionRepositoryAdapter {
 
     /// Delete subscription
     pub async fn delete(&self, id: Uuid) -> AppResult<()> {
-        let mut conn = self.db_pool.get().await
-            .map_err(|e| AppError::database_error(format!("Failed to get database connection: {}", e)))?;
+        let mut conn = self.db_pool.conn().await?;
 
         warn!("Deleting subscription: {}", id);
 
@@ -205,8 +198,7 @@ impl SubscriptionRepositoryAdapter {
 
     /// Count subscriptions
     pub async fn count(&self, criteria: SubscriptionSearchCriteria) -> AppResult<i64> {
-        let mut conn = self.db_pool.get().await
-            .map_err(|e| AppError::database_error(format!("Failed to get database connection: {}", e)))?;
+        let mut conn = self.db_pool.conn().await?;
 
         let mut query = subscriptions::table.into_boxed();
 

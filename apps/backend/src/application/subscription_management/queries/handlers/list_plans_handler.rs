@@ -4,6 +4,7 @@ use crate::application::subscription_management::queries::{
     ListPlansQuery, ListPlansResponse, PlanSummary
 };
 use crate::domain::subscription_management::{PlanRepositoryPort, PlanSearchCriteria};
+use crate::web::pagination::Pagination;
 
 /// Query handler for listing plans
 pub struct ListPlansQueryHandler {
@@ -22,9 +23,7 @@ impl ListPlansQueryHandler {
 impl QueryHandler<ListPlansQuery> for ListPlansQueryHandler {
     async fn handle(&self, query: ListPlansQuery) -> ApplicationResult<ListPlansResponse> {
         // 1. Calculate pagination
-        let page = query.page.unwrap_or(1);
-        let limit = query.limit.unwrap_or(20);
-        let offset = ((page - 1) * limit) as i64;
+        let pg = Pagination::standard(query.page, query.limit);
 
         // 2. Build search criteria
         let criteria = PlanSearchCriteria {
@@ -33,8 +32,8 @@ impl QueryHandler<ListPlansQuery> for ListPlansQueryHandler {
             min_price: None,
             max_price: None,
             search_term: None,
-            limit: Some(limit as i64),
-            offset: Some(offset),
+            limit: Some(pg.limit as i64),
+            offset: Some(pg.offset),
         };
 
         // 3. Fetch plans and total count in parallel
@@ -62,8 +61,8 @@ impl QueryHandler<ListPlansQuery> for ListPlansQueryHandler {
         Ok(ListPlansResponse {
             plans: plan_summaries,
             total,
-            page,
-            limit,
+            page: pg.page,
+            limit: pg.limit,
         })
     }
 }

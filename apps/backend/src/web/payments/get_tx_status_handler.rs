@@ -22,7 +22,7 @@ use crate::{
     infrastructure::models::payment::PaymentDb,
     web::{
         auth::AppState,
-        middleware::{ErrorDetails, OpenIDUserContext, UnifiedErrorResponse},
+        middleware::{OpenIDUserContext, UnifiedErrorResponse},
     },
 };
 
@@ -87,39 +87,18 @@ pub async fn get_transaction_status_handler(
 
     // Validate transaction hash format
     if !tx_hash.starts_with("0x") || tx_hash.len() != 66 {
-        return Err(Json(UnifiedErrorResponse {
-            success: false,
-            error: ErrorDetails {
-                code: 400,
-                message: "Invalid transaction hash".to_string(),
-                reason: "Transaction hash must be 66 characters starting with 0x".to_string(),
-            },
-        }));
+        return Err(UnifiedErrorResponse::json(400, "Invalid transaction hash", "Transaction hash must be 66 characters starting with 0x"));
     }
 
     // Get payments database connection
     let payments_pool = get_payments_pool().await.map_err(|e| {
         error!("Failed to get payments database pool: {}", e);
-        Json(UnifiedErrorResponse {
-            success: false,
-            error: ErrorDetails {
-                code: 500,
-                message: "Database error".to_string(),
-                reason: "Cannot connect to database".to_string(),
-            },
-        })
+        UnifiedErrorResponse::json(500, "Database error", "Cannot connect to database")
     })?;
-    
+
     let mut conn = payments_pool.get().await.map_err(|e| {
         error!("Failed to get database connection: {}", e);
-        Json(UnifiedErrorResponse {
-            success: false,
-            error: ErrorDetails {
-                code: 500,
-                message: "Database error".to_string(),
-                reason: "Cannot establish database connection".to_string(),
-            },
-        })
+        UnifiedErrorResponse::json(500, "Database error", "Cannot establish database connection")
     })?;
 
     // Query payment by transaction hash
@@ -132,14 +111,7 @@ pub async fn get_transaction_status_handler(
         .optional()
         .map_err(|e| {
             error!("Failed to query payment: {}", e);
-            Json(UnifiedErrorResponse {
-                success: false,
-                error: ErrorDetails {
-                    code: 500,
-                    message: "Database query failed".to_string(),
-                    reason: format!("Cannot query payment: {}", e),
-                },
-            })
+            UnifiedErrorResponse::json(500, "Database query failed", format!("Cannot query payment: {}", e))
         })?;
 
     match payment {
@@ -194,14 +166,7 @@ pub async fn get_transaction_status_handler(
         }
         None => {
             // Transaction not found in database
-            Err(Json(UnifiedErrorResponse {
-                success: false,
-                error: ErrorDetails {
-                    code: 404,
-                    message: "Transaction not found".to_string(),
-                    reason: "No payment record found for this transaction hash. Make sure to submit the transaction first.".to_string(),
-                },
-            }))
+            Err(UnifiedErrorResponse::json(404, "Transaction not found", "No payment record found for this transaction hash. Make sure to submit the transaction first."))
         }
     }
 }

@@ -17,12 +17,6 @@ mod rate_limits {
     pub const DEFAULT_REQUESTS_PER_MINUTE: u32 = 60;
     pub const DEFAULT_REQUESTS_PER_HOUR: u32 = 1000;
     pub const DEFAULT_REQUESTS_PER_DAY: u32 = 10000;
-
-    pub const LOGIN_REQUESTS_PER_MINUTE: u32 = 5;
-    pub const PAYMENT_REQUESTS_PER_MINUTE: u32 = 10;
-    pub const ADMIN_REQUESTS_PER_MINUTE: u32 = 20;
-
-    pub const MINUTE_SECONDS: u64 = 60;
 }
 
 /// Time window for rate limiting
@@ -143,7 +137,7 @@ impl RateLimitEntry {
                 return RateLimitResult {
                     allowed: false,
                     reason: format!("Minute rate limit exceeded: {}/{}", self.minute_count, limit),
-                    retry_after_seconds: Some(rate_limits::MINUTE_SECONDS - (self.last_updated % rate_limits::MINUTE_SECONDS)),
+                    retry_after_seconds: Some(MINUTE as u64 - (self.last_updated % MINUTE as u64)),
                     window: TimeWindow::Minute,
                     current_count: self.minute_count,
                     limit,
@@ -285,52 +279,6 @@ impl UnifiedRateLimiter {
         Ok(result)
     }
     
-    /// Check and update rate limits for IP address using configuration-based limits
-    pub async fn check_ip_rate_limit(
-        &self,
-        client_ip: &str,
-        endpoint: &str,
-    ) -> Result<(), RateLimitError> {
-        let (limit, window_seconds) = self.get_rate_limit_config(endpoint);
-        let config = RateLimitConfig {
-            requests_per_minute: Some(limit),
-            requests_per_hour: None,
-            requests_per_day: None,
-        };
-        
-        let client_id = ClientId::IpAddress(client_ip.to_string());
-        let result = self.check_client_rate_limit(&client_id, endpoint, "ANY", &config).await?;
-        
-        if !result.allowed {
-            return Err(RateLimitError::RateLimitExceeded {
-                message: format!("Rate limit exceeded for endpoint {}", endpoint),
-                retry_after: result.retry_after_seconds.unwrap_or(window_seconds),
-                limit,
-                window: window_seconds,
-            });
-        }
-        
-        Ok(())
-    }
-    
-    /// Get rate limit configuration for an endpoint (from rate_limit.rs functionality)
-    fn get_rate_limit_config(&self, endpoint: &str) -> (u32, u64) {
-        // Pattern-based rate limits for different endpoint types
-        if endpoint.contains("/login") {
-            return (rate_limits::LOGIN_REQUESTS_PER_MINUTE, rate_limits::MINUTE_SECONDS);
-        }
-
-        if endpoint.contains("/payment") {
-            return (rate_limits::PAYMENT_REQUESTS_PER_MINUTE, rate_limits::MINUTE_SECONDS);
-        }
-
-        if endpoint.contains("/admin") {
-            return (rate_limits::ADMIN_REQUESTS_PER_MINUTE, rate_limits::MINUTE_SECONDS);
-        }
-
-        // Default rate limit
-        (rate_limits::DEFAULT_REQUESTS_PER_MINUTE, rate_limits::MINUTE_SECONDS)
-    }
     
     /// Check and update rate limits for a user-endpoint combination (backward compatibility)
     pub async fn check_rate_limit(
@@ -390,52 +338,7 @@ impl UnifiedRateLimiter {
         self.get_client_status(&client_id, endpoint, method).await
     }
     
-    /// Reset rate limits for any client type (admin function) with cache support
-    pub async fn reset_client_limits(&self, client_id: &ClientId) -> Result<u32, RateLimitError> {
-        // Simplified implementation - delete common endpoint patterns
-        // Pattern-based deletion by iterating through common endpoints and methods
-        let common_endpoints = ["*", "login", "register", "api", "admin"];
-        let common_methods = ["GET", "POST", "PUT", "DELETE"];
-
-        let mut deleted_count = 0;
-        for endpoint in &common_endpoints {
-            for method in &common_methods {
-                let cache_key = self.rate_limit_key(client_id, endpoint, method);
-                self.cache.delete(&cache_key);
-                deleted_count += 1;
-            }
-        }
-
-        debug!("Reset {} rate limit entries for client {}", deleted_count, client_id);
-        Ok(deleted_count)
-    }
     
-    /// Reset rate limits for a user (backward compatibility)
-    pub async fn reset_user_limits(&self, wallet_address: &UserId) -> Result<u32, RateLimitError> {
-        let client_id = ClientId::User(wallet_address.clone());
-        self.reset_client_limits(&client_id).await
-    }
-    
-    /// Get statistics about rate limiter usage from cache
-    ///
-    /// Implements real statistics tracking by scanning rate limit entries in cache
-    pub async fn get_stats(&self) -> std::collections::HashMap<String, u32> {
-        let mut stats = std::collections::HashMap::new();
-
-        // Since Cache trait doesn't expose scanning interface, we track operational stats
-        // These are accumulated from rate limiter operations
-
-        // For now, return basic operational statistics
-        // In a future enhancement, this could be extended with cache scanning capabilities
-        stats.insert("active_entries_estimate".to_string(), 0);
-        stats.insert("requests_per_minute_current".to_string(), 0);
-        stats.insert("requests_per_hour_current".to_string(), 0);
-        stats.insert("cache_hit_rate_percent".to_string(), 0);
-
-        debug!("Rate limiter operational stats: {:?}", stats);
-
-        stats
-    }
 }
 
 /// Rate limit status for monitoring
@@ -508,7 +411,7 @@ pub trait RateLimiter: Send + Sync {
         method: &str,
         config: &RateLimitConfig,
     ) -> Result<RateLimitResult, RateLimitError>;
-    
+
     /// Get status for any client type
     async fn get_client_status(
         &self,
@@ -516,13 +419,7 @@ pub trait RateLimiter: Send + Sync {
         endpoint: &str,
         method: &str,
     ) -> Option<RateLimitStatus>;
-    
-    /// Reset limits for any client type
-    async fn reset_client_limits(&self, client_id: &ClientId) -> Result<u32, RateLimitError>;
-    
-    /// Check IP-based rate limits using configuration
-    async fn check_ip_rate_limit(&self, client_ip: &str, endpoint: &str) -> Result<(), RateLimitError>;
-    
+
     // Backward compatibility methods
     async fn check_rate_limit(
         &self,
@@ -534,7 +431,7 @@ pub trait RateLimiter: Send + Sync {
         let client_id = ClientId::User(wallet_address.clone());
         self.check_client_rate_limit(&client_id, endpoint, method, config).await
     }
-    
+
     async fn get_status(
         &self,
         wallet_address: &UserId,
@@ -543,11 +440,6 @@ pub trait RateLimiter: Send + Sync {
     ) -> Option<RateLimitStatus> {
         let client_id = ClientId::User(wallet_address.clone());
         self.get_client_status(&client_id, endpoint, method).await
-    }
-    
-    async fn reset_user_limits(&self, wallet_address: &UserId) -> Result<u32, RateLimitError> {
-        let client_id = ClientId::User(wallet_address.clone());
-        self.reset_client_limits(&client_id).await
     }
 }
 
@@ -562,7 +454,7 @@ impl RateLimiter for UnifiedRateLimiter {
     ) -> Result<RateLimitResult, RateLimitError> {
         self.check_client_rate_limit(client_id, endpoint, method, config).await
     }
-    
+
     async fn get_client_status(
         &self,
         client_id: &ClientId,
@@ -570,14 +462,6 @@ impl RateLimiter for UnifiedRateLimiter {
         method: &str,
     ) -> Option<RateLimitStatus> {
         self.get_client_status(client_id, endpoint, method).await
-    }
-    
-    async fn reset_client_limits(&self, client_id: &ClientId) -> Result<u32, RateLimitError> {
-        self.reset_client_limits(client_id).await
-    }
-    
-    async fn check_ip_rate_limit(&self, client_ip: &str, endpoint: &str) -> Result<(), RateLimitError> {
-        self.check_ip_rate_limit(client_ip, endpoint).await
     }
 }
 
@@ -669,33 +553,6 @@ mod tests {
         assert!(!result4.allowed);
     }
     
-    #[tokio::test]
-    async fn test_rate_limit_reset() {
-        let cache = ServerlessCacheFactory::redis_only().await
-            .unwrap_or_else(|_| Box::new(MemoryCache::new()));
-        let limiter = UnifiedRateLimiter::new(cache.into());
-        let wallet_address = UserId::new();
-        let config = RateLimitConfig {
-            requests_per_minute: Some(1),
-            requests_per_hour: None,
-            requests_per_day: None,
-        };
-        
-        // Make request to hit rate limit
-        let result1 = limiter.check_rate_limit(&wallet_address, "/api/test", "GET", &config).await.unwrap();
-        assert!(result1.allowed);
-        
-        let result2 = limiter.check_rate_limit(&wallet_address, "/api/test", "GET", &config).await.unwrap();
-        assert!(!result2.allowed);
-        
-        // Reset user limits
-        let reset_count = limiter.reset_user_limits(&wallet_address).await.unwrap();
-        assert_eq!(reset_count, 1);
-        
-        // Should be able to make request again
-        let result3 = limiter.check_rate_limit(&wallet_address, "/api/test", "GET", &config).await.unwrap();
-        assert!(result3.allowed);
-    }
     
     #[tokio::test]
     async fn test_different_client_types() {
@@ -763,14 +620,10 @@ mod tests {
         // Test status retrieval
         let status = limiter.get_status(&wallet_address, "/api/fallback", "GET").await;
         assert!(status.is_some(), "Status should be retrievable");
-        
+
         if let Some(s) = status {
             assert_eq!(s.minute_count, 3);
         }
-        
-        // Test stats
-        let stats = limiter.get_stats().await;
-        assert!(!stats.is_empty(), "Stats should be available");
     }
     
     #[test]

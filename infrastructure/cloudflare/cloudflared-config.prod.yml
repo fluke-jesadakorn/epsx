@@ -1,0 +1,55 @@
+# ============================================================================
+# Cloudflare Tunnel Configuration - EPSX Production
+# ============================================================================
+# Routes: epsx.io, admin.epsx.io, api.epsx.io → internal Docker services
+
+ingress:
+  # Frontend - Main user application
+  - hostname: epsx.io
+    service: http://frontend:3000
+    originRequest:
+      connectTimeout: 30s
+      noTLSVerify: false
+      http2Origin: true
+
+  # Admin Frontend - Administrative dashboard
+  - hostname: admin.epsx.io
+    service: http://admin-frontend:3000
+    originRequest:
+      connectTimeout: 30s
+      noTLSVerify: false
+      http2Origin: true
+
+  # Backend API - Rust API server
+  - hostname: api.epsx.io
+    service: http://backend:8080
+    originRequest:
+      connectTimeout: 30s
+      noTLSVerify: false
+      http2Origin: true
+
+  # Catch-all rule (required by Cloudflare Tunnel)
+  - service: http_status:404
+
+# Logging configuration
+loglevel: info
+
+# Metrics (optional - for monitoring tunnel health)
+metrics: 0.0.0.0:2000
+
+# Protocol optimizations
+protocol: quic
+
+# No automatic updates in production
+no-autoupdate: true
+
+# ============================================================================
+# DNS CONFIGURATION REQUIRED
+# ============================================================================
+# Configure these CNAME records in Cloudflare DNS:
+#
+# Record Type: CNAME
+# Name: epsx.io         → <tunnel-id>.cfargotunnel.com  (Proxy: Yes)
+# Name: admin.epsx.io   → <tunnel-id>.cfargotunnel.com  (Proxy: Yes)
+# Name: api.epsx.io     → <tunnel-id>.cfargotunnel.com  (Proxy: Yes)
+# ============================================================================

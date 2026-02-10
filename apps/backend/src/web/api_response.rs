@@ -67,8 +67,8 @@ where T: Serialize
     }
 }
 
-impl ApiMeta {
-    pub fn default() -> Self {
+impl Default for ApiMeta {
+    fn default() -> Self {
         Self {
             page: None,
             per_page: None,

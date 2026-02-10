@@ -161,7 +161,7 @@ pub async fn create_plan_handler(
         price_amount: request.current_price,
         currency: request.currency,
         billing_cycle: request.billing_model,
-        permissions: permissions,
+        permissions,
         features: PlanFeatures::default(),
         target_audience: request.target_audience,
         is_active: Some(true),
@@ -172,7 +172,7 @@ pub async fn create_plan_handler(
 
     match command_handler.handle(command).await {
         Ok(create_response) => {
-            let plan_id = PlanId::from_str(&create_response.plan_id).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+            let plan_id = PlanId::parse(&create_response.plan_id).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
             match repo.find_by_id(&plan_id).await {
                 Ok(Some(plan)) => Ok(JsonResponse(map_plan_to_response(plan, 0, Decimal::ZERO))),
                 _ => Err(StatusCode::INTERNAL_SERVER_ERROR),
@@ -254,7 +254,7 @@ pub async fn get_plan_handler(
         
     let query_handler = GetPlanQueryHandler::new(repo.clone());
     
-    let plan_id = PlanId::from_str(&id).map_err(|_| StatusCode::BAD_REQUEST)?;
+    let plan_id = PlanId::parse(&id).map_err(|_| StatusCode::BAD_REQUEST)?;
 
     match query_handler.handle(GetPlanQuery { id: plan_id }).await {
         Ok(Some(plan)) => {
@@ -291,7 +291,7 @@ pub async fn update_plan_handler(
 
 
     let command_handler = UpdatePlanCommandHandler::new(repo.clone());
-    let plan_id = PlanId::from_str(&id).map_err(|_| StatusCode::BAD_REQUEST)?;
+    let plan_id = PlanId::parse(&id).map_err(|_| StatusCode::BAD_REQUEST)?;
     
 
     
@@ -321,7 +321,7 @@ pub async fn update_plan_handler(
         }),
         features: None,
         target_audience: None,
-        permissions: permissions,
+        permissions,
         is_active: request.is_active,
         is_promoted: None,
         display_order: request.tier_level,
@@ -364,7 +364,7 @@ pub async fn delete_plan_handler(
     }
 
     let command_handler = DeletePlanCommandHandler::new(repo.clone());
-    let plan_id = PlanId::from_str(&id).map_err(|_| StatusCode::BAD_REQUEST)?;
+    let plan_id = PlanId::parse(&id).map_err(|_| StatusCode::BAD_REQUEST)?;
 
     match command_handler.handle(DeletePlanCommand { id: plan_id }).await {
         Ok(_) => Ok(StatusCode::OK),
@@ -526,10 +526,8 @@ pub async fn admin_list_user_access_handler(
     Query(query): Query<UserAccessListQuery>,
 ) -> Result<JsonResponse<serde_json::Value>, StatusCode> {
     use diesel_async::RunQueryDsl;
-    
-    let page = query.page.unwrap_or(1).max(1);
-    let limit = query.limit.unwrap_or(20).min(100);
-    let offset = (page - 1) * limit;
+
+    let pg = crate::web::pagination::Pagination::from_signed(query.page, query.limit, 20, 100);
     
     let mut conn = match (*app_state.db_pool).get().await {
         Ok(c) => c,
@@ -574,8 +572,8 @@ pub async fn admin_list_user_access_handler(
         "#
     )
     .bind::<diesel::sql_types::Text, _>(&search_filter)
-    .bind::<diesel::sql_types::BigInt, _>(limit)
-    .bind::<diesel::sql_types::BigInt, _>(offset)
+    .bind::<diesel::sql_types::BigInt, _>(pg.limit as i64)
+    .bind::<diesel::sql_types::BigInt, _>(pg.offset)
     .get_results(&mut conn)
     .await
     .map_err(|e| {
@@ -616,8 +614,8 @@ pub async fn admin_list_user_access_handler(
         "data": {
             "users": users_data,
             "pagination": {
-                "page": page,
-                "limit": limit,
+                "page": pg.page,
+                "limit": pg.limit,
                 "total": 0, // Simplified for now
                 "total_pages": 1
             }
@@ -630,9 +628,7 @@ pub async fn list_subscriptions_handler(
     State(_state): State<AppState>,
     Query(query): Query<SubscriptionListQuery>,
 ) -> Result<JsonResponse<serde_json::Value>, StatusCode> {
-    let page = query.page.unwrap_or(1).max(1);
-    let limit = query.limit.unwrap_or(20).min(100);
-    let offset = (page - 1) * limit;
+    let pg = crate::web::pagination::Pagination::from_signed(query.page, query.limit, 20, 100);
 
     let payments_pool = crate::infrastructure::database::get_payments_pool().await.map_err(|e| {
         tracing::error!("Failed to get payments database pool: {}", e);
@@ -654,8 +650,8 @@ pub async fn list_subscriptions_handler(
     }
 
     let results = db_query
-        .limit(limit)
-        .offset(offset)
+        .limit(pg.limit as i64)
+        .offset(pg.offset)
         .load::<SubscriptionDb>(&mut payments_conn)
         .await
         .map_err(|e| {

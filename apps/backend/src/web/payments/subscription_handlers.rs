@@ -17,7 +17,7 @@ use tracing::info;
 
 use crate::{
     prelude::*,
-    web::middleware::{UnifiedErrorResponse, ErrorDetails, OpenIDUserContext},
+    web::middleware::{UnifiedErrorResponse, OpenIDUserContext},
 };
 
 // ============================================================================
@@ -128,14 +128,7 @@ pub async fn get_user_plans_handler(
     let mut conn = app_state.db_pool
         .get()
         .await
-        .map_err(|e| Json(UnifiedErrorResponse {
-            success: false,
-            error: ErrorDetails {
-                code: 500,
-                message: "Database connection failed".to_string(),
-                reason: e.to_string(),
-            },
-        }))?;
+        .map_err(|e| UnifiedErrorResponse::json(500, "Database connection failed", e.to_string()))?;
 
     let now = Utc::now();
 
@@ -241,14 +234,7 @@ pub async fn get_user_plans_handler(
     .get_result(&mut conn)
     .await
     .optional()
-    .map_err(|e| Json(UnifiedErrorResponse {
-        success: false,
-        error: ErrorDetails {
-            code: 500,
-            message: "Failed to fetch user".to_string(),
-            reason: e.to_string(),
-        },
-    }))?;
+    .map_err(|e| UnifiedErrorResponse::json(500, "Failed to fetch user", e.to_string()))?;
 
     let data = match user {
         Some(u) => {
@@ -348,14 +334,7 @@ pub async fn cancel_plan_handler(
     let mut conn = app_state.db_pool
         .get()
         .await
-        .map_err(|e| Json(UnifiedErrorResponse {
-            success: false,
-            error: ErrorDetails {
-                code: 500,
-                message: "Database connection failed".to_string(),
-                reason: e.to_string(),
-            },
-        }))?;
+        .map_err(|e| UnifiedErrorResponse::json(500, "Database connection failed", e.to_string()))?;
 
     // Mark the plan as cancelled but don't change expiry (user can still use until expiry)
     // In Direct Payment model, we just clear the current_plan_id
@@ -370,14 +349,7 @@ pub async fn cancel_plan_handler(
     .bind::<diesel::sql_types::Text, _>(&user_context.wallet_address)
     .execute(&mut conn)
     .await
-    .map_err(|e| Json(UnifiedErrorResponse {
-        success: false,
-        error: ErrorDetails {
-            code: 500,
-            message: "Failed to cancel plan".to_string(),
-            reason: e.to_string(),
-        },
-    }))?;
+    .map_err(|e| UnifiedErrorResponse::json(500, "Failed to cancel plan", e.to_string()))?;
 
     if rows_affected == 0 {
         return Ok(Json(CancelPlanResponse {
@@ -455,14 +427,7 @@ pub async fn get_upgrade_preview_handler(
     let mut conn = app_state.db_pool
         .get()
         .await
-        .map_err(|e| Json(UnifiedErrorResponse {
-            success: false,
-            error: ErrorDetails {
-                code: 500,
-                message: "Database connection failed".to_string(),
-                reason: e.to_string(),
-            },
-        }))?;
+        .map_err(|e| UnifiedErrorResponse::json(500, "Database connection failed", e.to_string()))?;
 
     // Get new plan details
     #[derive(diesel::QueryableByName)]
@@ -482,14 +447,7 @@ pub async fn get_upgrade_preview_handler(
     .get_result(&mut conn)
     .await
     .optional()
-    .map_err(|e| Json(UnifiedErrorResponse {
-        success: false,
-        error: ErrorDetails {
-            code: 500,
-            message: "Failed to fetch plan".to_string(),
-            reason: e.to_string(),
-        },
-    }))?;
+    .map_err(|e| UnifiedErrorResponse::json(500, "Failed to fetch plan", e.to_string()))?;
 
     let new_plan = match new_plan {
         Some(p) => p,

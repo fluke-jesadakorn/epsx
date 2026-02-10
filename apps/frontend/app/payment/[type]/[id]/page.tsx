@@ -1,7 +1,7 @@
-import { GlobalAuthGuard } from '@/components/auth/global-auth-guard';
-import { getCurrentUser } from '@/lib/server-actions';
-import { getDebugSessionInfo } from '@/lib/server-actions-user';
+import { PaymentAuthGuard } from '@/app/payment/components/payment-auth-guard';
+import { getCurrentUser, getDebugSessionInfo } from '@/lib/server-actions-user';
 import { PaymentClient } from '../../payment-client';
+import { getPublicPlansAction } from '@/app/actions/plans';
 
 export const dynamic = 'force-dynamic';
 
@@ -73,7 +73,7 @@ export default async function PaymentDynamicPage({ params }: PaymentDynamicPageP
     const { type, id } = await params;
 
     // Validate payment type
-    // Handle 'group' for legacy support by mapping to 'access-plan' if needed, 
+    // Handle 'group' for legacy support by mapping to 'access-plan' if needed,
     // but the route itself is what matters. Since this is [type], 'group' will come in as type.
 
     const validTypes: PaymentType[] = ['plan', 'access-plan', 'permission', 'link'];
@@ -89,18 +89,16 @@ export default async function PaymentDynamicPage({ params }: PaymentDynamicPageP
     // Get theme configuration
     const theme = getThemeConfig(paymentType);
 
+    // Fetch plans on server to avoid client-side loading
+    const plansResult = await getPublicPlansAction();
+    const initialPlans = plansResult.success && plansResult.data ? plansResult.data : [];
+
     // Show auth guard for unauthenticated users
     if (!user) {
         return (
-            <main className={`min-h-screen bg-gradient-to-br ${theme.gradient} flex items-center justify-center relative overflow-hidden`}>
-                {/* Decorative background */}
-                <div className="absolute inset-0 pointer-events-none">
-                    <div className={`absolute top-10 left-10 w-32 h-32 bg-gradient-to-br ${theme.decorGradient1} rounded-full blur-xl`} />
-                    <div className={`absolute top-40 right-20 w-24 h-24 bg-gradient-to-br ${theme.decorGradient2} rounded-full blur-xl`} />
-                    <div className={`absolute bottom-20 left-20 w-40 h-40 bg-gradient-to-br ${theme.decorGradient3} rounded-full blur-xl`} />
-                </div>
+            <main className={`min-h-screen bg-[#0F1115] flex items-center justify-center relative overflow-hidden`}>
                 <div className="container mx-auto p-6 relative z-10">
-                    <GlobalAuthGuard title="Payment Portal" debugInfo={debugInfo} />
+                    <PaymentAuthGuard />
                 </div>
             </main>
         );
@@ -135,6 +133,7 @@ export default async function PaymentDynamicPage({ params }: PaymentDynamicPageP
                     preselectedId={id}
                     title={theme.title}
                     description={theme.description}
+                    initialPlans={initialPlans}
                 />
 
                 {/* Security Footer */}

@@ -24,7 +24,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             // Default: use LOG_LEVEL config + suppress noisy DEBUG logs
             // This prevents verbose query preparation/execution logs from tokio_postgres
             // and TLS handshake details from rustls
-            let filter_str = format!("{},tokio_postgres=warn,rustls=warn,hyper=warn", config.log_level);
+            let filter_str = format!("{},tokio_postgres=warn,rustls=warn,hyper=error,h2=error", config.log_level);
             tracing_subscriber::EnvFilter::new(&filter_str)
         });
     

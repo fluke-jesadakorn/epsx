@@ -53,11 +53,11 @@ impl PlanRepositoryAdapter {
 #[async_trait]
 impl PlanRepositoryPort for PlanRepositoryAdapter {
     async fn find_by_id(&self, id: &PlanId) -> AppResult<Option<Plan>> {
-        let mut conn = self.db_pool.get().await
-            .map_err(|e| AppError::database_error(e.to_string()))?;
+        let mut conn = self.db_pool.conn().await?;
 
         let plan_result = plans::table
             .filter(plans::id.eq(id.value()))
+            .select(PlanDb::as_select())
             .first::<PlanDb>(&mut conn)
             .await
             .optional()
@@ -130,8 +130,7 @@ impl PlanRepositoryPort for PlanRepositoryAdapter {
     }
 
     async fn find_by_slug(&self, slug: &PlanSlug) -> AppResult<Option<Plan>> {
-        let mut conn = self.db_pool.get().await
-            .map_err(|e| AppError::database_error(e.to_string()))?;
+        let mut conn = self.db_pool.conn().await?;
 
         let id_result = plans::table
             .filter(plans::slug.eq(slug.as_str()))
@@ -153,8 +152,7 @@ impl PlanRepositoryPort for PlanRepositoryAdapter {
     }
 
     async fn find_all(&self, criteria: PlanSearchCriteria) -> AppResult<Vec<Plan>> {
-        let mut conn = self.db_pool.get().await
-            .map_err(|e| AppError::database_error(e.to_string()))?;
+        let mut conn = self.db_pool.conn().await?;
 
         // Build dynamic query using Diesel DSL
         let mut query = plans::table.into_boxed();
@@ -214,8 +212,7 @@ impl PlanRepositoryPort for PlanRepositoryAdapter {
     }
 
     async fn save(&self, plan: &Plan) -> AppResult<()> {
-        let mut conn = self.db_pool.get().await
-            .map_err(|e| AppError::database_error(e.to_string()))?;
+        let mut conn = self.db_pool.conn().await?;
 
         let new_plan = NewPlanDb {
             id: *plan.id().value(),
@@ -323,8 +320,7 @@ impl PlanRepositoryPort for PlanRepositoryAdapter {
     }
 
     async fn delete(&self, id: &PlanId) -> AppResult<()> {
-        let mut conn = self.db_pool.get().await
-            .map_err(|e| AppError::database_error(e.to_string()))?;
+        let mut conn = self.db_pool.conn().await?;
 
         diesel::delete(plans::table)
             .filter(plans::id.eq(id.value()))
@@ -340,8 +336,7 @@ impl PlanRepositoryPort for PlanRepositoryAdapter {
     }
 
     async fn count(&self, criteria: PlanSearchCriteria) -> AppResult<i64> {
-        let mut conn = self.db_pool.get().await
-            .map_err(|e| AppError::database_error(e.to_string()))?;
+        let mut conn = self.db_pool.conn().await?;
 
         let mut query = plans::table.into_boxed();
 
@@ -379,8 +374,7 @@ impl PlanRepositoryPort for PlanRepositoryAdapter {
     }
 
     async fn get_statistics(&self) -> AppResult<PlanStatistics> {
-        let mut conn = self.db_pool.get().await
-            .map_err(|e| AppError::database_error(e.to_string()))?;
+        let mut conn = self.db_pool.conn().await?;
 
         // Use diesel::sql_query for FILTER clause compatibility
         let query = r#"
@@ -415,8 +409,7 @@ impl PlanRepositoryPort for PlanRepositoryAdapter {
     }
 
     async fn slug_exists(&self, slug: &PlanSlug) -> AppResult<bool> {
-        let mut conn = self.db_pool.get().await
-            .map_err(|e| AppError::database_error(e.to_string()))?;
+        let mut conn = self.db_pool.conn().await?;
 
         let exists = diesel::select(diesel::dsl::exists(
             plans::table.filter(plans::slug.eq(slug.as_str()))
@@ -436,11 +429,8 @@ impl PlanRepositoryAdapter {
         use crate::infrastructure::adapters::repositories::database_types::PermissionPlan as DbPermissionPlan;
         use crate::schemas::primary::plans;
 
-        let mut conn = self.db_pool.get().await
-            .map_err(|e| diesel::result::Error::DatabaseError(
-                diesel::result::DatabaseErrorKind::UnableToSendCommand,
-                Box::new(e.to_string())
-            ))?;
+        let mut conn = self.db_pool.conn().await
+            .map_err(|_e| diesel::result::Error::NotFound)?;
 
         plans::table
             .filter(plans::plan_type.eq("subscription"))
@@ -448,6 +438,7 @@ impl PlanRepositoryAdapter {
                 plans::display_order.assume_not_null().asc(),
                 plans::price.assume_not_null().asc()
             ))
+            .select(DbPermissionPlan::as_select())
             .load::<DbPermissionPlan>(&mut conn)
             .await
     }
@@ -457,15 +448,13 @@ impl PlanRepositoryAdapter {
         use crate::infrastructure::adapters::repositories::database_types::PermissionPlan as DbPermissionPlan;
         use crate::schemas::primary::plans;
 
-        let mut conn = self.db_pool.get().await
-            .map_err(|e| diesel::result::Error::DatabaseError(
-                diesel::result::DatabaseErrorKind::UnableToSendCommand,
-                Box::new(e.to_string())
-            ))?;
+        let mut conn = self.db_pool.conn().await
+            .map_err(|_e| diesel::result::Error::NotFound)?;
 
         plans::table
             .filter(plans::id.eq(plan_id))
             .filter(plans::plan_type.eq("subscription"))
+            .select(DbPermissionPlan::as_select())
             .first::<DbPermissionPlan>(&mut conn)
             .await
             .optional()
@@ -476,11 +465,8 @@ impl PlanRepositoryAdapter {
         use crate::infrastructure::adapters::repositories::database_types::PermissionPlan as DbPermissionPlan;
         use crate::schemas::primary::plans;
 
-        let mut conn = self.db_pool.get().await
-            .map_err(|e| diesel::result::Error::DatabaseError(
-                diesel::result::DatabaseErrorKind::UnableToSendCommand,
-                Box::new(e.to_string())
-            ))?;
+        let mut conn = self.db_pool.conn().await
+            .map_err(|_e| diesel::result::Error::NotFound)?;
 
         diesel::update(plans::table.filter(plans::id.eq(plan.id)))
             .set((
@@ -496,6 +482,7 @@ impl PlanRepositoryAdapter {
                 plans::display_order.eq(plan.display_order),
                 plans::updated_at.eq(diesel::dsl::now),
             ))
+            .returning(DbPermissionPlan::as_returning())
             .get_result::<DbPermissionPlan>(&mut conn)
             .await
     }
@@ -505,14 +492,12 @@ impl PlanRepositoryAdapter {
         use crate::schemas::primary::plans;
         use crate::infrastructure::adapters::repositories::database_types::PermissionPlan as DbPermissionPlan;
 
-        let mut conn = self.db_pool.get().await
-            .map_err(|e| diesel::result::Error::DatabaseError(
-                diesel::result::DatabaseErrorKind::UnableToSendCommand,
-                Box::new(e.to_string())
-            ))?;
+        let mut conn = self.db_pool.conn().await
+            .map_err(|_e| diesel::result::Error::NotFound)?;
 
         diesel::insert_into(plans::table)
             .values(&new_plan)
+            .returning(DbPermissionPlan::as_returning())
             .get_result::<DbPermissionPlan>(&mut conn)
             .await
     }

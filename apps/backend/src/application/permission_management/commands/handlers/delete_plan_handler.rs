@@ -28,7 +28,7 @@ impl DeletePermissionPlanCommandHandler {
 impl CommandHandler<DeletePermissionPlanCommand> for DeletePermissionPlanCommandHandler {
     async fn handle(&self, command: DeletePermissionPlanCommand) -> ApplicationResult<DeletePermissionPlanResponse> {
         // 1. Parse plan ID
-        let plan_id = PlanId::from_str(&command.plan_id)
+        let plan_id = PlanId::parse(&command.plan_id)
             .map_err(|e| ApplicationError::validation("plan_id", e.to_string()))?;
 
         // 2. Check if plan exists

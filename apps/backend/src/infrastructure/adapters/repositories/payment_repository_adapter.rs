@@ -152,7 +152,7 @@ impl PaymentRepositoryAdapter {
 #[async_trait]
 impl PaymentRepositoryPort for PaymentRepositoryAdapter {
     async fn save(&self, payment: &Payment) -> Result<(), String> {
-        let mut conn = self.db_pool.get().await
+        let mut conn = self.db_pool.conn().await
             .map_err(|e| format!("Failed to get database connection: {}", e))?;
 
         let payment_db = self.payment_to_db(payment)
@@ -179,7 +179,7 @@ impl PaymentRepositoryPort for PaymentRepositoryAdapter {
     }
 
     async fn find_by_id(&self, payment_id: &PaymentId) -> Result<Option<Payment>, String> {
-        let mut conn = self.db_pool.get().await
+        let mut conn = self.db_pool.conn().await
             .map_err(|e| format!("Failed to get database connection: {}", e))?;
 
         debug!("Finding payment by ID: {}", payment_id.value());
@@ -209,7 +209,7 @@ impl PaymentRepositoryPort for PaymentRepositoryAdapter {
     }
 
     async fn find_by_user(&self, wallet_address: &WalletAddress) -> Result<Vec<Payment>, String> {
-        let mut conn = self.db_pool.get().await
+        let mut conn = self.db_pool.conn().await
             .map_err(|e| format!("Failed to get database connection: {}", e))?;
 
         debug!("Finding payments for wallet: {}", wallet_address.as_str());
@@ -236,7 +236,7 @@ impl PaymentRepositoryPort for PaymentRepositoryAdapter {
     }
 
     async fn find_by_status(&self, status: PaymentStatus) -> Result<Vec<Payment>, String> {
-        let mut conn = self.db_pool.get().await
+        let mut conn = self.db_pool.conn().await
             .map_err(|e| format!("Failed to get database connection: {}", e))?;
 
         let status_str = match status {
@@ -278,7 +278,7 @@ impl PaymentRepositoryPort for PaymentRepositoryAdapter {
     }
 
     async fn find_by_reference(&self, reference: &PaymentReference) -> Result<Option<Payment>, String> {
-        let mut conn = self.db_pool.get().await
+        let mut conn = self.db_pool.conn().await
             .map_err(|e| format!("Failed to get database connection: {}", e))?;
 
         debug!("Finding payment by reference: {}", reference.value());
@@ -312,7 +312,7 @@ impl PaymentRepositoryPort for PaymentRepositoryAdapter {
         start: DateTime<Utc>,
         end: DateTime<Utc>
     ) -> Result<Vec<Payment>, String> {
-        let mut conn = self.db_pool.get().await
+        let mut conn = self.db_pool.conn().await
             .map_err(|e| format!("Failed to get database connection: {}", e))?;
 
         debug!("Finding payments between {} and {}", start, end);
@@ -340,7 +340,7 @@ impl PaymentRepositoryPort for PaymentRepositoryAdapter {
     }
 
     async fn find_expired_pending(&self, threshold: DateTime<Utc>) -> Result<Vec<Payment>, String> {
-        let mut conn = self.db_pool.get().await
+        let mut conn = self.db_pool.conn().await
             .map_err(|e| format!("Failed to get database connection: {}", e))?;
 
         debug!("Finding expired pending payments older than {}", threshold);
@@ -369,7 +369,7 @@ impl PaymentRepositoryPort for PaymentRepositoryAdapter {
     }
 
     async fn update_status(&self, payment_id: &PaymentId, status: PaymentStatus) -> Result<(), String> {
-        let mut conn = self.db_pool.get().await
+        let mut conn = self.db_pool.conn().await
             .map_err(|e| format!("Failed to get database connection: {}", e))?;
 
         let status_str = match status {
@@ -414,7 +414,7 @@ impl PaymentRepositoryPort for PaymentRepositoryAdapter {
     }
 
     async fn delete(&self, payment_id: &PaymentId) -> Result<(), String> {
-        let mut conn = self.db_pool.get().await
+        let mut conn = self.db_pool.conn().await
             .map_err(|e| format!("Failed to get database connection: {}", e))?;
 
         warn!("Deleting payment {} - this should only be used for testing/debugging", payment_id.value());
@@ -432,7 +432,7 @@ impl PaymentRepositoryPort for PaymentRepositoryAdapter {
     }
 
     async fn get_user_payment_stats(&self, wallet_address: &WalletAddress) -> Result<PaymentStats, String> {
-        let mut conn = self.db_pool.get().await
+        let mut conn = self.db_pool.conn().await
             .map_err(|e| format!("Failed to get database connection: {}", e))?;
 
         debug!("Getting payment stats for wallet: {}", wallet_address.as_str());

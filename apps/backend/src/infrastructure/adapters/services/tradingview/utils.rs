@@ -43,6 +43,6 @@ pub fn extract_symbol(full_symbol: &str) -> String {
     full_symbol
         .split(':')
         .nth(1)
-        .unwrap_or_else(|| full_symbol)
+        .unwrap_or(full_symbol)
         .to_string()
 }

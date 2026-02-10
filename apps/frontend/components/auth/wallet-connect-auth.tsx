@@ -1,4 +1,4 @@
- 
+
 'use client';
 
 import { useSharedAuth } from '@/shared/components/auth';
@@ -142,7 +142,7 @@ export function WalletConnectAuth({
               // Safety timeout: reset state if stuck for too long
               safetyTimeout = setTimeout(() => {
                 if (isAuthenticating || isSigningChallenge) {
-      // Warning logged silently
+                  // Warning logged silently
                   setIsAuthenticating(false);
                   setIsSigningChallenge(false);
                   onAuthError?.('Process timed out. Please try again.');
@@ -157,12 +157,12 @@ export function WalletConnectAuth({
 
               const signature = await signMessageAsync({ message: challenge.message, account: address });
 
-              const result = await authenticateWithWallet(
-                address,
+              const result = await authenticateWithWallet({
+                walletAddress: address,
                 signature,
-                challenge.message,
-                challenge.nonce
-              );
+                message: challenge.message,
+                nonce: challenge.nonce,
+              });
 
               if (result.success) {
                 // Trigger success callback
@@ -174,11 +174,11 @@ export function WalletConnectAuth({
               }
 
             } catch (error: unknown) {
-      // Error logged silently
+              // Error logged silently
               const errorMessage = error instanceof Error ? error.message : 'Authentication failed';
               onAuthError?.(errorMessage);
             } finally {
-              if (safetyTimeout) {clearTimeout(safetyTimeout);}
+              if (safetyTimeout) { clearTimeout(safetyTimeout); }
               setIsAuthenticating(false);
               setIsSigningChallenge(false);
             }

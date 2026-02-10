@@ -300,7 +300,7 @@ pub async fn get_user_access_overview(
                 description: None, // Will be fetched from plans table if available
                 expires_at: row.expires_at.map(|d| d.to_rfc3339()),
                 permissions: Vec::new(),
-                source_type: if is_plan { "plan".to_string() } else { "plan".to_string() },
+                source_type: "plan".to_string(),
                 assigned_at: Some(row.granted_at.to_rfc3339()),
                 assigned_by: None, // Would require additional query to get assigned_by from wallet_plan_assignments
                 days_remaining,

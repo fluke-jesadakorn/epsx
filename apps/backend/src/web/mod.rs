@@ -20,6 +20,7 @@ pub mod security; // Expose security module for CORS
 
 // API documentation (always available)
 pub mod docs;
+pub mod pagination;
 
 use axum::{ routing::get, Router, http::Method };
 use serde_json::json;

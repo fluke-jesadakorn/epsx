@@ -343,10 +343,12 @@ export class UnifiedApiClient {
 
       if (refreshToken === undefined || refreshToken === '') { return { success: false }; }
 
+      const clientId = process.env.NEXT_PUBLIC_OAUTH_CLIENT_ID ?? 'epsx-frontend';
+
       const response = await fetch(`${this.baseURL}/api/auth/session/refresh`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ refresh_token: refreshToken }),
+        body: JSON.stringify({ refresh_token: refreshToken, client_id: clientId }),
       });
 
       if (!response.ok) { return { success: false }; }

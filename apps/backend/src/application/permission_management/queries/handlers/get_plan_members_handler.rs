@@ -22,7 +22,7 @@ impl GetPlanMembersQueryHandler {
 impl QueryHandler<GetPlanMembersQuery> for GetPlanMembersQueryHandler {
     async fn handle(&self, query: GetPlanMembersQuery) -> ApplicationResult<GetPlanMembersResponse> {
         // 1. Parse plan ID
-        let plan_id = PlanId::from_str(&query.plan_id)
+        let plan_id = PlanId::parse(&query.plan_id)
             .map_err(|e| ApplicationError::validation("plan_id", e.to_string()))?;
 
         // 2. Find assignments

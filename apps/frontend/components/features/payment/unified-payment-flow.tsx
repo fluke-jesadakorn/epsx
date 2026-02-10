@@ -1,4 +1,4 @@
- 
+
 'use client';
 
 /**
@@ -37,6 +37,7 @@ import { useAuth } from '@/lib/auth';
 import { getPaymentReceiverAddress, getTokenAddress } from '@/lib/contracts/addresses';
 import { cn } from '@/lib/utils';
 import { supportedChains } from '@/shared/components/navigation/chain-selector';
+import { logger } from '@/shared/utils/logger';
 
 import { ChainVerificationCard } from './chain-verification-card';
 import { CurrentAccessCard } from './current-access-card';
@@ -92,7 +93,7 @@ const PAYMENT_TOKENS: PaymentToken[] = [
     { symbol: 'USDT', name: 'Tether USD', decimals: 18 },
     { symbol: 'USDC', name: 'USD Coin', decimals: 18 },
 ];
- 
+
 export function UnifiedPaymentFlow({
     paymentType,
     preselectedId,
@@ -102,7 +103,7 @@ export function UnifiedPaymentFlow({
     initialPlans = [],
 }: UnifiedPaymentFlowProps) {
     // Auth and wallet state
-    const { user, isLoading: isAuthLoading } = useAuth();
+    const { user, isLoading: isAuthLoading, openSignInModal } = useAuth();
     const { address, isConnected } = useAccount();
     const chainId = useChainId();
     const isAuthenticated = Boolean(user);
@@ -135,11 +136,11 @@ export function UnifiedPaymentFlow({
     );
 
     // Token address for selected token
-     
+
     const tokenAddress = useMemo(() => {
-        if (!isChainSupported) {return null;}
+        if (!isChainSupported) { return null; }
         try {
-             
+
             return getTokenAddress(selectedToken.symbol, chainId);
         } catch (_err) {
             return null;
@@ -147,11 +148,11 @@ export function UnifiedPaymentFlow({
     }, [selectedToken, chainId, isChainSupported]);
 
     // Receiver address
-     
+
     const receiverAddress = useMemo(() => {
-        if (!isChainSupported) {return null;}
+        if (!isChainSupported) { return null; }
         try {
-             
+
             return getPaymentReceiverAddress(chainId);
         } catch (_err) {
             return null;
@@ -160,7 +161,7 @@ export function UnifiedPaymentFlow({
 
     // Amount in token decimals
     const amountInDecimals = useMemo(() => {
-        if (!selectedPlan) {return 0n;}
+        if (!selectedPlan) { return 0n; }
         // Parse price string (remove $, USD, etc)
         const priceVal = selectedPlan.price.replace(/[^0-9.]/g, '');
         return parseUnits(priceVal, selectedToken.decimals);
@@ -170,7 +171,7 @@ export function UnifiedPaymentFlow({
     const { addToken, isAdding: isAddingToken, isTokenAdded } = useAddTokenToWallet();
 
     // Direct token transfer hook
-     
+
     const {
         transfer,
         txHash: transferTxHash,
@@ -181,9 +182,9 @@ export function UnifiedPaymentFlow({
         tokenAddress,
         receiverAddress,
         amount: amountInDecimals,
-         
+
         onError: (msg: any) => {
-             
+
             const errorMsg = msg;
             setError(typeof errorMsg === 'string' ? errorMsg : 'An error occurred');
             // Reset to confirm step so user can see the error and try again
@@ -194,10 +195,10 @@ export function UnifiedPaymentFlow({
     // Current plan tier level - use tier_level from planAccess if available
     const currentPlanTier = useMemo(() => {
         const plan = planAccess?.plan_name;
-        if (!plan) {return 0;}
+        if (!plan) { return 0; }
         // planAccess.tier_level should come from the backend
         // If not available yet, default to 0 (will be added to backend response)
-         
+
         const tierLevel = (planAccess as any)?.tier_level;
         return typeof tierLevel === 'number' ? tierLevel : 0;
     }, [planAccess]);
@@ -209,8 +210,8 @@ export function UnifiedPaymentFlow({
     const getActionType = useCallback((plan: PricingCardData) => {
         const planTier = typeof plan.tier_level === 'number' ? plan.tier_level : 0;
 
-        if (planTier === currentPlanTier) {return 'extend';}
-        if (planTier > currentPlanTier) {return 'upgrade';}
+        if (planTier === currentPlanTier) { return 'extend'; }
+        if (planTier > currentPlanTier) { return 'upgrade'; }
         if (planTier < currentPlanTier) {
             return 'downgrade';
         }
@@ -255,7 +256,6 @@ export function UnifiedPaymentFlow({
     }, []);
 
     // Function to fetch plans manually (for retry)
-     
     const fetchPlans = useCallback(async () => {
         try {
             setLoading(true);
@@ -274,10 +274,13 @@ export function UnifiedPaymentFlow({
                     }
                 }
             } else {
-                throw new Error(result.error?.message ?? 'Invalid API response format');
+                const errorMsg = result.error?.message ?? 'Invalid API response format';
+                throw new Error(errorMsg);
             }
-        } catch (_err) {
-            setError('Failed to load plans. Please try again.');
+        } catch (err) {
+            const errorMsg = err instanceof Error ? err.message : 'Failed to load plans';
+            setError(`${errorMsg}. Please refresh or try again.`);
+            logger.error('[Payment] Failed to fetch plans:', err);
         } finally {
             setLoading(false);
         }
@@ -299,10 +302,21 @@ export function UnifiedPaymentFlow({
             }
         } else {
             // Fetch if no initial plans
-             
-            fetchPlans();
+            void fetchPlans();
         }
     }, [initialPlans, preselectedId, transformPlans, fetchPlans]);
+
+    // Safety timeout to prevent infinite loading
+    useEffect(() => {
+        const timeout = setTimeout(() => {
+            if (loading) {
+                setError('Loading timeout - please refresh the page');
+                setLoading(false);
+            }
+        }, 10000); // 10 second timeout
+
+        return () => clearTimeout(timeout);
+    }, [loading]);
 
     // Handle plan selection
     const handlePlanSelect = (plan: PricingCardData) => {
@@ -367,7 +381,7 @@ export function UnifiedPaymentFlow({
     };
 
     // Backend submission after payment confirmed
-     
+
     useEffect(() => {
         if (isConfirmed && transferTxHash && step === 'pay') {
             // Submit to backend
@@ -388,7 +402,7 @@ export function UnifiedPaymentFlow({
                         setTxHash(transferTxHash);
                         setStep('success');
                         // Refresh plan access
-                         
+
                         refetchPlanAccess();
                     } else {
                         setError(result.error?.message ?? 'Payment submitted but verification pending');
@@ -397,14 +411,14 @@ export function UnifiedPaymentFlow({
                     setError('Payment confirmed but backend submission failed');
                 }
             };
-             
+
             submitPayment();
         }
     }, [isConfirmed, transferTxHash, step, selectedPlan, selectedToken, chainId, apiClient, refetchPlanAccess]);
 
     // Get page title based on payment type
     const getPageTitle = () => {
-        if (title) {return title;}
+        if (title) { return title; }
         switch (paymentType) {
             case 'plan': return 'Choose Your Plan';
             case 'access-plan': return 'Join Group';
@@ -414,7 +428,7 @@ export function UnifiedPaymentFlow({
     };
 
     const getPageDescription = () => {
-        if (description) {return description;}
+        if (description) { return description; }
         switch (paymentType) {
             case 'plan': return 'Select a plan to unlock premium features and analytics';
             case 'access-plan': return 'Join this group to access shared permissions';
@@ -424,7 +438,9 @@ export function UnifiedPaymentFlow({
     };
 
     // Loading state
-    if (loading || planAccessLoading || isAuthLoading) {
+    // Only wait for plans and access if we are authenticated. 
+    // If not authenticated, we will show the sign-in screen immediately after auth check completes.
+    if (isAuthLoading || (isAuthenticated && (loading || planAccessLoading))) {
         return (
             <div className={cn('py-12', className)}>
                 <div className="flex flex-col items-center justify-center gap-4">
@@ -443,11 +459,13 @@ export function UnifiedPaymentFlow({
                     <div className="flex h-20 w-20 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900/30 mx-auto mb-6">
                         <Wallet className="h-10 w-10 text-amber-600 dark:text-amber-400" />
                     </div>
-                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
                         Sign In to Continue
                     </h2>
                     <p className="text-gray-600 dark:text-gray-400 mb-6">
-                        Please sign in with your wallet to proceed with payment.
+                        {isConnected
+                            ? 'Please sign the message to verify your wallet.'
+                            : 'Please connect your wallet to proceed with payment.'}
                     </p>
                     <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-4 mb-6 text-left">
                         <div className="flex items-start gap-3 mb-3">
@@ -465,6 +483,12 @@ export function UnifiedPaymentFlow({
                             </div>
                         </div>
                     </div>
+                    <button
+                        onClick={openSignInModal}
+                        className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-all shadow-lg hover:shadow-blue-900/20 active:scale-[0.98]"
+                    >
+                        {isConnected ? 'Sign In' : 'Connect Wallet'}
+                    </button>
                 </div>
             </div>
         );

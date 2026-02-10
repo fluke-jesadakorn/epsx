@@ -388,6 +388,7 @@ pub async fn seed_subscription_plans(State(app_state): State<AppState>) -> (Stat
         for p_str in perms {
             // Split parts for metadata (rough approximation)
             let parts: Vec<&str> = p_str.split(':').collect();
+            #[allow(clippy::get_first)]
             let platform = parts.get(0).unwrap_or(&platform_default);
             let resource = parts.get(1).unwrap_or(&"unknown");
             let action = parts.get(2).unwrap_or(&"access");

@@ -73,7 +73,7 @@ pub async fn get_usage_analytics_handler(
     // Parse API Key UUID if present and not "all"
     let api_key_uuid = match query.api_key.as_deref() {
         Some("all") => None,
-        Some(s) if s.is_empty() => None,
+        Some("") => None,
         Some(s) => Uuid::parse_str(s).ok(),
         None => None,
     };

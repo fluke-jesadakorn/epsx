@@ -59,6 +59,25 @@ pub struct ErrorDetails {
     pub reason: String,
 }
 
+impl UnifiedErrorResponse {
+    /// Create a new error response
+    pub fn new(code: u16, message: impl Into<String>, reason: impl Into<String>) -> Self {
+        Self {
+            success: false,
+            error: ErrorDetails {
+                code,
+                message: message.into(),
+                reason: reason.into(),
+            },
+        }
+    }
+
+    /// Wrap in Json for Axum handler returns
+    pub fn json(code: u16, message: impl Into<String>, reason: impl Into<String>) -> Json<Self> {
+        Json(Self::new(code, message, reason))
+    }
+}
+
 /// OpenID Bearer Token Authentication Middleware
 /// Validates JWT Bearer tokens and extracts user context
 pub async fn bearer_middleware(

@@ -1,38 +1,17 @@
 import type { PermissionSource, Platform, WalletData, WalletPermission, WalletSubscription } from '@/components/wallet/types';
 import type { WalletSummaryDto } from '@/lib/api/wallet-management-client';
 
-export function detectPlatform(permission: string): Platform {
-    if (permission.startsWith('epsx:analytics') || permission.startsWith('epsx:rankings')) { return 'analytics'; }
-    if (permission.startsWith('epsx-pay:')) { return 'pay'; }
-    if (permission.startsWith('epsx-token:')) { return 'token'; }
-    if (permission.startsWith('epsx-markets:')) { return 'markets'; }
-    return 'analytics';
-}
-
 export function mapWalletDtoToData(dto: WalletSummaryDto): WalletData {
-    const platforms = new Set<Platform>();
-    const dtoPermissions = dto.permissions;
-    dtoPermissions.forEach(p => {
-        if (p.permission.startsWith('epsx:analytics') || p.permission.startsWith('epsx:rankings')) {
-            platforms.add('analytics');
-        } else if (p.permission.startsWith('epsx-pay:')) {
-            platforms.add('pay');
-        } else if (p.permission.startsWith('epsx-token:')) {
-            platforms.add('token');
-        } else if (p.permission.startsWith('epsx-markets:')) {
-            platforms.add('markets');
-        }
-    });
-    if (platforms.size === 0) { platforms.add('analytics'); }
+    const dtoPermissions = dto.permissions ?? [];
 
     const permissions: WalletPermission[] = dtoPermissions.map((p, idx) => ({
         id: `perm-${idx}`,
         permission: p.permission,
-        platform: detectPlatform(p.permission),
+        platform: (p.platform ?? 'analytics') as Platform,
         source: (p.source ?? 'system') as PermissionSource,
         expiresAt: p.expires_at,
         isActive: p.is_active,
-        createdAt: dto.created_at,
+        createdAt: p.created_at ?? dto.created_at,
     }));
 
     const subscriptions: WalletSubscription[] = (dto.subscriptions ?? []).map((s, idx) => ({
@@ -53,16 +32,18 @@ export function mapWalletDtoToData(dto: WalletSummaryDto): WalletData {
     const label = dto.metadata?.['label'] as string | undefined;
     const note = dto.metadata?.['note'] as string | undefined;
 
+    const platforms = (dto.platforms ?? ['analytics']).map(p => p as Platform);
+
     return {
         walletAddress: dto.wallet_address,
         status,
         disableInfo,
         createdAt: dto.created_at,
         lastAuthAt: dto.last_auth_at,
-        platforms: Array.from(platforms),
+        platforms,
         permissions,
         subscriptions,
-        plans: dto.groups.map(g => ({ planName: g.group_name, role: g.role })),
+        plans: (dto.groups ?? []).map(g => ({ planName: g.group_name, role: g.role })),
         metadata: dto.metadata,
         label,
         note,

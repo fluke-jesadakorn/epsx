@@ -18,7 +18,7 @@ use diesel::QueryableByName;
 use crate::{
     web::{
         auth::AppState,
-        middleware::{OpenIDUserContext, UnifiedErrorResponse, ErrorDetails},
+        middleware::{OpenIDUserContext, UnifiedErrorResponse},
     },
     auth::{UnifiedPermissionService, GrantPermissionRequest},
 };
@@ -153,14 +153,7 @@ pub async fn validate_payment_handler(
             "Wallet address mismatch: {} vs {}",
             user_context.wallet_address, payload.wallet_address
         );
-        return Err(Json(UnifiedErrorResponse {
-            success: false,
-            error: ErrorDetails {
-                code: 400,
-                message: "Wallet address mismatch".to_string(),
-                reason: "Authenticated wallet does not match payment wallet".to_string(),
-            },
-        }));
+        return Err(UnifiedErrorResponse::json(400, "Wallet address mismatch", "Authenticated wallet does not match payment wallet"));
     }
 
     // Fetch plan details from database
@@ -216,14 +209,7 @@ pub async fn activate_subscription_handler(
             "Wallet address mismatch: {} vs {}",
             user_context.wallet_address, payload.wallet_address
         );
-        return Err(Json(UnifiedErrorResponse {
-            success: false,
-            error: ErrorDetails {
-                code: 400,
-                message: "Wallet address mismatch".to_string(),
-                reason: "Authenticated wallet does not match subscription wallet".to_string(),
-            },
-        }));
+        return Err(UnifiedErrorResponse::json(400, "Wallet address mismatch", "Authenticated wallet does not match subscription wallet"));
     }
 
     // Fetch plan details
@@ -321,39 +307,18 @@ pub async fn get_payment_details_handler(
                 "Wallet address mismatch: {} vs {}",
                 user_context.wallet_address, wallet
             );
-            return Err(Json(UnifiedErrorResponse {
-                success: false,
-                error: ErrorDetails {
-                    code: 403,
-                    message: "Access denied".to_string(),
-                    reason: "Can only query your own payments".to_string(),
-                },
-            }));
+            return Err(UnifiedErrorResponse::json(403, "Access denied", "Can only query your own payments"));
         }
     }
 
     // Get PAYMENTS database connection
     let payments_pool = get_payments_pool().await.map_err(|e| {
         error!("Failed to get payments database pool: {}", e);
-        Json(UnifiedErrorResponse {
-            success: false,
-            error: ErrorDetails {
-                code: 500,
-                message: "Database connection failed".to_string(),
-                reason: "Failed to get payments database pool".to_string(),
-            },
-        })
+        UnifiedErrorResponse::json(500, "Database connection failed", "Failed to get payments database pool")
     })?;
     let mut payments_conn = payments_pool.get().await.map_err(|e| {
         error!("Failed to get payments database connection: {}", e);
-        Json(UnifiedErrorResponse {
-            success: false,
-            error: ErrorDetails {
-                code: 500,
-                message: "Database connection failed".to_string(),
-                reason: "Failed to establish payments database connection".to_string(),
-            },
-        })
+        UnifiedErrorResponse::json(500, "Database connection failed", "Failed to establish payments database connection")
     })?;
 
     // Build query based on provided parameters
@@ -401,14 +366,7 @@ pub async fn get_payment_details_handler(
         Err(diesel::NotFound) => None,
         Err(e) => {
             error!("Failed to query payment: {}", e);
-            return Err(Json(UnifiedErrorResponse {
-                success: false,
-                error: ErrorDetails {
-                    code: 500,
-                    message: "Query failed".to_string(),
-                    reason: format!("Failed to load payment: {}", e),
-                },
-            }));
+            return Err(UnifiedErrorResponse::json(500, "Query failed", format!("Failed to load payment: {}", e)));
         }
     };
 
@@ -470,25 +428,11 @@ async fn fetch_plan_info(
                 }
             }
             // Plan not found, return not found error
-            Err(Json(UnifiedErrorResponse {
-                success: false,
-                error: ErrorDetails {
-                    code: 404,
-                    message: "Plan not found".to_string(),
-                    reason: format!("No plan found with ID: {}", plan_id),
-                },
-            }))
+            Err(UnifiedErrorResponse::json(404, "Plan not found", format!("No plan found with ID: {}", plan_id)))
         }
         Err(e) => {
             error!("Failed to fetch plans: {}", e);
-            Err(Json(UnifiedErrorResponse {
-                success: false,
-                error: ErrorDetails {
-                    code: 500,
-                    message: "Database error".to_string(),
-                    reason: "Failed to fetch plan information".to_string(),
-                },
-            }))
+            Err(UnifiedErrorResponse::json(500, "Database error", "Failed to fetch plan information"))
         }
     }
 }

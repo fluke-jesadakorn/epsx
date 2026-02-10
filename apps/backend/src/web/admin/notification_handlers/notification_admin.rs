@@ -264,9 +264,7 @@ pub async fn get_all_notifications_handler(
     State(app_state): State<AppState>,
     Query(filters): Query<NotificationFilters>,
 ) -> Result<impl IntoResponse, AppError> {
-    let page = filters.page.unwrap_or(1);
-    let limit = filters.limit.unwrap_or(20);
-    let offset = ((page - 1) * limit) as i64;
+    let pg = crate::web::pagination::Pagination::standard(filters.page, filters.limit);
 
     // Build filter helper
     let mut filter = NotificationQueryFilter::new();
@@ -292,7 +290,7 @@ pub async fn get_all_notifications_handler(
     let repo = WalletNotificationRepository::new(notifications_pool);
 
     // Fetch notifications
-    let records = repo.find_with_filters(&filter, limit as i64, offset).await?;
+    let records = repo.find_with_filters(&filter, pg.limit as i64, pg.offset).await?;
 
     let notifications: Vec<NotificationDto> = records.into_iter().map(|r| NotificationDto {
         id: r.id.to_string(),
@@ -317,7 +315,7 @@ pub async fn get_all_notifications_handler(
     // Get unread count
     let unread_count = repo.count_unread_with_filters(&filter).await?;
 
-    let total_pages = ((total_count as f64) / (limit as f64)).ceil() as u32;
+    let total_pages = pg.total_pages(total_count as u64);
 
     let response = NotificationsResponse {
         success: true,
@@ -325,8 +323,8 @@ pub async fn get_all_notifications_handler(
             notifications,
             total_count: total_count as usize,
             unread_count: unread_count as usize,
-            page,
-            limit,
+            page: pg.page,
+            limit: pg.limit,
             total_pages,
         },
         api_version: "v1".to_string(),

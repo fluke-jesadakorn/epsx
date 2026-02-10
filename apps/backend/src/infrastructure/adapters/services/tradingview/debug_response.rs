@@ -4,6 +4,7 @@
 use serde_json;
 use std::fs;
 use chrono::Utc;
+use tracing::{debug, error};
 
 pub fn log_tradingview_response(symbol: &str, response: &crate::infrastructure::adapters::services::tradingview::types::TradingViewResponse) {
     let debug_data = serde_json::json!({
@@ -36,11 +37,11 @@ pub fn log_tradingview_response(symbol: &str, response: &crate::infrastructure::
     });
 
     let debug_file = format!(".devtools/tradingview_response_debug_{}.json", Utc::now().timestamp());
-    
+
     if let Err(e) = fs::write(&debug_file, serde_json::to_string_pretty(&debug_data).unwrap()) {
-        eprintln!("Failed to write debug file {}: {}", debug_file, e);
+        error!("Failed to write debug file {}: {}", debug_file, e);
     } else {
-        println!("DEBUG: TradingView response saved to {}", debug_file);
+        debug!("DEBUG: TradingView response saved to {}", debug_file);
     }
 }
 

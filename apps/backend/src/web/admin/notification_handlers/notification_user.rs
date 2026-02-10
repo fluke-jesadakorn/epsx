@@ -11,7 +11,7 @@ use diesel_async::RunQueryDsl;
 
 use crate::{
     core::errors::{AppError, ErrorKind},
-    web::auth::AppState,
+    web::{auth::AppState, pagination::Pagination},
 };
 use super::notification_types::*;
 use super::super::notification_query_helper::NotificationQueryFilter;
@@ -89,9 +89,7 @@ pub async fn get_user_notifications_handler(
     // Authenticate from Authorization header
     let wallet_address = authenticate_from_headers(&headers).await?;
 
-    let page = filters.page.unwrap_or(1);
-    let limit = filters.limit.unwrap_or(20);
-    let offset = ((page - 1) * limit) as i64;
+    let pg = Pagination::standard(filters.page, filters.limit);
 
     // Build filter helper
     let mut filter = NotificationQueryFilter::new();
@@ -116,7 +114,7 @@ pub async fn get_user_notifications_handler(
     let repo = WalletNotificationRepository::new(notifications_pool.clone());
 
     // Fetch notifications for wallet
-    let records = repo.find_for_wallet(&wallet_address, &filter, limit as i64, offset).await
+    let records = repo.find_for_wallet(&wallet_address, &filter, pg.limit as i64, pg.offset).await
         .map_err(|e| {
             tracing::error!("Failed to fetch notifications for wallet {}: {}", wallet_address, e);
             AppError::new(
@@ -162,7 +160,7 @@ pub async fn get_user_notifications_handler(
             )
         })?;
 
-    let total_pages = ((total_count as f64) / (limit as f64)).ceil() as u32;
+    let total_pages = pg.total_pages(total_count as u64);
 
     let response = NotificationsResponse {
         success: true,
@@ -170,8 +168,8 @@ pub async fn get_user_notifications_handler(
             notifications,
             total_count: total_count as usize,
             unread_count: unread_count as usize,
-            page,
-            limit,
+            page: pg.page,
+            limit: pg.limit,
             total_pages,
         },
         api_version: "v1".to_string(),

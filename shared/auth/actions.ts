@@ -140,11 +140,14 @@ export async function refreshSessionAction() {
         const { getBackendUrl } = await import('../utils/url-resolver');
         const backendUrl = getBackendUrl('server');
 
+        // Determine client_id from environment
+        const clientId = process.env.NEXT_PUBLIC_OAUTH_CLIENT_ID ?? 'epsx-frontend';
+
         // Call backend refresh endpoint directly
         const response = await fetch(`${backendUrl}/api/auth/session/refresh`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ refresh_token: refreshToken }),
+            body: JSON.stringify({ refresh_token: refreshToken, client_id: clientId }),
             cache: 'no-store',
         });
 

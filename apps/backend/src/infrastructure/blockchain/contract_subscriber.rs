@@ -358,7 +358,7 @@ impl ContractSubscriber {
             data: data_bytes.into(),
             block_number: Some(ethers::types::U64::from(block_num.as_u64())),
             transaction_hash: Some(tx_hash),
-            log_index: Some(ethers::types::U256::from(log_idx.as_u64()).into()),
+            log_index: Some(ethers::types::U256::from(log_idx.as_u64())),
             ..Default::default()
         })
     }

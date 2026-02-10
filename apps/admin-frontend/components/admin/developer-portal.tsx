@@ -1,3 +1,5 @@
+"use client";
+
 import {
   Activity,
   BarChart3,
@@ -21,7 +23,7 @@ import { UsageAnalytics } from './developer-portal/usage-analytics';
 /**
  * Main Developer Portal component
  */
-export const DeveloperPortal: React.FC = () => {
+export const DeveloperPortalPage: React.FC = () => {
   const { isLoading: authLoading } = useSharedAuth();
 
   const [activeTab, setActiveTab] = useState<

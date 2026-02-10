@@ -293,6 +293,8 @@ pub async fn logout_handler(
 pub struct TokenRefreshRequest {
     /// Refresh token
     pub refresh_token: Option<String>,
+    /// Client identifier ("epsx-frontend" or "epsx-admin")
+    pub client_id: Option<String>,
 }
 
 /// Refresh access token using refresh token
@@ -352,14 +354,19 @@ pub async fn refresh_token_handler(
         }
     };
 
-    match web3_auth_service.refresh_tokens(&token).await {
-        Ok(tokens) => {
+    let client_id = request.client_id.unwrap_or_else(|| "epsx-frontend".to_string());
+    match web3_auth_service.refresh_tokens(&token, &client_id).await {
+        Ok((tokens, wallet_address, permissions)) => {
             Ok(Json(json!({
                 "success": true,
                 "authenticated": true,
                 "access_token": tokens.access_token,
                 "refresh_token": tokens.refresh_token,
-                "expires_in": tokens.expires_in
+                "expires_in": tokens.expires_in,
+                "user": {
+                    "wallet": wallet_address,
+                    "permissions": permissions
+                }
             })))
         },
         Err(e) => {

@@ -16,10 +16,7 @@ impl PostgresWalletUserAnalyticsAdapter {
 #[async_trait]
 impl WalletUserAnalyticsPort for PostgresWalletUserAnalyticsAdapter {
     async fn get_statistics(&self) -> AppResult<WalletUserStatistics> {
-        let mut conn = self.db_pool.get().await
-            .map_err(|e| AppError::database_error(e.to_string())
-                .with_component("wallet_user_analytics_adapter")
-                .with_operation("get_statistics"))?;
+        let mut conn = self.db_pool.conn().await?;
 
         #[derive(diesel::QueryableByName)]
         struct StatsResult {

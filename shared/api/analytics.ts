@@ -34,7 +34,7 @@ export interface EPSRanking {
   volume: number | null;
   ranking_position: number;
   active_status: string;
-  quarterly_data: QuarterlyEPSData[];
+  quarterly_data?: QuarterlyEPSData[];
 }
 
 export interface QuarterlyEPSData {
