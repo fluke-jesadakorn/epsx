@@ -242,7 +242,7 @@ export async function getPaymentStatus(paymentId?: string) {
   }
 }
 
-export function getBatchStocks(_symbols: string[]) {
+export async function getBatchStocks(_symbols: string[]) {
   // TODO: Implement when backend is ready
   return {
     success: true,
@@ -253,11 +253,11 @@ export function getBatchStocks(_symbols: string[]) {
   };
 }
 
-export function preloadStocks(_symbols: string[]) {
+export async function preloadStocks(_symbols: string[]) {
   // TODO: Implement when backend is ready
 }
 
-export function checkStockCacheStatus(symbols: string[]) {
+export async function checkStockCacheStatus(symbols: string[]) {
   // TODO: Implement when backend is ready
   return {
     cached: {},
