@@ -10,7 +10,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { AssignPermissionForm, type AssignPermissionData } from './assign-permission-form';
 import type { WalletActivityEvent, WalletData } from './types';
 import { WalletActivityHistory } from './wallet-activity-history';
-import { WalletHeader } from './Walletheader';
+import { WalletHeader } from './wallet-header';
 import { WalletLabelBadge } from './wallet-label-badge';
 import { WalletPermissionTable } from './wallet-permission-table';
 

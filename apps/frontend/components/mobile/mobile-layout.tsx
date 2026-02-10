@@ -1,7 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { MobileHeader } from './Mobileheader';
+import { MobileHeader } from './mobile-header';
 import { MobileBottomNav } from './mobile-bottom-nav';
 
 interface MobileLayoutProps {

@@ -3,7 +3,7 @@
 import type { AnalyticsPagination, SymbolCardData } from '@/shared/types/analytics';
 import { AnalyticsCardGrid } from './analytics-card-grid';
 
-import ServerPagination from './Serverpagination';
+import ServerPagination from './server-pagination';
 
 interface AnalyticsDashboardWrapperProps {
     rankings: SymbolCardData[];

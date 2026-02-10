@@ -20,7 +20,7 @@ import { useFrontendApiClient } from '@/shared/hooks/use-api-client';
 import { copyToClipboard as copyToClipboardUtil } from '@/utils/util';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { PlanTransferList } from './Plantransfer-list';
+import { PlanTransferList } from './plan-transfer-list';
 
 interface APIKeyManagerProps {
   currentUser: AuthUser;
