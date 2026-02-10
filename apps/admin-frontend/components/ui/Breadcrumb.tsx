@@ -19,7 +19,7 @@ export interface BreadcrumbItem {
 }
 
 interface BreadcrumbProps {
-  items: BreadcrumbItem[]
+  items?: BreadcrumbItem[]
   className?: string
   showHome?: boolean
   variant?: 'default' | 'pivot' | 'minimal'
@@ -33,11 +33,11 @@ interface BreadcrumbProps {
  * @param root0.showHome
  * @param root0.variant
  */
-export function Breadcrumb({ 
-  items, 
-  className, 
-  showHome = true, 
-  variant = 'pivot' 
+export function Breadcrumb({
+  items = [],
+  className,
+  showHome = true,
+  variant = 'pivot'
 }: BreadcrumbProps) {
   const allItems = showHome 
     ? [{ label: 'Home', href: '/users', icon: Home }, ...items]

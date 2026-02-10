@@ -139,7 +139,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({ style, className }) => {
                 icon: Users,
                 gradient: 'from-green-500 to-emerald-500',
               },
-            ].map((stat) => {
+            ].map((stat, index) => {
               const IconComponent = stat.icon;
               return (
                 <div
