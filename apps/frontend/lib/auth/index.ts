@@ -4,7 +4,7 @@ export {
 } from '@/shared/components/auth/provider';
 
 export { openidApiClient as authService } from './api-client';
-export { web3OpenidService } from './web3-openid-service';
+// export { web3OpenidService } from './web3-openid-service'; // TODO: Implement web3OpenidService
 
 // Re-export types from shared system
 export type {
