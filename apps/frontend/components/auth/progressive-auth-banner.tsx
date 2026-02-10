@@ -1,6 +1,6 @@
 'use client';
 
-import { AuthBanner } from '@/shared/components/auth/AuthBanner';
+import { AuthBanner } from '@/shared/components/auth/auth-banner';
 import { usePathname, useRouter } from 'next/navigation';
 
 interface ProgressiveAuthBannerProps {

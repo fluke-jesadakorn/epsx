@@ -5,7 +5,7 @@ import type { DisableWalletData } from '@/components/wallet/disable-wallet-modal
 import type { ReenableWalletData } from '@/components/wallet/reenable-wallet-modal';
 import type { WalletData, WalletFilters } from '@/components/wallet/types';
 import { logger } from '@/lib/logger';
-import { useSharedAuth } from '@/shared/components/auth/Provider';
+import { useSharedAuth } from '@/shared/components/auth/provider';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 
