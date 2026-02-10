@@ -1,6 +1,6 @@
 'use client';
 
-import { WalletConnectAuth } from '@/components/auth/WalletConnectauth';
+import { WalletConnectAuth } from '@/components/auth/wallet-connect-auth';
 import {
   Button,
   DropdownMenu,

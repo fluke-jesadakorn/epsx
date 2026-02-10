@@ -2,7 +2,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { WagmiProvider } from 'wagmi';
 import { RainbowKitProvider } from '@rainbow-me/rainbowkit';
-import { WalletConnectAuth } from '@/components/auth/WalletConnectauth';
+import { WalletConnectAuth } from '@/components/auth/wallet-connect-auth';
 import { useWeb3Auth } from '@/lib/auth/web3';
 import { useRouter } from 'next/navigation';
 import { config } from '@/lib/wagmi';

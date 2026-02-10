@@ -2,7 +2,7 @@
 
 import { ApiKeyManager } from '@/components/auth/api-key-manager';
 import { PermissionsDisplay } from '@/components/auth/permissions-display';
-import { WalletConnectAuth } from '@/components/auth/WalletConnectauth';
+import { WalletConnectAuth } from '@/components/auth/wallet-connect-auth';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
