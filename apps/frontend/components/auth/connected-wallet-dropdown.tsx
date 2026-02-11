@@ -124,12 +124,10 @@ export function ConnectedWalletDropdown({ className }: ConnectedWalletDropdownPr
             "flex items-center gap-3 px-4 py-4 cursor-pointer",
             "hover:bg-red-500/10 focus:bg-red-500/10"
           )}
-          onClick={async () => {
-            try {
-              await logout();
-            } catch (_error) {
-      // Error logged silently
-            }
+          onClick={() => {
+            void logout().catch(() => {
+              // Error logged silently
+            });
           }}
         >
           <div className="p-2 rounded-lg bg-red-500/10">

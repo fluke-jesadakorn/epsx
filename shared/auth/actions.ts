@@ -113,13 +113,11 @@ export async function logoutAction() {
         });
 
         logger.info('[AUTH] logoutAction: All cookies cleared');
+        return { success: true };
     } catch (error) {
         logger.error('Logout action failed:', error instanceof Error ? error.message : String(error));
         return { success: false, error: 'Internal server error' };
     }
-
-    // Redirect to auth page - MUST be outside try/catch
-    redirect('/auth');
 }
 
 /**
