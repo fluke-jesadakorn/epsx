@@ -13,14 +13,14 @@ interface CreditsManagementProps {
 }
 
 export function CreditsManagement({ activeTab }: CreditsManagementProps) {
-  const { isAuthenticated } = useSharedAuth();
+  const { isAuthenticated, user } = useSharedAuth();
   const [stats, setStats] = useState<CreditStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const loadStats = useCallback(async () => {
     // Don't fetch if not authenticated
-    if (!isAuthenticated) {
+    if (!isAuthenticated || !user?.access) {
       setLoading(false);
       setError('Please sign in to view credit statistics');
       return;
@@ -30,7 +30,8 @@ export function CreditsManagement({ activeTab }: CreditsManagementProps) {
       setLoading(true);
       setError(null);
 
-      const apiClient = createAdminApiClient();
+      // Pass token explicitly from auth context
+      const apiClient = createAdminApiClient({ token: user.access });
       const creditsApi = createCreditsApi(apiClient);
       const res = await creditsApi.adminGetStats();
 
@@ -45,7 +46,7 @@ export function CreditsManagement({ activeTab }: CreditsManagementProps) {
     } finally {
       setLoading(false);
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, user]);
 
   useEffect(() => {
     void loadStats();
