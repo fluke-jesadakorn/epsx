@@ -519,7 +519,7 @@ pub async fn update_plan(
         billing_cycle: req.billing_cycle,
         is_active: req.is_active,
         is_promoted: req.is_promoted,
-        display_order: req.display_order,
+        tier_level: req.tier_level,
         max_members: req.max_members.map(Some), // Wrap in Option
         auto_assign_enabled: req.auto_assign_enabled,
         metadata: req.plan_metadata,

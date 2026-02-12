@@ -25,7 +25,7 @@ pub struct GetPermissionPlanResponse {
     pub billing_cycle: String,
     pub is_active: bool,
     pub is_promoted: bool,
-    pub display_order: i32,
+    pub tier_level: i32,
     pub max_members: Option<i32>,
     pub auto_assign_enabled: bool,
     pub metadata: serde_json::Value,

@@ -13,7 +13,7 @@ pub struct UpdatePermissionPlanCommand {
     pub billing_cycle: Option<String>,
     pub is_active: Option<bool>,
     pub is_promoted: Option<bool>,
-    pub display_order: Option<i32>,
+    pub tier_level: Option<i32>,
     pub max_members: Option<Option<i32>>,
     pub auto_assign_enabled: Option<bool>,
     pub metadata: Option<serde_json::Value>,

@@ -44,7 +44,7 @@ impl PlanFactory {
             target_audience: "general".to_string(), // Default
             is_active: Some(true),
             is_promoted: Some(false),
-            display_order: Some(0),
+            tier_level: Some(0),
             metadata: None,
         };
 

@@ -19,10 +19,10 @@ pub struct Plan {
     // New fields for permission-based logic
     pub permissions: Vec<String>, 
     pub quotas: std::collections::HashMap<String, Quota>,
-    
+
     is_active: bool,
     is_promoted: bool,
-    display_order: i32,
+    tier_level: i32,
     metadata: serde_json::Value,
     base: AggregateBase,
 }
@@ -39,7 +39,7 @@ pub struct CreatePlanParams {
     pub target_audience: String,
     pub is_active: Option<bool>,
     pub is_promoted: Option<bool>,
-    pub display_order: Option<i32>,
+    pub tier_level: Option<i32>,
     pub metadata: Option<serde_json::Value>,
 }
 
@@ -57,7 +57,7 @@ pub struct LoadPlanParams {
     pub target_audience: String,
     pub is_active: bool,
     pub is_promoted: bool,
-    pub display_order: i32,
+    pub tier_level: i32,
     pub metadata: serde_json::Value,
     pub created_at: chrono::DateTime<chrono::Utc>,
     pub updated_at: chrono::DateTime<chrono::Utc>,
@@ -75,7 +75,7 @@ pub struct UpdatePlanParams {
     pub permissions: Option<Vec<String>>, // Added
     pub is_active: Option<bool>,
     pub is_promoted: Option<bool>,
-    pub display_order: Option<i32>,
+    pub tier_level: Option<i32>,
     pub metadata: Option<serde_json::Value>,
 }
 
@@ -100,7 +100,7 @@ impl Plan {
             quotas: std::collections::HashMap::new(),
             is_active: params.is_active.unwrap_or(true),
             is_promoted: params.is_promoted.unwrap_or(false),
-            display_order: params.display_order.unwrap_or(0),
+            tier_level: params.tier_level.unwrap_or(0),
             metadata: params.metadata.unwrap_or(serde_json::json!({})),
             base: AggregateBase::new(),
         };
@@ -124,7 +124,7 @@ impl Plan {
             quotas: params.quotas,
             is_active: params.is_active,
             is_promoted: params.is_promoted,
-            display_order: params.display_order,
+            tier_level: params.tier_level,
             metadata: params.metadata,
             base: AggregateBase::from_persistence(params.version, params.created_at, params.updated_at),
         }
@@ -233,8 +233,8 @@ impl Plan {
         if let Some(promoted) = params.is_promoted {
             self.is_promoted = promoted;
         }
-        if let Some(order) = params.display_order {
-            self.display_order = order;
+        if let Some(order) = params.tier_level {
+            self.tier_level = order;
         }
 
         self.base.touch();
@@ -297,8 +297,8 @@ impl Plan {
         self.is_promoted
     }
 
-    pub fn display_order(&self) -> i32 {
-        self.display_order
+    pub fn tier_level(&self) -> i32 {
+        self.tier_level
     }
 
     pub fn metadata(&self) -> &serde_json::Value {

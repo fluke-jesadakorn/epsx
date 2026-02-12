@@ -76,7 +76,7 @@ fn map_plan_to_response(plan: Plan, subscriber_count: u64, revenue: Decimal) -> 
         updated_at: Some(plan.updated_at()),
         subscriber_count,
         revenue_last_30_days: revenue,
-        tier_level: plan.display_order(), 
+        tier_level: plan.tier_level(),
     }
 }
 
@@ -324,7 +324,7 @@ pub async fn update_plan_handler(
         permissions,
         is_active: request.is_active,
         is_promoted: None,
-        display_order: request.tier_level,
+        tier_level: request.tier_level,
         metadata: request.metadata,
     };
 

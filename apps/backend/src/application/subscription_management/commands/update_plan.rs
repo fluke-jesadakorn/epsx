@@ -50,7 +50,7 @@ impl CommandHandler<UpdatePlanCommand> for UpdatePlanCommandHandler {
             permissions: command.permissions,
             is_active: command.is_active,
             is_promoted: command.is_promoted,
-            display_order: command.display_order,
+            tier_level: command.tier_level,
             metadata: command.metadata,
         };
 

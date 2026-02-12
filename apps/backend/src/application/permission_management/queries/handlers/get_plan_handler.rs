@@ -52,7 +52,7 @@ impl QueryHandler<GetPermissionPlanQuery> for GetPermissionPlanQueryHandler {
             billing_cycle: plan.billing_cycle().to_string(),
             is_active: plan.is_active(),
             is_promoted: plan.is_promoted(),
-            display_order: plan.display_order(),
+            tier_level: plan.tier_level(),
             max_members: plan.max_members(),
             auto_assign_enabled: plan.auto_assign_enabled(),
             metadata: plan.metadata().clone(),

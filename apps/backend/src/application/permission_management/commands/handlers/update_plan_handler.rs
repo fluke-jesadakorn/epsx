@@ -59,7 +59,7 @@ impl CommandHandler<UpdatePermissionPlanCommand> for UpdatePermissionPlanCommand
             billing_cycle: command.billing_cycle,
             is_active: command.is_active,
             is_promoted: command.is_promoted,
-            display_order: command.display_order,
+            tier_level: command.tier_level,
             max_members: command.max_members,
             auto_assign_enabled: command.auto_assign_enabled,
             metadata: command.metadata,

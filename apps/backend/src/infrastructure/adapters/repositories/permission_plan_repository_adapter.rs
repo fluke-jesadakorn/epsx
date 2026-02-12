@@ -437,7 +437,7 @@ impl PlanRepositoryAdapter {
         plans::table
             .filter(plans::plan_type.eq("subscription"))
             .order_by((
-                plans::display_order.assume_not_null().asc(),
+                plans::tier_level.asc(),
                 plans::price.assume_not_null().asc()
             ))
             .select(DbPermissionPlan::as_select())
@@ -481,7 +481,7 @@ impl PlanRepositoryAdapter {
                 plans::billing_cycle.eq(plan.billing_cycle),
                 plans::is_active.eq(plan.is_active.unwrap_or(true)),
                 plans::is_promoted.eq(plan.is_promoted.unwrap_or(false)),
-                plans::display_order.eq(plan.display_order),
+                plans::tier_level.eq(plan.tier_level),
                 plans::updated_at.eq(diesel::dsl::now),
             ))
             .returning(DbPermissionPlan::as_returning())

@@ -16,7 +16,7 @@ pub struct UpdatePlanCommand {
     pub permissions: Option<Vec<String>>,
     pub is_active: Option<bool>,
     pub is_promoted: Option<bool>,
-    pub display_order: Option<i32>,
+    pub tier_level: Option<i32>,
     pub metadata: Option<serde_json::Value>,
 }
 

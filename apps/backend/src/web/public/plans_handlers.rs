@@ -27,7 +27,7 @@ pub struct PublicPlanResponse {
     pub features: Vec<String>,
     pub permissions: Vec<String>,
     pub is_active: bool,
-    pub display_order: i32,
+    pub tier_level: i32,
 }
 
 /// Get public pricing plans (no authentication required)
@@ -144,7 +144,7 @@ pub async fn get_public_plans(
             features,
             permissions,
             is_active: plan.is_active.unwrap_or(true),
-            display_order: plan.display_order.unwrap_or(0),
+            tier_level: plan.tier_level,
         }
     })
     .filter(|p| {
@@ -167,10 +167,10 @@ pub async fn get_public_plans(
 
     // Append constant Free Plan
 
-    
-    // Sort by display_order
+
+    // Sort by tier_level
     let mut final_plans = plans;
-    final_plans.sort_by_key(|p| p.display_order);
+    final_plans.sort_by_key(|p| p.tier_level);
 
     (
         StatusCode::OK,
@@ -294,7 +294,7 @@ pub async fn get_public_plan_by_id(
         features,
         permissions,
         is_active: plan.is_active.unwrap_or(true),
-        display_order: plan.display_order.unwrap_or(0),
+        tier_level: plan.tier_level,
     };
 
     tracing::info!(plan_id = %plan_id, "✅ Plan retrieved successfully");

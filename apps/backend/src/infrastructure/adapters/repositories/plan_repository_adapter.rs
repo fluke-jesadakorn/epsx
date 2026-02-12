@@ -88,7 +88,7 @@ impl PostgresPlanRepositoryAdapter {
             target_audience: "all".to_string(), // Future: Load from metadata
             is_active: row.is_active,
             is_promoted: row.is_promoted,
-            display_order: row.display_order.unwrap_or(0),
+            tier_level: row.tier_level,
             metadata: row.plan_metadata,
             created_at: row.created_at,
             updated_at: row.updated_at,
@@ -147,7 +147,7 @@ impl PlanRepositoryPort for PostgresPlanRepositoryAdapter {
         }
 
         query = query.order((
-            plans::display_order.asc(), // Assuming non-nullable, or we handle nulls
+            plans::tier_level.asc(),
             plans::price.asc(),
         ));
 
@@ -200,7 +200,7 @@ impl PlanRepositoryPort for PostgresPlanRepositoryAdapter {
              billing_cycle: billing_cycle_str,
              is_active: plan.is_active(),
              is_promoted: plan.is_promoted(),
-             display_order: Some(plan.display_order()),
+             tier_level: plan.tier_level(),
              max_members: None, 
              auto_assign_enabled: Some(false),
              assignment_rules: None,
@@ -213,7 +213,6 @@ impl PlanRepositoryPort for PostgresPlanRepositoryAdapter {
              rate_limit_per_hour: 0,
              rate_limit_per_day: 0,
              burst_capacity: 0,
-             tier_level: 0,
              is_public: true, // Default to public for subscription plans
         };
 
@@ -230,7 +229,7 @@ impl PlanRepositoryPort for PostgresPlanRepositoryAdapter {
                 plans::billing_cycle.eq(&new_plan.billing_cycle),
                 plans::is_active.eq(new_plan.is_active),
                 plans::is_promoted.eq(new_plan.is_promoted),
-                plans::display_order.eq(&new_plan.display_order),
+                plans::tier_level.eq(new_plan.tier_level),
                 plans::plan_metadata.eq(&new_plan.plan_metadata),
                 plans::updated_at.eq(new_plan.updated_at),
             ))
