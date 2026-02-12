@@ -23,31 +23,54 @@ const EXPLORER_URLS = {
 // Export as CHAIN_EXPLORERS for backwards compatibility
 export const CHAIN_EXPLORERS = EXPLORER_URLS;
 
-// Contract addresses by chain
-const PAYMENT_ESCROW_ADDRESSES = {
-  [CHAIN_IDS.BSC_TESTNET]: bscTestnetDeployment.contracts.PaymentEscrow.address,
-  [CHAIN_IDS.LOCALHOST]: localhostDeployment.contractAddress,
-  [CHAIN_IDS.BSC_MAINNET]: '', // To be deployed
-} as const;
+// Contract addresses by chain (env vars override deployment JSON)
+const PAYMENT_ESCROW_ADDRESSES: Record<number, string> = {
+  [CHAIN_IDS.BSC_TESTNET]:
+    process.env.NEXT_PUBLIC_PAYMENT_ESCROW_TESTNET
+    ?? bscTestnetDeployment.contracts.PaymentEscrow.address,
+  [CHAIN_IDS.LOCALHOST]:
+    process.env.NEXT_PUBLIC_PAYMENT_ESCROW_LOCAL
+    ?? localhostDeployment.contractAddress,
+  [CHAIN_IDS.BSC_MAINNET]:
+    process.env.NEXT_PUBLIC_PAYMENT_ESCROW_MAINNET
+    ?? '',
+};
 
 // Export as PAYMENT_ESCROW_ADDRESS for backwards compatibility
 export const PAYMENT_ESCROW_ADDRESS = PAYMENT_ESCROW_ADDRESSES;
 
-// Token addresses by chain
-const TOKEN_ADDRESSES = {
+// Payment receiver addresses (where tokens actually go)
+// Env var override allows sending directly to a wallet instead of escrow
+const PAYMENT_RECEIVER_ADDRESSES: Record<number, string> = {
+  [CHAIN_IDS.BSC_TESTNET]:
+    process.env.NEXT_PUBLIC_PAYMENT_RECEIVER_TESTNET
+    ?? PAYMENT_ESCROW_ADDRESSES[CHAIN_IDS.BSC_TESTNET],
+  [CHAIN_IDS.LOCALHOST]:
+    process.env.NEXT_PUBLIC_PAYMENT_RECEIVER_LOCAL
+    ?? PAYMENT_ESCROW_ADDRESSES[CHAIN_IDS.LOCALHOST],
+  [CHAIN_IDS.BSC_MAINNET]:
+    process.env.NEXT_PUBLIC_PAYMENT_RECEIVER_MAINNET
+    ?? PAYMENT_ESCROW_ADDRESSES[CHAIN_IDS.BSC_MAINNET],
+};
+
+// Token addresses by chain (env vars override defaults)
+const TOKEN_ADDRESSES: Record<number, Record<string, string>> = {
   [CHAIN_IDS.BSC_TESTNET]: {
-    USDT: bscTestnetDeployment.enabledTokens.USDT.address,
-    USDC: bscTestnetDeployment.enabledTokens.USDC.address,
+    USDT: process.env.NEXT_PUBLIC_TESTNET_USDT_ADDRESS ?? bscTestnetDeployment.enabledTokens.USDT.address,
+    USDC: process.env.NEXT_PUBLIC_TESTNET_USDC_ADDRESS ?? bscTestnetDeployment.enabledTokens.USDC.address,
+    DAI: process.env.NEXT_PUBLIC_TESTNET_DAI_ADDRESS ?? '',
   },
   [CHAIN_IDS.LOCALHOST]: {
-    USDT: localhostDeployment.tokens.USDT,
-    USDC: localhostDeployment.tokens.USDC,
+    USDT: process.env.NEXT_PUBLIC_LOCAL_USDT_ADDRESS ?? localhostDeployment.tokens.USDT,
+    USDC: process.env.NEXT_PUBLIC_LOCAL_USDC_ADDRESS ?? localhostDeployment.tokens.USDC,
+    DAI: process.env.NEXT_PUBLIC_LOCAL_DAI_ADDRESS ?? '',
   },
   [CHAIN_IDS.BSC_MAINNET]: {
-    USDT: '0x55d398326f99059fF775485246999027B3197955', // BSC Mainnet USDT
-    USDC: '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d', // BSC Mainnet USDC
+    USDT: process.env.NEXT_PUBLIC_MAINNET_USDT_ADDRESS ?? '0x55d398326f99059fF775485246999027B3197955',
+    USDC: process.env.NEXT_PUBLIC_MAINNET_USDC_ADDRESS ?? '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d',
+    DAI: process.env.NEXT_PUBLIC_MAINNET_DAI_ADDRESS ?? '0x1AF3F329e8BE154074D8769D1FFa4eE058B1DBc3',
   },
-} as const;
+};
 
 /**
  * Get explorer transaction URL for a given chain
@@ -81,7 +104,7 @@ export function getExplorerAddressUrl(chainId: number, address: string): string 
  * Get payment escrow contract address for a given chain
  */
 export function getPaymentEscrowAddress(chainId: number): string {
-  const address = PAYMENT_ESCROW_ADDRESSES[chainId as keyof typeof PAYMENT_ESCROW_ADDRESSES];
+  const address = PAYMENT_ESCROW_ADDRESSES[chainId];
   if (!address) {
     throw new Error(`PaymentEscrow not deployed on chain ${chainId}`);
   }
@@ -89,17 +112,21 @@ export function getPaymentEscrowAddress(chainId: number): string {
 }
 
 /**
- * Get payment receiver address (same as PaymentEscrow)
+ * Get payment receiver address (wallet or escrow depending on env config)
  */
 export function getPaymentReceiverAddress(chainId: number): string {
-  return getPaymentEscrowAddress(chainId);
+  const address = PAYMENT_RECEIVER_ADDRESSES[chainId];
+  if (!address) {
+    throw new Error(`No payment receiver configured for chain ${chainId}`);
+  }
+  return address;
 }
 
 /**
  * Get token address for a given symbol and chain
  */
-export function getTokenAddress(symbol: 'USDT' | 'USDC', chainId: number): string {
-  const tokens = TOKEN_ADDRESSES[chainId as keyof typeof TOKEN_ADDRESSES];
+export function getTokenAddress(symbol: string, chainId: number): string {
+  const tokens = TOKEN_ADDRESSES[chainId];
   if (!tokens) {
     throw new Error(`No token addresses configured for chain ${chainId}`);
   }
@@ -114,6 +141,6 @@ export function getTokenAddress(symbol: 'USDT' | 'USDC', chainId: number): strin
  * Check if payment escrow is deployed on a given chain
  */
 export function isPaymentEscrowDeployed(chainId: number): boolean {
-  const address = PAYMENT_ESCROW_ADDRESSES[chainId as keyof typeof PAYMENT_ESCROW_ADDRESSES];
+  const address = PAYMENT_ESCROW_ADDRESSES[chainId];
   return Boolean(address);
 }

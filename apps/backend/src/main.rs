@@ -131,6 +131,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         info!("ℹ️ ProjectionManager not configured");
     }
 
+    // Start PlanExpirationService (background task for expiry notifications + cleanup)
+    {
+        let svc = epsx::infrastructure::services::PlanExpirationService::new(
+            Arc::clone(&container.db_pool),
+            container.notifications_pool.as_ref().map(Arc::clone),
+            container.redis_broadcaster.as_ref().map(Arc::clone),
+        );
+        svc.start();
+        info!("✅ PlanExpirationService background service started");
+    }
+
     // Create unified router
     let app = create_router(container);
     info!("✅ Unified router created successfully");

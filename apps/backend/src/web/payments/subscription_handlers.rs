@@ -2,7 +2,7 @@
 //!
 //! Direct Payment model: users pay to activate/extend their plan duration
 //! No auto-renewal - users must pay again when their plan expires
-//! Uses wallet_users.plan_expires_at instead of active_subscriptions table
+//! Uses wallet_plan_assignments table for all plan access data
 
 use axum::{
     extract::{State, Path, Extension},
@@ -72,7 +72,6 @@ pub struct UserPlansResponse {
 #[derive(Debug, Clone, Serialize)]
 pub struct PlanAccessData {
     pub wallet_address: String,
-    pub current_plan_id: Option<i32>,
     pub plan_name: Option<String>,
     pub plan_expires_at: Option<DateTime<Utc>>,
     pub days_remaining: i64,
@@ -144,19 +143,21 @@ pub async fn get_user_plans_handler(
         plan_metadata: serde_json::Value,
         #[diesel(sql_type = diesel::sql_types::Integer)]
         tier_level: i32,
+        #[diesel(sql_type = diesel::sql_types::Integer)]
+        grace_period_hours: i32,
     }
 
-
-
-    // Re-run safely with load
+    // Re-run safely with load (includes grace period window)
     let active_subs: Vec<ActiveSubscriptionRow> = diesel::sql_query(
         r#"
-        SELECT g.name, wga.expires_at, g.plan_metadata, g.tier_level
+        SELECT g.name, wga.expires_at, g.plan_metadata, g.tier_level, g.grace_period_hours
         FROM wallet_plan_assignments wga
         JOIN plans g ON g.id = wga.plan_id
         WHERE LOWER(wga.wallet_address) = LOWER($1)
           AND wga.is_active = true
-          AND (wga.expires_at IS NULL OR wga.expires_at > NOW())
+          AND (wga.expires_at IS NULL
+               OR wga.expires_at > NOW()
+               OR (wga.expires_at + (g.grace_period_hours || ' hours')::INTERVAL) > NOW())
           AND (g.plan_type = 'subscription' OR g.plan_type = 'enterprise' OR g.plan_type = 'api-developer')
         ORDER BY g.tier_level DESC, wga.assigned_at DESC
         "#
@@ -173,7 +174,11 @@ pub async fn get_user_plans_handler(
             .map(|exp| if exp > now { (exp - now).num_days() } else { 0 })
             .unwrap_or(3650); // Effectively unlimited if NULL (permanent)
 
-        let status = if days_remaining <= 7 && sub.expires_at.is_some() {
+        // Determine status: active, expiring_soon, or grace_period
+        let is_past_expiry = sub.expires_at.map(|exp| exp <= now).unwrap_or(false);
+        let status = if is_past_expiry && sub.grace_period_hours > 0 {
+            "grace_period"
+        } else if days_remaining <= 7 && sub.expires_at.is_some() {
             "expiring_soon"
         } else {
             "active"
@@ -198,109 +203,34 @@ pub async fn get_user_plans_handler(
             message: "User plan access retrieved successfully".to_string(),
             data: Some(PlanAccessData {
                 wallet_address: user_context.wallet_address.clone(),
-                current_plan_id: None, // No legacy integer ID for plan-based plans
                 plan_name: Some(sub.name.clone()),
                 plan_expires_at: sub.expires_at,
                 days_remaining: days_remaining.max(0),
                 status: status.to_string(),
                 ranking_offset,
                 can_upgrade,
-                tier_level: sub.tier_level, // Use tier_level from plan
+                tier_level: sub.tier_level,
                 all_plans,
             }),
         }));
     }
 
-    // 2. Fallback: Check legacy wallet_users columns (Deprecated)
-    // Only used for users who haven't migrated to the new plan system
-    #[derive(diesel::QueryableByName)]
-    struct UserRow {
-        #[diesel(sql_type = diesel::sql_types::Text)]
-        wallet_address: String,
-        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
-        plan_expires_at: Option<DateTime<Utc>>,
-        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Integer>)]
-        current_plan_id: Option<i32>,
-    }
-
-    let user: Option<UserRow> = diesel::sql_query(
-        r#"
-        SELECT wallet_address, plan_expires_at, current_plan_id
-        FROM wallet_users
-        WHERE LOWER(wallet_address) = LOWER($1)
-        "#
-    )
-    .bind::<diesel::sql_types::Text, _>(&user_context.wallet_address)
-    .get_result(&mut conn)
-    .await
-    .optional()
-    .map_err(|e| UnifiedErrorResponse::json(500, "Failed to fetch user", e.to_string()))?;
-
-    let data = match user {
-        Some(u) => {
-            let days_remaining = u.plan_expires_at
-                .map(|exp| (exp - now).num_days())
-                .unwrap_or(0);
-            
-            let is_expired = days_remaining < 0;
-            let status = if u.current_plan_id.is_none() {
-                "no_plan"
-            } else if is_expired {
-                "expired"
-            } else if days_remaining <= 7 {
-                "expiring_soon"
-            } else {
-                "active"
-            };
-
-            // Legacy plan name lookup
-            let plan_name = if let Some(plan_id) = u.current_plan_id {
-                #[derive(diesel::QueryableByName)]
-                struct PlanNameRow {
-                    #[diesel(sql_type = diesel::sql_types::Text)]
-                    name: String,
-                }
-                
-                diesel::sql_query("SELECT name FROM pricing_plans WHERE id = $1")
-                    .bind::<diesel::sql_types::Integer, _>(plan_id)
-                    .get_result::<PlanNameRow>(&mut conn)
-                    .await
-                    .ok()
-                    .map(|p| p.name)
-            } else {
-                None
-            };
-
-            PlanAccessData {
-                wallet_address: u.wallet_address,
-                current_plan_id: u.current_plan_id,
-                plan_name,
-                plan_expires_at: u.plan_expires_at,
-                days_remaining: days_remaining.max(0),
-                status: status.to_string(),
-                ranking_offset: crate::core::constants::FREE_PLAN_RANKING_OFFSET, // Legacy users default to free tier offset
-                can_upgrade: true,
-                tier_level: 0, // Legacy users default to tier 0
-                all_plans: vec![],
-            }
-        },
-        None => PlanAccessData {
-            wallet_address: user_context.wallet_address.clone(),
-            current_plan_id: None,
-            plan_name: None,
-            plan_expires_at: None,
-            days_remaining: 0,
-            status: "no_plan".to_string(),
-            ranking_offset: crate::core::constants::FREE_PLAN_RANKING_OFFSET, // Free tier sees ranks 101+
-            can_upgrade: true,
-            tier_level: 0, // No plan = tier 0
-            all_plans: vec![],
-        },
+    // No active plan assignment found
+    let data = PlanAccessData {
+        wallet_address: user_context.wallet_address.clone(),
+        plan_name: None,
+        plan_expires_at: None,
+        days_remaining: 0,
+        status: "no_plan".to_string(),
+        ranking_offset: crate::core::constants::FREE_PLAN_RANKING_OFFSET,
+        can_upgrade: true,
+        tier_level: 0,
+        all_plans: vec![],
     };
 
     Ok(Json(UserPlansResponse {
         success: true,
-        message: "User plan access retrieved successfully (fallback)".to_string(),
+        message: "User plan access retrieved successfully".to_string(),
         data: Some(data),
     }))
 }
@@ -322,31 +252,32 @@ pub async fn get_plan_expiry_status_handler(
     }))
 }
 
-/// Cancel plan (clear the current_plan_id, keep expiry so user can use until it expires)
+/// Cancel plan (deactivate assignment, keep expiry so user can use until it expires)
 pub async fn cancel_plan_handler(
     State(app_state): State<crate::web::auth::AppState>,
     Extension(user_context): Extension<OpenIDUserContext>,
-    Path(_plan_id): Path<Uuid>,
+    Path(plan_id): Path<Uuid>,
     Json(_payload): Json<CancelPlanRequest>,
 ) -> Result<Json<CancelPlanResponse>, Json<UnifiedErrorResponse>> {
-    info!("Cancelling plan for user {}", user_context.wallet_address);
+    info!("Cancelling plan {} for user {}", plan_id, user_context.wallet_address);
 
     let mut conn = app_state.db_pool
         .get()
         .await
         .map_err(|e| UnifiedErrorResponse::json(500, "Database connection failed", e.to_string()))?;
 
-    // Mark the plan as cancelled but don't change expiry (user can still use until expiry)
-    // In Direct Payment model, we just clear the current_plan_id
+    // Deactivate wallet_plan_assignments for this wallet and plan
     let rows_affected = diesel::sql_query(
         r#"
-        UPDATE wallet_users
-        SET current_plan_id = NULL, updated_at = $1
-        WHERE LOWER(wallet_address) = LOWER($2) AND current_plan_id IS NOT NULL
+        UPDATE wallet_plan_assignments
+        SET is_active = false, updated_at = NOW()
+        WHERE LOWER(wallet_address) = LOWER($1)
+          AND plan_id = $2
+          AND is_active = true
         "#
     )
-    .bind::<diesel::sql_types::Timestamptz, _>(Utc::now())
     .bind::<diesel::sql_types::Text, _>(&user_context.wallet_address)
+    .bind::<diesel::sql_types::Uuid, _>(plan_id)
     .execute(&mut conn)
     .await
     .map_err(|e| UnifiedErrorResponse::json(500, "Failed to cancel plan", e.to_string()))?;
@@ -360,7 +291,7 @@ pub async fn cancel_plan_handler(
 
     Ok(Json(CancelPlanResponse {
         success: true,
-        message: "Plan cancelled. You can continue using it until expiry.".to_string(),
+        message: "Plan cancelled successfully.".to_string(),
     }))
 }
 

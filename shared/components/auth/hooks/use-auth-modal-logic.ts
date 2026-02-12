@@ -29,10 +29,15 @@ export function useAuthModalLogic({
     const [step, setStep] = useState<AuthStep>('connect');
     const [error, setError] = useState<string | null>(null);
 
-    const { address, isConnected, chain } = useAccount();
+    const { address, isConnected, chain, connector } = useAccount();
     const { connect, connectors, error: connectError, isPending: isConnecting } = useConnect();
     const { disconnect } = useDisconnect();
-    const { data: walletClient, isLoading: isWalletClientLoading } = useWalletClient();
+    // Only fetch wallet client when connector is fully hydrated (has methods, not just serialized stub)
+    const isConnectorHydrated = isConnected && typeof connector?.getChainId === 'function';
+    const { data: walletClient, isLoading: isWalletClientLoading } = useWalletClient({
+        connector: isConnectorHydrated ? connector : undefined,
+        query: { enabled: isConnectorHydrated, retry: false },
+    });
     const { switchChainAsync, isPending: isSwitching } = useSwitchChain();
     const { authenticateWithDirectApi } = useSharedAuth();
 

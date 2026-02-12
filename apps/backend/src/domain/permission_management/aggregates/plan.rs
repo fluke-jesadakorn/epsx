@@ -21,11 +21,12 @@ pub struct Plan {
     billing_cycle: String,
     is_active: bool,
     is_promoted: bool,
-    display_order: i32,
+    tier_level: i32,
     max_members: Option<i32>,
     auto_assign_enabled: bool,
     metadata: serde_json::Value,
     is_public: bool,
+    grace_period_hours: i32,
     base: AggregateBase,
 }
 
@@ -40,11 +41,12 @@ pub struct CreatePlanParams {
     pub billing_cycle: Option<String>,
     pub is_active: Option<bool>,
     pub is_promoted: Option<bool>,
-    pub display_order: Option<i32>,
+    pub tier_level: Option<i32>,
     pub max_members: Option<i32>,
     pub auto_assign_enabled: Option<bool>,
     pub metadata: Option<serde_json::Value>,
     pub is_public: Option<bool>,
+    pub grace_period_hours: Option<i32>,
 }
 
 pub struct LoadPlanParams {
@@ -59,11 +61,12 @@ pub struct LoadPlanParams {
     pub billing_cycle: String,
     pub is_active: bool,
     pub is_promoted: bool,
-    pub display_order: i32,
+    pub tier_level: i32,
     pub max_members: Option<i32>,
     pub auto_assign_enabled: bool,
     pub metadata: serde_json::Value,
     pub is_public: bool,
+    pub grace_period_hours: i32,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub version: u64,
@@ -79,11 +82,12 @@ pub struct UpdatePlanParams {
     pub billing_cycle: Option<String>,
     pub is_active: Option<bool>,
     pub is_promoted: Option<bool>,
-    pub display_order: Option<i32>,
+    pub tier_level: Option<i32>,
     pub max_members: Option<Option<i32>>,
     pub auto_assign_enabled: Option<bool>,
     pub metadata: Option<serde_json::Value>,
     pub is_public: Option<bool>,
+    pub grace_period_hours: Option<i32>,
 }
 
 impl Plan {
@@ -105,11 +109,12 @@ impl Plan {
             billing_cycle: params.billing_cycle.unwrap_or_else(|| "monthly".to_string()),
             is_active: params.is_active.unwrap_or(true),
             is_promoted: params.is_promoted.unwrap_or(false),
-            display_order: params.display_order.unwrap_or(0),
+            tier_level: params.tier_level.unwrap_or(0),
             max_members: params.max_members,
             auto_assign_enabled: params.auto_assign_enabled.unwrap_or(false),
             metadata: params.metadata.unwrap_or_else(|| serde_json::json!({})),
             is_public: params.is_public.unwrap_or(true),
+            grace_period_hours: params.grace_period_hours.unwrap_or(0),
             base: AggregateBase::new(),
         };
 
@@ -141,11 +146,12 @@ impl Plan {
             billing_cycle: params.billing_cycle,
             is_active: params.is_active,
             is_promoted: params.is_promoted,
-            display_order: params.display_order,
+            tier_level: params.tier_level,
             max_members: params.max_members,
             auto_assign_enabled: params.auto_assign_enabled,
             metadata: params.metadata,
             is_public: params.is_public,
+            grace_period_hours: params.grace_period_hours,
             base: AggregateBase {
                 version: params.version,
                 created_at: params.created_at,
@@ -181,8 +187,8 @@ impl Plan {
         if let Some(promoted) = params.is_promoted {
             self.is_promoted = promoted;
         }
-        if let Some(order) = params.display_order {
-            self.display_order = order;
+        if let Some(tier) = params.tier_level {
+            self.tier_level = tier;
         }
         if let Some(max) = params.max_members {
             self.max_members = max;
@@ -195,6 +201,9 @@ impl Plan {
         }
         if let Some(public) = params.is_public {
             self.is_public = public;
+        }
+        if let Some(gph) = params.grace_period_hours {
+            self.grace_period_hours = gph;
         }
 
         self.base.touch();
@@ -291,8 +300,8 @@ impl Plan {
         self.is_promoted
     }
 
-    pub fn display_order(&self) -> i32 {
-        self.display_order
+    pub fn tier_level(&self) -> i32 {
+        self.tier_level
     }
 
     pub fn max_members(&self) -> Option<i32> {
@@ -309,6 +318,10 @@ impl Plan {
 
     pub fn is_public(&self) -> bool {
         self.is_public
+    }
+
+    pub fn grace_period_hours(&self) -> i32 {
+        self.grace_period_hours
     }
 }
 

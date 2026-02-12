@@ -39,7 +39,7 @@ pub struct CreatePlanRequest {
     pub billing_cycle: Option<String>,
     pub is_active: Option<bool>,
     pub is_promoted: Option<bool>,
-    pub display_order: Option<i32>,
+    pub tier_level: Option<i32>,
     pub max_members: Option<i32>,
     pub auto_assign_enabled: Option<bool>,
     pub plan_metadata: Option<serde_json::Value>,
@@ -58,12 +58,13 @@ pub struct UpdatePlanRequest {
     pub billing_cycle: Option<String>,
     pub is_active: Option<bool>,
     pub is_promoted: Option<bool>,
-    pub display_order: Option<i32>,
+    pub tier_level: Option<i32>,
     pub max_members: Option<i32>,
     pub auto_assign_enabled: Option<bool>,
     pub plan_metadata: Option<serde_json::Value>,
     pub is_public: Option<bool>,
     pub default_expiry_days: Option<i32>,
+    pub grace_period_hours: Option<i32>,
 }
 
 #[derive(Debug, Serialize)]
@@ -79,7 +80,7 @@ pub struct PlanResponse {
     pub billing_cycle: String,
     pub is_active: bool,
     pub is_promoted: bool,
-    pub display_order: i32,
+    pub tier_level: i32,
     pub max_members: Option<i32>,
     pub auto_assign_enabled: bool,
     pub plan_metadata: serde_json::Value,
@@ -88,6 +89,7 @@ pub struct PlanResponse {
     pub member_count: i32,
     pub is_public: bool,
     pub default_expiry_days: Option<i32>,
+    pub grace_period_hours: i32,
 }
 
 impl PlanResponse {
@@ -105,7 +107,7 @@ impl PlanResponse {
             billing_cycle: plan.billing_cycle().to_string(),
             is_active: plan.is_active(),
             is_promoted: plan.is_promoted(),
-            display_order: plan.display_order(),
+            tier_level: plan.tier_level(),
             max_members: plan.max_members(),
             auto_assign_enabled: plan.auto_assign_enabled(),
             plan_metadata: plan.metadata().clone(),
@@ -114,6 +116,7 @@ impl PlanResponse {
             member_count,
             is_public: plan.is_public(),
             default_expiry_days: plan.metadata().get("default_expiry_days").and_then(|v| v.as_i64()).map(|v| v as i32),
+            grace_period_hours: plan.grace_period_hours(),
         }
     }
 }
@@ -189,11 +192,12 @@ pub async fn create_plan(
         billing_cycle: req.billing_cycle.clone(),
         is_active: req.is_active,
         is_promoted: req.is_promoted,
-        display_order: req.display_order,
+        tier_level: req.tier_level,
         max_members: req.max_members,
         auto_assign_enabled: req.auto_assign_enabled,
         metadata: req.plan_metadata.clone(),
         is_public: req.is_public,
+        grace_period_hours: None,
     }) {
         Ok(g) => g,
         Err(e) => {
@@ -520,6 +524,7 @@ pub async fn update_plan(
         auto_assign_enabled: req.auto_assign_enabled,
         metadata: req.plan_metadata,
         is_public: req.is_public,
+        grace_period_hours: req.grace_period_hours,
     };
 
     // If default_expiry_days is provided, merge it into metadata

@@ -56,7 +56,7 @@ export default function MetaMaskPayment({
 
   const { address: _address, isConnected, chain } = useAccount()
   const { connect, connectors } = useConnect()
-  const [selectedToken, setSelectedToken] = useState<'USDT' | 'USDC'>('USDT')
+  const [selectedToken, setSelectedToken] = useState('USDT')
   const [estimatedGas, _setEstimatedGas] = useState<string>('0.005')
   const [autoConnectAttempted, setAutoConnectAttempted] = useState(false)
 
@@ -164,20 +164,24 @@ export default function MetaMaskPayment({
         {/* Token Selection */}
         <div>
           <label className="text-sm font-medium mb-3 block">Select Token</label>
-          <div className="grid grid-cols-2 gap-3">
-            {(['USDT', 'USDC'] as const).map((token) => (
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              { symbol: 'USDT', name: 'Tether USD' },
+              { symbol: 'USDC', name: 'USD Coin' },
+              { symbol: 'DAI', name: 'Dai Stablecoin' },
+            ].map((token) => (
               <button
-                key={token}
-                onClick={() => setSelectedToken(token)}
+                key={token.symbol}
+                onClick={() => setSelectedToken(token.symbol)}
                 disabled={isBusy}
-                className={`p-4 border rounded-lg text-left transition-all ${selectedToken === token
+                className={`p-4 border rounded-lg text-left transition-all ${selectedToken === token.symbol
                   ? 'border-primary bg-primary/5'
                   : 'border-muted hover:border-primary/50'
                   } ${isBusy ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
-                <div className="font-medium">{token}</div>
+                <div className="font-medium">{token.symbol}</div>
                 <div className="text-sm text-muted-foreground">
-                  {token === 'USDT' ? 'Tether USD' : 'USD Coin'}
+                  {token.name}
                 </div>
               </button>
             ))}

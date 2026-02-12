@@ -2,7 +2,7 @@
 
 /**
  * WALLET CONNECTION MODAL
- * Lightweight wrapper around shared AuthModal for frontend use
+ * Enhanced mobile-responsive wrapper around shared AuthModal
  */
 
 import { Button } from '@/components/ui/button';
@@ -30,23 +30,37 @@ export function WalletConnectionModal({ children, className }: WalletConnectionM
   return (
     <>
       {children ? (
-        <div onClick={() => setIsOpen(true)} className={className}>
+        <div
+          onClick={() => setIsOpen(true)}
+          className={cn("cursor-pointer", className)}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              setIsOpen(true);
+            }
+          }}
+        >
           {children}
         </div>
       ) : (
         <Button
           variant="outline"
           className={cn(
-            "flex items-center gap-2 px-4 py-2",
-            "bg-slate-800 hover:bg-slate-700 border-slate-600",
-            "text-white rounded-lg",
+            "flex items-center gap-2 px-6 py-3 sm:px-4 sm:py-2",
+            "bg-gradient-to-r from-orange-500 to-purple-600 hover:from-orange-600 hover:to-purple-700",
+            "text-white rounded-xl sm:rounded-lg border-0 transition-all",
+            "shadow-lg hover:shadow-xl active:scale-[0.98]",
+            "text-base sm:text-sm font-bold sm:font-medium",
+            "min-h-[48px] sm:min-h-0",
             className
           )}
           onClick={() => setIsOpen(true)}
         >
-          <Wallet className="h-4 w-4 text-orange-500" />
-          <span className="font-medium">Sign In with Wallet</span>
-          <ChevronDown className="h-4 w-4 text-slate-400" />
+          <Wallet className="h-5 w-5 sm:h-4 sm:w-4" />
+          <span>Connect Wallet</span>
+          <ChevronDown className="h-5 w-5 sm:h-4 sm:w-4" />
         </Button>
       )}
 

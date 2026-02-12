@@ -66,6 +66,7 @@ impl CommandHandler<CreatePermissionPlanCommand> for CreatePermissionPlanCommand
             auto_assign_enabled: command.auto_assign_enabled,
             metadata: command.metadata,
             is_public: None, // Default to true via domain model
+            grace_period_hours: None,
         }).map_err(ApplicationError::from)?;
 
         // 5. Save plan

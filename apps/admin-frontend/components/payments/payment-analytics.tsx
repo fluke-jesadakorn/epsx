@@ -3,7 +3,7 @@
 import { ChartBarIcon } from '@heroicons/react/24/outline';
 import { useCallback, useEffect, useState } from 'react';
 
-import { useApiClient } from '@/shared/hooks/use-api-client';
+import { fetchPaymentAnalyticsAction } from '@/app/payments/actions';
 
 interface PaymentStats {
     total_payments: number;
@@ -21,7 +21,6 @@ interface PaymentStats {
  */
 // eslint-disable-next-line max-lines-per-function
 export function PaymentAnalytics() {
-    const { base } = useApiClient({ platform: 'admin' });
     const [stats, setStats] = useState<PaymentStats | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -38,20 +37,19 @@ export function PaymentAnalytics() {
               message?: string;
             }
 
-            const response = await base.get<AnalyticsResponse>('/api/payments/admin/analytics');
+            const response = await fetchPaymentAnalyticsAction() as any;
 
             if (response.success && response.data) {
                 setStats(response.data.analytics?.summary ?? null);
             } else {
-                throw new Error(response.error ?? response.message ?? 'Failed to load analytics');
+                throw new Error(response.error?.message ?? response.message ?? 'Failed to load analytics');
             }
         } catch (err) {
-            // Silently fail
             setError(err instanceof Error ? err.message : 'Unknown error loading analytics');
         } finally {
             setLoading(false);
         }
-    }, [base]);
+    }, []);
 
     useEffect(() => {
         void loadAnalytics();

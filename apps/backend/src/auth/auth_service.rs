@@ -146,8 +146,8 @@ impl UnifiedWeb3AuthService {
 
     /// Generate Web3 authentication challenge (SIWE)
     pub async fn generate_challenge(&self, wallet_address: &str) -> Result<Web3Challenge, Web3AuthError> {
-        // Normalize wallet address to lowercase for consistent storage
-        let wallet_address = wallet_address.to_lowercase();
+        // Normalize wallet address to lowercase and trim for consistent storage
+        let wallet_address = wallet_address.trim().to_lowercase();
         
         // Validate wallet address format
         let address = Address::from_str(&wallet_address)
@@ -200,12 +200,15 @@ impl UnifiedWeb3AuthService {
 
     /// Verify Web3 signature and authenticate user
     pub async fn verify_and_authenticate(&self, request: Web3VerificationRequest) -> Result<Web3AuthResult, Web3AuthError> {
-        // Normalize wallet address to lowercase for consistent storage
-        let wallet_address = request.wallet_address.to_lowercase();
+        // Normalize wallet address to lowercase and trim for consistent storage/lookup
+        let wallet_address = request.wallet_address.trim().to_lowercase();
         
         // Validate wallet address
         let _address = Address::from_str(&wallet_address)
-            .map_err(|e| Web3AuthError::InvalidWalletAddress(e.to_string()))?;
+            .map_err(|e| {
+                warn!("Invalid wallet address format during verification: {} for input: {}", e, request.wallet_address);
+                Web3AuthError::InvalidWalletAddress(e.to_string())
+            })?;
 
         // Verify nonce exists and is valid
         use crate::schemas::primary::web3_auth_nonces;
@@ -230,7 +233,10 @@ impl UnifiedWeb3AuthService {
             .await
             .optional()
             .map_err(|e| Web3AuthError::DatabaseError(e.to_string()))?
-            .ok_or_else(|| Web3AuthError::ExpiredNonce("Challenge not found. Please request a new challenge.".to_string()))?;
+            .ok_or_else(|| {
+                warn!("Challenge not found for wallet: {} (input was: {})", wallet_address, request.wallet_address);
+                Web3AuthError::ExpiredNonce(format!("Challenge not found for {}. Please request a new challenge.", wallet_address))
+            })?;
 
         // Check nonce match - prevent using a different nonce than requested
         if nonce_record.nonce != request.nonce {
@@ -452,7 +458,7 @@ impl UnifiedWeb3AuthService {
     /// Cleanup used nonce
     async fn cleanup_nonce(&self, wallet_address: &str) -> Result<(), Web3AuthError> {
         // Normalize wallet address
-        let wallet_address = wallet_address.to_lowercase();
+        let wallet_address = wallet_address.trim().to_lowercase();
         use crate::schemas::primary::web3_auth_nonces;
 
         let mut conn = self.db_pool.get().await
@@ -470,7 +476,7 @@ impl UnifiedWeb3AuthService {
     /// Get or create user for wallet
     async fn get_or_create_user(&self, wallet_address: &str) -> Result<(String, bool), Web3AuthError> {
         // Normalize wallet address
-        let wallet_address = wallet_address.to_lowercase();
+        let wallet_address = wallet_address.trim().to_lowercase();
         let wallet_address = wallet_address.as_str();
         use crate::schemas::primary::wallet_users;
 
@@ -588,7 +594,7 @@ impl UnifiedWeb3AuthService {
     async fn assign_free_plan_to_wallet(&self, wallet_address: &str) {
         use crate::core::constants::{FREE_PLAN_SLUG, FREE_PLAN_NAME, FREE_PLAN_RANKING_OFFSET, FREE_PLAN_RANKINGS_LIMIT};
         
-        let wallet_address = wallet_address.to_lowercase();
+        let wallet_address = wallet_address.trim().to_lowercase();
         
         let mut conn = match self.db_pool.get().await {
             Ok(c) => c,
@@ -750,7 +756,7 @@ impl UnifiedWeb3AuthService {
     /// Get manual permissions from normalized tables
     async fn get_manual_permissions(&self, wallet_address: &str) -> Result<Vec<String>, Web3AuthError> {
         // Normalize wallet address - strict safety check
-        let wallet_address = wallet_address.to_lowercase();
+        let wallet_address = wallet_address.trim().to_lowercase();
         let wallet_address = wallet_address.as_str();
         let mut conn = self.db_pool.get().await
             .map_err(|e| Web3AuthError::DatabaseError(format!("Pool error: {}", e)))?;

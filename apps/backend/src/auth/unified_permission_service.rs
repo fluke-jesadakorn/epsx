@@ -257,7 +257,7 @@ impl UnifiedPermissionService {
                     permission_id: row.permission_id
                         .and_then(|s| Uuid::parse_str(&s).ok())
                         .unwrap_or_else(Uuid::new_v4),
-                    source_type: if row.source_type == "plan" || row.source_type == "group" {
+                    source_type: if row.source_type == "plan" {
                         PermissionSource::Plan
                     } else {
                         PermissionSource::Direct

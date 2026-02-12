@@ -97,7 +97,7 @@ impl BlockchainMonitor {
     }
 
     /// Process a payment event - Direct Payment Model
-    /// Updates wallet_users.plan_expires_at instead of creating subscription records
+    /// Creates/extends wallet_plan_assignments for proper plan activation
     async fn process_payment_event(event: PaymentEvent, pool: Arc<&'static TlsPool>) -> Result<(), AppError> {
         info!("💳 Processing payment event: {}", event.unique_id());
         info!("   User: {}", event.user_address);
@@ -163,19 +163,9 @@ impl BlockchainMonitor {
             AppError::database_error(format!("Failed to insert event: {}", e))
         })?;
 
-        // Step 3: Find or create wallet user
+        // Step 3: Resolve wallet address and plan UUID
         let wallet_addr = WalletAddress::new(event.user_address.clone())
             .map_err(|e| AppError::validation_error("wallet_address", format!("Invalid wallet address: {}", e)))?;
-
-        #[derive(QueryableByName)]
-        struct UserRow {
-            #[diesel(sql_type = diesel::sql_types::Text)]
-            wallet_address: String,
-            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
-            plan_expires_at: Option<chrono::DateTime<Utc>>,
-            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Uuid>)]
-            current_plan_id: Option<Uuid>,
-        }
 
         #[derive(QueryableByName)]
         struct IdResult {
@@ -183,7 +173,7 @@ impl BlockchainMonitor {
             id: Uuid,
         }
 
-        // Map contract plan_id (tier_level) to database group ID
+        // Map contract plan_id (tier_level) to database plan UUID
         let plan_uuid: Uuid = diesel::sql_query(
             "SELECT id FROM plans WHERE tier_level = $1 LIMIT 1"
         )
@@ -193,101 +183,141 @@ impl BlockchainMonitor {
         .map(|r| r.id)
         .map_err(|_| AppError::entity_not_found("Subscription plan", event.plan_id.to_string()))?;
 
-        let user_row = diesel::sql_query(
-            "SELECT wallet_address, plan_expires_at, current_plan_id FROM wallet_users WHERE LOWER(wallet_address) = LOWER($1)"
-        )
-        .bind::<diesel::sql_types::Text, _>(wallet_addr.as_str())
-        .get_result::<UserRow>(&mut conn)
-        .await
-        .optional()
-        .map_err(|e| AppError::database_error(format!("Failed to query user: {}", e)))?;
-
         let now = Utc::now();
         let standard_duration_days: i64 = 30;
 
-        if let Some(user) = user_row {
-            // Update existing user's plan access
-            let current_expiry = user.plan_expires_at.unwrap_or(now);
-            
-            // Calculate new expiry: extend from current expiry if still active, otherwise from now
-            let base_time = if current_expiry > now { current_expiry } else { now };
+        // Step 4: Ensure wallet_users entry exists (required for FK constraint)
+        let metadata = WalletMetadata::default();
+        let metadata_json = serde_json::to_value(&metadata)
+            .map_err(|e| AppError::infrastructure_error(format!("Failed to serialize metadata: {}", e)))?;
+
+        diesel::sql_query(
+            r#"
+            INSERT INTO wallet_users (wallet_address, is_active, wallet_metadata, created_at, updated_at)
+            VALUES ($1, true, $2, $3, $4)
+            ON CONFLICT (wallet_address) DO NOTHING
+            "#
+        )
+        .bind::<diesel::sql_types::Text, _>(wallet_addr.as_str().to_lowercase())
+        .bind::<diesel::sql_types::Jsonb, _>(&metadata_json)
+        .bind::<diesel::sql_types::Timestamptz, _>(now)
+        .bind::<diesel::sql_types::Timestamptz, _>(now)
+        .execute(&mut conn)
+        .await
+        .map_err(|e| {
+            error!("Failed to ensure wallet user exists: {}", e);
+            AppError::database_error(format!("Failed to ensure wallet user: {}", e))
+        })?;
+
+        // Step 5: Check for existing assignment (active OR inactive) for this plan
+        #[derive(QueryableByName)]
+        struct ExistingAssignment {
+            #[diesel(sql_type = diesel::sql_types::Uuid)]
+            id: Uuid,
+            #[diesel(sql_type = diesel::sql_types::Timestamptz)]
+            expires_at: chrono::DateTime<Utc>,
+            #[diesel(sql_type = diesel::sql_types::Bool)]
+            is_active: bool,
+        }
+
+        let existing_assignment: Option<ExistingAssignment> = diesel::sql_query(
+            "SELECT id, expires_at, is_active FROM wallet_plan_assignments WHERE LOWER(wallet_address) = LOWER($1) AND plan_id = $2 ORDER BY is_active DESC, expires_at DESC LIMIT 1"
+        )
+        .bind::<diesel::sql_types::Text, _>(wallet_addr.as_str())
+        .bind::<diesel::sql_types::Uuid, _>(plan_uuid)
+        .get_result(&mut conn)
+        .await
+        .optional()
+        .map_err(|e| AppError::database_error(format!("Failed to check existing assignment: {}", e)))?;
+
+        let payment_reference = format!("BC-{}", &event.transaction_hash[..10.min(event.transaction_hash.len())]);
+
+        if let Some(existing) = existing_assignment {
+            // REACTIVATE/EXTEND existing assignment
+            let base_time = if existing.is_active && existing.expires_at > now { existing.expires_at } else { now };
             let new_expiry = base_time + Duration::days(standard_duration_days);
 
-            // Check for plan change (upgrade/switch)
-            let is_plan_change = user.current_plan_id.map(|id| id != plan_uuid).unwrap_or(true);
-            
-            if is_plan_change {
-                info!("🔄 Plan change detected: {:?} → {}", user.current_plan_id, plan_uuid);
-                // For plan changes, start fresh from now (no carry-over)
-                let new_expiry = now + Duration::days(standard_duration_days);
-                
-                diesel::sql_query(
-                    r#"
-                    UPDATE wallet_users
-                    SET plan_expires_at = $1, current_plan_id = $2, updated_at = $3
-                    WHERE LOWER(wallet_address) = LOWER($4)
-                    "#
-                )
-                .bind::<diesel::sql_types::Timestamptz, _>(new_expiry)
-                .bind::<diesel::sql_types::Uuid, _>(plan_uuid)
-                .bind::<diesel::sql_types::Timestamptz, _>(now)
-                .bind::<diesel::sql_types::Text, _>(wallet_addr.as_str())
-                .execute(&mut conn)
-                .await
-                .map_err(|e| AppError::database_error(format!("Failed to update user plan: {}", e)))?;
+            info!("🔄 {} plan {} for wallet {}. Old expiry: {}, New expiry: {}",
+                if existing.is_active { "Extending" } else { "Reactivating" },
+                plan_uuid, wallet_addr.as_str(), existing.expires_at, new_expiry);
 
-                info!("✅ Updated user {} to plan {} (expires: {})", user.wallet_address, plan_uuid, new_expiry);
-            } else {
-                // Same plan - extend access
-                diesel::sql_query(
-                    r#"
-                    UPDATE wallet_users
-                    SET plan_expires_at = $1, updated_at = $2
-                    WHERE LOWER(wallet_address) = LOWER($3)
-                    "#
-                )
-                .bind::<diesel::sql_types::Timestamptz, _>(new_expiry)
-                .bind::<diesel::sql_types::Timestamptz, _>(now)
-                .bind::<diesel::sql_types::Text, _>(wallet_addr.as_str())
-                .execute(&mut conn)
-                .await
-                .map_err(|e| AppError::database_error(format!("Failed to extend user access: {}", e)))?;
+            // Deactivate other subscription plans first
+            diesel::sql_query(
+                r#"
+                UPDATE wallet_plan_assignments
+                SET is_active = false, updated_at = NOW()
+                WHERE LOWER(wallet_address) = LOWER($1)
+                  AND is_active = true
+                  AND plan_id != $2
+                  AND plan_id IN (SELECT id FROM plans WHERE plan_type = 'subscription')
+                "#
+            )
+            .bind::<diesel::sql_types::Text, _>(wallet_addr.as_str())
+            .bind::<diesel::sql_types::Uuid, _>(plan_uuid)
+            .execute(&mut conn)
+            .await
+            .ok();
 
-                info!("✅ Extended user {} access until {}", user.wallet_address, new_expiry);
-            }
+            diesel::sql_query(
+                r#"
+                UPDATE wallet_plan_assignments
+                SET expires_at = $1, payment_reference = $2, updated_at = NOW(), is_active = true
+                WHERE id = $3
+                "#
+            )
+            .bind::<diesel::sql_types::Timestamptz, _>(new_expiry)
+            .bind::<diesel::sql_types::Text, _>(&payment_reference)
+            .bind::<diesel::sql_types::Uuid, _>(existing.id)
+            .execute(&mut conn)
+            .await
+            .map_err(|e| AppError::database_error(format!("Failed to extend plan: {}", e)))?;
+
+            info!("✅ {} user {} plan access until {}",
+                if existing.is_active { "Extended" } else { "Reactivated" },
+                wallet_addr.as_str(), new_expiry);
         } else {
-            // Create new wallet user with plan access
-            info!("Creating new wallet user: {}", wallet_addr.as_str());
-            let metadata = WalletMetadata::default();
-            let metadata_json = serde_json::to_value(&metadata)
-                .map_err(|e| AppError::infrastructure_error(format!("Failed to serialize metadata: {}", e)))?;
-
+            // NEW assignment: no prior record for this wallet+plan
             let new_expiry = now + Duration::days(standard_duration_days);
 
             diesel::sql_query(
                 r#"
-                INSERT INTO wallet_users (wallet_address, is_active, wallet_metadata, plan_expires_at, current_plan_id, created_at, updated_at)
-                VALUES ($1, $2, $3, $4, $5, $6, $7)
+                UPDATE wallet_plan_assignments
+                SET is_active = false, updated_at = NOW()
+                WHERE LOWER(wallet_address) = LOWER($1)
+                  AND is_active = true
+                  AND plan_id IN (SELECT id FROM plans WHERE plan_type = 'subscription')
+                "#
+            )
+            .bind::<diesel::sql_types::Text, _>(wallet_addr.as_str())
+            .execute(&mut conn)
+            .await
+            .ok();
+
+            diesel::sql_query(
+                r#"
+                INSERT INTO wallet_plan_assignments (
+                    wallet_address, plan_id, assigned_at, expires_at, is_active,
+                    assignment_source, assignment_reason, payment_reference,
+                    auto_renew, assignment_metadata
+                )
+                VALUES ($1, $2, NOW(), $3, true, 'blockchain', 'Plan purchase via blockchain event', $4, false, '{}')
                 "#
             )
             .bind::<diesel::sql_types::Text, _>(wallet_addr.as_str().to_lowercase())
-            .bind::<diesel::sql_types::Bool, _>(true)
-            .bind::<diesel::sql_types::Jsonb, _>(&metadata_json)
-            .bind::<diesel::sql_types::Timestamptz, _>(new_expiry)
             .bind::<diesel::sql_types::Uuid, _>(plan_uuid)
-            .bind::<diesel::sql_types::Timestamptz, _>(now)
-            .bind::<diesel::sql_types::Timestamptz, _>(now)
+            .bind::<diesel::sql_types::Timestamptz, _>(new_expiry)
+            .bind::<diesel::sql_types::Text, _>(&payment_reference)
             .execute(&mut conn)
             .await
             .map_err(|e| {
-                error!("Failed to create user: {}", e);
-                AppError::database_error(format!("Failed to create user: {}", e))
+                error!("Failed to create plan assignment: {}", e);
+                AppError::database_error(format!("Failed to create plan assignment: {}", e))
             })?;
 
-            info!("✅ Created new user {} with plan {} (expires: {})", wallet_addr.as_str(), plan_uuid, new_expiry);
+            info!("✅ Created new plan assignment for user {} → plan {} (expires: {})", wallet_addr.as_str(), plan_uuid, new_expiry);
         }
 
-        // Step 4: Update event status to completed
+        // Step 6: Update event status to completed
         diesel::sql_query(
             r#"
             UPDATE processed_blockchain_events

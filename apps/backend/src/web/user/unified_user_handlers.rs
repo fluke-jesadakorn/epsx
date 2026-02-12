@@ -50,12 +50,14 @@ pub struct UserPermissionsQuery {
 #[derive(Debug, Serialize, ToSchema)]
 pub struct AccessOverviewData {
     pub current_tier: String,
+    #[serde(rename = "groups")]
     pub plans: Vec<AccessPlanData>,
     pub direct_permissions: Vec<DirectPermissionData>,
 }
 
 #[derive(Debug, Serialize, ToSchema)]
 pub struct AccessPlanData {
+    pub id: String,
     pub name: String,
     pub description: Option<String>,
     pub expires_at: Option<String>,
@@ -73,6 +75,8 @@ pub struct AccessPlanData {
     pub renewal_price: Option<String>,
     /// Billing cycle (e.g., "monthly", "yearly")
     pub billing_cycle: Option<String>,
+    /// Plan tier level for sorting (higher = better)
+    pub tier_level: i32,
 }
 
 #[derive(Debug, Serialize, ToSchema)]
@@ -295,18 +299,20 @@ pub async fn get_user_access_overview(
                 n.contains("Plan") || n.contains("Starter") || n.contains("Pro") || n.contains("Enterprise")
             ).unwrap_or(false);
             
-            let entry = plans_map.entry(key).or_insert(AccessPlanData {
+            let entry = plans_map.entry(key.clone()).or_insert(AccessPlanData {
+                id: key.clone(),
                 name: row.source_name.clone().unwrap_or("Unknown Plan".to_string()),
-                description: None, // Will be fetched from plans table if available
+                description: None,
                 expires_at: row.expires_at.map(|d| d.to_rfc3339()),
                 permissions: Vec::new(),
                 source_type: "plan".to_string(),
                 assigned_at: Some(row.granted_at.to_rfc3339()),
-                assigned_by: None, // Would require additional query to get assigned_by from wallet_plan_assignments
+                assigned_by: None,
                 days_remaining,
                 can_renew: is_plan && days_remaining.map(|d| d <= 30).unwrap_or(false),
-                renewal_price: None, // Will be set if we can get plan price
-                billing_cycle: None, // Will be set from plan data
+                renewal_price: None,
+                billing_cycle: None,
+                tier_level: 0, // Will be updated from direct query
             });
             
             // Don't duplicate permissions
@@ -327,29 +333,87 @@ pub async fn get_user_access_overview(
         }
     }
 
-    let mut plans: Vec<AccessPlanData> = plans_map.into_values().collect();
-
-    // ALWAYS include the Free Plan as it represents default permissions
-    // This is a constant baseline that all users have
-    let free_plan = get_free_plan();
-    
-    // Check if Free Plan already exists in the list (shouldn't happen, but defensive)
-    let has_free_plan = plans.iter().any(|p| p.name == "Free");
-    if !has_free_plan {
-        // Insert Free Plan at the beginning so it's always first
-        plans.insert(0, free_plan);
+    // Also directly query wallet_plan_assignments for active plans
+    // This catches plans that may not have plan_permissions entries yet
+    #[derive(QueryableByName)]
+    #[allow(dead_code)]
+    struct ActivePlanRow {
+        #[diesel(sql_type = diesel::sql_types::Text)]
+        plan_id: String,
+        #[diesel(sql_type = diesel::sql_types::Text)]
+        plan_name: String,
+        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
+        description: Option<String>,
+        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
+        expires_at: Option<chrono::DateTime<chrono::Utc>>,
+        #[diesel(sql_type = diesel::sql_types::Timestamptz)]
+        assigned_at: chrono::DateTime<chrono::Utc>,
+        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
+        billing_cycle: Option<String>,
+        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Numeric>)]
+        price: Option<bigdecimal::BigDecimal>,
+        #[diesel(sql_type = diesel::sql_types::Integer)]
+        tier_level: i32,
     }
 
-    // Determine current tier based on highest paid plan, or Free if only Free Plan exists
-    let current_tier = if plans.len() == 1 && plans[0].name == "Free" {
-        "Free User".to_string()
-    } else {
-        // If user has paid plans, use the first paid plan name
-        plans.iter()
-            .find(|p| p.name != "Free")
-            .map(|p| p.name.clone())
-            .unwrap_or("Standard User".to_string())
-    };
+    let active_plans: Vec<ActivePlanRow> = diesel::sql_query(
+        r#"
+        SELECT pl.id::text as plan_id, pl.name as plan_name, pl.description,
+               wpa.expires_at, wpa.assigned_at, pl.billing_cycle, pl.price, pl.tier_level
+        FROM wallet_plan_assignments wpa
+        JOIN plans pl ON wpa.plan_id = pl.id
+        WHERE LOWER(wpa.wallet_address) = LOWER($1)
+          AND wpa.is_active = true
+          AND pl.is_active = true
+          AND (wpa.expires_at IS NULL OR wpa.expires_at > NOW())
+        ORDER BY pl.tier_level DESC
+        "#
+    )
+    .bind::<diesel::sql_types::Text, _>(&user_context.wallet_address.to_lowercase())
+    .load(&mut conn)
+    .await
+    .unwrap_or_default();
+
+    // Merge active plans and update tier_level for existing entries
+    for ap in &active_plans {
+        if let Some(existing) = plans_map.get_mut(&ap.plan_id) {
+            existing.tier_level = ap.tier_level;
+        } else {
+            let days_remaining = calculate_days_remaining(ap.expires_at);
+            plans_map.insert(ap.plan_id.clone(), AccessPlanData {
+                id: ap.plan_id.clone(),
+                name: ap.plan_name.clone(),
+                description: ap.description.clone(),
+                expires_at: ap.expires_at.map(|d| d.to_rfc3339()),
+                permissions: Vec::new(),
+                source_type: "plan".to_string(),
+                assigned_at: Some(ap.assigned_at.to_rfc3339()),
+                assigned_by: None,
+                days_remaining,
+                can_renew: days_remaining.map(|d| d <= 30).unwrap_or(true),
+                renewal_price: ap.price.as_ref().map(|p| p.to_string()),
+                billing_cycle: ap.billing_cycle.clone(),
+                tier_level: ap.tier_level,
+            });
+        }
+    }
+
+    let mut plans: Vec<AccessPlanData> = plans_map.into_values().collect();
+
+    // ALWAYS include the Free Plan as baseline
+    let has_free_plan = plans.iter().any(|p| p.name == "Free");
+    if !has_free_plan {
+        plans.push(get_free_plan());
+    }
+
+    // Sort by tier_level descending (best plan first, Free last)
+    plans.sort_by(|a, b| b.tier_level.cmp(&a.tier_level));
+
+    // Current tier = highest tier plan (first after sorting)
+    let current_tier = plans.iter()
+        .find(|p| p.name != "Free")
+        .map(|p| p.name.clone())
+        .unwrap_or("Free User".to_string());
 
     let overview_data = AccessOverviewData {
         current_tier,
@@ -368,6 +432,7 @@ fn get_free_plan() -> AccessPlanData {
     use crate::core::constants::{FREE_PLAN_NAME, FREE_PLAN_DESCRIPTION, FREE_PLAN_DEFAULT_PERMISSIONS};
     
     AccessPlanData {
+        id: "free-plan".to_string(), // Fixed ID for the Free plan
         name: FREE_PLAN_NAME.to_string(),
         description: Some(FREE_PLAN_DESCRIPTION.to_string()),
         source_type: "plan".to_string(), // Frontend expects 'plan' for badge logic
@@ -379,6 +444,7 @@ fn get_free_plan() -> AccessPlanData {
         can_renew: false,
         renewal_price: None,
         billing_cycle: None,
+        tier_level: 0,
     }
 }
 

@@ -29,8 +29,8 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { parseUnits } from 'viem';
-import { useAccount, useChainId } from 'wagmi';
+import { getAddress, parseUnits } from 'viem';
+import { useAccount, useBalance, useChainId } from 'wagmi';
 
 import { usePlanAccess } from '@/hooks/use-plan-access';
 import { useAuth } from '@/lib/auth';
@@ -84,7 +84,7 @@ interface UnifiedPaymentFlowProps {
  * Supported token type for payment
  */
 interface PaymentToken {
-    symbol: 'USDT' | 'USDC';
+    symbol: string;
     name: string;
     decimals: number;
 }
@@ -92,6 +92,7 @@ interface PaymentToken {
 const PAYMENT_TOKENS: PaymentToken[] = [
     { symbol: 'USDT', name: 'Tether USD', decimals: 18 },
     { symbol: 'USDC', name: 'USD Coin', decimals: 18 },
+    { symbol: 'DAI', name: 'Dai Stablecoin', decimals: 18 },
 ];
 
 export function UnifiedPaymentFlow({
@@ -140,20 +141,26 @@ export function UnifiedPaymentFlow({
     const tokenAddress = useMemo(() => {
         if (!isChainSupported) { return null; }
         try {
-
-            return getTokenAddress(selectedToken.symbol, chainId);
+            return getAddress(getTokenAddress(selectedToken.symbol, chainId));
         } catch (_err) {
             return null;
         }
     }, [selectedToken, chainId, isChainSupported]);
+
+    // Token balance
+    const { data: balanceData } = useBalance({
+        address,
+        token: tokenAddress as `0x${string}`,
+        chainId,
+        query: { enabled: Boolean(address) && Boolean(tokenAddress) },
+    });
 
     // Receiver address
 
     const receiverAddress = useMemo(() => {
         if (!isChainSupported) { return null; }
         try {
-
-            return getPaymentReceiverAddress(chainId);
+            return getAddress(getPaymentReceiverAddress(chainId));
         } catch (_err) {
             return null;
         }
@@ -365,6 +372,11 @@ export function UnifiedPaymentFlow({
         }
         if (!tokenAddress) {
             setError(`${selectedToken.symbol} token not available on chain ${chainId}. Please switch to a supported network.`);
+            return;
+        }
+
+        if (balanceData && balanceData.value < amountInDecimals) {
+            setError(`Insufficient ${selectedToken.symbol} balance. You have ${balanceData.formatted} ${selectedToken.symbol}, but ${selectedPlan.price.replace(/[^0-9.]/g, '')} is required.`);
             return;
         }
 
@@ -602,6 +614,11 @@ export function UnifiedPaymentFlow({
                                 <p className="text-xs text-gray-500 dark:text-gray-400">
                                     {selectedToken.symbol}
                                 </p>
+                                {balanceData && (
+                                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                                        Balance: {balanceData.formatted} {selectedToken.symbol}
+                                    </p>
+                                )}
                             </div>
                         </div>
 
@@ -673,33 +690,35 @@ export function UnifiedPaymentFlow({
                     {/* Pay button */}
                     <button
                         onClick={handlePayment}
-                        disabled={isAddingToken || isTransferring || isConfirming}
+                        disabled={isAddingToken || isTransferring || isConfirming || (Boolean(balanceData) && balanceData!.value < amountInDecimals)}
                         className={cn(
                             'w-full py-4 rounded-xl font-bold text-lg transition-all',
-                            isAddingToken || isTransferring || isConfirming
+                            isAddingToken || isTransferring || isConfirming || (Boolean(balanceData) && balanceData!.value < amountInDecimals)
                                 ? 'bg-gray-300 dark:bg-gray-700 cursor-not-allowed'
                                 : 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:shadow-xl shadow-lg shadow-blue-500/30'
                         )}
                     >
-                        {isAddingToken && (
+                        {isAddingToken ? (
                             <span className="flex items-center justify-center gap-2">
                                 <Loader2 className="w-5 h-5 animate-spin" />
                                 Adding Token...
                             </span>
-                        )}
-                        {isTransferring && (
-                            <span className="flex items-center justify-center gap-2">
-                                <Loader2 className="w-5 h-5 animate-spin" />
-                                Confirm in Wallet...
-                            </span>
-                        )}
-                        {isConfirming && (
+                        ) : isConfirming ? (
                             <span className="flex items-center justify-center gap-2">
                                 <Loader2 className="w-5 h-5 animate-spin" />
                                 Confirming...
                             </span>
-                        )}
-                        {!isAddingToken && !isTransferring && !isConfirming && (
+                        ) : isTransferring ? (
+                            <span className="flex items-center justify-center gap-2">
+                                <Loader2 className="w-5 h-5 animate-spin" />
+                                Confirm in Wallet...
+                            </span>
+                        ) : (Boolean(balanceData) && balanceData!.value < amountInDecimals) ? (
+                            <span className="flex items-center justify-center gap-2">
+                                <AlertCircle className="w-5 h-5" />
+                                Insufficient {selectedToken.symbol} Balance
+                            </span>
+                        ) : (
                             <span className="flex items-center justify-center gap-2">
                                 <Wallet className="w-5 h-5" />
                                 Pay ${selectedPlan.price.replace(/[^0-9.]/g, '')} {selectedToken.symbol}

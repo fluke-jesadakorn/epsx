@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { copyToClipboard } from '@/lib/utils';
-import type { useApiClient } from '@/shared/hooks/use-api-client';
+import { createPaymentLinkAction, deletePaymentLinkAction, fetchPaymentLinksAction } from '@/app/payments/actions';
 
 export type PaymentContextType = 'plan' | 'group' | 'product' | 'campaign' | 'custom';
 
@@ -47,7 +47,6 @@ export interface CreatePaymentLinkForm {
 interface UsePaymentLinksContext {
     filterType: string;
     filterActive: string;
-    base: ReturnType<typeof useApiClient>['base'];
 }
 
 export function usePaymentLinks(ctx: UsePaymentLinksContext) {
@@ -68,12 +67,12 @@ export function usePaymentLinks(ctx: UsePaymentLinksContext) {
                 params.is_active = ctx.filterActive;
             }
 
-            const response = await ctx.base.get<PaymentLinksApiResponse>('/api/admin/payment-links', params);
+            const response = await fetchPaymentLinksAction(params) as any;
 
             if (response.success && response.data) {
                 setPaymentLinks(response.data.payment_links ?? []);
             } else {
-                const errorMsg = (response.error ?? response.message ?? 'Failed to load payment links') as string;
+                const errorMsg = (response.error?.message ?? response.message ?? 'Failed to load payment links') as string;
                 throw new Error(errorMsg);
             }
         } catch (err: unknown) {
@@ -81,7 +80,7 @@ export function usePaymentLinks(ctx: UsePaymentLinksContext) {
         } finally {
             setLoading(false);
         }
-    }, [ctx.filterType, ctx.filterActive, ctx.base]);
+    }, [ctx.filterType, ctx.filterActive]);
 
     useEffect(() => {
         void loadPaymentLinks();
@@ -91,7 +90,6 @@ export function usePaymentLinks(ctx: UsePaymentLinksContext) {
 }
 
 interface UsePaymentLinkFormContext {
-    base: ReturnType<typeof useApiClient>['base'];
     onSuccess?: () => void;
 }
 
@@ -141,13 +139,13 @@ export function usePaymentLinkForm(ctx: UsePaymentLinkFormContext) {
                     max_uses: form.max_uses !== '' ? parseInt(form.max_uses) : undefined,
                 };
 
-                const response = await ctx.base.post<PaymentLink>('/api/admin/payment-links', payload);
+                const response = await createPaymentLinkAction(payload) as any;
 
                 if (response.success && response.data) {
                     resetForm();
                     ctx.onSuccess?.();
                 } else {
-                    const errorMsg = (response.error ?? response.message ?? 'Failed to create payment link') as string;
+                    const errorMsg = (response.error?.message ?? response.message ?? 'Failed to create payment link') as string;
                     throw new Error(errorMsg);
                 }
             } catch (err: unknown) {
@@ -169,11 +167,7 @@ export function usePaymentLinkForm(ctx: UsePaymentLinkFormContext) {
     };
 }
 
-interface UsePaymentLinkActionsContext {
-    base: ReturnType<typeof useApiClient>['base'];
-}
-
-export function usePaymentLinkActions(ctx: UsePaymentLinkActionsContext) {
+export function usePaymentLinkActions() {
     const [copiedSlug, setCopiedSlug] = useState<string | null>(null);
 
     const handleCopyUrl = useCallback(async (link: PaymentLink) => {
@@ -195,12 +189,12 @@ export function usePaymentLinkActions(ctx: UsePaymentLinkActionsContext) {
             }
 
             try {
-                const response = await ctx.base.delete<Record<string, unknown>>(`/api/admin/payment-links/${id}`);
+                const response = await deletePaymentLinkAction(id) as any;
 
                 if (response.success) {
                     onSuccess?.();
                 } else {
-                    const errorMsg = (response.error ?? response.message ?? 'Failed to deactivate payment link') as string;
+                    const errorMsg = (response.error?.message ?? response.message ?? 'Failed to deactivate payment link') as string;
                     throw new Error(errorMsg);
                 }
             } catch (err: unknown) {
@@ -208,7 +202,7 @@ export function usePaymentLinkActions(ctx: UsePaymentLinkActionsContext) {
                 alert(err instanceof Error ? err.message : 'Failed to deactivate');
             }
         },
-        [ctx.base]
+        []
     );
 
     return { copiedSlug, handleCopyUrl, handleDeleteLink };

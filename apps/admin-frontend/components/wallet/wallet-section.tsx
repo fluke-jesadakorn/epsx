@@ -6,7 +6,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useWalletListing } from '@/hooks/use-wallet-listing';
 import { cn } from '@/lib/utils';
 import { Search } from 'lucide-react';
-import { DisableWalletModal } from './disable-wallet-modal';
 import { EditWalletMetadataModal } from './edit-wallet-metadata-modal';
 import { ReenableWalletModal } from './reenable-wallet-modal';
 import type { WalletData } from './types';
@@ -60,15 +59,15 @@ export function WalletSection({ className, initialData }: WalletSectionProps) {
         page,
         setPage,
         totalPages,
-        disableModalWallet,
-        setDisableModalWallet,
+        disableModalWallet: _disableModalWallet,
+        setDisableModalWallet: _setDisableModalWallet,
         reenableModalWallet,
         setReenableModalWallet,
         editMetadataWallet,
         setEditMetadataWallet,
         isActionLoading,
         loadData,
-        handleDisableWallet,
+        handleDisableWallet: _handleDisableWallet,
         handleReenableWallet,
         handleMetadataUpdateSuccess,
         router
@@ -97,7 +96,7 @@ export function WalletSection({ className, initialData }: WalletSectionProps) {
                                 key={wallet.walletAddress}
                                 wallet={wallet}
                                 onView={() => router.push(`/wallet-management/${encodeURIComponent(wallet.walletAddress)}`)}
-                                onDisable={() => setDisableModalWallet(wallet.walletAddress)}
+                                onDisable={() => router.push(`/wallet-management/wallets/${encodeURIComponent(wallet.walletAddress)}/disable`)}
                                 onEnable={() => setReenableModalWallet(wallet)}
                                 onEdit={() => setEditMetadataWallet(wallet)}
                                 onUpdateMetadata={async (label, note) => {
@@ -136,15 +135,6 @@ export function WalletSection({ className, initialData }: WalletSectionProps) {
                 </div>
             )}
 
-            {disableModalWallet !== null && (
-                <DisableWalletModal
-                    walletAddress={disableModalWallet}
-                    isOpen={true}
-                    onClose={() => setDisableModalWallet(null)}
-                    onConfirm={handleDisableWallet}
-                    isLoading={isActionLoading}
-                />
-            )}
             {reenableModalWallet?.disableInfo && (
                 <ReenableWalletModal
                     walletAddress={reenableModalWallet.walletAddress}

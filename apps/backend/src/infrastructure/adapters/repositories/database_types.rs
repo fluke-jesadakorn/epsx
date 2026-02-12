@@ -291,6 +291,7 @@ pub struct PermissionPlan {
     pub updated_at: DateTime<Utc>,
     pub created_by: Option<String>,
     pub last_modified_by: Option<String>,
+    pub grace_period_hours: i32,
     pub tier_level: i32,
     pub is_public: bool,
 }
@@ -321,6 +322,7 @@ pub struct NewPermissionPlan {
     pub is_promoted: Option<bool>,
     pub display_order: Option<i32>,
     pub created_by: Option<String>,
+    pub grace_period_hours: i32,
     pub rate_limit_per_minute: i32,
     pub rate_limit_per_hour: i32,
     pub rate_limit_per_day: i32,
@@ -460,6 +462,7 @@ pub struct PermissionPlanDb {
     pub updated_at: DateTime<Utc>,
     pub created_by: Option<String>,
     pub last_modified_by: Option<String>,
+    pub grace_period_hours: i32,
     pub tier_level: i32,
     pub is_public: bool,
 }
@@ -487,6 +490,7 @@ pub struct NewPermissionPlanDb {
     pub updated_at: DateTime<Utc>,
     pub created_by: Option<String>,
     pub last_modified_by: Option<String>,
+    pub grace_period_hours: i32,
     pub rate_limit_per_minute: i32,
     pub rate_limit_per_hour: i32,
     pub rate_limit_per_day: i32,

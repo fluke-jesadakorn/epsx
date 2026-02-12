@@ -33,32 +33,30 @@ import { usePublicBalance } from './hooks/use-public-balance';
 
 // Supported token type
 interface SupportedToken {
-    symbol: 'USDT' | 'USDC';
+    symbol: string;
     name: string;
     address: string;
     decimals: number;
 }
 
+// Token definitions for building supported token list
+const TOKEN_DEFS = [
+    { symbol: 'USDT', name: 'Tether USD', decimals: 18 },
+    { symbol: 'USDC', name: 'USD Coin', decimals: 18 },
+    { symbol: 'DAI', name: 'Dai Stablecoin', decimals: 18 },
+];
+
 // Get supported tokens for a chain
- 
 function getSupportedTokens(chainId: number): SupportedToken[] {
     const tokens: SupportedToken[] = [];
-    try {
-        tokens.push({
-            symbol: 'USDT',
-            name: 'Tether USD',
-            address: getTokenAddress('USDT', chainId),
-            decimals: 18,
-        });
-    } catch (_err) { /* Token not available on this chain */ }
-    try {
-        tokens.push({
-            symbol: 'USDC',
-            name: 'USD Coin',
-            address: getTokenAddress('USDC', chainId),
-            decimals: 18,
-        });
-    } catch (_err) { /* Token not available on this chain */ }
+    for (const def of TOKEN_DEFS) {
+        try {
+            const addr = getTokenAddress(def.symbol, chainId);
+            if (addr) {
+                tokens.push({ ...def, address: addr });
+            }
+        } catch (_err) { /* Token not available on this chain */ }
+    }
     return tokens;
 }
 

@@ -55,9 +55,10 @@ export function CurrentAccessCard({ className, paymentType = 'plan' }: CurrentAc
         );
     }
 
-    const hasActivePlan = planAccess?.status === 'active' || planAccess?.status === 'expiring_soon';
+    const hasActivePlan = planAccess?.status === 'active' || planAccess?.status === 'expiring_soon' || planAccess?.status === 'grace_period';
     const isExpired = planAccess?.status === 'expired';
     const isExpiringSoon = planAccess?.status === 'expiring_soon';
+    const isGracePeriod = planAccess?.status === 'grace_period';
     const daysRemaining = planAccess?.days_remaining ?? 0;
 
     // Format expiration date
@@ -86,6 +87,17 @@ export function CurrentAccessCard({ className, paymentType = 'plan' }: CurrentAc
                 icon: <AlertTriangle className="w-6 h-6" />,
                 label: 'Expired',
                 sublabel: 'Renew to restore access',
+            };
+        }
+
+        if (isGracePeriod) {
+            return {
+                gradient: 'from-amber-500 to-red-600',
+                bgGradient: 'from-amber-50 to-red-100 dark:from-amber-900/20 dark:to-red-900/20',
+                borderColor: 'border-amber-300 dark:border-red-800',
+                icon: <AlertTriangle className="w-6 h-6" />,
+                label: 'Grace Period',
+                sublabel: 'Plan expired - renew now to keep access',
             };
         }
 
@@ -172,20 +184,24 @@ export function CurrentAccessCard({ className, paymentType = 'plan' }: CurrentAc
                     )}
                 </div>
 
-                {/* Warning for expiring or expired */}
-                {(isExpiringSoon || isExpired) && (
+                {/* Warning for expiring, grace period, or expired */}
+                {(isExpiringSoon || isGracePeriod || isExpired) && (
                     <div className={cn(
                         'mt-4 p-3 rounded-lg border flex items-center gap-3',
                         isExpired
                             ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
-                            : 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800'
+                            : isGracePeriod
+                                ? 'bg-gradient-to-r from-amber-50 to-red-50 dark:from-amber-900/20 dark:to-red-900/20 border-amber-300 dark:border-red-800'
+                                : 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800'
                     )}>
-                        <AlertTriangle className={cn('w-5 h-5', isExpired ? 'text-red-500' : 'text-amber-500')} />
+                        <AlertTriangle className={cn('w-5 h-5', isExpired ? 'text-red-500' : isGracePeriod ? 'text-amber-600' : 'text-amber-500')} />
                         <div>
-                            <p className={cn('text-sm font-medium', isExpired ? 'text-red-700 dark:text-red-300' : 'text-amber-700 dark:text-amber-300')}>
+                            <p className={cn('text-sm font-medium', isExpired ? 'text-red-700 dark:text-red-300' : isGracePeriod ? 'text-amber-800 dark:text-amber-200' : 'text-amber-700 dark:text-amber-300')}>
                                 {isExpired
                                     ? 'Your plan has expired. Renew to restore full access.'
-                                    : `Only ${daysRemaining} days remaining. Renew now to avoid interruption.`}
+                                    : isGracePeriod
+                                        ? 'Your plan has expired but you still have access during the grace period. Renew now!'
+                                        : `Only ${daysRemaining} days remaining. Renew now to avoid interruption.`}
                             </p>
                         </div>
                     </div>

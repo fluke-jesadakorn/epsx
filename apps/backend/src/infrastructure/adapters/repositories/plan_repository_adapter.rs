@@ -208,11 +208,12 @@ impl PlanRepositoryPort for PostgresPlanRepositoryAdapter {
              updated_at: plan.updated_at(),
              created_by: None,
              last_modified_by: None,
+             grace_period_hours: 0,
              rate_limit_per_minute: 0,
              rate_limit_per_hour: 0,
              rate_limit_per_day: 0,
              burst_capacity: 0,
-             tier_level: 0, 
+             tier_level: 0,
              is_public: true, // Default to public for subscription plans
         };
 

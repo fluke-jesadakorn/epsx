@@ -151,7 +151,7 @@ export default async function PaymentDynamicPage({ params }: PaymentDynamicPageP
                         <div className="w-px h-4 bg-gray-300 dark:bg-gray-600" />
                         <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
                             <span className="text-purple-500">💳</span>
-                            <span>USDT/USDC</span>
+                            <span>USDT/USDC/DAI</span>
                         </div>
                     </div>
                 </div>

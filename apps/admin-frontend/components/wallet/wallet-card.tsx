@@ -4,7 +4,8 @@
  */
 'use client';
 
-import { BarChart3, CheckCircle2, ChevronRight, Coins, Copy, CreditCard, Edit, MoreHorizontal, ShieldCheck, TrendingUp } from 'lucide-react';
+import { BarChart3, CheckCircle2, Coins, Copy, CreditCard, Edit, MoreHorizontal, ShieldCheck, TrendingUp } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import React, { useState } from 'react';
 
 import { logger } from '@/lib/logger';
@@ -76,12 +77,13 @@ export function WalletCard({
     onSelect,
     onView,
     onManage: _onManage,
-    onDisable,
+    onDisable: _onDisable,
     onEnable,
     onEdit: _onEdit,
     onUpdateMetadata,
     className,
 }: WalletCardProps) {
+    const router = useRouter();
     const [copied, setCopied] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
     const [labelInput, setLabelInput] = useState(wallet.label ?? '');
@@ -269,8 +271,8 @@ export function WalletCard({
                         onClick={(e) => { e.stopPropagation(); onView?.(); }}
                         className="group/btn relative flex items-center justify-center gap-2 rounded-xl bg-white/5 px-4 py-2.5 text-xs font-bold text-white transition-all hover:bg-white/10 hover:shadow-lg hover:shadow-purple-500/10 active:scale-95 border border-white/5 hover:border-white/10 w-full"
                     >
-                        <span>View Details</span>
-                        <ChevronRight size={14} className="text-slate-400 transition-transform group-hover/btn:translate-x-1" />
+                        <Edit size={14} className="text-slate-400 group-hover/btn:text-[#1fc7d4] transition-colors" />
+                        <span>Edit</span>
                     </Button>
 
                     <DropdownMenu>
@@ -283,9 +285,9 @@ export function WalletCard({
                                 <span className="truncate">More Actions</span>
                             </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-56 bg-slate-900/95 backdrop-blur-xl border-white/10 text-slate-200">
-                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleStartEditing(); }} className="focus:bg-white/10 focus:text-white cursor-pointer group">
-                                <Edit className="h-4 w-4 mr-2 text-slate-500 group-hover:text-[#1fc7d4]" /> Edit Label & Note
+                        <DropdownMenuContent align="end" className="w-48 bg-slate-900/95 backdrop-blur-xl border-white/10 text-slate-200">
+                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); void handleCopy(e); }} className="focus:bg-white/10 focus:text-white cursor-pointer group">
+                                <Copy className="h-4 w-4 mr-2 text-slate-500 group-hover:text-[#1fc7d4]" /> Copy Address
                             </DropdownMenuItem>
                             <DropdownMenuSeparator className="bg-white/10" />
                             {isDisabled ? (
@@ -293,7 +295,7 @@ export function WalletCard({
                                     <CheckCircle2 className="h-4 w-4 mr-2" /> Enable Wallet
                                 </DropdownMenuItem>
                             ) : (
-                                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onDisable?.(); }} className="focus:bg-red-500/10 focus:text-red-400 cursor-pointer text-red-500">
+                                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); router.push(`/wallet-management/wallets/${encodeURIComponent(wallet.walletAddress)}/disable`); }} className="focus:bg-red-500/10 focus:text-red-400 cursor-pointer text-red-500">
                                     <ShieldCheck className="h-4 w-4 mr-2" /> Disable Wallet
                                 </DropdownMenuItem>
                             )}

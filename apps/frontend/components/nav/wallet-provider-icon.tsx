@@ -187,7 +187,7 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
     return (
       <button onClick={handleConnectRedirect} type="button" className={finalClassName}>
         <Wallet className={compact ? 'h-3 w-3 text-white' : 'h-4 w-4 text-white'} />
-        <span>Sign In</span>
+        <span>Connect</span>
       </button>
     );
   }

@@ -68,6 +68,7 @@ export function usePlanEditForm() {
         priority: 0,
         price: 0,
         expiryDays: 30,
+        gracePeriodHours: 0,
         permissions: [],
         is_public: true,
         is_active: true,
@@ -85,6 +86,7 @@ export function usePlanEditForm() {
                 priority: 0,
                 price: 0,
                 expiryDays: 30,
+                gracePeriodHours: 0,
                 permissions: [],
                 is_public: true,
                 is_active: true,
@@ -101,6 +103,7 @@ export function usePlanEditForm() {
                 priority: plan.priority_level ?? 0,
                 price: plan.price ?? 0,
                 expiryDays: plan.default_expiry_days ?? 30,
+                gracePeriodHours: plan.grace_period_hours ?? 0,
                 permissions: plan.permissions ?? [],
                 is_public: plan.is_public !== false,
                 is_active: plan.is_active !== false,
@@ -125,6 +128,7 @@ export function usePlanEditForm() {
                 priority_level: form.priority,
                 price: selectedPlan.id === FREE_PLAN_ID ? undefined : form.price,
                 default_expiry_days: form.expiryDays,
+                grace_period_hours: form.gracePeriodHours,
                 permissions: form.permissions,
                 is_public: form.is_public,
                 is_active: form.is_active,
@@ -255,7 +259,7 @@ export function usePlanDragAndDrop(ctx: DragDropContext) {
 
         const updates = newItems.map((plan, index) => ({
             id: plan.id,
-            display_order: index,
+            tier_level: index,
         }));
 
         if (selectedPlan) {
@@ -263,14 +267,14 @@ export function usePlanDragAndDrop(ctx: DragDropContext) {
             if (updatedSelected) {
                 setForm((prev) => ({
                     ...prev,
-                    priority: updatedSelected.display_order,
+                    priority: updatedSelected.tier_level,
                 }));
             }
         }
 
         await Promise.all(
             updates.map((u) =>
-                updatePlanAction(u.id, { display_order: u.display_order })
+                updatePlanAction(u.id, { tier_level: u.tier_level })
             )
         )
             .then(() => {

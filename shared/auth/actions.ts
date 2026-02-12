@@ -95,7 +95,36 @@ export async function logoutAction() {
     try {
         const cookieStore = await cookies();
 
-        logger.info('[AUTH] logoutAction: Clearing session cookies...');
+        // Get wallet address before clearing cookies
+        const userCookie = cookieStore.get(COOKIES.user)?.value;
+        let walletAddress = '';
+        if (userCookie !== undefined && userCookie !== '') {
+            const user = JSON.parse(userCookie) as UserInfoResponse;
+            walletAddress = user.wallet_address ?? '';
+        }
+
+        logger.info('[AUTH] logoutAction: Starting logout', { walletAddress: walletAddress.slice(0, 8) });
+
+        // Call backend logout endpoint if we have wallet address
+        if (walletAddress !== '') {
+            try {
+                const { getBackendUrl } = await import('../utils/url-resolver');
+                const backendUrl = getBackendUrl('server');
+
+                await fetch(`${backendUrl}/api/auth/web3/logout`, {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ wallet_address: walletAddress }),
+                    cache: 'no-store',
+                });
+
+                logger.info('[AUTH] logoutAction: Backend logout called');
+            } catch (e) {
+                // Best effort - continue clearing cookies even if backend call fails
+                logger.warn('[AUTH] logoutAction: Backend logout failed (continuing)',
+                    e instanceof Error ? e.message : String(e));
+            }
+        }
 
         // Clear all known cookies
         Object.entries(COOKIES).forEach(([key, cookieName]) => {

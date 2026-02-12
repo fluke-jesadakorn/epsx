@@ -50,7 +50,7 @@ export function useWalletDetailViewLogic({
     }, [accessData.data.availablePlans, accessData.data.authorizedPlans, pendingDrops, searchQuery]);
 
     const handleManagePlan = useCallback((planId: string) => {
-        router.push(`/wallet-management/plans/${planId}?from=/wallet-management/${encodeURIComponent(walletAddress)}`);
+        router.push(`/wallet-management/access/plans/${planId}?from=/wallet-management/${encodeURIComponent(walletAddress)}`);
     }, [router, walletAddress]);
 
     const handleDragStart = useCallback((event: DragStartEvent) => {

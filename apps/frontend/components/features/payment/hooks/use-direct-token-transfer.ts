@@ -80,9 +80,15 @@ export function useDirectTokenTransfer({
                 errorMessage.includes('resourceunavailable') ||
                 error.name === 'ResourceUnavailableRpcError'
 
+            const isInsufficientBalance = errorMessage.includes('insufficient') ||
+                errorMessage.includes('exceeds balance') ||
+                errorMessage.includes('e450d38c')
+
             if (isUserRejection) {
                 devLog('👤 User cancelled transfer')
                 onError?.('Transaction cancelled. You can try again when ready.')
+            } else if (isInsufficientBalance) {
+                onError?.('Insufficient token balance. Please add funds and try again.')
             } else if (isRpcUnavailable) {
                 devLog('🔌 RPC connection issue detected')
                 onError?.('RPC connection failed. Ensure MetaMask RPC URL matches your network access (e.g., use Tailscale IP instead of localhost for remote access).')

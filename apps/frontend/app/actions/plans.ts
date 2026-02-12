@@ -8,7 +8,6 @@ import { getServerActionClient } from '@/shared/utils/server-fetch';
 
 const DEFAULT_FREE_TIER: PlanAccessData = {
   wallet_address: '',
-  current_plan_id: null,
   plan_name: null,
   plan_expires_at: null,
   days_remaining: 0,

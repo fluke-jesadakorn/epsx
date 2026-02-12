@@ -113,11 +113,12 @@ impl PlanRepositoryPort for PlanRepositoryAdapter {
                 billing_cycle: row.billing_cycle.unwrap_or_else(|| "monthly".to_string()),
                 is_active: row.is_active,
                 is_promoted: row.is_promoted,
-                display_order: row.display_order.unwrap_or(0),
+                tier_level: row.tier_level,
                 max_members: row.max_members,
                 auto_assign_enabled: row.auto_assign_enabled.unwrap_or(false),
                 metadata: row.plan_metadata,
                 is_public: row.is_public,
+                grace_period_hours: row.grace_period_hours,
                 created_at: row.created_at,
                 updated_at: row.updated_at,
                 version: 1,
@@ -179,7 +180,7 @@ impl PlanRepositoryPort for PlanRepositoryAdapter {
         }
 
         query = query.order((
-            plans::display_order.asc(),
+            plans::tier_level.asc(),
             plans::created_at.desc(),
         ));
 
@@ -226,7 +227,6 @@ impl PlanRepositoryPort for PlanRepositoryAdapter {
             billing_cycle: Some(plan.billing_cycle().to_string()),
             is_active: plan.is_active(),
             is_promoted: plan.is_promoted(),
-            display_order: Some(plan.display_order()),
             max_members: plan.max_members(),
             auto_assign_enabled: Some(plan.auto_assign_enabled()),
             assignment_rules: None,
@@ -234,11 +234,12 @@ impl PlanRepositoryPort for PlanRepositoryAdapter {
             updated_at: plan.updated_at(),
             created_by: None,
             last_modified_by: None,
+            grace_period_hours: plan.grace_period_hours(),
             rate_limit_per_minute: 0,
             rate_limit_per_hour: 0,
             rate_limit_per_day: 0,
             burst_capacity: 0,
-            tier_level: 0, // Default to free tier
+            tier_level: plan.tier_level(),
             is_public: plan.is_public(),
         };
 
@@ -255,12 +256,13 @@ impl PlanRepositoryPort for PlanRepositoryAdapter {
                 plans::billing_cycle.eq(&new_plan.billing_cycle),
                 plans::is_active.eq(new_plan.is_active),
                 plans::is_promoted.eq(new_plan.is_promoted),
-                plans::display_order.eq(&new_plan.display_order),
+                plans::tier_level.eq(new_plan.tier_level),
                 plans::max_members.eq(&new_plan.max_members),
                 plans::auto_assign_enabled.eq(&new_plan.auto_assign_enabled),
                 plans::plan_metadata.eq(&new_plan.plan_metadata),
                 plans::updated_at.eq(new_plan.updated_at),
                 plans::is_public.eq(new_plan.is_public),
+                plans::grace_period_hours.eq(new_plan.grace_period_hours),
             ))
             .execute(&mut conn)
             .await

@@ -4,14 +4,13 @@
 import { UserGroupIcon } from '@heroicons/react/24/outline';
 import { useCallback, useEffect, useState } from 'react';
 
-import { useApiClient } from '@/shared/hooks/use-api-client';
+import { fetchUserAccessAction } from '@/app/payments/actions';
 import type { PlanAccessData } from '@/shared/types/payment';
 
 /**
  *
  */
 export function UserAccessManagement() {
-    const { base } = useApiClient({ platform: 'admin' });
     const [userAccess, setUserAccess] = useState<PlanAccessData[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -28,19 +27,19 @@ export function UserAccessManagement() {
                 limit: itemsPerPage.toString(),
             };
 
-            const response = await base.get<any>('/api/admin/plans/user-access/list', params);
+            const response = await fetchUserAccessAction(params) as any;
 
             if (response.success && response.data) {
                 setUserAccess(response.data.users ?? []);
             } else {
-                throw new Error(response.error ?? response.message ?? 'Failed to load user access');
+                throw new Error(response.error?.message ?? response.message ?? 'Failed to load user access');
             }
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Unknown error loading user access');
         } finally {
             setLoading(false);
         }
-    }, [base, currentPage, itemsPerPage]);
+    }, [currentPage, itemsPerPage]);
 
     useEffect(() => {
         loadUserAccess();

@@ -476,7 +476,7 @@ BEGIN
     SELECT
         p.permission_string,
         p.id,
-        'group'::VARCHAR(20),
+        'plan'::VARCHAR(20),
         pl.id as source_id,
         pl.name as source_name,
         wpa.expires_at,

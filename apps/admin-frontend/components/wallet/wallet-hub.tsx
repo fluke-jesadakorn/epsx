@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 
 import { BulkActionsBar } from './bulk-actions-bar';
-import { DisableWalletModal, type DisableWalletData } from './disable-wallet-modal';
 import { EditWalletMetadataModal } from './edit-wallet-metadata-modal';
 import { ReenableWalletModal, type ReenableWalletData } from './reenable-wallet-modal';
 import type {
@@ -82,7 +81,6 @@ export function WalletHub({ className }: WalletHubProps) {
     const [selectedWallets, setSelectedWallets] = useState<Set<string>>(new Set());
 
     // Modals
-    const [disableModalWallet, setDisableModalWallet] = useState<string | null>(null);
     const [reenableModalWallet, setReenableModalWallet] = useState<WalletData | null>(null);
     const [editMetadataWallet, setEditMetadataWallet] = useState<WalletData | null>(null);
     const [isActionLoading, setIsActionLoading] = useState(false);
@@ -145,26 +143,9 @@ export function WalletHub({ className }: WalletHubProps) {
         router.push(`/wallet-management/${encodeURIComponent(wallet.walletAddress)}`);
     };
 
-    // Disable/Enable/Edit handlers
-    const handleDisableWallet = async (data: DisableWalletData) => {
-        setIsActionLoading(true);
-        try {
-            await walletMgmt.disableWallet(data.walletAddress, {
-                duration_days: data.duration === 'until_manual' ? null : data.duration,
-                reason_category: data.reasonCategory,
-                reason_details: data.reasonDetails,
-                affected_platforms: data.affectedPlatforms,
-                block_login: data.blockLogin,
-                pause_subscriptions: data.pauseSubscriptions,
-                notify_user: data.notifyUser,
-            });
-            setDisableModalWallet(null);
-            await loadData();
-        } catch (err) {
-            logger.error('Failed to disable wallet:', { err });
-        } finally {
-            setIsActionLoading(false);
-        }
+    // Navigate to disable page
+    const handleDisableWallet = (walletAddress: string) => {
+        router.push(`/wallet-management/wallets/${encodeURIComponent(walletAddress)}/disable`);
     };
 
     const handleReenableWallet = async (data: ReenableWalletData) => {
@@ -381,7 +362,7 @@ export function WalletHub({ className }: WalletHubProps) {
                         onSelectWallet={handleSelectWallet}
                         onView={handleViewWallet}
                         onManage={handleViewWallet}
-                        onDisable={(w) => setDisableModalWallet(w.walletAddress)}
+                        onDisable={(w) => handleDisableWallet(w.walletAddress)}
                         onEnable={(w) => setReenableModalWallet(w)}
                         onEdit={(w) => setEditMetadataWallet(w)}
                     />
@@ -395,7 +376,7 @@ export function WalletHub({ className }: WalletHubProps) {
                                 onSelect={(selected) => handleSelectWallet(wallet.walletAddress, selected)}
                                 onView={() => handleViewWallet(wallet)}
                                 onManage={() => handleViewWallet(wallet)}
-                                onDisable={() => setDisableModalWallet(wallet.walletAddress)}
+                                onDisable={() => handleDisableWallet(wallet.walletAddress)}
                                 onEnable={() => setReenableModalWallet(wallet)}
                                 onEdit={() => setEditMetadataWallet(wallet)}
                                 onUpdateMetadata={async (label, note) => {
@@ -417,17 +398,6 @@ export function WalletHub({ className }: WalletHubProps) {
                 onDisable={() => { }}
                 onNotify={() => { }}
             />
-
-            {/* Disable Modal */}
-            {disableModalWallet && (
-                <DisableWalletModal
-                    walletAddress={disableModalWallet}
-                    isOpen={true}
-                    onClose={() => setDisableModalWallet(null)}
-                    onConfirm={handleDisableWallet}
-                    isLoading={isActionLoading}
-                />
-            )}
 
             {/* Re-enable Modal */}
             {reenableModalWallet?.disableInfo && (

@@ -161,11 +161,10 @@ export interface AssetInfo {
  */
 export interface PlanAccessData {
   wallet_address: string;
-  current_plan_id: number | null;
   plan_name: string | null;
   plan_expires_at: string | null;
   days_remaining: number;
-  status: 'active' | 'expiring_soon' | 'expired' | 'no_plan';
+  status: 'active' | 'expiring_soon' | 'grace_period' | 'expired' | 'no_plan';
   /** Starting rank position: 0 = top ranks (full access), 100 = ranks 101+ (free tier) */
   ranking_offset: number;
   /** Whether user can upgrade to a higher plan */

@@ -12,24 +12,30 @@ import { useCallback, useState } from 'react';
 import { useAccount, useChainId } from 'wagmi';
 
 interface TokenInfo {
-    symbol: 'USDT' | 'USDC';
+    symbol: string;
     name: string;
     decimals: number;
     image?: string;
 }
 
-const TOKEN_INFO: Record<'USDT' | 'USDC', TokenInfo> = {
+const TOKEN_INFO: Record<string, TokenInfo> = {
     USDT: {
         symbol: 'USDT',
         name: 'Tether USD',
-        decimals: 18, // BSC uses 18 decimals for USDT
+        decimals: 18,
         image: 'https://cryptologos.cc/logos/tether-usdt-logo.png',
     },
     USDC: {
         symbol: 'USDC',
         name: 'USD Coin',
-        decimals: 18, // BSC uses 18 decimals for USDC
+        decimals: 18,
         image: 'https://cryptologos.cc/logos/usd-coin-usdc-logo.png',
+    },
+    DAI: {
+        symbol: 'DAI',
+        name: 'Dai Stablecoin',
+        decimals: 18,
+        image: 'https://cryptologos.cc/logos/multi-collateral-dai-dai-logo.png',
     },
 };
 
@@ -39,7 +45,7 @@ export function useAddTokenToWallet() {
     const [isAdding, setIsAdding] = useState(false);
     const [addedTokens, setAddedTokens] = useState<Set<string>>(new Set());
 
-    const addToken = useCallback(async (symbol: 'USDT' | 'USDC'): Promise<boolean> => {
+    const addToken = useCallback(async (symbol: string): Promise<boolean> => {
         if (!connector || isAdding) {return false;}
 
         const tokenKey = `${chainId}-${symbol}`;
@@ -94,7 +100,7 @@ export function useAddTokenToWallet() {
         }
     }, [connector, chainId, isAdding, addedTokens]);
 
-    const isTokenAdded = useCallback((symbol: 'USDT' | 'USDC'): boolean => {
+    const isTokenAdded = useCallback((symbol: string): boolean => {
         return addedTokens.has(`${chainId}-${symbol}`);
     }, [chainId, addedTokens]);
 

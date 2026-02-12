@@ -269,13 +269,15 @@ export class SharedWeb3AuthClient {
     walletAddress: string
   ): Promise<Web3ChallengeResponse> {
     // Deduplicate concurrent challenge requests
-    const cacheKey = `${walletAddress}_${this.clientId}`;
+    // Normalize wallet address for cache key
+    const normalizedAddress = walletAddress.trim().toLowerCase();
+    const cacheKey = `${normalizedAddress}_${this.clientId}`;
     const now = Date.now();
     const cached = this.challengeCache.get(cacheKey);
 
     // Return cached promise if request is in-flight or recent (within 60s)
     if (cached !== undefined && (now - cached.timestamp) < 60000) {
-      logger.info('[AUTH] Reusing existing challenge request');
+      logger.info('[AUTH] Reusing existing challenge request', { wallet_address: normalizedAddress });
       return cached.promise;
     }
 
@@ -314,9 +316,6 @@ export class SharedWeb3AuthClient {
 
         const challengeData = (await response.json()) as Web3ChallengeResponse;
         logger.info('[AUTH] Challenge request successful', challengeData);
-
-        // Clear cache after success
-        setTimeout(() => this.challengeCache.delete(cacheKey), 60000);
 
         return challengeData;
       } catch (error) {
@@ -474,6 +473,13 @@ export class SharedWeb3AuthClient {
       }
 
       const result = (await response.json()) as AuthVerifyResult;
+
+      // Clear challenge cache after any verification attempt (success or failure)
+      // because the backend handles nonce lifecycle
+      const normalizedAddress = (request.wallet_address ?? '').trim().toLowerCase();
+      const cacheKey = `${normalizedAddress}_${this.clientId}`;
+      this.challengeCache.delete(cacheKey);
+
       this.validateAuthResult(result, request.wallet_address);
       this.updateStateFromAuthResult(result);
 
@@ -669,6 +675,7 @@ export class SharedWeb3AuthClient {
     this.refreshToken = null;
     this.tokenExpiry = null;
     this.user = null;
+    this.challengeCache.clear(); // Clear all challenges on logout
     this.clearTokensFromStorage();
     this.notifyListeners();
   }
@@ -818,21 +825,14 @@ export class SharedWeb3AuthClient {
   }
 
   async logout(): Promise<void> {
-    const wasAuthenticated = this.accessToken !== null && this.accessToken !== '';
     this.clearTokens();
 
-    if (wasAuthenticated) {
-      try {
-        // Attempt backend logout (best effort)
-        await fetch(`${this.backendUrl}/api/auth/session/logout`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        });
-      } catch (_e) {
-        // Ignore network errors during logout
-      }
+    // Use server action for logout (handles backend call + cookie clearing)
+    try {
+      const { logoutAction } = await import('./actions');
+      await logoutAction();
+    } catch (_e) {
+      // Ignore errors - tokens already cleared client-side
     }
   }
 

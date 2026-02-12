@@ -1,39 +1,44 @@
 {
   "network": "bsc-testnet",
   "chainId": 97,
-  "deploymentDate": "2026-02-01T22:44:46+07:00",
-  "deployer": "0x9694897a5048147698f188d3A8ff49b30e907767",
+  "deploymentDate": "2026-02-11T17:28:34+07:00",
+  "deployer": "0x2aE367c0b689153954d8e099782D61037bb423be",
   "contracts": {
     "PaymentEscrow": {
-      "address": "0xba7Ffb3f91a0856338068D6088A21A242A222258",
-      "deploymentTxHash": "0x06ddbee1903281c4f89af71e5871792049a6db7c47e05849932633328c3e2471",
-      "blockNumber": 87849705,
+      "address": "0x0B58400f86D89ce4c62E8386B74E232c7f410c6A",
+      "deploymentTxHash": "0x7af56709edeffe1d487609b289542e883a9e9aecdd8dc8870a62ef7fd6f6b443",
+      "blockNumber": 89670172,
       "gasUsed": 2753179,
       "roles": {
-        "DEFAULT_ADMIN_ROLE": "0x9694897a5048147698f188d3A8ff49b30e907767",
-        "MANAGER_ROLE": "0x9694897a5048147698f188d3A8ff49b30e907767"
+        "DEFAULT_ADMIN_ROLE": "0x2aE367c0b689153954d8e099782D61037bb423be",
+        "MANAGER_ROLE": "0x2aE367c0b689153954d8e099782D61037bb423be"
       }
     }
   },
   "enabledTokens": {
     "USDT": {
+      "address": "0x337610d27c682E347C9cD60BD4b3b107C9d34dDd",
+      "txHash": "0xc99a2ab6d539715555e39d71c86a847a067cfb2eac0a92bd12d4814a29f9abfa",
+      "note": "BSC Testnet mock USDT (active)"
+    },
+    "USDT_BSC_MAINNET": {
       "address": "0x55d398326f99059fF775485246999027B3197955",
-      "txHash": "0x8e4769f222b3dd1c8aa907e5bb5ffd787175f78018de5cd18d0dad9b3be18897",
-      "note": "BSC Mainnet address - may not have actual tokens on testnet"
+      "txHash": "0x08b570027e011df32496d75c003df12dbc241c4259c8c7cc9beaf8f0c9d8d44a",
+      "note": "BSC Mainnet USDT address (also enabled in contract)"
     },
     "USDC": {
       "address": "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d",
-      "txHash": "0xdb245fa75264c5087ef796d66becf5b1b106c5c45f9bdd7a2734e546ca6e963d",
+      "txHash": "0x6bf17a2df25a6df4b30d7379d2f11f547282e175fb7bab2669e2f50fa8651061",
       "note": "BSC Mainnet address - may not have actual tokens on testnet"
     }
   },
   "rpcUrl": "https://data-seed-prebsc-1-s1.bnbchain.org:8545",
   "explorerUrl": "https://testnet.bscscan.com",
-  "contractExplorerUrl": "https://testnet.bscscan.com/address/0xba7Ffb3f91a0856338068D6088A21A242A222258",
+  "contractExplorerUrl": "https://testnet.bscscan.com/address/0x0B58400f86D89ce4c62E8386B74E232c7f410c6A",
   "totalGasPaid": {
-    "amount": "0.0002850461",
+    "amount": "0.00028991",
     "unit": "tBNB",
-    "gasUsed": 2850461,
+    "gasUsed": 2899102,
     "gasPrice": "0.1 gwei"
   }
 }

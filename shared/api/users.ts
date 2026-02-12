@@ -95,18 +95,13 @@ interface AccessGroup {
   expires_at?: string;
   permissions: string[];
   source_type: 'plan' | 'group' | 'manual';
-  /** When this group was assigned */
   assigned_at?: string;
-  /** Who assigned this group */
   assigned_by?: string;
-  /** Days remaining until expiration */
   days_remaining?: number;
-  /** Whether renewal is available for this plan */
   can_renew?: boolean;
-  /** Price for renewal (e.g., "29.99 USDT") */
   renewal_price?: string;
-  /** Billing cycle (e.g., "monthly", "yearly") */
   billing_cycle?: string;
+  tier_level: number;
 }
 
 interface DirectPermission {

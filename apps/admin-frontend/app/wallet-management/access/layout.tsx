@@ -31,29 +31,27 @@ export default function AccessLayout({
 
     return (
         <div className="flex flex-col gap-6 h-full">
-            {/* TOP HEADER / TABS */}
-            <div className="flex items-center justify-between shrink-0">
-                <div className="flex bg-slate-900/50 border border-white/5 p-1 rounded-xl">
-                    {tabs.map((tab) => {
-                        const isActive = pathname === tab.href;
-                        const Icon = tab.icon;
-                        return (
-                            <Link
-                                key={tab.id}
-                                href={tab.href}
-                                className={cn(
-                                    "flex items-center rounded-lg px-4 py-1.5 text-sm font-medium transition-all",
-                                    isActive
-                                        ? cn("text-white shadow-lg", tab.activeColor)
-                                        : "text-muted-foreground hover:text-white hover:bg-white/5"
-                                )}
-                            >
-                                <Icon className="w-4 h-4 mr-2" />
-                                {tab.label}
-                            </Link>
-                        );
-                    })}
-                </div>
+            {/* Sub-navigation */}
+            <div className="flex items-center gap-1 border-b border-white/10 shrink-0">
+                {tabs.map((tab) => {
+                    const isActive = pathname.startsWith(tab.href);
+                    const Icon = tab.icon;
+                    return (
+                        <Link
+                            key={tab.id}
+                            href={tab.href}
+                            className={cn(
+                                "flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-all border-b-2 -mb-px",
+                                isActive
+                                    ? "text-[#1fc7d4] border-[#1fc7d4]"
+                                    : "text-muted-foreground border-transparent hover:text-white hover:border-white/20"
+                            )}
+                        >
+                            <Icon className="w-4 h-4" />
+                            {tab.label}
+                        </Link>
+                    );
+                })}
             </div>
 
             {/* CONTENT */}

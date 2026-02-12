@@ -38,12 +38,12 @@ export interface PermissionPlan {
   is_active: boolean;
   is_system_plan?: boolean;
   is_promoted?: boolean;
-  display_order?: number;
+  tier_level: number;
   max_members?: number | null;
   auto_assign_enabled?: boolean;
   plan_metadata?: Record<string, unknown>;
   default_expiry_days?: number;
-  priority_level?: number;
+  grace_period_hours?: number;
   created_at: string;
   updated_at: string;
   member_count?: number;
@@ -135,12 +135,11 @@ export interface CreatePlanRequest {
   permissions: string[];
   description?: string;
   default_expiry_days?: number;
-  priority_level?: number;
+  tier_level?: number;
   price?: number;
   is_public?: boolean;
   is_active?: boolean;
   plan_metadata?: Record<string, unknown>;
-  display_order?: number;
 }
 
 export interface UpdatePlanRequest {
@@ -148,12 +147,12 @@ export interface UpdatePlanRequest {
   permissions?: string[];
   description?: string;
   default_expiry_days?: number;
-  priority_level?: number;
+  grace_period_hours?: number;
+  tier_level?: number;
   price?: number;
   is_public?: boolean;
   is_active?: boolean;
   plan_metadata?: Record<string, unknown>;
-  display_order?: number;
 }
 
 export interface PermissionDefinitionDto {

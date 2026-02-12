@@ -1,9 +1,9 @@
 'use client';
 
-import type { Dispatch, SetStateAction } from 'react';
+import { useRouter } from 'next/navigation';
+import { type Dispatch, type SetStateAction, useEffect } from 'react';
 import { toast } from 'sonner';
 
-import { DisableWalletModal } from '@/components/wallet/disable-wallet-modal';
 import { ExpiryDatePicker } from '@/components/wallet/expiry-date-picker';
 import { ReenableWalletModal } from '@/components/wallet/reenable-wallet-modal';
 import type { AccessItem, UseWalletAccessReturn } from '@/hooks/use-wallet-access';
@@ -37,17 +37,18 @@ export function WalletModals({
     setPendingDrops,
     accessData
 }: WalletModalsProps) {
+    const router = useRouter();
+
+    // Redirect to disable page when modal would open
+    useEffect(() => {
+        if (showDisableModal === true && walletData.wallet?.walletAddress !== undefined && walletData.wallet.walletAddress !== '') {
+            setShowDisableModal(false);
+            router.push(`/wallet-management/wallets/${encodeURIComponent(walletData.wallet.walletAddress)}/disable`);
+        }
+    }, [showDisableModal, walletData.wallet?.walletAddress, setShowDisableModal, router]);
+
     return (
         <>
-            {showDisableModal === true && (
-                <DisableWalletModal
-                    walletAddress={walletData.wallet?.walletAddress ?? ''}
-                    isOpen={true}
-                    onClose={() => setShowDisableModal(false)}
-                    onConfirm={walletActions.handleDisable}
-                    isLoading={walletActions.isLoading}
-                />
-            )}
             {showReenableModal === true && walletData.wallet?.disableInfo !== undefined && (
                 <ReenableWalletModal
                     walletAddress={walletData.wallet.walletAddress}

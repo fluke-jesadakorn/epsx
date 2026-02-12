@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 
-import { useApiClient } from '@/shared/hooks/use-api-client';
+import { fetchPaymentsAction } from '@/app/payments/actions';
 import type {
     PaymentResponse,
     PermissionTemplateName,
@@ -54,7 +54,6 @@ interface PaymentFilters {
  *
  */
 export function PaymentsManagement() {
-    const { base } = useApiClient({ platform: 'admin' });
     const [payments, setPayments] = useState<AdminPayment[]>([]);
     const [stats, setStats] = useState<PaymentStats | null>(null);
     const [loading, setLoading] = useState(true);
@@ -85,12 +84,12 @@ export function PaymentsManagement() {
                 ...(filters.search && { search: filters.search }),
             };
 
-            const response = await base.get<any>('/api/payments/admin/list', params);
+            const response = await fetchPaymentsAction(params);
 
             if (response.success && response.data) {
-                setPayments(response.data.payments ?? []);
-                setStats(response.data.summary ?? null);
-                setTotalPages(response.data.pagination?.total_pages ?? 1);
+                setPayments((response.data as any).payments ?? []);
+                setStats((response.data as any).summary ?? null);
+                setTotalPages((response.data as any).pagination?.total_pages ?? 1);
             } else {
                 const resp = response as any;
                 const errorMessage = typeof resp.error === 'object'
@@ -103,7 +102,7 @@ export function PaymentsManagement() {
         } finally {
             setLoading(false);
         }
-    }, [base, currentPage, itemsPerPage, filters]);
+    }, [currentPage, itemsPerPage, filters]);
 
     useEffect(() => {
         loadPayments();

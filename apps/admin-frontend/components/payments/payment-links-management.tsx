@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useCallback, useState } from 'react';
-import { useApiClient } from '@/shared/hooks/use-api-client';
 import {
     ActionCards,
     CreatePaymentLinkModal,
@@ -22,25 +21,22 @@ import {
 } from './payment-links-hooks';
 
 export function PaymentLinksManagement() {
-    const { base } = useApiClient({ platform: 'admin' });
     const [isModalOpen, setIsModalOpen] = useState(false);
 
     const { filterType, setFilterType, filterActive, setFilterActive, resetFilters } = usePaymentLinkFilters();
     const { paymentLinks, setPaymentLinks, loading, error, loadPaymentLinks } = usePaymentLinks({
         filterType,
         filterActive,
-        base,
     });
 
     const { form, setForm, formLoading, formError, handleCreateLink, resetForm } = usePaymentLinkForm({
-        base,
         onSuccess: () => {
             setIsModalOpen(false);
             void loadPaymentLinks();
         },
     });
 
-    const { copiedSlug, handleCopyUrl, handleDeleteLink } = usePaymentLinkActions({ base });
+    const { copiedSlug, handleCopyUrl, handleDeleteLink } = usePaymentLinkActions();
     const { isExpired, formatDate } = usePaymentLinkFormatting();
 
     const handleFormChange = useCallback(<K extends keyof CreatePaymentLinkForm>(key: K, value: CreatePaymentLinkForm[K]) => {

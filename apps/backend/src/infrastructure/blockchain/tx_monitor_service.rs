@@ -402,17 +402,19 @@ impl TransactionMonitorService {
             plan_name, plan_uuid, wallet_address
         );
 
-        // 2.6 Check for existing active assignment for this group (Plan Extension Logic)
+        // 2.6 Check for existing assignment (active OR inactive) for this plan
         #[derive(diesel::QueryableByName)]
         struct ExistingAssignment {
             #[diesel(sql_type = diesel::sql_types::Uuid)]
             id: Uuid,
             #[diesel(sql_type = diesel::sql_types::Timestamptz)]
             expires_at: DateTime<Utc>,
+            #[diesel(sql_type = diesel::sql_types::Bool)]
+            is_active: bool,
         }
 
         let existing_assignment: Option<ExistingAssignment> = diesel::sql_query(
-            "SELECT id, expires_at FROM wallet_plan_assignments WHERE wallet_address = $1 AND plan_id = $2 AND is_active = true"
+            "SELECT id, expires_at, is_active FROM wallet_plan_assignments WHERE LOWER(wallet_address) = LOWER($1) AND plan_id = $2 ORDER BY is_active DESC, expires_at DESC LIMIT 1"
         )
         .bind::<diesel::sql_types::Text, _>(&wallet_address)
         .bind::<diesel::sql_types::Uuid, _>(plan_uuid)
@@ -425,18 +427,34 @@ impl TransactionMonitorService {
         let payment_reference = format!("PAY-{}", Uuid::new_v4());
 
         if let Some(existing) = existing_assignment {
-            // CASE 1: EXTEND EXISTING PLAN
-            // Calculate new expiry: If current expiry is in future, add 30 days to it. If passed, add 30 days to NOW.
-            let base_time = if existing.expires_at > Utc::now() { existing.expires_at } else { Utc::now() };
-            // Default 30 days, or use duration from payload if we had it (here hardcoded 30 for payment monitor)
+            // CASE 1: REACTIVATE/EXTEND existing assignment
+            let base_time = if existing.is_active && existing.expires_at > Utc::now() { existing.expires_at } else { Utc::now() };
             let new_expiry = base_time + chrono::Duration::days(30);
 
-            info!("🔄 Extending existing plan {} for wallet {}. Old expiry: {}, New expiry: {}", 
+            info!("🔄 {} plan {} for wallet {}. Old expiry: {}, New expiry: {}",
+                if existing.is_active { "Extending" } else { "Reactivating" },
                 plan_uuid, wallet_address, existing.expires_at, new_expiry);
+
+            // Deactivate other subscription plans first
+            diesel::sql_query(
+                r#"
+                UPDATE wallet_plan_assignments
+                SET is_active = false, updated_at = NOW()
+                WHERE LOWER(wallet_address) = LOWER($1)
+                  AND is_active = true
+                  AND plan_id != $2
+                  AND plan_id IN (SELECT id FROM plans WHERE plan_type = 'subscription')
+                "#
+            )
+            .bind::<diesel::sql_types::Text, _>(&wallet_address)
+            .bind::<diesel::sql_types::Uuid, _>(plan_uuid)
+            .execute(&mut primary_conn)
+            .await
+            .ok();
 
             diesel::sql_query(
                 r#"
-                UPDATE wallet_plan_assignments 
+                UPDATE wallet_plan_assignments
                 SET expires_at = $1, payment_reference = $2, updated_at = NOW(), is_active = true
                 WHERE id = $3
                 "#
@@ -452,17 +470,12 @@ impl TransactionMonitorService {
             })?;
 
         } else {
-            // CASE 2: NEW ASSIGNMENT (Upgrade/Switch/New)
-            
-            // Deactivate OTHER existing subscription plans
-            // NOTE: In Phase 3 (Downgrade), we will modify this to allow strictly higher tiers to remain active.
-            // For now, we keep strictly keeping only one active plan to match current behavior, 
-            // BUT we exclude the plan we are about to add (though it's not in DB yet, so safe).
+            // CASE 2: NEW ASSIGNMENT (no prior record for this wallet+plan)
             diesel::sql_query(
                 r#"
-                UPDATE wallet_plan_assignments 
+                UPDATE wallet_plan_assignments
                 SET is_active = false, updated_at = NOW()
-                WHERE wallet_address = $1 
+                WHERE LOWER(wallet_address) = LOWER($1)
                   AND is_active = true
                   AND plan_id IN (SELECT id FROM plans WHERE plan_type = 'subscription')
                 "#
@@ -472,7 +485,6 @@ impl TransactionMonitorService {
             .await
             .ok();
 
-            // Insert new assignment
             diesel::sql_query(
                 r#"
                 INSERT INTO wallet_plan_assignments (
@@ -485,16 +497,16 @@ impl TransactionMonitorService {
             )
             .bind::<diesel::sql_types::Text, _>(&wallet_address)
             .bind::<diesel::sql_types::Uuid, _>(plan_uuid)
-            .bind::<diesel::sql_types::Timestamptz, _>(expires_at) // This expires_at was calculated as NOW + 30 days at start of function
+            .bind::<diesel::sql_types::Timestamptz, _>(expires_at)
             .bind::<diesel::sql_types::Text, _>(&payment_reference)
             .execute(&mut primary_conn)
             .await
             .map_err(|e| {
                 error!(
-                    "❌ Failed to assign group {} to wallet {}: {}",
+                    "❌ Failed to assign plan {} to wallet {}: {}",
                     plan_uuid, wallet_address, e
                 );
-                format!("Failed to assign group: {}", e)
+                format!("Failed to assign plan: {}", e)
             })?;
         }
 

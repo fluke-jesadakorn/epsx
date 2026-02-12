@@ -1,4 +1,4 @@
- 
+
 'use client';
 
 import {
@@ -105,7 +105,7 @@ function NavigationContent() {
 
   // Debug authentication state
   useEffect(() => {
-    if (!isHydrated) {return;}
+    if (!isHydrated) { return; }
 
     devLog('Notification Bell Display Check:', {
       isConnected,
@@ -128,16 +128,16 @@ function NavigationContent() {
 
   // Get current chain name
   const getCurrentChainName = () => {
-    if (!isHydrated) {return 'Chain';}
-    if (chainId === bsc.id) {return 'BSC Mainnet';}
-    if (chainId === bscTestnet.id) {return 'BSC Testnet';}
-    if (chainId === 31337) {return 'Anvil Local';}
+    if (!isHydrated) { return 'Chain'; }
+    if (chainId === bsc.id) { return 'BSC Mainnet'; }
+    if (chainId === bscTestnet.id) { return 'BSC Testnet'; }
+    if (chainId === 31337) { return 'Anvil Local'; }
     return 'Unknown Chain';
   };
 
   // Handle chain switching
   const handleChainSwitch = async (targetChainId: number) => {
-    if (!isConnected || isSwitching || targetChainId === chainId) {return;}
+    if (!isConnected || isSwitching || targetChainId === chainId) { return; }
 
     try {
       devLog(`Switching to chain ${targetChainId}...`);
@@ -181,6 +181,11 @@ function NavigationContent() {
         </div>
       </header>
     );
+  }
+
+  // Hide navigation on auth page for immersive experience
+  if (pathname === '/auth') {
+    return null;
   }
 
   return (

@@ -23,18 +23,18 @@ export async function AccessOverview() {
     let error: string | null = null;
 
     try {
-        // NOTE: Endpoint is /api/wallet/access-overview in backend (unified_user_handlers.rs)
-        // usersApi uses unified client which might suffix, but let's be explicit or add method alias
-        // Backend struct AccessOverviewData has 'plans', frontend interface has 'groups'.
-        // We need to map response.
         const response = await usersApi.getAccessOverview();
 
         if (response.success && response.data) {
             const responseData = response.data as any;
+            const groups = (responseData.groups ?? responseData.plans ?? []) as AccessOverviewData['groups'];
+            // Sort by tier_level descending (best plan first)
+            groups.sort((a: { tier_level?: number }, b: { tier_level?: number }) =>
+                (b.tier_level ?? 0) - (a.tier_level ?? 0)
+            );
             data = {
                 current_tier: responseData.current_tier,
-                // Map backend 'plans' to frontend 'groups'
-                groups: responseData.groups ?? responseData.plans ?? [],
+                groups,
                 direct_permissions: responseData.direct_permissions ?? []
             };
         } else {

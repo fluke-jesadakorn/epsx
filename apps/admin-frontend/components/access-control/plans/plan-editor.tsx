@@ -230,6 +230,52 @@ export function PlanEditor({
                             placeholder="-1 for permanent"
                         />
                     </div>
+                    <div className="space-y-2">
+                        <Label className="flex items-center gap-2">
+                            Grace Period (Hours)
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <div className="h-3.5 w-3.5 rounded-full bg-[#1fc7d4]/20 flex items-center justify-center cursor-help">
+                                        <span className="text-[10px] font-bold text-[#1fc7d4]">
+                                            ?
+                                        </span>
+                                    </div>
+                                </TooltipTrigger>
+                                <TooltipContent
+                                    side="right"
+                                    className="bg-slate-900 border-white/10 text-white max-w-[200px]"
+                                >
+                                    <p className="text-xs">
+                                        Hours after expiry where access is
+                                        maintained. 0 = no grace period. Max 168
+                                        (1 week).
+                                    </p>
+                                </TooltipContent>
+                            </Tooltip>
+                        </Label>
+                        <Input
+                            type="text"
+                            inputMode="numeric"
+                            value={form.gracePeriodHours}
+                            onChange={(e) => {
+                                const val = e.target.value;
+                                if (val === '' || val === '0') {
+                                    setForm((p) => ({
+                                        ...p,
+                                        gracePeriodHours: val === '' ? (0 as number) : 0,
+                                    }));
+                                } else {
+                                    const parsed = parseInt(val);
+                                    if (!isNaN(parsed) && parsed >= 0 && parsed <= 168) {
+                                        setForm((p) => ({ ...p, gracePeriodHours: parsed }));
+                                    }
+                                }
+                                setHasChanges(true);
+                            }}
+                            className="bg-white/5 border-white/10"
+                            placeholder="0"
+                        />
+                    </div>
                     <div className="col-span-2 space-y-2">
                         <Label>Description</Label>
                         <Textarea

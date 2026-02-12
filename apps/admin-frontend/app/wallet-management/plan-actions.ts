@@ -47,7 +47,7 @@ function mapAssignmentToMembership(assignment: AssignmentDto): UserPlanMembershi
             created_at: assignment.assigned_at,
             updated_at: assignment.assigned_at,
             default_expiry_days: assignment.default_expiry_days,
-            priority_level: assignment.priority_level,
+            tier_level: assignment.priority_level ?? 0,
         } as PermissionPlan
     };
 }
@@ -143,11 +143,9 @@ export async function removeUserFromPlanAction(userId: string, planId: string) {
 export async function updatePlanAction(planId: string, data: UpdatePlanRequest): Promise<PermissionPlan> {
     const apiClient = createAdminApiClient({ serverSide: true });
 
-    // Map frontend priority_level to backend display_order
-    // Also allow direct display_order passing (for drag and drop)
+    // Pass tier_level directly to backend
     const payload = {
         ...data,
-        display_order: data.display_order ?? data.priority_level
     };
 
     const res = await apiClient.put<PermissionPlan>(`${API_ROUTES.PERMISSIONS.PLANS}/${planId}`, payload);
@@ -174,7 +172,7 @@ export async function createPlanAction(data: CreatePlanRequest): Promise<Permiss
         description: data.description ?? '',
         plan_type: 'subscription',
         permissions: data.permissions,
-        display_order: data.priority_level,
+        tier_level: data.tier_level,
         price: data.price,
     };
 

@@ -548,6 +548,7 @@ impl UnifiedRouteBuilder {
 
         // Subscription management routes (authenticated users)
         let subscription_routes = Router::new()
+            .route("/plans/my-plan-access", get(get_user_plans_handler)) // Add this for frontend compatibility
             .route("/plans", get(get_user_plans_handler)) // Changed from /subscriptions
             .route("/plans/expiry", get(get_plan_expiry_status_handler)) // Changed from /subscriptions/{id}
             .route("/plans/cancel/{id}", post(cancel_plan_handler)) // Changed from /subscriptions/{id}/cancel

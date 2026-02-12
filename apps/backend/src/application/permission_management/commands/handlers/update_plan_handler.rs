@@ -64,6 +64,7 @@ impl CommandHandler<UpdatePermissionPlanCommand> for UpdatePermissionPlanCommand
             auto_assign_enabled: command.auto_assign_enabled,
             metadata: command.metadata,
             is_public: None, // No visibility change via this handler
+            grace_period_hours: None,
         }).map_err(ApplicationError::from)?;
 
         // 5. Save plan

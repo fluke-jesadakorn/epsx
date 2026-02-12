@@ -10,6 +10,7 @@ export interface PlanEditFormState {
     priority: number;
     price: number;
     expiryDays: number;
+    gracePeriodHours: number;
     permissions: string[];
     is_public: boolean;
     is_active: boolean;
