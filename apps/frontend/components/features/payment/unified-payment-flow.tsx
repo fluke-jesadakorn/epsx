@@ -41,8 +41,10 @@ import { logger } from '@/shared/utils/logger';
 
 import { ChainVerificationCard } from './chain-verification-card';
 import { CurrentAccessCard } from './current-access-card';
+import { PlanComparisonCard } from './plan-comparison-card';
 import { useAddTokenToWallet } from './hooks/use-add-token-to-wallet';
 import { useDirectTokenTransfer } from './hooks/use-direct-token-transfer';
+import type { UpgradePreviewData } from './upgrade-banner';
 
 // Shared Components
 import type { PricingCardData } from '@/shared/components/plans/pricing-card';
@@ -121,6 +123,7 @@ export function UnifiedPaymentFlow({
     const [loading, setLoading] = useState(initialPlans.length === 0);
     const [error, setError] = useState<string | null>(null);
     const [txHash, setTxHash] = useState<string | null>(null);
+    const [upgradePreview, setUpgradePreview] = useState<UpgradePreviewData | null>(null);
 
     // Internal fetch state to trigger re-fetch on retry (reserved for future use)
 
@@ -324,6 +327,41 @@ export function UnifiedPaymentFlow({
 
         return () => clearTimeout(timeout);
     }, [loading]);
+
+    // Fetch upgrade preview when confirm step is reached
+    useEffect(() => {
+        if (step !== 'confirm' || !selectedPlan || !address) {
+            return;
+        }
+
+        const fetchUpgradePreview = async () => {
+            try {
+                const baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:8080';
+                const url = `${baseUrl}/api/payments/subscriptions/upgrade-preview?new_plan_id=${selectedPlan.id}`;
+
+                const response = await fetch(url, {
+                    method: 'GET',
+                    headers: {
+                        Accept: 'application/json',
+                        'Content-Type': 'application/json',
+                    },
+                    credentials: 'include',
+                });
+
+                if (response.ok) {
+                    const result: { success?: boolean; data?: UpgradePreviewData } = await response.json();
+                    if ((result.success ?? false) && result.data) {
+                        setUpgradePreview(result.data);
+                    }
+                }
+            } catch (_err) {
+                // Silently fail - comparison card will gracefully handle no preview
+                logger.error('Failed to fetch upgrade preview', _err);
+            }
+        };
+
+        void fetchUpgradePreview();
+    }, [step, selectedPlan, address]);
 
     // Handle plan selection
     const handlePlanSelect = (plan: PricingCardData) => {
@@ -581,7 +619,7 @@ export function UnifiedPaymentFlow({
     // Confirmation step
     if (step === 'confirm' && selectedPlan) {
         return (
-            <div className={cn('max-w-2xl mx-auto', className)}>
+            <div className={cn('max-w-4xl mx-auto', className)}>
                 {/* Back button */}
                 <button
                     onClick={() => setStep('select')}
@@ -590,6 +628,42 @@ export function UnifiedPaymentFlow({
                     <ArrowLeft className="w-4 h-4" />
                     Back to plans
                 </button>
+
+                {/* Plan Comparison Card */}
+                {planAccess && (
+                    <div className="mb-8">
+                        <PlanComparisonCard
+                            currentPlan={
+                                planAccess.status !== 'no_plan'
+                                    ? {
+                                          name: planAccess.plan_name ?? 'Unknown Plan',
+                                          tier_level: planAccess.tier_level ?? 0,
+                                          expires_at: planAccess.plan_expires_at,
+                                          days_remaining: planAccess.days_remaining,
+                                          status: planAccess.status,
+                                      }
+                                    : null
+                            }
+                            newPlan={{
+                                id: selectedPlan.id.toString(),
+                                name: selectedPlan.title,
+                                tier_level: selectedPlan.tier_level ?? 0,
+                                price: parseFloat(selectedPlan.price.replace(/[^0-9.]/g, '')),
+                                duration_days: 30,
+                                features: selectedPlan.features.map((f) => f.text),
+                            }}
+                            upgradePreview={
+                                upgradePreview
+                                    ? {
+                                          credit_amount: parseFloat(upgradePreview.upgrade_details.remaining_credit),
+                                          bonus_days: upgradePreview.upgrade_details.bonus_days,
+                                          new_expiry_date: upgradePreview.upgrade_details.new_expiry_date,
+                                      }
+                                    : null
+                            }
+                        />
+                    </div>
+                )}
 
                 <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl p-8 shadow-xl border border-blue-200/50 dark:border-blue-700/50">
                     <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
