@@ -147,7 +147,7 @@ pub async fn submit_transaction_handler(
     let payment_amount = BigDecimal::from_str(&payload.expected_amount.to_string()).unwrap_or_default();
 
     // Calculate how much credit to use (min of balance and payment amount)
-    let credit_to_use = wallet_credit_balance.min(payment_amount.clone());
+    let credit_to_use = wallet_credit_balance.clone().min(payment_amount.clone());
     let remaining_amount = &payment_amount - &credit_to_use;
 
     info!(

@@ -1,5 +1,6 @@
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
+use rust_decimal::prelude::ToPrimitive;
 use std::fmt::{self, Display};
 use serde::{Serialize, Deserialize};
 

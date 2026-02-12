@@ -11,7 +11,7 @@ use bigdecimal::BigDecimal;
 
 use crate::infrastructure::models::credit::{
     WalletCreditDb, NewWalletCreditDb, UpdateWalletCreditDb,
-    CreditTransactionDb, NewCreditTransactionDb,
+    CreditTransactionDb,
     CreditTransactionFilters, CreditStatsResponse
 };
 use crate::schemas::payments::{wallet_credits, credit_transactions};
@@ -221,8 +221,14 @@ impl CreditRepositoryAdapter {
         );
 
         // Call the database function to add transaction atomically
-        let result: Uuid = diesel::sql_query(
-            "SELECT add_credit_transaction($1, $2, $3, $4, $5, $6, $7, $8, $9)"
+        #[derive(QueryableByName)]
+        struct TransactionResult {
+            #[diesel(sql_type = diesel::sql_types::Uuid)]
+            add_credit_transaction: Uuid,
+        }
+
+        let result = diesel::sql_query(
+            "SELECT add_credit_transaction($1, $2, $3, $4, $5, $6, $7, $8, $9) as add_credit_transaction"
         )
         .bind::<diesel::sql_types::Varchar, _>(wallet_address)
         .bind::<diesel::sql_types::Numeric, _>(&amount)
@@ -233,9 +239,9 @@ impl CreditRepositoryAdapter {
         .bind::<diesel::sql_types::Nullable<diesel::sql_types::Varchar>, _>(granted_by)
         .bind::<diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>, _>(expires_at)
         .bind::<diesel::sql_types::Jsonb, _>(metadata.unwrap_or(serde_json::json!({})))
-        .get_result::<(Uuid,)>(&mut conn)
+        .get_result::<TransactionResult>(&mut conn)
         .await
-        .map(|row| row.0)
+        .map(|r| r.add_credit_transaction)
         .map_err(|e| {
             error!("Failed to add credit transaction: {}", e);
             AppError::database_error(format!("Failed to add transaction: {}", e))

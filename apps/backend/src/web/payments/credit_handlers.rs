@@ -8,7 +8,6 @@ use axum::{
     Extension,
 };
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 use chrono::{DateTime, Utc};
 use tracing::{info, error};
 use bigdecimal::{BigDecimal, ToPrimitive};
