@@ -6,17 +6,26 @@ import { createCreditsApi } from '@/shared/api/credits';
 import type { CreditStats, CreditTransaction, GrantCreditsRequest, RevokeCreditsRequest } from '@/shared/types/credits';
 import { Coins, TrendingUp, TrendingDown, Users, Plus, Minus, Search, Calendar, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useSharedAuth } from '@/shared/components/auth';
 
 interface CreditsManagementProps {
   activeTab: 'overview' | 'grant' | 'history';
 }
 
 export function CreditsManagement({ activeTab }: CreditsManagementProps) {
+  const { isAuthenticated } = useSharedAuth();
   const [stats, setStats] = useState<CreditStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const loadStats = useCallback(async () => {
+    // Don't fetch if not authenticated
+    if (!isAuthenticated) {
+      setLoading(false);
+      setError('Please sign in to view credit statistics');
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
@@ -36,7 +45,7 @@ export function CreditsManagement({ activeTab }: CreditsManagementProps) {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [isAuthenticated]);
 
   useEffect(() => {
     void loadStats();
