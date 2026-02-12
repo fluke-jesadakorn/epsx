@@ -595,7 +595,7 @@ impl UnifiedRouteBuilder {
 
         // Admin credit routes (admin permissions required)
         let admin_credit_routes = Router::new()
-            .route("/admin/credits/:wallet", get(admin_get_user_credits))
+            .route("/admin/credits/{wallet}", get(admin_get_user_credits))
             .route("/admin/credits/grant", post(admin_grant_credits))
             .route("/admin/credits/revoke", post(admin_revoke_credits))
             .route("/admin/credits/stats", get(admin_get_credit_stats))
