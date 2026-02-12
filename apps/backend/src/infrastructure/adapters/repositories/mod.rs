@@ -16,7 +16,8 @@ pub mod wallet_user_repository_adapter;
 
 pub mod permission_plan_repository_adapter;
 pub mod plan_repository_adapter; // NEW
-pub mod subscription_repository_adapter; 
+pub mod subscription_repository_adapter;
+pub mod credit_repository_adapter; // Credit wallet system
 pub mod developer_portal; // Developer portal API keys and modules
 pub mod payment_context_repository_adapter; // V2 Dynamic payment contexts
 
@@ -31,6 +32,7 @@ pub use payment_repository_adapter::PaymentRepositoryAdapter;
 pub use wallet_user_repository_adapter::WalletUserRepositoryAdapter;
 pub use plan_repository_adapter::PostgresPlanRepositoryAdapter;
 pub use subscription_repository_adapter::SubscriptionRepositoryAdapter;
+pub use credit_repository_adapter::CreditRepositoryAdapter;
 pub use payment_context_repository_adapter::{PaymentContextRepositoryAdapter, PaymentContextSearchCriteria};
 
 // Export both new and legacy names for backward compatibility

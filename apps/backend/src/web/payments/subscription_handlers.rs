@@ -313,7 +313,9 @@ pub struct UpgradePreviewData {
     pub current_plan: Option<CurrentPlanInfo>,
     pub new_plan: NewPlanInfo,
     pub credit_from_current_plan: String,  // Pro-rata credit from remaining time
-    pub amount_to_pay: String,             // new_price - credit (what user pays)
+    pub wallet_credit_balance: String,     // Available credit in wallet
+    pub total_credits_available: String,   // Total credits (proration + wallet)
+    pub amount_to_pay: String,             // new_price - total_credits (what user pays)
     pub new_duration_days: i64,
     pub new_expiry_date: DateTime<Utc>,
     pub is_upgrade_allowed: bool,          // false if attempting downgrade
@@ -479,7 +481,7 @@ pub async fn get_upgrade_preview_handler(
     // Calculate credit using upgrade_service
     use super::upgrade_service::{calculate_upgrade_credit, is_upgrade_allowed, calculate_amount_to_pay};
 
-    let credit = if let Some(ref a) = assignment {
+    let proration_credit = if let Some(ref a) = assignment {
         if let Some(expires_at) = a.expires_at {
             calculate_upgrade_credit(current_plan_price, a.assigned_at, expires_at)
         } else {
@@ -489,8 +491,29 @@ pub async fn get_upgrade_preview_handler(
         rust_decimal::Decimal::ZERO
     };
 
+    // Get credit wallet balance
+    use crate::infrastructure::adapters::repositories::CreditRepositoryAdapter;
+    use crate::infrastructure::database::get_payments_pool;
+
+    let wallet_credit_balance = match get_payments_pool().await {
+        Ok(payments_pool) => {
+            let credit_repo = CreditRepositoryAdapter::new(payments_pool);
+            match credit_repo.get_balance(&user_context.wallet_address).await {
+                Ok(Some(balance)) => {
+                    use std::str::FromStr;
+                    rust_decimal::Decimal::from_str(&balance.balance.to_string()).unwrap_or(rust_decimal::Decimal::ZERO)
+                }
+                _ => rust_decimal::Decimal::ZERO
+            }
+        }
+        Err(_) => rust_decimal::Decimal::ZERO
+    };
+
+    // Total available credits = proration credit + wallet credit
+    let total_credits = proration_credit + wallet_credit_balance;
+
     let is_upgrade = current_plan_info.is_none() || is_upgrade_allowed(current_plan_price, new_plan_price);
-    let amount_to_pay = calculate_amount_to_pay(new_plan_price, credit);
+    let amount_to_pay = calculate_amount_to_pay(new_plan_price, total_credits);
 
     // Calculate new expiry
     let new_expiry = now + chrono::Duration::days(standard_duration_days);
@@ -503,7 +526,9 @@ pub async fn get_upgrade_preview_handler(
             name: new_plan.name.clone(),
             price: new_plan_price.to_string(),
         },
-        credit_from_current_plan: credit.to_string(),
+        credit_from_current_plan: proration_credit.to_string(),
+        wallet_credit_balance: wallet_credit_balance.to_string(),
+        total_credits_available: total_credits.to_string(),
         amount_to_pay: amount_to_pay.to_string(),
         new_duration_days: standard_duration_days,
         new_expiry_date: new_expiry,
@@ -513,8 +538,15 @@ pub async fn get_upgrade_preview_handler(
     let message = if !is_upgrade {
         // Downgrade / Sidegrade logic
         format!("Plan Switch: {} (Activates after your current plan expires)", new_plan.name)
-    } else if credit > rust_decimal::Decimal::ZERO {
-        format!("Upgrade with ${} credit from your current plan. Amount to pay: ${}", credit, amount_to_pay)
+    } else if total_credits > rust_decimal::Decimal::ZERO {
+        if wallet_credit_balance > rust_decimal::Decimal::ZERO {
+            format!(
+                "Upgrade with ${} total credits (${} proration + ${} wallet credits). Amount to pay: ${}",
+                total_credits, proration_credit, wallet_credit_balance, amount_to_pay
+            )
+        } else {
+            format!("Upgrade with ${} credit from your current plan. Amount to pay: ${}", proration_credit, amount_to_pay)
+        }
     } else {
         format!("New subscription - {} days access", standard_duration_days)
     };

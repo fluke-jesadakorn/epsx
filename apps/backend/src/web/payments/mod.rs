@@ -11,6 +11,7 @@ pub mod user_payment_handlers;
 pub mod submit_tx_handler;
 pub mod get_tx_status_handler;
 pub mod upgrade_service;
+pub mod credit_handlers;
 
 // Re-export handler functions for router integration
 pub use validation_handlers::{
@@ -41,4 +42,12 @@ pub use submit_tx_handler::{
 };
 pub use get_tx_status_handler::{
     get_transaction_status_handler,
+};
+pub use credit_handlers::{
+    get_credit_balance,
+    get_credit_history,
+    admin_get_user_credits,
+    admin_grant_credits,
+    admin_revoke_credits,
+    admin_get_credit_stats,
 };

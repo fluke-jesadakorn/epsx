@@ -1,5 +1,5 @@
 /// Payment Value Objects Module
-/// 
+///
 /// This module contains all value objects for the Payment bounded context.
 /// Value objects represent concepts with identity defined by their attributes
 /// rather than a unique identifier.
@@ -11,6 +11,7 @@ pub mod crypto_network;
 pub mod payment_method_id;
 pub mod transaction_hash;
 pub mod payment_method;
+pub mod credit;
 
 // Public exports from payment_id
 pub use payment_id::{PaymentId, PaymentReference};
@@ -45,4 +46,9 @@ pub use transaction_hash::{
 pub use payment_method::{
     PaymentMethod, PaymentMethodError, PaymentMethodType, PaymentMethodConfig,
     PaymentInstructions
+};
+
+// Public exports from credit
+pub use credit::{
+    CreditAmount, CreditTransactionType, CreditError
 };

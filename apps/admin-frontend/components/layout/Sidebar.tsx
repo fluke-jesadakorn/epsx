@@ -9,6 +9,7 @@ import {
   BarChart3,
   Bell,
   Code,
+  Coins,
   CreditCard,
   FileText,
   Home,
@@ -56,6 +57,13 @@ const navigationItems: NavItem[] = [
     label: 'Payments',
     href: '/payments',
     icon: CreditCard,
+    requiresAuth: true,
+  },
+  {
+    id: 'credits',
+    label: 'Credits',
+    href: '/credits',
+    icon: Coins,
     requiresAuth: true,
   },
   {

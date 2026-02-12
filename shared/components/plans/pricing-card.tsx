@@ -29,6 +29,8 @@ interface PricingCardProps {
     isSelected?: boolean
     actionType?: 'extend' | 'upgrade' | 'downgrade' | 'locked' | 'select'
     className?: string
+    // Credit balance
+    creditBalance?: number
 }
 
 export function PricingCard({
@@ -39,8 +41,17 @@ export function PricingCard({
     isDisabled = false,
     isSelected = false,
     actionType = 'select',
-    className
+    className,
+    creditBalance
 }: PricingCardProps) {
+    // Calculate credit application
+    const planPrice = card.price === 'Free'
+        ? 0
+        : parseFloat(card.price.replace(/[^0-9.]/g, ''))
+
+    const hasCredits = (creditBalance ?? 0) > 0
+    const creditsCover = hasCredits && creditBalance !== undefined ? Math.min(creditBalance, planPrice) : 0
+    const amountDue = Math.max(0, planPrice - creditsCover)
 
     // Styling based on state
     const getCardStyle = () => {
@@ -111,6 +122,36 @@ export function PricingCard({
                         <div className="flex items-center gap-2 text-sm text-green-400">
                             <Sparkles className="h-4 w-4" />
                             <span className="font-semibold">Affiliate: {affiliateInfo.commission_rate}% applied</span>
+                        </div>
+                    </div>
+                )}
+
+                {/* Credit Balance Info */}
+                {hasCredits && planPrice > 0 && (
+                    <div className="mb-6 p-4 bg-emerald-900/20 dark:bg-emerald-900/30 rounded-xl border border-emerald-800 dark:border-emerald-700">
+                        <div className="flex items-center gap-2 mb-3">
+                            <Sparkles className="h-4 w-4 text-emerald-400" />
+                            <span className="text-sm font-semibold text-emerald-400">Credits Applied</span>
+                        </div>
+                        <div className="space-y-1.5 text-sm">
+                            <div className="flex justify-between text-gray-300">
+                                <span>Plan Price:</span>
+                                <span className="font-mono">${planPrice.toFixed(2)}</span>
+                            </div>
+                            <div className="flex justify-between text-emerald-400">
+                                <span>Credit Applied:</span>
+                                <span className="font-mono">-${creditsCover.toFixed(2)}</span>
+                            </div>
+                            <div className="h-px bg-emerald-800 dark:bg-emerald-700 my-2" />
+                            <div className="flex justify-between font-bold text-white">
+                                <span>Amount Due:</span>
+                                <span className="font-mono text-lg">${amountDue.toFixed(2)}</span>
+                            </div>
+                            {amountDue === 0 && (
+                                <div className="text-center mt-2 text-xs text-emerald-400 font-semibold">
+                                    ✨ Fully covered by credits!
+                                </div>
+                            )}
                         </div>
                     </div>
                 )}

@@ -109,3 +109,8 @@ export {
   type ChatResponse, type Message
 } from './chat';
 
+export {
+  CreditsApi,
+  createCreditsApi
+} from './credits';
+

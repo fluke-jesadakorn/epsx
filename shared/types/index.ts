@@ -24,6 +24,7 @@ export * from './progressive-auth';
 export * from './analytics';
 export * from './notifications';
 export * from './wallet';
+export * from './credits';
 
 // Existing shared types
 // export * from './auth';
@@ -114,4 +115,16 @@ export type {
   AuthConfig, AuthenticatedUserProfile, BaseJWTPayload, LegacyJWTPayload,
   MigrationResult, PermissionValidation, SessionValidationResult, TokenValidationOptions
 } from './auth-separation';
+
+export type {
+  CreditBalance,
+  CreditTransaction,
+  CreditTransactionType,
+  CreditTransactionFilters,
+  CreditStats,
+  GrantCreditsRequest,
+  RevokeCreditsRequest,
+  CreditHistoryResponse,
+  UpgradePreviewWithCredits
+} from './credits';
 

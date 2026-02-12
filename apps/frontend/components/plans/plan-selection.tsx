@@ -1,4 +1,4 @@
- 
+
 'use client'
 
 import { getPublicPlansAction } from '@/app/actions/plans'
@@ -6,6 +6,8 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { usePlanAccess } from '@/hooks/use-plan-access'
 import { PricingCard } from '@/shared/components/plans/pricing-card'
 import type { Plan, PricingCardData } from '@/shared/types/plans'
+import { createFrontendApiClient } from '@/shared/utils/api-client'
+import { createCreditsApi } from '@/shared/api/credits'
 import { AlertCircle, Star } from 'lucide-react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
@@ -25,6 +27,7 @@ export function PlanSelection({ currentUser: _currentUser, className }: PlanSele
   const [error, setError] = useState<string | null>(null)
   const [affiliateCode, setAffiliateCode] = useState<string | null>(null)
   const [affiliateInfo, _setAffiliateInfo] = useState<Record<string, unknown> | null>(null)
+  const [creditBalance, setCreditBalance] = useState<number>(0)
 
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -75,6 +78,26 @@ export function PlanSelection({ currentUser: _currentUser, className }: PlanSele
       }
     }
   }, [searchParams])
+
+  // Fetch credit balance
+  useEffect(() => {
+    const fetchCreditBalance = async () => {
+      try {
+        const apiClient = createFrontendApiClient()
+        const creditsApi = createCreditsApi(apiClient)
+        const res = await creditsApi.getBalance()
+
+        if (res.success && res.data) {
+          setCreditBalance(res.data.available_balance)
+        }
+      } catch (_err) {
+        // Silent failure - no credits available
+        setCreditBalance(0)
+      }
+    }
+
+    void fetchCreditBalance()
+  }, [])
 
   // Fetch plans from backend
   useEffect(() => {
@@ -188,6 +211,7 @@ export function PlanSelection({ currentUser: _currentUser, className }: PlanSele
                 affiliateCode={affiliateCode}
                 actionType={actionType}
                 isSelected={isSelected}
+                creditBalance={creditBalance}
               />
             )
           })

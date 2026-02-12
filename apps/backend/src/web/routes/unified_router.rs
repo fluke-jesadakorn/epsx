@@ -527,6 +527,13 @@ impl UnifiedRouteBuilder {
             admin_process_refund_handler,
             admin_list_subscriptions_handler,
             admin_get_payment_analytics_handler,
+            // Credit handlers
+            get_credit_balance,
+            get_credit_history,
+            admin_get_user_credits,
+            admin_grant_credits,
+            admin_revoke_credits,
+            admin_get_credit_stats,
         };
 
         let app_state = self.create_app_state();
@@ -576,10 +583,37 @@ impl UnifiedRouteBuilder {
                 crate::web::middleware::bearer_middleware
             ));
 
+        // Credit wallet routes (authenticated users)
+        let credit_routes = Router::new()
+            .route("/credits/balance", get(get_credit_balance))
+            .route("/credits/history", get(get_credit_history))
+            .with_state(app_state.clone())
+            .layer(axum_middleware::from_fn_with_state(
+                app_state.clone(),
+                crate::web::middleware::bearer_middleware
+            ));
+
+        // Admin credit routes (admin permissions required)
+        let admin_credit_routes = Router::new()
+            .route("/admin/credits/:wallet", get(admin_get_user_credits))
+            .route("/admin/credits/grant", post(admin_grant_credits))
+            .route("/admin/credits/revoke", post(admin_revoke_credits))
+            .route("/admin/credits/stats", get(admin_get_credit_stats))
+            .with_state(app_state.clone())
+            .layer(axum_middleware::from_fn(
+                crate::web::middleware::permission_validation_middleware
+            ))
+            .layer(axum_middleware::from_fn_with_state(
+                app_state.clone(),
+                crate::web::middleware::bearer_middleware
+            ));
+
         // Combine all payment routes
         core_routes
             .merge(subscription_routes)
             .merge(admin_routes)
+            .merge(credit_routes)
+            .merge(admin_credit_routes)
     }
 
     // ============================================================================

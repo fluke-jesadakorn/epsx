@@ -10,6 +10,7 @@ pub mod wallet_user;
 pub mod plan;
 pub mod permission;
 pub mod payment;
+pub mod credit;
 pub mod notification;
 pub mod audit;
 
@@ -46,6 +47,14 @@ pub use payment::{
     CreatePaymentRequest, UpdatePaymentRequest,
     CreateSubscriptionRequest, UpdateSubscriptionRequest,
     PaymentStatsDb, PaymentSummaryDb
+};
+
+pub use credit::{
+    WalletCreditDb, NewWalletCreditDb, UpdateWalletCreditDb,
+    CreditTransactionDb, NewCreditTransactionDb,
+    GrantCreditsRequest, RevokeCreditsRequest,
+    CreditBalanceResponse, CreditTransactionResponse,
+    CreditStatsResponse, CreditTransactionFilters
 };
 
 

@@ -641,6 +641,8 @@ export function UnifiedPaymentFlow({
                                           expires_at: planAccess.plan_expires_at,
                                           days_remaining: planAccess.days_remaining,
                                           status: planAccess.status,
+                                          features: plans.find(p => p.tier_level === (planAccess.tier_level ?? 0))?.features.map(f => f.text),
+                                          price: plans.find(p => p.tier_level === (planAccess.tier_level ?? 0))?.price ? parseFloat(plans.find(p => p.tier_level === (planAccess.tier_level ?? 0))!.price.replace(/[^0-9.]/g, '')) : undefined,
                                       }
                                     : null
                             }

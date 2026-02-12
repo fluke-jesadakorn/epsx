@@ -23,6 +23,7 @@ import { useEffect, useState } from 'react';
 import { useAccount } from 'wagmi';
 import type { PaymentHistoryData} from './payment-history-tab';
 import { PaymentHistoryTab } from './payment-history-tab';
+import { CreditBalanceWidget } from './credit-balance-widget';
 
 interface NotificationPreferences {
   analytics: boolean;
@@ -166,17 +167,8 @@ export function AccountClient({ initialPaymentHistory, accessOverviewSlot }: Acc
             </div>
           </div>
 
-          {/* Renewal Status Card */}
-          <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-5 sm:p-6 shadow-xl border-2 border-orange-300/50 dark:border-orange-700/50 hover:shadow-2xl transition-all duration-300 group">
-            <div className="flex items-center justify-between mb-4 text-2xl sm:text-3xl">
-              <span className="group-hover:scale-110 transition-transform">⏰</span>
-              <Badge variant="outline" className="text-xs font-semibold bg-orange-50/50 dark:bg-orange-900/20 text-orange-600 border-orange-200">Status</Badge>
-            </div>
-            <div className="space-y-1">
-              <div className="text-sm font-medium text-gray-500 dark:text-gray-400">Recent Payment</div>
-              <div className="text-lg font-bold text-gray-900 dark:text-gray-100">N/A</div>
-            </div>
-          </div>
+          {/* Credit Balance Card */}
+          <CreditBalanceWidget />
 
           {/* Security Card */}
           <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-5 sm:p-6 shadow-xl border-2 border-purple-300/50 dark:border-purple-700/50 hover:shadow-2xl transition-all duration-300 group">
