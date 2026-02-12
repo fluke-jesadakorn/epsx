@@ -10,10 +10,9 @@ export interface Plan {
     is_active?: boolean
     features: string[] | { text: string; included: boolean }[]
     permissions?: string[]
-    display_order?: number
     is_highlighted?: boolean
     is_promoted?: boolean
-    tier_level?: number
+    tier_level: number
 }
 
 export interface PricingCardData {
@@ -28,7 +27,8 @@ export interface PricingCardData {
     badges?: string[]
     savings?: string
     // Extended properties for payment flow logic
-    tier_level?: number
+    tier_level: number
     plan_type?: string
     description?: string
+    is_current_plan?: boolean
 }
