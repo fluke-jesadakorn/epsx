@@ -270,7 +270,7 @@ impl EPSRanking {
     fn calculate_median(values: &mut [f64]) -> f64 {
         values.sort_by(|a, b| a.partial_cmp(b).unwrap());
         let len = values.len();
-        if len.is_multiple_of(2) {
+        if len % 2 == 0 {
             (values[len / 2 - 1] + values[len / 2]) / 2.0
         } else {
             values[len / 2]

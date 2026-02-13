@@ -1,6 +1,6 @@
 'use client'
 
-import { PermissionTransferList } from '@/components/plans/Permissiontransfer-list'
+import { PermissionTransferList } from '@/components/plans/permission-transfer-list'
 
 interface PlanAdvancedPermissionsProps {
     availablePermissions: string[]

@@ -76,14 +76,13 @@ docker-compose.override.yml
 
 # Scripts
 scripts/
-Dockerfile*
-!Dockerfile
+# Dockerfiles kept for multi-stage builds
 .dockerignore
 
 # Config Files
 .eslintrc*
 .prettier*
-turbo.json
+# turbo.json - needed by Dockerfile COPY
 
 # Secrets
 *.pem
@@ -103,5 +102,11 @@ deploy.tar.gz
 deploy-prod.tar.gz
 *.tar.gz
 
-# Smart Contracts
-apps/contracts/
+# Smart Contracts (exclude source, keep deployments)
+apps/contracts/src/
+apps/contracts/lib/
+apps/contracts/out/
+apps/contracts/cache/
+apps/contracts/test/
+apps/contracts/script/
+apps/contracts/broadcast/

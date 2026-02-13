@@ -1,0 +1,227 @@
+# EPSX Platform - Local Production Deploy
+# Usage: docker compose --env-file .env.prod -f docker-compose.local.yml up -d
+# Builds images from source and runs with Cloudflare Tunnel
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: epsx-prod-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_INITDB_ARGS: "-E UTF8"
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - prod_postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-databases-prod.sh:/docker-entrypoint-initdb.d/init-databases.sh:ro
+    networks:
+      - epsx_prod
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    ports:
+      - "${DB_PORT:-5432}:5432"
+
+  redis:
+    image: redis:7-alpine
+    container_name: epsx-prod-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
+    volumes:
+      - prod_redis_data:/data
+    networks:
+      - epsx_prod
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+
+  backend:
+    image: epsx-backend:prod
+    build:
+      context: ../../
+      dockerfile: apps/backend/Dockerfile
+      platforms:
+        - ${DOCKER_PLATFORM:-linux/arm64}
+    container_name: epsx-prod-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      ENV: ${ENV}
+      NODE_ENV: ${NODE_ENV}
+      RUST_ENV: ${RUST_ENV}
+      RUST_LOG: ${RUST_LOG}
+      LOG_LEVEL: ${LOG_LEVEL}
+      BACKEND_URL: ${BACKEND_URL}
+      FRONTEND_URL: ${FRONTEND_URL}
+      ADMIN_FRONTEND_URL: ${ADMIN_FRONTEND_URL}
+      DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@postgres:5432/${DB_NAME}
+      DATABASE_MAX_CONNECTIONS: ${DATABASE_MAX_CONNECTIONS}
+      DATABASE_MIN_CONNECTIONS: ${DATABASE_MIN_CONNECTIONS}
+      DATABASE_ACQUIRE_TIMEOUT: ${DATABASE_ACQUIRE_TIMEOUT}
+      DATABASE_IDLE_TIMEOUT: ${DATABASE_IDLE_TIMEOUT}
+      ANALYTICS_DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@postgres:5432/epsx_analytics_prod
+      NOTIFICATIONS_DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@postgres:5432/epsx_notifications_prod
+      PAYMENTS_DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@postgres:5432/epsx_payments_prod
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+      WEB3_APP_SECRET: ${WEB3_APP_SECRET}
+      WALLET_SIGNATURE_SECRET: ${WALLET_SIGNATURE_SECRET}
+      WEB3_SESSION_SECRET: ${WEB3_SESSION_SECRET}
+      WEB3_SESSION_DURATION_HOURS: ${WEB3_SESSION_DURATION_HOURS}
+      WEB3_SIGNATURE_TIMEOUT_MINUTES: ${WEB3_SIGNATURE_TIMEOUT_MINUTES}
+      JWT_SECRET: ${JWT_SECRET}
+      NEXT_PUBLIC_BLOCKCHAIN_NETWORK: ${BLOCKCHAIN_NETWORK}
+      BLOCKCHAIN_NETWORK: ${BLOCKCHAIN_NETWORK}
+      COMPANY_WALLET_MAINNET: ${COMPANY_WALLET_MAINNET}
+      COMPANY_WALLET_TESTNET: ${COMPANY_WALLET_TESTNET}
+      BSC_MAINNET_RPC_URL: ${BSC_MAINNET_RPC_URL}
+      BSC_TESTNET_RPC_URL: ${BSC_TESTNET_RPC_URL}
+      BLOCKCHAIN_CONFIRMATION_TIMEOUT_SECONDS: ${BLOCKCHAIN_CONFIRMATION_TIMEOUT_SECONDS}
+      BSC_REQUIRED_CONFIRMATIONS: ${BSC_REQUIRED_CONFIRMATIONS}
+      BSC_TESTNET_REQUIRED_CONFIRMATIONS: ${BSC_TESTNET_REQUIRED_CONFIRMATIONS}
+      MAX_PAYMENT_AGE_MINUTES: ${MAX_PAYMENT_AGE_MINUTES}
+      HOST: 0.0.0.0
+      PORT: 8080
+    networks:
+      - epsx_prod
+    ports:
+      - "8081:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  frontend:
+    image: epsx-frontend:prod
+    build:
+      context: ../../
+      dockerfile: apps/frontend/Dockerfile
+      platforms:
+        - ${DOCKER_PLATFORM:-linux/arm64}
+      args:
+        NEXT_PUBLIC_BACKEND_URL: ${BACKEND_URL}
+        NEXT_PUBLIC_APP_URL: ${FRONTEND_URL}
+        NEXT_PUBLIC_ADMIN_URL: ${ADMIN_FRONTEND_URL}
+        NEXT_PUBLIC_BLOCKCHAIN_NETWORK: ${BLOCKCHAIN_NETWORK}
+        NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: ${WALLETCONNECT_PROJECT_ID}
+        NEXT_PUBLIC_CHAIN_ID: ${CHAIN_ID}
+        NEXT_PUBLIC_PAYMENT_MAINNET_ADDRESS: ${COMPANY_WALLET_MAINNET}
+        NEXT_PUBLIC_PAYMENT_TESTNET_ADDRESS: ${COMPANY_WALLET_TESTNET}
+        NEXT_PUBLIC_OAUTH_CLIENT_ID: ${OAUTH_CLIENT_ID:-epsx-frontend}
+    container_name: epsx-prod-frontend
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      NODE_ENV: ${NODE_ENV}
+      ENV: ${ENV}
+      NEXT_PUBLIC_BACKEND_URL: ${BACKEND_URL}
+      NEXT_PUBLIC_APP_URL: ${FRONTEND_URL}
+      NEXT_PUBLIC_ADMIN_URL: ${ADMIN_FRONTEND_URL}
+      NEXT_PUBLIC_BLOCKCHAIN_NETWORK: ${BLOCKCHAIN_NETWORK}
+      NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: ${WALLETCONNECT_PROJECT_ID}
+      NEXT_PUBLIC_CHAIN_ID: ${CHAIN_ID}
+      NEXT_PUBLIC_PAYMENT_MAINNET_ADDRESS: ${COMPANY_WALLET_MAINNET}
+      NEXT_PUBLIC_PAYMENT_TESTNET_ADDRESS: ${COMPANY_WALLET_TESTNET}
+      PORT: 3000
+      HOSTNAME: 0.0.0.0
+    networks:
+      - epsx_prod
+    ports:
+      - "3002:3000"
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:3000/api/health', (res) => process.exit(res.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))\""]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  admin-frontend:
+    image: epsx-admin-frontend:prod
+    build:
+      context: ../../
+      dockerfile: apps/admin-frontend/Dockerfile
+      platforms:
+        - ${DOCKER_PLATFORM:-linux/arm64}
+      args:
+        NEXT_PUBLIC_BACKEND_URL: ${BACKEND_URL}
+        NEXT_PUBLIC_APP_URL: ${ADMIN_FRONTEND_URL}
+        NEXT_PUBLIC_ADMIN_URL: ${ADMIN_FRONTEND_URL}
+        NEXT_PUBLIC_BLOCKCHAIN_NETWORK: ${BLOCKCHAIN_NETWORK}
+        NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: ${WALLETCONNECT_PROJECT_ID}
+        NEXT_PUBLIC_CHAIN_ID: ${CHAIN_ID}
+        NEXT_PUBLIC_PAYMENT_MAINNET_ADDRESS: ${COMPANY_WALLET_MAINNET}
+        NEXT_PUBLIC_PAYMENT_TESTNET_ADDRESS: ${COMPANY_WALLET_TESTNET}
+        NEXT_PUBLIC_OAUTH_CLIENT_ID: ${OAUTH_CLIENT_ID:-epsx-admin}
+    container_name: epsx-prod-admin
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      NODE_ENV: ${NODE_ENV}
+      ENV: ${ENV}
+      NEXT_PUBLIC_BACKEND_URL: ${BACKEND_URL}
+      NEXT_PUBLIC_APP_URL: ${ADMIN_FRONTEND_URL}
+      NEXT_PUBLIC_ADMIN_URL: ${ADMIN_FRONTEND_URL}
+      NEXT_PUBLIC_BLOCKCHAIN_NETWORK: ${BLOCKCHAIN_NETWORK}
+      NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: ${WALLETCONNECT_PROJECT_ID}
+      NEXT_PUBLIC_CHAIN_ID: ${CHAIN_ID}
+      NEXT_PUBLIC_PAYMENT_MAINNET_ADDRESS: ${COMPANY_WALLET_MAINNET}
+      NEXT_PUBLIC_PAYMENT_TESTNET_ADDRESS: ${COMPANY_WALLET_TESTNET}
+      PORT: 3000
+      HOSTNAME: 0.0.0.0
+    networks:
+      - epsx_prod
+    ports:
+      - "3003:3000"
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:3000/api/health', (res) => process.exit(res.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))\""]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: epsx-prod-cloudflared
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+      frontend:
+        condition: service_healthy
+      admin-frontend:
+        condition: service_healthy
+    command: tunnel --config /etc/cloudflared/config.yml run
+    volumes:
+      - ${HOME}/.cloudflared:/etc/cloudflared:ro
+    networks:
+      - epsx_prod
+
+networks:
+  epsx_prod:
+    driver: bridge
+    name: epsx_prod_network
+
+volumes:
+  prod_postgres_data:
+    name: epsx_prod_postgres_data
+  prod_redis_data:
+    name: epsx_prod_redis_data
