@@ -1,26 +1,29 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
-import { createAdminApiClient } from '@/shared/utils/api-client';
-import { createCreditsApi } from '@/shared/api/credits';
-import type { CreditStats, CreditTransaction, GrantCreditsRequest, RevokeCreditsRequest } from '@/shared/types/credits';
-import { Coins, TrendingUp, TrendingDown, Users, Plus, Minus, Search, Calendar, Clock } from 'lucide-react';
+import {
+  getCreditStatsAction,
+  getUserCreditsAction,
+  grantCreditsAction,
+  revokeCreditsAction,
+} from '@/app/wallet-management/credits/actions';
 import { cn } from '@/lib/utils';
 import { useSharedAuth } from '@/shared/components/auth';
+import type { CreditStats, CreditTransaction, GrantCreditsRequest, RevokeCreditsRequest } from '@/shared/types/credits';
+import { Calendar, Clock, Coins, Minus, Plus, Search, TrendingDown, TrendingUp, Users } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
 
 interface CreditsManagementProps {
   activeTab: 'overview' | 'grant' | 'history';
 }
 
 export function CreditsManagement({ activeTab }: CreditsManagementProps) {
-  const { isAuthenticated, user } = useSharedAuth();
+  const { isAuthenticated } = useSharedAuth();
   const [stats, setStats] = useState<CreditStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const loadStats = useCallback(async () => {
-    // Don't fetch if not authenticated
-    if (!isAuthenticated || !user?.access) {
+    if (!isAuthenticated) {
       setLoading(false);
       setError('Please sign in to view credit statistics');
       return;
@@ -29,24 +32,14 @@ export function CreditsManagement({ activeTab }: CreditsManagementProps) {
     try {
       setLoading(true);
       setError(null);
-
-      // Pass token explicitly from auth context
-      const apiClient = createAdminApiClient({ token: user.access });
-      const creditsApi = createCreditsApi(apiClient);
-      const res = await creditsApi.adminGetStats();
-
-      if (res.success && res.data) {
-        setStats(res.data);
-      } else {
-        throw new Error('Failed to load credit stats');
-      }
+      const data = await getCreditStatsAction();
+      setStats(data);
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-      setError(errorMessage);
+      setError(err instanceof Error ? err.message : 'Unknown error');
     } finally {
       setLoading(false);
     }
-  }, [isAuthenticated, user]);
+  }, [isAuthenticated]);
 
   useEffect(() => {
     void loadStats();
@@ -94,24 +87,23 @@ function OverviewTab({ stats, onRefresh }: { stats: CreditStats | null; onRefres
   return (
     <div className="relative max-w-7xl mx-auto">
       {/* Stats Cards */}
-      {/* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <StatCard
           icon={<Coins className="w-6 h-6" />}
           label="Total Credits Outstanding"
-          value={stats !== null ? `$${stats.total_credits_outstanding.toFixed(2)}` : '$0.00'}
+          value={stats !== null ? `$${Number(stats.total_credits_outstanding).toFixed(2)}` : '$0.00'}
           gradient="from-blue-500 to-cyan-500"
         />
         <StatCard
           icon={<TrendingUp className="w-6 h-6" />}
           label="Credits Granted Today"
-          value={stats !== null ? `$${stats.credits_granted_today.toFixed(2)}` : '$0.00'}
+          value={stats !== null ? `$${Number(stats.total_credits_granted_today).toFixed(2)}` : '$0.00'}
           gradient="from-green-500 to-emerald-500"
         />
         <StatCard
           icon={<TrendingDown className="w-6 h-6" />}
           label="Credits Used Today"
-          value={stats !== null ? `$${stats.credits_used_today.toFixed(2)}` : '$0.00'}
+          value={stats !== null ? `$${Number(stats.total_credits_used_today).toFixed(2)}` : '$0.00'}
           gradient="from-orange-500 to-pink-500"
         />
         <StatCard
@@ -121,7 +113,6 @@ function OverviewTab({ stats, onRefresh }: { stats: CreditStats | null; onRefres
           gradient="from-purple-500 to-indigo-500"
         />
       </div>
-      {/* eslint-enable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access */}
 
       {/* Actions */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
@@ -132,7 +123,7 @@ function OverviewTab({ stats, onRefresh }: { stats: CreditStats | null; onRefres
           <div className="relative bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-2xl sm:rounded-3xl">
             <div className="p-6 sm:p-8">
               <div className="bg-white/20 rounded-2xl w-12 h-12 flex items-center justify-center mb-4">
-                <span className="text-2xl">🔄</span>
+                <span className="text-2xl">&#x1f504;</span>
               </div>
               <h3 className="text-xl sm:text-2xl font-bold mb-3">Refresh Stats</h3>
               <p className="text-white/80 mb-4 text-sm sm:text-base">Reload credit statistics from server</p>
@@ -147,7 +138,7 @@ function OverviewTab({ stats, onRefresh }: { stats: CreditStats | null; onRefres
           <div className="relative bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-2xl sm:rounded-3xl">
             <div className="p-6 sm:p-8">
               <div className="bg-white/20 rounded-2xl w-12 h-12 flex items-center justify-center mb-4">
-                <span className="text-2xl">📊</span>
+                <span className="text-2xl">&#x1f4ca;</span>
               </div>
               <h3 className="text-xl sm:text-2xl font-bold mb-3">Export Report</h3>
               <p className="text-white/80 mb-4 text-sm sm:text-base">Download credit analytics report</p>
@@ -180,6 +171,7 @@ function StatCard({ icon, label, value, gradient }: { icon: React.ReactNode; lab
 
 // eslint-disable-next-line max-lines-per-function, complexity
 function GrantCreditsTab() {
+  const { user } = useSharedAuth();
   const [walletAddress, setWalletAddress] = useState('');
   const [amount, setAmount] = useState('');
   const [reason, setReason] = useState('');
@@ -196,45 +188,34 @@ function GrantCreditsTab() {
     setError(null);
 
     try {
-      const apiClient = createAdminApiClient();
-      const creditsApi = createCreditsApi(apiClient);
-
       if (mode === 'grant') {
         const request: GrantCreditsRequest = {
           wallet_address: walletAddress,
           amount: parseFloat(amount),
           reason: reason || undefined,
           expires_at: expiresAt || undefined,
+          granted_by: user?.wallet_address ?? 'system',
         };
 
-        const res = await creditsApi.adminGrantCredits(request);
-
-        if (res.success && res.data) {
-          setSuccess(`Successfully granted $${amount} credits. New balance: $${res.data.new_balance.toFixed(2)}`);
-          setWalletAddress('');
-          setAmount('');
-          setReason('');
-          setExpiresAt('');
-        } else {
-          throw new Error('Failed to grant credits');
-        }
+        const data = await grantCreditsAction(request);
+        setSuccess(`Successfully granted $${amount} credits. New balance: $${Number(data.new_balance).toFixed(2)}`);
+        setWalletAddress('');
+        setAmount('');
+        setReason('');
+        setExpiresAt('');
       } else {
         const request: RevokeCreditsRequest = {
           wallet_address: walletAddress,
           amount: parseFloat(amount),
           reason: reason || undefined,
+          granted_by: user?.wallet_address ?? 'system',
         };
 
-        const res = await creditsApi.adminRevokeCredits(request);
-
-        if (res.success && res.data) {
-          setSuccess(`Successfully revoked $${amount} credits. New balance: $${res.data.new_balance.toFixed(2)}`);
-          setWalletAddress('');
-          setAmount('');
-          setReason('');
-        } else {
-          throw new Error('Failed to revoke credits');
-        }
+        const data = await revokeCreditsAction(request);
+        setSuccess(`Successfully revoked $${amount} credits. New balance: $${Number(data.new_balance).toFixed(2)}`);
+        setWalletAddress('');
+        setAmount('');
+        setReason('');
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Operation failed');
@@ -382,15 +363,8 @@ function CreditHistoryTab() {
     setError(null);
 
     try {
-      const apiClient = createAdminApiClient();
-      const creditsApi = createCreditsApi(apiClient);
-      const res = await creditsApi.adminGetUserCredits(walletAddress, { limit: 50 });
-
-      if (res.success && res.data) {
-        setTransactions(res.data.transactions);
-      } else {
-        throw new Error('Failed to load credit history');
-      }
+      const data = await getUserCreditsAction(walletAddress, { limit: 50 });
+      setTransactions(data.transactions as CreditTransaction[]);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Search failed');
       setTransactions([]);
@@ -449,7 +423,8 @@ function CreditHistoryTab() {
               </thead>
               <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                 {transactions.map((tx) => {
-                  const isCredit = tx.amount > 0;
+                  const txAmount = Number(tx.amount);
+                  const isCredit = txAmount > 0;
                   return (
                     <tr key={tx.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -464,10 +439,10 @@ function CreditHistoryTab() {
                         'px-6 py-4 whitespace-nowrap font-mono font-bold',
                         isCredit ? 'text-green-600 dark:text-green-400' : 'text-orange-600 dark:text-orange-400'
                       )}>
-                        {isCredit ? '+' : ''}{tx.amount.toFixed(2)}
+                        {isCredit ? '+' : ''}{txAmount.toFixed(2)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-gray-900 dark:text-white font-mono">
-                        ${tx.balance_after.toFixed(2)}
+                        ${Number(tx.balance_after).toFixed(2)}
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400 max-w-xs truncate">
                         {tx.reason ?? '-'}

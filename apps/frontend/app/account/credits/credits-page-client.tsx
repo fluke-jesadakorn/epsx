@@ -1,11 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { Coins, TrendingUp, TrendingDown, Clock, Calendar, DollarSign, ArrowUpRight, ArrowDownRight } from 'lucide-react';
-import { createFrontendApiClient } from '@/shared/utils/api-client';
+import { cn } from '@/lib/utils';
 import { createCreditsApi } from '@/shared/api/credits';
 import type { CreditBalance, CreditTransaction, CreditTransactionType } from '@/shared/types/credits';
-import { cn } from '@/lib/utils';
+import { createFrontendApiClient } from '@/shared/utils/api-client';
+import { ArrowDownRight, ArrowUpRight, Calendar, Clock, Coins, DollarSign, TrendingDown, TrendingUp } from 'lucide-react';
+import { useEffect, useState } from 'react';
 
 const TX_TYPE_LABELS: Record<CreditTransactionType, string> = {
   grant: 'Admin Grant',
@@ -108,7 +108,7 @@ export function CreditsPageClient() {
           </div>
           <div className="space-y-1">
             <p className="text-sm opacity-90">Available Balance</p>
-            <p className="text-4xl font-bold">${balance?.available_balance.toFixed(2) ?? '0.00'}</p>
+            <p className="text-4xl font-bold">${Number(balance?.available_balance ?? 0).toFixed(2)}</p>
           </div>
         </div>
 
@@ -122,7 +122,7 @@ export function CreditsPageClient() {
           <div className="space-y-1">
             <p className="text-sm text-gray-600 dark:text-gray-400">Lifetime Earned</p>
             <p className="text-3xl font-bold text-gray-900 dark:text-white">
-              ${balance?.lifetime_earned.toFixed(2) ?? '0.00'}
+              ${Number(balance?.lifetime_earned ?? 0).toFixed(2)}
             </p>
           </div>
         </div>
@@ -137,7 +137,7 @@ export function CreditsPageClient() {
           <div className="space-y-1">
             <p className="text-sm text-gray-600 dark:text-gray-400">Lifetime Spent</p>
             <p className="text-3xl font-bold text-gray-900 dark:text-white">
-              ${balance?.lifetime_spent.toFixed(2) ?? '0.00'}
+              ${Number(balance?.lifetime_spent ?? 0).toFixed(2)}
             </p>
           </div>
         </div>
@@ -188,7 +188,8 @@ export function CreditsPageClient() {
           ) : (
             transactions.map((tx) => {
               const colors = TX_TYPE_COLORS[tx.tx_type];
-              const isCredit = tx.amount > 0;
+              const txAmount = Number(tx.amount);
+              const isCredit = txAmount > 0;
 
               return (
                 <div key={tx.id} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
@@ -236,10 +237,10 @@ export function CreditsPageClient() {
 
                     <div className="text-right ml-4">
                       <div className={cn('text-lg font-bold', isCredit ? 'text-green-600 dark:text-green-400' : 'text-orange-600 dark:text-orange-400')}>
-                        {isCredit ? '+' : ''}{tx.amount.toFixed(2)}
+                        {isCredit ? '+' : ''}{txAmount.toFixed(2)}
                       </div>
                       <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                        Balance: ${tx.balance_after.toFixed(2)}
+                        Balance: ${Number(tx.balance_after).toFixed(2)}
                       </div>
                     </div>
                   </div>

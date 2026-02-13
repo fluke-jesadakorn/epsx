@@ -73,6 +73,7 @@ export function usePlanEditForm() {
         is_public: true,
         is_active: true,
         features: [],
+        rankingOffset: 1,
     });
     const [hasChanges, setHasChanges] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
@@ -91,23 +92,31 @@ export function usePlanEditForm() {
                 is_public: true,
                 is_active: true,
                 features: [],
+                rankingOffset: 1,
             });
         } else {
             setSelectedPlan(plan);
             const features = Array.isArray(plan.plan_metadata?.features)
                 ? (plan.plan_metadata?.features as string[])
                 : [];
+            const offsetPerm = (plan.permissions ?? []).find((p) =>
+                p.startsWith('epsx:rankings:offset:')
+            );
+            const offset = offsetPerm
+                ? parseInt(offsetPerm.split(':')[3], 10) || 1
+                : plan.id === FREE_PLAN_ID ? 100 : 1;
             setForm({
                 name: plan.name,
                 description: plan.description,
-                priority: plan.priority_level ?? 0,
-                price: plan.price ?? 0,
+                priority: plan.tier_level ?? 0,
+                price: Number(plan.price) || 0,
                 expiryDays: plan.default_expiry_days ?? 30,
                 gracePeriodHours: plan.grace_period_hours ?? 0,
                 permissions: plan.permissions ?? [],
                 is_public: plan.is_public !== false,
                 is_active: plan.is_active !== false,
                 features,
+                rankingOffset: offset,
             });
         }
         setHasChanges(false);
@@ -122,19 +131,27 @@ export function usePlanEditForm() {
         }
         setIsSaving(true);
         try {
+            const permsWithoutOffset = form.permissions.filter(
+                (p) => !p.startsWith('epsx:rankings:offset:')
+            );
+            const permsWithOffset = [
+                ...permsWithoutOffset,
+                `epsx:rankings:offset:${form.rankingOffset}`,
+            ];
             const updated = await updatePlanAction(selectedPlan.id, {
                 name: form.name,
                 description: form.description,
-                priority_level: form.priority,
+                tier_level: form.priority,
                 price: selectedPlan.id === FREE_PLAN_ID ? undefined : form.price,
                 default_expiry_days: form.expiryDays,
                 grace_period_hours: form.gracePeriodHours,
-                permissions: form.permissions,
+                permissions: permsWithOffset,
                 is_public: form.is_public,
                 is_active: form.is_active,
                 plan_metadata: {
                     ...selectedPlan.plan_metadata,
                     features: form.features,
+                    ranking_offset: form.rankingOffset,
                 },
             });
             toast.success('Plan updated');
@@ -344,6 +361,7 @@ export async function submitCreatePlan(
         priority: number;
         price: number;
         default_expiry_days: number;
+        permissions?: string[];
     },
     onSuccess: () => void
 ) {
@@ -351,8 +369,8 @@ export async function submitCreatePlan(
         await createPlanAction({
             name: formData.name,
             description: formData.description,
-            permissions: [],
-            priority_level: formData.priority,
+            permissions: formData.permissions ?? [],
+            tier_level: formData.priority,
             price: formData.price,
             default_expiry_days: formData.default_expiry_days,
         });

@@ -276,6 +276,58 @@ export function PlanEditor({
                             placeholder="0"
                         />
                     </div>
+                    <div className="space-y-2">
+                        <Label className="flex items-center gap-2">
+                            Ranking Offset
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <div className="h-3.5 w-3.5 rounded-full bg-[#1fc7d4]/20 flex items-center justify-center cursor-help">
+                                        <span className="text-[10px] font-bold text-[#1fc7d4]">
+                                            ?
+                                        </span>
+                                    </div>
+                                </TooltipTrigger>
+                                <TooltipContent
+                                    side="right"
+                                    className="bg-slate-900 border-white/10 text-white max-w-[200px]"
+                                >
+                                    <p className="text-xs">
+                                        Starting rank position on analytics page. 1 = see all
+                                        rankings, 100 = skip first 99.
+                                    </p>
+                                </TooltipContent>
+                            </Tooltip>
+                        </Label>
+                        <Input
+                            type="text"
+                            inputMode="numeric"
+                            value={form.rankingOffset}
+                            onChange={(e) => {
+                                const val = e.target.value;
+                                const syncPerms = (p: PlanEditFormState, offset: number) => ({
+                                    ...p,
+                                    rankingOffset: offset,
+                                    permissions: [
+                                        ...p.permissions.filter(
+                                            (s) => !s.startsWith('epsx:rankings:offset:')
+                                        ),
+                                        `epsx:rankings:offset:${offset}`,
+                                    ],
+                                });
+                                if (val === '' || val === '0') {
+                                    setForm((p) => syncPerms(p, val === '' ? 1 : 0));
+                                } else {
+                                    const parsed = parseInt(val);
+                                    if (!isNaN(parsed) && parsed >= 1) {
+                                        setForm((p) => syncPerms(p, parsed));
+                                    }
+                                }
+                                setHasChanges(true);
+                            }}
+                            className="bg-white/5 border-white/10"
+                            placeholder="1"
+                        />
+                    </div>
                     <div className="col-span-2 space-y-2">
                         <Label>Description</Label>
                         <Textarea

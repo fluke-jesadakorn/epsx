@@ -1,6 +1,6 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { GripVertical } from 'lucide-react';
+import { Copy, GripVertical } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
@@ -12,6 +12,7 @@ export interface PlanItemProps {
     index: number;
     selectedPlanId?: string;
     onSelect?: (plan: PermissionPlan) => void;
+    onDuplicate?: (plan: PermissionPlan) => void;
     isFreePlan: boolean;
     onQuickToggle?: (e: React.MouseEvent, plan: PermissionPlan) => void;
     isDragging?: boolean;
@@ -28,6 +29,7 @@ export function PlanItem({
     index,
     selectedPlanId,
     onSelect,
+    onDuplicate,
     isFreePlan,
     onQuickToggle,
     isDragging,
@@ -78,9 +80,22 @@ export function PlanItem({
                             </p>
                         </div>
                     </div>
-                    <Badge variant="secondary" className="text-[10px] h-5 bg-white/5">
-                        {plan.permissions?.length ?? 0}
-                    </Badge>
+                    <div className="flex items-center gap-1.5">
+                        <button
+                            type="button"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onDuplicate?.(plan);
+                            }}
+                            className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-white/10 text-muted-foreground hover:text-[#1fc7d4]"
+                            title="Duplicate plan"
+                        >
+                            <Copy className="h-3.5 w-3.5" />
+                        </button>
+                        <Badge variant="secondary" className="text-[10px] h-5 bg-white/5">
+                            {plan.permissions?.length ?? 0}
+                        </Badge>
+                    </div>
                 </div>
                 <div className="flex items-center justify-between mt-3 pt-3 border-t border-white/5">
                     <span
@@ -109,6 +124,7 @@ export interface SortablePlanItemProps {
     index: number;
     selectedPlanId?: string;
     onSelect: (plan: PermissionPlan) => void;
+    onDuplicate?: (plan: PermissionPlan) => void;
     isFreePlan: boolean;
     onQuickToggle: (e: React.MouseEvent, plan: PermissionPlan) => void;
     disabled?: boolean;
@@ -119,6 +135,7 @@ export function SortablePlanItem({
     index,
     selectedPlanId,
     onSelect,
+    onDuplicate,
     isFreePlan,
     onQuickToggle,
     disabled,
@@ -145,6 +162,7 @@ export function SortablePlanItem({
             index={index}
             selectedPlanId={selectedPlanId}
             onSelect={onSelect}
+            onDuplicate={onDuplicate}
             isFreePlan={isFreePlan}
             onQuickToggle={onQuickToggle}
             isDragging={isDragging}

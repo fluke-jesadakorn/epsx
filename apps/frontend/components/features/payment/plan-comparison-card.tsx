@@ -1,9 +1,9 @@
 'use client';
 
-import { ArrowRight, Calendar, CheckCircle2, Clock, TrendingUp, Zap, XCircle, Plus, Equal, DollarSign, TrendingDown } from 'lucide-react';
-import { useMemo } from 'react';
 import { TierBadge } from '@/shared/components/plans/tier-badge';
 import { cn } from '@/shared/utils/cn';
+import { ArrowRight, Calendar, CheckCircle2, Clock, Equal, Plus, TrendingUp, XCircle, Zap } from 'lucide-react';
+import { useMemo } from 'react';
 
 interface PlanComparisonCardProps {
   currentPlan: {
@@ -317,17 +317,17 @@ export function PlanComparisonCard({ currentPlan, newPlan, upgradePreview }: Pla
                 <div className="space-y-2">
                   <div className="flex items-baseline justify-between text-sm">
                     <span className="text-gray-600 dark:text-gray-400">Plan Price</span>
-                    <span className="font-medium text-gray-900 dark:text-white">${newPlan.price.toFixed(2)}</span>
+                    <span className="font-medium text-gray-900 dark:text-white">${Number(newPlan.price).toFixed(2)}</span>
                   </div>
                   <div className="flex items-baseline justify-between text-sm">
                     <span className="text-emerald-600 dark:text-emerald-400">Credit Applied</span>
-                    <span className="font-medium text-emerald-600 dark:text-emerald-400">-${upgradePreview.credit_amount.toFixed(2)}</span>
+                    <span className="font-medium text-emerald-600 dark:text-emerald-400">-${Number(upgradePreview.credit_amount).toFixed(2)}</span>
                   </div>
                   <div className="border-t border-gray-200 dark:border-gray-700 pt-2 flex items-baseline justify-between">
                     <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Amount Due</span>
                     <div className="flex items-baseline gap-1">
                       <span className="text-2xl font-bold text-gray-900 dark:text-white">
-                        ${(upgradePreview.payment_required ?? (newPlan.price - upgradePreview.credit_amount)).toFixed(2)}
+                        ${Number(upgradePreview.payment_required ?? (newPlan.price - (upgradePreview.credit_amount ?? 0))).toFixed(2)}
                       </span>
                       <span className="text-sm text-gray-500 dark:text-gray-400">USDT</span>
                     </div>
@@ -337,16 +337,16 @@ export function PlanComparisonCard({ currentPlan, newPlan, upgradePreview }: Pla
                 <div className="space-y-2">
                   <div className="flex items-baseline justify-between text-sm">
                     <span className="text-gray-600 dark:text-gray-400">Current Plan</span>
-                    <span className="font-medium text-gray-900 dark:text-white">${currentPlan.price.toFixed(2)}/mo</span>
+                    <span className="font-medium text-gray-900 dark:text-white">${Number(currentPlan.price).toFixed(2)}/mo</span>
                   </div>
                   <div className="flex items-baseline justify-between text-sm">
                     <span className="text-gray-600 dark:text-gray-400">New Plan</span>
-                    <span className="font-medium text-gray-900 dark:text-white">${newPlan.price.toFixed(2)}/mo</span>
+                    <span className="font-medium text-gray-900 dark:text-white">${Number(newPlan.price).toFixed(2)}/mo</span>
                   </div>
                   <div className="border-t border-gray-200 dark:border-gray-700 pt-2 flex items-baseline justify-between">
                     <span className="text-sm font-medium text-emerald-600 dark:text-emerald-400">Monthly Savings</span>
                     <span className="text-xl font-bold text-emerald-600 dark:text-emerald-400">
-                      ${(currentPlan.price - newPlan.price).toFixed(2)}
+                      ${(Number(currentPlan.price) - Number(newPlan.price)).toFixed(2)}
                     </span>
                   </div>
                 </div>
@@ -397,7 +397,7 @@ export function PlanComparisonCard({ currentPlan, newPlan, upgradePreview }: Pla
               <h4 className="font-medium text-emerald-900 dark:text-emerald-100">Upgrade Bonus</h4>
               <p className="mt-1 text-sm text-emerald-700 dark:text-emerald-300">
                 You'll receive <span className="font-semibold">{upgradePreview.bonus_days} bonus days</span> from
-                your remaining ${upgradePreview.credit_amount.toFixed(2)} credit, extending your new plan to{' '}
+                your remaining ${Number(upgradePreview.credit_amount).toFixed(2)} credit, extending your new plan to{' '}
                 <span className="font-semibold">{totalDays} total days</span>.
               </p>
             </div>

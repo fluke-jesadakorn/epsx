@@ -15,6 +15,7 @@ export interface PlanEditFormState {
     is_public: boolean;
     is_active: boolean;
     features: string[];
+    rankingOffset: number;
 }
 
 export const FREE_PLAN_ID = '00000000-0000-0000-0000-000000000000';

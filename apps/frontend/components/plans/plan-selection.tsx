@@ -4,10 +4,10 @@
 import { getPublicPlansAction } from '@/app/actions/plans'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { usePlanAccess } from '@/hooks/use-plan-access'
+import { createCreditsApi } from '@/shared/api/credits'
 import { PricingCard } from '@/shared/components/plans/pricing-card'
 import type { Plan, PricingCardData } from '@/shared/types/plans'
 import { createFrontendApiClient } from '@/shared/utils/api-client'
-import { createCreditsApi } from '@/shared/api/credits'
 import { AlertCircle, Star } from 'lucide-react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
@@ -68,7 +68,7 @@ export function PlanSelection({ currentUser: _currentUser, className }: PlanSele
       // Check cookies for existing affiliate code
       const cookies = document.cookie.split(';').reduce<Record<string, string>>((acc, cookie) => {
         const [key, value] = cookie.trim().split('=')
-        if (key && value) {acc[key] = value}
+        if (key && value) { acc[key] = value }
         return acc
       }, {})
 
@@ -88,7 +88,7 @@ export function PlanSelection({ currentUser: _currentUser, className }: PlanSele
         const res = await creditsApi.getBalance()
 
         if (res.success && res.data) {
-          setCreditBalance(res.data.available_balance)
+          setCreditBalance(Number(res.data.available_balance));
         }
       } catch (_err) {
         // Silent failure - no credits available
@@ -119,7 +119,7 @@ export function PlanSelection({ currentUser: _currentUser, className }: PlanSele
           throw new Error(response.error?.message ?? 'Invalid API response')
         }
       } catch (_err) {
-      // Error logged silently
+        // Error logged silently
         setError('Failed to load plans. Please try again later.')
         setPricingCards([])
       } finally {

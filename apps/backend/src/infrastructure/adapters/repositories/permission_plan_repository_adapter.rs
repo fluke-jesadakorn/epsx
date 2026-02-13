@@ -12,15 +12,8 @@ use crate::domain::permission_management::{
     aggregates::plan::LoadPlanParams,
 };
 use crate::infrastructure::models::plan::{PlanDb, NewPlanDb};
-use crate::infrastructure::adapters::repositories::database_types::PermissionRow;
 use crate::schemas::primary::{plans, plan_permissions};
 use std::collections::HashSet;
-
-#[derive(diesel::QueryableByName)]
-struct IdResult {
-    #[diesel(sql_type = diesel::sql_types::Uuid)]
-    id: uuid::Uuid,
-}
 
 #[derive(diesel::QueryableByName)]
 struct PlanStatsRow {
@@ -68,8 +61,15 @@ impl PlanRepositoryPort for PlanRepositoryAdapter {
 
         if let Some(row) = plan_result {
             // Get permissions for this plan using raw SQL (JOIN query)
+            // Use permission_string directly to preserve 4+ part permissions (e.g. epsx:analytics:view:25)
+            #[derive(diesel::QueryableByName)]
+            struct PermStringRow {
+                #[diesel(sql_type = diesel::sql_types::Text)]
+                permission_string: String,
+            }
+
             let query = r#"
-                SELECT p.platform, p.resource, p.action
+                SELECT p.permission_string
                 FROM plan_permissions pgm
                 JOIN permissions p ON pgm.permission_id = p.id
                 WHERE pgm.plan_id = $1
@@ -77,7 +77,7 @@ impl PlanRepositoryPort for PlanRepositoryAdapter {
 
             let permission_rows = diesel::sql_query(query)
                 .bind::<diesel::sql_types::Uuid, _>(id.value())
-                .load::<PermissionRow>(&mut conn)
+                .load::<PermStringRow>(&mut conn)
                 .await
                 .map_err(|e| {
                     error!("Failed to fetch permissions for plan {}: {}", id, e);
@@ -87,8 +87,7 @@ impl PlanRepositoryPort for PlanRepositoryAdapter {
             let permissions: HashSet<PermissionString> = permission_rows
                 .iter()
                 .filter_map(|r| {
-                    let perm_str = format!("{}:{}:{}", r.platform, r.resource, r.action);
-                    PermissionString::new(perm_str).ok()
+                    PermissionString::new(r.permission_string.clone()).ok()
                 })
                 .collect();
 
@@ -271,53 +270,81 @@ impl PlanRepositoryPort for PlanRepositoryAdapter {
                 AppError::database_error(e.to_string())
             })?;
 
-        // Delete existing permission associations
-        diesel::delete(plan_permissions::table)
-            .filter(plan_permissions::plan_id.eq(plan.id().value()))
-            .execute(&mut conn)
-            .await
-            .map_err(|e| AppError::database_error(e.to_string()))?;
-
-        // Insert permission associations
-        // Note: Sequential execution instead of transaction (following wallet_user_repository pattern)
-        for permission in plan.permissions() {
-            let parts: Vec<&str> = permission.as_str().split(':').collect();
+        // Atomically replace permission associations using a single transaction-like CTE
+        // First: ensure all permissions exist in the permissions table
+        let permissions_vec: Vec<&PermissionString> = plan.permissions().iter().collect();
+        for permission in &permissions_vec {
+            let parts: Vec<&str> = permission.as_str().splitn(3, ':').collect();
             if parts.len() >= 3 {
-                // Get or create permission using raw SQL
-                let query = r#"
-                    INSERT INTO permissions (permission_string, platform, resource, action, permission_type)
-                    VALUES ($1, $2, $3, $4, 'manual')
-                    ON CONFLICT (permission_string) DO UPDATE
-                    SET platform = EXCLUDED.platform
-                    RETURNING id
-                "#;
-
-                let perm_id = diesel::sql_query(query)
-                    .bind::<diesel::sql_types::Text, _>(permission.as_str())
-                    .bind::<diesel::sql_types::Text, _>(parts[0])
-                    .bind::<diesel::sql_types::Text, _>(parts[1])
-                    .bind::<diesel::sql_types::Text, _>(parts[2])
-                    .get_result::<IdResult>(&mut conn)
-                    .await
-                    .map(|result| result.id)
-                    .map_err(|e| AppError::database_error(e.to_string()))?;
-
-                // Link permission to plan
                 diesel::sql_query(
-                    r#"
-                    INSERT INTO plan_permissions (plan_id, permission_id)
-                    VALUES ($1, $2)
-                    "#
+                    r#"INSERT INTO permissions (permission_string, platform, resource, action, permission_type)
+                    VALUES ($1, $2, $3, $4, 'manual')
+                    ON CONFLICT (permission_string) DO NOTHING"#
                 )
-                .bind::<diesel::sql_types::Uuid, _>(plan.id().value())
-                .bind::<diesel::sql_types::Uuid, _>(perm_id)
+                .bind::<diesel::sql_types::Text, _>(permission.as_str())
+                .bind::<diesel::sql_types::Text, _>(parts[0])
+                .bind::<diesel::sql_types::Text, _>(parts[1])
+                .bind::<diesel::sql_types::Text, _>(parts[2])
                 .execute(&mut conn)
                 .await
                 .map_err(|e| AppError::database_error(e.to_string()))?;
             }
         }
 
-        info!("Permission plan {} saved successfully", plan.id());
+        // Build permission strings for the atomic replace query
+        let perm_strings: Vec<&str> = permissions_vec
+            .iter()
+            .map(|p| p.as_str())
+            .collect();
+
+        if perm_strings.is_empty() {
+            // No permissions - just delete all existing associations
+            diesel::delete(plan_permissions::table)
+                .filter(plan_permissions::plan_id.eq(plan.id().value()))
+                .execute(&mut conn)
+                .await
+                .map_err(|e| AppError::database_error(e.to_string()))?;
+        } else {
+            // Delete then insert in a transaction for atomicity
+            diesel::sql_query("BEGIN")
+                .execute(&mut conn)
+                .await
+                .map_err(|e| AppError::database_error(e.to_string()))?;
+
+            let delete_result = diesel::delete(plan_permissions::table)
+                .filter(plan_permissions::plan_id.eq(plan.id().value()))
+                .execute(&mut conn)
+                .await;
+
+            if let Err(e) = delete_result {
+                let _ = diesel::sql_query("ROLLBACK").execute(&mut conn).await;
+                return Err(AppError::database_error(e.to_string()));
+            }
+
+            for perm_str in &perm_strings {
+                let result = diesel::sql_query(
+                    r#"INSERT INTO plan_permissions (plan_id, permission_id)
+                    SELECT $1, p.id FROM permissions p WHERE p.permission_string = $2
+                    ON CONFLICT (plan_id, permission_id) DO NOTHING"#
+                )
+                .bind::<diesel::sql_types::Uuid, _>(plan.id().value())
+                .bind::<diesel::sql_types::Text, _>(*perm_str)
+                .execute(&mut conn)
+                .await;
+
+                if let Err(e) = result {
+                    let _ = diesel::sql_query("ROLLBACK").execute(&mut conn).await;
+                    return Err(AppError::database_error(e.to_string()));
+                }
+            }
+
+            diesel::sql_query("COMMIT")
+                .execute(&mut conn)
+                .await
+                .map_err(|e| AppError::database_error(e.to_string()))?;
+        }
+
+        info!("Permission plan {} saved with {} permissions", plan.id(), perm_strings.len());
         Ok(())
     }
 

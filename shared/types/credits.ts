@@ -5,19 +5,19 @@
 
 export interface CreditBalance {
   wallet_address: string;
-  balance: number;
-  pending_balance: number;
-  available_balance: number;
-  lifetime_earned: number;
-  lifetime_spent: number;
+  balance: number | string;
+  pending_balance: number | string;
+  available_balance: number | string;
+  lifetime_earned: number | string;
+  lifetime_spent: number | string;
   last_transaction_at: string | null;
 }
 
 export interface CreditTransaction {
   id: string;
   wallet_address: string;
-  amount: number;
-  balance_after: number;
+  amount: number | string;
+  balance_after: number | string;
   tx_type: CreditTransactionType;
   reference_id: string | null;
   reference_type: string | null;
@@ -45,12 +45,12 @@ export interface CreditTransactionFilters {
 }
 
 export interface CreditStats {
-  total_credits_outstanding: number;
-  total_credits_granted_today: number;
-  total_credits_used_today: number;
+  total_credits_outstanding: number | string;
+  total_credits_granted_today: number | string;
+  total_credits_used_today: number | string;
   active_users_with_credits: number;
   total_transactions_today: number;
-  average_balance: number;
+  average_balance: number | string;
 }
 
 export interface GrantCreditsRequest {

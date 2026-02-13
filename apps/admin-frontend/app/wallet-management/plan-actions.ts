@@ -152,7 +152,7 @@ export async function updatePlanAction(planId: string, data: UpdatePlanRequest):
     if (!res.success || !res.data) {
         throw new Error(res.error?.message ?? 'Failed to update plan');
     }
-    revalidatePath('/wallet-management/access/plans');
+    revalidatePath('/wallet-management/access/plans', 'layout');
     return res.data;
 }
 

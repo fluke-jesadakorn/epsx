@@ -115,6 +115,10 @@ export interface CardDashboardResponse {
         request_timestamp: string;
         data_source: string;
     };
+    access_info?: {
+        min_accessible_rank: number;
+        locked_ranks_count: number;
+    };
     message?: string;
     processing_time_ms: number;
 }
@@ -135,6 +139,9 @@ export interface SymbolCardData {
     progress_percentage?: number;
     name?: string;
     company_name?: string;
+    current_eps?: number;
+    growth_factor?: number;
+    price_current?: number;
 }
 
 export interface QuarterlyPerformanceData {

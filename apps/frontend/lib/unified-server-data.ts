@@ -3,10 +3,10 @@
  * Provides centralized data fetching for Server Components
  */
 
-import type { AnalyticsFiltersResponse, EPSRanking } from '@/shared/api/analytics';
+import type { AnalyticsFiltersResponse } from '@/shared/api/analytics';
 import { createPlatformAnalyticsClient } from '@/shared/api/analytics';
 import { COOKIES } from '@/shared/auth/cookies';
-import type { CardDashboardResponse, FilterOptions, QuarterlyPerformanceData, SymbolCardData } from '@/shared/types/analytics';
+import type { CardDashboardResponse, FilterOptions, SymbolCardData } from '@/shared/types/analytics';
 import { logger } from '@/shared/utils/logger';
 
 export interface EPSQueryParams {
@@ -51,7 +51,6 @@ export async function getAnalyticsData(params: EPSQueryParams) {
         };
 
         // Use authenticated rankings when possible, fallback to public for guests
-        // NOTE: The backend returns EPSRanking format which needs to be mapped to SymbolCardData
         let response: CardDashboardResponse | null = null;
         const hasToken = await hasServerAccessToken();
         if (hasToken) {
@@ -95,55 +94,17 @@ export async function getAnalyticsData(params: EPSQueryParams) {
             };
         }
 
-        // Map backend EPSRanking data to frontend SymbolCardData
-        // The backend returns loose structure that needs to be normalized
-        // Map backend EPSRanking data to frontend SymbolCardData
-        // The backend returns loose structure that needs to be normalized
-        const rawRankings = (response.data as unknown as EPSRanking[]);
-        const mappedRankings: SymbolCardData[] = rawRankings.map((item: EPSRanking, index: number) => {
-            // Determine rank (use existing or calculate)
-            const rank = item.ranking_position || ((params.page - 1) * params.limit) + index + 1;
-
-            // Map quarterly data if available (handle undefined/null case)
-            const quarterlyPerformance: QuarterlyPerformanceData[] = (item.quarterly_data ?? []).map((q) => ({
-                quarter: q.quarter,
-                date: q.date,
-                price: q.price,
-                eps: q.eps,
-                eps_growth: q.eps_growth,
-                price_growth: q.price_growth,
-                is_estimated: false
-            }));
-
-            // Get latest data point for display
-            const latestData = quarterlyPerformance[0] ?? ({ date: new Date().toISOString(), price: 0 } as QuarterlyPerformanceData);
-
-            return {
-                rank,
-                symbol: item.symbol,
-                company_name: item.name,
-                latest_date: latestData.date,
-                value: item.price_current ?? latestData.price,
-                active_status: item.active_status,
-                quarterly_performance: quarterlyPerformance,
-                currency: 'USD',
-
-                // Mapped fields
-                current_eps: item.current_eps ?? 0,
-                growth_factor: item.growth_factor ?? 0,
-                price_current: item.price_current ?? 0,
-
-                // Defaults for missing data
-                next_quarter_estimate: undefined,
-                next_earnings_date: undefined,
-                days_until_next_earnings: undefined,
-                progress_percentage: 0
-            };
-        });
+        // Backend already returns SymbolCardData[] with correct rank values (offset-adjusted)
+        // Apply fallback rank only if rank is missing (shouldn't happen)
+        const rankings: SymbolCardData[] = response.data.map((item, index) => ({
+            ...item,
+            rank: item.rank || ((params.page - 1) * params.limit) + index + 1,
+        }));
 
         return {
-            rankings: mappedRankings,
+            rankings,
             pagination: response.pagination,
+            access_info: response.access_info,
             processing_time_ms: 0
         };
     } catch (error) {

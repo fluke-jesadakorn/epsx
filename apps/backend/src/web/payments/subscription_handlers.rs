@@ -24,32 +24,25 @@ use crate::{
 // HELPER FUNCTIONS
 // ============================================================================
 
-/// Extract ranking offset from plan metadata
+/// Extract ranking offset from plan metadata or permission string
 /// Returns: 0 for top ranks access, higher values for lower tier access
-fn extract_ranking_offset(metadata: &serde_json::Value) -> i32 {
-    // Check for ranking_offset in metadata root or features
+fn extract_ranking_offset(metadata: &serde_json::Value, offset_permission: Option<&str>) -> i32 {
+    // Check for ranking_offset in metadata root
     if let Some(offset) = metadata.get("ranking_offset").and_then(|v| v.as_i64()) {
         return offset as i32;
     }
+    // Check permission string epsx:rankings:offset:N (from plan_permissions table)
+    if let Some(perm) = offset_permission {
+        if let Some(offset_str) = perm.strip_prefix("epsx:rankings:offset:") {
+            if let Ok(offset) = offset_str.parse::<i32>() {
+                return offset;
+            }
+        }
+    }
+    // Check nested features.ranking_offset
     if let Some(features) = metadata.get("features").and_then(|f| f.as_object()) {
         if let Some(offset) = features.get("ranking_offset").and_then(|v| v.as_i64()) {
             return offset as i32;
-        }
-    }
-    // Check permissions for offset pattern
-    if let Some(permissions) = metadata.get("permissions").and_then(|p| p.as_array()) {
-        for perm in permissions {
-            if let Some(perm_str) = perm.as_str() {
-                if let Some(offset_str) = perm_str.strip_prefix("epsx:rankings:offset:") {
-                    if let Ok(offset) = offset_str.parse::<i32>() {
-                        return offset;
-                    }
-                }
-                // Wildcard = full access (offset 0)
-                if perm_str == "epsx:*:*" || perm_str == "epsx:rankings:*" {
-                    return 0;
-                }
-            }
         }
     }
     // Default: free tier sees ranks 101+ (offset 100)
@@ -145,12 +138,19 @@ pub async fn get_user_plans_handler(
         tier_level: i32,
         #[diesel(sql_type = diesel::sql_types::Integer)]
         grace_period_hours: i32,
+        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
+        offset_permission: Option<String>,
     }
 
     // Re-run safely with load (includes grace period window)
+    // Also fetch epsx:rankings:offset:N permission as fallback for ranking_offset
     let active_subs: Vec<ActiveSubscriptionRow> = diesel::sql_query(
         r#"
-        SELECT g.name, wga.expires_at, g.plan_metadata, g.tier_level, g.grace_period_hours
+        SELECT g.name, wga.expires_at, g.plan_metadata, g.tier_level, g.grace_period_hours,
+               (SELECT p.permission_string FROM plan_permissions pp
+                JOIN permissions p ON pp.permission_id = p.id
+                WHERE pp.plan_id = g.id AND p.permission_string LIKE 'epsx:rankings:offset:%'
+                LIMIT 1) as offset_permission
         FROM wallet_plan_assignments wga
         JOIN plans g ON g.id = wga.plan_id
         WHERE LOWER(wga.wallet_address) = LOWER($1)
@@ -184,8 +184,8 @@ pub async fn get_user_plans_handler(
             "active"
         };
         
-        // Extract ranking offset from metadata
-        let ranking_offset = extract_ranking_offset(&sub.plan_metadata);
+        // Extract ranking offset from metadata or permission string
+        let ranking_offset = extract_ranking_offset(&sub.plan_metadata, sub.offset_permission.as_deref());
         
         // Check if user can upgrade (ranking_offset > 0 means not full access)
         let can_upgrade = ranking_offset > 0;

@@ -1,7 +1,7 @@
 'use client';
 
 import { cn } from '@/lib/utils';
-import { Activity, Shield, Wallet } from 'lucide-react';
+import { Activity, Coins, Shield, Wallet } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
@@ -24,16 +24,23 @@ export function WalletTabsNavigation() {
             colorClass: 'data-[active=true]:bg-[#1fc7d4] shadow-cyan-500/20'
         },
         {
+            id: 'credits',
+            label: 'Credits',
+            href: '/wallet-management/credits',
+            icon: Coins,
+            colorClass: 'data-[active=true]:bg-[#ffb237] shadow-orange-500/20'
+        },
+        {
             id: 'activity',
             label: 'Activity',
             href: '/wallet-management/activity',
             icon: Activity,
             colorClass: 'data-[active=true]:bg-[#ed4b9e] shadow-pink-500/20'
-        }
+        },
     ];
 
     return (
-        <div className="bg-slate-900/40 backdrop-blur-2xl p-1.5 rounded-[32px] border border-white/5 shadow-xl max-w-2xl mx-auto mb-8">
+        <div className="bg-slate-900/40 backdrop-blur-2xl p-1.5 rounded-[32px] border border-white/5 shadow-xl max-w-3xl mx-auto mb-8">
             <div className="flex h-14 w-full justify-center gap-2 bg-transparent p-0">
                 {tabs.map((tab) => {
                     const isActive = pathname === tab.href || (tab.href !== '/wallet-management' && pathname.startsWith(tab.href));

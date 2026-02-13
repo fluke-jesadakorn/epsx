@@ -1,10 +1,10 @@
 'use client';
 
 import { Badge } from '@/components/ui';
-import { createFrontendApiClient } from '@/shared/utils/api-client';
 import { createCreditsApi } from '@/shared/api/credits';
 import type { CreditBalance } from '@/shared/types/credits';
-import { Coins, ArrowRight } from 'lucide-react';
+import { createFrontendApiClient } from '@/shared/utils/api-client';
+import { ArrowRight, Coins } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
@@ -64,14 +64,14 @@ export function CreditBalanceWidget() {
         <div className="text-sm font-medium text-gray-500 dark:text-gray-400">Available Balance</div>
         <div className="flex items-center justify-between">
           <div className="text-lg font-bold text-gray-900 dark:text-gray-100">
-            ${balance?.available_balance.toFixed(2) ?? '0.00'}
+            ${Number(balance?.available_balance ?? 0).toFixed(2)}
           </div>
           <ArrowRight className="w-4 h-4 text-emerald-600 dark:text-emerald-400 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
         </div>
-        {balance && balance.lifetime_earned > 0 && (
+        {balance && Number(balance.lifetime_earned) > 0 && (
           <div className="flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400 mt-2">
             <Coins className="w-3 h-3" />
-            <span>${balance.lifetime_earned.toFixed(2)} lifetime earned</span>
+            <span>${Number(balance.lifetime_earned).toFixed(2)} lifetime earned</span>
           </div>
         )}
       </div>

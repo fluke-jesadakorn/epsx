@@ -805,15 +805,17 @@ impl UnifiedPermissionService {
             })?;
 
         #[derive(QueryableByName)]
-        struct GroupMetadataRow {
+        struct PlanRow {
             #[diesel(sql_type = diesel::sql_types::Jsonb)]
             plan_metadata: serde_json::Value,
+            #[diesel(sql_type = diesel::sql_types::Uuid)]
+            plan_id: uuid::Uuid,
         }
 
-        // Query all active group memberships for this wallet and get their metadata
+        // Query all active plan assignments for this wallet
         let rows = diesel::sql_query(
             r#"
-            SELECT g.plan_metadata
+            SELECT g.plan_metadata, g.id as plan_id
             FROM wallet_plan_assignments wgm
             JOIN plans g ON wgm.plan_id = g.id
             WHERE wgm.wallet_address = $1
@@ -823,7 +825,7 @@ impl UnifiedPermissionService {
             "#
         )
         .bind::<diesel::sql_types::Text, _>(&wallet_lower)
-        .load::<GroupMetadataRow>(&mut conn)
+        .load::<PlanRow>(&mut conn)
         .await
         .map_err(|e| {
             error!("Database error fetching group metadata: {}", e);
@@ -835,13 +837,52 @@ impl UnifiedPermissionService {
             return Ok(crate::core::constants::FREE_PLAN_RANKING_OFFSET);
         }
 
-        // Find minimum ranking_offset from all plans
+        // Collect plan IDs to check permissions
+        let plan_ids: Vec<uuid::Uuid> = rows.iter().map(|r| r.plan_id).collect();
+
+        // Query permissions for these plans (fallback for offset)
+        #[derive(QueryableByName)]
+        struct PermRow {
+            #[diesel(sql_type = diesel::sql_types::Uuid)]
+            plan_id: uuid::Uuid,
+            #[diesel(sql_type = diesel::sql_types::Text)]
+            permission_string: String,
+        }
+
+        let perm_rows = diesel::sql_query(
+            r#"
+            SELECT pp.plan_id, p.permission_string
+            FROM plan_permissions pp
+            JOIN permissions p ON pp.permission_id = p.id
+            WHERE pp.plan_id = ANY($1)
+              AND p.permission_string LIKE 'epsx:rankings:offset:%'
+            "#
+        )
+        .bind::<diesel::sql_types::Array<diesel::sql_types::Uuid>, _>(&plan_ids)
+        .load::<PermRow>(&mut conn)
+        .await
+        .unwrap_or_default();
+
+        // Find minimum ranking_offset from metadata or permissions
         let mut min_offset = crate::core::constants::FREE_PLAN_RANKING_OFFSET;
-        for row in rows {
+        for row in &rows {
+            // Check plan_metadata first
             if let Some(offset) = row.plan_metadata.get("ranking_offset").and_then(|v| v.as_i64()) {
                 let offset_i32 = offset as i32;
                 if offset_i32 < min_offset {
                     min_offset = offset_i32;
+                }
+            }
+            // Fallback: check permission string epsx:rankings:offset:N
+            for perm in &perm_rows {
+                if perm.plan_id == row.plan_id {
+                    if let Some(offset_str) = perm.permission_string.strip_prefix("epsx:rankings:offset:") {
+                        if let Ok(offset) = offset_str.parse::<i32>() {
+                            if offset < min_offset {
+                                min_offset = offset;
+                            }
+                        }
+                    }
                 }
             }
         }

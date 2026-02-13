@@ -157,7 +157,7 @@ export function PermissionsView({ className }: PermissionsViewProps) {
                 if (selectedPerm?.id === permDeleteConfirm.id) { setSelectedPerm(null); }
                 setPermDeleteConfirm(null);
             } else {
-                toast.error(result.error);
+                toast.error(result.error ?? 'Failed to delete permission');
             }
         } catch (err: unknown) {
             logger.error('Failed to delete permission:', err instanceof Error ? err.message : String(err));
@@ -357,17 +357,28 @@ function EmptyState({ icon: Icon, title, description }: { icon: React.ElementTyp
 function CreatePermissionSheet({ open, onOpenChange, onSuccess }: { open: boolean, onOpenChange: (o: boolean) => void, onSuccess: () => void }) {
     const [formData, setFormData] = useState<CreatePermissionRequest>({ permission: '', name: '', description: '', platform: '', category: '' });
     const [submitting, setSubmitting] = useState(false);
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault(); setSubmitting(true);
+    const handleSubmit = async () => {
+        if (formData.permission.trim() === '') {
+            toast.error('Permission string is required');
+            return;
+        }
+        setSubmitting(true);
         try {
-            const res = await createPermissionAction(formData);
+            const payload: CreatePermissionRequest = {
+                permission: formData.permission.trim(),
+                name: formData.name?.trim() !== '' ? formData.name?.trim() : undefined,
+                description: formData.description?.trim() !== '' ? formData.description?.trim() : undefined,
+                platform: formData.platform?.trim() !== '' ? formData.platform?.trim() : undefined,
+                category: formData.category?.trim() !== '' ? formData.category?.trim() : undefined,
+            };
+            const res = await createPermissionAction(payload);
             if (res.success) {
-                toast.success('Created');
+                toast.success('Permission created');
                 setFormData({ permission: '', name: '', description: '', platform: '', category: '' });
                 onSuccess();
                 onOpenChange(false);
             } else {
-                toast.error(res.error);
+                toast.error(res.error ?? 'Failed to create permission');
             }
         } catch (err: unknown) {
             toast.error(err instanceof Error ? err.message : 'Failed to create permission');
@@ -387,12 +398,11 @@ function CreatePermissionSheet({ open, onOpenChange, onSuccess }: { open: boolea
                     <SheetTitle>Create Permission</SheetTitle>
                     <SheetDescription>Define a new system permission.</SheetDescription>
                 </SheetHeader>
-                <form onSubmit={(e) => void handleSubmit(e)} className="space-y-6 pt-6 flex-1 flex flex-col overflow-y-auto">
+                <div className="space-y-6 pt-6 flex-1 flex flex-col overflow-y-auto">
                     <div className="space-y-2">
                         <Label>Permission String *</Label>
                         <Input
                             placeholder="e.g. admin:users:delete"
-                            required
                             value={formData.permission}
                             onChange={e => setFormData({ ...formData, permission: e.target.value })}
                             className="font-mono bg-white/5"
@@ -404,11 +414,11 @@ function CreatePermissionSheet({ open, onOpenChange, onSuccess }: { open: boolea
                     </div>
                     <div className="space-y-2"><Label>Description</Label><Textarea value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} className="bg-white/5 min-h-[100px]" /></div>
                     <SheetFooter className="mt-auto pt-6">
-                        <Button type="submit" disabled={submitting} className="bg-emerald-500 w-full">
+                        <Button type="button" disabled={submitting} onClick={() => void handleSubmit()} className="bg-emerald-500 w-full">
                             {submitting ? <Loader2 className="animate-spin w-4 h-4" /> : 'Create permission'}
                         </Button>
                     </SheetFooter>
-                </form>
+                </div>
             </SheetContent>
         </Sheet>
     );

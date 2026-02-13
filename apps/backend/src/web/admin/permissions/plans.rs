@@ -549,7 +549,22 @@ pub async fn update_plan(
         return AdminResponse::server_error("Failed to update plan").into_response();
     }
 
-    AdminResponse::success(PlanResponse::from_plan(&plan, 0)).into_response()
+    // Clear analytics cache so updated ranking_offset takes effect immediately
+    app_state.cache.clear();
+    tracing::info!("Cleared analytics cache after plan update: {}", plan_id);
+
+    // Re-read from DB to ensure response matches persisted state
+    let saved_plan = match app_state.plan_repo.find_by_id(&plan_id_obj).await {
+        Ok(Some(p)) => p,
+        Ok(None) => return AdminResponse::not_found("Permission plan").into_response(),
+        Err(e) => {
+            tracing::error!("Failed to re-read plan after save: {}", e);
+            // Fallback to in-memory model
+            return AdminResponse::success(PlanResponse::from_plan(&plan, 0)).into_response();
+        }
+    };
+
+    AdminResponse::success(PlanResponse::from_plan(&saved_plan, 0)).into_response()
 }
 
 /// Delete a permission plan

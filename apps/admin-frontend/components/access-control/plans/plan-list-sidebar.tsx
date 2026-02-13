@@ -10,7 +10,7 @@ import {
     verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { Search } from 'lucide-react';
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -52,6 +52,16 @@ export function PlanListSidebar({
 }: PlanListSidebarProps) {
     const [planSearch, setPlanSearch] = useState('');
     const [isCreatePlanOpen, setIsCreatePlanOpen] = useState(false);
+    const [sourcePlan, setSourcePlan] = useState<PermissionPlan | null>(null);
+
+    const handleDuplicate = useCallback((plan: PermissionPlan) => {
+        setSourcePlan(plan);
+        setIsCreatePlanOpen(true);
+    }, []);
+
+    const clearSource = useCallback(() => {
+        setSourcePlan(null);
+    }, []);
      
     const filteredPlans = useMemo(
         () =>
@@ -88,6 +98,8 @@ export function PlanListSidebar({
                         open={isCreatePlanOpen}
                         onOpenChange={setIsCreatePlanOpen}
                         onSuccess={onRefresh}
+                        sourcePlan={sourcePlan}
+                        onSourceClear={clearSource}
                     />
                 </div>
             </CardHeader>
@@ -101,6 +113,7 @@ export function PlanListSidebar({
                                 index={index}
                                 selectedPlanId={selectedPlanId}
                                 onSelect={onSelect}
+                                onDuplicate={handleDuplicate}
                                 isFreePlan={plan.id === FREE_PLAN_ID}
                                 onQuickToggle={onQuickToggle}
                                 disabled={true} // Disable drag when searching
@@ -127,6 +140,7 @@ export function PlanListSidebar({
                                         index={index}
                                         selectedPlanId={selectedPlanId}
                                         onSelect={onSelect}
+                                        onDuplicate={handleDuplicate}
                                         isFreePlan={plan.id === FREE_PLAN_ID}
                                         onQuickToggle={onQuickToggle}
                                     />

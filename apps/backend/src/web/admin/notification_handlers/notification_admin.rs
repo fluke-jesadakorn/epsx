@@ -365,7 +365,7 @@ pub async fn get_notification_stats_handler(
     }
 
     // Get total notifications count (exclude soft-deleted)
-    let total_count: i64 = diesel::sql_query("SELECT COUNT(*) as count FROM wallet_notifications WHERE deleted_at IS NULL")
+    let total_count: i64 = diesel::sql_query("SELECT COUNT(*) as count FROM wallet_notifications WHERE status != 'deleted'")
         .get_result::<CountRow>(&mut conn)
         .await
         .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to count notifications: {}", e)))?
@@ -373,7 +373,7 @@ pub async fn get_notification_stats_handler(
 
     // Get notifications sent today (exclude soft-deleted)
     let today_count: i64 = diesel::sql_query(
-        "SELECT COUNT(*) as count FROM wallet_notifications WHERE timestamp >= CURRENT_DATE AND deleted_at IS NULL"
+        "SELECT COUNT(*) as count FROM wallet_notifications WHERE created_at >= CURRENT_DATE AND status != 'deleted'"
     )
         .get_result::<CountRow>(&mut conn)
         .await
@@ -382,7 +382,7 @@ pub async fn get_notification_stats_handler(
 
     // Get notifications sent this week (exclude soft-deleted)
     let week_count: i64 = diesel::sql_query(
-        "SELECT COUNT(*) as count FROM wallet_notifications WHERE timestamp >= CURRENT_DATE - INTERVAL '7 days' AND deleted_at IS NULL"
+        "SELECT COUNT(*) as count FROM wallet_notifications WHERE created_at >= CURRENT_DATE - INTERVAL '7 days' AND status != 'deleted'"
     )
         .get_result::<CountRow>(&mut conn)
         .await
@@ -391,7 +391,7 @@ pub async fn get_notification_stats_handler(
 
     // Get notifications sent this month (exclude soft-deleted)
     let month_count: i64 = diesel::sql_query(
-        "SELECT COUNT(*) as count FROM wallet_notifications WHERE timestamp >= CURRENT_DATE - INTERVAL '30 days' AND deleted_at IS NULL"
+        "SELECT COUNT(*) as count FROM wallet_notifications WHERE created_at >= CURRENT_DATE - INTERVAL '30 days' AND status != 'deleted'"
     )
         .get_result::<CountRow>(&mut conn)
         .await
@@ -408,7 +408,7 @@ pub async fn get_notification_stats_handler(
 
     // Get count by type (exclude soft-deleted)
     let type_counts = diesel::sql_query(
-        "SELECT notification_type, COUNT(*) as count FROM wallet_notifications WHERE deleted_at IS NULL GROUP BY notification_type"
+        "SELECT notification_type, COUNT(*) as count FROM wallet_notifications WHERE status != 'deleted' GROUP BY notification_type"
     )
         .load::<TypeCountRow>(&mut conn)
         .await
@@ -429,7 +429,7 @@ pub async fn get_notification_stats_handler(
 
     // Get count by priority (exclude soft-deleted)
     let priority_counts = diesel::sql_query(
-        "SELECT priority, COUNT(*) as count FROM wallet_notifications WHERE deleted_at IS NULL GROUP BY priority"
+        "SELECT priority, COUNT(*) as count FROM wallet_notifications WHERE status != 'deleted' GROUP BY priority"
     )
         .load::<PriorityCountRow>(&mut conn)
         .await
@@ -445,7 +445,7 @@ pub async fn get_notification_stats_handler(
 
     // Calculate read rate (exclude soft-deleted)
     let read_count: i64 = diesel::sql_query(
-        "SELECT COUNT(*) as count FROM wallet_notifications WHERE read_at IS NOT NULL AND deleted_at IS NULL"
+        "SELECT COUNT(*) as count FROM wallet_notifications WHERE status = 'read'"
     )
         .get_result::<CountRow>(&mut conn)
         .await
@@ -458,7 +458,9 @@ pub async fn get_notification_stats_handler(
         0.0
     };
 
-    // Calculate click rate (exclude soft-deleted)
+    // Calculate click rate (Not tracked in new schema, defaulting to 0)
+    let clicked_count: i64 = 0;
+/*
     let clicked_count: i64 = diesel::sql_query(
         "SELECT COUNT(*) as count FROM wallet_notifications WHERE clicked_at IS NOT NULL AND deleted_at IS NULL"
     )
@@ -466,6 +468,7 @@ pub async fn get_notification_stats_handler(
         .await
         .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to count clicked notifications: {}", e)))?
         .count;
+*/
 
     let click_rate = if total_count > 0 {
         (clicked_count as f64) / (total_count as f64)
@@ -485,11 +488,11 @@ pub async fn get_notification_stats_handler(
     let recent_activity_records = diesel::sql_query(
         r#"
         SELECT
-            DATE_TRUNC('hour', timestamp) as hour,
+            DATE_TRUNC('hour', created_at) as hour,
             COUNT(*) as count
         FROM wallet_notifications
-        WHERE timestamp >= NOW() - INTERVAL '24 hours'
-          AND deleted_at IS NULL
+        WHERE created_at >= NOW() - INTERVAL '24 hours'
+          AND status != 'deleted'
         GROUP BY hour
         ORDER BY hour DESC
         LIMIT 10

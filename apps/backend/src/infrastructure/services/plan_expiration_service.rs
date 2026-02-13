@@ -208,9 +208,10 @@ impl PlanExpirationService {
             r#"
             SELECT COUNT(*)::BIGINT as cnt
             FROM wallet_notifications
-            WHERE LOWER(wallet_address) = LOWER($1)
+            WHERE LOWER(recipient_wallet_address) = LOWER($1)
               AND notification_type = 'payment'
-              AND data->>'dedup_key' = $2
+              AND data_payload->>'dedup_key' = $2
+              AND status != 'deleted'
             "#
         )
         .bind::<diesel::sql_types::Text, _>(wallet)
@@ -246,8 +247,8 @@ impl PlanExpirationService {
         diesel::sql_query(
             r#"
             INSERT INTO wallet_notifications
-                (id, wallet_address, notification_type, title, message, data, priority, timestamp, action_url)
-            VALUES ($1, LOWER($2), $3, $4, $5, $6, $7, NOW(), '/plans')
+                (id, recipient_wallet_address, notification_type, title, body, data_payload, priority, created_at, action_url, status)
+            VALUES ($1, LOWER($2), $3, $4, $5, $6, $7, NOW(), '/plans', 'created')
             "#
         )
         .bind::<diesel::sql_types::Uuid, _>(id)

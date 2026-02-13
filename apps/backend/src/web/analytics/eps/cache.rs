@@ -11,7 +11,6 @@ use crate::core::errors::AppError;
 use crate::domain::shared_kernel::entities::eps_growth::EPSRanking;
 // use crate::domain::shared_kernel::services::eps_cache_service::EPSCacheService; // REMOVED
 use crate::domain::market_analytics::domain_services::EPSCacheService; // ADDED
-use crate::domain::shared_kernel::services::eps_ranking_service::PermissionParser;
 use crate::auth::UnifiedPermissionService;
 use crate::web::middleware::bearer_middleware::OpenIDUserContext;
 use crate::infrastructure::cache::Cache;
@@ -69,25 +68,20 @@ pub async fn get_unified_analytics_rankings_cached(
       info!("Analytics API: processing request for anonymous user");
   }
 
-  // Calculate ranking configuration based on user permissions
+  // Calculate ranking configuration based on user's plan metadata
   let (rank_offset, limit_cap) = if let Some(ref wallet) = wallet_address {
-    match permission_service.get_permission_strings(wallet).await {
-      Ok(permissions) => {
-        // DEBUG: Log raw permissions
-        info!("Analytics API: Permissions for {}: {:?}", wallet, permissions);
-        let config = PermissionParser::extract_ranking_config(&permissions);
-        // DEBUG: Log calculated config
-        info!("Analytics API: Calculated config for {}: offset={}, limit={}", wallet, config.0, config.1);
-        config
+    match permission_service.get_wallet_ranking_offset(wallet).await {
+      Ok(offset) => {
+        info!("Analytics API: Wallet {} ranking offset: {} (from plan metadata)", wallet, offset);
+        (offset, -1)
       },
       Err(e) => {
-        warn!("Analytics API: Failed to fetch permissions for {}: {}, defaulting to free tier", wallet, e);
-        (100, -1) // -1 for unlimited (will be capped by global max)
+        warn!("Analytics API: Failed to get offset for {}: {}, using free tier", wallet, e);
+        (100, -1)
       }
     }
   } else {
-    // SECURITY: Anonymous/unverified users fall back to standard free tier offset but no hardcoded small limit
-    (100, -1) 
+    (100, -1)
   };
  
   debug!("Rankings permission config: offset={}, limit_cap={} for secure_wallet={:?}", rank_offset, limit_cap, wallet_address);
@@ -101,8 +95,8 @@ pub async fn get_unified_analytics_rankings_cached(
   let page = params.page.unwrap_or(1).max(1); // Ensure page is at least 1
   let skip = (rank_offset - 1).max(0) + (page - 1) * limit; // SECURITY: Start from rank_offset internally (0-based for API)
 
-  // Generate cache key for this request
-  let cache_key = generate_cache_key(&params);
+  // Generate cache key for this request (includes rank_offset so different plans get separate caches)
+  let cache_key = generate_cache_key(&params, rank_offset);
   debug!("Generated cache key: {}", cache_key);
 
   // Check cache first (1-hour TTL) unless in development
@@ -411,9 +405,12 @@ pub async fn force_cache_refresh(Extension(
   Ok(Json(response))
 }
 
-/// Generate cache key from query parameters for analytics rankings
-pub fn generate_cache_key(params: &EPSRankingQueryParams) -> String {
+/// Generate cache key from query parameters and rank offset for analytics rankings
+pub fn generate_cache_key(params: &EPSRankingQueryParams, rank_offset: i32) -> String {
   let mut hasher = DefaultHasher::new();
+
+  // Hash rank_offset so different plan tiers get separate caches
+  rank_offset.hash(&mut hasher);
 
   // Hash relevant parameters
   params.country.hash(&mut hasher);
@@ -455,13 +452,17 @@ mod tests {
       min_growth: None,
     };
 
-    let cache_key = generate_cache_key(&params);
+    let cache_key = generate_cache_key(&params, 100);
     assert!(cache_key.starts_with("analytics:rankings:"));
     assert!(cache_key.len() > 20); // Should be a hex hash
 
-    // Same params should generate same key
-    let cache_key2 = generate_cache_key(&params);
+    // Same params + offset should generate same key
+    let cache_key2 = generate_cache_key(&params, 100);
     assert_eq!(cache_key, cache_key2);
+
+    // Different offset should generate different key
+    let cache_key3 = generate_cache_key(&params, 0);
+    assert_ne!(cache_key, cache_key3);
   }
 
   #[test]

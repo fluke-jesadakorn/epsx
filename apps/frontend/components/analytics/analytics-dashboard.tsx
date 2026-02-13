@@ -1,4 +1,4 @@
- 
+
 'use client';
 
 import { useAnalyticsData } from '@/hooks/use-analytics-data';
@@ -300,13 +300,13 @@ function LeaderCategory({ title, leaders, colorScheme, valueKey }: LeaderCategor
           if (valueKey === 'analytics.growth_factor') {
             const analytics = leader.analytics as Record<string, unknown> | undefined;
             const growthFactor = analytics?.growth_factor as number | undefined;
-            displayValue = `${growthFactor?.toFixed(1) ?? 0}%`;
+            displayValue = `${Number(growthFactor ?? 0).toFixed(1)}%`;
           } else if (valueKey === 'quarterly_data') {
             const quarterlyData = leader.quarterly_data as Array<Record<string, unknown>> | undefined;
             const latestGrowth = (quarterlyData?.[0]?.price_growth as number) || 0;
             const previousGrowth = (quarterlyData?.[1]?.price_growth as number) || 0;
             const growth = latestGrowth === 0 ? previousGrowth : latestGrowth;
-            displayValue = `${growth?.toFixed(1) || 0}%`;
+            displayValue = `${Number(growth ?? 0).toFixed(1)}%`;
           }
 
           return (

@@ -1,5 +1,5 @@
 import { Loader2, Plus } from 'lucide-react';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,6 +14,7 @@ import {
     SheetTrigger,
 } from '@/components/ui/sheet';
 import { Textarea } from '@/components/ui/textarea';
+import { type PermissionPlan } from '@/lib/api/plan-management-client';
 import {
     Tooltip,
     TooltipContent,
@@ -22,36 +23,55 @@ import {
 
 import { submitCreatePlan } from './use-plans-logic';
 
+const emptyForm = {
+    name: '',
+    description: '',
+    priority: 0,
+    price: 0,
+    default_expiry_days: 30,
+    permissions: [] as string[],
+};
+
 export function CreatePlanSheet({
     open,
     onOpenChange,
     onSuccess,
+    sourcePlan,
+    onSourceClear,
 }: {
     open: boolean;
     onOpenChange: (o: boolean) => void;
     onSuccess: () => void;
+    sourcePlan?: PermissionPlan | null;
+    onSourceClear?: () => void;
 }) {
-    const [formData, setFormData] = useState({
-        name: '',
-        description: '',
-        priority: 0,
-        price: 0,
-        default_expiry_days: 30,
-    });
+    const [formData, setFormData] = useState(emptyForm);
     const [submitting, setSubmitting] = useState(false);
+
+    useEffect(() => {
+        if (open && sourcePlan) {
+            setFormData({
+                name: `${sourcePlan.name} (Copy)`,
+                description: sourcePlan.description ?? '',
+                priority: sourcePlan.tier_level ?? 0,
+                price: sourcePlan.price ?? 0,
+                default_expiry_days: sourcePlan.default_expiry_days ?? 30,
+                permissions: sourcePlan.permissions ?? [],
+            });
+        } else if (!open) {
+            setFormData(emptyForm);
+            onSourceClear?.();
+        }
+    }, [open, sourcePlan, onSourceClear]);
+
+    const isDuplicate = sourcePlan != null;
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setSubmitting(true);
         try {
             await submitCreatePlan(formData, onSuccess);
-            setFormData({
-                name: '',
-                description: '',
-                priority: 0,
-                price: 0,
-                default_expiry_days: 30,
-            });
+            setFormData(emptyForm);
             onOpenChange(false);
         } catch {
             // Error handled in submitCreatePlan
@@ -75,8 +95,12 @@ export function CreatePlanSheet({
                 className="w-[400px] sm:w-[540px] bg-slate-900 border-white/5 text-white flex flex-col h-full"
             >
                 <SheetHeader>
-                    <SheetTitle>Create Plan</SheetTitle>
-                    <SheetDescription>Create a new access plan.</SheetDescription>
+                    <SheetTitle>{isDuplicate ? 'Duplicate Plan' : 'Create Plan'}</SheetTitle>
+                    <SheetDescription>
+                        {isDuplicate
+                            ? `Create a new plan based on "${sourcePlan.name}".`
+                            : 'Create a new access plan.'}
+                    </SheetDescription>
                 </SheetHeader>
                 <form
                     onSubmit={handleSubmit}
