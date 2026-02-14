@@ -3,6 +3,7 @@
 import { Edit, Eye, MoreHorizontal, Star } from 'lucide-react';
 
 import type { WalletData } from './types';
+import { getPlanDisplay } from './wallet-card-sections';
 import { WalletLabelBadge } from './wallet-label-badge';
 
 import { Badge } from '@/components/ui/badge';
@@ -37,7 +38,7 @@ export function WalletTableRow({
     onEnable,
     onEdit,
 }: WalletTableRowProps) {
-    const plan = wallet.subscriptions[0]?.planName ?? 'Free';
+    const { name: plan } = getPlanDisplay(wallet);
     const isDisabled = wallet.status === 'disabled';
 
     return (

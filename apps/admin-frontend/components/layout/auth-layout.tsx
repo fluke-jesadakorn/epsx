@@ -27,7 +27,8 @@ const NO_LAYOUT_PATHS = [
   '/unauthorized',
   '/access-denied',
   '/request-access',
-  '/permissions/policies'
+  '/permissions/policies',
+  '/manual'
 ]
 
 /**

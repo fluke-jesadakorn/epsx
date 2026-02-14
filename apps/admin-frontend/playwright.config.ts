@@ -219,6 +219,27 @@ export default defineConfig({
       ],
       use: { ...devices['iPhone 12'] },
     },
+
+    // Manual E2E - Full admin app coverage with mocked APIs + screenshot capture
+    {
+      name: 'manual-e2e',
+      testMatch: [
+        '**/admin-home-auth.spec.ts',
+        '**/admin-analytics.spec.ts',
+        '**/admin-wallet-mgmt.spec.ts',
+        '**/admin-wallet-access.spec.ts',
+        '**/admin-subscriptions.spec.ts',
+        '**/admin-notifications.spec.ts',
+        '**/admin-developer.spec.ts',
+        '**/admin-profile-settings.spec.ts',
+        '**/admin-audit-payments.spec.ts',
+        '**/admin-debug.spec.ts',
+      ],
+      use: {
+        ...devices['Desktop Chrome'],
+        testIdAttribute: TEST_ID,
+      },
+    },
   ],
   // webServer: {
   //   command: 'npm run dev',

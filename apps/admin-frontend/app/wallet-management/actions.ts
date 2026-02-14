@@ -67,7 +67,7 @@ function extractWalletsData(rawData: WalletListResponse) {
 
     pagination ??= {
         page: 1,
-        limit: 20,
+        limit: 9,
         total: wallets.length,
         total_pages: 1,
         has_next_page: false,
@@ -85,7 +85,9 @@ export async function fetchWalletsAction(filters: WalletFilters, page = 1, limit
 
     if (!res.success) {
         await checkAuthError(res.error);
-        throw new Error(res.error?.message ?? 'Failed to fetch wallets');
+        const errorMsg = res.error?.message ?? 'Failed to fetch wallets';
+        const errorCode = res.error?.code ?? 'UNKNOWN';
+        throw new Error(`${errorMsg} (${errorCode})`);
     }
 
     const rawData = res.data;

@@ -92,6 +92,8 @@ export const serverEnvSchema = z.object({
   // Core Infrastructure (4 variables) - Required for all services
   DATABASE_URL: z.string()
     .url()
+    .optional()
+    .default('postgresql://localhost:5432/epsx')
     .refine(url => url.startsWith('postgresql://') || url.startsWith('postgres://'), {
       message: 'DATABASE_URL must be a valid PostgreSQL connection string'
     })

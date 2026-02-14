@@ -10,6 +10,7 @@ export const middleware = createAuthMiddleware({
         '/terms',
         '/privacy',
         '/analytics',
+        '/manual',
         '/upgrade',
         '/api/auth',
         '/api/public',
@@ -17,7 +18,8 @@ export const middleware = createAuthMiddleware({
         '/favicon.ico',
         '/robots.txt',
         '/sitemap.xml',
-        '/manifest.json'
+        '/manifest.json',
+        '/screenshots*'
     ],
     loginPath: '/auth',
     homePath: '/'

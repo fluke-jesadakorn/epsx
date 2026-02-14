@@ -81,6 +81,7 @@ impl QueryHandler<GetWalletListQuery> for GetWalletListQueryHandler {
                 last_auth_at: w.last_auth_at,
                 permissions_count: w.permissions_count,
                 plans_count: w.plans_count,
+                plan_name: w.plan_name,
                 last_activity: Some(w.created_at),
                 metadata: w.wallet_metadata,
             })

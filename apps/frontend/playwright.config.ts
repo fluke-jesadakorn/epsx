@@ -240,6 +240,22 @@ export default defineConfig({
         actionTimeout: 30000,
       },
     },
+
+    // Manual E2E - Full app coverage with mocked APIs + screenshot capture
+    {
+      name: 'manual-e2e',
+      testMatch: [
+        '**/home-public.spec.ts',
+        '**/auth-flow.spec.ts',
+        '**/dashboard-account.spec.ts',
+        '**/analytics.spec.ts',
+        '**/plans-payment.spec.ts',
+        '**/portfolio-permissions.spec.ts',
+        '**/notifications.spec.ts',
+        '**/developer.spec.ts',
+      ],
+      use: { ...devices['Desktop Chrome'] },
+    },
   ],
   // webServer: {
   //   command: 'npm run dev',

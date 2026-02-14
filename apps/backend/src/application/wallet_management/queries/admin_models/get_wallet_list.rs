@@ -90,6 +90,7 @@ pub struct WalletSummaryDto {
     pub last_auth_at: Option<DateTime<Utc>>,
     pub permissions_count: i32,
     pub plans_count: i32,
+    pub plan_name: Option<String>,
     pub last_activity: Option<DateTime<Utc>>,
     pub metadata: Option<serde_json::Value>,
 }

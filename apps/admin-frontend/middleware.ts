@@ -6,6 +6,7 @@ export const middleware = createAuthMiddleware({
         '/login',
         '/auth',
         '/api/auth', // Web3 auth endpoints
+        '/manual',
         '/api/debug', // Debug endpoints
         '/api/public',
         '/unauthorized',
@@ -14,7 +15,8 @@ export const middleware = createAuthMiddleware({
         '/favicon.ico',
         '/robots.txt',
         '/sitemap.xml',
-        '/manifest.json'
+        '/manifest.json',
+        '/screenshots*'
     ],
     loginPath: '/auth',
     homePath: '/'

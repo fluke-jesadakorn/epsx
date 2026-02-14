@@ -43,7 +43,11 @@ export function mapWalletDtoToData(dto: WalletSummaryDto): WalletData {
         platforms,
         permissions,
         subscriptions,
-        plans: (dto.groups ?? []).map(g => ({ planName: g.group_name, role: g.role })),
+        plans: (dto.plans ?? []).length > 0
+            ? (dto.plans ?? []).filter(p => p.is_active !== false).map(p => ({ planName: p.plan_name }))
+            : (dto.groups ?? []).length > 0
+                ? (dto.groups ?? []).map(g => ({ planName: g.group_name, role: g.role }))
+                : dto.plan_name ? [{ planName: dto.plan_name }] : [],
         metadata: dto.metadata,
         label,
         note,

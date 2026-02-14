@@ -28,6 +28,7 @@ pub struct WalletSummary {
     pub last_auth_at: Option<DateTime<Utc>>,
     pub permissions_count: i32,
     pub plans_count: i32,
+    pub plan_name: Option<String>,
     pub wallet_metadata: Option<serde_json::Value>,
 }
 
@@ -249,15 +250,23 @@ impl WalletManagementRepository {
                 wu.last_auth_at,
                 wu.wallet_metadata,
                 (
-                    SELECT COUNT(*)::int 
-                    FROM wallet_plan_assignments wpa 
+                    SELECT COUNT(*)::int
+                    FROM wallet_plan_assignments wpa
                     WHERE wpa.wallet_address = wu.wallet_address AND wpa.is_active = true
                 ) as plans_count,
                 (
-                    SELECT COUNT(*)::int 
-                    FROM wallet_plan_assignments wpa 
+                    SELECT COUNT(*)::int
+                    FROM wallet_plan_assignments wpa
                     WHERE wpa.wallet_address = wu.wallet_address AND wpa.is_active = true
-                ) as permissions_count
+                ) as permissions_count,
+                (
+                    SELECT pp.name
+                    FROM wallet_plan_assignments wpa
+                    JOIN plans pp ON pp.id = wpa.plan_id
+                    WHERE wpa.wallet_address = wu.wallet_address AND wpa.is_active = true
+                    ORDER BY pp.tier_level DESC NULLS LAST
+                    LIMIT 1
+                ) as plan_name
             FROM wallet_users wu
             {}
             ORDER BY wu.{} {}
@@ -280,6 +289,8 @@ impl WalletManagementRepository {
             permissions_count: i32,
             #[diesel(sql_type = diesel::sql_types::Integer)]
             plans_count: i32,
+            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
+            plan_name: Option<String>,
             #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Jsonb>)]
             wallet_metadata: Option<serde_json::Value>,
         }
@@ -296,6 +307,7 @@ impl WalletManagementRepository {
             last_auth_at: row.last_auth_at,
             permissions_count: row.permissions_count,
             plans_count: row.plans_count,
+            plan_name: row.plan_name,
             wallet_metadata: row.wallet_metadata,
         }).collect())
     }

@@ -74,9 +74,18 @@ export interface WalletSummaryDto {
         source?: string;
         created_at?: string;
     }>;
-    groups: Array<{
+    groups?: Array<{
         group_name: string;
         role?: string;
+    }>;
+    plan_name?: string;
+    plans?: Array<{
+        plan_id: string;
+        plan_name: string;
+        plan_type?: string;
+        assigned_at?: string;
+        expires_at?: string;
+        is_active?: boolean;
     }>;
     subscriptions?: Array<{
         plan_id: string;

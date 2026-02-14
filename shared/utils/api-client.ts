@@ -179,8 +179,9 @@ export class UnifiedApiClient {
   private async getServerSideToken(): Promise<string | undefined> {
     try {
       const { cookies } = await import('next/headers');
+      const { getServerAuthToken } = await import('../auth/cookies');
       const cookieStore = await cookies();
-      return cookieStore.get(COOKIES.access_token)?.value;
+      return getServerAuthToken(cookieStore) ?? undefined;
     } catch {
       return undefined;
     }

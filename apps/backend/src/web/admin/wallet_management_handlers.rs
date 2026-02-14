@@ -81,6 +81,9 @@ pub struct WalletSummaryResponse {
     /// Number of permission plans assigned
     #[schema(example = 2)]
     pub plans_count: i32,
+    /// Name of the highest-tier active plan
+    #[schema(example = "Starter Plan")]
+    pub plan_name: Option<String>,
     /// Last activity timestamp
     pub last_activity: Option<DateTime<Utc>>,
     /// Additional wallet metadata
@@ -181,6 +184,7 @@ impl From<query_models::WalletSummaryDto> for WalletSummaryResponse {
             last_auth_at: dto.last_auth_at,
             permissions_count: dto.permissions_count,
             plans_count: dto.plans_count,
+            plan_name: dto.plan_name,
             last_activity: dto.last_activity,
             metadata: dto.metadata.unwrap_or(serde_json::json!({})),
         }
