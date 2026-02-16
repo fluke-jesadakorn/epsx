@@ -6,7 +6,7 @@ use diesel_async::{AsyncPgConnection, RunQueryDsl};
 use deadpool::managed::{Manager, Pool, RecycleResult, RecycleError};
 use std::sync::OnceLock;
 use anyhow::Result;
-use tracing::{info, warn, error};
+use tracing::{debug, info, warn, error};
 use tokio_postgres_rustls::MakeRustlsConnect;
 use rustls::ClientConfig;
 use std::str::FromStr;
@@ -46,7 +46,7 @@ impl Manager for TlsConnectionManager {
         
         let connect_timeout = std::time::Duration::from_secs(5);
         
-        info!("DEBUG: Connecting to database (SSL Mode: {:?})...", config.get_ssl_mode());
+        debug!("Connecting to database (SSL Mode: {:?})...", config.get_ssl_mode());
 
         let client = match config.get_ssl_mode() {
             tokio_postgres::config::SslMode::Disable => {
@@ -54,13 +54,13 @@ impl Manager for TlsConnectionManager {
                     .await
                     .map_err(|_| ManagerError::Config("Database connection timed out".to_string()))?
                     .map_err(|e| {
-                        error!("❌ Connection error: {:?}", e);
+                        error!("Connection error: {:?}", e);
                         ManagerError::Connection(e)
                     })?;
 
                 tokio::spawn(async move {
                     if let Err(e) = connection.await {
-                        error!("❌ database connection error: {}", e);
+                        error!("database connection error: {}", e);
                     }
                 });
                 client
@@ -78,25 +78,25 @@ impl Manager for TlsConnectionManager {
                     .await
                     .map_err(|_| ManagerError::Config("Database connection timed out during TLS handshake".to_string()))?
                     .map_err(|e| {
-                        error!("❌ TLS Connection error: {}", e);
+                        error!("TLS Connection error: {}", e);
                         ManagerError::Connection(e)
                     })?;
 
                 tokio::spawn(async move {
                     if let Err(e) = connection.await {
-                        error!("❌ database connection error: {}", e);
+                        error!("database connection error: {}", e);
                     }
                 });
                 client
             }
         };
         
-        info!("DEBUG: Wrapping in AsyncPgConnection...");
+        debug!("Wrapping in AsyncPgConnection...");
         tokio::time::timeout(connect_timeout, AsyncPgConnection::try_from(client))
             .await
             .map_err(|_| ManagerError::Config("AsyncPgConnection wrapper timed out".to_string()))?
             .map_err(|e| {
-                error!("❌ AsyncPgConnection conversion error: {}", e);
+                error!("AsyncPgConnection conversion error: {}", e);
                 ManagerError::Internal(e.to_string())
             })
     }
@@ -209,20 +209,20 @@ impl DieselConnectionManager {
         // Store in global static (thread-safe)
         match GLOBAL_DIESEL_POOL.set(pool) {
             Ok(()) => {
-                info!("✅ Diesel async pool initialized and cached globally");
-                Ok(GLOBAL_DIESEL_POOL.get().unwrap())
+                info!("Diesel async pool initialized and cached globally");
+                Ok(GLOBAL_DIESEL_POOL.get().expect("GLOBAL_DIESEL_POOL initialized above"))
             }
             Err(_) => {
                 // Another thread already initialized it
-                warn!("⚠️ Diesel pool was initialized by another thread");
-                Ok(GLOBAL_DIESEL_POOL.get().unwrap())
+                warn!("Diesel pool was initialized by another thread");
+                Ok(GLOBAL_DIESEL_POOL.get().expect("GLOBAL_DIESEL_POOL initialized above"))
             }
         }
     }
 
     /// Create an optimized Diesel async connection pool for serverless environments
     async fn create_optimized_pool(config: DieselServerlessConfig) -> Result<TlsPool> {
-        info!("🔗 Creating Diesel async pool for serverless...");
+        info!("Creating Diesel async pool for serverless...");
         info!("   Max connections: {}", config.max_size);
         info!("   Acquire timeout: {}s", config.acquire_timeout_secs);
 
@@ -247,7 +247,7 @@ impl DieselConnectionManager {
             .build()
             .map_err(|e| anyhow::anyhow!("Failed to create Diesel pool: {}", e))?;
 
-        info!("✅ Diesel async pool created successfully");
+        info!("Diesel async pool created successfully");
         Ok(pool)
     }
 
@@ -264,7 +264,7 @@ impl DieselConnectionManager {
             Ok(url) => url,
             Err(_) => {
                 // Fall back to main pool if analytics DB not configured
-                info!("📊 ANALYTICS_DATABASE_URL not set, using main database pool");
+                info!("ANALYTICS_DATABASE_URL not set, using main database pool");
                 return Self::get_pool().await;
             }
         };
@@ -285,12 +285,12 @@ impl DieselConnectionManager {
         // Store in global static
         match GLOBAL_ANALYTICS_POOL.set(pool) {
             Ok(()) => {
-                info!("✅ Analytics database pool initialized");
-                Ok(GLOBAL_ANALYTICS_POOL.get().unwrap())
+                info!("Analytics database pool initialized");
+                Ok(GLOBAL_ANALYTICS_POOL.get().expect("GLOBAL_ANALYTICS_POOL initialized above"))
             }
             Err(_) => {
-                warn!("⚠️ Analytics pool was initialized by another thread");
-                Ok(GLOBAL_ANALYTICS_POOL.get().unwrap())
+                warn!("Analytics pool was initialized by another thread");
+                Ok(GLOBAL_ANALYTICS_POOL.get().expect("GLOBAL_ANALYTICS_POOL initialized above"))
             }
         }
     }
@@ -303,7 +303,7 @@ impl DieselConnectionManager {
             Ok(url) => url,
             Err(_) => {
                 // Fall back to main pool if notifications DB not configured
-                info!("🔔 NOTIFICATIONS_DATABASE_URL not set, using main database pool");
+                info!("NOTIFICATIONS_DATABASE_URL not set, using main database pool");
                 return Self::get_pool().await;
             }
         };
@@ -324,12 +324,12 @@ impl DieselConnectionManager {
         // Store in global static
         match GLOBAL_NOTIFICATIONS_POOL.set(pool) {
             Ok(()) => {
-                info!("✅ Notifications database pool initialized");
-                Ok(GLOBAL_NOTIFICATIONS_POOL.get().unwrap())
+                info!("Notifications database pool initialized");
+                Ok(GLOBAL_NOTIFICATIONS_POOL.get().expect("GLOBAL_NOTIFICATIONS_POOL initialized above"))
             }
             Err(_) => {
-                warn!("⚠️ Notifications pool was initialized by another thread");
-                Ok(GLOBAL_NOTIFICATIONS_POOL.get().unwrap())
+                warn!("Notifications pool was initialized by another thread");
+                Ok(GLOBAL_NOTIFICATIONS_POOL.get().expect("GLOBAL_NOTIFICATIONS_POOL initialized above"))
             }
         }
     }
@@ -342,7 +342,7 @@ impl DieselConnectionManager {
             Ok(url) => url,
             Err(_) => {
                 // Fall back to main pool if payments DB not configured
-                info!("💰 PAYMENTS_DATABASE_URL not set, using main database pool");
+                info!("PAYMENTS_DATABASE_URL not set, using main database pool");
                 return Self::get_pool().await;
             }
         };
@@ -363,12 +363,12 @@ impl DieselConnectionManager {
         // Store in global static
         match GLOBAL_PAYMENTS_POOL.set(pool) {
             Ok(()) => {
-                info!("✅ Payments database pool initialized");
-                Ok(GLOBAL_PAYMENTS_POOL.get().unwrap())
+                info!("Payments database pool initialized");
+                Ok(GLOBAL_PAYMENTS_POOL.get().expect("GLOBAL_PAYMENTS_POOL initialized above"))
             }
             Err(_) => {
-                warn!("⚠️ Payments pool was initialized by another thread");
-                Ok(GLOBAL_PAYMENTS_POOL.get().unwrap())
+                warn!("Payments pool was initialized by another thread");
+                Ok(GLOBAL_PAYMENTS_POOL.get().expect("GLOBAL_PAYMENTS_POOL initialized above"))
             }
         }
     }
@@ -420,19 +420,19 @@ impl DieselConnectionManager {
                         {
                             Ok(_) => true,
                             Err(e) => {
-                                error!("❌ Diesel health check query failed: {}", e);
+                                error!("Diesel health check query failed: {}", e);
                                 false
                             }
                         }
                     }
                     Err(e) => {
-                        error!("❌ Failed to get Diesel connection: {}", e);
+                        error!("Failed to get Diesel connection: {}", e);
                         false
                     }
                 }
             }
             Err(e) => {
-                error!("❌ Failed to get Diesel pool: {}", e);
+                error!("Failed to get Diesel pool: {}", e);
                 false
             }
         }

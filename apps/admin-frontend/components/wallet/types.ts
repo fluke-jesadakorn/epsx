@@ -10,7 +10,7 @@ export type Platform = 'analytics' | 'pay' | 'token' | 'markets';
 export type PermissionSource = 'manual' | 'auto' | 'system';
 
 /** Wallet status */
-export type WalletStatus = 'active' | 'disabled' | 'pending';
+export type WalletStatus = 'active' | 'disabled';
 
 /** Permission data for a wallet */
 export interface WalletPermission {

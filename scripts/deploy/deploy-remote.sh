@@ -14,8 +14,8 @@ echo "Target: $SERVER_IP"
 
 # 1. Build Images
 echo ""
-echo "📦 Building Production Images (linux/amd64)..."
-export DOCKER_DEFAULT_PLATFORM=linux/amd64
+echo "📦 Building Production Images (linux/arm64)..."
+export DOCKER_DEFAULT_PLATFORM=linux/arm64
 
 echo "   - Building Frontend..."
 docker build \

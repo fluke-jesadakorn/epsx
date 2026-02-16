@@ -75,6 +75,7 @@ export function useWalletAccessData(walletAddress: string | null) {
                 permissionCount: g.permissions?.length ?? 0,
                 permissions: g.permissions ?? [],
                 memberCount: g.member_count,
+                planGroup: g.plan_group,
             }));
 
             // Split into available/authorized

@@ -35,7 +35,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // Install default crypto provider for rustls
     let _ = rustls::crypto::ring::default_provider().install_default();
 
-    info!("🚀 Starting EPSX Backend Server - Data Analytics Platform...");
+    info!("Starting EPSX Backend Server - Data Analytics Platform...");
 
     // Create database pool with Diesel
     let database_url = std::env::var("DATABASE_URL")
@@ -53,14 +53,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let connection_timeout = std::time::Duration::from_secs(10);
     match tokio::time::timeout(connection_timeout, pool.get()).await {
         Ok(Ok(_)) => {
-            info!("✅ Database pool created and connection verified")
+            info!("Database pool created and connection verified")
         },
         Ok(Err(e)) => {
-            error!("❌ Failed to connect to database: {}", e);
+            error!("Failed to connect to database: {}", e);
             return Err(format!("Database connection failed: {}", e).into());
         },
         Err(_) => {
-            error!("❌ Database connection check timed out after 10s");
+            error!("Database connection check timed out after 10s");
             return Err("Database connection timed out".into());
         }
     }
@@ -78,23 +78,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 epsx::infrastructure::cache::CacheConfig::default()
             )).await {
                 Ok(Ok(cache)) => {
-                    info!("✅ Redis cache initialized");
+                    info!("Redis cache initialized");
                     Some(Arc::new(cache) as Arc<dyn epsx::infrastructure::cache::Cache>)
                 }
                 Ok(Err(e)) => {
-                    info!("⚠️ Redis cache initialization failed, using memory cache: {}", e);
+                    info!("Redis cache initialization failed, using memory cache: {}", e);
                     Some(Arc::new(epsx::infrastructure::cache::memory_cache::MemoryCache::new())
                         as Arc<dyn epsx::infrastructure::cache::Cache>)
                 }
                 Err(_) => {
-                    info!("⚠️ Redis connection timed out after 5s, using memory cache");
+                    info!("Redis connection timed out after 5s, using memory cache");
                     Some(Arc::new(epsx::infrastructure::cache::memory_cache::MemoryCache::new())
                         as Arc<dyn epsx::infrastructure::cache::Cache>)
                 }
             }
         }
         None => {
-            info!("ℹ️ No Redis URL configured, using memory cache");
+            info!("No Redis URL configured, using memory cache");
             Some(Arc::new(epsx::infrastructure::cache::memory_cache::MemoryCache::new())
                 as Arc<dyn epsx::infrastructure::cache::Cache>)
         }
@@ -105,30 +105,30 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         cache,
         None, // blockchain_config - will use defaults
     ).await);
-    info!("✅ Domain container initialized with Web3 services and Redis notifications");
+    info!("Domain container initialized with Web3 services and Redis notifications");
 
     // Start Transaction Monitor Service (Background task for verifying payments)
     epsx::infrastructure::blockchain::spawn_transaction_monitor();
-    info!("✅ Transaction Monitor background service started");
+    info!("Transaction Monitor background service started");
 
     // Start EventDispatcher (background worker for publishing events to Redis)
     if let Some(dispatcher) = &container.event_dispatcher {
         match dispatcher.clone().start().await {
-            Ok(_) => info!("✅ EventDispatcher started - events will be published to Redis Streams"),
-            Err(e) => info!("⚠️ EventDispatcher failed to start: {} (continuing without event publishing)", e),
+            Ok(_) => info!("EventDispatcher started - events will be published to Redis Streams"),
+            Err(e) => info!("EventDispatcher failed to start: {} (continuing without event publishing)", e),
         }
     } else {
-        info!("ℹ️ EventDispatcher not configured (Redis URL not set)");
+        info!("EventDispatcher not configured (Redis URL not set)");
     }
 
     // Start ProjectionManager (background worker for updating read models)
     if let Some(projection_manager) = &container.projection_manager {
         match projection_manager.clone().start().await {
-            Ok(_) => info!("✅ ProjectionManager started - read models will be updated from events"),
-            Err(e) => info!("⚠️ ProjectionManager failed to start: {} (continuing without projections)", e),
+            Ok(_) => info!("ProjectionManager started - read models will be updated from events"),
+            Err(e) => info!("ProjectionManager failed to start: {} (continuing without projections)", e),
         }
     } else {
-        info!("ℹ️ ProjectionManager not configured");
+        info!("ProjectionManager not configured");
     }
 
     // Start PlanExpirationService (background task for expiry notifications + cleanup)
@@ -139,12 +139,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             container.redis_broadcaster.as_ref().map(Arc::clone),
         );
         svc.start();
-        info!("✅ PlanExpirationService background service started");
+        info!("PlanExpirationService background service started");
     }
 
     // Create unified router
     let app = create_router(container);
-    info!("✅ Unified router created successfully");
+    info!("Unified router created successfully");
 
     // Server configuration using unified config
     let host = std::env::var("HOST").unwrap_or_else(|_| "0.0.0.0".to_string());
@@ -153,34 +153,34 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         .parse()
         .unwrap_or(8080);
 
-    info!("🔗 Backend URL: {}", config.backend_url);
-    info!("🌐 Frontend URL: {}", config.frontend_url);
-    info!("⚙️  Admin URL: {}", config.admin_frontend_url);
+    info!("Backend URL: {}", config.backend_url);
+    info!("Frontend URL: {}", config.frontend_url);
+    info!("Admin URL: {}", config.admin_frontend_url);
     let addr = SocketAddr::from(([0, 0, 0, 0], port));
 
-    info!("🚀 Server starting on {}:{}", host, port);
-    info!("🌐 Health check: http://{}:{}/health", host, port);
+    info!("Server starting on {}:{}", host, port);
+    info!("Health check: http://{}:{}/health", host, port);
     info!("");
-    info!("📡 UNIFIED API ENDPOINTS:");
-    info!("   🔐 Auth:      http://{}:{}/api/auth/web3/*", host, port);
-    info!("   📊 Analytics: http://{}:{}/api/analytics/*", host, port);
-    info!("   📊 Public:    http://{}:{}/api/public/*", host, port);
-    info!("   👤 Admin:     http://{}:{}/admin/* | http://{}:{}/api/admin/*", host, port, host, port);
-    info!("   📖 Docs:      http://{}:{}/docs", host, port);
+    info!("UNIFIED API ENDPOINTS:");
+    info!("   Auth:      http://{}:{}/api/auth/web3/*", host, port);
+    info!("   Analytics: http://{}:{}/api/analytics/*", host, port);
+    info!("   Public:    http://{}:{}/api/public/*", host, port);
+    info!("   Admin:     http://{}:{}/admin/* | http://{}:{}/api/admin/*", host, port, host, port);
+    info!("   Docs:      http://{}:{}/docs", host, port);
     info!("");
 
     // Start the server
     let listener = tokio::net::TcpListener::bind(addr).await?;
 
-    info!("✨ EPSX Backend Server is ready and listening!");
+    info!("EPSX Backend Server is ready and listening!");
     
     match axum::serve(listener, app).await {
         Ok(_) => {
-            info!("🛑 Server shutdown gracefully");
+            info!("Server shutdown gracefully");
             Ok(())
         }
         Err(e) => {
-            error!("❌ Server error: {}", e);
+            error!("Server error: {}", e);
             Err(e.into())
         }
     }

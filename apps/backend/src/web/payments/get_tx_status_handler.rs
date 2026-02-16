@@ -81,7 +81,7 @@ pub async fn get_transaction_status_handler(
     let wallet_address = user_context.wallet_address.to_lowercase();
     
     debug!(
-        "📊 Getting transaction status: wallet={}, tx_hash={}",
+        "Getting transaction status: wallet={}, tx_hash={}",
         wallet_address, tx_hash
     );
 
@@ -142,7 +142,7 @@ pub async fn get_transaction_status_handler(
 
             if payment.status == "confirmed" {
                 tracing::info!(
-                    "✅ Returning CONFIRMED status to frontend for tx: {}", 
+                    "Returning CONFIRMED status to frontend for tx: {}", 
                     tx_hash
                 );
             }

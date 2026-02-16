@@ -82,7 +82,7 @@ pub async fn submit_transaction_handler(
     debug!("api/payments/submit HIT by wallet: {}", wallet_address);
 
     info!(
-        "📥 Submitting transaction for monitoring: wallet={}, tx_hash={}, plan_id={}",
+        "Submitting transaction for monitoring: wallet={}, tx_hash={}, plan_id={}",
         wallet_address, payload.transaction_hash, payload.plan_id
     );
 
@@ -151,7 +151,7 @@ pub async fn submit_transaction_handler(
     let remaining_amount = &payment_amount - &credit_to_use;
 
     info!(
-        "💳 Credit check: wallet_balance=${}, payment_amount=${}, credit_to_use=${}, remaining_amount=${}",
+        "Credit check: wallet_balance=${}, payment_amount=${}, credit_to_use=${}, remaining_amount=${}",
         wallet_credit_balance, payment_amount, credit_to_use, remaining_amount
     );
 
@@ -174,10 +174,10 @@ pub async fn submit_transaction_handler(
             })),
         ).await {
             Ok(tx_id) => {
-                info!("✅ Deducted ${} credits (tx: {})", credit_to_use, tx_id);
+                info!("Deducted ${} credits (tx: {})", credit_to_use, tx_id);
             }
             Err(e) => {
-                error!("⚠️ Failed to deduct credits: {}. Proceeding with full blockchain payment", e);
+                error!("Failed to deduct credits: {}. Proceeding with full blockchain payment", e);
                 // If credit deduction fails, proceed with full blockchain payment
             }
         }
@@ -232,13 +232,13 @@ pub async fn submit_transaction_handler(
         Ok(_) => {
             let message = if payment_status == "confirmed" {
                 info!(
-                    "✅ Payment fully covered by credits: ref={}, amount=${}",
+                    "Payment fully covered by credits: ref={}, amount=${}",
                     payment_reference, payment_amount
                 );
                 format!("Payment completed using ${} wallet credits", credit_to_use)
             } else if credit_to_use > BigDecimal::from(0) {
                 info!(
-                    "✅ Partial credit payment: ref={}, credits_used=${}, blockchain_amount=${}, tx={}",
+                    "Partial credit payment: ref={}, credits_used=${}, blockchain_amount=${}, tx={}",
                     payment_reference, credit_to_use, remaining_amount, payload.transaction_hash
                 );
                 format!(
@@ -247,7 +247,7 @@ pub async fn submit_transaction_handler(
                 )
             } else {
                 info!(
-                    "✅ Transaction submitted for monitoring: ref={}, tx={}",
+                    "Transaction submitted for monitoring: ref={}, tx={}",
                     payment_reference, payload.transaction_hash
                 );
                 "Transaction submitted for monitoring".to_string()

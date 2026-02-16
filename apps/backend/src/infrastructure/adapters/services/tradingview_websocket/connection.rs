@@ -39,7 +39,7 @@ pub async fn connect_websocket() -> Result<
   let (ws_stream, _) = connect_async(request).await
     .map_err(|e| AppError::network_error(format!("WebSocket connection failed: {}", e)))?;
 
-  info!("✅ Successfully connected to TradingView WebSocket");
+  info!("Successfully connected to TradingView WebSocket");
   Ok(ws_stream)
 }
 

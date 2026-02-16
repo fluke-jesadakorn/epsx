@@ -32,7 +32,7 @@ impl QueryHandler<GetWalletStatsQuery> for GetWalletStatsQueryHandler {
         query.validate()?;
 
         let mut conn = self.db_pool.get().await.map_err(|e| {
-            error!("❌ Failed to get connection: {}", e);
+            error!("Failed to get connection: {}", e);
             ApplicationError::infrastructure(format!("Failed to get connection: {}", e))
         })?;
 
@@ -62,7 +62,7 @@ impl QueryHandler<GetWalletStatsQuery> for GetWalletStatsQueryHandler {
         .get_result::<StatsRow>(&mut conn)
         .await
         .map_err(|e| {
-            error!("❌ Failed to fetch wallet statistics: {}", e);
+            error!("Failed to fetch wallet statistics: {}", e);
             ApplicationError::infrastructure(format!("Failed to fetch stats: {}", e))
         })?;
 
@@ -86,7 +86,7 @@ impl QueryHandler<GetWalletStatsQuery> for GetWalletStatsQueryHandler {
         };
 
         info!(
-            "✅ Successfully retrieved wallet statistics: {} total users, {:.2}% growth",
+            "Successfully retrieved wallet statistics: {} total users, {:.2}% growth",
             stats.total_users, growth_rate
         );
 

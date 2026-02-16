@@ -97,4 +97,5 @@ pub fn create_permission_routes() -> Router<AppState> {
         .route("/definitions/{id}", put(available::update_permission_definition))
         .route("/definitions/{id}", delete(available::delete_permission_definition))
         .route("/definitions/by-name/{permission}", delete(available::delete_permission_by_name))
+
 }

@@ -406,10 +406,10 @@ async fn web3_auth_middleware_wrapper(
 
                 // Validate Web3 token (simplified validation for now)
                 if validate_web3_token(token).is_ok() {
-                    tracing::info!("✅ Web3 authentication validated successfully");
+                    tracing::info!("Web3 authentication validated successfully");
                     return Ok(next.run(request).await);
                 } else {
-                    tracing::warn!("❌ Web3 token validation failed");
+                    tracing::warn!("Web3 token validation failed");
                     return Err(axum::http::StatusCode::UNAUTHORIZED);
                 }
             }
@@ -417,7 +417,7 @@ async fn web3_auth_middleware_wrapper(
     }
 
     // No valid Web3 token found
-    tracing::warn!("❌ No valid Web3 authentication token found");
+    tracing::warn!("No valid Web3 authentication token found");
     Err(axum::http::StatusCode::UNAUTHORIZED)
 }
 
@@ -434,14 +434,14 @@ async fn standard_auth_middleware_wrapper(
         if let Ok(session_str) = session_header.to_str() {
             // Validate session (simplified validation)
             if validate_session_cookie(session_str).is_ok() {
-                tracing::debug!("✅ Session authentication validated");
+                tracing::debug!("Session authentication validated");
                 return Ok(next.run(request).await);
             }
         }
     }
 
     // Fallback to passthrough for development - in production, this would return UNAUTHORIZED
-    tracing::debug!("⚠️ No session found - allowing passthrough for development");
+    tracing::debug!("No session found - allowing passthrough for development");
     Ok(next.run(request).await)
 }
 
@@ -568,7 +568,7 @@ pub fn update_global_feature_flags(updates: HashMap<String, String>) -> Result<(
         match key.as_str() {
             "emergency_rollback" => {
                 if value == "true" {
-                    warn!("🚨 Emergency rollback activated via feature flag update");
+                    warn!("Emergency rollback activated via feature flag update");
                 }
             },
             "stateless_auth_percentage" => {

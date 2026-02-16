@@ -37,7 +37,7 @@ impl CommandHandler<DisableWalletCommand> for DisableWalletCommandHandler {
         }
 
         let mut conn = self.db_pool.get().await.map_err(|e| {
-            error!("❌ Failed to get connection: {}", e);
+            error!("Failed to get connection: {}", e);
             ApplicationError::infrastructure(format!("Failed to get connection: {}", e))
         })?;
 
@@ -58,7 +58,7 @@ impl CommandHandler<DisableWalletCommand> for DisableWalletCommandHandler {
         .await
         .optional()
         .map_err(|e| {
-            error!("❌ Failed to check wallet existence: {}", e);
+            error!("Failed to check wallet existence: {}", e);
             ApplicationError::infrastructure(format!("Failed to check wallet: {}", e))
         })?;
 
@@ -100,7 +100,7 @@ impl CommandHandler<DisableWalletCommand> for DisableWalletCommandHandler {
         .bind::<diesel::sql_types::Jsonb, _>(&disable_info);
 
         update_query.execute(&mut conn).await.map_err(|e| {
-            error!("❌ Failed to disable wallet: {}", e);
+            error!("Failed to disable wallet: {}", e);
             ApplicationError::infrastructure(format!("Failed to disable wallet: {}", e))
         })?;
         
@@ -113,14 +113,14 @@ impl CommandHandler<DisableWalletCommand> for DisableWalletCommandHandler {
             .execute(&mut conn)
             .await
             .map_err(|e| {
-                error!("❌ Failed to revoke sessions: {}", e);
+                error!("Failed to revoke sessions: {}", e);
                 // Non-critical error, log but continue
                 ApplicationError::infrastructure(format!("Failed to revoke sessions: {}", e))
             })?;
         }
 
         info!(
-            "✅ Successfully disabled wallet: {}",
+            "Successfully disabled wallet: {}",
             command.wallet_address
         );
 

@@ -116,10 +116,10 @@ pub async fn disable_wallet_handler(
     RequestJson(request): RequestJson<DisableWalletRequest>,
 ) -> Result<Json<AdminApiResponse<DisableWalletResponse>>, StatusCode> {
     let admin_wallet = &admin_context.wallet_address;
-    info!("🔒 Admin {} disabling wallet: {}", admin_wallet, wallet_address);
+    info!("Admin {} disabling wallet: {}", admin_wallet, wallet_address);
 
     let mut conn = app_state.db_pool.get().await.map_err(|e| {
-        error!("❌ Failed to get connection: {}", e);
+        error!("Failed to get connection: {}", e);
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
 
@@ -149,7 +149,7 @@ pub async fn disable_wallet_handler(
     .execute(&mut conn)
     .await
     .map_err(|e| {
-        error!("❌ Failed to disable wallet: {}", e);
+        error!("Failed to disable wallet: {}", e);
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
 
@@ -201,7 +201,7 @@ pub async fn disable_wallet_handler(
 
     let metadata = AdminMetadata::crud_operation("disable_wallet", Some(admin_wallet.clone()));
 
-    info!("✅ Admin {}: Successfully disabled wallet: {}", admin_wallet, wallet_address);
+    info!("Admin {}: Successfully disabled wallet: {}", admin_wallet, wallet_address);
     Ok(Json(AdminApiResponse::success_with_meta(
         response,
         "Wallet disabled successfully",
@@ -234,10 +234,10 @@ pub async fn enable_wallet_handler(
     RequestJson(request): RequestJson<EnableWalletRequest>,
 ) -> Result<Json<AdminApiResponse<EnableWalletResponse>>, StatusCode> {
     let admin_wallet = &admin_context.wallet_address;
-    info!("🔓 Admin {} re-enabling wallet: {}", admin_wallet, wallet_address);
+    info!("Admin {} re-enabling wallet: {}", admin_wallet, wallet_address);
 
     let mut conn = app_state.db_pool.get().await.map_err(|e| {
-        error!("❌ Failed to get connection: {}", e);
+        error!("Failed to get connection: {}", e);
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
 
@@ -252,7 +252,7 @@ pub async fn enable_wallet_handler(
     .execute(&mut conn)
     .await
     .map_err(|e| {
-        error!("❌ Failed to enable wallet: {}", e);
+        error!("Failed to enable wallet: {}", e);
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
 
@@ -297,7 +297,7 @@ pub async fn enable_wallet_handler(
         .execute(&mut conn)
         .await;
 
-        info!("🔑 Restored permissions for wallet: {}", wallet_address);
+        info!("Restored permissions for wallet: {}", wallet_address);
     }
 
     // Resume subscriptions if requested
@@ -316,7 +316,7 @@ pub async fn enable_wallet_handler(
                 .execute(&mut payments_conn)
                 .await;
 
-                info!("📦 Resumed subscriptions for wallet: {}", wallet_address);
+                info!("Resumed subscriptions for wallet: {}", wallet_address);
             }
         }
     }
@@ -330,7 +330,7 @@ pub async fn enable_wallet_handler(
 
     let metadata = AdminMetadata::crud_operation("enable_wallet", Some(admin_wallet.clone()));
 
-    info!("✅ Admin {}: Successfully enabled wallet: {}", admin_wallet, wallet_address);
+    info!("Admin {}: Successfully enabled wallet: {}", admin_wallet, wallet_address);
     Ok(Json(AdminApiResponse::success_with_meta(
         response,
         "Wallet enabled successfully",
@@ -364,7 +364,7 @@ pub async fn get_wallet_activity_handler(
     axum::extract::Query(params): axum::extract::Query<std::collections::HashMap<String, String>>,
     State(app_state): State<AppState>,
 ) -> Result<Json<AdminApiResponse<ActivityLogResponse>>, StatusCode> {
-    info!("📜 Admin: Getting activity for wallet: {}", wallet_address);
+    info!("Admin: Getting activity for wallet: {}", wallet_address);
 
     let limit: i32 = params.get("limit")
         .and_then(|l| l.parse().ok())
@@ -372,7 +372,7 @@ pub async fn get_wallet_activity_handler(
         .min(100);
 
     let mut conn = app_state.db_pool.get().await.map_err(|e| {
-        error!("❌ Failed to get connection: {}", e);
+        error!("Failed to get connection: {}", e);
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
 
@@ -438,7 +438,7 @@ pub async fn get_wallet_activity_handler(
 
     let metadata = AdminMetadata::crud_operation("get_wallet_activity", Some("admin".to_string()));
 
-    info!("✅ Admin: Retrieved {} activity events for {}", response.events.len(), wallet_address);
+    info!("Admin: Retrieved {} activity events for {}", response.events.len(), wallet_address);
     Ok(Json(AdminApiResponse::success_with_meta(
         response,
         "Activity history retrieved successfully",

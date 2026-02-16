@@ -14,8 +14,8 @@ pub fn build_content_security_policy() -> String {
         format!("connect-src 'self' {} wss://data.tradingview.com https://api.tradingview.com", origins_str),
         "font-src 'self' data: https://fonts.gstatic.com".to_string(),
         "img-src 'self' data: https: blob:".to_string(),
-        "script-src 'self' 'unsafe-inline' 'unsafe-eval'".to_string(), // Note: Consider restricting in production
-        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com".to_string(),
+        "script-src 'none'".to_string(),
+        "style-src 'none'".to_string(),
         "object-src 'none'".to_string(),
         "base-uri 'self'".to_string(),
         "frame-ancestors 'none'".to_string(),

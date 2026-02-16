@@ -1,0 +1,1 @@
+-- No rollback: features system replaced by permission strings

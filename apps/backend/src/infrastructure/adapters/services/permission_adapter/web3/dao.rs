@@ -98,7 +98,7 @@ impl DaoValidator {
         min_power: &str,
         rpc: &str,
     ) -> AppResult<DaoResult> {
-        info!("🔍 Checking DAO membership for wallet {} on contract {}", wallet.as_str(), contract);
+        info!("Checking DAO membership for wallet {} on contract {}", wallet.as_str(), contract);
 
         let timeout_dur = Duration::from_millis(self.cfg.request_timeout_ms);
         let result = timeout(timeout_dur, async {
@@ -118,7 +118,7 @@ impl DaoValidator {
         min_power: &str,
         rpc: &str,
     ) -> AppResult<DaoResult> {
-        debug!("🔗 Making DAO membership RPC call to {}", rpc);
+        debug!("Making DAO membership RPC call to {}", rpc);
 
         // Create provider
         let provider = Provider::<Http>::try_from(rpc)
@@ -161,7 +161,7 @@ impl DaoValidator {
                     if result.len() >= 32 {
                         current_power = U256::from_big_endian(&result);
                         found = true;
-                        debug!("✅ Found voting power {} using function {}", current_power, fn_name);
+                        debug!("Found voting power {} using function {}", current_power, fn_name);
                         break;
                     }
                 }
@@ -212,14 +212,14 @@ impl DaoValidator {
                             "delegated_to".to_string(),
                             format!("{:?}", delegate_addr)
                         );
-                        debug!("✅ Found delegation from {} to {:?} using {}", wallet.as_str(), delegate_addr, fn_name);
+                        debug!("Found delegation from {} to {:?} using {}", wallet.as_str(), delegate_addr, fn_name);
                     }
                     break;
                 }
             }
         }
 
-        info!("✅ DAO membership check complete: voting power {} >= {} = {}", current_power, min_power_u256, meets_min);
+        info!("DAO membership check complete: voting power {} >= {} = {}", current_power, min_power_u256, meets_min);
 
         Ok(DaoResult {
             meets_minimum_voting_power: meets_min,

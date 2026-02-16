@@ -16,7 +16,7 @@ impl ServerlessCacheFactory {
         let redis_cache = Self::create_redis_cache().await
             .map_err(|e| anyhow::anyhow!("Redis is REQUIRED for serverless deployment: {}", e))?;
         
-        info!("✅ Serverless Redis cache initialized (no fallback)");
+        info!("Serverless Redis cache initialized (no fallback)");
         Ok(Box::new(redis_cache))
     }
 
@@ -25,7 +25,7 @@ impl ServerlessCacheFactory {
         let redis_cache = Self::create_redis_cache().await
             .map_err(|e| anyhow::anyhow!("Redis is REQUIRED for serverless deployment: {}", e))?;
         
-        info!("✅ Serverless Redis cache (Arc) initialized (no fallback)");
+        info!("Serverless Redis cache (Arc) initialized (no fallback)");
         Ok(Arc::new(redis_cache))
     }
 
@@ -37,7 +37,7 @@ impl ServerlessCacheFactory {
         let redis_cache = RedisCache::new(redis_url.clone(), pool_size, config).await
             .map_err(|e| anyhow::anyhow!("Failed to connect to Redis at {}: {}", redis_url, e))?;
         
-        info!("✅ Serverless Redis cache created with custom URL: {}", redis_url);
+        info!("Serverless Redis cache created with custom URL: {}", redis_url);
         Ok(Arc::new(redis_cache))
     }
 
@@ -49,7 +49,7 @@ impl ServerlessCacheFactory {
         let pool_size = Self::get_serverless_pool_size();
         let config = Self::get_serverless_cache_config();
         
-        info!("🔗 Connecting to Redis for serverless cache: {}", redis_url);
+        info!("Connecting to Redis for serverless cache: {}", redis_url);
         info!("   Pool size: {}", pool_size);
         info!("   Default TTL: {}s", config.default_ttl);
         
@@ -86,14 +86,14 @@ impl ServerlessCacheFactory {
                 // Use the async health_check method from RedisCache directly
                 let is_healthy = cache.health_check().await;
                 if is_healthy {
-                    info!("✅ Redis cache health check passed");
+                    info!("Redis cache health check passed");
                 } else {
-                    error!("❌ Redis cache health check failed");
+                    error!("Redis cache health check failed");
                 }
                 is_healthy
             }
             Err(e) => {
-                error!("❌ Failed to create Redis cache for health check: {}", e);
+                error!("Failed to create Redis cache for health check: {}", e);
                 false
             }
         }

@@ -25,12 +25,17 @@ export {
 /**
  * Permission Plan (Admin extended version)
  */
+export type PlanCategory = 'base' | 'addon' | 'system' | 'exclusive';
+export type PlanGroup = 'personal' | 'enterprise' | 'api' | 'custom';
+
 export interface PermissionPlan {
   id: string;
   name: string;
   slug: string;
   description: string;
   plan_type: string;
+  plan_category: PlanCategory;
+  plan_group?: PlanGroup;
   permissions: string[];
   price?: number;
   currency?: string;
@@ -140,12 +145,15 @@ export interface CreatePlanRequest {
   is_public?: boolean;
   is_active?: boolean;
   plan_metadata?: Record<string, unknown>;
+  plan_group?: PlanGroup;
 }
 
 export interface UpdatePlanRequest {
   name?: string;
   permissions?: string[];
   description?: string;
+  plan_category?: PlanCategory;
+  plan_group?: PlanGroup;
   default_expiry_days?: number;
   grace_period_hours?: number;
   tier_level?: number;

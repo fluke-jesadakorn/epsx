@@ -97,7 +97,7 @@ impl TokenValidator {
         min: &str,
         rpc: &str,
     ) -> AppResult<TokenResult> {
-        info!("🔍 Checking token balance for wallet {} on contract {}", wallet.as_str(), contract);
+        info!("Checking token balance for wallet {} on contract {}", wallet.as_str(), contract);
 
         let timeout_dur = Duration::from_millis(self.cfg.request_timeout_ms);
         let result = timeout(timeout_dur, async {
@@ -117,7 +117,7 @@ impl TokenValidator {
         min: &str,
         rpc: &str,
     ) -> AppResult<TokenResult> {
-        debug!("🔗 Making token balance RPC call to {}", rpc);
+        debug!("Making token balance RPC call to {}", rpc);
 
         // Create provider
         let provider = Provider::<Http>::try_from(rpc)
@@ -156,7 +156,7 @@ impl TokenValidator {
 
         let meets_min = current >= min_u256;
 
-        info!("✅ Token balance check complete: {} >= {} = {}", current, min_u256, meets_min);
+        info!("Token balance check complete: {} >= {} = {}", current, min_u256, meets_min);
 
         Ok(TokenResult {
             meets_minimum_balance: meets_min,

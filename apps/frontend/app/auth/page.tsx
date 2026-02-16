@@ -2,16 +2,16 @@
 
 import { WalletConnectAuth } from '@/components/auth/wallet-connect-auth';
 import { useSharedAuth } from '@/shared/components/auth';
-import { BarChart3, CheckCircle, Globe, Lock, ShieldCheck, TrendingUp, Zap } from 'lucide-react';
+import { CheckCircle, Cpu, Database, Globe, Lock, ShieldCheck, Zap } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect } from 'react';
 import { toast } from 'sonner';
 
 const features = [
-    { icon: BarChart3, title: "Data Accuracy", desc: "Institutional-grade precision for every metric." },
+    { icon: Database, title: "Data Accuracy", desc: "Institutional-grade precision for every metric." },
     { icon: Zap, title: "Real-time Edge", desc: "Stay ahead of the curve with instant updates." },
     { icon: ShieldCheck, title: "Secure Ownership", desc: "Your data, your identity, through Web3." },
-    { icon: Globe, title: "Global Markets", desc: "Comprehensive coverage of all major assets." }
+    { icon: Globe, title: "Global Coverage", desc: "Comprehensive coverage across all data sources." }
 ];
 
 const benefits = [
@@ -52,17 +52,17 @@ function AuthContent() {
                 <div className="mb-12 animate-fade-in">
                     <div className="flex items-center gap-3 mb-8">
                         <div className="rounded-2xl bg-gradient-to-br from-orange-500 to-purple-600 p-3 shadow-2xl shadow-orange-500/20 ring-1 ring-white/20 transition-transform hover:scale-105">
-                            <TrendingUp className="h-8 w-8 text-white" />
+                            <Cpu className="h-8 w-8 text-white" />
                         </div>
                         <span className="text-4xl font-black tracking-tighter uppercase italic">EPSX</span>
                     </div>
 
                     <h1 className="text-5xl font-bold leading-tight xl:text-7xl tracking-tight">
                         Precision <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 via-yellow-400 to-orange-500 animate-gradient">Analytics</span> <br />
-                        For Top Traders
+                        For Modern Teams
                     </h1>
                     <p className="mt-6 text-lg xl:text-xl text-slate-400 max-w-xl leading-relaxed">
-                        Join the next generation of financial intelligence. Real-time metrics, predictive modeling, and institutional-grade insights at your fingertips.
+                        Join the next generation of data intelligence. Real-time metrics, predictive modeling, and institutional-grade insights at your fingertips.
                     </p>
                 </div>
 
@@ -91,7 +91,7 @@ function AuthContent() {
                         ))}
                     </div>
                     <p className="text-sm text-slate-400 font-medium">
-                        Powering <span className="text-white font-bold text-base px-1">2,500+</span> elite traders worldwide
+                        Powering <span className="text-white font-bold text-base px-1">2,500+</span> teams worldwide
                     </p>
                 </div>
             </div>
@@ -103,7 +103,7 @@ function AuthContent() {
                     <div className="lg:hidden mb-8 sm:mb-10 text-center text-white mt-4 sm:mt-6 animate-fade-in">
                         <div className="flex items-center justify-center gap-2 mb-4 sm:mb-6">
                             <div className="rounded-xl sm:rounded-2xl bg-gradient-to-br from-orange-500 to-purple-600 p-2 sm:p-3 shadow-xl shadow-orange-500/20 ring-1 ring-white/20">
-                                <TrendingUp className="h-8 w-8 sm:h-10 sm:w-10 text-white" />
+                                <Cpu className="h-8 w-8 sm:h-10 sm:w-10 text-white" />
                             </div>
                             <span className="text-2xl sm:text-3xl font-black italic tracking-tighter uppercase">EPSX</span>
                         </div>

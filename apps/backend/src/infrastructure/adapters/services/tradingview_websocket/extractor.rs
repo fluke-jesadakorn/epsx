@@ -19,7 +19,7 @@ pub fn extract_eps_from_st4(
   if debug && st4_array.len() >= 2 {
     let sample = &st4_array[..2.min(st4_array.len())];
     if let Ok(json_str) = serde_json::to_string_pretty(&sample) {
-      info!("📊 ST4 data structure: {}", json_str);
+      info!("ST4 data structure: {}", json_str);
     }
   }
 
@@ -28,7 +28,7 @@ pub fn extract_eps_from_st4(
       let i_value = entry["i"].as_i64().unwrap_or(0);
 
       if debug && index < 3 {
-        info!("📊 ST4 Entry {}: i={}, {} fields total", index, i_value, v.len());
+        info!("ST4 Entry {}: i={}, {} fields total", index, i_value, v.len());
         for (idx, val) in v.iter().enumerate() {
           let val_str = format_value_debug(val);
           info!("      v[{}] = {}", idx, val_str);
@@ -50,7 +50,7 @@ pub fn extract_eps_from_st4(
 
       let is_future_earnings = i_value > 100;
       if is_future_earnings {
-        info!("🎯 FOUND FUTURE EARNINGS: i={}, announcement timestamp: {:?}",
+        info!("FOUND FUTURE EARNINGS: i={}, announcement timestamp: {:?}",
               i_value, earnings_announcement_timestamp_ms);
       }
 
@@ -60,7 +60,7 @@ pub fn extract_eps_from_st4(
         if let Some(eps) = estimated_eps {
           if eps < 1e50 && is_valid_quarterly_eps(eps) {
             actual_eps_value = Some(eps);
-            info!("📅 Future earnings estimated EPS: {}", eps);
+            info!("Future earnings estimated EPS: {}", eps);
           }
         }
       } else {
@@ -115,10 +115,10 @@ pub fn extract_eps_from_st4(
         });
 
         if is_future_earnings {
-          info!("🎯 Extracted FUTURE EPS: {} = {} (estimated) [announcement: {}, quarter_end: {:?}]",
+          info!("Extracted FUTURE EPS: {} = {} (estimated) [announcement: {}, quarter_end: {:?}]",
                 fiscal_period, eps_value, estimated_earnings_date, quarter_end_date);
         } else {
-          info!("✅ Extracted EPS: {} = {} (from st4 v[5]) [announcement: {}, quarter_end: {:?}]",
+          info!("Extracted EPS: {} = {} (from st4 v[5]) [announcement: {}, quarter_end: {:?}]",
                 fiscal_period, eps_value, estimated_earnings_date, quarter_end_date);
         }
       }
@@ -129,7 +129,7 @@ pub fn extract_eps_from_st4(
     quarterly_data.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
     quarterly_data = correlate_fn(quarterly_data);
   } else {
-    warn!("⚠️ No EPS data extracted from st4 for {}", symbol);
+    warn!("No EPS data extracted from st4 for {}", symbol);
   }
 
   quarterly_data

@@ -43,18 +43,21 @@ impl WalletUserSearchPort for PostgresWalletUserSearchAdapter {
     ) -> AppResult<WalletUserSearchResult> {
         let mut conn = self.db_pool.conn().await?;
 
-        // Build dynamic SQL query
+        // Build parameterized dynamic SQL query
         let mut where_clauses = vec!["1=1".to_string()];
+        let mut param_idx = 1u32;
 
-        if let Some(ref pattern) = criteria.wallet_pattern {
-            where_clauses.push(format!("wallet_address ILIKE '%{}%'", pattern.replace("'", "''")));
+        let has_pattern = criteria.wallet_pattern.is_some();
+        if has_pattern {
+            where_clauses.push(format!("wallet_address ILIKE ${}", param_idx));
+            param_idx += 1;
         }
 
-        if let Some(is_active) = criteria.is_active {
-            where_clauses.push(format!("is_active = {}", is_active));
+        let has_active = criteria.is_active.is_some();
+        if has_active {
+            where_clauses.push(format!("is_active = ${}", param_idx));
+            param_idx += 1;
         }
-
-        // Add other filters as needed...
 
         let query = format!(
             r#"
@@ -64,22 +67,50 @@ impl WalletUserSearchPort for PostgresWalletUserSearchAdapter {
             FROM wallet_users
             WHERE {}
             ORDER BY created_at DESC
-            LIMIT {}
-            OFFSET {}
+            LIMIT ${} OFFSET ${}
             "#,
             where_clauses.join(" AND "),
-            limit,
-            offset
+            param_idx,
+            param_idx + 1
         );
 
-        let rows = diesel::sql_query(query)
-            .load::<WalletUserQueryResult>(&mut conn)
-            .await
-            .map_err(|e| {
-                tracing::error!("Failed to search wallet users: {}", e);
-                AppError::database_error(e.to_string())
-                .with_component("wallet_user_search_adapter")
-            })?;
+        let search_pattern = criteria.wallet_pattern.as_ref().map(|p| format!("%{}%", p));
+
+        let rows = match (has_pattern, has_active) {
+            (true, true) => {
+                diesel::sql_query(&query)
+                    .bind::<diesel::sql_types::Text, _>(search_pattern.as_ref().unwrap())
+                    .bind::<diesel::sql_types::Bool, _>(criteria.is_active.unwrap())
+                    .bind::<diesel::sql_types::Integer, _>(limit as i32)
+                    .bind::<diesel::sql_types::Integer, _>(offset as i32)
+                    .load::<WalletUserQueryResult>(&mut conn).await
+            }
+            (true, false) => {
+                diesel::sql_query(&query)
+                    .bind::<diesel::sql_types::Text, _>(search_pattern.as_ref().unwrap())
+                    .bind::<diesel::sql_types::Integer, _>(limit as i32)
+                    .bind::<diesel::sql_types::Integer, _>(offset as i32)
+                    .load::<WalletUserQueryResult>(&mut conn).await
+            }
+            (false, true) => {
+                diesel::sql_query(&query)
+                    .bind::<diesel::sql_types::Bool, _>(criteria.is_active.unwrap())
+                    .bind::<diesel::sql_types::Integer, _>(limit as i32)
+                    .bind::<diesel::sql_types::Integer, _>(offset as i32)
+                    .load::<WalletUserQueryResult>(&mut conn).await
+            }
+            (false, false) => {
+                diesel::sql_query(&query)
+                    .bind::<diesel::sql_types::Integer, _>(limit as i32)
+                    .bind::<diesel::sql_types::Integer, _>(offset as i32)
+                    .load::<WalletUserQueryResult>(&mut conn).await
+            }
+        }
+        .map_err(|e| {
+            tracing::error!("Failed to search wallet users: {}", e);
+            AppError::database_error(e.to_string())
+            .with_component("wallet_user_search_adapter")
+        })?;
 
         let mut users = Vec::new();
         for row in rows {
@@ -110,11 +141,18 @@ impl WalletUserSearchPort for PostgresWalletUserSearchAdapter {
          let mut conn = self.db_pool.conn().await?;
 
         let mut where_clauses = vec!["1=1".to_string()];
-        if let Some(ref pattern) = criteria.wallet_pattern {
-            where_clauses.push(format!("wallet_address ILIKE '%{}%'", pattern.replace("'", "''")));
+        let mut param_idx = 1u32;
+
+        let has_pattern = criteria.wallet_pattern.is_some();
+        if has_pattern {
+            where_clauses.push(format!("wallet_address ILIKE ${}", param_idx));
+            param_idx += 1;
         }
-        if let Some(is_active) = criteria.is_active {
-            where_clauses.push(format!("is_active = {}", is_active));
+
+        let has_active = criteria.is_active.is_some();
+        if has_active {
+            where_clauses.push(format!("is_active = ${}", param_idx));
+            let _ = param_idx; // used above
         }
 
         let query = format!(
@@ -128,16 +166,37 @@ impl WalletUserSearchPort for PostgresWalletUserSearchAdapter {
             count: i64,
         }
 
-        let result = diesel::sql_query(query)
-            .load::<CountResult>(&mut conn)
-            .await
-            .map_err(|e| {
-                tracing::error!("Failed to count wallet users: {}", e);
-                AppError::database_error(e.to_string())
-                .with_component("wallet_user_search_adapter")
-            })?;
+        let search_pattern = criteria.wallet_pattern.as_ref().map(|p| format!("%{}%", p));
 
-        Ok(result[..].first().map(|r| r.count as u64).unwrap_or(0))
+        let result = match (has_pattern, has_active) {
+            (true, true) => {
+                diesel::sql_query(&query)
+                    .bind::<diesel::sql_types::Text, _>(search_pattern.as_ref().unwrap())
+                    .bind::<diesel::sql_types::Bool, _>(criteria.is_active.unwrap())
+                    .load::<CountResult>(&mut conn).await
+            }
+            (true, false) => {
+                diesel::sql_query(&query)
+                    .bind::<diesel::sql_types::Text, _>(search_pattern.as_ref().unwrap())
+                    .load::<CountResult>(&mut conn).await
+            }
+            (false, true) => {
+                diesel::sql_query(&query)
+                    .bind::<diesel::sql_types::Bool, _>(criteria.is_active.unwrap())
+                    .load::<CountResult>(&mut conn).await
+            }
+            (false, false) => {
+                diesel::sql_query(&query)
+                    .load::<CountResult>(&mut conn).await
+            }
+        }
+        .map_err(|e| {
+            tracing::error!("Failed to count wallet users: {}", e);
+            AppError::database_error(e.to_string())
+            .with_component("wallet_user_search_adapter")
+        })?;
+
+        Ok(result.first().map(|r| r.count as u64).unwrap_or(0))
     }
 
     async fn find_by_permission(&self, permission: &Permission) -> AppResult<Vec<WalletUser>> {

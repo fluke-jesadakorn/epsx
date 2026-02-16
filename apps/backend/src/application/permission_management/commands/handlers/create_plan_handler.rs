@@ -67,6 +67,8 @@ impl CommandHandler<CreatePermissionPlanCommand> for CreatePermissionPlanCommand
             metadata: command.metadata,
             is_public: None, // Default to true via domain model
             grace_period_hours: None,
+            plan_category: None,
+            plan_group: None,
         }).map_err(ApplicationError::from)?;
 
         // 5. Save plan

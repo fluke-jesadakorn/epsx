@@ -39,6 +39,8 @@ pub struct PlanDb {
     pub grace_period_hours: i32,
     pub tier_level: i32,
     pub is_public: bool,
+    pub plan_category: String,
+    pub plan_group: String,
 }
 
 /// Diesel Insertable model for creating new groups
@@ -70,6 +72,8 @@ pub struct NewPlanDb {
     pub burst_capacity: i32,
     pub tier_level: i32,
     pub is_public: bool,
+    pub plan_category: String,
+    pub plan_group: String,
 }
 
 /// Diesel AsChangeset model for updating groups
@@ -94,6 +98,8 @@ pub struct UpdatePlanDb {
     pub grace_period_hours: Option<i32>,
     pub tier_level: Option<i32>,
     pub is_public: Option<bool>,
+    pub plan_category: Option<String>,
+    pub plan_group: Option<String>,
 }
 
 /// Form data for group creation from API requests

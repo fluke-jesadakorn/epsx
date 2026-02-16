@@ -169,7 +169,7 @@ impl UnifiedRouteBuilder {
         let redis_broadcaster = self.container.get_redis_broadcaster();
 
         if redis_pool.is_none() || redis_broadcaster.is_none() {
-            tracing::warn!("⚠️ Redis not configured - notifications and real-time features will not work");
+            tracing::warn!("Redis not configured - notifications and real-time features will not work");
         }
 
         let app_state = self.create_app_state();
@@ -328,7 +328,6 @@ impl UnifiedRouteBuilder {
             .route("/profile", get(crate::web::user::unified_user_handlers::get_current_user_profile))
             .route("/permissions", get(crate::web::user::unified_user_handlers::get_user_permissions))
             .route("/access-overview", get(crate::web::user::unified_user_handlers::get_user_access_overview))
-
             // User preferences update (POST with JSON body)
             .route("/preferences", post(crate::web::user::unified_user_handlers::update_user_preferences))
 

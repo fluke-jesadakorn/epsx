@@ -7,7 +7,7 @@ use diesel::prelude::*;
 use diesel_async::{RunQueryDsl};
 
 use crate::domain::permission_management::{
-    Plan, PlanId, PlanSlug, PermissionString,
+    Plan, PlanId, PlanSlug, PermissionString, PlanCategory, PlanGroup,
     repository_ports::{PlanRepositoryPort, PlanSearchCriteria, PlanStatistics},
     aggregates::plan::LoadPlanParams,
 };
@@ -106,6 +106,8 @@ impl PlanRepositoryPort for PlanRepositoryAdapter {
                 slug,
                 description: row.description,
                 plan_type: row.plan_type,
+                plan_category: PlanCategory::from_str(&row.plan_category).unwrap_or_default(),
+                plan_group: PlanGroup::from_str(&row.plan_group).unwrap_or_default(),
                 permissions,
                 price: price_f64,
                 currency: row.currency.unwrap_or_else(|| "USD".to_string()),
@@ -167,6 +169,10 @@ impl PlanRepositoryPort for PlanRepositoryAdapter {
 
         if let Some(is_promoted) = criteria.is_promoted {
             query = query.filter(plans::is_promoted.eq(is_promoted));
+        }
+
+        if let Some(plan_group) = &criteria.plan_group {
+            query = query.filter(plans::plan_group.eq(plan_group));
         }
 
         if let Some(search_term) = &criteria.search_term {
@@ -240,6 +246,8 @@ impl PlanRepositoryPort for PlanRepositoryAdapter {
             burst_capacity: 0,
             tier_level: plan.tier_level(),
             is_public: plan.is_public(),
+            plan_category: plan.plan_category().as_str().to_string(),
+            plan_group: plan.plan_group().as_str().to_string(),
         };
 
         // Upsert permission plan
@@ -262,6 +270,8 @@ impl PlanRepositoryPort for PlanRepositoryAdapter {
                 plans::updated_at.eq(new_plan.updated_at),
                 plans::is_public.eq(new_plan.is_public),
                 plans::grace_period_hours.eq(new_plan.grace_period_hours),
+                plans::plan_category.eq(&new_plan.plan_category),
+                plans::plan_group.eq(&new_plan.plan_group),
             ))
             .execute(&mut conn)
             .await
@@ -379,6 +389,10 @@ impl PlanRepositoryPort for PlanRepositoryAdapter {
 
         if let Some(is_promoted) = criteria.is_promoted {
             query = query.filter(plans::is_promoted.eq(is_promoted));
+        }
+
+        if let Some(plan_group) = &criteria.plan_group {
+            query = query.filter(plans::plan_group.eq(plan_group));
         }
 
         if let Some(search_term) = &criteria.search_term {

@@ -73,11 +73,11 @@ impl fmt::Display for Chain {
     }
 }
 
-/// Payment event signature
-/// PaymentReceived(address indexed user, uint256 planId, address indexed token, uint256 amount, uint256 timestamp, uint256 paymentId)
-/// keccak256("PaymentReceived(address,uint256,address,uint256,uint256,uint256)")
+/// Payment event signature (V2)
+/// PaymentWithContext(address indexed user, uint8 indexed contextType, uint256 indexed contextId, address token, uint256 amount, uint256 timestamp, uint256 paymentId, bytes32 linkHash)
+/// keccak256("PaymentWithContext(address,uint8,uint256,address,uint256,uint256,uint256,bytes32)")
 pub const PAYMENT_EVENT_TOPIC: &str =
-    "0xa7f9e7f4f9c6e7e3d8b3a2f1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6f5a4b3c2d1";
+    "0x842de788230478cf96f2c9139ce2cedad856220f7accbee6cd941b420224a770";
 
 /// Single chain contract configuration
 #[derive(Debug, Clone)]

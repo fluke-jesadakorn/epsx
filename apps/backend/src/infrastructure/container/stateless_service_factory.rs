@@ -152,12 +152,12 @@ impl StatelessServiceFactory {
                     (Some(pool_arc), Some(broadcaster))
                 }
                 Err(e) => {
-                    tracing::warn!("⚠️ Failed to create Redis pool: {} (notifications will not work)", e);
+                    tracing::warn!("Failed to create Redis pool: {} (notifications will not work)", e);
                     (None, None)
                 }
             }
         } else {
-            tracing::warn!("⚠️ No REDIS_URL configured - notifications will not work");
+            tracing::warn!("No REDIS_URL configured - notifications will not work");
             (None, None)
         };
 
@@ -231,7 +231,7 @@ impl RequestServices {
         let redis_broadcaster = self.redis_broadcaster.clone();
 
         if redis_pool.is_none() || redis_broadcaster.is_none() {
-            tracing::warn!("⚠️ Redis not configured - notifications will not work for auth routes");
+            tracing::warn!("Redis not configured - notifications will not work for auth routes");
         }
 
         crate::web::auth::AppState::new(

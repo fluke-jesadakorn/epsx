@@ -3,35 +3,24 @@
 
 import { AnalyticsNavigation } from '@/components/shared/analytics-navigation';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAnalyticsFilters } from '@/hooks/use-analytics-filters';
-import type {
-  // AnalyticsClient, 
-  UnifiedAnalyticsRankingsResponse
-} from '@/lib/api-client';
-import { analyticsClient } from '@/lib/api-client';
-import type {
-  ExportFormat} from '@/lib/export-utils';
+import type { UnifiedAnalyticsRankingsResponse } from '@/lib/api-client';
+import { LayoutGrid, List } from 'lucide-react';
+import { memo, useEffect, useState } from 'react';
+import { AnalyticsExportDialog } from './analytics-export-dialog';
 import {
-  exportCurrentViewData,
-  exportFilteredData,
-  exportGrowthLeadersData,
-  exportUnifiedAnalyticsData
-} from '@/lib/export-utils';
-import { StockDataCard } from '@/shared/components/cards/stock-data-card';
-import type { AnalyticsFilters } from '@/types/analytics';
-import { Download, FileDown, LayoutGrid, List } from 'lucide-react';
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+  EmptyState,
+  ErrorState,
+  GrowthLeadersSection,
+  LoadingState,
+  MetadataSection,
+  RankingsList
+} from './analytics-wrapper-sections';
 import { CardDashboardView } from './card-dashboard-view';
 import FilterPanel from './filter-panel';
+import { fetchEPSRankings, useGrowthLeaders } from './hooks/use-analytics-wrapper-data';
 import Pagination from './pagination';
 
-// Rich filter options interface
 interface RichFilterOptions {
   countries: Array<{ value: string; label: string }>;
   sectors: string[];
@@ -42,26 +31,6 @@ interface RichFilterOptions {
 interface AnalyticsClientWrapperProps {
   initialData: UnifiedAnalyticsRankingsResponse | null;
   filterOptions: RichFilterOptions;
-}
-
-// API helper functions using new AnalyticsClient
-async function fetchEPSRankings(filters: AnalyticsFilters): Promise<UnifiedAnalyticsRankingsResponse | null> {
-  try {
-    const queryParams = {
-      page: filters.page,
-      per_page: filters.limit,
-      sort_by: filters.sort_by,
-      country: filters.country,
-      sector: filters.sector,
-      min_market_cap: filters.min_eps,
-      sort_order: 'desc' as const,
-    };
-
-    const response = await analyticsClient.getRankings(queryParams);
-    return response ?? null;
-  } catch (_error) {
-    return null;
-  }
 }
  
 function AnalyticsClientWrapper({
@@ -79,40 +48,12 @@ function AnalyticsClientWrapper({
     setIsLoading,
   } = useAnalyticsFilters();
 
-  // Memoized calculation of Growth leaders - expensive array operations
-  const calculateGrowthLeaders = useCallback((data: UnifiedAnalyticsRankingsResponse | null) => {
-    if (!data?.rankings || data.rankings.length === 0) {return { growthLeaders: [], priceLeaders: [] };}
-
-    // Calculate Growth Factor leaders using epsGrowth
-    const growthLeaders = data.rankings
-      .sort((a, b) => (b.epsGrowth || 0) - (a.epsGrowth || 0))
-      .slice(0, 3);
-
-    // For price leaders, use momentum data since quarterly_data is not available
-    const priceLeaders = data.rankings
-      .sort((a, b) => (b.momentum_1m ?? 0) - (a.momentum_1m ?? 0))
-      .slice(0, 3);
-
-    return { growthLeaders, priceLeaders };
-  }, []);
-
   const [data, setData] = useState<UnifiedAnalyticsRankingsResponse | null>(initialData);
   const [error, setError] = useState<string | null>(null);
   const [showMobileFilters, setShowMobileFilters] = useState(false);
   const [activeTab, setActiveTab] = useState('list');
 
-  // Export functionality state
-  const [showExportDialog, setShowExportDialog] = useState(false);
-  const [exportFormat, setExportFormat] = useState<ExportFormat>('json');
-  const [exportFilename, setExportFilename] = useState('');
-  const [includeMetadata, setIncludeMetadata] = useState(true);
-  const [includeQuarterlyData, setIncludeQuarterlyData] = useState(true);
-  const [exportType, setExportType] = useState<'current' | 'filtered' | 'leaders' | 'full'>('current');
-
-  // Memoized growth leaders calculation to avoid repeated expensive operations
-  const { growthLeaders, priceLeaders } = useMemo(() => {
-    return calculateGrowthLeaders(data);
-  }, [data, calculateGrowthLeaders]);
+  const { growthLeaders, priceLeaders } = useGrowthLeaders(data);
 
   // Load data when filters change (skip on initial load if we have initialData)
   useEffect(() => {
@@ -161,51 +102,6 @@ function AnalyticsClientWrapper({
       setError('Failed to refresh data');
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  // Export handlers
-  const handleExport = () => {
-    if (!data) {return;}
-
-    const options = {
-      format: exportFormat,
-      filename: exportFilename || undefined,
-      includeMetadata,
-      includeQuarterlyData,
-    };
-
-    switch (exportType) {
-      case 'current':
-        exportCurrentViewData(data.rankings, options);
-        break;
-      case 'filtered':
-        exportFilteredData(data.rankings, filters, options);
-        break;
-      case 'leaders':
-        // Use memoized growth leaders
-        exportGrowthLeadersData([...growthLeaders, ...priceLeaders], options);
-        break;
-      case 'full':
-        exportUnifiedAnalyticsData(data.rankings, options);
-        break;
-    }
-
-    setShowExportDialog(false);
-  };
-
-  const getExportDescription = () => {
-    switch (exportType) {
-      case 'current':
-        return `Export current page data (${data?.rankings.length ?? 0} records)`;
-      case 'filtered':
-        return `Export all filtered data (${data?.pagination.total_items ?? 0} total records)`;
-      case 'leaders':
-        return 'Export Growth performance leaders only';
-      case 'full':
-        return 'Export complete dataset with metadata';
-      default:
-        return '';
     }
   };
 
@@ -317,200 +213,12 @@ function AnalyticsClientWrapper({
             </div>
           )}
 
-          {/* Enhanced Growth Leaders Section */}
-          {!isLoading && data && data.rankings.length > 0 && (() => {
-            // Use memoized growth leaders
-            return (
-              <div className="mb-8">
-                <div className="relative overflow-hidden rounded-3xl border border-orange-200/50 bg-white/80 p-6 sm:p-8 shadow-2xl backdrop-blur-xl dark:border-orange-400/20 dark:bg-slate-800/80">
-                  {/* Enhanced background decorations */}
-                  <div className="absolute inset-0 bg-gradient-to-br from-orange-50/50 via-transparent to-yellow-50/50 dark:from-orange-900/10 dark:via-transparent dark:to-yellow-900/10" />
-                  <div className="absolute top-0 right-0 h-32 w-32 rounded-full bg-gradient-to-br from-orange-400/10 to-yellow-400/10 blur-2xl" />
-                  <div className="absolute bottom-0 left-0 h-40 w-40 rounded-full bg-gradient-to-br from-blue-400/10 to-cyan-400/10 blur-2xl" />
+          {!isLoading && data && data.rankings.length > 0 && (
+            <GrowthLeadersSection growthLeaders={growthLeaders} priceLeaders={priceLeaders} />
+          )}
 
-                  <div className="relative z-10">
-                    <div className="mb-6 text-center sm:text-left">
-                      <h2 className="mb-3 text-xl font-bold sm:text-2xl">
-                        <span className="mr-2">🏆</span>
-                        <span className="animate-gradient-x bg-gradient-to-r from-orange-500 via-yellow-500 to-orange-600 bg-clip-text text-transparent">
-                          Growth Performance Leaders
-                        </span>
-                      </h2>
-                      <p className="text-gray-600 dark:text-gray-300">
-                        Top performers in growth factor and price growth
-                      </p>
-                    </div>
-
-                    <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                      {/* Enhanced Growth Factor Leaders */}
-                      <div className="rounded-2xl border border-green-200/50 bg-gradient-to-br from-green-50/80 to-emerald-50/80 p-5 backdrop-blur-sm transition-all duration-300 hover:scale-[1.02] dark:border-green-400/20 dark:from-green-900/20 dark:to-emerald-900/20">
-                        <h3 className="mb-4 flex items-center gap-3 text-sm font-bold text-green-700 dark:text-green-400">
-                          <div className="rounded-xl bg-gradient-to-r from-green-500 to-emerald-500 p-2">
-                            <svg className="h-4 w-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-                            </svg>
-                          </div>
-                          Best Growth Factor
-                        </h3>
-                        <div className="space-y-3">
-                          {growthLeaders.slice(0, 3).map((leader, index) => (
-                            <div key={leader.symbol} className="flex items-center justify-between rounded-xl bg-white/60 p-3 backdrop-blur-sm dark:bg-slate-800/60">
-                              <div className="flex items-center gap-3">
-                                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-r from-green-500 to-emerald-500 text-xs font-bold text-white shadow-lg">
-                                  {index + 1}
-                                </span>
-                                <div>
-                                  <span className="font-semibold text-gray-900 dark:text-gray-100">{leader.symbol}</span>
-                                  <p className="text-xs text-gray-500 dark:text-gray-400">{leader.companyName}</p>
-                                </div>
-                              </div>
-                              <div className="text-right">
-                                <span className="rounded-lg bg-gradient-to-r from-green-500 to-emerald-500 px-3 py-1 text-sm font-bold text-white shadow-md">
-                                  +{(leader.epsGrowth || 0).toFixed(1)}%
-                                </span>
-                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                                  Score: {(leader.score || 0).toFixed(1)}
-                                </p>
-                              </div>
-                            </div>
-                          ))}
-                          {growthLeaders.length === 0 && (
-                            <div className="rounded-xl bg-white/60 p-4 text-center backdrop-blur-sm dark:bg-slate-800/60">
-                              <p className="text-sm text-gray-500 dark:text-gray-400">No growth factor data available</p>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Enhanced Price Growth Leaders */}
-                      <div className="rounded-2xl border border-blue-200/50 bg-gradient-to-br from-blue-50/80 to-cyan-50/80 p-5 backdrop-blur-sm transition-all duration-300 hover:scale-[1.02] dark:border-blue-400/20 dark:from-blue-900/20 dark:to-cyan-900/20">
-                        <h3 className="mb-4 flex items-center gap-3 text-sm font-bold text-blue-700 dark:text-blue-400">
-                          <div className="rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 p-2">
-                            <svg className="h-4 w-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
-                            </svg>
-                          </div>
-                          Best Price Growth
-                        </h3>
-                        <div className="space-y-3">
-                          {priceLeaders.slice(0, 3).map((leader, index) => {
-                            // Use momentum data since quarterly_data is not available
-                            const priceGrowth = leader.momentum_1m ?? 0;
-
-                            return (
-                              <div key={leader.symbol} className="flex items-center justify-between rounded-xl bg-white/60 p-3 backdrop-blur-sm dark:bg-slate-800/60">
-                                <div className="flex items-center gap-3">
-                                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-r from-blue-500 to-cyan-500 text-xs font-bold text-white shadow-lg">
-                                    {index + 1}
-                                  </span>
-                                  <div>
-                                    <span className="font-semibold text-gray-900 dark:text-gray-100">{leader.symbol}</span>
-                                    <p className="text-xs text-gray-500 dark:text-gray-400">{leader.companyName}</p>
-                                  </div>
-                                </div>
-                                <div className="text-right">
-                                  <span className={`rounded-lg px-3 py-1 text-sm font-bold text-white shadow-md ${priceGrowth >= 0
-                                      ? 'bg-gradient-to-r from-blue-500 to-cyan-500'
-                                      : 'bg-gradient-to-r from-red-500 to-pink-500'
-                                    }`}>
-                                    {priceGrowth >= 0 ? '+' : ''}{priceGrowth.toFixed(1)}%
-                                  </span>
-                                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                                    Vol: {(leader.volatility ?? 0).toFixed(1)}
-                                  </p>
-                                </div>
-                              </div>
-                            );
-                          })}
-                          {priceLeaders.length === 0 && (
-                            <div className="rounded-xl bg-white/60 p-4 text-center backdrop-blur-sm dark:bg-slate-800/60">
-                              <p className="text-sm text-gray-500 dark:text-gray-400">No price growth data available</p>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            );
-          })()}
-
-          {/* Rich Backend Analytics Metadata Section */}
           {data?.metadata && (
-            <div className="mb-8">
-              <div className="relative overflow-hidden rounded-3xl border border-purple-200/50 bg-white/80 p-6 shadow-2xl backdrop-blur-xl dark:border-purple-400/20 dark:bg-slate-800/80">
-                <div className="absolute inset-0 bg-gradient-to-br from-purple-50/50 via-transparent to-blue-50/50 dark:from-purple-900/10 dark:via-transparent dark:to-blue-900/10" />
-
-                <div className="relative z-10">
-                  <div className="mb-6 text-center sm:text-left">
-                    <h2 className="mb-3 text-xl font-bold sm:text-2xl">
-                      <span className="mr-2">🚀</span>
-                      <span className="animate-gradient-x bg-gradient-to-r from-purple-500 via-blue-500 to-purple-600 bg-clip-text text-transparent">
-                        Advanced Analytics Engine
-                      </span>
-                    </h2>
-                    <p className="text-gray-600 dark:text-gray-300">
-                      Powered by Diesel ORM with server-side rendering and intelligent caching
-                    </p>
-                  </div>
-
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                    <div className="rounded-2xl border border-green-200/50 bg-gradient-to-br from-green-50/80 to-emerald-50/80 p-4 backdrop-blur-sm dark:border-green-400/20 dark:from-green-900/20 dark:to-emerald-900/20">
-                      <div className="flex items-center gap-3 mb-2">
-                        <div className="rounded-xl bg-gradient-to-r from-green-500 to-emerald-500 p-2">
-                          <svg className="h-4 w-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                          </svg>
-                        </div>
-                        <span className="text-sm font-semibold text-green-700 dark:text-green-400">Processing Time</span>
-                      </div>
-                      <p className="text-lg font-bold text-green-800 dark:text-green-300">{data.metadata.query_time}ms</p>
-                    </div>
-
-                    <div className="rounded-2xl border border-blue-200/50 bg-gradient-to-br from-blue-50/80 to-cyan-50/80 p-4 backdrop-blur-sm dark:border-blue-400/20 dark:from-blue-900/20 dark:to-cyan-900/20">
-                      <div className="flex items-center gap-3 mb-2">
-                        <div className="rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 p-2">
-                          <svg className="h-4 w-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0" />
-                          </svg>
-                        </div>
-                        <span className="text-sm font-semibold text-blue-700 dark:text-blue-400">Architecture</span>
-                      </div>
-                      <p className="text-sm font-bold text-blue-800 dark:text-blue-300">
-                        Server Components
-                      </p>
-                    </div>
-
-                    <div className="rounded-2xl border border-orange-200/50 bg-gradient-to-br from-orange-50/80 to-yellow-50/80 p-4 backdrop-blur-sm dark:border-orange-400/20 dark:from-orange-900/20 dark:to-yellow-900/20">
-                      <div className="flex items-center gap-3 mb-2">
-                        <div className="rounded-xl bg-gradient-to-r from-orange-500 to-yellow-500 p-2">
-                          <svg className="h-4 w-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4" />
-                          </svg>
-                        </div>
-                        <span className="text-sm font-semibold text-orange-700 dark:text-orange-400">Data Source</span>
-                      </div>
-                      <p className="text-sm font-bold text-orange-800 dark:text-orange-300">Analytics API</p>
-                    </div>
-
-                    <div className="rounded-2xl border border-purple-200/50 bg-gradient-to-br from-purple-50/80 to-pink-50/80 p-4 backdrop-blur-sm dark:border-purple-400/20 dark:from-purple-900/20 dark:to-pink-900/20">
-                      <div className="flex items-center gap-3 mb-2">
-                        <div className="rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 p-2">
-                          <svg className="h-4 w-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                          </svg>
-                        </div>
-                        <span className="text-sm font-semibold text-purple-700 dark:text-purple-400">Markets</span>
-                      </div>
-                      <p className="text-sm font-bold text-purple-800 dark:text-purple-300">
-                        Global Markets
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
+            <MetadataSection metadata={data.metadata} />
           )}
 
           {/* Enhanced Layout with Tabbed Views */}
@@ -613,260 +321,26 @@ function AnalyticsClientWrapper({
                           <span className="sm:hidden">Refresh</span>
                         </button>
 
-                        <Dialog open={showExportDialog} onOpenChange={setShowExportDialog}>
-                          <DialogTrigger asChild>
-                            <button
-                              className="flex items-center gap-2 rounded-xl border border-purple-200 bg-white/80 px-4 py-2 text-sm font-semibold text-purple-700 shadow-lg backdrop-blur-sm transition-all duration-300 hover:bg-purple-50 hover:scale-105 dark:border-purple-400/20 dark:bg-slate-800/80 dark:text-purple-400 dark:hover:bg-slate-700/80"
-                              disabled={!data || isLoading}
-                            >
-                              <Download className="h-4 w-4" />
-                              <span className="hidden sm:inline">Export Data</span>
-                              <span className="sm:hidden">Export</span>
-                            </button>
-                          </DialogTrigger>
-                          <DialogContent className="sm:max-w-md">
-                            <DialogHeader>
-                              <DialogTitle className="flex items-center gap-2">
-                                <FileDown className="h-5 w-5 text-purple-600" />
-                                Export Analytics Data
-                              </DialogTitle>
-                            </DialogHeader>
-
-                            <div className="space-y-6 py-4">
-                              {/* Export type selection */}
-                              <div>
-                                <Label className="text-sm font-medium">Export Type</Label>
-                                <Select value={exportType} onValueChange={(value: any) => setExportType(value)}>
-                                  <SelectTrigger>
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="current">Current Page</SelectItem>
-                                    <SelectItem value="filtered">Filtered Data</SelectItem>
-                                    <SelectItem value="leaders">Growth Leaders</SelectItem>
-                                    <SelectItem value="full">Full Dataset</SelectItem>
-                                  </SelectContent>
-                                </Select>
-                                <p className="text-xs text-gray-500 mt-1">{getExportDescription()}</p>
-                              </div>
-
-                              {/* Format selection */}
-                              <div>
-                                <Label className="text-sm font-medium">Format</Label>
-                                <Select value={exportFormat} onValueChange={(value: ExportFormat) => setExportFormat(value)}>
-                                  <SelectTrigger>
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="json">JSON</SelectItem>
-                                    <SelectItem value="csv">CSV</SelectItem>
-                                  </SelectContent>
-                                </Select>
-                              </div>
-
-                              {/* Filename input */}
-                              <div>
-                                <Label className="text-sm font-medium">Filename (optional)</Label>
-                                <Input
-                                  value={exportFilename}
-                                  onChange={(e) => setExportFilename(e.target.value)}
-                                  placeholder="Leave empty for auto-generated name"
-                                />
-                              </div>
-
-                              {/* Options */}
-                              <div className="space-y-3">
-                                <div className="flex items-center space-x-2">
-                                  <Checkbox
-                                    id="metadata"
-                                    checked={includeMetadata}
-                                    onCheckedChange={(checked) => setIncludeMetadata(Boolean(checked))}
-                                  />
-                                  <Label htmlFor="metadata" className="text-sm">Include metadata</Label>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                  <Checkbox
-                                    id="quarterly"
-                                    checked={includeQuarterlyData}
-                                    onCheckedChange={(checked) => setIncludeQuarterlyData(Boolean(checked))}
-                                  />
-                                  <Label htmlFor="quarterly" className="text-sm">Include quarterly data</Label>
-                                </div>
-                              </div>
-
-                              {/* Export button */}
-                              <div className="flex justify-end space-x-2">
-                                <Button variant="outline" onClick={() => setShowExportDialog(false)}>
-                                  Cancel
-                                </Button>
-                                <Button
-                                  onClick={handleExport}
-                                  className="bg-gradient-to-r from-purple-500 to-purple-600 text-white"
-                                >
-                                  <Download className="h-4 w-4 mr-2" />
-                                  Export
-                                </Button>
-                              </div>
-                            </div>
-                          </DialogContent>
-                        </Dialog>
+                        <AnalyticsExportDialog
+                          data={data}
+                          isLoading={isLoading}
+                          filters={filters}
+                          growthLeaders={growthLeaders}
+                          priceLeaders={priceLeaders}
+                        />
                       </div>
                     </div>
                   </div>
 
-                  {/* Enhanced Error state */}
                   {error && (
-                    <div className="mb-6 rounded-2xl border border-red-200/50 bg-gradient-to-br from-red-50/80 to-pink-50/80 p-6 backdrop-blur-sm dark:border-red-400/20 dark:from-red-900/20 dark:to-pink-900/20">
-                      <div className="flex items-center gap-4">
-                        <div className="rounded-xl bg-gradient-to-r from-red-500 to-pink-500 p-3">
-                          <svg
-                            className="h-6 w-6 text-white"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                            />
-                          </svg>
-                        </div>
-                        <div className="flex-1">
-                          <p className="font-bold text-red-700 dark:text-red-400">Unable to Load Data</p>
-                          <p className="mt-1 text-red-600 dark:text-red-300">{error}</p>
-                        </div>
-                        <button
-                          onClick={refreshData}
-                          className="rounded-xl bg-gradient-to-r from-red-500 to-pink-500 px-4 py-2 text-sm font-semibold text-white shadow-lg transition-all duration-300 hover:shadow-xl hover:scale-105"
-                        >
-                          Try Again
-                        </button>
-                      </div>
-                    </div>
+                    <ErrorState error={error} onRetry={refreshData} />
                   )}
 
-                  {/* Loading state - Mobile optimized */}
-                  {isLoading && (
-                    <>
-                      {/* Mobile: Horizontal scroll skeleton */}
-                      <div className="mb-6 block sm:hidden">
-                        <div className="overflow-x-auto pb-4">
-                          <div className="flex gap-3">
-                            {Array.from({ length: 4 }).map((_, index) => (
-                              <div
-                                key={`skeleton-mobile-loading-${String(index)}`}
-                                className="w-72 flex-shrink-0 animate-pulse rounded-lg border border-gray-200 bg-white p-4"
-                              >
-                                <div className="mb-3 flex items-center gap-3">
-                                  <div className="h-8 w-8 rounded-full bg-gray-200" />
-                                  <div className="flex-1">
-                                    <div className="mb-1 h-4 rounded bg-gray-200" />
-                                    <div className="h-3 w-3/4 rounded bg-gray-200" />
-                                  </div>
-                                  <div className="h-6 w-16 rounded-full bg-gray-200" />
-                                </div>
-                                <div className="mb-3 grid grid-cols-2 gap-3">
-                                  <div className="rounded-lg bg-gray-100 p-3">
-                                    <div className="mb-1 h-3 rounded bg-gray-200" />
-                                    <div className="h-4 rounded bg-gray-200" />
-                                  </div>
-                                  <div className="rounded-lg bg-gray-100 p-3">
-                                    <div className="mb-1 h-3 rounded bg-gray-200" />
-                                    <div className="h-4 rounded bg-gray-200" />
-                                  </div>
-                                </div>
-                                <div className="mt-4 h-10 w-full rounded-lg bg-gray-200" />
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
+                  {isLoading && <LoadingState />}
 
-                      {/* Desktop: Grid skeleton */}
-                      <div className="mb-6 hidden sm:grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-                        {Array.from({ length: 6 }).map((_, index) => (
-                          <div
-                            key={`skeleton-desktop-loading-${String(index)}`}
-                            className="animate-pulse rounded-lg border border-gray-200 bg-white p-4"
-                          >
-                            <div className="mb-3 flex items-center gap-3">
-                              <div className="h-8 w-8 rounded-full bg-gray-200" />
-                              <div className="flex-1">
-                                <div className="mb-1 h-4 rounded bg-gray-200" />
-                                <div className="h-3 w-3/4 rounded bg-gray-200" />
-                              </div>
-                              <div className="h-6 w-16 rounded-full bg-gray-200" />
-                            </div>
-                            <div className="mb-3 grid grid-cols-2 gap-3">
-                              <div className="rounded-lg bg-gray-100 p-3">
-                                <div className="mb-1 h-3 rounded bg-gray-200" />
-                                <div className="h-4 rounded bg-gray-200" />
-                              </div>
-                              <div className="rounded-lg bg-gray-100 p-3">
-                                <div className="mb-1 h-3 rounded bg-gray-200" />
-                                <div className="h-4 rounded bg-gray-200" />
-                              </div>
-                            </div>
-                            <div className="space-y-2">
-                              {Array.from({ length: 4 }).map((_, i) => (
-                                <div key={`item-${String(i)}`} className="flex justify-between">
-                                  <div className="h-3 w-1/3 rounded bg-gray-200" />
-                                  <div className="h-3 w-1/4 rounded bg-gray-200" />
-                                </div>
-                              ))}
-                            </div>
-                            <div className="mt-4 h-10 w-full rounded-lg bg-gray-200" />
-                          </div>
-                        ))}
-                      </div>
-                    </>
-                  )}
-
-                  {/* Results grid - Responsive HTTP Data */}
                   {!isLoading && data && data.rankings.length > 0 && (
                     <>
-                      {/* Mobile: Horizontal scrolling cards */}
-                      <div className="mb-6 block sm:hidden">
-                        <div className="overflow-x-auto pb-4">
-                          <div className="flex gap-3">
-                            {data.rankings.map((ranking, index) => (
-                              <div key={ranking.symbol} className="w-72 flex-shrink-0">
-                                <StockDataCard
-                                  symbol={ranking.symbol}
-                                  rank={ranking.rank || index + 1}
-                                  epsGrowth={ranking.epsGrowth || 0}
-                                  price={0} // Price not available in API
-                                  currency="USD"
-                                />
-                              </div>
-                            ))}
-                          </div>
-                          {/* Scroll indicator */}
-                          <div className="mt-4 flex justify-center">
-                            <p className="text-xs text-gray-500">
-                              👈 Swipe to see more stocks →
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Desktop: Grid layout */}
-                      <div className="mb-6 hidden sm:grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-                        {data.rankings.map(ranking => (
-                          <StockDataCard
-                            key={ranking.symbol}
-                            symbol={ranking.symbol}
-                            rank={ranking.rank || 0}
-                            epsGrowth={ranking.epsGrowth || 0}
-                            price={0} // Price not available in API
-                            currency="USD"
-                          />
-                        ))}
-                      </div>
-
-                      {/* Mobile-optimized Pagination */}
+                      <RankingsList data={data} />
                       <div className="px-2 sm:px-0">
                         <Pagination
                           pagination={{
@@ -885,37 +359,8 @@ function AnalyticsClientWrapper({
                     </>
                   )}
 
-                  {/* Enhanced Empty state */}
                   {!isLoading && data?.rankings.length === 0 && (
-                    <div className="rounded-2xl border border-gray-200/50 bg-white/80 p-8 text-center backdrop-blur-xl dark:border-gray-600/20 dark:bg-slate-800/80">
-                      <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-600">
-                        <svg
-                          className="h-10 w-10 text-gray-400 dark:text-gray-500"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                          />
-                        </svg>
-                      </div>
-                      <h3 className="mb-3 bg-gradient-to-r from-gray-600 to-gray-800 bg-clip-text text-xl font-bold text-transparent dark:from-gray-300 dark:to-gray-100">
-                        No Results Found
-                      </h3>
-                      <p className="mb-6 max-w-md mx-auto text-gray-600 dark:text-gray-300">
-                        We couldn't find any companies matching your current filter criteria. Try adjusting your filters to discover more analytics data.
-                      </p>
-                      <button
-                        onClick={resetFilters}
-                        className="rounded-xl bg-gradient-to-r from-orange-500 to-yellow-500 px-6 py-3 font-semibold text-white shadow-lg transition-all duration-300 hover:shadow-xl hover:scale-105"
-                      >
-                        Clear All Filters
-                      </button>
-                    </div>
+                    <EmptyState onReset={resetFilters} />
                   )}
                 </div>
               </div>

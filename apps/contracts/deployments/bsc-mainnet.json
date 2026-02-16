@@ -1,0 +1,32 @@
+{
+  "network": "bsc-mainnet",
+  "chainId": 56,
+  "deploymentDate": "2026-02-16",
+  "deployer": "0xea64439c9cb1b9Aa588a8D1cE61292DB4036E3dF",
+  "contracts": {
+    "PaymentEscrow": {
+      "address": "0x56e44c9b61Aa24D47C22414e799DA8D76B345Db0",
+      "deploymentTxHash": "0x94e1ac53676887bbc319b87d99025ee6572b3e8623c26478b742dc0cb48fea04",
+      "blockNumber": 81491535,
+      "roles": {
+        "DEFAULT_ADMIN_ROLE": "0xea64439c9cb1b9Aa588a8D1cE61292DB4036E3dF",
+        "MANAGER_ROLE": "0xea64439c9cb1b9Aa588a8D1cE61292DB4036E3dF"
+      }
+    }
+  },
+  "enabledTokens": {
+    "USDT": {
+      "address": "0x55d398326f99059fF775485246999027B3197955",
+      "txHash": "0xe97a7634dc645db9a787959e90f5bf8f9cba39d4dc458e450d4830e51dfab483",
+      "note": "BSC Mainnet USDT (Binance-Peg BSC-USD, 18 decimals)"
+    },
+    "USDC": {
+      "address": "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d",
+      "txHash": "0xb187dbfdeac2af3877565bc0b5ede6fa3edfc6c86ff539411a61c2deb6ad2f80",
+      "note": "BSC Mainnet USDC (Binance-Peg USD Coin, 18 decimals)"
+    }
+  },
+  "rpcUrl": "https://bsc-dataseed1.binance.org",
+  "explorerUrl": "https://bscscan.com",
+  "contractExplorerUrl": "https://bscscan.com/address/0x56e44c9b61Aa24D47C22414e799DA8D76B345Db0"
+}

@@ -81,6 +81,7 @@ export interface PublicPlan {
   permissions: string[];
   is_active: boolean;
   display_order: number;
+  plan_group?: string;
 }
 
 export interface PlanMembership {
@@ -242,7 +243,7 @@ export class PlansApi {
    * Get public plans
    * GET /api/public/plans
    */
-  async getPublicPlans(filters?: { category?: string }): Promise<ApiResponse<PublicPlan[]>> {
+  async getPublicPlans(filters?: { category?: string; group?: string }): Promise<ApiResponse<PublicPlan[]>> {
     return this.client.get<PublicPlan[]>('/api/public/plans', filters);
   }
 
@@ -484,6 +485,8 @@ export class PlansApi {
   }): Promise<ApiResponse<ApiKeyResponse & { full_key: string }>> {
     return this.client.post<ApiKeyResponse & { full_key: string }>('/api/admin/developer/keys', data);
   }
+
+  // ============================================================================
 }
 
 // ============================================================================

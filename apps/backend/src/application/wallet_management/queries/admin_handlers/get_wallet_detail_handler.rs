@@ -55,7 +55,7 @@ impl QueryHandler<GetWalletDetailQuery> for GetWalletDetailQueryHandler {
             .get_wallet_basic_info(&query.wallet_address)
             .await
             .map_err(|e| {
-                error!("❌ Failed to fetch wallet info: {}", e);
+                error!("Failed to fetch wallet info: {}", e);
                 ApplicationError::infrastructure(e.to_string())
             })?
             .ok_or_else(|| ApplicationError::not_found("Wallet", &query.wallet_address))?;
@@ -96,7 +96,7 @@ impl QueryHandler<GetWalletDetailQuery> for GetWalletDetailQueryHandler {
         .load::<PermissionDetailRow>(&mut conn)
         .await
         .map_err(|e| {
-            error!("❌ Failed to fetch permissions for {}: {}", query.wallet_address, e);
+            error!("Failed to fetch permissions for {}: {}", query.wallet_address, e);
             ApplicationError::infrastructure(format!("Failed to fetch permissions: {}", e))
         })?;
 
@@ -119,7 +119,7 @@ impl QueryHandler<GetWalletDetailQuery> for GetWalletDetailQueryHandler {
         let active_permissions_count = permissions.iter().filter(|p| p.is_active).count();
 
         let mut conn = self.db_pool.get().await.map_err(|e| {
-            error!("❌ Failed to get connection: {}", e);
+            error!("Failed to get connection: {}", e);
             ApplicationError::infrastructure(format!("Failed to get connection: {}", e))
         })?;
 
@@ -173,7 +173,7 @@ impl QueryHandler<GetWalletDetailQuery> for GetWalletDetailQueryHandler {
         };
 
         info!(
-            "✅ Successfully retrieved details for wallet: {}",
+            "Successfully retrieved details for wallet: {}",
             query.wallet_address
         );
 

@@ -118,7 +118,7 @@ impl ContractSubscriber {
             + Sync
             + 'static,
     {
-        info!("🔗 Starting {} contract subscriber", self.chain);
+        info!("Starting {} contract subscriber", self.chain);
 
         let callback = Arc::new(callback);
 
@@ -128,7 +128,7 @@ impl ContractSubscriber {
         // If WebSocket fails, try backup
         if ws_result.is_err() {
             if let Some(backup_url) = &self.config.ws_backup_url {
-                warn!("⚠️ Primary WebSocket failed, trying backup: {}", backup_url);
+                warn!("Primary WebSocket failed, trying backup: {}", backup_url);
                 let backup_config = ChainContractConfig {
                     ws_url: backup_url.clone(),
                     ws_backup_url: None,
@@ -139,7 +139,7 @@ impl ContractSubscriber {
                         ws_result = backup_sub.run_websocket(Arc::clone(&callback)).await;
                     }
                     Err(e) => {
-                        warn!("⚠️ Failed to create backup subscriber: {}", e);
+                        warn!("Failed to create backup subscriber: {}", e);
                     }
                 }
             }
@@ -147,7 +147,7 @@ impl ContractSubscriber {
 
         // If both fail, fall back to HTTP polling
         if ws_result.is_err() {
-            warn!("⚠️ WebSocket unavailable, falling back to HTTP polling for {}", self.chain);
+            warn!("WebSocket unavailable, falling back to HTTP polling for {}", self.chain);
             self.run_http_polling(callback).await
         } else {
             ws_result
@@ -174,7 +174,7 @@ impl ContractSubscriber {
         let url = url::Url::parse(&ws_url)
             .map_err(|e| AppError::infrastructure_error(format!("Invalid WebSocket URL: {}", e)))?;
 
-        info!("📡 Connecting to WebSocket: {}", ws_url);
+        info!("Connecting to WebSocket: {}", ws_url);
         let (ws_stream, _) = tokio::time::timeout(
             Duration::from_secs(10),
             connect_async(url),
@@ -183,7 +183,7 @@ impl ContractSubscriber {
         .map_err(|_| AppError::infrastructure_error("WebSocket connection timeout".to_string()))?
         .map_err(|e| AppError::infrastructure_error(format!("WebSocket connection failed: {}", e)))?;
 
-        info!("✅ WebSocket connected for {}", self.chain);
+        info!("WebSocket connected for {}", self.chain);
         self.state = SubscriptionState::Connected;
 
         let (mut ws_sender, mut ws_receiver) = ws_stream.split();
@@ -208,7 +208,7 @@ impl ContractSubscriber {
         ws_sender.send(WsMessage::Text(subscribe_msg)).await
             .map_err(|e| AppError::infrastructure_error(format!("Failed to send subscription: {}", e)))?;
 
-        info!("🔔 Subscription request sent for contract {} on {}", contract_hex, self.chain);
+        info!("Subscription request sent for contract {} on {}", contract_hex, self.chain);
 
         // Process messages
         let verifier = Arc::clone(&self.payment_verifier);
@@ -225,21 +225,21 @@ impl ContractSubscriber {
                         Arc::clone(&callback),
                         &mut current_state,
                     ).await {
-                        error!("❌ Error handling message: {}", e);
+                        error!("Error handling message: {}", e);
                     }
                 }
                 Ok(WsMessage::Ping(data)) => {
                     if let Err(e) = ws_sender.send(WsMessage::Pong(data)).await {
-                        error!("❌ Failed to send pong: {}", e);
+                        error!("Failed to send pong: {}", e);
                         break;
                     }
                 }
                 Ok(WsMessage::Close(_)) => {
-                    warn!("🔌 WebSocket closed by server");
+                    warn!("WebSocket closed by server");
                     break;
                 }
                 Err(e) => {
-                    error!("❌ WebSocket error: {}", e);
+                    error!("WebSocket error: {}", e);
                     break;
                 }
                 _ => {}
@@ -274,29 +274,29 @@ impl ContractSubscriber {
                 if let Some(params) = &response.params {
                     if state != &SubscriptionState::Subscribed {
                         *state = SubscriptionState::Subscribed;
-                        info!("✅ Subscription active for {}", chain);
+                        info!("Subscription active for {}", chain);
                     }
 
                     // Parse log data
                     if let Ok(log) = Self::parse_log(&params.result) {
                         if let Ok(event) = parse_payment_event(&log) {
                             if event.is_valid() {
-                                info!("🎉 Payment event received on {}: tx={}", chain, event.transaction_hash);
+                                info!("Payment event received on {}: tx={}", chain, event.transaction_hash);
 
                                 // Verify and process
                                 match verifier.verify_payment(&event).await {
                                     Ok(verification) => {
                                         if verification.is_verified() {
-                                            info!("✅ Payment verified: {}", event.unique_id());
+                                            info!("Payment verified: {}", event.unique_id());
                                             if let Err(e) = callback(event).await {
-                                                error!("❌ Callback failed: {}", e);
+                                                error!("Callback failed: {}", e);
                                             }
                                         } else {
-                                            error!("❌ Payment verification failed: {:?}", verification.errors);
+                                            error!("Payment verification failed: {:?}", verification.errors);
                                         }
                                     }
                                     Err(e) => {
-                                        error!("❌ Verification error: {}", e);
+                                        error!("Verification error: {}", e);
                                     }
                                 }
                             }
@@ -370,7 +370,7 @@ impl ContractSubscriber {
             + Send
             + Sync,
     {
-        warn!("⚠️ HTTP polling not implemented in contract_subscriber - use BscEventListener for polling");
+        warn!("HTTP polling not implemented in contract_subscriber - use BscEventListener for polling");
         // The existing BscEventListener already handles HTTP polling
         // This is a fallback placeholder
         Err(AppError::infrastructure_error("Use BscEventListener for HTTP polling".to_string()))

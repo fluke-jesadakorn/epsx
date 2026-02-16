@@ -291,15 +291,15 @@ impl SimpleContainer {
                     Ok(Ok(pool)) => {
                         let pool_arc = Arc::new(pool);
                         let broadcaster = Arc::new(RedisNotificationBroadcaster::new(Arc::clone(&pool_arc)));
-                        tracing::info!("✅ Redis notification system initialized");
+                        tracing::info!("Redis notification system initialized");
                         (Some(pool_arc), Some(broadcaster))
                     }
                     Ok(Err(e)) => {
-                        tracing::warn!("⚠️ Failed to create Redis pool: {} (notifications will not work)", e);
+                        tracing::warn!("Failed to create Redis pool: {} (notifications will not work)", e);
                         (None, None)
                     }
                     Err(_) => {
-                        tracing::warn!("⚠️ Redis pool initialization timed out after 5s");
+                        tracing::warn!("Redis pool initialization timed out after 5s");
                         (None, None)
                     }
                 };
@@ -313,19 +313,19 @@ impl SimpleContainer {
                             *db_pool,
                             Arc::clone(&perm_cache),
                         ));
-                        tracing::info!("✅ UnifiedPermissionService initialized with Redis cache");
+                        tracing::info!("UnifiedPermissionService initialized with Redis cache");
                         (pool, broadcaster, Some(perm_cache), perm_service)
                     }
                     Err(e) => {
-                        tracing::warn!("⚠️ Failed to create Redis client for permission cache: {}", e);
+                        tracing::warn!("Failed to create Redis client for permission cache: {}", e);
                         let perm_service = Arc::new(UnifiedPermissionService::new_without_cache(*db_pool));
-                        tracing::info!("✅ UnifiedPermissionService initialized (without Redis cache)");
+                        tracing::info!("UnifiedPermissionService initialized (without Redis cache)");
                         (pool, broadcaster, None, perm_service)
                     }
                 }
             }
             None => {
-                tracing::warn!("⚠️ No REDIS_URL configured - notifications and permission caching will not work");
+                tracing::warn!("No REDIS_URL configured - notifications and permission caching will not work");
                 let perm_service = Arc::new(UnifiedPermissionService::new_without_cache(*db_pool));
                 (None, None, None, perm_service)
             }
@@ -483,13 +483,13 @@ impl SimpleContainer {
 
                         // Spawn subscription task
                         let handle = tokio::spawn(async move {
-                            info!("🚀 Starting contract subscriber for {}", chain_clone);
+                            info!("Starting contract subscriber for {}", chain_clone);
 
                             let _callback = move |event: PaymentEvent| -> Pin<Box<dyn std::future::Future<Output = Result<(), AppError>> + Send>> {
                                 let _repo = repo.clone();
                                 Box::pin(async move {
                                     // Process payment event - update database, etc.
-                                    tracing::info!("💰 Processing payment: {} on {}", event.transaction_hash, chain_clone);
+                                    tracing::info!("Processing payment: {} on {}", event.transaction_hash, chain_clone);
                                     // TODO: Integrate with actual payment processing logic
                                     Ok(())
                                 })
@@ -498,23 +498,23 @@ impl SimpleContainer {
                             // Note: The subscriber is wrapped in Arc, so we cannot call subscribe() directly
                             // The actual WebSocket subscription will be handled separately
                             // For now, just log that the subscriber was created
-                            tracing::warn!("⚠️ Contract subscriber created for {}, but WebSocket subscription needs separate handling", chain_clone);
+                            tracing::warn!("Contract subscriber created for {}, but WebSocket subscription needs separate handling", chain_clone);
                             Result::<(), AppError>::Ok(())
                         });
 
                         subscribers.insert(chain, subscriber_arc);
                         handles.insert(chain, handle);
-                        info!("✅ Contract subscriber initialized for {}", chain);
+                        info!("Contract subscriber initialized for {}", chain);
                     }
                     Err(e) => {
-                        tracing::warn!("⚠️ Failed to create subscriber for {}: {}", chain, e);
+                        tracing::warn!("Failed to create subscriber for {}: {}", chain, e);
                     }
                 }
             }
         }
 
         let subscribers_map = if subscribers.is_empty() {
-            tracing::info!("ℹ️ No contract subscribers configured");
+            tracing::info!("No contract subscribers configured");
             None
         } else {
             Some(Arc::new(subscribers))

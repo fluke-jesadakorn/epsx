@@ -29,7 +29,7 @@ services:
       retries: 5
       start_period: 10s
     ports:
-      - "${DB_PORT:-5432}:5432"
+      - "${DB_PORT:-5491}:5432"
 
   # Redis Cache and Session Store
   redis:
@@ -48,7 +48,7 @@ services:
       retries: 5
       start_period: 5s
     ports:
-      - "${REDIS_PORT:-6379}:6379"
+      - "${REDIS_PORT:-6342}:6379"
 
   # Rust Backend API
   backend:
@@ -115,6 +115,8 @@ services:
       # Server Configuration
       HOST: 0.0.0.0
       PORT: 8080
+    ports:
+      - "9180:8080"
     networks:
       - epsx_prod
     healthcheck:
@@ -135,16 +137,20 @@ services:
     environment:
       NODE_ENV: ${NODE_ENV}
       ENV: ${ENV}
+      FRONTEND_URL: ${FRONTEND_URL}
+      ADMIN_FRONTEND_URL: ${ADMIN_FRONTEND_URL}
       NEXT_PUBLIC_BACKEND_URL: ${BACKEND_URL}
       NEXT_PUBLIC_APP_URL: ${FRONTEND_URL}
       NEXT_PUBLIC_ADMIN_URL: ${ADMIN_FRONTEND_URL}
       NEXT_PUBLIC_BLOCKCHAIN_NETWORK: ${BLOCKCHAIN_NETWORK}
       NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: ${WALLETCONNECT_PROJECT_ID}
       NEXT_PUBLIC_CHAIN_ID: ${CHAIN_ID}
-      NEXT_PUBLIC_PAYMENT_MAINNET_ADDRESS: ${COMPANY_WALLET_MAINNET}
-      NEXT_PUBLIC_PAYMENT_TESTNET_ADDRESS: ${COMPANY_WALLET_TESTNET}
+      NEXT_PUBLIC_PAYMENT_ESCROW_MAINNET: ${NEXT_PUBLIC_PAYMENT_ESCROW_MAINNET:-${PAYMENT_ESCROW_CONTRACT_MAINNET:-}}
+      NEXT_PUBLIC_PAYMENT_RECEIVER_MAINNET: ${NEXT_PUBLIC_PAYMENT_RECEIVER_MAINNET:-${COMPANY_WALLET_MAINNET}}
       PORT: 3000
       HOSTNAME: 0.0.0.0
+    ports:
+      - "4700:3000"
     networks:
       - epsx_prod
     healthcheck:
@@ -165,16 +171,20 @@ services:
     environment:
       NODE_ENV: ${NODE_ENV}
       ENV: ${ENV}
+      FRONTEND_URL: ${FRONTEND_URL}
+      ADMIN_FRONTEND_URL: ${ADMIN_FRONTEND_URL}
       NEXT_PUBLIC_BACKEND_URL: ${BACKEND_URL}
       NEXT_PUBLIC_APP_URL: ${ADMIN_FRONTEND_URL}
       NEXT_PUBLIC_ADMIN_URL: ${ADMIN_FRONTEND_URL}
       NEXT_PUBLIC_BLOCKCHAIN_NETWORK: ${BLOCKCHAIN_NETWORK}
       NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: ${WALLETCONNECT_PROJECT_ID}
       NEXT_PUBLIC_CHAIN_ID: ${CHAIN_ID}
-      NEXT_PUBLIC_PAYMENT_MAINNET_ADDRESS: ${COMPANY_WALLET_MAINNET}
-      NEXT_PUBLIC_PAYMENT_TESTNET_ADDRESS: ${COMPANY_WALLET_TESTNET}
+      NEXT_PUBLIC_PAYMENT_ESCROW_MAINNET: ${NEXT_PUBLIC_PAYMENT_ESCROW_MAINNET:-${PAYMENT_ESCROW_CONTRACT_MAINNET:-}}
+      NEXT_PUBLIC_PAYMENT_RECEIVER_MAINNET: ${NEXT_PUBLIC_PAYMENT_RECEIVER_MAINNET:-${COMPANY_WALLET_MAINNET}}
       PORT: 3000
       HOSTNAME: 0.0.0.0
+    ports:
+      - "4701:3000"
     networks:
       - epsx_prod
     healthcheck:
@@ -196,9 +206,10 @@ services:
         condition: service_healthy
       admin-frontend:
         condition: service_healthy
-    command: tunnel run
-    environment:
-      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN}
+    command: tunnel --config /etc/cloudflared/config.yml run
+    volumes:
+      - ${HOME}/.cloudflared/config.yml:/etc/cloudflared/config.yml:ro
+      - ${HOME}/.cloudflared/6bee9b58-eede-4b4c-815c-94c0ee38fe58.json:/etc/cloudflared/6bee9b58-eede-4b4c-815c-94c0ee38fe58.json:ro
     networks:
       - epsx_prod
 

@@ -115,6 +115,7 @@ export const API_ROUTES = {
 
     // Content management
     PLANS: '/api/admin/plans',
+    FEATURES: '/api/admin/features',
     PROMOTIONS: '/api/admin/promotions',
     ANNOUNCEMENTS: '/api/admin/announcements',
 
@@ -222,6 +223,7 @@ export const FRONTEND_ROUTES = {
   // Public routes
   HOME: '/',
   ABOUT: '/about',
+  CONTACT: '/contact',
 
   // Authentication routes
   AUTH: {

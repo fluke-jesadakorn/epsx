@@ -1,7 +1,7 @@
 import { PlanSelection } from '@/components/plans/plan-selection'
 import { getCurrentUser } from '@/lib/server-actions'
 
-export const dynamic = 'force-dynamic'
+export const revalidate = 300
 
 export default async function PlansPage() {
   const user = await getCurrentUser()

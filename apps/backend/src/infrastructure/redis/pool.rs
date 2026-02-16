@@ -1,11 +1,9 @@
 use redis::{Client, aio::ConnectionManager};
-use std::sync::Arc;
-use tokio::sync::RwLock;
 
 #[derive(Clone)]
 pub struct RedisPool {
     client: Client,
-    manager: Arc<RwLock<Option<ConnectionManager>>>,
+    manager: ConnectionManager,
 }
 
 impl RedisPool {
@@ -13,22 +11,13 @@ impl RedisPool {
         let client = Client::open(redis_url)?;
         let manager = client.get_connection_manager().await?;
 
-        tracing::info!("✅ Redis pool created: url={}", redis_url);
+        tracing::info!("Redis pool created: url={}", redis_url);
 
-        Ok(Self {
-            client,
-            manager: Arc::new(RwLock::new(Some(manager))),
-        })
+        Ok(Self { client, manager })
     }
 
-    pub async fn get_connection(&self) -> Result<ConnectionManager, redis::RedisError> {
-        let manager_guard = self.manager.read().await;
-        manager_guard.as_ref()
-            .ok_or_else(|| redis::RedisError::from((
-                redis::ErrorKind::IoError,
-                "No connection available"
-            )))
-            .cloned()
+    pub fn get_connection(&self) -> ConnectionManager {
+        self.manager.clone()
     }
 
     pub async fn get_pubsub(&self) -> Result<redis::aio::PubSub, redis::RedisError> {
@@ -36,11 +25,7 @@ impl RedisPool {
     }
 
     pub async fn health_check(&self) -> bool {
-        match self.get_connection().await {
-            Ok(mut conn) => {
-                redis::cmd("PING").query_async::<String>(&mut conn).await.is_ok()
-            }
-            Err(_) => false,
-        }
+        let mut conn = self.manager.clone();
+        redis::cmd("PING").query_async::<String>(&mut conn).await.is_ok()
     }
 }

@@ -57,7 +57,7 @@ impl BlockchainMonitor {
         *is_running = true;
         drop(is_running);
 
-        info!("🚀 Starting blockchain monitor (Direct Payment Model)...");
+        info!("Starting blockchain monitor (Direct Payment Model)...");
 
         let listener = self.bsc_listener.clone();
         let is_running_flag = self.is_running.clone();
@@ -74,7 +74,7 @@ impl BlockchainMonitor {
             }).await;
 
             if let Err(e) = result {
-                error!("❌ Blockchain listener error: {}", e);
+                error!("Blockchain listener error: {}", e);
             }
 
             let mut is_running = is_running_flag.write().await;
@@ -88,7 +88,7 @@ impl BlockchainMonitor {
     pub async fn stop_monitoring(&self) {
         let mut is_running = self.is_running.write().await;
         *is_running = false;
-        info!("🛑 Blockchain monitor stopped");
+        info!("Blockchain monitor stopped");
     }
 
     /// Check if monitor is running
@@ -96,14 +96,20 @@ impl BlockchainMonitor {
         *self.is_running.read().await
     }
 
-    /// Process a payment event - Direct Payment Model
+    /// Process a payment event - Direct Payment Model (V2: PaymentWithContext)
     /// Creates/extends wallet_plan_assignments for proper plan activation
     async fn process_payment_event(event: PaymentEvent, pool: Arc<&'static TlsPool>) -> Result<(), AppError> {
-        info!("💳 Processing payment event: {}", event.unique_id());
+        info!("Processing payment event: {}", event.unique_id());
         info!("   User: {}", event.user_address);
-        info!("   Plan: {}", event.plan_id);
+        info!("   Context: type={}, id={}", event.context_type, event.context_id);
         info!("   Amount: ${}", event.amount);
         info!("   TX: {}", event.transaction_hash);
+
+        // Only process PLAN payments (context_type == 0) for plan activation
+        if event.context_type != 0 {
+            info!("Skipping non-plan payment (context_type={})", event.context_type);
+            return Ok(());
+        }
 
         // Step 1: Check if event already processed (prevent duplicates)
         let mut conn = pool.get().await
@@ -127,7 +133,7 @@ impl BlockchainMonitor {
         .map_err(|e| AppError::database_error(format!("Failed to check event: {}", e)))?;
 
         if existing_event.is_some() {
-            warn!("⚠️ Event already processed: {}", event.unique_id());
+            warn!("Event already processed: {}", event.unique_id());
             return Ok(());
         }
 
@@ -146,11 +152,11 @@ impl BlockchainMonitor {
         )
         .bind::<diesel::sql_types::Text, _>(&event.transaction_hash)
         .bind::<diesel::sql_types::Integer, _>(event.log_index as i32)
-        .bind::<diesel::sql_types::Text, _>("PaymentReceived")
+        .bind::<diesel::sql_types::Text, _>("PaymentWithContext")
         .bind::<diesel::sql_types::BigInt, _>(event.block_number as i64)
         .bind::<diesel::sql_types::Text, _>(&event.token_address)
         .bind::<diesel::sql_types::Text, _>(&event.user_address)
-        .bind::<diesel::sql_types::Integer, _>(event.plan_id as i32)
+        .bind::<diesel::sql_types::Integer, _>(event.context_id as i32)
         .bind::<diesel::sql_types::Text, _>(&event.token_address)
         .bind::<diesel::sql_types::Numeric, _>(&amount_bd)
         .bind::<diesel::sql_types::BigInt, _>(event.payment_id as i64)
@@ -173,15 +179,16 @@ impl BlockchainMonitor {
             id: Uuid,
         }
 
-        // Map contract plan_id (tier_level) to database plan UUID
+        // Map contract context_id (tier_level) to database plan UUID
+        // For PLAN payments (context_type=0), context_id maps to tier_level
         let plan_uuid: Uuid = diesel::sql_query(
             "SELECT id FROM plans WHERE tier_level = $1 LIMIT 1"
         )
-        .bind::<diesel::sql_types::Integer, _>(event.plan_id as i32)
+        .bind::<diesel::sql_types::Integer, _>(event.context_id as i32)
         .get_result::<IdResult>(&mut conn)
         .await
         .map(|r| r.id)
-        .map_err(|_| AppError::entity_not_found("Subscription plan", event.plan_id.to_string()))?;
+        .map_err(|_| AppError::entity_not_found("Subscription plan", event.context_id.to_string()))?;
 
         let now = Utc::now();
         let standard_duration_days: i64 = 30;
@@ -237,7 +244,7 @@ impl BlockchainMonitor {
             let base_time = if existing.is_active && existing.expires_at > now { existing.expires_at } else { now };
             let new_expiry = base_time + Duration::days(standard_duration_days);
 
-            info!("🔄 {} plan {} for wallet {}. Old expiry: {}, New expiry: {}",
+            info!("{} plan {} for wallet {}. Old expiry: {}, New expiry: {}",
                 if existing.is_active { "Extending" } else { "Reactivating" },
                 plan_uuid, wallet_addr.as_str(), existing.expires_at, new_expiry);
 
@@ -272,7 +279,7 @@ impl BlockchainMonitor {
             .await
             .map_err(|e| AppError::database_error(format!("Failed to extend plan: {}", e)))?;
 
-            info!("✅ {} user {} plan access until {}",
+            info!("{} user {} plan access until {}",
                 if existing.is_active { "Extended" } else { "Reactivated" },
                 wallet_addr.as_str(), new_expiry);
         } else {
@@ -314,7 +321,7 @@ impl BlockchainMonitor {
                 AppError::database_error(format!("Failed to create plan assignment: {}", e))
             })?;
 
-            info!("✅ Created new plan assignment for user {} → plan {} (expires: {})", wallet_addr.as_str(), plan_uuid, new_expiry);
+            info!("Created new plan assignment for user {} → plan {} (expires: {})", wallet_addr.as_str(), plan_uuid, new_expiry);
         }
 
         // Step 6: Update event status to completed
@@ -333,8 +340,8 @@ impl BlockchainMonitor {
         .await
         .map_err(|e| AppError::database_error(format!("Failed to update event status: {}", e)))?;
 
-        info!("✅ Payment event processed successfully");
-        info!("   User: {} now has access to plan {}", event.user_address, event.plan_id);
+        info!("Payment event processed successfully");
+        info!("   User: {} now has access to plan {}", event.user_address, event.context_id);
 
         Ok(())
     }

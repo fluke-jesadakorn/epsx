@@ -1,14 +1,13 @@
 use axum::{
     extract::{Query, State},
-    http::StatusCode,
-    response::Json,
+    response::IntoResponse,
 };
 use chrono::{DateTime, Utc};
 use tracing::{error, info};
 use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
 use crate::web::auth::AppState;
-use crate::web::admin::responses::{AdminApiResponse, AdminMetadata};
+use crate::web::responses::wrappers::AdminResponse;
 use super::types::*;
 
 /**
@@ -18,14 +17,14 @@ use super::types::*;
 pub async fn get_permission_analytics_handler(
     Query(_query): Query<AnalyticsQuery>,
     State(app_state): State<AppState>,
-) -> Result<Json<AdminApiResponse<PermissionAnalyticsResponse>>, StatusCode> {
-    info!("🔐 Admin: Getting permission analytics");
+) -> axum::response::Response {
+    info!("Admin: Getting permission analytics");
 
     let mut conn = match app_state.db_pool.get().await {
         Ok(conn) => conn,
         Err(e) => {
-            error!("❌ Admin: Failed to get database connection: {}", e);
-            return Ok(Json(AdminApiResponse::server_error()));
+            error!("Admin: Failed to get database connection: {}", e);
+            return AdminResponse::server_error("Database error").into_response();
         }
     };
 
@@ -224,12 +223,6 @@ pub async fn get_permission_analytics_handler(
         expiring_permissions,
     };
 
-    let metadata = AdminMetadata::crud_operation("get_permission_analytics", Some("admin".to_string()));
-
-    info!("✅ Admin: Successfully retrieved permission analytics");
-    Ok(Json(AdminApiResponse::success_with_meta(
-        response,
-        "Permission analytics retrieved successfully",
-        metadata,
-    )))
+    info!("Admin: Successfully retrieved permission analytics");
+    AdminResponse::success_with_message(response, "Permission analytics retrieved successfully").into_response()
 }

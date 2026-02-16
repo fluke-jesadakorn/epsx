@@ -65,7 +65,7 @@ impl TransactionHistoryProvider for RpcTransactionHistoryProvider {
                     from_address: event.user_address,
                     to_address: self.contract_address.to_string(),
                     block_number: event.block_number,
-                    plan_name: Some(format!("Plan #{}", event.plan_id)),
+                    plan_name: Some(format!("Context #{} (type={})", event.context_id, event.context_type)),
                 });
             }
         }

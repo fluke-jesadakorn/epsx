@@ -28,6 +28,7 @@ pub struct PublicPlanResponse {
     pub permissions: Vec<String>,
     pub is_active: bool,
     pub tier_level: i32,
+    pub plan_group: String,
 }
 
 /// Get public pricing plans (no authentication required)
@@ -50,17 +51,18 @@ pub async fn get_public_plans(
     axum::extract::Query(query): axum::extract::Query<std::collections::HashMap<String, String>>,
 ) -> (StatusCode, Json<ApiResponse<Vec<PublicPlanResponse>>>) {
     let category_filter = query.get("category").map(|s| s.to_lowercase());
+    let group_filter = query.get("group").map(|s| s.to_lowercase());
 
-    tracing::info!("📊 Fetching public subscription plans");
+    tracing::info!("Fetching public subscription plans");
 
     // Get plans from database instead of hardcoded data
     let db_plans = match app_state.plan_repo.get_subscription_plans().await {
         Ok(plans) => {
-            tracing::info!("✅ Found {} subscription plans in database", plans.len());
+            tracing::info!("Found {} subscription plans in database", plans.len());
             plans
         },
         Err(err) => {
-            tracing::error!(error = %err, "❌ Failed to fetch subscription plans from database");
+            tracing::error!(error = %err, "Failed to fetch subscription plans from database");
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ApiResponse::error("DB_ERROR", "Failed to fetch plans"))
@@ -70,7 +72,7 @@ pub async fn get_public_plans(
 
     // If no plans found, return empty array (not an error)
     if db_plans.is_empty() {
-        tracing::warn!("⚠️ No subscription plans found in database - returning empty array");
+        tracing::warn!("No subscription plans found in database - returning empty array");
         return (
             StatusCode::OK,
             Json(ApiResponse::success(vec![]))
@@ -145,10 +147,18 @@ pub async fn get_public_plans(
             permissions,
             is_active: plan.is_active.unwrap_or(true),
             tier_level: plan.tier_level,
+            plan_group: plan.plan_group.clone(),
         }
     })
     .filter(|p| {
 
+
+        // Filter by group if requested
+        if let Some(ref grp) = group_filter {
+            if p.plan_group.to_lowercase() != *grp {
+                return false;
+            }
+        }
 
         // Filter by category if requested
         if let Some(ref cat) = category_filter {
@@ -198,13 +208,13 @@ pub async fn get_public_plan_by_id(
     State(app_state): State<AppState>,
     Path(plan_id): Path<String>,
 ) -> (StatusCode, Json<ApiResponse<PublicPlanResponse>>) {
-    tracing::info!(plan_id = %plan_id, "📊 Fetching public plan by ID");
+    tracing::info!(plan_id = %plan_id, "Fetching public plan by ID");
 
     // Parse UUID
     let plan_uuid = match uuid::Uuid::parse_str(&plan_id) {
         Ok(id) => id,
         Err(_) => {
-            tracing::warn!(plan_id = %plan_id, "⚠️ Invalid plan ID format");
+            tracing::warn!(plan_id = %plan_id, "Invalid plan ID format");
             return (
                 StatusCode::BAD_REQUEST,
                 Json(ApiResponse::error("INVALID_ID", "Invalid plan ID format"))
@@ -216,7 +226,7 @@ pub async fn get_public_plan_by_id(
     let db_plans = match app_state.plan_repo.get_subscription_plans().await {
         Ok(plans) => plans,
         Err(err) => {
-            tracing::error!(error = %err, "❌ Failed to fetch subscription plans");
+            tracing::error!(error = %err, "Failed to fetch subscription plans");
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ApiResponse::error("DB_ERROR", "Failed to fetch plans"))
@@ -229,7 +239,7 @@ pub async fn get_public_plan_by_id(
         Some(p) => p,
         None => {
 
-            tracing::warn!(plan_id = %plan_id, "⚠️ Plan not found");
+            tracing::warn!(plan_id = %plan_id, "Plan not found");
             return (
                 StatusCode::NOT_FOUND,
                 Json(ApiResponse::error("NOT_FOUND", "Plan not found"))
@@ -295,9 +305,10 @@ pub async fn get_public_plan_by_id(
         permissions,
         is_active: plan.is_active.unwrap_or(true),
         tier_level: plan.tier_level,
+        plan_group: plan.plan_group.clone(),
     };
 
-    tracing::info!(plan_id = %plan_id, "✅ Plan retrieved successfully");
+    tracing::info!(plan_id = %plan_id, "Plan retrieved successfully");
     (
         StatusCode::OK,
         Json(ApiResponse::success(plan_data))
@@ -356,6 +367,38 @@ fn generate_features_from_permissions(permissions: &[String]) -> Vec<String> {
             "epsx:alerts:create" => features.push("Create alerts".to_string()),
             "epsx:alerts:manage" => features.push("Alert management".to_string()),
             "epsx:api:access" => features.push("API access".to_string()),
+            perm if perm.starts_with("epsx:api:ratelimit_min:") => {
+                if let Some(n) = perm.strip_prefix("epsx:api:ratelimit_min:") {
+                    features.push(format!("{} requests/min", n));
+                }
+            },
+            perm if perm.starts_with("epsx:api:ratelimit_hour:") => {
+                if let Some(n) = perm.strip_prefix("epsx:api:ratelimit_hour:") {
+                    features.push(format!("{} requests/hour", n));
+                }
+            },
+            perm if perm.starts_with("epsx:api:ratelimit_day:") => {
+                if let Some(n) = perm.strip_prefix("epsx:api:ratelimit_day:") {
+                    features.push(format!("{} requests/day", n));
+                }
+            },
+            perm if perm.starts_with("epsx:api:burst:") => {
+                if let Some(n) = perm.strip_prefix("epsx:api:burst:") {
+                    features.push(format!("Burst capacity: {}", n));
+                }
+            },
+            perm if perm.starts_with("epsx:api:calls_limit:") => {
+                if let Some(n) = perm.strip_prefix("epsx:api:calls_limit:") {
+                    features.push(format!("{} API calls", n));
+                }
+            },
+            perm if perm.starts_with("epsx:rankings:limit:") => {
+                if let Some(n) = perm.strip_prefix("epsx:rankings:limit:") {
+                    features.push(format!("Top {} rankings", n));
+                }
+            },
+            "epsx:analytics:enabled" => features.push("Advanced analytics".to_string()),
+            "epsx:support:premium" => features.push("Premium support".to_string()),
             "epsx:*:*" => features.push("Full platform access".to_string()),
             "epsx:enterprise:*" => features.push("Enterprise features".to_string()),
             _ => {} // Skip unknown permissions

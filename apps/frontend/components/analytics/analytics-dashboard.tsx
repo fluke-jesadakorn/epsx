@@ -10,11 +10,16 @@ import { useMemo, useState } from 'react';
 import { AnalyticsNavigation } from '@/components/shared/analytics-navigation';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { StockDataCard } from '@/shared/components/cards/stock-data-card';
-import { LayoutGrid, List } from 'lucide-react';
+import { LayoutGrid, List, Loader2 } from 'lucide-react';
+import dynamic from 'next/dynamic';
 import { AnalyticsMetadataDisplay } from './analytics-metadata-display';
-import { CardDashboardView } from './card-dashboard-view';
 import FilterPanel from './filter-panel';
 import Pagination from './pagination';
+
+const CardDashboardView = dynamic(
+  () => import('./card-dashboard-view').then(m => ({ default: m.CardDashboardView })),
+  { loading: () => <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-orange-500" /></div> }
+);
 
 interface RichFilterOptions {
   countries: Array<{ value: string; label: string }>;

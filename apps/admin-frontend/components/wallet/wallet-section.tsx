@@ -78,7 +78,6 @@ export function WalletSection({ className, initialData }: WalletSectionProps) {
             <WalletFilterBar
                 filters={filters}
                 onFilterChange={setFilters}
-                onAddWallet={() => {/* Open Create Modal - To Be Implemented */ }}
             />
 
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">

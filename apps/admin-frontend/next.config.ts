@@ -8,6 +8,9 @@ const nextConfig: NextConfig = {
   // Enable standalone output for Docker deployment
   output: 'standalone',
 
+  // TODO: Fix shared/ TS errors then remove this
+  typescript: { ignoreBuildErrors: true },
+
   // Enabled Turbopack for development
   turbopack: {
     resolveAlias: {
@@ -26,13 +29,6 @@ const nextConfig: NextConfig = {
       'zod/mini': ZOD_ALIAS,
       'zod/v4/core': ZOD_ALIAS,
     },
-  },
-  // Ignore TypeScript errors during builds (errors should be fixed separately)
-  typescript: {
-    ignoreBuildErrors: true,
-  },
-  experimental: {
-    // Other experimental features can go here
   },
 
   // Transpile shared packages only
@@ -103,34 +99,7 @@ const nextConfig: NextConfig = {
     // Fix specific module resolution issues for both Server and Client
     config.plugins.push(
       new webpack.IgnorePlugin({
-        resourceRegExp: /^(tap|tape|desm|fastbench|pino-elasticsearch|why-is-node-running|thread-stream\/test|thread-stream)$/,
-      })
-    );
-
-    // Prevent React Native modules from being bundled in web environment
-    config.plugins.push(
-      new webpack.IgnorePlugin({
-        resourceRegExp: /^(react-native|@react-native)/,
-      })
-    );
-
-    // Additional React Native specific modules to ignore
-    // Add IgnorePlugin for specific React Native modules instead of externals
-    config.plugins.push(
-      new webpack.IgnorePlugin({
-        resourceRegExp: /^react-native$/,
-      })
-    );
-
-    config.plugins.push(
-      new webpack.IgnorePlugin({
-        resourceRegExp: /^react-native-device-info$/,
-      })
-    );
-
-    config.plugins.push(
-      new webpack.IgnorePlugin({
-        resourceRegExp: /^react-native-keychain$/,
+        resourceRegExp: /^(tap|tape|desm|fastbench|pino-elasticsearch|why-is-node-running|thread-stream(\/test)?|react-native(-device-info|-keychain)?|@react-native)/,
       })
     );
      

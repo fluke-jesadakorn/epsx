@@ -12,14 +12,15 @@ pub mod domain_services;
 pub use aggregates::{
     Plan, CreatePlanParams, LoadPlanParams, UpdatePlanParams,
     // Backward compatibility aliases
-    Plan as PermissionGroup, CreatePlanParams as CreatePermissionGroupParams, 
+    Plan as PermissionGroup, CreatePlanParams as CreatePermissionGroupParams,
     LoadPlanParams as LoadPermissionGroupParams, UpdatePlanParams as UpdatePermissionGroupParams,
     PermissionPlan, CreatePermissionPlanParams, LoadPermissionPlanParams, UpdatePermissionPlanParams,
     Policy,
 };
 
 pub use value_objects::{
-    PlanId, PlanSlug, PolicyId, PolicyRule, PermissionString
+    PlanId, PlanSlug, PolicyId, PolicyRule, PermissionString,
+    PlanCategory, PlanGroup,
 };
 
 pub use entities::{

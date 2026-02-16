@@ -65,6 +65,8 @@ impl CommandHandler<UpdatePermissionPlanCommand> for UpdatePermissionPlanCommand
             metadata: command.metadata,
             is_public: None, // No visibility change via this handler
             grace_period_hours: None,
+            plan_category: None,
+            plan_group: None,
         }).map_err(ApplicationError::from)?;
 
         // 5. Save plan

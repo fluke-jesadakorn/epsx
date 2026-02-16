@@ -33,11 +33,74 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `cargo test` from `apps/backend/`
 - Binary: `apps/backend/src/bin/migrate.rs` for DB migrations
 - Multiple Diesel configs: `diesel.toml`, `diesel_analytics.toml`, `diesel_notifications.toml`, `diesel_payments.toml`
+- **Migration safety**: Never drop/delete existing data unless the structural change requires it. Prefer `ALTER TABLE ADD/RENAME` over `DROP`+recreate. Use `IF EXISTS`/`IF NOT EXISTS` guards.
 
-### Deployment
-- `bun deploy:frontend` / `bun deploy:admin` / `bun deploy:backend` - Deploy individual
-- `bun deploy:all:prod` - Deploy all to production
-- `bun env:status` - Monitor deployment status
+### Deployment (Local Docker + Cloudflare Tunnel)
+Production runs locally via Docker Compose with Cloudflare Tunnel exposing services.
+
+**Quick deploy (all services):**
+```bash
+cd infrastructure/docker
+docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --force-recreate
+```
+
+**Full rebuild & deploy:**
+```bash
+# 1. Build images (arm64 for Mac)
+export DOCKER_DEFAULT_PLATFORM=linux/arm64
+WC_PROJECT_ID="04e0a500abfa1e095bf8f64b15fa2812"
+
+docker build \
+  --build-arg NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=$WC_PROJECT_ID \
+  --build-arg NEXT_PUBLIC_APP_URL=https://epsx.io \
+  --build-arg NEXT_PUBLIC_BACKEND_URL=https://api.epsx.io \
+  --build-arg NEXT_PUBLIC_ADMIN_URL=https://admin.epsx.io \
+  --build-arg NEXT_PUBLIC_BLOCKCHAIN_NETWORK=mainnet \
+  --build-arg NEXT_PUBLIC_CHAIN_ID=56 \
+  --build-arg NEXT_PUBLIC_OAUTH_CLIENT_ID=epsx-frontend \
+  -f apps/frontend/Dockerfile -t epsx-frontend:prod .
+
+docker build \
+  --build-arg NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=$WC_PROJECT_ID \
+  --build-arg NEXT_PUBLIC_APP_URL=https://admin.epsx.io \
+  --build-arg NEXT_PUBLIC_BACKEND_URL=https://api.epsx.io \
+  --build-arg NEXT_PUBLIC_ADMIN_URL=https://admin.epsx.io \
+  --build-arg NEXT_PUBLIC_BLOCKCHAIN_NETWORK=mainnet \
+  --build-arg NEXT_PUBLIC_CHAIN_ID=56 \
+  --build-arg NEXT_PUBLIC_OAUTH_CLIENT_ID=epsx-admin \
+  -f apps/admin-frontend/Dockerfile -t epsx-admin-frontend:prod .
+
+docker build -f apps/backend/Dockerfile -t epsx-backend:prod .
+
+# 2. Deploy
+cd infrastructure/docker
+docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --force-recreate
+```
+
+**Key files:**
+- `infrastructure/docker/docker-compose.prod.yml` - Service definitions
+- `infrastructure/docker/.env.prod` - Env vars (DB creds, JWT secrets, tunnel token)
+- `~/.cloudflared/config.yml` - Tunnel ingress routes
+- `scripts/deploy/deploy-remote.sh` - Remote deploy script (SCP-based)
+
+**Services & ports:**
+| Service | Container | Host Port |
+|---------|-----------|-----------|
+| Frontend | epsx-prod-frontend | 4700 |
+| Admin | epsx-prod-admin | 4701 |
+| Backend | epsx-prod-backend | 9180 |
+| PostgreSQL | epsx-prod-postgres | 5491 |
+| Redis | epsx-prod-redis | 6342 |
+| Cloudflared | epsx-prod-cloudflared | - |
+
+**Cloudflare Tunnel:** Config mounted from `~/.cloudflared/`. Routes: `epsx.io` -> frontend:3000, `admin.epsx.io` -> admin:3000, `api.epsx.io` -> backend:8080. Token stored in `.env.prod` as `CLOUDFLARE_TUNNEL_TOKEN`. Refresh with `cloudflared tunnel token epsx-prod`.
+
+**Verify:**
+```bash
+curl -s https://api.epsx.io/health   # Backend health
+curl -s -o /dev/null -w "%{http_code}" https://epsx.io        # Frontend
+curl -s -o /dev/null -w "%{http_code}" https://admin.epsx.io  # Admin (307 = OK, redirects to auth)
+```
 
 ## Architecture
 
@@ -130,8 +193,8 @@ API_ROUTES.ANALYTICS.RANKINGS      // '/api/analytics/rankings'
 API_ROUTES.USERS.PROFILE           // '/api/users/profile'
 ```
 
-### Deployment
-- **Host**: Remote server via Docker Compose + Cloudflare Tunnel (Zero Trust)
+### Infrastructure
+- **Host**: Local Mac Mini (arm64) via Docker Compose + Cloudflare Tunnel
 - **DB**: PostgreSQL (`epsx_prod`, `epsx_dev`), Redis (DB 0: Dev, DB 1: Prod)
 - **Prod**: epsx.io / admin.epsx.io / api.epsx.io
 - **Dev**: dev.epsx.io / dev-admin.epsx.io / dev-api.epsx.io

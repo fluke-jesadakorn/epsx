@@ -80,8 +80,8 @@ if [[ "$ACTION" == "all" ]] || [[ "$ACTION" == "build" ]]; then
     --build-arg NEXT_PUBLIC_OAUTH_CLIENT_ID="${OAUTH_CLIENT_ID:-epsx-frontend}" \
     --build-arg NEXT_PUBLIC_BLOCKCHAIN_NETWORK="${BLOCKCHAIN_NETWORK}" \
     --build-arg NEXT_PUBLIC_CHAIN_ID="${CHAIN_ID}" \
-    --build-arg NEXT_PUBLIC_PAYMENT_MAINNET_ADDRESS="${COMPANY_WALLET_MAINNET}" \
-    --build-arg NEXT_PUBLIC_PAYMENT_TESTNET_ADDRESS="${COMPANY_WALLET_TESTNET}" \
+    --build-arg NEXT_PUBLIC_PAYMENT_ESCROW_MAINNET="${PAYMENT_ESCROW_MAINNET:-}" \
+    --build-arg NEXT_PUBLIC_PAYMENT_RECEIVER_MAINNET="${PAYMENT_RECEIVER_MAINNET:-${COMPANY_WALLET_MAINNET}}" \
     -f apps/frontend/Dockerfile -t "epsx-frontend:${ENVIRONMENT}" .
 
   # Admin Frontend
@@ -95,8 +95,8 @@ if [[ "$ACTION" == "all" ]] || [[ "$ACTION" == "build" ]]; then
     --build-arg NEXT_PUBLIC_OAUTH_CLIENT_ID="${OAUTH_CLIENT_ID:-epsx-admin}" \
     --build-arg NEXT_PUBLIC_BLOCKCHAIN_NETWORK="${BLOCKCHAIN_NETWORK}" \
     --build-arg NEXT_PUBLIC_CHAIN_ID="${CHAIN_ID}" \
-    --build-arg NEXT_PUBLIC_PAYMENT_MAINNET_ADDRESS="${COMPANY_WALLET_MAINNET}" \
-    --build-arg NEXT_PUBLIC_PAYMENT_TESTNET_ADDRESS="${COMPANY_WALLET_TESTNET}" \
+    --build-arg NEXT_PUBLIC_PAYMENT_ESCROW_MAINNET="${PAYMENT_ESCROW_MAINNET:-}" \
+    --build-arg NEXT_PUBLIC_PAYMENT_RECEIVER_MAINNET="${PAYMENT_RECEIVER_MAINNET:-${COMPANY_WALLET_MAINNET}}" \
     -f apps/admin-frontend/Dockerfile -t "epsx-admin-frontend:${ENVIRONMENT}" .
 
   # Backend

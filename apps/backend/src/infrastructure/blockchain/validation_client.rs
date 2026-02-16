@@ -19,15 +19,18 @@ impl BlockchainValidationClient {
 
         // BSC Mainnet
         let bsc_mainnet_url = std::env::var("BSC_MAINNET_RPC_URL")
-            .unwrap_or_else(|_| "https://bsc-dataseed.binance.org".to_string());
+            .ok().filter(|s| !s.is_empty())
+            .unwrap_or_else(|| "https://bsc-dataseed.binance.org".to_string());
 
         // BSC Testnet
         let bsc_testnet_url = std::env::var("BSC_TESTNET_RPC_URL")
-            .unwrap_or_else(|_| "https://data-seed-prebsc-1-s1.binance.org:8545".to_string());
+            .ok().filter(|s| !s.is_empty())
+            .unwrap_or_else(|| "https://data-seed-prebsc-1-s1.binance.org:8545".to_string());
 
         // Ethereum Mainnet
         let eth_mainnet_url = std::env::var("ETH_MAINNET_RPC_URL")
-            .unwrap_or_else(|_| "https://eth-mainnet.g.alchemy.com/v2/demo".to_string());
+            .ok().filter(|s| !s.is_empty())
+            .unwrap_or_else(|| "https://eth-mainnet.g.alchemy.com/v2/demo".to_string());
 
         // Initialize providers
         providers.insert(56, Provider::<Http>::try_from(bsc_mainnet_url)

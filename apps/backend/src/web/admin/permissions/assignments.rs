@@ -141,6 +141,8 @@ pub async fn create_assignment(
         plan_type: String,
         #[diesel(sql_type = diesel::sql_types::Jsonb)]
         plan_metadata: serde_json::Value,
+        #[diesel(sql_type = diesel::sql_types::Text)]
+        plan_group: String,
     }
 
     // Run transaction
@@ -170,7 +172,7 @@ pub async fn create_assignment(
 
             // Fetch plan details early to get expiry settings
             let plan = diesel::sql_query(
-                "SELECT name, plan_type, plan_metadata FROM plans WHERE id = $1"
+                "SELECT name, plan_type, plan_metadata, plan_group FROM plans WHERE id = $1"
             )
             .bind::<diesel::sql_types::Uuid, _>(plan_uuid)
             .get_result::<PlanDetails>(conn)
@@ -178,6 +180,32 @@ pub async fn create_assignment(
             .optional()?;
 
             let plan_ref = plan.as_ref().ok_or(diesel::result::Error::NotFound)?;
+
+            // Cross-group validation: reject if wallet has plans from a different group
+            #[derive(QueryableByName)]
+            struct ExistingGroup {
+                #[diesel(sql_type = diesel::sql_types::Text)]
+                plan_group: String,
+            }
+
+            let existing_groups: Vec<ExistingGroup> = diesel::sql_query(
+                r#"
+                SELECT DISTINCT p.plan_group
+                FROM wallet_plan_assignments wpa
+                JOIN plans p ON wpa.plan_id = p.id
+                WHERE wpa.wallet_address = $1 AND wpa.is_active = true AND wpa.plan_id != $2
+                "#
+            )
+            .bind::<diesel::sql_types::Text, _>(&wallet_clone)
+            .bind::<diesel::sql_types::Uuid, _>(plan_uuid)
+            .load(conn)
+            .await?;
+
+            for eg in &existing_groups {
+                if eg.plan_group != plan_ref.plan_group {
+                    return Err(diesel::result::Error::RollbackTransaction);
+                }
+            }
 
             // Calculate expiry
             let expires_at = match req_expires_at {
@@ -249,6 +277,9 @@ pub async fn create_assignment(
         Err(e) => {
             if matches!(e, diesel::result::Error::NotFound) {
                 return AdminResponse::not_found("Permission plan").into_response();
+            }
+            if matches!(e, diesel::result::Error::RollbackTransaction) {
+                return AdminResponse::bad_request("Cannot mix plan groups. Wallet already has plans from a different group.").into_response();
             }
             tracing::error!("Transaction failed: {}", e);
             return AdminResponse::server_error("Failed to create assignment").into_response();
@@ -838,9 +869,22 @@ pub async fn get_plan_history(
         }
     };
 
-    // Base query
-    let mut sql = String::from(
-        r#"
+    // Whitelist operation_type
+    let event_type_filter: Option<String> = query.operation_type.as_ref().map(|op_type| {
+        match op_type.as_str() {
+            "assign" => "plan_assigned",
+            "remove" => "plan_removed",
+            "expire" => "expired",
+            _ => "plan_assigned",
+        }.to_string()
+    });
+
+    let plan_uuid: Option<Uuid> = query.plan_id.as_ref().and_then(|gid| Uuid::parse_str(gid).ok());
+    let search_pattern: Option<String> = query.user_search.as_ref().map(|s| format!("%{}%", s));
+
+    // Use fixed param slots with NULL-check pattern to avoid dynamic bind chains
+    // $1=limit, $2=offset, $3=event_type, $4=source, $5=plan_id, $6=search, $7=date_from, $8=date_to
+    let safe_sql = r#"
         SELECT
             id,
             wallet_address as user_id,
@@ -856,52 +900,15 @@ pub async fn get_plan_history(
             event_timestamp as created_at
         FROM permission_audit_log
         WHERE event_type IN ('plan_assigned', 'plan_removed', 'plan_updated', 'expired')
-        "#
-    );
-
-    let mut where_clauses = Vec::new();
-
-    if let Some(op_type) = &query.operation_type {
-        let db_event_type = match op_type.as_str() {
-            "assign" => "plan_assigned",
-            "remove" => "plan_removed",
-            "expire" => "expired",
-            _ => "plan_assigned", // Default fallback
-        };
-        where_clauses.push(format!("event_type = '{}'", db_event_type));
-    }
-
-    if let Some(source) = &query.operation_source {
-        // Sanitize input to prevent injection
-        let clean_source = source.replace("'", ""); 
-        where_clauses.push(format!("event_source = '{}'", clean_source));
-    }
-
-    if let Some(gid) = &query.plan_id {
-        if let Ok(uuid) = Uuid::parse_str(gid) {
-            where_clauses.push(format!("plan_id = '{}'", uuid));
-        }
-    }
-
-    if let Some(search) = &query.user_search {
-        let clean_search = search.replace("'", "");
-        where_clauses.push(format!("(wallet_address ILIKE '%{}%' OR performed_by_name ILIKE '%{}%')", clean_search, clean_search));
-    }
-
-    if let Some(from) = query.date_from {
-        where_clauses.push(format!("event_timestamp >= '{}'", from.to_rfc3339()));
-    }
-
-    if let Some(to) = query.date_to {
-        where_clauses.push(format!("event_timestamp <= '{}'", to.to_rfc3339()));
-    }
-
-    if !where_clauses.is_empty() {
-        sql.push_str(" AND ");
-        sql.push_str(&where_clauses.join(" AND "));
-    }
-
-    sql.push_str(" ORDER BY event_timestamp DESC LIMIT $1 OFFSET $2");
+          AND ($3::text IS NULL OR event_type = $3)
+          AND ($4::text IS NULL OR event_source = $4)
+          AND ($5::uuid IS NULL OR plan_id = $5)
+          AND ($6::text IS NULL OR (wallet_address ILIKE $6 OR performed_by_name ILIKE $6))
+          AND ($7::timestamptz IS NULL OR event_timestamp >= $7)
+          AND ($8::timestamptz IS NULL OR event_timestamp <= $8)
+        ORDER BY event_timestamp DESC
+        LIMIT $1 OFFSET $2
+    "#;
 
     #[derive(QueryableByName)]
     struct AuditRow {
@@ -930,10 +937,19 @@ pub async fn get_plan_history(
         #[diesel(sql_type = diesel::sql_types::Timestamptz)]
         created_at: DateTime<Utc>,
     }
-    
-    let result = diesel::sql_query(sql)
+
+    let date_from_str: Option<String> = query.date_from.map(|d| d.to_rfc3339());
+    let date_to_str: Option<String> = query.date_to.map(|d| d.to_rfc3339());
+
+    let result = diesel::sql_query(safe_sql)
         .bind::<diesel::sql_types::Integer, _>(page as i32)
         .bind::<diesel::sql_types::Integer, _>(offset as i32)
+        .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(&event_type_filter)
+        .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(&query.operation_source)
+        .bind::<diesel::sql_types::Nullable<diesel::sql_types::Uuid>, _>(&plan_uuid)
+        .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(&search_pattern)
+        .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(&date_from_str)
+        .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(&date_to_str)
         .load::<AuditRow>(&mut conn)
         .await;
 

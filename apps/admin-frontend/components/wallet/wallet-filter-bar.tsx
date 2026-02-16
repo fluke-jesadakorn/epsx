@@ -1,18 +1,16 @@
 'use client';
 
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Search } from 'lucide-react';
+import { Search } from 'lucide-react';
 import type { WalletFilters } from './types';
 
 interface WalletFilterBarProps {
     filters: WalletFilters;
     onFilterChange: (filters: WalletFilters) => void;
-    onAddWallet: () => void;
 }
 
-export function WalletFilterBar({ filters, onFilterChange, onAddWallet }: WalletFilterBarProps) {
+export function WalletFilterBar({ filters, onFilterChange }: WalletFilterBarProps) {
     return (
         <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center bg-slate-900/40 backdrop-blur-2xl p-4 rounded-[32px] border border-white/5 shadow-xl">
             <div className="flex items-center gap-3 w-full sm:w-auto flex-1">
@@ -37,7 +35,6 @@ export function WalletFilterBar({ filters, onFilterChange, onAddWallet }: Wallet
                         <SelectItem value="all">All Status</SelectItem>
                         <SelectItem value="active">Active</SelectItem>
                         <SelectItem value="disabled">Disabled</SelectItem>
-                        <SelectItem value="pending">Pending</SelectItem>
                     </SelectContent>
                 </Select>
 
@@ -56,16 +53,6 @@ export function WalletFilterBar({ filters, onFilterChange, onAddWallet }: Wallet
                         <SelectItem value="markets">Markets</SelectItem>
                     </SelectContent>
                 </Select>
-            </div>
-
-            <div className="flex items-center gap-2 w-full sm:w-auto">
-                <Button
-                    onClick={onAddWallet}
-                    className="w-full sm:w-auto h-12 px-6 bg-[#1fc7d4] hover:bg-[#1fc7d4]/90 text-white font-bold rounded-2xl shadow-lg shadow-cyan-500/20 active:scale-95 transition-all"
-                >
-                    <Plus className="h-5 w-5 mr-2" />
-                    Add New Wallet
-                </Button>
             </div>
         </div>
     );

@@ -62,13 +62,13 @@ pub async fn permission_validation_middleware(
     // Check permission using ONLY JWT claims (NO DATABASE QUERY!)
     if check_jwt_permission(user_context, &required_permission) {
         info!(
-            "✅ Permission granted (JWT): wallet={}, permission={}, route={} {}",
+            "Permission granted (JWT): wallet={}, permission={}, route={} {}",
             user_context.wallet_address, required_permission, method, path
         );
         next.run(request).await
     } else {
         warn!(
-            "❌ Permission denied (JWT): wallet={}, permission={}, route={} {}\nCurrent Permissions: {:?}",
+            "Permission denied (JWT): wallet={}, permission={}, route={} {}\nCurrent Permissions: {:?}",
             user_context.wallet_address, required_permission, method, path, user_context.permissions
         );
         create_permission_denied_error(

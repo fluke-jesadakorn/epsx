@@ -26,7 +26,7 @@ fn extract_tradingview_estimate(
   let next_timestamp = unified_item.next_earnings_date?;
 
   if next_timestamp <= 0 {
-    info!("⚠️ [{}] next_earnings_date is zero or negative", unified_item.symbol);
+    info!("[{}] next_earnings_date is zero or negative", unified_item.symbol);
     return None;
   }
 
@@ -63,7 +63,7 @@ fn extract_tradingview_estimate(
   };
 
   info!(
-    "✅✅✅ [{}] Using REAL TradingView timestamp: {} ({} days) - PRIORITY 1",
+    "[{}] Using REAL TradingView timestamp: {} ({} days) - PRIORITY 1",
     unified_item.symbol,
     next_timestamp,
     days_until
@@ -91,7 +91,7 @@ async fn fetch_realtime_estimate_async(
   let enhanced_data_list = websocket_handler.fetch_enhanced_eps_data(vec![unified_item.symbol.clone()]).await.ok()?;
   let enhanced_data = enhanced_data_list.first()?;
 
-  info!("✅ [DEBUG] Using real-time TradingView data for forecast: {}", unified_item.symbol);
+  info!("[DEBUG] Using real-time TradingView data for forecast: {}", unified_item.symbol);
 
   let estimated_eps = if enhanced_data.qoq_growth > 0.0 {
     enhanced_data.current_eps * (1.0 + (enhanced_data.qoq_growth / 100.0) * 0.8)
@@ -106,7 +106,7 @@ async fn fetch_realtime_estimate_async(
   };
 
   debug!(
-    "🎯 [DEBUG] Real-time forecast: Current EPS={:.2}, Next EPS={:.2}, Growth={:.1}%",
+    "[DEBUG] Real-time forecast: Current EPS={:.2}, Next EPS={:.2}, Growth={:.1}%",
     enhanced_data.current_eps,
     estimated_eps,
     growth_percentage
@@ -149,7 +149,7 @@ fn calculate_fallback_estimate(
   quarterly_performance: &[QuarterlyPerformanceData],
   current_date: chrono::DateTime<chrono::Utc>,
 ) -> EstimateData {
-  debug!("📊 [DEBUG] Using fallback calculation for {}", unified_item.symbol);
+  debug!("[DEBUG] Using fallback calculation for {}", unified_item.symbol);
 
   let latest_quarter = &quarterly_performance[0];
   let current_quarter = (current_date.month() - 1) / 3 + 1;
@@ -229,7 +229,7 @@ pub(super) fn generate_next_quarter_estimate(
   let current_date = chrono::Utc::now();
 
   debug!(
-    "🔮 [DEBUG] Generating next quarter estimate for {}",
+    "[DEBUG] Generating next quarter estimate for {}",
     unified_item.symbol
   );
 
@@ -246,7 +246,7 @@ pub(super) fn generate_next_quarter_estimate(
     });
   }
 
-  info!("❌ [{}] No TradingView timestamp - trying WebSocket", unified_item.symbol);
+  info!("[{}] No TradingView timestamp - trying WebSocket", unified_item.symbol);
 
   // PRIORITY 2: Try real-time WebSocket data
   let realtime_estimate = tokio::task::block_in_place(|| {

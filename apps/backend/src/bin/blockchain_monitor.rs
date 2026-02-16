@@ -18,7 +18,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         )
         .init();
 
-    info!("🚀 Starting EPSX Blockchain Payment Monitor");
+    info!("Starting EPSX Blockchain Payment Monitor");
 
     // Load environment variables
     dotenv::dotenv().ok();
@@ -46,7 +46,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let contract_address = std::env::var(contract_address_var)
         .unwrap_or_else(|_| {
-            warn!("⚠️  {} not set, using placeholder", contract_address_var);
+            warn!(" {} not set, using placeholder", contract_address_var);
             "0x0000000000000000000000000000000000000000".to_string()
         });
 
@@ -60,7 +60,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .parse()
         .expect("BLOCKCHAIN_POLL_INTERVAL_SECONDS must be a valid number");
 
-    info!("📊 Configuration:");
+    info!("Configuration:");
     info!("   Network: {}", network);
     info!("   RPC: {}", rpc_url);
     info!("   Contract: {}", contract_address);
@@ -69,13 +69,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Validate contract address
     if contract_address == "0x0000000000000000000000000000000000000000" {
-        error!("❌ Invalid contract address. Please set {} in .env", contract_address_var);
+        error!("Invalid contract address. Please set {} in .env", contract_address_var);
         error!("   Deploy the smart contract first and update the environment variable.");
         std::process::exit(1);
     }
 
     // Connect to database
-    info!("🔌 Connecting to PostgreSQL database...");
+    info!("Connecting to PostgreSQL database...");
     let config = TlsConnectionManager::new(database_url.clone());
     let pool = TlsPool::builder(config)
         .max_size(10)
@@ -84,10 +84,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Test connection
     let _ = pool.get().await.expect("Failed to connect to PostgreSQL database");
-    info!("✅ Database connection established");
+    info!("Database connection established");
 
     // Verify database migration
-    info!("🔍 Verifying database schema...");
+    info!("Verifying database schema...");
 
     #[derive(diesel::QueryableByName)]
     struct TableExistsResult {
@@ -109,15 +109,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Ok(row) => {
             let exists: bool = row.exists;
             if !exists {
-                error!("❌ Database migration not applied!");
+                error!("Database migration not applied!");
                 error!("   Run: diesel migration run");
                 error!("   Or: psql -d {} -f migrations/008_blockchain_payments.sql", database_url);
                 std::process::exit(1);
             }
-            info!("✅ Database schema verified");
+            info!("Database schema verified");
         }
         Err(e) => {
-            error!("❌ Failed to verify database schema: {}", e);
+            error!("Failed to verify database schema: {}", e);
             std::process::exit(1);
         }
     }
@@ -139,7 +139,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     info!("   Supported Tokens: {} configured", supported_tokens.len());
 
     // Create blockchain monitor
-    info!("🔧 Initializing blockchain monitor...");
+    info!("Initializing blockchain monitor...");
     let monitor = BlockchainMonitor::new(
         rpc_url.clone(),
         contract_address.clone(),
@@ -150,22 +150,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     )
     .expect("Failed to create blockchain monitor");
 
-    info!("✅ Monitor initialized successfully");
+    info!("Monitor initialized successfully");
 
     // Start monitoring in background
-    info!("👂 Starting event listener...");
+    info!("Starting event listener...");
     monitor.start_monitoring()
         .await
         .expect("Failed to start blockchain monitoring");
 
-    info!("🎯 Blockchain monitor is running!");
+    info!("Blockchain monitor is running!");
     info!("   Listening for PaymentReceived events on contract: {}", contract_address);
     info!("   Press Ctrl+C to stop");
 
     // Wait for shutdown signal
     match tokio::signal::ctrl_c().await {
         Ok(()) => {
-            info!("🛑 Shutdown signal received");
+            info!("Shutdown signal received");
         }
         Err(err) => {
             error!("Unable to listen for shutdown signal: {}", err);
@@ -173,10 +173,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // Graceful shutdown
-    info!("🔄 Stopping blockchain monitor...");
+    info!("Stopping blockchain monitor...");
     monitor.stop_monitoring().await;
-    info!("✅ Blockchain monitor stopped successfully");
-    info!("👋 Goodbye!");
+    info!("Blockchain monitor stopped successfully");
+    info!("Goodbye!");
 
     Ok(())
 }

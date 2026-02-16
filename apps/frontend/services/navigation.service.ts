@@ -34,6 +34,11 @@ class NavigationService {
         href: '/about',
         key: 'about',
       },
+      {
+        label: 'Contact',
+        href: '/contact',
+        key: 'contact',
+      },
     ];
   }
 
@@ -58,6 +63,11 @@ class NavigationService {
         label: 'Privacy Policy',
         href: '/privacy',
         key: 'privacy',
+      },
+      {
+        label: 'Contact',
+        href: '/contact',
+        key: 'contact',
       },
     ];
   }

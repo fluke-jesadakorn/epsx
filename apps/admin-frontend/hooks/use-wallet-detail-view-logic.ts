@@ -75,11 +75,22 @@ export function useWalletDetailViewLogic({
         if (active.data.current?.type === 'plan' && over.id === 'assigned-plan-list') {
             const plan = accessData.data.availablePlans.find(g => g.id === active.id);
             if (plan && !pendingDrops.find(p => p.id === plan.id)) {
+                // Cross-group validation
+                const draggedGroup = plan.planGroup ?? 'personal';
+                const existingGroups = new Set(
+                    [...accessData.data.authorizedPlans, ...pendingDrops]
+                        .map(p => p.planGroup ?? 'personal')
+                );
+                if (existingGroups.size > 0 && !existingGroups.has(draggedGroup)) {
+                    toast.error(`Cannot mix plan groups. Wallet has "${[...existingGroups][0]}" plans assigned.`);
+                    return;
+                }
+
                 setPendingDrops(prev => [...prev, plan]);
                 toast.success(`Staged "${plan.name}" for assignment`);
             }
         }
-    }, [accessData.data.availablePlans, pendingDrops]);
+    }, [accessData.data.availablePlans, accessData.data.authorizedPlans, pendingDrops]);
 
     const handleSavePendingChanges = useCallback(async () => {
         if (pendingDrops.length === 0) { return; }

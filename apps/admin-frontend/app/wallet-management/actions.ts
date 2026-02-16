@@ -44,7 +44,7 @@ function buildQueryParams(filters: WalletFilters, page: number, limit: number): 
         sort_order: filters.sortOrder,
     };
     if (filters.search !== '') { params['search'] = filters.search; }
-    if (filters.status !== 'all') { params['status'] = filters.status; }
+    if (filters.status !== 'all') { params['status'] = filters.status === 'disabled' ? 'inactive' : filters.status; }
     return params;
 }
 
@@ -85,17 +85,17 @@ export async function fetchWalletsAction(filters: WalletFilters, page = 1, limit
 
     if (!res.success) {
         await checkAuthError(res.error);
-        const errorMsg = res.error?.message ?? 'Failed to fetch wallets';
-        const errorCode = res.error?.code ?? 'UNKNOWN';
-        throw new Error(`${errorMsg} (${errorCode})`);
+        const msg = res.error?.message ?? 'Failed to fetch wallets';
+        const code = res.error?.code ?? 'UNKNOWN';
+        return { success: false as const, error: `${msg} (${code})` };
     }
 
     const rawData = res.data;
     if (!rawData) {
-        throw new Error('Failed to fetch wallets: No data');
+        return { success: false as const, error: 'No data returned' };
     }
 
-    return extractWalletsData(rawData);
+    return { success: true as const, ...extractWalletsData(rawData) };
 }
 
 export async function updateWalletMetadataAction(walletAddress: string, data: { label?: string | null; note?: string | null }) {

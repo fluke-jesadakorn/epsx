@@ -156,7 +156,7 @@ impl TransactionalOutbox {
         })?;
 
         info!(
-            "✅ Successfully appended {} events for aggregate {}",
+            "Successfully appended {} events for aggregate {}",
             event_count,
             aggregate_id
         );
@@ -268,7 +268,7 @@ impl TransactionalOutbox {
         })?;
 
         info!(
-            "✅ Atomic save successful: {} events for aggregate {}",
+            "Atomic save successful: {} events for aggregate {}",
             event_count,
             agg_id_clone
         );

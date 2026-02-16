@@ -34,6 +34,7 @@ impl QueryHandler<ListPermissionPlansQuery> for ListPermissionPlansQueryHandler 
             plan_type: query.plan_type,
             is_active: query.is_active,
             is_promoted: query.is_promoted,
+            plan_group: None,
             search_term: query.search_term,
             limit: Some(pg.limit as i64),
             offset: Some(pg.offset),

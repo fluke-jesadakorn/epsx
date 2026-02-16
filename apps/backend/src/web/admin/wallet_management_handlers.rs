@@ -381,7 +381,7 @@ pub async fn list_users_handler(
     Query(params): Query<WalletListQuery>,
     State(app_state): State<AppState>,
 ) -> Result<Json<AdminApiResponse<WalletListResponse>>, AppError> {
-    info!("🔍 Admin: Listing users with filters (CQRS): {:?}", params);
+    info!("Admin: Listing users with filters (CQRS): {:?}", params);
 
     // 1. Create query (parameter pass-through)
     let query = query_models::GetWalletListQuery {
@@ -399,7 +399,7 @@ pub async fn list_users_handler(
     // 2. Execute CQRS handler
     let handler = query_handlers::GetWalletListQueryHandler::new(app_state.db_pool.clone());
     let response = handler.handle(query).await.map_err(|e| {
-        error!("❌ Wallet list query failed: {}", e);
+        error!("Wallet list query failed: {}", e);
         AppError::new(ErrorKind::InternalServerError, format!("Wallet list query failed: {}", e))
     })?;
 
@@ -422,7 +422,7 @@ pub async fn list_users_handler(
     let metadata = AdminMetadata::list_operation("list_wallets", pagination);
 
     info!(
-        "✅ Admin: Successfully listed {} wallets",
+        "Admin: Successfully listed {} wallets",
         web_response.wallets.len()
     );
     Ok(Json(AdminApiResponse::success_with_meta(
@@ -456,7 +456,7 @@ pub async fn get_user_handler(
     Path(wallet_address): Path<String>,
     State(app_state): State<AppState>,
 ) -> Result<Json<AdminApiResponse<WalletDetailResponse>>, AppError> {
-    info!("🔍 Admin: Getting user details for: {} (CQRS)", wallet_address);
+    info!("Admin: Getting user details for: {} (CQRS)", wallet_address);
 
     // 1. Create query
     let query = query_models::GetWalletDetailQuery {
@@ -466,7 +466,7 @@ pub async fn get_user_handler(
     // 2. Execute CQRS handler
     let handler = query_handlers::GetWalletDetailQueryHandler::new(app_state.db_pool.clone());
     let response = handler.handle(query).await.map_err(|e| {
-        error!("❌ Wallet detail query failed: {}", e);
+        error!("Wallet detail query failed: {}", e);
         if e.to_string().contains("not found") {
             return AppError::new(ErrorKind::AggregateNotFound, "Wallet not found");
         }
@@ -479,7 +479,7 @@ pub async fn get_user_handler(
     let metadata = AdminMetadata::crud_operation("get_user", Some("admin".to_string()));
 
     info!(
-        "✅ Admin: Successfully retrieved user details for: {}",
+        "Admin: Successfully retrieved user details for: {}",
         wallet_address
     );
     Ok(Json(AdminApiResponse::success_with_meta(
@@ -516,7 +516,7 @@ pub async fn update_user_handler(
     State(app_state): State<AppState>,
     RequestJson(request): RequestJson<UpdateWalletRequest>,
 ) -> Result<Json<AdminApiResponse<WalletDetailResponse>>, AppError> {
-    info!("✏️ Admin: Updating user: {} (CQRS)", wallet_address);
+    info!("Admin: Updating user: {} (CQRS)", wallet_address);
 
     // 1. Create command
     let command = command_models::UpdateWalletCommand {
@@ -528,7 +528,7 @@ pub async fn update_user_handler(
     // 2. Execute CQRS handler
     let handler = command_handlers::UpdateWalletCommandHandler::new(app_state.db_pool.clone());
     let response = handler.handle(command).await.map_err(|e| {
-        error!("❌ Update wallet failed: {}", e);
+        error!("Update wallet failed: {}", e);
         if e.to_string().contains("not found") {
             return AppError::new(ErrorKind::AggregateNotFound, "Wallet not found");
         }
@@ -543,7 +543,7 @@ pub async fn update_user_handler(
 
     let metadata = AdminMetadata::crud_operation("update_user", Some("admin".to_string()));
 
-    info!("✅ Admin: Successfully updated user: {}", wallet_address);
+    info!("Admin: Successfully updated user: {}", wallet_address);
     Ok(Json(AdminApiResponse::success_with_meta(
         web_response,
         &response.message,
@@ -570,7 +570,7 @@ pub async fn update_user_handler(
 pub async fn get_user_stats_handler(
     State(app_state): State<AppState>,
 ) -> Result<Json<AdminApiResponse<WalletStatsResponse>>, AppError> {
-    info!("📊 Admin: Getting user statistics (CQRS)");
+    info!("Admin: Getting user statistics (CQRS)");
 
     // 1. Create query
     let query = query_models::GetWalletStatsQuery {};
@@ -578,7 +578,7 @@ pub async fn get_user_stats_handler(
     // 2. Execute CQRS handler
     let handler = query_handlers::GetWalletStatsQueryHandler::new(app_state.db_pool.clone());
     let response = handler.handle(query).await.map_err(|e| {
-        error!("❌ Stats query failed: {}", e);
+        error!("Stats query failed: {}", e);
         AppError::new(ErrorKind::InternalServerError, format!("Stats query failed: {}", e))
     })?;
 
@@ -587,7 +587,7 @@ pub async fn get_user_stats_handler(
 
     let metadata = AdminMetadata::crud_operation("get_user_stats", Some("admin".to_string()));
 
-    info!("✅ Admin: Successfully retrieved user statistics");
+    info!("Admin: Successfully retrieved user statistics");
     Ok(Json(AdminApiResponse::success_with_meta(
         web_response,
         "User statistics retrieved successfully",
@@ -622,7 +622,7 @@ pub async fn disable_user_handler(
     State(app_state): State<AppState>,
     RequestJson(request): RequestJson<command_models::DisableWalletCommand>,
 ) -> Result<Json<AdminApiResponse<command_models::DisableWalletResponse>>, AppError> {
-    info!("🚫 Admin: Disabling user: {} (CQRS)", wallet_address);
+    info!("Admin: Disabling user: {} (CQRS)", wallet_address);
 
     // Ensure path param matches body logic if needed, but command has it.
     // Overwrite the wallet address in command from path to be safe/consistent
@@ -634,7 +634,7 @@ pub async fn disable_user_handler(
     // Execute CQRS handler
     let handler = command_handlers::DisableWalletCommandHandler::new(app_state.db_pool.clone());
     let response = handler.handle(command).await.map_err(|e| {
-        error!("❌ Disable wallet failed: {}", e);
+        error!("Disable wallet failed: {}", e);
         if e.to_string().contains("not found") {
             return AppError::new(ErrorKind::AggregateNotFound, "Wallet not found");
         }
@@ -677,7 +677,7 @@ pub async fn enable_user_handler(
     State(app_state): State<AppState>,
     RequestJson(request): RequestJson<command_models::EnableWalletCommand>,
 ) -> Result<Json<AdminApiResponse<command_models::EnableWalletResponse>>, AppError> {
-    info!("✅ Admin: Enabling user: {} (CQRS)", wallet_address);
+    info!("Admin: Enabling user: {} (CQRS)", wallet_address);
 
     // Ensure path param matches body logic
     let command = command_models::EnableWalletCommand {
@@ -688,7 +688,7 @@ pub async fn enable_user_handler(
     // Execute CQRS handler
     let handler = command_handlers::EnableWalletCommandHandler::new(app_state.db_pool.clone());
     let response = handler.handle(command).await.map_err(|e| {
-        error!("❌ Enable wallet failed: {}", e);
+        error!("Enable wallet failed: {}", e);
         if e.to_string().contains("not found") {
             return AppError::new(ErrorKind::AggregateNotFound, "Wallet not found");
         }
@@ -732,7 +732,7 @@ pub async fn validate_user_permissions_bulk(
     headers: axum::http::HeaderMap,
     RequestJson(request): RequestJson<BulkPermissionValidationRequest>,
 ) -> Result<Json<AdminApiResponse<BulkPermissionValidationResponse>>, AppError> {
-    info!("🔐 Admin: Performing bulk permission validation test");
+    info!("Admin: Performing bulk permission validation test");
     let start_time = std::time::Instant::now();
 
     // Extract admin wallet
@@ -742,13 +742,13 @@ pub async fn validate_user_permissions_bulk(
 
     // Validate admin can perform bulk operations
     match permission_service.has_permission(admin_wallet, "admin:permissions:bulk_validate").await {
-        Ok(true) => info!("✅ Admin authorized for bulk permission validation"),
+        Ok(true) => info!("Admin authorized for bulk permission validation"),
         Ok(false) => {
-            info!("❌ Admin not authorized for bulk permission validation");
+            info!("Admin not authorized for bulk permission validation");
             return Err(AppError::new(ErrorKind::AuthorizationError, "Admin not authorized for bulk permission validation"));
         },
         Err(e) => {
-            error!("❌ Permission check failed: {}", e);
+            error!("Permission check failed: {}", e);
             return Err(AppError::new(ErrorKind::InternalServerError, format!("Permission check failed: {}", e)));
         }
     }
@@ -793,7 +793,7 @@ pub async fn validate_user_permissions_bulk(
 
     let validation_time_ms = start_time.elapsed().as_millis() as u64;
 
-    info!("✅ Bulk validation completed: {}/{} permissions granted in {}ms",
+    info!("Bulk validation completed: {}/{} permissions granted in {}ms",
         granted_count, test_permissions.len(), validation_time_ms);
 
     let response_data = BulkPermissionValidationResponse {

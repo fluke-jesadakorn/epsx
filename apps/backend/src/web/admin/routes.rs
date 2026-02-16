@@ -308,12 +308,12 @@ pub fn create_admin_public_routes() -> Router<AppState> {
 
 pub fn create_permission_authority_routes() -> Router<AppState> {
   Router::new()
-    // ⚡ CRITICAL: Real-time permission validation - THE AUTHORITY
+    // CRITICAL: Real-time permission validation - THE AUTHORITY
     // This endpoint is called by frontend/admin for ALL permission checks
     // Route: /api/permissions/validate
     .route("/validate", post(validate_permission))
 
-    // ⚡ CRITICAL: Bulk permission validation for performance
+    // CRITICAL: Bulk permission validation for performance
     // Used by frontend/admin for batch permission checking
     // Route: /api/permissions/validate-bulk
     .route("/validate-bulk", post(validate_bulk_permissions))
@@ -328,7 +328,7 @@ pub fn create_permission_authority_routes() -> Router<AppState> {
     .route("/definitions/{id}", delete(super::permissions::delete_permission_definition))
     .route("/definitions/by-name/{permission}", delete(super::permissions::delete_permission_by_name))
 
-    // ⚡ CRITICAL: Wallet's effective permissions - what they can actually do
+    // CRITICAL: Wallet's effective permissions - what they can actually do
     // Used by frontend/admin to understand wallet capabilities
     // Route: /api/permissions/wallet/{wallet_address}
     .route("/wallet/{wallet_address}", get(get_wallet_permissions))

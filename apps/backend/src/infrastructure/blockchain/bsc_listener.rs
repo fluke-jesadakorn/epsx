@@ -32,15 +32,15 @@ impl BscEventListener {
             .map_err(|e| AppError::infrastructure_error(format!("Invalid contract address: {}", e)))?;
 
         let payment_verifier = Arc::new(PaymentVerifier::new(
-            rpc_url.clone(), 
-            contract_address.to_string(),
+            rpc_url.clone(),
+            format!("{:#x}", contract_address),
             supported_tokens
         )?);
 
-        // PaymentReceived event topic
-        // keccak256("PaymentReceived(address,uint256,address,uint256,uint256,uint256)")
+        // PaymentWithContext event topic (V2)
+        // keccak256("PaymentWithContext(address,uint8,uint256,address,uint256,uint256,uint256,bytes32)")
         let event_topic = H256::from_slice(&hex::decode(
-            "a7f9e7f4f9c6e7e3d8b3a2f1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6f5a4b3c2d1"
+            "842de788230478cf96f2c9139ce2cedad856220f7accbee6cd941b420224a770"
         ).unwrap_or_default());
 
         Ok(Self {
@@ -58,43 +58,43 @@ impl BscEventListener {
     where
         F: Fn(PaymentEvent) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<(), AppError>> + Send>> + Send + Sync,
     {
-        info!("🔗 Starting BSC event listener on contract: {:?}", self.contract_address);
-        info!("📍 Starting from block: {}", self.last_checked_block);
+        info!("Starting BSC event listener on contract: {:?}", self.contract_address);
+        info!("Starting from block: {}", self.last_checked_block);
 
         loop {
             match self.check_new_events().await {
                 Ok(events) => {
                     if !events.is_empty() {
-                        info!("🎉 Found {} new payment events", events.len());
+                        info!("Found {} new payment events", events.len());
 
                         for event in events {
                             // Verify payment before processing
                             match self.payment_verifier.verify_payment(&event).await {
                                 Ok(verification) => {
                                     if verification.is_verified() {
-                                        info!("✅ Payment verified: {}", event.unique_id());
+                                        info!("Payment verified: {}", event.unique_id());
 
                                         for warning in &verification.warnings {
-                                            warn!("⚠️ {}", warning);
+                                            warn!("{}", warning);
                                         }
 
                                         // Process event
                                         if let Err(e) = callback(event.clone()).await {
-                                            error!("❌ Failed to process event {}: {}", event.unique_id(), e);
+                                            error!("Failed to process event {}: {}", event.unique_id(), e);
                                         }
                                     } else {
-                                        error!("❌ Payment verification failed: {:?}", verification.errors);
+                                        error!("Payment verification failed: {:?}", verification.errors);
                                     }
                                 }
                                 Err(e) => {
-                                    error!("❌ Payment verification error: {}", e);
+                                    error!("Payment verification error: {}", e);
                                 }
                             }
                         }
                     }
                 }
                 Err(e) => {
-                    error!("❌ Error checking events: {}", e);
+                    error!("Error checking events: {}", e);
                 }
             }
 
@@ -110,14 +110,14 @@ impl BscEventListener {
             .as_u64();
 
         if current_block <= self.last_checked_block {
-            debug!("📊 No new blocks. Current: {}, Last checked: {}", current_block, self.last_checked_block);
+            debug!("No new blocks. Current: {}, Last checked: {}", current_block, self.last_checked_block);
             return Ok(Vec::new());
         }
 
         let from_block = self.last_checked_block + 1;
         let to_block = current_block;
 
-        debug!("🔍 Checking blocks {} to {} for events", from_block, to_block);
+        debug!("Checking blocks {} to {} for events", from_block, to_block);
 
         let events = self.fetch_payment_events(from_block, to_block).await?;
 
@@ -150,11 +150,11 @@ impl BscEventListener {
                     if event.is_valid() {
                         events.push(event);
                     } else {
-                        warn!("⚠️ Invalid event parsed: {:?}", event);
+                        warn!("Invalid event parsed: {:?}", event);
                     }
                 }
                 Err(e) => {
-                    error!("❌ Failed to parse event: {}", e);
+                    error!("Failed to parse event: {}", e);
                 }
             }
         }
@@ -173,7 +173,7 @@ impl BscEventListener {
     /// Update last checked block (useful for resuming from a specific block)
     pub fn set_last_checked_block(&mut self, block: u64) {
         self.last_checked_block = block;
-        info!("📍 Updated last checked block to: {}", block);
+        info!("Updated last checked block to: {}", block);
     }
 }
 
@@ -191,6 +191,6 @@ mod tests {
             vec![], // Empty tokens list for testing
         );
 
-        assert!(listener.is_ok());
+        assert!(listener.is_ok(), "BscEventListener::new failed: {:?}", listener.err());
     }
 }

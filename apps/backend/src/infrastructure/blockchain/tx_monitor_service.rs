@@ -65,7 +65,7 @@ impl TransactionMonitorService {
     /// Start the background monitoring loop
     pub async fn start(&self) {
         info!(
-            "🚀 Starting transaction monitor service (poll interval: {}s)",
+            "Starting transaction monitor service (poll interval: {}s)",
             self.config.poll_interval_secs
         );
 
@@ -78,7 +78,7 @@ impl TransactionMonitorService {
                 
                 error!("Error checking pending transactions (attempt {}): {}", error_count, e);
                 if e.contains("relation") && e.contains("does not exist") {
-                    error!("💡 HINT: The 'payments' table might be missing. Ensure migrations are run: `diesel migration run --config-file apps/backend/diesel_payments.toml` and PAYMENTS_DATABASE_URL is set correctly.");
+                    error!("HINT: The 'payments' table might be missing. Ensure migrations are run: `diesel migration run --config-file apps/backend/diesel_payments.toml` and PAYMENTS_DATABASE_URL is set correctly.");
                 }
 
                 // Sleep with backoff
@@ -86,7 +86,7 @@ impl TransactionMonitorService {
             } else {
                 // Reset error count on success
                 if error_count > 0 {
-                    info!("✅ Transaction monitor service checks recovered");
+                    info!("Transaction monitor service checks recovered");
                     error_count = 0;
                 }
                 
@@ -130,7 +130,7 @@ impl TransactionMonitorService {
             return Ok(());
         }
 
-        info!("📋 Checking {} pending transactions", pending_payments.len());
+        info!("Checking {} pending transactions", pending_payments.len());
 
         for (tx_hash, _block_num) in pending_payments {
             if let Err(e) = self
@@ -283,7 +283,7 @@ impl TransactionMonitorService {
         .await
         .map_err(|e| format!("Failed to mark as failed: {}", e))?;
 
-        warn!("❌ Transaction {} marked as failed: {}", tx_hash, error_message);
+        warn!("Transaction {} marked as failed: {}", tx_hash, error_message);
 
         Ok(())
     }
@@ -294,7 +294,7 @@ impl TransactionMonitorService {
         tx_hash: &str,
         receipt: &TransactionReceipt,
     ) -> Result<(), String> {
-        info!("✅ Finalizing payment for transaction: {}", tx_hash);
+        info!("Finalizing payment for transaction: {}", tx_hash);
 
         let payments_pool = get_payments_pool()
             .await
@@ -387,7 +387,7 @@ impl TransactionMonitorService {
             Some(g) => g.name,
             None => {
                 error!(
-                    "❌ Group/Plan {} not found or inactive for wallet {}",
+                    "Group/Plan {} not found or inactive for wallet {}",
                     plan_uuid, wallet_address
                 );
                 return Err(format!(
@@ -398,7 +398,7 @@ impl TransactionMonitorService {
         };
 
         info!(
-            "📦 Assigning group '{}' ({}) to wallet {}",
+            "Assigning group '{}' ({}) to wallet {}",
             plan_name, plan_uuid, wallet_address
         );
 
@@ -431,7 +431,7 @@ impl TransactionMonitorService {
             let base_time = if existing.is_active && existing.expires_at > Utc::now() { existing.expires_at } else { Utc::now() };
             let new_expiry = base_time + chrono::Duration::days(30);
 
-            info!("🔄 {} plan {} for wallet {}. Old expiry: {}, New expiry: {}",
+            info!("{} plan {} for wallet {}. Old expiry: {}, New expiry: {}",
                 if existing.is_active { "Extending" } else { "Reactivating" },
                 plan_uuid, wallet_address, existing.expires_at, new_expiry);
 
@@ -465,7 +465,7 @@ impl TransactionMonitorService {
             .execute(&mut primary_conn)
             .await
             .map_err(|e| {
-                error!("❌ Failed to extend plan: {}", e);
+                error!("Failed to extend plan: {}", e);
                 format!("Failed to extend plan: {}", e)
             })?;
 
@@ -503,7 +503,7 @@ impl TransactionMonitorService {
             .await
             .map_err(|e| {
                 error!(
-                    "❌ Failed to assign plan {} to wallet {}: {}",
+                    "Failed to assign plan {} to wallet {}: {}",
                     plan_uuid, wallet_address, e
                 );
                 format!("Failed to assign plan: {}", e)
@@ -511,7 +511,7 @@ impl TransactionMonitorService {
         }
 
         info!(
-            "✅ Group assignment successful: wallet={}, group={}",
+            "Group assignment successful: wallet={}, group={}",
             wallet_address, plan_uuid
         );
 
@@ -529,7 +529,7 @@ impl TransactionMonitorService {
         .ok(); // Non-critical
 
         info!(
-            "✅ Payment finalized: wallet={}, plan='{}' ({}), expires={}, ref={}",
+            "Payment finalized: wallet={}, plan='{}' ({}), expires={}, ref={}",
             wallet_address, plan_name, plan_uuid, expires_at, payment_reference
         );
 
@@ -543,7 +543,7 @@ pub fn spawn_transaction_monitor() {
         let config = TransactionMonitorConfig::default();
 
         if config.contract_address == H160::zero() {
-            warn!("⚠️ PAYMENT_ESCROW_ADDRESS not set, transaction monitor disabled");
+            warn!("PAYMENT_ESCROW_ADDRESS not set, transaction monitor disabled");
             return;
         }
 

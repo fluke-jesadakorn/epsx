@@ -27,11 +27,7 @@ impl RedisNotificationBroadcaster {
                 format!("Failed to serialize notification: {}", e)
             ))?;
 
-        let mut conn = self.pool.get_connection().await
-            .map_err(|e| AppError::new(
-                ErrorKind::InternalError,
-                format!("Redis connection failed: {}", e)
-            ))?;
+        let mut conn = self.pool.get_connection();
 
         let subscriber_count: i32 = conn.publish(&channel, &payload).await
             .map_err(|e| AppError::new(
@@ -40,7 +36,7 @@ impl RedisNotificationBroadcaster {
             ))?;
 
         tracing::info!(
-            "📤 Published notification to Redis: wallet={}, channel={}, subscribers={}, id={}",
+            "Published notification to Redis: wallet={}, channel={}, subscribers={}, id={}",
             wallet_address,
             channel,
             subscriber_count,
@@ -62,11 +58,7 @@ impl RedisNotificationBroadcaster {
                 format!("Failed to serialize notification: {}", e)
             ))?;
 
-        let mut conn = self.pool.get_connection().await
-            .map_err(|e| AppError::new(
-                ErrorKind::InternalError,
-                format!("Redis connection failed: {}", e)
-            ))?;
+        let mut conn = self.pool.get_connection();
 
         let subscriber_count: i32 = conn.publish(channel, &payload).await
             .map_err(|e| AppError::new(
@@ -75,7 +67,7 @@ impl RedisNotificationBroadcaster {
             ))?;
 
         tracing::info!(
-            "📢 Broadcast notification to Redis: channel={}, subscribers={}, id={}",
+            "Broadcast notification to Redis: channel={}, subscribers={}, id={}",
             channel,
             subscriber_count,
             notification.id
@@ -111,7 +103,7 @@ impl RedisNotificationBroadcaster {
             ))?;
 
         tracing::info!(
-            "🔔 Subscribed to Redis channels: wallet={}, channels=[{}, notifications:all]",
+            "Subscribed to Redis channels: wallet={}, channels=[{}, notifications:all]",
             wallet_address,
             wallet_channel
         );
@@ -124,11 +116,7 @@ impl RedisNotificationBroadcaster {
         use redis::cmd;
 
         let channel = format!("notifications:wallet:{}", wallet_address.to_lowercase());
-        let mut conn = self.pool.get_connection().await
-            .map_err(|e| AppError::new(
-                ErrorKind::InternalError,
-                format!("Redis connection failed: {}", e)
-            ))?;
+        let mut conn = self.pool.get_connection();
 
         // PUBSUB NUMSUB returns [channel, count, channel, count, ...]
         let result: Vec<redis::Value> = cmd("PUBSUB")

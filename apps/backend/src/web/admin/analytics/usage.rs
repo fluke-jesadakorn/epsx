@@ -1,7 +1,6 @@
 use axum::{
     extract::{Query, State},
-    http::StatusCode,
-    response::Json,
+    response::IntoResponse,
 };
 use chrono::{DateTime, Utc, Duration};
 use tracing::{error, info};
@@ -12,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::web::auth::AppState;
-use crate::web::admin::responses::{AdminApiResponse, AdminMetadata};
+use crate::web::responses::wrappers::AdminResponse;
 
 #[derive(Debug, Deserialize)]
 pub struct UsageQuery {
@@ -37,8 +36,8 @@ pub struct UsageData {
 pub async fn get_usage_analytics_handler(
     Query(query): Query<UsageQuery>,
     State(app_state): State<AppState>,
-) -> Result<Json<AdminApiResponse<Vec<UsageData>>>, StatusCode> {
-    info!("📊 Admin: Getting usage analytics");
+) -> axum::response::Response {
+    info!("Admin: Getting usage analytics");
 
     // Connect to ANALYTICS database (where usage logs are stored)
     // Note: The app_state.db_pool points to the CORE database (usually)
@@ -56,8 +55,8 @@ pub async fn get_usage_analytics_handler(
     let mut conn = match app_state.db_pool.get().await {
         Ok(conn) => conn,
         Err(e) => {
-            error!("❌ Admin: Failed to get database connection: {}", e);
-            return Ok(Json(AdminApiResponse::server_error()));
+            error!("Admin: Failed to get database connection: {}", e);
+            return AdminResponse::server_error("Database error").into_response();
         }
     };
 
@@ -115,17 +114,11 @@ pub async fn get_usage_analytics_handler(
     let usage_data = match result {
         Ok(data) => data,
         Err(e) => {
-            error!("❌ Admin: Failed to fetch usage data: {}", e);
+            error!("Admin: Failed to fetch usage data: {}", e);
             // Return empty data instead of 500 to avoid breaking UI completely
             Vec::new()
         }
     };
 
-    let metadata = AdminMetadata::crud_operation("get_usage_analytics", Some("admin".to_string()));
-
-    Ok(Json(AdminApiResponse::success_with_meta(
-        usage_data,
-        "Usage analytics retrieved successfully",
-        metadata,
-    )))
+    AdminResponse::success_with_message(usage_data, "Usage analytics retrieved successfully").into_response()
 }

@@ -26,7 +26,7 @@ pub async fn system_metrics_handler(
     use crate::application::shared::QueryHandler;
     use crate::application::market_analytics::queries::{GetSystemMetricsQuery, GetSystemMetricsQueryHandler};
 
-    tracing::info!("📊 System metrics request (CQRS)");
+    tracing::info!("System metrics request (CQRS)");
 
     // Get DB pool from state
     let db_pool = state.db_pool;
@@ -49,18 +49,18 @@ pub async fn system_metrics_handler(
     // Execute query via CQRS handler
     let response = handler.handle(query).await
         .map_err(|e| {
-            tracing::error!("❌ System metrics query failed: {}", e);
+            tracing::error!("System metrics query failed: {}", e);
             StatusCode::INTERNAL_SERVER_ERROR
         })?;
 
     // Convert to JSON response (return whole response)
     let json_response = serde_json::to_value(&response)
         .map_err(|e| {
-            tracing::error!("❌ JSON serialization failed: {}", e);
+            tracing::error!("JSON serialization failed: {}", e);
             StatusCode::INTERNAL_SERVER_ERROR
         })?;
 
-    tracing::info!("✅ System metrics returned via CQRS handler");
+    tracing::info!("System metrics returned via CQRS handler");
     Ok(Json(json_response))
 }
 
@@ -123,7 +123,7 @@ pub async fn admin_time_series_handler(
         })
         .unwrap_or(MetricType::ApiRequests);
 
-    tracing::info!("📈 Admin timeseries request (CQRS) - Start: {}, End: {}, Granularity: {:?}",
+    tracing::info!("Admin timeseries request (CQRS) - Start: {}, End: {}, Granularity: {:?}",
                   start_date, end_date, granularity);
 
     // Create query
@@ -140,18 +140,18 @@ pub async fn admin_time_series_handler(
     // Execute query via CQRS handler
     let response = handler.handle(query).await
         .map_err(|e| {
-            tracing::error!("❌ Admin timeseries query failed: {}", e);
+            tracing::error!("Admin timeseries query failed: {}", e);
             StatusCode::INTERNAL_SERVER_ERROR
         })?;
 
     // Convert to JSON response (return whole response)
     let json_response = serde_json::to_value(&response)
         .map_err(|e| {
-            tracing::error!("❌ JSON serialization failed: {}", e);
+            tracing::error!("JSON serialization failed: {}", e);
             StatusCode::INTERNAL_SERVER_ERROR
         })?;
 
-    tracing::info!("✅ Admin timeseries returned via CQRS handler");
+    tracing::info!("Admin timeseries returned via CQRS handler");
     Ok(Json(json_response))
 }
 
@@ -182,7 +182,7 @@ pub async fn admin_modules_handler(
     let include_inactive = params.get("include_inactive")
         .and_then(|s| s.parse::<bool>().ok());
 
-    tracing::info!("🔧 Admin modules request (CQRS) - Include inactive: {:?}", include_inactive);
+    tracing::info!("Admin modules request (CQRS) - Include inactive: {:?}", include_inactive);
 
     // Create query
     let query = GetAdminModulesQuery {
@@ -195,17 +195,17 @@ pub async fn admin_modules_handler(
     // Execute query via CQRS handler
     let response = handler.handle(query).await
         .map_err(|e| {
-            tracing::error!("❌ Admin modules query failed: {}", e);
+            tracing::error!("Admin modules query failed: {}", e);
             StatusCode::INTERNAL_SERVER_ERROR
         })?;
 
     // Convert to JSON response (return whole response)
     let json_response = serde_json::to_value(&response)
         .map_err(|e| {
-            tracing::error!("❌ JSON serialization failed: {}", e);
+            tracing::error!("JSON serialization failed: {}", e);
             StatusCode::INTERNAL_SERVER_ERROR
         })?;
 
-    tracing::info!("✅ Admin modules returned via CQRS handler");
+    tracing::info!("Admin modules returned via CQRS handler");
     Ok(Json(json_response))
 }

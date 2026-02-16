@@ -1,23 +1,13 @@
- 
 'use client';
 
-import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { useAccount, useDisconnect, useSignMessage } from 'wagmi';
+import { useWeb3Session } from './use-web3-session';
+import { usePermissionSync, type Web3Permission } from './use-permission-sync';
+import { useWalletAuth } from './use-wallet-auth';
 
-export interface Web3Permission {
-  permission: string;
-  source: 'manual' | 'nft' | 'token' | 'dao';
-  expires_at?: string;
-  metadata?: {
-    nft_collection?: string;
-    token_contract?: string;
-    dao_name?: string;
-    required_amount?: string;
-    [key: string]: unknown;
-  };
-}
+export type { Web3Permission };
 
 export interface Web3AuthState {
   isConnected: boolean;
@@ -59,10 +49,6 @@ interface SessionData {
   has_api_access?: boolean;
 }
 
-interface EthProvider {
-  request?: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
-}
-
 function isSessionMessage(data: unknown): data is SessionMessage {
   return typeof data === 'object' && data !== null && !Array.isArray(data);
 }
@@ -71,21 +57,10 @@ function isSessionData(data: unknown): data is SessionData {
   return typeof data === 'object' && data !== null && !Array.isArray(data);
 }
 
-function isEthProvider(data: unknown): data is EthProvider {
-  return typeof data === 'object' && data !== null && !Array.isArray(data);
-}
-
-function isValidAccountList(data: unknown): data is string[] {
-  return Array.isArray(data) && data.length > 0 && typeof data[0] === 'string';
-}
- 
 export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
-  const router = useRouter();
-  const { address, isConnected, connector, chain } = useAccount();
+  const { address, isConnected, connector } = useAccount();
   const { disconnect: wagmiDisconnect } = useDisconnect();
-  const {
-    signMessageAsync,
-  } = useSignMessage();
+  const { signMessageAsync } = useSignMessage();
 
   const [state, setState] = useState<Web3AuthState>({
     isConnected: false,
@@ -98,12 +73,10 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
 
   const [isHydrated, setIsHydrated] = useState(false);
 
-  // Handle hydration
   useEffect(() => {
     setIsHydrated(true);
   }, []);
 
-  // Cross-tab session invalidation listener (only for explicit disconnect)
   useEffect(() => {
     if (typeof window === 'undefined' || !window.BroadcastChannel) {
       return;
@@ -120,13 +93,9 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
             return;
           }
 
-          // Only process explicit disconnect messages, ignore auto-disconnects
           if (event.data.type === 'SESSION_INVALIDATED' && event.data.source === 'web3_disconnect') {
-            // Only invalidate if the wallet address matches
             const shouldInvalidate = event.data.walletAddress === null || event.data.walletAddress === undefined || event.data.walletAddress === address;
             if (shouldInvalidate) {
-              // Reset authentication state immediately
-               
               setState(prev => ({
                 ...prev,
                 isAuthenticated: false,
@@ -138,19 +107,18 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
                 error: undefined,
               }));
 
-              // Clear local session markers
               try {
                 window.localStorage.removeItem('oidc_session');
                 window.sessionStorage.removeItem('oidc_session');
               } catch (_error) {
-                // Intentionally empty - storage cleanup is best effort
+                // Intentionally empty
               }
 
               toast.info('Session was ended in another tab');
             }
           }
         } catch (_error) {
-          // Intentionally empty - message handling is best effort
+          // Intentionally empty
         }
       };
 
@@ -165,32 +133,29 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
             }
           }
         } catch (_error) {
-          // Intentionally empty - cleanup is best effort
+          // Intentionally empty
         }
       };
     } catch (_error) {
-      return () => { }; // No-op cleanup
+      return () => { };
     }
   }, [address]);
 
-  // Auto-check auth status when wallet connects (with proper hydration handling)
-   
+  const { checkAuthStatus, refreshPermissions } = usePermissionSync({ address, setState });
+
   useEffect(() => {
-    if (!isHydrated) {return;} // Wait for hydration
-     
+    if (!isHydrated) {return;}
+
     if (address && isConnected) {
-      // IMPORTANT: Always sync internal state with Wagmi state first
       setState(prev => ({
         ...prev,
-        isConnected: true, // Force sync with Wagmi
+        isConnected: true,
         walletAddress: address,
-        error: undefined, // Clear errors when successfully connected
+        error: undefined,
       }));
 
-      // Check auth status when we have an address (inline to avoid dependency issues)
       void (async () => {
         try {
-          // Check for session if wallet is connected
           const response = await fetch('/api/auth/session', {
             credentials: 'include',
             cache: 'no-cache',
@@ -198,7 +163,7 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
 
           if (!response.ok) {
             if (response.status !== 401 && response.status !== 500) {
-              // Handle other error statuses if needed
+              // Handle other errors
             }
             return;
           }
@@ -219,7 +184,6 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
             walletAddress: address,
           }));
 
-          // Refresh permissions inline to avoid dependency issues
           try {
             const permResponse = await fetch(
               `/api/auth/web3/permissions?wallet_address=${encodeURIComponent(address)}`,
@@ -248,21 +212,18 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
               };
             });
           } catch (_permError) {
-            // Intentionally empty - permission refresh is best effort
+            // Intentionally empty
           }
         } catch (_error) {
-          // In progressive auth, treat network errors as non-critical but keep connected state
           setState(prev => ({
             ...prev,
-            isConnected: true, // CRITICAL: Keep this true when Wagmi shows connected
+            isConnected: true,
             isAuthenticated: false,
             walletAddress: address,
-            // Only set error for actual failures, not auth state
           }));
         }
       })();
     } else if (!address || !isConnected) {
-      // Only clear state when Wagmi actually shows disconnected
       setState(prev => ({
         ...prev,
         isConnected: false,
@@ -275,578 +236,26 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
       }));
     }
   }, [address, isConnected, isHydrated]);
-   
-  const checkAuthStatus = useCallback(async () => {
-    if (address === null || address === undefined) {
-      return;
-    }
 
-    try {
-      // Simplified auth status check - just check session
-      const response = await fetch('/api/auth/session', {
-        credentials: 'include',
-        cache: 'no-cache',
-      });
+  const { authenticate } = useWeb3Session({
+    address,
+    connector,
+    signMessageAsync: signMessageAsync as ((...args: unknown[]) => Promise<string>) | undefined,
+    isAuthenticating: state.isAuthenticating,
+    refreshPermissions,
+    setState
+  });
 
-      if (!response.ok) {
-        setState(prev => ({
-          ...prev,
-          isAuthenticated: false,
-          error: undefined,
-        }));
-        return false;
-      }
-
-      const session = await response.json() as unknown;
-      if (!isSessionData(session)) {
-        setState(prev => ({
-          ...prev,
-          isAuthenticated: false,
-          error: undefined,
-        }));
-        return false;
-      }
-
-      if (session.isAuthenticated && session.user?.wallet_address === address) {
-        setState(prev => ({
-          ...prev,
-          isConnected: true,
-          isAuthenticated: true,
-          walletAddress: address,
-        }));
-        return true;
-      }
-
-      // Not authenticated but may be connected
-      setState(prev => ({
-        ...prev,
-        isAuthenticated: false,
-        error: undefined,
-      }));
-      return false;
-    } catch (_error) {
-      return false;
-    }
-  }, [address]);
-   
-  const refreshPermissions = useCallback(async () => {
-    if (address === null || address === undefined) {
-      return false;
-    }
-
-    try {
-      const response = await fetch(
-        `/api/auth/web3/permissions?wallet_address=${encodeURIComponent(address)}`,
-        {
-          method: 'GET',
-          credentials: 'include',
-        }
-      );
-
-      if (response.ok) {
-        const perms = await response.json() as unknown;
-        if (!isSessionData(perms)) {
-          return false;
-        }
-
-        setState(prev => ({
-          ...prev,
-          permissions: Array.isArray(perms.permissions) ? (perms.permissions as Web3Permission[]) : [],
-          userTier: typeof perms.user_tier === 'string' ? (perms.user_tier as 'free' | 'nft' | 'token' | 'dao' | 'enterprise') : 'free',
-          hasApiAccess: Boolean(perms.has_api_access),
-        }));
-        return true;
-      }
-
-      if (response.status === 405) {
-        // Set default values when permissions endpoint is not available
-        setState(prev => ({
-          ...prev,
-          permissions: [],
-          userTier: 'free',
-          hasApiAccess: false,
-        }));
-        return true;
-      }
-
-      return false;
-    } catch (_error) {
-      // Set default values on error
-      setState(prev => ({
-        ...prev,
-        permissions: [],
-        userTier: 'free',
-        hasApiAccess: false,
-      }));
-      return false;
-    }
-  }, [address]);
-
-  const validateWalletAccess = async (provider: EthProvider, walletAddress: string): Promise<string[]> => {
-    const accounts = await provider.request?.({
-      method: 'eth_requestAccounts',
-    });
-
-    if (!isValidAccountList(accounts)) {
-      throw new Error('No accounts returned from wallet');
-    }
-
-    const normalizedAddress = walletAddress.toLowerCase();
-    const hasMatchingAccount = accounts.some(
-      (acc: string) => acc.toLowerCase() === normalizedAddress
-    );
-
-    if (!hasMatchingAccount) {
-      throw new Error('Connected wallet address not found in authorized accounts');
-    }
-
-    return accounts;
-  };
-
-  const handleWalletAuthError = (error: unknown): string => {
-    const err = error as { code?: number; message?: string };
-    if (err.code === 4001) {
-      return 'Wallet access denied by user';
-    }
-    if (err.code === 4100) {
-      return 'Wallet not authorized - please connect your wallet first';
-    }
-    if (typeof err.message === 'string' && err.message.includes('User rejected')) {
-      return 'Wallet access was rejected';
-    }
-    return `Wallet authorization failed: ${err.message ?? 'Unknown error'}`;
-  };
-   
-  const authenticate = useCallback(async () => {
-    if (address === null || address === undefined) {
-      toast.error('Please connect your wallet first');
-      return;
-    }
-
-    if (!connector) {
-      toast.error('Wallet connector not found. Please reconnect your wallet.');
-      return;
-    }
-
-    if (connector.ready === false) {
-      toast.error('Wallet is not ready. Please check your wallet connection.');
-      return;
-    }
-
-    try {
-      const provider = await connector.getProvider?.();
-      if (!isEthProvider(provider)) {
-        throw new Error('Wallet provider not available');
-      }
-
-      try {
-        await validateWalletAccess(provider, address);
-      } catch (authError: unknown) {
-        const errorMessage = handleWalletAuthError(authError);
-        throw new Error(errorMessage);
-      }
-    } catch (error: unknown) {
-      const err = error as { message?: string };
-      setState(prev => ({
-        ...prev,
-        isAuthenticating: false,
-        error: err.message,
-      }));
-      toast.error(err.message ?? 'Wallet authorization failed');
-      return;
-    }
-
-    // Prevent multiple simultaneous authentication attempts
-    if (state.isAuthenticating) {
-      toast.error('Authentication already in progress. Please wait.');
-      return;
-    }
-
-    setState(prev => ({ ...prev, isAuthenticating: true, error: undefined }));
-
-    try {
-      // Get challenge from backend
-      const challengeResponse = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/auth/web3/challenge`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            wallet_address: address,
-          }),
-        }
-      );
-
-      if (!challengeResponse.ok) {
-        throw new Error(
-          `Failed to get authentication challenge: ${challengeResponse.status}`
-        );
-      }
-       
-      const challenge = await challengeResponse.json();
-       
-      const messageString = challenge.message;
-
-      // Sign message with wallet
-       
-      if (!signMessageAsync) {
-        throw new Error(
-          'Wallet signing function not available. Please reconnect your wallet.'
-        );
-      }
-
-      let signature: string;
-      try {
-         
-        signature = await signMessageAsync({ message: messageString });
-      } catch (error: unknown) {
-        // Handle user rejection gracefully
-        const err = error as { code?: number; message?: string };
-         
-        if (
-          err.code === 4001 ||
-          err.message?.includes('User rejected') ||
-          err.message?.includes('User denied')
-        ) {
-          throw new Error('Signature was cancelled by user');
-           
-        } else if (err.message?.includes('Method not found') ?? false) {
-          throw new Error('Wallet does not support message signing');
-           
-        } else if (err.message?.includes('Connection lost') ?? false) {
-          throw new Error('Wallet connection lost - please reconnect');
-        } else {
-          throw new Error(
-            `Wallet signing failed: ${err.message ?? 'Unknown wallet error'}`
-          );
-        }
-      }
-
-      // Verify signature with backend
-      const authResponse = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/auth/web3/verify`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            wallet_address: address,
-            signature,
-            message: messageString,
-            nonce: challenge.nonce,
-          }),
-        }
-      );
-
-      if (!authResponse.ok) {
-        const errorText = await authResponse.text();
-         
-        let errorData;
-        try {
-           
-          errorData = JSON.parse(errorText);
-        } catch {
-          errorData = {
-            error: `Authentication failed: ${authResponse.status}`,
-          };
-        }
-         
-        throw new Error(errorData.error ?? 'Authentication failed');
-      }
-       
-      const authData = await authResponse.json() as { access_token?: string; refresh_token?: string; user?: Record<string, unknown> };
-
-      // Set server-side HttpOnly cookies via loginAction
-      const { loginAction } = await import('shared/auth/actions');
-      if (authData.access_token !== undefined && authData.access_token !== '') {
-        await loginAction(authData.access_token, authData.user ?? {}, authData.refresh_token);
-      }
-
-      // Success
-      setState(prev => ({
-        ...prev,
-        isAuthenticated: true,
-        isAuthenticating: false,
-        walletAddress: address,
-      }));
-
-      // Mark session for future auto-probing
-      if (typeof window !== 'undefined') {
-        try {
-          window.localStorage.setItem('oidc_session', '1');
-          document.cookie = 'oidc_session=1; path=/; SameSite=Lax';
-        } catch (_error) {
-          // Intentionally empty - session markers are optional
-        }
-      }
-
-      // Refresh permissions after successful authentication
-      await refreshPermissions();
-      toast.success('Successfully authenticated with Web3 wallet');
-    } catch (error: unknown) {
-      // Handle common error types
-      const err = error as { message?: string };
-      let errorMessage = 'Authentication failed';
-       
-      if (
-        err.message?.includes('User rejected') ||
-        err.message?.includes('cancelled')
-      ) {
-        errorMessage = 'Wallet signature was cancelled';
-         
-      } else if (err.message?.includes('timeout') ?? false) {
-        errorMessage = 'Request timeout. Please try again.';
-         
-      } else if (err.message?.includes('expired') ?? false) {
-        errorMessage = 'Authentication expired - please try again';
-      } else if (err.message) {
-        errorMessage = err.message;
-      }
-
-      setState(prev => ({
-        ...prev,
-        isAuthenticating: false,
-        isAuthenticated: false,
-        error: errorMessage,
-      }));
-
-      toast.error(errorMessage);
-    }
-  }, [address, signMessageAsync, refreshPermissions, chain, connector, state.isAuthenticating]);  
-   
-  const disconnect = useCallback(async () => {
-    try {
-      // Step 1: Disconnect individual connector FIRST (if available)
-      if (connector && typeof connector.disconnect === 'function') {
-        try {
-          // Call individual connector disconnect
-          await connector.disconnect();
-
-          // Wait a moment for connector cleanup
-          await new Promise(resolve => setTimeout(resolve, 150));
-        } catch (_connectorError) {
-          // Continue with wagmi disconnect even if connector disconnect fails
-        }
-      }
-
-      // Step 2: THEN disconnect from Wagmi globally
-       
-      if (wagmiDisconnect && typeof wagmiDisconnect === 'function') {
-        try {
-          // Call wagmi disconnect
-          wagmiDisconnect();
-
-          // Wait for Wagmi to actually disconnect by polling its state
-          let attempts = 0;
-          const maxAttempts = 10;
-          while (attempts < maxAttempts) {
-            await new Promise(resolve => setTimeout(resolve, 100));
-            attempts++;
-
-            // Note: We can't access latest Wagmi state here due to closure
-            // The useEffect will handle state sync once Wagmi updates
-            if (attempts >= 5) {break;} // Give reasonable time for disconnect
-          }
-        } catch (_wagmiError) {
-          // Continue with cleanup even if wagmi disconnect fails
-        }
-      }
-
-      // Step 2: Clear storage to ensure clean state - ENHANCED VERSION
-       
-      try {
-        if (typeof window !== 'undefined') {
-          // Get all localStorage keys that match our patterns
-          const allKeys = [];
-          for (let i = 0; i < window.localStorage.length; i++) {
-            const key = window.localStorage.key(i);
-            if (key !== null) {allKeys.push(key);}
-          }
-
-          // Find keys to remove
-           
-          const keysToRemove = allKeys.filter(
-            key =>
-              key.startsWith('wagmi.') ||
-              key.startsWith('rk-') ||
-              key.startsWith('rainbow') ||
-              key.includes('wallet') ||
-              key.includes('auth') ||
-              key.includes('oidc') ||
-              key === 'web3_auth_state'
-          );
-
-          // Remove each key
-          keysToRemove.forEach(key => {
-            try {
-              window.localStorage.removeItem(key);
-            } catch (_e) {
-              // Intentionally empty - key removal is best effort
-            }
-          });
-
-          // Clear basic cookies
-          const cookiesToClear = [
-            'oidc_session',
-            'access_token',
-            'id_token',
-            'refresh_token',
-          ];
-          cookiesToClear.forEach(cookieName => {
-            try {
-              document.cookie = `${cookieName}=; Max-Age=0; path=/; SameSite=Lax`;
-              document.cookie = `${cookieName}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
-            } catch (_e) {
-              // Intentionally empty - cookie clearing is best effort
-            }
-          });
-        }
-      } catch (_storageError) {
-        // Intentionally empty - storage cleanup is best effort
-      }
-
-      // Step 3: Server-side session invalidation (if needed)
-      if (state.isAuthenticated && address) {
-        try {
-          await fetch('/api/auth/web3/logout', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            credentials: 'include',
-            body: JSON.stringify({
-              wallet_address: address,
-              logout_reason: 'user_initiated_disconnect',
-            }),
-          });
-        } catch (_error) {
-          // Continue with cleanup
-        }
-      }
-
-      // Step 4: Reset application state immediately (don't wait for useEffect)
-      // The useEffect will handle final state sync when Wagmi state updates
-      setState({
-        isConnected: false,
-        isAuthenticated: false,
-        isAuthenticating: false,
-        permissions: [],
-        userTier: 'free',
-        hasApiAccess: false,
-        walletAddress: undefined,
-        error: undefined,
-      });
-
-      toast.success('Wallet disconnected successfully');
-
-      // Refresh page data without full reload
-      router.refresh();
-    } catch (_error) {
-      // Force state reset and storage cleanup even if there are errors
-      setState({
-        isConnected: false,
-        isAuthenticated: false,
-        isAuthenticating: false,
-        permissions: [],
-        userTier: 'free',
-        hasApiAccess: false,
-        walletAddress: undefined,
-        error: undefined,
-      });
-
-      // Force clear storage on error
-      if (typeof window !== 'undefined') {
-        try {
-          window.localStorage.removeItem('wagmi.cache');
-          window.localStorage.removeItem('wagmi.store');
-          window.localStorage.removeItem('wagmi.recentConnector');
-        } catch (_storageErr) {
-          // Intentionally empty - storage cleanup is best effort
-        }
-      }
-
-      toast.error('Wallet disconnected with some errors - refreshing page...');
-
-      // Refresh page data without full reload
-      router.refresh();
-    }
-  }, [wagmiDisconnect, state.isAuthenticated, address, isConnected, connector, router]);  
-   
-  const linkEmail = useCallback(
-    async (email: string, password: string) => {
-       
-      if (!address) {
-        throw new Error('Wallet not connected');
-      }
-
-      const response = await fetch('/api/auth/web3/link-email', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          wallet_address: address,
-          email,
-          password,
-        }),
-        credentials: 'include',
-      });
-
-      if (!response.ok) {
-         
-        const error = await response.json();
-         
-        throw new Error(error.message ?? 'Failed to link email');
-      }
-
-      toast.success('Email linked successfully');
-      await refreshPermissions();
-    },
-    [address, refreshPermissions]
-  );
-   
-  const generateApiKey = useCallback(
-    async (name: string): Promise<string> => {
-       
-      if (!address || !state.hasApiAccess) {
-        throw new Error('API access not available');
-      }
-
-      const response = await fetch('/api/auth/web3/api-keys', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          wallet_address: address,
-          name,
-        }),
-        credentials: 'include',
-      });
-
-      if (!response.ok) {
-         
-        const error = await response.json();
-         
-        throw new Error(error.message ?? 'Failed to generate API key');
-      }
-       
-      const { api_key } = await response.json();
-      toast.success('API key generated successfully');
-       
-      return api_key;
-    },
-    [address, state.hasApiAccess]
-  );
-
-  const resetAuthState = useCallback(() => {
-    // Clear any pending timers or promises by forcing a state reset
-    setState({
-      isConnected: Boolean(address),
-      isAuthenticated: false,
-      isAuthenticating: false,
-      permissions: [],
-      userTier: 'free',
-      hasApiAccess: false,
-      walletAddress: address,
-      error: undefined,
-    });
-  }, [address]);
+  const { disconnect, linkEmail, generateApiKey, resetAuthState } = useWalletAuth({
+    address,
+    isConnected,
+    connector,
+    wagmiDisconnect,
+    isAuthenticated: state.isAuthenticated,
+    setState,
+    refreshPermissions,
+    hasApiAccess: state.hasApiAccess
+  });
 
   return {
     ...state,
@@ -860,7 +269,6 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
   };
 }
 
-// Utility functions for permission management
 export function getPermissionIcon(source: Web3Permission['source']): string {
   switch (source) {
     case 'nft':

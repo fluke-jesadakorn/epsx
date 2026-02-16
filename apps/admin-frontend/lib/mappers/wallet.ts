@@ -25,7 +25,7 @@ export function mapWalletDtoToData(dto: WalletSummaryDto): WalletData {
         grantedPermissions: [],
     }));
 
-    let status: 'active' | 'disabled' | 'pending' = 'active';
+    let status: WalletData['status'] = 'active';
     if (!dto.is_active) { status = 'disabled'; }
 
     const disableInfo = dto.metadata?.['disable_info'] as WalletData['disableInfo'] | undefined;

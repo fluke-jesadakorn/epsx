@@ -174,6 +174,7 @@ export async function createPlanAction(data: CreatePlanRequest): Promise<Permiss
         permissions: data.permissions,
         tier_level: data.tier_level,
         price: data.price,
+        plan_group: data.plan_group,
     };
 
     const res = await apiClient.post<PermissionPlan>(API_ROUTES.PERMISSIONS.PLANS, backendRequest);

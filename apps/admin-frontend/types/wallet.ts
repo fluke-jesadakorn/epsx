@@ -6,6 +6,7 @@ export interface RawPlanData {
     description?: string;
     permissions?: string[];
     member_count?: number;
+    plan_group?: string;
 }
 
 export interface AccessItem {
@@ -21,6 +22,7 @@ export interface AccessItem {
     permissionCount?: number;
     permissions?: string[]; // Added: List of permission IDs in the plan
     memberCount?: number;
+    planGroup?: string;
     // Assignment info
     expiresAt?: string | null;
     assignedAt?: string;

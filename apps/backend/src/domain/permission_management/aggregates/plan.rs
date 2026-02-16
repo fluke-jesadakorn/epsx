@@ -1,7 +1,7 @@
 use crate::prelude::*;
 use crate::domain::shared_kernel::{AggregateRoot, AggregateBase, DomainEvent};
 use crate::domain::permission_management::{
-    PlanId, PlanSlug, PermissionString,
+    PlanId, PlanSlug, PermissionString, PlanCategory, PlanGroup,
     events::{PlanCreatedEvent, PlanUpdatedEvent}
 };
 use std::collections::HashSet;
@@ -15,6 +15,8 @@ pub struct Plan {
     slug: PlanSlug,
     description: String,
     plan_type: String,
+    plan_category: PlanCategory,
+    plan_group: PlanGroup,
     permissions: HashSet<PermissionString>,
     price: f64,
     currency: String,
@@ -35,6 +37,8 @@ pub struct CreatePlanParams {
     pub slug: PlanSlug,
     pub description: String,
     pub plan_type: String,
+    pub plan_category: Option<PlanCategory>,
+    pub plan_group: Option<PlanGroup>,
     pub permissions: Vec<PermissionString>,
     pub price: Option<f64>,
     pub currency: Option<String>,
@@ -55,6 +59,8 @@ pub struct LoadPlanParams {
     pub slug: PlanSlug,
     pub description: String,
     pub plan_type: String,
+    pub plan_category: PlanCategory,
+    pub plan_group: PlanGroup,
     pub permissions: HashSet<PermissionString>,
     pub price: f64,
     pub currency: String,
@@ -76,6 +82,8 @@ pub struct LoadPlanParams {
 pub struct UpdatePlanParams {
     pub name: Option<String>,
     pub description: Option<String>,
+    pub plan_category: Option<PlanCategory>,
+    pub plan_group: Option<PlanGroup>,
     pub permissions: Option<Vec<PermissionString>>,
     pub price: Option<f64>,
     pub currency: Option<String>,
@@ -103,6 +111,8 @@ impl Plan {
             slug: params.slug.clone(),
             description: params.description.clone(),
             plan_type: params.plan_type.clone(),
+            plan_category: params.plan_category.unwrap_or_default(),
+            plan_group: params.plan_group.unwrap_or_default(),
             permissions: permissions.clone(),
             price: params.price.unwrap_or(0.0),
             currency: params.currency.unwrap_or_else(|| "USD".to_string()),
@@ -140,6 +150,8 @@ impl Plan {
             slug: params.slug,
             description: params.description,
             plan_type: params.plan_type,
+            plan_category: params.plan_category,
+            plan_group: params.plan_group,
             permissions: params.permissions,
             price: params.price,
             currency: params.currency,
@@ -168,6 +180,12 @@ impl Plan {
         }
         if let Some(d) = params.description {
             self.description = d;
+        }
+        if let Some(cat) = params.plan_category {
+            self.plan_category = cat;
+        }
+        if let Some(grp) = params.plan_group {
+            self.plan_group = grp;
         }
         if let Some(perms) = params.permissions {
             self.permissions = perms.into_iter().collect();
@@ -274,6 +292,14 @@ impl Plan {
 
     pub fn plan_type(&self) -> &str {
         &self.plan_type
+    }
+
+    pub fn plan_category(&self) -> &PlanCategory {
+        &self.plan_category
+    }
+
+    pub fn plan_group(&self) -> &PlanGroup {
+        &self.plan_group
     }
 
     pub fn permissions(&self) -> &HashSet<PermissionString> {

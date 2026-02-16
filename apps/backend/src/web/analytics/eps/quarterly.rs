@@ -13,7 +13,7 @@ pub(super) fn generate_quarterly_data_from_websocket_or_fallback(
   current_date: chrono::DateTime<chrono::Utc>
 ) -> Vec<QuarterlyData> {
   debug!(
-    "🔍 [DEBUG] Generating quarterly data from real TradingView scanner data for: {}",
+    "[DEBUG] Generating quarterly data from real TradingView scanner data for: {}",
     ranking.symbol
   );
 
@@ -22,7 +22,7 @@ pub(super) fn generate_quarterly_data_from_websocket_or_fallback(
   let current_price = ranking.price_current.unwrap_or(0.0);
 
   info!(
-    "✅ [DEBUG] Using real TradingView scanner data for {}: EPS={:.2}, Price=${:.2}, Growth={:.1}%",
+    "[DEBUG] Using real TradingView scanner data for {}: EPS={:.2}, Price=${:.2}, Growth={:.1}%",
     ranking.symbol,
     current_eps,
     current_price,
@@ -42,7 +42,7 @@ fn generate_quarterly_data_from_real_scanner_data(
   let current_price = ranking.price_current.unwrap_or(0.0);
 
   info!(
-    "🎯 [DEBUG] Generating quarterly data from real TradingView scanner data for {}",
+    "[DEBUG] Generating quarterly data from real TradingView scanner data for {}",
     ranking.symbol
   );
 
@@ -104,7 +104,7 @@ fn generate_quarterly_data_from_real_scanner_data(
   }
 
   info!(
-    "✅ [DEBUG] Generated {} quarterly data points for {} with proper QoQ growth calculation",
+    "[DEBUG] Generated {} quarterly data points for {} with proper QoQ growth calculation",
     result.len(),
     ranking.symbol
   );

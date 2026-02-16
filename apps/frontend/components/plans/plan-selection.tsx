@@ -6,18 +6,19 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { usePlanAccess } from '@/hooks/use-plan-access'
 import { createCreditsApi } from '@/shared/api/credits'
 import { PricingCard } from '@/shared/components/plans/pricing-card'
-import type { Plan, PricingCardData } from '@/shared/types/plans'
+import type { Plan, PlanGroup, PricingCardData } from '@/shared/types/plans'
 import { createFrontendApiClient } from '@/shared/utils/api-client'
-import { AlertCircle, Star } from 'lucide-react'
+import { AlertCircle, Building2, Code2, Star, User as UserIcon, Wrench } from 'lucide-react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import type { ReactNode } from 'react'
 import { useEffect, useState } from 'react'
 
-interface User {
+interface UserData {
   [key: string]: unknown;
 }
 
 interface PlanSelectionProps {
-  currentUser?: User;
+  currentUser?: UserData;
   className?: string;
 }
 
@@ -32,6 +33,13 @@ export function PlanSelection({ currentUser: _currentUser, className }: PlanSele
   const router = useRouter()
   const searchParams = useSearchParams()
   const { planAccess } = usePlanAccess()
+
+  const GROUP_CONFIG: Record<PlanGroup, { label: string; desc: string; icon: ReactNode }> = {
+    personal: { label: 'Personal Plans', desc: 'For individual traders and analysts', icon: <UserIcon className="h-6 w-6" /> },
+    enterprise: { label: 'Enterprise Plans', desc: 'For teams and organizations', icon: <Building2 className="h-6 w-6" /> },
+    api: { label: 'API Plans', desc: 'For developers and integrations', icon: <Code2 className="h-6 w-6" /> },
+    custom: { label: 'Custom Plans', desc: 'Tailored solutions for special needs', icon: <Wrench className="h-6 w-6" /> },
+  }
 
   // Transform backend plan to pricing card format
   const transformToPricingCard = (plan: Plan): PricingCardData => {
@@ -53,7 +61,8 @@ export function PlanSelection({ currentUser: _currentUser, className }: PlanSele
       badges: [],
       tier_level: plan.tier_level,
       plan_type: plan.plan_type,
-      description: plan.description
+      description: plan.description,
+      plan_group: plan.plan_group,
     }
   }
 
@@ -172,59 +181,77 @@ export function PlanSelection({ currentUser: _currentUser, className }: PlanSele
         </div>
       )}
 
-      {/* Pricing Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 md:gap-12 lg:gap-16 px-4 py-8">
-        {loading
-          ? Array.from({ length: 3 }).map((_, i) => (
+      {/* Pricing Cards - Grouped by plan_group */}
+      {loading ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 md:gap-12 lg:gap-16 px-4 py-8">
+          {Array.from({ length: 3 }).map((_, i) => (
             <div key={`plan-skeleton-${String(i)}`} className="animate-pulse bg-gray-200 dark:bg-gray-800 rounded-2xl h-[500px]" />
-          ))
-          : pricingCards.map((card) => {
-            // Determine action type based on current plan
-            let actionType: 'extend' | 'upgrade' | 'downgrade' | 'select' | 'locked' = 'select';
-            let buttonTextOverride = undefined;
-            let isSelected = false;
-
-            if (planAccess) {
-              if (planAccess.plan_name === card.title) {
-                actionType = 'extend';
-                buttonTextOverride = 'Extend Plan';
-                isSelected = true;
-              } else if ((card.tier_level ?? 0) > planAccess.tier_level) {
-                actionType = 'upgrade';
-              } else if ((card.tier_level ?? 0) < planAccess.tier_level) {
-                actionType = 'downgrade';
-                buttonTextOverride = 'Switch Plan'; // Will queue after expiry
-              }
-            }
-
-            // Override button text if needed
-            const finalCard = (buttonTextOverride?.length ?? 0) > 0
-              ? { ...card, buttonText: buttonTextOverride ?? '' }
-              : card;
-
-            return (
-              <PricingCard
-                key={card.id}
-                card={finalCard}
-                onSelect={handlePlanClick}
-                affiliateInfo={affiliateInfo}
-                affiliateCode={affiliateCode}
-                actionType={actionType}
-                isSelected={isSelected}
-                creditBalance={creditBalance}
-              />
-            )
-          })
-        }
-      </div>
-
-      {!loading && pricingCards.length === 0 && (
+          ))}
+        </div>
+      ) : pricingCards.length === 0 ? (
         <div className="text-center py-12">
-          <div className="text-6xl mb-4">🔍</div>
           <h3 className="text-xl font-semibold text-gray-600 dark:text-gray-400 mb-2">
             No plans available
           </h3>
           <p className="text-gray-500">Check back later for subscription plans.</p>
+        </div>
+      ) : (
+        <div className="space-y-16 px-4 py-8">
+          {(['personal', 'enterprise', 'api', 'custom'] as PlanGroup[]).map((group) => {
+            const groupCards = pricingCards.filter((c) => (c.plan_group ?? 'personal') === group)
+            if (groupCards.length === 0) return null
+            const cfg = GROUP_CONFIG[group]
+            return (
+              <section key={group}>
+                <div className="flex items-center gap-3 mb-8">
+                  <div className="p-2 rounded-xl bg-gradient-to-br from-emerald-500/20 to-blue-500/20 text-emerald-600 dark:text-emerald-400">
+                    {cfg.icon}
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white">{cfg.label}</h2>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">{cfg.desc}</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 md:gap-12 lg:gap-16">
+                  {groupCards.map((card) => {
+                    let actionType: 'extend' | 'upgrade' | 'downgrade' | 'select' | 'locked' = 'select'
+                    let buttonTextOverride = undefined
+                    let isSelected = false
+
+                    if (planAccess) {
+                      if (planAccess.plan_name === card.title) {
+                        actionType = 'extend'
+                        buttonTextOverride = 'Extend Plan'
+                        isSelected = true
+                      } else if ((card.tier_level ?? 0) > planAccess.tier_level) {
+                        actionType = 'upgrade'
+                      } else if ((card.tier_level ?? 0) < planAccess.tier_level) {
+                        actionType = 'downgrade'
+                        buttonTextOverride = 'Switch Plan'
+                      }
+                    }
+
+                    const finalCard = (buttonTextOverride?.length ?? 0) > 0
+                      ? { ...card, buttonText: buttonTextOverride ?? '' }
+                      : card
+
+                    return (
+                      <PricingCard
+                        key={card.id}
+                        card={finalCard}
+                        onSelect={handlePlanClick}
+                        affiliateInfo={affiliateInfo}
+                        affiliateCode={affiliateCode}
+                        actionType={actionType}
+                        isSelected={isSelected}
+                        creditBalance={creditBalance}
+                      />
+                    )
+                  })}
+                </div>
+              </section>
+            )
+          })}
         </div>
       )}
     </div>

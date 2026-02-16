@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { useSharedAuth } from '@/shared/components/auth';
+import { getExplorerAddressLink } from '@/shared/config/constants';
 import { copyToClipboard as copyToClipboardUtil } from '@/utils/util';
 import { Check, Copy, ExternalLink, LogOut, Wallet } from 'lucide-react';
 import { useState } from 'react';
@@ -34,7 +35,7 @@ export function ConnectedWalletDropdown({ className }: ConnectedWalletDropdownPr
 
   const openBSCScan = () => {
     if (displayAddress) {
-      window.open(`https://bscscan.com/address/${displayAddress}`, '_blank');
+      window.open(getExplorerAddressLink(displayAddress), '_blank');
     }
   };
 

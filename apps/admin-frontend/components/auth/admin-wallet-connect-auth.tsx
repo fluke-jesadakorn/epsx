@@ -11,6 +11,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
+import { getExplorerAddressLink } from '@/shared/config/constants';
 
 interface AdminWalletConnectAuthProps {
   className?: string;
@@ -65,7 +66,7 @@ export function AdminWalletConnectAuth({ className = '' }: AdminWalletConnectAut
 
   const openBSCScan = () => {
     if (displayAddress) {
-      window.open(`https://bscscan.com/address/${displayAddress}`, '_blank');
+      window.open(getExplorerAddressLink(displayAddress), '_blank');
     }
   };
 

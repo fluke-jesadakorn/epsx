@@ -74,6 +74,12 @@ const getDefaultBlockchainNetwork = () => {
   return 'mainnet'; // Production uses BSC mainnet
 };
 
+const getDefaultChainId = () => {
+  if (isDev) { return '97'; }
+  if (isStaging) { return '97'; }
+  return '56'; // Production uses BSC mainnet (chain 56)
+};
+
 const getDefaultWalletConnectProjectId = () => {
   if (isDev) { return 'epsx-web3-dev'; }
   if (isStaging) { return 'epsx-web3-staging'; }
@@ -276,7 +282,7 @@ function getFallbackClientEnv(): ClientEnv {
     NEXT_PUBLIC_ADMIN_URL: envObj.NEXT_PUBLIC_ADMIN_URL ?? getDefaultAdminUrl() ?? '',
     NEXT_PUBLIC_BLOCKCHAIN_NETWORK: (envObj.NEXT_PUBLIC_BLOCKCHAIN_NETWORK as 'mainnet' | 'testnet' | undefined) ?? getDefaultBlockchainNetwork(),
     NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: envObj.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID ?? getDefaultWalletConnectProjectId(),
-    NEXT_PUBLIC_CHAIN_ID: envObj.NEXT_PUBLIC_CHAIN_ID ?? '97',
+    NEXT_PUBLIC_CHAIN_ID: envObj.NEXT_PUBLIC_CHAIN_ID ?? getDefaultChainId(),
     NEXT_PUBLIC_PAYMENT_MAINNET_ADDRESS: envObj.NEXT_PUBLIC_PAYMENT_MAINNET_ADDRESS ?? '0x7877e415a13532d9E43Df7Fd2CC256f93a39ced7',
     NEXT_PUBLIC_PAYMENT_TESTNET_ADDRESS: envObj.NEXT_PUBLIC_PAYMENT_TESTNET_ADDRESS ?? '0x7877e415a13532d9E43Df7Fd2CC256f93a39ced7'
   } as ClientEnv;
@@ -289,7 +295,7 @@ function getDevFallbackClientEnv(): ClientEnv {
     NEXT_PUBLIC_ADMIN_URL: getDefaultAdminUrl() ?? 'http://localhost:3001',
     NEXT_PUBLIC_BLOCKCHAIN_NETWORK: getDefaultBlockchainNetwork(),
     NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: getDefaultWalletConnectProjectId(),
-    NEXT_PUBLIC_CHAIN_ID: '97',
+    NEXT_PUBLIC_CHAIN_ID: getDefaultChainId(),
     NEXT_PUBLIC_PAYMENT_MAINNET_ADDRESS: '0x7877e415a13532d9E43Df7Fd2CC256f93a39ced7',
     NEXT_PUBLIC_PAYMENT_TESTNET_ADDRESS: '0x7877e415a13532d9E43Df7Fd2CC256f93a39ced7'
   } as ClientEnv;

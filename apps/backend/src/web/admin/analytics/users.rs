@@ -1,14 +1,13 @@
 use axum::{
     extract::{Query, State},
-    http::StatusCode,
-    response::Json,
+    response::IntoResponse,
 };
 use chrono::{Utc, Duration};
 use tracing::{error, info};
 use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
 use crate::web::auth::AppState;
-use crate::web::admin::responses::{AdminApiResponse, AdminMetadata};
+use crate::web::responses::wrappers::AdminResponse;
 use super::types::*;
 
 /**
@@ -18,14 +17,14 @@ use super::types::*;
 pub async fn get_user_analytics_handler(
     Query(query): Query<AnalyticsQuery>,
     State(app_state): State<AppState>,
-) -> Result<Json<AdminApiResponse<UserAnalyticsResponse>>, StatusCode> {
-    info!("👥 Admin: Getting user analytics");
+) -> axum::response::Response {
+    info!("Admin: Getting user analytics");
 
     let mut conn = match app_state.db_pool.get().await {
         Ok(conn) => conn,
         Err(e) => {
-            error!("❌ Admin: Failed to get database connection: {}", e);
-            return Ok(Json(AdminApiResponse::server_error()));
+            error!("Admin: Failed to get database connection: {}", e);
+            return AdminResponse::server_error("Database error").into_response();
         }
     };
 
@@ -57,8 +56,8 @@ pub async fn get_user_analytics_handler(
     {
         Ok(counts) => counts,
         Err(e) => {
-            error!("❌ Admin: Failed to fetch user counts: {}", e);
-            return Ok(Json(AdminApiResponse::server_error()));
+            error!("Admin: Failed to fetch user counts: {}", e);
+            return AdminResponse::server_error("Database error").into_response();
         }
     };
 
@@ -167,12 +166,6 @@ pub async fn get_user_analytics_handler(
         geographic_distribution: Vec::new(), // Geographic data not available (no IP/location tracking)
     };
 
-    let metadata = AdminMetadata::crud_operation("get_user_analytics", Some("admin".to_string()));
-
-    info!("✅ Admin: Successfully retrieved user analytics");
-    Ok(Json(AdminApiResponse::success_with_meta(
-        response,
-        "User analytics retrieved successfully",
-        metadata,
-    )))
+    info!("Admin: Successfully retrieved user analytics");
+    AdminResponse::success_with_message(response, "User analytics retrieved successfully").into_response()
 }

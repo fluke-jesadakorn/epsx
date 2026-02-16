@@ -13,6 +13,7 @@ import {
 import { themeUtils } from '@/components/ui/safe-theme-script';
 import { formatAddress } from '@/shared/auth/utils';
 import { useSharedAuth } from '@/shared/components/auth';
+import { getExplorerAddressLink } from '@/shared/config/constants';
 import { copyToClipboard } from '@/utils/util';
 import { Check, ChevronRight, Code, Copy, ExternalLink, LogOut, Moon, Settings, Sun, Wallet } from 'lucide-react';
 import Link from 'next/link';
@@ -103,7 +104,7 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
   };
 
   const handleViewExplorer = () => {
-    const explorerUrl = `https://bscscan.com/address/${address}`;
+    const explorerUrl = getExplorerAddressLink(address);
     window.open(explorerUrl, '_blank', 'noopener,noreferrer');
   };
 

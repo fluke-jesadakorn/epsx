@@ -3,6 +3,7 @@ import { cookies } from 'next/headers';
 
 import { COOKIES, getServerAuthToken } from '@/shared/auth/cookies';
 
+import { getExplorerTxLink } from '@/shared/config/constants';
 import { createFrontendApiClient } from '@/shared/utils/api-client';
 
 export interface AuthUser {
@@ -41,7 +42,7 @@ function mapPaymentToTransaction(payment: Record<string, unknown>) {
       txHash,  // Backend returns 'tx_hash' not 'transaction_hash'
       network: 'BSC'
     },
-    blockExplorerUrl: txHash !== '' ? `https://bscscan.com/tx/${txHash}` : ''
+    blockExplorerUrl: txHash !== '' ? getExplorerTxLink(txHash) : ''
   };
 }
 

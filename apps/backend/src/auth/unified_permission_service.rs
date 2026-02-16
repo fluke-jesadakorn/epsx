@@ -502,8 +502,8 @@ impl UnifiedPermissionService {
             AppError::database_error(format!("Failed to get database connection: {}", e))
         })?;
 
-        // Use raw SQL for complex ON CONFLICT operation
-        let query = format!(r#"
+        // Parameterized INSERT with ON CONFLICT
+        let query = r#"
             INSERT INTO wallet_plan_assignments (
                 wallet_address,
                 plan_id,
@@ -512,7 +512,7 @@ impl UnifiedPermissionService {
                 assigned_by,
                 assignment_reason,
                 is_active
-            ) VALUES ('{}', '{}', NOW(), '{}', '{}', '{}', TRUE)
+            ) VALUES ($1, $2, NOW(), $3::timestamptz, $4, $5, TRUE)
             ON CONFLICT (wallet_address, plan_id)
             DO UPDATE SET
                 is_active = TRUE,
@@ -521,13 +521,7 @@ impl UnifiedPermissionService {
                 assigned_by = EXCLUDED.assigned_by,
                 assignment_reason = EXCLUDED.assignment_reason
             RETURNING id
-            "#,
-            wallet_lower.replace("'", "''"),
-            request.plan_id,
-            request.expires_at.map(|dt| dt.to_rfc3339()).unwrap_or("NULL".to_string()).replace("'", "''"),
-            request.assigned_by.replace("'", "''"),
-            request.reason.unwrap_or_default().replace("'", "''")
-        );
+            "#;
 
         #[derive(diesel::QueryableByName)]
         struct AssignmentResult {
@@ -535,7 +529,15 @@ impl UnifiedPermissionService {
             id: Uuid,
         }
 
+        let expires_str: Option<String> = request.expires_at.map(|dt| dt.to_rfc3339());
+        let reason = request.reason.unwrap_or_default();
+
         let assignment_id = diesel::sql_query(query)
+            .bind::<diesel::sql_types::Text, _>(&wallet_lower)
+            .bind::<diesel::sql_types::Uuid, _>(&request.plan_id)
+            .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(&expires_str)
+            .bind::<diesel::sql_types::Text, _>(&request.assigned_by)
+            .bind::<diesel::sql_types::Text, _>(&reason)
             .get_result::<AssignmentResult>(&mut conn)
             .await
             .map_err(|e| {
@@ -571,18 +573,17 @@ impl UnifiedPermissionService {
             AppError::database_error(format!("Failed to get database connection: {}", e))
         })?;
 
-        // Use raw SQL for DELETE operation
-        let query = format!(r#"
+        // Parameterized DELETE
+        let query = r#"
             DELETE FROM wallet_plan_assignments
-            WHERE wallet_address = '{}'
-              AND plan_id = '{}'
+            WHERE wallet_address = $1
+              AND plan_id = $2
               AND is_active = TRUE
-            "#,
-            wallet_lower.replace("'", "''"),
-            request.plan_id
-        );
+            "#;
 
         let rows_affected = diesel::sql_query(query)
+            .bind::<diesel::sql_types::Text, _>(&wallet_lower)
+            .bind::<diesel::sql_types::Uuid, _>(&request.plan_id)
             .execute(&mut conn)
             .await
             .map_err(|e| {
@@ -840,7 +841,7 @@ impl UnifiedPermissionService {
         // Collect plan IDs to check permissions
         let plan_ids: Vec<uuid::Uuid> = rows.iter().map(|r| r.plan_id).collect();
 
-        // Query permissions for these plans (fallback for offset)
+        // Query permissions for offset
         #[derive(QueryableByName)]
         struct PermRow {
             #[diesel(sql_type = diesel::sql_types::Uuid)]
@@ -863,17 +864,18 @@ impl UnifiedPermissionService {
         .await
         .unwrap_or_default();
 
-        // Find minimum ranking_offset from metadata or permissions
+        // Find minimum ranking_offset from permission strings + metadata fallback
         let mut min_offset = crate::core::constants::FREE_PLAN_RANKING_OFFSET;
+
         for row in &rows {
-            // Check plan_metadata first
+            // Check plan_metadata (legacy fallback)
             if let Some(offset) = row.plan_metadata.get("ranking_offset").and_then(|v| v.as_i64()) {
                 let offset_i32 = offset as i32;
                 if offset_i32 < min_offset {
                     min_offset = offset_i32;
                 }
             }
-            // Fallback: check permission string epsx:rankings:offset:N
+            // Check permission string epsx:rankings:offset:N
             for perm in &perm_rows {
                 if perm.plan_id == row.plan_id {
                     if let Some(offset_str) = perm.permission_string.strip_prefix("epsx:rankings:offset:") {

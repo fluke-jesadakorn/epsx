@@ -1,14 +1,13 @@
 use axum::{
     extract::{Query, State},
-    http::StatusCode,
-    response::Json,
+    response::IntoResponse,
 };
 use chrono::{DateTime, Utc, Duration};
 use tracing::{error, info};
 use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
 use crate::web::auth::AppState;
-use crate::web::admin::responses::{AdminApiResponse, AdminMetadata};
+use crate::web::responses::wrappers::AdminResponse;
 use super::types::*;
 
 /**
@@ -18,14 +17,14 @@ use super::types::*;
 pub async fn get_platform_overview_handler(
     Query(query): Query<AnalyticsQuery>,
     State(app_state): State<AppState>,
-) -> Result<Json<AdminApiResponse<PlatformOverviewResponse>>, StatusCode> {
-    info!("📊 Admin: Getting platform overview analytics");
+) -> axum::response::Response {
+    info!("Admin: Getting platform overview analytics");
 
     let mut conn = match app_state.db_pool.get().await {
         Ok(conn) => conn,
         Err(e) => {
-            error!("❌ Admin: Failed to get database connection: {}", e);
-            return Ok(Json(AdminApiResponse::server_error()));
+            error!("Admin: Failed to get database connection: {}", e);
+            return AdminResponse::server_error("Database error").into_response();
         }
     };
 
@@ -63,8 +62,8 @@ pub async fn get_platform_overview_handler(
     {
         Ok(metrics) => metrics,
         Err(e) => {
-            error!("❌ Admin: Failed to fetch user metrics: {}", e);
-            return Ok(Json(AdminApiResponse::server_error()));
+            error!("Admin: Failed to fetch user metrics: {}", e);
+            return AdminResponse::server_error("Database error").into_response();
         }
     };
 
@@ -201,12 +200,6 @@ pub async fn get_platform_overview_handler(
         user_distribution,
     };
 
-    let metadata = AdminMetadata::crud_operation("get_platform_overview", Some("admin".to_string()));
-
-    info!("✅ Admin: Successfully retrieved platform overview analytics");
-    Ok(Json(AdminApiResponse::success_with_meta(
-        response,
-        "Platform overview analytics retrieved successfully",
-        metadata,
-    )))
+    info!("Admin: Successfully retrieved platform overview analytics");
+    AdminResponse::success_with_message(response, "Platform overview analytics retrieved successfully").into_response()
 }

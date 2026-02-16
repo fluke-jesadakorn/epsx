@@ -11,7 +11,7 @@ pub mod analytics;
 pub mod admin_assignment;
 pub mod notifications;
 pub mod payments;
-// ⚡ CRITICAL: Comprehensive Error System (Phase 1.3)
+// CRITICAL: Comprehensive Error System (Phase 1.3)
 pub mod errors;
 pub mod responses; // Unified API response format
 pub mod api_response; // New Standard Response Format

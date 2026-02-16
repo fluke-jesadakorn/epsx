@@ -550,7 +550,7 @@ impl UnifiedWeb3AuthService {
             domain = %self.domain,
             connection_type = "new_wallet_creation",
             metadata = %connection_metadata,
-            "🎉 New wallet user created successfully"
+            "New wallet user created successfully"
         );
 
         // Emit new wallet creation event for admin notifications
@@ -675,7 +675,7 @@ impl UnifiedWeb3AuthService {
                     Ok(result) => {
                         info!(
                             plan_id = %result.id,
-                            "✅ Free Plan created automatically"
+                            "Free Plan created automatically"
                         );
                         result.id
                     }
@@ -749,7 +749,7 @@ impl UnifiedWeb3AuthService {
         info!(
             wallet_address = %wallet_address,
             plan_id = %plan_id,
-            "✅ Free Plan auto-assigned to new wallet"
+            "Free Plan auto-assigned to new wallet"
         );
     }
 

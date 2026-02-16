@@ -95,16 +95,20 @@ impl CryptoAddress {
 
     /// Get network explorer URL for this address
     pub fn explorer_url(&self) -> String {
+        let is_mainnet = std::env::var("BLOCKCHAIN_NETWORK")
+            .unwrap_or_default()
+            .eq_ignore_ascii_case("mainnet");
+        let bsc_explorer = if is_mainnet { "https://bscscan.com/address/" } else { "https://testnet.bscscan.com/address/" };
         let base_url = match self.network {
             Network::Ethereum => "https://etherscan.io/address/",
-            Network::Binance => "https://bscscan.com/address/",
+            Network::Binance => bsc_explorer,
             Network::Tron => "https://tronscan.org/#/address/",
             Network::Arbitrum => "https://arbiscan.io/address/",
             Network::Polygon => "https://polygonscan.com/address/",
             Network::Bitcoin => "https://blockstream.info/address/",
-            Network::BinanceSmartChain => "https://bscscan.com/address/",
+            Network::BinanceSmartChain => bsc_explorer,
         };
-        
+
         format!("{}{}", base_url, self.checksum_address())
     }
 

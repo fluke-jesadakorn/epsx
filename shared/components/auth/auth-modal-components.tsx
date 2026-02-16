@@ -10,6 +10,9 @@ export interface ConnectStepProps {
 }
 
 export function ConnectStep({ connectors, connect, isConnecting, error }: ConnectStepProps) {
+    // Deduplicate connectors by name (RainbowKit registers multiple WalletConnect instances)
+    const unique = connectors.filter((c, i, arr) => arr.findIndex((x) => x.name === c.name) === i);
+
     return (
         <div className="auth-step auth-step-enter">
             <div className="auth-step-header">
@@ -17,7 +20,7 @@ export function ConnectStep({ connectors, connect, isConnecting, error }: Connec
                 <span className="auth-step-label">Select Wallet</span>
             </div>
             <div className="auth-wallets">
-                {connectors.map((connector) => (
+                {unique.map((connector) => (
                     <button
                         key={connector.uid}
                         className="auth-wallet-btn"

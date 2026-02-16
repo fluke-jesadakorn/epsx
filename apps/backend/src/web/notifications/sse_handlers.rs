@@ -122,19 +122,19 @@ pub async fn sse_notifications_handler(
             match token_service.validate_access_token(&token).await {
                 Ok(claims) => {
                     wallet_address = claims.wallet_address.to_lowercase();
-                    tracing::debug!("✅ SSE Auth: Validated wallet from token: {}", wallet_address);
+                    tracing::debug!("SSE Auth: Validated wallet from token: {}", wallet_address);
                 }
                 Err(e) => {
-                    tracing::warn!("❌ SSE Auth: Token validation failed: {}", e);
+                    tracing::warn!("SSE Auth: Token validation failed: {}", e);
                     // Fallback to legacy extraction (only if needed/safe)
                     if let Some(legacy_wallet) = extract_wallet_from_token(Some(&token)) {
                         wallet_address = legacy_wallet;
-                         tracing::warn!("⚠️ SSE Auth: Validated using legacy method (deprecated)");
+                         tracing::warn!("SSE Auth: Validated using legacy method (deprecated)");
                     }
                 }
             }
         } else {
-             tracing::error!("❌ SSE Auth: Token service not available");
+             tracing::error!("SSE Auth: Token service not available");
              // Fallback
              if let Some(legacy_wallet) = extract_wallet_from_token(Some(&token)) {
                 wallet_address = legacy_wallet;
@@ -143,7 +143,7 @@ pub async fn sse_notifications_handler(
     }
 
     tracing::info!(
-        "🔌 SSE connection request: wallet={}, types={:?}",
+        "SSE connection request: wallet={}, types={:?}",
         wallet_address,
         query.types
     );
@@ -168,7 +168,7 @@ pub async fn sse_notifications_handler(
     };
 
     tracing::info!(
-        "📦 Found {} queued notifications for wallet: {}",
+        "Found {} queued notifications for wallet: {}",
         queued_notifications.len(),
         wallet_address
     );
@@ -177,7 +177,7 @@ pub async fn sse_notifications_handler(
     let redis_broadcaster = app_state.redis_broadcaster.clone();
 
     if redis_broadcaster.is_none() {
-        tracing::warn!("⚠️ Redis not available - SSE will only send queued notifications");
+        tracing::warn!("Redis not available - SSE will only send queued notifications");
     }
 
     let mut pubsub = match &redis_broadcaster {
@@ -213,11 +213,11 @@ pub async fn sse_notifications_handler(
                                 Ok(pool) => {
                                     match crate::web::notifications::mark_as_delivered(pool, &notif_id).await {
                                         Ok(_) => {
-                                            tracing::debug!("✅ Background task: Marked notification as delivered: id={}", notif_id);
+                                            tracing::debug!("Background task: Marked notification as delivered: id={}", notif_id);
                                         }
                                         Err(e) => {
                                             tracing::error!(
-                                                "❌ Background task failed: Could not mark notification as delivered: id={}, title='{}', error={}",
+                                                "Background task failed: Could not mark notification as delivered: id={}, title='{}', error={}",
                                                 notif_id,
                                                 notif_title,
                                                 e
@@ -259,7 +259,7 @@ pub async fn sse_notifications_handler(
             };
 
             tracing::info!(
-                "📨 Received notification from Redis: wallet={}, id={}, title={}",
+                "Received notification from Redis: wallet={}, id={}, title={}",
                 wallet_for_stream,
                 notification.id,
                 notification.title
@@ -282,9 +282,9 @@ pub async fn sse_notifications_handler(
             }
             }
 
-            tracing::info!("🔴 Redis pub/sub stream ended for wallet: {}", wallet_for_stream);
+            tracing::info!("Redis pub/sub stream ended for wallet: {}", wallet_for_stream);
         } else {
-            tracing::info!("⚠️ Redis not available - SSE connection will only show queued notifications");
+            tracing::info!("Redis not available - SSE connection will only show queued notifications");
         }
     };
 
@@ -401,7 +401,7 @@ fn extract_wallet_from_token(token: Option<&str>) -> Option<String> {
     if token.starts_with("web3_token_") {
         let wallet = token.strip_prefix("web3_token_").unwrap_or("").to_string();
         if !wallet.is_empty() && wallet.len() >= 20 {
-            tracing::debug!("✅ Extracted wallet from legacy token format: {}", wallet);
+            tracing::debug!("Extracted wallet from legacy token format: {}", wallet);
             return Some(wallet.to_lowercase());
         }
     }
@@ -424,7 +424,7 @@ fn extract_wallet_from_token(token: Option<&str>) -> Option<String> {
             };
 
             if !wallet.is_empty() && wallet != "anonymous" {
-                tracing::debug!("✅ Extracted wallet from JWT token: {}", wallet);
+                tracing::debug!("Extracted wallet from JWT token: {}", wallet);
                 Some(wallet.to_lowercase())
             } else {
                 None
@@ -439,7 +439,7 @@ fn extract_wallet_from_token(token: Option<&str>) -> Option<String> {
                     tracing::debug!("Legacy token decode skipped (expected): {:?}", e.kind());
                 }
                 _ => {
-                    tracing::warn!("❌ Failed to decode token as JWT: {:?}", e);
+                    tracing::warn!("Failed to decode token as JWT: {:?}", e);
                 }
             }
             None

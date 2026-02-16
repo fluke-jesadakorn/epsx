@@ -46,11 +46,6 @@ export const STATUS_CONFIG: Record<WalletStatus, { label: string; className: str
         className: 'bg-red-500/10 text-red-400 border-red-500/20',
         dotClass: 'bg-red-500',
     },
-    pending: {
-        label: 'Pending',
-        className: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
-        dotClass: 'bg-amber-500',
-    },
 };
 
 // --- Plan Display Helper ---

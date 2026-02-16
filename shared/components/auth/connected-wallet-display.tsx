@@ -4,6 +4,7 @@ import { Check, ChevronRight, Copy, ExternalLink, LogOut, Wallet } from 'lucide-
 import Link from 'next/link';
 import { useState } from 'react';
 import { formatAddress } from '../../auth/utils';
+import { getExplorerAddressLink } from '../../config/constants';
 import { logger } from '../../utils/logger';
 import {
     DropdownMenu,
@@ -135,7 +136,7 @@ function WalletDropdownMenuContent({
     };
 
     const handleViewExplorer = () => {
-        const explorerUrl = `https://bscscan.com/address/${address}`;
+        const explorerUrl = getExplorerAddressLink(address);
         window.open(explorerUrl, '_blank', 'noopener,noreferrer');
     };
 

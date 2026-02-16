@@ -70,10 +70,10 @@ fn grant_analytics_permissions(
 
     for permission in permissions {
         grant_single_permission_direct(conn, &wallet_addr, permission)?;
-        println!("✅ Granted: {}", permission);
+        println!("Granted: {}", permission);
     }
 
-    println!("🎉 All analytics permissions granted successfully!");
+    println!("All analytics permissions granted successfully!");
     Ok(())
 }
 
@@ -90,7 +90,7 @@ fn grant_single_permission(
     // Grant the permission
     grant_single_permission_direct(conn, &wallet_addr, permission)?;
 
-    println!("✅ Permission granted successfully!");
+    println!("Permission granted successfully!");
     Ok(())
 }
 

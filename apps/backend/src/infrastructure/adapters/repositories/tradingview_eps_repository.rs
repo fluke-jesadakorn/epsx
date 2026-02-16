@@ -41,7 +41,7 @@ impl TradingViewEPSRepository {
             chrono::DateTime::from_timestamp(ts as i64, 0)
                 .map(|dt| {
                     let date_str = dt.format("%Y-%m-%d").to_string();
-                    tracing::info!("🔄 [{}] next_earnings_date: {} -> {}",
+                    tracing::info!("[{}] next_earnings_date: {} -> {}",
                         result.symbol, ts, date_str);
                     date_str
                 })
@@ -53,7 +53,7 @@ impl TradingViewEPSRepository {
         });
 
         if next_earnings_date_str.is_none() && last_earnings_date_str.is_none() {
-            tracing::warn!("⚠️ [{}] NO earnings dates from TradingView - will use fallback", result.symbol);
+            tracing::warn!("[{}] NO earnings dates from TradingView - will use fallback", result.symbol);
         }
 
         EPSRanking::from_eps_data(

@@ -2,13 +2,14 @@
 
 import type { AccessItem } from '@/hooks/use-wallet-access';
 import { cn } from '@/lib/utils';
+import { useCallback, useMemo, useState } from 'react';
 import type { SubscriptionResponse } from '@/shared/api/plans';
 import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/card';
 import { Input } from '@/shared/components/ui/input';
 import { Label } from '@/shared/components/ui/label';
-import { Copy, ExternalLink, Loader2, Package, Save } from 'lucide-react';
+import { Building2, ChevronDown, Code2, Copy, ExternalLink, Loader2, Package, Save, User, Wrench } from 'lucide-react';
 import Link from 'next/link';
 import type { WalletData, WalletStatus } from './types';
 import { DraggablePlanItem, DroppablePlanList } from './wallet-components';
@@ -24,12 +25,16 @@ const STATUS_CONFIG: Record<WalletStatus, { label: string; emoji: string; classN
         emoji: '⚠️',
         className: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400 border-amber-200 dark:border-amber-800',
     },
-    pending: {
-        label: 'Pending',
-        emoji: '⏳',
-        className: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 border-blue-200 dark:border-blue-800',
-    },
 };
+
+const PLAN_GROUP_CONFIG: Record<string, { label: string; icon: React.ReactNode }> = {
+    personal: { label: 'Personal', icon: <User className="h-3.5 w-3.5" /> },
+    enterprise: { label: 'Enterprise', icon: <Building2 className="h-3.5 w-3.5" /> },
+    api: { label: 'API', icon: <Code2 className="h-3.5 w-3.5" /> },
+    custom: { label: 'Custom', icon: <Wrench className="h-3.5 w-3.5" /> },
+};
+
+const PLAN_GROUP_ORDER = ['personal', 'enterprise', 'api', 'custom'];
 
 export function WalletAvailablePlansCard({
     plans,
@@ -42,6 +47,24 @@ export function WalletAvailablePlansCard({
     setSearchQuery: (query: string) => void;
     onManagePlan: (id: string) => void;
 }) {
+    const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+
+    const toggleGroup = useCallback((g: string) => {
+        setCollapsed(prev => ({ ...prev, [g]: !prev[g] }));
+    }, []);
+
+    const grouped = useMemo(() => {
+        const map: Record<string, AccessItem[]> = {};
+        for (const g of PLAN_GROUP_ORDER) { map[g] = []; }
+        for (const p of plans) {
+            const g = p.planGroup ?? 'personal';
+            (map[g] ??= []).push(p);
+        }
+        return map;
+    }, [plans]);
+
+    const hasPlans = plans.length > 0;
+
     return (
         <Card className="flex-1 flex flex-col h-full border border-white/10 bg-slate-900/50 shadow-lg">
             <CardHeader className="pb-3 border-b border-white/5 bg-white/5">
@@ -61,24 +84,49 @@ export function WalletAvailablePlansCard({
                     className="h-8 text-xs bg-slate-950/50 border-white/10 text-slate-200 placeholder:text-slate-600 focus:border-blue-500/50"
                 />
             </CardHeader>
-            <CardContent className="p-4 overflow-y-auto max-h-[600px]">
-                <div className="grid grid-cols-1 gap-3">
-                    {plans.map(plan => (
-                        <DraggablePlanItem
-                            key={plan.id}
-                            id={plan.id}
-                            label={plan.name}
-                            description={plan.description}
-                            onManage={() => onManagePlan(plan.id)}
-                        />
-                    ))}
-                    {plans.length === 0 && (
-                        <div className="flex flex-col items-center justify-center py-12 text-slate-500">
-                            <Package className="h-10 w-10 mb-3 opacity-20" />
-                            <p>No available plans found.</p>
-                        </div>
-                    )}
-                </div>
+            <CardContent className="p-0 overflow-y-auto max-h-[600px]">
+                {hasPlans ? (
+                    PLAN_GROUP_ORDER.map(g => {
+                        const groupPlans = grouped[g] ?? [];
+                        if (groupPlans.length === 0) return null;
+                        const cfg = PLAN_GROUP_CONFIG[g];
+                        const isCollapsed = collapsed[g] === true;
+                        return (
+                            <div key={g}>
+                                <button
+                                    type="button"
+                                    onClick={() => toggleGroup(g)}
+                                    className="w-full flex items-center gap-2 px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-slate-500 hover:bg-white/5 transition-colors"
+                                >
+                                    {cfg?.icon}
+                                    <span className="flex-1 text-left">{cfg?.label}</span>
+                                    <Badge variant="secondary" className="bg-white/5 text-slate-500 text-[10px] px-1.5 py-0">
+                                        {groupPlans.length}
+                                    </Badge>
+                                    <ChevronDown className={cn('h-3 w-3 transition-transform', isCollapsed && '-rotate-90')} />
+                                </button>
+                                {!isCollapsed && (
+                                    <div className="grid grid-cols-1 gap-3 px-4 pb-3">
+                                        {groupPlans.map(plan => (
+                                            <DraggablePlanItem
+                                                key={plan.id}
+                                                id={plan.id}
+                                                label={plan.name}
+                                                description={plan.description}
+                                                onManage={() => onManagePlan(plan.id)}
+                                            />
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })
+                ) : (
+                    <div className="flex flex-col items-center justify-center py-12 text-slate-500">
+                        <Package className="h-10 w-10 mb-3 opacity-20" />
+                        <p>No available plans found.</p>
+                    </div>
+                )}
             </CardContent>
         </Card>
     );

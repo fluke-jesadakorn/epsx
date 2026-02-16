@@ -11,6 +11,7 @@ import {
   Database,
   File,
   Info,
+  Mail,
   LineChart,
   LogIn,
   LogOut,
@@ -207,7 +208,7 @@ function NavigationContent() {
 
           {/* Desktop Navigation - Hidden on mobile/tablet */}
           <nav className="hidden lg:flex items-center gap-1">
-            {navItems.filter(item => item.key !== 'about').map(item => {
+            {navItems.filter(item => item.key !== 'about' && item.key !== 'contact').map(item => {
               const IconComponent = iconMap[item.key as keyof typeof iconMap];
               const isActive = pathname === item.href || item.children?.some(child => pathname === child.href);
 
@@ -290,6 +291,17 @@ function NavigationContent() {
             >
               <Info className="h-4 w-4 text-orange-500" />
               <span>About</span>
+            </Link>
+
+            <Link
+              href="/contact"
+              className={`hidden lg:flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition-colors ${pathname === '/contact'
+                ? 'bg-purple-50 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300'
+                : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-slate-100'
+                }`}
+            >
+              <Mail className="h-4 w-4 text-purple-500" />
+              <span>Contact</span>
             </Link>
 
             {/* Chain Selector - Dev only */}

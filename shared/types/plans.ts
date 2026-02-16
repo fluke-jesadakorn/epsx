@@ -1,9 +1,13 @@
 
+export type PlanCategory = 'base' | 'addon' | 'system' | 'exclusive'
+export type PlanGroup = 'personal' | 'enterprise' | 'api' | 'custom'
 export interface Plan {
     id: number | string
     name: string
     description?: string
     plan_type: string
+    plan_category?: PlanCategory
+    plan_group?: PlanGroup
     current_price: number | string
     base_price?: number | string
     currency: string
@@ -29,6 +33,7 @@ export interface PricingCardData {
     // Extended properties for payment flow logic
     tier_level: number
     plan_type?: string
+    plan_group?: PlanGroup
     description?: string
     is_current_plan?: boolean
 }

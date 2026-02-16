@@ -6,10 +6,8 @@ const nextConfig: NextConfig = {
   // Enable standalone output for Docker deployment
   output: 'standalone',
 
-  // Ignore TypeScript errors during builds (errors should be fixed separately)
-  typescript: {
-    ignoreBuildErrors: true,
-  },
+  // TODO: Fix shared/ TS errors then remove this
+  typescript: { ignoreBuildErrors: true },
 
   // Skip static generation for error pages that fail with useContext issues
   // This is a known issue with Next.js 16 + React 19 + complex provider trees

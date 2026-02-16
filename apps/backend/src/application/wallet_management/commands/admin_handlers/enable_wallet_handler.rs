@@ -37,7 +37,7 @@ impl CommandHandler<EnableWalletCommand> for EnableWalletCommandHandler {
         }
 
         let mut conn = self.db_pool.get().await.map_err(|e| {
-            error!("❌ Failed to get connection: {}", e);
+            error!("Failed to get connection: {}", e);
             ApplicationError::infrastructure(format!("Failed to get connection: {}", e))
         })?;
 
@@ -57,7 +57,7 @@ impl CommandHandler<EnableWalletCommand> for EnableWalletCommandHandler {
         .await
         .optional()
         .map_err(|e| {
-            error!("❌ Failed to check wallet existence: {}", e);
+            error!("Failed to check wallet existence: {}", e);
             ApplicationError::infrastructure(format!("Failed to check wallet: {}", e))
         })?;
 
@@ -98,12 +98,12 @@ impl CommandHandler<EnableWalletCommand> for EnableWalletCommandHandler {
         .bind::<diesel::sql_types::Jsonb, _>(&reenable_info);
 
         update_query.execute(&mut conn).await.map_err(|e| {
-            error!("❌ Failed to enable wallet: {}", e);
+            error!("Failed to enable wallet: {}", e);
             ApplicationError::infrastructure(format!("Failed to enable wallet: {}", e))
         })?;
 
         info!(
-            "✅ Successfully enabled wallet: {}",
+            "Successfully enabled wallet: {}",
             command.wallet_address
         );
 

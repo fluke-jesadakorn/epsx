@@ -16,7 +16,7 @@ pub mod rate_limit_middleware;
 pub mod multi_level_rate_limiter;
 pub mod usage_tracking_middleware;
 
-// ⚡ CRITICAL: Bulletproof Permission Validation Middleware (Phase 1.2)
+// CRITICAL: Bulletproof Permission Validation Middleware (Phase 1.2)
 // THE SINGLE SOURCE OF TRUTH for all permission enforcement
 pub mod permission_validation_middleware;
 
@@ -65,7 +65,7 @@ pub use rate_limit_middleware::{
   unified_rate_limit_middleware,
 };
 
-// ⚡ CRITICAL: Permission validation exports (THE SINGLE SOURCE OF TRUTH)
+// CRITICAL: Permission validation exports (THE SINGLE SOURCE OF TRUTH)
 pub use permission_validation_middleware::{
   permission_validation_middleware,
 };

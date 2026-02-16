@@ -65,6 +65,8 @@ export function usePlanEditForm() {
     const [form, setForm] = useState<PlanEditFormState>({
         name: '',
         description: '',
+        plan_category: 'base',
+        plan_group: 'personal',
         priority: 0,
         price: 0,
         expiryDays: 30,
@@ -73,7 +75,6 @@ export function usePlanEditForm() {
         is_public: true,
         is_active: true,
         features: [],
-        rankingOffset: 1,
     });
     const [hasChanges, setHasChanges] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
@@ -84,6 +85,8 @@ export function usePlanEditForm() {
             setForm({
                 name: '',
                 description: '',
+                plan_category: 'base',
+                plan_group: 'personal',
                 priority: 0,
                 price: 0,
                 expiryDays: 30,
@@ -92,22 +95,17 @@ export function usePlanEditForm() {
                 is_public: true,
                 is_active: true,
                 features: [],
-                rankingOffset: 1,
             });
         } else {
             setSelectedPlan(plan);
             const features = Array.isArray(plan.plan_metadata?.features)
                 ? (plan.plan_metadata?.features as string[])
                 : [];
-            const offsetPerm = (plan.permissions ?? []).find((p) =>
-                p.startsWith('epsx:rankings:offset:')
-            );
-            const offset = offsetPerm
-                ? parseInt(offsetPerm.split(':')[3], 10) || 1
-                : plan.id === FREE_PLAN_ID ? 100 : 1;
             setForm({
                 name: plan.name,
                 description: plan.description,
+                plan_category: plan.plan_category ?? 'base',
+                plan_group: plan.plan_group ?? 'personal',
                 priority: plan.tier_level ?? 0,
                 price: Number(plan.price) || 0,
                 expiryDays: plan.default_expiry_days ?? 30,
@@ -116,7 +114,6 @@ export function usePlanEditForm() {
                 is_public: plan.is_public !== false,
                 is_active: plan.is_active !== false,
                 features,
-                rankingOffset: offset,
             });
         }
         setHasChanges(false);
@@ -131,27 +128,21 @@ export function usePlanEditForm() {
         }
         setIsSaving(true);
         try {
-            const permsWithoutOffset = form.permissions.filter(
-                (p) => !p.startsWith('epsx:rankings:offset:')
-            );
-            const permsWithOffset = [
-                ...permsWithoutOffset,
-                `epsx:rankings:offset:${form.rankingOffset}`,
-            ];
             const updated = await updatePlanAction(selectedPlan.id, {
                 name: form.name,
                 description: form.description,
+                plan_category: form.plan_category,
+                plan_group: form.plan_group,
                 tier_level: form.priority,
                 price: selectedPlan.id === FREE_PLAN_ID ? undefined : form.price,
                 default_expiry_days: form.expiryDays,
                 grace_period_hours: form.gracePeriodHours,
-                permissions: permsWithOffset,
+                permissions: form.permissions,
                 is_public: form.is_public,
                 is_active: form.is_active,
                 plan_metadata: {
                     ...selectedPlan.plan_metadata,
                     features: form.features,
-                    ranking_offset: form.rankingOffset,
                 },
             });
             toast.success('Plan updated');
@@ -266,7 +257,6 @@ export function usePlanDragAndDrop(ctx: DragDropContext) {
         const oldIndex = plans.findIndex((item) => item.id === active.id);
         const newIndex = plans.findIndex((item) => item.id === over.id);
 
-        // FIX: Using || instead of ?? as they are numbers, -1 is valid return but indices are >= 0 if found
         if (oldIndex === -1 || newIndex === -1) {
             return;
         }
@@ -362,6 +352,7 @@ export async function submitCreatePlan(
         price: number;
         default_expiry_days: number;
         permissions?: string[];
+        plan_group?: string;
     },
     onSuccess: () => void
 ) {
@@ -373,6 +364,7 @@ export async function submitCreatePlan(
             tier_level: formData.priority,
             price: formData.price,
             default_expiry_days: formData.default_expiry_days,
+            plan_group: (formData.plan_group as 'personal' | 'enterprise' | 'api') ?? 'personal',
         });
         toast.success('Created');
         onSuccess();

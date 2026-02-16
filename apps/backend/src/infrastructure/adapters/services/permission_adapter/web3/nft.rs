@@ -97,7 +97,7 @@ impl NftValidator {
         tokens: &[u64],
         rpc: &str,
     ) -> AppResult<NftResult> {
-        info!("🔍 Checking NFT ownership for wallet {} on contract {}", wallet.as_str(), contract);
+        info!("Checking NFT ownership for wallet {} on contract {}", wallet.as_str(), contract);
 
         let timeout_dur = Duration::from_millis(self.cfg.request_timeout_ms);
         let result = timeout(timeout_dur, async {
@@ -117,7 +117,7 @@ impl NftValidator {
         tokens: &[u64],
         rpc: &str,
     ) -> AppResult<NftResult> {
-        debug!("🔗 Making NFT ownership RPC call to {}", rpc);
+        debug!("Making NFT ownership RPC call to {}", rpc);
 
         // Create provider
         let provider = Provider::<Http>::try_from(rpc)
@@ -171,7 +171,7 @@ impl NftValidator {
             owns_required = !owned.is_empty();
         }
 
-        info!("✅ NFT ownership check complete: owns {} tokens", owned.len());
+        info!("NFT ownership check complete: owns {} tokens", owned.len());
 
         Ok(NftResult {
             owns_required_nfts: owns_required,

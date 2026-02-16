@@ -56,14 +56,14 @@ impl CacheFactory {
     /// Use this for serverless deployments where Redis is required
     pub async fn redis_required() -> Result<Arc<dyn Cache>, Box<dyn std::error::Error + Send + Sync>> {
         let redis_cache = Self::try_redis().await?;
-        tracing::info!("✅ Redis cache created (serverless mode - no fallback)");
+        tracing::info!("Redis cache created (serverless mode - no fallback)");
         Ok(Arc::new(redis_cache))
     }
 
     /// Serverless-compatible factory returning Box - FAILS FAST without Redis
     pub async fn redis_required_box() -> Result<Box<dyn Cache>, Box<dyn std::error::Error + Send + Sync>> {
         let redis_cache = Self::try_redis().await?;
-        tracing::info!("✅ Redis cache created (serverless mode - no fallback)");
+        tracing::info!("Redis cache created (serverless mode - no fallback)");
         Ok(Box::new(redis_cache))
     }
     
@@ -82,7 +82,7 @@ impl CacheFactory {
         if let Ok(redis_cache) = RedisCache::new(url, 10, CacheConfig::default()).await {
             Box::new(redis_cache)
         } else {
-            tracing::warn!("⚠️ Custom Redis URL failed, using memory cache");
+            tracing::warn!("Custom Redis URL failed, using memory cache");
             Box::new(MemoryCache::new())
         }
     }

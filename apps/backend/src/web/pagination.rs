@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use utoipa::{ToSchema, IntoParams};
 
 /// Reusable pagination parameters extracted from query params
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -55,5 +56,37 @@ impl Pagination {
 
     pub fn has_prev(&self) -> bool {
         self.page > 1
+    }
+}
+
+/// Shared query params extractor for paginated endpoints.
+/// Use with `Query<PaginationQuery>` in handler signatures.
+#[derive(Debug, Clone, Deserialize, ToSchema, IntoParams)]
+pub struct PaginationQuery {
+    #[param(example = 1)]
+    pub page: Option<u32>,
+    #[param(example = 20)]
+    pub limit: Option<u32>,
+}
+
+impl PaginationQuery {
+    /// Convert to Pagination with standard defaults (20, max 100)
+    pub fn standard(&self) -> Pagination {
+        Pagination::standard(self.page, self.limit)
+    }
+
+    /// Convert to Pagination with small defaults (10, max 50)
+    pub fn small(&self) -> Pagination {
+        Pagination::small(self.page, self.limit)
+    }
+
+    /// Convert to Pagination with large defaults (50, max 1000)
+    pub fn large(&self) -> Pagination {
+        Pagination::large(self.page, self.limit)
+    }
+
+    /// Convert to Pagination with custom defaults
+    pub fn with_defaults(&self, default: u32, max: u32) -> Pagination {
+        Pagination::new(self.page, self.limit, default, max)
     }
 }

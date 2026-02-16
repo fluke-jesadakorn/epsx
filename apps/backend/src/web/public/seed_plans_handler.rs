@@ -37,7 +37,7 @@ pub struct SeedPlansResponse {
     )
 )]
 pub async fn seed_subscription_plans(State(app_state): State<AppState>) -> (StatusCode, Json<ApiResponse<SeedPlansResponse>>) {
-    tracing::info!("🌱 Seeding subscription plans...");
+    tracing::info!("Seeding subscription plans...");
 
     let mut conn = match app_state.db_pool.get().await {
         Ok(c) => c,
@@ -475,7 +475,7 @@ pub async fn seed_subscription_plans(State(app_state): State<AppState>) -> (Stat
     .map(|r| r.count)
     .unwrap_or(0);
 
-    tracing::info!("✅ Seeded {} subscription plans. Total in database: {}", inserted, total_plans);
+    tracing::info!("Seeded {} subscription plans. Total in database: {}", inserted, total_plans);
 
     (
         StatusCode::OK,

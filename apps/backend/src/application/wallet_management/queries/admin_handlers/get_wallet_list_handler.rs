@@ -58,7 +58,7 @@ impl QueryHandler<GetWalletListQuery> for GetWalletListQueryHandler {
             .find_wallets_paginated(&criteria)
             .await
             .map_err(|e| {
-                error!("❌ Failed to fetch wallet list: {}", e);
+                error!("Failed to fetch wallet list: {}", e);
                 ApplicationError::infrastructure(e.to_string())
             })?;
 
@@ -67,7 +67,7 @@ impl QueryHandler<GetWalletListQuery> for GetWalletListQueryHandler {
             .count_wallets(&criteria)
             .await
             .map_err(|e| {
-                error!("❌ Failed to count wallets: {}", e);
+                error!("Failed to count wallets: {}", e);
                 ApplicationError::infrastructure(e.to_string())
             })?;
 
@@ -99,7 +99,7 @@ impl QueryHandler<GetWalletListQuery> for GetWalletListQueryHandler {
         };
 
         info!(
-            "✅ Successfully retrieved {} wallets (page {}/{})",
+            "Successfully retrieved {} wallets (page {}/{})",
             wallets.len(),
             pg.page,
             total_pages

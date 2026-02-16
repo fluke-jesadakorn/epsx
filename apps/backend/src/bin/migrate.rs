@@ -48,7 +48,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                      // Run migrations
                      run_migrations(&db_url, migrations)?;
                  } else {
-                     println!("ℹ️  Skipping {} Database ({} not set)", label, env_var);
+                     println!("Skipping {} Database ({} not set)", label, env_var);
                  }
              }
         }
@@ -70,13 +70,13 @@ fn ensure_database_exists(url: &str) -> Result<(), Box<dyn std::error::Error>> {
     ).get_result(&mut conn)?;
 
     if !exists {
-        println!("✨ Creating database '{}'...", db_name);
+        println!("Creating database '{}'...", db_name);
         diesel::dsl::sql::<diesel::sql_types::Integer>(
             &format!("CREATE DATABASE \"{}\"", db_name)
         ).execute(&mut conn)?;
-        println!("✅ Database created successfully.");
+        println!("Database created successfully.");
     } else {
-        println!("✅ Database '{}' already exists.", db_name);
+        println!("Database '{}' already exists.", db_name);
     }
 
     Ok(())
@@ -100,16 +100,16 @@ fn run_migrations(database_url: &str, migrations: EmbeddedMigrations) -> Result<
     match conn.run_pending_migrations(migrations) {
         Ok(applied) => {
             if applied.is_empty() {
-                println!("✅ Schema is up to date.");
+                println!("Schema is up to date.");
             } else {
-                println!("✅ Applied {} migrations:", applied.len());
+                println!("Applied {} migrations:", applied.len());
                 for m in applied {
                     println!("  - {}", m);
                 }
             }
         }
         Err(e) => {
-            eprintln!("❌ Migration failed: {}", e);
+            eprintln!("Migration failed: {}", e);
             return Err(e);
         }
     }

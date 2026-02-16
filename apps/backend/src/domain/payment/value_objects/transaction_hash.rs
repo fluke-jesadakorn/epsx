@@ -110,16 +110,20 @@ impl TransactionHash {
 
     /// Get transaction explorer URL
     pub fn explorer_url(&self) -> String {
+        let is_mainnet = std::env::var("BLOCKCHAIN_NETWORK")
+            .unwrap_or_default()
+            .eq_ignore_ascii_case("mainnet");
+        let bsc_explorer = if is_mainnet { "https://bscscan.com/tx/" } else { "https://testnet.bscscan.com/tx/" };
         let base_url = match self.network {
             Network::Ethereum => "https://etherscan.io/tx/",
-            Network::Binance => "https://bscscan.com/tx/",
+            Network::Binance => bsc_explorer,
             Network::Tron => "https://tronscan.org/#/transaction/",
             Network::Arbitrum => "https://arbiscan.io/tx/",
             Network::Polygon => "https://polygonscan.com/tx/",
             Network::Bitcoin => "https://blockstream.info/tx/",
-            Network::BinanceSmartChain => "https://bscscan.com/tx/",
+            Network::BinanceSmartChain => bsc_explorer,
         };
-        
+
         format!("{}{}", base_url, self.hash)
     }
 

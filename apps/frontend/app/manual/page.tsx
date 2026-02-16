@@ -47,7 +47,7 @@ export default function ManualPage() {
                         {/* Hero screenshot */}
                         <div className="relative aspect-video w-full overflow-hidden bg-gray-800">
                           <ScreenshotImg
-                            src={`/screenshots/${feature.screenshots[0] ?? feature.id}.png`}
+                            src={`/screenshots/${feature.screenshots[0] ?? feature.id}.webp`}
                             alt={feature.name}
                           />
                         </div>

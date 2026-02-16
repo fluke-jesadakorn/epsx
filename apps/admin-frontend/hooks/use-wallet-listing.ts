@@ -49,9 +49,13 @@ export function useWalletListing({ initialData }: UseWalletListingProps) {
     const loadData = useCallback(async () => {
         setIsLoading(true);
         try {
-            const data = await fetchWalletsAction(filters, page, 9); // Limit to 9 for grid view
-            setWallets(data.wallets);
-            setTotalPages(data.pagination.total_pages);
+            const res = await fetchWalletsAction(filters, page, 9);
+            if (!res.success) {
+                logger.error('Failed to load wallets:', { error: res.error });
+                return;
+            }
+            setWallets(res.wallets);
+            setTotalPages(res.pagination.total_pages);
         } catch (err) {
             logger.error('Failed to load wallets:', { err });
         } finally {

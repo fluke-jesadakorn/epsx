@@ -7,6 +7,7 @@ pub struct PlanSearchCriteria {
     pub plan_type: Option<String>,
     pub is_active: Option<bool>,
     pub is_promoted: Option<bool>,
+    pub plan_group: Option<String>,
     pub search_term: Option<String>,
     pub limit: Option<i64>,
     pub offset: Option<i64>,

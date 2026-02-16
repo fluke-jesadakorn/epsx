@@ -14,7 +14,7 @@ import {
     SheetTrigger,
 } from '@/components/ui/sheet';
 import { Textarea } from '@/components/ui/textarea';
-import { type PermissionPlan } from '@/lib/api/plan-management-client';
+import { type PlanGroup, type PermissionPlan } from '@/lib/api/plan-management-client';
 import {
     Tooltip,
     TooltipContent,
@@ -30,6 +30,7 @@ const emptyForm = {
     price: 0,
     default_expiry_days: 30,
     permissions: [] as string[],
+    plan_group: 'personal' as PlanGroup,
 };
 
 export function CreatePlanSheet({
@@ -57,6 +58,7 @@ export function CreatePlanSheet({
                 price: sourcePlan.price ?? 0,
                 default_expiry_days: sourcePlan.default_expiry_days ?? 30,
                 permissions: sourcePlan.permissions ?? [],
+                plan_group: sourcePlan.plan_group ?? 'personal',
             });
         } else if (!open) {
             setFormData(emptyForm);
@@ -116,6 +118,22 @@ export function CreatePlanSheet({
                             }
                             className="bg-white/5"
                         />
+                    </div>
+                    <div className="space-y-2">
+                        <Label>Display Group</Label>
+                        <select
+                            value={formData.plan_group}
+                            onChange={(e) =>
+                                setFormData({ ...formData, plan_group: e.target.value as PlanGroup })
+                            }
+                            className="w-full h-9 rounded-md border border-white/10 bg-white/5 px-3 text-sm text-white"
+                        >
+                            <option value="personal">Personal</option>
+                            <option value="enterprise">Enterprise</option>
+                            <option value="api">API</option>
+                            <option value="custom">Custom</option>
+                        </select>
+                        <p className="text-xs text-muted-foreground">Pricing page section</p>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">

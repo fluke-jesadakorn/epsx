@@ -1,29 +1,24 @@
 'use client';
 
-import type {
-    DragEndEvent,
-    DragStartEvent
-} from '@dnd-kit/core';
-import {
-    DndContext,
-    DragOverlay,
-    MouseSensor,
-    TouchSensor,
-    useSensor,
-    useSensors
-} from '@dnd-kit/core';
 import {
     Key,
     Loader2,
     Plus,
     Search,
     ShieldAlert,
-    Trash2
+    Trash2,
+    X
 } from 'lucide-react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
-import { createPermissionAction, deletePermissionAction, getPermissionsAction, updatePermissionAction } from '@/app/wallet-management/access/permission-actions';
+import {
+    createPermissionAction,
+    deletePermissionAction,
+    getPermissionsAction,
+    updatePermissionAction
+} from '@/app/wallet-management/access/permission-actions';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -58,29 +53,23 @@ interface PermissionsViewProps {
 
 // eslint-disable-next-line max-lines-per-function, complexity
 export function PermissionsView({ className }: PermissionsViewProps) {
+    const router = useRouter();
+    const pathname = usePathname();
+    const searchParams = useSearchParams();
+    const selectedPermId = searchParams.get('permId');
     const { isAuthenticated, isLoading: authLoading } = useSharedAuth();
-
-    // DND Sensors
-    const sensors = useSensors(
-        useSensor(MouseSensor, { activationConstraint: { distance: 10 } }),
-        useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } })
-    );
 
     // --- DATA STATE ---
     const [permissions, setPermissions] = useState<PermissionDefinition[]>([]);
     const [isLoadingData, setIsLoadingData] = useState(false);
 
-    // --- PERMISSION MODE STATE ---
+    // --- UI STATE ---
     const [permSearch, setPermSearch] = useState('');
-    const [selectedPerm, setSelectedPerm] = useState<PermissionDefinition | null>(null);
     const [permEditForm, setPermEditForm] = useState<Partial<PermissionDefinition>>({});
     const [isSavingPerm, setIsSavingPerm] = useState(false);
     const [hasPermChanges, setHasPermChanges] = useState(false);
     const [isCreatePermOpen, setIsCreatePermOpen] = useState(false);
     const [permDeleteConfirm, setPermDeleteConfirm] = useState<PermissionDefinition | null>(null);
-
-    // DND State
-    const [activeDragId, setActiveDragId] = useState<string | null>(null);
 
     // --- DATA FETCHING ---
     const loadData = useCallback(async () => {
@@ -104,27 +93,48 @@ export function PermissionsView({ className }: PermissionsViewProps) {
         }
     }, [isAuthenticated, loadData]);
 
-    // --- DERIVED DATA ---
+    // --- DERIVED ---
+    const selectedPerm = useMemo(
+        () => permissions.find(p => p.id === selectedPermId) ?? null,
+        [permissions, selectedPermId]
+    );
+
     const filteredPermissions = useMemo(() =>
         permissions.filter(p =>
             p.permission_string.toLowerCase().includes(permSearch.toLowerCase()) ||
             (p.name !== null && p.name !== '' && p.name.toLowerCase().includes(permSearch.toLowerCase()))
         ),
-        [permissions, permSearch]);
+    [permissions, permSearch]);
 
-    // --- EVENT HANDLERS ---
-    const handleSelectPermission = (perm: PermissionDefinition) => {
-        setSelectedPerm(perm);
-        setPermEditForm({
-            name: perm.name ?? '',
-            description: perm.description ?? '',
-            category: perm.category ?? ''
-        });
-        setHasPermChanges(false);
-    };
+    // Sync edit form when selectedPerm changes
+    useEffect(() => {
+        if (selectedPerm) {
+            setPermEditForm({
+                name: selectedPerm.name ?? '',
+                description: selectedPerm.description ?? '',
+                category: selectedPerm.category ?? ''
+            });
+            setHasPermChanges(false);
+        }
+    }, [selectedPerm]);
 
+    // --- URL HANDLERS ---
+    const handleSelect = useCallback((perm: PermissionDefinition) => {
+        const params = new URLSearchParams(searchParams.toString());
+        params.set('permId', perm.id);
+        router.replace(`${pathname}?${params.toString()}`);
+    }, [router, pathname, searchParams]);
+
+    const handleClose = useCallback(() => {
+        const params = new URLSearchParams(searchParams.toString());
+        params.delete('permId');
+        const qs = params.toString();
+        router.replace(qs ? `${pathname}?${qs}` : pathname);
+    }, [router, pathname, searchParams]);
+
+    // --- ACTIONS ---
     const handleSavePermission = async () => {
-        if (!selectedPerm) { return; }
+        if (!selectedPerm) return;
         setIsSavingPerm(true);
         try {
             const result = await updatePermissionAction(selectedPerm.id, {
@@ -136,7 +146,6 @@ export function PermissionsView({ className }: PermissionsViewProps) {
                 toast.success('Permission updated');
                 const updated = result.data;
                 setPermissions(prev => prev.map(p => p.id === updated.id ? updated : p));
-                setSelectedPerm(updated);
                 setHasPermChanges(false);
             } else {
                 toast.error(result.error ?? 'Failed to update');
@@ -148,13 +157,13 @@ export function PermissionsView({ className }: PermissionsViewProps) {
     };
 
     const handleDeletePermission = async () => {
-        if (!permDeleteConfirm) { return; }
+        if (!permDeleteConfirm) return;
         try {
             const result = await deletePermissionAction(permDeleteConfirm.id);
             if (result.success) {
                 toast.success('Permission deleted');
                 setPermissions(prev => prev.filter(p => p.id !== permDeleteConfirm.id));
-                if (selectedPerm?.id === permDeleteConfirm.id) { setSelectedPerm(null); }
+                if (selectedPermId === permDeleteConfirm.id) handleClose();
                 setPermDeleteConfirm(null);
             } else {
                 toast.error(result.error ?? 'Failed to delete permission');
@@ -165,23 +174,20 @@ export function PermissionsView({ className }: PermissionsViewProps) {
         }
     };
 
-    const handleDragStart = (event: DragStartEvent) => {
-        setActiveDragId(event.active.id as string);
-    };
-
-    const handleDragEnd = (_event: DragEndEvent) => {
-        setActiveDragId(null);
-    };
-
     if (authLoading || (isLoadingData && !permissions.length)) {
         return <div className="p-8 flex justify-center"><Loader2 className="animate-spin" /></div>;
     }
 
+    const isOpen = selectedPermId !== null;
+
     return (
-        <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-            <div className={cn("grid grid-cols-1 lg:grid-cols-12 gap-6 h-[calc(100vh-250px)] min-h-[500px]", className)}>
-                {/* SIDEBAR */}
-                <div className="lg:col-span-4 flex flex-col gap-4 h-full">
+        <>
+            <div className={cn('h-[calc(100vh-250px)] min-h-[500px] flex gap-4', className)}>
+                {/* LIST */}
+                <div className={cn(
+                    'transition-all duration-300 h-full',
+                    isOpen ? 'w-[340px] shrink-0' : 'w-full'
+                )}>
                     <Card className="border border-white/5 bg-slate-900/40 backdrop-blur-xl shadow-xl rounded-[24px] overflow-hidden flex flex-col h-full">
                         <CardHeader className="p-4 bg-white/5 border-b border-white/5 space-y-4 shrink-0">
                             <div className="flex items-center justify-between">
@@ -212,10 +218,10 @@ export function PermissionsView({ className }: PermissionsViewProps) {
                                 {filteredPermissions.map(perm => (
                                     <div
                                         key={perm.id}
-                                        onClick={() => handleSelectPermission(perm)}
+                                        onClick={() => handleSelect(perm)}
                                         className={cn(
                                             "p-4 cursor-pointer hover:bg-white/5 transition-colors border-l-4",
-                                            selectedPerm?.id === perm.id ? "bg-emerald-500/10 border-l-emerald-500" : "border-l-transparent"
+                                            selectedPermId === perm.id ? "bg-emerald-500/10 border-l-emerald-500" : "border-l-transparent"
                                         )}
                                     >
                                         <div className="flex items-center justify-between gap-2">
@@ -232,125 +238,115 @@ export function PermissionsView({ className }: PermissionsViewProps) {
                     </Card>
                 </div>
 
-                {/* EDITOR */}
-                <div className="lg:col-span-8 h-full">
-                    {selectedPerm ? (
-                        <Card className="h-full border border-white/5 bg-slate-900/40 backdrop-blur-xl shadow-xl rounded-[32px] overflow-hidden flex flex-col">
-                            <CardHeader className="py-6 px-8 border-b border-white/5 bg-white/5 flex flex-row items-center justify-between shrink-0">
-                                <div className="flex items-center gap-3">
-                                    <div className="h-10 w-10 rounded-xl bg-emerald-500/20 flex items-center justify-center">
-                                        <Key className="w-5 h-5 text-emerald-500" />
-                                    </div>
-                                    <div>
-                                        <CardTitle className="text-lg font-bold">Edit Permission</CardTitle>
-                                        <div className="flex items-center gap-2 mt-1">
-                                            <code className="text-xs bg-black/30 px-2 py-0.5 rounded text-emerald-400 font-mono">{selectedPerm.permission_string}</code>
-                                            {selectedPerm.is_system && <Badge variant="secondary" className="text-[10px] h-4">System</Badge>}
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="flex gap-2">
-                                    {!selectedPerm.is_system && (
-                                        <Button variant="ghost" className="text-red-400 hover:text-red-300 hover:bg-red-500/10" size="sm" onClick={() => setPermDeleteConfirm(selectedPerm)}>
-                                            <Trash2 className="w-4 h-4 mr-2" />
-                                            Delete
-                                        </Button>
-                                    )}
-                                    <Button size="sm" onClick={() => void handleSavePermission()} disabled={!hasPermChanges || isSavingPerm} className="bg-emerald-500 text-white hover:bg-emerald-600">
-                                        {isSavingPerm && <Loader2 className="w-3 h-3 animate-spin mr-2" />}
-                                        Save Changes
-                                    </Button>
-                                </div>
-                            </CardHeader>
-                            <CardContent className="p-8 space-y-6 overflow-y-auto flex-1">
-                                <div className="space-y-4 max-w-2xl">
-                                    <div className="grid gap-2">
-                                        <Label>Display Name</Label>
-                                        <Input
-                                            value={permEditForm.name ?? ''}
-                                            onChange={e => { setPermEditForm(p => ({ ...p, name: e.target.value })); setHasPermChanges(true); }}
-                                            className="bg-white/5 border-white/10"
-                                        />
-                                    </div>
-                                    <div className="grid gap-2">
-                                        <Label>Category</Label>
-                                        <Input
-                                            value={permEditForm.category ?? ''}
-                                            onChange={e => { setPermEditForm(p => ({ ...p, category: e.target.value })); setHasPermChanges(true); }}
-                                            className="bg-white/5 border-white/10"
-                                        />
-                                    </div>
-                                    <div className="grid gap-2">
-                                        <Label>Description</Label>
-                                        <Textarea
-                                            value={permEditForm.description ?? ''}
-                                            onChange={e => { setPermEditForm(p => ({ ...p, description: e.target.value })); setHasPermChanges(true); }}
-                                            className="bg-white/5 border-white/10 min-h-[100px]"
-                                        />
-                                    </div>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    ) : (
-                        <EmptyState icon={Key} title="Select a permission" description="Select to edit details." />
-                    )}
-                </div>
-
-                {/* Drag Overlay */}
-                <DragOverlay>
-                    {activeDragId !== null && (
-                        <div className="flex items-center gap-2 px-3 py-2 bg-slate-800 rounded-lg shadow-xl border border-emerald-500 opacity-90 scale-105 pointer-events-none text-white">
-                            <Key className="h-4 w-4" />
-                            <span className="font-medium text-sm">Permission Item</span>
-                        </div>
-                    )}
-                </DragOverlay>
-
-                {/* Delete Confirmation */}
-                <Dialog open={Boolean(permDeleteConfirm)} onOpenChange={(o) => !o && setPermDeleteConfirm(null)}>
-                    <DialogContent className="max-w-[400px]">
-                        <DialogHeader>
-                            <div className="h-12 w-12 rounded-full bg-red-500/10 flex items-center justify-center mb-4 mx-auto sm:mx-0">
-                                <Trash2 className="h-6 w-6 text-red-500" />
+                {/* EDITOR PANEL */}
+                {isOpen && (
+                    <div className="flex-1 min-w-0 h-full animate-in slide-in-from-right-4 duration-300">
+                        <div className="h-full flex flex-col border-l border-white/5 bg-slate-950/50">
+                            <div className="flex items-center justify-between px-4 py-2 border-b border-white/5 shrink-0">
+                                <span className="text-xs text-muted-foreground font-mono truncate">{selectedPermId}</span>
+                                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleClose}>
+                                    <X className="h-4 w-4" />
+                                </Button>
                             </div>
-                            <DialogTitle className="text-xl">Delete Permission?</DialogTitle>
-                            <DialogDescription className="text-slate-400">
-                                Are you sure you want to delete <span className="text-white font-bold">{permDeleteConfirm?.permission_string}</span>?
-                                This action cannot be undone and may cause system errors if this permission is still in use.
-                            </DialogDescription>
-                        </DialogHeader>
-                        <DialogFooter className="mt-4 gap-2 sm:gap-0">
-                            <Button
-                                variant="ghost"
-                                onClick={() => setPermDeleteConfirm(null)}
-                                className="text-slate-400 hover:text-white hover:bg-white/5"
-                            >
-                                No, Keep it
-                            </Button>
-                            <Button
-                                variant="destructive"
-                                onClick={() => void handleDeletePermission()}
-                                className="bg-red-500 hover:bg-red-600 text-white shadow-lg shadow-red-500/20"
-                            >
-                                Yes, Delete Permission
-                            </Button>
-                        </DialogFooter>
-                    </DialogContent>
-                </Dialog>
+                            {selectedPerm ? (
+                                <Card className="flex-1 border border-white/5 bg-slate-900/40 backdrop-blur-xl shadow-xl rounded-[32px] overflow-hidden flex flex-col m-2">
+                                    <CardHeader className="py-6 px-8 border-b border-white/5 bg-white/5 flex flex-row items-center justify-between shrink-0">
+                                        <div className="flex items-center gap-3">
+                                            <div className="h-10 w-10 rounded-xl bg-emerald-500/20 flex items-center justify-center">
+                                                <Key className="w-5 h-5 text-emerald-500" />
+                                            </div>
+                                            <div>
+                                                <CardTitle className="text-lg font-bold">Edit Permission</CardTitle>
+                                                <div className="flex items-center gap-2 mt-1">
+                                                    <code className="text-xs bg-black/30 px-2 py-0.5 rounded text-emerald-400 font-mono">{selectedPerm.permission_string}</code>
+                                                    {selectedPerm.is_system && <Badge variant="secondary" className="text-[10px] h-4">System</Badge>}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="flex gap-2">
+                                            {!selectedPerm.is_system && (
+                                                <Button variant="ghost" className="text-red-400 hover:text-red-300 hover:bg-red-500/10" size="sm" onClick={() => setPermDeleteConfirm(selectedPerm)}>
+                                                    <Trash2 className="w-4 h-4 mr-2" />
+                                                    Delete
+                                                </Button>
+                                            )}
+                                            <Button size="sm" onClick={() => void handleSavePermission()} disabled={!hasPermChanges || isSavingPerm} className="bg-emerald-500 text-white hover:bg-emerald-600">
+                                                {isSavingPerm && <Loader2 className="w-3 h-3 animate-spin mr-2" />}
+                                                Save Changes
+                                            </Button>
+                                        </div>
+                                    </CardHeader>
+                                    <CardContent className="p-8 space-y-6 overflow-y-auto flex-1">
+                                        <div className="space-y-4 max-w-2xl">
+                                            <div className="grid gap-2">
+                                                <Label>Display Name</Label>
+                                                <Input
+                                                    value={permEditForm.name ?? ''}
+                                                    onChange={e => { setPermEditForm(p => ({ ...p, name: e.target.value })); setHasPermChanges(true); }}
+                                                    className="bg-white/5 border-white/10"
+                                                />
+                                            </div>
+                                            <div className="grid gap-2">
+                                                <Label>Category</Label>
+                                                <Input
+                                                    value={permEditForm.category ?? ''}
+                                                    onChange={e => { setPermEditForm(p => ({ ...p, category: e.target.value })); setHasPermChanges(true); }}
+                                                    className="bg-white/5 border-white/10"
+                                                />
+                                            </div>
+                                            <div className="grid gap-2">
+                                                <Label>Description</Label>
+                                                <Textarea
+                                                    value={permEditForm.description ?? ''}
+                                                    onChange={e => { setPermEditForm(p => ({ ...p, description: e.target.value })); setHasPermChanges(true); }}
+                                                    className="bg-white/5 border-white/10 min-h-[100px]"
+                                                />
+                                            </div>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            ) : (
+                                <div className="flex-1 flex items-center justify-center">
+                                    <Loader2 className="animate-spin" />
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
             </div>
-        </DndContext>
-    );
-}
 
-function EmptyState({ icon: Icon, title, description }: { icon: React.ElementType, title: string, description: string }) {
-    return (
-        <div className="h-full flex flex-col items-center justify-center border border-dashed border-white/10 rounded-[32px] bg-slate-900/20 text-slate-500 p-8 text-center">
-            <div className="h-20 w-20 rounded-full bg-white/5 flex items-center justify-center mb-6">
-                <Icon className="h-10 w-10 opacity-30" />
-            </div>
-            <h3 className="text-xl font-bold text-slate-300 mb-2">{title}</h3>
-            <p className="text-sm max-w-xs mx-auto">{description}</p>
-        </div>
+            {/* Delete Confirmation */}
+            <Dialog open={Boolean(permDeleteConfirm)} onOpenChange={(o) => !o && setPermDeleteConfirm(null)}>
+                <DialogContent className="max-w-[400px]">
+                    <DialogHeader>
+                        <div className="h-12 w-12 rounded-full bg-red-500/10 flex items-center justify-center mb-4 mx-auto sm:mx-0">
+                            <Trash2 className="h-6 w-6 text-red-500" />
+                        </div>
+                        <DialogTitle className="text-xl">Delete Permission?</DialogTitle>
+                        <DialogDescription className="text-slate-400">
+                            Are you sure you want to delete <span className="text-white font-bold">{permDeleteConfirm?.permission_string}</span>?
+                            This action cannot be undone and may cause system errors if this permission is still in use.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter className="mt-4 gap-2 sm:gap-0">
+                        <Button
+                            variant="ghost"
+                            onClick={() => setPermDeleteConfirm(null)}
+                            className="text-slate-400 hover:text-white hover:bg-white/5"
+                        >
+                            No, Keep it
+                        </Button>
+                        <Button
+                            variant="destructive"
+                            onClick={() => void handleDeletePermission()}
+                            className="bg-red-500 hover:bg-red-600 text-white shadow-lg shadow-red-500/20"
+                        >
+                            Yes, Delete Permission
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+        </>
     );
 }
 

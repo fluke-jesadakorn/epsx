@@ -293,6 +293,8 @@ pub struct PermissionPlan {
     pub grace_period_hours: i32,
     pub tier_level: i32,
     pub is_public: bool,
+    pub plan_category: String,
+    pub plan_group: String,
 }
 
 // Helper to extract permissions from plan_metadata
@@ -462,6 +464,8 @@ pub struct PermissionPlanDb {
     pub grace_period_hours: i32,
     pub tier_level: i32,
     pub is_public: bool,
+    pub plan_category: String,
+    pub plan_group: String,
 }
 
 /// Diesel Insertable model for creating/updating permission plans
@@ -492,15 +496,28 @@ pub struct NewPermissionPlanDb {
     pub rate_limit_per_day: i32,
     pub burst_capacity: i32,
     pub tier_level: i32,
+    pub plan_category: String,
+    pub plan_group: String,
 }
 
 /// Query result for permission data from JOIN query
 #[derive(Debug, Clone, diesel::QueryableByName)]
 pub struct PermissionRow {
+    #[diesel(sql_type = diesel::sql_types::Varchar)]
+    pub permission_string: String,
     #[diesel(sql_type = diesel::sql_types::Text)]
     pub platform: String,
     #[diesel(sql_type = diesel::sql_types::Text)]
     pub resource: String,
     #[diesel(sql_type = diesel::sql_types::Text)]
     pub action: String,
+}
+
+/// Query result for batch permission fetch (includes plan_id for grouping)
+#[derive(Debug, Clone, diesel::QueryableByName)]
+pub struct PlanPermissionRow {
+    #[diesel(sql_type = diesel::sql_types::Uuid)]
+    pub plan_id: uuid::Uuid,
+    #[diesel(sql_type = diesel::sql_types::Varchar)]
+    pub permission_string: String,
 }

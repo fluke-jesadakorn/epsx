@@ -13,7 +13,7 @@ pub struct ValidationError {
 
 impl fmt::Display for ValidationError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "❌ {}: {}", self.variable, self.reason)
+        write!(f, "{}: {}", self.variable, self.reason)
     }
 }
 
@@ -298,7 +298,7 @@ impl Config {
 pub fn load_env() {
     // Load environment variables from .env file (searches current and parent directories)
     match dotenv::dotenv() {
-        Ok(path) => println!("✅ Loaded environment variables from .env file: {:?}", path),
+        Ok(path) => println!("Loaded environment variables from .env file: {:?}", path),
         Err(e) => {
             // Only log if we don't have the variables already
             if std::env::var("DATABASE_URL").is_err() {
@@ -314,15 +314,15 @@ pub fn init_config() -> Config {
     
     match Config::from_env() {
         Ok(config) => {
-            println!("✅ Environment validation passed");
+            println!("Environment validation passed");
             config
         },
         Err(errors) => {
-            eprintln!("❌ Environment validation failed:");
+            eprintln!("Environment validation failed:");
             for error in &errors {
                 eprintln!("  {}", error);
             }
-            eprintln!("\n💡 See CLAUDE.md for environment setup instructions");
+            eprintln!("\nSee CLAUDE.md for environment setup instructions");
             std::process::exit(1);
         }
     }

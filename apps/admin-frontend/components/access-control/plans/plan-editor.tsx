@@ -16,13 +16,18 @@ import {
 } from '@/shared/components/ui/tooltip';
 
 import { DualPanePermissionSelector } from '../dual-pane-permission-selector';
-import { FREE_PLAN_ID, type PlanEditFormState } from './types';
+import {
+    FEATURE_PERMISSIONS,
+    FREE_PLAN_ID,
+    getFeatureValue,
+    setFeatureValue,
+    type PlanEditFormState,
+} from './types';
 
 export interface PlanEditorProps {
     selectedPlan: PermissionPlan | null;
     form: PlanEditFormState;
     setForm: (
-         
         f: (prev: PlanEditFormState) => PlanEditFormState
     ) => void;
     setHasChanges: (hasChanges: boolean) => void;
@@ -34,6 +39,7 @@ export interface PlanEditorProps {
     permissions: PermissionDefinition[];
 }
 
+// eslint-disable-next-line max-lines-per-function -- plan editor form
 export function PlanEditor({
     selectedPlan,
     form,
@@ -125,7 +131,6 @@ export function PlanEditor({
                             value={form.priority}
                             onChange={(e) => {
                                 const val = e.target.value;
-                                 
                                 if (val === '-' || val === '') {
                                     setForm((p) => ({
                                         ...p,
@@ -143,25 +148,48 @@ export function PlanEditor({
                         />
                     </div>
                     <div className="space-y-2">
+                        <Label>Category</Label>
+                        <select
+                            value={form.plan_category}
+                            onChange={(e) => {
+                                setForm((p) => ({ ...p, plan_category: e.target.value as 'base' | 'addon' | 'system' | 'exclusive' }));
+                                setHasChanges(true);
+                            }}
+                            className="flex h-10 w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white"
+                        >
+                            <option value="base">Base</option>
+                            <option value="addon">Addon</option>
+                            <option value="system">System</option>
+                            <option value="exclusive">Exclusive</option>
+                        </select>
+                        <p className="text-xs text-muted-foreground">
+                            Base: 1 per wallet. Addon/System: stackable. Exclusive: max 3.
+                        </p>
+                    </div>
+                    <div className="space-y-2">
+                        <Label>Display Group</Label>
+                        <select
+                            value={form.plan_group}
+                            onChange={(e) => {
+                                setForm((p) => ({ ...p, plan_group: e.target.value as 'personal' | 'enterprise' | 'api' | 'custom' }));
+                                setHasChanges(true);
+                            }}
+                            className="flex h-10 w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white"
+                        >
+                            <option value="personal">Personal</option>
+                            <option value="enterprise">Enterprise</option>
+                            <option value="api">API</option>
+                            <option value="custom">Custom</option>
+                        </select>
+                        <p className="text-xs text-muted-foreground">
+                            Section on the pricing page where this plan appears.
+                        </p>
+                    </div>
+                    <div className="space-y-2">
                         <Label className="flex items-center gap-2">
                             Price (USD)
                             {isFree && (
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <div className="h-3.5 w-3.5 rounded-full bg-slate-500/20 flex items-center justify-center cursor-help">
-                                            <span className="text-[10px] font-bold">?</span>
-                                        </div>
-                                    </TooltipTrigger>
-                                    <TooltipContent
-                                        side="right"
-                                        className="bg-slate-900 border-white/10 text-white max-w-[200px]"
-                                    >
-                                        <p className="text-xs">
-                                            Pricing for the Free Plan is permanent and cannot be
-                                            modified.
-                                        </p>
-                                    </TooltipContent>
-                                </Tooltip>
+                                <TooltipIcon text="Pricing for the Free Plan is permanent and cannot be modified." />
                             )}
                         </Label>
                         <Input
@@ -170,7 +198,6 @@ export function PlanEditor({
                             value={form.price}
                             onChange={(e) => {
                                 const val = e.target.value;
-                                 
                                 if (val === '-' || val === '' || val === '.') {
                                     setForm((p) => ({ ...p, price: val as unknown as number }));
                                 } else {
@@ -188,23 +215,7 @@ export function PlanEditor({
                     <div className="space-y-2">
                         <Label className="flex items-center gap-2">
                             Expiry (Days)
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <div className="h-3.5 w-3.5 rounded-full bg-[#1fc7d4]/20 flex items-center justify-center cursor-help">
-                                        <span className="text-[10px] font-bold text-[#1fc7d4]">
-                                            ?
-                                        </span>
-                                    </div>
-                                </TooltipTrigger>
-                                <TooltipContent
-                                    side="right"
-                                    className="bg-slate-900 border-white/10 text-white max-w-[200px]"
-                                >
-                                    <p className="text-xs">
-                                        Set to -1 for permanent expiry (never expires).
-                                    </p>
-                                </TooltipContent>
-                            </Tooltip>
+                            <TooltipIcon text="Set to -1 for permanent expiry (never expires)." />
                         </Label>
                         <Input
                             type="text"
@@ -212,7 +223,6 @@ export function PlanEditor({
                             value={form.expiryDays}
                             onChange={(e) => {
                                 const val = e.target.value;
-                                 
                                 if (val === '-' || val === '') {
                                     setForm((p) => ({
                                         ...p,
@@ -233,25 +243,7 @@ export function PlanEditor({
                     <div className="space-y-2">
                         <Label className="flex items-center gap-2">
                             Grace Period (Hours)
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <div className="h-3.5 w-3.5 rounded-full bg-[#1fc7d4]/20 flex items-center justify-center cursor-help">
-                                        <span className="text-[10px] font-bold text-[#1fc7d4]">
-                                            ?
-                                        </span>
-                                    </div>
-                                </TooltipTrigger>
-                                <TooltipContent
-                                    side="right"
-                                    className="bg-slate-900 border-white/10 text-white max-w-[200px]"
-                                >
-                                    <p className="text-xs">
-                                        Hours after expiry where access is
-                                        maintained. 0 = no grace period. Max 168
-                                        (1 week).
-                                    </p>
-                                </TooltipContent>
-                            </Tooltip>
+                            <TooltipIcon text="Hours after expiry where access is maintained. 0 = no grace period. Max 168 (1 week)." />
                         </Label>
                         <Input
                             type="text"
@@ -276,58 +268,7 @@ export function PlanEditor({
                             placeholder="0"
                         />
                     </div>
-                    <div className="space-y-2">
-                        <Label className="flex items-center gap-2">
-                            Ranking Offset
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <div className="h-3.5 w-3.5 rounded-full bg-[#1fc7d4]/20 flex items-center justify-center cursor-help">
-                                        <span className="text-[10px] font-bold text-[#1fc7d4]">
-                                            ?
-                                        </span>
-                                    </div>
-                                </TooltipTrigger>
-                                <TooltipContent
-                                    side="right"
-                                    className="bg-slate-900 border-white/10 text-white max-w-[200px]"
-                                >
-                                    <p className="text-xs">
-                                        Starting rank position on analytics page. 1 = see all
-                                        rankings, 100 = skip first 99.
-                                    </p>
-                                </TooltipContent>
-                            </Tooltip>
-                        </Label>
-                        <Input
-                            type="text"
-                            inputMode="numeric"
-                            value={form.rankingOffset}
-                            onChange={(e) => {
-                                const val = e.target.value;
-                                const syncPerms = (p: PlanEditFormState, offset: number) => ({
-                                    ...p,
-                                    rankingOffset: offset,
-                                    permissions: [
-                                        ...p.permissions.filter(
-                                            (s) => !s.startsWith('epsx:rankings:offset:')
-                                        ),
-                                        `epsx:rankings:offset:${offset}`,
-                                    ],
-                                });
-                                if (val === '' || val === '0') {
-                                    setForm((p) => syncPerms(p, val === '' ? 1 : 0));
-                                } else {
-                                    const parsed = parseInt(val);
-                                    if (!isNaN(parsed) && parsed >= 1) {
-                                        setForm((p) => syncPerms(p, parsed));
-                                    }
-                                }
-                                setHasChanges(true);
-                            }}
-                            className="bg-white/5 border-white/10"
-                            placeholder="1"
-                        />
-                    </div>
+                    <div className="space-y-2" />
                     <div className="col-span-2 space-y-2">
                         <Label>Description</Label>
                         <Textarea
@@ -347,14 +288,70 @@ export function PlanEditor({
                         <Textarea
                             value={form.features.join('\n')}
                             onChange={(e) => {
-                                const features_list = e.target.value.split('\n');
-                                setForm((p) => ({ ...p, features: features_list }));
+                                const list = e.target.value.split('\n');
+                                setForm((p) => ({ ...p, features: list }));
                                 setHasChanges(true);
                             }}
                             className="bg-white/5 border-white/10 min-h-[120px] font-mono text-sm"
                             placeholder={'Advanced analytics\nUnlimited stock analysis\nPriority support'}
                         />
                     </div>
+
+                    {/* Feature Permissions */}
+                    <div className="col-span-2 space-y-4">
+                        <Label className="text-[#1fc7d4] uppercase tracking-wider font-bold text-xs">
+                            Feature Permissions
+                        </Label>
+                        <div className="grid grid-cols-2 gap-4">
+                            {FEATURE_PERMISSIONS.map((fp) => {
+                                const val = getFeatureValue(form.permissions, fp.prefix);
+                                if (fp.type === 'boolean') {
+                                    return (
+                                        <div key={fp.prefix} className="flex items-center justify-between p-3 rounded-lg bg-white/5 border border-white/10">
+                                            <Label className="flex items-center gap-2 text-sm">
+                                                {fp.label}
+                                                {fp.tooltip != null && <TooltipIcon text={fp.tooltip} />}
+                                            </Label>
+                                            <Switch
+                                                checked={val === 'true'}
+                                                onCheckedChange={(checked) => {
+                                                    setForm((p) => ({
+                                                        ...p,
+                                                        permissions: setFeatureValue(p.permissions, fp.prefix, checked ? 'true' : null),
+                                                    }));
+                                                    setHasChanges(true);
+                                                }}
+                                            />
+                                        </div>
+                                    );
+                                }
+                                return (
+                                    <div key={fp.prefix} className="space-y-1">
+                                        <Label className="flex items-center gap-2 text-sm">
+                                            {fp.label}
+                                            {fp.tooltip != null && <TooltipIcon text={fp.tooltip} />}
+                                        </Label>
+                                        <Input
+                                            type="text"
+                                            inputMode="numeric"
+                                            value={val ?? ''}
+                                            placeholder={fp.placeholder}
+                                            onChange={(e) => {
+                                                const v = e.target.value;
+                                                setForm((p) => ({
+                                                    ...p,
+                                                    permissions: setFeatureValue(p.permissions, fp.prefix, v === '' ? null : v),
+                                                }));
+                                                setHasChanges(true);
+                                            }}
+                                            className="bg-white/5 border-white/10"
+                                        />
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+
                     <div className="col-span-2 flex items-center justify-between p-4 rounded-lg bg-white/5 border border-white/10">
                         <div className="flex flex-col">
                             <span className="text-sm font-medium text-white/80">
@@ -366,11 +363,7 @@ export function PlanEditor({
                         </div>
                         <Tooltip>
                             <TooltipTrigger asChild>
-                                <div
-                                    className={
-                                        isFree ? 'cursor-not-allowed opacity-80' : ''
-                                    }
-                                >
+                                <div className={isFree ? 'cursor-not-allowed opacity-80' : ''}>
                                     <Switch
                                         checked={form.is_public}
                                         disabled={isFree}
@@ -382,13 +375,8 @@ export function PlanEditor({
                                 </div>
                             </TooltipTrigger>
                             {isFree && (
-                                <TooltipContent
-                                    side="left"
-                                    className="bg-slate-900 border-white/10 text-white max-w-[200px]"
-                                >
-                                    <p className="text-xs">
-                                        Default system plan visibility cannot be changed
-                                    </p>
+                                <TooltipContent side="left" className="bg-slate-900 border-white/10 text-white max-w-[200px]">
+                                    <p className="text-xs">Default system plan visibility cannot be changed</p>
                                 </TooltipContent>
                             )}
                         </Tooltip>
@@ -404,11 +392,7 @@ export function PlanEditor({
                         </div>
                         <Tooltip>
                             <TooltipTrigger asChild>
-                                <div
-                                    className={
-                                        isFree ? 'cursor-not-allowed opacity-80' : ''
-                                    }
-                                >
+                                <div className={isFree ? 'cursor-not-allowed opacity-80' : ''}>
                                     <Switch
                                         checked={form.is_active}
                                         disabled={isFree}
@@ -420,13 +404,8 @@ export function PlanEditor({
                                 </div>
                             </TooltipTrigger>
                             {isFree && (
-                                <TooltipContent
-                                    side="left"
-                                    className="bg-slate-900 border-white/10 text-white max-w-[200px]"
-                                >
-                                    <p className="text-xs">
-                                        Default system plan status cannot be changed
-                                    </p>
+                                <TooltipContent side="left" className="bg-slate-900 border-white/10 text-white max-w-[200px]">
+                                    <p className="text-xs">Default system plan status cannot be changed</p>
                                 </TooltipContent>
                             )}
                         </Tooltip>
@@ -453,6 +432,21 @@ export function PlanEditor({
                 </div>
             </CardContent>
         </Card>
+    );
+}
+
+function TooltipIcon({ text }: { text: string }) {
+    return (
+        <Tooltip>
+            <TooltipTrigger asChild>
+                <div className="h-3.5 w-3.5 rounded-full bg-[#1fc7d4]/20 flex items-center justify-center cursor-help">
+                    <span className="text-[10px] font-bold text-[#1fc7d4]">?</span>
+                </div>
+            </TooltipTrigger>
+            <TooltipContent side="right" className="bg-slate-900 border-white/10 text-white max-w-[200px]">
+                <p className="text-xs">{text}</p>
+            </TooltipContent>
+        </Tooltip>
     );
 }
 

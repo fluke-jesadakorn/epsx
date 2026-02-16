@@ -56,7 +56,7 @@ impl TradingViewWebSocketService {
     symbols: Vec<String>
   ) -> Result<Vec<EPSWebSocketData>, AppError> {
     info!(
-      "🚀 Starting TradingView WebSocket connection for {} symbols",
+      "Starting TradingView WebSocket connection for {} symbols",
       symbols.len()
     );
     self.symbols = symbols.clone();
@@ -67,22 +67,22 @@ impl TradingViewWebSocketService {
     let mut all_eps_data = Vec::new();
 
     for symbol in &symbols {
-      info!("📊 Processing symbol: {}", symbol);
+      info!("Processing symbol: {}", symbol);
 
       match self.extract_symbol_eps_data(&mut write, &mut read, symbol).await {
         Ok(eps_data) => {
-          info!("✅ Successfully extracted EPS data for {}", symbol);
+          info!("Successfully extracted EPS data for {}", symbol);
           all_eps_data.push(eps_data);
         }
         Err(e) => {
-          warn!("⚠️ Failed to extract EPS data for {}: {}", symbol, e);
+          warn!("Failed to extract EPS data for {}: {}", symbol, e);
           continue;
         }
       }
     }
 
     info!(
-      "✅ TradingView WebSocket extraction complete: {}/{} symbols",
+      "TradingView WebSocket extraction complete: {}/{} symbols",
       all_eps_data.len(),
       symbols.len()
     );
@@ -98,7 +98,7 @@ impl TradingViewWebSocketService {
     read: &mut futures_util::stream::SplitStream<tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>>,
     symbol: &str
   ) -> Result<EPSWebSocketData, AppError> {
-    info!("🔥 Starting TradingView WebSocket Extraction");
+    info!("Starting TradingView WebSocket Extraction");
 
     self.series_ready = false;
     self.symbol_resolved = false;
@@ -156,7 +156,7 @@ impl TradingViewWebSocketService {
     })
     ).await?;
 
-    info!("⏳ Waiting for symbol resolution and series creation...");
+    info!("Waiting for symbol resolution and series creation...");
 
     self.process_messages_until_complete(read, symbol, write).await
   }
@@ -179,7 +179,7 @@ impl TradingViewWebSocketService {
 
           for parsed in messages {
             if let Some(method) = parsed["m"].as_str() {
-              info!("📨 Received message type: {}", method);
+              info!("Received message type: {}", method);
 
               self.process_parsed_message(&parsed, symbol, write).await;
 
@@ -201,7 +201,7 @@ impl TradingViewWebSocketService {
     match extraction_timeout {
       Ok(result) => result,
       Err(_) => {
-        warn!("⏰ WebSocket extraction timed out for {}", symbol);
+        warn!("WebSocket extraction timed out for {}", symbol);
         Err(
           AppError::internal_server_error(
             format!("WebSocket extraction timeout for {}", symbol)
@@ -225,12 +225,12 @@ impl TradingViewWebSocketService {
     match method {
       "symbol_resolved" => {
         self.symbol_resolved = true;
-        info!("✅ Symbol {} resolved", symbol);
+        info!("Symbol {} resolved", symbol);
       }
       "series_completed" => {
         if !self.series_ready {
           self.series_ready = true;
-          info!("✅ Series creation completed for {}", symbol);
+          info!("Series creation completed for {}", symbol);
           let _ = self.create_studies_after_series(write, symbol).await;
         }
       }
@@ -281,7 +281,7 @@ impl TradingViewWebSocketService {
     })
     ).await?;
 
-    info!("✅ Created ST4 earnings study");
+    info!("Created ST4 earnings study");
     Ok(())
   }
 
@@ -294,7 +294,7 @@ impl TradingViewWebSocketService {
       if params.len() >= 2 {
         if let Some(st4_array) = params[1]["st4"].as_array() {
           info!(
-            "🎯 Found ST4 earnings data in timescale_update: {} quarters",
+            "Found ST4 earnings data in timescale_update: {} quarters",
             st4_array.len()
           );
 
@@ -331,7 +331,7 @@ impl TradingViewWebSocketService {
         if let Some(st4_data) = params[1]["st4"].as_object() {
           if let Some(st_array) = st4_data["st"].as_array() {
             info!(
-              "🎯 Found ST4 earnings data in data_update: {} quarters",
+              "Found ST4 earnings data in data_update: {} quarters",
               st_array.len()
             );
 
@@ -363,7 +363,7 @@ impl TradingViewWebSocketService {
     if let Some(params) = parsed["p"].as_array() {
       if params.len() >= 2 {
         if let Some(quote_data) = params[1].as_object() {
-          debug!("📈 Quote data received: {} fields", quote_data.len());
+          debug!("Quote data received: {} fields", quote_data.len());
         }
       }
     }
@@ -371,7 +371,7 @@ impl TradingViewWebSocketService {
 
   fn handle_protocol_error(&self, parsed: &Value) {
     if let Some(params) = parsed["p"].as_array() {
-      warn!("❌ Protocol error: {:?}", params);
+      warn!("Protocol error: {:?}", params);
     }
   }
 

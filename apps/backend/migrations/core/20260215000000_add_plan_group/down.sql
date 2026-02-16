@@ -1,0 +1,3 @@
+DROP INDEX IF EXISTS idx_plans_group;
+ALTER TABLE plans DROP CONSTRAINT IF EXISTS valid_plan_group;
+ALTER TABLE plans DROP COLUMN IF EXISTS plan_group;

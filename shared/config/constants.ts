@@ -373,6 +373,20 @@ export function getBlockchainConfig(): BlockchainNetwork {
   return isMainnet ? mainnet : testnet;
 }
 
+// Explorer URL helpers (environment-aware)
+export function getExplorerBaseUrl(): string {
+  const config = getBlockchainConfig();
+  return config.explorerUrl.replace(/tx\/$/, '');
+}
+
+export function getExplorerAddressLink(address: string): string {
+  return `${getExplorerBaseUrl()}address/${address}`;
+}
+
+export function getExplorerTxLink(txHash: string): string {
+  return `${getExplorerBaseUrl()}tx/${txHash}`;
+}
+
 // ============================================================================
 // UI CONSTANTS
 // ============================================================================

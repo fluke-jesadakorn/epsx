@@ -14,6 +14,7 @@ use bigdecimal::{BigDecimal, ToPrimitive};
 
 use crate::{
     prelude::*,
+    auth::auth_service::UnifiedWeb3AuthService,
     web::{
         middleware::UnifiedErrorResponse,
         auth::AppState,
@@ -136,17 +137,16 @@ pub async fn get_credit_history(
 /// Get user's credit balance and history (admin)
 pub async fn admin_get_user_credits(
     State(_app_state): State<AppState>,
-    Extension(_admin_context): Extension<crate::web::middleware::OpenIDUserContext>,
+    Extension(admin_context): Extension<crate::web::middleware::OpenIDUserContext>,
     Path(wallet_address): Path<String>,
     Query(params): Query<CreditHistoryQuery>,
 ) -> Result<Json<serde_json::Value>, Json<UnifiedErrorResponse>> {
+    if !UnifiedWeb3AuthService::has_permission(&admin_context.permissions, "admin:credits:manage") {
+        return Err(Json(UnifiedErrorResponse::new(403, "Forbidden", "Insufficient permissions")));
+    }
+
     let wallet_address = wallet_address.to_lowercase();
     info!("Admin getting credits for wallet: {}", wallet_address);
-
-    // TODO: Check admin permission here
-    // if !admin_context.has_permission("admin:credits:manage") {
-    //     return Err(Json(UnifiedErrorResponse::new(403, "Forbidden", "Insufficient permissions")));
-    // }
 
     // Get payments database connection
     use crate::infrastructure::database::get_payments_pool;
@@ -204,12 +204,11 @@ pub async fn admin_grant_credits(
     Json(request): Json<GrantCreditsRequest>,
 ) -> Result<Json<serde_json::Value>, Json<UnifiedErrorResponse>> {
     let admin_wallet = admin_context.wallet_address.to_lowercase();
-    info!("Admin {} granting {} credits to {}", admin_wallet, request.amount, request.wallet_address);
+    if !UnifiedWeb3AuthService::has_permission(&admin_context.permissions, "admin:credits:manage") {
+        return Err(Json(UnifiedErrorResponse::new(403, "Forbidden", "Insufficient permissions")));
+    }
 
-    // TODO: Check admin permission
-    // if !admin_context.has_permission("admin:credits:manage") {
-    //     return Err(Json(UnifiedErrorResponse::new(403, "Forbidden", "Insufficient permissions")));
-    // }
+    info!("Admin {} granting {} credits to {}", admin_wallet, request.amount, request.wallet_address);
 
     // Validate amount is positive
     if request.amount <= BigDecimal::from(0) {
@@ -276,12 +275,11 @@ pub async fn admin_revoke_credits(
     Json(request): Json<RevokeCreditsRequest>,
 ) -> Result<Json<serde_json::Value>, Json<UnifiedErrorResponse>> {
     let admin_wallet = admin_context.wallet_address.to_lowercase();
-    info!("Admin {} revoking {} credits from {}", admin_wallet, request.amount, request.wallet_address);
+    if !UnifiedWeb3AuthService::has_permission(&admin_context.permissions, "admin:credits:manage") {
+        return Err(Json(UnifiedErrorResponse::new(403, "Forbidden", "Insufficient permissions")));
+    }
 
-    // TODO: Check admin permission
-    // if !admin_context.has_permission("admin:credits:manage") {
-    //     return Err(Json(UnifiedErrorResponse::new(403, "Forbidden", "Insufficient permissions")));
-    // }
+    info!("Admin {} revoking {} credits from {}", admin_wallet, request.amount, request.wallet_address);
 
     // Validate amount is positive
     if request.amount <= BigDecimal::from(0) {
@@ -360,14 +358,13 @@ pub async fn admin_revoke_credits(
 /// Get credit system statistics (admin)
 pub async fn admin_get_credit_stats(
     State(_app_state): State<AppState>,
-    Extension(_admin_context): Extension<crate::web::middleware::OpenIDUserContext>,
+    Extension(admin_context): Extension<crate::web::middleware::OpenIDUserContext>,
 ) -> Result<Json<CreditStatsResponse>, Json<UnifiedErrorResponse>> {
-    info!("Admin getting credit statistics");
+    if !UnifiedWeb3AuthService::has_permission(&admin_context.permissions, "admin:credits:view") {
+        return Err(Json(UnifiedErrorResponse::new(403, "Forbidden", "Insufficient permissions")));
+    }
 
-    // TODO: Check admin permission
-    // if !admin_context.has_permission("admin:credits:view") {
-    //     return Err(Json(UnifiedErrorResponse::new(403, "Forbidden", "Insufficient permissions")));
-    // }
+    info!("Admin getting credit statistics");
 
     // Get payments database connection
     use crate::infrastructure::database::get_payments_pool;

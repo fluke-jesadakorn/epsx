@@ -58,7 +58,7 @@ impl PlanExpirationService {
     pub fn start(self) -> tokio::task::JoinHandle<()> {
         let svc = Arc::new(self);
         tokio::spawn(async move {
-            info!("✅ PlanExpirationService started (poll interval: {}s)", svc.config.poll_interval_secs);
+            info!("PlanExpirationService started (poll interval: {}s)", svc.config.poll_interval_secs);
             svc.run_loop().await;
         })
     }
@@ -178,13 +178,13 @@ impl PlanExpirationService {
                 }
 
                 info!(
-                    "📧 Sent {}d expiry notification: wallet={}, plan={}",
+                    "Sent {}d expiry notification: wallet={}, plan={}",
                     days, row.wallet_address, row.plan_name
                 );
             }
 
             if !rows.is_empty() {
-                info!("📋 Checked {}d window: {} expiring assignments", days, rows.len());
+                info!("Checked {}d window: {} expiring assignments", days, rows.len());
             }
         }
 
@@ -286,7 +286,7 @@ impl PlanExpirationService {
         .map_err(|e| format!("Cleanup expired assignments failed: {}", e))?;
 
         if affected > 0 {
-            info!("🧹 Deactivated {} expired plan assignments", affected);
+            info!("Deactivated {} expired plan assignments", affected);
         }
 
         Ok(())

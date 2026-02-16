@@ -35,7 +35,7 @@ impl CommandHandler<UpdateWalletCommand> for UpdateWalletCommandHandler {
         command.validate()?;
 
         let mut conn = self.db_pool.get().await.map_err(|e| {
-            error!("❌ Failed to get connection: {}", e);
+            error!("Failed to get connection: {}", e);
             ApplicationError::infrastructure(format!("Failed to get connection: {}", e))
         })?;
 
@@ -55,7 +55,7 @@ impl CommandHandler<UpdateWalletCommand> for UpdateWalletCommandHandler {
         .await
         .optional()
         .map_err(|e| {
-            error!("❌ Failed to check wallet existence: {}", e);
+            error!("Failed to check wallet existence: {}", e);
             ApplicationError::infrastructure(format!("Failed to check wallet: {}", e))
         })?;
 
@@ -106,12 +106,12 @@ impl CommandHandler<UpdateWalletCommand> for UpdateWalletCommandHandler {
             .execute(&mut conn)
             .await
             .map_err(|e| {
-                error!("❌ Failed to update wallet: {}", e);
+                error!("Failed to update wallet: {}", e);
                 ApplicationError::infrastructure(format!("Failed to update wallet: {}", e))
             })?;
 
         info!(
-            "✅ Successfully updated wallet: {}",
+            "Successfully updated wallet: {}",
             command.wallet_address
         );
 
@@ -133,7 +133,7 @@ impl UpdateWalletCommandHandler {
         wallet_address: &str,
     ) -> ApplicationResult<WalletDetailDto> {
         let mut conn = self.db_pool.get().await.map_err(|e| {
-            error!("❌ Failed to get connection: {}", e);
+            error!("Failed to get connection: {}", e);
             ApplicationError::infrastructure(format!("Failed to get connection: {}", e))
         })?;
 
@@ -163,7 +163,7 @@ impl UpdateWalletCommandHandler {
         .get_result::<WalletRow>(&mut conn)
         .await
         .map_err(|e| {
-            error!("❌ Failed to fetch updated wallet: {}", e);
+            error!("Failed to fetch updated wallet: {}", e);
             ApplicationError::infrastructure(format!("Failed to fetch wallet: {}", e))
         })?;
 

@@ -519,10 +519,10 @@ impl TradingViewScanner {
             if symbol == "NVDA" {
                 // Focus on NVDA since we know it should have estimate 1.237
                 debug!(
-                    "🔍 DEBUG: Processing TradingView response for symbol: {}",
+                    "DEBUG: Processing TradingView response for symbol: {}",
                     symbol
                 );
-                debug!("🔍 DEBUG: Total fields: {}", first_stock.d.len());
+                debug!("DEBUG: Total fields: {}", first_stock.d.len());
 
                 // Print ALL fields to see what data is available
                 for (idx, field) in first_stock.d.iter().enumerate() {
@@ -563,7 +563,7 @@ impl TradingViewScanner {
                         33 => "earnings_release_next_date",
                         _ => "unknown_field",
                     };
-                    debug!("🔍 DEBUG: Field {} ({}): {:?}", idx, field_name, field);
+                    debug!("DEBUG: Field {} ({}): {:?}", idx, field_name, field);
                 }
             }
         }

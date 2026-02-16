@@ -7,6 +7,7 @@
 import { Check, ExternalLink, Package, Pencil, Shield, X } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 
+import { getExplorerAddressLink } from '@/shared/config/constants';
 import { AssignPermissionForm, type AssignPermissionData } from './assign-permission-form';
 import type { WalletActivityEvent, WalletData } from './types';
 import { WalletActivityHistory } from './wallet-activity-history';
@@ -380,7 +381,7 @@ export function WalletDetailPanel({
                                     )}
                                     <Button
                                         variant="outline"
-                                        onClick={() => window.open(`https://bscscan.com/address/${wallet.walletAddress}`, '_blank')}
+                                        onClick={() => window.open(getExplorerAddressLink(wallet.walletAddress), '_blank')}
                                         className="gap-2"
                                     >
                                         <ExternalLink className="h-4 w-4" />

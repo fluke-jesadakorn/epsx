@@ -136,10 +136,10 @@ fn get_default_settings() -> std::collections::HashMap<String, std::collections:
 pub async fn get_all_settings_handler(
     State(app_state): State<AppState>,
 ) -> Result<Json<Value>, AppError> {
-    info!("📋 Getting all system settings");
+    info!("Getting all system settings");
     
     let mut conn = app_state.db_pool.get().await.map_err(|e| {
-        error!("❌ Failed to get DB connection: {}", e);
+        error!("Failed to get DB connection: {}", e);
         AppError::new(ErrorKind::DatabaseError, format!("Failed to get DB connection: {}", e))
     })?;
 
@@ -150,7 +150,7 @@ pub async fn get_all_settings_handler(
     .load(&mut conn)
     .await
     .map_err(|e| {
-        error!("❌ Failed to query settings: {}", e);
+        error!("Failed to query settings: {}", e);
         AppError::new(ErrorKind::DatabaseError, format!("Failed to query settings: {}", e))
     })?;
     
@@ -168,7 +168,7 @@ pub async fn get_all_settings_handler(
         settings = get_default_settings();
     }
     
-    info!("✅ Retrieved {} categories of settings", settings.len());
+    info!("Retrieved {} categories of settings", settings.len());
     
     Ok(Json(json!({
         "success": true,
@@ -195,10 +195,10 @@ pub async fn get_settings_by_category_handler(
     State(app_state): State<AppState>,
     Path(category): Path<String>,
 ) -> Result<Json<Value>, AppError> {
-    info!("📋 Getting settings for category: {}", category);
+    info!("Getting settings for category: {}", category);
     
     let mut conn = app_state.db_pool.get().await.map_err(|e| {
-        error!("❌ Failed to get DB connection: {}", e);
+        error!("Failed to get DB connection: {}", e);
         AppError::new(ErrorKind::DatabaseError, format!("Failed to get DB connection: {}", e))
     })?;
 
@@ -210,7 +210,7 @@ pub async fn get_settings_by_category_handler(
     .load(&mut conn)
     .await
     .map_err(|e| {
-        error!("❌ Failed to query settings: {}", e);
+        error!("Failed to query settings: {}", e);
         AppError::new(ErrorKind::DatabaseError, format!("Failed to query settings: {}", e))
     })?;
     
@@ -228,7 +228,7 @@ pub async fn get_settings_by_category_handler(
         }
     }
     
-    info!("✅ Retrieved {} settings for category: {}", settings.len(), category);
+    info!("Retrieved {} settings for category: {}", settings.len(), category);
     
     Ok(Json(json!({
         "success": true,
@@ -256,10 +256,10 @@ pub async fn update_settings_handler(
     State(app_state): State<AppState>,
     Json(request): Json<UpdateSettingsRequest>,
 ) -> Result<Json<Value>, StatusCode> {
-    info!("📝 Updating {} settings", request.settings.len());
+    info!("Updating {} settings", request.settings.len());
     
     let mut conn = app_state.db_pool.get().await.map_err(|e| {
-        error!("❌ Failed to get DB connection: {}", e);
+        error!("Failed to get DB connection: {}", e);
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
     
@@ -282,10 +282,10 @@ pub async fn update_settings_handler(
         match result {
             Ok(_) => {
                 updated_count += 1;
-                info!("✅ Updated setting: {}.{}", setting.category, setting.key);
+                info!("Updated setting: {}.{}", setting.category, setting.key);
             }
             Err(e) => {
-                error!("❌ Failed to update {}.{}: {}", setting.category, setting.key, e);
+                error!("Failed to update {}.{}: {}", setting.category, setting.key, e);
                 errors.push(format!("{}.{}: {}", setting.category, setting.key, e));
             }
         }
@@ -321,10 +321,10 @@ pub async fn update_settings_handler(
 pub async fn reset_settings_handler(
     State(app_state): State<AppState>,
 ) -> Result<Json<Value>, StatusCode> {
-    info!("🔄 Resetting all settings to defaults");
+    info!("Resetting all settings to defaults");
     
     let mut conn = app_state.db_pool.get().await.map_err(|e| {
-        error!("❌ Failed to get DB connection: {}", e);
+        error!("Failed to get DB connection: {}", e);
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
     
@@ -333,7 +333,7 @@ pub async fn reset_settings_handler(
         .execute(&mut conn)
         .await
         .map_err(|e| {
-            error!("❌ Failed to delete settings: {}", e);
+            error!("Failed to delete settings: {}", e);
             StatusCode::INTERNAL_SERVER_ERROR
         })?;
     
@@ -358,7 +358,7 @@ pub async fn reset_settings_handler(
         }
     }
     
-    info!("✅ Reset {} settings to defaults", inserted_count);
+    info!("Reset {} settings to defaults", inserted_count);
     
     Ok(Json(json!({
         "success": true,

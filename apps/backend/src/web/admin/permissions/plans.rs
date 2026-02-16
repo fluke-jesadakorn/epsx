@@ -45,6 +45,8 @@ pub struct CreatePlanRequest {
     pub plan_metadata: Option<serde_json::Value>,
     pub is_public: Option<bool>,
     pub default_expiry_days: Option<i32>,
+    pub plan_category: Option<String>,
+    pub plan_group: Option<String>,
 }
 
 #[derive(Debug, Deserialize, utoipa::ToSchema)]
@@ -65,6 +67,8 @@ pub struct UpdatePlanRequest {
     pub is_public: Option<bool>,
     pub default_expiry_days: Option<i32>,
     pub grace_period_hours: Option<i32>,
+    pub plan_category: Option<String>,
+    pub plan_group: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -90,6 +94,8 @@ pub struct PlanResponse {
     pub is_public: bool,
     pub default_expiry_days: Option<i32>,
     pub grace_period_hours: i32,
+    pub plan_category: String,
+    pub plan_group: String,
 }
 
 impl PlanResponse {
@@ -117,6 +123,8 @@ impl PlanResponse {
             is_public: plan.is_public(),
             default_expiry_days: plan.metadata().get("default_expiry_days").and_then(|v| v.as_i64()).map(|v| v as i32),
             grace_period_hours: plan.grace_period_hours(),
+            plan_category: plan.plan_category().as_str().to_string(),
+            plan_group: plan.plan_group().as_str().to_string(),
         }
     }
 }
@@ -127,6 +135,7 @@ pub struct ListPlansQuery {
     pub limit: Option<u32>,
     pub plan_type: Option<String>,
     pub is_active: Option<bool>,
+    pub plan_group: Option<String>,
 }
 
 
@@ -198,6 +207,8 @@ pub async fn create_plan(
         metadata: req.plan_metadata.clone(),
         is_public: req.is_public,
         grace_period_hours: None,
+        plan_category: req.plan_category.as_deref().and_then(|s| crate::domain::permission_management::PlanCategory::from_str(s).ok()),
+        plan_group: req.plan_group.as_deref().and_then(|s| crate::domain::permission_management::PlanGroup::from_str(s).ok()),
     }) {
         Ok(g) => g,
         Err(e) => {
@@ -351,6 +362,7 @@ pub async fn list_plans(
         plan_type: query.plan_type.clone(),
         is_active: query.is_active,
         is_promoted: None,
+        plan_group: query.plan_group.clone(),
         search_term: None,
         limit: Some(pg.limit as i64),
         offset: Some(pg.offset),
@@ -361,6 +373,7 @@ pub async fn list_plans(
         plan_type: query.plan_type,
         is_active: query.is_active,
         is_promoted: None,
+        plan_group: query.plan_group,
         search_term: None,
         limit: None,
         offset: None,
@@ -397,22 +410,12 @@ pub async fn list_plans(
                     count: i64,
                 }
 
-                // Use a simple loop for now as Diesel's `IN` with dynamic list in sql_query is tricky
-                // Optimization: For production, we should construct a single query with ANY($1)
-                // usage of string replacement is safe here as UUIDs are strictly typed
-                let id_list = plan_ids.iter()
-                    .map(|id| format!("'{}'", id))
-                    .collect::<Vec<_>>()
-                    .join(",");
-                
-                let sql = format!(
-                    "SELECT plan_id, COUNT(*) as count FROM wallet_plan_assignments WHERE plan_id IN ({}) AND is_active = true GROUP BY plan_id",
-                    id_list
-                );
+                let sql = "SELECT plan_id, COUNT(*) as count FROM wallet_plan_assignments WHERE plan_id = ANY($1) AND is_active = true GROUP BY plan_id";
 
                 match diesel::sql_query(sql)
+                    .bind::<diesel::sql_types::Array<diesel::sql_types::Uuid>, _>(&plan_ids)
                     .load::<CountRow>(&mut conn)
-                    .await 
+                    .await
                 {
                     Ok(rows) => rows.into_iter().map(|r| (r.plan_id, r.count)).collect(),
                     Err(e) => {
@@ -525,6 +528,8 @@ pub async fn update_plan(
         metadata: req.plan_metadata,
         is_public: req.is_public,
         grace_period_hours: req.grace_period_hours,
+        plan_category: req.plan_category.as_deref().and_then(|s| crate::domain::permission_management::PlanCategory::from_str(s).ok()),
+        plan_group: req.plan_group.as_deref().and_then(|s| crate::domain::permission_management::PlanGroup::from_str(s).ok()),
     };
 
     // If default_expiry_days is provided, merge it into metadata

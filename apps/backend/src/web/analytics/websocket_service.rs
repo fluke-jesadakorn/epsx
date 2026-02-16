@@ -51,7 +51,7 @@ impl WebSocketEarningsService {
         if let Some((timestamp, days, cache_time)) = cache.data.get(symbol) {
           if current_time - cache_time < CACHE_DURATION_SECONDS {
             tracing::info!(
-              "📋 Using cached earnings data for {}: {} days",
+              "Using cached earnings data for {}: {} days",
               symbol,
               days
             );
@@ -65,12 +65,12 @@ impl WebSocketEarningsService {
 
     // If all symbols are cached, return immediately
     if symbols_to_fetch.is_empty() {
-      tracing::info!("🚀 All {} symbols served from cache", symbols.len());
+      tracing::info!("All {} symbols served from cache", symbols.len());
       return Ok(result_map);
     }
 
     tracing::info!(
-      "🔌 Fetching {} symbols via WebSocket (cached: {})",
+      "Fetching {} symbols via WebSocket (cached: {})",
       symbols_to_fetch.len(),
       result_map.len()
     );
@@ -105,7 +105,7 @@ impl WebSocketEarningsService {
         }
 
         tracing::info!(
-          "✅ Real QoQ pattern earnings for {}: {} days",
+          "Real QoQ pattern earnings for {}: {} days",
           ws_data.symbol,
           days_until
         );
@@ -131,7 +131,7 @@ impl WebSocketEarningsService {
 
     if !missing_symbols.is_empty() {
       tracing::error!(
-        "❌ Missing earnings data for {} symbols: {:?}",
+        "Missing earnings data for {} symbols: {:?}",
         missing_symbols.len(),
         missing_symbols
       );
@@ -146,7 +146,7 @@ impl WebSocketEarningsService {
     }
 
     tracing::info!(
-      "📊 WebSocket earnings fetch complete: {}/{} symbols processed",
+      "WebSocket earnings fetch complete: {}/{} symbols processed",
       result_map.len(),
       symbols.len()
     );
@@ -171,11 +171,11 @@ impl WebSocketEarningsService {
     {
       Ok(Ok(data)) => Ok(data),
       Ok(Err(e)) => {
-        tracing::error!("❌ WebSocket earnings fetch failed: {}", e);
+        tracing::error!("WebSocket earnings fetch failed: {}", e);
         Err(e)
       }
       Err(_) => {
-        tracing::warn!("⚠️ WebSocket earnings fetch timed out after 15s");
+        tracing::warn!("WebSocket earnings fetch timed out after 15s");
         Err(AppError::network_error("WebSocket timeout".to_string()))
       }
     }
@@ -189,7 +189,7 @@ impl WebSocketEarningsService {
     result_map: &mut HashMap<String, (i64, i32)>
   ) {
     tracing::warn!(
-      "⚠️ No quarterly pattern available for {}, trying last announcement",
+      "No quarterly pattern available for {}, trying last announcement",
       symbol
     );
 
@@ -202,7 +202,7 @@ impl WebSocketEarningsService {
         ) as i32;
         result_map.insert(symbol.to_string(), (estimated_next, days_until));
         tracing::info!(
-          "✅ Estimated from last quarter for {}: {} days",
+          "Estimated from last quarter for {}: {} days",
           symbol,
           days_until
         );
@@ -210,7 +210,7 @@ impl WebSocketEarningsService {
       }
     }
 
-    tracing::error!("❌ No valid earnings data available for {}", symbol);
+    tracing::error!("No valid earnings data available for {}", symbol);
   }
 
   /// Add cached results for symbols not fetched from WebSocket
@@ -242,7 +242,7 @@ impl WebSocketEarningsService {
       if let Some(announcement_date) = quarter.estimated_earnings_date {
         if announcement_date > current_timestamp {
           tracing::info!(
-            "🎯 Found future announcement: {} days from now",
+            "Found future announcement: {} days from now",
             (announcement_date - current_timestamp) / 86400
           );
           return Some(announcement_date);
@@ -264,7 +264,7 @@ impl WebSocketEarningsService {
     if let Some(latest_quarter) = quarterly_data.first() {
       let estimated_next = latest_quarter.timestamp + 90 * 86400;
       if estimated_next > current_timestamp {
-        tracing::info!("📅 Using 90-day standard cycle from last announcement");
+        tracing::info!("Using 90-day standard cycle from last announcement");
         return Some(estimated_next);
       }
     }
@@ -307,7 +307,7 @@ impl WebSocketEarningsService {
     if estimated_next > current_timestamp {
       let days_until = (estimated_next - current_timestamp) / 86400;
       tracing::info!(
-        "✅ QoQ pattern: {} days median interval → {} days until next",
+        "QoQ pattern: {} days median interval → {} days until next",
         median_interval / 86400,
         days_until
       );
@@ -335,7 +335,7 @@ impl WebSocketEarningsService {
         if let Some((qoq_growth, cache_time)) = cache.qoq_data.get(symbol) {
           if current_time - cache_time < CACHE_DURATION_SECONDS {
             tracing::info!(
-              "📋 Using cached QoQ data for {}: {:.2}%",
+              "Using cached QoQ data for {}: {:.2}%",
               symbol,
               qoq_growth
             );
@@ -348,12 +348,12 @@ impl WebSocketEarningsService {
     }
 
     if symbols_to_fetch.is_empty() {
-      tracing::info!("🚀 All {} QoQ symbols served from cache", symbols.len());
+      tracing::info!("All {} QoQ symbols served from cache", symbols.len());
       return Ok(result_map);
     }
 
     tracing::info!(
-      "🔌 Fetching {} QoQ symbols via WebSocket",
+      "Fetching {} QoQ symbols via WebSocket",
       symbols_to_fetch.len()
     );
 
@@ -375,7 +375,7 @@ impl WebSocketEarningsService {
         ));
 
         tracing::info!(
-          "✅ Real WebSocket QoQ for {}: {:.2}%",
+          "Real WebSocket QoQ for {}: {:.2}%",
           ws_data.symbol,
           qoq_growth
         );
@@ -383,7 +383,7 @@ impl WebSocketEarningsService {
     }
 
     tracing::info!(
-      "📊 WebSocket QoQ fetch complete: {}/{} symbols processed",
+      "WebSocket QoQ fetch complete: {}/{} symbols processed",
       result_map.len(),
       symbols.len()
     );

@@ -3,6 +3,7 @@
  * Manages smart contract addresses across different chains
  */
 
+import bscMainnetDeployment from '@/../contracts/deployments/bsc-mainnet.json';
 import bscTestnetDeployment from '@/../contracts/deployments/bsc-testnet.json';
 import localhostDeployment from '@/../contracts/deployments/localhost.json';
 
@@ -24,16 +25,17 @@ const EXPLORER_URLS = {
 export const CHAIN_EXPLORERS = EXPLORER_URLS;
 
 // Contract addresses by chain (env vars override deployment JSON)
+// NOTE: Use || not ?? because Next.js replaces unset NEXT_PUBLIC_* with "" at build time
 const PAYMENT_ESCROW_ADDRESSES: Record<number, string> = {
   [CHAIN_IDS.BSC_TESTNET]:
     process.env.NEXT_PUBLIC_PAYMENT_ESCROW_TESTNET
-    ?? bscTestnetDeployment.contracts.PaymentEscrow.address,
+    || bscTestnetDeployment.contracts.PaymentEscrow.address,
   [CHAIN_IDS.LOCALHOST]:
     process.env.NEXT_PUBLIC_PAYMENT_ESCROW_LOCAL
-    ?? localhostDeployment.contractAddress,
+    || localhostDeployment.contractAddress,
   [CHAIN_IDS.BSC_MAINNET]:
     process.env.NEXT_PUBLIC_PAYMENT_ESCROW_MAINNET
-    ?? '',
+    || bscMainnetDeployment.contracts.PaymentEscrow.address,
 };
 
 // Export as PAYMENT_ESCROW_ADDRESS for backwards compatibility
@@ -44,13 +46,13 @@ export const PAYMENT_ESCROW_ADDRESS = PAYMENT_ESCROW_ADDRESSES;
 const PAYMENT_RECEIVER_ADDRESSES: Record<number, string> = {
   [CHAIN_IDS.BSC_TESTNET]:
     process.env.NEXT_PUBLIC_PAYMENT_RECEIVER_TESTNET
-    ?? PAYMENT_ESCROW_ADDRESSES[CHAIN_IDS.BSC_TESTNET],
+    || PAYMENT_ESCROW_ADDRESSES[CHAIN_IDS.BSC_TESTNET],
   [CHAIN_IDS.LOCALHOST]:
     process.env.NEXT_PUBLIC_PAYMENT_RECEIVER_LOCAL
-    ?? PAYMENT_ESCROW_ADDRESSES[CHAIN_IDS.LOCALHOST],
+    || PAYMENT_ESCROW_ADDRESSES[CHAIN_IDS.LOCALHOST],
   [CHAIN_IDS.BSC_MAINNET]:
     process.env.NEXT_PUBLIC_PAYMENT_RECEIVER_MAINNET
-    ?? PAYMENT_ESCROW_ADDRESSES[CHAIN_IDS.BSC_MAINNET],
+    || PAYMENT_ESCROW_ADDRESSES[CHAIN_IDS.BSC_MAINNET],
 };
 
 // Token addresses by chain (env vars override defaults)

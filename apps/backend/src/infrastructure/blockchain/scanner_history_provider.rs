@@ -44,11 +44,19 @@ struct BscScanLog {
 impl ScannerTransactionHistoryProvider {
     pub fn new(api_key: String, contract_address: String) -> Self {
         let event_topic = "0xa7f9e7f4f9c6e7e3d8b3a2f1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6f5a4b3c2d1".to_string();
+        let is_mainnet = std::env::var("BLOCKCHAIN_NETWORK")
+            .unwrap_or_default()
+            .eq_ignore_ascii_case("mainnet");
+        let base_url = if is_mainnet {
+            "https://api.bscscan.com/api"
+        } else {
+            "https://api-testnet.bscscan.com/api"
+        }.to_string();
         Self {
             api_key,
             contract_address,
             event_topic,
-            base_url: "https://api.bscscan.com/api".to_string(),
+            base_url,
         }
     }
 }

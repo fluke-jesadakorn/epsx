@@ -160,7 +160,7 @@ async function validateCriticalEndpoints(page: any): Promise<void> {
         console.warn(`⚠️ ${endpoint.method} ${endpoint.path}: ${response.status()} (unexpected)`);
       }
     } catch (error) {
-      console.warn(`⚠️ ${endpoint.method} ${endpoint.path}: Error -`, error.message);
+      console.warn(`⚠️ ${endpoint.method} ${endpoint.path}: Error -`, error instanceof Error ? error.message : error);
     }
   }
 }

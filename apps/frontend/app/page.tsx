@@ -6,8 +6,8 @@ import { Suspense } from 'react';
 
 import type { StockFinancialData } from '@/types/financialChartData';
 
-// DISABLE ISR caching to show real Data Analytics data immediately
-export const revalidate = 0;
+// ISR: revalidate homepage every 60s for fresh analytics data
+export const revalidate = 60;
 
 // Loading skeleton for Top Performers section
 function TopPerformersLoading() {

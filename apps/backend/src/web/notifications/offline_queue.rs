@@ -80,7 +80,7 @@ pub async fn fetch_queued_notifications(
         .collect();
 
     tracing::info!(
-        "📦 Fetched {} active notifications (last 30 days) for wallet: {}",
+        "Fetched {} active notifications (last 30 days) for wallet: {}",
         notifications.len(),
         wallet_address
     );
@@ -127,7 +127,7 @@ pub async fn mark_as_acknowledged(
     .execute(&mut conn)
     .await?;
 
-    tracing::debug!("✅ Notification acknowledged: id={}", notification_id);
+    tracing::debug!("Notification acknowledged: id={}", notification_id);
 
     Ok(())
 }
@@ -175,7 +175,7 @@ pub async fn cleanup_old_notifications(
         + expired_result;
 
     tracing::info!(
-        "🧹 Cleaned up {} notifications (soft-deleted: {}, read: {}, expired: {})",
+        "Cleaned up {} notifications (soft-deleted: {}, read: {}, expired: {})",
         total_cleaned,
         soft_deleted_result,
         read_result,
@@ -246,7 +246,7 @@ fn parse_notification_type(s: &str, notification_id: &Uuid) -> NotificationType 
         "system" => NotificationType::System,
         _ => {
             tracing::warn!(
-                "⚠️ Data quality issue: Invalid notification_type '{}' for notification id={}, defaulting to System",
+                "Data quality issue: Invalid notification_type '{}' for notification id={}, defaulting to System",
                 s,
                 notification_id
             );
@@ -270,7 +270,7 @@ fn parse_priority(s: &str, notification_id: &Uuid) -> NotificationPriority {
         }
         _ => {
             tracing::warn!(
-                "⚠️ Data quality issue: Invalid priority '{}' for notification id={}, defaulting to Normal",
+                "Data quality issue: Invalid priority '{}' for notification id={}, defaulting to Normal",
                 s,
                 notification_id
             );
