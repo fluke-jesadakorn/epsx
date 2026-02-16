@@ -20,7 +20,7 @@ import { cn } from '@/lib/utils';
 
 import { CreatePlanSheet } from './create-plan-sheet';
 import { PlanItem, SortablePlanItem } from './plan-item';
-import { FREE_PLAN_ID } from './types';
+import { FREE_PLAN_ID, isSystemPlan } from './types';
 
 const GROUP_CONFIG: Record<PlanGroup, { label: string; icon: React.ReactNode }> = {
     personal: { label: 'Personal Plans', icon: <User className="h-3.5 w-3.5" /> },
@@ -37,6 +37,8 @@ export interface PlanListSidebarProps {
     onSelect: (plan: PermissionPlan) => void;
     onQuickToggle: (e: React.MouseEvent, plan: PermissionPlan) => void;
     onRefresh: () => void;
+    // External duplicate trigger (from editor drawer)
+    duplicateRef?: React.MutableRefObject<((plan: PermissionPlan) => void) | null>;
     // Dnd props
     sensors: SensorDescriptor<SensorOptions>[];
     activeId: string | null;
@@ -54,6 +56,7 @@ export function PlanListSidebar({
     onSelect,
     onQuickToggle,
     onRefresh,
+    duplicateRef,
     sensors,
     activeId,
     onDragStart,
@@ -69,6 +72,13 @@ export function PlanListSidebar({
         setSourcePlan(plan);
         setIsCreatePlanOpen(true);
     }, []);
+
+    // Expose duplicate trigger to parent via ref
+    React.useEffect(() => {
+        if (duplicateRef) {
+            duplicateRef.current = handleDuplicate;
+        }
+    }, [duplicateRef, handleDuplicate]);
 
     const clearSource = useCallback(() => {
         setSourcePlan(null);
@@ -109,7 +119,7 @@ export function PlanListSidebar({
                     onDuplicate={handleDuplicate}
                     isFreePlan={plan.id === FREE_PLAN_ID}
                     onQuickToggle={onQuickToggle}
-                    disabled={disabled}
+                    disabled={disabled || isSystemPlan(plan)}
                 />
             ))}
         </div>

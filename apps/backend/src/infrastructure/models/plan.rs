@@ -41,6 +41,7 @@ pub struct PlanDb {
     pub is_public: bool,
     pub plan_category: String,
     pub plan_group: String,
+    pub is_system: bool,
 }
 
 /// Diesel Insertable model for creating new groups
@@ -74,6 +75,7 @@ pub struct NewPlanDb {
     pub is_public: bool,
     pub plan_category: String,
     pub plan_group: String,
+    pub is_system: bool,
 }
 
 /// Diesel AsChangeset model for updating groups

@@ -696,6 +696,8 @@ diesel::table! {
         /// Display group for pricing page sections (personal, enterprise, api)
         #[max_length = 20]
         plan_group -> Varchar,
+        /// Whether this is a system-managed plan (cannot be deleted/renamed)
+        is_system -> Bool,
     }
 }
 
@@ -1017,6 +1019,21 @@ diesel::table! {
     }
 }
 
+diesel::table! {
+    use diesel::sql_types::*;
+
+    user_watchlist (id) {
+        id -> Uuid,
+        #[max_length = 255]
+        wallet_address -> Varchar,
+        #[max_length = 20]
+        symbol -> Varchar,
+        added_at -> Timestamptz,
+        notes -> Nullable<Text>,
+    }
+}
+
+diesel::joinable!(user_watchlist -> wallet_users (wallet_address));
 diesel::joinable!(api_key_module_access -> api_keys (api_key_id));
 diesel::joinable!(api_key_module_access -> api_modules (module_id));
 diesel::joinable!(api_key_permissions -> api_keys (api_key_id));
@@ -1038,6 +1055,7 @@ diesel::allow_tables_to_appear_in_same_query!(
     plans,
     route_permissions,
     system_settings,
+    user_watchlist,
     wallet_direct_permissions,
     wallet_users,
     web3_auth_nonces,

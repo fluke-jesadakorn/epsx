@@ -68,6 +68,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // Leak the pool to make it 'static (required for container)
     let _db_pool: &'static TlsPool = Box::leak(Box::new(pool));
 
+    // Seed system admin plans (idempotent)
+    epsx::infrastructure::services::seed_system_admin_plans(_db_pool).await;
+
     // Create cache (optional)
     let redis_timeout = std::time::Duration::from_secs(5);
     let cache = match std::env::var("REDIS_URL").ok() {

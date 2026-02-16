@@ -29,6 +29,7 @@ pub struct Plan {
     metadata: serde_json::Value,
     is_public: bool,
     grace_period_hours: i32,
+    is_system: bool,
     base: AggregateBase,
 }
 
@@ -73,6 +74,7 @@ pub struct LoadPlanParams {
     pub metadata: serde_json::Value,
     pub is_public: bool,
     pub grace_period_hours: i32,
+    pub is_system: bool,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub version: u64,
@@ -125,6 +127,7 @@ impl Plan {
             metadata: params.metadata.unwrap_or_else(|| serde_json::json!({})),
             is_public: params.is_public.unwrap_or(true),
             grace_period_hours: params.grace_period_hours.unwrap_or(0),
+            is_system: false,
             base: AggregateBase::new(),
         };
 
@@ -164,6 +167,7 @@ impl Plan {
             metadata: params.metadata,
             is_public: params.is_public,
             grace_period_hours: params.grace_period_hours,
+            is_system: params.is_system,
             base: AggregateBase {
                 version: params.version,
                 created_at: params.created_at,
@@ -348,6 +352,10 @@ impl Plan {
 
     pub fn grace_period_hours(&self) -> i32 {
         self.grace_period_hours
+    }
+
+    pub fn is_system(&self) -> bool {
+        self.is_system
     }
 }
 

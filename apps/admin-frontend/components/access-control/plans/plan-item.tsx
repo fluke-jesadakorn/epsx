@@ -1,11 +1,13 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Copy, GripVertical } from 'lucide-react';
+import { Copy, GripVertical, Shield } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { type PermissionPlan } from '@/lib/api/plan-management-client';
 import { cn } from '@/lib/utils';
+
+import { isSystemPlan } from './types';
 
 export interface PlanItemProps {
     plan: PermissionPlan;
@@ -39,6 +41,7 @@ export function PlanItem({
     innerRef,
 }: PlanItemProps) {
     const isPlanActive = plan.is_active !== false;
+    const isSys = isSystemPlan(plan);
 
     return (
         <div
@@ -46,19 +49,21 @@ export function PlanItem({
             style={style}
             onClick={() => onSelect?.(plan)}
             className={cn(
-                'p-4 cursor-pointer hover:bg-white/5 transition-colors border-l-4 group relative bg-transparent', // Explicit bg-transparent for base
+                'p-4 cursor-pointer hover:bg-white/5 transition-colors border-l-4 group relative bg-transparent',
                 selectedPlanId === plan.id
                     ? 'bg-cyan-500/10 border-l-[#1fc7d4]'
-                    : 'border-l-transparent',
+                    : isSys
+                        ? 'border-l-purple-500/50'
+                        : 'border-l-transparent',
                 isDragging === true ? 'opacity-40' : ''
             )}
         >
-            {/* Drag Handle - Absolutely positioned */}
+            {/* Drag Handle - hidden for system plans */}
             <div
                 {...(dragHandleProps ?? {})}
                 className={cn(
                     'absolute left-1 top-1/2 -translate-y-1/2 p-1 text-slate-500 hover:text-white cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-opacity',
-                    disabled === true ? 'hidden' : ''
+                    (disabled === true || isSys) ? 'hidden' : ''
                 )}
                 onClick={(e) => e.stopPropagation()}
             >
@@ -69,12 +74,25 @@ export function PlanItem({
             <div className={cn('pl-4 transition-all duration-200')}>
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                        {/* ORDER INDICATOR */}
-                        <div className="h-5 w-5 rounded bg-white/5 flex items-center justify-center text-[10px] font-mono text-muted-foreground">
-                            {index + 1}
-                        </div>
+                        {/* ORDER INDICATOR / SYSTEM ICON */}
+                        {isSys ? (
+                            <div className="h-5 w-5 rounded bg-purple-500/20 flex items-center justify-center">
+                                <Shield className="h-3 w-3 text-purple-400" />
+                            </div>
+                        ) : (
+                            <div className="h-5 w-5 rounded bg-white/5 flex items-center justify-center text-[10px] font-mono text-muted-foreground">
+                                {index + 1}
+                            </div>
+                        )}
                         <div>
-                            <h4 className="font-bold text-sm text-foreground">{plan.name}</h4>
+                            <div className="flex items-center gap-1.5">
+                                <h4 className="font-bold text-sm text-foreground">{plan.name}</h4>
+                                {isSys && (
+                                    <Badge variant="outline" className="text-[9px] px-1 py-0 bg-purple-500/15 text-purple-400 border-purple-500/30">
+                                        System
+                                    </Badge>
+                                )}
+                            </div>
                             <p className="text-xs text-muted-foreground line-clamp-1">
                                 {plan.description}
                             </p>

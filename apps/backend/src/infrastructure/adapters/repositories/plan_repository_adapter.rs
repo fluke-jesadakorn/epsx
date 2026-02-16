@@ -255,6 +255,7 @@ impl PlanRepositoryPort for PostgresPlanRepositoryAdapter {
              is_public: true, // Default to public for subscription plans
              plan_category: "base".to_string(),
              plan_group: "personal".to_string(),
+             is_system: false,
         };
 
         // 1. Upsert Plan

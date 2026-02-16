@@ -61,7 +61,7 @@ export function PlanEditorPage({ planId }: Props) {
                         selectPlan(plan);
                     } else {
                         toast.error('Plan not found');
-                        router.push('/wallet-management/access/plans');
+                        router.push('/wallet-management/access');
                     }
                 }
             } catch (error: unknown) {
@@ -77,12 +77,23 @@ export function PlanEditorPage({ planId }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- load once on mount
     }, [isAuthenticated, planId]);
 
+    const reloadPermissions = async () => {
+        try {
+            const res = await getPermissionsAction();
+            if (res.success && res.data) {
+                setPermissions(res.data);
+            }
+        } catch (_) {
+            // ignore
+        }
+    };
+
     const handleDelete = async () => {
         if (!deleteTarget) return;
         try {
             await deletePlanAction(deleteTarget.id);
             toast.success('Plan deleted');
-            router.push('/wallet-management/access/plans');
+            router.push('/wallet-management/access');
         } catch (e: unknown) {
             toast.error(e instanceof Error ? e.message : 'Failed to delete plan');
         }
@@ -99,7 +110,7 @@ export function PlanEditorPage({ planId }: Props) {
     return (
         <div className="flex flex-col gap-4 h-full">
             <Link
-                href="/wallet-management/access/plans"
+                href="/wallet-management/access"
                 className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors w-fit"
             >
                 <ArrowLeft className="w-4 h-4" />
@@ -119,6 +130,7 @@ export function PlanEditorPage({ planId }: Props) {
                     onDiscard={discardChanges}
                     onDelete={() => setDeleteTarget(selectedPlan)}
                     permissions={permissions}
+                    onPermissionsChanged={() => void reloadPermissions()}
                 />
             </div>
             <DeletePlanDialog

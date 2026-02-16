@@ -55,6 +55,16 @@ export interface PlanEditFormState {
 
 export const FREE_PLAN_ID = '00000000-0000-0000-0000-000000000000';
 
+export const SYSTEM_PLAN_IDS = [
+    '00000000-0000-0000-0001-000000000001', // Super Admin
+    '00000000-0000-0000-0001-000000000002', // Moderator
+    '00000000-0000-0000-0001-000000000003', // Support
+];
+
+export function isSystemPlan(plan: { id: string; is_system_plan?: boolean }): boolean {
+    return plan.is_system_plan === true || SYSTEM_PLAN_IDS.includes(plan.id);
+}
+
 export interface PlanDeletionContext {
     plans: PermissionPlan[];
     setPlans: (p: PermissionPlan[]) => void;
@@ -67,4 +77,15 @@ export interface DragDropContext {
     setPlans: (p: PermissionPlan[]) => void;
     selectedPlan: PermissionPlan | null;
     setForm: React.Dispatch<React.SetStateAction<PlanEditFormState>>;
+}
+
+const CATEGORY_CLASSES: Record<string, string> = {
+    base: 'bg-blue-500/15 text-blue-400 border-blue-500/30',
+    addon: 'bg-amber-500/15 text-amber-400 border-amber-500/30',
+    system: 'bg-purple-500/15 text-purple-400 border-purple-500/30',
+    exclusive: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
+};
+
+export function categoryBadgeClass(cat: string): string {
+    return CATEGORY_CLASSES[cat] ?? 'bg-blue-500/15 text-blue-400 border-blue-500/30';
 }

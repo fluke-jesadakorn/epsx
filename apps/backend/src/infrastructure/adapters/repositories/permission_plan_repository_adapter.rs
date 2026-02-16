@@ -120,6 +120,7 @@ impl PlanRepositoryPort for PlanRepositoryAdapter {
                 metadata: row.plan_metadata,
                 is_public: row.is_public,
                 grace_period_hours: row.grace_period_hours,
+                is_system: row.is_system,
                 created_at: row.created_at,
                 updated_at: row.updated_at,
                 version: 1,
@@ -248,6 +249,7 @@ impl PlanRepositoryPort for PlanRepositoryAdapter {
             is_public: plan.is_public(),
             plan_category: plan.plan_category().as_str().to_string(),
             plan_group: plan.plan_group().as_str().to_string(),
+            is_system: plan.is_system(),
         };
 
         // Upsert permission plan
@@ -272,6 +274,7 @@ impl PlanRepositoryPort for PlanRepositoryAdapter {
                 plans::grace_period_hours.eq(new_plan.grace_period_hours),
                 plans::plan_category.eq(&new_plan.plan_category),
                 plans::plan_group.eq(&new_plan.plan_group),
+                plans::is_system.eq(new_plan.is_system),
             ))
             .execute(&mut conn)
             .await

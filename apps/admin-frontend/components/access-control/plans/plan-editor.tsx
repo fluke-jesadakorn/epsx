@@ -1,10 +1,18 @@
-import { Loader2, Package, RotateCcw, Trash2 } from 'lucide-react';
+import { Calendar, Clock, Copy, Hash, Loader2, Package, RotateCcw, Shield, Trash2, Users } from 'lucide-react';
 import React from 'react';
 
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { type PermissionDefinition } from '@/lib/api/permissions-client';
@@ -17,9 +25,11 @@ import {
 
 import { DualPanePermissionSelector } from '../dual-pane-permission-selector';
 import {
+    categoryBadgeClass,
     FEATURE_PERMISSIONS,
     FREE_PLAN_ID,
     getFeatureValue,
+    isSystemPlan,
     setFeatureValue,
     type PlanEditFormState,
 } from './types';
@@ -36,10 +46,23 @@ export interface PlanEditorProps {
     onSave: () => void;
     onDiscard: () => void;
     onDelete: () => void;
+    onDuplicate?: (plan: PermissionPlan) => void;
     permissions: PermissionDefinition[];
+    onPermissionsChanged?: () => void;
 }
 
-// eslint-disable-next-line max-lines-per-function -- plan editor form
+function SectionHeader({ children }: { children: React.ReactNode }) {
+    return (
+        <div className="flex items-center gap-3 pt-2">
+            <Label className="text-[#1fc7d4] uppercase tracking-wider font-bold text-xs whitespace-nowrap">
+                {children}
+            </Label>
+            <div className="h-px flex-1 bg-white/5" />
+        </div>
+    );
+}
+
+// eslint-disable-next-line max-lines-per-function -- plan editor form with sequential sections
 export function PlanEditor({
     selectedPlan,
     form,
@@ -50,7 +73,9 @@ export function PlanEditor({
     onSave,
     onDiscard,
     onDelete,
+    onDuplicate,
     permissions,
+    onPermissionsChanged,
 }: PlanEditorProps) {
     if (!selectedPlan) {
         return (
@@ -63,32 +88,67 @@ export function PlanEditor({
     }
 
     const isFree = selectedPlan.id === FREE_PLAN_ID;
+    const isSys = isSystemPlan(selectedPlan);
+    const isLocked = isFree || isSys;
+    const numericFeatures = FEATURE_PERMISSIONS.filter(fp => fp.type === 'numeric');
+    const booleanFeatures = FEATURE_PERMISSIONS.filter(fp => fp.type === 'boolean');
 
     return (
         <Card className="h-full border border-white/5 bg-slate-900/40 backdrop-blur-xl shadow-xl rounded-[32px] overflow-hidden flex flex-col">
-            <CardHeader className="py-6 px-8 border-b border-white/5 bg-white/5 flex flex-row items-center justify-between shrink-0">
-                <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-xl bg-[#1fc7d4]/20 flex items-center justify-center">
+            {/* Header */}
+            <CardHeader className="py-5 px-8 border-b border-white/5 bg-white/5 flex flex-row items-center justify-between shrink-0">
+                <div className="flex items-center gap-3 min-w-0">
+                    <div className="h-10 w-10 rounded-xl bg-[#1fc7d4]/20 flex items-center justify-center shrink-0">
                         <Package className="w-5 h-5 text-[#1fc7d4]" />
                     </div>
-                    <div>
-                        <CardTitle className="text-lg font-bold">Edit Plan</CardTitle>
-                        <p className="text-xs text-muted-foreground font-mono">
-                            {selectedPlan.id}
+                    <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                            <CardTitle className="text-lg font-bold truncate">
+                                {selectedPlan.name}
+                            </CardTitle>
+                            <Badge variant="outline" className={`text-[10px] px-1.5 py-0 shrink-0 ${categoryBadgeClass(form.plan_category)}`}>
+                                {form.plan_category}
+                            </Badge>
+                            {isSys && (
+                                <Badge variant="outline" className="text-[10px] px-1.5 py-0 shrink-0 bg-purple-500/15 text-purple-400 border-purple-500/30">
+                                    <Shield className="w-2.5 h-2.5 mr-1" />
+                                    System
+                                </Badge>
+                            )}
+                            {!form.is_active && (
+                                <Badge variant="outline" className="text-[10px] px-1.5 py-0 shrink-0 bg-red-500/15 text-red-400 border-red-500/30">
+                                    inactive
+                                </Badge>
+                            )}
+                        </div>
+                        <p className="text-[11px] text-muted-foreground font-mono truncate">
+                            {selectedPlan.slug ?? selectedPlan.id}
                         </p>
                     </div>
                 </div>
-                <div className="flex gap-2">
-                    <Button
-                        variant="ghost"
-                        className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
-                        size="sm"
-                        onClick={onDelete}
-                        disabled={isFree}
-                    >
-                        <Trash2 className="w-4 h-4 mr-2" />
-                        Delete
-                    </Button>
+                <div className="flex gap-2 shrink-0">
+                    {isSys ? (
+                        <Button
+                            variant="ghost"
+                            className="text-purple-400 hover:text-purple-300 hover:bg-purple-500/10"
+                            size="sm"
+                            onClick={() => onDuplicate?.(selectedPlan)}
+                        >
+                            <Copy className="w-4 h-4 mr-2" />
+                            Use as Template
+                        </Button>
+                    ) : (
+                        <Button
+                            variant="ghost"
+                            className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                            size="sm"
+                            onClick={onDelete}
+                            disabled={isFree}
+                        >
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Delete
+                        </Button>
+                    )}
                     <Button
                         variant="ghost"
                         size="sm"
@@ -106,11 +166,40 @@ export function PlanEditor({
                         className="bg-[#1fc7d4] text-white hover:bg-[#1fc7d4]/90"
                     >
                         {isSaving && <Loader2 className="w-3 h-3 animate-spin mr-2" />}
-                        Save Changes
+                        Save
                     </Button>
                 </div>
             </CardHeader>
-            <CardContent className="p-8 space-y-8 overflow-y-auto flex-1">
+
+            {/* Stats bar */}
+            <div className="px-8 py-3 border-b border-white/5 flex items-center gap-6 text-xs text-muted-foreground shrink-0">
+                <span className="flex items-center gap-1.5">
+                    <Users className="w-3.5 h-3.5" />
+                    {selectedPlan.member_count ?? 0} members
+                </span>
+                <span className="flex items-center gap-1.5">
+                    <Hash className="w-3.5 h-3.5" />
+                    Priority {form.priority}
+                </span>
+                {selectedPlan.created_at != null && (
+                    <span className="flex items-center gap-1.5">
+                        <Calendar className="w-3.5 h-3.5" />
+                        {new Date(selectedPlan.created_at).toLocaleDateString()}
+                    </span>
+                )}
+                {selectedPlan.updated_at != null && (
+                    <span className="flex items-center gap-1.5">
+                        <Clock className="w-3.5 h-3.5" />
+                        {new Date(selectedPlan.updated_at).toLocaleDateString()}
+                    </span>
+                )}
+            </div>
+
+            {/* Scrollable content */}
+            <div className="flex-1 overflow-y-auto p-8 space-y-6">
+
+                {/* General */}
+                <SectionHeader>General</SectionHeader>
                 <div className="grid grid-cols-2 gap-6">
                     <div className="space-y-2">
                         <Label>Plan Name</Label>
@@ -121,8 +210,74 @@ export function PlanEditor({
                                 setHasChanges(true);
                             }}
                             className="bg-white/5 border-white/10"
+                            disabled={isSys}
                         />
                     </div>
+                    <div className="space-y-2">
+                        <Label>Description</Label>
+                        <Textarea
+                            value={form.description}
+                            onChange={(e) => {
+                                setForm((p) => ({ ...p, description: e.target.value }));
+                                setHasChanges(true);
+                            }}
+                            className="bg-white/5 border-white/10 min-h-[38px] h-[38px] resize-y"
+                            rows={1}
+                        />
+                    </div>
+                    <div className="space-y-2">
+                        <Label>Category</Label>
+                        <Select
+                            value={form.plan_category}
+                            onValueChange={(val) => {
+                                setForm((p) => ({ ...p, plan_category: val as 'base' | 'addon' | 'system' | 'exclusive' }));
+                                setHasChanges(true);
+                            }}
+                            disabled={isSys}
+                        >
+                            <SelectTrigger className="bg-white/5 border-white/10">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="base">Base</SelectItem>
+                                <SelectItem value="addon">Addon</SelectItem>
+                                <SelectItem value="system">System</SelectItem>
+                                <SelectItem value="exclusive">Exclusive</SelectItem>
+                            </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground">
+                            Base: 1 per wallet. Addon/System: stackable. Exclusive: max 3.
+                        </p>
+                    </div>
+                    <div className="space-y-2">
+                        <Label>Display Group</Label>
+                        <Select
+                            value={form.plan_group}
+                            onValueChange={(val) => {
+                                setForm((p) => ({ ...p, plan_group: val as 'personal' | 'enterprise' | 'api' | 'custom' }));
+                                setHasChanges(true);
+                            }}
+                            disabled={isSys}
+                        >
+                            <SelectTrigger className="bg-white/5 border-white/10">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="personal">Personal</SelectItem>
+                                <SelectItem value="enterprise">Enterprise</SelectItem>
+                                <SelectItem value="api">API</SelectItem>
+                                <SelectItem value="custom">Custom</SelectItem>
+                            </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground">
+                            Pricing page section for this plan.
+                        </p>
+                    </div>
+                </div>
+
+                {/* Pricing & Timing */}
+                <SectionHeader>Pricing & Timing</SectionHeader>
+                <div className="grid grid-cols-2 gap-6">
                     <div className="space-y-2">
                         <Label>Priority</Label>
                         <Input
@@ -148,48 +303,10 @@ export function PlanEditor({
                         />
                     </div>
                     <div className="space-y-2">
-                        <Label>Category</Label>
-                        <select
-                            value={form.plan_category}
-                            onChange={(e) => {
-                                setForm((p) => ({ ...p, plan_category: e.target.value as 'base' | 'addon' | 'system' | 'exclusive' }));
-                                setHasChanges(true);
-                            }}
-                            className="flex h-10 w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white"
-                        >
-                            <option value="base">Base</option>
-                            <option value="addon">Addon</option>
-                            <option value="system">System</option>
-                            <option value="exclusive">Exclusive</option>
-                        </select>
-                        <p className="text-xs text-muted-foreground">
-                            Base: 1 per wallet. Addon/System: stackable. Exclusive: max 3.
-                        </p>
-                    </div>
-                    <div className="space-y-2">
-                        <Label>Display Group</Label>
-                        <select
-                            value={form.plan_group}
-                            onChange={(e) => {
-                                setForm((p) => ({ ...p, plan_group: e.target.value as 'personal' | 'enterprise' | 'api' | 'custom' }));
-                                setHasChanges(true);
-                            }}
-                            className="flex h-10 w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white"
-                        >
-                            <option value="personal">Personal</option>
-                            <option value="enterprise">Enterprise</option>
-                            <option value="api">API</option>
-                            <option value="custom">Custom</option>
-                        </select>
-                        <p className="text-xs text-muted-foreground">
-                            Section on the pricing page where this plan appears.
-                        </p>
-                    </div>
-                    <div className="space-y-2">
                         <Label className="flex items-center gap-2">
                             Price (USD)
-                            {isFree && (
-                                <TooltipIcon text="Pricing for the Free Plan is permanent and cannot be modified." />
+                            {isLocked && (
+                                <TooltipIcon text="Pricing for system plans cannot be modified." />
                             )}
                         </Label>
                         <Input
@@ -209,7 +326,7 @@ export function PlanEditor({
                                 setHasChanges(true);
                             }}
                             className="bg-white/5 border-white/10"
-                            disabled={isFree}
+                            disabled={isLocked}
                         />
                     </div>
                     <div className="space-y-2">
@@ -268,105 +385,22 @@ export function PlanEditor({
                             placeholder="0"
                         />
                     </div>
-                    <div className="space-y-2" />
-                    <div className="col-span-2 space-y-2">
-                        <Label>Description</Label>
-                        <Textarea
-                            value={form.description}
-                            onChange={(e) => {
-                                setForm((p) => ({ ...p, description: e.target.value }));
-                                setHasChanges(true);
-                            }}
-                            className="bg-white/5 border-white/10"
-                        />
-                    </div>
-                    <div className="col-span-2 space-y-2">
-                        <Label>Features (One per line)</Label>
-                        <p className="text-xs text-muted-foreground">
-                            These features will be displayed on the public pricing page.
-                        </p>
-                        <Textarea
-                            value={form.features.join('\n')}
-                            onChange={(e) => {
-                                const list = e.target.value.split('\n');
-                                setForm((p) => ({ ...p, features: list }));
-                                setHasChanges(true);
-                            }}
-                            className="bg-white/5 border-white/10 min-h-[120px] font-mono text-sm"
-                            placeholder={'Advanced analytics\nUnlimited stock analysis\nPriority support'}
-                        />
-                    </div>
+                </div>
 
-                    {/* Feature Permissions */}
-                    <div className="col-span-2 space-y-4">
-                        <Label className="text-[#1fc7d4] uppercase tracking-wider font-bold text-xs">
-                            Feature Permissions
-                        </Label>
-                        <div className="grid grid-cols-2 gap-4">
-                            {FEATURE_PERMISSIONS.map((fp) => {
-                                const val = getFeatureValue(form.permissions, fp.prefix);
-                                if (fp.type === 'boolean') {
-                                    return (
-                                        <div key={fp.prefix} className="flex items-center justify-between p-3 rounded-lg bg-white/5 border border-white/10">
-                                            <Label className="flex items-center gap-2 text-sm">
-                                                {fp.label}
-                                                {fp.tooltip != null && <TooltipIcon text={fp.tooltip} />}
-                                            </Label>
-                                            <Switch
-                                                checked={val === 'true'}
-                                                onCheckedChange={(checked) => {
-                                                    setForm((p) => ({
-                                                        ...p,
-                                                        permissions: setFeatureValue(p.permissions, fp.prefix, checked ? 'true' : null),
-                                                    }));
-                                                    setHasChanges(true);
-                                                }}
-                                            />
-                                        </div>
-                                    );
-                                }
-                                return (
-                                    <div key={fp.prefix} className="space-y-1">
-                                        <Label className="flex items-center gap-2 text-sm">
-                                            {fp.label}
-                                            {fp.tooltip != null && <TooltipIcon text={fp.tooltip} />}
-                                        </Label>
-                                        <Input
-                                            type="text"
-                                            inputMode="numeric"
-                                            value={val ?? ''}
-                                            placeholder={fp.placeholder}
-                                            onChange={(e) => {
-                                                const v = e.target.value;
-                                                setForm((p) => ({
-                                                    ...p,
-                                                    permissions: setFeatureValue(p.permissions, fp.prefix, v === '' ? null : v),
-                                                }));
-                                                setHasChanges(true);
-                                            }}
-                                            className="bg-white/5 border-white/10"
-                                        />
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </div>
-
-                    <div className="col-span-2 flex items-center justify-between p-4 rounded-lg bg-white/5 border border-white/10">
+                {/* Status */}
+                <SectionHeader>Status</SectionHeader>
+                <div className="grid grid-cols-2 gap-6">
+                    <div className="flex items-center justify-between p-4 rounded-lg bg-white/5 border border-white/10">
                         <div className="flex flex-col">
-                            <span className="text-sm font-medium text-white/80">
-                                Public Visibility
-                            </span>
-                            <span className="text-xs text-white/40">
-                                Show on pricing page
-                            </span>
+                            <span className="text-sm font-medium text-white/80">Public Visibility</span>
+                            <span className="text-xs text-white/40">Show on pricing page</span>
                         </div>
                         <Tooltip>
                             <TooltipTrigger asChild>
-                                <div className={isFree ? 'cursor-not-allowed opacity-80' : ''}>
+                                <div className={isLocked ? 'cursor-not-allowed opacity-80' : ''}>
                                     <Switch
                                         checked={form.is_public}
-                                        disabled={isFree}
+                                        disabled={isLocked}
                                         onCheckedChange={(checked) => {
                                             setForm((p) => ({ ...p, is_public: checked }));
                                             setHasChanges(true);
@@ -374,28 +408,24 @@ export function PlanEditor({
                                     />
                                 </div>
                             </TooltipTrigger>
-                            {isFree && (
+                            {isLocked && (
                                 <TooltipContent side="left" className="bg-slate-900 border-white/10 text-white max-w-[200px]">
-                                    <p className="text-xs">Default system plan visibility cannot be changed</p>
+                                    <p className="text-xs">System plan visibility cannot be changed</p>
                                 </TooltipContent>
                             )}
                         </Tooltip>
                     </div>
-                    <div className="col-span-2 flex items-center justify-between p-4 rounded-lg bg-white/5 border border-white/10">
+                    <div className="flex items-center justify-between p-4 rounded-lg bg-white/5 border border-white/10">
                         <div className="flex flex-col">
-                            <span className="text-sm font-medium text-white/80">
-                                Active Status
-                            </span>
-                            <span className="text-xs text-white/40">
-                                Plan assignments allowed
-                            </span>
+                            <span className="text-sm font-medium text-white/80">Active Status</span>
+                            <span className="text-xs text-white/40">Plan assignments allowed</span>
                         </div>
                         <Tooltip>
                             <TooltipTrigger asChild>
-                                <div className={isFree ? 'cursor-not-allowed opacity-80' : ''}>
+                                <div className={isLocked ? 'cursor-not-allowed opacity-80' : ''}>
                                     <Switch
                                         checked={form.is_active}
-                                        disabled={isFree}
+                                        disabled={isLocked}
                                         onCheckedChange={(checked) => {
                                             setForm((p) => ({ ...p, is_active: checked }));
                                             setHasChanges(true);
@@ -403,34 +433,107 @@ export function PlanEditor({
                                     />
                                 </div>
                             </TooltipTrigger>
-                            {isFree && (
+                            {isLocked && (
                                 <TooltipContent side="left" className="bg-slate-900 border-white/10 text-white max-w-[200px]">
-                                    <p className="text-xs">Default system plan status cannot be changed</p>
+                                    <p className="text-xs">System plan status cannot be changed</p>
                                 </TooltipContent>
                             )}
                         </Tooltip>
                     </div>
                 </div>
 
-                <div className="space-y-4">
-                    <Label className="text-[#1fc7d4] uppercase tracking-wider font-bold text-xs">
-                        Permission Assignment
-                    </Label>
-                    <div className="h-[500px]">
-                        <DualPanePermissionSelector
-                            availablePermissions={permissions}
-                            assignedPermissionStrings={form.permissions}
-                            onChange={(newPermissions) => {
-                                setForm((prev) => ({
-                                    ...prev,
-                                    permissions: newPermissions,
-                                }));
-                                setHasChanges(true);
-                            }}
-                        />
-                    </div>
+                {/* Rate Limits & Quotas */}
+                <SectionHeader>Rate Limits & Quotas</SectionHeader>
+                <div className="grid grid-cols-2 gap-4">
+                    {numericFeatures.map((fp) => {
+                        const val = getFeatureValue(form.permissions, fp.prefix);
+                        return (
+                            <div key={fp.prefix} className="space-y-1">
+                                <Label className="flex items-center gap-2 text-sm">
+                                    {fp.label}
+                                    {fp.tooltip != null && <TooltipIcon text={fp.tooltip} />}
+                                </Label>
+                                <Input
+                                    type="text"
+                                    inputMode="numeric"
+                                    value={val ?? ''}
+                                    placeholder={fp.placeholder}
+                                    onChange={(e) => {
+                                        const v = e.target.value;
+                                        setForm((p) => ({
+                                            ...p,
+                                            permissions: setFeatureValue(p.permissions, fp.prefix, v === '' ? null : v),
+                                        }));
+                                        setHasChanges(true);
+                                    }}
+                                    className="bg-white/5 border-white/10"
+                                />
+                            </div>
+                        );
+                    })}
                 </div>
-            </CardContent>
+
+                {/* Feature Toggles */}
+                <SectionHeader>Feature Toggles</SectionHeader>
+                <div className="grid grid-cols-2 gap-4">
+                    {booleanFeatures.map((fp) => {
+                        const val = getFeatureValue(form.permissions, fp.prefix);
+                        return (
+                            <div key={fp.prefix} className="flex items-center justify-between p-3 rounded-lg bg-white/5 border border-white/10">
+                                <Label className="flex items-center gap-2 text-sm">
+                                    {fp.label}
+                                    {fp.tooltip != null && <TooltipIcon text={fp.tooltip} />}
+                                </Label>
+                                <Switch
+                                    checked={val === 'true'}
+                                    onCheckedChange={(checked) => {
+                                        setForm((p) => ({
+                                            ...p,
+                                            permissions: setFeatureValue(p.permissions, fp.prefix, checked ? 'true' : null),
+                                        }));
+                                        setHasChanges(true);
+                                    }}
+                                />
+                            </div>
+                        );
+                    })}
+                </div>
+
+                {/* Pricing Page Features */}
+                <SectionHeader>Pricing Page Features</SectionHeader>
+                <div className="space-y-2">
+                    <p className="text-xs text-muted-foreground">
+                        Displayed on the public pricing page. One per line.
+                    </p>
+                    <Textarea
+                        value={form.features.join('\n')}
+                        onChange={(e) => {
+                            const list = e.target.value.split('\n');
+                            setForm((p) => ({ ...p, features: list }));
+                            setHasChanges(true);
+                        }}
+                        className="bg-white/5 border-white/10 min-h-[100px] font-mono text-sm"
+                        placeholder={'Advanced analytics\nUnlimited stock analysis\nPriority support'}
+                    />
+                </div>
+
+                {/* Permission Assignment */}
+                <SectionHeader>Permission Assignment</SectionHeader>
+                <div className="h-[500px]">
+                    <DualPanePermissionSelector
+                        availablePermissions={permissions}
+                        assignedPermissionStrings={form.permissions}
+                        onChange={(newPermissions) => {
+                            setForm((prev) => ({
+                                ...prev,
+                                permissions: newPermissions,
+                            }));
+                            setHasChanges(true);
+                        }}
+                        onPermissionsChanged={onPermissionsChanged}
+                    />
+                </div>
+            </div>
         </Card>
     );
 }

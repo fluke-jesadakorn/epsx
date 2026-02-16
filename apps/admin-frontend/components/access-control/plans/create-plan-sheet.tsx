@@ -21,6 +21,7 @@ import {
     TooltipTrigger,
 } from '@/shared/components/ui/tooltip';
 
+import { isSystemPlan } from './types';
 import { submitCreatePlan } from './use-plans-logic';
 
 const emptyForm = {
@@ -51,14 +52,15 @@ export function CreatePlanSheet({
 
     useEffect(() => {
         if (open && sourcePlan) {
+            const isSys = isSystemPlan(sourcePlan);
             setFormData({
-                name: `${sourcePlan.name} (Copy)`,
+                name: isSys ? `${sourcePlan.name} Template` : `${sourcePlan.name} (Copy)`,
                 description: sourcePlan.description ?? '',
                 priority: sourcePlan.tier_level ?? 0,
                 price: sourcePlan.price ?? 0,
                 default_expiry_days: sourcePlan.default_expiry_days ?? 30,
                 permissions: sourcePlan.permissions ?? [],
-                plan_group: sourcePlan.plan_group ?? 'personal',
+                plan_group: sourcePlan.plan_group ?? 'custom',
             });
         } else if (!open) {
             setFormData(emptyForm);
@@ -67,6 +69,7 @@ export function CreatePlanSheet({
     }, [open, sourcePlan, onSourceClear]);
 
     const isDuplicate = sourcePlan != null;
+    const isTemplate = isDuplicate && isSystemPlan(sourcePlan);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -97,11 +100,13 @@ export function CreatePlanSheet({
                 className="w-[400px] sm:w-[540px] bg-slate-900 border-white/5 text-white flex flex-col h-full"
             >
                 <SheetHeader>
-                    <SheetTitle>{isDuplicate ? 'Duplicate Plan' : 'Create Plan'}</SheetTitle>
+                    <SheetTitle>{isTemplate ? 'Create from Template' : isDuplicate ? 'Duplicate Plan' : 'Create Plan'}</SheetTitle>
                     <SheetDescription>
-                        {isDuplicate
-                            ? `Create a new plan based on "${sourcePlan.name}".`
-                            : 'Create a new access plan.'}
+                        {isTemplate
+                            ? `Create an editable admin plan based on "${sourcePlan.name}".`
+                            : isDuplicate
+                                ? `Create a new plan based on "${sourcePlan.name}".`
+                                : 'Create a new access plan.'}
                     </SheetDescription>
                 </SheetHeader>
                 <form

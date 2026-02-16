@@ -295,6 +295,7 @@ pub struct PermissionPlan {
     pub is_public: bool,
     pub plan_category: String,
     pub plan_group: String,
+    pub is_system: bool,
 }
 
 // Helper to extract permissions from plan_metadata
@@ -466,6 +467,7 @@ pub struct PermissionPlanDb {
     pub is_public: bool,
     pub plan_category: String,
     pub plan_group: String,
+    pub is_system: bool,
 }
 
 /// Diesel Insertable model for creating/updating permission plans

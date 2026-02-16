@@ -2,7 +2,7 @@
 
 import { Loader2 } from 'lucide-react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
 
 import { updatePlanAction } from '@/app/wallet-management/plan-actions';
@@ -24,6 +24,7 @@ export function PlansView({ className }: PlansViewProps) {
     const searchParams = useSearchParams();
     const selectedPlanId = searchParams.get('planId');
     const { isAuthenticated, isLoading: authLoading } = useSharedAuth();
+    const duplicateRef = useRef<((plan: PermissionPlan) => void) | null>(null);
     const {
         plans,
         isLoading: isLoadingData,
@@ -68,6 +69,10 @@ export function PlansView({ className }: PlansViewProps) {
     const handlePlanUpdated = useCallback(() => {
         void loadAllData();
     }, [loadAllData]);
+
+    const handleDuplicateFromEditor = useCallback((plan: PermissionPlan) => {
+        duplicateRef.current?.(plan);
+    }, []);
 
     const handleQuickToggle = useCallback(
         (e: React.MouseEvent, plan: PermissionPlan) => {
@@ -122,7 +127,7 @@ export function PlansView({ className }: PlansViewProps) {
         <div className={cn('h-[calc(100vh-250px)] min-h-[500px] flex gap-4', className)}>
             <div className={cn(
                 'transition-all duration-300 h-full',
-                isOpen ? 'w-[340px] shrink-0' : 'w-full'
+                isOpen ? 'w-[380px] shrink-0' : 'w-full'
             )}>
                 <PlanListSidebar
                     plans={plans}
@@ -130,6 +135,7 @@ export function PlansView({ className }: PlansViewProps) {
                     onSelect={handleSelect}
                     onQuickToggle={handleQuickToggle}
                     onRefresh={loadAllData}
+                    duplicateRef={duplicateRef}
                     sensors={sensors}
                     activeId={activeId}
                     onDragStart={handleDragStart}
@@ -143,6 +149,7 @@ export function PlansView({ className }: PlansViewProps) {
                         planId={selectedPlanId}
                         onClose={handleClose}
                         onPlanUpdated={handlePlanUpdated}
+                        onDuplicate={handleDuplicateFromEditor}
                     />
                 </div>
             )}

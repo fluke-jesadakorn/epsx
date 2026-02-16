@@ -9,9 +9,12 @@ import {
     deletePlanAction,
     getPlansAction,
 } from '@/app/wallet-management/plan-actions';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { type PermissionDefinition } from '@/lib/api/permissions-client';
 import { logger } from '@/shared/utils/logger';
+
+import { categoryBadgeClass, isSystemPlan } from './types';
 
 import { DeletePlanDialog } from './delete-plan-dialog';
 import { PlanEditor } from './plan-editor';
@@ -21,10 +24,11 @@ interface Props {
     planId: string | null;
     onClose: () => void;
     onPlanUpdated: () => void;
+    onDuplicate?: (plan: import('@/lib/api/plan-management-client').PermissionPlan) => void;
 }
 
 // eslint-disable-next-line max-lines-per-function -- sidebar panel wrapper
-export function PlanEditorDrawer({ planId, onClose, onPlanUpdated }: Props) {
+export function PlanEditorDrawer({ planId, onClose, onPlanUpdated, onDuplicate }: Props) {
     const [permissions, setPermissions] = useState<PermissionDefinition[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [deleteTarget, setDeleteTarget] = useState<
@@ -89,6 +93,17 @@ export function PlanEditorDrawer({ planId, onClose, onPlanUpdated }: Props) {
         }
     };
 
+    const reloadPermissions = async () => {
+        try {
+            const res = await getPermissionsAction();
+            if (res.success && res.data) {
+                setPermissions(res.data);
+            }
+        } catch (_) {
+            // ignore
+        }
+    };
+
     const handleSave = () => {
         void savePlan([], () => {}).then(() => {
             onPlanUpdated();
@@ -99,10 +114,21 @@ export function PlanEditorDrawer({ planId, onClose, onPlanUpdated }: Props) {
         <>
             <div className="h-full flex flex-col border-l border-white/5 bg-slate-950/50">
                 <div className="flex items-center justify-between px-4 py-2 border-b border-white/5 shrink-0">
-                    <span className="text-xs text-muted-foreground font-mono truncate">
-                        {planId}
-                    </span>
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onClose}>
+                    <div className="flex items-center gap-2 min-w-0">
+                        {selectedPlan != null ? (
+                            <>
+                                <span className="text-sm font-medium truncate">{selectedPlan.name}</span>
+                                <Badge variant="outline" className={`text-[10px] px-1.5 py-0 shrink-0 ${categoryBadgeClass(selectedPlan.plan_category)}`}>
+                                    {selectedPlan.plan_category}
+                                </Badge>
+                            </>
+                        ) : (
+                            <span className="text-xs text-muted-foreground font-mono truncate">
+                                {planId}
+                            </span>
+                        )}
+                    </div>
+                    <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={onClose}>
                         <X className="h-4 w-4" />
                     </Button>
                 </div>
@@ -122,7 +148,9 @@ export function PlanEditorDrawer({ planId, onClose, onPlanUpdated }: Props) {
                             onSave={handleSave}
                             onDiscard={discardChanges}
                             onDelete={() => setDeleteTarget(selectedPlan)}
+                            onDuplicate={onDuplicate}
                             permissions={permissions}
+                            onPermissionsChanged={() => void reloadPermissions()}
                         />
                     </div>
                 )}

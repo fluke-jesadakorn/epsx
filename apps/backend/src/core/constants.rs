@@ -177,3 +177,29 @@ pub const FREE_PLAN_DEFAULT_PERMISSIONS: &[&str] = &[
     "analytics:basic",
     "markets:view",
 ];
+
+// ============================================================================
+// SYSTEM ADMIN PLAN CONSTANTS
+// ============================================================================
+
+pub const SUPER_ADMIN_PLAN_ID: &str = "00000000-0000-0000-0001-000000000001";
+pub const SUPER_ADMIN_PLAN_NAME: &str = "Super Admin";
+pub const SUPER_ADMIN_PLAN_SLUG: &str = "super-admin";
+
+pub const MODERATOR_PLAN_ID: &str = "00000000-0000-0000-0001-000000000002";
+pub const MODERATOR_PLAN_NAME: &str = "Moderator";
+pub const MODERATOR_PLAN_SLUG: &str = "moderator";
+
+pub const SUPPORT_PLAN_ID: &str = "00000000-0000-0000-0001-000000000003";
+pub const SUPPORT_PLAN_NAME: &str = "Support";
+pub const SUPPORT_PLAN_SLUG: &str = "support";
+
+pub const SYSTEM_ADMIN_PLAN_IDS: [&str; 3] = [
+    SUPER_ADMIN_PLAN_ID,
+    MODERATOR_PLAN_ID,
+    SUPPORT_PLAN_ID,
+];
+
+pub fn is_system_admin_plan(plan_id: &str) -> bool {
+    SYSTEM_ADMIN_PLAN_IDS.contains(&plan_id)
+}

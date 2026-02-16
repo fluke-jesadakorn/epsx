@@ -92,6 +92,7 @@ pub struct PlanResponse {
     pub updated_at: DateTime<Utc>,
     pub member_count: i32,
     pub is_public: bool,
+    pub is_system_plan: bool,
     pub default_expiry_days: Option<i32>,
     pub grace_period_hours: i32,
     pub plan_category: String,
@@ -121,6 +122,7 @@ impl PlanResponse {
             updated_at: plan.updated_at(),
             member_count,
             is_public: plan.is_public(),
+            is_system_plan: plan.is_system(),
             default_expiry_days: plan.metadata().get("default_expiry_days").and_then(|v| v.as_i64()).map(|v| v as i32),
             grace_period_hours: plan.grace_period_hours(),
             plan_category: plan.plan_category().as_str().to_string(),
@@ -469,13 +471,19 @@ pub async fn update_plan(
     Path(plan_id): Path<String>,
     Json(req): Json<UpdatePlanRequest>,
 ) -> impl IntoResponse {
-    use crate::core::constants::FREE_PLAN_ID;
-    
+    use crate::core::constants::{FREE_PLAN_ID, is_system_admin_plan};
+
     // Check for constant Free Plan locking
     if plan_id == FREE_PLAN_ID {
-        // Only allow updating certain fields if needed, but for now block price
         if req.price.is_some() {
             return AdminResponse::bad_request("Price of the Free Plan is locked and cannot be modified").into_response();
+        }
+    }
+
+    // System admin plans: block name/slug/category/group changes
+    if is_system_admin_plan(&plan_id) {
+        if req.name.is_some() || req.plan_category.is_some() || req.plan_group.is_some() {
+            return AdminResponse::forbidden("System admin plans cannot be renamed or recategorized").into_response();
         }
     }
     // Block updates to constant Free Plan
@@ -598,6 +606,11 @@ pub async fn delete_plan(
     // Block deletion of constant Free Plan
     if plan_id == crate::core::constants::FREE_PLAN_ID {
         return AdminResponse::forbidden("Constant Free Plan cannot be deleted").into_response();
+    }
+
+    // Block deletion of system admin plans
+    if crate::core::constants::is_system_admin_plan(&plan_id) {
+        return AdminResponse::forbidden("System admin plans cannot be deleted").into_response();
     }
 
     // Parse plan ID
