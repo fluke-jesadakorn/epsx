@@ -1,4 +1,4 @@
-import { Breadcrumb } from '@/components/layout/Breadcrumb';
+import { Breadcrumb } from '@/components/layout/breadcrumb';
 import { ChatInbox, ChatStatsPanel } from '@/components/chat';
 import { getAdminChatStats, listAllConversations, getTopics } from '@/app/actions/chat';
 import { MessageCircle } from 'lucide-react';

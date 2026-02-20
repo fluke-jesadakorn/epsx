@@ -1,4 +1,4 @@
-import { Breadcrumb } from '@/components/layout/Breadcrumb';
+import { Breadcrumb } from '@/components/layout/breadcrumb';
 import { ChatConversationView } from '@/components/chat';
 import { getConversation, getTopics } from '@/app/actions/chat';
 import { notFound } from 'next/navigation';
