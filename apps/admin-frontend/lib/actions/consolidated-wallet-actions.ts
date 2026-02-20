@@ -21,7 +21,7 @@ import { makeAuthenticatedRequest } from './shared-utils';
 
 import { createErrorResult, createSuccessResult, type ActionResult } from '@/lib/action-utils';
 import { logger } from '@/lib/logger';
-import type { Permission, UnifiedWalletData } from '@/lib/types/unified-wallet';
+import type { Permission, UnifiedWalletData } from '@/lib/types/wallet';
 
 // ============================================================================
 // TYPES AND INTERFACES

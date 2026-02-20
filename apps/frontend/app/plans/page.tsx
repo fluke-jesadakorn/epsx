@@ -1,5 +1,5 @@
 import { PlanSelection } from '@/components/plans/plan-selection'
-import { getCurrentUser } from '@/lib/server-actions'
+import { getCurrentUser } from '@/lib/server/actions'
 
 export const revalidate = 300
 

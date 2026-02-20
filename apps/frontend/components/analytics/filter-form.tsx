@@ -11,7 +11,7 @@ import {
   SelectValue
 } from '@/components/ui/select';
 import { Filter, Globe, Sparkles, RotateCcw, Search } from 'lucide-react';
-import type { FilterOptions, EPSQueryParams } from '@/lib/unified-server-data';
+import type { FilterOptions, EPSQueryParams } from '@/lib/server/data';
 
 interface FilterFormProps {
   filterOptions: FilterOptions;

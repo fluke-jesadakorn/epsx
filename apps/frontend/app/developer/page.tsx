@@ -1,5 +1,5 @@
 import { DeveloperStatsCards } from '@/components/developer/developer-stats-cards';
-import { getCurrentUser } from '@/lib/server-actions';
+import { getCurrentUser } from '@/lib/server/actions';
 import nextDynamic from 'next/dynamic';
 
 const APIKeyManager = nextDynamic(

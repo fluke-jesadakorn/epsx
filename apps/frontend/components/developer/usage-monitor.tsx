@@ -10,7 +10,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui';
 import { Badge } from '@/components/ui/badge';
 import { useQuery } from '@tanstack/react-query';
-import type { AuthUser } from '@/lib/server-actions';
+import type { AuthUser } from '@/lib/server/actions';
 
 interface UsageMonitorProps {
   currentUser: AuthUser;

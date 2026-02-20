@@ -1,6 +1,6 @@
 import { GlobalAuthGuard } from '@/components/auth/global-auth-guard';
-import { getCurrentUser } from '@/lib/server-actions';
-import { getDebugSessionInfo } from '@/lib/server-actions-user';
+import { getCurrentUser } from '@/lib/server/actions';
+import { getDebugSessionInfo } from '@/lib/server/user-actions';
 import type { ReactNode } from 'react';
 import { DeveloperSidebarClient } from './developer-sidebar-client';
 

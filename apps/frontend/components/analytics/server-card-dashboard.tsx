@@ -2,7 +2,7 @@
 import {
   getAnalyticsData,
   type EPSQueryParams,
-} from '@/lib/unified-server-data';
+} from '@/lib/server/data';
 import { Suspense } from 'react';
 import { AnalyticsDashboardWrapper } from './analytics-dashboard-wrapper';
 import ServerFilters from './server-filters';

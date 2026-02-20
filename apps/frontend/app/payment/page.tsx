@@ -1,7 +1,7 @@
 import { CreditCard, Gem, Lock, Zap } from 'lucide-react';
 import { GlobalAuthGuard } from '@/components/auth/global-auth-guard';
-import { getCurrentUser } from '@/lib/server-actions';
-import { getDebugSessionInfo } from '@/lib/server-actions-user';
+import { getCurrentUser } from '@/lib/server/actions';
+import { getDebugSessionInfo } from '@/lib/server/user-actions';
 import { redirect } from 'next/navigation';
 import { PaymentClient } from './payment-client';
 import { getPublicPlansAction } from '@/app/actions/plans';

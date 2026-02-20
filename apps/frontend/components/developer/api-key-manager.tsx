@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import type { AuthUser } from '@/lib/server-actions';
+import type { AuthUser } from '@/lib/server/actions';
 import type { UserApiKey } from '@/shared/api/users';
 import { useFrontendApiClient } from '@/shared/hooks/use-api-client';
 import { copyToClipboard as copyToClipboardUtil } from '@/utils/clipboard';

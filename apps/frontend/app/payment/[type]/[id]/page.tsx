@@ -1,6 +1,6 @@
 import { CreditCard, Gem, Key, Link2, Lock, Users, Zap } from 'lucide-react';
 import { PaymentAuthGuard } from '@/app/payment/components/payment-auth-guard';
-import { getCurrentUser, getDebugSessionInfo } from '@/lib/server-actions-user';
+import { getCurrentUser, getDebugSessionInfo } from '@/lib/server/user-actions';
 import { PaymentClient } from '../../payment-client';
 import { getPublicPlansAction } from '@/app/actions/plans';
 

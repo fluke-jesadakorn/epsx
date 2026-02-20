@@ -1,4 +1,4 @@
-import { getServerFilterOptions, type EPSQueryParams, type FilterOptions } from '@/lib/unified-server-data';
+import { getServerFilterOptions, type EPSQueryParams, type FilterOptions } from '@/lib/server/data';
 import FilterForm from './filter-form';
 
 interface ServerFiltersProps {

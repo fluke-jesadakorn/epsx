@@ -1,5 +1,5 @@
 import { getWatchlistAction } from '@/app/actions/watchlist';
-import { getAnalyticsData } from '@/lib/unified-server-data';
+import { getAnalyticsData } from '@/lib/server/data';
 import type { SymbolCardData } from '@/shared/types/analytics';
 import { Suspense } from 'react';
 import { WatchlistProvider } from './watchlist-provider';

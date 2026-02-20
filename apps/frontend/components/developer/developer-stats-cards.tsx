@@ -4,7 +4,7 @@
 import { getMyPlansAction } from '@/app/actions/developer';
 import { Badge } from '@/components/ui/badge';
 import { useQuery } from '@tanstack/react-query';
-import type { AuthUser } from '@/lib/server-actions';
+import type { AuthUser } from '@/lib/server/actions';
 
 interface UserGroupData {
     plans: Array<{
