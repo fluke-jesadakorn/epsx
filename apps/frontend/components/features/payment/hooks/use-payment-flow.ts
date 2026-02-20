@@ -163,7 +163,7 @@ export function usePaymentFlow({ preselectedId, initialPlans = [] }: UsePaymentF
                 return {
                     id: plan.id,
                     title: plan.name.replace(/\s+Plan$/i, ''),
-                    price: isFree ? 'Free' : `${price}`,
+                    price: isFree ? 'Free' : `$${price}`,
                     originalPrice: basePrice ? `$${basePrice}` : undefined,
                     features: parsedFeatures.map((f) => typeof f === 'string' ? { text: f, included: true } : f),
                     highlight: plan.is_highlighted ?? plan.is_promoted,
@@ -305,6 +305,10 @@ export function usePaymentFlow({ preselectedId, initialPlans = [] }: UsePaymentF
     };
 
     const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+    const pollStartRef = useRef<number>(0);
+
+    // Max polling duration: 5 minutes
+    const MAX_POLL_MS = 5 * 60 * 1000;
 
     // Cleanup polling on unmount
     useEffect(() => {
@@ -318,7 +322,7 @@ export function usePaymentFlow({ preselectedId, initialPlans = [] }: UsePaymentF
         if (isConfirmed && transferTxHash && step === 'pay') {
             const submitPayment = async () => {
                 try {
-                    const priceVal = parseFloat(selectedPlan?.price.replace(/[^0-9.]/g, '') ?? '0');
+                    const priceVal = selectedPlan?.price.replace(/[^0-9.]/g, '') ?? '0';
 
                     const result = await submitTransactionAction({
                         transaction_hash: transferTxHash,
@@ -330,10 +334,18 @@ export function usePaymentFlow({ preselectedId, initialPlans = [] }: UsePaymentF
                     if (result.success) {
                         setTxHash(transferTxHash);
                         setStep('verifying');
+                        pollStartRef.current = Date.now();
 
-                        // Poll backend for confirmation
+                        // Poll backend for confirmation with 5-minute timeout
                         pollRef.current = setInterval(() => {
                             void (async () => {
+                                // Check timeout
+                                if (Date.now() - pollStartRef.current > MAX_POLL_MS) {
+                                    if (pollRef.current) { clearInterval(pollRef.current); }
+                                    setError('Verification is taking longer than expected. Your payment is safe — check your account later or contact support.');
+                                    return;
+                                }
+
                                 try {
                                     const status = await getTransactionStatusAction(transferTxHash);
                                     if (status.success && status.data) {
@@ -342,7 +354,7 @@ export function usePaymentFlow({ preselectedId, initialPlans = [] }: UsePaymentF
                                             if (pollRef.current) { clearInterval(pollRef.current); }
                                             setStep('success');
                                             refetchPlanAccess();
-                                        } else if (s === 'failed') {
+                                        } else if (s === 'failed' || s === 'expired') {
                                             if (pollRef.current) { clearInterval(pollRef.current); }
                                             setError('Payment verification failed. Please contact support.');
                                         }

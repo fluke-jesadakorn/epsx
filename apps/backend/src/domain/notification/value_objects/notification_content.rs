@@ -306,7 +306,7 @@ mod tests {
     fn test_mobile_version() {
         let content = NotificationContent::new(
             "This is a very long title that exceeds mobile limits and needs truncation".to_string(),
-            "This is also a very long body that would not fit well on mobile devices and should be truncated for better user experience on smaller screens".to_string(),
+            "This is also a very long body that would not fit well on mobile devices and should be truncated for better user experience on smaller screens. We add some extra text here to make sure it surpasses 150 characters.".to_string(),
         ).unwrap();
 
         let mobile = content.mobile_version();

@@ -54,8 +54,8 @@ mod tests {
         assert!(!sectors.is_empty());
     }
 
-    #[test]
-    fn test_transformation_functions() {
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_transformation_functions() {
         use crate::domain::shared_kernel::entities::eps_growth::EPSRanking;
 
         // Create proper EPSRanking using the correct constructor

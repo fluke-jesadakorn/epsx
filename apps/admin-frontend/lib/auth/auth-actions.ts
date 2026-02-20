@@ -62,7 +62,7 @@ export async function clearWeb3SessionAction(): Promise<void> {
 export async function logoutAction(returnUrl?: string): Promise<void> {
     await clearWeb3SessionAction();
 
-    if (returnUrl != null && returnUrl !== '') {
+    if (returnUrl !== undefined && returnUrl !== '') {
         const cookieStore = await cookies();
         cookieStore.set(COOKIES.return_url, returnUrl, {
             httpOnly: true,

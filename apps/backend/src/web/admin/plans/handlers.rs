@@ -467,29 +467,33 @@ pub async fn create_subscription_handler(
     // For brevity, skipping the full implementation details here for "Refactor" unless STRICTLY needed.
     // BUT since we are deleting the old file, we MUST implement it fully.
     
-    // ... [Deactivate existing] ...
-     let _ = diesel::sql_query(
+    // Deactivate existing plan assignments
+    diesel::sql_query(
         r#"
-        UPDATE wallet_plan_assignments 
+        UPDATE wallet_plan_assignments
         SET is_active = false, updated_at = NOW()
-        WHERE LOWER(wallet_address) = LOWER($1) 
+        WHERE LOWER(wallet_address) = LOWER($1)
           AND is_active = true
         "#
     )
     .bind::<diesel::sql_types::Text, _>(&request.wallet_address)
     .execute(&mut primary_conn)
-    .await;
-    
-    // ... [Insert new assignment] ...
-    let _ = diesel::sql_query(
+    .await
+    .map_err(|e| {
+        tracing::error!("Failed to deactivate existing plan assignments: {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    // Insert new assignment
+    diesel::sql_query(
         r#"
         INSERT INTO wallet_plan_assignments (
-            wallet_address, plan_id, assigned_at, expires_at, 
+            wallet_address, plan_id, assigned_at, expires_at,
             assigned_by, assignment_reason, is_active, assignment_source
         ) VALUES ($1, $2, NOW(), $3, 'admin', 'Admin assigned subscription', true, 'admin')
-        ON CONFLICT (wallet_address, plan_id) 
-        DO UPDATE SET 
-            is_active = true, 
+        ON CONFLICT (wallet_address, plan_id)
+        DO UPDATE SET
+            is_active = true,
             expires_at = EXCLUDED.expires_at,
             updated_at = NOW(),
             assignment_reason = 'Admin assigned subscription (updated)'
@@ -499,7 +503,11 @@ pub async fn create_subscription_handler(
     .bind::<diesel::sql_types::Uuid, _>(plan_uuid)
     .bind::<diesel::sql_types::Timestamptz, _>(expires_at)
     .execute(&mut primary_conn)
-    .await;
+    .await
+    .map_err(|e| {
+        tracing::error!("Failed to insert plan assignment: {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
 
     // Create database record
     let new_subscription = NewSubscriptionDb {

@@ -107,19 +107,21 @@ pub struct SimplifiedAuthCache {
     permission_cache: DashMap<String, PermissionCacheEntry>,
     challenge_cache: DashMap<String, ChallengeCacheEntry>,
     stats: Arc<RwLock<SimplifiedCacheStats>>,
+    cleanup_task: Option<tokio::task::JoinHandle<()>>,
 }
 
 impl SimplifiedAuthCache {
     pub fn new(config: SimplifiedCacheConfig) -> Self {
-        let cache = Self {
+        let mut cache = Self {
             config,
             permission_cache: DashMap::new(),
             challenge_cache: DashMap::new(),
             stats: Arc::new(RwLock::new(SimplifiedCacheStats::default())),
+            cleanup_task: None,
         };
         
         // Start background cleanup
-        cache.start_cleanup_task();
+        cache.cleanup_task = Some(cache.start_cleanup_task());
         cache
     }
     
@@ -131,26 +133,37 @@ impl SimplifiedAuthCache {
     ) -> Option<(Vec<UnifiedPermission>, AccessLevel)> {
         let cache_key = self.make_permission_key(wallet_address, additional_context);
         
+        let mut is_expired = false;
+        let mut result = None;
+        
         if let Some(entry) = self.permission_cache.get(&cache_key) {
             if Instant::now() < entry.expires_at {
-                let mut stats = self.stats.write().await;
-                stats.permission_hits += 1;
-                
-                debug!(
-                    user_id = %wallet_address,
-                    wallet_address = ?wallet_address,
-                    "Permission cache hit"
-                );
-                
-                return Some((entry.permissions.clone(), entry.access_level.clone()));
+                result = Some((entry.permissions.clone(), entry.access_level.clone()));
             } else {
-                self.permission_cache.remove(&cache_key);
+                is_expired = true;
             }
         }
         
-        let mut stats = self.stats.write().await;
-        stats.permission_misses += 1;
-        None
+        if is_expired {
+            self.permission_cache.remove(&cache_key);
+        }
+        
+        if let Some(val) = result {
+            let mut stats = self.stats.write().await;
+            stats.permission_hits += 1;
+            
+            debug!(
+                user_id = %wallet_address,
+                wallet_address = ?wallet_address,
+                "Permission cache hit"
+            );
+            
+            Some(val)
+        } else {
+            let mut stats = self.stats.write().await;
+            stats.permission_misses += 1;
+            None
+        }
     }
     
     /// Cache user permissions
@@ -185,21 +198,32 @@ impl SimplifiedAuthCache {
     
     /// Get cached challenge
     pub async fn get_challenge(&self, nonce: &str) -> Option<ChallengeCacheEntry> {
+        let mut is_expired = false;
+        let mut result = None;
+
         if let Some(entry) = self.challenge_cache.get(nonce) {
             if Instant::now() < entry.expires_at {
-                let mut stats = self.stats.write().await;
-                stats.challenge_hits += 1;
-                
-                debug!(nonce = %nonce, "Challenge cache hit");
-                return Some(entry.clone());
+                result = Some(entry.clone());
             } else {
-                self.challenge_cache.remove(nonce);
+                is_expired = true;
             }
         }
         
-        let mut stats = self.stats.write().await;
-        stats.challenge_misses += 1;
-        None
+        if is_expired {
+            self.challenge_cache.remove(nonce);
+        }
+        
+        if let Some(val) = result {
+            let mut stats = self.stats.write().await;
+            stats.challenge_hits += 1;
+            
+            debug!(nonce = %nonce, "Challenge cache hit");
+            Some(val)
+        } else {
+            let mut stats = self.stats.write().await;
+            stats.challenge_misses += 1;
+            None
+        }
     }
     
     /// Cache SIWE challenge
@@ -315,7 +339,7 @@ impl SimplifiedAuthCache {
         }
     }
     
-    fn start_cleanup_task(&self) {
+    fn start_cleanup_task(&self) -> tokio::task::JoinHandle<()> {
         let permission_cache = self.permission_cache.clone();
         let challenge_cache = self.challenge_cache.clone();
         let interval = self.config.cleanup_interval;
@@ -358,7 +382,15 @@ impl SimplifiedAuthCache {
                     );
                 }
             }
-        });
+        })
+    }
+}
+
+impl Drop for SimplifiedAuthCache {
+    fn drop(&mut self) {
+        if let Some(handle) = self.cleanup_task.take() {
+            handle.abort();
+        }
     }
 }
 
@@ -367,8 +399,9 @@ mod tests {
     use super::*;
     use tokio::time::{sleep, Duration};
     
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn test_permission_caching() {
+        println!("Starting test_permission_caching");
         let config = SimplifiedCacheConfig {
             permission_cache_ttl: Duration::from_millis(100),
             ..Default::default()
@@ -391,12 +424,15 @@ mod tests {
         let result = cache.get_permissions(&wallet_address, None).await;
         assert!(result.is_some());
 
+        println!("Before sleep");
         // Wait for expiry
         sleep(Duration::from_millis(150)).await;
+        println!("After sleep");
 
         // Test cache miss after expiry
         let result = cache.get_permissions(&wallet_address, None).await;
         assert!(result.is_none());
+        println!("End test_permission_caching");
     }
     
     #[tokio::test]

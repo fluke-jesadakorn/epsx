@@ -17,5 +17,5 @@ export function redirectOnForbidden(
 
 /** Re-throw Next.js redirect errors (have `digest` property) */
 export function rethrowRedirect(e: unknown): void {
-  if (typeof e === 'object' && e !== null && 'digest' in e) throw e;
+  if (typeof e === 'object' && e !== null && 'digest' in e) {throw e;}
 }

@@ -5,6 +5,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { cn } from '@/lib/utils';
 import { useSharedAuth } from '@/shared/components/auth';
 import { getExplorerAddressLink } from '@/shared/config/constants';
+import { formatAddress } from '@/shared/auth/utils';
 import { copyToClipboard as copyToClipboardUtil } from '@/utils/util';
 import { Check, Copy, ExternalLink, LogOut, Wallet } from 'lucide-react';
 import { useState } from 'react';
@@ -20,10 +21,6 @@ export function ConnectedWalletDropdown({ className }: ConnectedWalletDropdownPr
   const [copied, setCopied] = useState(false);
 
   const displayAddress = user?.wallet_address ?? address;
-
-  const formatAddress = (addr: string) => {
-    return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
-  };
 
   const copyToClipboard = async (text: string) => {
     const success = await copyToClipboardUtil(text);

@@ -88,12 +88,21 @@ impl DieselAuditLogRepository {
                    created_at, category
             FROM unified_audit_log"#;
 
-        let unified_filtered = match category {
+        // Whitelist category to prevent SQL injection — only known values are interpolated
+        let valid_category = match category {
+            Some("system") | Some("permission") | Some("wallet") | Some("plan") |
+            Some("auth") | Some("developer") | Some("notification") | Some("payment") |
+            Some("all") => category,
+            Some(_) => None, // reject unknown categories
+            None => None,
+        };
+
+        let unified_filtered = match valid_category {
             Some(cat) => format!("{} WHERE category = '{}'", unified_base, cat),
             None => unified_base.to_string(),
         };
 
-        match category {
+        match valid_category {
             Some("system") => unions.push(audit_logs_sql),
             Some("permission") => unions.push(permission_sql),
             Some("wallet") => unions.push(wallet_sql),

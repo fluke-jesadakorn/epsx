@@ -127,7 +127,7 @@ export function usePolicyMonitor(ctx: UsePolicyMonitorContext) {
           user_id: `user${Math.floor(Math.random() * 10)}`,
           user_email: `user${Math.floor(Math.random() * 10)}@epsx.io`,
           action_attempted: (['epsx:analytics:execute', 'epsx:analytics:view', 'epsx:portfolio:export'][Math.floor(Math.random() * 3)] ?? 'epsx:analytics:view'),
-          decision: (['allow', 'deny', 'require_mfa', 'require_approval'][Math.floor(Math.random() * 4)] as unknown as 'allow' | 'deny' | 'require_mfa' | 'require_approval') ?? 'allow',
+          decision: (['allow', 'deny', 'require_mfa', 'require_approval'][Math.floor(Math.random() * 4)] as 'allow' | 'deny' | 'require_mfa' | 'require_approval' | undefined) ?? 'allow',
           decision_reason: 'Policy evaluation completed',
           evaluation_time_ms: Math.floor(Math.random() * 50) + 5,
           evaluated_at: new Date().toISOString(),

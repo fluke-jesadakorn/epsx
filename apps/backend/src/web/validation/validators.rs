@@ -391,16 +391,16 @@ mod tests {
     #[test]
     fn test_validate_strong_password() {
         // Valid password
-        assert!(validate_strong_password("MyPassword123!").is_ok());
+        assert!(validate_strong_password("MySecurePass123!").is_ok());
         
         // Too short
         assert!(validate_strong_password("Pass1!").is_err());
         
         // No uppercase
-        assert!(validate_strong_password("mypassword123!").is_err());
+        assert!(validate_strong_password("mysecurepass123!").is_err());
         
         // No special character
-        assert!(validate_strong_password("MyPassword123").is_err());
+        assert!(validate_strong_password("MySecurePass123").is_err());
         
         // Weak pattern
         assert!(validate_strong_password("Password123!").is_err());

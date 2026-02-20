@@ -35,7 +35,7 @@ export function PolicyBadges({ policy }: { policy: AccessPolicy }) {
                     'transition-all duration-200 hover:scale-105',
                     policy.isActive
                         ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800'
-                        : 'bg-gray-50 text-gray-500 border-gray-200 dark:bg-gray-900/30 dark:text-gray-400 dark:border-gray-700'
+                        : 'bg-gray-50 text-gray-500 border-gray-200 dark:bg-card/30 dark:text-gray-400 dark:border-gray-700'
                 )}
             >
                 {policy.isActive ? 'Active' : 'Inactive'}

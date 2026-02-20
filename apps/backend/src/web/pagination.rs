@@ -1,6 +1,29 @@
 use serde::{Deserialize, Serialize};
 use utoipa::{ToSchema, IntoParams};
 
+/// Pagination metadata for list responses
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct PaginationInfo {
+    /// Current page number (1-based)
+    #[schema(example = 1)]
+    pub page: u32,
+    /// Items per page
+    #[schema(example = 20)]
+    pub limit: u32,
+    /// Total items across all pages
+    #[schema(example = 150)]
+    pub total_count: u64,
+    /// Total pages available
+    #[schema(example = 8)]
+    pub total_pages: u32,
+    /// Whether a next page exists
+    #[schema(example = true)]
+    pub has_next: bool,
+    /// Whether a previous page exists
+    #[schema(example = false)]
+    pub has_prev: bool,
+}
+
 /// Reusable pagination parameters extracted from query params
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Pagination {

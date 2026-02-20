@@ -249,12 +249,12 @@ impl From<query_models::WalletActivitySummaryDto> for WalletActivitySummary {
 impl From<query_models::PaginationDto> for PaginationInfo {
     fn from(dto: query_models::PaginationDto) -> Self {
         Self {
-            page: dto.page,
-            limit: dto.limit,
-            total: dto.total,
-            total_pages: dto.total_pages,
-            has_next_page: dto.has_next_page,
-            has_previous_page: dto.has_previous_page,
+            page: dto.page.max(0) as u32,
+            limit: dto.limit.max(0) as u32,
+            total_count: dto.total.max(0) as u64,
+            total_pages: dto.total_pages.max(0) as u32,
+            has_next: dto.has_next_page,
+            has_prev: dto.has_previous_page,
         }
     }
 }
@@ -417,7 +417,7 @@ pub async fn list_users_handler(
     // 4. Build web response
     let web_response = WalletListResponse {
         wallets,
-        total: pagination.total,
+        total: pagination.total_count.try_into().unwrap_or(0),
         pagination: pagination.clone(),
     };
 

@@ -192,7 +192,7 @@ export class GlobalErrorBoundary extends Component<Props, State> {
     const { error, errorId } = this.state;
 
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-background">
         <Card className="max-w-md w-full mx-4 p-8">
           <div className="text-center">
             <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/20">

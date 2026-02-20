@@ -115,7 +115,7 @@ export async function exchangeCodeForTokens(
   } catch (error) {
 
     logger.error('❌ Admin: Token exchange error:', error)
-    throw new Error(`Failed to exchange authorization code for tokens: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    throw new Error(`Failed to exchange authorization code for tokens: ${error instanceof Error ? error.message : 'Unknown error'}`, { cause: error })
   }
 }
 

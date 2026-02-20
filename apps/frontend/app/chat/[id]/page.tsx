@@ -103,7 +103,7 @@ export default function ChatConversationPage() {
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-2xl">
-      <div className="bg-white dark:bg-slate-900/30 border border-slate-200 dark:border-white/5 rounded-3xl overflow-hidden flex flex-col shadow-sm" style={{ height: '720px' }}>
+      <div className="bg-white dark:bg-card/80 border border-slate-200 dark:border-border rounded-3xl overflow-hidden flex flex-col shadow-sm" style={{ height: '720px' }}>
         <ChatHeader
           subject={convo.subject}
           status={convo.status}

@@ -132,7 +132,7 @@ mod tests {
         .unwrap()
         .with_estimates(2.30, true);
 
-        assert_eq!(eps_data.eps_surprise(), Some(0.20));
+        assert!((eps_data.eps_surprise().unwrap() - 0.20).abs() < 1e-10);
         assert!(eps_data.eps_surprise_percentage().unwrap() > 8.0);
     }
 

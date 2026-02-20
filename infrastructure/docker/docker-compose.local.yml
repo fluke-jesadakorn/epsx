@@ -2,11 +2,18 @@
 # Usage: docker compose --env-file .env.prod -f docker-compose.local.yml up -d
 # Builds images from source and runs with Cloudflare Tunnel
 
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   postgres:
     image: postgres:17-alpine
     container_name: epsx-prod-postgres
     restart: unless-stopped
+    command: postgres -c config_file=/etc/postgresql/postgresql.conf
     environment:
       POSTGRES_DB: ${DB_NAME}
       POSTGRES_USER: ${DB_USER}
@@ -16,6 +23,7 @@ services:
     volumes:
       - prod_postgres_data:/var/lib/postgresql/data
       - ./scripts/init-databases-prod.sh:/docker-entrypoint-initdb.d/init-databases.sh:ro
+      - ./config/postgresql.conf:/etc/postgresql/postgresql.conf:ro
     networks:
       - epsx_prod
     healthcheck:
@@ -26,14 +34,24 @@ services:
       start_period: 10s
     ports:
       - "${DB_PORT:-5432}:5432"
+    deploy:
+      resources:
+        limits:
+          memory: 8G
+          cpus: "4"
+        reservations:
+          memory: 2G
+          cpus: "1"
+    logging: *default-logging
 
   redis:
     image: redis:7-alpine
     container_name: epsx-prod-redis
     restart: unless-stopped
-    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
+    command: redis-server /etc/redis/redis.conf --requirepass ${REDIS_PASSWORD}
     volumes:
       - prod_redis_data:/data
+      - ./config/redis.conf:/etc/redis/redis.conf:ro
     networks:
       - epsx_prod
     healthcheck:
@@ -44,6 +62,15 @@ services:
       start_period: 5s
     ports:
       - "${REDIS_PORT:-6379}:6379"
+    deploy:
+      resources:
+        limits:
+          memory: 1536M
+          cpus: "2"
+        reservations:
+          memory: 256M
+          cpus: "0.5"
+    logging: *default-logging
 
   backend:
     image: epsx-backend:prod
@@ -98,13 +125,27 @@ services:
     networks:
       - epsx_prod
     ports:
-      - "8081:8080"
+      - "127.0.0.1:8081:8080"
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"]
-      interval: 30s
-      timeout: 10s
+      test: ["CMD-SHELL", "curl -sf http://localhost:8080/health || exit 1"]
+      interval: 15s
+      timeout: 5s
       retries: 3
-      start_period: 40s
+      start_period: 60s
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=100M
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: "4"
+        reservations:
+          memory: 512M
+          cpus: "1"
+    logging: *default-logging
 
   frontend:
     image: epsx-frontend:prod
@@ -147,13 +188,27 @@ services:
     networks:
       - epsx_prod
     ports:
-      - "3002:3000"
+      - "127.0.0.1:3002:3000"
     healthcheck:
       test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:3000/api/health', (res) => process.exit(res.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))\""]
-      interval: 30s
-      timeout: 10s
+      interval: 15s
+      timeout: 5s
       retries: 3
-      start_period: 40s
+      start_period: 30s
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=100M
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: "2"
+        reservations:
+          memory: 256M
+          cpus: "0.5"
+    logging: *default-logging
 
   admin-frontend:
     image: epsx-admin-frontend:prod
@@ -196,13 +251,27 @@ services:
     networks:
       - epsx_prod
     ports:
-      - "3003:3000"
+      - "127.0.0.1:3003:3000"
     healthcheck:
       test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:3000/api/health', (res) => process.exit(res.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))\""]
-      interval: 30s
-      timeout: 10s
+      interval: 15s
+      timeout: 5s
       retries: 3
-      start_period: 40s
+      start_period: 30s
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=100M
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: "2"
+        reservations:
+          memory: 256M
+          cpus: "0.5"
+    logging: *default-logging
 
   cloudflared:
     image: cloudflare/cloudflared:latest
@@ -220,6 +289,20 @@ services:
       - ${HOME}/.cloudflared:/etc/cloudflared:ro
     networks:
       - epsx_prod
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=50M
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "1"
+        reservations:
+          memory: 64M
+          cpus: "0.25"
+    logging: *default-logging
 
 networks:
   epsx_prod:

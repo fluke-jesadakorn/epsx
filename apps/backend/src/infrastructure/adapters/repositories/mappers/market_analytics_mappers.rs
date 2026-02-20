@@ -30,8 +30,9 @@ impl EPSRankingMapper {
         let sector = MarketSector::new(legacy.sector.clone())
             .map_err(|e| format!("Invalid sector '{}': {}", legacy.sector, e))?;
 
-        let country = Country::new("US".to_string()) // Default country as field not available
-            .map_err(|e| format!("Invalid default country: {}", e))?;
+        let country_str = if legacy.country.is_empty() { "US".to_string() } else { legacy.country.clone() };
+        let country = Country::new(country_str)
+            .unwrap_or_else(|_| Country::new("US".to_string()).unwrap());
 
         Ok(RankingEntry {
             symbol,

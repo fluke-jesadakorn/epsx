@@ -109,7 +109,7 @@ export function WalletHub({ className }: WalletHubProps) {
 
     useEffect(() => {
         if (isAuthenticated && !authLoading) {
-            loadData();
+            void loadData();
         }
     }, [isAuthenticated, authLoading, loadData]);
 
@@ -256,7 +256,7 @@ export function WalletHub({ className }: WalletHubProps) {
                                 size="sm"
                                 variant="ghost"
                                 className="h-8 px-3 gap-2 text-primary hover:bg-primary/10 hover:text-primary"
-                                onClick={() => router.push('/subscriptions/plans/new')}
+                                onClick={() => { void router.push('/subscriptions/plans/new'); }}
                             >
                                 <Plus className="h-3.5 w-3.5" />
                                 <span className="text-xs font-semibold">Plan</span>
@@ -266,7 +266,7 @@ export function WalletHub({ className }: WalletHubProps) {
                                 size="sm"
                                 variant="ghost"
                                 className="h-8 px-3 gap-2 text-secondary hover:bg-secondary/10 hover:text-secondary"
-                                onClick={() => router.push('/wallet-management/groups/new')}
+                                onClick={() => { void router.push('/wallet-management/groups/new'); }}
                             >
                                 <Plus className="h-3.5 w-3.5" />
                                 <span className="text-xs font-semibold">Group</span>
@@ -299,11 +299,11 @@ export function WalletHub({ className }: WalletHubProps) {
                         <Button
                             variant="outline"
                             size="icon"
-                            onClick={loadData}
+                            onClick={() => { void loadData(); }}
                             disabled={isLoading}
                             className="h-9 w-9 border-border/50 bg-muted/30"
                         >
-                            <RefreshCw className={cn('h-3.5 w-3.5', isLoading && 'animate-spin')} />
+                            <RefreshCw className={cn('h-3.5 w-3.5', isLoading ? 'animate-spin' : '')} />
                         </Button>
                     </div>
                 </div>
@@ -333,7 +333,7 @@ export function WalletHub({ className }: WalletHubProps) {
             </div>
 
             {/* Error */}
-            {error && (
+            {error !== null && (
                 <div className="p-4 rounded-xl bg-destructive/10 border border-destructive/30 text-destructive text-sm flex items-center gap-2">
                     <span>⚠️</span>
                     {error}
@@ -345,7 +345,7 @@ export function WalletHub({ className }: WalletHubProps) {
                 {isLoading ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {Array.from({ length: 6 }).map((_, i) => (
-                            <Skeleton key={i} className="h-32 rounded-xl" />
+                            <Skeleton key={`skeleton-${i}`} className="h-32 rounded-xl" />
                         ))}
                     </div>
                 ) : filteredWallets.length === 0 ? (
@@ -399,7 +399,7 @@ export function WalletHub({ className }: WalletHubProps) {
             />
 
             {/* Re-enable Modal */}
-            {reenableModalWallet != null && (
+            {reenableModalWallet !== null && (
                 <ReenableWalletModal
                     walletAddress={reenableModalWallet.walletAddress}
                     disableInfo={reenableModalWallet.disableInfo}
@@ -411,7 +411,7 @@ export function WalletHub({ className }: WalletHubProps) {
             )}
 
             {/* Edit Metadata Modal */}
-            {editMetadataWallet && (
+            {editMetadataWallet !== null && (
                 <EditWalletMetadataModal
                     walletAddress={editMetadataWallet.walletAddress}
                     currentLabel={editMetadataWallet.label}

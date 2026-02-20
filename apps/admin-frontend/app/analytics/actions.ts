@@ -17,7 +17,6 @@ import type { UnifiedApiClient } from '@/shared/utils/api-client';
 import { logger } from '@/shared/utils/logger';
 import { redirect } from 'next/navigation';
 
-
 async function processApiResponse<T>(
     res: ApiResponse<T>,
     errorMessage: string,

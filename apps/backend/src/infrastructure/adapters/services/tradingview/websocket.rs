@@ -447,8 +447,8 @@ mod tests {
         });
 
     let result = RealTimeDataProcessor::process_message(test_message);
-    // Result would be Some(FrontendEPSData) with actual implementation
-    assert!(result.is_none()); // Placeholder implementation returns None
+    // Result is Some(FrontendEPSData) with actual implementation
+    assert!(result.is_some());
   }
 
   #[test]

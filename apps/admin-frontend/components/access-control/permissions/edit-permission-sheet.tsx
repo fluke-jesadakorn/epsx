@@ -40,7 +40,7 @@ export function EditPermissionSheet({ perm, onOpenChange, onSuccess }: Props) {
     }, [perm]);
 
     const handleSubmit = async () => {
-        if (!perm) return;
+        if (!perm) {return;}
         setSubmitting(true);
         try {
             const res = await updatePermissionAction(perm.id, {

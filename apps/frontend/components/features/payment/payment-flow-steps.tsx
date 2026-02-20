@@ -5,6 +5,7 @@ import {
     ArrowLeft,
     Check,
     CheckCircle2,
+    ExternalLink,
     Loader2,
     Lock,
     Shield,
@@ -180,6 +181,10 @@ interface VerifyingStepProps {
 }
 
 export function VerifyingStep({ planTitle, txHash, className }: VerifyingStepProps) {
+    const explorerUrl = txHash
+        ? `https://bscscan.com/tx/${txHash}`
+        : null;
+
     return (
         <div className={cn('max-w-lg mx-auto text-center', className)}>
             <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl p-8 shadow-xl border border-blue-200/50 dark:border-blue-700/50">
@@ -190,7 +195,8 @@ export function VerifyingStep({ planTitle, txHash, className }: VerifyingStepPro
                     Verifying Payment
                 </h2>
                 <p className="text-gray-600 dark:text-gray-400 mb-6">
-                    Your {planTitle} payment is being verified on the blockchain. This may take a moment.
+                    Your {planTitle} payment is being verified on the blockchain.
+                    This typically takes 1-2 minutes (15 confirmations required).
                 </p>
 
                 {txHash && (
@@ -199,6 +205,17 @@ export function VerifyingStep({ planTitle, txHash, className }: VerifyingStepPro
                         <code className="text-xs font-mono text-gray-700 dark:text-gray-300 break-all">
                             {txHash}
                         </code>
+                        {explorerUrl && (
+                            <a
+                                href={explorerUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="mt-2 inline-flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                            >
+                                Track on BscScan
+                                <ExternalLink className="w-3 h-3" />
+                            </a>
+                        )}
                     </div>
                 )}
 
@@ -218,6 +235,10 @@ interface SuccessStepProps {
 }
 
 export function SuccessStep({ planTitle, txHash, className }: SuccessStepProps) {
+    const explorerUrl = txHash
+        ? `https://bscscan.com/tx/${txHash}`
+        : null;
+
     return (
         <div className={cn('max-w-lg mx-auto text-center', className)}>
             <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl p-8 shadow-xl border border-green-200/50 dark:border-green-700/50">
@@ -237,6 +258,17 @@ export function SuccessStep({ planTitle, txHash, className }: SuccessStepProps) 
                         <code className="text-xs font-mono text-gray-700 dark:text-gray-300 break-all">
                             {txHash}
                         </code>
+                        {explorerUrl && (
+                            <a
+                                href={explorerUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="mt-2 inline-flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                            >
+                                View on BscScan
+                                <ExternalLink className="w-3 h-3" />
+                            </a>
+                        )}
                     </div>
                 )}
 

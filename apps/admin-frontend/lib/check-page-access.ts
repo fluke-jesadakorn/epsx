@@ -8,11 +8,11 @@ import { getServerSession } from '@/lib/auth/server';
  */
 function hasPermission(userPerms: string[], required: string): boolean {
   return userPerms.some(p => {
-    if (p === required || p === '*:*') return true;
+    if (p === required || p === '*:*') { return true; }
     const parts = required.split(':');
     if (parts.length >= 3) {
-      if (p === `${parts[0]}:*:*`) return true;
-      if (p === `${parts[0]}:${parts[1]}:*`) return true;
+      if (p === `${parts[0]}:*:*`) { return true; }
+      if (p === `${parts[0]}:${parts[1]}:*`) { return true; }
     }
     return false;
   });
@@ -25,10 +25,10 @@ function hasPermission(userPerms: string[], required: string): boolean {
 export async function checkPageAccess(requiredPermission: string, route: string): Promise<void> {
   try {
     const session = await getServerSession();
-    if (!session?.user) return; // Not authenticated — auth middleware handles redirect
+    if (!session?.user) { return; } // Not authenticated — auth middleware handles redirect
 
-    const perms = session.user.permissions ?? [];
-    if (hasPermission(perms, requiredPermission)) return; // Access granted
+    const perms = session.user.permissions;
+    if (hasPermission(perms, requiredPermission)) { return; } // Access granted
 
     const params = new URLSearchParams({
       route: encodeURIComponent(route),
@@ -37,6 +37,6 @@ export async function checkPageAccess(requiredPermission: string, route: string)
     });
     redirect(`/access-denied?${params.toString()}`);
   } catch (e: unknown) {
-    if (typeof e === 'object' && e !== null && 'digest' in e) throw e;
+    if (typeof e === 'object' && e !== null && 'digest' in e) { throw e; }
   }
 }

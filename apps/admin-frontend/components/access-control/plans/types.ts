@@ -21,16 +21,16 @@ export const FEATURE_PERMISSIONS: FeaturePermDef[] = [
 ];
 
 export function getFeatureValue(permissions: string[], prefix: string): string | null {
-    const match = permissions.find(p => p.startsWith(prefix + ':') || p === prefix);
-    if (!match) return null;
-    if (match === prefix) return 'true';
+    const match = permissions.find(p => p.startsWith(`${prefix  }:`) || p === prefix);
+    if (!match) {return null;}
+    if (match === prefix) {return 'true';}
     return match.slice(prefix.length + 1);
 }
 
 export function setFeatureValue(permissions: string[], prefix: string, value: string | null): string[] {
-    const filtered = permissions.filter(p => p !== prefix && !p.startsWith(prefix + ':'));
-    if (value === null || value === '') return filtered;
-    if (value === 'true') return [...filtered, prefix];
+    const filtered = permissions.filter(p => p !== prefix && !p.startsWith(`${prefix  }:`));
+    if (value === null || value === '') {return filtered;}
+    if (value === 'true') {return [...filtered, prefix];}
     return [...filtered, `${prefix}:${value}`];
 }
 

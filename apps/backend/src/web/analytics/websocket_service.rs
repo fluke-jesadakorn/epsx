@@ -46,7 +46,7 @@ impl WebSocketEarningsService {
 
     // Check cache first
     {
-      let cache = EARNINGS_CACHE.lock().unwrap();
+      let cache = EARNINGS_CACHE.lock().unwrap_or_else(|e| e.into_inner());
       for symbol in &symbols {
         if let Some((timestamp, days, cache_time)) = cache.data.get(symbol) {
           if current_time - cache_time < CACHE_DURATION_SECONDS {
@@ -96,7 +96,7 @@ impl WebSocketEarningsService {
 
         // Update cache
         {
-          let mut cache = EARNINGS_CACHE.lock().unwrap();
+          let mut cache = EARNINGS_CACHE.lock().unwrap_or_else(|e| e.into_inner());
           cache.data.insert(ws_data.symbol.clone(), (
             next_earnings,
             days_until,
@@ -220,7 +220,7 @@ impl WebSocketEarningsService {
   ) {
     for symbol in symbols {
       if !result_map.contains_key(symbol) {
-        let cache = EARNINGS_CACHE.lock().unwrap();
+        let cache = EARNINGS_CACHE.lock().unwrap_or_else(|e| e.into_inner());
         if let Some((timestamp, days, _)) = cache.data.get(symbol) {
           result_map.insert(symbol.clone(), (*timestamp, *days));
         }
@@ -330,7 +330,7 @@ impl WebSocketEarningsService {
 
     // Check cache first
     {
-      let cache = EARNINGS_CACHE.lock().unwrap();
+      let cache = EARNINGS_CACHE.lock().unwrap_or_else(|e| e.into_inner());
       for symbol in &symbols {
         if let Some((qoq_growth, cache_time)) = cache.qoq_data.get(symbol) {
           if current_time - cache_time < CACHE_DURATION_SECONDS {
@@ -368,7 +368,7 @@ impl WebSocketEarningsService {
       {
         result_map.insert(ws_data.symbol.clone(), qoq_growth);
 
-        let mut cache = EARNINGS_CACHE.lock().unwrap();
+        let mut cache = EARNINGS_CACHE.lock().unwrap_or_else(|e| e.into_inner());
         cache.qoq_data.insert(ws_data.symbol.clone(), (
           qoq_growth,
           current_time,

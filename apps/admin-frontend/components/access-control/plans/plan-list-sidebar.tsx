@@ -173,7 +173,7 @@ export function PlanListSidebar({
                     <>
                         {GROUP_ORDER.map((g) => {
                             const gPlans = grouped[g];
-                            if (gPlans.length === 0) return null;
+                            if (gPlans.length === 0) {return null;}
                             return (
                                 <div key={g}>
                                     {renderGroupHeader(g, gPlans.length)}
@@ -192,7 +192,7 @@ export function PlanListSidebar({
                     >
                         {GROUP_ORDER.map((g) => {
                             const gPlans = grouped[g];
-                            if (gPlans.length === 0) return null;
+                            if (gPlans.length === 0) {return null;}
                             return (
                                 <div key={g}>
                                     {renderGroupHeader(g, gPlans.length)}

@@ -27,10 +27,7 @@
 /* ============================================================================
    BASE STYLES - Essential foundations
    ============================================================================ */
-/* Shared Design System (Unified Theme) */
-@import '../../../shared/design-system/index.css';
-/* Local base styles replaced by shared system */
-/* @import './base.css'; */
+/* Local base styles */
 
 /* ============================================================================
    COMPONENT STYLES - Complex component styling

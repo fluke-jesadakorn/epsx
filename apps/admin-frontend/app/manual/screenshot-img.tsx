@@ -50,7 +50,7 @@ export function ScreenshotImg({ src, alt, variant = 'hero', caption, onClick }: 
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-8"
           onClick={() => setExpanded(false)}
-          onKeyDown={(e) => { if (e.key === 'Escape') setExpanded(false); }}
+          onKeyDown={(e) => { if (e.key === 'Escape') {setExpanded(false);} }}
           role="button"
           tabIndex={0}
         >

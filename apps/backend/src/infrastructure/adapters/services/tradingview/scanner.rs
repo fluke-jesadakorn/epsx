@@ -513,61 +513,6 @@ impl TradingViewScanner {
         &self,
         response: TradingViewResponse,
     ) -> Vec<StockScreeningResult> {
-        // DEBUG: Comprehensive logging to find estimate EPS data
-        if let Some(first_stock) = response.data.first() {
-            let symbol = first_stock.s.split(':').nth(1).unwrap_or(&first_stock.s);
-            if symbol == "NVDA" {
-                // Focus on NVDA since we know it should have estimate 1.237
-                debug!(
-                    "DEBUG: Processing TradingView response for symbol: {}",
-                    symbol
-                );
-                debug!("DEBUG: Total fields: {}", first_stock.d.len());
-
-                // Print ALL fields to see what data is available
-                for (idx, field) in first_stock.d.iter().enumerate() {
-                    let field_name = match idx {
-                        0 => "name",
-                        1 => "description",
-                        2 => "logoid",
-                        3 => "update_mode",
-                        4 => "type",
-                        5 => "typespecs",
-                        6 => "close",
-                        7 => "pricescale",
-                        8 => "minmov",
-                        9 => "fractional",
-                        10 => "minmove2",
-                        11 => "currency",
-                        12 => "change",
-                        13 => "volume",
-                        14 => "earnings_per_share_fq",
-                        15 => "relative_volume_10d_calc",
-                        16 => "market_cap_basic",
-                        17 => "fundamental_currency_code",
-                        18 => "price_earnings_ttm",
-                        19 => "earnings_per_share_diluted_ttm",
-                        20 => "earnings_per_share_diluted_yoy_growth_ttm",
-                        21 => "dividends_yield_current",
-                        22 => "earnings_per_share_forecast_fq",
-                        23 => "earnings_per_share_forecast_next_fq",
-                        24 => "earnings_per_share_forecast_next_fh", // NEW FIELD
-                        25 => "earnings_per_share_forecast_next_fy", // NEW FIELD
-                        26 => "sector.tr",
-                        27 => "market",
-                        28 => "sector",
-                        29 => "AnalystRating",
-                        30 => "AnalystRating.tr",
-                        31 => "exchange",
-                        32 => "earnings_release_date",
-                        33 => "earnings_release_next_date",
-                        _ => "unknown_field",
-                    };
-                    debug!("DEBUG: Field {} ({}): {:?}", idx, field_name, field);
-                }
-            }
-        }
-
         response
             .data
             .into_iter()
@@ -829,15 +774,6 @@ impl TradingViewScanner {
                     .filter(|&ts| ts > current_timestamp)
                     .min_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
 
-                if symbol_str == "NVDA" {
-                    debug!("DEBUG [NVDA]: Idx32(rel_date)={}, Idx33(next_rel_date)={}, Idx34(fy_date)={}",
-                        earnings_release_date, earnings_release_next_date, earnings_report_date_fy);
-                    debug!(
-                        "DEBUG [NVDA]: Current TS={}, Selected={:?}",
-                        current_timestamp, next_val
-                    );
-                }
-
                 next_val
             },
         }
@@ -991,15 +927,15 @@ mod tests {
 
         // Mock data similar to NVDA response
         // Indices:
-        // 32: earnings_release_date = 1763587200 (Nov 2025)
-        // 33: earnings_release_next_date = 1772020800 (Feb 2026)
-        // 34: earnings_release_trading_date_fy = 1740528000 (Feb 2025)
+        // 32: earnings_release_date = 1795132800 (Nov 2026)
+        // 33: earnings_release_next_date = 1803566400 (Feb 2027)
+        // 34: earnings_release_trading_date_fy = 1772020800 (Feb 2026)
 
         let mut d = vec![StockDataField::Null; 35];
         d[0] = StockDataField::String("NVDA".to_string());
-        d[32] = StockDataField::Number(1763587200.0);
-        d[33] = StockDataField::Number(1772020800.0);
-        d[34] = StockDataField::Number(1740528000.0); // The correct nearest date
+        d[32] = StockDataField::Number(1795132800.0);
+        d[33] = StockDataField::Number(1803566400.0);
+        d[34] = StockDataField::Number(1772020800.0); // The correct nearest date
 
         let stock = TradingViewStock {
             s: "NASDAQ:NVDA".to_string(),
@@ -1008,16 +944,15 @@ mod tests {
 
         let result = scanner.convert_to_stock_screening_result(stock);
 
-        // Current time is approx 1733827200 (Dec 10 2024)
-        // We expect it to pick the nearest future date: 1740528000 (Feb 25 2025)
+        // We expect it to pick the nearest future date: 1772020800 (Feb 2026)
 
         assert!(result.next_earnings_date.is_some());
         let selected = result.next_earnings_date.unwrap();
         debug!("Selected: {}", selected);
 
         assert_eq!(
-            selected, 1740528000.0,
-            "Should select Feb 2025 date (index 34)"
+            selected, 1772020800.0,
+            "Should select Feb 2026 date (index 34)"
         );
     }
 

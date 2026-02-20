@@ -128,7 +128,7 @@ export function ChainSelector({ className = '', compact = false }: ChainSelector
             <DropdownMenuContent
                 align="end"
                 style={{ zIndex: 99999 }}
-                className="w-56 p-2 bg-white border border-slate-200 shadow-xl dark:bg-slate-900 dark:border-slate-700"
+                className="w-56 p-2 bg-white border border-slate-200 shadow-xl dark:bg-card dark:border-slate-700"
             >
                 <div className="px-2 py-1.5 mb-1">
                     <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">

@@ -148,7 +148,7 @@ pub async fn validate_payment_handler(
     );
 
     // Validate wallet address matches authenticated user
-    if user_context.wallet_address.to_lowercase() != payload.wallet_address.to_lowercase() {
+    if user_context.wallet_address != payload.wallet_address.to_lowercase() {
         error!(
             "Wallet address mismatch: {} vs {}",
             user_context.wallet_address, payload.wallet_address
@@ -204,7 +204,7 @@ pub async fn activate_subscription_handler(
     );
 
     // Validate wallet address matches authenticated user
-    if user_context.wallet_address.to_lowercase() != payload.wallet_address.to_lowercase() {
+    if user_context.wallet_address != payload.wallet_address.to_lowercase() {
         error!(
             "Wallet address mismatch: {} vs {}",
             user_context.wallet_address, payload.wallet_address
@@ -302,7 +302,7 @@ pub async fn get_payment_details_handler(
 
     // If wallet_address is provided, validate it matches authenticated user
     if let Some(ref wallet) = params.wallet_address {
-        if user_context.wallet_address.to_lowercase() != wallet.to_lowercase() {
+        if user_context.wallet_address != wallet.to_lowercase() {
             error!(
                 "Wallet address mismatch: {} vs {}",
                 user_context.wallet_address, wallet

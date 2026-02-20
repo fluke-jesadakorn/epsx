@@ -144,7 +144,7 @@ function WalletDropdownMenuContent({
         <DropdownMenuContent
             align="end"
             sideOffset={8}
-            className="w-72 p-0 bg-white/98 backdrop-blur-xl border border-slate-200 dark:bg-slate-900/98 dark:border-slate-700 shadow-2xl rounded-2xl overflow-hidden"
+            className="w-72 p-0 bg-white/98 backdrop-blur-xl border border-slate-200 dark:bg-card/95 dark:border-slate-700 shadow-2xl rounded-2xl overflow-hidden"
             style={{ zIndex: 99999 }}
         >
             <WalletHeader address={address} providerInfo={providerInfo} status={status} isAuthenticated={isAuthenticated} />

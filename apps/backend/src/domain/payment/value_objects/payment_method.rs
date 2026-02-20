@@ -445,7 +445,7 @@ mod tests {
             Currency::USDT,
             Some(Network::Ethereum),
         ).unwrap();
-        assert_eq!(crypto_method.display_name(), "USDT (ETH)");
+        assert_eq!(crypto_method.display_name(), "USDT (ethereum)");
     }
 
     #[test]

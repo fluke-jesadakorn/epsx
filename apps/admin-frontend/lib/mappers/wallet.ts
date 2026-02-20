@@ -1,6 +1,19 @@
 import type { PermissionSource, Platform, WalletData, WalletPermission, WalletSubscription } from '@/components/wallet/types';
 import type { WalletSummaryDto } from '@/lib/api/wallet-management-client';
 
+function extractPlans(dto: WalletSummaryDto) {
+    if ((dto.plans ?? []).length > 0) {
+        return (dto.plans ?? []).filter(p => p.is_active !== false).map(p => ({ planName: p.plan_name }));
+    }
+    if ((dto.groups ?? []).length > 0) {
+        return (dto.groups ?? []).map(g => ({ planName: g.group_name, role: g.role }));
+    }
+    if (dto.plan_name !== undefined && dto.plan_name !== '') {
+        return [{ planName: dto.plan_name }];
+    }
+    return [];
+}
+
 export function mapWalletDtoToData(dto: WalletSummaryDto): WalletData {
     const dtoPermissions = dto.permissions ?? [];
 
@@ -43,11 +56,7 @@ export function mapWalletDtoToData(dto: WalletSummaryDto): WalletData {
         platforms,
         permissions,
         subscriptions,
-        plans: (dto.plans ?? []).length > 0
-            ? (dto.plans ?? []).filter(p => p.is_active !== false).map(p => ({ planName: p.plan_name }))
-            : (dto.groups ?? []).length > 0
-                ? (dto.groups ?? []).map(g => ({ planName: g.group_name, role: g.role }))
-                : dto.plan_name ? [{ planName: dto.plan_name }] : [],
+        plans: extractPlans(dto),
         metadata: dto.metadata,
         label,
         note,

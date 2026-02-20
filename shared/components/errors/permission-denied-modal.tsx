@@ -203,7 +203,7 @@ function GroupInfo({ error, Badge, labels }: {
     const hasRequired = error.required_group !== undefined && error.required_group !== '';
     if (!hasCurrent || !hasRequired) { return null }
     return (
-        <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-lg space-y-2">
+        <div className="bg-slate-50 dark:bg-card p-4 rounded-lg space-y-2">
             <div className="flex justify-between items-center">
                 <span className="text-sm text-slate-600 dark:text-slate-400">{labels.currentGroupLabel}</span>
                 <Badge variant="outline">{error.current_group}</Badge>
@@ -221,7 +221,7 @@ function GroupInfo({ error, Badge, labels }: {
 function UsageLimitInfo({ error }: { error: BackendPermissionError }) {
     if (error.current_usage === undefined || error.limit === undefined) { return null }
     return (
-        <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-lg">
+        <div className="bg-slate-50 dark:bg-card p-4 rounded-lg">
             <div className="flex justify-between items-center mb-2">
                 <span className="text-sm text-slate-600 dark:text-slate-400">Usage:</span>
                 <span className="font-semibold">{error.current_usage} / {error.limit}</span>

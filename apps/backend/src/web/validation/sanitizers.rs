@@ -4,11 +4,11 @@ use super::types::{ValidationErrorResponse, ValidationResult};
 /// Sanitize input string to prevent XSS and other injection attacks
 pub fn sanitize_string(input: &str) -> String {
     input
+        .replace('&', "&amp;")
         .replace('<', "&lt;")
         .replace('>', "&gt;")
         .replace('"', "&quot;")
         .replace('\'', "&#x27;")
-        .replace('&', "&amp;")
         .chars()
         .filter(|c| c.is_ascii_graphic() || c.is_ascii_whitespace())
         .collect()

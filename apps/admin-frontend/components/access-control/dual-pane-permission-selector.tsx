@@ -81,14 +81,14 @@ export function DualPanePermissionSelector({
 
     // Batch assign (left → right)
     const handleAssign = useCallback(() => {
-        if (leftSelected.size === 0) return;
+        if (leftSelected.size === 0) {return;}
         onChange([...assignedPermissionStrings, ...Array.from(leftSelected)]);
         setLeftSelected(new Set());
     }, [leftSelected, assignedPermissionStrings, onChange]);
 
     // Batch remove (right → left)
     const handleRemove = useCallback(() => {
-        if (rightSelected.size === 0) return;
+        if (rightSelected.size === 0) {return;}
         onChange(assignedPermissionStrings.filter((p) => !rightSelected.has(p)));
         setRightSelected(new Set());
     }, [rightSelected, assignedPermissionStrings, onChange]);
@@ -106,7 +106,7 @@ export function DualPanePermissionSelector({
 
     // Delete permission
     const handleDelete = useCallback(async () => {
-        if (!deleteTarget) return;
+        if (!deleteTarget) {return;}
         try {
             const res = await deletePermissionAction(deleteTarget.id);
             if (res.success) {
@@ -196,7 +196,7 @@ export function DualPanePermissionSelector({
                     />
                     <EditPermissionSheet
                         perm={editTarget}
-                        onOpenChange={(o) => { if (!o) setEditTarget(null); }}
+                        onOpenChange={(o) => { if (!o) {setEditTarget(null);} }}
                         onSuccess={() => onPermissionsChanged()}
                     />
                     <DeletePermissionDialog

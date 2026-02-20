@@ -323,6 +323,4 @@ export function isPermissionExpired(permission: Web3Permission): boolean {
   return new Date(permission.expires_at) < new Date();
 }
 
-export function formatAddress(address: string): string {
-  return `${address.slice(0, 6)}...${address.slice(-4)}`;
-}
+export { formatAddress } from '@/shared/auth/utils';

@@ -92,11 +92,11 @@ export function WalletDetailPanel({
 
     // Save label
     const handleSaveLabel = useCallback(async () => {
-        if (!wallet) { return; }
+        if (wallet === null) { return; }
         setIsSaving(true);
         try {
             await walletMgmt.updateWalletMetadata(wallet.walletAddress, {
-                label: labelValue.trim() ?? null,
+                label: labelValue.trim() || null,
             });
             setIsEditingLabel(false);
         } catch (error) {
@@ -108,11 +108,11 @@ export function WalletDetailPanel({
 
     // Save note
     const handleSaveNote = useCallback(async () => {
-        if (!wallet) { return; }
+        if (wallet === null) { return; }
         setIsSaving(true);
         try {
             await walletMgmt.updateWalletMetadata(wallet.walletAddress, {
-                note: noteValue.trim() ?? null,
+                note: noteValue.trim() || null,
             });
             setIsEditingNote(false);
         } catch (error) {
@@ -125,7 +125,7 @@ export function WalletDetailPanel({
     return (
         <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
             <SheetContent className="w-full sm:max-w-2xl overflow-y-auto">
-                {!wallet ? (
+                {wallet === null ? (
                     <div className="flex items-center justify-center h-full">
                         <div className="text-center text-gray-500 dark:text-gray-400">
                             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4" />
@@ -153,7 +153,7 @@ export function WalletDetailPanel({
                             <WalletHeader wallet={wallet} />
 
                             {/* Label & Note Section */}
-                            <div className="p-4 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/30">
+                            <div className="p-4 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50/50 dark:bg-card/30">
                                 <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4 flex items-center gap-2">
                                     🏷️ Label & Notes
                                 </h4>
@@ -176,7 +176,7 @@ export function WalletDetailPanel({
                                             <Button
                                                 size="sm"
                                                 variant="ghost"
-                                                onClick={handleSaveLabel}
+                                                onClick={() => { void handleSaveLabel(); }}
                                                 disabled={isSaving}
                                                 className="h-9 w-9 p-0"
                                             >
@@ -199,7 +199,7 @@ export function WalletDetailPanel({
                                             className="flex items-center gap-2 cursor-pointer group"
                                             onClick={() => setIsEditingLabel(true)}
                                         >
-                                            {wallet.label ? (
+                                            {wallet.label !== null && wallet.label !== undefined && wallet.label !== '' ? (
                                                 <WalletLabelBadge label={wallet.label} size="md" />
                                             ) : (
                                                 <span className="text-sm text-gray-400 italic">No label</span>
@@ -242,7 +242,7 @@ export function WalletDetailPanel({
                                                     </Button>
                                                     <Button
                                                         size="sm"
-                                                        onClick={handleSaveNote}
+                                                        onClick={() => { void handleSaveNote(); }}
                                                         disabled={isSaving}
                                                     >
                                                         {isSaving ? 'Saving...' : 'Save'}
@@ -255,7 +255,7 @@ export function WalletDetailPanel({
                                             className="cursor-pointer group p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors -mx-2"
                                             onClick={() => setIsEditingNote(true)}
                                         >
-                                            {wallet.note ? (
+                                            {wallet.note !== null && wallet.note !== '' ? (
                                                 <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
                                                     {wallet.note}
                                                 </p>
@@ -328,11 +328,11 @@ export function WalletDetailPanel({
                                 <div className="space-y-4">
                                     <WalletPermissionTable
                                         permissions={wallet.permissions}
-                                        showActions={Boolean(onRevokePermission)}
+                                        showActions={onRevokePermission !== undefined}
                                         onRevoke={onRevokePermission}
                                     />
 
-                                    {onAssignPermission && (
+                                    {onAssignPermission !== undefined && (
                                         <div className="p-4 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-black/20">
                                             <AssignPermissionForm
                                                 walletAddress={wallet.walletAddress}

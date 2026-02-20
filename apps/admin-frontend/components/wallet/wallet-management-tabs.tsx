@@ -1,11 +1,11 @@
 'use client';
 
-import { PlanManagementView } from '@/components/access-control/PlanManagementView';
+import { PlanManagement } from '@/components/plans/plan-management';
 import { PageTabs, type TabItem } from '@/components/shared';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useCallback } from 'react';
-import { WalletSection } from './wallet-section';
 import type { WalletData } from './types';
+import { WalletSection } from './wallet-section';
 
 export interface WalletManagementTabsProps {
     initialData?: {
@@ -55,7 +55,7 @@ export function WalletManagementTabs({ initialData }: WalletManagementTabsProps)
 
                 {activeTab === 'access-control' && (
                     <div className="animate-in fade-in-50 duration-500">
-                        <PlanManagementView />
+                        <PlanManagement />
                     </div>
                 )}
             </div>

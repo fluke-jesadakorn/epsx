@@ -30,16 +30,16 @@ pub fn calculate_upgrade_credit(
         return Decimal::ZERO;
     }
 
-    let total_days = (plan_expires_at - plan_started_at).num_days() as f64;
-    let days_remaining = (plan_expires_at - now).num_days() as f64;
+    let total_seconds = (plan_expires_at - plan_started_at).num_seconds() as f64;
+    let seconds_remaining = (plan_expires_at - now).num_seconds() as f64;
 
     // Avoid division by zero
-    if total_days <= 0.0 {
+    if total_seconds <= 0.0 {
         return Decimal::ZERO;
     }
 
-    // Pro-rata: (days_remaining / total_days) × original_price
-    let ratio = Decimal::from_f64(days_remaining / total_days).unwrap_or(Decimal::ZERO);
+    // Pro-rata: (seconds_remaining / total_seconds) × original_price
+    let ratio = Decimal::from_f64(seconds_remaining / total_seconds).unwrap_or(Decimal::ZERO);
     (original_price * ratio).round_dp(2)
 }
 

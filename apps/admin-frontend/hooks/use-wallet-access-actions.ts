@@ -16,7 +16,7 @@ export function useWalletAccessActions(walletAddress: string | null, onSuccess: 
             await grantPermissionAction(walletAddress, permissionId, expiresAt);
             await onSuccess();
         } catch (err) {
-            throw new Error(err instanceof Error ? err.message : 'Failed to assign permission');
+            throw new Error(err instanceof Error ? err.message : 'Failed to assign permission', { cause: err });
         }
     }, [walletAddress, onSuccess]);
 
@@ -27,7 +27,7 @@ export function useWalletAccessActions(walletAddress: string | null, onSuccess: 
             await revokePermissionAction(walletAddress, permissionId);
             await onSuccess();
         } catch (err) {
-            throw new Error(err instanceof Error ? err.message : 'Failed to revoke permission');
+            throw new Error(err instanceof Error ? err.message : 'Failed to revoke permission', { cause: err });
         }
     }, [walletAddress, onSuccess]);
 
@@ -38,7 +38,7 @@ export function useWalletAccessActions(walletAddress: string | null, onSuccess: 
             await assignUserToPlanAction(walletAddress, planId, expiresAt ?? null);
             await onSuccess();
         } catch (err) {
-            throw new Error(err instanceof Error ? err.message : 'Failed to assign plan');
+            throw new Error(err instanceof Error ? err.message : 'Failed to assign plan', { cause: err });
         }
     }, [walletAddress, onSuccess]);
 
@@ -49,7 +49,7 @@ export function useWalletAccessActions(walletAddress: string | null, onSuccess: 
             await removeUserFromPlanAction(walletAddress, planId);
             await onSuccess();
         } catch (err) {
-            throw new Error(err instanceof Error ? err.message : 'Failed to remove plan');
+            throw new Error(err instanceof Error ? err.message : 'Failed to remove plan', { cause: err });
         }
     }, [walletAddress, onSuccess]);
 
@@ -64,7 +64,7 @@ export function useWalletAccessActions(walletAddress: string | null, onSuccess: 
             );
             await onSuccess();
         } catch (err) {
-            throw new Error(err instanceof Error ? err.message : 'Failed to batch assign permissions');
+            throw new Error(err instanceof Error ? err.message : 'Failed to batch assign permissions', { cause: err });
         }
     }, [walletAddress, onSuccess]);
 
@@ -79,7 +79,7 @@ export function useWalletAccessActions(walletAddress: string | null, onSuccess: 
             );
             await onSuccess();
         } catch (err) {
-            throw new Error(err instanceof Error ? err.message : 'Failed to batch revoke permissions');
+            throw new Error(err instanceof Error ? err.message : 'Failed to batch revoke permissions', { cause: err });
         }
     }, [walletAddress, onSuccess]);
 
@@ -94,7 +94,7 @@ export function useWalletAccessActions(walletAddress: string | null, onSuccess: 
             );
             await onSuccess();
         } catch (err) {
-            throw new Error(err instanceof Error ? err.message : 'Failed to batch assign plans');
+            throw new Error(err instanceof Error ? err.message : 'Failed to batch assign plans', { cause: err });
         }
     }, [walletAddress, onSuccess]);
 
@@ -107,7 +107,7 @@ export function useWalletAccessActions(walletAddress: string | null, onSuccess: 
             );
             await onSuccess();
         } catch (err) {
-            throw new Error(err instanceof Error ? err.message : 'Failed to batch remove plans');
+            throw new Error(err instanceof Error ? err.message : 'Failed to batch remove plans', { cause: err });
         }
     }, [walletAddress, onSuccess]);
 

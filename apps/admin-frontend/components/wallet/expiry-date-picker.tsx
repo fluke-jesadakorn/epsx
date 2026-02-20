@@ -86,7 +86,7 @@ export function ExpiryDatePicker({
             />
 
             {/* Modal */}
-            <div className="relative bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 w-full max-w-md mx-4 overflow-hidden">
+            <div className="relative bg-white dark:bg-card rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 w-full max-w-md mx-4 overflow-hidden">
                 {/* Header */}
                 <div className="flex items-center justify-between p-4 border-b border-gray-100 dark:border-gray-800">
                     <div className="flex items-center gap-3">

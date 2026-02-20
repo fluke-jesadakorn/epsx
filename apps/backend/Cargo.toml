@@ -147,32 +147,11 @@ incremental = true
 codegen-units = 256
 
 [profile.release]
-# Production build (balanced optimization)
 opt-level = 3
 debug = false
 strip = true
-lto = false
+lto = "thin"
 panic = "abort"
-codegen-units = 256
+codegen-units = 1
 overflow-checks = false
 incremental = false
-
-# [profile.release-small]
-# # Ultra-optimized for minimal binary size (production containers)
-# inherits = "release"
-# opt-level = "z"          # Optimize for size over speed
-# lto = "fat"             # Full link-time optimization (aggressive)
-# panic = "abort"         # Remove panic unwinding code (saves ~10-20%)
-# strip = "symbols"       # Remove all debug symbols
-# codegen-units = 1       # Single compilation unit for best optimization
-# overflow-checks = false # Disable runtime overflow checks
-# incremental = false     # Disable incremental compilation for size
-# rpath = false          # Don't include rpath (container-friendly)
-# 
-# [profile.release-fast]
-# # Optimized for maximum performance
-# inherits = "release"
-# opt-level = 3
-# lto = "thin"
-# panic = "abort"
-# codegen-units = 1

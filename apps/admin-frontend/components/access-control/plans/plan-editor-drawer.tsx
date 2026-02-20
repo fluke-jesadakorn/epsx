@@ -48,7 +48,7 @@ export function PlanEditorDrawer({ planId, onClose, onPlanUpdated, onDuplicate }
     } = usePlanEditForm();
 
     useEffect(() => {
-        if (!planId) return;
+        if (!planId) {return;}
         void (async () => {
             setIsLoading(true);
             try {
@@ -82,7 +82,7 @@ export function PlanEditorDrawer({ planId, onClose, onPlanUpdated, onDuplicate }
     }, [planId]);
 
     const handleDelete = async () => {
-        if (!deleteTarget) return;
+        if (!deleteTarget) {return;}
         try {
             await deletePlanAction(deleteTarget.id);
             toast.success('Plan deleted');

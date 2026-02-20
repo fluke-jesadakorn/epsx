@@ -32,14 +32,22 @@ impl CircuitBreaker {
         }
 
         // Check if timeout has passed
-        if let Ok(last_failure) = self.last_failure_time.lock() {
-            if let Some(last_failure_time) = *last_failure {
-                if last_failure_time.elapsed() > self.timeout_duration {
-                    debug!("Circuit breaker timeout elapsed, allowing retry");
-                    self.reset();
-                    return true;
+        let should_reset = {
+            if let Ok(last_failure) = self.last_failure_time.lock() {
+                if let Some(last_failure_time) = *last_failure {
+                    last_failure_time.elapsed() > self.timeout_duration
+                } else {
+                    false
                 }
+            } else {
+                false
             }
+        };
+
+        if should_reset {
+            debug!("Circuit breaker timeout elapsed, allowing retry");
+            self.reset();
+            return true;
         }
 
         false
@@ -200,23 +208,28 @@ mod tests {
     use super::*;
     use tokio::time::{sleep, Duration};
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn test_circuit_breaker() {
+        println!("Starting test_circuit_breaker");
         let cb = CircuitBreaker::new(3, Duration::from_millis(100));
         
         // Initially should allow calls
         assert!(cb.can_execute());
+        println!("Initial execute OK");
         
         // Record failures
         for _ in 0..3 {
             cb.record_failure();
         }
+        println!("Recorded failures");
         
         // Should be open now
         assert!(!cb.can_execute());
         
+        println!("Before sleep");
         // Wait for timeout
         sleep(Duration::from_millis(150)).await;
+        println!("After sleep");
         
         // Should allow calls again
         assert!(cb.can_execute());
@@ -224,6 +237,7 @@ mod tests {
         // Success should reset
         cb.record_success();
         assert!(cb.can_execute());
+        println!("End test_circuit_breaker");
     }
 
     #[tokio::test]
@@ -246,7 +260,7 @@ mod tests {
         assert_eq!(attempt_count, 3);
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn test_rate_limiter() {
         let limiter = RateLimiter::new(2, Duration::from_millis(100));
         

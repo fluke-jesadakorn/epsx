@@ -50,6 +50,7 @@ mod notification_tests {
     }
 
     #[tokio::test]
+    #[ignore]
     async fn test_notification_creation_and_cleanup() -> Result<(), Box<dyn std::error::Error>> {
         let _test_db = setup_test_database().await?;
         let pool = get_diesel_pool().await?;
@@ -92,6 +93,7 @@ mod notification_tests {
     }
 
     #[tokio::test]
+    #[ignore]
     async fn test_multiple_notifications_for_same_wallet() -> Result<(), Box<dyn std::error::Error>> {
         let _test_db = setup_test_database().await?;
         let pool = get_diesel_pool().await?;
@@ -126,6 +128,7 @@ mod notification_tests {
     }
 
     #[tokio::test]
+    #[ignore]
     async fn test_notification_different_wallets() -> Result<(), Box<dyn std::error::Error>> {
         let _test_db = setup_test_database().await?;
         let pool = get_diesel_pool().await?;

@@ -83,7 +83,7 @@ export default function ChatHistoryPage() {
       </div>
 
       {/* Filters */}
-      <div className="flex items-center gap-2 mb-4 p-2.5 rounded-2xl bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-white/5">
+      <div className="flex items-center gap-2 mb-4 p-2.5 rounded-2xl bg-white dark:bg-card border border-slate-200 dark:border-border">
         <SlidersHorizontal className="w-3.5 h-3.5 text-muted-foreground/50 shrink-0 ml-1" />
         <select
           value={statusFilter}
@@ -113,7 +113,7 @@ export default function ChatHistoryPage() {
       {/* Results */}
       {filtered.length === 0 && (
         <div className="text-center py-20">
-          <div className="w-14 h-14 rounded-2xl bg-slate-100 dark:bg-slate-800/40 flex items-center justify-center mx-auto mb-4 border border-slate-200 dark:border-white/5">
+          <div className="w-14 h-14 rounded-2xl bg-slate-100 dark:bg-slate-800/40 flex items-center justify-center mx-auto mb-4 border border-slate-200 dark:border-border">
             <Inbox className="w-7 h-7 text-muted-foreground/30" />
           </div>
           <p className="text-sm font-medium text-muted-foreground mb-1">No conversations found</p>
@@ -122,7 +122,7 @@ export default function ChatHistoryPage() {
       )}
 
       {filtered.length > 0 && (
-        <div className="bg-white dark:bg-slate-900/30 border border-slate-200 dark:border-white/5 rounded-3xl overflow-hidden shadow-sm">
+        <div className="bg-white dark:bg-card/80 border border-slate-200 dark:border-border rounded-3xl overflow-hidden shadow-sm">
           {filtered.map((convo, i) => {
             const topic = topics.find((t) => t.id === convo.topic_id);
             const timeAgo = formatDistanceToNow(new Date(convo.last_message_at), { addSuffix: true });
@@ -133,7 +133,7 @@ export default function ChatHistoryPage() {
                 onClick={() => handleSelect(convo.id)}
                 className={`group w-full px-5 py-4 hover:bg-slate-50 dark:hover:bg-gray-100 dark:bg-slate-800/30 transition-all text-left ${
                   hasUnread ? 'bg-blue-50 dark:bg-blue-500/5 border-l-2 border-l-blue-500' : ''
-                } ${i < filtered.length - 1 ? 'border-b border-slate-200 dark:border-white/5' : ''}`}
+                } ${i < filtered.length - 1 ? 'border-b border-slate-200 dark:border-border' : ''}`}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">

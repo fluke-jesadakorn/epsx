@@ -40,12 +40,12 @@ impl GrowthFactor {
     
     /// Check if growth is positive
     pub fn is_positive_growth(&self) -> bool {
-        self.percentage > 0.0
+        self.percentage >= 0.1
     }
     
     /// Check if growth is negative (decline)
     pub fn is_decline(&self) -> bool {
-        self.percentage < 0.0
+        self.percentage <= -0.1
     }
     
     /// Check if growth is flat (near zero)

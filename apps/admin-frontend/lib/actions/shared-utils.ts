@@ -1,7 +1,8 @@
 /**
  * Shared Utilities for Server Actions
  */
-import { ServerAuth } from '../server/helpers';
+import { COOKIES } from '@/shared/auth/cookies';
+import { cookies } from 'next/headers';
 
 /**
  * Make an authenticated request to the backend from a server action
@@ -13,14 +14,16 @@ export async function makeAuthenticatedRequest<T = unknown>(
     options: RequestInit = {}
 ): Promise<T> {
     const backendUrl = process.env.BACKEND_URL ?? 'http://127.0.0.1:8080';
-    const headers = await ServerAuth.getAuthHeaders();
+    const cookieStore = await cookies();
+    const token = cookieStore.get(COOKIES.access_token)?.value;
+    const headers = (token !== undefined && token !== '' ? { Authorization: `Bearer ${token}` } : {}) as Record<string, string>;
 
     const response = await fetch(`${backendUrl}${endpoint}`, {
         ...options,
         headers: {
             ...headers,
             ...options.headers,
-        },
+        } as Record<string, string>,
     });
 
     if (!response.ok) {

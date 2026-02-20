@@ -441,7 +441,7 @@ mod tests {
 
     #[test]
     fn test_ethereum_transaction_hash() {
-        let eth_tx = "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef12";
+        let eth_tx = "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef";
         let tx_hash = TransactionHash::new(eth_tx.to_string(), Network::Ethereum).unwrap();
 
         assert_eq!(tx_hash.network(), &Network::Ethereum);
@@ -454,11 +454,11 @@ mod tests {
     #[test]
     fn test_transaction_hash_normalization() {
         // Test with 0x prefix
-        let with_prefix = "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef12";
+        let with_prefix = "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef";
         let tx1 = TransactionHash::new(with_prefix.to_string(), Network::Ethereum).unwrap();
 
         // Test without 0x prefix
-        let without_prefix = "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef12";
+        let without_prefix = "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef";
         let tx2 = TransactionHash::new(without_prefix.to_string(), Network::Ethereum).unwrap();
 
         assert_eq!(tx1.hash(), tx2.hash()); // Should be normalized to same format
@@ -466,7 +466,7 @@ mod tests {
 
     #[test]
     fn test_tron_transaction_hash() {
-        let tron_tx = "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef12";
+        let tron_tx = "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef";
         let tx_hash = TransactionHash::new(tron_tx.to_string(), Network::Tron).unwrap();
 
         assert_eq!(tx_hash.network(), &Network::Tron);
@@ -477,7 +477,7 @@ mod tests {
     fn test_invalid_transaction_hashes() {
         let invalid_hashes = vec![
             ("0x123", Network::Ethereum),                    // Too short
-            ("0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef123", Network::Ethereum), // Too long
+            ("0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef3", Network::Ethereum), // Too long
             ("0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdefzz", Network::Ethereum), // Invalid character
             ("12345", Network::Tron),                        // Too short for TRON
         ];
@@ -491,7 +491,7 @@ mod tests {
     #[test]
     fn test_confirmation_updates() {
         let tx_hash = TransactionHash::new(
-            "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef12".to_string(),
+            "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef".to_string(),
             Network::Ethereum,
         ).unwrap();
 
@@ -510,7 +510,7 @@ mod tests {
     #[test]
     fn test_explorer_url() {
         let tx_hash = TransactionHash::new(
-            "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef12".to_string(),
+            "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef".to_string(),
             Network::Ethereum,
         ).unwrap();
 
@@ -522,19 +522,19 @@ mod tests {
     #[test]
     fn test_short_hash() {
         let tx_hash = TransactionHash::new(
-            "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef12".to_string(),
+            "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef".to_string(),
             Network::Ethereum,
         ).unwrap();
 
         let short = tx_hash.short_hash();
-        assert_eq!(short, "0x123456...cdef12");
+        assert_eq!(short, "0x123456...90abcdef");
         assert!(short.len() < tx_hash.hash().len());
     }
 
     #[test]
     fn test_transaction_receipt() {
         let tx_hash = TransactionHash::new(
-            "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef12".to_string(),
+            "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef".to_string(),
             Network::Ethereum,
         ).unwrap();
 

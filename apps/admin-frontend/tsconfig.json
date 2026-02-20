@@ -40,7 +40,7 @@
         "./config/*"
       ],
       "@/design-system": [
-        "./design-system/index.ts"
+        "./design-system/index"
       ],
       "@/design-system/*": [
         "./design-system/*"
@@ -94,7 +94,7 @@
     "../../shared/**/*.ts",
     "../../shared/**/*.tsx",
     ".next/dev/types/**/*.ts"
-, "proxy.ts.bak"  ],
+  ],
   "exclude": [
     "node_modules",
     ".next",

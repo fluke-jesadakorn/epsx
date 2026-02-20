@@ -634,7 +634,7 @@ mod tests {
     #[tokio::test]
     async fn test_multi_level_rate_limiter() {
         let cache: Arc<dyn Cache> = Arc::new(MemoryCache::new());
-        let config = Arc::new(Config::from_env().expect("Config"));
+        let config = Arc::new(crate::config::get_fallback_config());
         let limiter = MultiLevelRateLimiter::new(cache, config);
 
         let plan_limits = PlanRateLimits::free();

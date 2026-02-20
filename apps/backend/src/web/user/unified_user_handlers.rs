@@ -267,7 +267,7 @@ pub async fn get_user_access_overview(
         FROM public.get_wallet_permissions_detailed_working($1)
         "#
     )
-    .bind::<diesel::sql_types::Text, _>(&user_context.wallet_address.to_lowercase())
+    .bind::<diesel::sql_types::Text, _>(&user_context.wallet_address)
     .load::<PermissionDetailRow>(&mut conn)
     .await
     .map_err(|e| {
@@ -369,7 +369,7 @@ pub async fn get_user_access_overview(
         ORDER BY pl.tier_level DESC
         "#
     )
-    .bind::<diesel::sql_types::Text, _>(&user_context.wallet_address.to_lowercase())
+    .bind::<diesel::sql_types::Text, _>(&user_context.wallet_address)
     .load(&mut conn)
     .await
     .unwrap_or_default();

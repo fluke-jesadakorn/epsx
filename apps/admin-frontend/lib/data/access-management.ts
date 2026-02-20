@@ -14,12 +14,14 @@ import {
   type PolicyType,
 } from '@/components/access-control/types';
 import { createPlansClient, type Plan } from '@/shared/api/plans';
-import type { ApiResponse } from '@/shared/types/api';
 import { isApiSuccess } from '@/shared/types/api';
 import { createAdminApiClient } from '@/shared/utils/api-client';
 
-import { type PermissionPlan } from '@/lib/api/plan-management-client';
 import { redirectOnForbidden } from '@/lib/api-error';
+import { type PermissionPlan } from '@/lib/api/plan-management-client';
+
+// Constants
+const WALLET_MGMT_ROUTE = '/wallet-management';
 
 // Extended Plan type with analytics fields
 interface PlanResponse extends Plan {
@@ -99,7 +101,7 @@ export async function fetchWalletStats(): Promise<WalletStats> {
   try {
     const apiClient = createAdminApiClient({ serverSide: true });
     const response = await apiClient.get<WalletStats>(API_ROUTES_LOCAL.WALLETS.STATS);
-    redirectOnForbidden(response, '/wallet-management');
+    redirectOnForbidden(response, WALLET_MGMT_ROUTE);
 
     if (response.success && response.data) {
       return response.data;
@@ -114,7 +116,7 @@ export async function fetchWalletStats(): Promise<WalletStats> {
       growth_rate: 0
     };
   } catch (e) {
-    if (typeof e === 'object' && e !== null && 'digest' in e) throw e;
+    if (typeof e === 'object' && e !== null && 'digest' in e) { throw e; }
     return {
       total_users: 0,
       active_users: 0,
@@ -148,7 +150,7 @@ export async function fetchPolicies(): Promise<AccessPolicy[]> {
       plansClient.listPlans({ limit: 100 }),
       apiClient.get<PlansApiResponse>(API_ROUTES_LOCAL.PERMISSIONS.PLANS),
     ]);
-    redirectOnForbidden(groupsRes, '/wallet-management');
+    redirectOnForbidden(groupsRes, WALLET_MGMT_ROUTE);
 
     const policies: AccessPolicy[] = [];
 
@@ -180,7 +182,7 @@ export async function fetchPolicies(): Promise<AccessPolicy[]> {
 
     return policies;
   } catch (e) {
-    if (typeof e === 'object' && e !== null && 'digest' in e) throw e;
+    if (typeof e === 'object' && e !== null && 'digest' in e) { throw e; }
     return [];
   }
 }
@@ -244,7 +246,7 @@ export async function fetchPolicyStats(): Promise<PolicyStats> {
       apiClient.get<PlansApiResponse>(API_ROUTES_LOCAL.PERMISSIONS.PLANS),
       apiClient.get<AnalyticsData>(API_ROUTES_LOCAL.PERMISSIONS.ANALYTICS),
     ]);
-    redirectOnForbidden(groupsRes, '/wallet-management');
+    redirectOnForbidden(groupsRes, WALLET_MGMT_ROUTE);
 
     const stats: PolicyStats = { ...DEFAULT_POLICY_STATS };
 
@@ -272,7 +274,7 @@ export async function fetchPolicyStats(): Promise<PolicyStats> {
 
     return stats;
   } catch (e) {
-    if (typeof e === 'object' && e !== null && 'digest' in e) throw e;
+    if (typeof e === 'object' && e !== null && 'digest' in e) { throw e; }
     return DEFAULT_POLICY_STATS;
   }
 }
@@ -284,7 +286,7 @@ export async function fetchPermissionStats(): Promise<{ count: number; platformC
   try {
     const apiClient = createAdminApiClient({ serverSide: true });
     const response = await apiClient.get<PermissionDefinitionDto[]>(API_ROUTES_LOCAL.PERMISSIONS.DEFINITIONS);
-    redirectOnForbidden(response, '/wallet-management');
+    redirectOnForbidden(response, WALLET_MGMT_ROUTE);
 
     if (response.success && response.data) {
       const definitions = Array.isArray(response.data) ? response.data : [];
@@ -298,7 +300,7 @@ export async function fetchPermissionStats(): Promise<{ count: number; platformC
     return { count: 0, platformCount: 0 };
   } catch (e) {
     // Let Next.js redirect errors propagate
-    if (typeof e === 'object' && e !== null && 'digest' in e) throw e;
+    if (typeof e === 'object' && e !== null && 'digest' in e) { throw e; }
     return { count: 0, platformCount: 0 };
   }
 }

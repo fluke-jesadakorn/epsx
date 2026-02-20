@@ -77,6 +77,9 @@ pub struct Config {
 
     // Token whitelist
     pub supported_payment_tokens: Vec<String>,
+
+    // TradingView
+    pub tradingview_auth_token: Option<String>,
 }
 
 impl Config {
@@ -207,6 +210,9 @@ impl Config {
         let redis_url = get_optional("REDIS_URL");
         let log_level = get_with_default("LOG_LEVEL", "info");
 
+        // TradingView
+        let tradingview_auth_token = get_optional("TRADINGVIEW_AUTH_TOKEN");
+
         // Parse supported tokens from comma-separated env var or strict defaults
         let supported_tokens_str = get_with_default("SUPPORTED_PAYMENT_TOKENS", 
             "0x55d398326f99059fF775485246999027B3197955,0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d,0x337610d27c682E347C9cD60BD4b3b107C9d34dDD,0x64544969ed7EBf5f083679233325356EbE738930");
@@ -258,6 +264,7 @@ impl Config {
             redis_url,
             log_level,
             supported_payment_tokens,
+            tradingview_auth_token,
         })
     }
 
@@ -366,6 +373,7 @@ pub fn get_fallback_config() -> Config {
         blockchain_network: "testnet".to_string(),
         redis_url: None,
         log_level: "info".to_string(),
+        tradingview_auth_token: None,
         supported_payment_tokens: vec![
             "0x55d398326f99059fF775485246999027B3197955".to_string(), // USDT BSC
             "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d".to_string(), // USDC BSC

@@ -37,7 +37,7 @@ export default function ManualPage() {
 
             {CATEGORIES.map(cat => {
               const items = FEATURES.filter(f => f.category === cat);
-              if (items.length === 0) return null;
+              if (items.length === 0) {return null;}
               return (
                 <section key={cat} id={cat.toLowerCase().replace(/\s+/g, '-')} className="mb-12">
                   <h2 className="mb-4 border-b border-gray-800 pb-2 text-xl font-semibold text-white">{cat}</h2>

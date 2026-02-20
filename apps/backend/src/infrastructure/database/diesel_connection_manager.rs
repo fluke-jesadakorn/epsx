@@ -174,7 +174,7 @@ impl DieselServerlessConfig {
     /// Create config from environment variables
     pub fn from_env() -> Result<Self> {
         let database_url = std::env::var("DATABASE_URL")
-            .map_err(|_| anyhow::anyhow!("DATABASE_URL is required"))?;
+            .unwrap_or_else(|_| crate::config::get_fallback_config().database_url);
 
         let mut config = Self::for_serverless(database_url);
 

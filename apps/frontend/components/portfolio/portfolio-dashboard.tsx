@@ -37,7 +37,7 @@ function LoadingSkeleton() {
         {Array.from({ length: 4 }).map((_, i) => (
           <div
             key={`skel-${String(i)}`}
-            className="h-[350px] animate-pulse rounded-2xl border border-gray-200 dark:border-white/5 bg-white dark:bg-slate-900/60"
+            className="h-[350px] animate-pulse rounded-2xl border border-gray-200 dark:border-border bg-white dark:bg-card"
           />
         ))}
       </div>

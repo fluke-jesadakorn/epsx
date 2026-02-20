@@ -323,7 +323,7 @@ impl PermissionError {
                         usage_info: None,
                         security_info: None,
                         upgrade_info: upgrade_plan.as_ref().map(|tier| UpgradeInfo {
-                            current_plan: "basic".to_string(), // TODO: Get from user context
+                            current_plan: "unknown".to_string(),
                             required_plan: tier.clone(),
                             upgrade_url: Some("/payment".to_string()),
                             pricing_url: Some("/payment".to_string()),

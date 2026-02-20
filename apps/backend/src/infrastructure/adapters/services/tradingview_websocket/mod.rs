@@ -18,6 +18,9 @@ use tracing::{ debug, info, warn };
 
 use crate::core::errors::AppError;
 
+const DEFAULT_WS_URL: &str = "wss://data.tradingview.com/socket.io/websocket";
+const DEFAULT_ORIGIN: &str = "https://www.tradingview.com";
+
 /// TradingView WebSocket service coordinator
 pub struct TradingViewWebSocketService {
   symbols: Vec<String>,
@@ -28,6 +31,8 @@ pub struct TradingViewWebSocketService {
   series_ready: bool,
   symbol_resolved: bool,
   extracted_eps_data: Option<EPSWebSocketData>,
+  websocket_url: String,
+  origin_url: String,
 }
 
 impl Default for TradingViewWebSocketService {
@@ -47,6 +52,8 @@ impl TradingViewWebSocketService {
       series_ready: false,
       symbol_resolved: false,
       extracted_eps_data: None,
+      websocket_url: DEFAULT_WS_URL.to_string(),
+      origin_url: DEFAULT_ORIGIN.to_string(),
     }
   }
 
@@ -61,7 +68,7 @@ impl TradingViewWebSocketService {
     );
     self.symbols = symbols.clone();
 
-    let ws_stream = connection::connect_websocket().await?;
+    let ws_stream = connection::connect_websocket(&self.websocket_url, &self.origin_url).await?;
     let (mut write, mut read) = ws_stream.split();
 
     let mut all_eps_data = Vec::new();

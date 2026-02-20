@@ -4,8 +4,6 @@ use super::{Cache, CacheConfig};
 /// In-memory cache implementation
 pub struct MemoryCache {
     data: Arc<RwLock<HashMap<String, String>>>,
-    #[allow(dead_code)]
-    config: CacheConfig,
 }
 
 impl Default for MemoryCache {
@@ -18,32 +16,30 @@ impl MemoryCache {
     pub fn new() -> Self {
         Self {
             data: Arc::new(RwLock::new(HashMap::new())),
-            config: CacheConfig::default(),
         }
     }
 
-    pub fn with_config(config: CacheConfig) -> Self {
+    pub fn with_config(_config: CacheConfig) -> Self {
         Self {
             data: Arc::new(RwLock::new(HashMap::new())),
-            config,
         }
     }
 }
 
 impl Cache for MemoryCache {
     fn get(&self, key: &str) -> Option<String> {
-        self.data.read().unwrap().get(key).cloned()
+        self.data.read().unwrap_or_else(|e| e.into_inner()).get(key).cloned()
     }
 
     fn set(&self, key: &str, value: String, _ttl: Option<u64>) {
-        self.data.write().unwrap().insert(key.to_string(), value);
+        self.data.write().unwrap_or_else(|e| e.into_inner()).insert(key.to_string(), value);
     }
 
     fn delete(&self, key: &str) {
-        self.data.write().unwrap().remove(key);
+        self.data.write().unwrap_or_else(|e| e.into_inner()).remove(key);
     }
 
     fn clear(&self) {
-        self.data.write().unwrap().clear();
+        self.data.write().unwrap_or_else(|e| e.into_inner()).clear();
     }
 }

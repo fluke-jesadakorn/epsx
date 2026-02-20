@@ -6,6 +6,8 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 use chrono::{DateTime, Utc};
 
+pub use crate::web::pagination::PaginationInfo;
+
 /// Admin payment list query parameters
 #[derive(Debug, Deserialize)]
 pub struct AdminPaymentListParams {
@@ -83,17 +85,6 @@ impl AdminPaymentInfo {
             metadata: pay.metadata.unwrap_or(serde_json::json!({})),
         }
     }
-}
-
-/// Pagination information
-#[derive(Debug, Serialize)]
-pub struct PaginationInfo {
-    pub page: u32,
-    pub limit: u32,
-    pub total_count: u64,
-    pub total_pages: u32,
-    pub has_next: bool,
-    pub has_prev: bool,
 }
 
 /// Payment summary statistics

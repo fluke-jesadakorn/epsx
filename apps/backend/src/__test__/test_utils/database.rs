@@ -25,6 +25,8 @@ impl TestDatabase {
 
         INIT.call_once(|| {
             info!("Initializing test database environment");
+            // Install rustls default crypto provider for tests
+            rustls::crypto::ring::default_provider().install_default().ok();
         });
 
         // Verify we can get a connection

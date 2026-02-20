@@ -500,55 +500,6 @@ export const FEATURE_FLAGS: Record<string, FeatureFlagConfig> = {
 } as const;
 
 // ============================================================================
-// API ENDPOINTS CONFIGURATION
-// ============================================================================
-
-export const API_ENDPOINTS = {
-  // Authentication endpoints
-  AUTH: {
-    CHALLENGE: '/api/auth/challenge',
-    VERIFY: '/api/auth/verify',
-    LOGOUT: '/api/auth/logout',
-    REFRESH: '/api/auth/refresh',
-    PERMISSIONS: '/api/auth/permissions',
-  },
-
-  // User endpoints
-  USER: {
-    PROFILE: '/api/user/profile',
-    PREFERENCES: '/api/user/preferences',
-    SUBSCRIPTION: '/api/user/subscription',
-    NOTIFICATIONS: '/api/user/notifications',
-  },
-
-  // Payment endpoints
-  PAYMENT: {
-    CREATE: '/api/payment/create',
-    STATUS: '/api/payment/status',
-    HISTORY: '/api/payment/history',
-    ASSETS: '/api/payment/assets',
-  },
-
-  // Analytics endpoints
-  ANALYTICS: {
-    RANKINGS: '/api/analytics/rankings',
-    EXPORT: '/api/analytics/export',
-    ADVANCED: '/api/analytics/advanced',
-    REAL_TIME: '/api/analytics/realtime',
-  },
-
-  // Admin endpoints
-  ADMIN: {
-    USERS: '/api/admin/users',
-    PERMISSIONS: '/api/admin/permissions',
-    SYSTEM: '/api/admin/system',
-    ANALYTICS: '/api/admin/analytics',
-    NOTIFICATIONS: '/api/admin/notifications',
-    AUDIT: '/api/admin/audit',
-  },
-} as const;
-
-// ============================================================================
 // UTILITY FUNCTIONS
 // ============================================================================
 

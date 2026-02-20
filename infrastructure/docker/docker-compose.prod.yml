@@ -1,16 +1,22 @@
 # EPSX Platform - Production Docker Compose
-# Server: Mac Mini (arm64) with Cloudflare Tunnel
+# Server: Mac Mini (arm64, 48GB RAM, 16 cores) with Cloudflare Tunnel
 # Usage: docker compose --env-file .env.prod -f docker-compose.prod.yml up -d
 #
 # NOTE: Uses pre-built images (no build context on server).
 # Images are built on local Mac and transferred via docker save/load.
 
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
-  # PostgreSQL Database
   postgres:
     image: postgres:17-alpine
     container_name: epsx-prod-postgres
     restart: unless-stopped
+    command: postgres -c config_file=/etc/postgresql/postgresql.conf
     environment:
       POSTGRES_DB: ${DB_NAME}
       POSTGRES_USER: ${DB_USER}
@@ -20,6 +26,7 @@ services:
     volumes:
       - prod_postgres_data:/var/lib/postgresql/data
       - ./scripts/init-databases-prod.sh:/docker-entrypoint-initdb.d/init-databases.sh:ro
+      - ./config/postgresql.conf:/etc/postgresql/postgresql.conf:ro
     networks:
       - epsx_prod
     healthcheck:
@@ -28,17 +35,24 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
-    ports:
-      - "${DB_PORT:-5491}:5432"
+    deploy:
+      resources:
+        limits:
+          memory: 8G
+          cpus: "4"
+        reservations:
+          memory: 2G
+          cpus: "1"
+    logging: *default-logging
 
-  # Redis Cache and Session Store
   redis:
     image: redis:7-alpine
     container_name: epsx-prod-redis
     restart: unless-stopped
-    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
+    command: redis-server /etc/redis/redis.conf --requirepass ${REDIS_PASSWORD}
     volumes:
       - prod_redis_data:/data
+      - ./config/redis.conf:/etc/redis/redis.conf:ro
     networks:
       - epsx_prod
     healthcheck:
@@ -47,10 +61,16 @@ services:
       timeout: 3s
       retries: 5
       start_period: 5s
-    ports:
-      - "${REDIS_PORT:-6342}:6379"
+    deploy:
+      resources:
+        limits:
+          memory: 1536M
+          cpus: "2"
+        reservations:
+          memory: 256M
+          cpus: "0.5"
+    logging: *default-logging
 
-  # Rust Backend API
   backend:
     image: epsx-backend:prod
     container_name: epsx-prod-backend
@@ -61,72 +81,66 @@ services:
       redis:
         condition: service_healthy
     environment:
-      # Environment
       ENV: ${ENV}
       NODE_ENV: ${NODE_ENV}
       RUST_ENV: ${RUST_ENV}
       RUST_LOG: ${RUST_LOG}
       LOG_LEVEL: ${LOG_LEVEL}
-
-      # Service URLs
       BACKEND_URL: ${BACKEND_URL}
       FRONTEND_URL: ${FRONTEND_URL}
       ADMIN_FRONTEND_URL: ${ADMIN_FRONTEND_URL}
-
-      # Database (main)
       DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@postgres:5432/${DB_NAME}
       DATABASE_MAX_CONNECTIONS: ${DATABASE_MAX_CONNECTIONS}
       DATABASE_MIN_CONNECTIONS: ${DATABASE_MIN_CONNECTIONS}
       DATABASE_ACQUIRE_TIMEOUT: ${DATABASE_ACQUIRE_TIMEOUT}
       DATABASE_IDLE_TIMEOUT: ${DATABASE_IDLE_TIMEOUT}
-
-      # Additional Databases (same host, different DBs)
       ANALYTICS_DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@postgres:5432/epsx_analytics_prod
       NOTIFICATIONS_DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@postgres:5432/epsx_notifications_prod
       PAYMENTS_DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@postgres:5432/epsx_payments_prod
-
-      # Redis
       REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
-
-      # Web3 Authentication
       WEB3_APP_SECRET: ${WEB3_APP_SECRET}
       WALLET_SIGNATURE_SECRET: ${WALLET_SIGNATURE_SECRET}
       WEB3_SESSION_SECRET: ${WEB3_SESSION_SECRET}
       WEB3_SESSION_DURATION_HOURS: ${WEB3_SESSION_DURATION_HOURS}
       WEB3_SIGNATURE_TIMEOUT_MINUTES: ${WEB3_SIGNATURE_TIMEOUT_MINUTES}
       JWT_SECRET: ${JWT_SECRET}
-
-      # Blockchain Configuration
       NEXT_PUBLIC_BLOCKCHAIN_NETWORK: ${BLOCKCHAIN_NETWORK}
       BLOCKCHAIN_NETWORK: ${BLOCKCHAIN_NETWORK}
       COMPANY_WALLET_MAINNET: ${COMPANY_WALLET_MAINNET}
       COMPANY_WALLET_TESTNET: ${COMPANY_WALLET_TESTNET}
-
-      # Blockchain RPC Endpoints
       BSC_MAINNET_RPC_URL: ${BSC_MAINNET_RPC_URL}
       BSC_TESTNET_RPC_URL: ${BSC_TESTNET_RPC_URL}
-
-      # Blockchain Settings
       BLOCKCHAIN_CONFIRMATION_TIMEOUT_SECONDS: ${BLOCKCHAIN_CONFIRMATION_TIMEOUT_SECONDS}
       BSC_REQUIRED_CONFIRMATIONS: ${BSC_REQUIRED_CONFIRMATIONS}
       BSC_TESTNET_REQUIRED_CONFIRMATIONS: ${BSC_TESTNET_REQUIRED_CONFIRMATIONS}
       MAX_PAYMENT_AGE_MINUTES: ${MAX_PAYMENT_AGE_MINUTES}
-
-      # Server Configuration
       HOST: 0.0.0.0
       PORT: 8080
     ports:
-      - "9180:8080"
+      - "127.0.0.1:9180:8080"
     networks:
       - epsx_prod
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"]
-      interval: 30s
-      timeout: 10s
+      test: ["CMD-SHELL", "curl -sf http://localhost:8080/health || exit 1"]
+      interval: 15s
+      timeout: 5s
       retries: 3
-      start_period: 40s
+      start_period: 60s
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=100M
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: "4"
+        reservations:
+          memory: 512M
+          cpus: "1"
+    logging: *default-logging
 
-  # Next.js Frontend
   frontend:
     image: epsx-frontend:prod
     container_name: epsx-prod-frontend
@@ -150,17 +164,30 @@ services:
       PORT: 3000
       HOSTNAME: 0.0.0.0
     ports:
-      - "4700:3000"
+      - "127.0.0.1:4700:3000"
     networks:
       - epsx_prod
     healthcheck:
       test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:3000/api/health', (res) => process.exit(res.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))\"" ]
-      interval: 30s
-      timeout: 10s
+      interval: 15s
+      timeout: 5s
       retries: 3
-      start_period: 40s
+      start_period: 30s
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=100M
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: "2"
+        reservations:
+          memory: 256M
+          cpus: "0.5"
+    logging: *default-logging
 
-  # Next.js Admin Frontend
   admin-frontend:
     image: epsx-admin-frontend:prod
     container_name: epsx-prod-admin
@@ -184,17 +211,30 @@ services:
       PORT: 3000
       HOSTNAME: 0.0.0.0
     ports:
-      - "4701:3000"
+      - "127.0.0.1:4701:3000"
     networks:
       - epsx_prod
     healthcheck:
       test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:3000/api/health', (res) => process.exit(res.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))\"" ]
-      interval: 30s
-      timeout: 10s
+      interval: 15s
+      timeout: 5s
       retries: 3
-      start_period: 40s
+      start_period: 30s
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=100M
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: "2"
+        reservations:
+          memory: 256M
+          cpus: "0.5"
+    logging: *default-logging
 
-  # Cloudflare Tunnel
   cloudflared:
     image: cloudflare/cloudflared:latest
     container_name: epsx-prod-cloudflared
@@ -212,6 +252,20 @@ services:
       - ${HOME}/.cloudflared/6bee9b58-eede-4b4c-815c-94c0ee38fe58.json:/etc/cloudflared/6bee9b58-eede-4b4c-815c-94c0ee38fe58.json:ro
     networks:
       - epsx_prod
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=50M
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "1"
+        reservations:
+          memory: 64M
+          cpus: "0.25"
+    logging: *default-logging
 
 networks:
   epsx_prod:

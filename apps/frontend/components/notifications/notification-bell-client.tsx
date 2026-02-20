@@ -154,7 +154,7 @@ export function NotificationBellClient() {
           />
 
           {/* Dropdown */}
-          <div className="absolute top-full right-0 z-50 mt-2 w-96 rounded-2xl border border-orange-100/50 bg-white/95 backdrop-blur-xl shadow-2xl dark:border-slate-700/50 dark:bg-slate-900/95">
+          <div className="absolute top-full right-0 z-50 mt-2 w-96 rounded-2xl border border-orange-100/50 bg-white/95 backdrop-blur-xl shadow-2xl dark:border-slate-700/50 dark:bg-card/95">
             {loading ? (
               <div className="px-4 py-8 text-center">
                 <Bell className="h-12 w-12 mx-auto mb-3 text-slate-300 dark:text-slate-600 animate-pulse" />

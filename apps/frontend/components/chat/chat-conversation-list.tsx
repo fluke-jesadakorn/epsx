@@ -35,7 +35,7 @@ export function ChatConversationList({ convos, onSelect, onNew }: ConvoListProps
 
   return (
     <div className="flex-1 flex flex-col">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-white/5">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-border">
         <span className="text-xs text-muted-foreground font-medium">
           {convos.length} conversation{convos.length !== 1 ? 's' : ''}
         </span>
@@ -56,7 +56,7 @@ export function ChatConversationList({ convos, onSelect, onNew }: ConvoListProps
             <button
               key={convo.id}
               onClick={() => onSelect(convo.id)}
-              className={`group w-full px-4 py-3.5 border-b border-slate-200 dark:border-white/5 hover:bg-slate-50 dark:hover:bg-gray-100 dark:bg-slate-800/30 transition-all text-left ${
+              className={`group w-full px-4 py-3.5 border-b border-slate-200 dark:border-border hover:bg-slate-50 dark:hover:bg-gray-100 dark:bg-slate-800/30 transition-all text-left ${
                 hasUnread ? 'bg-blue-50 dark:bg-blue-500/5 border-l-2 border-l-blue-500' : ''
               }`}
             >

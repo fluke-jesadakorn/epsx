@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/strict-boolean-expressions, @typescript-eslint/no-unnecessary-condition, unicorn/filename-case, max-lines-per-function, complexity, no-constant-binary-expression */
+/* eslint-disable @typescript-eslint/strict-boolean-expressions, unicorn/filename-case, max-lines-per-function, complexity */
 'use client';
 
 import Link from 'next/link';
@@ -169,8 +169,8 @@ export function Sidebar() {
   const toggleExpanded = (itemId: string) => {
     setExpandedItems(prev => {
       const next = new Set(prev);
-      if (next.has(itemId)) next.delete(itemId);
-      else next.add(itemId);
+      if (next.has(itemId)) {next.delete(itemId);}
+      else {next.add(itemId);}
       return next;
     });
   };
@@ -213,7 +213,7 @@ export function Sidebar() {
             const needsAuth = item.requiresAuth && !isWalletConnected;
             const isDisabled = needsAuth;
             const Icon = item.icon;
-            const hasChildren = !!item.children;
+            const hasChildren = Boolean(item.children);
 
             // Dynamic HREF for auth link
             const href = item.id === 'auth'

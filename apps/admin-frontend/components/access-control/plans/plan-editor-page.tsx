@@ -44,7 +44,7 @@ export function PlanEditorPage({ planId }: Props) {
     } = usePlanEditForm();
 
     useEffect(() => {
-        if (!isAuthenticated) return;
+        if (!isAuthenticated) {return;}
         void (async () => {
             setIsLoading(true);
             try {
@@ -89,7 +89,7 @@ export function PlanEditorPage({ planId }: Props) {
     };
 
     const handleDelete = async () => {
-        if (!deleteTarget) return;
+        if (!deleteTarget) {return;}
         try {
             await deletePlanAction(deleteTarget.id);
             toast.success('Plan deleted');

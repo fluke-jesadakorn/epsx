@@ -78,7 +78,7 @@ pub async fn get_transaction_status_handler(
     Extension(user_context): Extension<OpenIDUserContext>,
     Path(tx_hash): Path<String>,
 ) -> Result<Json<TransactionStatusResponse>, Json<UnifiedErrorResponse>> {
-    let wallet_address = user_context.wallet_address.to_lowercase();
+    let wallet_address = user_context.wallet_address.clone();
     
     debug!(
         "Getting transaction status: wallet={}, tx_hash={}",

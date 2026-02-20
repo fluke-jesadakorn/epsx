@@ -65,7 +65,7 @@ export function EditWalletMetadataModal({
     const [isLoading, setIsLoading] = React.useState(false);
 
     const form = useForm<z.infer<typeof formSchema>>({
-        resolver: zodResolver(formSchema),
+        resolver: zodResolver(formSchema as any) as any,
         defaultValues: {
             label: currentLabel ?? '',
             note: currentNote ?? '',
@@ -119,10 +119,10 @@ export function EditWalletMetadataModal({
                     </DialogDescription>
                 </DialogHeader>
 
-                <Form {...form}>
+                <Form {...(form as any)}>
                     <form onSubmit={(e) => void form.handleSubmit(onSubmit)(e)} className="space-y-4">
                         <FormField
-                            control={form.control}
+                            control={form.control as any}
                             name="label"
                             render={({ field }) => (
                                 <FormItem>
@@ -139,7 +139,7 @@ export function EditWalletMetadataModal({
                         />
 
                         <FormField
-                            control={form.control}
+                            control={form.control as any}
                             name="note"
                             render={({ field }) => (
                                 <FormItem>

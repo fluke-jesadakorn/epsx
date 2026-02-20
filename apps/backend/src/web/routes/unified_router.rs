@@ -49,7 +49,7 @@ impl UnifiedRouteBuilder {
         crate::web::auth::AppState::new(
             self.container.db_pool(),
             cache,
-            Arc::new((*self.container).clone()),
+            Arc::clone(&self.container),
             redis_pool,
             redis_broadcaster,
             analytics_pool,
@@ -212,7 +212,7 @@ impl UnifiedRouteBuilder {
         let app_state = crate::web::auth::AppState::new(
             self.container.db_pool.clone(),
             cache.clone(),
-            Arc::new((*self.container).clone()),
+            Arc::clone(&self.container),
             redis_pool.clone(),
             redis_broadcaster.clone(),
             self.container.get_analytics_pool(),
@@ -299,7 +299,7 @@ impl UnifiedRouteBuilder {
         let app_state = crate::web::auth::AppState::new(
             self.container.db_pool(),
             cache,
-            Arc::new((*self.container).clone()),
+            Arc::clone(&self.container),
             redis_pool,
             redis_broadcaster,
             self.container.get_analytics_pool(),
@@ -498,7 +498,7 @@ impl UnifiedRouteBuilder {
         let app_state = crate::web::auth::AppState::new(
             self.container.db_pool(),
             cache,
-            Arc::new((*self.container).clone()),
+            Arc::clone(&self.container),
             redis_pool,
             redis_broadcaster,
             self.container.get_analytics_pool(),
@@ -687,7 +687,7 @@ impl UnifiedRouteBuilder {
         let app_state = crate::web::auth::AppState::new(
             self.container.db_pool(),
             cache,
-            Arc::new((*self.container).clone()),
+            Arc::clone(&self.container),
             redis_pool,
             redis_broadcaster,
             self.container.get_analytics_pool(),

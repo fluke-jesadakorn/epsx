@@ -1,6 +1,6 @@
 'use client';
 
-import { ErrorContent } from '@/components/shared';
+import { ErrorContent } from '@/components/shared/status-pages';
 
 /**
  * Error Page

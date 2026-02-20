@@ -26,7 +26,7 @@ export function DeletePermissionDialog({
         <Dialog
             open={Boolean(permToDelete)}
             onOpenChange={open => {
-                if (!open) onClose();
+                if (!open) {onClose();}
             }}
         >
             <DialogContent className="max-w-[400px]">

@@ -35,12 +35,12 @@ impl EPSValue {
     
     /// Check if EPS is positive (profitable)
     pub fn is_profitable(&self) -> bool {
-        self.value > 0.0
+        self.value >= 0.01
     }
     
     /// Check if EPS is negative (loss-making)
     pub fn is_loss_making(&self) -> bool {
-        self.value < 0.0
+        self.value <= -0.01
     }
     
     /// Check if EPS is near zero (break-even)

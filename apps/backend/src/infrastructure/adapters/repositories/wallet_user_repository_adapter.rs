@@ -225,19 +225,17 @@ impl WalletUserRepositoryPort for WalletUserRepositoryAdapter {
     async fn find_eligible_for_web3_permissions(&self, chain_id: u64) -> AppResult<Vec<WalletUser>> {
         let mut conn = self.db_pool.conn().await?;
 
-        let query = format!(
+        let rows = diesel::sql_query(
             r#"
             SELECT
                 wallet_address, is_active, wallet_metadata,
                 created_at, updated_at, last_auth_at
             FROM wallet_users
             WHERE is_active = true
-            AND (wallet_metadata->>'primary_chain_id')::bigint = {}
-            "#,
-            chain_id
-        );
-
-        let rows = diesel::sql_query(query)
+            AND (wallet_metadata->>'primary_chain_id')::bigint = $1
+            "#
+        )
+            .bind::<diesel::sql_types::BigInt, _>(chain_id as i64)
             .load::<WalletUserQueryResult>(&mut conn)
             .await
             .map_err(|e| {
@@ -341,7 +339,7 @@ impl WalletUserSearchPort for WalletUserRepositoryAdapter {
         let permission_str = permission.as_str();
         let mut conn = self.db_pool.conn().await?;
 
-        let query = format!(
+        let rows = diesel::sql_query(
             r#"
             SELECT DISTINCT
                 wu.wallet_address, wu.is_active, wu.wallet_metadata,
@@ -354,16 +352,13 @@ impl WalletUserSearchPort for WalletUserRepositoryAdapter {
             LEFT JOIN permissions p2 ON wdp.permission_id = p2.id
             WHERE wu.is_active = true
               AND (
-                (p1.permission_string = '{}' AND p1.is_active = true AND wga.is_active = true)
+                (p1.permission_string = $1 AND p1.is_active = true AND wga.is_active = true)
                 OR
-                (p2.permission_string = '{}' AND p2.is_active = true AND wdp.is_active = true)
+                (p2.permission_string = $1 AND p2.is_active = true AND wdp.is_active = true)
               )
-            "#,
-            permission_str.replace("'", "''"),
-            permission_str.replace("'", "''")
-        );
-
-        let rows = diesel::sql_query(query)
+            "#
+        )
+            .bind::<diesel::sql_types::Text, _>(permission_str)
             .load::<WalletUserQueryResult>(&mut conn)
             .await
             .map_err(|e| {
@@ -408,7 +403,7 @@ impl WalletUserSearchPort for WalletUserRepositoryAdapter {
 
         let mut conn = self.db_pool.conn().await?;
 
-        let query = format!(
+        let rows = diesel::sql_query(
             r#"
             SELECT DISTINCT
                 wu.wallet_address, wu.is_active, wu.wallet_metadata,
@@ -419,14 +414,11 @@ impl WalletUserSearchPort for WalletUserRepositoryAdapter {
             WHERE wu.is_active = true
               AND wga.is_active = true
               AND pg.is_active = true
-              AND (pg.name = '{}' OR pg.slug = '{}')
+              AND (pg.name = $1 OR pg.slug = $1)
             ORDER BY wu.created_at DESC
-            "#,
-            type_filter.replace("'", "''"),
-            type_filter.replace("'", "''")
-        );
-
-        let rows = diesel::sql_query(query)
+            "#
+        )
+            .bind::<diesel::sql_types::Text, _>(type_filter)
             .load::<WalletUserQueryResult>(&mut conn)
             .await
             .map_err(|e| {
@@ -464,11 +456,10 @@ impl WalletUserSearchPort for WalletUserRepositoryAdapter {
     async fn find_by_permission_plan(&self, permission_plan: &str) -> AppResult<Vec<WalletUser>> {
         let mut conn = self.db_pool.conn().await?;
 
-        let query = format!(r#"
+        let rows = diesel::sql_query(r#"
             SELECT DISTINCT
                 wu.wallet_address,
                 wu.is_active,
-                wu.tier_level,
                 wu.wallet_metadata,
                 wu.created_at,
                 wu.updated_at,
@@ -479,14 +470,10 @@ impl WalletUserSearchPort for WalletUserRepositoryAdapter {
             WHERE wu.is_active = true
               AND wga.is_active = true
               AND pg.is_active = true
-              AND (pg.name = '{}' OR pg.slug = '{}')
+              AND (pg.name = $1 OR pg.slug = $1)
             ORDER BY wu.created_at DESC
-            "#,
-            permission_plan.replace("'", "''"),
-            permission_plan.replace("'", "''")
-        );
-
-        let rows = diesel::sql_query(query)
+            "#)
+            .bind::<diesel::sql_types::Text, _>(permission_plan)
             .load::<WalletUserQueryResult>(&mut conn)
             .await
             .map_err(|e| {
@@ -522,45 +509,36 @@ impl WalletUserSearchPort for WalletUserRepositoryAdapter {
     ) -> AppResult<WalletUserSearchResult> {
         let mut conn = self.db_pool.conn().await?;
 
-        let mut where_clauses = vec!["1=1".to_string()];
+        // Use parameterized query with IS NULL trick for optional filters
+        let wallet_pattern = criteria.wallet_pattern.as_ref().map(|p| format!("%{}%", p));
+        let is_active = criteria.is_active;
+        let permission_plan = criteria.permission_plan.clone();
+        let created_after = criteria.created_after;
+        let created_before = criteria.created_before;
 
-        if let Some(ref pattern) = criteria.wallet_pattern {
-            where_clauses.push(format!("wallet_address ILIKE '%{}%'", pattern.replace("'", "''")));
-        }
-
-        if let Some(is_active) = criteria.is_active {
-            where_clauses.push(format!("is_active = {}", is_active));
-        }
-
-        if let Some(ref permission_plan) = criteria.permission_plan {
-            where_clauses.push(format!("plan_metadata ? '{}'", permission_plan.replace("'", "''")));
-        }
-
-        if let Some(ref created_after) = criteria.created_after {
-            where_clauses.push(format!("created_at > '{}'", created_after.to_rfc3339()));
-        }
-
-        if let Some(ref created_before) = criteria.created_before {
-            where_clauses.push(format!("created_at < '{}'", created_before.to_rfc3339()));
-        }
-
-        let query = format!(
+        let rows = diesel::sql_query(
             r#"
             SELECT
                 wallet_address, is_active, wallet_metadata,
                 created_at, updated_at, last_auth_at
             FROM wallet_users
-            WHERE {}
+            WHERE ($1::text IS NULL OR wallet_address ILIKE $1)
+              AND ($2::bool IS NULL OR is_active = $2)
+              AND ($3::text IS NULL OR plan_metadata ? $3)
+              AND ($4::timestamptz IS NULL OR created_at > $4)
+              AND ($5::timestamptz IS NULL OR created_at < $5)
             ORDER BY created_at DESC
-            LIMIT {}
-            OFFSET {}
-            "#,
-            where_clauses.join(" AND "),
-            limit,
-            offset
-        );
-
-        let rows = diesel::sql_query(query)
+            LIMIT $6
+            OFFSET $7
+            "#
+        )
+            .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(wallet_pattern)
+            .bind::<diesel::sql_types::Nullable<diesel::sql_types::Bool>, _>(is_active)
+            .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(permission_plan)
+            .bind::<diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>, _>(created_after)
+            .bind::<diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>, _>(created_before)
+            .bind::<diesel::sql_types::Integer, _>(limit as i32)
+            .bind::<diesel::sql_types::Integer, _>(offset as i32)
             .load::<WalletUserQueryResult>(&mut conn)
             .await
             .map_err(|e| {
@@ -597,20 +575,8 @@ impl WalletUserSearchPort for WalletUserRepositoryAdapter {
     async fn count_by_criteria(&self, criteria: &WalletUserSearchCriteria) -> AppResult<u64> {
         let mut conn = self.db_pool.conn().await?;
 
-        let mut where_clauses = vec!["1=1".to_string()];
-
-        if let Some(ref pattern) = criteria.wallet_pattern {
-            where_clauses.push(format!("wallet_address ILIKE '%{}%'", pattern.replace("'", "''")));
-        }
-
-        if let Some(is_active) = criteria.is_active {
-            where_clauses.push(format!("is_active = {}", is_active));
-        }
-
-        let query = format!(
-            "SELECT COUNT(*) as count FROM wallet_users WHERE {}",
-            where_clauses.join(" AND ")
-        );
+        let wallet_pattern = criteria.wallet_pattern.as_ref().map(|p| format!("%{}%", p));
+        let is_active = criteria.is_active;
 
         #[derive(diesel::QueryableByName)]
         struct CountResult {
@@ -618,7 +584,13 @@ impl WalletUserSearchPort for WalletUserRepositoryAdapter {
             count: i64,
         }
 
-        let result = diesel::sql_query(query)
+        let result = diesel::sql_query(
+            r#"SELECT COUNT(*) as count FROM wallet_users
+               WHERE ($1::text IS NULL OR wallet_address ILIKE $1)
+                 AND ($2::bool IS NULL OR is_active = $2)"#
+        )
+            .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(wallet_pattern)
+            .bind::<diesel::sql_types::Nullable<diesel::sql_types::Bool>, _>(is_active)
             .load::<CountResult>(&mut conn)
             .await
             .map_err(|e| {
@@ -965,23 +937,21 @@ impl WalletUserAnalyticsPort for WalletUserRepositoryAdapter {
             daily_active_users: i64,
         }
 
-        let query = format!(
+        let rows = diesel::sql_query(
             r#"
             SELECT
                 DATE(last_auth_at) as auth_date,
                 COUNT(DISTINCT wallet_address) as daily_active_users
             FROM wallet_users
             WHERE is_active = true
-              AND last_auth_at >= '{}'
-              AND (wallet_metadata->>'primary_chain_id')::bigint = {}
+              AND last_auth_at >= $1
+              AND (wallet_metadata->>'primary_chain_id')::bigint = $2
             GROUP BY DATE(last_auth_at)
             ORDER BY auth_date DESC
-            "#,
-            cutoff_date.to_rfc3339(),
-            chain_id
-        );
-
-        let rows = diesel::sql_query(query)
+            "#
+        )
+            .bind::<diesel::sql_types::Timestamptz, _>(cutoff_date)
+            .bind::<diesel::sql_types::BigInt, _>(chain_id as i64)
             .load::<ActivityRow>(&mut conn)
             .await
             .map_err(|e| {
@@ -1005,20 +975,18 @@ impl WalletUserAnalyticsPort for WalletUserRepositoryAdapter {
         let cutoff_date = Utc::now() - chrono::Duration::days(days as i64);
         let mut conn = self.db_pool.conn().await?;
 
-        let query = format!(
+        let rows = diesel::sql_query(
             r#"
             SELECT
                 wallet_address, is_active, wallet_metadata,
                 created_at, updated_at, last_auth_at
             FROM wallet_users
             WHERE is_active = true
-            AND (last_auth_at IS NULL OR last_auth_at < '{}')
+            AND (last_auth_at IS NULL OR last_auth_at < $1)
             ORDER BY last_auth_at ASC NULLS FIRST
-            "#,
-            cutoff_date.to_rfc3339()
-        );
-
-        let rows = diesel::sql_query(query)
+            "#
+        )
+            .bind::<diesel::sql_types::Timestamptz, _>(cutoff_date)
             .load::<WalletUserQueryResult>(&mut conn)
             .await
             .map_err(|e| {

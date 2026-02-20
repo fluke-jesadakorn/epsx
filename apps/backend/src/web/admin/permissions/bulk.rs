@@ -197,7 +197,10 @@ pub async fn bulk_grant(
                     .await
                     {
                         Ok(result) => result.id,
-                        Err(_) => continue,
+                        Err(e) => {
+                            tracing::warn!("Failed to find/create permission {}: {}", perm_string, e);
+                            continue;
+                        }
                     };
 
                     // Grant direct permission
@@ -219,7 +222,10 @@ pub async fn bulk_grant(
                             added.push(perm_string.clone());
                             granted_count += 1;
                         }
-                        Err(_) => continue,
+                        Err(e) => {
+                            tracing::warn!("Failed to grant permission {} to {}: {}", perm_string, wallet_clone, e);
+                            continue;
+                        }
                     }
                 }
 
@@ -570,7 +576,10 @@ pub async fn bulk_validate(
         .await
         {
             Ok(rows) => rows,
-            Err(_) => continue,
+            Err(e) => {
+                tracing::warn!("Failed to load permissions for wallet {}: {}", wallet, e);
+                continue;
+            }
         };
 
         let mut valid_permissions = Vec::new();

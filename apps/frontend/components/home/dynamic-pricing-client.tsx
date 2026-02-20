@@ -169,7 +169,7 @@ const CUSTOM_FEATURES = [
 
 const ContactCard = (): JSX.Element => (
     <Link href="/contact" className="block h-full">
-        <div className="relative rounded-2xl border border-purple-500/20 bg-white dark:bg-gradient-to-b dark:from-purple-900/20 dark:to-gray-900/80 hover:shadow-xl hover:shadow-purple-500/10 transition-all duration-300 flex flex-col h-full cursor-pointer">
+        <div className="relative rounded-2xl border border-purple-500/20 bg-white dark:bg-card hover:shadow-xl hover:shadow-purple-500/10 transition-all duration-300 flex flex-col h-full cursor-pointer">
             <div className="relative p-6 sm:p-8 flex flex-col h-full">
                 <div className="text-center mb-6">
                     <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 uppercase tracking-widest mb-4">

@@ -471,7 +471,7 @@ interface TestResultsProps {
 }
 
 export function TestResults({ testResults }: TestResultsProps) {
-  if (!testResults) return null;
+  if (!testResults) {return null;}
 
   return (
     <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-r from-emerald-500/20 via-teal-500/20 to-emerald-500/20 p-0.5">

@@ -178,7 +178,7 @@ impl WalletManagementRepository {
         }).collect())
     }
 
-    /// Find wallets with filtering and pagination (safe parameterized query)
+    /// Find wallets with filtering and pagination (parameterized query)
     pub async fn find_wallets_paginated(
         &self,
         criteria: &WalletSearchCriteria,
@@ -187,48 +187,7 @@ impl WalletManagementRepository {
             AppError::new(ErrorKind::DatabaseError, format!("Failed to get connection: {}", e))
         })?;
 
-        // Build WHERE conditions with SQL injection protection
-        let mut where_parts = Vec::new();
-
-        if let Some(ref search) = criteria.search {
-            let escaped = search.replace("'", "''");
-            where_parts.push(format!(
-                "(wu.wallet_address ILIKE '%{}%' OR wu.wallet_metadata->>'label' ILIKE '%{}%' OR wu.wallet_metadata->>'note' ILIKE '%{}%')",
-                escaped, escaped, escaped
-            ));
-        }
-
-        if let Some(ref status) = criteria.status {
-            if status == "active" {
-                where_parts.push("wu.is_active = true".to_string());
-            } else if status == "disabled" {
-                where_parts.push("wu.is_active = false".to_string());
-            }
-        }
-
-        if let Some(ref date_from) = criteria.date_from {
-            if let Ok(parsed) = chrono::DateTime::parse_from_rfc3339(date_from) {
-                where_parts.push(format!("wu.created_at >= '{}'", parsed.to_rfc3339().replace("'", "''")));
-            }
-        }
-
-        if let Some(ref date_to) = criteria.date_to {
-            if let Ok(parsed) = chrono::DateTime::parse_from_rfc3339(date_to) {
-                where_parts.push(format!("wu.created_at <= '{}'", parsed.to_rfc3339().replace("'", "''")));
-            }
-        }
-
-        if let Some(ref plan_id) = criteria.exclude_plan_id {
-            where_parts.push(format!("wu.wallet_address NOT IN (SELECT wallet_address FROM wallet_plan_assignments WHERE plan_id = '{}' AND is_active = true)", plan_id.replace("'", "''")));
-        }
-
-        let where_clause = if where_parts.is_empty() {
-            String::new()
-        } else {
-            format!("WHERE {}", where_parts.join(" AND "))
-        };
-
-        // Validate and sanitize sort columns
+        // Validate and sanitize sort columns (whitelist — safe for format!())
         let sort_by = criteria.sort_by.as_deref().unwrap_or("created_at");
         let valid_sort_columns = ["created_at", "wallet_address", "last_auth_at", "is_active"];
         let safe_sort_by = if valid_sort_columns.contains(&sort_by) {
@@ -240,7 +199,22 @@ impl WalletManagementRepository {
         let sort_order = criteria.sort_order.as_deref().unwrap_or("DESC");
         let safe_sort_order = if sort_order.to_uppercase() == "ASC" { "ASC" } else { "DESC" };
 
-        // Build main query
+        // Prepare bind params — user input is NEVER interpolated
+        let search_pattern = criteria.search.as_ref().map(|s| format!("%{}%", s));
+        let is_active_filter: Option<bool> = criteria.status.as_ref().and_then(|s| match s.as_str() {
+            "active" => Some(true),
+            "disabled" => Some(false),
+            _ => None,
+        });
+        let date_from: Option<DateTime<Utc>> = criteria.date_from.as_ref()
+            .and_then(|d| chrono::DateTime::parse_from_rfc3339(d).ok())
+            .map(|d| d.with_timezone(&Utc));
+        let date_to: Option<DateTime<Utc>> = criteria.date_to.as_ref()
+            .and_then(|d| chrono::DateTime::parse_from_rfc3339(d).ok())
+            .map(|d| d.with_timezone(&Utc));
+        let exclude_plan = criteria.exclude_plan_id.clone();
+
+        // Only ORDER BY uses format!() — values are whitelisted above
         let query_str = format!(
             r#"
             SELECT
@@ -268,11 +242,15 @@ impl WalletManagementRepository {
                     LIMIT 1
                 ) as plan_name
             FROM wallet_users wu
-            {}
+            WHERE ($1::text IS NULL OR wu.wallet_address ILIKE $1 OR wu.wallet_metadata->>'label' ILIKE $1 OR wu.wallet_metadata->>'note' ILIKE $1)
+              AND ($2::bool IS NULL OR wu.is_active = $2)
+              AND ($3::timestamptz IS NULL OR wu.created_at >= $3)
+              AND ($4::timestamptz IS NULL OR wu.created_at <= $4)
+              AND ($5::text IS NULL OR wu.wallet_address NOT IN (SELECT wallet_address FROM wallet_plan_assignments WHERE plan_id = $5::uuid AND is_active = true))
             ORDER BY wu.{} {}
-            LIMIT {} OFFSET {}
+            LIMIT $6 OFFSET $7
             "#,
-            where_clause, safe_sort_by, safe_sort_order, criteria.limit, criteria.offset
+            safe_sort_by, safe_sort_order
         );
 
         #[derive(QueryableByName)]
@@ -296,6 +274,13 @@ impl WalletManagementRepository {
         }
 
         let rows = diesel::sql_query(&query_str)
+            .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(&search_pattern)
+            .bind::<diesel::sql_types::Nullable<diesel::sql_types::Bool>, _>(&is_active_filter)
+            .bind::<diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>, _>(&date_from)
+            .bind::<diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>, _>(&date_to)
+            .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(&exclude_plan)
+            .bind::<diesel::sql_types::BigInt, _>(criteria.limit as i64)
+            .bind::<diesel::sql_types::BigInt, _>(criteria.offset as i64)
             .load::<WalletSummaryRow>(&mut conn)
             .await
             .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to fetch wallets: {}", e)))?;
@@ -312,7 +297,7 @@ impl WalletManagementRepository {
         }).collect())
     }
 
-    /// Count wallets with filters
+    /// Count wallets with filters (parameterized query)
     pub async fn count_wallets(
         &self,
         criteria: &WalletSearchCriteria,
@@ -321,48 +306,19 @@ impl WalletManagementRepository {
             AppError::new(ErrorKind::DatabaseError, format!("Failed to get connection: {}", e))
         })?;
 
-        // Build WHERE conditions with SQL injection protection
-        let mut where_parts = Vec::new();
-
-        if let Some(ref search) = criteria.search {
-            let escaped = search.replace("'", "''");
-            where_parts.push(format!(
-                "(wu.wallet_address ILIKE '%{}%' OR wu.wallet_metadata->>'label' ILIKE '%{}%' OR wu.wallet_metadata->>'note' ILIKE '%{}%')",
-                escaped, escaped, escaped
-            ));
-        }
-
-        if let Some(ref status) = criteria.status {
-            if status == "active" {
-                where_parts.push("wu.is_active = true".to_string());
-            } else if status == "disabled" {
-                where_parts.push("wu.is_active = false".to_string());
-            }
-        }
-
-        if let Some(ref date_from) = criteria.date_from {
-            if let Ok(parsed) = chrono::DateTime::parse_from_rfc3339(date_from) {
-                where_parts.push(format!("wu.created_at >= '{}'", parsed.to_rfc3339().replace("'", "''")));
-            }
-        }
-
-        if let Some(ref date_to) = criteria.date_to {
-            if let Ok(parsed) = chrono::DateTime::parse_from_rfc3339(date_to) {
-                where_parts.push(format!("wu.created_at <= '{}'", parsed.to_rfc3339().replace("'", "''")));
-            }
-        }
-
-        if let Some(ref plan_id) = criteria.exclude_plan_id {
-            where_parts.push(format!("wu.wallet_address NOT IN (SELECT wallet_address FROM wallet_plan_assignments WHERE plan_id = '{}' AND is_active = true)", plan_id.replace("'", "''")));
-        }
-
-        let where_clause = if where_parts.is_empty() {
-            String::new()
-        } else {
-            format!("WHERE {}", where_parts.join(" AND "))
-        };
-
-        let query_str = format!("SELECT COUNT(*) as total FROM wallet_users wu {}", where_clause);
+        let search_pattern = criteria.search.as_ref().map(|s| format!("%{}%", s));
+        let is_active_filter: Option<bool> = criteria.status.as_ref().and_then(|s| match s.as_str() {
+            "active" => Some(true),
+            "disabled" => Some(false),
+            _ => None,
+        });
+        let date_from: Option<DateTime<Utc>> = criteria.date_from.as_ref()
+            .and_then(|d| chrono::DateTime::parse_from_rfc3339(d).ok())
+            .map(|d| d.with_timezone(&Utc));
+        let date_to: Option<DateTime<Utc>> = criteria.date_to.as_ref()
+            .and_then(|d| chrono::DateTime::parse_from_rfc3339(d).ok())
+            .map(|d| d.with_timezone(&Utc));
+        let exclude_plan = criteria.exclude_plan_id.clone();
 
         #[derive(QueryableByName)]
         struct CountRow {
@@ -370,7 +326,19 @@ impl WalletManagementRepository {
             total: i64,
         }
 
-        let row = diesel::sql_query(&query_str)
+        let row = diesel::sql_query(
+            r#"SELECT COUNT(*) as total FROM wallet_users wu
+               WHERE ($1::text IS NULL OR wu.wallet_address ILIKE $1 OR wu.wallet_metadata->>'label' ILIKE $1 OR wu.wallet_metadata->>'note' ILIKE $1)
+                 AND ($2::bool IS NULL OR wu.is_active = $2)
+                 AND ($3::timestamptz IS NULL OR wu.created_at >= $3)
+                 AND ($4::timestamptz IS NULL OR wu.created_at <= $4)
+                 AND ($5::text IS NULL OR wu.wallet_address NOT IN (SELECT wallet_address FROM wallet_plan_assignments WHERE plan_id = $5::uuid AND is_active = true))"#
+        )
+            .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(&search_pattern)
+            .bind::<diesel::sql_types::Nullable<diesel::sql_types::Bool>, _>(&is_active_filter)
+            .bind::<diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>, _>(&date_from)
+            .bind::<diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>, _>(&date_to)
+            .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(&exclude_plan)
             .get_result::<CountRow>(&mut conn)
             .await
             .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to count wallets: {}", e)))?;

@@ -107,6 +107,16 @@ impl MarketSector {
     fn classify_sector(sector: &str) -> SectorCategory {
         let sector_lower = sector.to_lowercase();
         
+        // Healthcare patterns (Must be before Technology to catch biotechnology)
+        if sector_lower.contains("health")
+            || sector_lower.contains("medical")
+            || sector_lower.contains("pharmaceut")
+            || sector_lower.contains("biotechnol")
+            || sector_lower.contains("drug")
+        {
+            return SectorCategory::Healthcare;
+        }
+
         // Technology patterns
         if sector_lower.contains("technolog")
             || sector_lower.contains("software")
@@ -115,16 +125,6 @@ impl MarketSector {
             || sector_lower.contains("computer")
         {
             return SectorCategory::Technology;
-        }
-        
-        // Healthcare patterns
-        if sector_lower.contains("health")
-            || sector_lower.contains("medical")
-            || sector_lower.contains("pharmaceut")
-            || sector_lower.contains("biotechnol")
-            || sector_lower.contains("drug")
-        {
-            return SectorCategory::Healthcare;
         }
         
         // Financial patterns

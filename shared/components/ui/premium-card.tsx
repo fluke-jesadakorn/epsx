@@ -25,18 +25,18 @@ export function PremiumCard({
             case 'green':
                 return 'shadow-[0_0_30px_-5px_theme(colors.green.500/0.3)] border-green-500/30';
             default:
-                return 'hover:shadow-xl hover:shadow-blue-500/10 border-gray-200 dark:border-white/5';
+                return 'hover:shadow-xl hover:shadow-blue-500/10 border-gray-200 dark:border-border';
         }
     };
 
     const getVariantStyles = () => {
         switch (variant) {
             case 'highlight':
-                return 'bg-white dark:bg-gradient-to-b dark:from-gray-800/90 dark:to-gray-900/90';
+                return 'bg-white dark:bg-card';
             case 'glass':
-                return 'bg-white/80 dark:bg-gray-900/60 backdrop-blur-md';
+                return 'bg-white/80 dark:bg-card backdrop-blur-md';
             default:
-                return 'bg-white dark:bg-gray-900/60';
+                return 'bg-white dark:bg-card';
         }
     };
 

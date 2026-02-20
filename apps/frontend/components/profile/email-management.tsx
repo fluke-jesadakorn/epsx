@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useApiClient } from '@/shared/hooks/use-api-client';
 import { type User } from '@/shared/types/auth';
 import { AlertCircle, Bell, Check, Edit, Mail, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -28,6 +29,7 @@ interface EmailState {
 }
 
 export function EmailManagement({ user }: EmailManagementProps) {
+  const { base } = useApiClient({ platform: 'frontend' });
   const [emailState, setEmailState] = useState<EmailState>({
     isEditing: false,
     newEmail: user.email,
@@ -67,17 +69,7 @@ export function EmailManagement({ user }: EmailManagementProps) {
     setEmailState(prev => ({ ...prev, isSending: true, error: undefined }));
 
     try {
-      const response = await fetch('/api/auth/change-email', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ new_email: emailState.newEmail }),
-        credentials: 'include',
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message ?? 'Failed to send verification code');
-      }
+      await base.post('/api/auth/change-email', { new_email: emailState.newEmail });
 
       setEmailState(prev => ({
         ...prev,
@@ -109,20 +101,10 @@ export function EmailManagement({ user }: EmailManagementProps) {
     setEmailState(prev => ({ ...prev, isVerifying: true, error: undefined }));
 
     try {
-      const response = await fetch('/api/auth/verify-email-change', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      await base.post('/api/auth/verify-email-change', {
           new_email: emailState.newEmail,
           verification_code: emailState.verificationCode
-        }),
-        credentials: 'include',
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message ?? 'Invalid verification code');
-      }
+        });
 
       // Success - email changed
       setEmailState(prev => ({

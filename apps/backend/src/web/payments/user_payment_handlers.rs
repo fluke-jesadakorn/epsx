@@ -82,7 +82,7 @@ pub async fn get_user_payment_history(
     Extension(user_context): Extension<crate::web::middleware::OpenIDUserContext>,
     Query(params): Query<PaymentHistoryQuery>,
 ) -> Result<Json<PaymentHistoryResponse>, Json<UnifiedErrorResponse>> {
-    let wallet_address = user_context.wallet_address.to_lowercase();
+    let wallet_address = user_context.wallet_address.clone();
     info!("Getting payment history for wallet: {}", wallet_address);
 
     // Pagination defaults

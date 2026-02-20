@@ -72,12 +72,12 @@ export function DeveloperStatsCards({ currentUser: _currentUser }: DeveloperStat
                     {hasGroups && userGroupData && (
                         <div className="flex flex-wrap gap-1">
                             {userGroupData.plans.slice(0, 2).map(g => (
-                                <Badge key={g.id} variant="outline" className="text-xs bg-white/50 dark:bg-gray-900/50">
+                                <Badge key={g.id} variant="outline" className="text-xs bg-white/50 dark:bg-card">
                                     {g.name}
                                 </Badge>
                             ))}
                             {userGroupData.plans.length > 2 && (
-                                <Badge variant="outline" className="text-xs bg-white/50 dark:bg-gray-900/50">
+                                <Badge variant="outline" className="text-xs bg-white/50 dark:bg-card">
                                     +{userGroupData.plans.length - 2}
                                 </Badge>
                             )}

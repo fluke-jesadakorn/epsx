@@ -19,11 +19,11 @@ export default async function WalletManagementLayout({
 }) {
     const [data, walletStats] = await Promise.all([
         fetchAccessManagementData().catch((e: unknown) => {
-            if (typeof e === 'object' && e !== null && 'digest' in e) throw e;
+            if (typeof e === 'object' && e !== null && 'digest' in e) {throw e;}
             return { stats: { activeSubscriptions: 0, expiringSoon: 0, totalMRR: 0, totalMembers: 0 }, policies: [], permissionCount: 0, platformCount: 0 };
         }),
         fetchWalletStats().catch((e: unknown) => {
-            if (typeof e === 'object' && e !== null && 'digest' in e) throw e;
+            if (typeof e === 'object' && e !== null && 'digest' in e) {throw e;}
             return { total_users: 0, active_users: 0, inactive_users: 0, growth_rate: 0 };
         }),
     ]);

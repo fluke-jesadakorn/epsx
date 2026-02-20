@@ -13,6 +13,20 @@ export interface UpgradeOption {
     features: string[];
 }
 
+function calculateNextPlan(candidatePlans: UpgradeOption[], isFreePlan: boolean, currentPlanName: string | null | undefined): UpgradeOption | null {
+    if (isFreePlan) {
+        return candidatePlans[0] ?? null;
+    }
+    const currentIndex = candidatePlans.findIndex(p => p.name === currentPlanName);
+    if (currentIndex >= 0 && currentIndex < candidatePlans.length - 1) {
+        return candidatePlans[currentIndex + 1] ?? null;
+    }
+    if (currentIndex >= 0) {
+        return candidatePlans.find(p => p.price > (candidatePlans[currentIndex]?.price ?? 0)) ?? null;
+    }
+    return null;
+}
+
 interface UseUpgradeOptionsResult {
     nextPlan: UpgradeOption | null;
     recommendedPlan: UpgradeOption | null;
@@ -30,7 +44,7 @@ export function useUpgradeOptions(): UseUpgradeOptionsResult {
 
     useEffect(() => {
         const fetchUpgradeOptions = async () => {
-            if (accessLoading) {return;}
+            if (accessLoading) { return; }
 
             try {
                 setLoading(true);
@@ -41,41 +55,23 @@ export function useUpgradeOptions(): UseUpgradeOptionsResult {
                     const plans = response.data;
                     const currentPlanName = planAccess?.plan_name;
 
-                    const sortedPlans = plans
+                    const candidatePlans = plans
                         .map(p => ({
                             id: Number(p.id) || 0,
                             name: p.name,
                             price: Number(p.effective_price || p.current_price),
                             features: p.features
                         }))
-                        .sort((a, b) => a.price - b.price);
+                        .sort((a, b) => a.price - b.price)
+                        .filter(p => p.price > 0);
 
-                    const candidates = sortedPlans.filter(p => p.price > 0);
+                    const isFreePlan = currentPlanName === undefined || currentPlanName === null || currentPlanName === '' || currentPlanName === FREE_PLAN_NAME;
 
-                    const isFreePlan = currentPlanName === null || currentPlanName === '' || currentPlanName === FREE_PLAN_NAME;
-                    let upgradeTarget: UpgradeOption | null = null;
+                    const upgradeTarget = calculateNextPlan(candidatePlans, isFreePlan, currentPlanName);
+                    setNextPlan(upgradeTarget ?? (isFreePlan ? (candidatePlans[0] ?? null) : null));
 
-                    if (isFreePlan) {
-                        upgradeTarget = candidates[0] ?? null;
-                    } else {
-                        const currentIndex = candidates.findIndex(p => p.name === currentPlanName);
-                        const hasNextPlan = currentIndex >= 0 && currentIndex < candidates.length - 1;
-
-                        if (hasNextPlan) {
-                            upgradeTarget = candidates[currentIndex + 1] ?? null;
-                        } else {
-                            upgradeTarget = candidates.find(p => p.price > (candidates[currentIndex]?.price ?? 0)) ?? null;
-                        }
-                    }
-
-                    if (upgradeTarget !== null) {
-                        setNextPlan(upgradeTarget);
-                    } else if (candidates.length > 0 && isFreePlan) {
-                        setNextPlan(candidates[0] ?? null);
-                    }
-
-                    const rec = candidates.find(p => p.name.includes('Pro') || p.name.includes('Growth'));
-                    setRecommendedPlan(rec ?? candidates[Math.min(1, candidates.length - 1)] ?? null);
+                    const rec = candidatePlans.find(p => p.name.includes('Pro') || p.name.includes('Growth'));
+                    setRecommendedPlan(rec ?? candidatePlans[Math.min(1, candidatePlans.length - 1)] ?? null);
                 }
             } catch (_err) {
                 setError('Failed to load upgrade options');

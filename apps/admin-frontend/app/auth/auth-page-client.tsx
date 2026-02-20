@@ -1,8 +1,7 @@
 'use client';
 
 import { getAndClearReturnUrlAction } from '@/lib/auth/auth-actions';
-import { AuthModal } from '@/shared/components/auth';
-import { useSharedAuth } from '@/shared/components/auth';
+import { AuthModal , useSharedAuth } from '@/shared/components/auth';
 import { logger } from '@/shared/utils/logger';
 import {
     Activity,
@@ -46,11 +45,11 @@ export default function AuthPageClient({ serverHasSession }: Props) {
 
     // Redirect when both server + client confirm auth
     useEffect(() => {
-        if (!mounted || redirectingRef.current) return;
+        if (!mounted || redirectingRef.current) {return;}
 
         const checkAndRedirect = async () => {
             if (serverHasSession && isAuthenticated && user) {
-                if (redirectingRef.current) return;
+                if (redirectingRef.current) {return;}
                 redirectingRef.current = true;
                 const returnUrl = await getAndClearReturnUrlAction();
                 logger.info('[AUTH] Server+Client authenticated, redirecting to', { returnUrl });
@@ -63,7 +62,7 @@ export default function AuthPageClient({ serverHasSession }: Props) {
 
     const handleAuthSuccess = async () => {
         try {
-            if (redirectingRef.current) return;
+            if (redirectingRef.current) {return;}
             redirectingRef.current = true;
             const returnUrl = await getAndClearReturnUrlAction();
             logger.info('[AUTH] handleAuthSuccess: redirecting to', { returnUrl });

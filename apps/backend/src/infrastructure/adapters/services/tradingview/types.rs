@@ -131,14 +131,14 @@ pub struct TradingViewConfig {
 }
 
 impl From<&Config> for TradingViewConfig {
-    fn from(_config: &Config) -> Self {
+    fn from(config: &Config) -> Self {
         Self {
             scanner_api_url: "https://scanner.tradingview.com/global/scan?label-product=screener-stock".to_string(),
             websocket_url: "wss://data.tradingview.com/socket.io/websocket".to_string(),
             origin_url: "https://www.tradingview.com".to_string(),
             referer_url: "https://www.tradingview.com/".to_string(),
             http_timeout_seconds: 30,
-            auth_token: "tradingview-api-token".to_string(), // TODO: Replace with proper TradingView API token
+            auth_token: config.tradingview_auth_token.clone().unwrap_or_default(),
         }
     }
 }

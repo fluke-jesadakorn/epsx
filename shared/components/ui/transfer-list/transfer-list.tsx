@@ -87,7 +87,7 @@ function TransferListColumn<T>({
                     value={search}
                     onChange={(e) => onSearchChange(e.target.value)}
                     placeholder={placeholder}
-                    className="pl-10 bg-white dark:bg-white/5 border-gray-200 dark:border-white/10 h-10 rounded-xl focus:border-blue-500/50"
+                    className="pl-10 bg-white dark:bg-white/5 border-gray-200 dark:border-border h-10 rounded-xl focus:border-blue-500/50"
                 />
                 {Boolean(search) && (
                     <button onClick={() => onSearchChange('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-600 hover:text-white">
@@ -102,7 +102,7 @@ function TransferListColumn<T>({
                 onDrop={onDrop}
                 className={cn(
                     "flex flex-col gap-2 p-2 rounded-2xl border flex-1 min-h-[200px] overflow-y-auto custom-scrollbar transition-all",
-                    isSelected ? "border-blue-500/10 bg-blue-500/[0.02] hover:border-blue-500/20 ring-1 ring-blue-500/0 hover:ring-blue-500/5" : "border-gray-200 dark:border-white/5 bg-white/[0.02] hover:border-gray-200 dark:border-white/10 group/list",
+                    isSelected ? "border-blue-500/10 bg-blue-500/[0.02] hover:border-blue-500/20 ring-1 ring-blue-500/0 hover:ring-blue-500/5" : "border-gray-200 dark:border-border bg-white/[0.02] hover:border-gray-200 dark:border-border group/list",
                     isDropTarget && "border-blue-500/50 bg-blue-500/10 ring-2 ring-blue-500/30"
                 )}
             >

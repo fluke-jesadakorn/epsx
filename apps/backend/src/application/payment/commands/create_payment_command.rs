@@ -255,10 +255,10 @@ mod tests {
         let handler = CreatePaymentCommandHandler::new(payment_repo, event_bus);
         
         let wallet_address = WalletAddress::new("0x742d35Cc6634C0532925a3b8D369D7763F3c45c6").unwrap();
-        let amount = PaymentAmount::new(rust_decimal::Decimal::from(100), Currency::USD).unwrap();
+        let amount = PaymentAmount::new(rust_decimal::Decimal::from(100), Currency::USDT).unwrap();
         let method = PaymentMethod::new(
             PaymentMethodType::Crypto,
-            Currency::USD,
+            Currency::USDT,
             Some(Network::Ethereum),
         ).unwrap();
         

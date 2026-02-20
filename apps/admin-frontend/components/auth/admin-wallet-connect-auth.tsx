@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { getExplorerAddressLink } from '@/shared/config/constants';
+import { formatAddress } from '@/shared/auth/utils';
 
 interface AdminWalletConnectAuthProps {
   className?: string;
@@ -52,7 +53,6 @@ export function AdminWalletConnectAuth({ className = '' }: AdminWalletConnectAut
   }
 
   const displayAddress = user?.wallet_address ?? address;
-  const formatAddress = (addr: string) => `${addr.slice(0, 6)}...${addr.slice(-4)}`;
 
   const copyToClipboard = async (text: string) => {
     try {

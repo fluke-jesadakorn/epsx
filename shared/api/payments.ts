@@ -43,13 +43,13 @@ export interface PaymentValidateRequest {
 export interface PaymentSubmitRequest {
     transaction_hash: string;
     plan_id: string;
-    expected_amount: number;
+    expected_amount: string;
     currency: string;
 }
 
 export interface TransactionStatusData {
     transaction_hash: string;
-    status: 'pending' | 'confirming' | 'confirmed' | 'failed';
+    status: 'pending' | 'confirming' | 'confirmed' | 'failed' | 'expired';
     confirmations: number;
     block_number: number | null;
     error_message: string | null;

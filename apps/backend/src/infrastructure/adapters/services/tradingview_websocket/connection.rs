@@ -13,25 +13,25 @@ use http;
 use crate::core::errors::AppError;
 
 /// Establish WebSocket connection to TradingView
-pub async fn connect_websocket() -> Result<
+pub async fn connect_websocket(ws_url: &str, origin: &str) -> Result<
   tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>,
   AppError
 > {
-  let websocket_url = "wss://data.tradingview.com/socket.io/websocket";
-
-  let url = url::Url::parse(websocket_url)
+  let url = url::Url::parse(ws_url)
     .map_err(|e| AppError::network_error(format!("Invalid WebSocket URL: {}", e)))?;
+
+  let host_fallback = url.host_str().unwrap_or("data.tradingview.com").to_string();
 
   let request = http::Request::builder()
     .method("GET")
     .uri(url.as_str())
-    .header("Host", url.host_str().unwrap_or("data.tradingview.com"))
+    .header("Host", host_fallback.as_str())
     .header("Connection", "Upgrade")
     .header("Upgrade", "websocket")
     .header("Sec-WebSocket-Version", "13")
     .header("Sec-WebSocket-Key", BASE64_STANDARD.encode(rand::random::<[u8; 16]>()))
     .header("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
-    .header("Origin", "https://www.tradingview.com")
+    .header("Origin", origin)
     .header("Cache-Control", "no-cache")
     .body(())
     .map_err(|e| AppError::network_error(format!("Failed to build WebSocket request: {}", e)))?;

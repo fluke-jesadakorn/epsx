@@ -43,8 +43,8 @@ mod tests {
         assert!(!countries.is_empty());
     }
 
-    #[test]
-    fn test_focused_modules_integration() {
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_focused_modules_integration() {
         // Test that focused modules work together correctly
         use crate::domain::shared_kernel::entities::eps_growth::EPSRanking;
 

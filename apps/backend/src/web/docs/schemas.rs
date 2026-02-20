@@ -5,6 +5,8 @@
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
+pub use crate::web::pagination::PaginationInfo;
+
 /// Standard API response wrapper
 /// Used consistently across all API endpoints for uniform response format
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
@@ -57,35 +59,6 @@ pub struct HealthResponse {
     
     /// Current timestamp
     pub timestamp: chrono::DateTime<chrono::Utc>,
-}
-
-/// Pagination information for list responses
-/// Provides complete pagination metadata for navigating large result sets
-#[derive(Debug, Serialize, Deserialize, ToSchema)]
-pub struct PaginationInfo {
-    /// Current page number (1-based indexing)
-    #[schema(example = 1)]
-    pub page: u32,
-
-    /// Number of items per page
-    #[schema(example = 20)]
-    pub limit: u32,
-
-    /// Total number of items across all pages
-    #[schema(example = 150)]
-    pub total: u64,
-
-    /// Total number of pages available
-    #[schema(example = 8)]
-    pub total_pages: u32,
-
-    /// Whether there is a next page available
-    #[schema(example = true)]
-    pub has_next: bool,
-
-    /// Whether there is a previous page available
-    #[schema(example = false)]
-    pub has_prev: bool,
 }
 
 /// Web3 Challenge response

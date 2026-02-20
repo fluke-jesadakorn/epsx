@@ -3,7 +3,7 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
-import { type AccessItem, useWalletAccess } from './use-wallet-access';
+import type { useWalletAccess , type AccessItem } from './use-wallet-access';
 
 export interface PendingChange {
     item: AccessItem;

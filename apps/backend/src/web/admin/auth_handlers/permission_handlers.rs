@@ -179,13 +179,13 @@ pub async fn get_user_permissions(
 
   let metadata = AdminMetadata::list_operation(
     "get_user_permissions",
-    crate::web::admin::responses::PaginationInfo {
-      page: (offset / limit + 1) as i32,
-      limit: limit as i32,
-      total: response.total_count as i32,
-      total_pages: ((response.total_count as f64) / (limit as f64)).ceil() as i32,
-      has_next_page: response.total_count > (offset + limit),
-      has_previous_page: offset > 0,
+    crate::web::pagination::PaginationInfo {
+      page: (offset / limit + 1) as u32,
+      limit: limit as u32,
+      total_count: response.total_count as u64,
+      total_pages: ((response.total_count as f64) / (limit as f64)).ceil() as u32,
+      has_next: response.total_count > (offset + limit),
+      has_prev: offset > 0,
     }
   );
 

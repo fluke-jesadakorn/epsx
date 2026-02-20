@@ -203,7 +203,7 @@ export function PaymentHistoryTab({ initialData }: PaymentHistoryTabProps) {
 
     return (
         <div className="space-y-8">
-            <div className="flex justify-between items-center bg-gray-50/50 dark:bg-gray-900/30 p-4 sm:p-5 rounded-3xl border border-gray-100 dark:border-gray-800">
+            <div className="flex justify-between items-center bg-gray-50/50 dark:bg-card/80 p-4 sm:p-5 rounded-3xl border border-gray-100 dark:border-gray-800">
                 <div className="flex items-center gap-4">
                     <div className="hidden sm:flex h-12 w-12 items-center justify-center rounded-2xl bg-white dark:bg-gray-800 shadow-sm text-2xl">
                         📜

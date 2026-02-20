@@ -49,7 +49,7 @@ export function WalletModals({
 
     return (
         <>
-            {showReenableModal === true && walletData.wallet != null && (
+            {showReenableModal === true && walletData.wallet !== null && (
                 <ReenableWalletModal
                     walletAddress={walletData.wallet.walletAddress}
                     disableInfo={walletData.wallet.disableInfo}

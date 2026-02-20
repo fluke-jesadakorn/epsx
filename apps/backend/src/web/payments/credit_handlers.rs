@@ -39,7 +39,7 @@ pub async fn get_credit_balance(
     State(_app_state): State<AppState>,
     Extension(user_context): Extension<crate::web::middleware::OpenIDUserContext>,
 ) -> Result<Json<CreditBalanceResponse>, Json<UnifiedErrorResponse>> {
-    let wallet_address = user_context.wallet_address.to_lowercase();
+    let wallet_address = user_context.wallet_address.clone();
     info!("Getting credit balance for wallet: {}", wallet_address);
 
     // Get payments database connection
@@ -88,7 +88,7 @@ pub async fn get_credit_history(
     Extension(user_context): Extension<crate::web::middleware::OpenIDUserContext>,
     Query(params): Query<CreditHistoryQuery>,
 ) -> Result<Json<CreditHistoryResponse>, Json<UnifiedErrorResponse>> {
-    let wallet_address = user_context.wallet_address.to_lowercase();
+    let wallet_address = user_context.wallet_address.clone();
     info!("Getting credit history for wallet: {}", wallet_address);
 
     // Get payments database connection
@@ -203,7 +203,7 @@ pub async fn admin_grant_credits(
     Extension(admin_context): Extension<crate::web::middleware::OpenIDUserContext>,
     Json(request): Json<GrantCreditsRequest>,
 ) -> Result<Json<serde_json::Value>, Json<UnifiedErrorResponse>> {
-    let admin_wallet = admin_context.wallet_address.to_lowercase();
+    let admin_wallet = admin_context.wallet_address.clone();
     if !UnifiedWeb3AuthService::has_permission(&admin_context.permissions, "admin:credits:manage") {
         return Err(Json(UnifiedErrorResponse::new(403, "Forbidden", "Insufficient permissions")));
     }
@@ -293,7 +293,7 @@ pub async fn admin_revoke_credits(
     Extension(admin_context): Extension<crate::web::middleware::OpenIDUserContext>,
     Json(request): Json<RevokeCreditsRequest>,
 ) -> Result<Json<serde_json::Value>, Json<UnifiedErrorResponse>> {
-    let admin_wallet = admin_context.wallet_address.to_lowercase();
+    let admin_wallet = admin_context.wallet_address.clone();
     if !UnifiedWeb3AuthService::has_permission(&admin_context.permissions, "admin:credits:manage") {
         return Err(Json(UnifiedErrorResponse::new(403, "Forbidden", "Insufficient permissions")));
     }

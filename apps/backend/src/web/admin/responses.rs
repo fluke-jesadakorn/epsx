@@ -13,6 +13,8 @@ use serde_json::Value;
 use chrono::{DateTime, Utc};
 use utoipa::ToSchema;
 
+pub use crate::web::pagination::PaginationInfo;
+
 /// Standardized Admin API Response Structure
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct AdminApiResponse<T> {
@@ -59,17 +61,6 @@ pub struct AdminMetadata {
     /// Additional operation metadata
     #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata: Option<Value>,
-}
-
-/// Pagination information for list responses
-#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
-pub struct PaginationInfo {
-    pub page: i32,
-    pub limit: i32,
-    pub total: i32,
-    pub total_pages: i32,
-    pub has_next_page: bool,
-    pub has_previous_page: bool,
 }
 
 /// Admin permission context
@@ -293,10 +284,10 @@ mod tests {
         let pagination = PaginationInfo {
             page: 1,
             limit: 10,
-            total: 100,
+            total_count: 100,
             total_pages: 10,
-            has_next_page: true,
-            has_previous_page: false,
+            has_next: true,
+            has_prev: false,
         };
         
         let meta = AdminMetadata::list_operation("list_users", pagination);

@@ -173,7 +173,7 @@ export function ChatPanel({ isOpen, onClose, walletAddr }: PanelProps) {
 
 function PanelHeader({ onClose, title }: { onClose: () => void; title?: string }) {
   return (
-    <div className="flex items-center justify-between px-4 py-3.5 border-b border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-slate-900/60">
+    <div className="flex items-center justify-between px-4 py-3.5 border-b border-slate-200 dark:border-border bg-slate-50 dark:bg-card">
       <div className="flex items-center gap-3">
         <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-sm shadow-blue-500/20">
           <MessageCircle className="w-4.5 h-4.5 text-white" />

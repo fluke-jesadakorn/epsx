@@ -431,7 +431,7 @@ mod tests {
         let initial_plans = HashSet::from(["Basic Access Plan".to_string()]);
         let mut user = WalletUser::create(wallet_address, initial_plans).unwrap();
         
-        let permission = Permission::new("epsx:read").unwrap();
+        let permission = Permission::new("epsx:data:read").unwrap();
         user.grant_permission(permission.clone()).unwrap();
         
         assert!(user.has_permission(&permission));
@@ -460,7 +460,7 @@ mod tests {
         let initial_plans = HashSet::from(["Basic Access Plan".to_string()]);
         let mut user = WalletUser::create(wallet_address, initial_plans).unwrap();
         
-        let permission = Permission::new("epsx:read").unwrap();
+        let permission = Permission::new("epsx:data:read").unwrap();
         user.grant_permission(permission.clone()).unwrap();
         assert!(user.has_permission(&permission));
         

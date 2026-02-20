@@ -167,7 +167,7 @@ const DeveloperPortalModals = ({
                         <div className="space-y-2">
                             <label className="text-xs font-black uppercase text-gray-500 tracking-wider">Your API Key</label>
                             <div className="relative group">
-                                <code className="block w-full p-4 pr-12 bg-gray-50 dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 font-mono text-sm break-all">
+                                <code className="block w-full p-4 pr-12 bg-gray-50 dark:bg-card rounded-xl border border-gray-200 dark:border-gray-700 font-mono text-sm break-all">
                                     {newApiKey}
                                 </code>
                                 <button
@@ -181,7 +181,7 @@ const DeveloperPortalModals = ({
                             </div>
                         </div>
                     </div>
-                    <div className="p-6 bg-gray-50 dark:bg-gray-900/50 flex justify-end">
+                    <div className="p-6 bg-gray-50 dark:bg-card/50 flex justify-end">
                         <button
                             onClick={onNewApiKeyClose}
                             className="px-6 py-2 bg-primary text-primary-foreground rounded-xl font-bold hover:opacity-90 transition-all shadow-lg shadow-primary/20"

@@ -83,7 +83,7 @@ export function FinancialCard({
       </div>
 
       {/* Rank Badge */}
-      <div className="absolute top-3 sm:top-4 left-3 sm:left-4 z-30 w-10 sm:w-12 h-10 sm:h-12 flex items-center justify-center drop-shadow-lg ring-2 ring-blue-400/60 backdrop-blur-md bg-white/60 dark:bg-slate-900/60 rounded-full transition-all duration-300 hover:scale-105 hover:ring-4 hover:ring-blue-500/80">
+      <div className="absolute top-3 sm:top-4 left-3 sm:left-4 z-30 w-10 sm:w-12 h-10 sm:h-12 flex items-center justify-center drop-shadow-lg ring-2 ring-blue-400/60 backdrop-blur-md bg-white/60 dark:bg-card rounded-full transition-all duration-300 hover:scale-105 hover:ring-4 hover:ring-blue-500/80">
         {/* Decorative background */}
         <div className="absolute inset-0 rounded-full bg-gradient-to-br from-blue-200/70 via-purple-100/60 to-indigo-100/50 dark:from-blue-900/40 dark:via-purple-900/30 dark:to-indigo-900/30 blur-[2px] z-[-1]" />
         <AnimatedBadge rank={index + 1} isHovered={isHovered}>

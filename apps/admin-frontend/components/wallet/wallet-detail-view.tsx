@@ -103,14 +103,14 @@ export function WalletDetailView({
                         searchQuery={logic.searchQuery}
                         setSearchQuery={logic.setSearchQuery}
                         handleManagePlan={logic.handleManagePlan}
-                        handleCopyAddress={() => { void logic.handleCopyAddress(); }}
+                        handleCopyAddress={async () => { await logic.handleCopyAddress(); }}
                         assignedSearchQuery={logic.assignedSearchQuery}
                         setAssignedSearchQuery={logic.setAssignedSearchQuery}
                         setEditingItem={logic.setEditingItem}
                         pendingDrops={logic.pendingDrops}
                         setPendingDrops={logic.setPendingDrops}
                         isSavingPending={logic.isSavingPending}
-                        handleSavePendingChanges={() => { void logic.handleSavePendingChanges(); }}
+                        handleSavePendingChanges={async () => { await logic.handleSavePendingChanges(); }}
                         hasPending={logic.hasPending}
                     />
 

@@ -2,7 +2,6 @@
 
 import type { AccessItem } from '@/hooks/use-wallet-access';
 import { cn } from '@/lib/utils';
-import { useCallback, useMemo, useState } from 'react';
 import type { SubscriptionResponse } from '@/shared/api/plans';
 import { Badge } from '@/shared/components/ui/badge';
 import { Button } from '@/shared/components/ui/button';
@@ -11,6 +10,7 @@ import { Input } from '@/shared/components/ui/input';
 import { Label } from '@/shared/components/ui/label';
 import { Building2, ChevronDown, Code2, Copy, ExternalLink, Loader2, Package, Save, User, Wrench } from 'lucide-react';
 import Link from 'next/link';
+import { useCallback, useMemo, useState } from 'react';
 import type { WalletData, WalletStatus } from './types';
 import { DraggablePlanItem, DroppablePlanList } from './wallet-components';
 
@@ -50,7 +50,7 @@ export function WalletAvailablePlansCard({
     const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
 
     const toggleGroup = useCallback((g: string) => {
-        setCollapsed(prev => ({ ...prev, [g]: !prev[g] }));
+        setCollapsed(prev => ({ ...prev, [g]: !(prev[g] ?? false) }));
     }, []);
 
     const grouped = useMemo(() => {
@@ -88,7 +88,7 @@ export function WalletAvailablePlansCard({
                 {hasPlans ? (
                     PLAN_GROUP_ORDER.map(g => {
                         const groupPlans = grouped[g] ?? [];
-                        if (groupPlans.length === 0) return null;
+                        if (groupPlans.length === 0) { return null; }
                         const cfg = PLAN_GROUP_CONFIG[g];
                         const isCollapsed = collapsed[g] === true;
                         return (

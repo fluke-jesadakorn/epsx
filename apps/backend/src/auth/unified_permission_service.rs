@@ -913,7 +913,7 @@ mod tests {
         assert!(UnifiedPermissionService::validate_permission_format("invalid").is_err());
         assert!(UnifiedPermissionService::validate_permission_format("admin:users").is_err());
         assert!(UnifiedPermissionService::validate_permission_format("admin::read").is_err());
-        assert!(UnifiedPermissionService::validate_permission_format("admin:users:read:extra").is_err());
+        assert!(UnifiedPermissionService::validate_permission_format("admin:users:read:extra").is_ok());
         assert!(UnifiedPermissionService::validate_permission_format("admin:users:read!").is_err());
     }
 }

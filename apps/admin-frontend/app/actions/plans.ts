@@ -33,7 +33,7 @@ export async function getMyPlanAccessAction(): Promise<PlanAccessData> {
       return response.data;
     }
   } catch (error) {
-    if (typeof error === 'object' && error !== null && 'digest' in error) throw error;
+    if (typeof error === 'object' && error !== null && 'digest' in error) {throw error;}
     logger.debug('Failed to fetch plan access, returning default free tier:', error);
   }
 

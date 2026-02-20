@@ -1,5 +1,4 @@
 pub mod cache;
-pub mod debug_response;
 pub mod mapper;
 pub mod rest;
 pub mod scanner;

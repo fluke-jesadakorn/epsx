@@ -420,14 +420,14 @@ mod tests {
 
     #[test]
     fn test_processing_fee() {
-        let amount = PaymentAmount::new(dec!(100.0), Currency::USDT).unwrap();
+        let amount = PaymentAmount::new(dec!(500.0), Currency::USDT).unwrap();
         let fee = amount.processing_fee();
         
-        assert_eq!(fee.amount(), dec!(2.0)); // 2% of 100
+        assert_eq!(fee.amount(), dec!(10.0)); // 2% of 500
         assert_eq!(fee.currency(), &Currency::USDT);
 
         let after_fees = amount.amount_after_fees();
-        assert_eq!(after_fees.amount(), dec!(98.0));
+        assert_eq!(after_fees.amount(), dec!(490.0));
     }
 
     #[test]

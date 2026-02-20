@@ -27,7 +27,7 @@ function PlanCard({
     pendingPermissions = []
 }: {
     plan: AccessItem;
-    onRemove: () => void;
+    onRemove: () => Promise<void>;
     pendingPermissions?: AccessItem[];
 }) {
     const { setNodeRef, isOver } = useDroppable({
@@ -154,7 +154,7 @@ export function WalletPlanSection({
             {/* List */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {filteredPlans.length === 0 ? (
-                    <div className="col-span-full py-12 text-center text-gray-500 border border-dashed border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50/50 dark:bg-gray-900/50">
+                    <div className="col-span-full py-12 text-center text-gray-500 border border-dashed border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50/50 dark:bg-card/50">
                         <Package className="h-10 w-10 mx-auto mb-3 opacity-20" />
                         <p>No plans assigned</p>
                     </div>
@@ -163,7 +163,7 @@ export function WalletPlanSection({
                         <PlanCard
                             key={plan.id}
                             plan={plan}
-                            onRemove={() => onRemovePlan(plan.id)}
+                            onRemove={async () => onRemovePlan(plan.id)}
                             pendingPermissions={pendingDrops[plan.id]}
                         />
                     ))

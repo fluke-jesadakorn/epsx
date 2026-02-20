@@ -49,7 +49,7 @@ const SOURCE_CONFIG: Record<PermissionSource, { label: string; emoji: string; cl
     system: {
         label: 'System',
         emoji: '⚙️',
-        className: 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400',
+        className: 'bg-gray-100 text-gray-800 dark:bg-card/30 dark:text-gray-400',
     },
 };
 
@@ -139,7 +139,7 @@ function ExpiryBadge({ expiresAt }: { expiresAt?: string }) {
 function getStatusBadgeClass(isActive: boolean, expired: boolean): string {
     return isActive && !expired
         ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
-        : 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400';
+        : 'bg-gray-100 text-gray-800 dark:bg-card/30 dark:text-gray-400';
 }
 
 function getStatusText(isActive: boolean, expired: boolean): string {
