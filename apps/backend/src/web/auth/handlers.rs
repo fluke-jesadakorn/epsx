@@ -139,19 +139,6 @@ pub async fn generate_challenge_handler(
                 warn!("Turnstile verification error in dev mode – allowing request");
             }
         }
-    } else if crate::infrastructure::security::is_turnstile_enabled()
-        && crate::config::env::is_production()
-    {
-        // In production with Turnstile enabled, require the token
-        warn!(
-            wallet_address = %request.wallet_address,
-            "Challenge request missing Turnstile token in production"
-        );
-        return Ok(Json(json!({
-            "success": false,
-            "error": "captcha_required",
-            "message": "Human verification is required."
-        })));
     }
 
     // Get Web3 auth service from domain container
