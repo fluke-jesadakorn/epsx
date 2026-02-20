@@ -7,7 +7,7 @@ export default function CreateNotificationPage() {
     const router = useRouter();
 
     return (
-        <div className="relative overflow-hidden rounded-[40px] bg-slate-900/40 backdrop-blur-2xl border border-white/5 p-1 shadow-2xl">
+        <div className="relative overflow-hidden rounded-[40px] bg-white dark:bg-card backdrop-blur-2xl border border-gray-200 dark:border-border p-1 shadow-2xl">
             <div className="relative bg-card/60 backdrop-blur-md rounded-[38px] p-8 sm:p-12">
                 <div className="max-w-4xl mx-auto">
                     <div className="mb-12">

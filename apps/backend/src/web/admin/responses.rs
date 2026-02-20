@@ -14,9 +14,6 @@ use chrono::{DateTime, Utc};
 use utoipa::ToSchema;
 
 /// Standardized Admin API Response Structure
-/// DEPRECATED: Use `AdminResponse` from `web::responses::wrappers` instead,
-/// which delegates to `UnifiedApiResponse` for consistency.
-#[deprecated(note = "Use AdminResponse from web::responses::wrappers instead")]
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct AdminApiResponse<T> {
     /// Request success status

@@ -102,11 +102,15 @@ export {
 export { createAdminPaymentsClient, createPaymentsClient, PaymentsApi, type PaymentConfirmRequest, type PaymentConfirmResult, type PaymentSubmitRequest, type PaymentValidateRequest, type PaymentValidationResult, type TransactionStatusData } from './payments';
 
 export {
-  ChatApi,
-  chatApi,
-  createChatClient, type ChatHistoryResponse,
-  type ChatOptions, type ChatRequest,
-  type ChatResponse, type Message
+  SupportChatApi,
+  createSupportChatClient,
+  type ChatTopic,
+  type ChatConversation,
+  type ChatMessage,
+  type ChatStats,
+  type CreateConversationReq,
+  type SendMessageReq,
+  type UnreadCountResp
 } from './chat';
 
 export {

@@ -186,7 +186,7 @@ export function PageTabs({ tabs, activeTab, onTabChange, className }: PageTabsPr
 
   return (
     <div className={cn(
-      'bg-slate-900/40 backdrop-blur-2xl p-1.5 rounded-[32px] border border-white/5 shadow-xl max-w-2xl mx-auto',
+      'bg-white dark:bg-card backdrop-blur-2xl p-1.5 rounded-[32px] border border-gray-200 dark:border-border shadow-xl max-w-2xl mx-auto',
       className
     )}>
       <div className="relative flex gap-1 overflow-x-auto no-scrollbar justify-center">
@@ -205,7 +205,7 @@ export function PageTabs({ tabs, activeTab, onTabChange, className }: PageTabsPr
                     'text-white shadow-lg shadow-purple-500/20 bg-gradient-to-r',
                     getTabGradient(tab)
                   )
-                  : 'text-muted-foreground hover:text-foreground hover:bg-white/5'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-gray-100 dark:hover:bg-white/5'
               )}
             >
               {Icon !== null && <Icon className="w-4 h-4 sm:w-5 sm:h-5" />}
@@ -263,7 +263,7 @@ export function PageSkeleton({
 
         {/* Tabs skeleton */}
         {showTabs && (
-          <div className="rounded-2xl bg-white/5 backdrop-blur-xl border border-white/10 p-2 animate-pulse">
+          <div className="rounded-2xl bg-white dark:bg-white/[0.04] backdrop-blur-xl border border-gray-200 dark:border-border p-2 animate-pulse">
             <div className={cn(
               'grid gap-2',
               tabCount === 2 && 'grid-cols-2',
@@ -272,7 +272,7 @@ export function PageSkeleton({
             )}>
               {Array.from({ length: tabCount }).map((_, i) => (
                 // eslint-disable-next-line react/no-array-index-key
-                <div key={i} className="h-12 bg-white/5 rounded-xl" />
+                <div key={i} className="h-12 bg-white dark:bg-white/[0.04] rounded-xl" />
               ))}
             </div>
           </div>
@@ -290,16 +290,16 @@ export function PageSkeleton({
               <div
                 // eslint-disable-next-line react/no-array-index-key
                 key={i}
-                className="bg-white/5 backdrop-blur-xl rounded-2xl sm:rounded-3xl p-4 sm:p-6 border border-white/10"
+                className="bg-white dark:bg-white/[0.04] backdrop-blur-xl rounded-2xl sm:rounded-3xl p-4 sm:p-6 border border-gray-200 dark:border-border"
               >
                 <div className="flex items-center justify-between mb-3 sm:mb-4">
                   <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-orange-500 rounded-xl" />
-                  <div className="w-12 h-4 bg-white/10 rounded-full" />
+                  <div className="w-12 h-4 bg-gray-50 dark:bg-white/[0.06] rounded-full" />
                 </div>
                 <div className="space-y-2">
                   <div className="h-8 bg-gradient-to-r from-purple-500 to-orange-500 rounded-lg w-20" />
-                  <div className="h-4 bg-white/10 rounded-full w-24" />
-                  <div className="h-3 bg-white/10 rounded-full w-16" />
+                  <div className="h-4 bg-gray-50 dark:bg-white/[0.06] rounded-full w-24" />
+                  <div className="h-3 bg-gray-50 dark:bg-white/[0.06] rounded-full w-16" />
                 </div>
               </div>
             ))}
@@ -308,18 +308,18 @@ export function PageSkeleton({
 
         {/* Content skeleton */}
         {rows > 0 && (
-          <div className="bg-white/5 backdrop-blur-xl rounded-2xl sm:rounded-3xl border border-white/10 overflow-hidden animate-pulse">
+          <div className="bg-white dark:bg-white/[0.04] backdrop-blur-xl rounded-2xl sm:rounded-3xl border border-gray-200 dark:border-border overflow-hidden animate-pulse">
             <div className="p-4 sm:p-6 lg:p-8 space-y-4">
               {Array.from({ length: rows }).map((_, i) => (
                 <div
                   // eslint-disable-next-line react/no-array-index-key
                   key={i}
-                  className="flex items-center gap-4 p-3 sm:p-4 bg-white/5 rounded-xl sm:rounded-2xl"
+                  className="flex items-center gap-4 p-3 sm:p-4 bg-white dark:bg-white/[0.04] rounded-xl sm:rounded-2xl"
                 >
                   <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-orange-500 rounded-xl shrink-0" />
                   <div className="flex-1 space-y-2">
-                    <div className="h-4 bg-white/10 rounded-lg w-1/3" />
-                    <div className="h-3 bg-white/10 rounded-lg w-1/2" />
+                    <div className="h-4 bg-gray-50 dark:bg-white/[0.06] rounded-lg w-1/3" />
+                    <div className="h-3 bg-gray-50 dark:bg-white/[0.06] rounded-lg w-1/2" />
                   </div>
                   <div className="h-8 w-20 bg-gradient-to-r from-purple-500 to-orange-500 rounded-full shrink-0" />
                 </div>
@@ -437,7 +437,7 @@ export function PageAuthRequired({
       'flex flex-col items-center justify-center py-16 sm:py-24 text-center',
       className
     )}>
-      <div className="w-24 h-24 bg-gradient-to-br from-[#1fc7d4]/10 to-[#7645d9]/10 rounded-[32px] flex items-center justify-center mb-8 border border-white/5 shadow-xl">
+      <div className="w-24 h-24 bg-gradient-to-br from-[#1fc7d4]/10 to-[#7645d9]/10 rounded-[32px] flex items-center justify-center mb-8 border border-gray-200 dark:border-border shadow-xl">
         <span className="text-5xl">🔐</span>
       </div>
       <h3 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-[#1fc7d4] to-[#7645d9] bg-clip-text text-transparent mb-4 tracking-tight">{title}</h3>

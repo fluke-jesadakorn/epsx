@@ -1,27 +1,31 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Copy, GripVertical, Shield } from 'lucide-react';
+import { Clock, Copy, Eye, EyeOff, GripVertical, Hash, Shield, Users } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
-import { Switch } from '@/components/ui/switch';
-import { type PermissionPlan } from '@/lib/api/plan-management-client';
+import { type PermissionPlan, type PlanGroup } from '@/lib/api/plan-management-client';
 import { cn } from '@/lib/utils';
+import { formatRelativeTime } from '@/shared/utils/formatting/date';
 
-import { isSystemPlan } from './types';
+import { categoryBadgeClass, isSystemPlan } from './types';
+
+const GROUP_BORDER: Record<PlanGroup, string> = {
+    personal: 'border-l-blue-500/60',
+    enterprise: 'border-l-amber-500/60',
+    api: 'border-l-emerald-500/60',
+    custom: 'border-l-purple-500/50',
+};
 
 export interface PlanItemProps {
     plan: PermissionPlan;
     index: number;
+    group?: PlanGroup;
     selectedPlanId?: string;
     onSelect?: (plan: PermissionPlan) => void;
     onDuplicate?: (plan: PermissionPlan) => void;
-    isFreePlan: boolean;
-    onQuickToggle?: (e: React.MouseEvent, plan: PermissionPlan) => void;
     isDragging?: boolean;
     disabled?: boolean;
-    // Props passed from useSortable listeners/attributes
     dragHandleProps?: Record<string, unknown>;
-    // Style override
     style?: React.CSSProperties;
     innerRef?: (node: HTMLElement | null) => void;
 }
@@ -29,19 +33,22 @@ export interface PlanItemProps {
 export function PlanItem({
     plan,
     index,
+    group,
     selectedPlanId,
     onSelect,
     onDuplicate,
-    isFreePlan,
-    onQuickToggle,
     isDragging,
     disabled,
-    dragHandleProps, // { ...listeners, ...attributes }
+    dragHandleProps,
     style,
     innerRef,
 }: PlanItemProps) {
-    const isPlanActive = plan.is_active !== false;
+    const active = plan.is_active !== false;
     const isSys = isSystemPlan(plan);
+    const g = group ?? plan.plan_group ?? 'personal';
+    const permCount = plan.permissions?.length ?? 0;
+    const members = plan.member_count ?? 0;
+    const isPublic = plan.is_public === true;
 
     return (
         <div
@@ -49,16 +56,14 @@ export function PlanItem({
             style={style}
             onClick={() => onSelect?.(plan)}
             className={cn(
-                'p-4 cursor-pointer hover:bg-white/5 transition-colors border-l-4 group relative bg-transparent',
+                'p-3 cursor-pointer hover:bg-gray-100 dark:hover:bg-white/5 transition-colors border-l-4 group relative bg-transparent',
                 selectedPlanId === plan.id
                     ? 'bg-cyan-500/10 border-l-[#1fc7d4]'
-                    : isSys
-                        ? 'border-l-purple-500/50'
-                        : 'border-l-transparent',
+                    : GROUP_BORDER[g],
                 isDragging === true ? 'opacity-40' : ''
             )}
         >
-            {/* Drag Handle - hidden for system plans */}
+            {/* Drag Handle */}
             <div
                 {...(dragHandleProps ?? {})}
                 className={cn(
@@ -70,67 +75,77 @@ export function PlanItem({
                 <GripVertical className="h-4 w-4" />
             </div>
 
-            {/* Content with padding for handle */}
-            <div className={cn('pl-4 transition-all duration-200')}>
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                        {/* ORDER INDICATOR / SYSTEM ICON */}
+            <div className="pl-4">
+                {/* Row 1: Name + badges + actions */}
+                <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
                         {isSys ? (
-                            <div className="h-5 w-5 rounded bg-purple-500/20 flex items-center justify-center">
+                            <div className="h-5 w-5 rounded bg-purple-500/20 flex items-center justify-center shrink-0">
                                 <Shield className="h-3 w-3 text-purple-400" />
                             </div>
                         ) : (
-                            <div className="h-5 w-5 rounded bg-white/5 flex items-center justify-center text-[10px] font-mono text-muted-foreground">
+                            <div className="h-5 w-5 rounded bg-white dark:bg-white/[0.04] flex items-center justify-center text-[10px] font-mono text-muted-foreground shrink-0">
                                 {index + 1}
                             </div>
                         )}
-                        <div>
-                            <div className="flex items-center gap-1.5">
-                                <h4 className="font-bold text-sm text-foreground">{plan.name}</h4>
-                                {isSys && (
-                                    <Badge variant="outline" className="text-[9px] px-1 py-0 bg-purple-500/15 text-purple-400 border-purple-500/30">
-                                        System
-                                    </Badge>
-                                )}
-                            </div>
-                            <p className="text-xs text-muted-foreground line-clamp-1">
-                                {plan.description}
-                            </p>
-                        </div>
+                        <h4 className="font-bold text-sm text-foreground truncate">{plan.name}</h4>
+                        <Badge variant="outline" className={cn('text-[9px] px-1 py-0 shrink-0', categoryBadgeClass(plan.plan_category))}>
+                            {plan.plan_category}
+                        </Badge>
+                        <span className={cn(
+                            'flex items-center gap-1 text-[9px] font-medium uppercase shrink-0',
+                            active ? 'text-emerald-400' : 'text-slate-500'
+                        )}>
+                            <span className={cn('h-1.5 w-1.5 rounded-full', active ? 'bg-emerald-400' : 'bg-slate-500')} />
+                            {active ? 'On' : 'Off'}
+                        </span>
                     </div>
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1.5 shrink-0">
                         <button
                             type="button"
                             onClick={(e) => {
                                 e.stopPropagation();
                                 onDuplicate?.(plan);
                             }}
-                            className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-white/10 text-muted-foreground hover:text-[#1fc7d4]"
+                            className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-black/[0.05] dark:hover:bg-white/10 text-muted-foreground hover:text-[#1fc7d4]"
                             title="Duplicate plan"
                         >
                             <Copy className="h-3.5 w-3.5" />
                         </button>
-                        <Badge variant="secondary" className="text-[10px] h-5 bg-white/5">
-                            {plan.permissions?.length ?? 0}
+                        <Badge variant="secondary" className="text-[10px] h-5 bg-white dark:bg-white/[0.04]">
+                            {permCount}
                         </Badge>
                     </div>
                 </div>
-                <div className="flex items-center justify-between mt-3 pt-3 border-t border-white/5">
-                    <span
-                        className={cn(
-                            'text-[10px] font-medium uppercase tracking-wider',
-                            isPlanActive ? 'text-emerald-500' : 'text-slate-500'
-                        )}
-                    >
-                        {isPlanActive ? 'Active' : 'Inactive'}
+
+                {/* Row 2: Description */}
+                <p className="text-xs text-muted-foreground line-clamp-1 mt-1 ml-7">
+                    {plan.description}
+                </p>
+
+                {/* Row 3: Metadata */}
+                <div className="flex items-center gap-2 mt-2 pt-2 border-t border-gray-200 dark:border-border text-[10px] text-muted-foreground">
+                    <span className="flex items-center gap-0.5" title="Tier level">
+                        <Hash className="h-2.5 w-2.5" />
+                        {plan.tier_level}
                     </span>
-                    <Switch
-                        checked={isPlanActive}
-                        onCheckedChange={() => { }}
-                        onClick={(e) => onQuickToggle?.(e, plan)}
-                        disabled={isFreePlan}
-                        className="scale-75 origin-right"
-                    />
+                    <span className="text-white/10">|</span>
+                    <span className="flex items-center gap-0.5" title="Members assigned">
+                        <Users className="h-2.5 w-2.5" />
+                        {members}{plan.max_members != null ? `/${plan.max_members}` : ''}
+                    </span>
+                    <span className="text-white/10">|</span>
+                    <span title={isPublic ? 'Public' : 'Private'}>
+                        {isPublic
+                            ? <Eye className="h-2.5 w-2.5 text-emerald-400/70" />
+                            : <EyeOff className="h-2.5 w-2.5" />
+                        }
+                    </span>
+                    <span className="flex-1" />
+                    <span className="flex items-center gap-0.5 text-muted-foreground/60" title={plan.updated_at}>
+                        <Clock className="h-2.5 w-2.5" />
+                        {formatRelativeTime(plan.updated_at)}
+                    </span>
                 </div>
             </div>
         </div>
@@ -140,22 +155,20 @@ export function PlanItem({
 export interface SortablePlanItemProps {
     plan: PermissionPlan;
     index: number;
+    group?: PlanGroup;
     selectedPlanId?: string;
     onSelect: (plan: PermissionPlan) => void;
     onDuplicate?: (plan: PermissionPlan) => void;
-    isFreePlan: boolean;
-    onQuickToggle: (e: React.MouseEvent, plan: PermissionPlan) => void;
     disabled?: boolean;
 }
 
 export function SortablePlanItem({
     plan,
     index,
+    group,
     selectedPlanId,
     onSelect,
     onDuplicate,
-    isFreePlan,
-    onQuickToggle,
     disabled,
 }: SortablePlanItemProps) {
     const {
@@ -178,11 +191,10 @@ export function SortablePlanItem({
         <PlanItem
             plan={plan}
             index={index}
+            group={group}
             selectedPlanId={selectedPlanId}
             onSelect={onSelect}
             onDuplicate={onDuplicate}
-            isFreePlan={isFreePlan}
-            onQuickToggle={onQuickToggle}
             isDragging={isDragging}
             disabled={disabled}
             dragHandleProps={{ ...attributes, ...listeners } as Record<string, unknown>}

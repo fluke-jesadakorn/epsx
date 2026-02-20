@@ -1,7 +1,6 @@
 'use client'
 
 import { useParams, useRouter } from 'next/navigation'
-import { useEffect } from 'react'
 
 import { PageLoadingSpinner } from '@/components/ui/loading-spinner'
 import { useAvailablePermissions } from '@/hooks/use-plan-permissions'
@@ -23,7 +22,7 @@ import { usePlanData } from './use-plan-data'
 export default function EditPlanPage() {
   const router = useRouter()
   const params = useParams()
-  const { user, isLoading: authLoading, isAuthenticated } = useSharedAuth()
+  const { user } = useSharedAuth()
   const {
     plan,
     loading: planLoading,
@@ -40,13 +39,7 @@ export default function EditPlanPage() {
   const { permissions: availablePermissions, isLoading: loadingPermissions } =
     useAvailablePermissions()
 
-  useEffect(() => {
-    if (!authLoading && (!isAuthenticated || user === null)) {
-      router.push('/subscriptions/plans')
-    }
-  }, [authLoading, isAuthenticated, user, router])
-
-  if (authLoading || planLoading) {
+  if (planLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-yellow-50 via-orange-50 to-pink-50 dark:from-gray-900 dark:via-purple-900 dark:to-gray-900 flex items-center justify-center">
         <PageLoadingSpinner label="Loading plan..." />

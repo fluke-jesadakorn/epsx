@@ -399,7 +399,7 @@ export function WalletHub({ className }: WalletHubProps) {
             />
 
             {/* Re-enable Modal */}
-            {reenableModalWallet?.disableInfo && (
+            {reenableModalWallet != null && (
                 <ReenableWalletModal
                     walletAddress={reenableModalWallet.walletAddress}
                     disableInfo={reenableModalWallet.disableInfo}

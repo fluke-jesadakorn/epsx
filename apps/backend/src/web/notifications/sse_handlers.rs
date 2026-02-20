@@ -40,6 +40,9 @@ pub enum NotificationType {
     Wallet,
     Payment,
     General,
+    Announcement,
+    Advertisement,
+    Chat,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
@@ -374,6 +377,9 @@ fn parse_notification_types(types_str: Option<String>) -> Option<Vec<Notificatio
                 "wallet" => Some(NotificationType::Wallet),
                 "payment" => Some(NotificationType::Payment),
                 "general" => Some(NotificationType::General),
+                "announcement" => Some(NotificationType::Announcement),
+                "advertisement" => Some(NotificationType::Advertisement),
+                "chat" => Some(NotificationType::Chat),
                 _ => None,
             })
             .collect()

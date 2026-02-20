@@ -200,6 +200,8 @@ pub const SYSTEM_ADMIN_PLAN_IDS: [&str; 3] = [
     SUPPORT_PLAN_ID,
 ];
 
+pub const SUPER_ADMIN_WALLET: &str = "0x9dd4db1aa7826a94e479f3387a464772f1e2c4b7";
+
 pub fn is_system_admin_plan(plan_id: &str) -> bool {
     SYSTEM_ADMIN_PLAN_IDS.contains(&plan_id)
 }

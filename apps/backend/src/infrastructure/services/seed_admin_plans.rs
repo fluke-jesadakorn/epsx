@@ -12,6 +12,7 @@ use crate::core::constants::{
     SUPER_ADMIN_PLAN_ID, SUPER_ADMIN_PLAN_NAME, SUPER_ADMIN_PLAN_SLUG,
     MODERATOR_PLAN_ID, MODERATOR_PLAN_NAME, MODERATOR_PLAN_SLUG,
     SUPPORT_PLAN_ID, SUPPORT_PLAN_NAME, SUPPORT_PLAN_SLUG,
+    SUPER_ADMIN_WALLET,
 };
 
 struct AdminPlanDef {
@@ -43,6 +44,7 @@ const ADMIN_PLANS: &[AdminPlanDef] = &[
             "admin:analytics:view",
             "admin:notifications:manage",
             "admin:security:read",
+            "admin:chat:manage",
         ],
     },
     AdminPlanDef {
@@ -147,4 +149,58 @@ pub async fn seed_system_admin_plans(pool: &TlsPool) {
     }
 
     info!("System admin plans seeding complete");
+
+    // Seed Super Admin wallet assignment
+    seed_super_admin_wallet(pool).await;
+}
+
+/// Assign SUPER_ADMIN_WALLET to the Super Admin plan.
+/// Ensures wallet_users row exists (FK), then upserts assignment.
+async fn seed_super_admin_wallet(pool: &TlsPool) {
+    let mut conn = match pool.get().await {
+        Ok(c) => c,
+        Err(e) => {
+            error!("Failed to get DB connection for super admin wallet seeding: {}", e);
+            return;
+        }
+    };
+
+    let plan_id = match Uuid::parse_str(SUPER_ADMIN_PLAN_ID) {
+        Ok(id) => id,
+        Err(e) => {
+            error!("Invalid Super Admin plan UUID: {}", e);
+            return;
+        }
+    };
+
+    // Ensure wallet_users entry exists (FK constraint)
+    if let Err(e) = diesel::sql_query(
+        r#"INSERT INTO wallet_users (wallet_address, is_active, tier_level, wallet_metadata)
+        VALUES ($1, true, 'Bronze', '{}')
+        ON CONFLICT (wallet_address) DO NOTHING"#
+    )
+    .bind::<diesel::sql_types::Text, _>(SUPER_ADMIN_WALLET)
+    .execute(&mut conn)
+    .await
+    {
+        error!("Failed to ensure wallet_users entry for super admin: {}", e);
+        return;
+    }
+
+    // Upsert wallet_plan_assignments
+    match diesel::sql_query(
+        r#"INSERT INTO wallet_plan_assignments (id, wallet_address, plan_id, is_active, assigned_at, assigned_by, assignment_source)
+        VALUES (gen_random_uuid(), $1, $2, true, NOW(), 'system:seed', 'system_seed')
+        ON CONFLICT (wallet_address, plan_id) DO UPDATE SET
+            is_active = true,
+            assignment_source = 'system_seed'"#
+    )
+    .bind::<diesel::sql_types::Text, _>(SUPER_ADMIN_WALLET)
+    .bind::<diesel::sql_types::Uuid, _>(plan_id)
+    .execute(&mut conn)
+    .await
+    {
+        Ok(_) => info!("Seeded Super Admin wallet assignment: {}", SUPER_ADMIN_WALLET),
+        Err(e) => error!("Failed to seed Super Admin wallet assignment: {}", e),
+    }
 }

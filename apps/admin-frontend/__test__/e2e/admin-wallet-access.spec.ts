@@ -8,14 +8,8 @@ test.describe('Admin Wallet Access Control', () => {
     await capture(page, 'admin-access-overview');
   });
 
-  test('access permissions page', async ({ authedPage: page }) => {
-    await page.goto('/wallet-management/access/permissions');
-    await page.waitForLoadState('networkidle');
-    await capture(page, 'admin-access-permissions');
-  });
-
   test('access plans page', async ({ authedPage: page }) => {
-    await page.goto('/wallet-management/access/plans');
+    await page.goto('/wallet-management/access');
     await page.waitForLoadState('networkidle');
     await capture(page, 'admin-access-plans');
   });

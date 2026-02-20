@@ -244,6 +244,9 @@ fn parse_notification_type(s: &str, notification_id: &Uuid) -> NotificationType 
         "payment" => NotificationType::Payment,
         "general" => NotificationType::General,
         "system" => NotificationType::System,
+        "announcement" => NotificationType::Announcement,
+        "advertisement" => NotificationType::Advertisement,
+        "chat" => NotificationType::Chat,
         _ => {
             tracing::warn!(
                 "Data quality issue: Invalid notification_type '{}' for notification id={}, defaulting to System",

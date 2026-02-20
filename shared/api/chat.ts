@@ -1,151 +1,178 @@
 /**
- * UNIFIED CHAT API CLIENT
+ * SUPPORT CHAT API CLIENT
  *
- * Chat and AI assistant endpoints.
- * Migrated from frontend/lib/services/chat-api.service.ts
- *
- * Features:
- * - Send chat messages
- * - Get chat history
- * - Stream chat responses
+ * Human-first support chat with topic selection, conversations, and messaging.
+ * AI-ready architecture via sender_type and metadata fields.
  */
+
+import type { UnifiedApiClient, ApiResponse } from '../utils/api-client';
 
 // ============================================================================
 // TYPES
 // ============================================================================
 
-export interface Message {
-    role: 'user' | 'assistant' | 'system';
-    content: string;
+export interface ChatTopic {
+  id: string;
+  name: string;
+  label: string;
+  description: string | null;
+  icon: string | null;
+  sort_order: number;
+  is_active: boolean;
+  created_at: string;
 }
 
-export interface ChatRequest {
-    messages: Message[];
-    temperature: number;
-    maxTokens: number;
+export interface ChatConversation {
+  id: string;
+  topic_id: string;
+  wallet_address: string;
+  subject: string;
+  status: 'open' | 'in_progress' | 'resolved' | 'closed';
+  assigned_agent: string | null;
+  last_message_at: string;
+  unread_user: number;
+  unread_agent: number;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
 }
 
-export interface ChatResponse {
-    message: Message;
-    usage?: {
-        totalTokens: number;
-        promptTokens: number;
-        completionTokens: number;
-    };
+export interface ChatMessage {
+  id: string;
+  conversation_id: string;
+  sender_type: 'user' | 'agent' | 'system' | 'ai';
+  sender_address: string | null;
+  content: string;
+  is_read: boolean;
+  metadata: Record<string, unknown>;
+  created_at: string;
 }
 
-export interface ChatHistoryResponse {
-    messages: Message[];
+export interface ChatStats {
+  total_open: number;
+  total_in_progress: number;
+  total_resolved: number;
+  total_unassigned: number;
 }
 
-export interface ChatOptions {
-    temp?: number;
-    maxTokens?: number;
+export interface CreateConversationReq {
+  topic_id: string;
+  subject: string;
+  message: string;
 }
 
-// ============================================================================
-// CHAT API CLASS
-// ============================================================================
+export interface SendMessageReq {
+  content: string;
+}
 
-export class ChatApi {
-    private baseUrl: string;
+export interface UpdateStatusReq {
+  status: string;
+}
 
-    constructor(baseUrl = '/api') {
-        this.baseUrl = baseUrl;
-    }
+export interface AssignAgentReq {
+  agent_address?: string;
+}
 
-    private buildRequest(messages: Message[], opts?: ChatOptions): ChatRequest {
-        return {
-            messages,
-            temperature: opts?.temp ?? 0.7,
-            maxTokens: opts?.maxTokens ?? 1000,
-        };
-    }
-
-    /**
-     * Send a chat message and get a response
-     */
-    async sendMessage(messages: Message[], opts?: ChatOptions): Promise<ChatResponse> {
-        const response = await fetch(`${this.baseUrl}/chat`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(this.buildRequest(messages, opts)),
-        });
-
-        if (!response.ok) {
-            throw new Error(`Chat API error: ${response.status}`);
-        }
-
-        const result = (await response.json()) as ChatResponse;
-        return {
-            message: {
-                role: 'assistant',
-                content: result.message.content,
-            },
-            usage: result.usage ?? {
-                totalTokens: 0,
-                promptTokens: 0,
-                completionTokens: 0,
-            },
-        };
-    }
-
-    /**
-     * Get chat history for a conversation
-     */
-    async getHistory(conversationId: string): Promise<Message[]> {
-        const response = await fetch(`${this.baseUrl}/chat/history/${conversationId}`);
-
-        if (!response.ok) {
-            throw new Error(`Chat history API error: ${response.status}`);
-        }
-
-        const data = (await response.json()) as ChatHistoryResponse;
-        return data.messages;
-    }
-
-    /**
-     * Stream a chat message response
-     */
-    async streamMessage(messages: Message[], opts?: ChatOptions): Promise<ReadableStream<Uint8Array>> {
-        const response = await fetch(`${this.baseUrl}/chat/stream`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(this.buildRequest(messages, opts)),
-        });
-
-        if (!response.ok) {
-            throw new Error(`Chat stream API error: ${response.status}`);
-        }
-
-        if (!response.body) {
-            throw new Error('No response body received');
-        }
-
-        return response.body;
-    }
+export interface UnreadCountResp {
+  count: number;
 }
 
 // ============================================================================
-// FACTORY FUNCTION
+// SUPPORT CHAT API CLASS
 // ============================================================================
 
-/**
- * Create a chat API client
- */
-export function createChatClient(baseUrl = '/api'): ChatApi {
-    return new ChatApi(baseUrl);
+export class SupportChatApi {
+  constructor(private client: UnifiedApiClient) {}
+
+  // Topics
+  async getTopics(): Promise<ApiResponse<ChatTopic[]>> {
+    return this.client.get('/api/chat/topics');
+  }
+
+  // User conversations
+  async createConversation(data: CreateConversationReq): Promise<ApiResponse<ChatConversation>> {
+    return this.client.post('/api/chat/conversations', data);
+  }
+
+  async listConversations(): Promise<ApiResponse<ChatConversation[]>> {
+    return this.client.get('/api/chat/conversations');
+  }
+
+  async getConversation(id: string): Promise<ApiResponse<ChatConversation>> {
+    return this.client.get(`/api/chat/conversations/${id}`);
+  }
+
+  async getMessages(id: string): Promise<ApiResponse<ChatMessage[]>> {
+    return this.client.get(`/api/chat/conversations/${id}/messages`);
+  }
+
+  async sendMessage(id: string, content: string): Promise<ApiResponse<ChatMessage>> {
+    return this.client.post(`/api/chat/conversations/${id}/messages`, { content });
+  }
+
+  async updateStatus(id: string, status: string): Promise<ApiResponse<ChatConversation>> {
+    return this.client.put(`/api/chat/conversations/${id}/status`, { status });
+  }
+
+  async markRead(id: string): Promise<ApiResponse<void>> {
+    return this.client.put(`/api/chat/conversations/${id}/read`, {});
+  }
+
+  async getUnreadCount(): Promise<ApiResponse<UnreadCountResp>> {
+    return this.client.get('/api/chat/unread');
+  }
+
+  // Admin methods
+  async adminListConversations(params?: {
+    status?: string;
+    topic_id?: string;
+    agent?: string;
+  }): Promise<ApiResponse<ChatConversation[]>> {
+    const searchParams = new URLSearchParams();
+    if (params?.status) searchParams.set('status', params.status);
+    if (params?.topic_id) searchParams.set('topic_id', params.topic_id);
+    if (params?.agent) searchParams.set('agent', params.agent);
+    const qs = searchParams.toString();
+    return this.client.get(`/api/admin/chat/conversations${qs ? `?${qs}` : ''}`);
+  }
+
+  async adminGetConversation(id: string): Promise<ApiResponse<ChatConversation>> {
+    return this.client.get(`/api/admin/chat/conversations/${id}`);
+  }
+
+  async adminGetMessages(id: string): Promise<ApiResponse<ChatMessage[]>> {
+    return this.client.get(`/api/admin/chat/conversations/${id}/messages`);
+  }
+
+  async adminSendReply(id: string, content: string): Promise<ApiResponse<ChatMessage>> {
+    return this.client.post(`/api/admin/chat/conversations/${id}/messages`, { content });
+  }
+
+  async adminAssignAgent(id: string, agentAddress?: string): Promise<ApiResponse<ChatConversation>> {
+    return this.client.put(`/api/admin/chat/conversations/${id}/assign`, { agent_address: agentAddress });
+  }
+
+  async adminUpdateStatus(id: string, status: string): Promise<ApiResponse<ChatConversation>> {
+    return this.client.put(`/api/admin/chat/conversations/${id}/status`, { status });
+  }
+
+  async adminMarkRead(id: string): Promise<ApiResponse<void>> {
+    return this.client.put(`/api/admin/chat/conversations/${id}/read`, {});
+  }
+
+  async adminGetStats(): Promise<ApiResponse<ChatStats>> {
+    return this.client.get('/api/admin/chat/stats');
+  }
+
+  async adminGetTopics(): Promise<ApiResponse<ChatTopic[]>> {
+    return this.client.get('/api/admin/chat/topics');
+  }
 }
 
 // ============================================================================
-// SINGLETON INSTANCE
+// FACTORY
 // ============================================================================
 
-/**
- * Default chat API client instance
- */
-export const chatApi = new ChatApi();
+export function createSupportChatClient(client: UnifiedApiClient): SupportChatApi {
+  return new SupportChatApi(client);
+}

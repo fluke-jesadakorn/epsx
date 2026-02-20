@@ -44,7 +44,7 @@ export function UnifiedAlert({
         <div
             className={cn(
                 'border rounded-lg p-4',
-                isAdmin ? 'border-slate-600 bg-slate-800 text-white' : typeStyle.light.bg,
+                isAdmin ? 'border-slate-600 bg-gray-100 dark:bg-slate-800 text-white' : typeStyle.light.bg,
                 variantStyles[variant].alertClass,
                 className
             )}

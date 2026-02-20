@@ -162,8 +162,7 @@ impl WalletNotificationRepository {
         let escaped_wallet = wallet_address.replace("'", "''");
         let mut where_parts = vec![
             "status != 'deleted'".to_string(),
-            format!("(recipient_wallet_address = '{}' OR recipient_wallet_address IS NULL)", escaped_wallet) // Assuming NULL means broadcast? Or "all" string logic is gone? New schema creates per-user I think. But let's check.
-            // up.sql: cast recipient_wallet_address VARCHAR(42). usually 'all' fits.
+            format!("(recipient_wallet_address = '{}' OR recipient_wallet_address = 'all')", escaped_wallet)
         ];
 
         if let Some(ref notif_type) = filter.notification_type {
@@ -311,7 +310,7 @@ impl WalletNotificationRepository {
         let escaped_wallet = wallet_address.replace("'", "''");
         let mut where_parts = vec![
             "status != 'deleted'".to_string(),
-            format!("(recipient_wallet_address = '{}' OR recipient_wallet_address IS NULL)", escaped_wallet)
+            format!("(recipient_wallet_address = '{}' OR recipient_wallet_address = 'all')", escaped_wallet)
         ];
 
         if let Some(ref notif_type) = filter.notification_type {
@@ -401,7 +400,7 @@ impl WalletNotificationRepository {
         let mut where_parts = vec![
             "status != 'deleted'".to_string(),
             "status != 'read'".to_string(),
-            format!("(recipient_wallet_address = '{}' OR recipient_wallet_address IS NULL)", escaped_wallet)
+            format!("(recipient_wallet_address = '{}' OR recipient_wallet_address = 'all')", escaped_wallet)
         ];
 
         if let Some(ref notif_type) = filter.notification_type {
@@ -503,7 +502,7 @@ impl WalletNotificationRepository {
             r#"
             UPDATE wallet_notifications
             SET status = 'read', updated_at = $1
-            WHERE id = $2 AND (recipient_wallet_address = $3 OR recipient_wallet_address IS NULL)
+            WHERE id = $2 AND (recipient_wallet_address = $3 OR recipient_wallet_address = 'all')
             "#
         )
         .bind::<diesel::sql_types::Timestamptz, _>(now)
@@ -527,7 +526,7 @@ impl WalletNotificationRepository {
             r#"
             UPDATE wallet_notifications
             SET status = 'read', updated_at = $1
-            WHERE (recipient_wallet_address = $2 OR recipient_wallet_address IS NULL) AND status != 'read' AND status != 'deleted'
+            WHERE (recipient_wallet_address = $2 OR recipient_wallet_address = 'all') AND status != 'read' AND status != 'deleted'
             "#
         )
         .bind::<diesel::sql_types::Timestamptz, _>(now)
@@ -548,7 +547,7 @@ impl WalletNotificationRepository {
             r#"
             UPDATE wallet_notifications
             SET status = 'deleted', updated_at = NOW()
-            WHERE id = $1 AND status != 'deleted' AND (recipient_wallet_address = $2 OR recipient_wallet_address IS NULL)
+            WHERE id = $1 AND status != 'deleted' AND (recipient_wallet_address = $2 OR recipient_wallet_address = 'all')
             "#
         )
         .bind::<diesel::sql_types::Uuid, _>(id)
@@ -569,7 +568,7 @@ impl WalletNotificationRepository {
             r#"
             UPDATE wallet_notifications
             SET status = 'deleted', updated_at = NOW()
-            WHERE (recipient_wallet_address = $1 OR recipient_wallet_address IS NULL) AND status != 'deleted'
+            WHERE (recipient_wallet_address = $1 OR recipient_wallet_address = 'all') AND status != 'deleted'
             "#
         )
         .bind::<diesel::sql_types::Text, _>(wallet_address)
@@ -609,7 +608,7 @@ impl WalletNotificationRepository {
 
         let count = diesel::sql_query(
             "SELECT COUNT(*) as count FROM wallet_notifications \
-             WHERE (recipient_wallet_address = $1 OR recipient_wallet_address IS NULL) \
+             WHERE (recipient_wallet_address = $1 OR recipient_wallet_address = 'all') \
              AND status != 'read' AND status != 'deleted'"
         )
         .bind::<diesel::sql_types::Text, _>(wallet_address)

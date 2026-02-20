@@ -1,6 +1,6 @@
 'use client';
 
-import { Loader2, X } from 'lucide-react';
+import { Copy, Loader2, Package, RotateCcw, Shield, Trash2, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button';
 import { type PermissionDefinition } from '@/lib/api/permissions-client';
 import { logger } from '@/shared/utils/logger';
 
-import { categoryBadgeClass, isSystemPlan } from './types';
+import { categoryBadgeClass, FREE_PLAN_ID, isSystemPlan } from './types';
 
 import { DeletePlanDialog } from './delete-plan-dialog';
 import { PlanEditor } from './plan-editor';
@@ -112,15 +112,42 @@ export function PlanEditorDrawer({ planId, onClose, onPlanUpdated, onDuplicate }
 
     return (
         <>
-            <div className="h-full flex flex-col border-l border-white/5 bg-slate-950/50">
-                <div className="flex items-center justify-between px-4 py-2 border-b border-white/5 shrink-0">
-                    <div className="flex items-center gap-2 min-w-0">
+            {/* Backdrop */}
+            <div
+                className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200"
+                onClick={onClose}
+            />
+            {/* Drawer */}
+            <div className="fixed inset-y-0 right-0 z-50 w-full max-w-full sm:max-w-xl flex flex-col bg-gray-50 dark:bg-slate-950 border-l border-gray-200 dark:border-border shadow-2xl animate-in slide-in-from-right duration-300">
+                <div className="flex items-center justify-between px-3 sm:px-5 py-3 border-b border-gray-200 dark:border-border shrink-0 gap-2">
+                    <div className="flex items-center gap-2 sm:gap-3 min-w-0">
                         {selectedPlan != null ? (
                             <>
-                                <span className="text-sm font-medium truncate">{selectedPlan.name}</span>
-                                <Badge variant="outline" className={`text-[10px] px-1.5 py-0 shrink-0 ${categoryBadgeClass(selectedPlan.plan_category)}`}>
-                                    {selectedPlan.plan_category}
-                                </Badge>
+                                <div className="h-8 w-8 rounded-lg bg-[#1fc7d4]/20 flex items-center justify-center shrink-0">
+                                    <Package className="w-4 h-4 text-[#1fc7d4]" />
+                                </div>
+                                <div className="min-w-0">
+                                    <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                                        <span className="text-sm font-medium truncate max-w-[120px] sm:max-w-none">{selectedPlan.name}</span>
+                                        <Badge variant="outline" className={`text-[10px] px-1.5 py-0 shrink-0 ${categoryBadgeClass(form.plan_category)}`}>
+                                            {form.plan_category}
+                                        </Badge>
+                                        {isSystemPlan(selectedPlan) && (
+                                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 shrink-0 bg-purple-500/15 text-purple-400 border-purple-500/30">
+                                                <Shield className="w-2.5 h-2.5 mr-1" />
+                                                System
+                                            </Badge>
+                                        )}
+                                        {!form.is_active && (
+                                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 shrink-0 bg-red-500/15 text-red-400 border-red-500/30">
+                                                inactive
+                                            </Badge>
+                                        )}
+                                    </div>
+                                    <p className="text-[11px] text-muted-foreground font-mono truncate">
+                                        {selectedPlan.slug ?? selectedPlan.id}
+                                    </p>
+                                </div>
                             </>
                         ) : (
                             <span className="text-xs text-muted-foreground font-mono truncate">
@@ -128,9 +155,34 @@ export function PlanEditorDrawer({ planId, onClose, onPlanUpdated, onDuplicate }
                             </span>
                         )}
                     </div>
-                    <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={onClose}>
-                        <X className="h-4 w-4" />
-                    </Button>
+                    <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+                        {selectedPlan != null && (
+                            <>
+                                {isSystemPlan(selectedPlan) ? (
+                                    <Button variant="ghost" className="text-purple-400 hover:text-purple-300 hover:bg-purple-500/10" size="sm" onClick={() => onDuplicate?.(selectedPlan)}>
+                                        <Copy className="w-3.5 h-3.5 sm:mr-1.5" />
+                                        <span className="hidden sm:inline">Template</span>
+                                    </Button>
+                                ) : selectedPlan.id !== FREE_PLAN_ID && (
+                                    <Button variant="ghost" className="text-red-400 hover:text-red-300 hover:bg-red-500/10" size="sm" onClick={() => setDeleteTarget(selectedPlan)}>
+                                        <Trash2 className="w-3.5 h-3.5 sm:mr-1.5" />
+                                        <span className="hidden sm:inline">Delete</span>
+                                    </Button>
+                                )}
+                                <Button variant="ghost" size="sm" onClick={discardChanges} disabled={!hasChanges || isSaving} className="text-muted-foreground hover:text-foreground">
+                                    <RotateCcw className="w-3.5 h-3.5 sm:mr-1.5" />
+                                    <span className="hidden sm:inline">Discard</span>
+                                </Button>
+                                <Button size="sm" onClick={handleSave} disabled={!hasChanges || isSaving} className="bg-[#1fc7d4] text-white hover:bg-[#1fc7d4]/90">
+                                    {isSaving && <Loader2 className="w-3 h-3 animate-spin mr-1.5" />}
+                                    Save
+                                </Button>
+                            </>
+                        )}
+                        <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={onClose}>
+                            <X className="h-4 w-4" />
+                        </Button>
+                    </div>
                 </div>
                 {isLoading ? (
                     <div className="flex-1 flex items-center justify-center">
@@ -142,13 +194,7 @@ export function PlanEditorDrawer({ planId, onClose, onPlanUpdated, onDuplicate }
                             selectedPlan={selectedPlan}
                             form={form}
                             setForm={setForm}
-                            hasChanges={hasChanges}
                             setHasChanges={setHasChanges}
-                            isSaving={isSaving}
-                            onSave={handleSave}
-                            onDiscard={discardChanges}
-                            onDelete={() => setDeleteTarget(selectedPlan)}
-                            onDuplicate={onDuplicate}
                             permissions={permissions}
                             onPermissionsChanged={() => void reloadPermissions()}
                         />

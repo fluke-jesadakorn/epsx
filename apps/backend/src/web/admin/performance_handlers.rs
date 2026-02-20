@@ -136,7 +136,11 @@ pub async fn get_cache_summary(State(_app_state): State<AppState>) -> Result<
     ),
     security(("bearerAuth" = []))
 )]
-pub async fn clear_auth_cache(State(_app_state): State<AppState>) -> Result<
+pub async fn clear_auth_cache(
+  State(app_state): State<AppState>,
+  axum::Extension(user_ctx): axum::Extension<crate::web::middleware::bearer_middleware::OpenIDUserContext>,
+  headers: axum::http::HeaderMap,
+) -> Result<
   Json<Value>,
   StatusCode
 > {
@@ -144,6 +148,9 @@ pub async fn clear_auth_cache(State(_app_state): State<AppState>) -> Result<
 
   // Placeholder for cache integration with AppState
   info!("Authentication cache clear requested (placeholder implementation)");
+
+  let ctx = crate::infrastructure::services::audit_service::AuditCtx::from_wallet(&user_ctx.wallet_address, &headers);
+  app_state.audit.log(ctx, crate::infrastructure::services::audit_service::AuditEntry::new("cache", "clear", "system"));
 
   Ok(
     Json(

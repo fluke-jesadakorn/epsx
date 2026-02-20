@@ -53,7 +53,7 @@ export function FrontendAuthModal() {
                     </button>
                     <button
                         onClick={closeSignInModal}
-                        className="inline-flex items-center justify-center rounded-lg border border-slate-700 bg-slate-800/50 px-4 py-3 text-sm font-medium text-slate-300 transition-colors hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-600 focus:ring-offset-2 focus:ring-offset-slate-900"
+                        className="inline-flex items-center justify-center rounded-lg border border-slate-700 bg-gray-100 dark:bg-slate-800/50 px-4 py-3 text-sm font-medium text-slate-300 transition-colors hover:bg-gray-100 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-600 focus:ring-offset-2 focus:ring-offset-slate-900"
                     >
                         Maybe Later
                     </button>

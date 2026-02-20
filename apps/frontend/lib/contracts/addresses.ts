@@ -52,7 +52,7 @@ const PAYMENT_RECEIVER_ADDRESSES: Record<number, string> = {
     || PAYMENT_ESCROW_ADDRESSES[CHAIN_IDS.LOCALHOST],
   [CHAIN_IDS.BSC_MAINNET]:
     process.env.NEXT_PUBLIC_PAYMENT_RECEIVER_MAINNET
-    || PAYMENT_ESCROW_ADDRESSES[CHAIN_IDS.BSC_MAINNET],
+    || bscMainnetDeployment.paymentReceiver,
 };
 
 // Token addresses by chain (env vars override defaults)

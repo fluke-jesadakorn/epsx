@@ -17,7 +17,7 @@ export default function DeveloperDocumentationPage() {
                 </div>
 
                 {/* Documentation Card */}
-                <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-white/80 to-white/40 dark:from-gray-800/80 dark:to-gray-800/40 backdrop-blur-xl border border-white/20 dark:border-gray-700/50 shadow-xl">
+                <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-white/80 to-white/40 dark:from-gray-800/80 dark:to-gray-800/40 backdrop-blur-xl border border-gray-300 dark:border-white/20 dark:border-gray-700/50 shadow-xl">
                     {/* Header */}
                     <div className="p-6 border-b border-gray-200 dark:border-gray-700">
                         <div className="flex items-center justify-between">

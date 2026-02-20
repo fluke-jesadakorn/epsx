@@ -186,7 +186,8 @@ impl NotificationTopic {
                 })
             }
             AccessLevel::Admin => {
-                user_permissions.iter().any(|p| p.starts_with("admin:"))
+                let perms: Vec<String> = user_permissions.iter().cloned().collect();
+                crate::core::permissions::has_admin_platform_permission(&perms)
             }
             AccessLevel::System => false, // System topics are not user-subscribable
         }

@@ -61,7 +61,7 @@ export function DeletePlanDialog({
                             value={deleteConfirmationInput}
                             onChange={(e) => setDeleteConfirmationInput(e.target.value)}
                             placeholder="Type plan name"
-                            className="bg-white/5 border-white/10 text-white placeholder:text-white/20"
+                            className="bg-white dark:bg-white/[0.04] border-gray-200 dark:border-border text-white placeholder:text-white/20"
                         />
                     </div>
                 </DialogHeader>
@@ -69,7 +69,7 @@ export function DeletePlanDialog({
                     <Button
                         variant="ghost"
                         onClick={onClose}
-                        className="text-slate-400 hover:text-white hover:bg-white/5"
+                        className="text-slate-400 hover:text-white hover:bg-gray-100 dark:hover:bg-white/5"
                     >
                         Cancel
                     </Button>

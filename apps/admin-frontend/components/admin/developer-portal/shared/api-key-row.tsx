@@ -84,7 +84,7 @@ export const ApiKeyRow: React.FC<ApiKeyRowProps> = ({
     const permissionGroups = extendedKey.permission_groups ?? [];
 
     return (
-        <TableRow className="hover:bg-white/[0.02] border-white/5 transition-colors">
+        <TableRow className="hover:bg-gray-50 dark:hover:bg-white/[0.02] border-gray-200 dark:border-border transition-colors">
             {/* User / Client */}
             <TableCell className="py-6 px-6">
                 <div className="flex flex-col">
@@ -104,12 +104,12 @@ export const ApiKeyRow: React.FC<ApiKeyRowProps> = ({
             {/* API Key */}
             <TableCell className="py-6 px-6">
                 <div className="flex items-center space-x-3">
-                    <div className="px-3 py-1.5 bg-white/5 border border-white/5 rounded-lg font-mono text-xs font-bold text-[#1fc7d4]">
+                    <div className="px-3 py-1.5 bg-white dark:bg-white/[0.04] border border-gray-200 dark:border-border rounded-lg font-mono text-xs font-bold text-[#1fc7d4]">
                         {maskKeyPrefix(keyPrefix)}
                     </div>
                     <button
                         onClick={() => onCopyKeyPrefix(keyPrefix)}
-                        className="p-2 text-muted-foreground/50 hover:text-[#1fc7d4] hover:bg-white/5 rounded-lg transition-all"
+                        className="p-2 text-muted-foreground/50 hover:text-[#1fc7d4] hover:bg-gray-100 dark:hover:bg-white/5 rounded-lg transition-all"
                         title="Copy key prefix"
                     >
                         <Copy className="w-4 h-4" />
@@ -142,7 +142,7 @@ export const ApiKeyRow: React.FC<ApiKeyRowProps> = ({
                         <span className="text-[10px] font-black text-muted-foreground/30 uppercase tracking-widest">No scope</span>
                     )}
                     {(permissionGroups.length > 3 || apiKey.allowed_modules.length > 3) && (
-                        <span className="inline-flex items-center px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-widest bg-white/5 text-muted-foreground border border-white/5">
+                        <span className="inline-flex items-center px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-widest bg-white dark:bg-white/[0.04] text-muted-foreground border border-gray-200 dark:border-border">
                             +{Math.max(permissionGroups.length, apiKey.allowed_modules.length) - 3}
                         </span>
                     )}

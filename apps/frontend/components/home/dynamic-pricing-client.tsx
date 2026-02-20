@@ -2,7 +2,8 @@
 
 import { PricingCard } from '@/shared/components/plans/pricing-card';
 import type { PricingCardData } from '@/shared/types/plans';
-import { Star } from 'lucide-react';
+import { Check, MessageSquare, Star } from 'lucide-react';
+import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
@@ -14,6 +15,7 @@ interface ApiPlanData {
     id: string;
     name: string;
     plan_type: string;
+    plan_group?: string;
     is_active: boolean;
     display_order: number;
     currentPrice: number;
@@ -35,6 +37,7 @@ interface ApiResponse {
 
 interface DynamicPricingClientProps {
     personalPlans: PricingCardData[];
+    enterprisePlans: PricingCardData[];
     apiPlans: PricingCardData[];
     affiliateCode: string | null;
     affiliateInfo: AffiliateInfo | null;
@@ -56,24 +59,8 @@ const transformToPricingCard = (plan: ApiPlanData): PricingCardData => {
     };
 };
 
-const filterPersonalPlans = (plans: ApiPlanData[]): ApiPlanData[] => {
-    return plans.filter((plan) => {
-        if (!plan.is_active) {
-            return false;
-        }
-        const type = plan.plan_type.toLowerCase();
-        return !type.includes('api');
-    });
-};
-
-const filterApiPlans = (plans: ApiPlanData[]): ApiPlanData[] => {
-    return plans.filter((plan) => {
-        if (!plan.is_active) {
-            return false;
-        }
-        const type = plan.plan_type.toLowerCase();
-        return type.includes('api');
-    });
+const filterByGroup = (plans: ApiPlanData[], group: string): ApiPlanData[] => {
+    return plans.filter((plan) => plan.is_active && (plan.plan_group ?? 'personal') === group);
 };
 
 const sortByDisplayOrder = (plans: ApiPlanData[]): ApiPlanData[] => {
@@ -129,6 +116,20 @@ const PersonalPlansHeader = (): JSX.Element => (
     </div>
 );
 
+const EnterprisePlansHeader = (): JSX.Element => (
+    <div className="text-center space-y-4 sm:space-y-6 animate-fade-in">
+        <h2 className="text-4xl sm:text-5xl font-bold bg-gradient-to-r from-blue-500 via-cyan-500 to-teal-500 bg-clip-text text-transparent">
+            Enterprise Plans
+        </h2>
+        <p className="text-lg sm:text-xl text-foreground/80 max-w-2xl mx-auto">
+            Complete solutions for professional teams and institutions
+        </p>
+        <div className="relative w-24 sm:w-32 h-1 sm:h-1.5 bg-gradient-to-r from-blue-500 to-teal-500 mx-auto rounded-full overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/25 to-transparent animate-shimmer" />
+        </div>
+    </div>
+);
+
 const ApiPlansHeader = (): JSX.Element => (
     <div className="text-center space-y-4 sm:space-y-6 animate-fade-in">
         <h2 className="text-4xl sm:text-5xl font-bold bg-gradient-to-r from-orange-500 via-pink-500 to-purple-500 bg-clip-text text-transparent">
@@ -143,8 +144,74 @@ const ApiPlansHeader = (): JSX.Element => (
     </div>
 );
 
+const CustomPlansHeader = (): JSX.Element => (
+    <div className="text-center space-y-4 sm:space-y-6 animate-fade-in">
+        <h2 className="text-4xl sm:text-5xl font-bold bg-gradient-to-r from-purple-500 via-violet-500 to-fuchsia-500 bg-clip-text text-transparent">
+            Custom Plans
+        </h2>
+        <p className="text-lg sm:text-xl text-foreground/80 max-w-2xl mx-auto">
+            Tailored solutions for partners, corporate, and enterprise needs
+        </p>
+        <div className="relative w-24 sm:w-32 h-1 sm:h-1.5 bg-gradient-to-r from-purple-500 to-fuchsia-500 mx-auto rounded-full overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/25 to-transparent animate-shimmer" />
+        </div>
+    </div>
+);
+
+const CUSTOM_FEATURES = [
+    'Custom feature set & permissions',
+    'Dedicated support & SLA',
+    'Volume-based pricing',
+    'Custom API rate limits',
+    'White-label options',
+    'Priority onboarding',
+];
+
+const ContactCard = (): JSX.Element => (
+    <Link href="/contact" className="block h-full">
+        <div className="relative rounded-2xl border border-purple-500/20 bg-white dark:bg-gradient-to-b dark:from-purple-900/20 dark:to-gray-900/80 hover:shadow-xl hover:shadow-purple-500/10 transition-all duration-300 flex flex-col h-full cursor-pointer">
+            <div className="relative p-6 sm:p-8 flex flex-col h-full">
+                <div className="text-center mb-6">
+                    <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 uppercase tracking-widest mb-4">
+                        Custom
+                    </h3>
+                    <div className="flex items-center justify-center gap-2 mb-2">
+                        <span className="text-4xl sm:text-5xl font-black tracking-tighter text-purple-500 dark:text-purple-400">
+                            Contact Us
+                        </span>
+                    </div>
+                </div>
+                <div className="space-y-4 mb-8 flex-grow">
+                    {CUSTOM_FEATURES.map((text) => (
+                        <div key={text} className="flex items-start">
+                            <div className="flex-shrink-0 mt-1">
+                                <Check className="h-4 w-4 text-purple-500 dark:text-purple-400" />
+                            </div>
+                            <span className="ml-3 text-sm text-gray-600 dark:text-gray-300 font-medium leading-normal">
+                                {text}
+                            </span>
+                        </div>
+                    ))}
+                </div>
+                <div className="mt-auto">
+                    <div className="w-full py-4 rounded-xl font-bold text-base transition-all duration-300 bg-gradient-to-r from-purple-500 to-fuchsia-600 text-white hover:shadow-lg hover:shadow-purple-500/25 text-center">
+                        <span className="flex items-center justify-center gap-2">
+                            <MessageSquare className="w-4 h-4" />
+                            Get in Touch
+                        </span>
+                    </div>
+                    <p className="text-center text-xs text-gray-500 mt-3">
+                        We&apos;ll create a plan that fits your needs
+                    </p>
+                </div>
+            </div>
+        </div>
+    </Link>
+);
+
 export const DynamicPricingClient = ({
     personalPlans: initialPersonalPlans,
+    enterprisePlans: initialEnterprisePlans,
     apiPlans: initialApiPlans,
     affiliateCode: initialAffiliateCode,
     affiliateInfo: initialAffiliateInfo
@@ -153,6 +220,7 @@ export const DynamicPricingClient = ({
     const searchParams = useSearchParams();
 
     const [personalPlans, setPersonalPlans] = useState<PricingCardData[]>(initialPersonalPlans);
+    const [enterprisePlans, setEnterprisePlans] = useState<PricingCardData[]>(initialEnterprisePlans);
     const [apiPlans, setApiPlans] = useState<PricingCardData[]>(initialApiPlans);
     const [affiliateCode, setAffiliateCode] = useState<string | null>(initialAffiliateCode);
     const [_affiliateInfo, _setAffiliateInfo] = useState<AffiliateInfo | null>(initialAffiliateInfo);
@@ -177,11 +245,9 @@ export const DynamicPricingClient = ({
             }
 
             const planData = typedResult.data;
-            const newPersonalPlans = sortByDisplayOrder(filterPersonalPlans(planData)).map(transformToPricingCard);
-            const newApiPlans = sortByDisplayOrder(filterApiPlans(planData)).map(transformToPricingCard);
-
-            setPersonalPlans(newPersonalPlans);
-            setApiPlans(newApiPlans);
+            setPersonalPlans(sortByDisplayOrder(filterByGroup(planData, 'personal')).map(transformToPricingCard));
+            setEnterprisePlans(sortByDisplayOrder(filterByGroup(planData, 'enterprise')).map(transformToPricingCard));
+            setApiPlans(sortByDisplayOrder(filterByGroup(planData, 'api')).map(transformToPricingCard));
         } catch (_err) {
             // Error logged silently
         }
@@ -246,17 +312,37 @@ export const DynamicPricingClient = ({
             )}
 
             <div className="relative container mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl space-y-16 sm:space-y-20 lg:space-y-24">
-                <div className="space-y-8 sm:space-y-12">
-                    <PersonalPlansHeader />
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 md:gap-12 lg:gap-16 px-4 py-8">
-                        {renderPricingCards(personalPlans)}
+                {personalPlans.length > 0 && (
+                    <div className="space-y-8 sm:space-y-12">
+                        <PersonalPlansHeader />
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 md:gap-12 lg:gap-16 px-4 py-8">
+                            {renderPricingCards(personalPlans)}
+                        </div>
                     </div>
-                </div>
+                )}
+
+                {enterprisePlans.length > 0 && (
+                    <div className="space-y-8 sm:space-y-12">
+                        <EnterprisePlansHeader />
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 md:gap-12 lg:gap-16 px-4 py-8">
+                            {renderPricingCards(enterprisePlans)}
+                        </div>
+                    </div>
+                )}
+
+                {apiPlans.length > 0 && (
+                    <div className="space-y-8 sm:space-y-12">
+                        <ApiPlansHeader />
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 md:gap-12 lg:gap-16 px-4 py-8">
+                            {renderPricingCards(apiPlans)}
+                        </div>
+                    </div>
+                )}
 
                 <div className="space-y-8 sm:space-y-12">
-                    <ApiPlansHeader />
+                    <CustomPlansHeader />
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 md:gap-12 lg:gap-16 px-4 py-8">
-                        {renderPricingCards(apiPlans)}
+                        <ContactCard />
                     </div>
                 </div>
             </div>

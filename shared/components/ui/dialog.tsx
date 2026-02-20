@@ -59,7 +59,7 @@ const DialogContent = React.forwardRef<
       <DialogPrimitive.Content
         ref={ref}
         className={cn(
-          "grid w-full max-w-lg gap-6 border border-white/10 text-foreground p-8 shadow-[0_0_50px_-12px_rgba(0,0,0,0.5)] sm:rounded-[28px] outline-none",
+          "grid w-full max-w-lg gap-6 border border-gray-200 dark:border-white/10 text-foreground p-8 shadow-[0_0_50px_-12px_rgba(0,0,0,0.5)] sm:rounded-[28px] outline-none",
           animated && "state-open:animate-zoom-in state-closed:animate-zoom-out duration-300",
           className
         )}
@@ -68,7 +68,7 @@ const DialogContent = React.forwardRef<
       >
         {children}
         {showClose && (
-          <DialogPrimitive.Close className="absolute right-4 top-4 rounded-lg bg-white/5 backdrop-blur-sm border border-white/10 opacity-70 ring-offset-background transition-all hover:opacity-100 hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
+          <DialogPrimitive.Close className="absolute right-4 top-4 rounded-lg bg-white dark:bg-white/5 backdrop-blur-sm border border-gray-200 dark:border-white/10 opacity-70 ring-offset-background transition-all hover:opacity-100 hover:bg-black/[0.05] dark:hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
             <X className="h-4 w-4" />
             <span className="sr-only">Close</span>
           </DialogPrimitive.Close>

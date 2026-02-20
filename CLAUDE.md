@@ -38,7 +38,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### Deployment (Local Docker + Cloudflare Tunnel)
 Production runs locally via Docker Compose with Cloudflare Tunnel exposing services.
 
-**Quick deploy (all services):**
+**Quick deploy (restart with existing images):**
 ```bash
 cd infrastructure/docker
 docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --force-recreate
@@ -46,10 +46,10 @@ docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --force-rec
 
 **Full rebuild & deploy:**
 ```bash
-# 1. Build images (arm64 for Mac)
 export DOCKER_DEFAULT_PLATFORM=linux/arm64
 WC_PROJECT_ID="04e0a500abfa1e095bf8f64b15fa2812"
 
+# Build all images
 docker build \
   --build-arg NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=$WC_PROJECT_ID \
   --build-arg NEXT_PUBLIC_APP_URL=https://epsx.io \
@@ -58,6 +58,8 @@ docker build \
   --build-arg NEXT_PUBLIC_BLOCKCHAIN_NETWORK=mainnet \
   --build-arg NEXT_PUBLIC_CHAIN_ID=56 \
   --build-arg NEXT_PUBLIC_OAUTH_CLIENT_ID=epsx-frontend \
+  --build-arg NEXT_PUBLIC_PAYMENT_ESCROW_MAINNET=0x56e44c9b61Aa24D47C22414e799DA8D76B345Db0 \
+  --build-arg NEXT_PUBLIC_PAYMENT_RECEIVER_MAINNET=0xea64439c9cb1b9Aa588a8D1cE61292DB4036E3dF \
   -f apps/frontend/Dockerfile -t epsx-frontend:prod .
 
 docker build \
@@ -68,11 +70,13 @@ docker build \
   --build-arg NEXT_PUBLIC_BLOCKCHAIN_NETWORK=mainnet \
   --build-arg NEXT_PUBLIC_CHAIN_ID=56 \
   --build-arg NEXT_PUBLIC_OAUTH_CLIENT_ID=epsx-admin \
+  --build-arg NEXT_PUBLIC_PAYMENT_ESCROW_MAINNET=0x56e44c9b61Aa24D47C22414e799DA8D76B345Db0 \
+  --build-arg NEXT_PUBLIC_PAYMENT_RECEIVER_MAINNET=0xea64439c9cb1b9Aa588a8D1cE61292DB4036E3dF \
   -f apps/admin-frontend/Dockerfile -t epsx-admin-frontend:prod .
 
 docker build -f apps/backend/Dockerfile -t epsx-backend:prod .
 
-# 2. Deploy
+# Deploy
 cd infrastructure/docker
 docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --force-recreate
 ```
@@ -81,7 +85,6 @@ docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --force-rec
 - `infrastructure/docker/docker-compose.prod.yml` - Service definitions
 - `infrastructure/docker/.env.prod` - Env vars (DB creds, JWT secrets, tunnel token)
 - `~/.cloudflared/config.yml` - Tunnel ingress routes
-- `scripts/deploy/deploy-remote.sh` - Remote deploy script (SCP-based)
 
 **Services & ports:**
 | Service | Container | Host Port |
@@ -121,7 +124,8 @@ scripts/            # Build & deployment scripts
 
 ### Frontend Tech Stack
 - **UI**: Tailwind CSS
-- **State**: Zustand + SWR
+- **State**: Zustand + React Context (optimistic updates via `useTransition`)
+- **Data**: React Query (TanStack Query v5) + Server Actions
 - **Forms**: React Hook Form + Zod
 - **Web3**: WAGMI + RainbowKit
 
@@ -141,8 +145,9 @@ Key backend patterns:
 - `DomainContainer` for dependency injection (created in main.rs, passed to routes)
 - Diesel async with deadpool connection pooling (PostgreSQL + TLS)
 - Redis Streams for domain event publishing
-- Routes organized by domain: `/api/auth/*`, `/api/analytics/*`, `/api/admin/*`, `/api/public/*`
+- Routes organized by domain: `/api/auth/*`, `/api/analytics/*`, `/api/admin/*`, `/api/public/*`, `/api/users/*`
 - WebSocket at `/ws/notifications`
+- Domain value objects: `PlanCategory` (Base/Addon/System/Exclusive), `PlanGroup` (Personal/Enterprise/Api/Custom)
 
 ### Shared Modules (shared/)
 Single source of truth for both frontends:
@@ -150,7 +155,7 @@ Single source of truth for both frontends:
 - `auth/` - Web3 auth client, SIWE challenge/verify, cookie management, middleware factory
 - `components/` - Shared React components (buttons, cards, forms, modals, navigation)
 - `config/` - Auth config, IAM permissions (`"platform:resource:action"`), feature flags, route constants
-- `hooks/` - useApiClient, useSmartPolling, useNotificationBell, useSSENotifications
+- `hooks/` - useApiClient, useSmartPolling, useNotificationBell, useSSENotifications, useWatchlist
 - `state/` - React Query (TanStack Query v5) provider, platform-aware query client factory
 - `types/` - All TypeScript interfaces (ApiResponse, auth types, domain models)
 - `utils/` - API client core, response handlers, formatting (currency/date/display), logging
@@ -167,6 +172,7 @@ import { UsersApi } from '@/shared/api';
 - **Server Components first**: Default to RSC over Client Components
 - **Server Actions for data fetching**: Use `'use server'` actions, avoid client-side `fetch`/SWR
 - **Client-side only exceptions**: Payment processing, smart contracts, Web3 wallet (WAGMI/RainbowKit)
+- **Optimistic updates**: Use `useTransition` + Context providers for instant UI feedback (see watchlist pattern)
 - **Check `shared/` before creating**: Always search for existing components/hooks/utils first
 
 ### Authentication
@@ -181,17 +187,25 @@ Web3-first (SIWE - Sign-In with Ethereum). No email/password. Strict `Authorizat
 All endpoints use `/api/` prefix. Route constants in `shared/config/route-constants.ts`.
 - `/api/public/*` - No auth required
 - `/api/auth/*` - Web3 SIWE authentication
-- `/api/users/*` - User management
-- `/api/analytics/*` - Market data
+- `/api/users/*` - User management + watchlist
+- `/api/analytics/*` - Market data + filter options
 - `/api/admin/*` - Admin endpoints (permission required)
 - `/api/permissions/*` - Permission authority
-- `/api/plans/*` - Subscription management
+- `/api/plans/*` - Subscription management (features, categories, groups)
 
 ```typescript
 API_ROUTES.AUTH.WEB3_CHALLENGE     // '/api/auth/web3/challenge'
 API_ROUTES.ANALYTICS.RANKINGS      // '/api/analytics/rankings'
 API_ROUTES.USERS.PROFILE           // '/api/users/profile'
+API_ROUTES.USERS.WATCHLIST         // '/api/users/watchlist' (GET/POST/DELETE)
 ```
+
+### Frontend Routes
+- `/analytics` - Stock rankings & analytics dashboard
+- `/portfolio` - User watchlist & portfolio tracking
+- `/plans` - Subscription plans
+- `/contact` - Contact & support
+- `/dashboard` - User dashboard
 
 ### Infrastructure
 - **Host**: Local Mac Mini (arm64) via Docker Compose + Cloudflare Tunnel

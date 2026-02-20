@@ -65,7 +65,7 @@ export function StatsCard({
     const variantMap = {
       enhanced: { bg: purpleOrangeGradient, text: whiteText },
       simple: { bg: purpleOrangeGradient, text: whiteText },
-      inline: { bg: 'bg-white/5 backdrop-blur-sm border border-white/10', text: 'text-purple-400' },
+      inline: { bg: 'bg-white dark:bg-white/[0.04] backdrop-blur-sm border border-gray-200 dark:border-border', text: 'text-purple-400' },
       default: { bg: 'bg-gradient-to-br from-purple-500/20 to-orange-500/20', text: 'text-purple-400 border border-purple-500/20' },
     };
 
@@ -76,7 +76,7 @@ export function StatsCard({
   // Use standard Tailwind classes instead of design system
   const getCardClasses = () => {
     // Glass morphism card styles
-    const baseClasses = 'bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 text-card-foreground hover:shadow-xl hover:border-purple-500/30 hover-lift transition-all duration-200';
+    const baseClasses = 'bg-white dark:bg-white/[0.04] backdrop-blur-xl rounded-2xl border border-gray-200 dark:border-border text-card-foreground hover:shadow-xl hover:border-purple-500/30 hover-lift transition-all duration-200';
     const paddingClasses = variant === 'inline' ? 'p-4' : 'p-6';
 
     return cn(baseClasses, paddingClasses);

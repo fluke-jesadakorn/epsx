@@ -11,6 +11,7 @@ interface PlanResponse {
   id: string;
   name: string;
   plan_type: string;
+  plan_group?: string;
   current_price: string | number;
   currency?: string;
   display_order?: number;
@@ -27,6 +28,7 @@ export default async function DynamicPricingSection({ initialAffiliateCode }: Dy
   const affiliateCode = initialAffiliateCode ?? null;
 
   let personalPlans: PricingCardData[] = [];
+  let enterprisePlans: PricingCardData[] = [];
   let apiPlans: PricingCardData[] = [];
 
   try {
@@ -39,9 +41,10 @@ export default async function DynamicPricingSection({ initialAffiliateCode }: Dy
         id: item.id,
         name: item.name,
         planType: item.plan_type,
-        basePrice: parseFloat(item.current_price) || 0,
-        currentPrice: parseFloat(item.current_price) || 0,
-        effectivePrice: parseFloat(item.current_price) || 0,
+        planGroup: item.plan_group ?? 'personal',
+        basePrice: parseFloat(String(item.current_price)) || 0,
+        currentPrice: parseFloat(String(item.current_price)) || 0,
+        effectivePrice: parseFloat(String(item.current_price)) || 0,
         currency: item.currency ?? 'USD',
         displayOrder: item.display_order ?? 0,
         isActive: item.is_active,
@@ -51,7 +54,6 @@ export default async function DynamicPricingSection({ initialAffiliateCode }: Dy
         promotionalBadges: [],
       }));
 
-      // Use helper to transform (inline here since we can't easily share the one from Client)
       const transformToPricingCard = (plan: typeof planData[number]): PricingCardData => {
         const hasDiscount = plan.currentPrice < plan.basePrice;
 
@@ -63,31 +65,18 @@ export default async function DynamicPricingSection({ initialAffiliateCode }: Dy
           features: plan.features.map((feature: string) => ({ text: feature, included: true })),
           highlight: plan.isHighlighted,
           buttonText: plan.effectivePrice === 0 ? 'Start Free' : 'Get Started',
-           
           promotions: plan.activePromotions ?? [],
-           
           badges: plan.promotionalBadges ?? [],
           savings: hasDiscount ? `Save ${plan.currency} ${(plan.basePrice - plan.currentPrice).toFixed(2)}` : undefined
         };
       };
 
-      personalPlans = planData
-        .filter((plan) => plan.isActive)
-        .filter((plan) => {
-          const type = plan.planType?.toLowerCase();
-          return !(type?.includes('api') ?? false);
-        })
-        .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0))
-        .map(transformToPricingCard);
+      const active = planData.filter((p) => p.isActive);
+      const sorted = (items: typeof active) => items.sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
 
-      apiPlans = planData
-        .filter((plan) => plan.isActive)
-        .filter((plan) => {
-          const type = plan.planType?.toLowerCase();
-          return type?.includes('api') ?? false;
-        })
-        .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0))
-        .map(transformToPricingCard);
+      personalPlans = sorted(active.filter((p) => p.planGroup === 'personal')).map(transformToPricingCard);
+      enterprisePlans = sorted(active.filter((p) => p.planGroup === 'enterprise')).map(transformToPricingCard);
+      apiPlans = sorted(active.filter((p) => p.planGroup === 'api')).map(transformToPricingCard);
     }
   } catch (_error) {
       // Error logged silently
@@ -96,9 +85,10 @@ export default async function DynamicPricingSection({ initialAffiliateCode }: Dy
   return (
     <DynamicPricingClient
       personalPlans={personalPlans}
+      enterprisePlans={enterprisePlans}
       apiPlans={apiPlans}
       affiliateCode={affiliateCode}
-      affiliateInfo={null} // Pass null for now unless we fetch it 
+      affiliateInfo={null}
     />
   );
 }

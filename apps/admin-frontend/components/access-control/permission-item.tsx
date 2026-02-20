@@ -1,5 +1,7 @@
 'use client';
 
+import { Pencil, Trash2 } from 'lucide-react';
+
 import type { PermissionDefinition } from '@/lib/api/permissions-client';
 import { cn } from '@/lib/utils';
 import { getPlatformColorClass, getPlatformFromPermission } from '@/lib/utils/permission-utils';
@@ -9,6 +11,10 @@ interface PermissionItemProps {
     isSelected: boolean;
     onToggle: (permissionString: string) => void;
     showCheckbox?: boolean;
+    onEdit?: (perm: PermissionDefinition) => void;
+    onDelete?: (perm: PermissionDefinition) => void;
+    onDoubleClick?: (permissionString: string) => void;
+    stripPlatform?: boolean;
 }
 
 export function PermissionItem({
@@ -16,18 +22,28 @@ export function PermissionItem({
     isSelected,
     onToggle,
     showCheckbox = true,
+    onEdit,
+    onDelete,
+    onDoubleClick,
+    stripPlatform,
 }: PermissionItemProps) {
     const platform = getPlatformFromPermission(permission.permission_string);
     const platformColor = getPlatformColorClass(platform);
 
+    const displayString = stripPlatform
+        ? permission.permission_string.replace(`${platform}:`, '')
+        : permission.permission_string;
+
     return (
         <div
             className={cn(
-                'flex items-start gap-3 px-3 py-2 border-b border-white/5 last:border-b-0',
+                'group flex items-start gap-3 px-3 py-2 border-b border-gray-200 dark:border-border last:border-b-0',
                 'terminal-hover cursor-pointer select-none',
                 isSelected && 'bg-cyan-500/10'
             )}
+            title={permission.permission_string}
             onClick={() => showCheckbox && onToggle(permission.permission_string)}
+            onDoubleClick={() => onDoubleClick?.(permission.permission_string)}
         >
             {showCheckbox && (
                 <input
@@ -41,7 +57,7 @@ export function PermissionItem({
 
             <div className="flex-1 min-w-0">
                 <div className={cn('perm-string font-semibold truncate', platformColor)}>
-                    {permission.permission_string}
+                    {displayString}
                 </div>
                 {permission.name && (
                     <div className="text-[10px] text-muted-foreground truncate">
@@ -54,6 +70,27 @@ export function PermissionItem({
                     </div>
                 )}
             </div>
+
+            {(onEdit ?? onDelete) && (
+                <div className="hidden group-hover:flex items-center gap-1 shrink-0 mt-0.5">
+                    {onEdit && (
+                        <button
+                            onClick={(e) => { e.stopPropagation(); onEdit(permission); }}
+                            className="p-1 rounded hover:bg-black/[0.05] dark:hover:bg-white/10 text-muted-foreground hover:text-cyan-400 transition-colors"
+                        >
+                            <Pencil className="w-3 h-3" />
+                        </button>
+                    )}
+                    {onDelete && !permission.is_system && (
+                        <button
+                            onClick={(e) => { e.stopPropagation(); onDelete(permission); }}
+                            className="p-1 rounded hover:bg-black/[0.05] dark:hover:bg-white/10 text-muted-foreground hover:text-red-400 transition-colors"
+                        >
+                            <Trash2 className="w-3 h-3" />
+                        </button>
+                    )}
+                </div>
+            )}
         </div>
     );
 }

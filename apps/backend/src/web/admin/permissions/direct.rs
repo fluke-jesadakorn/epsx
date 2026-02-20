@@ -11,10 +11,7 @@ use chrono::{DateTime, Utc};
 use uuid::Uuid;
 use diesel::prelude::*;
 use diesel_async::{AsyncConnection, RunQueryDsl};
-use crate::infrastructure::repositories::audit_log_repository::DieselAuditLogRepository;
-use crate::domain::shared_kernel::entities::audit::{AuditLogEntry, AuditAction, ResourceType, AuditResult};
-use crate::domain::audit::repository::AuditLogRepository;
-use crate::domain::shared_kernel::value_objects::UserId;
+use crate::infrastructure::services::audit_service::{AuditCtx, AuditEntry};
 
 use crate::web::auth::AppState;
 use crate::web::responses::AdminResponse;
@@ -64,6 +61,7 @@ pub struct AddPermissionToPlanRequest {
 /// POST /admin/permissions/direct
 pub async fn grant_permission(
     State(app_state): State<AppState>,
+    axum::Extension(user_ctx): axum::Extension<crate::web::middleware::bearer_middleware::OpenIDUserContext>,
     headers: axum::http::HeaderMap,
     Json(req): Json<GrantDirectPermissionRequest>,
 ) -> impl IntoResponse {
@@ -171,38 +169,14 @@ pub async fn grant_permission(
         is_active: true,
     };
 
-    // Audit Log
-    let admin_wallet = headers.get("x-wallet-address")
-        .and_then(|h| h.to_str().ok())
-        .map(|s| s.to_string());
-    
-    let log_req = GrantDirectPermissionRequest {
-        wallet_address: wallet.clone(),
-        permission_string: req.permission_string.clone(),
-        expires_at: req.expires_at,
-        reason: req.reason.clone(),
-    };
-
-    tokio::spawn(async move {
-        let repo = DieselAuditLogRepository::new();
-        let entry = AuditLogEntry::new(
-             admin_wallet.map(UserId::from_string_unchecked),
-             AuditAction::PermissionGranted,
-             ResourceType::User, 
-             AuditResult::Success,
-        )
-        .with_resource_id(log_req.wallet_address.clone())
-        .with_additional_data(serde_json::json!({
-            "permission": log_req.permission_string,
-            "target_wallet": log_req.wallet_address,
-            "reason": log_req.reason,
-            "expires_at": log_req.expires_at
-        }));
-        
-        if let Err(e) = repo.save(entry).await {
-            tracing::error!("Failed to save audit log: {}", e);
-        }
-    });
+    let ctx = AuditCtx::from_wallet(&user_ctx.wallet_address, &headers);
+    app_state.audit.log(ctx, AuditEntry::new("permission", "grant", "permission")
+        .id(&wallet)
+        .after(serde_json::json!({
+            "permission": req.permission_string,
+            "expires_at": req.expires_at,
+            "reason": req.reason,
+        })));
 
     AdminResponse::created(response, "Direct permission granted successfully").into_response()
 }
@@ -211,6 +185,7 @@ pub async fn grant_permission(
 /// DELETE /admin/permissions/direct
 pub async fn revoke_permission(
     State(app_state): State<AppState>,
+    axum::Extension(user_ctx): axum::Extension<crate::web::middleware::bearer_middleware::OpenIDUserContext>,
     headers: axum::http::HeaderMap,
     Json(req): Json<RevokeDirectPermissionRequest>,
 ) -> impl IntoResponse {
@@ -258,31 +233,10 @@ pub async fn revoke_permission(
                 req.permission_string,
                 wallet
             );
-            // Audit Log
-            let admin_wallet = headers.get("x-wallet-address")
-                .and_then(|h| h.to_str().ok())
-                .map(|s| s.to_string());
-            
-            let log_wallet = wallet.clone();
-            let log_perm = req.permission_string.clone();
-
-            tokio::spawn(async move {
-                let repo = DieselAuditLogRepository::new();
-                let entry = AuditLogEntry::new(
-                     admin_wallet.map(UserId::from_string_unchecked),
-                     AuditAction::PermissionRevoked,
-                     ResourceType::User,
-                     AuditResult::Success,
-                )
-                .with_resource_id(log_wallet)
-                .with_additional_data(serde_json::json!({
-                    "permission": log_perm,
-                }));
-                
-                if let Err(e) = repo.save(entry).await {
-                    tracing::error!("Failed to save audit log: {}", e);
-                }
-            });
+            let ctx = AuditCtx::from_wallet(&user_ctx.wallet_address, &headers);
+            app_state.audit.log(ctx, AuditEntry::new("permission", "revoke", "permission")
+                .id(&wallet)
+                .before(serde_json::json!({ "permission": req.permission_string })));
 
             AdminResponse::success_with_message(
                 serde_json::json!({"deleted": true}),
@@ -383,6 +337,8 @@ pub async fn list_wallet_permissions(
 /// POST /admin/permissions/plans/:plan_id/permissions
 pub async fn add_permission_to_plan(
     State(app_state): State<AppState>,
+    axum::Extension(user_ctx): axum::Extension<crate::web::middleware::bearer_middleware::OpenIDUserContext>,
+    headers: axum::http::HeaderMap,
     Path(plan_id): Path<String>,
     Json(req): Json<AddPermissionToPlanRequest>,
 ) -> impl IntoResponse {
@@ -477,11 +433,10 @@ pub async fn add_permission_to_plan(
     };
 
     if let Some(m) = membership {
-        tracing::info!(
-            "Added permission '{}' to plan {}",
-            req.permission_string,
-            plan_id
-        );
+        let ctx = AuditCtx::from_wallet(&user_ctx.wallet_address, &headers);
+        app_state.audit.log(ctx, AuditEntry::new("plan_permission", "create", "permission")
+            .id(&plan_id)
+            .after(serde_json::json!({ "permission": req.permission_string })));
         AdminResponse::created(
             serde_json::json!({
                 "id": m.id.to_string(),
@@ -503,6 +458,8 @@ pub async fn add_permission_to_plan(
 /// DELETE /admin/permissions/plans/:plan_id/permissions/:permission_id
 pub async fn remove_permission_from_plan(
     State(app_state): State<AppState>,
+    axum::Extension(user_ctx): axum::Extension<crate::web::middleware::bearer_middleware::OpenIDUserContext>,
+    headers: axum::http::HeaderMap,
     Path((plan_id, permission_id)): Path<(String, String)>,
 ) -> impl IntoResponse {
     let plan_uuid = match Uuid::parse_str(&plan_id) {
@@ -530,11 +487,10 @@ pub async fn remove_permission_from_plan(
         .await
     {
         Ok(rows) if rows > 0 => {
-            tracing::info!(
-                "Removed permission {} from plan {}",
-                permission_id,
-                plan_id
-            );
+            let ctx = AuditCtx::from_wallet(&user_ctx.wallet_address, &headers);
+            app_state.audit.log(ctx, AuditEntry::new("plan_permission", "delete", "permission")
+                .id(&plan_id)
+                .before(serde_json::json!({ "permission_id": permission_id })));
             AdminResponse::success_with_message(
                 serde_json::json!({"deleted": true}),
                 "Permission removed from plan successfully"

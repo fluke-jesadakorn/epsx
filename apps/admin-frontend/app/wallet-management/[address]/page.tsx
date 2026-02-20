@@ -6,32 +6,25 @@ import { useEffect } from 'react';
 import { WalletDetailView } from '@/components/wallet/wallet-detail-view';
 import { useWalletAccess } from '@/hooks/use-wallet-access';
 import { useSubscriptionData, useWalletData } from '@/hooks/use-wallet-detail';
-import { useSharedAuth } from '@/shared/components/auth';
 
 export default function WalletDetailPage() {
     const router = useRouter();
     const params = useParams();
     const walletAddress = decodeURIComponent(params['address'] as string);
 
-    const { isAuthenticated, isLoading: authLoading } = useSharedAuth();
-
-    // Extract custom hooks
     const walletData = useWalletData({ walletAddress, router });
     const subscriptionData = useSubscriptionData(walletAddress);
     const accessData = useWalletAccess(walletAddress);
 
-    // Load wallet on auth
     useEffect(() => {
-        if (isAuthenticated && !authLoading) {
-            void walletData.loadWallet();
-        }
+        void walletData.loadWallet();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isAuthenticated, authLoading]);
+    }, []);
 
     return (
         <WalletDetailView
             walletAddress={walletAddress}
-            authLoading={authLoading}
+            authLoading={false}
             walletData={walletData}
             subscriptionData={subscriptionData}
             access={accessData}

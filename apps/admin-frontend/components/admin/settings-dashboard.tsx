@@ -15,8 +15,9 @@ import {
 import * as React from 'react';
 import { toast } from 'sonner';
 
+import { useSearchParams } from 'next/navigation';
+
 import { useSettings } from '@/components/providers/settings-provider';
-import { PageTabs, type TabItem } from '@/components/shared/page-layout';
 import { settingsApi } from '@/lib/api/settings-client';
 import { logger } from '@/shared/utils/logger';
 import type { SystemSettings } from '@/types/settings';
@@ -66,7 +67,7 @@ const SettingsContent: React.FC<SettingsContentProps> = ({
     case 'general':
       return (
         <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
-          <div className="relative overflow-hidden rounded-[40px] bg-slate-900/40 backdrop-blur-2xl border border-white/5 shadow-2xl">
+          <div className="relative overflow-hidden rounded-[40px] bg-white dark:bg-card backdrop-blur-2xl border border-gray-200 dark:border-border shadow-2xl">
             <div className="bg-gradient-to-r from-cyan-500/10 to-transparent p-12">
               <div className="flex items-center gap-8">
                 <div className="w-16 h-16 rounded-[24px] bg-cyan-500 flex items-center justify-center shadow-lg shadow-cyan-500/20">
@@ -89,7 +90,7 @@ const SettingsContent: React.FC<SettingsContentProps> = ({
                     type="text"
                     value={settings.general.systemName}
                     onChange={(e) => handleSettingChange('general', 'systemName', e.target.value)}
-                    className="w-full h-16 bg-white/5 border border-white/10 rounded-2xl px-6 font-black text-lg transition-all focus:border-cyan-500/50 focus:bg-white/[0.08] outline-none"
+                    className="w-full h-16 bg-white dark:bg-white/[0.04] border border-gray-200 dark:border-border rounded-2xl px-6 font-black text-lg transition-all focus:border-cyan-500/50 focus:bg-white/[0.08] outline-none"
                   />
                   <div className="absolute right-6 top-1/2 -translate-y-1/2 opacity-20 pointer-events-none">
                     <Zap className="w-6 h-6 text-cyan-400" />
@@ -106,7 +107,7 @@ const SettingsContent: React.FC<SettingsContentProps> = ({
                     type="email"
                     value={settings.general.adminEmail}
                     onChange={(e) => handleSettingChange('general', 'adminEmail', e.target.value)}
-                    className="w-full h-16 bg-white/5 border border-white/10 rounded-2xl px-6 font-black text-lg transition-all focus:border-cyan-500/50 focus:bg-white/[0.08] outline-none"
+                    className="w-full h-16 bg-white dark:bg-white/[0.04] border border-gray-200 dark:border-border rounded-2xl px-6 font-black text-lg transition-all focus:border-cyan-500/50 focus:bg-white/[0.08] outline-none"
                   />
                   <div className="absolute right-6 top-1/2 -translate-y-1/2 opacity-20 pointer-events-none">
                     <RefreshCw className="w-6 h-6 text-cyan-400" />
@@ -127,7 +128,7 @@ const SettingsContent: React.FC<SettingsContentProps> = ({
                 <button
                   type="button"
                   onClick={() => { handleSettingChange('general', 'maintenanceMode', !settings.general.maintenanceMode); }}
-                  className={`relative w-24 h-12 rounded-full transition-all duration-300 ${settings.general.maintenanceMode ? 'bg-red-500' : 'bg-white/5'
+                  className={`relative w-24 h-12 rounded-full transition-all duration-300 ${settings.general.maintenanceMode ? 'bg-red-500' : 'bg-white dark:bg-white/[0.04]'
                     }`}
                 >
                   <div className={`absolute top-2 left-2 w-8 h-8 rounded-full bg-white transition-transform duration-300 ${settings.general.maintenanceMode ? 'translate-x-[48px]' : 'translate-x-0'
@@ -141,7 +142,7 @@ const SettingsContent: React.FC<SettingsContentProps> = ({
     case 'notifications':
       return (
         <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
-          <div className="relative overflow-hidden rounded-[40px] bg-slate-900/40 backdrop-blur-2xl border border-white/5 shadow-2xl">
+          <div className="relative overflow-hidden rounded-[40px] bg-white dark:bg-card backdrop-blur-2xl border border-gray-200 dark:border-border shadow-2xl">
             <div className="bg-gradient-to-r from-purple-500/10 to-transparent p-12">
               <div className="flex items-center gap-8">
                 <div className="w-16 h-16 rounded-[24px] bg-purple-500 flex items-center justify-center shadow-lg shadow-purple-500/20">
@@ -158,7 +159,7 @@ const SettingsContent: React.FC<SettingsContentProps> = ({
               {(Object.entries(settings.notifications) as Array<[keyof typeof settings.notifications, boolean]>).map(([key, value]) => (
                 <div
                   key={key}
-                  className="flex items-center justify-between p-8 rounded-[32px] bg-white/5 border border-white/5 hover:bg-white/[0.08] transition-all"
+                  className="flex items-center justify-between p-8 rounded-[32px] bg-white dark:bg-white/[0.04] border border-gray-200 dark:border-border hover:bg-white/[0.08] transition-all"
                 >
                   <div className="flex items-center gap-6">
                     <div className="w-12 h-12 rounded-2xl bg-purple-500/20 flex items-center justify-center">
@@ -174,7 +175,7 @@ const SettingsContent: React.FC<SettingsContentProps> = ({
                   <button
                     type="button"
                     onClick={() => { handleSettingChange('notifications', key, !value); }}
-                    className={`relative w-20 h-10 rounded-full transition-all duration-300 ${value ? 'bg-purple-500' : 'bg-white/5'
+                    className={`relative w-20 h-10 rounded-full transition-all duration-300 ${value ? 'bg-purple-500' : 'bg-white dark:bg-white/[0.04]'
                       }`}
                   >
                     <div className={`absolute top-1.5 left-1.5 w-7 h-7 rounded-full bg-white transition-transform duration-300 ${value ? 'translate-x-[40px]' : 'translate-x-0'
@@ -189,7 +190,7 @@ const SettingsContent: React.FC<SettingsContentProps> = ({
     case 'security':
       return (
         <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
-          <div className="relative overflow-hidden rounded-[40px] bg-slate-900/40 backdrop-blur-2xl border border-white/5 shadow-2xl">
+          <div className="relative overflow-hidden rounded-[40px] bg-white dark:bg-card backdrop-blur-2xl border border-gray-200 dark:border-border shadow-2xl">
             <div className="bg-gradient-to-r from-amber-500/10 to-transparent p-12">
               <div className="flex items-center gap-8">
                 <div className="w-16 h-16 rounded-[24px] bg-amber-500 flex items-center justify-center shadow-lg shadow-amber-500/20">
@@ -215,7 +216,7 @@ const SettingsContent: React.FC<SettingsContentProps> = ({
                       const val = parseInt(e.target.value);
                       handleSettingChange('security', 'sessionTimeout', isNaN(val) ? 30 : val);
                     }}
-                    className="w-full h-16 bg-white/5 border border-white/10 rounded-2xl px-6 font-black text-lg transition-all focus:border-amber-500/50 focus:bg-white/[0.08] outline-none"
+                    className="w-full h-16 bg-white dark:bg-white/[0.04] border border-gray-200 dark:border-border rounded-2xl px-6 font-black text-lg transition-all focus:border-amber-500/50 focus:bg-white/[0.08] outline-none"
                   />
                   <div className="absolute right-6 top-1/2 -translate-y-1/2 opacity-20 pointer-events-none">
                     <Clock className="w-6 h-6 text-amber-400" />
@@ -230,7 +231,7 @@ const SettingsContent: React.FC<SettingsContentProps> = ({
     case 'appearance':
       return (
         <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
-          <div className="relative overflow-hidden rounded-[40px] bg-slate-900/40 backdrop-blur-2xl border border-white/5 shadow-2xl">
+          <div className="relative overflow-hidden rounded-[40px] bg-white dark:bg-card backdrop-blur-2xl border border-gray-200 dark:border-border shadow-2xl">
             <div className="bg-gradient-to-r from-pink-500/10 to-transparent p-12">
               <div className="flex items-center gap-8">
                 <div className="w-16 h-16 rounded-[24px] bg-pink-500 flex items-center justify-center shadow-lg shadow-pink-500/20">
@@ -256,7 +257,7 @@ const SettingsContent: React.FC<SettingsContentProps> = ({
                       onClick={() => { handleSettingChange('appearance', 'theme', mode as 'light' | 'dark' | 'auto'); }}
                       className={`p-6 rounded-[24px] border transition-all text-center ${settings.appearance.theme === mode
                         ? 'bg-pink-500/10 border-pink-500 shadow-lg shadow-pink-500/10'
-                        : 'bg-white/5 border-white/5 hover:border-white/10'
+                        : 'bg-white dark:bg-white/[0.04] border-gray-200 dark:border-border hover:border-gray-200 dark:border-border'
                         }`}
                     >
                       <div className="font-black text-sm uppercase tracking-widest">
@@ -271,7 +272,7 @@ const SettingsContent: React.FC<SettingsContentProps> = ({
                 <label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground ml-2">
                   Interface Accent Chroma
                 </label>
-                <div className="flex flex-col sm:flex-row items-center gap-10 p-8 rounded-[32px] bg-white/5 border border-white/5">
+                <div className="flex flex-col sm:flex-row items-center gap-10 p-8 rounded-[32px] bg-white dark:bg-white/[0.04] border border-gray-200 dark:border-border">
                   <div className="relative w-24 h-24 rounded-[32px] overflow-hidden group shadow-2xl">
                     <input
                       type="color"
@@ -299,7 +300,7 @@ const SettingsContent: React.FC<SettingsContentProps> = ({
                         key={preset.name}
                         type="button"
                         onClick={() => handleSettingChange('appearance', 'primaryColor', preset.color)}
-                        className="w-10 h-10 rounded-full border-2 border-white/10 hover:scale-110 transition-transform shadow-lg"
+                        className="w-10 h-10 rounded-full border-2 border-gray-200 dark:border-border hover:scale-110 transition-transform shadow-lg"
                         style={{ backgroundColor: preset.color }}
                         title={preset.name}
                       />
@@ -321,7 +322,8 @@ const SettingsContent: React.FC<SettingsContentProps> = ({
  * Modernized Settings Dashboard with PancakeSwap aesthetic
  */
 export const SettingsDashboard: React.FC<SettingsDashboardProps> = () => {
-  const [activeView, setActiveView] = React.useState('general');
+  const searchParams = useSearchParams();
+  const activeView = searchParams.get('tab') ?? 'general';
   const [settings, setSettings] = React.useState<SystemSettings>(DEFAULT_SETTINGS);
   const [loading, setLoading] = React.useState(true);
   const [saving, setSaving] = React.useState(false);
@@ -411,30 +413,16 @@ export const SettingsDashboard: React.FC<SettingsDashboardProps> = () => {
     }
   };
 
-  const tabs: TabItem[] = [
-    { id: 'general', label: 'Nodes', prefix: '🌍', gradient: 'primary' },
-    { id: 'notifications', label: 'Signals', prefix: '🔔', gradient: 'info' },
-    { id: 'security', label: 'Vault', prefix: '🔒', gradient: 'warning' },
-    { id: 'appearance', label: 'Optics', prefix: '🎨', gradient: 'purple' },
-  ];
-
   return (
     <div className="space-y-10">
       {/* Global Control Bar */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-6 p-6 rounded-[32px] bg-slate-900/40 backdrop-blur-2xl border border-white/5 shadow-xl">
-        <PageTabs
-          tabs={tabs}
-          activeTab={activeView}
-          onTabChange={setActiveView}
-          className="bg-transparent border-none p-0 backdrop-blur-none shadow-none"
-        />
-
+      <div className="flex items-center justify-end gap-4 p-6 rounded-[32px] bg-white dark:bg-card backdrop-blur-2xl border border-gray-200 dark:border-border shadow-xl">
         <div className="flex items-center gap-4">
           <button
             type="button"
             onClick={() => { void handleResetSettings(); }}
             disabled={resetting || loading}
-            className="flex items-center gap-3 px-8 py-4 rounded-2xl bg-white/5 hover:bg-white/10 text-[10px] font-black uppercase tracking-widest transition-all disabled:opacity-50"
+            className="flex items-center gap-3 px-8 py-4 rounded-2xl bg-white dark:bg-white/[0.04] hover:bg-black/[0.05] dark:hover:bg-white/10 text-[10px] font-black uppercase tracking-widest transition-all disabled:opacity-50"
           >
             {resetting ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCcw className="w-4 h-4" />}
             Reset Logic
@@ -448,7 +436,7 @@ export const SettingsDashboard: React.FC<SettingsDashboardProps> = () => {
               flex items-center gap-3 px-10 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all
               ${hasChanges
                 ? 'bg-gradient-to-r from-orange-400 to-red-500 text-white shadow-lg shadow-orange-500/20 active:scale-95'
-                : 'bg-white/5 text-muted-foreground cursor-not-allowed'}
+                : 'bg-white dark:bg-white/[0.04] text-muted-foreground cursor-not-allowed'}
             `}
           >
             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}

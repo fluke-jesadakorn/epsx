@@ -97,7 +97,7 @@ export function CreatePlanSheet({
             </SheetTrigger>
             <SheetContent
                 side="right"
-                className="w-[400px] sm:w-[540px] bg-slate-900 border-white/5 text-white flex flex-col h-full"
+                className="w-[400px] sm:w-[540px] bg-white dark:bg-card border-gray-200 dark:border-border text-white flex flex-col h-full"
             >
                 <SheetHeader>
                     <SheetTitle>{isTemplate ? 'Create from Template' : isDuplicate ? 'Duplicate Plan' : 'Create Plan'}</SheetTitle>
@@ -121,7 +121,7 @@ export function CreatePlanSheet({
                             onChange={(e) =>
                                 setFormData({ ...formData, name: e.target.value })
                             }
-                            className="bg-white/5"
+                            className="bg-white dark:bg-white/[0.04]"
                         />
                     </div>
                     <div className="space-y-2">
@@ -131,7 +131,7 @@ export function CreatePlanSheet({
                             onChange={(e) =>
                                 setFormData({ ...formData, plan_group: e.target.value as PlanGroup })
                             }
-                            className="w-full h-9 rounded-md border border-white/10 bg-white/5 px-3 text-sm text-white"
+                            className="w-full h-9 rounded-md border border-gray-200 dark:border-border bg-white dark:bg-white/[0.04] px-3 text-sm text-white"
                         >
                             <option value="personal">Personal</option>
                             <option value="enterprise">Enterprise</option>
@@ -152,7 +152,7 @@ export function CreatePlanSheet({
                                         priority: parseInt(e.target.value),
                                     })
                                 }
-                                className="bg-white/5"
+                                className="bg-white dark:bg-white/[0.04]"
                             />
                         </div>
                         <div className="space-y-2">
@@ -167,7 +167,7 @@ export function CreatePlanSheet({
                                         price: parseFloat(e.target.value),
                                     })
                                 }
-                                className="bg-white/5"
+                                className="bg-white dark:bg-white/[0.04]"
                             />
                         </div>
                     </div>
@@ -184,7 +184,7 @@ export function CreatePlanSheet({
                                 </TooltipTrigger>
                                 <TooltipContent
                                     side="right"
-                                    className="bg-slate-900 border-white/10 text-white max-w-[200px]"
+                                    className="bg-white dark:bg-card border-gray-200 dark:border-border text-white max-w-[200px]"
                                 >
                                     <p className="text-xs">
                                         Set to -1 for permanent expiry (never expires).
@@ -211,7 +211,7 @@ export function CreatePlanSheet({
                                     }
                                 }
                             }}
-                            className="bg-white/5"
+                            className="bg-white dark:bg-white/[0.04]"
                             placeholder="-1 for permanent"
                         />
                     </div>
@@ -222,7 +222,7 @@ export function CreatePlanSheet({
                             onChange={(e) =>
                                 setFormData({ ...formData, description: e.target.value })
                             }
-                            className="bg-white/5 min-h-[100px]"
+                            className="bg-white dark:bg-white/[0.04] min-h-[100px]"
                         />
                     </div>
                     <SheetFooter className="mt-auto pt-6">

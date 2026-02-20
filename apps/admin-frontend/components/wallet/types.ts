@@ -50,18 +50,6 @@ export interface WalletSubscription {
     renewalPrice?: string;
 }
 
-/** Activity event for wallet timeline */
-export interface WalletActivityEvent {
-    id: string;
-    type: 'permission_granted' | 'permission_revoked' | 'subscription_started' |
-    'subscription_cancelled' | 'wallet_disabled' | 'wallet_enabled' |
-    'wallet_created' | 'login';
-    description: string;
-    performedBy?: string;
-    metadata?: Record<string, unknown>;
-    timestamp: string;
-}
-
 /** Disable reason categories */
 export type DisableReasonCategory =
     | 'suspicious_activity'

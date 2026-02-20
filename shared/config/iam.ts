@@ -289,30 +289,6 @@ export const CACHE_CONFIG = {
 // ============================================================================
 
 /**
- * Get required permissions for a specific route
- */
-export function getRoutePermissions(route: string): string[] | null {
-  const permissions = IAM_CONFIG.routes.protected[route as keyof typeof IAM_CONFIG.routes.protected] as readonly string[] | undefined;
-  return permissions ? (permissions as string[]) : null;
-}
-
-/**
- * Check if a route is public (no authentication required)
- */
-export function isPublicRoute(route: string): boolean {
-  return IAM_CONFIG.routes.public.some(publicRoute =>
-    route.startsWith(publicRoute) || route === publicRoute
-  );
-}
-
-/**
- * Check if a route requires authentication only (no specific permissions)
- */
-export function isAuthenticatedRoute(route: string): boolean {
-  return (IAM_CONFIG.routes.authenticated as readonly string[]).includes(route);
-}
-
-/**
  * Validate permission format (platform:resource:action)
  */
 export function isValidPermission(permission: string): boolean {
@@ -350,18 +326,6 @@ export function getPermissionPlatform(permission: string): string | null {
 }
 
 /**
- * Check if user has permission (supports wildcards)
- *
- * PERMISSION REFACTOR: Client-side permission checks are now permissive.
- * Backend (Rust) enforces access control based on user plan/permissions.
- * This is for UI display hints only.
- */
-export function hasPermission(userPermissions: string[], _requiredPermission: string): boolean {
-  // If user is authenticated (has any permissions), we are permissive on the client
-  return userPermissions.length > 0;
-}
-
-/**
  * Get user's platform-specific permissions
  */
 export function getPlatformPermissions(userPermissions: string[], platform: string): string[] {
@@ -371,27 +335,3 @@ export function getPlatformPermissions(userPermissions: string[], platform: stri
   });
 }
 
-/**
- * Check if user is admin (has any admin permissions)
- */
-export function isAdmin(userPermissions: string[]): boolean {
-  // PERMISSION REFACTOR: Client-side is permissive for any authenticated user.
-  // Backend validates actual admin role.
-  return userPermissions.length > 0;
-}
-
-/**
- * Check if user is super admin (has admin:*:* permission)
- */
-export function isSuperAdmin(userPermissions: string[]): boolean {
-  return userPermissions.length > 0;
-}
-
-/**
- * Get user's effective permission set based on their highest tier
- */
-export function getUserEffectivePermissions(userPermissions: string[]): string[] {
-  // PERMISSION REFACTOR: Return provided permissions as-is.
-  // Granular set expansion is now managed by the backend.
-  return [...userPermissions];
-}

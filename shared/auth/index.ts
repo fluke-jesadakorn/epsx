@@ -14,12 +14,12 @@ export type {
 export { SharedOpenIDWeb3Provider, useAuth, useSharedAuth } from '../components/auth/provider';
 
 // Server actions
-export { loginAction, logoutAction } from './actions';
+export { challengeAction, loginAction, logoutAction, verifyAction } from './actions';
 
 // Cookies
 export {
   COOKIES,
-  COOKIE_OPTIONS, clearClientSideCookies, getClientCookie, getClientCookieJSON, getServerAuthToken, isClientSideCookie, isHttpOnlyCookie, removeClientCookie, setClientCookie, setClientCookieJSON
+  COOKIE_OPTIONS, getServerAuthToken, isClientSideCookie, isHttpOnlyCookie
 } from './cookies';
 
 // Middleware

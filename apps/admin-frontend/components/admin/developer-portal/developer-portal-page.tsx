@@ -1,11 +1,11 @@
 'use client';
 
 import { AlertCircle, Copy, Key, Shield } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import React, { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
-import { PageHeader, PageTabs } from '@/components/shared';
+import { PageHeader } from '@/components/shared';
 import { EditExpirationModal } from './modals/edit-expiration-modal';
 import { RevokeKeyModal } from './modals/revoke-key-modal';
 import { ApiKeysTab } from './tabs/api-keys-tab';
@@ -37,7 +37,7 @@ interface ModalState {
  */
 const AccessDeniedView: React.FC<{ accessDenied: AccessDeniedState }> = ({ accessDenied }) => (
     <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="relative overflow-hidden rounded-[32px] bg-slate-900/40 backdrop-blur-2xl border border-white/5 p-12 shadow-xl text-center max-w-md">
+        <div className="relative overflow-hidden rounded-[32px] bg-white dark:bg-card backdrop-blur-2xl border border-gray-200 dark:border-border p-12 shadow-xl text-center max-w-md">
             <div className="inline-flex p-4 bg-red-500/10 rounded-[24px] border border-red-500/10 text-red-500 mb-6 font-bold">
                 <Shield className="w-12 h-12" />
             </div>
@@ -46,7 +46,7 @@ const AccessDeniedView: React.FC<{ accessDenied: AccessDeniedState }> = ({ acces
             </h2>
             <p className="text-muted-foreground font-bold mb-6">{accessDenied.message}</p>
             {accessDenied.code !== undefined && (
-                <div className="px-4 py-2 bg-white/5 rounded-xl border border-white/5 text-xs font-mono text-muted-foreground">
+                <div className="px-4 py-2 bg-white dark:bg-white/[0.04] rounded-xl border border-gray-200 dark:border-border text-xs font-mono text-muted-foreground">
                     Error: {accessDenied.code}
                 </div>
             )}
@@ -247,10 +247,11 @@ function useDeveloperPortalData(setAccessDenied: (s: AccessDeniedState | null) =
  */
 export const DeveloperPortalPage: React.FC = () => {
     const router = useRouter();
+    const searchParams = useSearchParams();
     const { isLoading: authLoading } = useSharedAuth();
     const [accessDenied, setAccessDenied] = useState<AccessDeniedState | null>(null);
     const { apiKeys, modules, loading, loadData } = useDeveloperPortalData(setAccessDenied);
-    const [activeTab, setActiveTab] = useState<TabType>('overview');
+    const activeTab = (searchParams.get('tab') ?? 'overview') as TabType;
     const [newApiKey, setNewApiKey] = useState<string | null>(null);
     const [revokeModal, setRevokeModal] = useState<ModalState>({ isOpen: false, apiKey: null, isLoading: false });
     const [expirationModal, setExpirationModal] = useState<ModalState>({ isOpen: false, apiKey: null, isLoading: false });
@@ -321,10 +322,6 @@ export const DeveloperPortalPage: React.FC = () => {
     return (
         <div className="space-y-8 pb-20">
             <PageHeader title="Developer Portal" subtitle="Manage API keys, documentation, and third-party integrations" icon="Code" gradient="warning" centered={true} />
-            <PageTabs
-                tabs={[{ id: 'overview', label: 'Overview', prefix: '📊' }, { id: 'keys', label: 'API Keys', prefix: '🔑' }, { id: 'docs', label: 'Documentation', prefix: '📚' }, { id: 'usage', label: 'Usage Analytics', prefix: '📈' }]}
-                activeTab={activeTab} onTabChange={(id) => setActiveTab(id as TabType)} className="mb-8"
-            />
             <DeveloperPortalContent activeTab={activeTab} apiKeys={apiKeys} modules={modules} onCopyToClipboard={handleCopy} onRevokeKey={(apiKey) => setRevokeModal({ isOpen: true, apiKey, isLoading: false })} onEditExpiration={(apiKey) => setExpirationModal({ isOpen: true, apiKey, isLoading: false })} onCreateKey={() => router.push('/developer-portal/api-keys/create')} />
             <DeveloperPortalModals revokeModal={revokeModal} expirationModal={expirationModal} newApiKey={newApiKey} onRevokeModalClose={() => setRevokeModal({ isOpen: false, apiKey: null, isLoading: false })} onRevoke={handleRevoke} onExpirationModalClose={() => setExpirationModal({ isOpen: false, apiKey: null, isLoading: false })} onUpdateExpiration={handleUpdateExpiration} onNewApiKeyClose={() => setNewApiKey(null)} onCopyToClipboard={handleCopy} />
         </div>

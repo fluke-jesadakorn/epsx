@@ -1,4 +1,4 @@
-import { NotificationTabsNavigation } from '@/components/notifications/notification-tabs-navigation';
+import { checkPageAccess } from '@/lib/check-page-access';
 import { PageHeader, PageLayout } from '@/components/shared';
 
 /**
@@ -8,11 +8,12 @@ import { PageHeader, PageLayout } from '@/components/shared';
  * 1. Page Header
  * 2. Navigation Tabs
  */
-export default function NotificationsLayout({
+export default async function NotificationsLayout({
     children,
 }: {
     children: React.ReactNode;
 }) {
+    await checkPageAccess('admin:notifications:manage', '/notifications');
     return (
         <PageLayout>
             {/* Page Header */}
@@ -23,9 +24,6 @@ export default function NotificationsLayout({
                 gradient="warning"
                 centered
             />
-
-            {/* Navigation Tabs */}
-            <NotificationTabsNavigation />
 
             {/* Page Content */}
             <div className="animate-in fade-in-50 duration-500 pb-12">

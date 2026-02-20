@@ -3,6 +3,8 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { logger } from '../utils/logger';
+import { getBackendUrl } from '../utils/url-resolver';
+import type { ChallengeResponse, SignatureVerificationRequest, SignatureVerificationResponse } from './api';
 import type { UserInfoResponse } from './client';
 import { COOKIES, COOKIE_OPTIONS, HTTP_ONLY_COOKIES } from './cookies';
 
@@ -255,5 +257,59 @@ function updateSessionCookies(
         ...COOKIE_OPTIONS.clientSide,
         maxAge: COOKIE_OPTIONS.maxAge.expires_at,
     });
+}
+
+/**
+ * Server Action: Request SIWE challenge via server-to-server call.
+ * Proxies through Next.js server so browser doesn't need direct backend access.
+ */
+export async function challengeAction(walletAddress: string): Promise<ChallengeResponse> {
+    const url = `${getBackendUrl('server')}/api/auth/web3/challenge`;
+
+    const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ wallet_address: walletAddress }),
+        cache: 'no-store',
+    });
+
+    if (!res.ok) {
+        const err = (await res.json().catch(() => ({ error: 'Unknown error' }))) as { error?: string };
+        throw new Error(err.error ?? `Challenge failed: ${res.statusText}`);
+    }
+
+    const data = (await res.json()) as ChallengeResponse;
+    if (!data.success) {
+        throw new Error(data.error ?? 'Challenge generation failed');
+    }
+
+    return data;
+}
+
+/**
+ * Server Action: Verify wallet signature via server-to-server call.
+ * Proxies through Next.js server so browser doesn't need direct backend access.
+ */
+export async function verifyAction(req: SignatureVerificationRequest): Promise<SignatureVerificationResponse> {
+    const url = `${getBackendUrl('server')}/api/auth/web3/verify`;
+
+    const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify(req),
+        cache: 'no-store',
+    });
+
+    if (!res.ok) {
+        const err = (await res.json().catch(() => ({ error: 'Unknown error' }))) as { error?: string };
+        throw new Error(err.error ?? `Verification failed: ${res.statusText}`);
+    }
+
+    const data = (await res.json()) as SignatureVerificationResponse;
+    if (!data.success) {
+        throw new Error(data.error ?? 'Signature verification failed');
+    }
+
+    return data;
 }
 

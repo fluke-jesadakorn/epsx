@@ -216,6 +216,19 @@ export const API_ROUTES = {
   PAYMENTS: {
     HISTORY: '/api/payments/history',
   },
+
+  // Support Chat endpoints
+  CHAT: {
+    TOPICS: '/api/chat/topics',
+    CONVERSATIONS: '/api/chat/conversations',
+    UNREAD: '/api/chat/unread',
+    STREAM: '/api/chat/stream',
+    // Admin
+    ADMIN_CONVERSATIONS: '/api/admin/chat/conversations',
+    ADMIN_STATS: '/api/admin/chat/stats',
+    ADMIN_TOPICS: '/api/admin/chat/topics',
+    ADMIN_STREAM: '/api/chat/admin/stream',
+  },
 } as const;
 
 // Frontend route constants (for Next.js App Router)
@@ -245,6 +258,8 @@ export const FRONTEND_ROUTES = {
   ALERTS: '/alerts',
   MARKET: '/market',
   PORTFOLIO: '/portfolio',
+  CHAT: '/chat',
+  CHAT_HISTORY: '/chat/history',
 } as const;
 
 // Admin Frontend route constants
@@ -288,6 +303,9 @@ export const ADMIN_ROUTES = {
     API_KEYS: '/admin/developer-portal/api-keys',
     API_DOCUMENTATION: '/admin/developer-portal/docs',
     WEBHOOKS: '/admin/developer-portal/webhooks',
+
+    // Support Chat
+    CHAT: '/chat',
   },
 } as const;
 

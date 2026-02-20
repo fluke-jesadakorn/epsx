@@ -48,7 +48,7 @@ export function ConnectedWalletDropdown({ className }: ConnectedWalletDropdownPr
           variant="outline"
           className={cn(
             "flex items-center gap-2 px-4 py-2 h-auto",
-            "bg-slate-800 hover:bg-slate-700 border-slate-600",
+            "bg-gray-100 dark:bg-slate-800 hover:bg-slate-700 border-slate-600",
             "text-white rounded-full",
             className
           )}
@@ -60,7 +60,7 @@ export function ConnectedWalletDropdown({ className }: ConnectedWalletDropdownPr
 
       <DropdownMenuContent
         className={cn(
-          "w-80 p-0 bg-slate-800 border-slate-600",
+          "w-80 p-0 bg-gray-100 dark:bg-slate-800 border-slate-600",
           "rounded-2xl shadow-xl"
         )}
         align="end"

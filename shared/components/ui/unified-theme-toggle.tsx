@@ -46,7 +46,7 @@ const variantStyles = {
         loading: 'bg-gradient-to-r from-purple-400 to-pink-500 text-white opacity-50'
     },
     minimal: {
-        button: 'hover:bg-yellow-50 hover:text-orange-600 dark:hover:bg-slate-800/50 dark:hover:text-orange-400 text-slate-600 dark:text-slate-300',
+        button: 'hover:bg-yellow-50 hover:text-orange-600 dark:hover:bg-gray-100 dark:bg-slate-800/50 dark:hover:text-orange-400 text-slate-600 dark:text-slate-300',
         active: 'text-slate-600 dark:text-slate-300',
         loading: 'text-slate-600 dark:text-slate-300 opacity-50'
     },
@@ -280,9 +280,15 @@ export default UnifiedThemeToggle;
 
 function manualThemeSync(newTheme: string) {
     try {
+        // Persist to storage
         document.cookie = `theme=${newTheme}; path=/; max-age=31536000; SameSite=lax`;
         localStorage.setItem('theme', newTheme);
+        // Direct DOM manipulation as fallback for next-themes
+        const el = document.documentElement;
+        el.classList.remove('light', 'dark');
+        el.classList.add(newTheme);
+        el.style.colorScheme = newTheme;
     } catch (_e) {
-        // console.warn('Failed to sync theme to storage:', e);
+        // silent
     }
 }

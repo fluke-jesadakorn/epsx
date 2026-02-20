@@ -1,9 +1,10 @@
 use crate::prelude::*;
 
 /// Plan display group for pricing page sections
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum PlanGroup {
+    #[default]
     Personal,
     Enterprise,
     Api,
@@ -11,7 +12,7 @@ pub enum PlanGroup {
 }
 
 impl PlanGroup {
-    pub fn from_str(s: &str) -> AppResult<Self> {
+    pub fn parse(s: &str) -> AppResult<Self> {
         match s {
             "personal" => Ok(Self::Personal),
             "enterprise" => Ok(Self::Enterprise),
@@ -37,11 +38,5 @@ impl PlanGroup {
 impl std::fmt::Display for PlanGroup {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.as_str())
-    }
-}
-
-impl Default for PlanGroup {
-    fn default() -> Self {
-        Self::Personal
     }
 }

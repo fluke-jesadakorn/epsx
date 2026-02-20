@@ -13,14 +13,13 @@ import { Building2, ChevronDown, Code2, Search, User, Wrench } from 'lucide-reac
 import React, { useCallback, useMemo, useState } from 'react';
 
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { type PermissionPlan, type PlanGroup } from '@/lib/api/plan-management-client';
 import { cn } from '@/lib/utils';
 
 import { CreatePlanSheet } from './create-plan-sheet';
 import { PlanItem, SortablePlanItem } from './plan-item';
-import { FREE_PLAN_ID, isSystemPlan } from './types';
+import { isSystemPlan } from './types';
 
 const GROUP_CONFIG: Record<PlanGroup, { label: string; icon: React.ReactNode }> = {
     personal: { label: 'Personal Plans', icon: <User className="h-3.5 w-3.5" /> },
@@ -35,7 +34,6 @@ export interface PlanListSidebarProps {
     plans: PermissionPlan[];
     selectedPlanId?: string;
     onSelect: (plan: PermissionPlan) => void;
-    onQuickToggle: (e: React.MouseEvent, plan: PermissionPlan) => void;
     onRefresh: () => void;
     // External duplicate trigger (from editor drawer)
     duplicateRef?: React.MutableRefObject<((plan: PermissionPlan) => void) | null>;
@@ -54,7 +52,6 @@ export function PlanListSidebar({
     plans,
     selectedPlanId,
     onSelect,
-    onQuickToggle,
     onRefresh,
     duplicateRef,
     sensors,
@@ -107,18 +104,17 @@ export function PlanListSidebar({
 
     const isSearchActive = planSearch.length > 0;
 
-    const renderPlans = (groupPlans: PermissionPlan[], disabled: boolean) => (
+    const renderPlans = (groupPlans: PermissionPlan[], group: PlanGroup, disabled: boolean) => (
         <div className="divide-y divide-white/5">
             {groupPlans.map((plan, index) => (
                 <SortablePlanItem
                     key={plan.id}
                     plan={plan}
                     index={index}
+                    group={group}
                     selectedPlanId={selectedPlanId}
                     onSelect={onSelect}
                     onDuplicate={handleDuplicate}
-                    isFreePlan={plan.id === FREE_PLAN_ID}
-                    onQuickToggle={onQuickToggle}
                     disabled={disabled || isSystemPlan(plan)}
                 />
             ))}
@@ -132,11 +128,11 @@ export function PlanListSidebar({
             <button
                 type="button"
                 onClick={() => toggleCollapse(group)}
-                className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:bg-white/5 transition-colors"
+                className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:bg-gray-100 dark:hover:bg-white/5 transition-colors"
             >
                 {cfg.icon}
                 <span className="flex-1 text-left">{cfg.label}</span>
-                <Badge variant="secondary" className="bg-white/5 text-muted-foreground text-[10px] px-1.5 py-0">
+                <Badge variant="secondary" className="bg-white dark:bg-white/[0.04] text-muted-foreground text-[10px] px-1.5 py-0">
                     {count}
                 </Badge>
                 <ChevronDown className={cn('h-3 w-3 transition-transform', isCollapsed && '-rotate-90')} />
@@ -145,24 +141,22 @@ export function PlanListSidebar({
     };
 
     return (
-        <Card className="border border-white/5 bg-slate-900/40 backdrop-blur-xl shadow-xl rounded-[24px] overflow-hidden flex flex-col h-full">
-            <CardHeader className="p-4 bg-white/5 border-b border-white/5 space-y-4 shrink-0">
-                <div className="flex items-center justify-between">
-                    <h2 className="text-sm font-bold flex items-center gap-2 uppercase tracking-wider text-muted-foreground">
-                        Active Plans
-                    </h2>
+        <div>
+            <div className="flex items-center justify-between mb-4">
+                <h2 className="text-sm font-bold flex items-center gap-2 uppercase tracking-wider text-muted-foreground">
+                    Active Plans
                     <Badge variant="secondary" className="bg-cyan-500/10 text-[#1fc7d4]">
                         {plans.length}
                     </Badge>
-                </div>
-                <div className="flex gap-2">
-                    <div className="relative flex-1">
+                </h2>
+                <div className="flex items-center gap-2">
+                    <div className="relative">
                         <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground/50" />
                         <Input
                             placeholder="Search plans..."
                             value={planSearch}
                             onChange={(e) => setPlanSearch(e.target.value)}
-                            className="h-9 pl-9 text-sm bg-white/5 border-white/5"
+                            className="h-9 w-56 pl-9 text-sm bg-white dark:bg-white/[0.04] border-gray-200 dark:border-border rounded-lg"
                         />
                     </div>
                     <CreatePlanSheet
@@ -173,8 +167,8 @@ export function PlanListSidebar({
                         onSourceClear={clearSource}
                     />
                 </div>
-            </CardHeader>
-            <CardContent className="p-0 overflow-y-auto flex-1 scrollbar-thin scrollbar-thumb-white/10">
+            </div>
+            <div className="divide-y divide-white/5 border border-gray-200 dark:border-border rounded-xl overflow-hidden">
                 {isSearchActive ? (
                     <>
                         {GROUP_ORDER.map((g) => {
@@ -183,7 +177,7 @@ export function PlanListSidebar({
                             return (
                                 <div key={g}>
                                     {renderGroupHeader(g, gPlans.length)}
-                                    {collapsed[g] !== true && renderPlans(gPlans, true)}
+                                    {collapsed[g] !== true && renderPlans(gPlans, g, true)}
                                 </div>
                             );
                         })}
@@ -207,7 +201,7 @@ export function PlanListSidebar({
                                             items={gPlans.map((p) => p.id)}
                                             strategy={verticalListSortingStrategy}
                                         >
-                                            {renderPlans(gPlans, false)}
+                                            {renderPlans(gPlans, g, false)}
                                         </SortableContext>
                                     )}
                                 </div>
@@ -226,7 +220,6 @@ export function PlanListSidebar({
                                             <PlanItem
                                                 plan={plan}
                                                 index={planIndex}
-                                                isFreePlan={plan.id === FREE_PLAN_ID}
                                                 disabled={false}
                                                 dragHandleProps={{}}
                                             />
@@ -237,7 +230,7 @@ export function PlanListSidebar({
                         </DragOverlay>
                     </DndContext>
                 )}
-            </CardContent>
-        </Card>
+            </div>
+        </div>
     );
 }

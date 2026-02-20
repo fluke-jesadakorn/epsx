@@ -52,3 +52,11 @@ export {
 export {
   useNotificationBell
 } from './use-notification-bell';
+
+// ============================================================================
+// CHAT SSE HOOKS
+// ============================================================================
+
+export {
+  useChatSSE, type ChatSSEEvent
+} from './use-chat-sse';

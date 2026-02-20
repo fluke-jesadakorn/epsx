@@ -39,8 +39,8 @@ export function NavbarSkeleton({ showNotifications = false, showUser = false }: 
       {!showUser && (
         <div className="hidden md:block">
           <div className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-orange-500 to-purple-600 text-white rounded-md text-sm font-medium animate-pulse opacity-75">
-            <div className="h-4 w-4 bg-white/40 rounded" />
-            <div className="h-4 w-20 bg-white/40 rounded" />
+            <div className="h-4 w-4 bg-gray-100 dark:bg-white/40 rounded" />
+            <div className="h-4 w-20 bg-gray-100 dark:bg-white/40 rounded" />
           </div>
         </div>
       )}

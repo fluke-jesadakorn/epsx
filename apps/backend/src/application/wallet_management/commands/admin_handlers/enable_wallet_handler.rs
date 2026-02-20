@@ -81,16 +81,12 @@ impl CommandHandler<EnableWalletCommand> for EnableWalletCommandHandler {
             "enabledBy": &command.admin_wallet_address
         });
 
-        // 4. Update wallet
-        // Remove 'disable_info' and set is_active to true.
-        // We can optionally store the last disable info in a history field, but simpler to just remove for now
-        // and add re-enable log.
-        // `#-` operator removes key from JSONB.
-        
+        // 4. Update wallet - clear disable_info, store reenable metadata
         let update_query = diesel::sql_query(
-            "UPDATE wallet_users 
-             SET is_active = true, 
-                 wallet_metadata = (wallet_metadata #- '{disable_info}') || jsonb_build_object('last_reenable_info', $2),
+            "UPDATE wallet_users
+             SET is_active = true,
+                 disable_info = NULL,
+                 wallet_metadata = COALESCE(wallet_metadata, '{}'::jsonb) || jsonb_build_object('last_reenable_info', $2),
                  updated_at = NOW()
              WHERE wallet_address = $1"
         )

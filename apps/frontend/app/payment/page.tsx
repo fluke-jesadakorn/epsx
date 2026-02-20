@@ -1,3 +1,4 @@
+import { CreditCard, Gem, Lock, Zap } from 'lucide-react';
 import { GlobalAuthGuard } from '@/components/auth/global-auth-guard';
 import { getCurrentUser } from '@/lib/server-actions';
 import { getDebugSessionInfo } from '@/lib/server-actions-user';
@@ -83,8 +84,8 @@ export default async function PaymentPage({ searchParams }: PaymentPageProps) {
       <div className="max-w-6xl mx-auto relative z-10">
         {/* Hero Header */}
         <div className="text-center mb-12">
-          <div className="inline-block mb-6">
-            <span className="text-6xl">💎</span>
+          <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 mb-6">
+            <Gem className="w-10 h-10 text-white" />
           </div>
           <h1 className="text-4xl lg:text-5xl font-black bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 bg-clip-text text-transparent mb-4">
             Choose Your Plan
@@ -106,17 +107,17 @@ export default async function PaymentPage({ searchParams }: PaymentPageProps) {
         <div className="mt-16 text-center">
           <div className="inline-flex items-center gap-4 px-6 py-3 bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm rounded-xl border border-gray-200/50 dark:border-gray-700/50 shadow-lg">
             <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-              <span className="text-green-500">🔒</span>
+              <Lock className="w-4 h-4 text-green-500" />
               <span>Blockchain Secured</span>
             </div>
             <div className="w-px h-4 bg-gray-300 dark:bg-gray-600" />
             <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-              <span className="text-blue-500">⚡</span>
+              <Zap className="w-4 h-4 text-blue-500" />
               <span>Instant Activation</span>
             </div>
             <div className="w-px h-4 bg-gray-300 dark:bg-gray-600" />
             <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-              <span className="text-purple-500">💳</span>
+              <CreditCard className="w-4 h-4 text-purple-500" />
               <span>USDT/USDC</span>
             </div>
           </div>

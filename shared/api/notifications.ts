@@ -177,7 +177,10 @@ export type NotificationType =
   | 'wallet_management'
   | 'wallet'
   | 'payment'
-  | 'general';
+  | 'general'
+  | 'announcement'
+  | 'advertisement'
+  | 'chat';
 
 export type NotificationPriority = 'low' | 'normal' | 'high' | 'critical';
 
@@ -211,10 +214,13 @@ export interface NotificationPreferences {
     system: boolean;
     security: boolean;
     permission: boolean;
-    user_management: boolean;
+    wallet_management: boolean;
     wallet: boolean;
     payment: boolean;
     general: boolean;
+    announcement: boolean;
+    advertisement: boolean;
+    chat: boolean;
   };
   priority_filter: NotificationPriority;
   quiet_hours?: {
@@ -1095,30 +1101,32 @@ export class NotificationsAPIClient {
    * Get notification priority color for UI
    */
   static getPriorityColor(priority: NotificationPriority): string {
-    const colors = {
+    const colors: Record<string, string> = {
       low: '#10b981',    // green-500
       normal: '#3b82f6', // blue-500
       high: '#f59e0b',   // amber-500
-      urgent: '#ef4444', // red-500
       critical: '#ef4444', // red-500
     };
-    return (colors as Record<string, string>)[priority] ?? '#10b981';
+    return colors[priority] ?? '#10b981';
   }
 
   /**
    * Get notification type icon for UI
    */
   static getTypeIcon(type: NotificationType): string {
-    const icons = {
+    const icons: Record<string, string> = {
       system: '⚙️',
       security: '🔒',
       permission: '🔑',
-      user_management: '👥',
+      wallet_management: '👥',
       wallet: '💼',
       payment: '💳',
       general: '📬',
+      announcement: '📢',
+      advertisement: '📣',
+      chat: '💬',
     };
-    return (icons as Record<string, string>)[type] ?? '📬';
+    return icons[type] ?? '📬';
   }
 
   /**

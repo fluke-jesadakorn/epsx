@@ -65,6 +65,7 @@ impl UnifiedRouteBuilder {
         let analytics_routes = self.create_analytics_routes();
         let public_routes = self.create_public_routes();
         let user_routes = self.create_user_routes();
+        let chat_routes = self.create_chat_routes();
         let notification_routes = self.create_notification_routes();
         let payment_routes = self.create_payment_routes();
         let developer_portal_routes = self.create_developer_portal_routes();
@@ -107,6 +108,9 @@ impl UnifiedRouteBuilder {
 
                 // Plan and billing routes (authenticated)
                 .nest("/plans", self.create_plan_routes())
+
+                // Support Chat (authenticated users)
+                .nest("/chat", chat_routes)
 
                 // Developer Portal (user-facing API key management)
                 .nest("/developer-portal", developer_portal_routes)
@@ -214,12 +218,19 @@ impl UnifiedRouteBuilder {
             self.container.get_analytics_pool(),
         );
 
-        // Create public admin routes (no auth required) - TEMPORARY for development
-        let public_admin_routes = Router::new()
+        // Settings routes (protected - requires auth + admin permissions)
+        let settings_routes = Router::new()
             .route("/settings", get(crate::web::admin::system_settings_handlers::get_all_settings_handler).put(crate::web::admin::system_settings_handlers::update_settings_handler))
             .route("/settings/reset", post(crate::web::admin::system_settings_handlers::reset_settings_handler))
             .route("/settings/{category}", get(crate::web::admin::system_settings_handlers::get_settings_by_category_handler))
-            .with_state(app_state.clone());
+            .with_state(app_state.clone())
+            .layer(axum_middleware::from_fn(
+                crate::web::middleware::permission_validation_middleware
+            ))
+            .layer(axum_middleware::from_fn_with_state(
+                app_state.clone(),
+                crate::web::middleware::bearer_middleware
+            ));
 
         // Create admin routes with permission validation middleware
         let admin_routes = crate::web::admin::routes::create_admin_routes()
@@ -229,11 +240,11 @@ impl UnifiedRouteBuilder {
             ))
             .layer(axum_middleware::from_fn_with_state(
                 app_state.clone(),
-                crate::web::middleware::bearer_middleware  // Use bearer_middleware to set OpenIDUserContext
+                crate::web::middleware::bearer_middleware
             ));
 
         Router::new()
-            .merge(public_admin_routes)
+            .merge(settings_routes)
             .merge(admin_routes)
     }
 
@@ -254,13 +265,17 @@ impl UnifiedRouteBuilder {
 
         Router::new()
             .route("/rankings", get(crate::web::analytics::eps_handlers::get_unified_analytics_rankings_cached))
-            .route("/filters", get(crate::web::analytics::eps_handlers::get_all_valid_countries))
+            .route("/filters", get(crate::web::analytics::eps_handlers::get_filter_options))
             .route("/countries", get(crate::web::analytics::eps_handlers::get_all_valid_countries))
             .route("/available-countries", get(crate::web::analytics::eps_handlers::get_available_countries))
             .route("/sectors", get(crate::web::analytics::eps_handlers::get_sectors_by_country))
             .layer(Extension(self.get_or_default_cache()))
             .layer(Extension(eps_ranking_service))
             .layer(Extension(permission_service))
+            .layer(axum_middleware::from_fn_with_state(
+                "epsx:analytics:read",
+                crate::web::middleware::perm_guard
+            ))
             .layer(axum_middleware::from_fn_with_state(
                 app_state,
                 crate::web::middleware::optional_bearer_middleware
@@ -302,7 +317,7 @@ impl UnifiedRouteBuilder {
         Router::new()
             .nest("/analytics", Router::new()
                 .route("/rankings", get(crate::web::analytics::eps_handlers::get_unified_analytics_rankings_cached))
-                .route("/filters", get(crate::web::analytics::eps_handlers::get_all_valid_countries))
+                .route("/filters", get(crate::web::analytics::eps_handlers::get_filter_options))
                 .route("/countries", get(crate::web::analytics::eps_handlers::get_all_valid_countries))
                 .layer(Extension(self.get_or_default_cache()))
                 .layer(Extension(eps_ranking_service))
@@ -331,13 +346,10 @@ impl UnifiedRouteBuilder {
             // User preferences update (POST with JSON body)
             .route("/preferences", post(crate::web::user::unified_user_handlers::update_user_preferences))
 
-            // NOTE: The following modules are deferred for future implementation:
-            // - Watchlist management (/watchlist)
-            // - Alert management (/alerts)
-            // - Push subscription (/push-subscription)
-            // - Additional wallet management (/wallet/connect, /wallet/disconnect)
-            // - Settings management (/settings)
-            // These require additional database tables and business logic.
+            // Watchlist management
+            .route("/watchlist", get(crate::web::user::watchlist_handlers::get_watchlist))
+            .route("/watchlist", post(crate::web::user::watchlist_handlers::add_to_watchlist))
+            .route("/watchlist/{symbol}", delete(crate::web::user::watchlist_handlers::remove_from_watchlist))
 
             .with_state(app_state.clone())
             .layer(axum_middleware::from_fn_with_state(
@@ -414,6 +426,49 @@ impl UnifiedRouteBuilder {
 
         // Combine public and authenticated routes
         public_routes.merge(authenticated_routes)
+    }
+
+    // ============================================================================
+    // CHAT ROUTES (authenticated users)
+    // ============================================================================
+
+    fn create_chat_routes(&self) -> Router {
+        use crate::web::user::chat_handlers;
+
+        let app_state = self.create_app_state();
+
+        // SSE route (permissive CORS for EventSource)
+        let sse_route = Router::new()
+            .route("/stream", get(chat_handlers::chat_stream))
+            .layer(Self::create_sse_cors_layer())
+            .with_state(app_state.clone());
+
+        // Admin SSE route
+        let admin_sse_route = Router::new()
+            .route("/admin/stream", get(crate::web::admin::chat_handlers::admin_chat_stream))
+            .layer(Self::create_sse_cors_layer())
+            .with_state(app_state.clone());
+
+        // Topics (public, no auth needed)
+        let public_routes = Router::new()
+            .route("/topics", get(chat_handlers::list_topics))
+            .with_state(app_state.clone());
+
+        // Authenticated user chat routes
+        let auth_routes = Router::new()
+            .route("/conversations", get(chat_handlers::list_conversations).post(chat_handlers::create_conversation))
+            .route("/conversations/{id}", get(chat_handlers::get_conversation))
+            .route("/conversations/{id}/messages", get(chat_handlers::list_messages).post(chat_handlers::send_message))
+            .route("/conversations/{id}/status", put(chat_handlers::update_status))
+            .route("/conversations/{id}/read", put(chat_handlers::mark_read))
+            .route("/unread", get(chat_handlers::get_unread))
+            .with_state(app_state.clone())
+            .layer(axum_middleware::from_fn_with_state(
+                app_state,
+                crate::web::middleware::bearer_middleware
+            ));
+
+        sse_route.merge(admin_sse_route).merge(public_routes).merge(auth_routes)
     }
 
     // ============================================================================

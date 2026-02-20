@@ -25,18 +25,18 @@ export function PremiumCard({
             case 'green':
                 return 'shadow-[0_0_30px_-5px_theme(colors.green.500/0.3)] border-green-500/30';
             default:
-                return 'hover:shadow-xl hover:shadow-blue-500/10 border-white/5';
+                return 'hover:shadow-xl hover:shadow-blue-500/10 border-gray-200 dark:border-white/5';
         }
     };
 
     const getVariantStyles = () => {
         switch (variant) {
             case 'highlight':
-                return 'bg-gradient-to-b from-gray-800/90 to-gray-900/90';
+                return 'bg-white dark:bg-gradient-to-b dark:from-gray-800/90 dark:to-gray-900/90';
             case 'glass':
-                return 'bg-gray-900/60 backdrop-blur-md';
+                return 'bg-white/80 dark:bg-gray-900/60 backdrop-blur-md';
             default:
-                return 'bg-gray-900/60';
+                return 'bg-white dark:bg-gray-900/60';
         }
     };
 
@@ -51,7 +51,7 @@ export function PremiumCard({
             {...props}
         >
             {/* Glossy overlay effect */}
-            <div className="absolute inset-0 rounded-2xl bg-gradient-to-b from-white/5 to-transparent pointer-events-none" />
+            <div className="absolute inset-0 rounded-2xl bg-gradient-to-b from-black/[0.02] dark:from-white/5 to-transparent pointer-events-none" />
 
             {/* Content */}
             <div className="relative z-10 h-full">

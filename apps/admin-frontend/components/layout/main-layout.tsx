@@ -32,7 +32,7 @@ interface MainLayoutProps {
  */
 export function MainLayout({ children, user }: MainLayoutProps) {
   return (
-    <div className="flex h-screen w-full overflow-hidden bg-gradient-to-br from-slate-900 via-purple-900/20 to-slate-900 bg-grid-pattern">
+    <div className="flex h-screen w-full overflow-hidden bg-gray-100 dark:bg-[#0f1117] bg-grid-pattern">
       {/* Sidebar Navigation - Fixed height handled by parent h-screen */}
       <Sidebar />
 
@@ -44,7 +44,7 @@ export function MainLayout({ children, user }: MainLayoutProps) {
         {/* Content Wrapper - Fixed frame, internal main scrolls */}
         <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
           {/* Breadcrumb - Fixed with glass effect */}
-          <div className="border-b border-white/10 bg-white/5 backdrop-blur-xl px-3 sm:px-4 lg:px-6 py-2 sm:py-3 z-30">
+          <div className="border-b border-gray-200 dark:border-border bg-white/80 dark:bg-[#13151e]/80 backdrop-blur-xl px-3 sm:px-4 lg:px-6 py-2 sm:py-3 z-30">
             <Breadcrumb />
           </div>
 
@@ -56,7 +56,7 @@ export function MainLayout({ children, user }: MainLayoutProps) {
           </main>
 
           {/* Footer - Fixed with glass effect */}
-          <footer className="border-t border-white/10 bg-white/5 backdrop-blur-xl px-4 py-3">
+          <footer className="border-t border-gray-200 dark:border-border bg-white/80 dark:bg-[#13151e]/80 backdrop-blur-xl px-4 py-3">
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium text-foreground">
                 EPSX Admin Dashboard

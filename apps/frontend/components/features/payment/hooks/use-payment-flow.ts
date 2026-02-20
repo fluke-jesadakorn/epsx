@@ -1,8 +1,8 @@
 'use client';
 
-import { submitTransactionAction } from '@/app/actions/payments';
+import { getTransactionStatusAction, submitTransactionAction } from '@/app/actions/payments';
 import { getPublicPlansAction } from '@/app/actions/plans';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getAddress, parseUnits } from 'viem';
 import { useAccount, useBalance, useChainId } from 'wagmi';
 import { usePlanAccess } from '@/hooks/use-plan-access';
@@ -15,7 +15,7 @@ import { useDirectTokenTransfer } from './use-direct-token-transfer';
 import type { PricingCardData } from '@/shared/components/plans/pricing-card';
 import type { UpgradePreviewData } from '../upgrade-banner';
 
-type PaymentStep = 'select' | 'confirm' | 'pay' | 'success';
+type PaymentStep = 'select' | 'confirm' | 'pay' | 'verifying' | 'success';
 
 interface RawPlan {
     id: string;
@@ -268,13 +268,7 @@ export function usePaymentFlow({ preselectedId, initialPlans = [] }: UsePaymentF
     const handlePlanSelect = (plan: PricingCardData) => {
         setSelectedPlan(plan);
         setError(null);
-        if (preselectedId && !showAllPlans && selectedPlan?.id === plan.id) {
-            setStep('confirm');
-        } else if (!preselectedId) {
-            setStep('confirm');
-        } else {
-            setStep('confirm');
-        }
+        setStep('confirm');
     };
 
     const handlePayment = async () => {
@@ -287,11 +281,11 @@ export function usePaymentFlow({ preselectedId, initialPlans = [] }: UsePaymentF
             return;
         }
         if (!receiverAddress) {
-            setError(`Payment receiver not configured for chain ${chainId}. Please switch to a supported network.`);
+            setError('Payment not available on this network. Please switch to BSC.');
             return;
         }
         if (!tokenAddress) {
-            setError(`${selectedToken.symbol} token not available on chain ${chainId}. Please switch to a supported network.`);
+            setError(`${selectedToken.symbol} not available on this network. Please switch to BSC.`);
             return;
         }
 
@@ -310,6 +304,16 @@ export function usePaymentFlow({ preselectedId, initialPlans = [] }: UsePaymentF
         transfer();
     };
 
+    const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+    // Cleanup polling on unmount
+    useEffect(() => {
+        return () => {
+            if (pollRef.current) { clearInterval(pollRef.current); }
+        };
+    }, []);
+
+    // Submit to backend when chain confirms, then poll for backend verification
     useEffect(() => {
         if (isConfirmed && transferTxHash && step === 'pay') {
             const submitPayment = async () => {
@@ -325,8 +329,30 @@ export function usePaymentFlow({ preselectedId, initialPlans = [] }: UsePaymentF
 
                     if (result.success) {
                         setTxHash(transferTxHash);
-                        setStep('success');
-                        refetchPlanAccess();
+                        setStep('verifying');
+
+                        // Poll backend for confirmation
+                        pollRef.current = setInterval(() => {
+                            void (async () => {
+                                try {
+                                    const status = await getTransactionStatusAction(transferTxHash);
+                                    if (status.success && status.data) {
+                                        const s = (status.data as { status: string }).status;
+                                        if (s === 'confirmed') {
+                                            if (pollRef.current) { clearInterval(pollRef.current); }
+                                            setStep('success');
+                                            refetchPlanAccess();
+                                        } else if (s === 'failed') {
+                                            if (pollRef.current) { clearInterval(pollRef.current); }
+                                            setError('Payment verification failed. Please contact support.');
+                                        }
+                                    }
+                                } catch (_err) {
+                                    // 404 = not yet processed, keep polling
+                                    logger.error('[Payment] Poll status error:', _err);
+                                }
+                            })();
+                        }, 3000);
                     } else {
                         setError(result.error?.message ?? 'Payment submitted but verification pending');
                     }
@@ -335,7 +361,7 @@ export function usePaymentFlow({ preselectedId, initialPlans = [] }: UsePaymentF
                 }
             };
 
-            submitPayment();
+            void submitPayment();
         }
     }, [isConfirmed, transferTxHash, step, selectedPlan, selectedToken, chainId, refetchPlanAccess]);
 

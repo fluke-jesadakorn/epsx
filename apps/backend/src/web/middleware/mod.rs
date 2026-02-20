@@ -68,6 +68,7 @@ pub use rate_limit_middleware::{
 // CRITICAL: Permission validation exports (THE SINGLE SOURCE OF TRUTH)
 pub use permission_validation_middleware::{
   permission_validation_middleware,
+  perm_guard,
 };
 
 // Multi-level rate limiter exports (3-tier rate limiting)

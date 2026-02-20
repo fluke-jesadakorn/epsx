@@ -52,14 +52,14 @@ const variantStyles = {
     },
     pancake: {
         bg: 'bg-gradient-to-br from-orange-50 to-yellow-50 dark:from-orange-950 dark:to-yellow-950',
-        bgGlass: 'bg-white/10 dark:bg-gray-900/10',
+        bgGlass: 'bg-gray-50 dark:bg-white/10 dark:bg-gray-900/10',
         border: 'border-orange-200 dark:border-orange-800',
         accent: 'bg-gradient-to-r from-orange-400 to-yellow-500',
         shadow: 'shadow-lg shadow-orange-100 dark:shadow-orange-900/20',
         text: 'text-gray-800 dark:text-gray-100'
     },
     admin: {
-        bg: 'bg-slate-800 dark:bg-slate-900',
+        bg: 'bg-gray-100 dark:bg-slate-800 dark:bg-slate-900',
         bgGlass: 'bg-slate-800/20 dark:bg-slate-900/20',
         border: 'border-blue-500 dark:border-blue-400',
         accent: 'bg-gradient-to-r from-blue-600 to-indigo-700',

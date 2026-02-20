@@ -1033,6 +1033,66 @@ diesel::table! {
     }
 }
 
+diesel::table! {
+    use diesel::sql_types::*;
+
+    chat_topics (id) {
+        id -> Uuid,
+        #[max_length = 50]
+        name -> Varchar,
+        #[max_length = 100]
+        label -> Varchar,
+        description -> Nullable<Text>,
+        #[max_length = 50]
+        icon -> Nullable<Varchar>,
+        sort_order -> Int4,
+        is_active -> Bool,
+        created_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    use diesel::sql_types::*;
+
+    chat_conversations (id) {
+        id -> Uuid,
+        topic_id -> Uuid,
+        #[max_length = 42]
+        wallet_address -> Varchar,
+        #[max_length = 255]
+        subject -> Varchar,
+        #[max_length = 20]
+        status -> Varchar,
+        #[max_length = 42]
+        assigned_agent -> Nullable<Varchar>,
+        last_message_at -> Timestamptz,
+        unread_user -> Int4,
+        unread_agent -> Int4,
+        metadata -> Jsonb,
+        created_at -> Timestamptz,
+        updated_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
+    use diesel::sql_types::*;
+
+    chat_messages (id) {
+        id -> Uuid,
+        conversation_id -> Uuid,
+        #[max_length = 10]
+        sender_type -> Varchar,
+        #[max_length = 42]
+        sender_address -> Nullable<Varchar>,
+        content -> Text,
+        is_read -> Bool,
+        metadata -> Jsonb,
+        created_at -> Timestamptz,
+    }
+}
+
+diesel::joinable!(chat_conversations -> chat_topics (topic_id));
+diesel::joinable!(chat_messages -> chat_conversations (conversation_id));
 diesel::joinable!(user_watchlist -> wallet_users (wallet_address));
 diesel::joinable!(api_key_module_access -> api_keys (api_key_id));
 diesel::joinable!(api_key_module_access -> api_modules (module_id));
@@ -1049,6 +1109,9 @@ diesel::allow_tables_to_appear_in_same_query!(
     api_key_permissions,
     api_keys,
     api_modules,
+    chat_conversations,
+    chat_messages,
+    chat_topics,
     openid_refresh_tokens,
     permissions,
     plan_permissions,

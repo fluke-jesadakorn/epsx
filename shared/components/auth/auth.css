@@ -3,44 +3,6 @@
    Premium glassmorphism design for auth modal and components
    ============================================================================ */
 
-/* Modal Overlay */
-.auth-modal-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 9999;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(8px);
-  animation: fadeIn 0.2s ease-out;
-}
-
-/* Modal Card */
-.auth-modal-card {
-  position: relative;
-  width: 100%;
-  max-width: 420px;
-  margin: 1rem;
-  padding: 0;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.05));
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 24px;
-  box-shadow: 
-    0 25px 50px -12px rgba(0, 0, 0, 0.5),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
-  animation: slideUp 0.3s ease-out;
-  overflow: hidden;
-}
-
-/* Dark mode card */
-@media (prefers-color-scheme: dark) {
-  .auth-modal-card {
-    background: linear-gradient(135deg, rgba(30, 30, 40, 0.95), rgba(20, 20, 30, 0.9));
-    border-color: rgba(255, 255, 255, 0.1);
-  }
-}
-
 /* Enforce dark mode for admin modal regardless of system preference */
 .auth-modal-admin {
   background: linear-gradient(135deg, rgba(30, 30, 40, 0.95), rgba(20, 20, 30, 0.9)) !important;
@@ -349,11 +311,6 @@
 }
 
 /* Animations */
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
 @keyframes slideUp {
   from {
     opacity: 0;
@@ -417,11 +374,6 @@
 
 /* Responsive */
 @media (max-width: 480px) {
-  .auth-modal-card {
-    margin: 0.5rem;
-    border-radius: 16px;
-  }
-
   .auth-modal-header,
   .auth-modal-content,
   .auth-modal-footer {

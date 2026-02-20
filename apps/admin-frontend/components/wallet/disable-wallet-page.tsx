@@ -134,7 +134,7 @@ export function DisableWalletPage({ walletAddress }: DisableWalletPageProps) {
                 <div className="flex items-center gap-4">
                     <button
                         onClick={() => router.back()}
-                        className="p-2.5 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors"
+                        className="p-2.5 rounded-xl bg-white dark:bg-white/[0.04] border border-gray-200 dark:border-border hover:bg-black/[0.05] dark:hover:bg-white/10 transition-colors"
                     >
                         <ArrowLeft className="h-5 w-5 text-slate-400" />
                     </button>
@@ -149,7 +149,7 @@ export function DisableWalletPage({ walletAddress }: DisableWalletPageProps) {
                         </h1>
                         <p className="text-sm text-muted-foreground mt-1">
                             Restrict access for{' '}
-                            <code className="px-1.5 py-0.5 bg-slate-800 rounded text-xs font-mono text-slate-300 border border-white/10">
+                            <code className="px-1.5 py-0.5 bg-gray-100 dark:bg-slate-800 rounded text-xs font-mono text-slate-300 border border-gray-200 dark:border-border">
                                 {walletAddress}
                             </code>
                         </p>
@@ -162,7 +162,7 @@ export function DisableWalletPage({ walletAddress }: DisableWalletPageProps) {
                 {/* Left: Form */}
                 <div className="lg:col-span-2 space-y-6">
                     {/* Duration */}
-                    <section className="rounded-2xl border border-white/5 bg-white/[0.02] p-6">
+                    <section className="rounded-2xl border border-gray-200 dark:border-border bg-white/[0.02] p-6">
                         <div className="flex items-center gap-2 mb-4">
                             <Clock className="h-5 w-5 text-[#1fc7d4]" />
                             <h2 className="text-lg font-semibold">Disable Duration</h2>
@@ -176,7 +176,7 @@ export function DisableWalletPage({ walletAddress }: DisableWalletPageProps) {
                                         'flex flex-col items-center gap-1 px-3 py-3 rounded-xl border transition-all text-center',
                                         duration === opt.value
                                             ? 'border-amber-500/50 bg-amber-500/10 text-amber-400 shadow-lg shadow-amber-500/5'
-                                            : 'border-white/5 bg-white/[0.02] text-slate-400 hover:border-white/10 hover:bg-white/[0.04]'
+                                            : 'border-gray-200 dark:border-border bg-white/[0.02] text-slate-400 hover:border-gray-200 dark:border-border hover:bg-white/[0.04]'
                                     )}
                                 >
                                     <span className="text-sm font-bold">{opt.label}</span>
@@ -187,7 +187,7 @@ export function DisableWalletPage({ walletAddress }: DisableWalletPageProps) {
                     </section>
 
                     {/* Platforms */}
-                    <section className="rounded-2xl border border-white/5 bg-white/[0.02] p-6">
+                    <section className="rounded-2xl border border-gray-200 dark:border-border bg-white/[0.02] p-6">
                         <div className="flex items-center justify-between mb-4">
                             <div className="flex items-center gap-2">
                                 <BarChart3 className="h-5 w-5 text-[#7645d9]" />
@@ -215,7 +215,7 @@ export function DisableWalletPage({ walletAddress }: DisableWalletPageProps) {
                                             'flex items-center gap-3 px-4 py-3 rounded-xl border cursor-pointer transition-all',
                                             selected
                                                 ? 'border-amber-500/30 bg-amber-500/5'
-                                                : 'border-white/5 bg-white/[0.02] hover:border-white/10'
+                                                : 'border-gray-200 dark:border-border bg-white/[0.02] hover:border-gray-200 dark:border-border'
                                         )}
                                     >
                                         <Checkbox
@@ -233,7 +233,7 @@ export function DisableWalletPage({ walletAddress }: DisableWalletPageProps) {
                     </section>
 
                     {/* Reason */}
-                    <section className="rounded-2xl border border-white/5 bg-white/[0.02] p-6 space-y-4">
+                    <section className="rounded-2xl border border-gray-200 dark:border-border bg-white/[0.02] p-6 space-y-4">
                         <div className="flex items-center gap-2 mb-2">
                             <FileText className="h-5 w-5 text-[#ed4b9e]" />
                             <h2 className="text-lg font-semibold">Reason & Details</h2>
@@ -242,7 +242,7 @@ export function DisableWalletPage({ walletAddress }: DisableWalletPageProps) {
                         <div>
                             <Label className="text-sm text-muted-foreground">Category</Label>
                             <Select value={reason} onValueChange={(v) => setReason(v as DisableReasonCategory)}>
-                                <SelectTrigger className="mt-1.5 bg-white/[0.02] border-white/10">
+                                <SelectTrigger className="mt-1.5 bg-white/[0.02] border-gray-200 dark:border-border">
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -267,33 +267,33 @@ export function DisableWalletPage({ walletAddress }: DisableWalletPageProps) {
                                 value={details}
                                 onChange={(e) => setDetails(e.target.value)}
                                 placeholder="Explain why this wallet is being disabled. Be specific for audit purposes..."
-                                className="mt-1.5 min-h-[120px] bg-white/[0.02] border-white/10 resize-none"
+                                className="mt-1.5 min-h-[120px] bg-white/[0.02] border-gray-200 dark:border-border resize-none"
                             />
                         </div>
                     </section>
 
                     {/* Additional Options */}
-                    <section className="rounded-2xl border border-white/5 bg-white/[0.02] p-6">
+                    <section className="rounded-2xl border border-gray-200 dark:border-border bg-white/[0.02] p-6">
                         <div className="flex items-center gap-2 mb-4">
                             <Shield className="h-5 w-5 text-slate-400" />
                             <h2 className="text-lg font-semibold">Additional Actions</h2>
                         </div>
                         <div className="space-y-3">
-                            <label className="flex items-center gap-3 px-4 py-3 rounded-xl border border-white/5 bg-white/[0.02] cursor-pointer hover:border-white/10 transition-colors">
+                            <label className="flex items-center gap-3 px-4 py-3 rounded-xl border border-gray-200 dark:border-border bg-white/[0.02] cursor-pointer hover:border-gray-200 dark:border-border transition-colors">
                                 <Checkbox checked={blockLogin} onCheckedChange={(c) => setBlockLogin(c === true)} />
                                 <div>
                                     <span className="text-sm font-medium">Block login across all platforms</span>
                                     <p className="text-xs text-muted-foreground mt-0.5">Prevents the wallet from authenticating on any EPSX platform</p>
                                 </div>
                             </label>
-                            <label className="flex items-center gap-3 px-4 py-3 rounded-xl border border-white/5 bg-white/[0.02] cursor-pointer hover:border-white/10 transition-colors">
+                            <label className="flex items-center gap-3 px-4 py-3 rounded-xl border border-gray-200 dark:border-border bg-white/[0.02] cursor-pointer hover:border-gray-200 dark:border-border transition-colors">
                                 <Checkbox checked={pauseSubs} onCheckedChange={(c) => setPauseSubs(c === true)} />
                                 <div>
                                     <span className="text-sm font-medium">Pause active subscriptions</span>
                                     <p className="text-xs text-muted-foreground mt-0.5">Billing will be paused until wallet is re-enabled</p>
                                 </div>
                             </label>
-                            <label className="flex items-center gap-3 px-4 py-3 rounded-xl border border-white/5 bg-white/[0.02] cursor-pointer hover:border-white/10 transition-colors">
+                            <label className="flex items-center gap-3 px-4 py-3 rounded-xl border border-gray-200 dark:border-border bg-white/[0.02] cursor-pointer hover:border-gray-200 dark:border-border transition-colors">
                                 <Checkbox checked={notify} onCheckedChange={(c) => setNotify(c === true)} />
                                 <div>
                                     <span className="text-sm font-medium">Send notification to user</span>
@@ -338,7 +338,7 @@ export function DisableWalletPage({ walletAddress }: DisableWalletPageProps) {
                                         if (!conf) { return null; }
                                         const PIcon = conf.icon;
                                         return (
-                                            <span key={p} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-white/5 text-xs text-slate-300 border border-white/5">
+                                            <span key={p} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-white dark:bg-white/[0.04] text-xs text-slate-300 border border-gray-200 dark:border-border">
                                                 <PIcon className="h-3 w-3" /> {conf.label.replace('EPSX ', '')}
                                             </span>
                                         );
@@ -346,7 +346,7 @@ export function DisableWalletPage({ walletAddress }: DisableWalletPageProps) {
                                 </div>
                             </div>
 
-                            <div className="border-t border-white/10 pt-3 space-y-1.5">
+                            <div className="border-t border-gray-200 dark:border-border pt-3 space-y-1.5">
                                 <div className="flex items-center gap-2 text-xs">
                                     <div className={cn('w-2 h-2 rounded-full', blockLogin ? 'bg-red-400' : 'bg-slate-600')} />
                                     <span className={blockLogin ? 'text-slate-200' : 'text-slate-500'}>Block login</span>

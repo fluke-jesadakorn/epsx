@@ -1,9 +1,10 @@
 use crate::prelude::*;
 
 /// Plan category controlling stacking rules
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum PlanCategory {
+    #[default]
     Base,
     Addon,
     System,
@@ -11,7 +12,7 @@ pub enum PlanCategory {
 }
 
 impl PlanCategory {
-    pub fn from_str(s: &str) -> AppResult<Self> {
+    pub fn parse(s: &str) -> AppResult<Self> {
         match s {
             "base" => Ok(Self::Base),
             "addon" => Ok(Self::Addon),
@@ -52,11 +53,5 @@ impl PlanCategory {
 impl std::fmt::Display for PlanCategory {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.as_str())
-    }
-}
-
-impl Default for PlanCategory {
-    fn default() -> Self {
-        Self::Base
     }
 }

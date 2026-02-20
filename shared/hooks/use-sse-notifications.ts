@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { NotificationType, SSENotification } from '../api/notifications';
 import { createNotificationsClient } from '../api/notifications';
-import { COOKIES, getClientCookie } from '../auth/cookies';
 import type { UnifiedApiClient } from '../utils/api-client';
 import { logger } from '../utils/logger';
 
@@ -35,24 +34,19 @@ enum ConnectionState {
   DISCONNECTING = 'DISCONNECTING',
 }
 
-const checkSessionExpiry = async (refreshSession: () => Promise<boolean>) => {
+const checkSessionExpiry = async (refreshSession: () => Promise<boolean>): Promise<boolean> => {
   try {
-    const expiresAt = getClientCookie(COOKIES.expires_at)
-    if (expiresAt === undefined || expiresAt === null || expiresAt === '') { return }
-
-    const expiryTime = parseInt(expiresAt, 10)
-    // If expired or expiring in less than 30 seconds
-    if (Date.now() > expiryTime - 30000) {
-      logger.info('🔄 SSE: Session expired or expiring soon, refreshing...')
-      const refreshed = await refreshSession()
-      if (refreshed) {
-        logger.info('✅ SSE: Session refreshed, proceeding with connection')
-      } else {
-        logger.warn('⚠️ SSE: Session refresh failed, connection might fail')
-      }
+    logger.info('SSE: Proactively refreshing session before connection...')
+    const refreshed = await refreshSession()
+    if (refreshed) {
+      logger.info('SSE: Session refreshed, proceeding with connection')
+      return true
     }
+    logger.warn('SSE: Session refresh failed, aborting connection')
+    return false
   } catch (e) {
-    logger.error('❌ SSE: Error checking token expiry', e)
+    logger.error('SSE: Error during session refresh', e)
+    return false
   }
 }
 
@@ -91,7 +85,14 @@ export function useSSENotifications(
 
     // Check for token expiry and refresh if needed
     if (optionsRef.current.refreshSession !== undefined) {
-      await checkSessionExpiry(optionsRef.current.refreshSession)
+      const sessionOk = await checkSessionExpiry(optionsRef.current.refreshSession)
+      if (!sessionOk) {
+        connectionStateRef.current = ConnectionState.DISCONNECTED
+        if (isMounted.current) {
+          setError('Session expired')
+        }
+        return
+      }
     }
 
     try {
@@ -145,22 +146,31 @@ export function useSSENotifications(
                 optionsRef.current.onError?.('Connection lost. Reconnecting...')
 
                 // This handles the edge case where token expires but cookie is still valid
-                const attemptRefresh = async () => {
-                  if (optionsRef.current.refreshSession !== undefined) {
-                    logger.info('🔄 SSE: Connection dropped, attempting proactive session refresh...')
-                    try {
-                      const refreshed = await optionsRef.current.refreshSession()
-                      if (refreshed) {
-                        logger.info('✅ SSE: Session refreshed successfully after drop')
-                        // Reset reconnect attempts to give the new token a fair chance
-                        reconnectAttempts.current = 0
-                      }
-                    } catch (e) {
-                      logger.warn('⚠️ SSE: Session refresh failed during reconnect logic', e)
+                let refreshOk = true
+                if (optionsRef.current.refreshSession !== undefined) {
+                  logger.info('🔄 SSE: Connection dropped, attempting proactive session refresh...')
+                  try {
+                    const refreshed = await optionsRef.current.refreshSession()
+                    if (refreshed) {
+                      logger.info('✅ SSE: Session refreshed successfully after drop')
+                      reconnectAttempts.current = 0
+                    } else {
+                      logger.warn('⛔ SSE: Session refresh returned false (logged out), stopping reconnect')
+                      refreshOk = false
                     }
+                  } catch (e) {
+                    logger.warn('⛔ SSE: Session refresh failed during reconnect logic, stopping reconnect', e)
+                    refreshOk = false
                   }
                 }
-                await attemptRefresh()
+
+                // Don't reconnect if session refresh failed (user logged out)
+                if (!refreshOk) {
+                  if (isMounted.current) {
+                    setError('Session expired')
+                  }
+                  return
+                }
 
                 reconnectAttempts.current++
                 if (reconnectAttempts.current < maxReconnectAttempts) {

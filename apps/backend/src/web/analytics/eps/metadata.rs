@@ -112,24 +112,13 @@ pub async fn get_sectors_by_country(
     )
 )]
 pub async fn get_filter_options(
-    Extension(_service): Extension<Arc<EPSRankingService>>,
+    Extension(service): Extension<Arc<EPSRankingService>>,
 ) -> Result<Json<FiltersResponse>, AppError> {
     debug!("Getting combined filter options for frontend");
 
     let countries = get_available_countries_with_labels();
-    let sectors = vec![
-        "Technology".to_string(),
-        "Healthcare".to_string(),
-        "Financial Services".to_string(),
-        "Consumer Discretionary".to_string(),
-        "Industrials".to_string(),
-        "Energy".to_string(),
-        "Telecommunications".to_string(),
-        "Real Estate".to_string(),
-        "Materials".to_string(),
-        "Utilities".to_string(),
-        "Consumer Staples".to_string(),
-    ];
+    let sectors = service.get_sectors_by_country(None).await
+        .unwrap_or_else(|_| get_available_sectors_static());
     let exchanges = vec![
         "NASDAQ".to_string(),
         "NYSE".to_string(),
@@ -238,20 +227,20 @@ pub fn get_available_countries_static() -> Vec<String> {
     get_available_countries_with_labels().into_iter().map(|c| c.value).collect()
 }
 
-/// Get static list of available sectors
+/// Get static list of available sectors (matches TradingView sector.tr values)
 pub fn get_available_sectors_static() -> Vec<String> {
     vec![
         "Technology".to_string(),
-        "Healthcare".to_string(), 
+        "Healthcare".to_string(),
         "Financial Services".to_string(),
-        "Consumer Goods".to_string(),
+        "Consumer Cyclical".to_string(),
+        "Consumer Defensive".to_string(),
+        "Industrials".to_string(),
         "Energy".to_string(),
-        "Industrial".to_string(),
-        "Materials".to_string(),
-        "Real Estate".to_string(),
         "Utilities".to_string(),
+        "Real Estate".to_string(),
+        "Basic Materials".to_string(),
         "Communication Services".to_string(),
-        "Consumer Services".to_string(),
     ]
 }
 

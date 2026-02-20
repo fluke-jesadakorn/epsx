@@ -176,7 +176,7 @@ export class AnalyticsAPIClient {
     );
 
     if (!this.client.isApiSuccess(response)) {
-      throw new Error(`Failed to fetch public rankings: ${response.error}`);
+      throw new Error(`Failed to fetch public rankings: ${response.error?.message ?? 'Unknown error'}`);
     }
 
     // The API client normalizes responses - response IS the full backend response
@@ -202,7 +202,7 @@ export class AnalyticsAPIClient {
     );
 
     if (!this.client.isApiSuccess(response)) {
-      throw new Error(`Failed to fetch public filters: ${response.error}`);
+      throw new Error(`Failed to fetch public filters: ${response.error?.message ?? 'Unknown error'}`);
     }
 
     // The API client normalizes responses - response IS the full backend response
@@ -231,7 +231,7 @@ export class AnalyticsAPIClient {
     );
 
     if (!this.client.isApiSuccess(response)) {
-      throw new Error(`Failed to fetch authenticated rankings: ${response.error}`);
+      throw new Error(`Failed to fetch authenticated rankings: ${response.error?.message ?? 'Unknown error'}`);
     }
 
     // The API client normalizes responses - response IS the full backend response
@@ -256,7 +256,7 @@ export class AnalyticsAPIClient {
     );
 
     if (!this.client.isApiSuccess(response)) {
-      throw new Error(`Failed to fetch authenticated filters: ${response.error}`);
+      throw new Error(`Failed to fetch authenticated filters: ${response.error?.message ?? 'Unknown error'}`);
     }
 
     // The API client normalizes responses - response IS the full backend response
@@ -281,7 +281,7 @@ export class AnalyticsAPIClient {
     );
 
     if (!this.client.isApiSuccess(response)) {
-      throw new Error(`Failed to export analytics data: ${response.error}`);
+      throw new Error(`Failed to export analytics data: ${response.error?.message ?? 'Unknown error'}`);
     }
 
     return response.data;
@@ -305,7 +305,7 @@ export class AnalyticsAPIClient {
     );
 
     if (!this.client.isApiSuccess(response)) {
-      throw new Error(`Failed to get export status: ${response.error}`);
+      throw new Error(`Failed to get export status: ${response.error?.message ?? 'Unknown error'}`);
     }
 
     return response.data;
@@ -345,7 +345,7 @@ export class AnalyticsAPIClient {
     );
 
     if (!this.client.isApiSuccess(response)) {
-      throw new Error(`Failed to fetch admin overview: ${response.error}`);
+      throw new Error(`Failed to fetch admin overview: ${response.error?.message ?? 'Unknown error'}`);
     }
 
     return response.data.data;
@@ -383,7 +383,7 @@ export class AnalyticsAPIClient {
     );
 
     if (!this.client.isApiSuccess(response)) {
-      throw new Error(`Failed to fetch admin user analytics: ${response.error}`);
+      throw new Error(`Failed to fetch admin user analytics: ${response.error?.message ?? 'Unknown error'}`);
     }
 
     return response.data.data;
@@ -415,7 +415,7 @@ export class AnalyticsAPIClient {
     );
 
     if (!this.client.isApiSuccess(response)) {
-      throw new Error(`Failed to fetch admin permission analytics: ${response.error}`);
+      throw new Error(`Failed to fetch admin permission analytics: ${response.error?.message ?? 'Unknown error'}`);
     }
 
     return response.data.data;
@@ -448,7 +448,7 @@ export class AnalyticsAPIClient {
     );
 
     if (!this.client.isApiSuccess(response)) {
-      throw new Error(`Failed to fetch admin revenue analytics: ${response.error}`);
+      throw new Error(`Failed to fetch admin revenue analytics: ${response.error?.message ?? 'Unknown error'}`);
     }
 
     return response.data.data;
@@ -481,7 +481,7 @@ export class AnalyticsAPIClient {
     );
 
     if (!this.client.isApiSuccess(response)) {
-      throw new Error(`Failed to fetch admin performance analytics: ${response.error}`);
+      throw new Error(`Failed to fetch admin performance analytics: ${response.error?.message ?? 'Unknown error'}`);
     }
 
     return response.data.data;

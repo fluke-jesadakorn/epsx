@@ -8,6 +8,7 @@ import type {
     EnableWalletRequest,
     WalletListResponse
 } from '@/lib/api/wallet-management-client';
+import { redirectOnForbidden } from '@/lib/api-error';
 import { logout } from '@/lib/auth/auth';
 import { createAdminApiClient } from '@/shared/api';
 import { redirect } from 'next/navigation';
@@ -84,6 +85,7 @@ export async function fetchWalletsAction(filters: WalletFilters, page = 1, limit
     const res = await apiClient.get<WalletListResponse>('/api/admin/wallets', params);
 
     if (!res.success) {
+        redirectOnForbidden(res, '/wallet-management');
         await checkAuthError(res.error);
         const msg = res.error?.message ?? 'Failed to fetch wallets';
         const code = res.error?.code ?? 'UNKNOWN';
@@ -106,6 +108,7 @@ export async function updateWalletMetadataAction(walletAddress: string, data: { 
     });
 
     if (!res.success) {
+        redirectOnForbidden(res, '/wallet-management');
         await checkAuthError(res.error);
         throw new Error(res.error?.message ?? 'Failed to update metadata');
     }
@@ -116,6 +119,7 @@ export async function disableWalletAction(walletAddress: string, data: DisableWa
     const res = await apiClient.post(`/api/admin/wallets/${walletAddress}/disable`, data);
 
     if (!res.success) {
+        redirectOnForbidden(res, '/wallet-management');
         await checkAuthError(res.error);
         throw new Error(res.error?.message ?? 'Failed to disable wallet');
     }
@@ -126,51 +130,9 @@ export async function enableWalletAction(walletAddress: string, data: EnableWall
     const res = await apiClient.post(`/api/admin/wallets/${walletAddress}/enable`, data);
 
     if (!res.success) {
+        redirectOnForbidden(res, '/wallet-management');
         await checkAuthError(res.error);
         throw new Error(res.error?.message ?? 'Failed to enable wallet');
     }
 }
 
-interface ActivityLogEntry {
-    id: string;
-    action: string;
-    timestamp: string;
-    wallet_address: string;
-    details: unknown;
-}
-
-export async function fetchActivityLogsAction(walletAddress?: string, page = 1, limit = 10) {
-    const apiClient = createAdminApiClient({ serverSide: true });
-
-    let endpoint = '/api/admin/audit-logs';
-    if (walletAddress !== undefined && walletAddress.length > 0) {
-        endpoint = `/api/admin/wallets/${walletAddress}/activity`;
-    }
-
-    const res = await apiClient.get<Record<string, unknown>>(endpoint, {
-        page: page.toString(),
-        page_size: limit.toString(),
-    });
-
-    if (!res.success) {
-        await checkAuthError(res.error);
-        throw new Error(res.error?.message ?? 'Failed to fetch activity logs');
-    }
-
-    const data = res.data;
-    if (!data) {
-        return [];
-    }
-
-    // Map common format
-    const entries = (data['entries'] ?? data['events'] ?? []) as ActivityLogEntry[];
-
-    // Simple mapper for display
-    return entries.map((log) => ({
-        id: log.id,
-        action: log.action,
-        timestamp: log.timestamp,
-        wallet_address: log.wallet_address,
-        details: log.details,
-    }));
-}

@@ -30,7 +30,7 @@ export type ValidTheme = typeof THEME_CONFIG.validThemes[number];
  */
 export function SafeThemeScript() {
   // Script reads cookie first, then localStorage, then system preference
-  const script = `(function(){try{var c={};if(document.cookie){var p=document.cookie.split(';');for(var i=0;i<p.length;i++){var k=p[i].trim().split('=')[0];var v=p[i].trim().split('=')[1];if(k&&v)c[k]=v}}var t=c.theme||localStorage.getItem('${THEME_CONFIG.storageKey}');if(t!=='light'&&t!=='dark'){t='dark'}document.documentElement.classList.add(t);document.documentElement.style.colorScheme=t}catch(e){document.documentElement.classList.add('${THEME_CONFIG.defaultTheme}')}})();`;
+  const script = `(function(){try{var c={};if(document.cookie){var p=document.cookie.split(';');for(var i=0;i<p.length;i++){var k=p[i].trim().split('=')[0];var v=p[i].trim().split('=')[1];if(k&&v)c[k]=v}}var t=c.theme||localStorage.getItem('${THEME_CONFIG.storageKey}');if(t!=='light'&&t!=='dark'){t='dark'}var d=document.documentElement;d.classList.remove('light','dark');d.classList.add(t);d.style.colorScheme=t}catch(e){document.documentElement.classList.add('${THEME_CONFIG.defaultTheme}')}})();`;
 
   return (
     <script
@@ -44,7 +44,7 @@ export function SafeThemeScript() {
  * Alternative approach using nonce for CSP compatibility
  */
 export function SafeThemeScriptWithNonce({ nonce }: { nonce?: string }) {
-  const script = `(function(){try{var c={};if(document.cookie){var p=document.cookie.split(';');for(var i=0;i<p.length;i++){var k=p[i].trim().split('=')[0];var v=p[i].trim().split('=')[1];if(k&&v)c[k]=v}}var t=c.theme||localStorage.getItem('theme');if(t!=='light'&&t!=='dark'){t='dark'}document.documentElement.classList.add(t);document.documentElement.style.colorScheme=t}catch(e){document.documentElement.classList.add('dark')}})();`;
+  const script = `(function(){try{var c={};if(document.cookie){var p=document.cookie.split(';');for(var i=0;i<p.length;i++){var k=p[i].trim().split('=')[0];var v=p[i].trim().split('=')[1];if(k&&v)c[k]=v}}var t=c.theme||localStorage.getItem('theme');if(t!=='light'&&t!=='dark'){t='dark'}var d=document.documentElement;d.classList.remove('light','dark');d.classList.add(t);d.style.colorScheme=t}catch(e){document.documentElement.classList.add('dark')}})();`;
 
   return (
     <script

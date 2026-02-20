@@ -1,6 +1,7 @@
 // Core shared kernel with cross-cutting concerns
 
 pub mod errors;
+pub mod permissions;
 pub mod telemetry;
 pub mod types;
 pub mod constants;

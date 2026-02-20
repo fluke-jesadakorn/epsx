@@ -14,7 +14,6 @@ import { adminApiClient } from '../api-client';
 import type {
     DisableReasonCategory,
     Platform,
-    WalletActivityEvent,
     WalletData,
     WalletFilters,
     WalletPermission,
@@ -30,7 +29,7 @@ export {
 } from '@/shared/api/wallets';
 
 // Re-export for consumers
-export type { WalletActivityEvent, WalletData, WalletFilters, WalletPermission, WalletStats, WalletSubscription };
+export type { WalletData, WalletFilters, WalletPermission, WalletStats, WalletSubscription };
 
 // ============================================================================
 // REQUEST/RESPONSE TYPES

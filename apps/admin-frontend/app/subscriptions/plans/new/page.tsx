@@ -4,7 +4,6 @@ import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 
 import { PermissionTransferList } from '@/components/plans/permission-transfer-list'
-import { PageLoadingSpinner } from '@/components/ui/loading-spinner'
 import { useAvailablePermissions } from '@/hooks/use-plan-permissions'
 import { toast } from '@/hooks/use-toast'
 import { createPlansClient, isApiSuccess } from '@/shared/api/plans'
@@ -35,7 +34,7 @@ interface CreatePermissionTemplateRequest {
 // eslint-disable-next-line max-lines-per-function
 export default function NewPlanPage() {
   const router = useRouter()
-  const { user, isLoading: authLoading, isAuthenticated } = useSharedAuth()
+  const { user } = useSharedAuth()
   const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState<CreatePermissionTemplateRequest>({
     name: '',
@@ -51,19 +50,6 @@ export default function NewPlanPage() {
   })
 
   const { permissions: availablePermissions, isLoading: loadingPermissions } = useAvailablePermissions()
-
-  if (authLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <PageLoadingSpinner label="Loading..." />
-      </div>
-    )
-  }
-
-  if (!isAuthenticated || user === null) {
-    router.push(PLANS_ROUTE)
-    return null
-  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

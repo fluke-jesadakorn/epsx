@@ -28,7 +28,7 @@ const getStatusColor = (status: string): string => {
         case 'expired':
             return 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/10';
         default:
-            return 'bg-white/5 text-muted-foreground border border-white/10';
+            return 'bg-white dark:bg-white/[0.04] text-muted-foreground border border-gray-200 dark:border-border';
     }
 };
 
@@ -85,8 +85,8 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
             </div>
 
             {/* Recent API Keys */}
-            <div className="relative overflow-hidden rounded-[32px] bg-slate-900/40 backdrop-blur-2xl border border-white/5 shadow-xl">
-                <div className="p-8 border-b border-white/5">
+            <div className="relative overflow-hidden rounded-[32px] bg-white dark:bg-card backdrop-blur-2xl border border-gray-200 dark:border-border shadow-xl">
+                <div className="p-8 border-b border-gray-200 dark:border-border">
                     <div className="flex items-center justify-between">
                         <div>
                             <h3 className="text-xl font-black text-foreground uppercase tracking-tight mb-1">
@@ -110,10 +110,10 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                         </div>
                     ) : (
                         apiKeys.slice(0, 5).map(apiKey => (
-                            <div key={apiKey.id} className="p-8 hover:bg-white/[0.02] transition-colors">
+                            <div key={apiKey.id} className="p-8 hover:bg-gray-50 dark:hover:bg-white/[0.02] transition-colors">
                                 <div className="flex items-center justify-between">
                                     <div className="flex items-center space-x-5">
-                                        <div className="w-12 h-12 flex items-center justify-center bg-white/5 rounded-2xl border border-white/5">
+                                        <div className="w-12 h-12 flex items-center justify-center bg-white dark:bg-white/[0.04] rounded-2xl border border-gray-200 dark:border-border">
                                             <Key className="w-6 h-6 text-[#1fc7d4]" />
                                         </div>
                                         <div>
@@ -131,7 +131,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                                         >
                                             {apiKey.status}
                                         </span>
-                                        <div className="text-xs font-black text-muted-foreground uppercase tracking-widest bg-white/5 px-3 py-1.5 rounded-lg border border-white/5">
+                                        <div className="text-xs font-black text-muted-foreground uppercase tracking-widest bg-white dark:bg-white/[0.04] px-3 py-1.5 rounded-lg border border-gray-200 dark:border-border">
                                             {apiKey.total_requests.toLocaleString()} REQS
                                         </div>
                                     </div>
@@ -167,8 +167,8 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
             </div>
 
             {/* Available Modules */}
-            <div className="relative overflow-hidden rounded-[32px] bg-slate-900/40 backdrop-blur-2xl border border-white/5 shadow-xl">
-                <div className="p-8 border-b border-white/5">
+            <div className="relative overflow-hidden rounded-[32px] bg-white dark:bg-card backdrop-blur-2xl border border-gray-200 dark:border-border shadow-xl">
+                <div className="p-8 border-b border-gray-200 dark:border-border">
                     <h3 className="text-xl font-black text-foreground uppercase tracking-tight mb-1">
                         Available Modules
                     </h3>
@@ -183,7 +183,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                         modules.map(module => (
                             <div
                                 key={module.id}
-                                className="relative group p-6 rounded-[24px] bg-white/5 border border-white/5 hover:bg-white/[0.08] transition-all duration-300"
+                                className="relative group p-6 rounded-[24px] bg-white dark:bg-white/[0.04] border border-gray-200 dark:border-border hover:bg-white/[0.08] transition-all duration-300"
                             >
                                 <div className="flex items-start justify-between mb-4">
                                     <div>
@@ -201,7 +201,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                                 <p className="text-sm font-bold text-muted-foreground mb-4 line-clamp-2">
                                     {module.description ?? 'No description available'}
                                 </p>
-                                <div className="flex items-center text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em] bg-white/5 px-3 py-2 rounded-xl border border-white/5 w-fit">
+                                <div className="flex items-center text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em] bg-white dark:bg-white/[0.04] px-3 py-2 rounded-xl border border-gray-200 dark:border-border w-fit">
                                     <span className="opacity-50 mr-2">Category:</span> {module.category}
                                 </div>
                             </div>

@@ -30,18 +30,6 @@ interface PermissionTemplate {
   created_at: string;
 }
 
-interface PermissionAuditLog {
-  id: string;
-  action: 'grant' | 'revoke' | 'expire' | 'modify';
-  wallet_address: string;
-  permissions: string[];
-  performed_by: string;
-  timestamp: string;
-  reason?: string;
-  ip_address?: string;
-  user_agent?: string;
-}
-
 const PATH_PERMISSIONS = '/policies';
 const PATH_WALLET_MGMT = '/wallet-management';
 
@@ -333,99 +321,6 @@ export async function applyPermissionTemplate(params: {
       message: error instanceof Error ? error.message : UNKNOWN_ERROR,
       processed: 0,
       failed: params.walletAddresses
-    };
-  }
-}
-
-// Get permission audit log
-/**
- *
- * @param limit
- * @param offset
- * @param filters
- * @param filters.wallet_address
- * @param filters.action
- * @param filters.date_from
- * @param filters.date_to
- */
-export async function getPermissionAuditLog(
-  limit = 50,
-  offset = 0,
-  filters?: {
-    wallet_address?: string;
-    action?: string;
-    date_from?: string;
-    date_to?: string;
-  }
-): Promise<{
-  logs: PermissionAuditLog[];
-  total: number;
-  hasMore: boolean;
-}> {
-  const cookieStore = await cookies();
-  const token = cookieStore.get(COOKIES.access_token)?.value;
-
-  if (token === undefined || token === '') {
-    throw new Error(AUTH_REQUIRED_MSG);
-  }
-
-  try {
-    const params = new URLSearchParams({
-      limit: limit.toString(),
-      offset: offset.toString(),
-    });
-
-    if (filters) {
-      Object.entries(filters).forEach(([key, value]) => {
-        if (value) { params.append(key, value); }
-      });
-    }
-
-    const response = await fetch(`${process.env.BACKEND_URL}${API_ROUTES.ADMIN.AUDIT_LOGS}?${params.toString()}`, {
-      method: 'GET',
-      headers: getAuthHeaders(token),
-      cache: 'no-store',
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to fetch audit log: ${response.status}`);
-    }
-
-    return (await response.json()) as {
-      logs: PermissionAuditLog[];
-      total: number;
-      hasMore: boolean;
-    };
-  } catch (error) {
-    logger.error('Error fetching audit log:', { error });
-    // Return mock data for development
-    return {
-      logs: [
-        {
-          id: '1',
-          action: 'grant',
-          wallet_address: '0x742d35Cc6634C0532925a3b8D4C9db96C4b4d8b6',
-          permissions: ['epsx:analytics:basic', 'epsx:analytics:view'],
-          performed_by: 'admin@epsx.com',
-          timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-          reason: 'Standard user permissions',
-          ip_address: '192.168.1.100',
-          user_agent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-        },
-        {
-          id: '2',
-          action: 'revoke',
-          wallet_address: '0x1234567890123456789012345678901234567890',
-          permissions: 'admin:users:manage'.split(','), // Simple mock
-          performed_by: 'admin@epsx.com',
-          timestamp: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(),
-          reason: 'Security policy violation',
-          ip_address: '192.168.1.101',
-          user_agent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36'
-        }
-      ],
-      total: 2,
-      hasMore: false
     };
   }
 }

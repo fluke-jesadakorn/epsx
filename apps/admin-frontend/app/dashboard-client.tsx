@@ -4,61 +4,18 @@ import { DashboardActionGrid } from '@/components/admin/dashboard-action-grid';
 import { DashboardQuickStats } from '@/components/admin/dashboard-quick-stats';
 import { DashboardStatCard } from '@/components/admin/dashboard-stat-card';
 import { RecentWalletsPanel } from '@/components/admin/recent-wallets-panel';
-import { PageAuthRequired, PageHeader, PageLayout, PageSkeleton } from '@/components/shared';
+import { PageHeader, PageLayout } from '@/components/shared';
 import type { RecentWalletsData } from '@/hooks/use-analytics-data';
 import { useDashboardData } from '@/hooks/use-dashboard-data';
 import { useSharedAuth } from '@/shared/components/auth';
-import { Shield } from 'lucide-react';
 
-/**
- * Admin Dashboard Client Component
- */
 interface DashboardClientProps {
   initialRecentWallets?: RecentWalletsData;
 }
 
-/**
- *
- */
 export default function DashboardClient({ initialRecentWallets }: DashboardClientProps) {
-  const { user, isAuthenticated, isLoading } = useSharedAuth();
-  const { dashboardStats, accessError } = useDashboardData(isAuthenticated);
-
-  // Show loading state
-  if (isLoading) {
-    return <PageSkeleton showHeader stats={4} rows={6} />;
-  }
-
-  // Show authentication required if not authenticated
-  if (!isAuthenticated) {
-    return <PageAuthRequired />;
-  }
-
-  // Show access error if backend rejected the request
-  // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-  if (accessError) {
-    return (
-      <PageLayout>
-        <div className="text-center max-w-md mx-auto py-16">
-          <div className="w-20 h-20 bg-destructive/10 rounded-3xl flex items-center justify-center mx-auto mb-6">
-            <Shield className="w-10 h-10 text-destructive" />
-          </div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-4">
-            Access Denied
-          </h1>
-          <p className="text-muted-foreground mb-8">
-            {accessError}
-          </p>
-          <a
-            href="/auth"
-            className="inline-flex items-center gap-2 px-6 py-3 bg-destructive text-destructive-foreground rounded-2xl font-semibold hover:opacity-90 transition-opacity"
-          >
-            Try Again
-          </a>
-        </div>
-      </PageLayout>
-    );
-  }
+  const { user } = useSharedAuth();
+  const { dashboardStats } = useDashboardData(true);
 
   // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
   const subtitle = `Welcome back, ${user?.wallet_address ? `${user.wallet_address.slice(0, 6)}...${user.wallet_address.slice(-4)}` : 'Admin'}`;

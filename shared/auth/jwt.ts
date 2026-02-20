@@ -173,10 +173,18 @@ export function decodeJWT(token: string): JWTUser | null {
     if (!payloadPart) { return null; }
     const payload = JSON.parse(atob(payloadPart)) as Record<string, unknown>;
 
+    // OIDC tokens store permissions in scope claim
+    let permissions: string[] = [];
+    if (Array.isArray(payload.permissions)) {
+      permissions = payload.permissions as string[];
+    } else if (typeof payload.scope === 'string') {
+      permissions = (payload.scope as string).split(' ').filter(s => s.includes(':'));
+    }
+
     return {
       uid: (payload.sub as string | undefined) ?? (payload.uid as string | undefined) ?? 'unknown',
-      email: payload.email as string,
-      permissions: Array.isArray(payload.permissions) ? (payload.permissions as string[]) : [],
+      email: (payload.email as string | undefined) ?? (payload.wallet_address as string | undefined) ?? '',
+      permissions,
       iat: payload.iat as number,
       exp: payload.exp as number,
     };
@@ -255,7 +263,23 @@ export function decodeEPSXJWT(token: string): EPSXJWTPayload | null {
   try {
     const payloadPart = token.split('.')[1];
     if (!payloadPart) { return null; }
-    return JSON.parse(atob(payloadPart)) as EPSXJWTPayload;
+    const raw = JSON.parse(atob(payloadPart)) as EPSXJWTPayload & { scope?: string; wallet_address?: string };
+
+    // OIDC tokens store permissions in scope claim as space-delimited string
+    // e.g. "openid profile admin:*:*" → extract permission strings containing ":"
+    if ((!Array.isArray(raw.permissions) || raw.permissions.length === 0) && typeof raw.scope === 'string') {
+      raw.permissions = raw.scope.split(' ').filter(s => s.includes(':'));
+    }
+
+    // OIDC tokens use wallet_address instead of email/name
+    if (!raw.email && raw.wallet_address) {
+      raw.email = raw.wallet_address;
+    }
+    if (!raw.name && raw.wallet_address) {
+      raw.name = raw.wallet_address;
+    }
+
+    return raw;
   } catch {
     return null;
   }

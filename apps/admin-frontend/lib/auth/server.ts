@@ -83,53 +83,29 @@ export async function getCurrentUser(): Promise<EnhancedAuthUser | null> {
   }
 }
 
-export function hasPermission(user: EnhancedAuthUser | null, _permission: string): boolean {
-  // PERMISSION REFACTOR: Server-side checks in the frontend are now permissive.
-  // The Rust backend makes all final authorization decisions.
-  return user !== null;
-}
-
 /**
- * Check if user has required admin module (deprecated - use hasPermission instead)
- * @param user
- * @param _module
- */
-export function hasAdminModule(user: EnhancedAuthUser | null, _module: string): boolean {
-  return user !== null;
-}
-
-/**
- * Check if user is admin (has any admin permissions)
- * @param user
- */
-export function isAdmin(user: EnhancedAuthUser | null): boolean {
-  return user !== null;
-}
-
-/**
- * Require admin authentication - throws if not admin
+ * Require admin authentication - throws if not authenticated
  */
 export async function requireAdminAuth(): Promise<EnhancedAuthUser> {
   const user = await getCurrentUser();
-  if (!user || !isAdmin(user)) {
+  if (user === null) {
     throw new Error('Admin authentication required');
   }
   return user;
 }
 
 /**
- * Get user context with permissions info
+ * Get user context for the current session
  */
 export async function getUserContext() {
   try {
     const user = await getCurrentUser();
-    if (!user) { return null; }
+    if (user === null) { return null; }
 
     const platform = user.platform_context ?? user.primary_platform ?? 'epsx';
 
     return {
       user,
-      isAdmin: isAdmin(user),
       permissions: user.permissions,
       platform,
     };
@@ -137,22 +113,4 @@ export async function getUserContext() {
     logger.error('❌ Failed to get user context:', { error: _error });
     return null;
   }
-}
-
-interface PlatformPermissionOptions {
-  resource: string;
-  action: string;
-  platform?: string;
-}
-
-/**
- * Check if user has platform-specific permission
- * @param user
- * @param _options
- */
-export function hasPlatformPermission(
-  user: EnhancedAuthUser | null,
-  _options: PlatformPermissionOptions
-): boolean {
-  return user !== null;
 }

@@ -122,10 +122,10 @@ export function SendNotificationForm({ onSuccess, onCancel }: SendNotificationFo
             onClick={() => setRecipientType('specific')}
             className={`flex items-center gap-6 p-6 rounded-[24px] border transition-all ${recipientType === 'specific'
                 ? 'bg-[#1fc7d4]/10 border-[#1fc7d4] shadow-[0_0_20px_rgba(31,199,212,0.1)]'
-                : 'bg-white/5 border-white/5 hover:border-white/10'
+                : 'bg-white dark:bg-white/[0.04] border-gray-200 dark:border-border hover:border-gray-200 dark:border-border'
               }`}
           >
-            <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${recipientType === 'specific' ? 'bg-[#1fc7d4] text-white' : 'bg-white/5 text-muted-foreground/30'
+            <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${recipientType === 'specific' ? 'bg-[#1fc7d4] text-white' : 'bg-white dark:bg-white/[0.04] text-muted-foreground/30'
               }`}>
               <User className="h-6 w-6" />
             </div>
@@ -140,10 +140,10 @@ export function SendNotificationForm({ onSuccess, onCancel }: SendNotificationFo
             onClick={() => setRecipientType('broadcast')}
             className={`flex items-center gap-6 p-6 rounded-[24px] border transition-all ${recipientType === 'broadcast'
                 ? 'bg-amber-500/10 border-amber-500 shadow-[0_0_20px_rgba(245,158,11,0.1)]'
-                : 'bg-white/5 border-white/5 hover:border-white/10'
+                : 'bg-white dark:bg-white/[0.04] border-gray-200 dark:border-border hover:border-gray-200 dark:border-border'
               }`}
           >
-            <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${recipientType === 'broadcast' ? 'bg-amber-500 text-white' : 'bg-white/5 text-muted-foreground/30'
+            <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${recipientType === 'broadcast' ? 'bg-amber-500 text-white' : 'bg-white dark:bg-white/[0.04] text-muted-foreground/30'
               }`}>
               <Users className="h-6 w-6" />
             </div>
@@ -168,7 +168,7 @@ export function SendNotificationForm({ onSuccess, onCancel }: SendNotificationFo
                 placeholder="0x..."
                 value={walletAddress}
                 onChange={(e) => setWalletAddress(e.target.value)}
-                className="h-14 bg-white/5 border-white/10 rounded-2xl px-6 font-mono text-sm group-hover:bg-white/[0.08] focus:border-[#1fc7d4]/50 transition-all"
+                className="h-14 bg-white dark:bg-white/[0.04] border-gray-200 dark:border-border rounded-2xl px-6 font-mono text-sm group-hover:bg-white/[0.08] focus:border-[#1fc7d4]/50 transition-all"
               />
               <div className="absolute right-4 top-1/2 -translate-y-1/2 opacity-20 pointer-events-none font-black text-[10px] uppercase">
                 Required
@@ -183,10 +183,10 @@ export function SendNotificationForm({ onSuccess, onCancel }: SendNotificationFo
             Classification
           </label>
           <Select value={notificationType} onValueChange={(v) => setNotificationType(v as NotificationType)}>
-            <SelectTrigger className="h-14 bg-white/5 border-white/10 rounded-2xl px-6 text-sm font-black uppercase tracking-widest hover:bg-white/[0.08]">
+            <SelectTrigger className="h-14 bg-white dark:bg-white/[0.04] border-gray-200 dark:border-border rounded-2xl px-6 text-sm font-black uppercase tracking-widest hover:bg-white/[0.08]">
               <SelectValue />
             </SelectTrigger>
-            <SelectContent className="bg-slate-900 border-white/10 rounded-2xl overflow-hidden backdrop-blur-3xl">
+            <SelectContent className="bg-white dark:bg-card border-gray-200 dark:border-border rounded-2xl overflow-hidden backdrop-blur-3xl">
               <SelectItem value="system" className="p-4 focus:bg-[#1fc7d4]/10">
                 <div className="flex items-center font-black uppercase tracking-widest text-[10px]">
                   <Settings className="w-4 h-4 mr-3 text-cyan-400" /> System Alert
@@ -222,10 +222,10 @@ export function SendNotificationForm({ onSuccess, onCancel }: SendNotificationFo
             Priority Vector
           </label>
           <Select value={priority} onValueChange={(v) => setPriority(v as NotificationPriority)}>
-            <SelectTrigger className="h-14 bg-white/5 border-white/10 rounded-2xl px-6 text-sm font-black uppercase tracking-widest hover:bg-white/[0.08]">
+            <SelectTrigger className="h-14 bg-white dark:bg-white/[0.04] border-gray-200 dark:border-border rounded-2xl px-6 text-sm font-black uppercase tracking-widest hover:bg-white/[0.08]">
               <SelectValue />
             </SelectTrigger>
-            <SelectContent className="bg-slate-900 border-white/10 rounded-2xl overflow-hidden backdrop-blur-3xl">
+            <SelectContent className="bg-white dark:bg-card border-gray-200 dark:border-border rounded-2xl overflow-hidden backdrop-blur-3xl">
               <SelectItem value="low" className="p-4 focus:bg-[#1fc7d4]/10 font-black uppercase tracking-widest text-[10px] text-green-400">Low Clearance</SelectItem>
               <SelectItem value="normal" className="p-4 focus:bg-[#1fc7d4]/10 font-black uppercase tracking-widest text-[10px] text-cyan-400">Normal Operation</SelectItem>
               <SelectItem value="high" className="p-4 focus:bg-[#1fc7d4]/10 font-black uppercase tracking-widest text-[10px] text-amber-400">High Priority</SelectItem>
@@ -243,7 +243,7 @@ export function SendNotificationForm({ onSuccess, onCancel }: SendNotificationFo
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="Payload designation..."
-            className="h-14 bg-white/5 border-white/10 rounded-2xl px-6 font-bold text-sm tracking-tight hover:bg-white/[0.08] focus:border-[#1fc7d4]/50 transition-all"
+            className="h-14 bg-white dark:bg-white/[0.04] border-gray-200 dark:border-border rounded-2xl px-6 font-bold text-sm tracking-tight hover:bg-white/[0.08] focus:border-[#1fc7d4]/50 transition-all"
           />
         </div>
 
@@ -257,7 +257,7 @@ export function SendNotificationForm({ onSuccess, onCancel }: SendNotificationFo
             onChange={(e) => setMessage(e.target.value)}
             placeholder="Enter transmission data..."
             rows={5}
-            className="bg-white/5 border-white/10 rounded-2xl p-6 font-bold text-sm tracking-tight hover:bg-white/[0.08] focus:border-[#1fc7d4]/50 transition-all resize-none"
+            className="bg-white dark:bg-white/[0.04] border-gray-200 dark:border-border rounded-2xl p-6 font-bold text-sm tracking-tight hover:bg-white/[0.08] focus:border-[#1fc7d4]/50 transition-all resize-none"
           />
         </div>
 
@@ -271,7 +271,7 @@ export function SendNotificationForm({ onSuccess, onCancel }: SendNotificationFo
             value={actionUrl}
             onChange={(e) => setActionUrl(e.target.value)}
             placeholder="https://..."
-            className="h-12 bg-white/5 border-white/10 rounded-2xl px-5 text-xs font-bold hover:bg-white/[0.08] focus:border-[#1fc7d4]/50 transition-all"
+            className="h-12 bg-white dark:bg-white/[0.04] border-gray-200 dark:border-border rounded-2xl px-5 text-xs font-bold hover:bg-white/[0.08] focus:border-[#1fc7d4]/50 transition-all"
           />
         </div>
 
@@ -285,13 +285,13 @@ export function SendNotificationForm({ onSuccess, onCancel }: SendNotificationFo
             value={imageUrl}
             onChange={(e) => setImageUrl(e.target.value)}
             placeholder="https://..."
-            className="h-12 bg-white/5 border-white/10 rounded-2xl px-5 text-xs font-bold hover:bg-white/[0.08] focus:border-[#1fc7d4]/50 transition-all"
+            className="h-12 bg-white dark:bg-white/[0.04] border-gray-200 dark:border-border rounded-2xl px-5 text-xs font-bold hover:bg-white/[0.08] focus:border-[#1fc7d4]/50 transition-all"
           />
         </div>
       </div>
 
       {/* Execution Control */}
-      <div className="flex items-center gap-6 pt-10 border-t border-white/5">
+      <div className="flex items-center gap-6 pt-10 border-t border-gray-200 dark:border-border">
         {onCancel && (
           <Button
             type="button"

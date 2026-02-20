@@ -12,7 +12,7 @@ file = "src/schemas/primary.rs"
 import_types = ["diesel::sql_types::*"]
 
 # Exclude migration tables and filter for core tables
-filter = { only_tables = ["wallet_users", "api_keys", "system_settings", "plans", "plan_permissions", "permissions", "route_permissions", "wallet_direct_permissions", "web3_auth_nonces", "openid_refresh_tokens", "outbox_events", "api_modules", "api_key_module_access"] }
+filter = { only_tables = ["wallet_users", "api_keys", "system_settings", "plans", "plan_permissions", "permissions", "route_permissions", "wallet_direct_permissions", "web3_auth_nonces", "openid_refresh_tokens", "outbox_events", "api_modules", "api_key_module_access", "chat_topics", "chat_conversations", "chat_messages"] }
 
 # Use Rust naming conventions (snake_case table names -> snake_case)
 with_docs = true

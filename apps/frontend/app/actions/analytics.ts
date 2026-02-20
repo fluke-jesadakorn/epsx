@@ -37,6 +37,26 @@ export async function getRankingsAction(filters: Partial<AnalyticsFilters> = {})
 }
 
 /**
+ * Fetch public stock rankings (no auth required)
+ * For public pages like the homepage
+ */
+export async function getPublicRankingsAction(filters: Partial<AnalyticsFilters> = {}) {
+    const client = getServerActionClient();
+    const analytics = createAnalyticsClient(client);
+
+    const mergedFilters: AnalyticsFilters = {
+        ...DEFAULT_ANALYTICS_FILTERS,
+        ...filters,
+    };
+
+    if ((mergedFilters.sort_by as string) === 'ranking_position') {
+        mergedFilters.sort_by = 'eps_growth';
+    }
+
+    return await analytics.getPublicRankings(mergedFilters);
+}
+
+/**
  * Fetch available filter options (countries, sectors, etc.)
  */
 export async function getAnalyticsFiltersAction() {

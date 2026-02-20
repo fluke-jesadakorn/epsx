@@ -1,12 +1,13 @@
+import { redirect } from 'next/navigation';
+
 import { NotificationManagement } from '@/components/notifications/notification-management';
-import { PageAuthRequired } from '@/components/shared';
 import { getCurrentUser } from '@/lib/auth/server';
 
 export default async function ManageNotificationsPage() {
     const user = await getCurrentUser();
 
     if (!user) {
-        return <PageAuthRequired />;
+        redirect('/auth');
     }
 
     return <NotificationManagement currentUser={user} />;

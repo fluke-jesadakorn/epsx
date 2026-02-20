@@ -7,6 +7,7 @@ use std::sync::Arc;
 use crate::infrastructure::cache::Cache;
 use crate::infrastructure::container::DomainContainer;
 use crate::infrastructure::redis::RedisPool;
+use crate::infrastructure::services::audit_service::AuditService;
 use crate::web::notifications::RedisNotificationBroadcaster;
 use crate::domain::payment::repository_ports::{TransactionHistoryProvider};
 use crate::domain::auth::ports::IdentityProviderPort;
@@ -28,6 +29,7 @@ pub struct AppState {
     pub identity_provider: Option<Arc<dyn IdentityProviderPort>>,
 
     pub analytics_db_pool: Option<Arc<&'static TlsPool>>,
+    pub audit: Arc<AuditService>,
     // pub payment_repository: Arc<PaymentRepositoryAdapter>, // Temporarily disabled
     // Stub for backwards compatibility with admin handlers
     pub user_repo: Option<String>,
@@ -55,6 +57,8 @@ impl AppState {
         let transaction_history_provider = domain_container.transaction_history_provider.clone();
         let identity_provider = domain_container.identity_provider.clone();
 
+        let audit_pool = analytics_db_pool.clone().unwrap_or_else(|| db_pool.clone());
+        let audit = Arc::new(AuditService::new(audit_pool));
 
         Self {
             db_pool,
@@ -67,6 +71,7 @@ impl AppState {
             identity_provider,
 
             analytics_db_pool,
+            audit,
             // payment_repository, // Temporarily disabled
             user_repo: None, // Placeholder for backwards compatibility
         }

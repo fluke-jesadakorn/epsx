@@ -16,6 +16,7 @@ use uuid::Uuid;
 use chrono::{Utc, DateTime};
 
 use crate::web::auth::AppState;
+use crate::infrastructure::services::audit_service::{AuditCtx, AuditEntry};
 use crate::application::shared::{CommandHandler, QueryHandler};
 use crate::domain::subscription_management::aggregates::Plan;
 use crate::domain::shared_kernel::aggregate_root::AggregateRoot;
@@ -135,6 +136,8 @@ fn generate_api_key() -> String {
 )]
 pub async fn create_plan_handler(
     State(app_state): State<AppState>,
+    axum::Extension(user_ctx): axum::Extension<crate::web::middleware::bearer_middleware::OpenIDUserContext>,
+    headers: axum::http::HeaderMap,
     Json(request): Json<CreatePlanRequest>,
 ) -> Result<JsonResponse<PlanResponse>, StatusCode> {
     let repo = app_state.domain_container.get_plan_repository_port()
@@ -174,7 +177,17 @@ pub async fn create_plan_handler(
         Ok(create_response) => {
             let plan_id = PlanId::parse(&create_response.plan_id).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
             match repo.find_by_id(&plan_id).await {
-                Ok(Some(plan)) => Ok(JsonResponse(map_plan_to_response(plan, 0, Decimal::ZERO))),
+                Ok(Some(plan)) => {
+                    let ctx = AuditCtx::from_wallet(&user_ctx.wallet_address, &headers);
+                    app_state.audit.log(ctx, AuditEntry::new("plan", "create", "plan")
+                        .id(&create_response.plan_id)
+                        .after(serde_json::json!({
+                            "name": plan.name(),
+                            "price": plan.price().amount().to_f64(),
+                            "is_active": plan.is_active(),
+                        })));
+                    Ok(JsonResponse(map_plan_to_response(plan, 0, Decimal::ZERO)))
+                },
                 _ => Err(StatusCode::INTERNAL_SERVER_ERROR),
             }
         },
@@ -282,16 +295,21 @@ pub async fn get_plan_handler(
 )]
 pub async fn update_plan_handler(
     State(app_state): State<AppState>,
+    axum::Extension(user_ctx): axum::Extension<crate::web::middleware::bearer_middleware::OpenIDUserContext>,
+    headers: axum::http::HeaderMap,
     Path(id): Path<String>,
     Json(request): Json<UpdatePlanRequest>,
 ) -> Result<JsonResponse<PlanResponse>, StatusCode> {
     let repo = app_state.domain_container.get_plan_repository_port()
         .ok_or(StatusCode::INTERNAL_SERVER_ERROR)?;
-    
-
 
     let command_handler = UpdatePlanCommandHandler::new(repo.clone());
     let plan_id = PlanId::parse(&id).map_err(|_| StatusCode::BAD_REQUEST)?;
+
+    // Capture before state for audit
+    let before = repo.find_by_id(&plan_id).await.ok().flatten().map(|p| serde_json::json!({
+        "name": p.name(), "price": p.price().amount().to_f64(), "is_active": p.is_active(),
+    }));
     
 
     
@@ -331,7 +349,16 @@ pub async fn update_plan_handler(
     match command_handler.handle(command).await {
         Ok(_update_response) => {
             match repo.find_by_id(&plan_id).await {
-                Ok(Some(plan)) => Ok(JsonResponse(map_plan_to_response(plan, 0, Decimal::ZERO))),
+                Ok(Some(plan)) => {
+                    let ctx = AuditCtx::from_wallet(&user_ctx.wallet_address, &headers);
+                    let mut entry = AuditEntry::new("plan", "update", "plan").id(&id);
+                    if let Some(b) = before { entry = entry.before(b); }
+                    entry = entry.after(serde_json::json!({
+                        "name": plan.name(), "price": plan.price().amount().to_f64(), "is_active": plan.is_active(),
+                    }));
+                    app_state.audit.log(ctx, entry);
+                    Ok(JsonResponse(map_plan_to_response(plan, 0, Decimal::ZERO)))
+                },
                 _ => Err(StatusCode::INTERNAL_SERVER_ERROR),
             }
         },
@@ -353,11 +380,13 @@ pub async fn update_plan_handler(
 )]
 pub async fn delete_plan_handler(
     State(app_state): State<AppState>,
+    axum::Extension(user_ctx): axum::Extension<crate::web::middleware::bearer_middleware::OpenIDUserContext>,
+    headers: axum::http::HeaderMap,
     Path(id): Path<String>,
 ) -> Result<StatusCode, StatusCode> {
     let repo = app_state.domain_container.get_plan_repository_port()
         .ok_or(StatusCode::INTERNAL_SERVER_ERROR)?;
-    
+
     // Block deletion of constant Free Plan
     if id == crate::core::constants::FREE_PLAN_ID {
         return Err(StatusCode::FORBIDDEN);
@@ -366,8 +395,19 @@ pub async fn delete_plan_handler(
     let command_handler = DeletePlanCommandHandler::new(repo.clone());
     let plan_id = PlanId::parse(&id).map_err(|_| StatusCode::BAD_REQUEST)?;
 
+    // Capture before state
+    let before = repo.find_by_id(&plan_id).await.ok().flatten().map(|p| serde_json::json!({
+        "name": p.name(), "price": p.price().amount().to_f64(), "is_active": p.is_active(),
+    }));
+
     match command_handler.handle(DeletePlanCommand { id: plan_id }).await {
-        Ok(_) => Ok(StatusCode::OK),
+        Ok(_) => {
+            let ctx = AuditCtx::from_wallet(&user_ctx.wallet_address, &headers);
+            let mut entry = AuditEntry::new("plan", "delete", "plan").id(&id);
+            if let Some(b) = before { entry = entry.before(b); }
+            app_state.audit.log(ctx, entry);
+            Ok(StatusCode::OK)
+        },
         Err(e) => {
             tracing::error!("Failed to delete plan: {}", e);
             Err(StatusCode::INTERNAL_SERVER_ERROR)
@@ -378,6 +418,8 @@ pub async fn delete_plan_handler(
 /// Create permission template-based subscription
 pub async fn create_subscription_handler(
     State(state): State<AppState>,
+    axum::Extension(user_ctx): axum::Extension<crate::web::middleware::bearer_middleware::OpenIDUserContext>,
+    headers: axum::http::HeaderMap,
     Json(request): Json<CreateSubscriptionRequest>,
 ) -> Result<JsonResponse<SubscriptionResponse>, StatusCode> {
     use diesel::prelude::*;
@@ -496,7 +538,18 @@ pub async fn create_subscription_handler(
             tracing::error!("Failed to insert subscription: {}", e);
             StatusCode::INTERNAL_SERVER_ERROR
         })?;
-    
+
+    // Audit log
+    let ctx = AuditCtx::from_wallet(&user_ctx.wallet_address, &headers);
+    state.audit.log(ctx, AuditEntry::new("subscription", "assign", "plan")
+        .id(&subscription_id.to_string())
+        .after(serde_json::json!({
+            "wallet_address": &request.wallet_address,
+            "plan_name": &request.permission_plan_name,
+            "plan_id": plan_uuid.to_string(),
+            "expires_at": expires_at.to_rfc3339(),
+        })));
+
     let response = SubscriptionResponse {
         id: subscription_id.to_string(),
         wallet_address: request.wallet_address,
@@ -516,7 +569,7 @@ pub async fn create_subscription_handler(
         current_usage: serde_json::json!({"api_calls": 0, "rankings_viewed": 0}),
         quota_limits,
     };
-    
+
     Ok(JsonResponse(response))
 }
 

@@ -338,6 +338,22 @@ export class UsersApi {
   }
 
   // ============================================================================
+  // WATCHLIST
+  // ============================================================================
+
+  async getWatchlist(): Promise<ApiResponse<{ symbols: string[] }>> {
+    return this.client.get<{ symbols: string[] }>('/api/users/watchlist');
+  }
+
+  async addToWatchlist(symbol: string): Promise<ApiResponse<{ symbols: string[] }>> {
+    return this.client.post<{ symbols: string[] }>('/api/users/watchlist', { symbol });
+  }
+
+  async removeFromWatchlist(symbol: string): Promise<ApiResponse<{ symbols: string[] }>> {
+    return this.client.delete<{ symbols: string[] }>(`/api/users/watchlist/${symbol}`);
+  }
+
+  // ============================================================================
   // DATA MANAGEMENT
   // ============================================================================
 

@@ -3,6 +3,7 @@
   "chainId": 56,
   "deploymentDate": "2026-02-16",
   "deployer": "0xea64439c9cb1b9Aa588a8D1cE61292DB4036E3dF",
+  "paymentReceiver": "0xea64439c9cb1b9Aa588a8D1cE61292DB4036E3dF",
   "contracts": {
     "PaymentEscrow": {
       "address": "0x56e44c9b61Aa24D47C22414e799DA8D76B345Db0",

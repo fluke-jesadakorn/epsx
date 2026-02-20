@@ -1403,6 +1403,36 @@ diesel::table! {
 diesel::table! {
     use diesel::sql_types::*;
 
+    /// Unified audit log for all admin actions
+    unified_audit_log (id) {
+        id -> Uuid,
+        #[max_length = 42]
+        actor -> Nullable<Varchar>,
+        #[max_length = 20]
+        actor_type -> Varchar,
+        created_at -> Timestamptz,
+        #[max_length = 50]
+        resource_type -> Varchar,
+        #[max_length = 255]
+        resource_id -> Nullable<Varchar>,
+        #[max_length = 50]
+        action -> Varchar,
+        #[max_length = 20]
+        effect -> Varchar,
+        before_state -> Nullable<Jsonb>,
+        after_state -> Nullable<Jsonb>,
+        #[max_length = 45]
+        ip_address -> Nullable<Varchar>,
+        user_agent -> Nullable<Text>,
+        metadata -> Nullable<Jsonb>,
+        #[max_length = 30]
+        category -> Varchar,
+    }
+}
+
+diesel::table! {
+    use diesel::sql_types::*;
+
     /// Wallet activity tracking
     wallet_activity_logs (id) {
         /// The `id` column of the `wallet_activity_logs` table.
@@ -1473,5 +1503,6 @@ diesel::allow_tables_to_appear_in_same_query!(
     audit_logs,
     event_store,
     permission_audit_log,
+    unified_audit_log,
     wallet_activity_logs,
 );

@@ -9,6 +9,7 @@ import type {
     SystemMetrics,
     UserStats
 } from '@/hooks/use-analytics-data';
+import { redirectOnForbidden, rethrowRedirect } from '@/lib/api-error';
 import { logout } from '@/lib/auth/auth';
 import { createAdminApiClient, createPlansClient } from '@/shared/api';
 import type { ApiResponse } from '@/shared/types/api';
@@ -16,9 +17,6 @@ import type { UnifiedApiClient } from '@/shared/utils/api-client';
 import { logger } from '@/shared/utils/logger';
 import { redirect } from 'next/navigation';
 
-function isNextRedirectError(error: unknown): boolean {
-    return error instanceof Error && (error as { digest?: string }).digest?.startsWith('NEXT_REDIRECT') === true;
-}
 
 async function processApiResponse<T>(
     res: ApiResponse<T>,
@@ -26,6 +24,8 @@ async function processApiResponse<T>(
     defaultValue?: T
 ): Promise<T> {
     if (!res.success) {
+        redirectOnForbidden(res, '/analytics');
+
         if (res.error?.code === '401' || res.error?.code === 'UNAUTHORIZED') {
             await logout();
             redirect('/auth');
@@ -48,10 +48,7 @@ function processApiError<T>(
     errorMessage: string,
     defaultValue?: T
 ): T {
-    // Allow Next.js redirects to bubble up
-    if (isNextRedirectError(error)) {
-        throw error;
-    }
+    rethrowRedirect(error);
 
     logger.error(`${errorMessage}:`, error instanceof Error ? error.message : String(error));
 

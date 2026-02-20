@@ -31,12 +31,6 @@ import {
   type PaginationButtonProps
 } from './buttons/base-button'
 
-// Modals - Import for local use and re-export
-import {
-  BaseModal,
-  type BaseModalProps
-} from './modals/base-modal'
-
 // ============================================================================
 // FORM COMPONENTS
 // ============================================================================
@@ -127,11 +121,6 @@ export {
 } from './buttons/pancake-button'
 
 export {
-  BaseModal,
-  type BaseModalProps
-}
-
-export {
   BaseForm as Form, FormControl,
   FormDescription, FormField, FormFieldWrapper, FormItem,
   FormLabel, FormMessage, useFormField,
@@ -166,8 +155,6 @@ export const Components = {
   // Core - lazy loaded to avoid circular dependencies
   get Card() { return BaseCard },
   get Button() { return BaseButton },
-  get Modal() { return BaseModal },
-
   // Forms
   get Form() { return BaseForm },
   get Input() { return BaseInput },
@@ -179,8 +166,6 @@ export const Components = {
 export { BaseButton as Button } from './buttons/base-button'
 export { BaseCard as Card } from './cards/base-card'
 export { BaseForm } from './forms/base-form'
-export { BaseModal as Modal } from './modals/base-modal'
-
 // ============================================================================
 // MIGRATION HELPERS
 // ============================================================================
@@ -199,8 +184,6 @@ export const MIGRATION_MAP = {
   'CleanupButton': 'ActionButton',
 
   // Frontend components → Unified
-  'SubscriptionDetailsModal': 'base-modal',
-  'wallet-connection-modal': 'base-modal',
   'StockCard': 'DataCard',
   'MetricCard': 'DataCard',
   'financial-card': 'DataCard',

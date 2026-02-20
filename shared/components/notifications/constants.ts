@@ -113,10 +113,12 @@ export const NOTIFICATION_TYPES = [
   'security',
   'permission',
   'wallet_management',
-  'user_management',
   'wallet',
   'payment',
   'general',
+  'announcement',
+  'advertisement',
+  'chat',
 ] as const
 
 /**

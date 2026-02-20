@@ -85,7 +85,7 @@ export function WalletLabelBadge({
                         e.stopPropagation();
                         onRemove();
                     }}
-                    className="ml-0.5 hover:bg-black/10 dark:hover:bg-white/10 rounded-full p-0.5 transition-colors"
+                    className="ml-0.5 hover:bg-black/10 dark:hover:bg-black/[0.05] dark:hover:bg-white/10 rounded-full p-0.5 transition-colors"
                     aria-label={`Remove label ${label}`}
                 >
                     <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">

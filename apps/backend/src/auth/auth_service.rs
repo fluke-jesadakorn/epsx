@@ -382,31 +382,13 @@ impl UnifiedWeb3AuthService {
     /// This purely checks the logic based on a permission string and a list of permissions
     /// It does NOT make a DB call, to be fast and allow validating permissions from a token
     pub fn has_permission(user_permissions: &[String], required_permission: &str) -> bool {
-        user_permissions.iter().any(|p| {
-            // exact match
-            if p == required_permission { return true; }
-            
-            // wildcard match (e.g. "admin:*" matches "admin:users")
-            if p.ends_with(":*") {
-                 let prefix = &p[..p.len() - 2];
-                 if required_permission.starts_with(prefix) { return true; }
-            }
-
-            // Super admin match
-            if p == "*:*" || p == "admin:*:*" { return true; }
-            
-            false
-        })
+        crate::core::permissions::has_permission(user_permissions, required_permission)
     }
     
     /// Check if a user has admin privileges
+    /// Requires explicit admin wildcard or dashboard permission - NOT just any admin: prefix
     pub fn is_admin(user_permissions: &[String]) -> bool {
-        user_permissions.iter().any(|p| 
-            p.starts_with("admin:") || 
-            p == "admin:*:*" || 
-            p.contains(":admin:") ||
-            p == "*:*"
-        )
+        crate::core::permissions::is_admin(user_permissions)
     }
 
     // Private helper methods
@@ -770,7 +752,7 @@ impl UnifiedWeb3AuthService {
 
         let permission_records = diesel::sql_query(
             r#"
-            -- Manual permissions from plans
+            -- Permissions from plans (all types: manual, system, etc.)
             SELECT DISTINCT p.permission_string as permission
             FROM wallet_plan_assignments wga
             JOIN plan_permissions pgm ON wga.plan_id = pgm.plan_id
@@ -778,19 +760,17 @@ impl UnifiedWeb3AuthService {
             WHERE wga.wallet_address = $1
               AND wga.is_active = true
               AND p.is_active = true
-              AND p.permission_type = 'manual'
               AND (wga.expires_at IS NULL OR wga.expires_at > $2)
 
             UNION
 
-            -- Direct manual permissions
+            -- Direct permissions (all types)
             SELECT DISTINCT p.permission_string as permission
             FROM wallet_direct_permissions wdp
             JOIN permissions p ON wdp.permission_id = p.id
             WHERE wdp.wallet_address = $1
               AND wdp.is_active = true
               AND p.is_active = true
-              AND p.permission_type = 'manual'
               AND (wdp.expires_at IS NULL OR wdp.expires_at > $2)
 
             ORDER BY permission
@@ -874,9 +854,8 @@ impl UnifiedWeb3AuthService {
                             if balance > U256::zero() {
                                 permissions.push("epsx:premium:nft_holder".to_string());
                                 permissions.push("epsx:analytics:exclusive".to_string());
-                                permissions.push("admin:dashboard:nft_access".to_string());
-                                
-                                info!("Wallet {} owns {} NFTs, granted premium NFT permissions", 
+
+                                info!("Wallet {} owns {} NFTs, granted premium NFT permissions",
                                     wallet_address, balance);
                             } else {
                                 debug!("Wallet {} owns no NFTs from contract {}", wallet_address, nft_contract);
@@ -1025,12 +1004,12 @@ impl UnifiedWeb3AuthService {
                                 
                                 // Grant permissions based on governance token holdings
                                 if token_balance >= 1000.0 {
-                                    permissions.push("admin:governance:vote".to_string());
-                                    permissions.push("admin:proposals:create".to_string());
                                     permissions.push("epsx:dao:executive".to_string());
+                                    permissions.push("epsx:dao:vote".to_string());
+                                    permissions.push("epsx:dao:propose".to_string());
                                 } else if token_balance >= 100.0 {
-                                    permissions.push("admin:governance:vote".to_string());
                                     permissions.push("epsx:dao:member".to_string());
+                                    permissions.push("epsx:dao:vote".to_string());
                                 } else if token_balance >= 10.0 {
                                     permissions.push("epsx:dao:participant".to_string());
                                 }

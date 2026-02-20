@@ -20,7 +20,6 @@ export function getNotificationIcon(type: string): string {
     case 'permission':
       return '🔑'
     case 'wallet_management':
-    case 'user_management':
       return '👥'
     case 'wallet':
       return '💼'
@@ -28,6 +27,12 @@ export function getNotificationIcon(type: string): string {
       return '💳'
     case 'system':
       return '⚙️'
+    case 'announcement':
+      return '📢'
+    case 'advertisement':
+      return '📣'
+    case 'chat':
+      return '💬'
     default:
       return '📬'
   }

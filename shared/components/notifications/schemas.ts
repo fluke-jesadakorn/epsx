@@ -19,10 +19,12 @@ export const NotificationTypeSchema = z.enum([
   'security',
   'permission',
   'wallet_management',
-  'user_management',
   'wallet',
   'payment',
   'general',
+  'announcement',
+  'advertisement',
+  'chat',
 ])
 
 export const NotificationPrioritySchema = z.enum([
@@ -175,10 +177,13 @@ export const NotificationPreferencesSchema = z.object({
     system: z.boolean(),
     security: z.boolean(),
     permission: z.boolean(),
-    user_management: z.boolean(),
+    wallet_management: z.boolean(),
     wallet: z.boolean(),
     payment: z.boolean(),
     general: z.boolean(),
+    announcement: z.boolean(),
+    advertisement: z.boolean(),
+    chat: z.boolean(),
   }),
   priority_filter: NotificationPrioritySchema,
   quiet_hours: z

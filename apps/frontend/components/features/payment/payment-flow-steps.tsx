@@ -28,18 +28,19 @@ interface PaymentToken {
 }
 
 interface StepIndicatorProps {
-    currentStep: 'select' | 'confirm' | 'pay' | 'success';
+    currentStep: 'select' | 'confirm' | 'pay' | 'verifying' | 'success';
 }
 
 export function StepIndicator({ currentStep }: StepIndicatorProps) {
     const steps = [
         { id: 'select', label: 'Select Plan' },
-        { id: 'confirm', label: 'Confirm' },
-        { id: 'pay', label: 'Payment' },
+        { id: 'confirm', label: 'Confirm & Pay' },
         { id: 'success', label: 'Complete' }
     ];
 
-    const currentIndex = steps.findIndex(s => s.id === currentStep);
+    // Map 'pay' and 'verifying' to 'confirm' for display (processing sub-states)
+    const displayStep = currentStep === 'pay' || currentStep === 'verifying' ? 'confirm' : currentStep;
+    const currentIndex = steps.findIndex(s => s.id === displayStep);
 
     return (
         <div className="flex items-center justify-center gap-2 mb-8">
@@ -172,6 +173,44 @@ export function ErrorStep({ error, onRetry, className }: ErrorStepProps) {
     );
 }
 
+interface VerifyingStepProps {
+    planTitle: string;
+    txHash: string | null;
+    className?: string;
+}
+
+export function VerifyingStep({ planTitle, txHash, className }: VerifyingStepProps) {
+    return (
+        <div className={cn('max-w-lg mx-auto text-center', className)}>
+            <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl p-8 shadow-xl border border-blue-200/50 dark:border-blue-700/50">
+                <div className="flex h-20 w-20 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/30 mx-auto mb-6">
+                    <Loader2 className="h-10 w-10 text-blue-600 dark:text-blue-400 animate-spin" />
+                </div>
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                    Verifying Payment
+                </h2>
+                <p className="text-gray-600 dark:text-gray-400 mb-6">
+                    Your {planTitle} payment is being verified on the blockchain. This may take a moment.
+                </p>
+
+                {txHash && (
+                    <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-4 mb-6">
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">Transaction Hash</p>
+                        <code className="text-xs font-mono text-gray-700 dark:text-gray-300 break-all">
+                            {txHash}
+                        </code>
+                    </div>
+                )}
+
+                <div className="flex items-center justify-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+                    <Shield className="w-4 h-4" />
+                    <span>Waiting for blockchain confirmation</span>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 interface SuccessStepProps {
     planTitle: string;
     txHash: string | null;
@@ -186,7 +225,7 @@ export function SuccessStep({ planTitle, txHash, className }: SuccessStepProps) 
                     <CheckCircle2 className="h-10 w-10 text-green-600 dark:text-green-400" />
                 </div>
                 <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-                    🎉 Payment Successful!
+                    Payment Successful!
                 </h2>
                 <p className="text-gray-600 dark:text-gray-400 mb-6">
                     Your {planTitle} plan is now active.
@@ -260,6 +299,9 @@ export function ConfirmStep({
     onPayment,
     className
 }: ConfirmStepProps) {
+    const numericPrice = selectedPlan.price.replace(/[^0-9.]/g, '');
+    const insufficientBalance = Boolean(balanceData) && balanceData!.value < amountInDecimals;
+
     return (
         <div className={cn('max-w-4xl mx-auto', className)}>
             <button
@@ -290,7 +332,7 @@ export function ConfirmStep({
                             id: selectedPlan.id.toString(),
                             name: selectedPlan.title,
                             tier_level: selectedPlan.tier_level ?? 0,
-                            price: parseFloat(selectedPlan.price.replace(/[^0-9.]/g, '')),
+                            price: parseFloat(numericPrice),
                             duration_days: 30,
                             features: selectedPlan.features.map((f) => f.text),
                         }}
@@ -324,7 +366,7 @@ export function ConfirmStep({
                         </div>
                         <div className="text-right">
                             <p className="text-2xl font-black text-blue-600 dark:text-blue-400">
-                                ${selectedPlan.price.replace(/[^0-9.]/g, '')}
+                                ${numericPrice}
                             </p>
                             <p className="text-xs text-gray-500 dark:text-gray-400">
                                 {selectedToken.symbol}
@@ -400,10 +442,10 @@ export function ConfirmStep({
 
                 <button
                     onClick={onPayment}
-                    disabled={isAddingToken || isTransferring || isConfirming || (Boolean(balanceData) && balanceData!.value < amountInDecimals)}
+                    disabled={isAddingToken || isTransferring || isConfirming || insufficientBalance}
                     className={cn(
                         'w-full py-4 rounded-xl font-bold text-lg transition-all',
-                        isAddingToken || isTransferring || isConfirming || (Boolean(balanceData) && balanceData!.value < amountInDecimals)
+                        isAddingToken || isTransferring || isConfirming || insufficientBalance
                             ? 'bg-gray-300 dark:bg-gray-700 cursor-not-allowed'
                             : 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:shadow-xl shadow-lg shadow-blue-500/30'
                     )}
@@ -423,7 +465,7 @@ export function ConfirmStep({
                             <Loader2 className="w-5 h-5 animate-spin" />
                             Confirm in Wallet...
                         </span>
-                    ) : (Boolean(balanceData) && balanceData!.value < amountInDecimals) ? (
+                    ) : insufficientBalance ? (
                         <span className="flex items-center justify-center gap-2">
                             <AlertCircle className="w-5 h-5" />
                             Insufficient {selectedToken.symbol} Balance
@@ -431,7 +473,7 @@ export function ConfirmStep({
                     ) : (
                         <span className="flex items-center justify-center gap-2">
                             <Wallet className="w-5 h-5" />
-                            Pay ${selectedPlan.price.replace(/[^0-9.]/g, '')} {selectedToken.symbol}
+                            Pay ${numericPrice} {selectedToken.symbol}
                         </span>
                     )}
                 </button>

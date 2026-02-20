@@ -6,6 +6,7 @@
 use axum::{
     extract::{Path, Query, State},
     response::Json,
+    Extension,
     Json as RequestJson,
 };
 use serde::{Deserialize, Serialize};
@@ -17,6 +18,7 @@ use crate::web::auth::AppState;
 use crate::web::admin::responses::{AdminApiResponse, AdminMetadata, PaginationInfo};
 use crate::auth::unified_permission_service::UnifiedPermissionService;
 use crate::core::errors::{AppError, ErrorKind};
+use crate::infrastructure::services::audit_service::{AuditCtx, AuditEntry};
 
 // CQRS imports for wallet management
 use crate::application::shared::{QueryHandler, CommandHandler};
@@ -512,8 +514,10 @@ pub async fn get_user_handler(
     security(("bearerAuth" = []))
 )]
 pub async fn update_user_handler(
-    Path(wallet_address): Path<String>,
     State(app_state): State<AppState>,
+    Extension(user_ctx): Extension<crate::web::middleware::bearer_middleware::OpenIDUserContext>,
+    headers: axum::http::HeaderMap,
+    Path(wallet_address): Path<String>,
     RequestJson(request): RequestJson<UpdateWalletRequest>,
 ) -> Result<Json<AdminApiResponse<WalletDetailResponse>>, AppError> {
     info!("Admin: Updating user: {} (CQRS)", wallet_address);
@@ -522,7 +526,7 @@ pub async fn update_user_handler(
     let command = command_models::UpdateWalletCommand {
         wallet_address: wallet_address.clone(),
         is_active: request.is_active,
-        metadata: request.metadata,
+        metadata: request.metadata.clone(),
     };
 
     // 2. Execute CQRS handler
@@ -538,7 +542,16 @@ pub async fn update_user_handler(
         AppError::new(ErrorKind::InternalServerError, format!("Update wallet failed: {}", e))
     })?;
 
-    // 3. Map to web response using traits
+    // 3. Audit logging
+    let ctx = AuditCtx::from_wallet(&user_ctx.wallet_address, &headers);
+    app_state.audit.log(ctx, AuditEntry::new("wallet", "update", "wallet")
+        .id(&wallet_address)
+        .after(serde_json::json!({
+            "is_active": request.is_active,
+            "metadata": request.metadata
+        })));
+
+    // 4. Map to web response using traits
     let web_response: WalletDetailResponse = response.wallet.into();
 
     let metadata = AdminMetadata::crud_operation("update_user", Some("admin".to_string()));
@@ -618,16 +631,17 @@ pub async fn get_user_stats_handler(
     security(("bearerAuth" = []))
 )]
 pub async fn disable_user_handler(
-    Path(wallet_address): Path<String>,
     State(app_state): State<AppState>,
+    Extension(user_ctx): Extension<crate::web::middleware::bearer_middleware::OpenIDUserContext>,
+    headers: axum::http::HeaderMap,
+    Path(wallet_address): Path<String>,
     RequestJson(request): RequestJson<command_models::DisableWalletCommand>,
 ) -> Result<Json<AdminApiResponse<command_models::DisableWalletResponse>>, AppError> {
     info!("Admin: Disabling user: {} (CQRS)", wallet_address);
 
-    // Ensure path param matches body logic if needed, but command has it.
-    // Overwrite the wallet address in command from path to be safe/consistent
     let command = command_models::DisableWalletCommand {
         wallet_address: wallet_address.clone(),
+        admin_wallet_address: user_ctx.wallet_address.clone(),
         ..request
     };
 
@@ -640,6 +654,15 @@ pub async fn disable_user_handler(
         }
         AppError::new(ErrorKind::InternalServerError, format!("Disable wallet failed: {}", e))
     })?;
+
+    // Audit logging
+    let ctx = AuditCtx::from_wallet(&user_ctx.wallet_address, &headers);
+    app_state.audit.log(ctx, AuditEntry::new("wallet", "disable", "wallet")
+        .id(&wallet_address)
+        .after(serde_json::json!({
+            "is_active": false,
+            "disabled_at": chrono::Utc::now()
+        })));
 
     let metadata = AdminMetadata::crud_operation("disable_user", Some("admin".to_string()));
 
@@ -673,15 +696,17 @@ pub async fn disable_user_handler(
     security(("bearerAuth" = []))
 )]
 pub async fn enable_user_handler(
-    Path(wallet_address): Path<String>,
     State(app_state): State<AppState>,
+    Extension(user_ctx): Extension<crate::web::middleware::bearer_middleware::OpenIDUserContext>,
+    headers: axum::http::HeaderMap,
+    Path(wallet_address): Path<String>,
     RequestJson(request): RequestJson<command_models::EnableWalletCommand>,
 ) -> Result<Json<AdminApiResponse<command_models::EnableWalletResponse>>, AppError> {
     info!("Admin: Enabling user: {} (CQRS)", wallet_address);
 
-    // Ensure path param matches body logic
     let command = command_models::EnableWalletCommand {
         wallet_address: wallet_address.clone(),
+        admin_wallet_address: user_ctx.wallet_address.clone(),
         ..request
     };
 
@@ -694,6 +719,15 @@ pub async fn enable_user_handler(
         }
         AppError::new(ErrorKind::InternalServerError, format!("Enable wallet failed: {}", e))
     })?;
+
+    // Audit logging
+    let ctx = AuditCtx::from_wallet(&user_ctx.wallet_address, &headers);
+    app_state.audit.log(ctx, AuditEntry::new("wallet", "enable", "wallet")
+        .id(&wallet_address)
+        .after(serde_json::json!({
+            "is_active": true,
+            "enabled_at": chrono::Utc::now()
+        })));
 
     let metadata = AdminMetadata::crud_operation("enable_user", Some("admin".to_string()));
 

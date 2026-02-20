@@ -5,10 +5,13 @@ import Script from 'next/script';
 import { NavigationClient } from '@/components/nav/navigation-client';
 import { ClientProviders } from '@/components/providers/client-providers';
 import { SharedOpenIDWeb3Provider } from '@/shared/components/auth';
+import type { UserInfoResponse } from '@/shared/auth/client';
+import { COOKIES } from '@/shared/auth/cookies';
 import { getServerConfig } from '@/shared/config/wagmi';
 import { initializeRuntimeEnvironment } from '@/shared/utils/runtime-env-validator';
 import { Kanit } from 'next/font/google';
-import { headers } from 'next/headers';
+import { cookies, headers } from 'next/headers';
+import { ChatWidget } from '@/components/chat';
 import { Toaster } from 'sonner';
 import { cookieToInitialState } from 'wagmi';
 import './globals.css';
@@ -76,6 +79,18 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
+  // Hydrate user from server-side cookie for auth persistence across page refreshes
+  let initialUser: UserInfoResponse | null = null;
+  try {
+    const cookieStore = await cookies();
+    const userCookie = cookieStore.get(COOKIES.user)?.value;
+    if (userCookie !== undefined && userCookie !== '') {
+      initialUser = JSON.parse(decodeURIComponent(userCookie)) as UserInfoResponse;
+    }
+  } catch {
+    // Invalid cookie - start fresh
+  }
+
   // Unified Web3 Cookie Hydration
   const headersList = await headers();
   const cookie = headersList.get('cookie');
@@ -168,12 +183,16 @@ export default async function RootLayout({
             <SharedOpenIDWeb3Provider
               clientId="epsx-frontend"
               backendUrl={process.env.NEXT_PUBLIC_BACKEND_URL}
+              initialUser={initialUser}
             >
               {/* Mobile navigation optimized for touch */}
               <NavigationClient />
 
               {/* Main content with mobile scroll optimization */}
               <main className="relative min-h-screen">{children}</main>
+
+              {/* Floating chat widget */}
+              <ChatWidget />
 
               {/* Toast notifications */}
               <Toaster

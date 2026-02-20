@@ -1,18 +1,24 @@
 'use client';
 
-import { ArrowLeft, ArrowRight } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { ChevronsLeft, ChevronsRight } from 'lucide-react';
+import { useCallback, useMemo, useState } from 'react';
+import { toast } from 'sonner';
 
+import { deletePermissionAction } from '@/app/wallet-management/access/permission-actions';
 import { Button } from '@/components/ui/button';
 import type { PermissionDefinition } from '@/lib/api/permissions-client';
 import { cn } from '@/lib/utils';
 import { PermissionPane } from './permission-pane';
+import { CreatePermissionSheet } from './permissions/create-permission-sheet';
+import { DeletePermissionDialog } from './permissions/delete-permission-dialog';
+import { EditPermissionSheet } from './permissions/edit-permission-sheet';
 
 interface DualPanePermissionSelectorProps {
     availablePermissions: PermissionDefinition[];
     assignedPermissionStrings: string[];
     onChange: (assignedPermissions: string[]) => void;
     className?: string;
+    onPermissionsChanged?: () => void;
 }
 
 export function DualPanePermissionSelector({
@@ -20,184 +26,186 @@ export function DualPanePermissionSelector({
     assignedPermissionStrings,
     onChange,
     className,
+    onPermissionsChanged,
 }: DualPanePermissionSelectorProps) {
-    // Selection state for each pane
     const [leftSelected, setLeftSelected] = useState<Set<string>>(new Set());
     const [rightSelected, setRightSelected] = useState<Set<string>>(new Set());
 
-    // Split permissions into available and assigned
+    const [createOpen, setCreateOpen] = useState(false);
+    const [editTarget, setEditTarget] = useState<PermissionDefinition | null>(null);
+    const [deleteTarget, setDeleteTarget] = useState<PermissionDefinition | null>(null);
+
     const assignedSet = useMemo(
         () => new Set(assignedPermissionStrings),
         [assignedPermissionStrings]
     );
 
-    const unassignedPermissions = useMemo(
+    const unassignedPerms = useMemo(
         () => availablePermissions.filter((p) => !assignedSet.has(p.permission_string)),
         [availablePermissions, assignedSet]
     );
 
-    const assignedPermissions = useMemo(
+    const assignedPerms = useMemo(
         () => availablePermissions.filter((p) => assignedSet.has(p.permission_string)),
         [availablePermissions, assignedSet]
     );
 
-    // Toggle selection in left pane
-    const toggleLeftSelection = useCallback((permString: string) => {
+    // Toggle helpers
+    const toggleLeft = useCallback((ps: string) => {
         setLeftSelected((prev) => {
             const next = new Set(prev);
-            if (next.has(permString)) {
-                next.delete(permString);
-            } else {
-                next.add(permString);
-            }
+            if (next.has(ps)) { next.delete(ps); } else { next.add(ps); }
             return next;
         });
     }, []);
 
-    // Toggle selection in right pane
-    const toggleRightSelection = useCallback((permString: string) => {
+    const toggleRight = useCallback((ps: string) => {
         setRightSelected((prev) => {
             const next = new Set(prev);
-            if (next.has(permString)) {
-                next.delete(permString);
-            } else {
-                next.add(permString);
-            }
+            if (next.has(ps)) { next.delete(ps); } else { next.add(ps); }
             return next;
         });
     }, []);
 
-    // Select all in left pane
     const selectAllLeft = useCallback(() => {
-        setLeftSelected(new Set(unassignedPermissions.map((p) => p.permission_string)));
-    }, [unassignedPermissions]);
+        setLeftSelected(new Set(unassignedPerms.map((p) => p.permission_string)));
+    }, [unassignedPerms]);
 
-    // Select none in left pane
-    const selectNoneLeft = useCallback(() => {
-        setLeftSelected(new Set());
-    }, []);
+    const selectNoneLeft = useCallback(() => setLeftSelected(new Set()), []);
 
-    // Select all in right pane
     const selectAllRight = useCallback(() => {
-        setRightSelected(new Set(assignedPermissions.map((p) => p.permission_string)));
-    }, [assignedPermissions]);
+        setRightSelected(new Set(assignedPerms.map((p) => p.permission_string)));
+    }, [assignedPerms]);
 
-    // Select none in right pane
-    const selectNoneRight = useCallback(() => {
-        setRightSelected(new Set());
-    }, []);
+    const selectNoneRight = useCallback(() => setRightSelected(new Set()), []);
 
-    // Assign selected permissions (move from left to right)
+    // Batch assign (left → right)
     const handleAssign = useCallback(() => {
-        if (leftSelected.size === 0) {return;}
-
-        const newAssigned = [...assignedPermissionStrings, ...Array.from(leftSelected)];
-        onChange(newAssigned);
+        if (leftSelected.size === 0) return;
+        onChange([...assignedPermissionStrings, ...Array.from(leftSelected)]);
         setLeftSelected(new Set());
     }, [leftSelected, assignedPermissionStrings, onChange]);
 
-    // Remove selected permissions (move from right to left)
+    // Batch remove (right → left)
     const handleRemove = useCallback(() => {
-        if (rightSelected.size === 0) {return;}
-
-        const newAssigned = assignedPermissionStrings.filter((p) => !rightSelected.has(p));
-        onChange(newAssigned);
+        if (rightSelected.size === 0) return;
+        onChange(assignedPermissionStrings.filter((p) => !rightSelected.has(p)));
         setRightSelected(new Set());
     }, [rightSelected, assignedPermissionStrings, onChange]);
 
-    // Keyboard shortcuts
-    useEffect(() => {
-        const handleKeyDown = (e: KeyboardEvent) => {
-            // Ctrl+A - Select all in focused pane
-            if (e.ctrlKey && e.key === 'a') {
-                e.preventDefault();
-                // Determine which pane is focused (simplified)
-                selectAllLeft();
-            }
+    // Double-click instant transfer
+    const transferRight = useCallback((ps: string) => {
+        onChange([...assignedPermissionStrings, ps]);
+        setLeftSelected((prev) => { const n = new Set(prev); n.delete(ps); return n; });
+    }, [assignedPermissionStrings, onChange]);
 
-            // Ctrl+N - Select none
-            if (e.ctrlKey && e.key === 'n') {
-                e.preventDefault();
-                selectNoneLeft();
-                selectNoneRight();
-            }
+    const transferLeft = useCallback((ps: string) => {
+        onChange(assignedPermissionStrings.filter((p) => p !== ps));
+        setRightSelected((prev) => { const n = new Set(prev); n.delete(ps); return n; });
+    }, [assignedPermissionStrings, onChange]);
 
-            // Enter - Assign/Remove
-            if (e.key === 'Enter') {
-                if (leftSelected.size > 0) {
-                    handleAssign();
-                } else if (rightSelected.size > 0) {
-                    handleRemove();
-                }
+    // Delete permission
+    const handleDelete = useCallback(async () => {
+        if (!deleteTarget) return;
+        try {
+            const res = await deletePermissionAction(deleteTarget.id);
+            if (res.success) {
+                toast.success('Permission deleted');
+                onPermissionsChanged?.();
+            } else {
+                toast.error(res.error ?? 'Failed to delete');
             }
-        };
-
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [
-        leftSelected,
-        rightSelected,
-        handleAssign,
-        handleRemove,
-        selectAllLeft,
-        selectNoneLeft,
-        selectNoneRight,
-    ]);
+        } catch (err: unknown) {
+            toast.error(err instanceof Error ? err.message : 'Failed to delete');
+        }
+        setDeleteTarget(null);
+    }, [deleteTarget, onPermissionsChanged]);
 
     return (
         <div className={cn('flex flex-col h-full', className)}>
-            {/* Dual Pane Layout */}
-            <div className="flex-1 grid grid-cols-2 gap-4 min-h-0">
-                {/* Left Pane: Available Permissions */}
-                <div className="border border-white/10 rounded-lg bg-slate-900/40 backdrop-blur-xl overflow-hidden flex flex-col">
-                    <PermissionPane
-                        title="◀ AVAILABLE"
-                        permissions={unassignedPermissions}
-                        selectedPermissions={leftSelected}
-                        onTogglePermission={toggleLeftSelection}
-                        onSelectAll={selectAllLeft}
-                        onSelectNone={selectNoneLeft}
-                        emptyMessage="All permissions assigned"
-                    />
+            {/* 3-column: left pane | center actions | right pane */}
+            <div className="flex-1 grid grid-cols-[1fr_48px_1fr] gap-0 min-h-0">
+                {/* Left: Available */}
+                <PermissionPane
+                    title="Available"
+                    permissions={unassignedPerms}
+                    selectedPermissions={leftSelected}
+                    onTogglePermission={toggleLeft}
+                    onSelectAll={selectAllLeft}
+                    onSelectNone={selectNoneLeft}
+                    emptyMessage="All permissions assigned"
+                    onCreate={onPermissionsChanged ? () => setCreateOpen(true) : undefined}
+                    onEdit={onPermissionsChanged ? setEditTarget : undefined}
+                    onDelete={onPermissionsChanged ? setDeleteTarget : undefined}
+                    onDoubleClickItem={transferRight}
+                />
+
+                {/* Center: Action buttons */}
+                <div className="flex flex-col items-center justify-center gap-2">
+                    <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={handleAssign}
+                        disabled={leftSelected.size === 0}
+                        className="h-8 w-8 text-cyan-400 hover:bg-cyan-500/10 disabled:opacity-30"
+                        title="Assign selected"
+                    >
+                        <ChevronsRight className="w-4 h-4" />
+                    </Button>
+
+                    {(leftSelected.size > 0 || rightSelected.size > 0) && (
+                        <span className="text-[10px] text-muted-foreground tabular-nums">
+                            {leftSelected.size || rightSelected.size}
+                        </span>
+                    )}
+
+                    <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={handleRemove}
+                        disabled={rightSelected.size === 0}
+                        className="h-8 w-8 text-red-400 hover:bg-red-500/10 disabled:opacity-30"
+                        title="Remove selected"
+                    >
+                        <ChevronsLeft className="w-4 h-4" />
+                    </Button>
                 </div>
 
-                {/* Right Pane: Assigned Permissions */}
-                <div className="border border-white/10 rounded-lg bg-slate-900/40 backdrop-blur-xl overflow-hidden flex flex-col">
-                    <PermissionPane
-                        title="ASSIGNED ▶"
-                        permissions={assignedPermissions}
-                        selectedPermissions={rightSelected}
-                        onTogglePermission={toggleRightSelection}
-                        onSelectAll={selectAllRight}
-                        onSelectNone={selectNoneRight}
-                        emptyMessage="No permissions assigned"
+                {/* Right: Assigned */}
+                <PermissionPane
+                    title="Assigned"
+                    permissions={assignedPerms}
+                    selectedPermissions={rightSelected}
+                    onTogglePermission={toggleRight}
+                    onSelectAll={selectAllRight}
+                    onSelectNone={selectNoneRight}
+                    emptyMessage="No permissions assigned"
+                    onEdit={onPermissionsChanged ? setEditTarget : undefined}
+                    onDelete={onPermissionsChanged ? setDeleteTarget : undefined}
+                    onDoubleClickItem={transferLeft}
+                />
+            </div>
+
+            {/* Permission CRUD dialogs */}
+            {onPermissionsChanged && (
+                <>
+                    <CreatePermissionSheet
+                        open={createOpen}
+                        onOpenChange={setCreateOpen}
+                        onSuccess={() => onPermissionsChanged()}
                     />
-                </div>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="shrink-0 flex items-center justify-center gap-4 mt-4">
-                <Button
-                    onClick={handleAssign}
-                    disabled={leftSelected.size === 0}
-                    className="bg-cyan-500 hover:bg-cyan-600 text-white font-mono text-xs"
-                    size="sm"
-                >
-                    <ArrowRight className="w-4 h-4 mr-2" />
-                    Assign Selected ({leftSelected.size})
-                </Button>
-
-                <Button
-                    onClick={handleRemove}
-                    disabled={rightSelected.size === 0}
-                    variant="outline"
-                    className="border-red-500/30 text-red-400 hover:bg-red-500/10 font-mono text-xs"
-                    size="sm"
-                >
-                    <ArrowLeft className="w-4 h-4 mr-2" />
-                    Remove Selected ({rightSelected.size})
-                </Button>
-            </div>
+                    <EditPermissionSheet
+                        perm={editTarget}
+                        onOpenChange={(o) => { if (!o) setEditTarget(null); }}
+                        onSuccess={() => onPermissionsChanged()}
+                    />
+                    <DeletePermissionDialog
+                        permToDelete={deleteTarget}
+                        onClose={() => setDeleteTarget(null)}
+                        onConfirm={() => void handleDelete()}
+                    />
+                </>
+            )}
         </div>
     );
 }

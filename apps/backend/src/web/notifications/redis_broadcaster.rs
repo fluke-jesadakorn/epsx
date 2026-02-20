@@ -111,6 +111,43 @@ impl RedisNotificationBroadcaster {
         Ok(pubsub)
     }
 
+    /// Publish raw string to a specific Redis channel (used by chat system)
+    pub async fn publish_to_channel(
+        &self,
+        channel: &str,
+        payload: &str,
+    ) -> Result<usize, AppError> {
+        let mut conn = self.pool.get_connection();
+
+        let subscriber_count: i32 = conn.publish(channel, payload).await
+            .map_err(|e| AppError::new(
+                ErrorKind::InternalError,
+                format!("Redis publish to {} failed: {}", channel, e)
+            ))?;
+
+        Ok(subscriber_count as usize)
+    }
+
+    /// Subscribe to a specific Redis channel (used by chat system)
+    pub async fn subscribe_to_channel(
+        &self,
+        channel: &str,
+    ) -> Result<redis::aio::PubSub, AppError> {
+        let mut pubsub = self.pool.get_pubsub().await
+            .map_err(|e| AppError::new(
+                ErrorKind::InternalError,
+                format!("Redis pubsub connection failed: {}", e)
+            ))?;
+
+        pubsub.subscribe(channel).await
+            .map_err(|e| AppError::new(
+                ErrorKind::InternalError,
+                format!("Redis subscribe to {} failed: {}", channel, e)
+            ))?;
+
+        Ok(pubsub)
+    }
+
     /// Get active subscriber count for a wallet channel
     pub async fn get_subscriber_count(&self, wallet_address: &str) -> Result<usize, AppError> {
         use redis::cmd;

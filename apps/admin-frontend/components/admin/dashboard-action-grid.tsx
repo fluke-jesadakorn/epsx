@@ -82,14 +82,14 @@ export function DashboardActionGrid({ stats }: DashboardActionGridProps) {
                     href={action.href}
                     className="block group active:scale-[0.98] transition-all"
                 >
-                    <div className={`relative overflow-hidden rounded-[32px] ${action.bgGradient} p-0.5 border border-white/5 hover:border-[#1fc7d4]/30 transition-colors bg-slate-900/40 backdrop-blur-xl`}>
+                    <div className={`relative overflow-hidden rounded-[32px] ${action.bgGradient} p-0.5 border border-gray-200 dark:border-border hover:border-[#1fc7d4]/30 transition-colors bg-white dark:bg-card backdrop-blur-xl`}>
                         <div className="relative p-6 sm:p-8">
                             {/* Floating decoration */}
                             <div className={`absolute -top-4 -right-4 w-16 h-16 bg-gradient-to-r ${action.gradient} rounded-full blur-2xl opacity-10 group-hover:opacity-20 transition-opacity`} />
 
                             <div className="relative z-10">
                                 <div className="flex items-center gap-4 mb-4">
-                                    <div className={`p-3 rounded-2xl bg-white/5 border border-white/5 ${action.textGradient}`}>
+                                    <div className={`p-3 rounded-2xl bg-white dark:bg-white/[0.04] border border-gray-200 dark:border-border ${action.textGradient}`}>
                                         {action.icon}
                                     </div>
                                     <div className="flex-1 min-w-0">
@@ -110,7 +110,7 @@ export function DashboardActionGrid({ stats }: DashboardActionGridProps) {
                                     <div className="px-5 py-2 bg-[#1fc7d4] text-white rounded-2xl text-xs font-bold shadow-lg shadow-cyan-500/10 group-hover:shadow-cyan-500/30 transition-all">
                                         Open Tool
                                     </div>
-                                    <div className="w-8 h-8 rounded-full bg-white/5 border border-white/5 flex items-center justify-center text-muted-foreground group-hover:text-[#1fc7d4] transition-colors">
+                                    <div className="w-8 h-8 rounded-full bg-white dark:bg-white/[0.04] border border-gray-200 dark:border-border flex items-center justify-center text-muted-foreground group-hover:text-[#1fc7d4] transition-colors">
                                         →
                                     </div>
                                 </div>

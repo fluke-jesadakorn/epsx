@@ -13,6 +13,7 @@ use bigdecimal::BigDecimal;
 use diesel_async::RunQueryDsl;
 use std::collections::HashMap;
 
+use crate::infrastructure::services::audit_service::{AuditCtx, AuditEntry};
 use crate::web::auth::AppState;
 use crate::web::responses::{AdminResponse, create_pagination};
 use crate::domain::permission_management::{
@@ -163,6 +164,8 @@ pub struct ListPlansQuery {
 )]
 pub async fn create_plan(
     State(app_state): State<AppState>,
+    axum::Extension(user_ctx): axum::Extension<crate::web::middleware::bearer_middleware::OpenIDUserContext>,
+    headers: axum::http::HeaderMap,
     Json(req): Json<CreatePlanRequest>,
 ) -> impl IntoResponse {
     // Validate request
@@ -209,8 +212,8 @@ pub async fn create_plan(
         metadata: req.plan_metadata.clone(),
         is_public: req.is_public,
         grace_period_hours: None,
-        plan_category: req.plan_category.as_deref().and_then(|s| crate::domain::permission_management::PlanCategory::from_str(s).ok()),
-        plan_group: req.plan_group.as_deref().and_then(|s| crate::domain::permission_management::PlanGroup::from_str(s).ok()),
+        plan_category: req.plan_category.as_deref().and_then(|s| crate::domain::permission_management::PlanCategory::parse(s).ok()),
+        plan_group: req.plan_group.as_deref().and_then(|s| crate::domain::permission_management::PlanGroup::parse(s).ok()),
     }) {
         Ok(g) => g,
         Err(e) => {
@@ -251,6 +254,11 @@ pub async fn create_plan(
         };
         let _ = plan.update(update_params);
     }
+    let ctx = AuditCtx::from_wallet(&user_ctx.wallet_address, &headers);
+    app_state.audit.log(ctx, AuditEntry::new("plan", "create", "plan")
+        .id(&plan.id().to_string())
+        .after(serde_json::json!({ "name": plan.name(), "slug": plan.slug().as_str() })));
+
     AdminResponse::created(PlanResponse::from_plan(&plan, 0), "Permission plan created successfully").into_response()
 }
 
@@ -468,23 +476,21 @@ pub async fn list_plans(
 )]
 pub async fn update_plan(
     State(app_state): State<AppState>,
+    axum::Extension(user_ctx): axum::Extension<crate::web::middleware::bearer_middleware::OpenIDUserContext>,
+    headers: axum::http::HeaderMap,
     Path(plan_id): Path<String>,
     Json(req): Json<UpdatePlanRequest>,
 ) -> impl IntoResponse {
     use crate::core::constants::{FREE_PLAN_ID, is_system_admin_plan};
 
     // Check for constant Free Plan locking
-    if plan_id == FREE_PLAN_ID {
-        if req.price.is_some() {
-            return AdminResponse::bad_request("Price of the Free Plan is locked and cannot be modified").into_response();
-        }
+    if plan_id == FREE_PLAN_ID && req.price.is_some() {
+        return AdminResponse::bad_request("Price of the Free Plan is locked and cannot be modified").into_response();
     }
 
     // System admin plans: block name/slug/category/group changes
-    if is_system_admin_plan(&plan_id) {
-        if req.name.is_some() || req.plan_category.is_some() || req.plan_group.is_some() {
-            return AdminResponse::forbidden("System admin plans cannot be renamed or recategorized").into_response();
-        }
+    if is_system_admin_plan(&plan_id) && (req.name.is_some() || req.plan_category.is_some() || req.plan_group.is_some()) {
+        return AdminResponse::forbidden("System admin plans cannot be renamed or recategorized").into_response();
     }
     // Block updates to constant Free Plan
     // if plan_id == crate::core::constants::FREE_PLAN_ID {
@@ -536,8 +542,8 @@ pub async fn update_plan(
         metadata: req.plan_metadata,
         is_public: req.is_public,
         grace_period_hours: req.grace_period_hours,
-        plan_category: req.plan_category.as_deref().and_then(|s| crate::domain::permission_management::PlanCategory::from_str(s).ok()),
-        plan_group: req.plan_group.as_deref().and_then(|s| crate::domain::permission_management::PlanGroup::from_str(s).ok()),
+        plan_category: req.plan_category.as_deref().and_then(|s| crate::domain::permission_management::PlanCategory::parse(s).ok()),
+        plan_group: req.plan_group.as_deref().and_then(|s| crate::domain::permission_management::PlanGroup::parse(s).ok()),
     };
 
     // If default_expiry_days is provided, merge it into metadata
@@ -577,6 +583,11 @@ pub async fn update_plan(
         }
     };
 
+    let ctx = AuditCtx::from_wallet(&user_ctx.wallet_address, &headers);
+    app_state.audit.log(ctx, AuditEntry::new("plan", "update", "plan")
+        .id(&plan_id)
+        .after(serde_json::json!({ "name": saved_plan.name() })));
+
     AdminResponse::success(PlanResponse::from_plan(&saved_plan, 0)).into_response()
 }
 
@@ -601,6 +612,8 @@ pub async fn update_plan(
 )]
 pub async fn delete_plan(
     State(app_state): State<AppState>,
+    axum::Extension(user_ctx): axum::Extension<crate::web::middleware::bearer_middleware::OpenIDUserContext>,
+    headers: axum::http::HeaderMap,
     Path(plan_id): Path<String>,
 ) -> impl IntoResponse {
     // Block deletion of constant Free Plan
@@ -624,6 +637,8 @@ pub async fn delete_plan(
     // Delete using Diesel repository
     match app_state.plan_repo.delete(&plan_id_obj).await {
         Ok(_) => {
+            let ctx = AuditCtx::from_wallet(&user_ctx.wallet_address, &headers);
+            app_state.audit.log(ctx, AuditEntry::new("plan", "delete", "plan").id(&plan_id));
             AdminResponse::success_with_message(serde_json::json!({"deleted": true}), "Plan deleted successfully").into_response()
         },
         Err(e) => {

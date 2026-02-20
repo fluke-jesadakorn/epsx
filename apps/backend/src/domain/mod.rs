@@ -15,6 +15,7 @@ pub mod resource_management; // New domain for resource tracking and billing
 pub mod developer_portal; // API key management and module access
 pub mod audit; // Audit logging domain
 pub mod auth; // Authentication and Identity interfaces
+pub mod support_chat; // Support chat system
 
 // Re-export shared kernel for easy access
 pub use shared_kernel::{

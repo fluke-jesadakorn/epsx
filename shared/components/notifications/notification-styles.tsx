@@ -77,11 +77,11 @@ export const variantStyles: Record<NotificationVariant, VariantStyle> = {
         alertClass: 'shadow-lg'
     },
     admin: {
-        container: 'shadow-2xl bg-slate-800 border-l-4 border-blue-500 backdrop-blur-xl',
+        container: 'shadow-2xl bg-gray-100 dark:bg-slate-800 border-l-4 border-blue-500 backdrop-blur-xl',
         icon: `${TEXT_WHITE  } rounded-none`,
         text: TEXT_WHITE,
         useDark: true,
-        alertClass: `shadow-lg bg-slate-800 ${  TEXT_WHITE}`
+        alertClass: `shadow-lg bg-gray-100 dark:bg-slate-800 ${  TEXT_WHITE}`
     },
     analytics: {
         container: 'shadow-lg backdrop-blur-sm bg-white/95 border',

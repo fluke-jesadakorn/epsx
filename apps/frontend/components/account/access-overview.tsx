@@ -90,7 +90,7 @@ export async function AccessOverview() {
             <div className="relative overflow-hidden rounded-[2rem] bg-gradient-to-r from-yellow-500 via-orange-500 to-pink-500 p-8 text-white shadow-2xl group">
                 <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
                     <div>
-                        <div className="flex items-center gap-2 text-white/80 mb-2 font-bold uppercase tracking-wider text-xs">
+                        <div className="flex items-center gap-2 text-foreground/80 dark:text-white/80 mb-2 font-bold uppercase tracking-wider text-xs">
                             <ShieldCheck className="w-4 h-4" />
                             Current Access Level
                         </div>

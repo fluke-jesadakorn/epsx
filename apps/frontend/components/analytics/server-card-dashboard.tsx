@@ -1,7 +1,6 @@
  
 import {
   getAnalyticsData,
-  getPortfolioData,
   type EPSQueryParams,
 } from '@/lib/unified-server-data';
 import { Suspense } from 'react';
@@ -17,10 +16,8 @@ interface ServerCardDashboardProps {
     sort_by?: string;
     min_eps?: string;
     min_growth?: string;
-    showFilters?: string;
     search?: string;
   };
-  isPortfolio?: boolean;
 }
 
 function parseSearchParams(
@@ -42,21 +39,19 @@ function parseSearchParams(
   };
 }
 
-async function CardGrid({ params, isPortfolio }: { params: EPSQueryParams; isPortfolio?: boolean }) {
+async function CardGrid({ params }: { params: EPSQueryParams }) {
   // On the first page, fetch extra items to account for Top 5 special section
   const adjustedParams = {
     ...params,
     limit: params.page === 1 ? params.limit + 5 : params.limit
   };
 
-  const data = isPortfolio
-    ? await getPortfolioData(adjustedParams)
-    : await getAnalyticsData(adjustedParams);
+  const data = await getAnalyticsData(adjustedParams);
 
   if (!data?.rankings || data.rankings.length === 0) {
     return (
       <div className="py-12 text-center">
-        <p className="mb-4 text-gray-600 dark:text-white">No data available</p>
+        <p className="text-slate-400">No data available</p>
       </div>
     );
   }
@@ -91,31 +86,20 @@ async function CardGrid({ params, isPortfolio }: { params: EPSQueryParams; isPor
 
 function LoadingGrid() {
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
-      {Array.from({ length: 12 }).map((_, i) => (
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+      {Array.from({ length: 10 }).map((_, i) => (
         <div
           key={`loading-${String(i)}`}
-          className="animate-pulse rounded-lg border bg-white p-4 dark:bg-slate-900"
+          className="animate-pulse rounded-2xl border border-gray-200 dark:border-white/5 bg-white dark:bg-slate-900/60 p-6"
         >
-          <div className="mb-3 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="h-2 w-2 rounded-full bg-gray-300" />
-              <div className="h-5 w-12 rounded bg-gray-300" />
-              <div className="h-4 w-8 rounded bg-gray-200" />
-            </div>
-            <div className="h-4 w-12 rounded bg-gray-200" />
+          <div className="mb-4 h-4 w-20 rounded bg-gray-100 dark:bg-slate-800 mx-auto" />
+          <div className="mb-2 h-10 w-24 rounded bg-gray-100 dark:bg-slate-800 mx-auto" />
+          <div className="mb-6 h-3 w-16 rounded bg-gray-100 dark:bg-slate-800 mx-auto" />
+          <div className="space-y-3">
+            <div className="h-8 rounded-lg bg-gray-100 dark:bg-slate-800" />
+            <div className="h-12 rounded-lg bg-gray-100 dark:bg-slate-800" />
           </div>
-          <div className="mb-3 flex justify-center">
-            <div className="h-6 w-16 rounded bg-gray-300" />
-          </div>
-          <div className="space-y-2">
-            {Array.from({ length: 3 }).map((_, j) => (
-              <div key={`item-${String(j)}`} className="flex justify-between">
-                <div className="h-3 w-1/3 rounded bg-gray-200" />
-                <div className="h-3 w-1/4 rounded bg-gray-200" />
-              </div>
-            ))}
-          </div>
+          <div className="mt-4 h-10 rounded-xl bg-gray-100 dark:bg-slate-800" />
         </div>
       ))}
     </div>
@@ -124,32 +108,27 @@ function LoadingGrid() {
 
 export default async function ServerCardDashboard({
   searchParams,
-  isPortfolio,
 }: ServerCardDashboardProps) {
   const resolvedSearchParams = await searchParams;
   const params = parseSearchParams(resolvedSearchParams);
-  // Default to not showing filters permanently - always start with filters hidden
-  const showFilters = resolvedSearchParams.showFilters === 'true';
 
   return (
     <div className="space-y-6">
 
-      {/* Filters - Show conditionally based on showFilters parameter */}
-      {showFilters && (
-        <Suspense
-          fallback={
-            <div className="text-slate-600 dark:text-slate-200">
-              Loading filters...
-            </div>
-          }
-        >
-          <ServerFilters currentParams={params} />
-        </Suspense>
-      )}
+      {/* Filters */}
+      <Suspense
+        fallback={
+          <div className="text-slate-600 dark:text-slate-200">
+            Loading filters...
+          </div>
+        }
+      >
+        <ServerFilters currentParams={params} />
+      </Suspense>
 
       {/* Cards grid */}
       <Suspense fallback={<LoadingGrid />}>
-        <CardGrid params={params} isPortfolio={isPortfolio} />
+        <CardGrid params={params} />
       </Suspense>
     </div>
   );

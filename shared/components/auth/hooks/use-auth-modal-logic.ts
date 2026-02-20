@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useAccount, useConnect, useDisconnect, useSwitchChain, useWalletClient } from 'wagmi';
-import { clearClientSideCookies } from '../../../auth/cookies';
 import { useSharedAuth } from '../provider';
 import type { AuthResult, AuthStep } from '../types';
 import { useSignMessage } from './use-sign-message';
@@ -112,7 +111,6 @@ export function useAuthModalLogic({
     }, [isConnected, address, isCorrectChain]);
 
     const handleDisconnect = useCallback(() => {
-        clearClientSideCookies();
         disconnect();
         setStep('connect');
         setError(null);

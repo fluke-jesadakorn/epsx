@@ -74,6 +74,7 @@ export function AdminWalletConnectAuth({ className = '' }: AdminWalletConnectAut
     try {
       await logout();
       disconnect();
+      window.location.href = '/auth';
     } catch {
       // Silently fail
     }

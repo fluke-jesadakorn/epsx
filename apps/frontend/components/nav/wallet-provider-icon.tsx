@@ -218,7 +218,7 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
         <button
           className={`flex items-center gap-2 rounded-2xl px-3 py-2 text-sm font-medium transition-all duration-200
             text-slate-600 hover:bg-slate-50/80 hover:text-slate-700 
-            dark:text-slate-300 dark:hover:bg-slate-800/40 dark:hover:text-slate-200 
+            dark:text-slate-300 dark:hover:bg-gray-100 dark:bg-slate-800/40 dark:hover:text-slate-200 
             bg-transparent border-0 ${className}`}
         >
           <Wallet className={`h-4 w-4 ${status.color === 'text-red-500' ? 'text-red-500' : 'text-orange-500'}`} />
@@ -340,7 +340,7 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
             <Link
               href="/account"
               className="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer
-                hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                hover:bg-slate-100 dark:hover:bg-gray-100 dark:bg-slate-800 transition-colors"
             >
               <Settings className="h-4 w-4 text-slate-500" />
               <span className="flex-1 text-sm font-medium text-slate-700 dark:text-slate-300">Account Settings</span>
@@ -352,7 +352,7 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
             <Link
               href="/developer"
               className="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer
-                hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                hover:bg-slate-100 dark:hover:bg-gray-100 dark:bg-slate-800 transition-colors"
             >
               <Code className="h-4 w-4 text-slate-500" />
               <span className="flex-1 text-sm font-medium text-slate-700 dark:text-slate-300">Developer Portal</span>
@@ -370,7 +370,7 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
           <button
             onClick={handleThemeToggle}
             className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl
-              hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              hover:bg-slate-100 dark:hover:bg-gray-100 dark:bg-slate-800 transition-colors"
           >
             {currentTheme === 'dark' ? (
               <Moon className="h-4 w-4 text-slate-500" />

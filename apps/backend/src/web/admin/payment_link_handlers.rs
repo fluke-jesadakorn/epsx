@@ -23,6 +23,7 @@ use crate::infrastructure::adapters::repositories::{
 use crate::infrastructure::adapters::repositories::payment_context_repository_adapter::{
     NewPaymentContextDb, PaymentContextDb, UpdatePaymentContextDb, is_context_usable,
 };
+use crate::infrastructure::services::audit_service::{AuditCtx, AuditEntry};
 use crate::web::auth::AppState;
 
 // ============================================================================
@@ -228,7 +229,9 @@ async fn get_repository() -> Result<PaymentContextRepositoryAdapter, StatusCode>
     tag = "Admin Payment Links"
 )]
 pub async fn create_payment_link_handler(
-    State(_app_state): State<AppState>,
+    State(app_state): State<AppState>,
+    axum::Extension(user_ctx): axum::Extension<crate::web::middleware::bearer_middleware::OpenIDUserContext>,
+    headers: axum::http::HeaderMap,
     Json(request): Json<CreatePaymentLinkRequest>,
 ) -> Result<(StatusCode, JsonResponse<PaymentLinkResponse>), StatusCode> {
     let repo = get_repository().await?;
@@ -272,6 +275,20 @@ pub async fn create_payment_link_handler(
     match repo.save(new_context).await {
         Ok(saved) => {
             info!("Created payment link: {} ({})", saved.name, saved.slug);
+
+            // Audit log
+            let ctx = AuditCtx::from_wallet(&user_ctx.wallet_address, &headers);
+            let entry = AuditEntry::new("payment", "payment_link", "create")
+                .id(&saved.id.to_string())
+                .meta(serde_json::json!({
+                    "name": saved.name,
+                    "slug": saved.slug,
+                    "context_type": saved.context_type,
+                    "amount": saved.amount.to_string(),
+                    "currency": saved.currency,
+                }));
+            app_state.audit.log(ctx, entry);
+
             Ok((StatusCode::CREATED, JsonResponse(db_to_response(saved))))
         }
         Err(e) => {
@@ -422,7 +439,9 @@ pub async fn get_payment_link_by_slug_handler(
     tag = "Admin Payment Links"
 )]
 pub async fn update_payment_link_handler(
-    State(_app_state): State<AppState>,
+    State(app_state): State<AppState>,
+    axum::Extension(user_ctx): axum::Extension<crate::web::middleware::bearer_middleware::OpenIDUserContext>,
+    headers: axum::http::HeaderMap,
     Path(id): Path<Uuid>,
     Json(request): Json<UpdatePaymentLinkRequest>,
 ) -> Result<JsonResponse<PaymentLinkResponse>, StatusCode> {
@@ -462,6 +481,17 @@ pub async fn update_payment_link_handler(
     match repo.update(id, changeset).await {
         Ok(updated) => {
             info!("Updated payment link: {}", id);
+
+            // Audit log
+            let ctx = AuditCtx::from_wallet(&user_ctx.wallet_address, &headers);
+            let entry = AuditEntry::new("payment", "payment_link", "update")
+                .id(&updated.id.to_string())
+                .meta(serde_json::json!({
+                    "name": updated.name,
+                    "is_active": updated.is_active,
+                }));
+            app_state.audit.log(ctx, entry);
+
             Ok(JsonResponse(db_to_response(updated)))
         }
         Err(e) => {
@@ -486,7 +516,9 @@ pub async fn update_payment_link_handler(
     tag = "Admin Payment Links"
 )]
 pub async fn delete_payment_link_handler(
-    State(_app_state): State<AppState>,
+    State(app_state): State<AppState>,
+    axum::Extension(user_ctx): axum::Extension<crate::web::middleware::bearer_middleware::OpenIDUserContext>,
+    headers: axum::http::HeaderMap,
     Path(id): Path<Uuid>,
 ) -> Result<StatusCode, StatusCode> {
     let repo = get_repository().await?;
@@ -504,6 +536,13 @@ pub async fn delete_payment_link_handler(
     match repo.soft_delete(id).await {
         Ok(()) => {
             info!("Deactivated payment link: {}", id);
+
+            // Audit log
+            let ctx = AuditCtx::from_wallet(&user_ctx.wallet_address, &headers);
+            let entry = AuditEntry::new("payment", "payment_link", "delete")
+                .id(&id.to_string());
+            app_state.audit.log(ctx, entry);
+
             Ok(StatusCode::NO_CONTENT)
         }
         Err(e) => {
@@ -529,7 +568,9 @@ pub async fn delete_payment_link_handler(
     tag = "Admin Payment Links"
 )]
 pub async fn record_payment_usage_handler(
-    State(_app_state): State<AppState>,
+    State(app_state): State<AppState>,
+    axum::Extension(user_ctx): axum::Extension<crate::web::middleware::bearer_middleware::OpenIDUserContext>,
+    headers: axum::http::HeaderMap,
     Path(id): Path<Uuid>,
 ) -> Result<JsonResponse<PaymentLinkResponse>, StatusCode> {
     let repo = get_repository().await?;
@@ -554,6 +595,17 @@ pub async fn record_payment_usage_handler(
                 "Recorded usage for payment link: {} (now {} uses)",
                 id, updated.current_uses
             );
+
+            // Audit log
+            let ctx = AuditCtx::from_wallet(&user_ctx.wallet_address, &headers);
+            let entry = AuditEntry::new("payment", "payment_link", "record_usage")
+                .id(&updated.id.to_string())
+                .meta(serde_json::json!({
+                    "current_uses": updated.current_uses,
+                    "name": updated.name,
+                }));
+            app_state.audit.log(ctx, entry);
+
             Ok(JsonResponse(db_to_response(updated)))
         }
         Err(e) => {

@@ -1,5 +1,5 @@
 
-import { ArrowRight, Calendar, TrendingUp } from 'lucide-react';
+import { ArrowRight, Calendar, Heart, TrendingUp } from 'lucide-react';
 import { cn } from '../../utils';
 import { PremiumCard } from '../ui/premium-card';
 
@@ -17,6 +17,8 @@ export interface StockDataCardProps {
   companyName?: string;
   variant?: 'premium' | 'standard';
   className?: string;
+  isWatchlisted?: boolean;
+  onWatchlistToggle?: (symbol: string) => void;
 }
 
 // ============================================================================
@@ -58,6 +60,8 @@ export const StockDataCard = ({
   companyName,
   variant = 'standard',
   className,
+  isWatchlisted,
+  onWatchlistToggle,
 }: StockDataCardProps) => {
   const rankTheme = getRankTheme(rank);
   const isPositiveGrowth = epsGrowth >= 0;
@@ -66,51 +70,62 @@ export const StockDataCard = ({
     <PremiumCard
       variant={variant === 'premium' ? 'highlight' : 'default'}
       glowColor={rankTheme.glow}
-      className={cn('w-full max-w-[400px] hover:-translate-y-1 transition-transform', className)}
+      className={cn('w-full hover:-translate-y-1 transition-transform', className)}
     >
-      {/* Top Rank Badge sitting on the top border with more padding */}
+      {/* Watchlist heart */}
+      {onWatchlistToggle !== undefined && (
+        <button
+          type="button"
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); onWatchlistToggle(symbol); }}
+          className="absolute top-3 right-3 z-20 p-1.5 rounded-full transition-colors hover:bg-black/[0.05] dark:hover:bg-white/10"
+          aria-label={isWatchlisted === true ? 'Remove from watchlist' : 'Add to watchlist'}
+        >
+          <Heart
+            className={cn('w-4 h-4 transition-colors', isWatchlisted === true ? 'fill-pink-500 text-pink-500' : 'text-gray-400 hover:text-pink-400')}
+          />
+        </button>
+      )}
+
+      {/* Top Rank Badge */}
       {rank <= 3 && (
-        <div className="absolute top-8 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-20">
-          <div className="bg-gradient-to-r from-blue-600 to-cyan-500 text-white text-[10px] font-bold px-5 py-2.5 rounded-full shadow-lg flex items-center gap-1 uppercase tracking-wider">
+        <div className="absolute top-3 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-20">
+          <div className="bg-gradient-to-r from-blue-600 to-cyan-500 text-white text-[10px] font-bold px-4 py-1.5 rounded-full shadow-lg uppercase tracking-wider">
             {rankTheme.label}
           </div>
         </div>
       )}
 
-      <div className="p-6 pt-16 flex flex-col h-full relative z-10">
+      <div className={cn("p-5 flex flex-col h-full relative z-10", rank <= 3 ? "pt-8" : "pt-5")}>
 
-        {/* Header Section */}
-        <div className="text-center mb-6">
-          <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-2">
+        {/* Header */}
+        <div className="text-center mb-4">
+          <h3 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">
             {rank > 3 ? rankTheme.label : 'Stock Symbol'}
           </h3>
-
-          <div className="flex items-center justify-center gap-2 mb-1">
-            <span className={cn("text-5xl font-black tracking-tighter", rankTheme.color)}>
+          <div className="flex items-center justify-center mb-0.5">
+            <span className={cn("text-4xl font-black tracking-tighter", rankTheme.color)}>
               {symbol}
             </span>
           </div>
-
           {companyName !== undefined && companyName !== '' && (
-            <div className="text-sm font-semibold text-gray-300 mb-1 truncate max-w-[90%] mx-auto">
+            <div className="text-xs font-medium text-gray-500 dark:text-gray-400 truncate max-w-[90%] mx-auto">
               {companyName}
             </div>
           )}
-
-          <div className="flex items-center justify-center gap-2 text-gray-400 text-sm font-medium">
-            <span>{formatCurrency(price, currency)}</span>
+          <div className="text-sm font-semibold text-gray-600 dark:text-gray-300 mt-0.5">
+            {formatCurrency(price, currency)}
           </div>
         </div>
 
-        {/* Metrics List */}
-        <div className="space-y-3 mb-6 flex-grow">
+        {/* Metrics */}
+        <div className="space-y-2 mb-4 flex-grow">
           {/* EPS Growth */}
-          <div className="flex items-center justify-between group/feature p-2 rounded-lg hover:bg-white/5 transition-colors">
+          <div className="flex items-center justify-between group/feature p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-white/5 transition-colors">
             <div className="flex items-center gap-3">
               <div className={cn("p-1.5 rounded-md", isPositiveGrowth ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400")}>
                 <TrendingUp className="w-4 h-4" />
               </div>
-              <span className="text-sm text-gray-300 font-medium">Growth</span>
+              <span className="text-sm text-gray-600 dark:text-gray-300 font-medium">Growth</span>
             </div>
             <span className={cn("font-bold text-sm", isPositiveGrowth ? "text-green-400" : "text-red-400")}>
               {formatPercentage(epsGrowth)}
@@ -118,21 +133,21 @@ export const StockDataCard = ({
           </div>
 
           {/* Next Action & Progress Bar */}
-          <div className="flex flex-col gap-2 p-3 rounded-xl bg-white/5 group/feature hover:bg-white/10 transition-colors">
+          <div className="flex flex-col gap-2 p-3 rounded-xl bg-white dark:bg-white/5 group/feature hover:bg-black/[0.05] dark:hover:bg-white/10 transition-colors">
             <div className="flex items-center justify-between mb-1">
               <div className="flex items-center gap-2">
                 <div className="p-1.5 rounded-md bg-blue-500/20 text-blue-400">
                   <Calendar className="w-3.5 h-3.5" />
                 </div>
-                <span className="text-xs text-gray-400 font-medium uppercase tracking-wider">Next Action</span>
+                <span className="text-xs text-gray-500 dark:text-gray-400 font-medium uppercase tracking-wider">Next Action</span>
               </div>
-              <span className="font-bold text-sm text-white">
+              <span className="font-bold text-sm text-gray-900 dark:text-white">
                 {daysUntilNextAction !== undefined ? `${daysUntilNextAction} Days` : 'N/A'}
               </span>
             </div>
 
             {/* Progress Bar */}
-            <div className="h-1.5 w-full bg-gray-700/50 rounded-full overflow-hidden">
+            <div className="h-1.5 w-full bg-gray-200 dark:bg-gray-700/50 rounded-full overflow-hidden">
               <div
                 className="h-full bg-gradient-to-r from-blue-500 to-cyan-400 rounded-full relative"
                 style={{
@@ -178,17 +193,17 @@ StockDataCard.displayName = 'stock-data-card';
 
 export const StockDataCardSkeleton = ({ className }: { className?: string }) => {
   return (
-    <div className={cn("relative rounded-2xl border border-white/5 bg-gray-900/60 p-6 flex flex-col h-[350px] animate-pulse", className)}>
-      <div className="h-4 w-24 bg-gray-800 rounded mx-auto mb-6" />
-      <div className="h-12 w-32 bg-gray-800 rounded mx-auto mb-2" />
-      <div className="h-4 w-20 bg-gray-800 rounded mx-auto mb-8" />
+    <div className={cn("relative rounded-2xl border border-gray-200 dark:border-white/5 bg-white dark:bg-gray-900/60 p-6 flex flex-col h-[350px] animate-pulse", className)}>
+      <div className="h-4 w-24 bg-gray-200 dark:bg-gray-800 rounded mx-auto mb-6" />
+      <div className="h-12 w-32 bg-gray-200 dark:bg-gray-800 rounded mx-auto mb-2" />
+      <div className="h-4 w-20 bg-gray-200 dark:bg-gray-800 rounded mx-auto mb-8" />
 
       <div className="space-y-4 mb-8">
-        <div className="h-8 bg-gray-800 rounded w-full" />
-        <div className="h-8 bg-gray-800 rounded w-full" />
+        <div className="h-8 bg-gray-200 dark:bg-gray-800 rounded w-full" />
+        <div className="h-8 bg-gray-200 dark:bg-gray-800 rounded w-full" />
       </div>
 
-      <div className="mt-auto h-12 bg-gray-800 rounded-xl w-full" />
+      <div className="mt-auto h-12 bg-gray-200 dark:bg-gray-800 rounded-xl w-full" />
     </div>
   )
 }

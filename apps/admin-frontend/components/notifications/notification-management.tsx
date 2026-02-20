@@ -148,10 +148,10 @@ export function NotificationManagement({ currentUser }: NotificationManagementPr
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {Array.from({ length: 4 }).map((_, i) => (
             // eslint-disable-next-line react/no-array-index-key
-            <div key={i} className="h-32 rounded-[32px] bg-slate-900/40 backdrop-blur-2xl border border-white/5 animate-pulse" />
+            <div key={i} className="h-32 rounded-[32px] bg-white dark:bg-card backdrop-blur-2xl border border-gray-200 dark:border-border animate-pulse" />
           ))}
         </div>
-        <div className="h-96 rounded-[32px] bg-slate-900/40 backdrop-blur-2xl border border-white/5 animate-pulse" />
+        <div className="h-96 rounded-[32px] bg-white dark:bg-card backdrop-blur-2xl border border-gray-200 dark:border-border animate-pulse" />
       </div>
     );
   }
@@ -196,9 +196,9 @@ export function NotificationManagement({ currentUser }: NotificationManagementPr
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
         <button
           onClick={() => void loadData()}
-          className="group relative overflow-hidden rounded-[32px] bg-slate-900/40 backdrop-blur-2xl border border-white/5 p-1 transition-all hover:border-[#1fc7d4]/30 shadow-xl"
+          className="group relative overflow-hidden rounded-[32px] bg-white dark:bg-card backdrop-blur-2xl border border-gray-200 dark:border-border p-1 transition-all hover:border-[#1fc7d4]/30 shadow-xl"
         >
-          <div className="relative bg-card rounded-[28px] p-8 flex items-center justify-between transition-colors group-hover:bg-white/[0.02]">
+          <div className="relative bg-card rounded-[28px] p-8 flex items-center justify-between transition-colors group-hover:bg-gray-50 dark:hover:bg-white/[0.02]">
             <div className="flex items-center space-x-6">
               <div className="w-16 h-16 flex items-center justify-center bg-cyan-500/10 rounded-2xl border border-cyan-500/20 text-[#1fc7d4] transition-transform group-hover:rotate-180 duration-500">
                 <RefreshCw className="w-8 h-8" />
@@ -216,9 +216,9 @@ export function NotificationManagement({ currentUser }: NotificationManagementPr
 
         <button
           onClick={() => router.push('/notifications/analytics')}
-          className="group relative overflow-hidden rounded-[32px] bg-slate-900/40 backdrop-blur-2xl border border-white/5 p-1 transition-all hover:border-purple-500/30 shadow-xl"
+          className="group relative overflow-hidden rounded-[32px] bg-white dark:bg-card backdrop-blur-2xl border border-gray-200 dark:border-border p-1 transition-all hover:border-purple-500/30 shadow-xl"
         >
-          <div className="relative bg-card rounded-[28px] p-8 flex items-center justify-between transition-colors group-hover:bg-white/[0.02]">
+          <div className="relative bg-card rounded-[28px] p-8 flex items-center justify-between transition-colors group-hover:bg-gray-50 dark:hover:bg-white/[0.02]">
             <div className="flex items-center space-x-6">
               <div className="w-16 h-16 flex items-center justify-center bg-purple-500/10 rounded-2xl border border-purple-500/20 text-purple-400 transition-transform group-hover:scale-110">
                 <BarChart2 className="w-8 h-8" />
@@ -236,8 +236,8 @@ export function NotificationManagement({ currentUser }: NotificationManagementPr
       </div>
 
       {/* Table Section */}
-      <div className="relative overflow-hidden rounded-[32px] bg-slate-900/40 backdrop-blur-2xl border border-white/5 shadow-xl">
-        <div className="p-8 border-b border-white/5 flex items-center justify-between">
+      <div className="relative overflow-hidden rounded-[32px] bg-white dark:bg-card backdrop-blur-2xl border border-gray-200 dark:border-border shadow-xl">
+        <div className="p-8 border-b border-gray-200 dark:border-border flex items-center justify-between">
           <div>
             <h2 className="text-2xl font-black text-foreground uppercase tracking-tight mb-2">
               Recent Broadcasts
@@ -249,7 +249,7 @@ export function NotificationManagement({ currentUser }: NotificationManagementPr
             <input
               type="text"
               placeholder="Filter events..."
-              className="bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 py-2 text-xs font-bold focus:outline-none focus:border-[#1fc7d4]/50 transition-colors"
+              className="bg-white dark:bg-white/[0.04] border border-gray-200 dark:border-border rounded-xl pl-10 pr-4 py-2 text-xs font-bold focus:outline-none focus:border-[#1fc7d4]/50 transition-colors"
             />
           </div>
         </div>
@@ -257,7 +257,7 @@ export function NotificationManagement({ currentUser }: NotificationManagementPr
         <div className="divide-y divide-white/5">
           {notifications.length === 0 ? (
             <div className="py-24 text-center">
-              <div className="inline-flex p-6 bg-white/5 rounded-[32px] mb-6">
+              <div className="inline-flex p-6 bg-white dark:bg-white/[0.04] rounded-[32px] mb-6">
                 <Bell className="w-12 h-12 text-muted-foreground/20" />
               </div>
               <h3 className="text-xl font-black text-muted-foreground uppercase tracking-tight">
@@ -269,9 +269,9 @@ export function NotificationManagement({ currentUser }: NotificationManagementPr
             notifications.map(notification => (
               <div
                 key={notification.id}
-                className="group p-8 flex items-start gap-8 hover:bg-white/[0.02] transition-colors"
+                className="group p-8 flex items-start gap-8 hover:bg-gray-50 dark:hover:bg-white/[0.02] transition-colors"
               >
-                <div className="flex-shrink-0 w-14 h-14 rounded-2xl bg-white/5 border border-white/5 flex items-center justify-center text-muted-foreground shadow-inner">
+                <div className="flex-shrink-0 w-14 h-14 rounded-2xl bg-white dark:bg-white/[0.04] border border-gray-200 dark:border-border flex items-center justify-center text-muted-foreground shadow-inner">
                   {notification.notification_type === 'security' ? <Shield className="w-6 h-6" /> :
                     notification.notification_type === 'system' ? <RefreshCw className="w-6 h-6" /> :
                       <MessageSquare className="w-6 h-6" />}
@@ -323,8 +323,8 @@ export function NotificationManagement({ currentUser }: NotificationManagementPr
 
       {/* Delete Confirmation Modal */}
       {deleteModal.show && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xl animate-in fade-in duration-300">
-          <div className="relative overflow-hidden rounded-[40px] bg-slate-900/60 border border-red-500/20 p-1 max-w-md w-full shadow-2xl">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-white dark:bg-slate-950/80 backdrop-blur-xl animate-in fade-in duration-300">
+          <div className="relative overflow-hidden rounded-[40px] bg-white dark:bg-card border border-red-500/20 p-1 max-w-md w-full shadow-2xl">
             <div className="bg-card rounded-[38px] p-10 text-center">
               <div className="w-20 h-20 bg-red-500/10 rounded-[28px] flex items-center justify-center mx-auto mb-8 border border-red-500/20">
                 <AlertTriangle className="w-10 h-10 text-red-500" />
@@ -336,7 +336,7 @@ export function NotificationManagement({ currentUser }: NotificationManagementPr
                 This broadcast will be permanently purged from the system grid.
               </p>
 
-              <div className="bg-white/5 border border-white/5 rounded-2xl p-6 mb-10">
+              <div className="bg-white dark:bg-white/[0.04] border border-gray-200 dark:border-border rounded-2xl p-6 mb-10">
                 <p className="text-sm font-black text-foreground line-clamp-2">
                   {deleteModal.title}
                 </p>
@@ -346,7 +346,7 @@ export function NotificationManagement({ currentUser }: NotificationManagementPr
                 <Button
                   onClick={hideDeleteModal}
                   disabled={deleting}
-                  className="flex-1 py-7 rounded-2xl bg-white/5 border border-white/10 text-foreground font-black uppercase tracking-widest hover:bg-white/10 transition-all"
+                  className="flex-1 py-7 rounded-2xl bg-white dark:bg-white/[0.04] border border-gray-200 dark:border-border text-foreground font-black uppercase tracking-widest hover:bg-black/[0.05] dark:hover:bg-white/10 transition-all"
                 >
                   Abort
                 </Button>

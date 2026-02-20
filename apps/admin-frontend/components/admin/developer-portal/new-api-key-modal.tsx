@@ -1,6 +1,13 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
+import {
+    Dialog,
+    DialogContent,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import { AlertTriangle, Copy } from 'lucide-react';
 import React from 'react';
 
@@ -16,13 +23,11 @@ export const NewApiKeyModal: React.FC<NewApiKeyModalProps> = ({
     onCopy,
 }) => {
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-60">
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md">
-                <div className="p-6 border-b border-gray-200 dark:border-gray-600">
-                    <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                        API Key Created
-                    </h2>
-                </div>
+        <Dialog open={true} onOpenChange={(open) => !open && onClose()}>
+            <DialogContent className="sm:max-w-md p-0 gap-0">
+                <DialogHeader className="p-6 border-b border-gray-200 dark:border-gray-600">
+                    <DialogTitle>API Key Created</DialogTitle>
+                </DialogHeader>
 
                 <div className="p-6">
                     <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
@@ -56,12 +61,12 @@ export const NewApiKeyModal: React.FC<NewApiKeyModalProps> = ({
                     </div>
                 </div>
 
-                <div className="p-6 border-t border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 flex justify-end">
+                <DialogFooter className="p-6 border-t border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 sm:justify-end">
                     <Button onClick={onClose}>
                         I&apos;ve Saved the Key
                     </Button>
-                </div>
-            </div>
-        </div>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     );
 };

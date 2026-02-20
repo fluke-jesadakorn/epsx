@@ -8,7 +8,7 @@ import { createCreditsApi } from '@/shared/api/credits'
 import { PricingCard } from '@/shared/components/plans/pricing-card'
 import type { Plan, PlanGroup, PricingCardData } from '@/shared/types/plans'
 import { createFrontendApiClient } from '@/shared/utils/api-client'
-import { AlertCircle, Building2, Code2, Star, User as UserIcon, Wrench } from 'lucide-react'
+import { AlertCircle, Building2, Code2, Star, User as UserIcon } from 'lucide-react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import type { ReactNode } from 'react'
 import { useEffect, useState } from 'react'
@@ -34,11 +34,13 @@ export function PlanSelection({ currentUser: _currentUser, className }: PlanSele
   const searchParams = useSearchParams()
   const { planAccess } = usePlanAccess()
 
-  const GROUP_CONFIG: Record<PlanGroup, { label: string; desc: string; icon: ReactNode }> = {
+  const PLAN_GROUPS: PlanGroup[] = ['personal', 'enterprise', 'api', 'custom']
+
+  const GROUP_CONFIG: Record<string, { label: string; desc: string; icon: ReactNode }> = {
     personal: { label: 'Personal Plans', desc: 'For individual traders and analysts', icon: <UserIcon className="h-6 w-6" /> },
     enterprise: { label: 'Enterprise Plans', desc: 'For teams and organizations', icon: <Building2 className="h-6 w-6" /> },
     api: { label: 'API Plans', desc: 'For developers and integrations', icon: <Code2 className="h-6 w-6" /> },
-    custom: { label: 'Custom Plans', desc: 'Tailored solutions for special needs', icon: <Wrench className="h-6 w-6" /> },
+    custom: { label: 'Custom Plans', desc: 'Tailored solutions for partners and enterprises', icon: <Star className="h-6 w-6" /> },
   }
 
   // Transform backend plan to pricing card format
@@ -197,7 +199,7 @@ export function PlanSelection({ currentUser: _currentUser, className }: PlanSele
         </div>
       ) : (
         <div className="space-y-16 px-4 py-8">
-          {(['personal', 'enterprise', 'api', 'custom'] as PlanGroup[]).map((group) => {
+          {PLAN_GROUPS.map((group) => {
             const groupCards = pricingCards.filter((c) => (c.plan_group ?? 'personal') === group)
             if (groupCards.length === 0) return null
             const cfg = GROUP_CONFIG[group]
@@ -252,6 +254,7 @@ export function PlanSelection({ currentUser: _currentUser, className }: PlanSele
               </section>
             )
           })}
+
         </div>
       )}
     </div>

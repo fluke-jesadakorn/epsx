@@ -1,9 +1,6 @@
-import { Calendar, Clock, Copy, Hash, Loader2, Package, RotateCcw, Shield, Trash2, Users } from 'lucide-react';
+import { Calendar, Clock, Hash, Package, Users } from 'lucide-react';
 import React from 'react';
 
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Card, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -25,7 +22,6 @@ import {
 
 import { DualPanePermissionSelector } from '../dual-pane-permission-selector';
 import {
-    categoryBadgeClass,
     FEATURE_PERMISSIONS,
     FREE_PLAN_ID,
     getFeatureValue,
@@ -41,12 +37,6 @@ export interface PlanEditorProps {
         f: (prev: PlanEditFormState) => PlanEditFormState
     ) => void;
     setHasChanges: (hasChanges: boolean) => void;
-    hasChanges: boolean;
-    isSaving: boolean;
-    onSave: () => void;
-    onDiscard: () => void;
-    onDelete: () => void;
-    onDuplicate?: (plan: PermissionPlan) => void;
     permissions: PermissionDefinition[];
     onPermissionsChanged?: () => void;
 }
@@ -57,7 +47,7 @@ function SectionHeader({ children }: { children: React.ReactNode }) {
             <Label className="text-[#1fc7d4] uppercase tracking-wider font-bold text-xs whitespace-nowrap">
                 {children}
             </Label>
-            <div className="h-px flex-1 bg-white/5" />
+            <div className="h-px flex-1 bg-white dark:bg-white/[0.04]" />
         </div>
     );
 }
@@ -68,12 +58,6 @@ export function PlanEditor({
     form,
     setForm,
     setHasChanges,
-    hasChanges,
-    isSaving,
-    onSave,
-    onDiscard,
-    onDelete,
-    onDuplicate,
     permissions,
     onPermissionsChanged,
 }: PlanEditorProps) {
@@ -94,113 +78,59 @@ export function PlanEditor({
     const booleanFeatures = FEATURE_PERMISSIONS.filter(fp => fp.type === 'boolean');
 
     return (
-        <Card className="h-full border border-white/5 bg-slate-900/40 backdrop-blur-xl shadow-xl rounded-[32px] overflow-hidden flex flex-col">
-            {/* Header */}
-            <CardHeader className="py-5 px-8 border-b border-white/5 bg-white/5 flex flex-row items-center justify-between shrink-0">
-                <div className="flex items-center gap-3 min-w-0">
-                    <div className="h-10 w-10 rounded-xl bg-[#1fc7d4]/20 flex items-center justify-center shrink-0">
-                        <Package className="w-5 h-5 text-[#1fc7d4]" />
-                    </div>
-                    <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                            <CardTitle className="text-lg font-bold truncate">
-                                {selectedPlan.name}
-                            </CardTitle>
-                            <Badge variant="outline" className={`text-[10px] px-1.5 py-0 shrink-0 ${categoryBadgeClass(form.plan_category)}`}>
-                                {form.plan_category}
-                            </Badge>
-                            {isSys && (
-                                <Badge variant="outline" className="text-[10px] px-1.5 py-0 shrink-0 bg-purple-500/15 text-purple-400 border-purple-500/30">
-                                    <Shield className="w-2.5 h-2.5 mr-1" />
-                                    System
-                                </Badge>
-                            )}
-                            {!form.is_active && (
-                                <Badge variant="outline" className="text-[10px] px-1.5 py-0 shrink-0 bg-red-500/15 text-red-400 border-red-500/30">
-                                    inactive
-                                </Badge>
-                            )}
-                        </div>
-                        <p className="text-[11px] text-muted-foreground font-mono truncate">
-                            {selectedPlan.slug ?? selectedPlan.id}
-                        </p>
-                    </div>
-                </div>
-                <div className="flex gap-2 shrink-0">
-                    {isSys ? (
-                        <Button
-                            variant="ghost"
-                            className="text-purple-400 hover:text-purple-300 hover:bg-purple-500/10"
-                            size="sm"
-                            onClick={() => onDuplicate?.(selectedPlan)}
-                        >
-                            <Copy className="w-4 h-4 mr-2" />
-                            Use as Template
-                        </Button>
-                    ) : (
-                        <Button
-                            variant="ghost"
-                            className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
-                            size="sm"
-                            onClick={onDelete}
-                            disabled={isFree}
-                        >
-                            <Trash2 className="w-4 h-4 mr-2" />
-                            Delete
-                        </Button>
-                    )}
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={onDiscard}
-                        disabled={!hasChanges || isSaving}
-                        className="text-muted-foreground hover:text-foreground"
-                    >
-                        <RotateCcw className="w-4 h-4 mr-2" />
-                        Discard
-                    </Button>
-                    <Button
-                        size="sm"
-                        onClick={onSave}
-                        disabled={!hasChanges || isSaving}
-                        className="bg-[#1fc7d4] text-white hover:bg-[#1fc7d4]/90"
-                    >
-                        {isSaving && <Loader2 className="w-3 h-3 animate-spin mr-2" />}
-                        Save
-                    </Button>
-                </div>
-            </CardHeader>
-
+        <div className="h-full flex flex-col overflow-hidden">
             {/* Stats bar */}
-            <div className="px-8 py-3 border-b border-white/5 flex items-center gap-6 text-xs text-muted-foreground shrink-0">
-                <span className="flex items-center gap-1.5">
-                    <Users className="w-3.5 h-3.5" />
-                    {selectedPlan.member_count ?? 0} members
-                </span>
-                <span className="flex items-center gap-1.5">
-                    <Hash className="w-3.5 h-3.5" />
-                    Priority {form.priority}
-                </span>
-                {selectedPlan.created_at != null && (
-                    <span className="flex items-center gap-1.5">
-                        <Calendar className="w-3.5 h-3.5" />
-                        {new Date(selectedPlan.created_at).toLocaleDateString()}
-                    </span>
-                )}
-                {selectedPlan.updated_at != null && (
-                    <span className="flex items-center gap-1.5">
-                        <Clock className="w-3.5 h-3.5" />
-                        {new Date(selectedPlan.updated_at).toLocaleDateString()}
-                    </span>
-                )}
+            <div className="px-4 sm:px-8 py-4 border-b border-gray-200 dark:border-border shrink-0">
+                <div className="flex flex-wrap gap-3">
+                    <div className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.03] border border-gray-200 dark:border-border">
+                        <div className="h-9 w-9 rounded-lg bg-[#1fc7d4]/10 flex items-center justify-center shrink-0">
+                            <Users className="w-4 h-4 text-[#1fc7d4]" />
+                        </div>
+                        <div className="min-w-0">
+                            <p className="text-base font-semibold text-white leading-tight">{selectedPlan.member_count ?? 0}</p>
+                            <p className="text-[11px] text-muted-foreground">Members</p>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.03] border border-gray-200 dark:border-border">
+                        <div className="h-9 w-9 rounded-lg bg-amber-500/10 flex items-center justify-center shrink-0">
+                            <Hash className="w-4 h-4 text-amber-400" />
+                        </div>
+                        <div className="min-w-0">
+                            <p className="text-base font-semibold text-white leading-tight">{form.priority}</p>
+                            <p className="text-[11px] text-muted-foreground">Priority</p>
+                        </div>
+                    </div>
+                    {selectedPlan.created_at != null && (
+                        <div className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.03] border border-gray-200 dark:border-border">
+                            <div className="h-9 w-9 rounded-lg bg-blue-500/10 flex items-center justify-center shrink-0">
+                                <Calendar className="w-4 h-4 text-blue-400" />
+                            </div>
+                            <div className="min-w-0">
+                                <p className="text-sm font-semibold text-white leading-tight">{new Date(selectedPlan.created_at).toLocaleDateString()}</p>
+                                <p className="text-[11px] text-muted-foreground">Created</p>
+                            </div>
+                        </div>
+                    )}
+                    {selectedPlan.updated_at != null && (
+                        <div className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.03] border border-gray-200 dark:border-border">
+                            <div className="h-9 w-9 rounded-lg bg-purple-500/10 flex items-center justify-center shrink-0">
+                                <Clock className="w-4 h-4 text-purple-400" />
+                            </div>
+                            <div className="min-w-0">
+                                <p className="text-sm font-semibold text-white leading-tight">{new Date(selectedPlan.updated_at).toLocaleDateString()}</p>
+                                <p className="text-[11px] text-muted-foreground">Updated</p>
+                            </div>
+                        </div>
+                    )}
+                </div>
             </div>
 
             {/* Scrollable content */}
-            <div className="flex-1 overflow-y-auto p-8 space-y-6">
+            <div className="flex-1 overflow-y-auto p-4 sm:p-8 space-y-6">
 
                 {/* General */}
                 <SectionHeader>General</SectionHeader>
-                <div className="grid grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                     <div className="space-y-2">
                         <Label>Plan Name</Label>
                         <Input
@@ -209,7 +139,7 @@ export function PlanEditor({
                                 setForm((p) => ({ ...p, name: e.target.value }));
                                 setHasChanges(true);
                             }}
-                            className="bg-white/5 border-white/10"
+                            className="bg-white dark:bg-white/[0.04] border-gray-200 dark:border-border"
                             disabled={isSys}
                         />
                     </div>
@@ -221,8 +151,8 @@ export function PlanEditor({
                                 setForm((p) => ({ ...p, description: e.target.value }));
                                 setHasChanges(true);
                             }}
-                            className="bg-white/5 border-white/10 min-h-[38px] h-[38px] resize-y"
-                            rows={1}
+                            className="bg-white dark:bg-white/[0.04] border-gray-200 dark:border-border min-h-[80px] resize-y"
+                            rows={3}
                         />
                     </div>
                     <div className="space-y-2">
@@ -235,7 +165,7 @@ export function PlanEditor({
                             }}
                             disabled={isSys}
                         >
-                            <SelectTrigger className="bg-white/5 border-white/10">
+                            <SelectTrigger className="bg-white dark:bg-white/[0.04] border-gray-200 dark:border-border">
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -259,7 +189,7 @@ export function PlanEditor({
                             }}
                             disabled={isSys}
                         >
-                            <SelectTrigger className="bg-white/5 border-white/10">
+                            <SelectTrigger className="bg-white dark:bg-white/[0.04] border-gray-200 dark:border-border">
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -277,7 +207,7 @@ export function PlanEditor({
 
                 {/* Pricing & Timing */}
                 <SectionHeader>Pricing & Timing</SectionHeader>
-                <div className="grid grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                     <div className="space-y-2">
                         <Label>Priority</Label>
                         <Input
@@ -299,7 +229,7 @@ export function PlanEditor({
                                 }
                                 setHasChanges(true);
                             }}
-                            className="bg-white/5 border-white/10"
+                            className="bg-white dark:bg-white/[0.04] border-gray-200 dark:border-border"
                         />
                     </div>
                     <div className="space-y-2">
@@ -325,7 +255,7 @@ export function PlanEditor({
                                 }
                                 setHasChanges(true);
                             }}
-                            className="bg-white/5 border-white/10"
+                            className="bg-white dark:bg-white/[0.04] border-gray-200 dark:border-border"
                             disabled={isLocked}
                         />
                     </div>
@@ -353,7 +283,7 @@ export function PlanEditor({
                                 }
                                 setHasChanges(true);
                             }}
-                            className="bg-white/5 border-white/10"
+                            className="bg-white dark:bg-white/[0.04] border-gray-200 dark:border-border"
                             placeholder="-1 for permanent"
                         />
                     </div>
@@ -381,7 +311,7 @@ export function PlanEditor({
                                 }
                                 setHasChanges(true);
                             }}
-                            className="bg-white/5 border-white/10"
+                            className="bg-white dark:bg-white/[0.04] border-gray-200 dark:border-border"
                             placeholder="0"
                         />
                     </div>
@@ -389,10 +319,10 @@ export function PlanEditor({
 
                 {/* Status */}
                 <SectionHeader>Status</SectionHeader>
-                <div className="grid grid-cols-2 gap-6">
-                    <div className="flex items-center justify-between p-4 rounded-lg bg-white/5 border border-white/10">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+                    <div className="flex items-center justify-between p-4 rounded-lg bg-white dark:bg-white/[0.04] border border-gray-200 dark:border-border">
                         <div className="flex flex-col">
-                            <span className="text-sm font-medium text-white/80">Public Visibility</span>
+                            <span className="text-sm font-medium text-foreground/80 dark:text-white/80">Public Visibility</span>
                             <span className="text-xs text-white/40">Show on pricing page</span>
                         </div>
                         <Tooltip>
@@ -409,15 +339,15 @@ export function PlanEditor({
                                 </div>
                             </TooltipTrigger>
                             {isLocked && (
-                                <TooltipContent side="left" className="bg-slate-900 border-white/10 text-white max-w-[200px]">
+                                <TooltipContent side="left" className="bg-white dark:bg-card border-gray-200 dark:border-border text-white max-w-[200px]">
                                     <p className="text-xs">System plan visibility cannot be changed</p>
                                 </TooltipContent>
                             )}
                         </Tooltip>
                     </div>
-                    <div className="flex items-center justify-between p-4 rounded-lg bg-white/5 border border-white/10">
+                    <div className="flex items-center justify-between p-4 rounded-lg bg-white dark:bg-white/[0.04] border border-gray-200 dark:border-border">
                         <div className="flex flex-col">
-                            <span className="text-sm font-medium text-white/80">Active Status</span>
+                            <span className="text-sm font-medium text-foreground/80 dark:text-white/80">Active Status</span>
                             <span className="text-xs text-white/40">Plan assignments allowed</span>
                         </div>
                         <Tooltip>
@@ -434,7 +364,7 @@ export function PlanEditor({
                                 </div>
                             </TooltipTrigger>
                             {isLocked && (
-                                <TooltipContent side="left" className="bg-slate-900 border-white/10 text-white max-w-[200px]">
+                                <TooltipContent side="left" className="bg-white dark:bg-card border-gray-200 dark:border-border text-white max-w-[200px]">
                                     <p className="text-xs">System plan status cannot be changed</p>
                                 </TooltipContent>
                             )}
@@ -444,7 +374,7 @@ export function PlanEditor({
 
                 {/* Rate Limits & Quotas */}
                 <SectionHeader>Rate Limits & Quotas</SectionHeader>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {numericFeatures.map((fp) => {
                         const val = getFeatureValue(form.permissions, fp.prefix);
                         return (
@@ -466,7 +396,7 @@ export function PlanEditor({
                                         }));
                                         setHasChanges(true);
                                     }}
-                                    className="bg-white/5 border-white/10"
+                                    className="bg-white dark:bg-white/[0.04] border-gray-200 dark:border-border"
                                 />
                             </div>
                         );
@@ -475,11 +405,11 @@ export function PlanEditor({
 
                 {/* Feature Toggles */}
                 <SectionHeader>Feature Toggles</SectionHeader>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {booleanFeatures.map((fp) => {
                         const val = getFeatureValue(form.permissions, fp.prefix);
                         return (
-                            <div key={fp.prefix} className="flex items-center justify-between p-3 rounded-lg bg-white/5 border border-white/10">
+                            <div key={fp.prefix} className="flex items-center justify-between p-3 rounded-lg bg-white dark:bg-white/[0.04] border border-gray-200 dark:border-border">
                                 <Label className="flex items-center gap-2 text-sm">
                                     {fp.label}
                                     {fp.tooltip != null && <TooltipIcon text={fp.tooltip} />}
@@ -512,14 +442,14 @@ export function PlanEditor({
                             setForm((p) => ({ ...p, features: list }));
                             setHasChanges(true);
                         }}
-                        className="bg-white/5 border-white/10 min-h-[100px] font-mono text-sm"
+                        className="bg-white dark:bg-white/[0.04] border-gray-200 dark:border-border min-h-[100px] font-mono text-sm"
                         placeholder={'Advanced analytics\nUnlimited stock analysis\nPriority support'}
                     />
                 </div>
 
                 {/* Permission Assignment */}
                 <SectionHeader>Permission Assignment</SectionHeader>
-                <div className="h-[500px]">
+                <div className="h-[400px] sm:h-[500px]">
                     <DualPanePermissionSelector
                         availablePermissions={permissions}
                         assignedPermissionStrings={form.permissions}
@@ -534,7 +464,7 @@ export function PlanEditor({
                     />
                 </div>
             </div>
-        </Card>
+        </div>
     );
 }
 
@@ -546,7 +476,7 @@ function TooltipIcon({ text }: { text: string }) {
                     <span className="text-[10px] font-bold text-[#1fc7d4]">?</span>
                 </div>
             </TooltipTrigger>
-            <TooltipContent side="right" className="bg-slate-900 border-white/10 text-white max-w-[200px]">
+            <TooltipContent side="right" className="bg-white dark:bg-card border-gray-200 dark:border-border text-white max-w-[200px]">
                 <p className="text-xs">{text}</p>
             </TooltipContent>
         </Tooltip>
@@ -563,8 +493,8 @@ function EmptyState({
     description: string;
 }) {
     return (
-        <div className="h-full flex flex-col items-center justify-center border border-dashed border-white/10 rounded-[32px] bg-slate-900/20 text-slate-500 p-8 text-center">
-            <div className="h-20 w-20 rounded-full bg-white/5 flex items-center justify-center mb-6">
+        <div className="h-full flex flex-col items-center justify-center border border-dashed border-gray-200 dark:border-border rounded-[32px] bg-white/60 dark:bg-card/60 text-slate-500 p-8 text-center">
+            <div className="h-20 w-20 rounded-full bg-white dark:bg-white/[0.04] flex items-center justify-center mb-6">
                 <Icon className="h-10 w-10 opacity-30" />
             </div>
             <h3 className="text-xl font-bold text-slate-300 mb-2">{title}</h3>

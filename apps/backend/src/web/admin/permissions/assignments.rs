@@ -12,6 +12,7 @@ use uuid::Uuid;
 use diesel::prelude::*;
 use diesel_async::{AsyncConnection, RunQueryDsl};
 
+use crate::infrastructure::services::audit_service::{AuditCtx, AuditEntry};
 use crate::web::auth::AppState;
 use crate::web::responses::{AdminResponse, create_pagination};
 
@@ -104,6 +105,8 @@ pub struct PlanHistoryResponse {
 /// POST /admin/permissions/assignments
 pub async fn create_assignment(
     State(app_state): State<AppState>,
+    axum::Extension(user_ctx): axum::Extension<crate::web::middleware::bearer_middleware::OpenIDUserContext>,
+    headers: axum::http::HeaderMap,
     Json(req): Json<CreateAssignmentRequest>,
 ) -> impl IntoResponse {
     // Validate wallet address format
@@ -305,6 +308,36 @@ pub async fn create_assignment(
         next_billing_date: final_expires_at,
         assignment_metadata: req.assignment_metadata.unwrap_or(serde_json::json!({})),
     };
+
+    let ctx = AuditCtx::from_wallet(&user_ctx.wallet_address, &headers);
+    app_state.audit.log(ctx, AuditEntry::new("plan_assignment", "create", "plan")
+        .id(&response.id)
+        .after(serde_json::json!({
+            "wallet": &response.wallet_address,
+            "plan_id": &response.plan_id,
+            "plan_name": &response.plan_name,
+            "source": &response.assignment_source,
+        })));
+
+    // Notify user about plan assignment
+    let notif_wallet = response.wallet_address.clone();
+    let notif_plan = response.plan_name.clone();
+    let notif_plan_id = response.plan_id.clone();
+    let notif_state = app_state.clone();
+    tokio::spawn(async move {
+        use crate::infrastructure::services::NotificationService;
+        use crate::web::notifications::{NotificationType, NotificationPriority};
+        let _ = NotificationService::send(
+            &notif_state,
+            &notif_wallet,
+            NotificationType::Permission,
+            NotificationPriority::Normal,
+            "Plan Updated",
+            &format!("You have been assigned to the {} plan", notif_plan),
+            Some(serde_json::json!({ "plan_id": notif_plan_id, "plan_name": notif_plan })),
+            Some("/plans".to_string()),
+        ).await;
+    });
 
     AdminResponse::created(response, "Wallet assigned to permission plan successfully").into_response()
 }
@@ -541,6 +574,8 @@ pub async fn list_assignments(
 /// DELETE /admin/permissions/assignments/:assignment_id
 pub async fn remove_assignment(
     State(app_state): State<AppState>,
+    axum::Extension(user_ctx): axum::Extension<crate::web::middleware::bearer_middleware::OpenIDUserContext>,
+    headers: axum::http::HeaderMap,
     Path(assignment_id): Path<String>,
 ) -> impl IntoResponse {
     let assignment_uuid = match Uuid::parse_str(&assignment_id) {
@@ -556,6 +591,23 @@ pub async fn remove_assignment(
         }
     };
 
+    // Fetch assignment details before deactivation (for notification)
+    #[derive(QueryableByName)]
+    struct AssignmentInfo {
+        #[diesel(sql_type = diesel::sql_types::Text)]
+        wallet_address: String,
+        #[diesel(sql_type = diesel::sql_types::Text)]
+        plan_name: String,
+    }
+
+    let info = diesel::sql_query(
+        "SELECT wpa.wallet_address, p.name as plan_name FROM wallet_plan_assignments wpa JOIN plans p ON wpa.plan_id = p.id WHERE wpa.id = $1"
+    )
+    .bind::<diesel::sql_types::Uuid, _>(assignment_uuid)
+    .get_result::<AssignmentInfo>(&mut conn)
+    .await
+    .ok();
+
     match diesel::sql_query(
         "UPDATE wallet_plan_assignments SET is_active = false, updated_at = NOW() WHERE id = $1"
     )
@@ -564,6 +616,29 @@ pub async fn remove_assignment(
     .await
     {
         Ok(rows) if rows > 0 => {
+            let ctx = AuditCtx::from_wallet(&user_ctx.wallet_address, &headers);
+            app_state.audit.log(ctx, AuditEntry::new("plan_assignment", "delete", "plan")
+                .id(&assignment_id));
+
+            // Notify user about plan removal
+            if let Some(info) = info {
+                let notif_state = app_state.clone();
+                tokio::spawn(async move {
+                    use crate::infrastructure::services::NotificationService;
+                    use crate::web::notifications::{NotificationType, NotificationPriority};
+                    let _ = NotificationService::send(
+                        &notif_state,
+                        &info.wallet_address,
+                        NotificationType::Permission,
+                        NotificationPriority::Normal,
+                        "Plan Removed",
+                        &format!("Your {} plan has been removed", info.plan_name),
+                        Some(serde_json::json!({ "plan_name": info.plan_name })),
+                        Some("/plans".to_string()),
+                    ).await;
+                });
+            }
+
             AdminResponse::success_with_message(
                 serde_json::json!({"deleted": true}),
                 "Assignment removed successfully"

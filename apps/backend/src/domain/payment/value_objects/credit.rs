@@ -202,7 +202,7 @@ impl CreditTransactionType {
     }
 
     /// Parse from string
-    pub fn from_str(s: &str) -> Result<Self, CreditError> {
+    pub fn parse(s: &str) -> Result<Self, CreditError> {
         match s.to_lowercase().as_str() {
             "grant" => Ok(Self::Grant),
             "revoke" => Ok(Self::Revoke),
@@ -381,14 +381,14 @@ mod tests {
     #[test]
     fn test_transaction_type_from_str() {
         assert_eq!(
-            CreditTransactionType::from_str("grant").unwrap(),
+            CreditTransactionType::parse("grant").unwrap(),
             CreditTransactionType::Grant
         );
         assert_eq!(
-            CreditTransactionType::from_str("payment_debit").unwrap(),
+            CreditTransactionType::parse("payment_debit").unwrap(),
             CreditTransactionType::PaymentDebit
         );
-        assert!(CreditTransactionType::from_str("invalid").is_err());
+        assert!(CreditTransactionType::parse("invalid").is_err());
     }
 
     #[test]

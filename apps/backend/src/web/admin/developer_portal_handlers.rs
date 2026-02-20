@@ -4,6 +4,7 @@
 
 use axum::{
     extract::{Path, Query, State},
+    http::HeaderMap,
     response::{IntoResponse, Json},
     Extension,
 };
@@ -18,6 +19,7 @@ use crate::domain::developer_portal::{
 };
 use crate::infrastructure::adapters::repositories::developer_portal::{ApiKeyRepository, ModuleRepository};
 use crate::infrastructure::database::get_analytics_pool;
+use crate::infrastructure::services::audit_service::{AuditCtx, AuditEntry};
 use crate::web::auth::AppState;
 use crate::web::responses::UnifiedApiResponse;
 
@@ -152,11 +154,13 @@ pub async fn list_api_keys_handler(
 /// POST /api/admin/developer-portal/api-keys
 pub async fn create_api_key_handler(
     State(state): State<AppState>,
+    axum::Extension(user_ctx): axum::Extension<crate::web::middleware::bearer_middleware::OpenIDUserContext>,
+    headers: HeaderMap,
     Json(body): Json<CreateApiKeyBody>,
 ) -> impl IntoResponse {
     let pool = *state.db_pool;
     let repo = ApiKeyRepository::new(pool);
-    
+
     // Parse expires_at if provided
     let expires_at = if let Some(expires_str) = &body.expires_at {
         chrono::DateTime::parse_from_rfc3339(expires_str)
@@ -176,25 +180,40 @@ pub async fn create_api_key_handler(
     }).collect();
 
     let request = CreateApiKeyRequest {
-        client_name: body.client_name,
-        client_description: body.client_description,
-        client_contact_email: body.client_contact_email,
+        client_name: body.client_name.clone(),
+        client_description: body.client_description.clone(),
+        client_contact_email: body.client_contact_email.clone(),
         wallet_address: body.wallet_address.clone(),
         allowed_modules,
-        plan_ids: body.plan_ids.unwrap_or_default().into_iter()
+        plan_ids: body.plan_ids.clone().unwrap_or_default().into_iter()
             .filter_map(|id| Uuid::parse_str(&id).ok())
             .collect(),
-        permissions: body.permissions.unwrap_or_default(),
-        ip_restrictions: body.ip_restrictions,
+        permissions: body.permissions.clone().unwrap_or_default(),
+        ip_restrictions: body.ip_restrictions.clone(),
         rate_limit_per_minute: body.rate_limit_per_minute,
         rate_limit_per_day: body.rate_limit_per_day,
         expires_at,
-        created_by: body.wallet_address, // Use wallet as creator for now
+        created_by: body.wallet_address.clone(), // Use wallet as creator for now
     };
 
     match repo.create(request).await {
         Ok(response) => {
             info!("Created API key: {}", response.api_key.id);
+
+            // Audit log - NEVER log the actual API key value
+            let ctx = AuditCtx::from_wallet(&user_ctx.wallet_address, &headers);
+            state.audit.log(ctx, AuditEntry::new("api_key", "create", "developer")
+                .id(&response.api_key.id.to_string())
+                .after(serde_json::json!({
+                    "client_name": body.client_name,
+                    "wallet_address": body.wallet_address,
+                    "rate_limit_per_minute": body.rate_limit_per_minute,
+                    "rate_limit_per_day": body.rate_limit_per_day,
+                    "plan_ids": body.plan_ids,
+                    "permissions": body.permissions,
+                    "expires_at": body.expires_at,
+                })));
+
             UnifiedApiResponse::success(response)
         }
         Err(e) => {
@@ -230,26 +249,38 @@ pub async fn get_api_key_handler(
 /// POST /api/admin/developer-portal/api-keys/:id/revoke
 pub async fn revoke_api_key_handler(
     State(state): State<AppState>,
+    axum::Extension(user_ctx): axum::Extension<crate::web::middleware::bearer_middleware::OpenIDUserContext>,
+    headers: HeaderMap,
     Extension(admin_wallet): Extension<String>,
     Path(id): Path<String>,
     Json(body): Json<RevokeApiKeyBody>,
 ) -> impl IntoResponse {
     let pool = *state.db_pool;
     let repo = ApiKeyRepository::new(pool);
-    
+
     let uuid = match Uuid::parse_str(&id) {
         Ok(u) => u,
         Err(_) => return UnifiedApiResponse::error(400, "Invalid UUID", "The provided ID is not a valid UUID"),
     };
 
     let request = RevokeApiKeyRequest {
-        reason: body.reason,
+        reason: body.reason.clone(),
         revoked_by: admin_wallet.clone(),
     };
 
     match repo.revoke(uuid, request).await {
         Ok(api_key) => {
             info!("Admin {} revoked API key: {}", admin_wallet, uuid);
+
+            // Audit log
+            let ctx = AuditCtx::from_wallet(&user_ctx.wallet_address, &headers);
+            state.audit.log(ctx, AuditEntry::new("api_key", "revoke", "developer")
+                .id(&uuid.to_string())
+                .after(serde_json::json!({
+                    "reason": body.reason,
+                    "revoked_by": admin_wallet,
+                })));
+
             UnifiedApiResponse::success(api_key)
         }
         Err(e) => {
@@ -263,13 +294,15 @@ pub async fn revoke_api_key_handler(
 /// Update the expiration date of an API key
 pub async fn update_expiration_handler(
     State(state): State<AppState>,
+    axum::Extension(user_ctx): axum::Extension<crate::web::middleware::bearer_middleware::OpenIDUserContext>,
+    headers: HeaderMap,
     Extension(admin_wallet): Extension<String>,
     Path(id): Path<String>,
     Json(body): Json<UpdateExpirationBody>,
 ) -> impl IntoResponse {
     let pool = *state.db_pool;
     let repo = ApiKeyRepository::new(pool);
-    
+
     let uuid = match Uuid::parse_str(&id) {
         Ok(u) => u,
         Err(_) => return UnifiedApiResponse::error(400, "Invalid UUID", "The provided ID is not a valid UUID"),
@@ -288,6 +321,16 @@ pub async fn update_expiration_handler(
     match repo.update_expiration(uuid, expires_at).await {
         Ok(api_key) => {
             info!("Admin {} updated API key {} expiration to {:?}", admin_wallet, uuid, expires_at);
+
+            // Audit log
+            let ctx = AuditCtx::from_wallet(&user_ctx.wallet_address, &headers);
+            state.audit.log(ctx, AuditEntry::new("api_key", "update", "developer")
+                .id(&uuid.to_string())
+                .after(serde_json::json!({
+                    "expires_at": body.expires_at,
+                    "updated_by": admin_wallet,
+                })));
+
             UnifiedApiResponse::success(api_key)
         }
         Err(e) => {
@@ -370,25 +413,40 @@ pub async fn get_module_handler(
 /// POST /api/admin/developer-portal/modules
 pub async fn create_module_handler(
     State(state): State<AppState>,
+    axum::Extension(user_ctx): axum::Extension<crate::web::middleware::bearer_middleware::OpenIDUserContext>,
+    headers: HeaderMap,
     Json(body): Json<CreateModuleBody>,
 ) -> impl IntoResponse {
     let pool = *state.db_pool;
     let repo = ModuleRepository::new(pool);
-    
+
     let request = CreateModuleRequest {
-        name: body.name,
-        display_name: body.display_name,
-        description: body.description,
-        category: body.category,
-        base_path: body.base_path,
+        name: body.name.clone(),
+        display_name: body.display_name.clone(),
+        description: body.description.clone(),
+        category: body.category.clone(),
+        base_path: body.base_path.clone(),
         default_rate_limit: body.default_rate_limit,
-        access_levels: body.access_levels,
-        endpoints: body.endpoints,
+        access_levels: body.access_levels.clone(),
+        endpoints: body.endpoints.clone(),
     };
 
     match repo.create(request).await {
         Ok(module) => {
             info!("Created module: {}", module.id);
+
+            // Audit log
+            let ctx = AuditCtx::from_wallet(&user_ctx.wallet_address, &headers);
+            state.audit.log(ctx, AuditEntry::new("module", "create", "developer")
+                .id(&module.id.to_string())
+                .after(serde_json::json!({
+                    "name": body.name,
+                    "display_name": body.display_name,
+                    "category": body.category,
+                    "base_path": body.base_path,
+                    "default_rate_limit": body.default_rate_limit,
+                })));
+
             UnifiedApiResponse::success(module)
         }
         Err(e) => {
@@ -401,29 +459,43 @@ pub async fn create_module_handler(
 /// PUT /api/admin/developer-portal/modules/:id
 pub async fn update_module_handler(
     State(state): State<AppState>,
+    axum::Extension(user_ctx): axum::Extension<crate::web::middleware::bearer_middleware::OpenIDUserContext>,
+    headers: HeaderMap,
     Path(id): Path<String>,
     Json(body): Json<UpdateModuleBody>,
 ) -> impl IntoResponse {
     let pool = *state.db_pool;
     let repo = ModuleRepository::new(pool);
-    
+
     let uuid = match Uuid::parse_str(&id) {
         Ok(u) => u,
         Err(_) => return UnifiedApiResponse::error(400, "Invalid UUID", "The provided ID is not a valid UUID"),
     };
 
     let request = UpdateModuleRequest {
-        display_name: body.display_name,
-        description: body.description,
-        status: body.status,
+        display_name: body.display_name.clone(),
+        description: body.description.clone(),
+        status: body.status.clone(),
         default_rate_limit: body.default_rate_limit,
-        access_levels: body.access_levels,
-        endpoints: body.endpoints,
+        access_levels: body.access_levels.clone(),
+        endpoints: body.endpoints.clone(),
     };
 
     match repo.update(uuid, request).await {
         Ok(module) => {
             info!("Updated module: {}", uuid);
+
+            // Audit log
+            let ctx = AuditCtx::from_wallet(&user_ctx.wallet_address, &headers);
+            state.audit.log(ctx, AuditEntry::new("module", "update", "developer")
+                .id(&uuid.to_string())
+                .after(serde_json::json!({
+                    "display_name": body.display_name,
+                    "description": body.description,
+                    "status": body.status,
+                    "default_rate_limit": body.default_rate_limit,
+                })));
+
             UnifiedApiResponse::success(module)
         }
         Err(e) => {

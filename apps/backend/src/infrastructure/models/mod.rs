@@ -13,6 +13,7 @@ pub mod payment;
 pub mod credit;
 pub mod notification;
 pub mod audit;
+pub mod chat;
 
 // Re-export common model structs for convenience
 pub use wallet_user::{

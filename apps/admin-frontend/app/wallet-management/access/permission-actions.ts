@@ -1,5 +1,6 @@
 'use server';
 
+import { rethrowRedirect } from '@/lib/api-error';
 import type { CreatePermissionRequest, PermissionDefinition } from '@/lib/api/permissions-client';
 import { permissionsClient } from '@/lib/api/permissions-client';
 import { getAdminServerActionClient } from '@/shared/utils/server-fetch';
@@ -17,7 +18,7 @@ export async function getPermissionsAction(): Promise<ActionResponse<PermissionD
         const permissions = await permissionsClient.listPermissions(client);
         return { success: true, data: permissions };
     } catch (error) {
-        // Silently fail
+        rethrowRedirect(error);
         return {
             success: false,
             error: error instanceof Error ? error.message : 'Failed to fetch permissions'
@@ -32,7 +33,7 @@ export async function createPermissionAction(data: CreatePermissionRequest): Pro
         revalidatePath('/wallet-management/access');
         return { success: true, data: permission };
     } catch (error) {
-        // Silently fail
+        rethrowRedirect(error);
         return {
             success: false,
             error: error instanceof Error ? error.message : 'Failed to create permission'
@@ -47,7 +48,7 @@ export async function deletePermissionAction(id: string): Promise<ActionResponse
         revalidatePath('/wallet-management/access');
         return { success: true };
     } catch (error) {
-        // Silently fail
+        rethrowRedirect(error);
         return {
             success: false,
             error: error instanceof Error ? error.message : 'Failed to delete permission'
@@ -62,7 +63,7 @@ export async function updatePermissionAction(id: string, data: Partial<CreatePer
         revalidatePath('/wallet-management/access');
         return { success: true, data: permission };
     } catch (error) {
-        // Silently fail
+        rethrowRedirect(error);
         return {
             success: false,
             error: error instanceof Error ? error.message : 'Failed to update permission'

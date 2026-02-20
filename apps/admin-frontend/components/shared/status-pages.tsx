@@ -1,6 +1,7 @@
 'use client';
 
 import { cn } from '@/design-system';
+import { logoutAction } from '@/lib/auth/auth-actions';
 import {
   AlertTriangle,
   ArrowLeft,
@@ -11,8 +12,9 @@ import {
   ShieldX,
 } from 'lucide-react';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
-import React from 'react';
+import { useRouter } from 'next/navigation';
+import React, { useCallback } from 'react';
+import { useDisconnect } from 'wagmi';
 
 /**
  * Unified Status Page Components
@@ -105,7 +107,7 @@ export function NotFoundContent({
           {showBackButton && (
             <button
               onClick={() => router.back()}
-              className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-white/5 backdrop-blur-xl border border-white/10 text-foreground rounded-2xl font-semibold hover:bg-white/10 transition-colors"
+              className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-white dark:bg-white/[0.04] backdrop-blur-xl border border-gray-200 dark:border-border text-foreground rounded-2xl font-semibold hover:bg-black/[0.05] dark:hover:bg-white/10 transition-colors"
             >
               <ArrowLeft className="w-5 h-5" />
               Go Back
@@ -157,10 +159,10 @@ export function ErrorContent({
         </div>
 
         {/* Error details */}
-        <div className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 p-6 mb-6 shadow-lg">
+        <div className="bg-white dark:bg-white/[0.04] backdrop-blur-xl rounded-2xl border border-gray-200 dark:border-border p-6 mb-6 shadow-lg">
           <p className="text-foreground mb-3">{message}</p>
           {errorId && (
-            <p className="text-xs text-muted-foreground font-mono bg-white/5 backdrop-blur-sm border border-white/10 px-3 py-2 rounded-lg">
+            <p className="text-xs text-muted-foreground font-mono bg-white dark:bg-white/[0.04] backdrop-blur-sm border border-gray-200 dark:border-border px-3 py-2 rounded-lg">
               Error ID: {errorId}
             </p>
           )}
@@ -225,7 +227,14 @@ export function AccessDeniedContent({
   showHomeButton = true,
 }: AccessDeniedContentProps) {
   const router = useRouter();
-  const pathname = usePathname();
+  const { disconnect } = useDisconnect();
+
+  const handleReauth = useCallback(async () => {
+    try { disconnect(); } catch { /* WalletConnect origin check may fail in dev */ }
+    const returnPath = route != null ? decodeURIComponent(route) : undefined;
+    await logoutAction(returnPath);
+    router.replace('/auth');
+  }, [disconnect, route, router]);
 
   return (
     <StatusPageLayout>
@@ -248,7 +257,7 @@ export function AccessDeniedContent({
         </div>
 
         {/* Error details card */}
-        <div className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 shadow-lg overflow-hidden mb-6">
+        <div className="bg-white dark:bg-white/[0.04] backdrop-blur-xl rounded-2xl border border-gray-200 dark:border-border shadow-lg overflow-hidden mb-6">
           <div className="p-6">
             <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
               <AlertTriangle className="w-4 h-4 text-destructive" />
@@ -258,7 +267,7 @@ export function AccessDeniedContent({
               {route && (
                 <div className="flex justify-between items-start gap-4">
                   <span className="text-muted-foreground shrink-0">Requested Route:</span>
-                  <code className="text-foreground bg-white/5 backdrop-blur-sm border border-white/10 px-2 py-1 rounded text-right break-all">
+                  <code className="text-foreground bg-white dark:bg-white/[0.04] backdrop-blur-sm border border-gray-200 dark:border-border px-2 py-1 rounded text-right break-all">
                     {decodeURIComponent(route)}
                   </code>
                 </div>
@@ -272,7 +281,7 @@ export function AccessDeniedContent({
               {permission && (
                 <div className="flex justify-between items-start gap-4">
                   <span className="text-muted-foreground shrink-0">Required Permission:</span>
-                  <code className="text-foreground bg-white/5 backdrop-blur-sm border border-white/10 px-2 py-1 rounded text-right break-all">
+                  <code className="text-foreground bg-white dark:bg-white/[0.04] backdrop-blur-sm border border-gray-200 dark:border-border px-2 py-1 rounded text-right break-all">
                     {decodeURIComponent(permission)}
                   </code>
                 </div>
@@ -281,7 +290,7 @@ export function AccessDeniedContent({
           </div>
 
           {context === 'admin' && (
-            <div className="border-t border-white/10 bg-gradient-to-r from-purple-500/10 to-orange-500/10 backdrop-blur-sm p-4">
+            <div className="border-t border-gray-200 dark:border-border bg-gradient-to-r from-purple-500/10 to-orange-500/10 backdrop-blur-sm p-4">
               <p className="text-sm text-foreground">
                 <span className="font-medium">Admin Access Required:</span> Only authorized administrators can access this panel.
                 Contact your system administrator if you believe this is an error.
@@ -293,22 +302,22 @@ export function AccessDeniedContent({
         {/* Actions */}
         <div className="flex flex-col sm:flex-row gap-3">
           {showLoginButton && (
-            <Link
-              href={`/auth?return_url=${encodeURIComponent(pathname)}`}
+            <button
+              onClick={handleReauth}
               className="flex-1 inline-flex items-center justify-center gap-2 px-6 py-4 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-2xl font-semibold shadow-lg shadow-red-500/20 hover:shadow-xl hover:shadow-red-500/30 hover-lift transition-all"
             >
               <RotateCcw className="w-5 h-5" />
-              Login Again
-            </Link>
+              Go to Auth
+            </button>
           )}
           {showHomeButton && (
-            <Link
-              href="/"
-              className="flex-1 inline-flex items-center justify-center gap-2 px-6 py-4 bg-white/5 backdrop-blur-xl border border-white/10 text-foreground rounded-2xl font-semibold hover:bg-white/10 transition-colors"
+            <button
+              onClick={() => router.back()}
+              className="flex-1 inline-flex items-center justify-center gap-2 px-6 py-4 bg-white dark:bg-white/[0.04] backdrop-blur-xl border border-gray-200 dark:border-border text-foreground rounded-2xl font-semibold hover:bg-black/[0.05] dark:hover:bg-white/10 transition-colors"
             >
-              <Home className="w-5 h-5" />
-              Go Home
-            </Link>
+              <ArrowLeft className="w-5 h-5" />
+              Go Back
+            </button>
           )}
         </div>
       </div>

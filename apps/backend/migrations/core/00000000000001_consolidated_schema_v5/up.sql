@@ -87,7 +87,7 @@ CREATE TABLE permissions (
     created_by VARCHAR(42),
     
     CONSTRAINT permissions_type_check CHECK (
-        permission_type IN ('manual', 'nft_gated', 'token_gated', 'dao_governance')
+        permission_type IN ('manual', 'nft_gated', 'token_gated', 'dao_governance', 'system')
     ),
     CONSTRAINT permissions_platform_not_empty CHECK (LENGTH(TRIM(platform)) > 0),
     CONSTRAINT permissions_resource_not_empty CHECK (LENGTH(TRIM(resource)) > 0),

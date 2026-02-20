@@ -4,9 +4,8 @@ import { PlanManagementView } from '@/components/access-control/PlanManagementVi
 import { PageTabs, type TabItem } from '@/components/shared';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useCallback } from 'react';
-import { ActivityLogSection } from './activity-log-section';
 import { WalletSection } from './wallet-section';
-import type { WalletActivityEvent, WalletData } from './types';
+import type { WalletData } from './types';
 
 export interface WalletManagementTabsProps {
     initialData?: {
@@ -18,16 +17,14 @@ export interface WalletManagementTabsProps {
             total_pages: number;
         }
     };
-    initialActivityLogs?: WalletActivityEvent[];
 }
 
 const WALLET_TABS: TabItem[] = [
     { id: 'wallets', label: 'Wallets', icon: 'Wallet' },
     { id: 'access-control', label: 'Access', icon: 'Shield', gradient: 'primary' },
-    { id: 'activity', label: 'Activity', icon: 'Activity', gradient: 'purple' },
 ];
 
-export function WalletManagementTabs({ initialData, initialActivityLogs }: WalletManagementTabsProps) {
+export function WalletManagementTabs({ initialData }: WalletManagementTabsProps) {
     const router = useRouter();
     const pathname = usePathname();
     const searchParams = useSearchParams();
@@ -59,12 +56,6 @@ export function WalletManagementTabs({ initialData, initialActivityLogs }: Walle
                 {activeTab === 'access-control' && (
                     <div className="animate-in fade-in-50 duration-500">
                         <PlanManagementView />
-                    </div>
-                )}
-
-                {activeTab === 'activity' && (
-                    <div className="animate-in fade-in-50 duration-500">
-                        <ActivityLogSection initialEvents={initialActivityLogs} />
                     </div>
                 )}
             </div>

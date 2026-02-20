@@ -42,12 +42,12 @@ export function RankingUpgradeOverlay({
             "group transition-all duration-300"
         )}>
             {/* Glass-morphism background with animated gradient */}
-            <div className="absolute inset-0 backdrop-blur-md bg-slate-900/60" />
+            <div className="absolute inset-0 backdrop-blur-md bg-white dark:bg-slate-900/60" />
             
             {/* Animated gradient border */}
             <div className="absolute inset-0 rounded-2xl">
                 <div className="absolute inset-0 bg-gradient-to-br from-purple-500/30 via-transparent to-pink-500/30 animate-pulse" />
-                <div className="absolute inset-[1px] rounded-2xl bg-slate-900/80" />
+                <div className="absolute inset-[1px] rounded-2xl bg-white dark:bg-slate-900/80" />
             </div>
 
             {/* Decorative particles */}
@@ -90,7 +90,7 @@ export function RankingUpgradeOverlay({
                 {/* Lock indicator with premium badge */}
                 <div className={cn(
                     "flex items-center gap-1.5 rounded-full px-3 py-1 mb-2",
-                    "bg-gradient-to-r from-slate-800/80 to-slate-700/80 border border-white/10"
+                    "bg-gradient-to-r from-gray-100/80 dark:from-slate-800/80 to-slate-700/80 border border-gray-200 dark:border-white/10"
                 )}>
                     <Lock className={cn("text-slate-400", isCompact ? "h-3 w-3" : "h-3.5 w-3.5")} />
                     <span className={cn(

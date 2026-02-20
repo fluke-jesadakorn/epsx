@@ -2,8 +2,7 @@
 
 import { useCallback, useState } from 'react';
 import type { WalletClient } from 'viem';
-import { loginAction } from '../../../auth/actions';
-import { requestWalletChallenge, verifyWalletSignature } from '../../../auth/api';
+import { challengeAction, loginAction, verifyAction } from '../../../auth/actions';
 import type { AuthResult, AuthStep } from '../types';
 
 interface UseSignMessageProps {
@@ -92,14 +91,15 @@ async function verifyAndLogin({
     loginAct,
     authenticateWithDirectApi
 }: VerifyAndLoginProps) {
-    const challengeData = await requestWalletChallenge(address);
+    // Server actions proxy requests through Next.js server (no direct browser→backend)
+    const challengeData = await challengeAction(address);
 
     const signature = await walletClient.signMessage({
         message: challengeData.message,
         account: address as `0x${string}`,
     });
 
-    const result = await verifyWalletSignature({
+    const result = await verifyAction({
         wallet_address: address,
         signature,
         message: challengeData.message,

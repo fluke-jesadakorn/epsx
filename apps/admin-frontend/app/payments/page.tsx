@@ -1,43 +1,17 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 
-import { PaymentAnalytics } from '@/components/payments/payment-analytics';
 import { PaymentLinksManagement } from '@/components/payments/payment-links-management';
 import { PaymentsManagement } from '@/components/payments/payments-management';
 import { UserAccessManagement } from '@/components/payments/user-access-management';
-import { PageHeader, PageLayout, PageSkeleton, PageTabs, type TabItem } from '@/components/shared';
-import { useSharedAuth } from '@/shared/components/auth';
+import { PageHeader, PageLayout } from '@/components/shared';
 
-type TabType = 'payments' | 'user-access' | 'payment-links' | 'analytics';
+type TabType = 'payments' | 'user-access' | 'payment-links';
 
-const tabs: TabItem[] = [
-  { id: 'payments', label: 'Payments', icon: 'CreditCard', gradient: 'info' },
-  { id: 'user-access', label: 'User Access', icon: 'Users', gradient: 'success' },
-  { id: 'payment-links', label: 'Links', icon: 'Link', gradient: 'purple' },
-  { id: 'analytics', label: 'Analytics', icon: 'BarChart3', gradient: 'indigo' },
-];
-
-/**
- * Payments Page
- * Uses unified page components for consistent design
- */
 export default function AdminPaymentsPage() {
-  const { isAuthenticated, isLoading } = useSharedAuth();
-  const router = useRouter();
-  const [activeTab, setActiveTab] = useState<TabType>('payments');
-
-  // Redirect to auth if not authenticated
-  useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
-      router.push('/auth');
-    }
-  }, [isAuthenticated, isLoading, router]);
-
-  if (isLoading || !isAuthenticated) {
-    return <PageSkeleton showHeader showTabs tabCount={4} stats={4} rows={6} />;
-  }
+  const searchParams = useSearchParams();
+  const activeTab = (searchParams.get('tab') ?? 'payments') as TabType;
 
   return (
     <PageLayout>
@@ -49,17 +23,9 @@ export default function AdminPaymentsPage() {
         centered
       />
 
-      <PageTabs
-        tabs={tabs}
-        activeTab={activeTab}
-        onTabChange={(id) => setActiveTab(id as TabType)}
-        className="mb-8"
-      />
-
       {activeTab === 'payments' && <PaymentsManagement />}
       {activeTab === 'user-access' && <UserAccessManagement />}
       {activeTab === 'payment-links' && <PaymentLinksManagement />}
-      {activeTab === 'analytics' && <PaymentAnalytics />}
     </PageLayout>
   );
 }

@@ -2,29 +2,14 @@
 
 import { cn } from '@/lib/utils';
 import { BarChart3, Clock, Plus } from 'lucide-react';
-import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
 import { CreditsManagement } from '@/components/credits/credits-management';
-import { PageSkeleton } from '@/components/shared';
-import { useSharedAuth } from '@/shared/components/auth';
 
 type TabType = 'overview' | 'grant' | 'history';
 
 export default function CreditsPage() {
-  const { isAuthenticated, isLoading } = useSharedAuth();
-  const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabType>('overview');
-
-  useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
-      router.push('/auth');
-    }
-  }, [isAuthenticated, isLoading, router]);
-
-  if (isLoading || !isAuthenticated) {
-    return <PageSkeleton showHeader showTabs tabCount={3} stats={4} rows={6} />;
-  }
 
   const tabs = [
     {
@@ -46,7 +31,7 @@ export default function CreditsPage() {
 
   return (
     <div>
-      <div className="border-b border-white/10 mb-8">
+      <div className="border-b border-gray-200 dark:border-border mb-8">
         <div className="flex gap-8 max-w-3xl mx-auto">
           {tabs.map((tab) => {
             const isActive = activeTab === tab.id;

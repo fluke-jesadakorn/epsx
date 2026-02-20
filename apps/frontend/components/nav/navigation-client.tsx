@@ -219,7 +219,7 @@ function NavigationContent() {
                       <button
                         className={`flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition-colors ${isActive
                           ? 'bg-orange-50 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300'
-                          : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-slate-100'
+                          : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-gray-100 dark:bg-slate-800 dark:hover:text-slate-100'
                           }`}
                       >
                         {IconComponent}
@@ -241,7 +241,7 @@ function NavigationContent() {
                               href={child.href}
                               className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm cursor-pointer transition-colors ${pathname === child.href
                                 ? 'bg-orange-50 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300'
-                                : 'text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800'
+                                : 'text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-gray-100 dark:bg-slate-800'
                                 }`}
                             >
                               {ChildIconComponent}
@@ -261,7 +261,7 @@ function NavigationContent() {
                   href={item.href}
                   className={`flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition-colors ${pathname === item.href
                     ? 'bg-orange-50 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300'
-                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-slate-100'
+                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-gray-100 dark:bg-slate-800 dark:hover:text-slate-100'
                     }`}
                 >
                   {IconComponent}
@@ -286,7 +286,7 @@ function NavigationContent() {
               href="/about"
               className={`hidden lg:flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition-colors ${pathname === '/about'
                 ? 'bg-orange-50 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300'
-                : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-slate-100'
+                : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-gray-100 dark:bg-slate-800 dark:hover:text-slate-100'
                 }`}
             >
               <Info className="h-4 w-4 text-orange-500" />
@@ -296,11 +296,11 @@ function NavigationContent() {
             <Link
               href="/contact"
               className={`hidden lg:flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition-colors ${pathname === '/contact'
-                ? 'bg-purple-50 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300'
-                : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-slate-100'
+                ? 'bg-orange-50 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300'
+                : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-gray-100 dark:bg-slate-800 dark:hover:text-slate-100'
                 }`}
             >
-              <Mail className="h-4 w-4 text-purple-500" />
+              <Mail className="h-4 w-4 text-orange-500" />
               <span>Contact</span>
             </Link>
 
@@ -386,7 +386,7 @@ function NavigationContent() {
                               onClick={() => toggleExpanded(item.key)}
                               className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium transition-colors ${isActive
                                 ? 'bg-orange-50 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300'
-                                : 'text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800'
+                                : 'text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-gray-100 dark:bg-slate-800'
                                 }`}
                             >
                               {IconComponent}
@@ -406,7 +406,7 @@ function NavigationContent() {
                                       onClick={() => setIsOpen(false)}
                                       className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${pathname === child.href
                                         ? 'bg-orange-50 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300'
-                                        : 'text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800'
+                                        : 'text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-gray-100 dark:bg-slate-800'
                                         }`}
                                     >
                                       {ChildIconComponent}
@@ -423,7 +423,7 @@ function NavigationContent() {
                             onClick={() => setIsOpen(false)}
                             className={`flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium transition-colors ${isActive
                               ? 'bg-orange-50 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300'
-                              : 'text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800'
+                              : 'text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-gray-100 dark:bg-slate-800'
                               }`}
                           >
                             {IconComponent}
@@ -455,7 +455,7 @@ function NavigationContent() {
                   <Link
                     href="/notifications"
                     onClick={() => setIsOpen(false)}
-                    className="flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 transition-colors"
+                    className="flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-gray-100 dark:bg-slate-800 transition-colors"
                   >
                     <Bell className="h-5 w-5 text-orange-500" />
                     <span>Notifications</span>

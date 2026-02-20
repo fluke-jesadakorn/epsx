@@ -58,24 +58,24 @@ export function PricingCard({
         if (isSelected) {
             return {
                 borderClass: 'border-blue-500/20 ring-1 ring-blue-500/20 shadow-2xl shadow-blue-500/10',
-                bgClass: 'bg-gradient-to-b from-blue-900/20 to-gray-900/80',
+                bgClass: 'bg-white dark:bg-gradient-to-b dark:from-blue-900/20 dark:to-gray-900/80',
             }
         }
         if (isDisabled) {
             return {
-                borderClass: 'border-white/5',
-                bgClass: 'bg-gray-900/40',
+                borderClass: 'border-gray-200 dark:border-white/5',
+                bgClass: 'bg-gray-50 dark:bg-gray-900/40',
             }
         }
         if (card.highlight === true) {
             return {
                 borderClass: 'border-blue-500/30 shadow-2xl shadow-blue-900/20',
-                bgClass: 'bg-gradient-to-b from-gray-800/90 to-gray-900/90',
+                bgClass: 'bg-white dark:bg-gradient-to-b dark:from-gray-800/90 dark:to-gray-900/90',
             }
         }
         return {
-            borderClass: 'border-white/5 hover:border-white/10',
-            bgClass: 'bg-gray-900/60',
+            borderClass: 'border-gray-200 dark:border-white/5 hover:border-gray-300 dark:hover:border-white/10',
+            bgClass: 'bg-white dark:bg-gray-900/60',
         }
     }
 
@@ -94,8 +94,8 @@ export function PricingCard({
         >
             {/* Blur overlay for disabled cards */}
             {isDisabled && (
-                <div className="absolute inset-0 z-10 backdrop-blur-[1px] bg-black/40 flex items-center justify-center rounded-2xl">
-                    <div className="bg-gray-800 text-white px-4 py-2 rounded-lg flex items-center gap-2 shadow-xl border border-gray-700">
+                <div className="absolute inset-0 z-10 backdrop-blur-[1px] bg-white/40 dark:bg-black/40 flex items-center justify-center rounded-2xl">
+                    <div className="bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white px-4 py-2 rounded-lg flex items-center gap-2 shadow-xl border border-gray-200 dark:border-gray-700">
                         <Lock className="w-4 h-4" />
                         <span className="text-sm font-medium">Upgrade Only</span>
                     </div>
@@ -118,8 +118,8 @@ export function PricingCard({
 
                 {/* Affiliate Info */}
                 {affiliateInfo !== undefined && affiliateCode !== undefined && affiliateCode !== null && (
-                    <div className="mb-6 p-4 bg-green-900/20 rounded-xl border border-green-800">
-                        <div className="flex items-center gap-2 text-sm text-green-400">
+                    <div className="mb-6 p-4 bg-green-50 dark:bg-green-900/20 rounded-xl border border-green-200 dark:border-green-800">
+                        <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
                             <Sparkles className="h-4 w-4" />
                             <span className="font-semibold">Affiliate: {affiliateInfo.commission_rate}% applied</span>
                         </div>
@@ -128,27 +128,27 @@ export function PricingCard({
 
                 {/* Credit Balance Info */}
                 {hasCredits && planPrice > 0 && (
-                    <div className="mb-6 p-4 bg-emerald-900/20 dark:bg-emerald-900/30 rounded-xl border border-emerald-800 dark:border-emerald-700">
+                    <div className="mb-6 p-4 bg-emerald-50 dark:bg-emerald-900/30 rounded-xl border border-emerald-200 dark:border-emerald-700">
                         <div className="flex items-center gap-2 mb-3">
-                            <Sparkles className="h-4 w-4 text-emerald-400" />
-                            <span className="text-sm font-semibold text-emerald-400">Credits Applied</span>
+                            <Sparkles className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                            <span className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">Credits Applied</span>
                         </div>
                         <div className="space-y-1.5 text-sm">
-                            <div className="flex justify-between text-gray-300">
+                            <div className="flex justify-between text-gray-600 dark:text-gray-300">
                                 <span>Plan Price:</span>
                                 <span className="font-mono">${planPrice.toFixed(2)}</span>
                             </div>
-                            <div className="flex justify-between text-emerald-400">
+                            <div className="flex justify-between text-emerald-600 dark:text-emerald-400">
                                 <span>Credit Applied:</span>
                                 <span className="font-mono">-${creditsCover.toFixed(2)}</span>
                             </div>
-                            <div className="h-px bg-emerald-800 dark:bg-emerald-700 my-2" />
-                            <div className="flex justify-between font-bold text-white">
+                            <div className="h-px bg-emerald-200 dark:bg-emerald-700 my-2" />
+                            <div className="flex justify-between font-bold text-gray-900 dark:text-white">
                                 <span>Amount Due:</span>
                                 <span className="font-mono text-lg">${amountDue.toFixed(2)}</span>
                             </div>
                             {amountDue === 0 && (
-                                <div className="text-center mt-2 text-xs text-emerald-400 font-semibold">
+                                <div className="text-center mt-2 text-xs text-emerald-600 dark:text-emerald-400 font-semibold">
                                     ✨ Fully covered by credits!
                                 </div>
                             )}
@@ -179,7 +179,7 @@ export function PricingCard({
 function PricingCardHeader({ card }: { card: PricingCardData }) {
     return (
         <div className="text-center mb-6">
-            <h3 className="text-lg font-bold text-gray-100 uppercase tracking-widest mb-4">
+            <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 uppercase tracking-widest mb-4">
                 {card.title}
             </h3>
 
@@ -208,9 +208,9 @@ function PricingCardFeatures({ features }: { features: PricingCardData['features
             {features.map((feature) => (
                 <div key={feature.text} className="flex items-start group/feature">
                     <div className="flex-shrink-0 mt-1">
-                        <Check className="h-4 w-4 text-white" />
+                        <Check className="h-4 w-4 text-blue-600 dark:text-white" />
                     </div>
-                    <span className="ml-3 text-sm text-gray-300 font-medium leading-normal">
+                    <span className="ml-3 text-sm text-gray-600 dark:text-gray-300 font-medium leading-normal">
                         {feature.text}
                     </span>
                 </div>
@@ -237,7 +237,7 @@ function PricingCardButton({
                 className={cn(
                     'w-full py-4 rounded-xl font-bold text-base transition-all duration-300 relative overflow-hidden',
                     isDisabled
-                        ? 'bg-gray-800 text-gray-500 cursor-not-allowed'
+                        ? 'bg-gray-200 dark:bg-gray-800 text-gray-400 dark:text-gray-500 cursor-not-allowed'
                         : 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white hover:shadow-lg hover:shadow-cyan-500/25'
                 )}
                 onClick={(e) => {

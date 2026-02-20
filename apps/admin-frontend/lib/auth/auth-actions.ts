@@ -59,8 +59,19 @@ export async function clearWeb3SessionAction(): Promise<void> {
 /**
  * Server Action for logout
  */
-export async function logoutAction(): Promise<void> {
+export async function logoutAction(returnUrl?: string): Promise<void> {
     await clearWeb3SessionAction();
+
+    if (returnUrl != null && returnUrl !== '') {
+        const cookieStore = await cookies();
+        cookieStore.set(COOKIES.return_url, returnUrl, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax',
+            path: '/',
+            maxAge: 300,
+        });
+    }
 }
 
 /**
@@ -82,6 +93,10 @@ export async function getAndClearReturnUrlAction(): Promise<string> {
         '/api',
         '/favicon',
         '/static',
+        '/access-denied',
+        '/auth',
+        '/login',
+        '/unauthorized',
     ];
 
     // Check for invalid paths or external URLs

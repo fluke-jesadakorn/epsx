@@ -8,7 +8,6 @@
 import { useCallback, useState } from 'react';
 import { useAccount, useDisconnect } from 'wagmi';
 import type { UserInfoResponse } from '../../auth/client';
-import { clearClientSideCookies } from '../../auth/cookies';
 import { logger } from '../../utils/logger';
 import { AuthModal } from './auth-modal';
 import './auth.css';
@@ -38,7 +37,6 @@ export function AuthStatus({
 
     const handleDisconnect = useCallback(async () => {
         try {
-            clearClientSideCookies();
             await logout();
             disconnect();
             setShowDropdown(false);

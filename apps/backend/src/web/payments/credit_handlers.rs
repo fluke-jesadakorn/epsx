@@ -57,7 +57,7 @@ pub async fn get_credit_balance(
         .await
         .map_err(|e| {
             error!("Failed to get credit balance: {}", e);
-            Json(UnifiedErrorResponse::new(500, "Failed to retrieve balance", &e.to_string()))
+            Json(UnifiedErrorResponse::new(500, "Failed to retrieve balance", e.to_string()))
         })?;
 
     Ok(Json(CreditBalanceResponse::from(balance)))
@@ -114,7 +114,7 @@ pub async fn get_credit_history(
         .await
         .map_err(|e| {
             error!("Failed to get credit history: {}", e);
-            Json(UnifiedErrorResponse::new(500, "Failed to retrieve history", &e.to_string()))
+            Json(UnifiedErrorResponse::new(500, "Failed to retrieve history", e.to_string()))
         })?;
 
     let count = transactions.len();
@@ -163,7 +163,7 @@ pub async fn admin_get_user_credits(
         .await
         .map_err(|e| {
             error!("Failed to get credit balance: {}", e);
-            Json(UnifiedErrorResponse::new(500, "Failed to retrieve balance", &e.to_string()))
+            Json(UnifiedErrorResponse::new(500, "Failed to retrieve balance", e.to_string()))
         })?;
 
     // Get transactions
@@ -180,7 +180,7 @@ pub async fn admin_get_user_credits(
         .await
         .map_err(|e| {
             error!("Failed to get credit history: {}", e);
-            Json(UnifiedErrorResponse::new(500, "Failed to retrieve history", &e.to_string()))
+            Json(UnifiedErrorResponse::new(500, "Failed to retrieve history", e.to_string()))
         })?;
 
     let response = serde_json::json!({
@@ -242,7 +242,7 @@ pub async fn admin_grant_credits(
     .await
     .map_err(|e| {
         error!("Failed to grant credits: {}", e);
-        Json(UnifiedErrorResponse::new(500, "Failed to grant credits", &e.to_string()))
+        Json(UnifiedErrorResponse::new(500, "Failed to grant credits", e.to_string()))
     })?;
 
     // Get updated balance
@@ -250,12 +250,31 @@ pub async fn admin_grant_credits(
         .await
         .map_err(|e| {
             error!("Failed to get updated balance: {}", e);
-            Json(UnifiedErrorResponse::new(500, "Failed to retrieve balance", &e.to_string()))
+            Json(UnifiedErrorResponse::new(500, "Failed to retrieve balance", e.to_string()))
         })?
         .ok_or_else(|| {
             error!("Balance not found after granting credits");
             Json(UnifiedErrorResponse::new(500, "Internal error", "Balance not found"))
         })?;
+
+    // Notify user about credits received
+    let notif_wallet = wallet_address.clone();
+    let notif_amount = request.amount.to_string();
+    let notif_state = _app_state.clone();
+    tokio::spawn(async move {
+        use crate::infrastructure::services::NotificationService;
+        use crate::web::notifications::{NotificationType, NotificationPriority};
+        let _ = NotificationService::send(
+            &notif_state,
+            &notif_wallet,
+            NotificationType::Payment,
+            NotificationPriority::Normal,
+            "Credits Received",
+            &format!("You received {} credits", notif_amount),
+            Some(serde_json::json!({ "amount": notif_amount, "type": "grant" })),
+            None,
+        ).await;
+    });
 
     Ok(Json(serde_json::json!({
         "success": true,
@@ -303,14 +322,14 @@ pub async fn admin_revoke_credits(
         .await
         .map_err(|e| {
             error!("Failed to get current balance: {}", e);
-            Json(UnifiedErrorResponse::new(500, "Failed to retrieve balance", &e.to_string()))
+            Json(UnifiedErrorResponse::new(500, "Failed to retrieve balance", e.to_string()))
         })?
         .map(|b| b.balance)
         .unwrap_or_else(|| BigDecimal::from(0));
 
     if current_balance < request.amount {
         return Err(Json(UnifiedErrorResponse::new(400, "Insufficient balance",
-            &format!("User only has {} credits available", current_balance))));
+            format!("User only has {} credits available", current_balance))));
     }
 
     // Add revoke transaction (negative amount)
@@ -329,7 +348,7 @@ pub async fn admin_revoke_credits(
     .await
     .map_err(|e| {
         error!("Failed to revoke credits: {}", e);
-        Json(UnifiedErrorResponse::new(500, "Failed to revoke credits", &e.to_string()))
+        Json(UnifiedErrorResponse::new(500, "Failed to revoke credits", e.to_string()))
     })?;
 
     // Get updated balance
@@ -337,7 +356,7 @@ pub async fn admin_revoke_credits(
         .await
         .map_err(|e| {
             error!("Failed to get updated balance: {}", e);
-            Json(UnifiedErrorResponse::new(500, "Failed to retrieve balance", &e.to_string()))
+            Json(UnifiedErrorResponse::new(500, "Failed to retrieve balance", e.to_string()))
         })?
         .ok_or_else(|| {
             error!("Balance not found after revoking credits");
@@ -380,7 +399,7 @@ pub async fn admin_get_credit_stats(
         .await
         .map_err(|e| {
             error!("Failed to get credit stats: {}", e);
-            Json(UnifiedErrorResponse::new(500, "Failed to retrieve stats", &e.to_string()))
+            Json(UnifiedErrorResponse::new(500, "Failed to retrieve stats", e.to_string()))
         })?;
 
     Ok(Json(stats))

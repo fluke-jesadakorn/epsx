@@ -66,7 +66,7 @@ export function PlanStatusBar({ className, planAccess: propPlanAccess }: PlanSta
 
     if (loading) {
         return (
-            <div className={cn('animate-pulse rounded-2xl bg-slate-800/50 p-4', className)}>
+            <div className={cn('animate-pulse rounded-2xl bg-gray-100 dark:bg-slate-800/50 p-4', className)}>
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <div className="h-10 w-10 rounded-xl bg-slate-700" />

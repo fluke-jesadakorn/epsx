@@ -10,8 +10,8 @@ const inputVariants = cva(
         default: "border-input bg-background",
         dark: "border-gray-700 bg-[#1a1a1a] text-foreground placeholder:text-gray-500 focus-visible:border-purple-500 focus-visible:ring-purple-500/20",
         ghost: "border-none shadow-none focus-visible:ring-0 px-0",
-        search: "border-gray-700 bg-slate-950/50 text-slate-200 placeholder:text-slate-600 focus-visible:border-blue-500/50 h-8 text-xs",
-        glass: "bg-white/5 backdrop-blur-sm border-white/20 text-foreground placeholder:text-muted-foreground focus-visible:border-purple-500/50 focus-visible:ring-purple-500/20",
+        search: "border-gray-700 bg-white/90 dark:bg-slate-950/50 text-slate-200 placeholder:text-slate-600 focus-visible:border-blue-500/50 h-8 text-xs",
+        glass: "bg-white dark:bg-white/5 backdrop-blur-sm border-gray-300 dark:border-white/20 text-foreground placeholder:text-muted-foreground focus-visible:border-purple-500/50 focus-visible:ring-purple-500/20",
       },
       size: {
         default: "h-10",

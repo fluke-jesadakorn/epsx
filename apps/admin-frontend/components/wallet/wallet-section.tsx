@@ -134,7 +134,7 @@ export function WalletSection({ className, initialData }: WalletSectionProps) {
                 </div>
             )}
 
-            {reenableModalWallet?.disableInfo && (
+            {reenableModalWallet != null && (
                 <ReenableWalletModal
                     walletAddress={reenableModalWallet.walletAddress}
                     disableInfo={reenableModalWallet.disableInfo}

@@ -109,7 +109,7 @@ export function WalletCardIdentity({
                         type="checkbox"
                         checked={isSelected}
                         onChange={(e) => onSelect(e.target.checked)}
-                        className="h-5 w-5 rounded border-white/20 bg-white/5 text-[#1fc7d4] focus:ring-[#1fc7d4]/20 focus:ring-offset-0 accent-[#1fc7d4] cursor-pointer"
+                        className="h-5 w-5 rounded border-gray-300 dark:border-white/20 bg-white dark:bg-white/[0.04] text-[#1fc7d4] focus:ring-[#1fc7d4]/20 focus:ring-offset-0 accent-[#1fc7d4] cursor-pointer"
                     />
                 </div>
             )}
@@ -134,7 +134,7 @@ export function WalletCardIdentity({
                         onClick={(e) => void onCopy(e)}
                         className={cn(
                             "shrink-0 rounded-lg p-1.5 transition-colors",
-                            copied ? "text-emerald-400 bg-emerald-400/10" : "text-slate-400 hover:bg-white/10 hover:text-white"
+                            copied ? "text-emerald-400 bg-emerald-400/10" : "text-slate-400 hover:bg-black/[0.05] dark:hover:bg-white/10 hover:text-white"
                         )}
                     >
                         {copied ? <CheckCircle2 size={14} /> : <Copy size={14} />}
@@ -143,11 +143,11 @@ export function WalletCardIdentity({
 
                 <div className="flex items-center">
                     {isEditing ? (
-                        <div className="flex flex-col gap-2 min-w-[200px] z-20 relative bg-slate-800 shadow-xl p-3 rounded-xl border border-white/10" onClick={e => e.stopPropagation()}>
-                            <Input value={labelInput} onChange={e => onLabelChange(e.target.value)} placeholder="Add a label..." className="h-8 text-xs bg-slate-900/50 border-white/10" autoFocus />
-                            <Input value={noteInput} onChange={e => onNoteChange(e.target.value)} placeholder="Add a note..." className="h-8 text-xs bg-slate-900/50 border-white/10" />
+                        <div className="flex flex-col gap-2 min-w-[200px] z-20 relative bg-gray-100 dark:bg-slate-800 shadow-xl p-3 rounded-xl border border-gray-200 dark:border-border" onClick={e => e.stopPropagation()}>
+                            <Input value={labelInput} onChange={e => onLabelChange(e.target.value)} placeholder="Add a label..." className="h-8 text-xs bg-white dark:bg-card border-gray-200 dark:border-border" autoFocus />
+                            <Input value={noteInput} onChange={e => onNoteChange(e.target.value)} placeholder="Add a note..." className="h-8 text-xs bg-white dark:bg-card border-gray-200 dark:border-border" />
                             <div className="flex justify-end gap-2 mt-1">
-                                <Button size="sm" variant="ghost" className="h-7 px-2 text-xs hover:bg-white/5" onClick={(e) => { e.stopPropagation(); onCancelEditing(); }}>Cancel</Button>
+                                <Button size="sm" variant="ghost" className="h-7 px-2 text-xs hover:bg-gray-100 dark:hover:bg-white/5" onClick={(e) => { e.stopPropagation(); onCancelEditing(); }}>Cancel</Button>
                                 <Button size="sm" className="h-7 px-3 text-xs bg-[#1fc7d4] hover:bg-[#1fc7d4]/90 text-white" onClick={(e) => void onSave(e)} disabled={isSaving}>
                                     {isSaving ? 'Saving...' : 'Save'}
                                 </Button>
@@ -155,7 +155,7 @@ export function WalletCardIdentity({
                         </div>
                     ) : (
                         <div
-                            className="group/edit cursor-pointer flex items-center gap-2 py-0.5 px-1.5 -ml-1.5 rounded-lg hover:bg-white/5 transition-colors"
+                            className="group/edit cursor-pointer flex items-center gap-2 py-0.5 px-1.5 -ml-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-white/5 transition-colors"
                             onClick={(e) => { e.stopPropagation(); onStartEditing(); }}
                         >
                             {wallet.label !== undefined && wallet.label !== '' ? (
@@ -202,7 +202,7 @@ export function WalletCardStats({ wallet }: { wallet: WalletData }) {
                     "flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm font-bold backdrop-blur-md",
                     hasPlan
                         ? "border-[#7645d9]/30 bg-[#7645d9]/10 text-[#7645d9]"
-                        : "border-slate-700 bg-slate-800/50 text-slate-300"
+                        : "border-slate-700 bg-gray-100 dark:bg-slate-800/50 text-slate-300"
                 )}>
                     <CreditCard size={14} />
                     <span className="truncate">{plan.name}</span>
@@ -240,7 +240,7 @@ export function WalletCardStats({ wallet }: { wallet: WalletData }) {
                 <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Platforms</span>
                 <div className="flex gap-1.5">
                     {wallet.platforms.length > 0 ? wallet.platforms.map(p => (
-                        <div key={p} className="p-1.5 bg-white/5 rounded-md text-slate-400 hover:text-white hover:bg-white/10 transition-colors border border-white/5" title={PLATFORM_LABELS[p]}>
+                        <div key={p} className="p-1.5 bg-white dark:bg-white/[0.04] rounded-md text-slate-400 hover:text-white hover:bg-black/[0.05] dark:hover:bg-white/10 transition-colors border border-gray-200 dark:border-border" title={PLATFORM_LABELS[p]}>
                             {PLATFORM_ICONS[p]}
                         </div>
                     )) : (
@@ -269,7 +269,7 @@ export function WalletCardActions({ wallet, onView, onEnable, onCopy }: ActionsP
         <div className="grid grid-cols-2 gap-3">
             <Button
                 onClick={(e) => { e.stopPropagation(); onView?.(); }}
-                className="group/btn relative flex items-center justify-center gap-2 rounded-xl bg-white/5 px-4 py-2.5 text-xs font-bold text-white transition-all hover:bg-white/10 hover:shadow-lg hover:shadow-purple-500/10 active:scale-95 border border-white/5 hover:border-white/10 w-full"
+                className="group/btn relative flex items-center justify-center gap-2 rounded-xl bg-white dark:bg-white/[0.04] px-4 py-2.5 text-xs font-bold text-white transition-all hover:bg-black/[0.05] dark:hover:bg-white/10 hover:shadow-lg hover:shadow-purple-500/10 active:scale-95 border border-gray-200 dark:border-border hover:border-gray-200 dark:border-border w-full"
             >
                 <Edit size={14} className="text-slate-400 group-hover/btn:text-[#1fc7d4] transition-colors" />
                 <span>Edit</span>
@@ -279,17 +279,17 @@ export function WalletCardActions({ wallet, onView, onEnable, onCopy }: ActionsP
                 <DropdownMenuTrigger asChild>
                     <Button
                         variant="ghost"
-                        className="flex items-center justify-center gap-2 h-10 w-full rounded-xl border border-transparent text-slate-400 transition-all hover:bg-white/5 hover:text-white hover:border-white/5 active:scale-95 text-xs font-bold"
+                        className="flex items-center justify-center gap-2 h-10 w-full rounded-xl border border-transparent text-slate-400 transition-all hover:bg-gray-100 dark:hover:bg-white/5 hover:text-white hover:border-gray-200 dark:border-border active:scale-95 text-xs font-bold"
                     >
                         <MoreHorizontal size={16} />
                         <span className="truncate">More Actions</span>
                     </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48 bg-slate-900/95 backdrop-blur-xl border-white/10 text-slate-200">
-                    <DropdownMenuItem onClick={(e) => { e.stopPropagation(); void onCopy(e as unknown as React.MouseEvent); }} className="focus:bg-white/10 focus:text-white cursor-pointer group">
+                <DropdownMenuContent align="end" className="w-48 bg-white dark:bg-card backdrop-blur-xl border-gray-200 dark:border-border text-slate-200">
+                    <DropdownMenuItem onClick={(e) => { e.stopPropagation(); void onCopy(e as unknown as React.MouseEvent); }} className="focus:bg-gray-50 dark:focus:bg-white/10 focus:text-white cursor-pointer group">
                         <Copy className="h-4 w-4 mr-2 text-slate-500 group-hover:text-[#1fc7d4]" /> Copy Address
                     </DropdownMenuItem>
-                    <DropdownMenuSeparator className="bg-white/10" />
+                    <DropdownMenuSeparator className="bg-gray-50 dark:bg-white/[0.06]" />
                     {isDisabled ? (
                         <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onEnable?.(); }} className="focus:bg-emerald-500/10 focus:text-emerald-400 cursor-pointer text-emerald-500">
                             <CheckCircle2 className="h-4 w-4 mr-2" /> Enable Wallet

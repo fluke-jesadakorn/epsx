@@ -15,6 +15,12 @@ pub struct AuditLogEntry {
   pub user_agent: Option<String>,
   pub additional_data: Option<serde_json::Value>,
   pub timestamp: DateTime<Utc>,
+  #[serde(skip_serializing_if = "Option::is_none")]
+  pub category: Option<String>,
+  #[serde(skip_serializing_if = "Option::is_none")]
+  pub action_raw: Option<String>,
+  #[serde(skip_serializing_if = "Option::is_none")]
+  pub resource_type_raw: Option<String>,
 }
 
 /// Types of audit actions
@@ -73,6 +79,9 @@ impl AuditLogEntry {
       user_agent: None,
       additional_data: None,
       timestamp: Utc::now(),
+      category: None,
+      action_raw: None,
+      resource_type_raw: None,
     }
   }
 
@@ -95,6 +104,46 @@ impl AuditLogEntry {
     self.additional_data = Some(data);
     self
   }
+}
+
+/// Actor type for unified audit log
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ActorType {
+    Admin,
+    User,
+    System,
+    ApiKey,
+}
+
+impl std::fmt::Display for ActorType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Admin => write!(f, "admin"),
+            Self::User => write!(f, "user"),
+            Self::System => write!(f, "system"),
+            Self::ApiKey => write!(f, "api_key"),
+        }
+    }
+}
+
+/// Effect/outcome of the audited action
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AuditEffect {
+    Success,
+    Failure,
+    Denied,
+}
+
+impl std::fmt::Display for AuditEffect {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Success => write!(f, "success"),
+            Self::Failure => write!(f, "failure"),
+            Self::Denied => write!(f, "denied"),
+        }
+    }
 }
 
 /// Metadata for audit operations
@@ -143,6 +192,8 @@ pub struct AuditQuery {
   pub to_date: Option<DateTime<Utc>>,
   pub limit: Option<u32>,
   pub offset: Option<u32>,
+  pub category: Option<String>,
+  pub search: Option<String>,
 }
 
 impl Default for AuditQuery {
@@ -156,6 +207,8 @@ impl Default for AuditQuery {
       to_date: None,
       limit: Some(50),
       offset: Some(0),
+      category: None,
+      search: None,
     }
   }
 }

@@ -14,10 +14,12 @@ export type NotificationType =
   | 'security'
   | 'permission'
   | 'wallet_management'
-  | 'user_management'
   | 'wallet'
   | 'payment'
   | 'general'
+  | 'announcement'
+  | 'advertisement'
+  | 'chat'
 
 export type NotificationPriority = 'low' | 'normal' | 'high' | 'critical' | 'urgent'
 
@@ -98,10 +100,12 @@ export function isNotificationType(value: string): value is NotificationType {
     'security',
     'permission',
     'wallet_management',
-    'user_management',
     'wallet',
     'payment',
     'general',
+    'announcement',
+    'advertisement',
+    'chat',
   ].includes(value)
 }
 

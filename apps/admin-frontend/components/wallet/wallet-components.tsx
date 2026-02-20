@@ -132,7 +132,7 @@ export function DraggablePlanItem({ id, label, description, isAssigned = false, 
             ref={setNodeRef}
             className={cn(
                 "group flex items-center gap-4 p-4 rounded-xl border transition-all select-none",
-                "bg-slate-800/50 border-slate-700 hover:border-blue-500/50 hover:bg-slate-800",
+                "bg-gray-100 dark:bg-slate-800/50 border-slate-700 hover:border-blue-500/50 hover:bg-gray-100 dark:bg-slate-800",
                 isDragging ? "opacity-50 ring-2 ring-blue-500 z-50 scale-105 shadow-2xl" : "shadow-sm"
             )}
             {...listeners}

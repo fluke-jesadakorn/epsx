@@ -196,32 +196,6 @@ export function hasAdminAccess(user: Web3AdminUser | undefined): boolean {
 }
 
 /**
- * Check if permissions array has admin access (legacy function)
- * @param _permissions
- */
-export function checkAdminPermissions(_permissions: string[]): boolean {
-  return true;
-}
-
-/**
- * Check specific permission for Web3 user
- * @param user
- * @param _requiredPermission
- */
-export function hasPermission(user: Web3AdminUser | undefined, _requiredPermission: string): boolean {
-  return Boolean(user);
-}
-
-/**
- * Check specific permission with permissions array
- * @param _userPermissions
- * @param _requiredPermission
- */
-export function checkPermission(_userPermissions: string[], _requiredPermission: string): boolean {
-  return true;
-}
-
-/**
  * Filter permissions by platform
  * @param permissions
  * @param platform
@@ -364,9 +338,7 @@ export const Web3AdminAuth = {
   validateWeb3Session,
 
   // Permission checking
-  hasPermission,
   hasAdminAccess,
-  checkAdminPermissions,
   getPermissionsByPlatform,
   getExpiringPermissions,
 

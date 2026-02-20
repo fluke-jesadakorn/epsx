@@ -133,8 +133,8 @@ export function CurrentAccessCard({ className, paymentType = 'plan' }: CurrentAc
             <div className={cn('absolute inset-0 bg-gradient-to-br opacity-50', config.bgGradient)} />
 
             {/* Decorative elements */}
-            <div className="absolute top-0 right-0 -mr-8 -mt-8 h-32 w-32 rounded-full bg-white/10 blur-2xl" />
-            <div className="absolute bottom-0 left-0 -ml-8 -mb-8 h-24 w-24 rounded-full bg-white/10 blur-2xl" />
+            <div className="absolute top-0 right-0 -mr-8 -mt-8 h-32 w-32 rounded-full bg-gray-50 dark:bg-white/10 blur-2xl" />
+            <div className="absolute bottom-0 left-0 -ml-8 -mb-8 h-24 w-24 rounded-full bg-gray-50 dark:bg-white/10 blur-2xl" />
 
             <div className="relative z-10 p-6">
                 {/* Header */}

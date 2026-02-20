@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import type { SharedWeb3AuthClient, UserInfoResponse } from '../../../auth/client';
-import { COOKIES, getClientCookie, getClientCookieJSON } from '../../../auth/cookies';
 import { logger } from '../../../utils/logger';
 
 interface UseAuthInitializationProps {
@@ -10,60 +9,6 @@ interface UseAuthInitializationProps {
     initialUser: UserInfoResponse | null;
     clientId: string;
     onAuthError?: (error: string) => void;
-}
-
-interface RestoreOptions {
-    client: SharedWeb3AuthClient;
-    clientId: string;
-    setUser: (u: UserInfoResponse) => void;
-    setIsLoading: (l: boolean) => void;
-}
-
-function tryRestoreFromCookies({
-    client,
-    clientId,
-    setUser,
-    setIsLoading
-}: RestoreOptions): boolean {
-    if (typeof window === 'undefined') { return false; }
-
-    try {
-        const clientUser = client.getCurrentUser();
-        const clientHasAuth = client.isAuthenticated();
-
-        if (clientUser !== null && clientHasAuth) {
-            logger.info('[AUTH] Client successfully pre-loaded valid auth state');
-            setUser(clientUser);
-            setIsLoading(false);
-            return true;
-        }
-
-        const storedUser = getClientCookieJSON<UserInfoResponse>(COOKIES.user);
-        const tokenExpiry = getClientCookie(COOKIES.expires_at);
-
-        logger.info('[AUTH] Provider: Cookie restoration check', {
-            clientId,
-            hasStoredUser: Boolean(storedUser),
-            hasAccessToken: Boolean(storedUser?.access),
-            hasTokenExpiry: Boolean(tokenExpiry),
-            tokenExpiryValue: (tokenExpiry !== null && tokenExpiry !== '')
-                ? new Date(parseInt(tokenExpiry, 10)).toISOString()
-                : 'none',
-        });
-
-        if (storedUser !== null) {
-            logger.info('[AUTH] Restoring auth from cookies', {
-                clientId,
-                wallet: storedUser.wallet_address.slice(0, 8),
-            });
-            setUser(storedUser);
-            setIsLoading(false);
-            return true;
-        }
-    } catch (storageError: unknown) {
-        logger.warn('Failed to restore authentication from storage', storageError instanceof Error ? storageError.message : String(storageError));
-    }
-    return false;
 }
 
 export function useAuthInitialization({
@@ -92,9 +37,13 @@ export function useAuthInitialization({
                     hasStoredAuth = true;
                 }
 
-                if (typeof window !== 'undefined' && !hasStoredAuth) {
-                    hasStoredAuth = tryRestoreFromCookies({ client, clientId, setUser, setIsLoading });
-                    if (hasStoredAuth) {
+                // Try in-memory client state (no cookie reads)
+                if (!hasStoredAuth && typeof window !== 'undefined') {
+                    const clientUser = client.getCurrentUser();
+                    if (clientUser !== null && client.isAuthenticated()) {
+                        logger.info('[AUTH] Client has valid in-memory auth state');
+                        setUser(clientUser);
+                        setIsLoading(false);
                         return;
                     }
                 }

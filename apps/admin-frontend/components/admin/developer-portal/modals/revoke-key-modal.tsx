@@ -1,9 +1,16 @@
 'use client';
 
-import { AlertTriangle, X } from 'lucide-react';
+import { AlertTriangle } from 'lucide-react';
 import React, { useState } from 'react';
 
 import { Button } from '@/components/ui/button';
+import {
+    Dialog,
+    DialogContent,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 
 interface RevokeKeyModalProps {
     isOpen: boolean;
@@ -48,8 +55,6 @@ export const RevokeKeyModal: React.FC<RevokeKeyModalProps> = ({
     const [customReason, setCustomReason] = useState('');
     const [error, setError] = useState('');
 
-    if (!isOpen) {return null;}
-
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
@@ -79,27 +84,17 @@ export const RevokeKeyModal: React.FC<RevokeKeyModalProps> = ({
     };
 
     return (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md mx-4">
-                {/* Header */}
-                <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
+        <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
+            <DialogContent className="sm:max-w-md p-0 gap-0">
+                <DialogHeader className="p-6 border-b border-gray-200 dark:border-gray-700">
+                    <DialogTitle className="flex items-center space-x-3">
                         <div className="p-2 bg-red-100 dark:bg-red-900/50 rounded-lg">
                             <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400" />
                         </div>
-                        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                            Revoke API Key
-                        </h2>
-                    </div>
-                    <button
-                        onClick={handleClose}
-                        className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-                    >
-                        <X className="w-5 h-5" />
-                    </button>
-                </div>
+                        <span>Revoke API Key</span>
+                    </DialogTitle>
+                </DialogHeader>
 
-                {/* Body */}
                 {/* eslint-disable-next-line @typescript-eslint/no-misused-promises */}
                 <form onSubmit={handleSubmit}>
                     <div className="p-6 space-y-4">
@@ -176,8 +171,7 @@ export const RevokeKeyModal: React.FC<RevokeKeyModalProps> = ({
                         )}
                     </div>
 
-                    {/* Footer */}
-                    <div className="p-6 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50 flex justify-end space-x-3 rounded-b-lg">
+                    <DialogFooter className="p-6 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50 sm:justify-end space-x-3 rounded-b-lg">
                         <Button
                             type="button"
                             variant="outline"
@@ -194,9 +188,9 @@ export const RevokeKeyModal: React.FC<RevokeKeyModalProps> = ({
                         >
                             {isLoading ? 'Revoking...' : 'Revoke API Key'}
                         </Button>
-                    </div>
+                    </DialogFooter>
                 </form>
-            </div>
-        </div>
+            </DialogContent>
+        </Dialog>
     );
 };

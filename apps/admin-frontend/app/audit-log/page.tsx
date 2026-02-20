@@ -4,24 +4,16 @@
  */
 'use client';
 
-import { useRouter } from 'next/navigation';
 import React, { useEffect, useState } from 'react';
 
-import { PageAuthRequired, PageHeader, PageLayout, PageSkeleton } from '@/components/shared';
-import { useSharedAuth } from '@/shared/components/auth';
+import { PageHeader, PageLayout } from '@/components/shared';
 
 import { AuditLogFilters } from './components/audit-log-filters';
 import { AuditLogTable } from './components/audit-log-table';
 import { useAuditLogs } from './hooks/use-audit-logs';
 import type { ActionType } from './types';
 
-/**
- * Audit Log Page Component
- */
 export default function AuditLogPage(): React.JSX.Element {
-    const { isAuthenticated, isLoading } = useSharedAuth();
-    const router = useRouter();
-
     // Filters
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedCategory, setSelectedCategory] = useState<ActionType>('all');
@@ -39,7 +31,7 @@ export default function AuditLogPage(): React.JSX.Element {
         totalPages,
         fetchLogs,
     } = useAuditLogs({
-        isAuthenticated,
+        isAuthenticated: true,
         page,
         searchQuery,
         selectedCategory,
@@ -48,13 +40,6 @@ export default function AuditLogPage(): React.JSX.Element {
         pageSize,
     });
 
-    // Redirect if not authenticated
-    useEffect(() => {
-        if (!isLoading && !isAuthenticated) {
-            router.push('/auth');
-        }
-    }, [isAuthenticated, isLoading, router]);
-
     useEffect(() => {
         void fetchLogs();
     }, [fetchLogs]);
@@ -62,12 +47,15 @@ export default function AuditLogPage(): React.JSX.Element {
     // Export logs
     const handleExport = (): void => {
         const csvContent = [
-            ['Date', 'Action', 'Actor', 'Target', 'Details'].join(','),
+            ['Date', 'Category', 'Action', 'Resource Type', 'Actor', 'Target', 'Result', 'Details'].join(','),
             ...logs.map(log => [
                 new Date(log.timestamp).toISOString(),
-                log.action,
+                log.category ?? '',
+                log.action_raw ?? log.action,
+                log.resource_type_raw ?? log.resource_type,
                 log.wallet_address ?? '',
-                `${log.resource_type}:${log.resource_id ?? ''}`,
+                log.resource_id ?? '',
+                log.result,
                 JSON.stringify(log.details).replace(/,/g, ';')
             ].join(','))
         ].join('\n');
@@ -80,14 +68,6 @@ export default function AuditLogPage(): React.JSX.Element {
         a.click();
         URL.revokeObjectURL(url);
     };
-
-    if (isLoading) {
-        return <PageSkeleton showHeader showTabs={false} stats={0} rows={10} />;
-    }
-
-    if (!isAuthenticated) {
-        return <PageAuthRequired />;
-    }
 
     return (
         <PageLayout>

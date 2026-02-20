@@ -109,7 +109,7 @@ function OverviewTab({ stats, onRefresh }: { stats: CreditStats | null; onRefres
         <StatCard
           icon={<Users className="w-6 h-6" />}
           label="Active Users with Credits"
-          value={stats !== null ? stats.active_users_with_credits.toString() : '0'}
+          value={stats?.active_users_with_credits?.toString() ?? '0'}
           gradient="from-purple-500 to-indigo-500"
         />
       </div>
@@ -126,7 +126,7 @@ function OverviewTab({ stats, onRefresh }: { stats: CreditStats | null; onRefres
                 <span className="text-2xl">&#x1f504;</span>
               </div>
               <h3 className="text-xl sm:text-2xl font-bold mb-3">Refresh Stats</h3>
-              <p className="text-white/80 mb-4 text-sm sm:text-base">Reload credit statistics from server</p>
+              <p className="text-foreground/80 dark:text-white/80 mb-4 text-sm sm:text-base">Reload credit statistics from server</p>
               <div className="bg-white/20 rounded-2xl px-6 py-3 text-center font-semibold">
                 Refresh
               </div>
@@ -141,7 +141,7 @@ function OverviewTab({ stats, onRefresh }: { stats: CreditStats | null; onRefres
                 <span className="text-2xl">&#x1f4ca;</span>
               </div>
               <h3 className="text-xl sm:text-2xl font-bold mb-3">Export Report</h3>
-              <p className="text-white/80 mb-4 text-sm sm:text-base">Download credit analytics report</p>
+              <p className="text-foreground/80 dark:text-white/80 mb-4 text-sm sm:text-base">Download credit analytics report</p>
               <div className="bg-white/20 rounded-2xl px-6 py-3 text-center font-semibold">
                 Coming Soon
               </div>

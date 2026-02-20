@@ -17,6 +17,7 @@ use crate::{
     auth::auth_service::{
         Web3VerificationRequest, Web3AuthError,
     },
+    infrastructure::services::audit_service::{AuditCtx, AuditEntry},
     web::auth::AppState,
 };
 
@@ -146,6 +147,7 @@ pub async fn generate_challenge_handler(
 )]
 pub async fn verify_signature_handler(
     State(app_state): State<AppState>,
+    headers: HeaderMap,
     Json(request): Json<SignatureVerificationRequest>,
 ) -> Result<Json<Value>, StatusCode> {
     info!("Verifying Web3 signature for wallet: {}", request.wallet_address);
@@ -214,6 +216,12 @@ pub async fn verify_signature_handler(
                 auth_result.wallet_address,
                 permissions_granted.len()
             );
+
+            // Log successful login to audit trail
+            let ctx = AuditCtx::from_wallet(&auth_result.wallet_address, &headers);
+            app_state.audit.log(ctx, AuditEntry::new("session", "login", "auth")
+                .id(&auth_result.wallet_address)
+                .after(serde_json::json!({ "wallet": auth_result.wallet_address })));
 
             Ok(Json(json!({
                 "success": true,
@@ -547,6 +555,8 @@ pub async fn check_permission_handler(
 )]
 pub async fn grant_permission_handler(
     State(app_state): State<AppState>,
+    axum::Extension(user_ctx): axum::Extension<crate::web::middleware::bearer_middleware::OpenIDUserContext>,
+    headers: HeaderMap,
     Json(request): Json<GrantPermissionRequest>,
 ) -> Result<Json<Value>, StatusCode> {
     info!(
@@ -571,6 +581,17 @@ pub async fn grant_permission_handler(
                 "Granted permission '{}' to wallet: {}",
                 request.permission, request.wallet_address
             );
+
+            // Log permission grant to audit trail
+            let ctx = AuditCtx::from_wallet(&user_ctx.wallet_address, &headers);
+            app_state.audit.log(ctx, AuditEntry::new("permission", "grant", "auth")
+                .id(&request.wallet_address)
+                .after(serde_json::json!({
+                    "wallet": request.wallet_address,
+                    "permission": request.permission,
+                    "expires_at": request.expires_at
+                })));
+
             Ok(Json(json!({
                 "success": true,
                 "operation": "grant_permission",
@@ -605,6 +626,8 @@ pub async fn grant_permission_handler(
 )]
 pub async fn revoke_permission_handler(
     State(app_state): State<AppState>,
+    axum::Extension(user_ctx): axum::Extension<crate::web::middleware::bearer_middleware::OpenIDUserContext>,
+    headers: HeaderMap,
     Json(request): Json<RevokePermissionRequest>,
 ) -> Result<Json<Value>, StatusCode> {
     info!(
@@ -629,6 +652,16 @@ pub async fn revoke_permission_handler(
                 "Successfully revoked permission '{}' from wallet: {}",
                 request.permission, request.wallet_address
             );
+
+            // Log permission revocation to audit trail
+            let ctx = AuditCtx::from_wallet(&user_ctx.wallet_address, &headers);
+            app_state.audit.log(ctx, AuditEntry::new("permission", "revoke", "auth")
+                .id(&request.wallet_address)
+                .after(serde_json::json!({
+                    "wallet": request.wallet_address,
+                    "permission": request.permission
+                })));
+
             Ok(Json(json!({
                 "success": true,
                 "wallet_address": request.wallet_address,

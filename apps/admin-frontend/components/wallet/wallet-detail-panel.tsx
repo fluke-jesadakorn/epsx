@@ -9,8 +9,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { getExplorerAddressLink } from '@/shared/config/constants';
 import { AssignPermissionForm, type AssignPermissionData } from './assign-permission-form';
-import type { WalletActivityEvent, WalletData } from './types';
-import { WalletActivityHistory } from './wallet-activity-history';
+import type { WalletData } from './types';
 import { WalletHeader } from './wallet-header';
 import { WalletLabelBadge } from './wallet-label-badge';
 import { WalletPermissionTable } from './wallet-permission-table';
@@ -37,7 +36,6 @@ interface WalletDetailPanelProps {
     onRevokePermission?: (permissionId: string) => Promise<void>;
     onDisable?: () => void;
     onEnable?: () => void;
-    activityEvents?: WalletActivityEvent[];
     isLoading?: boolean;
 }
 
@@ -51,7 +49,6 @@ interface WalletDetailPanelProps {
  * @param root0.onRevokePermission
  * @param root0.onDisable
  * @param root0.onEnable
- * @param root0.activityEvents
  */
 export function WalletDetailPanel({
     wallet,
@@ -61,7 +58,6 @@ export function WalletDetailPanel({
     onRevokePermission,
     onDisable,
     onEnable,
-    activityEvents = [],
     isLoading: _isLoading,
 }: WalletDetailPanelProps) {
     const [isAssigning, setIsAssigning] = useState(false);
@@ -346,14 +342,6 @@ export function WalletDetailPanel({
                                         </div>
                                     )}
                                 </div>
-                            </div>
-
-                            {/* Activity History */}
-                            <div>
-                                <h3 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                                    📜 Activity History
-                                </h3>
-                                <WalletActivityHistory events={activityEvents} />
                             </div>
 
                             {/* Quick Actions */}

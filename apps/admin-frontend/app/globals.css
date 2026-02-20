@@ -31,9 +31,9 @@
 
   /* Glass morphism card */
   .card-glass {
-    background: hsl(var(--glass-bg));
+    background: var(--glass-bg);
     backdrop-filter: blur(12px);
-    border: 1px solid hsl(var(--glass-border));
+    border: 1px solid var(--glass-border);
     border-radius: var(--radius-lg);
   }
 
@@ -88,9 +88,9 @@
 
   /* Secondary glass card */
   .card-secondary-glass {
-    background: hsl(var(--glass-bg));
+    background: var(--glass-bg);
     backdrop-filter: blur(12px);
-    border: 1px solid hsl(var(--glass-border));
+    border: 1px solid var(--glass-border);
     box-shadow: 0 10px 40px rgba(139, 92, 246, 0.2);
     border-radius: var(--radius-lg);
     padding: 1.5rem;
@@ -98,9 +98,9 @@
 
   /* Stats card variant with glass morphism */
   .card-stats {
-    background: hsl(var(--glass-bg));
+    background: var(--glass-bg);
     backdrop-filter: blur(12px);
-    border: 1px solid hsl(var(--glass-border));
+    border: 1px solid var(--glass-border);
     box-shadow: 0 10px 40px rgba(139, 92, 246, 0.2);
     border-radius: var(--radius-lg);
     padding: 1.5rem;
@@ -108,16 +108,16 @@
 
   /* Admin dashboard card */
   .admin-card-dashboard {
-    background: hsl(var(--glass-bg));
+    background: var(--glass-bg);
     backdrop-filter: blur(12px);
-    border: 1px solid hsl(var(--glass-border));
+    border: 1px solid var(--glass-border);
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
     border-radius: var(--radius-lg);
   }
 
   /* Card with gradient top border - Orange */
   .card-border-orange {
-    border: 1px solid hsl(0 0% 100% / 0.1);
+    border: 1px solid hsl(var(--border));
     border-top: 1px solid transparent;
     position: relative;
   }
@@ -133,7 +133,7 @@
 
   /* Card with gradient top border - Purple */
   .card-border-purple {
-    border: 1px solid hsl(0 0% 100% / 0.1);
+    border: 1px solid hsl(var(--border));
     border-top: 1px solid transparent;
     position: relative;
   }
@@ -149,13 +149,13 @@
 
   /* Search input styling with glass effect */
   .input-search-dark {
-    background-color: hsl(222 47% 11% / 0.5);
+    background-color: hsl(var(--muted));
     backdrop-filter: blur(4px);
-    border: 1px solid hsl(0 0% 100% / 0.1);
-    color: hsl(0 0% 100%);
+    border: 1px solid hsl(var(--border));
+    color: hsl(var(--foreground));
   }
   .input-search-dark::placeholder {
-    color: hsl(215 20% 50%);
+    color: hsl(var(--muted-foreground));
   }
   .input-search-dark:focus {
     border-color: hsl(258 90% 66% / 0.5);
@@ -186,12 +186,12 @@
   }
 
   .terminal-hover {
-    @apply hover:bg-white/5 cursor-pointer transition-colors;
+    @apply hover:bg-black/[0.03] dark:hover:bg-white/5 cursor-pointer transition-colors;
   }
 
   /* Checkbox styling for terminal UI */
   .terminal-checkbox {
-    @apply w-4 h-4 rounded-sm border-2 border-white/20 bg-black/20;
+    @apply w-4 h-4 rounded-sm border-2 border-black/10 dark:border-white/20 bg-black/20;
     @apply checked:bg-cyan-500 checked:border-cyan-500;
     @apply focus:ring-2 focus:ring-cyan-500/50 focus:ring-offset-0;
     @apply transition-all cursor-pointer;
@@ -207,4 +207,49 @@
     font-family: 'Courier New', 'Monaco', monospace;
     line-height: 1;
   }
+}
+
+/* ============================================================================
+   AUTH PAGE ANIMATIONS
+   ============================================================================ */
+
+@keyframes auth-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.animate-auth-fade-in {
+  animation: auth-fade-in 0.6s ease-out;
+}
+
+@keyframes auth-slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-auth-slide-up {
+  animation: auth-slide-up 0.6s ease-out;
+  animation-fill-mode: both;
+}
+
+@keyframes auth-gradient {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.animate-auth-gradient {
+  background-size: 200% 200%;
+  animation: auth-gradient 5s ease infinite;
+}
+
+@keyframes auth-shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
 }

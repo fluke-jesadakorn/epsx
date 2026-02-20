@@ -108,7 +108,7 @@ impl AccessContextConfig {
     }
 
     pub fn has_permission(&self, permission: &str) -> bool {
-        self.permissions.iter().any(|p| p == permission)
+        crate::core::permissions::has_permission(&self.permissions, permission)
     }
 
     pub fn has_feature(&self, feature: &str) -> bool {

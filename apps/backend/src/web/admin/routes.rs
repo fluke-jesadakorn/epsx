@@ -1,6 +1,6 @@
 // Admin routes configuration
 
-use axum::{ routing::{ get, post, put, patch, delete }, Router };
+use axum::{ routing::{ get, post, put, patch, delete }, Router, middleware::from_fn_with_state };
 
 // Security monitoring handlers
 use super::security_monitoring_handlers::{ SecurityMonitoringHandlers };
@@ -292,6 +292,18 @@ pub fn create_admin_routes() -> Router<AppState> {
     .route("/payment-links/{id}", get(super::payment_link_handlers::get_payment_link_handler).put(super::payment_link_handlers::update_payment_link_handler).delete(super::payment_link_handlers::delete_payment_link_handler))
     .route("/payment-links/{id}/record-usage", post(super::payment_link_handlers::record_payment_usage_handler))
 
+    // ============================================================================
+    // SUPPORT CHAT MANAGEMENT
+    // ============================================================================
+    .route("/chat/topics", get(super::chat_handlers::admin_list_topics))
+    .route("/chat/conversations", get(super::chat_handlers::admin_list_conversations))
+    .route("/chat/conversations/{id}", get(super::chat_handlers::admin_get_conversation))
+    .route("/chat/conversations/{id}/messages", get(super::chat_handlers::admin_list_messages).post(super::chat_handlers::admin_send_reply))
+    .route("/chat/conversations/{id}/assign", put(super::chat_handlers::admin_assign_agent))
+    .route("/chat/conversations/{id}/status", put(super::chat_handlers::admin_update_status))
+    .route("/chat/conversations/{id}/read", put(super::chat_handlers::admin_mark_read))
+    .route("/chat/stats", get(super::chat_handlers::admin_get_stats))
+
     }
 
 pub fn create_admin_public_routes() -> Router<AppState> {
@@ -307,46 +319,38 @@ pub fn create_admin_public_routes() -> Router<AppState> {
 // ============================================================================
 
 pub fn create_permission_authority_routes() -> Router<AppState> {
-  Router::new()
-    // CRITICAL: Real-time permission validation - THE AUTHORITY
-    // This endpoint is called by frontend/admin for ALL permission checks
-    // Route: /api/permissions/validate
-    .route("/validate", post(validate_permission))
+    use crate::web::middleware::perm_guard;
 
-    // CRITICAL: Bulk permission validation for performance
-    // Used by frontend/admin for batch permission checking
-    // Route: /api/permissions/validate-bulk
-    .route("/validate-bulk", post(validate_bulk_permissions))
+    // Public validation — any authenticated user can validate permissions
+    let validate_routes = Router::new()
+        .route("/validate", post(validate_permission))
+        .route("/validate-bulk", post(validate_bulk_permissions))
+        .route("/available", get(super::permissions::list_available_permissions));
 
-    // List all available unique permission strings
-    // Route: /api/permissions/available
-    .route("/available", get(super::permissions::list_available_permissions))
+    // Admin read — requires admin:permissions:read
+    let admin_read = Router::new()
+        .route("/wallet/{wallet_address}", get(get_wallet_permissions))
+        .route("/plans", get(list_plans))
+        .route("/plans/{plan_id}", get(get_plan))
+        .route("/plans/{plan_id}/members", get(get_plan_members))
+        .route("/plans/{plan_id}/permissions", get(get_plan_permissions))
+        .route("/assignments", get(list_assignments))
+        .route("/assignments/expiring", get(get_expiring_assignments))
+        .route("/assignments/wallet/{wallet}", get(get_assignment_history))
+        .route("/assignments/plan/{plan_id}", get(get_plan_assignments))
+        .route("/definitions", get(super::permissions::list_permission_definitions))
+        .layer(from_fn_with_state("admin:permissions:read", perm_guard));
 
-    // Permission Definitions Management (CRUD for custom permissions)
-    // Route: /api/permissions/definitions
-    .route("/definitions", get(super::permissions::list_permission_definitions).post(super::permissions::create_permission_definition))
-    .route("/definitions/{id}", delete(super::permissions::delete_permission_definition))
-    .route("/definitions/by-name/{permission}", delete(super::permissions::delete_permission_by_name))
+    // Admin write — requires admin:permissions:manage
+    let admin_write = Router::new()
+        .route("/plans", post(create_plan))
+        .route("/plans/{plan_id}", put(update_plan).delete(delete_plan))
+        .route("/assignments", post(create_assignment))
+        .route("/assignments/{assignment_id}", delete(remove_assignment))
+        .route("/definitions", post(super::permissions::create_permission_definition))
+        .route("/definitions/{id}", delete(super::permissions::delete_permission_definition))
+        .route("/definitions/by-name/{permission}", delete(super::permissions::delete_permission_by_name))
+        .layer(from_fn_with_state("admin:permissions:manage", perm_guard));
 
-    // CRITICAL: Wallet's effective permissions - what they can actually do
-    // Used by frontend/admin to understand wallet capabilities
-    // Route: /api/permissions/wallet/{wallet_address}
-    .route("/wallet/{wallet_address}", get(get_wallet_permissions))
-
-    // Permission Plan Management (accessible by all apps)
-    // Route: /api/permissions/plans
-    .route("/plans", get(list_plans).post(create_plan))
-    .route("/plans/{plan_id}", get(get_plan).put(update_plan).delete(delete_plan))
-    .route("/plans/{plan_id}/members", get(get_plan_members))
-    .route("/plans/{plan_id}/permissions", get(get_plan_permissions))
-
-    // Assignment Management (accessible by all apps)
-    // Route: /api/permissions/assignments
-    .route("/assignments", get(list_assignments).post(create_assignment))
-    .route("/assignments/{assignment_id}", delete(remove_assignment))
-    .route("/assignments/expiring", get(get_expiring_assignments))
-    .route("/assignments/wallet/{wallet}", get(get_assignment_history))
-    .route("/assignments/plan/{plan_id}", get(get_plan_assignments))
-
-    // Apply authentication middleware to permission authority routes
-    }
+    validate_routes.merge(admin_read).merge(admin_write)
+}

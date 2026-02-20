@@ -19,7 +19,7 @@ mod system;            // System mode and config utilities
 // Re-export key types for easy access
 pub use types::*;
 pub use rankings::{get_eps_rankings, convert_screening_result_to_eps_ranking, is_valid_eps_for_ranking};
-pub use metadata::{get_available_countries, get_all_valid_countries, get_sectors_by_country};
+pub use metadata::{get_available_countries, get_all_valid_countries, get_sectors_by_country, get_filter_options};
 pub use cache::{get_unified_analytics_rankings_cached, get_cache_stats, force_cache_refresh};
 pub use enhancement::enhance_with_websocket_data;
 pub use transform::{transform_ranking_to_unified_format, transform_unified_to_card_format};

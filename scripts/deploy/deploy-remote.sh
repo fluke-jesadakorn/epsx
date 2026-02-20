@@ -26,6 +26,8 @@ docker build \
   --build-arg NEXT_PUBLIC_BLOCKCHAIN_NETWORK=mainnet \
   --build-arg NEXT_PUBLIC_CHAIN_ID=56 \
   --build-arg NEXT_PUBLIC_OAUTH_CLIENT_ID=epsx-frontend \
+  --build-arg NEXT_PUBLIC_PAYMENT_ESCROW_MAINNET=0x56e44c9b61Aa24D47C22414e799DA8D76B345Db0 \
+  --build-arg NEXT_PUBLIC_PAYMENT_RECEIVER_MAINNET=0xea64439c9cb1b9Aa588a8D1cE61292DB4036E3dF \
   -f apps/frontend/Dockerfile -t epsx-frontend:prod .
 
 echo "   - Building Admin..."
@@ -37,10 +39,12 @@ docker build \
   --build-arg NEXT_PUBLIC_BLOCKCHAIN_NETWORK=mainnet \
   --build-arg NEXT_PUBLIC_CHAIN_ID=56 \
   --build-arg NEXT_PUBLIC_OAUTH_CLIENT_ID=epsx-admin \
+  --build-arg NEXT_PUBLIC_PAYMENT_ESCROW_MAINNET=0x56e44c9b61Aa24D47C22414e799DA8D76B345Db0 \
+  --build-arg NEXT_PUBLIC_PAYMENT_RECEIVER_MAINNET=0xea64439c9cb1b9Aa588a8D1cE61292DB4036E3dF \
   -f apps/admin-frontend/Dockerfile -t epsx-admin-frontend:prod .
 
 echo "   - Building Backend..."
-docker build -f apps/backend/Dockerfile -t epsx-backend:latest .
+docker build -f apps/backend/Dockerfile -t epsx-backend:prod .
 
 # 2. Package
 echo ""

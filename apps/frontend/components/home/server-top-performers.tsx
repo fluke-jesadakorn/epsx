@@ -1,5 +1,5 @@
  
-import { getRankingsAction } from '@/app/actions/analytics';
+import { getPublicRankingsAction } from '@/app/actions/analytics';
 import { StockDataCard } from '@/shared/components';
 
 interface QuarterlyPerformance {
@@ -40,10 +40,10 @@ const TopPerformersBox = ({ top3Data }: { top3Data: SymbolCardData[] }) => {
     <div className="flex w-full flex-col gap-8">
       <div className="mb-6 space-y-4 text-center">
         <h2 className="pancake-gradient-text text-3xl font-bold sm:text-4xl">
-          Top Performing Companies
+          Performance Companies
         </h2>
         <p className="text-muted-foreground mx-auto max-w-2xl">
-          Discover the data leaders with exceptional growth and performance metrics
+          Discover data-driven growth and performance metrics. Upgrade your plan to access top-ranked companies.
         </p>
         <div className="pancake-gradient mx-auto h-1 w-24 rounded-full" />
       </div>
@@ -64,8 +64,7 @@ const TopPerformersBox = ({ top3Data }: { top3Data: SymbolCardData[] }) => {
               price={latestQuarter?.price || 0}
               currency={cardData.currency}
               daysUntilNextAction={cardData.next_quarter_estimate?.days_until_announcement}
-              // Always use premium style for top performers on homepage
-              variant="premium"
+              variant="standard"
             />
           );
         })}
@@ -79,8 +78,8 @@ export default async function ServerTopPerformers({ className }: ServerTopPerfor
   let error: string | null = null;
 
   try {
-    const result = await getRankingsAction({
-      page: 1,
+    const result = await getPublicRankingsAction({
+      page: 34,
       limit: 3,
       sort_by: 'growth_factor'
     });
@@ -137,7 +136,7 @@ export default async function ServerTopPerformers({ className }: ServerTopPerfor
           <div className="flex w-full flex-col gap-8">
             <div className="mb-6 space-y-4 text-center">
               <h2 className="pancake-gradient-text text-3xl font-bold sm:text-4xl">
-                Top Performing Companies
+                Performance Companies
               </h2>
               <p className="text-muted-foreground mx-auto max-w-2xl">
                 Discover the data leaders with exceptional growth and performance metrics
@@ -152,7 +151,7 @@ export default async function ServerTopPerformers({ className }: ServerTopPerfor
           <div className="flex w-full flex-col gap-8">
             <div className="mb-6 space-y-4 text-center">
               <h2 className="pancake-gradient-text text-3xl font-bold sm:text-4xl">
-                Top Performing Companies
+                Performance Companies
               </h2>
               <p className="text-muted-foreground mx-auto max-w-2xl">
                 Discover the data leaders with exceptional growth and performance metrics

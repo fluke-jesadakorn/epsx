@@ -1,9 +1,8 @@
 'use client';
 
 import { useCallback } from 'react';
-import { logoutAction } from '../../../auth/actions';
+import { logoutAction, refreshSessionAction } from '../../../auth/actions';
 import type { SharedWeb3AuthClient } from '../../../auth/client';
-import { clearClientSideCookies } from '../../../auth/cookies';
 import { logger } from '../../../utils/logger';
 
 interface UseSessionActionsProps {
@@ -30,24 +29,12 @@ export function useSessionActions({
         }
     }, []);
 
-    const clearClientSession = useCallback(() => {
-        if (typeof window !== 'undefined') {
-            try {
-                clearClientSideCookies();
-            } catch (error) {
-                logger.warn('[AUTH] Warning: Failed to clear authentication cookies:', error instanceof Error ? error.message : String(error));
-            }
-        }
-    }, []);
-
     const logout = useCallback(async () => {
         try {
             setError(null);
             logger.info('Logging out user');
 
             await clearServerSession();
-            clearClientSession();
-
             await client.logout();
             logger.info('Logout successful');
         } catch (err: unknown) {
@@ -56,7 +43,7 @@ export function useSessionActions({
             setError(errorMessage);
             onAuthError?.(errorMessage);
         }
-    }, [client, setError, onAuthError, clearServerSession, clearClientSession]);
+    }, [client, setError, onAuthError, clearServerSession]);
 
     const refreshUser = useCallback(async () => {
         try {
@@ -72,11 +59,18 @@ export function useSessionActions({
 
     const refreshSession = useCallback(async () => {
         try {
-            const success = await client.refreshTokens();
-            if (success) {
+            // Use server action (can read HttpOnly refresh_token cookie)
+            const result = await refreshSessionAction();
+            if (result.success) {
+                await client.loadCurrentUser();
+                return true;
+            }
+            // Fallback to client-side refresh (for in-memory token)
+            const clientSuccess = await client.refreshTokens();
+            if (clientSuccess) {
                 await client.loadCurrentUser();
             }
-            return success;
+            return clientSuccess;
         } catch (err) {
             logger.error('[AUTH] Error: Session refresh error', err);
             return false;

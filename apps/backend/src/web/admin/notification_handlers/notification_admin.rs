@@ -1,6 +1,7 @@
 // Admin notification handlers
 use axum::{
     extract::{State, Path, Query},
+    http::HeaderMap,
     response::IntoResponse,
     Json,
 };
@@ -10,6 +11,7 @@ use diesel_async::RunQueryDsl;
 
 use crate::{
     core::errors::{AppError, ErrorKind},
+    infrastructure::services::audit_service::{AuditCtx, AuditEntry},
     web::auth::AppState,
     web::notifications::SSENotification,
 };
@@ -37,6 +39,8 @@ use super::super::wallet_notification_repository::WalletNotificationRepository;
 )]
 pub async fn send_notification_handler(
     State(app_state): State<AppState>,
+    axum::Extension(user_ctx): axum::Extension<crate::web::middleware::bearer_middleware::OpenIDUserContext>,
+    headers: HeaderMap,
     Json(request): Json<SendNotificationRequest>,
 ) -> Result<impl IntoResponse, AppError> {
     // Validate request
@@ -57,9 +61,9 @@ pub async fn send_notification_handler(
     // Determine target wallet address (convert to lowercase for consistency)
     let wallet_addresses = if request.broadcast.unwrap_or(false) {
         vec!["all".to_string()]
-    } else if let Some(addr) = request.recipient_wallet_address {
+    } else if let Some(ref addr) = request.recipient_wallet_address {
         vec![addr.to_lowercase()]
-    } else if let Some(plan) = request.recipient_plan {
+    } else if let Some(ref plan) = request.recipient_plan {
         // Fetch wallet addresses for plan from database
         #[derive(QueryableByName)]
         struct PlanMemberRow {
@@ -207,6 +211,21 @@ pub async fn send_notification_handler(
             repo.update_delivery_attempt(notification_id).await?;
         }
     }
+
+    // Audit logging
+    let ctx = AuditCtx::from_wallet(&user_ctx.wallet_address, &headers);
+    app_state.audit.log(ctx, AuditEntry::new("notification", "create", "notification")
+        .id(&notification_ids.join(","))
+        .after(serde_json::json!({
+            "title": request.title,
+            "message": request.message,
+            "notification_type": request.notification_type,
+            "priority": request.priority,
+            "broadcast": request.broadcast,
+            "recipient_wallet_address": request.recipient_wallet_address,
+            "recipient_plan": request.recipient_plan,
+            "recipients_count": total_subscriber_count,
+        })));
 
     // Build response
     let delivery_message = if app_state.redis_broadcaster.is_some() {
@@ -552,6 +571,8 @@ pub async fn get_notification_stats_handler(
 )]
 pub async fn delete_admin_notification_handler(
     State(app_state): State<AppState>,
+    axum::Extension(user_ctx): axum::Extension<crate::web::middleware::bearer_middleware::OpenIDUserContext>,
+    headers: HeaderMap,
     Path(notification_id): Path<String>,
 ) -> Result<impl IntoResponse, AppError> {
     let notif_uuid = uuid::Uuid::parse_str(&notification_id)
@@ -581,6 +602,14 @@ pub async fn delete_admin_notification_handler(
             "Notification not found".to_string(),
         ));
     }
+
+    // Audit logging
+    let ctx = AuditCtx::from_wallet(&user_ctx.wallet_address, &headers);
+    app_state.audit.log(ctx, AuditEntry::new("notification", "delete", "notification")
+        .id(&notification_id)
+        .after(serde_json::json!({
+            "deleted": true,
+        })));
 
     Ok(Json(serde_json::json!({
         "success": true,

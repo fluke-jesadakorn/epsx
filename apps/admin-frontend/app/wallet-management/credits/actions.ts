@@ -1,5 +1,6 @@
 'use server';
 
+import { redirectOnForbidden, rethrowRedirect } from '@/lib/api-error';
 import { logout } from '@/lib/auth/auth';
 import { createCreditsApi } from '@/shared/api/credits';
 import { createAdminApiClient } from '@/shared/utils/api-client';
@@ -14,10 +15,6 @@ import type { UnifiedApiClient } from '@/shared/utils/api-client';
 import { logger } from '@/shared/utils/logger';
 import { redirect } from 'next/navigation';
 
-function isNextRedirectError(err: unknown): boolean {
-  return err instanceof Error && (err as { digest?: string }).digest?.startsWith('NEXT_REDIRECT') === true;
-}
-
 async function handleAction<T>(
   reqFn: (api: UnifiedApiClient) => Promise<ApiResponse<T>>,
   errMsg: string,
@@ -29,6 +26,8 @@ async function handleAction<T>(
     const res = await reqFn(apiClient);
 
     if (!res.success) {
+      redirectOnForbidden(res, '/wallet-management/credits');
+
       if (res.error?.code === '401' || res.error?.code === 'UNAUTHORIZED') {
         await logout();
         redirect('/auth');
@@ -45,9 +44,7 @@ async function handleAction<T>(
 
     return res.data ?? (defaultVal as T);
   } catch (error: unknown) {
-    if (isNextRedirectError(error)) {
-      throw error;
-    }
+    rethrowRedirect(error);
 
     logger.error(`${errMsg}:`, error instanceof Error ? error.message : String(error));
 

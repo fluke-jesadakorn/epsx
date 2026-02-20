@@ -39,15 +39,17 @@ export function Header({ user }: HeaderProps) {
 
   useEffect(() => {
     setMounted(true);
+    // Sync stored theme with next-themes on mount only
     const current = themeUtils.getTheme();
     if (current && (resolvedTheme ?? theme) !== current) {
       setTheme(current);
     }
-  }, [theme, resolvedTheme, setTheme]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (!mounted) {
     return (
-      <header className="sticky top-0 z-40 border-b border-white/10 bg-white/5 backdrop-blur-xl">
+      <header className="sticky top-0 z-40 border-b border-gray-200 dark:border-border bg-white/80 dark:bg-[#13151e] backdrop-blur-xl">
         <div className="flex h-14 items-center justify-between px-4 gap-3">
           <div className="flex items-center gap-2 min-w-0">
             <span className="text-lg font-semibold text-foreground whitespace-nowrap">EPSX</span>
@@ -60,7 +62,7 @@ export function Header({ user }: HeaderProps) {
   }
 
   return (
-    <header className="sticky top-0 z-40 border-b border-white/5 bg-slate-900/40 backdrop-blur-2xl">
+    <header className="sticky top-0 z-40 border-b border-gray-200 dark:border-border bg-white dark:bg-[#13151e]">
       <div className="flex h-16 items-center justify-between px-6 gap-3">
         {/* Logo / Title */}
         <div className="flex items-center gap-2 min-w-0 flex-shrink">
@@ -77,7 +79,7 @@ export function Header({ user }: HeaderProps) {
             <AdminNotificationBell />
           </div>
 
-          <div className="w-[1px] h-6 bg-white/10 hidden sm:block" />
+          <div className="w-[1px] h-6 bg-gray-200 dark:bg-border hidden sm:block" />
 
           {/* Theme Toggle */}
           <UnifiedThemeToggle variant="minimal" size="md" showTooltip={true} />

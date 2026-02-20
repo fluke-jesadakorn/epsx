@@ -35,6 +35,11 @@ class NavigationService {
         key: 'about',
       },
       {
+        label: 'Support',
+        href: '/chat',
+        key: 'chat',
+      },
+      {
         label: 'Contact',
         href: '/contact',
         key: 'contact',

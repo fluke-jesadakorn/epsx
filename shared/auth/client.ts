@@ -13,15 +13,6 @@
  */
 
 import { logger } from '../utils/logger';
-import {
-  clearClientSideCookies,
-  COOKIES,
-  getClientCookie,
-  getClientCookieJSON,
-  removeClientCookie,
-  setClientCookie,
-  setClientCookieJSON
-} from './cookies';
 
 // Web3 JWT Token Response (from backend)
 export interface Web3TokenResponse {
@@ -118,7 +109,6 @@ export class SharedWeb3AuthClient {
   constructor(clientId: string, backendUrl: string) {
     this.clientId = clientId;
     this.backendUrl = backendUrl;
-    this.loadTokensFromStorage();
   }
 
   // ============================================================================
@@ -142,52 +132,6 @@ export class SharedWeb3AuthClient {
 
   private notifyListeners(): void {
     this.listeners.forEach(callback => callback(this.user));
-  }
-
-  // ============================================================================
-  // TOKEN STORAGE (cookies only)
-  // ============================================================================
-
-  private loadTokensFromStorage(): void {
-    if (typeof window === 'undefined') { return; }
-
-    try {
-      // Load expiry from client-readable cookie
-      const expiry = getClientCookie(COOKIES.expires_at);
-      this.tokenExpiry = (expiry !== null && expiry !== '') ? parseInt(expiry, 10) : null;
-
-      // Load user from client-readable cookie
-      this.loadUserFromCookies();
-
-      // Extract access token from user.access field (since access_token cookie is now HttpOnly)
-      this.accessToken = this.user?.access ?? null;
-
-      logger.info('[AUTH] SharedWeb3AuthClient: Initial cookie state loaded', {
-        clientId: this.clientId,
-        hasAccessToken: Boolean(this.accessToken),
-        hasUser: Boolean(this.user),
-        wallet: this.user?.wallet_address.slice(0, 8),
-        isExpired: this.isExpired(),
-      });
-    } catch (error) {
-      logger.warn('Failed to load tokens from cookies', {
-        error_message: error instanceof Error ? error.message : String(error),
-        error_type: error instanceof Error ? error.constructor.name : typeof error
-      });
-    }
-  }
-
-  private loadUserFromCookies(): void {
-    let storedUser = getClientCookieJSON<UserInfoResponse>(COOKIES.user);
-
-    // Fallback: decode user from JWT if cookie missing but token exists
-    if (storedUser === null && this.accessToken !== null && this.accessToken !== '') {
-      storedUser = this.decodeUserFromToken(this.accessToken);
-    }
-
-    if (storedUser !== null) {
-      this.user = storedUser;
-    }
   }
 
   private decodeUserFromToken(token: string): UserInfoResponse | null {
@@ -214,51 +158,6 @@ export class SharedWeb3AuthClient {
       });
     }
     return null;
-  }
-
-  private saveTokensToStorage(): void {
-    if (typeof window === 'undefined') { return; }
-
-    try {
-      // Only save client-readable cookies
-      // access_token and refresh_token are now HttpOnly and set server-side only
-      if (this.tokenExpiry !== null) {
-        setClientCookie(COOKIES.expires_at, this.tokenExpiry.toString(), 2592000);
-      }
-
-      if (this.user !== null) {
-        setClientCookieJSON(COOKIES.user, this.user, 2592000);
-      }
-
-      logger.info('[AUTH] Client: Session state updated and cookies set', {
-        clientId: this.clientId,
-        hasUser: Boolean(this.user),
-      });
-    } catch (error) {
-      logger.warn('Failed to save tokens to cookies', {
-        error_message: error instanceof Error ? error.message : String(error),
-        error_type: error instanceof Error ? error.constructor.name : typeof error
-      });
-    }
-  }
-
-  private clearTokensFromStorage(): void {
-    if (typeof window === 'undefined') { return; }
-
-    try {
-      // Clear only client-readable cookies
-      // access_token and refresh_token are HttpOnly and cleared server-side only
-      removeClientCookie(COOKIES.expires_at);
-      removeClientCookie(COOKIES.user);
-
-      // Also clear shared cookies
-      clearClientSideCookies();
-    } catch (error) {
-      logger.warn('Failed to clear tokens from cookies', {
-        error_message: error instanceof Error ? error.message : String(error),
-        error_type: error instanceof Error ? error.constructor.name : typeof error
-      });
-    }
   }
 
   // ============================================================================
@@ -552,7 +451,6 @@ export class SharedWeb3AuthClient {
       access: result.access_token,
     };
 
-    this.saveTokensToStorage();
     this.notifyListeners();
   }
 
@@ -652,7 +550,7 @@ export class SharedWeb3AuthClient {
           this.refreshToken = result.refresh_token;
         }
         this.tokenExpiry = Date.now() + (result.expires_in ?? 3600) * 1000;
-        this.saveTokensToStorage();
+        this.notifyListeners();
         return true;
       }
 
@@ -675,8 +573,7 @@ export class SharedWeb3AuthClient {
     this.refreshToken = null;
     this.tokenExpiry = null;
     this.user = null;
-    this.challengeCache.clear(); // Clear all challenges on logout
-    this.clearTokensFromStorage();
+    this.challengeCache.clear();
     this.notifyListeners();
   }
 
@@ -794,12 +691,6 @@ export class SharedWeb3AuthClient {
 
       const user = await this.fetchCurrentUser();
       this.user = user;
-
-      // Sync user to storage
-      if (user !== null) {
-        setClientCookieJSON(COOKIES.user, user);
-      }
-
       this.notifyListeners();
       return user;
     } catch (error) {
@@ -826,14 +717,6 @@ export class SharedWeb3AuthClient {
 
   async logout(): Promise<void> {
     this.clearTokens();
-
-    // Use server action for logout (handles backend call + cookie clearing)
-    try {
-      const { logoutAction } = await import('./actions');
-      await logoutAction();
-    } catch (_e) {
-      // Ignore errors - tokens already cleared client-side
-    }
   }
 
   // ============================================================================

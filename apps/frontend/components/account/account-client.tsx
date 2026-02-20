@@ -354,7 +354,7 @@ export function AccountClient({ initialPaymentHistory, accessOverviewSlot }: Acc
           </Button>
 
           {/* Background visuals for the banner */}
-          <div className="absolute top-0 right-0 -mr-16 -mt-16 h-48 w-48 rounded-full bg-white/10 blur-3xl" />
+          <div className="absolute top-0 right-0 -mr-16 -mt-16 h-48 w-48 rounded-full bg-gray-50 dark:bg-white/10 blur-3xl" />
           <div className="absolute bottom-0 left-0 -ml-16 -mb-16 h-32 w-32 rounded-full bg-indigo-400/20 blur-2xl" />
         </div>
       </div>

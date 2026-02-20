@@ -45,15 +45,6 @@ export async function getServerSessionAdmin(): Promise<AdminSessionData> {
 
     const sessionData = await response.json() as SessionResponse;
 
-    // Check if user has admin permissions
-    const hasAdminPermissions = sessionData.user?.permissions.some((p: string) =>
-      p.startsWith('admin:')
-    ) ?? false;
-
-    if (!hasAdminPermissions) {
-      return { isAuthenticated: false };
-    }
-
     return {
       isAuthenticated: true,
       user: sessionData.user,

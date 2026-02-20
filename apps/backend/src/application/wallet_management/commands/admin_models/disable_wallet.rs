@@ -4,7 +4,9 @@ use utoipa::ToSchema;
 
 #[derive(Debug, Clone, Deserialize, Serialize, ToSchema)]
 pub struct DisableWalletCommand {
+    #[serde(default)]
     pub wallet_address: String,
+    #[serde(default)]
     pub admin_wallet_address: String, // Who performed the action
     pub duration_days: Option<i32>, // None = until manual re-enable
     pub reason_category: String,

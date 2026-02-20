@@ -1,49 +1,37 @@
-// Consolidated Notification Domain Types
+// Notification Domain Types - aligned with backend (sse_handlers.rs) and shared/components/notifications/types.ts
 
 export type NotificationType =
     | 'system'
-    | 'admin'
-    | 'data'
-    | 'feature'
     | 'security'
-    | 'analytics'
-    | 'account'
-    | 'price_alert'
-    | 'info'
-    | 'success'
-    | 'warning'
-    | 'error'
-    | 'marketing';
+    | 'permission'
+    | 'wallet_management'
+    | 'wallet'
+    | 'payment'
+    | 'general'
+    | 'announcement'
+    | 'advertisement'
+    | 'chat';
 
-export type NotificationPriority = 'low' | 'normal' | 'high' | 'urgent' | 'critical' | 'medium';
+export type NotificationPriority = 'low' | 'normal' | 'high' | 'critical' | 'urgent';
 
 export type NotificationSender = 'system' | 'admin' | 'automated';
 
 export interface Notification {
     id: string;
-    user_id?: string;
     title: string;
     message: string;
-    body?: string; // Compatibility with older types
     type: NotificationType;
     priority: NotificationPriority;
-    sender?: NotificationSender;
-    imageUrl?: string;
-    actionUrl?: string;
-    customData?: Record<string, unknown>;
-    metadata?: Record<string, unknown>;
-    data?: Record<string, unknown>;
-    createdAt: string;
-    created_at?: string;
-    updatedAt?: string;
-    updated_at?: string;
-    readAt?: string;
-    read_at?: string;
-    clickedAt?: string;
-    deliveredAt?: string;
-    expiresAt?: string;
+    timestamp: string;
     expires_at?: string;
-    read?: boolean;
+    read_at?: string;
+    clicked_at?: string;
+    delivered_at?: string;
+    action_url?: string;
+    image_url?: string;
+    wallet_address?: string;
+    data?: Record<string, unknown>;
+    read: boolean;
 }
 
 export interface NotificationStats {

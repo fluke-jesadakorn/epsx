@@ -15,16 +15,8 @@ export async function GET(request: NextRequest) {
 
     // Clear all known EPSX cookies
     Object.values(COOKIES).forEach((cookieName) => {
-        // Delete with path / to ensure global clearance
         cookieStore.delete(cookieName);
-
-        // Also try to delete with potentially different domain configurations if needed
-        // But since we use __Host- prefix in production which restricts to path=/, simple delete should work
     });
-
-    // Create redirect response
-    // Double ensure cookies are cleared by setting headers manually if needed
-    // (NextResponse.redirect usually handles this if we modified cookieStore)
 
     return NextResponse.redirect(new URL(returnUrl, request.url));
 }

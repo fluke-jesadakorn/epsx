@@ -276,7 +276,7 @@ export class AdminAPIClient {
     );
 
     if (!this.client.isApiSuccess(response)) {
-      throw new Error(`Failed to fetch users: ${response.error}`);
+      throw new Error(`Failed to fetch users: ${response.error?.message ?? 'Unknown error'}`);
     }
 
     return response.data;
@@ -302,7 +302,7 @@ export class AdminAPIClient {
     );
 
     if (!this.client.isApiSuccess(response)) {
-      throw new Error(`Failed to search users: ${response.error}`);
+      throw new Error(`Failed to search users: ${response.error?.message ?? 'Unknown error'}`);
     }
 
     return response.data;
@@ -338,7 +338,7 @@ export class AdminAPIClient {
     );
 
     if (!this.client.isApiSuccess(response)) {
-      throw new Error(`Failed to fetch user stats: ${response.error}`);
+      throw new Error(`Failed to fetch user stats: ${response.error?.message ?? 'Unknown error'}`);
     }
 
     return response.data.data;
@@ -366,7 +366,7 @@ export class AdminAPIClient {
     );
 
     if (!this.client.isApiSuccess(response)) {
-      throw new Error(`Failed to search wallets: ${response.error}`);
+      throw new Error(`Failed to search wallets: ${response.error?.message ?? 'Unknown error'}`);
     }
 
     return response.data;
@@ -406,7 +406,7 @@ export class AdminAPIClient {
     );
 
     if (!this.client.isApiSuccess(response)) {
-      throw new Error(`Failed to fetch recent wallets: ${response.error}`);
+      throw new Error(`Failed to fetch recent wallets: ${response.error?.message ?? 'Unknown error'}`);
     }
 
     return response.data.data;
@@ -434,7 +434,7 @@ export class AdminAPIClient {
     );
 
     if (!this.client.isApiSuccess(response)) {
-      throw new Error(`Failed to fetch permissions: ${response.error}`);
+      throw new Error(`Failed to fetch permissions: ${response.error?.message ?? 'Unknown error'}`);
     }
 
     return response.data;
@@ -458,7 +458,7 @@ export class AdminAPIClient {
     );
 
     if (!this.client.isApiSuccess(response)) {
-      throw new Error(`Failed to grant permission: ${response.error}`);
+      throw new Error(`Failed to grant permission: ${response.error?.message ?? 'Unknown error'}`);
     }
 
     return response.data;
@@ -482,7 +482,7 @@ export class AdminAPIClient {
     );
 
     if (!this.client.isApiSuccess(response)) {
-      throw new Error(`Failed to revoke permission: ${response.error}`);
+      throw new Error(`Failed to revoke permission: ${response.error?.message ?? 'Unknown error'}`);
     }
 
     return response.data;
@@ -510,7 +510,7 @@ export class AdminAPIClient {
     );
 
     if (!this.client.isApiSuccess(response)) {
-      throw new Error(`Failed to assign to group: ${response.error}`);
+      throw new Error(`Failed to assign to group: ${response.error?.message ?? 'Unknown error'}`);
     }
 
     return response.data;
@@ -554,7 +554,7 @@ export class AdminAPIClient {
     );
 
     if (!this.client.isApiSuccess(response)) {
-      throw new Error(`Failed to bulk assign modules: ${response.error}`);
+      throw new Error(`Failed to bulk assign modules: ${response.error?.message ?? 'Unknown error'}`);
     }
 
     return response.data.data;
@@ -582,7 +582,7 @@ export class AdminAPIClient {
     );
 
     if (!this.client.isApiSuccess(response)) {
-      throw new Error(`Failed to fetch dashboard analytics: ${response.error}`);
+      throw new Error(`Failed to fetch dashboard analytics: ${response.error?.message ?? 'Unknown error'}`);
     }
 
     return response.data;
@@ -606,7 +606,7 @@ export class AdminAPIClient {
     );
 
     if (!this.client.isApiSuccess(response)) {
-      throw new Error(`Failed to fetch performance metrics: ${response.error}`);
+      throw new Error(`Failed to fetch performance metrics: ${response.error?.message ?? 'Unknown error'}`);
     }
 
     return response.data;
@@ -651,7 +651,7 @@ export class AdminAPIClient {
     );
 
     if (!this.client.isApiSuccess(response)) {
-      throw new Error(`Failed to fetch permission analytics: ${response.error}`);
+      throw new Error(`Failed to fetch permission analytics: ${response.error?.message ?? 'Unknown error'}`);
     }
 
     return response.data.data;
@@ -689,7 +689,7 @@ export class AdminAPIClient {
     );
 
     if (!this.client.isApiSuccess(response)) {
-      throw new Error(`Failed to fetch cache stats: ${response.error}`);
+      throw new Error(`Failed to fetch cache stats: ${response.error?.message ?? 'Unknown error'}`);
     }
 
     return response.data.data;
@@ -737,7 +737,7 @@ export class AdminAPIClient {
     );
 
     if (!this.client.isApiSuccess(response)) {
-      throw new Error(`Failed to fetch NFT gates: ${response.error}`);
+      throw new Error(`Failed to fetch NFT gates: ${response.error?.message ?? 'Unknown error'}`);
     }
 
     return response.data.data;
@@ -781,7 +781,7 @@ export class AdminAPIClient {
     );
 
     if (!this.client.isApiSuccess(response)) {
-      throw new Error(`Failed to fetch token gates: ${response.error}`);
+      throw new Error(`Failed to fetch token gates: ${response.error?.message ?? 'Unknown error'}`);
     }
 
     return response.data.data;
@@ -827,7 +827,7 @@ export class AdminAPIClient {
     );
 
     if (!this.client.isApiSuccess(response)) {
-      throw new Error(`Failed to fetch DAO proposals: ${response.error}`);
+      throw new Error(`Failed to fetch DAO proposals: ${response.error?.message ?? 'Unknown error'}`);
     }
 
     return response.data.data;

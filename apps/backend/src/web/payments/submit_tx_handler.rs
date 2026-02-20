@@ -235,6 +235,26 @@ pub async fn submit_transaction_handler(
                     "Payment fully covered by credits: ref={}, amount=${}",
                     payment_reference, payment_amount
                 );
+
+                // Notify user about payment confirmation
+                let notif_wallet = wallet_address.clone();
+                let notif_ref = payment_reference.clone();
+                let notif_state = _app_state.clone();
+                tokio::spawn(async move {
+                    use crate::infrastructure::services::NotificationService;
+                    use crate::web::notifications::{NotificationType, NotificationPriority};
+                    let _ = NotificationService::send(
+                        &notif_state,
+                        &notif_wallet,
+                        NotificationType::Payment,
+                        NotificationPriority::Normal,
+                        "Payment Confirmed",
+                        "Your payment has been confirmed",
+                        Some(serde_json::json!({ "payment_reference": notif_ref })),
+                        None,
+                    ).await;
+                });
+
                 format!("Payment completed using ${} wallet credits", credit_to_use)
             } else if credit_to_use > BigDecimal::from(0) {
                 info!(

@@ -1,5 +1,5 @@
-import { redirect } from 'next/navigation';
+import { PlansView } from '@/components/access-control/plans-view';
 
 export default function AccessPage() {
-    redirect('/wallet-management/access/permissions');
+    return <PlansView />;
 }

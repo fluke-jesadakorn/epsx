@@ -4,7 +4,9 @@ use utoipa::ToSchema;
 
 #[derive(Debug, Clone, Deserialize, Serialize, ToSchema)]
 pub struct EnableWalletCommand {
+    #[serde(default)]
     pub wallet_address: String,
+    #[serde(default)]
     pub admin_wallet_address: String, // Who performed the action
     pub platforms_to_enable: Vec<String>,
     pub restore_permissions: bool,

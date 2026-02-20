@@ -85,14 +85,11 @@ impl CommandHandler<DisableWalletCommand> for DisableWalletCommandHandler {
             "disabledBy": &command.admin_wallet_address
         });
 
-        // 4. Update wallet
-        // We need to merge this into wallet_metadata.
-        // Assuming wallet_metadata is a top-level JSONB object.
-        
+        // 4. Update wallet - use dedicated disable_info column
         let update_query = diesel::sql_query(
-            "UPDATE wallet_users 
-             SET is_active = false, 
-                 wallet_metadata = jsonb_set(wallet_metadata, '{disable_info}', $2),
+            "UPDATE wallet_users
+             SET is_active = false,
+                 disable_info = $2,
                  updated_at = NOW()
              WHERE wallet_address = $1"
         )
@@ -104,21 +101,6 @@ impl CommandHandler<DisableWalletCommand> for DisableWalletCommandHandler {
             ApplicationError::infrastructure(format!("Failed to disable wallet: {}", e))
         })?;
         
-        // 5. If block_login is true, revoke active sessions
-        if command.block_login {
-            diesel::sql_query(
-                "UPDATE sessions SET is_revoked = true WHERE wallet_address = $1 AND is_revoked = false"
-            )
-            .bind::<Text, _>(&command.wallet_address)
-            .execute(&mut conn)
-            .await
-            .map_err(|e| {
-                error!("Failed to revoke sessions: {}", e);
-                // Non-critical error, log but continue
-                ApplicationError::infrastructure(format!("Failed to revoke sessions: {}", e))
-            })?;
-        }
-
         info!(
             "Successfully disabled wallet: {}",
             command.wallet_address

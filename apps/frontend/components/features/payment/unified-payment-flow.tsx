@@ -10,6 +10,7 @@ import {
     LoadingStep,
     SignInStep,
     ErrorStep,
+    VerifyingStep,
     SuccessStep,
     ConfirmStep,
     SinglePlanView,
@@ -121,11 +122,15 @@ export function UnifiedPaymentFlow({
         return <ErrorStep error={error} onRetry={fetchPlans} className={className} />;
     }
 
+    if (step === 'verifying') {
+        return <VerifyingStep planTitle={selectedPlan?.title ?? ''} txHash={txHash} className={className} />;
+    }
+
     if (step === 'success') {
         return <SuccessStep planTitle={selectedPlan?.title ?? ''} txHash={txHash} className={className} />;
     }
 
-    if (step === 'confirm' && selectedPlan) {
+    if ((step === 'confirm' || step === 'pay') && selectedPlan) {
         return (
             <ConfirmStep
                 selectedPlan={selectedPlan}

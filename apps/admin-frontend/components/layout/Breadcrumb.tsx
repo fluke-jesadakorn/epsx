@@ -29,11 +29,10 @@ const routeConfig: Record<string, BreadcrumbItem> = {
   '/wallet-management': { label: 'Wallet Management', href: '/wallet-management', icon: '👛' },
   '/wallet-management/wallets': { label: 'Wallets', href: '/wallet-management/wallets' },
   '/wallet-management/access': { label: 'Access Control', href: '/wallet-management/access' },
-  '/wallet-management/access/permissions': { label: 'Permissions', href: '/wallet-management/access/permissions' },
   '/wallet-management/access/plans': { label: 'Plans', href: '/wallet-management/access/plans' },
-  '/wallet-management/activity': { label: 'Activity Logs', href: '/wallet-management/activity' },
   // Dynamic wallet disable route is handled by generateBreadcrumbs fallback
   '/payments': { label: 'Payments', href: '/payments', icon: '💰' },
+  '/chat': { label: 'Chat Support', href: '/chat', icon: '💬' },
 
   // Access Management Routes (unified single page)
   '/subscriptions': { label: 'Access Management', href: '/subscriptions', icon: '🛡️' },

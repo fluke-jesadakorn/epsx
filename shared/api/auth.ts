@@ -164,7 +164,7 @@ export class AuthAPIClient {
     );
 
     if (!this.client.isApiSuccess(response)) {
-      throw new Error(`Failed to get Web3 challenge: ${response.error}`);
+      throw new Error(`Failed to get Web3 challenge: ${response.error?.message ?? 'Unknown error'}`);
     }
 
     return {
@@ -191,7 +191,7 @@ export class AuthAPIClient {
     );
 
     if (!this.client.isApiSuccess(response)) {
-      throw new Error(`Failed to verify Web3 signature: ${response.error}`);
+      throw new Error(`Failed to verify Web3 signature: ${response.error?.message ?? 'Unknown error'}`);
     }
 
     // Update client token if authentication successful
@@ -260,7 +260,7 @@ export class AuthAPIClient {
     );
 
     if (!this.client.isApiSuccess(response)) {
-      throw new Error(`Failed to validate session: ${response.error}`);
+      throw new Error(`Failed to validate session: ${response.error?.message ?? 'Unknown error'}`);
     }
 
     return response.data;
@@ -283,7 +283,7 @@ export class AuthAPIClient {
     );
 
     if (!this.client.isApiSuccess(response)) {
-      throw new Error(`Failed to verify session: ${response.error}`);
+      throw new Error(`Failed to verify session: ${response.error?.message ?? 'Unknown error'}`);
     }
 
     return response.data;
@@ -306,7 +306,7 @@ export class AuthAPIClient {
     );
 
     if (!this.client.isApiSuccess(response)) {
-      throw new Error(`Failed to refresh token: ${response.error}`);
+      throw new Error(`Failed to refresh token: ${response.error?.message ?? 'Unknown error'}`);
     }
 
     // Update client token
@@ -339,7 +339,7 @@ export class AuthAPIClient {
     );
 
     if (!this.client.isApiSuccess(response)) {
-      throw new Error(`Failed to store session: ${response.error}`);
+      throw new Error(`Failed to store session: ${response.error?.message ?? 'Unknown error'}`);
     }
 
     return response.data;
@@ -363,7 +363,7 @@ export class AuthAPIClient {
     );
 
     if (!this.client.isApiSuccess(response)) {
-      throw new Error(`Failed to clear session: ${response.error}`);
+      throw new Error(`Failed to clear session: ${response.error?.message ?? 'Unknown error'}`);
     }
 
     return response.data;
@@ -425,7 +425,7 @@ export class AuthAPIClient {
     );
 
     if (!this.client.isApiSuccess(response)) {
-      throw new Error(`Failed to get user profile: ${response.error}`);
+      throw new Error(`Failed to get user profile: ${response.error?.message ?? 'Unknown error'}`);
     }
 
     return response.data.data;
@@ -448,7 +448,7 @@ export class AuthAPIClient {
     );
 
     if (!this.client.isApiSuccess(response)) {
-      throw new Error(`Failed to update user profile: ${response.error}`);
+      throw new Error(`Failed to update user profile: ${response.error?.message ?? 'Unknown error'}`);
     }
 
     return response.data;
@@ -476,7 +476,7 @@ export class AuthAPIClient {
     );
 
     if (!this.client.isApiSuccess(response)) {
-      throw new Error(`Failed to get user permissions: ${response.error}`);
+      throw new Error(`Failed to get user permissions: ${response.error?.message ?? 'Unknown error'}`);
     }
 
     return response.data.data;

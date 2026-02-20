@@ -262,30 +262,12 @@ pub fn require_user_context(request: &Request) -> Result<&OpenIDUserContext, (St
 }
 
 /// Helper to check if user has specific permission
+/// Uses exact match + wildcard matching (platform:*:* and platform:resource:*)
 pub fn check_user_permission(
     user_context: &OpenIDUserContext,
     required_permission: &str,
 ) -> bool {
-    // Check exact permission match
-    if user_context.permissions.contains(&required_permission.to_string()) {
-        return true;
-    }
-
-    // Check admin wildcard permissions
-    if user_context.permissions.iter().any(|p| p.starts_with("admin:")) {
-        return true;
-    }
-
-    // Check platform wildcard permissions
-    let parts: Vec<&str> = required_permission.split(':').collect();
-    if parts.len() >= 2 {
-        let wildcard = format!("{}:*", parts[0]);
-        if user_context.permissions.contains(&wildcard) {
-            return true;
-        }
-    }
-
-    false
+    crate::core::permissions::has_permission(&user_context.permissions, required_permission)
 }
 
 /// Helper to create permission denied error
@@ -336,7 +318,29 @@ mod tests {
             auth_time: 0,
         };
 
+        // admin:*:* grants all admin permissions
         assert!(check_user_permission(&admin_context, "admin:users:manage"));
-        assert!(check_user_permission(&admin_context, "epsx:analytics:read"));
+        assert!(check_user_permission(&admin_context, "admin:permissions:read"));
+        // admin:*:* does NOT grant cross-platform permissions
+        assert!(!check_user_permission(&admin_context, "epsx:analytics:read"));
+    }
+
+    #[test]
+    fn test_resource_wildcard_permission() {
+        let ctx = OpenIDUserContext {
+            sub: "0x789".to_string(),
+            wallet_address: "0x789".to_string(),
+            permissions: vec!["admin:users:*".to_string()],
+            auth_method: "web3_siwe".to_string(),
+            jti: "test".to_string(),
+            exp: 0,
+            iat: 0,
+            auth_time: 0,
+        };
+
+        assert!(check_user_permission(&ctx, "admin:users:read"));
+        assert!(check_user_permission(&ctx, "admin:users:manage"));
+        // admin:users:* does NOT grant admin:permissions:read
+        assert!(!check_user_permission(&ctx, "admin:permissions:read"));
     }
 }

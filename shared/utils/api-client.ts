@@ -13,7 +13,7 @@
  * - Configurable request options and timeouts
  */
 
-import { COOKIES, getClientCookie, setClientCookie } from '../auth/cookies';
+import { COOKIES } from '../auth/cookies';
 import { logger } from './logger';
 import { getBackendUrl } from './url-resolver';
 
@@ -33,11 +33,6 @@ export interface RequestConfig extends RequestInit {
 }
 
 export type Platform = 'admin' | 'frontend';
-
-interface UserCookieData {
-  access?: string;
-  [key: string]: unknown;
-}
 
 // ============================================================================
 // ERROR CLASSES
@@ -188,27 +183,8 @@ export class UnifiedApiClient {
   }
 
   private getClientSideToken(): string | undefined {
-    try {
-      const userCookie = getClientCookie(COOKIES.user);
-      if (userCookie === null || userCookie === '') {
-        this.logMissingClientCookies();
-        return undefined;
-      }
-
-      const user = JSON.parse(userCookie) as UserCookieData;
-      return user.access;
-    } catch (e) {
-      logger.error('[UnifiedApiClient] Failed to parse user cookie', e);
-      return undefined;
-    }
-  }
-
-  private logMissingClientCookies(): void {
-    if (typeof document === 'undefined') { return; }
-    const hasEpsxCookies = document.cookie.split(';').some(c => c.trim().startsWith('epsx.'));
-    if (!hasEpsxCookies) {
-      logger.warn('[UnifiedApiClient] No EPSX cookies found on client. User might be logged out.');
-    }
+    // Return in-memory token (set via setAuthToken from provider)
+    return this.token;
   }
 
   private async request<T>(
@@ -232,12 +208,15 @@ export class UnifiedApiClient {
       const data = await this.parseResponseData(response);
 
       if (!response.ok) {
-        this.handleErrorResponse({
-          response,
-          data,
-          method: requestConfig.method ?? 'GET',
-          url
-        });
+        // 403: Don't throw — return normalized response to preserve status for redirect handling
+        if (response.status !== 403) {
+          this.handleErrorResponse({
+            response,
+            data,
+            method: requestConfig.method ?? 'GET',
+            url
+          });
+        }
       }
 
       return this.normalizeResponse(response, data);
@@ -298,7 +277,22 @@ export class UnifiedApiClient {
       return error;
     }
 
-    // Handle network and other unexpected errors
+    // Handle APIError (from handleErrorResponse) - preserve parsed error info
+    if (error instanceof APIError) {
+      return {
+        success: false,
+        data: null as unknown as T,
+        error: {
+          code: error.code,
+          message: error.message,
+          status: error.status,
+          details: error.details,
+          requestId: error.requestId
+        }
+      };
+    }
+
+    // Handle network and other unexpected errors (keep serializable for RSC)
     const errorMessage = error instanceof Error ? error.message : 'Unknown network error';
     return {
       success: false,
@@ -306,7 +300,6 @@ export class UnifiedApiClient {
       error: {
         code: 'NETWORK_ERROR',
         message: errorMessage,
-        details: { originalError: error }
       }
     };
   }
@@ -391,25 +384,12 @@ export class UnifiedApiClient {
       const refreshResult = (await refreshSessionAction()) as { success: boolean; access_token?: string };
 
       if (refreshResult.success && refreshResult.access_token !== undefined && refreshResult.access_token !== '') {
-        this.updateClientUserCookie(refreshResult.access_token);
+        this.token = refreshResult.access_token;
         return { success: true, access_token: refreshResult.access_token };
       }
       return { success: false };
     } catch {
       return { success: false };
-    }
-  }
-
-  private updateClientUserCookie(accessToken: string): void {
-    try {
-      const userCookie = getClientCookie(COOKIES.user);
-      if (userCookie !== null && userCookie !== '') {
-        const user = JSON.parse(userCookie) as UserCookieData;
-        user.access = accessToken;
-        setClientCookie(COOKIES.user, JSON.stringify(user), 2592000);
-      }
-    } catch {
-      // Ignore
     }
   }
 

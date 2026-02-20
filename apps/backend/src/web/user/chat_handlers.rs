@@ -1,0 +1,340 @@
+use axum::{
+    extract::{Path, Query, State},
+    response::sse::{Event, KeepAlive, Sse},
+    response::IntoResponse,
+    Extension, Json,
+};
+use futures::StreamExt;
+use serde::Deserialize;
+use std::time::Duration;
+use tracing::{error, info};
+use uuid::Uuid;
+
+use crate::infrastructure::models::chat::*;
+use crate::infrastructure::repositories::ChatRepository;
+use crate::web::{
+    auth::AppState,
+    middleware::OpenIDUserContext,
+    responses::UnifiedApiResponse,
+};
+
+// ============================================================================
+// QUERY PARAMS
+// ============================================================================
+
+#[derive(Debug, Deserialize)]
+pub struct ChatSSEQuery {
+    pub token: Option<String>,
+}
+
+// ============================================================================
+// USER CHAT HANDLERS
+// ============================================================================
+
+/// List active topics
+pub async fn list_topics(
+    State(app_state): State<AppState>,
+) -> Result<Json<UnifiedApiResponse<Vec<ChatTopicDb>>>, Json<UnifiedApiResponse<()>>> {
+    match ChatRepository::list_topics(&app_state.db_pool).await {
+        Ok(topics) => Ok(Json(UnifiedApiResponse::success(topics))),
+        Err(e) => {
+            error!("Failed to list topics: {}", e);
+            Err(Json(UnifiedApiResponse::error(500, "Failed to load topics", &e)))
+        }
+    }
+}
+
+/// Create new conversation with first message
+pub async fn create_conversation(
+    State(app_state): State<AppState>,
+    Extension(ctx): Extension<OpenIDUserContext>,
+    Json(body): Json<CreateConversationRequest>,
+) -> Result<Json<UnifiedApiResponse<ChatConversationDb>>, Json<UnifiedApiResponse<()>>> {
+    if body.subject.trim().is_empty() || body.message.trim().is_empty() {
+        return Err(Json(UnifiedApiResponse::error(400, "Invalid request", "Subject and message required")));
+    }
+
+    match ChatRepository::create_conversation(
+        &app_state.db_pool,
+        body.topic_id,
+        &ctx.wallet_address,
+        body.subject.trim(),
+        body.message.trim(),
+    ).await {
+        Ok(conv) => {
+            // Publish to Redis for admin notification
+            if let Some(broadcaster) = &app_state.redis_broadcaster {
+                let event = serde_json::json!({
+                    "type": "new_conversation",
+                    "conversation_id": conv.id,
+                    "wallet_address": ctx.wallet_address,
+                    "subject": conv.subject,
+                });
+                let _ = broadcaster.publish_to_channel(
+                    "chat:new",
+                    &serde_json::to_string(&event).unwrap_or_default(),
+                ).await;
+            }
+            info!("Created conversation {} for {}", conv.id, ctx.wallet_address);
+            Ok(Json(UnifiedApiResponse::success(conv)))
+        }
+        Err(e) => {
+            error!("Failed to create conversation: {}", e);
+            Err(Json(UnifiedApiResponse::error(500, "Failed to create conversation", &e)))
+        }
+    }
+}
+
+/// List user's conversations
+pub async fn list_conversations(
+    State(app_state): State<AppState>,
+    Extension(ctx): Extension<OpenIDUserContext>,
+) -> Result<Json<UnifiedApiResponse<Vec<ChatConversationDb>>>, Json<UnifiedApiResponse<()>>> {
+    match ChatRepository::list_user_conversations(&app_state.db_pool, &ctx.wallet_address).await {
+        Ok(convs) => Ok(Json(UnifiedApiResponse::success(convs))),
+        Err(e) => {
+            error!("Failed to list conversations: {}", e);
+            Err(Json(UnifiedApiResponse::error(500, "Failed to load conversations", &e)))
+        }
+    }
+}
+
+/// Get conversation detail
+pub async fn get_conversation(
+    State(app_state): State<AppState>,
+    Extension(ctx): Extension<OpenIDUserContext>,
+    Path(id): Path<Uuid>,
+) -> Result<Json<UnifiedApiResponse<ChatConversationDb>>, Json<UnifiedApiResponse<()>>> {
+    match ChatRepository::get_conversation(&app_state.db_pool, id).await {
+        Ok(Some(conv)) if conv.wallet_address == ctx.wallet_address => {
+            Ok(Json(UnifiedApiResponse::success(conv)))
+        }
+        Ok(Some(_)) => Err(Json(UnifiedApiResponse::error(403, "Forbidden", "Not your conversation"))),
+        Ok(None) => Err(Json(UnifiedApiResponse::error(404, "Not found", "Conversation not found"))),
+        Err(e) => {
+            error!("Failed to get conversation: {}", e);
+            Err(Json(UnifiedApiResponse::error(500, "Database error", &e)))
+        }
+    }
+}
+
+/// List messages in a conversation
+pub async fn list_messages(
+    State(app_state): State<AppState>,
+    Extension(ctx): Extension<OpenIDUserContext>,
+    Path(id): Path<Uuid>,
+) -> Result<Json<UnifiedApiResponse<Vec<ChatMessageDb>>>, Json<UnifiedApiResponse<()>>> {
+    // Verify ownership
+    match ChatRepository::get_conversation(&app_state.db_pool, id).await {
+        Ok(Some(conv)) if conv.wallet_address == ctx.wallet_address => {}
+        Ok(Some(_)) => return Err(Json(UnifiedApiResponse::error(403, "Forbidden", "Not your conversation"))),
+        Ok(None) => return Err(Json(UnifiedApiResponse::error(404, "Not found", "Conversation not found"))),
+        Err(e) => return Err(Json(UnifiedApiResponse::error(500, "Database error", &e))),
+    }
+
+    match ChatRepository::list_messages(&app_state.db_pool, id).await {
+        Ok(msgs) => Ok(Json(UnifiedApiResponse::success(msgs))),
+        Err(e) => {
+            error!("Failed to list messages: {}", e);
+            Err(Json(UnifiedApiResponse::error(500, "Failed to load messages", &e)))
+        }
+    }
+}
+
+/// Send a message
+pub async fn send_message(
+    State(app_state): State<AppState>,
+    Extension(ctx): Extension<OpenIDUserContext>,
+    Path(id): Path<Uuid>,
+    Json(body): Json<SendMessageRequest>,
+) -> Result<Json<UnifiedApiResponse<ChatMessageDb>>, Json<UnifiedApiResponse<()>>> {
+    if body.content.trim().is_empty() {
+        return Err(Json(UnifiedApiResponse::error(400, "Invalid request", "Message content required")));
+    }
+
+    // Verify ownership
+    let conv = match ChatRepository::get_conversation(&app_state.db_pool, id).await {
+        Ok(Some(conv)) if conv.wallet_address == ctx.wallet_address => conv,
+        Ok(Some(_)) => return Err(Json(UnifiedApiResponse::error(403, "Forbidden", "Not your conversation"))),
+        Ok(None) => return Err(Json(UnifiedApiResponse::error(404, "Not found", "Conversation not found"))),
+        Err(e) => return Err(Json(UnifiedApiResponse::error(500, "Database error", &e))),
+    };
+
+    match ChatRepository::send_message(
+        &app_state.db_pool,
+        id,
+        "user",
+        Some(&ctx.wallet_address),
+        body.content.trim(),
+    ).await {
+        Ok(msg) => {
+            // Publish to Redis
+            if let Some(broadcaster) = &app_state.redis_broadcaster {
+                let event = serde_json::json!({
+                    "type": "new_message",
+                    "conversation_id": id,
+                    "message": msg,
+                });
+                let payload = serde_json::to_string(&event).unwrap_or_default();
+                // Notify assigned agent
+                if let Some(agent) = &conv.assigned_agent {
+                    let _ = broadcaster.publish_to_channel(
+                        &format!("chat:agent:{}", agent),
+                        &payload,
+                    ).await;
+                }
+                // Notify admin channel
+                let _ = broadcaster.publish_to_channel("chat:new", &payload).await;
+            }
+            Ok(Json(UnifiedApiResponse::success(msg)))
+        }
+        Err(e) => {
+            error!("Failed to send message: {}", e);
+            Err(Json(UnifiedApiResponse::error(500, "Failed to send message", &e)))
+        }
+    }
+}
+
+/// Update conversation status (resolve/close)
+pub async fn update_status(
+    State(app_state): State<AppState>,
+    Extension(ctx): Extension<OpenIDUserContext>,
+    Path(id): Path<Uuid>,
+    Json(body): Json<UpdateStatusRequest>,
+) -> Result<Json<UnifiedApiResponse<ChatConversationDb>>, Json<UnifiedApiResponse<()>>> {
+    // User can only resolve or close
+    if body.status != "resolved" && body.status != "closed" {
+        return Err(Json(UnifiedApiResponse::error(400, "Invalid status", "Users can only resolve or close")));
+    }
+
+    // Verify ownership
+    match ChatRepository::get_conversation(&app_state.db_pool, id).await {
+        Ok(Some(conv)) if conv.wallet_address == ctx.wallet_address => {}
+        Ok(Some(_)) => return Err(Json(UnifiedApiResponse::error(403, "Forbidden", "Not your conversation"))),
+        Ok(None) => return Err(Json(UnifiedApiResponse::error(404, "Not found", "Conversation not found"))),
+        Err(e) => return Err(Json(UnifiedApiResponse::error(500, "Database error", &e))),
+    }
+
+    match ChatRepository::update_status(&app_state.db_pool, id, &body.status).await {
+        Ok(conv) => {
+            // Publish status_changed to admin channels
+            if let Some(broadcaster) = &app_state.redis_broadcaster {
+                let event = serde_json::json!({
+                    "type": "status_changed",
+                    "conversation_id": id,
+                    "status": body.status,
+                    "conversation": conv,
+                });
+                let payload = serde_json::to_string(&event).unwrap_or_default();
+                let _ = broadcaster.publish_to_channel("chat:new", &payload).await;
+                if let Some(agent) = &conv.assigned_agent {
+                    let _ = broadcaster.publish_to_channel(
+                        &format!("chat:agent:{}", agent),
+                        &payload,
+                    ).await;
+                }
+            }
+            Ok(Json(UnifiedApiResponse::success(conv)))
+        }
+        Err(e) => {
+            error!("Failed to update status: {}", e);
+            Err(Json(UnifiedApiResponse::error(500, "Failed to update status", &e)))
+        }
+    }
+}
+
+/// Mark messages as read
+pub async fn mark_read(
+    State(app_state): State<AppState>,
+    Extension(ctx): Extension<OpenIDUserContext>,
+    Path(id): Path<Uuid>,
+) -> Result<Json<UnifiedApiResponse<()>>, Json<UnifiedApiResponse<()>>> {
+    // Verify ownership
+    match ChatRepository::get_conversation(&app_state.db_pool, id).await {
+        Ok(Some(conv)) if conv.wallet_address == ctx.wallet_address => {}
+        Ok(Some(_)) => return Err(Json(UnifiedApiResponse::error(403, "Forbidden", "Not your conversation"))),
+        Ok(None) => return Err(Json(UnifiedApiResponse::error(404, "Not found", "Conversation not found"))),
+        Err(e) => return Err(Json(UnifiedApiResponse::error(500, "Database error", &e))),
+    }
+
+    match ChatRepository::mark_read_by_user(&app_state.db_pool, id).await {
+        Ok(()) => Ok(Json(UnifiedApiResponse::success(()))),
+        Err(e) => {
+            error!("Failed to mark read: {}", e);
+            Err(Json(UnifiedApiResponse::error(500, "Failed to mark read", &e)))
+        }
+    }
+}
+
+/// Get unread count
+pub async fn get_unread(
+    State(app_state): State<AppState>,
+    Extension(ctx): Extension<OpenIDUserContext>,
+) -> Result<Json<UnifiedApiResponse<serde_json::Value>>, Json<UnifiedApiResponse<()>>> {
+    match ChatRepository::get_unread_count(&app_state.db_pool, &ctx.wallet_address).await {
+        Ok(count) => Ok(Json(UnifiedApiResponse::success(serde_json::json!({ "count": count })))),
+        Err(e) => {
+            error!("Failed to get unread count: {}", e);
+            Ok(Json(UnifiedApiResponse::success(serde_json::json!({ "count": 0 }))))
+        }
+    }
+}
+
+/// SSE stream for real-time chat messages
+pub async fn chat_stream(
+    State(app_state): State<AppState>,
+    Query(query): Query<ChatSSEQuery>,
+    request: axum::extract::Request,
+) -> Result<impl IntoResponse, crate::core::errors::AppError> {
+    // Extract wallet from token (same pattern as notification SSE)
+    let mut wallet_address = "all".to_string();
+    let mut token_to_validate = None;
+
+    if let Some(auth_header) = request.headers().get("authorization").and_then(|h| h.to_str().ok()) {
+        if let Some(token) = auth_header.strip_prefix("Bearer ") {
+            token_to_validate = Some(token.to_string());
+        }
+    }
+    if token_to_validate.is_none() {
+        if let Some(token) = query.token {
+            token_to_validate = Some(token);
+        }
+    }
+
+    if let Some(token) = token_to_validate {
+        if let Some(token_service) = app_state.domain_container.get_token_service() {
+            if let Ok(claims) = token_service.validate_access_token(&token).await {
+                wallet_address = claims.wallet_address.to_lowercase();
+            }
+        }
+    }
+
+    info!("Chat SSE connection: wallet={}", wallet_address);
+
+    let redis_broadcaster = app_state.redis_broadcaster.clone();
+    let channel = format!("chat:wallet:{}", wallet_address);
+
+    let mut pubsub = match &redis_broadcaster {
+        Some(broadcaster) => Some(broadcaster.subscribe_to_channel(&channel).await?),
+        None => None,
+    };
+
+    let stream = async_stream::stream! {
+        yield Ok::<Event, axum::Error>(Event::default().event("ping").data("connected"));
+
+        if let Some(ref mut ps) = pubsub {
+            let mut msg_stream = ps.on_message();
+            while let Some(msg) = msg_stream.next().await {
+                let payload: String = match msg.get_payload() {
+                    Ok(p) => p,
+                    Err(_) => continue,
+                };
+                yield Ok::<Event, axum::Error>(
+                    Event::default().event("chat_message").data(payload)
+                );
+            }
+        }
+    };
+
+    Ok(Sse::new(stream).keep_alive(KeepAlive::new().interval(Duration::from_secs(15))))
+}

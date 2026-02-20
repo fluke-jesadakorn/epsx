@@ -311,7 +311,7 @@ impl PermissionContext {
     /// Create permission context from JWT permissions (permission-first approach)
     pub fn from_permissions(user_permissions: &[String]) -> Self {
         // Derive plan from permissions for display purposes only
-        let user_plan = if user_permissions.iter().any(|p| p.starts_with("admin:")) {
+        let user_plan = if crate::core::permissions::has_admin_platform_permission(user_permissions) {
             "admin".to_string()
         } else if user_permissions.iter().any(|p| p.contains("premium")) {
             "premium".to_string()

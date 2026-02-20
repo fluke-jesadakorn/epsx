@@ -249,31 +249,3 @@ export async function clearSession(): Promise<void> {
   }
 }
 
-// Permission check stubs - Backend handles all enforcement via JWT middleware
-/**
- *
- * @param _permission
- */
-export async function hasAdminPermission(_permission: string): Promise<boolean> {
-  await Promise.resolve();
-  return true;
-}
-
-/**
- *
- * @param _permission
- */
-export async function hasPermission(_permission: string): Promise<boolean> {
-  await Promise.resolve();
-  return true;
-}
-
-/**
- * Require specific permission
- * @param _permission
- * @param redirectPath
- */
-export async function requirePermission(_permission: string, redirectPath?: string): Promise<unknown> {
-  // PERMISSION REFACTOR: Admin-frontend is permissive; backend enforces access.
-  return await requireAuth(redirectPath);
-}

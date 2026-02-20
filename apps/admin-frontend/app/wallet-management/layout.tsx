@@ -1,7 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unnecessary-condition */
 import { PageHeader, PageLayout } from '@/components/shared';
 import { DashboardSection } from '@/components/wallet/dashboard-section';
-import { WalletTabsNavigation } from '@/components/wallet/wallet-tabs-navigation';
 import { fetchAccessManagementData, fetchWalletStats } from '@/lib/data/access-management';
 
 /**
@@ -19,8 +18,14 @@ export default async function WalletManagementLayout({
     children: React.ReactNode;
 }) {
     const [data, walletStats] = await Promise.all([
-        fetchAccessManagementData().catch(() => ({ stats: { activeSubscriptions: 0, expiringSoon: 0, totalMRR: 0, totalMembers: 0 }, policies: [], permissionCount: 0, platformCount: 0 })),
-        fetchWalletStats().catch(() => ({ total_users: 0, active_users: 0, inactive_users: 0, growth_rate: 0 })),
+        fetchAccessManagementData().catch((e: unknown) => {
+            if (typeof e === 'object' && e !== null && 'digest' in e) throw e;
+            return { stats: { activeSubscriptions: 0, expiringSoon: 0, totalMRR: 0, totalMembers: 0 }, policies: [], permissionCount: 0, platformCount: 0 };
+        }),
+        fetchWalletStats().catch((e: unknown) => {
+            if (typeof e === 'object' && e !== null && 'digest' in e) throw e;
+            return { total_users: 0, active_users: 0, inactive_users: 0, growth_rate: 0 };
+        }),
     ]);
 
     // Transform stats for DashboardSection
@@ -47,10 +52,7 @@ export default async function WalletManagementLayout({
                 <DashboardSection stats={dashboardStats} />
             </div>
 
-            {/* 2. Navigation Tabs */}
-            <WalletTabsNavigation />
-
-            {/* 3. Page Content */}
+            {/* Page Content */}
             <div className="pb-12 animate-in fade-in-50 duration-500">
                 {children}
             </div>

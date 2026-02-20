@@ -137,9 +137,9 @@ impl OpenIDTokenService {
             issuer,
             audiences,
             key_manager,
-            access_token_expiry_hours: 720,  // 30 days (matches frontend cookies)
-            refresh_token_expiry_days: 30,   // 30 days
-            id_token_expiry_hours: 720,      // 30 days (matches frontend cookies)
+            access_token_expiry_hours: 1,     // 1 hour (refresh token handles renewal)
+            refresh_token_expiry_days: 30,   // 30 days (rotated on each refresh)
+            id_token_expiry_hours: 1,        // 1 hour (matches access token)
         }
     }
 
@@ -391,18 +391,17 @@ impl OpenIDTokenService {
             ));
         }
 
-        // Query effective permissions from normalized tables (group permissions + direct permissions)
-        // Use raw SQL for complex UNION query with JSON operations
+        // Query effective permissions from normalized tables (plans + direct)
         #[derive(QueryableByName)]
         struct PermissionResult {
-            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
-            permission_string: Option<String>,
+            #[diesel(sql_type = diesel::sql_types::VarChar)]
+            permission_string: String,
         }
 
         let permission_records = diesel::sql_query(
             r#"
-            -- Permissions from plans (extract name from JSON VARCHAR)
-            SELECT DISTINCT (p.permission_string::jsonb)->>'name' as permission_string
+            -- Permissions from plans
+            SELECT DISTINCT p.permission_string
             FROM wallet_plan_assignments wga
             JOIN plan_permissions pgm ON wga.plan_id = pgm.plan_id
             JOIN permissions p ON pgm.permission_id = p.id
@@ -413,8 +412,8 @@ impl OpenIDTokenService {
 
             UNION
 
-            -- Direct permissions (extract name from JSON VARCHAR)
-            SELECT DISTINCT (p.permission_string::jsonb)->>'name' as permission_string
+            -- Direct permissions
+            SELECT DISTINCT p.permission_string
             FROM wallet_direct_permissions wdp
             JOIN permissions p ON wdp.permission_id = p.id
             WHERE wdp.wallet_address = $1
@@ -432,7 +431,7 @@ impl OpenIDTokenService {
 
         let permissions: Vec<String> = permission_records
             .into_iter()
-            .filter_map(|r| r.permission_string)
+            .map(|r| r.permission_string)
             .collect();
 
         info!(

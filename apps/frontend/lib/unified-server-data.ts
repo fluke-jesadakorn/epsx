@@ -124,16 +124,6 @@ export async function getAnalyticsData(params: EPSQueryParams) {
 }
 
 /**
- * Get portfolio data - currently using the same rankings logic
- * but can be extended for portfolio-specific filtering
- */
-export async function getPortfolioData(params: EPSQueryParams) {
-    // For now, portfolio data uses the same underlying analytics engine
-    // This can be modified to filter by user watchlist symbols if needed
-    return getAnalyticsData(params);
-}
-
-/**
  * Get all available filter options (countries, sectors, etc.)
  */
 export async function getServerFilterOptions(): Promise<FilterOptions> {
@@ -158,7 +148,11 @@ export async function getServerFilterOptions(): Promise<FilterOptions> {
 
         // Transform from AnalyticsFiltersResponse to the expected FilterOptions format
         return {
-            countries: response.data.countries.map((c: string) => ({ value: c, label: c })),
+            countries: response.data.countries.map((c: unknown) => {
+                if (typeof c === 'string') return { value: c, label: c };
+                const obj = c as { value?: string; label?: string };
+                return { value: String(obj.value ?? ''), label: String(obj.label ?? obj.value ?? '') };
+            }),
             sectors: response.data.sectors,
             exchanges: response.data.exchanges,
             stock_types: [], // Backend doesn't return this yet in the unified client
