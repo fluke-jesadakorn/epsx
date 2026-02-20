@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 
-import { ApiKeyRequestForm } from '@/components/public/api-key-request-form';
+import { ApiKeyRequestForm } from '@/components/docs/api-key-request-form';
 import { PageHeader, PageLayout } from '@/components/shared';
 
 export const metadata: Metadata = {

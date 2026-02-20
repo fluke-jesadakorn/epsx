@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 
-import { ApiDocumentation } from '@/components/public/api-documentation';
+import { ApiDocumentation } from '@/components/docs/api-documentation';
 
 export const metadata: Metadata = {
   title: 'API Documentation | EPSX',

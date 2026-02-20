@@ -12,7 +12,7 @@ import { Suspense } from 'react';
 
 // Dynamically import the payment component to avoid SSR issues with wallet
 const UnifiedPaymentFlow = dynamic(
-    () => import('@/components/features/payment/unified-payment-flow'),
+    () => import('@/components/payment/unified-payment-flow'),
     {
         ssr: false,
         loading: () => (
