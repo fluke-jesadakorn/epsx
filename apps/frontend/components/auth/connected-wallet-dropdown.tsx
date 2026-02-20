@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils';
 import { useSharedAuth } from '@/shared/components/auth';
 import { getExplorerAddressLink } from '@/shared/config/constants';
 import { formatAddress } from '@/shared/auth/utils';
-import { copyToClipboard as copyToClipboardUtil } from '@/utils/util';
+import { copyToClipboard as copyToClipboardUtil } from '@/utils/clipboard';
 import { Check, Copy, ExternalLink, LogOut, Wallet } from 'lucide-react';
 import { useState } from 'react';
 import { useAccount } from 'wagmi';

@@ -1,7 +1,7 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
-import { copyToClipboard } from '@/utils/util';
+import { copyToClipboard } from '@/utils/clipboard';
 import { LineChart, Share2, TrendingUp, Users, Zap } from 'lucide-react';
 import Link from 'next/link';
 import React, { useEffect, useState } from 'react';

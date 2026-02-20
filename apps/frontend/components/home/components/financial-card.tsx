@@ -8,11 +8,11 @@ import type { StockFinancialData } from '@/types/financialChartData';
 import {
   formatPrice,
   formatDate,
-} from '@/utils/fmt';
+} from '@/utils/format';
 import {
   getLastEpsVsCurrentPriceComparison,
   getPriceEpsAlignment,
-} from '@/utils/stk';
+} from '@/utils/stock';
 import { Card, CardContent } from '@/components/ui/card';
 
 interface FinancialCardProps {

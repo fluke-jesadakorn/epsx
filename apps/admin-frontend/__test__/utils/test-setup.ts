@@ -437,7 +437,7 @@ export class SecurityTestHelper {
           blocked: true,
           status: 0,
           responseTime: 0,
-          error: (error as Error).toString()
+          error: (_error as Error).toString()
         });
       }
     }
@@ -494,7 +494,7 @@ export class SecurityTestHelper {
           blocked: true,
           status: 0,
           responseTime: 0,
-          error: (error as Error).toString()
+          error: (_error as Error).toString()
         });
       }
     }
@@ -565,7 +565,7 @@ export class SecurityTestHelper {
         protected: true,
         status: 0,
         responseTime: 0,
-        error: (error as Error).toString()
+        error: (_error as Error).toString()
       };
     }
   }

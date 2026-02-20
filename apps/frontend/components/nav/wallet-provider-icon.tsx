@@ -14,7 +14,7 @@ import { themeUtils } from '@/components/ui/safe-theme-script';
 import { formatAddress } from '@/shared/auth/utils';
 import { useSharedAuth } from '@/shared/components/auth';
 import { getExplorerAddressLink } from '@/shared/config/constants';
-import { copyToClipboard } from '@/utils/util';
+import { copyToClipboard } from '@/utils/clipboard';
 import { Check, ChevronRight, Code, Copy, ExternalLink, LogOut, Moon, Settings, Sun, Wallet } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
