@@ -84,8 +84,7 @@ pub async fn rate_limit_middleware(
             tracing::warn!("Redis cache creation failed: {}, falling back to minimal cache", e);
             std::sync::Arc::new(crate::infrastructure::cache::MemoryCache::new())
         });
-    let app_config = std::sync::Arc::new(crate::config::Config::from_env().expect("Failed to load config"));
-    let rate_limiter = UnifiedRateLimiter::with_config(cache, app_config);
+    let rate_limiter = UnifiedRateLimiter::new(cache);
     
     // Determine rate limits based on endpoint
     let config = match path {

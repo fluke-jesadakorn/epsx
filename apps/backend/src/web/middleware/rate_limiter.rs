@@ -9,7 +9,6 @@ use axum::{http::StatusCode, response::{IntoResponse, Response}, Json};
 use serde_json::json;
 use serde::{Serialize, Deserialize};
 use tracing::{debug, warn};
-use crate::config::Config;
 use crate::infrastructure::cache::Cache;
 
 // Rate limit constants
@@ -198,8 +197,6 @@ pub struct RateLimitResult {
 /// Unified rate limiter with Redis + in-memory fallback supporting both user and IP-based rate limiting
 pub struct UnifiedRateLimiter {
     cache: Arc<dyn Cache>,
-    #[allow(dead_code)]
-    config: Arc<Config>,
 }
 
 /// Distributed rate limiter with automatic fallback
@@ -207,17 +204,7 @@ pub type DistributedRateLimiter = UnifiedRateLimiter;
 
 impl UnifiedRateLimiter {
     pub fn new(cache: Arc<dyn Cache>) -> Self {
-        Self {
-            cache,
-            config: Arc::new(Config::from_env().expect("Failed to load config")),
-        }
-    }
-    
-    pub fn with_config(cache: Arc<dyn Cache>, config: Arc<Config>) -> Self {
-        Self {
-            cache,
-            config,
-        }
+        Self { cache }
     }
 
     /// Generate cache key for rate limit entry

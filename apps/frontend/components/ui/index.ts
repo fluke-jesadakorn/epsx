@@ -4,19 +4,6 @@
  * Keeps app-specific components local
  */
 
-import React from 'react';
-
-import {
-  UnifiedLoader,
-  UnifiedLoading,
-  UnifiedProgressBar,
-  UnifiedSkeleton,
-  type UnifiedLoaderProps,
-  type UnifiedLoadingProps as _UnifiedLoadingProps,
-  type UnifiedProgressBarProps as _UnifiedProgressBarProps,
-  type UnifiedSkeletonProps as _UnifiedSkeletonProps
-} from '@/shared/components/loaders/unified-loader';
-
 // ============================================================================
 // BASIC PRIMITIVES - Re-export from shared
 // ============================================================================
@@ -61,45 +48,12 @@ export {
 } from '@/shared/components/ui/select';
 
 // ============================================================================
-// UNIFIED COMPONENTS - Re-export from shared
+// SHARED COMPONENTS
 // ============================================================================
-export {
-  AdminCard,
-  AnalyticsCard, EPSXCard, EPSXCardContent,
-  EPSXCardFooter, EPSXCardHeader,
-  // Legacy aliases
-  MetroCard, MetroListCard, MetroStatsCard,
-  // Specialized variants
-  PancakeCard, PremiumCard, ProfessionalCard, ProfessionalFeatureCard, ProfessionalListCard, ProfessionalStatsCard,
-  // Main UnifiedCard
-  UnifiedCard, UnifiedCardContent,
-  UnifiedCardFooter, UnifiedCardHeader, UnifiedFeatureCard, UnifiedListCard,
-  // Specialized cards
-  UnifiedStatsCard, type AccentPosition, type UnifiedCardPadding,
-  // Types
-  type UnifiedCardProps,
-  type UnifiedCardSectionProps, type UnifiedCardSize, type UnifiedCardVariant, type UnifiedFeatureCardProps, type UnifiedListCardProps,
-  type UnifiedListItem, type UnifiedStatsCardProps
-} from '@/shared/components/cards/card-variants';
-
 export {
   UnifiedLoader, UnifiedLoading, UnifiedProgressBar, UnifiedSkeleton,
   type UnifiedLoaderProps, type UnifiedLoadingProps, type UnifiedProgressBarProps, type UnifiedSkeletonProps
 } from '@/shared/components/loaders/unified-loader';
-
-// Frontend-specific loader aliases for backward compatibility
-export const PancakeSwapLoader: React.FC<Omit<UnifiedLoaderProps, 'variant'> & { variant?: 'pancake' | 'admin' | 'analytics' }> = ({ variant = 'pancake' as const, ...props }) => {
-  return React.createElement(UnifiedLoader, { variant, type: 'stack', ...props });
-};
-export const EPSXLoader = UnifiedLoader;
-export const ProfessionalLoader = UnifiedLoader;
-export const MetroProgressBar = UnifiedProgressBar;
-export const ProfessionalProgressBar = UnifiedProgressBar;
-export const PancakeFlip: React.FC<{ variant?: 'pancake' | 'admin' | 'analytics'; size?: 'sm' | 'md' | 'lg' }> = ({ variant = 'pancake' as const, size = 'md' as const }) => {
-  return React.createElement(UnifiedLoader, { variant, size, type: 'stack' });
-};
-export const ProfessionalSkeleton = UnifiedSkeleton;
-export const ProfessionalLoading = UnifiedLoading;
 
 export {
   AnimatedThemeToggle, GradientThemeToggle,

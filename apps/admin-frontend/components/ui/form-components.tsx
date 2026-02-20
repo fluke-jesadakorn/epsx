@@ -1,30 +1,18 @@
 /**
  * ADMIN FRONTEND FORM COMPONENTS
- * Migrated to use shared PancakeForm components with backward compatibility
- * Replaces 232 lines of duplicate form implementation
+ * Re-exports from shared UI components
  */
 
 'use client';
 
 import type * as React from 'react';
 
-import {
-  PancakeButton as Button,
-  Checkbox,
-  Form,
-  FormField,
-  FormFieldWrapper,
-  Input,
-  FormLabel as Label,
-  Select,
-  Textarea
-} from '@/shared/components';
+import { Button } from '@/shared/components/ui/button';
+import { Input } from '@/shared/components/ui/input';
+import { Select } from '@/shared/components/ui/select';
+import { Textarea } from '@/shared/components/ui/textarea';
+import { Form, FormField, FormFieldWrapper, FormLabel as Label } from '@/shared/components/ui/form';
 
-// ============================================================================
-// LEGACY COMPATIBILITY LAYER
-// ============================================================================
-
-// Keep the same interfaces for seamless migration
 interface ButtonProps {
   variant?: 'default' | 'destructive' | 'outline' | 'secondary' | 'ghost' | 'link';
   size?: 'default' | 'sm' | 'lg' | 'icon';
@@ -46,19 +34,6 @@ interface InputProps {
   className?: string;
 }
 
-interface BadgeProps {
-  variant?: 'default' | 'secondary' | 'destructive' | 'outline';
-  children?: React.ReactNode;
-  className?: string;
-}
-
-interface LabelProps {
-  required?: boolean;
-  children?: React.ReactNode;
-  htmlFor?: string;
-  className?: string;
-}
-
 interface FormFieldProps {
   label: string;
   id: string;
@@ -69,7 +44,5 @@ interface FormFieldProps {
   className?: string;
 }
 
-// Re-export with perfect backward compatibility
-export { Button, Checkbox, Form, FormField, FormFieldWrapper, Input, Label, Select, Textarea };
-export type { ButtonProps, FormFieldProps, InputProps, LabelProps };
-
+export { Button, Form, FormField, FormFieldWrapper, Input, Label, Select, Textarea };
+export type { ButtonProps, FormFieldProps, InputProps };

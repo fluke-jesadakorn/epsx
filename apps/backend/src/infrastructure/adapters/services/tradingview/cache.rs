@@ -74,8 +74,6 @@ pub struct TradingViewCache {
     market_cache: HashMap<String, CacheEntry<FrontendDataBatch>>,
     request_cache: HashMap<String, CacheEntry<serde_json::Value>>,
     default_ttl: Duration,
-    #[allow(dead_code)]
-    max_cache_size: usize,
     hit_count: u64,
     miss_count: u64,
 }
@@ -95,21 +93,19 @@ impl TradingViewCache {
             market_cache: HashMap::new(),
             request_cache: HashMap::new(),
             default_ttl: Duration::from_secs(300), // 5 minutes default TTL
-            max_cache_size: 1000,
             hit_count: 0,
             miss_count: 0,
         }
     }
 
     /// Create cache with custom settings
-    pub fn with_settings(default_ttl: Duration, max_cache_size: usize) -> Self {
+    pub fn with_ttl(default_ttl: Duration) -> Self {
         Self {
             eps_data_cache: HashMap::new(),
             symbol_cache: HashMap::new(),
             market_cache: HashMap::new(),
             request_cache: HashMap::new(),
             default_ttl,
-            max_cache_size,
             hit_count: 0,
             miss_count: 0,
         }

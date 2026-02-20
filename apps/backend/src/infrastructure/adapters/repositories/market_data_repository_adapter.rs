@@ -10,14 +10,13 @@ use crate::infrastructure::adapters::services::tradingview::TradingViewApiServic
 /// Repository adapter for market data that bridges legacy stock system with DDD Trading Analytics
 #[derive(Clone)]
 pub struct MarketDataRepositoryAdapter {
-    #[allow(dead_code)]
-    tradingview_service: Arc<TradingViewApiService>,
+    _tradingview_service: Arc<TradingViewApiService>,
 }
 
 
 impl MarketDataRepositoryAdapter {
     pub fn new(tradingview_service: Arc<TradingViewApiService>) -> Self {
-        Self { tradingview_service }
+        Self { _tradingview_service: tradingview_service }
     }
 
     /// Convert legacy Stock to DDD StockAnalysis
@@ -48,7 +47,9 @@ impl MarketDataRepositoryAdapter {
             .map_err(|e| format!("Invalid symbol: {}", e))?;
 
         // Parse EPS from current_metric or use 0.0 as fallback
-        let current_eps_value = if let Some(pe_ratio) = screening_result.pe_ratio {
+        let current_eps_value = if let Some(eps) = screening_result.current_eps {
+            eps
+        } else if let Some(pe_ratio) = screening_result.pe_ratio {
             screening_result.price / pe_ratio.max(1.0)  // Calculate EPS from price and P/E ratio
         } else {
             1.0  // Default EPS value
@@ -57,7 +58,7 @@ impl MarketDataRepositoryAdapter {
             .map_err(|e| format!("Invalid current EPS: {}", e))?;
 
         // Calculate previous EPS from growth rate
-        let growth_rate = screening_result.change_percent; // Use change_percent as growth proxy
+        let growth_rate = screening_result.eps_growth_yoy.unwrap_or(screening_result.change_percent); // Use real growth or change_percent proxy
         let previous_eps_value = if growth_rate != 0.0 {
             current_eps_value / (1.0 + growth_rate / 100.0)
         } else {
@@ -172,7 +173,7 @@ mod tests {
                 assert_eq!(stock_analysis.symbol().as_str(), "AAPL");
                 assert_eq!(stock_analysis.company_name(), "Apple Inc.");
                 assert_eq!(stock_analysis.current_eps().value(), 1.52);
-                assert_eq!(stock_analysis.eps_growth().percentage(), 15.2);
+                assert!((stock_analysis.eps_growth().percentage() - 15.2).abs() < 0.01, "Expected ~15.2, got {}", stock_analysis.eps_growth().percentage());
             }
             Err(e) => panic!("Conversion failed: {}", e),
         }

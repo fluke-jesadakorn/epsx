@@ -9,9 +9,10 @@ use crate::domain::shared_kernel::services::eps_ranking_service::{EPSRankingServ
 use crate::domain::shared_kernel::entities::eps_growth::{EPSGrowthData, EPSRanking};
 
 // Mock implementation of EPSRepository for testing
-#[allow(dead_code)]
+#[cfg(test)]
 struct MockEPSRepository;
 
+#[cfg(test)]
 #[async_trait::async_trait]
 impl EPSRepository for MockEPSRepository {
     async fn store_eps_data(&self, _eps_data: EPSGrowthData) -> Result<(), AppError> {

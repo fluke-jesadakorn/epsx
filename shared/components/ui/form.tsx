@@ -1,7 +1,6 @@
 /**
- * BASE FORM COMPONENTS
- * Unified form system consolidating React Hook Form integration with comprehensive input components
- * Replaces duplicate form implementations from both frontend and admin apps
+ * Form components with React Hook Form integration
+ * Standard shadcn-style form system
  */
 
 "use client"
@@ -37,9 +36,6 @@ const FormItemContext = React.createContext<FormItemContextValue | undefined>(un
 
 const FormFieldContext = React.createContext<FormFieldContextValue | undefined>(undefined)
 
-/**
- * Hook to access form field state and utilities
- */
 export const useFormField = () => {
   const fieldContext = React.useContext(FormFieldContext)
   const itemContext = React.useContext(FormItemContext)
@@ -62,10 +58,10 @@ export const useFormField = () => {
 }
 
 // ============================================================================
-// BASE FORM COMPONENT
+// FORM COMPONENT
 // ============================================================================
 
-export interface BaseFormProps<TFieldValues extends FieldValues = FieldValues>
+export interface FormProps<TFieldValues extends FieldValues = FieldValues>
   extends UseFormReturn<TFieldValues> {
   children: React.ReactNode
   onSubmit?: (data: TFieldValues) => void | Promise<void>
@@ -73,21 +69,18 @@ export interface BaseFormProps<TFieldValues extends FieldValues = FieldValues>
   noValidate?: boolean
 }
 
-/**
- * Main form wrapper with React Hook Form integration
- */
-export const BaseForm = <TFieldValues extends FieldValues = FieldValues>({
+export const Form = <TFieldValues extends FieldValues = FieldValues>({
   children,
   onSubmit,
   className,
   noValidate = true,
   ...formMethods
-}: BaseFormProps<TFieldValues>) => {
+}: FormProps<TFieldValues>) => {
   const handleSubmit = async (data: TFieldValues) => {
     try {
       await onSubmit?.(data)
-    } catch (_error) {
-      // console.error('Form submission failed:', _error)
+    } catch {
+      // Submission error handled by caller
     }
   }
 
@@ -103,15 +96,12 @@ export const BaseForm = <TFieldValues extends FieldValues = FieldValues>({
     </FormProvider>
   )
 }
-BaseForm.displayName = "base-form"
+Form.displayName = "Form"
 
 // ============================================================================
 // FORM FIELD COMPONENTS
 // ============================================================================
 
-/**
- * Form field wrapper with controller integration
- */
 const FormField = <
   TFieldValues extends FieldValues = FieldValues,
   TName extends FieldPath<TFieldValues> = FieldPath<TFieldValues>
@@ -123,9 +113,6 @@ const FormField = <
   </FormFieldContext.Provider>
 )
 
-/**
- * Form item container with context
- */
 export interface FormItemProps extends React.HTMLAttributes<HTMLDivElement> {
   children: React.ReactNode
 }
@@ -147,9 +134,6 @@ const FormItem = React.forwardRef<HTMLDivElement, FormItemProps>(
 )
 FormItem.displayName = "FormItem"
 
-/**
- * Form label with required indicator and error state
- */
 export interface FormLabelProps extends React.LabelHTMLAttributes<HTMLLabelElement> {
   required?: boolean
 }
@@ -178,9 +162,6 @@ const FormLabel = React.forwardRef<HTMLLabelElement, FormLabelProps>(
 )
 FormLabel.displayName = "FormLabel"
 
-/**
- * Form control wrapper for input elements
- */
 export interface FormControlProps extends React.HTMLAttributes<HTMLDivElement> {
   children: React.ReactNode
   asChild?: boolean
@@ -210,9 +191,6 @@ const FormControl = React.forwardRef<HTMLDivElement, FormControlProps>(
 )
 FormControl.displayName = "FormControl"
 
-/**
- * Form description text
- */
 export interface FormDescriptionProps extends React.HTMLAttributes<HTMLParagraphElement> { }
 
 const FormDescription = React.forwardRef<HTMLParagraphElement, FormDescriptionProps>(
@@ -231,9 +209,6 @@ const FormDescription = React.forwardRef<HTMLParagraphElement, FormDescriptionPr
 )
 FormDescription.displayName = "FormDescription"
 
-/**
- * Form error message
- */
 export interface FormMessageProps extends React.HTMLAttributes<HTMLParagraphElement> { }
 
 const FormMessage = React.forwardRef<HTMLParagraphElement, FormMessageProps>(
@@ -262,12 +237,9 @@ const FormMessage = React.forwardRef<HTMLParagraphElement, FormMessageProps>(
 FormMessage.displayName = "FormMessage"
 
 // ============================================================================
-// CONVENIENCE FORM FIELD WRAPPER
+// CONVENIENCE WRAPPER
 // ============================================================================
 
-/**
- * Complete form field with label, control, and error message
- */
 export interface FormFieldWrapperProps {
   label: string
   required?: boolean
@@ -307,14 +279,12 @@ const FormFieldWrapper: React.FC<FormFieldWrapperProps> = ({
   )
 }
 
-// ============================================================================
-// EXPORTS
-// ============================================================================
-
 export {
-  BaseForm as Form, FormControl,
-  FormDescription, FormField, FormFieldWrapper, FormItem,
-  FormLabel, FormMessage
+  FormControl,
+  FormDescription,
+  FormField,
+  FormFieldWrapper,
+  FormItem,
+  FormLabel,
+  FormMessage
 }
-
-export default BaseForm

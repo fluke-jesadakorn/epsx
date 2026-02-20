@@ -1,14 +1,13 @@
 /**
  * FRONTEND FORM COMPONENT
- * Migrated to use shared BaseForm with backward compatibility
- * Replaces React Hook Form duplicate implementation
+ * Wraps shared form components with frontend-specific styling
  */
 
 "use client"
 
 import * as React from "react"
 import {
-  BaseForm,
+  Form as BaseForm,
   FormField as BaseFormField,
   FormItem as BaseFormItem,
   FormLabel as BaseFormLabel,
@@ -16,8 +15,7 @@ import {
   FormDescription as BaseFormDescription,
   FormMessage as BaseFormMessage,
   useFormField as useBaseFormField,
-  type BaseFormProps as _BaseFormProps
-} from "@/shared/components"
+} from "@/shared/components/ui/form"
 import { cn } from "@/lib/utils"
 import type {
   FieldPath,
@@ -26,11 +24,6 @@ import type {
   ControllerProps
 } from "react-hook-form"
 
-// ============================================================================
-// LEGACY COMPATIBILITY LAYER
-// ============================================================================
-
-// Enhanced Form component that handles React Hook Form integration
 const Form = <TFieldValues extends FieldValues>({
   children,
   onSubmit,
@@ -53,7 +46,6 @@ const Form = <TFieldValues extends FieldValues>({
   );
 }
 
-// Form field with React Hook Form Controller integration
 const FormField = <
   TFieldValues extends FieldValues = FieldValues,
   TName extends FieldPath<TFieldValues> = FieldPath<TFieldValues>
@@ -63,7 +55,6 @@ const FormField = <
   <BaseFormField {...props} />
 )
 
-// Re-export shared components with same names for compatibility
 const useFormField = useBaseFormField
 
 function FormItem({ className, children, ...props }: React.ComponentProps<"div">) {

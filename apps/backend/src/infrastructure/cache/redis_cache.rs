@@ -7,8 +7,6 @@ use tokio::sync::Mutex;
 pub struct RedisCache {
     redis_client: Option<Arc<Mutex<redis::Client>>>,
     fallback_cache: Arc<MemoryCache>,
-    #[allow(dead_code)]
-    config: CacheConfig,
     is_redis_available: Arc<AtomicBool>,
 }
 
@@ -40,8 +38,7 @@ impl RedisCache {
 
         Ok(Self {
             redis_client,
-            fallback_cache: Arc::new(MemoryCache::with_config(config.clone())),
-            config,
+            fallback_cache: Arc::new(MemoryCache::with_config(config)),
             is_redis_available: Arc::new(AtomicBool::new(available)),
         })
     }

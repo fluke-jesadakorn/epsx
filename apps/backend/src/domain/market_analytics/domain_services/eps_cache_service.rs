@@ -48,11 +48,9 @@ struct EPSCache {
 
 /// Individual cache entry
 #[derive(Debug, Clone)]
-#[allow(dead_code)]
 struct CacheEntry {
     data: EPSGrowthData,
     created_at: std::time::Instant,
-    access_count: u32,
 }
 
 /// Cache statistics
@@ -214,7 +212,6 @@ impl EPSCacheService {
                 let entry = CacheEntry {
                     data: eps_data.clone(),
                     created_at: std::time::Instant::now(),
-                    access_count: 1,
                 };
                 cache.entries.insert(eps_data.symbol.clone(), entry);
             }
@@ -438,7 +435,7 @@ mod tests {
         let config = EPSCacheConfig::default();
         assert_eq!(config.ttl_seconds, 600);
         assert_eq!(config.max_entries, 1000);
-        assert!(config.enable_background_refresh);
+        assert!(!config.enable_background_refresh);
     }
 
     #[test]

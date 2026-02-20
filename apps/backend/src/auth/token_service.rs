@@ -358,8 +358,7 @@ impl OpenIDTokenService {
         let expanded_permissions = self.expand_plans(wallet_address).await?;
 
         Ok(WalletUserProfile {
-            wallet_address: wallet_address.to_string(),
-            permissions: expanded_permissions,  // All permissions (inherited from plans + direct)
+            permissions: expanded_permissions,
         })
     }
 
@@ -587,8 +586,6 @@ impl OpenIDTokenService {
 /// Wallet user profile for token generation
 #[derive(Debug, Clone)]
 struct WalletUserProfile {
-    #[allow(dead_code)]
-    wallet_address: String,
     permissions: Vec<String>,
 }
 
