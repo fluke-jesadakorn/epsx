@@ -11,7 +11,7 @@ import {
     WalletAccessError,
     WalletAccessHeader,
     WalletAccessInfoBar
-} from './wallet-access-sections';
+} from './wallet-access-components';
 
 import { useWalletAccess } from '@/hooks/use-wallet-access';
 import { useDragAndDrop, usePendingChanges, useSearchAndFilter, useSelection } from '@/hooks/use-wallet-access-manager';
