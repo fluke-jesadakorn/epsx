@@ -147,7 +147,7 @@ export function ChatTopicSelector({ topics, onSelect, compact }: TopicSelectorPr
             <button
               key={topic.id}
               onClick={() => setSelected(topic.id)}
-              className={`group p-3.5 rounded-xl border ${color.border} bg-white dark:bg-card hover:bg-slate-50 dark:hover:bg-gray-100 dark:bg-slate-800/40 transition-all text-left shadow-sm hover:shadow-md ${color.glow}`}
+              className={`group p-3.5 rounded-xl border ${color.border} bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-gray-100 dark:bg-slate-800/40 transition-all text-left shadow-sm hover:shadow-md ${color.glow}`}
             >
               <div className="flex items-center gap-3">
                 <div className={`w-10 h-10 rounded-xl ${color.bg} flex items-center justify-center shrink-0 transition-transform group-hover:scale-110`}>

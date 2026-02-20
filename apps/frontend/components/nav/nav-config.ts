@@ -1,6 +1,8 @@
 import type { LucideIcon } from 'lucide-react';
 import {
+  BarChart3,
   BookOpen,
+  Building2,
   Code,
   HelpCircle,
   Info,
@@ -20,6 +22,7 @@ export interface NavItem {
 export interface NavGroup {
   label: string;
   key: string;
+  icon?: LucideIcon;
   items: NavItem[];
 }
 
@@ -27,6 +30,7 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Market',
     key: 'market',
+    icon: BarChart3,
     items: [
       { label: 'Rankings', href: '/analytics', key: 'rankings', icon: LineChart, desc: 'EPS stock rankings' },
       { label: 'Portfolio', href: '/portfolio', key: 'portfolio', icon: TrendingUp, desc: 'Watchlist & tracking' },
@@ -35,6 +39,7 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Developer',
     key: 'developer',
+    icon: Code,
     items: [
       { label: 'API Keys', href: '/developer', key: 'api-keys', icon: Code, desc: 'Manage API access' },
       { label: 'Documentation', href: '/developer/docs', key: 'docs', icon: BookOpen, desc: 'API reference' },
@@ -43,6 +48,7 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Company',
     key: 'company',
+    icon: Building2,
     items: [
       { label: 'About', href: '/about', key: 'about', icon: Info },
       { label: 'Contact', href: '/contact', key: 'contact', icon: Mail },

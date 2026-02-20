@@ -404,7 +404,7 @@ export function ChainVerificationCard({
             )}
 
             {/* Current Network Info */}
-            <div className="p-4 bg-gray-50 dark:bg-card rounded-xl border border-gray-200 dark:border-gray-700">
+            <div className="p-4 bg-gray-50 dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-gray-700">
                 <div className="flex items-center gap-3">
                     <Wifi className="w-5 h-5 text-gray-400" />
                     <div>

@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 # EPSX Frontend - Next.js 16 standalone production build
 
-FROM oven/bun:1 AS deps
+FROM oven/bun:1.2.17 AS deps
 WORKDIR /app
 
 COPY package.json bun.lock ./
@@ -9,7 +9,7 @@ COPY apps/frontend/package.json ./apps/frontend/
 COPY shared/package.json ./shared/
 
 RUN --mount=type=cache,target=/root/.bun/install/cache \
-    bun install --frozen-lockfile
+    bun install
 
 FROM node:22-alpine AS builder
 WORKDIR /app
@@ -23,6 +23,7 @@ ARG NEXT_PUBLIC_CHAIN_ID
 ARG NEXT_PUBLIC_PAYMENT_ESCROW_MAINNET
 ARG NEXT_PUBLIC_PAYMENT_RECEIVER_MAINNET
 ARG NEXT_PUBLIC_OAUTH_CLIENT_ID
+ARG NEXT_PUBLIC_TURNSTILE_SITE_KEY
 
 ENV NEXT_PUBLIC_BACKEND_URL=$NEXT_PUBLIC_BACKEND_URL
 ENV NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL
@@ -33,6 +34,7 @@ ENV NEXT_PUBLIC_CHAIN_ID=$NEXT_PUBLIC_CHAIN_ID
 ENV NEXT_PUBLIC_PAYMENT_ESCROW_MAINNET=$NEXT_PUBLIC_PAYMENT_ESCROW_MAINNET
 ENV NEXT_PUBLIC_PAYMENT_RECEIVER_MAINNET=$NEXT_PUBLIC_PAYMENT_RECEIVER_MAINNET
 ENV NEXT_PUBLIC_OAUTH_CLIENT_ID=$NEXT_PUBLIC_OAUTH_CLIENT_ID
+ENV NEXT_PUBLIC_TURNSTILE_SITE_KEY=$NEXT_PUBLIC_TURNSTILE_SITE_KEY
 
 COPY --from=deps /app/node_modules ./node_modules
 

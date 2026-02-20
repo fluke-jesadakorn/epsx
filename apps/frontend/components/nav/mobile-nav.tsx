@@ -36,8 +36,11 @@ function MobileGroup({
             : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
         }`}
       >
-        {group.label}
-        <ChevronRight className={`h-4 w-4 text-slate-400 transition-transform ${open ? 'rotate-90' : ''}`} />
+        <span className="flex items-center gap-2">
+          {group.icon != null && <group.icon className="h-4 w-4 text-orange-500" />}
+          {group.label}
+        </span>
+        <ChevronRight className={`h-4 w-4 text-orange-500 transition-transform ${open ? 'rotate-90' : ''}`} />
       </button>
       {open && (
         <div className="ml-3 border-l border-slate-200 dark:border-slate-700 pl-3 space-y-0.5">
@@ -55,7 +58,7 @@ function MobileGroup({
                     : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-800'
                 }`}
               >
-                {Icon != null && <Icon className="h-4 w-4 shrink-0 text-slate-400" />}
+                {Icon != null && <Icon className="h-4 w-4 shrink-0 text-orange-500" />}
                 {item.label}
               </Link>
             );
@@ -83,7 +86,7 @@ export function MobileNav({ isAuthenticated }: MobileNavProps) {
           className="lg:hidden flex items-center justify-center w-9 h-9 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
           aria-label="Open menu"
         >
-          <Menu className="h-5 w-5 text-slate-600 dark:text-slate-300" />
+          <Menu className="h-5 w-5 text-orange-500" />
         </button>
       </SheetTrigger>
 
@@ -103,7 +106,7 @@ export function MobileNav({ isAuthenticated }: MobileNavProps) {
           <div className="p-4 border-b border-slate-100 dark:border-slate-800">
             <div className="flex items-center gap-3">
               <div className="flex items-center justify-center w-9 h-9 rounded-full bg-slate-100 dark:bg-slate-800">
-                <Wallet className="h-4 w-4 text-slate-500" />
+                <Wallet className="h-4 w-4 text-orange-500" />
               </div>
               <div className="min-w-0 flex-1">
                 <div className="text-sm font-medium text-slate-900 dark:text-white truncate">
@@ -141,7 +144,7 @@ export function MobileNav({ isAuthenticated }: MobileNavProps) {
               onClick={close}
               className="flex items-center gap-2.5 px-3 py-2.5 rounded-md text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-50 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-800 transition-colors"
             >
-              <Bell className="h-4 w-4 text-slate-400" />
+              <Bell className="h-4 w-4 text-orange-500" />
               Notifications
             </Link>
           )}

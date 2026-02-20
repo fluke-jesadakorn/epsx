@@ -72,7 +72,7 @@ export function WalletCard({
     return (
         <div
             className={cn(
-                "group relative w-full overflow-hidden rounded-[24px] border border-gray-200 dark:border-border bg-white/60 dark:bg-[#0f172a]/60 p-1 backdrop-blur-xl transition-all duration-300 hover:border-[#7645d9]/30 hover:shadow-2xl hover:shadow-[#7645d9]/10",
+                "group relative w-full overflow-hidden rounded-[24px] border border-gray-200 dark:border-slate-700 bg-white/60 dark:bg-[#0f172a]/60 p-1 backdrop-blur-xl transition-all duration-300 hover:border-[#7645d9]/30 hover:shadow-2xl hover:shadow-[#7645d9]/10",
                 isSelected && 'ring-2 ring-[#1fc7d4] bg-[#1fc7d4]/5',
                 isDisabled && 'opacity-60 grayscale-[0.5]',
                 className

@@ -26,6 +26,9 @@ pub struct ChallengeRequest {
     /// Ethereum wallet address
     #[schema(example = "0x1234567890123456789012345678901234567890")]
     pub wallet_address: String,
+    /// Cloudflare Turnstile CAPTCHA token (optional – required when Turnstile is enabled)
+    #[serde(default)]
+    pub turnstile_token: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Serialize, ToSchema)]
@@ -93,9 +96,63 @@ pub struct RevokePermissionRequest {
 )]
 pub async fn generate_challenge_handler(
     State(app_state): State<AppState>,
+    headers: HeaderMap,
     Json(request): Json<ChallengeRequest>,
 ) -> Result<Json<Value>, StatusCode> {
     info!("Generating Web3 challenge for wallet: {}", request.wallet_address);
+
+    // ── Turnstile CAPTCHA verification ──────────────────────────────────
+    if let Some(token) = &request.turnstile_token {
+        // Extract client IP for Turnstile verification
+        let remote_ip = headers
+            .get("cf-connecting-ip")
+            .or_else(|| headers.get("x-forwarded-for"))
+            .and_then(|h| h.to_str().ok())
+            .map(|s| s.split(',').next().unwrap_or(s).trim());
+
+        match crate::infrastructure::security::verify_turnstile_token(token, remote_ip).await {
+            Ok(result) if result.success => {
+                info!("Turnstile verification passed for wallet: {}", request.wallet_address);
+            }
+            Ok(result) => {
+                warn!(
+                    wallet_address = %request.wallet_address,
+                    error_codes = ?result.error_codes,
+                    "Turnstile verification failed"
+                );
+                return Ok(Json(json!({
+                    "success": false,
+                    "error": "captcha_failed",
+                    "message": "Human verification failed. Please try again."
+                })));
+            }
+            Err(e) => {
+                error!("Turnstile verification error: {}", e);
+                // Fail open only in dev; fail closed in production
+                if crate::config::env::is_production() {
+                    return Ok(Json(json!({
+                        "success": false,
+                        "error": "captcha_error",
+                        "message": "Verification service unavailable. Please try again later."
+                    })));
+                }
+                warn!("Turnstile verification error in dev mode – allowing request");
+            }
+        }
+    } else if crate::infrastructure::security::is_turnstile_enabled()
+        && crate::config::env::is_production()
+    {
+        // In production with Turnstile enabled, require the token
+        warn!(
+            wallet_address = %request.wallet_address,
+            "Challenge request missing Turnstile token in production"
+        );
+        return Ok(Json(json!({
+            "success": false,
+            "error": "captcha_required",
+            "message": "Human verification is required."
+        })));
+    }
 
     // Get Web3 auth service from domain container
     let web3_auth_service = match app_state.domain_container.get_auth_service() {

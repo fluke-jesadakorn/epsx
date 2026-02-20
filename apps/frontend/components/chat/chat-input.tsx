@@ -46,7 +46,7 @@ export function ChatInput({ onSend, disabled = false, placeholder = 'Type a mess
   const canSend = val.trim().length > 0 && !disabled;
 
   return (
-    <div className="p-3 border-t border-slate-200 dark:border-border bg-slate-50 dark:bg-slate-950/40">
+    <div className="p-3 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950/40">
       <div className="flex items-end gap-2 bg-slate-100 dark:bg-slate-800/30 rounded-2xl border border-slate-200 dark:border-white/8 px-3 py-2 focus-within:border-blue-500/30 focus-within:ring-2 focus-within:ring-blue-500/10 transition-all">
         <textarea
           ref={textareaRef}

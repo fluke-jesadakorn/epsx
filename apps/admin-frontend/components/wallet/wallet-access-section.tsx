@@ -70,7 +70,7 @@ export function WalletAccessSection({
     };
 
     return (
-        <div className="pt-4 border-t border-gray-200 dark:border-border space-y-6">
+        <div className="pt-4 border-t border-gray-200 dark:border-slate-700 space-y-6">
             <div className="flex items-center justify-between">
                 <div>
                     <h2 className="text-xl font-bold text-white flex items-center gap-2">

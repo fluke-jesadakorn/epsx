@@ -2,6 +2,7 @@
 
 import { getAndClearReturnUrlAction } from '@/lib/auth/auth-actions';
 import { AuthModal , useSharedAuth } from '@/shared/components/auth';
+import { UnifiedThemeToggle } from '@/shared/components/ui/theme-toggle';
 import { logger } from '@/shared/utils/logger';
 import {
     Activity,
@@ -76,7 +77,7 @@ export default function AuthPageClient({ serverHasSession }: Props) {
 
     if (!mounted) {
         return (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0a0118]">
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-background">
                 <div className="h-8 w-8 animate-spin rounded-full border-t-2 border-purple-500" />
             </div>
         );
@@ -85,7 +86,7 @@ export default function AuthPageClient({ serverHasSession }: Props) {
     // Authenticated state - show brief redirect screen
     if (serverHasSession && isAuthenticated && user) {
         return (
-            <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#0a0118] text-white">
+            <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-background text-foreground">
                 <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-green-500/10 ring-1 ring-green-500/20">
                     <ShieldCheck className="h-8 w-8 text-green-400" />
                 </div>
@@ -96,7 +97,12 @@ export default function AuthPageClient({ serverHasSession }: Props) {
     }
 
     return (
-        <div className="dark fixed inset-0 z-50 flex w-full flex-col overflow-y-auto bg-[#0a0118] lg:flex-row">
+        <div className="fixed inset-0 z-50 flex w-full flex-col overflow-y-auto bg-background lg:flex-row">
+            {/* Theme Toggle */}
+            <div className="absolute top-4 right-4 z-20">
+                <UnifiedThemeToggle variant="minimal" size="sm" showTooltip={false} />
+            </div>
+
             {/* Animated background blobs */}
             <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden">
                 <div className="absolute left-[-10%] top-[-10%] h-[60%] w-[60%] animate-pulse rounded-full bg-purple-600/10 blur-[120px]" />
@@ -105,7 +111,7 @@ export default function AuthPageClient({ serverHasSession }: Props) {
             </div>
 
             {/* Left Panel - Desktop branding */}
-            <div className="relative z-10 hidden w-full flex-col justify-center overflow-hidden p-8 text-white lg:flex lg:w-3/5 xl:p-20">
+            <div className="relative z-10 hidden w-full flex-col justify-center overflow-hidden p-8 text-foreground dark:text-white lg:flex lg:w-3/5 xl:p-20">
                 <div className="mb-12 animate-auth-fade-in">
                     <div className="mb-8 flex items-center gap-3">
                         <div className="rounded-2xl bg-gradient-to-br from-purple-500 to-orange-500 p-3 shadow-2xl shadow-purple-500/20 ring-1 ring-white/20 transition-transform hover:scale-105">
@@ -128,7 +134,7 @@ export default function AuthPageClient({ serverHasSession }: Props) {
                 <div className="grid max-w-2xl gap-8 sm:grid-cols-2">
                     {features.map((f, i) => (
                         <div key={i} className="group flex gap-4 animate-auth-slide-up" style={{ animationDelay: `${i * 100}ms` }}>
-                            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-gray-200 dark:border-border bg-white dark:bg-white/[0.04] ring-1 ring-white/5 backdrop-blur-sm transition-all duration-300 group-hover:border-purple-500/20 group-hover:bg-purple-500/10">
+                            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-white/[0.04] ring-1 ring-white/5 backdrop-blur-sm transition-all duration-300 group-hover:border-purple-500/20 group-hover:bg-purple-500/10">
                                 <f.icon className="h-6 w-6 text-purple-400 transition-transform group-hover:scale-110" />
                             </div>
                             <div>
@@ -141,10 +147,10 @@ export default function AuthPageClient({ serverHasSession }: Props) {
             </div>
 
             {/* Right Panel - Auth card */}
-            <div className="relative z-10 flex w-full items-center justify-center p-4 sm:p-6 lg:w-2/5 lg:border-l lg:border-gray-200 dark:border-border lg:bg-white/[0.02] lg:backdrop-blur-3xl">
+            <div className="relative z-10 flex w-full items-center justify-center p-4 sm:p-6 lg:w-2/5 lg:border-l lg:border-gray-200 dark:border-slate-700 lg:bg-white/[0.02] lg:backdrop-blur-3xl">
                 <div className="w-full max-w-md">
                     {/* Mobile header */}
-                    <div className="mb-8 mt-4 animate-auth-fade-in text-center text-white sm:mb-10 sm:mt-6 lg:hidden">
+                    <div className="mb-8 mt-4 animate-auth-fade-in text-center text-foreground dark:text-white sm:mb-10 sm:mt-6 lg:hidden">
                         <div className="mb-4 flex items-center justify-center gap-2 sm:mb-6">
                             <div className="rounded-xl bg-gradient-to-br from-purple-500 to-orange-500 p-2 shadow-xl shadow-purple-500/20 ring-1 ring-white/20 sm:rounded-2xl sm:p-3">
                                 <Shield className="h-8 w-8 text-white sm:h-10 sm:w-10" />
@@ -156,7 +162,7 @@ export default function AuthPageClient({ serverHasSession }: Props) {
                     </div>
 
                     {/* Auth card with glassmorphism */}
-                    <div className="group relative animate-auth-slide-up overflow-hidden rounded-2xl border border-gray-200 dark:border-border bg-white/90 dark:bg-slate-950/60 p-6 shadow-[0_24px_48px_-12px_rgba(0,0,0,0.5)] backdrop-blur-3xl sm:rounded-3xl sm:p-8 lg:p-10">
+                    <div className="group relative animate-auth-slide-up overflow-hidden rounded-2xl border border-gray-200 dark:border-slate-700 bg-white/90 dark:bg-slate-950/60 p-6 shadow-[0_24px_48px_-12px_rgba(0,0,0,0.5)] backdrop-blur-3xl sm:rounded-3xl sm:p-8 lg:p-10">
                         {/* Shimmer line */}
                         <div className="absolute left-0 top-0 h-px w-full -translate-x-full bg-gradient-to-r from-transparent via-purple-500/50 to-transparent animate-[auth-shimmer_3s_infinite]" />
 
@@ -166,7 +172,7 @@ export default function AuthPageClient({ serverHasSession }: Props) {
                                 <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-purple-500/10 shadow-[0_0_40px_-10px_rgba(139,92,246,0.3)] ring-1 ring-purple-500/20 transition-transform hover:scale-105 lg:h-20 lg:w-20 lg:rounded-[2rem]">
                                     <Lock className="h-8 w-8 text-purple-400 lg:h-10 lg:w-10" />
                                 </div>
-                                <h2 className="mb-2 text-2xl font-bold tracking-tight text-white lg:text-3xl">Admin Portal</h2>
+                                <h2 className="mb-2 text-2xl font-bold tracking-tight text-foreground dark:text-white lg:text-3xl">Admin Portal</h2>
                                 <p className="text-sm font-medium text-slate-500 lg:text-base">Secure authentication via Web3</p>
                             </div>
 
@@ -197,7 +203,7 @@ export default function AuthPageClient({ serverHasSession }: Props) {
                                 </button>
 
                                 {/* Benefits */}
-                                <div className="border-t border-gray-200 dark:border-border pt-5 sm:pt-6">
+                                <div className="border-t border-gray-200 dark:border-slate-700 pt-5 sm:pt-6">
                                     <div className="grid grid-cols-1 gap-3 sm:gap-4">
                                         {benefits.map((text, i) => (
                                             <div key={i} className="flex items-center gap-3 text-xs font-medium text-slate-400 sm:text-sm">
@@ -211,10 +217,10 @@ export default function AuthPageClient({ serverHasSession }: Props) {
                                 </div>
 
                                 {/* Mobile features grid */}
-                                <div className="border-t border-gray-200 dark:border-border pt-5 sm:pt-6 lg:hidden">
+                                <div className="border-t border-gray-200 dark:border-slate-700 pt-5 sm:pt-6 lg:hidden">
                                     <div className="grid grid-cols-2 gap-3 sm:gap-4">
                                         {features.map((f, i) => (
-                                            <div key={i} className="flex flex-col items-center rounded-xl border border-gray-200 dark:border-border bg-white/[0.02] p-3 text-center transition-colors hover:bg-white/[0.04] sm:p-4">
+                                            <div key={i} className="flex flex-col items-center rounded-xl border border-gray-200 dark:border-slate-700 bg-white/[0.02] p-3 text-center transition-colors hover:bg-white/[0.04] sm:p-4">
                                                 <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-lg bg-purple-500/10 ring-1 ring-purple-500/20">
                                                     <f.icon className="h-5 w-5 text-purple-400" />
                                                 </div>
@@ -228,9 +234,9 @@ export default function AuthPageClient({ serverHasSession }: Props) {
                             <div className="mt-8 text-center sm:mt-10 lg:mt-12">
                                 <p className="mx-auto max-w-[280px] px-4 text-[10px] leading-relaxed text-slate-500/80 sm:text-xs">
                                     By connecting, you agree to our{' '}
-                                    <a href="/terms" className="text-slate-300 underline underline-offset-2 transition-colors hover:text-white">Terms</a>
+                                    <a href="/terms" className="text-muted-foreground underline underline-offset-2 transition-colors hover:text-foreground">Terms</a>
                                     {' '}and{' '}
-                                    <a href="/privacy" className="text-slate-300 underline underline-offset-2 transition-colors hover:text-white">Privacy</a>.
+                                    <a href="/privacy" className="text-muted-foreground underline underline-offset-2 transition-colors hover:text-foreground">Privacy</a>.
                                 </p>
                             </div>
                         </div>

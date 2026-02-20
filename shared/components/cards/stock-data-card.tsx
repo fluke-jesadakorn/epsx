@@ -193,7 +193,7 @@ StockDataCard.displayName = 'stock-data-card';
 
 export const StockDataCardSkeleton = ({ className }: { className?: string }) => {
   return (
-    <div className={cn("relative rounded-2xl border border-gray-200 dark:border-border bg-white dark:bg-card p-6 flex flex-col h-[350px] animate-pulse", className)}>
+    <div className={cn("relative rounded-2xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6 flex flex-col h-[350px] animate-pulse", className)}>
       <div className="h-4 w-24 bg-gray-200 dark:bg-gray-800 rounded mx-auto mb-6" />
       <div className="h-12 w-32 bg-gray-200 dark:bg-gray-800 rounded mx-auto mb-2" />
       <div className="h-4 w-20 bg-gray-200 dark:bg-gray-800 rounded mx-auto mb-8" />

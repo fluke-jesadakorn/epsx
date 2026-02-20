@@ -187,7 +187,7 @@ export function AccountClient({ initialPaymentHistory, accessOverviewSlot }: Acc
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
           <Link href="/support" className="block group">
             <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-r from-blue-400/20 via-cyan-400/20 to-blue-400/20 p-0.5 hover:scale-105 transition-all duration-300">
-              <div className="relative bg-white/95 dark:bg-card backdrop-blur-xl rounded-2xl sm:rounded-3xl p-5 sm:p-6">
+              <div className="relative bg-white/95 dark:bg-slate-900 backdrop-blur-xl rounded-2xl sm:rounded-3xl p-5 sm:p-6">
                 <div className="absolute top-4 right-4 w-4 h-4 bg-gradient-to-r from-blue-400 to-cyan-500 rounded-full blur-sm opacity-60" />
                 <h3 className="text-lg sm:text-xl font-bold bg-gradient-to-r from-blue-400 to-cyan-500 bg-clip-text text-transparent mb-2 flex items-center gap-2">
                   <span className="text-xl">🛟</span> Support Center
@@ -203,7 +203,7 @@ export function AccountClient({ initialPaymentHistory, accessOverviewSlot }: Acc
 
           <Link href="/privacy" className="block group">
             <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-r from-green-400/20 via-emerald-400/20 to-green-400/20 p-0.5 hover:scale-105 transition-all duration-300">
-              <div className="relative bg-white/95 dark:bg-card backdrop-blur-xl rounded-2xl sm:rounded-3xl p-5 sm:p-6">
+              <div className="relative bg-white/95 dark:bg-slate-900 backdrop-blur-xl rounded-2xl sm:rounded-3xl p-5 sm:p-6">
                 <div className="absolute top-4 right-4 w-4 h-4 bg-gradient-to-r from-green-400 to-emerald-500 rounded-full blur-sm opacity-60" />
                 <h3 className="text-lg sm:text-xl font-bold bg-gradient-to-r from-green-400 to-emerald-500 bg-clip-text text-transparent mb-2 flex items-center gap-2">
                   <span className="text-xl">🔒</span> Privacy Control
@@ -219,7 +219,7 @@ export function AccountClient({ initialPaymentHistory, accessOverviewSlot }: Acc
 
           <Link href="/notifications" className="block group">
             <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-r from-orange-400/20 via-pink-400/20 to-orange-400/20 p-0.5 hover:scale-105 transition-all duration-300">
-              <div className="relative bg-white/95 dark:bg-card backdrop-blur-xl rounded-2xl sm:rounded-3xl p-5 sm:p-6">
+              <div className="relative bg-white/95 dark:bg-slate-900 backdrop-blur-xl rounded-2xl sm:rounded-3xl p-5 sm:p-6">
                 <div className="absolute top-4 right-4 w-4 h-4 bg-gradient-to-r from-orange-400 to-pink-500 rounded-full blur-sm opacity-60" />
                 <h3 className="text-lg sm:text-xl font-bold bg-gradient-to-r from-orange-400 to-pink-500 bg-clip-text text-transparent mb-2 flex items-center gap-2">
                   <span className="text-xl">🔔</span> Recent Activity
@@ -314,7 +314,7 @@ export function AccountClient({ initialPaymentHistory, accessOverviewSlot }: Acc
                   { id: 'marketing', label: 'Promotions', desc: 'News & special offers', icon: '🎁' }
                 ].map((item) => (
                   <label key={item.id} className="cursor-pointer group">
-                    <div className="flex items-center justify-between p-4 rounded-2xl bg-white/50 dark:bg-card border-2 border-gray-100 dark:border-gray-800 group-hover:border-purple-200 dark:group-hover:border-purple-800/50 transition-all duration-200">
+                    <div className="flex items-center justify-between p-4 rounded-2xl bg-white/50 dark:bg-slate-900 border-2 border-gray-100 dark:border-gray-800 group-hover:border-purple-200 dark:group-hover:border-purple-800/50 transition-all duration-200">
                       <div className="flex gap-4">
                         <div className="text-2xl mt-1">{item.icon}</div>
                         <div>

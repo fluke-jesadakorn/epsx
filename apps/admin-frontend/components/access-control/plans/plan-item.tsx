@@ -124,7 +124,7 @@ export function PlanItem({
                 </p>
 
                 {/* Row 3: Metadata */}
-                <div className="flex items-center gap-2 mt-2 pt-2 border-t border-gray-200 dark:border-border text-[10px] text-muted-foreground">
+                <div className="flex items-center gap-2 mt-2 pt-2 border-t border-gray-200 dark:border-slate-700 text-[10px] text-muted-foreground">
                     <span className="flex items-center gap-0.5" title="Tier level">
                         <Hash className="h-2.5 w-2.5" />
                         {plan.tier_level}

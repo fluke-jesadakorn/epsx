@@ -69,3 +69,23 @@ export async function getTopics(): Promise<ApiResponse<ChatTopic[]>> {
   const client = createAdminApiClient({ serverSide: true });
   return check403(await client.get('/api/admin/chat/topics'));
 }
+
+export interface AdminAgent {
+  wallet_address: string;
+  tier: string;
+  status: string;
+}
+
+export async function listAdminAgents(search?: string): Promise<ApiResponse<AdminAgent[]>> {
+  const client = createAdminApiClient({ serverSide: true });
+  const params: Record<string, string> = { limit: '50', status: 'active' };
+  if (search !== undefined && search !== '') {
+    params.search = search;
+  }
+  const qs = new URLSearchParams(params).toString();
+  const res = await client.get<{ users: AdminAgent[]; total_count: number }>(`/api/admin/users?${qs}`);
+  if (res.success && res.data) {
+    return { ...res, data: res.data.users };
+  }
+  return { ...res, data: [] };
+}

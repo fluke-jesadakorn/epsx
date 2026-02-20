@@ -16,7 +16,7 @@ export function ChatHeader({ subject, status, onBack, onClose, onResolve, showRe
   const canResolve = showResolve && status !== 'resolved' && status !== 'closed';
 
   return (
-    <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-border bg-slate-50 dark:bg-card">
+    <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900">
       <div className="flex items-center gap-2 flex-1 min-w-0">
         {onBack && (
           <button

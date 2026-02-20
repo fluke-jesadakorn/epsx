@@ -1,7 +1,6 @@
 'use server';
 
 import { cookies } from 'next/headers';
-import { redirect } from 'next/navigation';
 import { logger } from '../utils/logger';
 import { getBackendUrl } from '../utils/url-resolver';
 import type { ChallengeResponse, SignatureVerificationRequest, SignatureVerificationResponse } from './api';
@@ -263,13 +262,18 @@ function updateSessionCookies(
  * Server Action: Request SIWE challenge via server-to-server call.
  * Proxies through Next.js server so browser doesn't need direct backend access.
  */
-export async function challengeAction(walletAddress: string): Promise<ChallengeResponse> {
+export async function challengeAction(walletAddress: string, turnstileToken?: string): Promise<ChallengeResponse> {
     const url = `${getBackendUrl('server')}/api/auth/web3/challenge`;
+
+    const body: Record<string, string> = { wallet_address: walletAddress };
+    if (turnstileToken) {
+        body.turnstile_token = turnstileToken;
+    }
 
     const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({ wallet_address: walletAddress }),
+        body: JSON.stringify(body),
         cache: 'no-store',
     });
 

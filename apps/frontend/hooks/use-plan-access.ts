@@ -1,5 +1,6 @@
 'use client';
 
+import { useAuth } from '@/shared/auth';
 import { createPlansClient } from '@/shared/api/plans';
 import type { PlanAccessData } from '@/shared/types/payment';
 import { createFrontendApiClient } from '@/shared/utils/api-client';
@@ -37,11 +38,17 @@ const DEFAULT_FREE_TIER: PlanAccessData = {
  * const { planAccess } = usePlanAccess();
  */
 export function usePlanAccess(): UsePlanAccessResult {
+    const { isAuthenticated } = useAuth();
     const [planAccess, setPlanAccess] = useState<PlanAccessData | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
     const fetchPlanAccess = async (): Promise<void> => {
+        if (!isAuthenticated) {
+            setPlanAccess(DEFAULT_FREE_TIER);
+            setLoading(false);
+            return;
+        }
         try {
             setLoading(true);
             setError(null);
@@ -52,12 +59,9 @@ export function usePlanAccess(): UsePlanAccessResult {
             if (response.success && response.data) {
                 setPlanAccess(response.data);
             } else {
-                // User not logged in or no plan - return default free tier
                 setPlanAccess(DEFAULT_FREE_TIER);
             }
         } catch (err) {
-            // UnifiedApiClient handles 401 refresh automatically via proxy
-            // Just set default free tier on any error
             setError(err instanceof Error ? err.message : 'Failed to fetch plan');
             setPlanAccess(DEFAULT_FREE_TIER);
         } finally {
@@ -67,7 +71,7 @@ export function usePlanAccess(): UsePlanAccessResult {
 
     useEffect(() => {
         void fetchPlanAccess();
-    }, []);
+    }, [isAuthenticated]);
 
     return {
         planAccess,

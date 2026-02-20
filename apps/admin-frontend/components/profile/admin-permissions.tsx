@@ -35,7 +35,7 @@ export function AdminPermissions({ user }: AdminPermissionsProps) {
       case 'epsx': return 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300';
       case 'epsx-pay': return 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300';
       case 'epsx-token': return 'bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-300';
-      default: return 'bg-slate-100 text-slate-800 dark:bg-card/60 dark:text-slate-300';
+      default: return 'bg-slate-100 text-slate-800 dark:bg-slate-900/60 dark:text-slate-300';
     }
   };
 

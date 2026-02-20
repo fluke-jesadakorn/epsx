@@ -4,7 +4,6 @@ set -e
 # Configuration
 SERVER_IP="100.97.9.56"
 REMOTE_DIR="~/epsx"
-DEPLOY_ARCHIVE="deploy-prod.tar.gz"
 
 # WalletConnect Project ID for Production
 WC_PROJECT_ID="04e0a500abfa1e095bf8f64b15fa2812"
@@ -46,27 +45,49 @@ docker build \
 echo "   - Building Backend..."
 docker build -f apps/backend/Dockerfile -t epsx-backend:prod .
 
-# 2. Package
+# 2. Transfer & Load
 echo ""
-echo "💾 Saving images to $DEPLOY_ARCHIVE..."
-docker save epsx-frontend:prod epsx-admin-frontend:prod epsx-backend:latest | gzip > $DEPLOY_ARCHIVE
+echo "📤 Transferring and loading images directly to server (this may take a while)..."
+docker save epsx-frontend:prod epsx-admin-frontend:prod epsx-backend:prod | gzip | ssh $USER@$SERVER_IP "gzip -d | docker load"
 
-# 3. Transfer
-echo ""
-echo "📤 Transferring to server (this may take a while)..."
-scp $DEPLOY_ARCHIVE $USER@$SERVER_IP:$REMOTE_DIR/
-
-# 4. Deploy
+# 3. Deploy
 echo ""
 echo "🚀 Deploying on server..."
 ssh $USER@$SERVER_IP << EOF
-  cd $REMOTE_DIR
-  echo "   - Loading images..."
-  gzip -d -c $DEPLOY_ARCHIVE | docker load
+  cd $REMOTE_DIR/prod
   
-  cd prod
-  echo "   - Restarting Production Stack..."
-  docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --force-recreate
+  echo "   - Updating Production Stack (Zero-Downtime)..."
+  docker compose --env-file .env.prod -f docker-compose.prod.yml up -d
+  
+  echo "   - Cleaning up old images..."
+  docker image prune -f
+  
+  echo "   - Verifying service health..."
+  # Wait for up to 120 seconds for services to become healthy
+  for i in {1..24}; do
+    if docker compose --env-file .env.prod -f docker-compose.prod.yml ps | grep -q "(unhealthy)"; then
+      echo "     ⚠️ Services unhealthy, retrying..."
+      sleep 5
+      continue
+    fi
+    
+    # Check if containers are actually running
+    if ! docker compose --env-file .env.prod -f docker-compose.prod.yml ps | grep -q "Up"; then
+         echo "     ⏳ Waiting for services to start..."
+         sleep 5
+         continue
+    fi
+    
+    echo "     ✅ Services are healthy!"
+    break
+  done
+  
+  echo ""
+  echo "   ⚠️ Reminder: If there are database migrations, please run:"
+  echo "      ssh -L 5434:localhost:5433 $USER@$SERVER_IP -Nf"
+  echo "      export DATABASE_URL=postgres://epsx_user:password@localhost:5434/epsx_prod"
+  echo "      diesel migration run --config apps/backend/diesel.toml"
+  echo "      (See GEMINI.md for more details)"
 EOF
 
 echo ""

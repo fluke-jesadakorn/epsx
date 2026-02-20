@@ -183,7 +183,7 @@ export function Sidebar() {
   };
 
   return (
-    <div className="w-56 sm:w-64 min-w-0 max-w-64 bg-white dark:bg-[#13151e] border-r border-gray-200 dark:border-border h-full flex flex-col z-20">
+    <div className="w-56 sm:w-64 min-w-0 max-w-64 bg-white dark:bg-[#13151e] border-r border-gray-200 dark:border-slate-700 h-full flex flex-col z-20">
       {/* Header */}
       <div className="p-6">
         <div className="flex items-center gap-3">
@@ -260,7 +260,7 @@ export function Sidebar() {
 
                 {/* Children */}
                 {hasChildren && isExpanded && !isDisabled && (
-                  <div className="ml-6 mt-1 space-y-0.5 border-l border-gray-200 dark:border-border pl-2">
+                  <div className="ml-6 mt-1 space-y-0.5 border-l border-gray-200 dark:border-slate-700 pl-2">
                     {item.children?.map(child => {
                       const childActive = isChildActive(child);
                       const ChildIcon = child.icon;
@@ -293,7 +293,7 @@ export function Sidebar() {
         {/* Wallet Connection Prompt - shown when not authenticated */}
         {!isWalletConnected && (
           <div className="mb-4">
-            <div className="bg-gradient-to-br from-[#1fc7d4]/5 to-[#7645d9]/5 rounded-3xl p-5 border border-gray-200 dark:border-border backdrop-blur-sm relative overflow-hidden group">
+            <div className="bg-gradient-to-br from-[#1fc7d4]/5 to-[#7645d9]/5 rounded-3xl p-5 border border-gray-200 dark:border-slate-700 backdrop-blur-sm relative overflow-hidden group">
               <div className="absolute -right-4 -top-4 w-16 h-16 bg-[#1fc7d4]/10 rounded-full blur-2xl group-hover:bg-[#1fc7d4]/20 transition-colors" />
               <div className="relative z-10 text-center">
                 <p className="text-sm font-bold text-foreground mb-1">Full Access</p>
@@ -311,7 +311,7 @@ export function Sidebar() {
         )}
 
         {/* User Profile - Always visible at bottom */}
-        <div className="bg-white dark:bg-white/[0.04] rounded-3xl p-3 border border-gray-200 dark:border-border">
+        <div className="bg-white dark:bg-white/[0.04] rounded-3xl p-3 border border-gray-200 dark:border-slate-700">
           <div className="flex items-center gap-3">
             <div className={`w-10 h-10 rounded-2xl flex items-center justify-center text-white text-sm font-bold shadow-lg transition-all ${isWalletConnected
               ? 'bg-gradient-to-br from-[#1fc7d4] to-[#7645d9] shadow-cyan-500/10'

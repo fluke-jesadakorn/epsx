@@ -31,8 +31,8 @@ const nextConfig: NextConfig = {
     },
   },
 
-  // Transpile shared packages only
-  transpilePackages: ['@/shared'],
+  // Transpile shared packages and web3 libraries containing ESM exports
+  transpilePackages: ['@/shared', '@rainbow-me/rainbowkit', 'wagmi', 'viem'],
 
   // Improve HMR WebSocket reliability and fix module resolution
   webpack: (config: any, { dev, isServer, webpack }: any) => {
@@ -102,7 +102,7 @@ const nextConfig: NextConfig = {
         resourceRegExp: /^(tap|tape|desm|fastbench|pino-elasticsearch|why-is-node-running|thread-stream(\/test)?|react-native(-device-info|-keychain)?|@react-native)/,
       })
     );
-     
+
     return config;
   },
 };

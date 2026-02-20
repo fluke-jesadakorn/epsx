@@ -31,7 +31,7 @@ export default function CreditsPage() {
 
   return (
     <div>
-      <div className="border-b border-gray-200 dark:border-border mb-8">
+      <div className="border-b border-gray-200 dark:border-slate-700 mb-8">
         <div className="flex gap-8 max-w-3xl mx-auto">
           {tabs.map((tab) => {
             const isActive = activeTab === tab.id;

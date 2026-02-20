@@ -46,7 +46,7 @@ export function StockSearch({ rankings }: StockSearchProps) {
           value={query}
           onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
           onFocus={() => setOpen(true)}
-          className="w-full rounded-xl border border-gray-200 dark:border-border bg-gray-100 dark:bg-slate-800/50 py-3 pl-10 pr-10 text-sm text-white placeholder-slate-500 outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30"
+          className="w-full rounded-xl border border-gray-200 dark:border-slate-700 bg-gray-100 dark:bg-slate-800/50 py-3 pl-10 pr-10 text-sm text-white placeholder-slate-500 outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30"
         />
         {query.length > 0 && (
           <button

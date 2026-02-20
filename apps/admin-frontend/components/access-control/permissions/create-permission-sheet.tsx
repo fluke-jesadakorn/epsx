@@ -63,7 +63,7 @@ export function CreatePermissionSheet({
 
     return (
         <Sheet open={open} onOpenChange={onOpenChange}>
-            <SheetContent side="right" className="w-[400px] sm:w-[540px] bg-white dark:bg-card border-gray-200 dark:border-border text-white flex flex-col h-full">
+            <SheetContent side="right" className="w-[400px] sm:w-[540px] bg-white dark:bg-slate-900 border-gray-200 dark:border-slate-700 text-white flex flex-col h-full">
                 <SheetHeader>
                     <SheetTitle>Create Permission</SheetTitle>
                     <SheetDescription>Define a new system permission.</SheetDescription>

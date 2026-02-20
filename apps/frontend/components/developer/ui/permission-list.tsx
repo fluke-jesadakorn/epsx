@@ -116,7 +116,7 @@ export function PermissionList({
         className={cn(
           'flex flex-col gap-2 p-2 rounded-2xl border h-[250px] overflow-y-auto transition-all',
           isAvailable
-            ? 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-card hover:border-gray-300 dark:hover:border-gray-600'
+            ? 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-slate-900 hover:border-gray-300 dark:hover:border-gray-600'
             : 'border-amber-200 dark:border-amber-800/30 bg-amber-50 dark:bg-amber-900/10 hover:border-amber-300 dark:hover:border-amber-700 ring-1 ring-amber-500/0 hover:ring-amber-500/5',
           shouldHighlightDrop && (isAvailable
             ? 'border-green-500/50 bg-green-500/5 ring-2 ring-green-500/20'

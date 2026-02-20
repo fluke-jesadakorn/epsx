@@ -17,7 +17,7 @@ const buttonVariants = cva(
         link: "text-primary underline-offset-4 hover:underline",
         admin: "bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white shadow-lg",
         pancake: "bg-[#1fc7d4] text-white shadow-lg shadow-cyan-500/20 hover:shadow-cyan-500/40 hover:scale-[1.02] active:scale-95 transition-all text-sm font-bold rounded-2xl",
-        glass: "bg-white dark:bg-card backdrop-blur-2xl border border-gray-200 dark:border-border hover:bg-black/[0.05] dark:hover:bg-white/10 text-foreground transition-all rounded-2xl",
+        glass: "bg-white dark:bg-slate-900 backdrop-blur-2xl border border-gray-200 dark:border-slate-700 hover:bg-black/[0.05] dark:hover:bg-white/10 text-foreground transition-all rounded-2xl",
       },
       size: {
         default: "h-9 px-4 py-2",

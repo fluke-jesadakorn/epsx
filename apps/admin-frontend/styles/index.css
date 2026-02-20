@@ -1,8 +1,8 @@
 @import "tailwindcss";
 @source "@/shared";
+@custom-variant dark (&:where(.dark, .dark *));
 
 /* Shared Design System (Unified Theme) */
-@import '../../../shared/design-system/index.css';
 
 /* Optimized rendering for admin components */
 body {

@@ -17,6 +17,8 @@ import { logger } from '../utils/logger';
 // Challenge request/response types
 export interface ChallengeRequest {
   wallet_address: string;
+  /** Cloudflare Turnstile CAPTCHA token */
+  turnstile_token?: string;
 }
 
 export interface ChallengeResponse {
@@ -72,15 +74,23 @@ class DirectWeb3ApiClient {
   /**
    * Request a SIWE challenge from the backend
    */
-  async requestChallenge(walletAddress: string): Promise<ChallengeResponse> {
+  async requestChallenge(walletAddress: string, turnstileToken?: string): Promise<ChallengeResponse> {
     const url = `${this.baseUrl}/api/auth/web3/challenge`;
 
     logger.debug('[AUTH] Requesting SIWE challenge', {
       wallet_address: walletAddress,
       url,
+      has_turnstile: Boolean(turnstileToken),
     });
 
     try {
+      const body: ChallengeRequest = {
+        wallet_address: walletAddress,
+      };
+      if (turnstileToken) {
+        body.turnstile_token = turnstileToken;
+      }
+
       const response = await fetchWithTimeout(url, {
         method: 'POST',
         timeout: 15000,
@@ -88,9 +98,7 @@ class DirectWeb3ApiClient {
           'Content-Type': 'application/json',
           Accept: 'application/json',
         },
-        body: JSON.stringify({
-          wallet_address: walletAddress,
-        }),
+        body: JSON.stringify(body),
       });
 
       if (!response.ok) {
@@ -253,8 +261,8 @@ class DirectWeb3ApiClient {
 export const directWeb3Api = new DirectWeb3ApiClient();
 
 // Export convenience functions
-export const requestWalletChallenge = (walletAddress: string) =>
-  directWeb3Api.requestChallenge(walletAddress);
+export const requestWalletChallenge = (walletAddress: string, turnstileToken?: string) =>
+  directWeb3Api.requestChallenge(walletAddress, turnstileToken);
 
 export const verifyWalletSignature = (request: SignatureVerificationRequest) =>
   directWeb3Api.verifySignature(request);

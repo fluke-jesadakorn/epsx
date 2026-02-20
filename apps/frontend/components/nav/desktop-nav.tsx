@@ -27,8 +27,9 @@ function GroupDropdown({ group }: { group: NavGroup }) {
               : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
           }`}
         >
+          {group.icon != null && <group.icon className="h-4 w-4 text-orange-500" />}
           {group.label}
-          <ChevronDown className="h-3 w-3 opacity-50" />
+          <ChevronDown className="h-3 w-3 text-orange-500" />
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent
@@ -50,7 +51,7 @@ function GroupDropdown({ group }: { group: NavGroup }) {
                     : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white'
                 }`}
               >
-                {Icon != null && <Icon className="h-4 w-4 shrink-0 text-slate-400" />}
+                {Icon != null && <Icon className="h-4 w-4 shrink-0 text-orange-500" />}
                 <div className="min-w-0">
                   <div className="font-medium">{item.label}</div>
                   {item.desc != null && (

@@ -88,7 +88,7 @@ export const ApiKeysTab: React.FC<ApiKeysTabProps> = ({
     return (
         <div className="space-y-8">
             {/* Header */}
-            <div className="relative overflow-hidden rounded-[32px] bg-white dark:bg-card backdrop-blur-2xl border border-gray-200 dark:border-border p-8 shadow-xl">
+            <div className="relative overflow-hidden rounded-[32px] bg-white dark:bg-slate-900 backdrop-blur-2xl border border-gray-200 dark:border-slate-700 p-8 shadow-xl">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
                     <div>
                         <h2 className="text-2xl font-black text-foreground uppercase tracking-tight mb-2">
@@ -117,12 +117,12 @@ export const ApiKeysTab: React.FC<ApiKeysTabProps> = ({
                             placeholder="Search by client name, wallet, or prefix..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="pl-12 bg-white dark:bg-white/[0.04] border-gray-200 dark:border-border rounded-2xl h-12 text-sm font-bold placeholder:text-muted-foreground/30 focus:ring-[#1fc7d4]/20 focus:border-[#1fc7d4]/50"
+                            className="pl-12 bg-white dark:bg-white/[0.04] border-gray-200 dark:border-slate-700 rounded-2xl h-12 text-sm font-bold placeholder:text-muted-foreground/30 focus:ring-[#1fc7d4]/20 focus:border-[#1fc7d4]/50"
                         />
                     </div>
 
                     {/* Status Filter Tabs */}
-                    <div className="flex bg-white dark:bg-white/[0.04] border border-gray-200 dark:border-border rounded-2xl p-1 w-fit">
+                    <div className="flex bg-white dark:bg-white/[0.04] border border-gray-200 dark:border-slate-700 rounded-2xl p-1 w-fit">
                         {(['all', 'active', 'revoked', 'expired'] as StatusFilter[]).map((status) => (
                             <button
                                 key={status}
@@ -143,11 +143,11 @@ export const ApiKeysTab: React.FC<ApiKeysTabProps> = ({
             </div>
 
             {/* Table Container */}
-            <div className="relative overflow-hidden rounded-[32px] bg-white dark:bg-card backdrop-blur-2xl border border-gray-200 dark:border-border p-1 shadow-xl">
+            <div className="relative overflow-hidden rounded-[32px] bg-white dark:bg-slate-900 backdrop-blur-2xl border border-gray-200 dark:border-slate-700 p-1 shadow-xl">
                 <div className="overflow-hidden rounded-[28px] bg-card">
                     <Table>
                         <TableHeader className="bg-white dark:bg-white/[0.04]">
-                            <TableRow className="hover:bg-transparent border-gray-200 dark:border-border">
+                            <TableRow className="hover:bg-transparent border-gray-200 dark:border-slate-700">
                                 <TableHead className="py-5 px-6 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">User / Client</TableHead>
                                 <TableHead className="py-5 px-6 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">API Key</TableHead>
                                 <TableHead className="py-5 px-6 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Scope</TableHead>
@@ -161,7 +161,7 @@ export const ApiKeysTab: React.FC<ApiKeysTabProps> = ({
                                 <TableRow className="hover:bg-transparent">
                                     <TableCell colSpan={6} className="h-64 text-center">
                                         <div className="flex flex-col items-center justify-center space-y-3">
-                                            <div className="p-4 bg-white dark:bg-white/[0.04] rounded-full border border-gray-200 dark:border-border text-muted-foreground/30">
+                                            <div className="p-4 bg-white dark:bg-white/[0.04] rounded-full border border-gray-200 dark:border-slate-700 text-muted-foreground/30">
                                                 <Search className="w-8 h-8" />
                                             </div>
                                             <p className="text-muted-foreground font-bold">
@@ -191,7 +191,7 @@ export const ApiKeysTab: React.FC<ApiKeysTabProps> = ({
 
             {/* Results summary footer */}
             <div className="flex items-center justify-between px-2">
-                <div className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em] bg-white dark:bg-white/[0.04] px-4 py-2 rounded-xl border border-gray-200 dark:border-border">
+                <div className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em] bg-white dark:bg-white/[0.04] px-4 py-2 rounded-xl border border-gray-200 dark:border-slate-700">
                     Showing {filteredApiKeys.length} of {apiKeys.length} API keys
                 </div>
                 {filteredApiKeys.length < apiKeys.length && (

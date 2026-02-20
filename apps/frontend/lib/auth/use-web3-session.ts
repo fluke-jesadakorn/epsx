@@ -126,6 +126,8 @@ export function useWeb3Session(ctx: UseWeb3SessionContext) {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             wallet_address: address,
+            // Turnstile token – the shared auth modal handles this via its own flow;
+            // this direct path is used as a fallback without the modal widget.
           }),
         }
       );

@@ -97,7 +97,7 @@ export function CreatePlanSheet({
             </SheetTrigger>
             <SheetContent
                 side="right"
-                className="w-[400px] sm:w-[540px] bg-white dark:bg-card border-gray-200 dark:border-border text-white flex flex-col h-full"
+                className="w-[400px] sm:w-[540px] bg-white dark:bg-slate-900 border-gray-200 dark:border-slate-700 text-white flex flex-col h-full"
             >
                 <SheetHeader>
                     <SheetTitle>{isTemplate ? 'Create from Template' : isDuplicate ? 'Duplicate Plan' : 'Create Plan'}</SheetTitle>
@@ -131,7 +131,7 @@ export function CreatePlanSheet({
                             onChange={(e) =>
                                 setFormData({ ...formData, plan_group: e.target.value as PlanGroup })
                             }
-                            className="w-full h-9 rounded-md border border-gray-200 dark:border-border bg-white dark:bg-white/[0.04] px-3 text-sm text-white"
+                            className="w-full h-9 rounded-md border border-gray-200 dark:border-slate-700 bg-white dark:bg-white/[0.04] px-3 text-sm text-white"
                         >
                             <option value="personal">Personal</option>
                             <option value="enterprise">Enterprise</option>
@@ -184,7 +184,7 @@ export function CreatePlanSheet({
                                 </TooltipTrigger>
                                 <TooltipContent
                                     side="right"
-                                    className="bg-white dark:bg-card border-gray-200 dark:border-border text-white max-w-[200px]"
+                                    className="bg-white dark:bg-slate-900 border-gray-200 dark:border-slate-700 text-white max-w-[200px]"
                                 >
                                     <p className="text-xs">
                                         Set to -1 for permanent expiry (never expires).

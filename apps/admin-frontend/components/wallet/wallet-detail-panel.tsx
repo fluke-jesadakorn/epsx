@@ -153,7 +153,7 @@ export function WalletDetailPanel({
                             <WalletHeader wallet={wallet} />
 
                             {/* Label & Note Section */}
-                            <div className="p-4 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50/50 dark:bg-card/30">
+                            <div className="p-4 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50/50 dark:bg-slate-900/30">
                                 <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4 flex items-center gap-2">
                                     🏷️ Label & Notes
                                 </h4>

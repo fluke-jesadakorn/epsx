@@ -152,7 +152,7 @@ export function RecentWalletsPanel({ initialData }: { initialData?: RecentWallet
     : data.recent_wallets.slice(0, 5);
 
   return (
-    <div className="h-full bg-white dark:bg-card rounded-[32px] shadow-xl border border-gray-200 dark:border-border p-8 relative overflow-hidden group">
+    <div className="h-full bg-white dark:bg-slate-900 rounded-[32px] shadow-xl border border-gray-200 dark:border-slate-700 p-8 relative overflow-hidden group">
       {/* Decorative background element */}
       <div className="absolute -right-12 -top-12 w-48 h-48 bg-[#1fc7d4]/5 rounded-full blur-3xl group-hover:bg-[#1fc7d4]/10 transition-colors" />
 
@@ -239,7 +239,7 @@ export function RecentWalletsPanel({ initialData }: { initialData?: RecentWallet
             displayedWallets.map((wallet, index) => (
               <div
                 key={wallet.wallet_address}
-                className="flex items-center justify-between rounded-2xl border border-gray-200 dark:border-border p-4 hover:bg-gray-100 dark:hover:bg-white/5 transition-all group/item active:scale-[0.99]"
+                className="flex items-center justify-between rounded-2xl border border-gray-200 dark:border-slate-700 p-4 hover:bg-gray-100 dark:hover:bg-white/5 transition-all group/item active:scale-[0.99]"
               >
                 <div className="flex items-center gap-4">
                   <div className="relative">
@@ -255,7 +255,7 @@ export function RecentWalletsPanel({ initialData }: { initialData?: RecentWallet
                       {formatWalletAddress(wallet.wallet_address)}
                     </div>
                     <div className="mt-1 flex items-center gap-2">
-                      <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest bg-white dark:bg-white/[0.04] px-2 py-0.5 rounded-lg border border-gray-200 dark:border-border">
+                      <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest bg-white dark:bg-white/[0.04] px-2 py-0.5 rounded-lg border border-gray-200 dark:border-slate-700">
                         {wallet.active_permissions_count} permissions
                       </span>
                     </div>

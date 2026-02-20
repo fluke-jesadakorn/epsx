@@ -86,7 +86,7 @@ export function ChatInbox({ initConvs, topics }: Props) {
             </div>
           ) : convs.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-center">
-              <div className="w-12 h-12 rounded-xl bg-gray-100 dark:bg-slate-800/60 flex items-center justify-center mb-3 border border-gray-200 dark:border-border">
+              <div className="w-12 h-12 rounded-xl bg-gray-100 dark:bg-slate-800/60 flex items-center justify-center mb-3 border border-gray-200 dark:border-slate-700">
                 <Inbox className="w-6 h-6 text-muted-foreground/40" />
               </div>
               <p className="text-sm font-medium text-muted-foreground mb-1">No conversations</p>
@@ -109,7 +109,7 @@ export function ChatInbox({ initConvs, topics }: Props) {
       </div>
 
       {/* Right: Conversation View */}
-      <div className="flex-1 border border-gray-200 dark:border-border rounded-2xl bg-white dark:bg-card/80 overflow-hidden backdrop-blur-sm">
+      <div className="flex-1 border border-gray-200 dark:border-slate-700 rounded-2xl bg-white dark:bg-slate-900/80 overflow-hidden backdrop-blur-sm">
         {selectedConv ? (
           <ChatConversationView
             conv={selectedConv}
@@ -118,7 +118,7 @@ export function ChatInbox({ initConvs, topics }: Props) {
           />
         ) : (
           <div className="flex flex-col items-center justify-center h-full text-center">
-            <div className="w-16 h-16 rounded-2xl bg-gray-100 dark:bg-slate-800/40 flex items-center justify-center mb-4 border border-gray-200 dark:border-border">
+            <div className="w-16 h-16 rounded-2xl bg-gray-100 dark:bg-slate-800/40 flex items-center justify-center mb-4 border border-gray-200 dark:border-slate-700">
               <MessageCircle className="w-8 h-8 text-muted-foreground/20" />
             </div>
             <p className="text-sm font-medium text-muted-foreground mb-1">Select a conversation</p>

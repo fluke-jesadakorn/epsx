@@ -48,7 +48,7 @@ export function GlobalAuthGuard({
         const hasUserCookie = typeof document !== 'undefined' ? document.cookie.includes('epsx.user') : false;
 
         return (
-            <div className="flex h-64 items-center justify-center p-6 bg-slate-50/50 dark:bg-card rounded-xl border border-dashed border-slate-200 dark:border-slate-800">
+            <div className="flex h-64 items-center justify-center p-6 bg-slate-50/50 dark:bg-slate-900 rounded-xl border border-dashed border-slate-200 dark:border-slate-800">
                 <div className="flex flex-col items-center gap-2">
                     <Loader2 className="h-8 w-8 animate-spin text-primary/50" />
                     <p className="text-sm text-muted-foreground animate-pulse">Verifying access...</p>
@@ -91,7 +91,7 @@ export function GlobalAuthGuard({
                     {debugInfo && (
                         <details className="text-xs text-muted-foreground mt-4 pt-4 border-t border-slate-100 dark:border-slate-800">
                             <summary className="cursor-pointer hover:text-foreground">Debug Info</summary>
-                            <pre className="mt-2 p-2 bg-slate-100 dark:bg-card rounded overflow-auto max-h-40">
+                            <pre className="mt-2 p-2 bg-slate-100 dark:bg-slate-900 rounded overflow-auto max-h-40">
                                 {JSON.stringify(debugInfo, null, 2)}
                             </pre>
                         </details>

@@ -56,7 +56,7 @@ export function WalletHeader({ wallet, className }: WalletHeaderProps) {
                         <Copy className="h-4 w-4" />
                     </button>
                     {copied && (
-                        <span className="absolute -top-8 left-1/2 -translate-x-1/2 text-[10px] font-bold text-green-600 dark:text-green-400 bg-white dark:bg-card px-2 py-1 rounded shadow-sm border border-green-100 dark:border-green-900/30 animate-in fade-in slide-in-from-bottom-1">
+                        <span className="absolute -top-8 left-1/2 -translate-x-1/2 text-[10px] font-bold text-green-600 dark:text-green-400 bg-white dark:bg-slate-900 px-2 py-1 rounded shadow-sm border border-green-100 dark:border-green-900/30 animate-in fade-in slide-in-from-bottom-1">
                             Copied!
                         </span>
                     )}

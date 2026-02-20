@@ -177,7 +177,7 @@ export function ChatInbox({ topics, initConvos, userAddr }: Props) {
       {/* Left: Conversation List */}
       <div className="w-[360px] flex-shrink-0 flex flex-col">
         {/* Filter Bar */}
-        <div className="flex items-center gap-2 mb-3 p-2.5 bg-white dark:bg-card border border-slate-200 dark:border-border rounded-xl">
+        <div className="flex items-center gap-2 mb-3 p-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl">
           <SlidersHorizontal className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
           <select
             value={statusFilter}
@@ -208,7 +208,7 @@ export function ChatInbox({ topics, initConvos, userAddr }: Props) {
         <div className="flex-1 overflow-y-auto space-y-2 pr-1 scrollbar-thin">
           {filtered.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-center">
-              <div className="w-12 h-12 rounded-xl bg-slate-100 dark:bg-slate-800/40 flex items-center justify-center mb-3 border border-slate-200 dark:border-border">
+              <div className="w-12 h-12 rounded-xl bg-slate-100 dark:bg-slate-800/40 flex items-center justify-center mb-3 border border-slate-200 dark:border-slate-700">
                 <Inbox className="w-6 h-6 text-muted-foreground/40" />
               </div>
               <p className="text-sm font-medium text-muted-foreground mb-1">No conversations</p>
@@ -230,7 +230,7 @@ export function ChatInbox({ topics, initConvos, userAddr }: Props) {
                   className={`w-full text-left p-3.5 rounded-xl transition-all ${
                     isSel
                       ? 'bg-blue-500/10 border border-blue-500/25 shadow-sm shadow-blue-500/5'
-                      : 'bg-white dark:bg-card border border-slate-200 dark:border-border hover:bg-slate-50 dark:hover:bg-gray-100 dark:bg-slate-800/50 hover:border-slate-300 dark:hover:border-gray-200 dark:border-border'
+                      : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-gray-100 dark:bg-slate-800/50 hover:border-slate-300 dark:hover:border-gray-200 dark:border-slate-700'
                   }`}
                 >
                   <div className="flex items-start justify-between gap-2 mb-2">
@@ -278,13 +278,13 @@ export function ChatInbox({ topics, initConvos, userAddr }: Props) {
       </div>
 
       {/* Right: Conversation View */}
-      <div className="flex-1 border border-slate-200 dark:border-border rounded-2xl bg-white dark:bg-card/80 overflow-hidden flex flex-col">
+      <div className="flex-1 border border-slate-200 dark:border-slate-700 rounded-2xl bg-white dark:bg-slate-900/80 overflow-hidden flex flex-col">
         {showNew ? (
           <ChatTopicSelector topics={topics} onSelect={handleCreate} />
         ) : selectedConv ? (
           <>
             {/* Header */}
-            <div className="border-b border-slate-200 dark:border-border bg-slate-50 dark:bg-card p-4">
+            <div className="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 p-4">
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1 min-w-0">
                   <h2 className="text-lg font-bold mb-2 truncate">{selectedConv.subject}</h2>
@@ -311,7 +311,7 @@ export function ChatInbox({ topics, initConvos, userAddr }: Props) {
             )}
 
             {/* Reply */}
-            <div className="border-t border-slate-200 dark:border-border bg-slate-50 dark:bg-slate-950/40 p-3">
+            <div className="border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950/40 p-3">
               {canResolve && (
                 <div className="flex gap-2 mb-2">
                   <button
@@ -353,7 +353,7 @@ export function ChatInbox({ topics, initConvos, userAddr }: Props) {
           </>
         ) : (
           <div className="flex flex-col items-center justify-center h-full text-center">
-            <div className="w-16 h-16 rounded-2xl bg-slate-100 dark:bg-slate-800/40 flex items-center justify-center mb-4 border border-slate-200 dark:border-border">
+            <div className="w-16 h-16 rounded-2xl bg-slate-100 dark:bg-slate-800/40 flex items-center justify-center mb-4 border border-slate-200 dark:border-slate-700">
               <MessageCircle className="w-8 h-8 text-muted-foreground/20" />
             </div>
             <p className="text-sm font-medium text-muted-foreground mb-1">Select a conversation</p>

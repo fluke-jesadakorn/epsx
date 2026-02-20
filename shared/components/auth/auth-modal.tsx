@@ -3,6 +3,7 @@
 /**
  * SHARED AUTH MODAL COMPONENT
  * Premium 2-step auth modal: Connect Wallet -> Sign Message
+ * Includes Cloudflare Turnstile CAPTCHA verification
  */
 
 import type { Connector } from 'wagmi';
@@ -11,6 +12,8 @@ import { AuthStatusDisplay, ConnectStep, SignStep, SwitchChainStep } from './aut
 import './auth.css';
 import type { AuthResult } from './hooks/use-auth-modal-logic';
 import { useAuthModalLogic } from './hooks/use-auth-modal-logic';
+
+export type { AuthResult };
 
 export interface AuthModalProps {
     isOpen: boolean;
@@ -42,6 +45,10 @@ export function AuthModal({
         handleSign,
         handleRetry,
         handleDisconnect,
+        turnstileToken,
+        handleTurnstileSuccess,
+        handleTurnstileError,
+        handleTurnstileExpire,
     } = useAuthModalLogic({
         isOpen,
         variant,
@@ -56,11 +63,10 @@ export function AuthModal({
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
             <DialogContent
-                className="sm:max-w-[420px] p-0 gap-0 overflow-hidden border-white/20"
+                className="sm:max-w-[420px] p-0 gap-0 overflow-hidden"
                 showClose={false}
-                style={{ background: 'linear-gradient(135deg, rgba(30,30,40,0.95), rgba(20,20,30,0.9))' }}
             >
-                <div className={`auth-modal-inner ${variant === 'admin' ? 'auth-modal-admin' : ''}`}>
+                <div className={`auth-modal-inner ${variant === 'admin' ? 'auth-modal-admin' : ''}`} style={{ isolation: 'isolate' }}>
                     <div className="auth-modal-header">
                         <h2 className="auth-modal-title">{title}</h2>
                         <p className="auth-modal-subtitle">{subtitle}</p>
@@ -84,6 +90,10 @@ export function AuthModal({
                             handleRetry={handleRetry}
                             handleDisconnect={handleDisconnect}
                             variant={variant}
+                            turnstileToken={turnstileToken}
+                            onTurnstileSuccess={handleTurnstileSuccess}
+                            onTurnstileError={handleTurnstileError}
+                            onTurnstileExpire={handleTurnstileExpire}
                         />
                     </div>
 
@@ -116,6 +126,10 @@ interface AuthModalContentProps {
     handleRetry: () => void;
     handleDisconnect: () => void;
     variant: 'user' | 'admin';
+    turnstileToken: string | null;
+    onTurnstileSuccess: (token: string) => void;
+    onTurnstileError: () => void;
+    onTurnstileExpire: () => void;
 }
 
 /**
@@ -137,6 +151,10 @@ function AuthModalContent({
     handleRetry,
     handleDisconnect,
     variant,
+    turnstileToken,
+    onTurnstileSuccess,
+    onTurnstileError,
+    onTurnstileExpire,
 }: AuthModalContentProps) {
     if (step === 'connect') {
         return (
@@ -168,6 +186,10 @@ function AuthModalContent({
                 isSigning={isSigning}
                 isWalletClientLoading={isWalletClientLoading}
                 hasWalletClient={walletClient !== null && walletClient !== undefined}
+                turnstileToken={turnstileToken}
+                onTurnstileSuccess={onTurnstileSuccess}
+                onTurnstileError={onTurnstileError}
+                onTurnstileExpire={onTurnstileExpire}
             />
         );
     }

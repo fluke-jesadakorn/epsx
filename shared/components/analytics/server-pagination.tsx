@@ -45,7 +45,7 @@ export default function ServerPagination({
   if (totalPages <= 1) {return null;}
 
   return (
-    <div className="rounded-xl border border-gray-200 dark:border-white/[0.06] bg-white dark:bg-card backdrop-blur-sm p-4">
+    <div className="rounded-xl border border-gray-200 dark:border-white/[0.06] bg-white dark:bg-slate-900 backdrop-blur-sm p-4">
       {/* Results info */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mb-4">
         <span className="text-sm text-slate-400">

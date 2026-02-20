@@ -13,7 +13,7 @@ const PancakeCard = React.forwardRef<HTMLDivElement, React.ComponentProps<typeof
   ({ className, ...props }, ref) => (
     <SharedCard
       ref={ref}
-      className={cn("glass rounded-2xl border border-gray-200 dark:border-border bg-white dark:bg-white/[0.04] backdrop-blur-xl shadow-xl hover:shadow-2xl hover-lift", className)}
+      className={cn("glass rounded-2xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-white/[0.04] backdrop-blur-xl shadow-xl hover:shadow-2xl hover-lift", className)}
       {...props}
     />
   )

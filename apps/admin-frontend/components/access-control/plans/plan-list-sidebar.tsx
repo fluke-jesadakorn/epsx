@@ -156,7 +156,7 @@ export function PlanListSidebar({
                             placeholder="Search plans..."
                             value={planSearch}
                             onChange={(e) => setPlanSearch(e.target.value)}
-                            className="h-9 w-56 pl-9 text-sm bg-white dark:bg-white/[0.04] border-gray-200 dark:border-border rounded-lg"
+                            className="h-9 w-56 pl-9 text-sm bg-white dark:bg-white/[0.04] border-gray-200 dark:border-slate-700 rounded-lg"
                         />
                     </div>
                     <CreatePlanSheet
@@ -168,7 +168,7 @@ export function PlanListSidebar({
                     />
                 </div>
             </div>
-            <div className="divide-y divide-white/5 border border-gray-200 dark:border-border rounded-xl overflow-hidden">
+            <div className="divide-y divide-white/5 border border-gray-200 dark:border-slate-700 rounded-xl overflow-hidden">
                 {isSearchActive ? (
                     <>
                         {GROUP_ORDER.map((g) => {

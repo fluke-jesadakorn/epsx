@@ -9,6 +9,7 @@ interface UseSignMessageProps {
     address?: string;
     walletClient?: WalletClient | null;
     variant: 'user' | 'admin';
+    turnstileToken?: string | null;
     authenticateWithDirectApi: (user: {
         wallet_address: string;
         permissions: string[];
@@ -27,6 +28,7 @@ export function useSignMessage({
     address,
     walletClient,
     variant,
+    turnstileToken,
     authenticateWithDirectApi,
     onSuccess,
     onError,
@@ -47,6 +49,7 @@ export function useSignMessage({
                 address,
                 walletClient,
                 variant,
+                turnstileToken: turnstileToken ?? undefined,
                 loginAct: loginAction,
                 authenticateWithDirectApi
             });
@@ -62,7 +65,7 @@ export function useSignMessage({
         } finally {
             setIsSigning(false);
         }
-    }, [address, walletClient, variant, authenticateWithDirectApi, onSuccess, onError, onClose, setStep, setError]);
+    }, [address, walletClient, variant, turnstileToken, authenticateWithDirectApi, onSuccess, onError, onClose, setStep, setError]);
 
     return { handleSign, isSigning };
 }
@@ -71,6 +74,7 @@ interface VerifyAndLoginProps {
     address: string;
     walletClient: WalletClient;
     variant: 'user' | 'admin';
+    turnstileToken?: string;
     loginAct: (token: string, data: Record<string, unknown>) => Promise<{ success: boolean; error?: string }>;
     authenticateWithDirectApi: (user: {
         wallet_address: string;
@@ -88,11 +92,12 @@ async function verifyAndLogin({
     address,
     walletClient,
     variant,
+    turnstileToken,
     loginAct,
     authenticateWithDirectApi
 }: VerifyAndLoginProps) {
     // Server actions proxy requests through Next.js server (no direct browser→backend)
-    const challengeData = await challengeAction(address);
+    const challengeData = await challengeAction(address, turnstileToken);
 
     const signature = await walletClient.signMessage({
         message: challengeData.message,

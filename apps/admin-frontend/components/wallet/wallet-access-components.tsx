@@ -155,7 +155,7 @@ export function ItemCard({ item, onClick, isAuthorized, isSelected, onSelect, pe
                     isPendingRemove === true && 'border-dashed border-red-400 bg-red-50/50 dark:bg-red-900/10 opacity-60 blur-[0.5px]',
                     isPending === false && isAuthorized === true
                         ? 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-red-300 dark:hover:border-red-700'
-                        : isPending === false ? 'bg-white dark:bg-card/50 border-gray-200 dark:border-gray-800 hover:border-green-300 dark:hover:border-green-700' : ''
+                        : isPending === false ? 'bg-white dark:bg-slate-900/50 border-gray-200 dark:border-gray-800 hover:border-green-300 dark:hover:border-green-700' : ''
                 )}
             >
                 <ItemCardInfo
@@ -202,7 +202,7 @@ export const AvailableColumn = React.forwardRef<HTMLDivElement, AvailableColumnP
             onDragLeave={props.onDragLeave}
             onDrop={props.onDrop}
             className={cn(
-                'bg-gray-50 dark:bg-card/50 rounded-xl border border-gray-200 dark:border-gray-700 transition-all h-[500px] flex flex-col overflow-hidden',
+                'bg-gray-50 dark:bg-slate-900/50 rounded-xl border border-gray-200 dark:border-gray-700 transition-all h-[500px] flex flex-col overflow-hidden',
                 props.dragState.dropTarget === 'available' && props.dragState.dragSource === 'authorized' && 'ring-2 ring-inset ring-green-500/50 bg-green-50/20 dark:bg-green-900/10'
             )}
         >
@@ -299,7 +299,7 @@ export const AuthorizedColumn = React.forwardRef<HTMLDivElement, AuthorizedColum
             onDragLeave={props.onDragLeave}
             onDrop={props.onDrop}
             className={cn(
-                'bg-white dark:bg-card/50 rounded-xl border border-gray-200 dark:border-gray-700 transition-all h-[500px] flex flex-col overflow-hidden',
+                'bg-white dark:bg-slate-900/50 rounded-xl border border-gray-200 dark:border-gray-700 transition-all h-[500px] flex flex-col overflow-hidden',
                 props.dragState.dropTarget === 'authorized' && props.dragState.dragSource === 'available' && 'ring-2 ring-inset ring-blue-500/50 bg-blue-50/20 dark:bg-blue-900/10'
             )}
         >

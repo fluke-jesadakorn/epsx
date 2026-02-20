@@ -3,8 +3,9 @@
 
 use serde::{Serialize, Deserialize};
 use chrono::{DateTime, Utc, Duration};
-use std::collections::HashMap;
 use tracing::{warn, error, info};
+use std::sync::Arc;
+use crate::infrastructure::cache::Cache;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum SecurityEvent {
@@ -65,25 +66,34 @@ impl std::error::Error for SecurityError {}
 
 /// Real-time threat detection and security monitoring service
 pub struct ThreatDetectionService {
-    // In-memory cache for demo - in production use Redis
-    security_metrics: std::sync::RwLock<HashMap<String, SecurityMetrics>>,
-    blocked_users: std::sync::RwLock<HashMap<String, DateTime<Utc>>>,
+    cache: Option<Arc<dyn Cache>>,
 }
 
 impl Default for ThreatDetectionService {
     fn default() -> Self {
-        Self::new()
+        Self::new(None)
     }
 }
 
 impl ThreatDetectionService {
-    pub fn new() -> Self {
-        Self {
-            security_metrics: std::sync::RwLock::new(HashMap::new()),
-            blocked_users: std::sync::RwLock::new(HashMap::new()),
-        }
+    pub fn new(cache: Option<Arc<dyn Cache>>) -> Self {
+        Self { cache }
     }
     
+    // Key generators for Redis cache
+    fn metrics_key(wallet_address: &str) -> String {
+        format!("threat:metrics:{}", wallet_address)
+    }
+
+    fn block_key(wallet_address: &str) -> String {
+        format!("threat:blocked:{}", wallet_address)
+    }
+
+    /// Set the cache for global instance (called during app startup)
+    pub fn set_cache(&mut self, cache: Arc<dyn Cache>) {
+        self.cache = Some(cache);
+    }
+
     /// Analyze security event and determine threat level
     pub async fn analyze_security_event(
         &self,
@@ -107,14 +117,16 @@ impl ThreatDetectionService {
     
     /// Check if user is currently blocked
     pub fn check_user_blocked(&self, wallet_address: &str) -> Result<(), SecurityError> {
-        let blocked_users = self.blocked_users.read()
-            .expect("Security system: blocked_users lock poisoned - cannot verify user block status");
-        
-        if let Some(blocked_until) = blocked_users.get(wallet_address) {
-            if Utc::now() < *blocked_until {
-                return Err(SecurityError::BlockedUser(format!(
-                    "User {} blocked until {}", wallet_address, blocked_until
-                )));
+        if let Some(cache) = &self.cache {
+            let key = Self::block_key(wallet_address);
+            if let Some(blocked_until_str) = cache.get(&key) {
+                if let Ok(blocked_until) = serde_json::from_str::<DateTime<Utc>>(&blocked_until_str) {
+                    if Utc::now() < blocked_until {
+                        return Err(SecurityError::BlockedUser(format!(
+                            "User {} blocked until {}", wallet_address, blocked_until
+                        )));
+                    }
+                }
             }
         }
         
@@ -127,16 +139,23 @@ impl ThreatDetectionService {
         event: &SecurityEvent,
         context: &SecurityContext,
     ) -> Result<(), SecurityError> {
-        // Update security metrics
-        let mut metrics = self.security_metrics.write()
-            .expect("Security system: security_metrics lock poisoned - cannot log security event");
-        let user_metrics = metrics.entry(context.wallet_address.clone())
-            .or_insert_with(|| SecurityMetrics {
-                failed_attempts: 0,
-                last_failure: Utc::now(),
-                threat_level: 1,
-                blocked_until: None,
-            });
+        // Load existing metrics
+        let mut user_metrics = SecurityMetrics {
+            failed_attempts: 0,
+            last_failure: Utc::now(),
+            threat_level: 1,
+            blocked_until: None,
+        };
+
+        let metrics_key = Self::metrics_key(&context.wallet_address);
+
+        if let Some(cache) = &self.cache {
+            if let Some(metrics_str) = cache.get(&metrics_key) {
+                if let Ok(existing_metrics) = serde_json::from_str::<SecurityMetrics>(&metrics_str) {
+                    user_metrics = existing_metrics;
+                }
+            }
+        }
         
         match event {
             SecurityEvent::InvalidJwtAttempt |
@@ -146,6 +165,13 @@ impl ThreatDetectionService {
                 user_metrics.last_failure = Utc::now();
             },
             _ => {}
+        }
+        
+        // Save updated metrics (expire after 24 hours of inactivity)
+        if let Some(cache) = &self.cache {
+            if let Ok(serialized) = serde_json::to_string(&user_metrics) {
+                cache.set(&metrics_key, serialized, Some(86400)); // 24 hours
+            }
         }
         
         // Log to structured logging
@@ -197,9 +223,14 @@ impl ThreatDetectionService {
         event: &SecurityEvent,
         context: &SecurityContext,
     ) -> Result<ThreatLevel, SecurityError> {
-        let metrics = self.security_metrics.read()
-            .expect("Security system: security_metrics lock poisoned - cannot calculate threat level");
-        let user_metrics = metrics.get(&context.wallet_address);
+        let metrics_key = Self::metrics_key(&context.wallet_address);
+        let mut user_metrics = None;
+
+        if let Some(cache) = &self.cache {
+            if let Some(metrics_str) = cache.get(&metrics_key) {
+                user_metrics = serde_json::from_str::<SecurityMetrics>(&metrics_str).ok();
+            }
+        }
         
         let base_threat_level = match event {
             SecurityEvent::InvalidJwtAttempt => ThreatLevel::Low,
@@ -246,7 +277,6 @@ impl ThreatDetectionService {
                     wallet_address = %context.wallet_address,
                     "Medium threat level - increased monitoring"
                 );
-                // Could implement rate limiting here
             },
             ThreatLevel::High => {
                 error!(
@@ -275,9 +305,14 @@ impl ThreatDetectionService {
         duration: Duration,
     ) -> Result<(), SecurityError> {
         let blocked_until = Utc::now() + duration;
-        let mut blocked_users = self.blocked_users.write()
-            .expect("Security system: blocked_users lock poisoned - cannot apply restrictions");
-        blocked_users.insert(wallet_address.to_string(), blocked_until);
+        let block_key = Self::block_key(wallet_address);
+
+        if let Some(cache) = &self.cache {
+            if let Ok(serialized) = serde_json::to_string(&blocked_until) {
+                // Set TTL so Redis automatically clears the block
+                cache.set(&block_key, serialized, Some(duration.num_seconds() as u64));
+            }
+        }
         
         warn!(
             wallet_address = %wallet_address,
@@ -291,9 +326,13 @@ impl ThreatDetectionService {
     /// Block user for security violation
     async fn block_user(&self, wallet_address: &str, duration: Duration) -> Result<(), SecurityError> {
         let blocked_until = Utc::now() + duration;
-        let mut blocked_users = self.blocked_users.write()
-            .expect("Security system: blocked_users lock poisoned - cannot block user");
-        blocked_users.insert(wallet_address.to_string(), blocked_until);
+        let block_key = Self::block_key(wallet_address);
+
+        if let Some(cache) = &self.cache {
+            if let Ok(serialized) = serde_json::to_string(&blocked_until) {
+                cache.set(&block_key, serialized, Some(duration.num_seconds() as u64));
+            }
+        }
         
         error!(
             wallet_address = %wallet_address,
@@ -301,47 +340,57 @@ impl ThreatDetectionService {
             "User blocked due to critical security violation"
         );
         
-        // In production: send alert to security team
-        // self.send_security_alert(wallet_address, "User blocked due to critical security violation").await?;
-        
         Ok(())
     }
     
     /// Get security summary for user
     pub fn get_security_summary(&self, wallet_address: &str) -> Option<SecuritySummary> {
-        let metrics = self.security_metrics.read()
-            .expect("Security system: security_metrics lock poisoned - cannot get security summary");
-        let blocked_users = self.blocked_users.read()
-            .expect("Security system: blocked_users lock poisoned - cannot get security summary");
+        let block_key = Self::block_key(wallet_address);
+        let metrics_key = Self::metrics_key(wallet_address);
+
+        if let Some(cache) = &self.cache {
+            let user_metrics = cache.get(&metrics_key)
+                .and_then(|data| serde_json::from_str::<SecurityMetrics>(&data).ok());
+            
+            let blocked_until = cache.get(&block_key)
+                .and_then(|data| serde_json::from_str::<DateTime<Utc>>(&data).ok());
+
+            if user_metrics.is_none() && blocked_until.is_none() {
+                return None;
+            }
+
+            let metrics = user_metrics.unwrap_or_else(|| SecurityMetrics {
+                failed_attempts: 0,
+                last_failure: Utc::now(),
+                threat_level: 1,
+                blocked_until: None,
+            });
+
+            return Some(SecuritySummary {
+                wallet_address: wallet_address.to_string(),
+                failed_attempts: metrics.failed_attempts,
+                last_failure: metrics.last_failure,
+                threat_level: match metrics.threat_level {
+                    1 => ThreatLevel::Low,
+                    2 => ThreatLevel::Medium,
+                    3 => ThreatLevel::High,
+                    4 => ThreatLevel::Critical,
+                    _ => ThreatLevel::Low,
+                },
+                blocked_until,
+                is_blocked: blocked_until.is_some_and(|until| Utc::now() < until),
+            });
+        }
         
-        let user_metrics = metrics.get(wallet_address)?;
-        let blocked_until = blocked_users.get(wallet_address).copied();
-        
-        Some(SecuritySummary {
-            wallet_address: wallet_address.to_string(),
-            failed_attempts: user_metrics.failed_attempts,
-            last_failure: user_metrics.last_failure,
-            threat_level: match user_metrics.threat_level {
-                1 => ThreatLevel::Low,
-                2 => ThreatLevel::Medium,
-                3 => ThreatLevel::High,
-                4 => ThreatLevel::Critical,
-                _ => ThreatLevel::Low,
-            },
-            blocked_until,
-            is_blocked: blocked_until.is_some_and(|until| Utc::now() < until),
-        })
+        None
     }
     
     /// Reset security metrics for user (admin function)
     pub fn reset_user_security(&self, wallet_address: &str) {
-        let mut metrics = self.security_metrics.write()
-            .expect("Security system: security_metrics lock poisoned - cannot reset user security");
-        let mut blocked_users = self.blocked_users.write()
-            .expect("Security system: blocked_users lock poisoned - cannot reset user security");
-        
-        metrics.remove(wallet_address);
-        blocked_users.remove(wallet_address);
+        if let Some(cache) = &self.cache {
+            cache.delete(&Self::metrics_key(wallet_address));
+            cache.delete(&Self::block_key(wallet_address));
+        }
         
         info!(
             wallet_address = %wallet_address,
@@ -349,23 +398,9 @@ impl ThreatDetectionService {
         );
     }
     
-    /// Clean up expired blocks and old metrics
+    /// Clean up expired blocks and old metrics (now handled automatically by Redis TTL)
     pub async fn cleanup_expired_data(&self) {
-        let now = Utc::now();
-
-        // Remove expired blocks
-        let mut blocked_users = self.blocked_users.write()
-            .expect("Security system: blocked_users lock poisoned - cannot cleanup expired data");
-        blocked_users.retain(|_, blocked_until| now < *blocked_until);
-
-        // Clean up old metrics (older than 24 hours)
-        let mut metrics = self.security_metrics.write()
-            .expect("Security system: security_metrics lock poisoned - cannot cleanup expired data");
-        metrics.retain(|_, user_metrics| {
-            now.signed_duration_since(user_metrics.last_failure) < Duration::hours(24)
-        });
-        
-        info!("Cleaned up expired security data");
+        info!("Cleanup now handled by Redis TTL expiration");
     }
 }
 
@@ -379,22 +414,39 @@ pub struct SecuritySummary {
     pub is_blocked: bool,
 }
 
-// Singleton pattern for global threat detection service
-use std::sync::OnceLock;
-static THREAT_DETECTION: OnceLock<ThreatDetectionService> = OnceLock::new();
+// Global threat detection service logic
+use std::sync::RwLock;
+static THREAT_DETECTION: RwLock<Option<Arc<ThreatDetectionService>>> = RwLock::new(None);
 
 /// Get global threat detection service instance
-pub fn get_threat_detection_service() -> &'static ThreatDetectionService {
-    THREAT_DETECTION.get_or_init(ThreatDetectionService::new)
+pub fn get_threat_detection_service() -> Arc<ThreatDetectionService> {
+    let instance = THREAT_DETECTION.read().unwrap();
+    if instance.is_none() {
+        drop(instance);
+        let mut write_instance = THREAT_DETECTION.write().unwrap();
+        if write_instance.is_none() {
+            *write_instance = Some(Arc::new(ThreatDetectionService::new(None)));
+        }
+        return write_instance.as_ref().unwrap().clone();
+    }
+    instance.as_ref().unwrap().clone()
+}
+
+pub fn initialize_global_threat_detection(cache: Arc<dyn Cache>) {
+    let mut write_instance = THREAT_DETECTION.write().unwrap();
+    *write_instance = Some(Arc::new(ThreatDetectionService::new(Some(cache))));
+    info!("Initialized global threat detection service with cache");
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::infrastructure::cache::memory_cache::MemoryCache;
     
     #[tokio::test]
     async fn test_threat_escalation() {
-        let service = ThreatDetectionService::new();
+        let cache = Arc::new(MemoryCache::new());
+        let service = ThreatDetectionService::new(Some(cache));
         let context = SecurityContext {
             wallet_address: "test_user".to_string(),
             ip_address: Some("192.168.1.1".to_string()),
@@ -429,7 +481,8 @@ mod tests {
     
     #[tokio::test]
     async fn test_user_blocking() {
-        let service = ThreatDetectionService::new();
+        let cache = Arc::new(MemoryCache::new());
+        let service = ThreatDetectionService::new(Some(cache));
         let context = SecurityContext {
             wallet_address: "blocked_user".to_string(),
             ip_address: Some("192.168.1.1".to_string()),

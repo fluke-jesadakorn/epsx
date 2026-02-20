@@ -97,7 +97,7 @@ export function SymbolCard({
 
   return (
     <div
-      className={`mx-auto w-full max-w-sm touch-manipulation overflow-hidden rounded-3xl border-2 border-transparent bg-white shadow-2xl shadow-pink-500/20 transition-all duration-300 dark:bg-card dark:shadow-cyan-500/20 ${
+      className={`mx-auto w-full max-w-sm touch-manipulation overflow-hidden rounded-3xl border-2 border-transparent bg-white shadow-2xl shadow-pink-500/20 transition-all duration-300 dark:bg-slate-900 dark:shadow-cyan-500/20 ${
         isOverlay
           ? 'scale-105 cursor-grabbing shadow-2xl'
           : 'hover:border-pink-200 dark:hover:border-cyan-400/50'
@@ -155,7 +155,7 @@ export function SymbolCard({
       </div>
 
       {latestQuarter ? (
-        <div className="bg-white py-6 text-center dark:bg-card">
+        <div className="bg-white py-6 text-center dark:bg-slate-900">
           <div
             className={`inline-flex items-center gap-2 rounded-2xl px-4 py-2 shadow-lg ${
               latestQuarter.eps_growth >= 0
@@ -173,11 +173,11 @@ export function SymbolCard({
         </div>
       ) : null}
 
-      <div className="bg-white px-6 dark:bg-card">
+      <div className="bg-white px-6 dark:bg-slate-900">
         <div className="border-t-2 border-dashed border-pink-200 dark:border-cyan-400/30" />
       </div>
 
-      <div className="space-y-4 bg-white px-6 pt-6 pb-6 dark:bg-card">
+      <div className="space-y-4 bg-white px-6 pt-6 pb-6 dark:bg-slate-900">
         {quarters.length >= 2 && (
           <>
             <div className="rounded-2xl border border-purple-200/50 bg-gradient-to-r from-purple-50 to-pink-50 p-4 dark:border-cyan-400/20 dark:from-slate-800 dark:to-slate-700">

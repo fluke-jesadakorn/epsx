@@ -3,9 +3,23 @@
    Premium glassmorphism design for auth modal and components
    ============================================================================ */
 
-/* Enforce dark mode for admin modal regardless of system preference */
+/* Light mode base */
+.auth-modal-inner {
+  background: #ffffff;
+}
+
 .auth-modal-admin {
-  background: linear-gradient(135deg, rgba(30, 30, 40, 0.95), rgba(20, 20, 30, 0.9)) !important;
+  background: #ffffff !important;
+  border-color: rgba(0, 0, 0, 0.08) !important;
+}
+
+/* Dark mode overrides */
+.dark .auth-modal-inner {
+  background: rgb(25, 25, 35);
+}
+
+.dark .auth-modal-admin {
+  background: linear-gradient(135deg, rgb(30, 30, 40), rgb(20, 20, 30)) !important;
   border-color: rgba(255, 255, 255, 0.1) !important;
 }
 
@@ -14,14 +28,18 @@
   position: relative;
   padding: 1.5rem 2rem 1rem;
   text-align: center;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.dark .auth-modal-header {
+  border-bottom-color: rgba(255, 255, 255, 0.1);
 }
 
 .auth-modal-title {
   margin: 0 0 0.25rem;
   font-size: 1.5rem;
   font-weight: 700;
-  background: linear-gradient(135deg, #f59e0b, #ec4899);
+  background: linear-gradient(135deg, #8B5CF6, #F97316);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -30,6 +48,10 @@
 .auth-modal-subtitle {
   margin: 0;
   font-size: 0.875rem;
+  color: rgba(0, 0, 0, 0.5);
+}
+
+.dark .auth-modal-subtitle {
   color: rgba(255, 255, 255, 0.6);
 }
 
@@ -42,14 +64,24 @@
   padding: 0;
   border: none;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.1);
-  color: rgba(255, 255, 255, 0.6);
+  background: rgba(0, 0, 0, 0.08);
+  color: rgba(0, 0, 0, 0.5);
   font-size: 1.25rem;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .auth-modal-close:hover {
+  background: rgba(0, 0, 0, 0.14);
+  color: #000;
+}
+
+.dark .auth-modal-close {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.dark .auth-modal-close:hover {
   background: rgba(255, 255, 255, 0.2);
   color: #fff;
 }
@@ -80,8 +112,8 @@
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  background: rgba(245, 158, 11, 0.2);
-  color: #f59e0b;
+  background: rgba(139, 92, 246, 0.2);
+  color: #8B5CF6;
   font-size: 0.875rem;
   font-weight: 600;
 }
@@ -94,14 +126,22 @@
 .auth-step-label {
   font-size: 1rem;
   font-weight: 600;
+  color: #111827;
+}
+
+.dark .auth-step-label {
   color: #fff;
 }
 
 .auth-step-desc {
   margin: 0.5rem 0 1rem;
   font-size: 0.875rem;
-  color: rgba(255, 255, 255, 0.6);
+  color: rgba(0, 0, 0, 0.5);
   line-height: 1.5;
+}
+
+.dark .auth-step-desc {
+  color: rgba(255, 255, 255, 0.6);
 }
 
 /* Wallet Address Display */
@@ -112,7 +152,7 @@
   border-radius: 8px;
   font-family: monospace;
   font-size: 0.875rem;
-  color: #f59e0b;
+  color: #8B5CF6;
   text-align: center;
 }
 
@@ -129,18 +169,24 @@
   gap: 1rem;
   width: 100%;
   padding: 1rem 1.25rem;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.05);
-  color: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 16px;
+  background: rgba(0, 0, 0, 0.03);
+  color: #111827;
   font-size: 1rem;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
+.dark .auth-wallet-btn {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.05);
+  color: #fff;
+}
+
 .auth-wallet-btn:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(245, 158, 11, 0.5);
+  border-color: rgba(139, 92, 246, 0.5);
   transform: translateY(-2px);
 }
 
@@ -166,8 +212,8 @@
   width: 100%;
   padding: 1rem 1.5rem;
   border: none;
-  border-radius: 12px;
-  background: linear-gradient(135deg, #f59e0b, #ec4899);
+  border-radius: 16px;
+  background: linear-gradient(135deg, #8B5CF6, #F97316);
   color: #fff;
   font-size: 1rem;
   font-weight: 600;
@@ -177,7 +223,7 @@
 
 .auth-btn-primary:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 10px 20px rgba(245, 158, 11, 0.3);
+  box-shadow: 0 10px 20px rgba(139, 92, 246, 0.3);
 }
 
 .auth-btn-primary:disabled {
@@ -194,13 +240,22 @@
   border: none;
   border-radius: 8px;
   background: transparent;
-  color: rgba(255, 255, 255, 0.6);
+  color: rgba(0, 0, 0, 0.5);
   font-size: 0.875rem;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .auth-btn-secondary:hover {
+  color: #111827;
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.dark .auth-btn-secondary {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.dark .auth-btn-secondary:hover {
   color: #fff;
   background: rgba(255, 255, 255, 0.05);
 }
@@ -217,6 +272,10 @@
 
 .auth-loading p {
   margin-top: 1rem;
+  color: rgba(0, 0, 0, 0.5);
+}
+
+.dark .auth-loading p {
   color: rgba(255, 255, 255, 0.6);
 }
 
@@ -225,18 +284,23 @@
   display: inline-block;
   width: 16px;
   height: 16px;
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  border-top-color: #fff;
+  border: 2px solid rgba(0, 0, 0, 0.2);
+  border-top-color: #111827;
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
+}
+
+.dark .auth-spinner {
+  border-color: rgba(255, 255, 255, 0.3);
+  border-top-color: #fff;
 }
 
 .auth-spinner-large {
   width: 40px;
   height: 40px;
   border-width: 3px;
-  border-color: rgba(245, 158, 11, 0.3);
-  border-top-color: #f59e0b;
+  border-color: rgba(139, 92, 246, 0.3);
+  border-top-color: #8B5CF6;
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
@@ -264,6 +328,10 @@
 
 .auth-success p {
   margin: 0;
+  color: rgba(0, 0, 0, 0.5);
+}
+
+.dark .auth-success p {
   color: rgba(255, 255, 255, 0.6);
 }
 
@@ -300,13 +368,21 @@
 /* Modal Footer */
 .auth-modal-footer {
   padding: 1rem 2rem 1.5rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
   text-align: center;
+}
+
+.dark .auth-modal-footer {
+  border-top-color: rgba(255, 255, 255, 0.1);
 }
 
 .auth-footer-text {
   margin: 0;
   font-size: 0.75rem;
+  color: rgba(0, 0, 0, 0.4);
+}
+
+.dark .auth-footer-text {
   color: rgba(255, 255, 255, 0.4);
 }
 
@@ -347,18 +423,24 @@
   align-items: center;
   gap: 0.5rem;
   padding: 0.5rem 1rem;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(0, 0, 0, 0.15);
   border-radius: 9999px;
-  background: rgba(255, 255, 255, 0.05);
-  color: #fff;
+  background: rgba(0, 0, 0, 0.04);
+  color: #111827;
   font-size: 0.875rem;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
+.dark .auth-status-btn {
+  border-color: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.05);
+  color: #fff;
+}
+
 .auth-status-btn:hover {
   background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(245, 158, 11, 0.5);
+  border-color: rgba(139, 92, 246, 0.5);
 }
 
 .auth-status-dot {

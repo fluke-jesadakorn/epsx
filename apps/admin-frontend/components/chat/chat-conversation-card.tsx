@@ -45,7 +45,7 @@ export function ChatConversationCard({ conv, topics, selected, onClick }: Props)
       className={`w-full text-left p-3.5 rounded-xl transition-all ${
         selected
           ? 'bg-violet-500/10 border border-violet-500/25 shadow-sm shadow-violet-500/5'
-          : 'bg-white dark:bg-card border border-gray-200 dark:border-border hover:bg-gray-100 dark:hover:bg-white/5 hover:border-gray-200 dark:border-border'
+          : 'bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 hover:bg-gray-100 dark:hover:bg-white/5 hover:border-gray-200 dark:border-slate-700'
       }`}
     >
       {/* Subject + unread */}

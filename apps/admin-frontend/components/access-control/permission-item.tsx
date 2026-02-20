@@ -37,7 +37,7 @@ export function PermissionItem({
     return (
         <div
             className={cn(
-                'group flex items-start gap-3 px-3 py-2 border-b border-gray-200 dark:border-border last:border-b-0',
+                'group flex items-start gap-3 px-3 py-2 border-b border-gray-200 dark:border-slate-700 last:border-b-0',
                 'terminal-hover cursor-pointer select-none',
                 isSelected && 'bg-cyan-500/10'
             )}

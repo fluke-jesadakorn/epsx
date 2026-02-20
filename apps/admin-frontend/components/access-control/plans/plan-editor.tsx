@@ -80,9 +80,9 @@ export function PlanEditor({
     return (
         <div className="h-full flex flex-col overflow-hidden">
             {/* Stats bar */}
-            <div className="px-4 sm:px-8 py-4 border-b border-gray-200 dark:border-border shrink-0">
+            <div className="px-4 sm:px-8 py-4 border-b border-gray-200 dark:border-slate-700 shrink-0">
                 <div className="flex flex-wrap gap-3">
-                    <div className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.03] border border-gray-200 dark:border-border">
+                    <div className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.03] border border-gray-200 dark:border-slate-700">
                         <div className="h-9 w-9 rounded-lg bg-[#1fc7d4]/10 flex items-center justify-center shrink-0">
                             <Users className="w-4 h-4 text-[#1fc7d4]" />
                         </div>
@@ -91,7 +91,7 @@ export function PlanEditor({
                             <p className="text-[11px] text-muted-foreground">Members</p>
                         </div>
                     </div>
-                    <div className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.03] border border-gray-200 dark:border-border">
+                    <div className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.03] border border-gray-200 dark:border-slate-700">
                         <div className="h-9 w-9 rounded-lg bg-amber-500/10 flex items-center justify-center shrink-0">
                             <Hash className="w-4 h-4 text-amber-400" />
                         </div>
@@ -101,7 +101,7 @@ export function PlanEditor({
                         </div>
                     </div>
                     {selectedPlan.created_at != null && (
-                        <div className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.03] border border-gray-200 dark:border-border">
+                        <div className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.03] border border-gray-200 dark:border-slate-700">
                             <div className="h-9 w-9 rounded-lg bg-blue-500/10 flex items-center justify-center shrink-0">
                                 <Calendar className="w-4 h-4 text-blue-400" />
                             </div>
@@ -112,7 +112,7 @@ export function PlanEditor({
                         </div>
                     )}
                     {selectedPlan.updated_at != null && (
-                        <div className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.03] border border-gray-200 dark:border-border">
+                        <div className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.03] border border-gray-200 dark:border-slate-700">
                             <div className="h-9 w-9 rounded-lg bg-purple-500/10 flex items-center justify-center shrink-0">
                                 <Clock className="w-4 h-4 text-purple-400" />
                             </div>
@@ -139,7 +139,7 @@ export function PlanEditor({
                                 setForm((p) => ({ ...p, name: e.target.value }));
                                 setHasChanges(true);
                             }}
-                            className="bg-white dark:bg-white/[0.04] border-gray-200 dark:border-border"
+                            className="bg-white dark:bg-white/[0.04] border-gray-200 dark:border-slate-700"
                             disabled={isSys}
                         />
                     </div>
@@ -151,7 +151,7 @@ export function PlanEditor({
                                 setForm((p) => ({ ...p, description: e.target.value }));
                                 setHasChanges(true);
                             }}
-                            className="bg-white dark:bg-white/[0.04] border-gray-200 dark:border-border min-h-[80px] resize-y"
+                            className="bg-white dark:bg-white/[0.04] border-gray-200 dark:border-slate-700 min-h-[80px] resize-y"
                             rows={3}
                         />
                     </div>
@@ -165,7 +165,7 @@ export function PlanEditor({
                             }}
                             disabled={isSys}
                         >
-                            <SelectTrigger className="bg-white dark:bg-white/[0.04] border-gray-200 dark:border-border">
+                            <SelectTrigger className="bg-white dark:bg-white/[0.04] border-gray-200 dark:border-slate-700">
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -189,7 +189,7 @@ export function PlanEditor({
                             }}
                             disabled={isSys}
                         >
-                            <SelectTrigger className="bg-white dark:bg-white/[0.04] border-gray-200 dark:border-border">
+                            <SelectTrigger className="bg-white dark:bg-white/[0.04] border-gray-200 dark:border-slate-700">
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -229,7 +229,7 @@ export function PlanEditor({
                                 }
                                 setHasChanges(true);
                             }}
-                            className="bg-white dark:bg-white/[0.04] border-gray-200 dark:border-border"
+                            className="bg-white dark:bg-white/[0.04] border-gray-200 dark:border-slate-700"
                         />
                     </div>
                     <div className="space-y-2">
@@ -255,7 +255,7 @@ export function PlanEditor({
                                 }
                                 setHasChanges(true);
                             }}
-                            className="bg-white dark:bg-white/[0.04] border-gray-200 dark:border-border"
+                            className="bg-white dark:bg-white/[0.04] border-gray-200 dark:border-slate-700"
                             disabled={isLocked}
                         />
                     </div>
@@ -283,7 +283,7 @@ export function PlanEditor({
                                 }
                                 setHasChanges(true);
                             }}
-                            className="bg-white dark:bg-white/[0.04] border-gray-200 dark:border-border"
+                            className="bg-white dark:bg-white/[0.04] border-gray-200 dark:border-slate-700"
                             placeholder="-1 for permanent"
                         />
                     </div>
@@ -311,7 +311,7 @@ export function PlanEditor({
                                 }
                                 setHasChanges(true);
                             }}
-                            className="bg-white dark:bg-white/[0.04] border-gray-200 dark:border-border"
+                            className="bg-white dark:bg-white/[0.04] border-gray-200 dark:border-slate-700"
                             placeholder="0"
                         />
                     </div>
@@ -320,7 +320,7 @@ export function PlanEditor({
                 {/* Status */}
                 <SectionHeader>Status</SectionHeader>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-                    <div className="flex items-center justify-between p-4 rounded-lg bg-white dark:bg-white/[0.04] border border-gray-200 dark:border-border">
+                    <div className="flex items-center justify-between p-4 rounded-lg bg-white dark:bg-white/[0.04] border border-gray-200 dark:border-slate-700">
                         <div className="flex flex-col">
                             <span className="text-sm font-medium text-foreground/80 dark:text-white/80">Public Visibility</span>
                             <span className="text-xs text-white/40">Show on pricing page</span>
@@ -339,13 +339,13 @@ export function PlanEditor({
                                 </div>
                             </TooltipTrigger>
                             {isLocked && (
-                                <TooltipContent side="left" className="bg-white dark:bg-card border-gray-200 dark:border-border text-white max-w-[200px]">
+                                <TooltipContent side="left" className="bg-white dark:bg-slate-900 border-gray-200 dark:border-slate-700 text-white max-w-[200px]">
                                     <p className="text-xs">System plan visibility cannot be changed</p>
                                 </TooltipContent>
                             )}
                         </Tooltip>
                     </div>
-                    <div className="flex items-center justify-between p-4 rounded-lg bg-white dark:bg-white/[0.04] border border-gray-200 dark:border-border">
+                    <div className="flex items-center justify-between p-4 rounded-lg bg-white dark:bg-white/[0.04] border border-gray-200 dark:border-slate-700">
                         <div className="flex flex-col">
                             <span className="text-sm font-medium text-foreground/80 dark:text-white/80">Active Status</span>
                             <span className="text-xs text-white/40">Plan assignments allowed</span>
@@ -364,7 +364,7 @@ export function PlanEditor({
                                 </div>
                             </TooltipTrigger>
                             {isLocked && (
-                                <TooltipContent side="left" className="bg-white dark:bg-card border-gray-200 dark:border-border text-white max-w-[200px]">
+                                <TooltipContent side="left" className="bg-white dark:bg-slate-900 border-gray-200 dark:border-slate-700 text-white max-w-[200px]">
                                     <p className="text-xs">System plan status cannot be changed</p>
                                 </TooltipContent>
                             )}
@@ -396,7 +396,7 @@ export function PlanEditor({
                                         }));
                                         setHasChanges(true);
                                     }}
-                                    className="bg-white dark:bg-white/[0.04] border-gray-200 dark:border-border"
+                                    className="bg-white dark:bg-white/[0.04] border-gray-200 dark:border-slate-700"
                                 />
                             </div>
                         );
@@ -409,7 +409,7 @@ export function PlanEditor({
                     {booleanFeatures.map((fp) => {
                         const val = getFeatureValue(form.permissions, fp.prefix);
                         return (
-                            <div key={fp.prefix} className="flex items-center justify-between p-3 rounded-lg bg-white dark:bg-white/[0.04] border border-gray-200 dark:border-border">
+                            <div key={fp.prefix} className="flex items-center justify-between p-3 rounded-lg bg-white dark:bg-white/[0.04] border border-gray-200 dark:border-slate-700">
                                 <Label className="flex items-center gap-2 text-sm">
                                     {fp.label}
                                     {fp.tooltip != null && <TooltipIcon text={fp.tooltip} />}
@@ -442,7 +442,7 @@ export function PlanEditor({
                             setForm((p) => ({ ...p, features: list }));
                             setHasChanges(true);
                         }}
-                        className="bg-white dark:bg-white/[0.04] border-gray-200 dark:border-border min-h-[100px] font-mono text-sm"
+                        className="bg-white dark:bg-white/[0.04] border-gray-200 dark:border-slate-700 min-h-[100px] font-mono text-sm"
                         placeholder={'Advanced analytics\nUnlimited stock analysis\nPriority support'}
                     />
                 </div>
@@ -476,7 +476,7 @@ function TooltipIcon({ text }: { text: string }) {
                     <span className="text-[10px] font-bold text-[#1fc7d4]">?</span>
                 </div>
             </TooltipTrigger>
-            <TooltipContent side="right" className="bg-white dark:bg-card border-gray-200 dark:border-border text-white max-w-[200px]">
+            <TooltipContent side="right" className="bg-white dark:bg-slate-900 border-gray-200 dark:border-slate-700 text-white max-w-[200px]">
                 <p className="text-xs">{text}</p>
             </TooltipContent>
         </Tooltip>
@@ -493,7 +493,7 @@ function EmptyState({
     description: string;
 }) {
     return (
-        <div className="h-full flex flex-col items-center justify-center border border-dashed border-gray-200 dark:border-border rounded-[32px] bg-white/60 dark:bg-card/60 text-slate-500 p-8 text-center">
+        <div className="h-full flex flex-col items-center justify-center border border-dashed border-gray-200 dark:border-slate-700 rounded-[32px] bg-white/60 dark:bg-slate-900/60 text-slate-500 p-8 text-center">
             <div className="h-20 w-20 rounded-full bg-white dark:bg-white/[0.04] flex items-center justify-center mb-6">
                 <Icon className="h-10 w-10 opacity-30" />
             </div>

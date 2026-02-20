@@ -84,10 +84,10 @@ export type SSENotificationValidated = z.infer<typeof SSENotificationSchema>
 // ============================================================================
 
 export const NotificationFiltersSchema = z.object({
-  page: z.number().int().positive().optional(),
+  page: z.number().multipleOf(1).positive().optional(),
   limit: z
     .number()
-    .int()
+    .multipleOf(1)
     .positive()
     .max(MAX_FETCH_LIMIT, `Limit cannot exceed ${MAX_FETCH_LIMIT}`)
     .optional(),
@@ -109,11 +109,11 @@ export const NotificationsResponseSchema = z.object({
   success: z.boolean(),
   data: z.object({
     notifications: z.array(NotificationSchema),
-    total_count: z.number().int().nonnegative(),
-    unread_count: z.number().int().nonnegative(),
-    page: z.number().int().positive(),
-    limit: z.number().int().positive(),
-    total_pages: z.number().int().nonnegative(),
+    total_count: z.number().multipleOf(1).nonnegative(),
+    unread_count: z.number().multipleOf(1).nonnegative(),
+    page: z.number().multipleOf(1).positive(),
+    limit: z.number().multipleOf(1).positive(),
+    total_pages: z.number().multipleOf(1).nonnegative(),
   }),
   api_version: z.string().optional(),
   access_level: z.string().optional(),
@@ -155,7 +155,7 @@ export const SendNotificationResponseSchema = z.object({
   success: z.boolean(),
   data: z.object({
     notification_id: z.string().uuid(),
-    recipients_count: z.number().int().nonnegative(),
+    recipients_count: z.number().multipleOf(1).nonnegative(),
     scheduled: z.boolean(),
     delivery_status: z.enum(['sent', 'scheduled', 'failed']),
   }),

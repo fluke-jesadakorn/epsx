@@ -61,7 +61,7 @@ export function DeletePlanDialog({
                             value={deleteConfirmationInput}
                             onChange={(e) => setDeleteConfirmationInput(e.target.value)}
                             placeholder="Type plan name"
-                            className="bg-white dark:bg-white/[0.04] border-gray-200 dark:border-border text-white placeholder:text-white/20"
+                            className="bg-white dark:bg-white/[0.04] border-gray-200 dark:border-slate-700 text-white placeholder:text-white/20"
                         />
                     </div>
                 </DialogHeader>

@@ -49,7 +49,7 @@ export function Header({ user }: HeaderProps) {
 
   if (!mounted) {
     return (
-      <header className="sticky top-0 z-40 border-b border-gray-200 dark:border-border bg-white/80 dark:bg-[#13151e] backdrop-blur-xl">
+      <header className="sticky top-0 z-40 border-b border-gray-200 dark:border-slate-700 bg-white/80 dark:bg-[#13151e] backdrop-blur-xl">
         <div className="flex h-14 items-center justify-between px-4 gap-3">
           <div className="flex items-center gap-2 min-w-0">
             <span className="text-lg font-semibold text-foreground whitespace-nowrap">EPSX</span>
@@ -62,7 +62,7 @@ export function Header({ user }: HeaderProps) {
   }
 
   return (
-    <header className="sticky top-0 z-40 border-b border-gray-200 dark:border-border bg-white dark:bg-[#13151e]">
+    <header className="sticky top-0 z-40 border-b border-gray-200 dark:border-slate-700 bg-white dark:bg-[#13151e]">
       <div className="flex h-16 items-center justify-between px-6 gap-3">
         {/* Logo / Title */}
         <div className="flex items-center gap-2 min-w-0 flex-shrink">

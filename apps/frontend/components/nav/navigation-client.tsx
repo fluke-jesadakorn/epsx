@@ -24,16 +24,10 @@ export function NavigationClient() {
 function NavContent() {
   const pathname = usePathname();
   const { isHydrated } = useNavbarContext();
-  const { isConnected, address } = useAccount();
-  const { isAuthenticated, isLoading, user } = useSharedAuth();
+  const { isConnected } = useAccount();
+  const { isAuthenticated, isLoading } = useSharedAuth();
 
-  const fullyAuth =
-    isConnected &&
-    isAuthenticated &&
-    !isLoading &&
-    address != null &&
-    user?.wallet_address != null &&
-    address.toLowerCase() === user.wallet_address.toLowerCase();
+  const fullyAuth = isConnected && isAuthenticated && !isLoading;
 
   // Skeleton during hydration
   if (!isHydrated) {

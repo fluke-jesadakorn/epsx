@@ -28,12 +28,12 @@ export const StatsCard: React.FC<StatsCardProps> = ({
     iconColor,
 }) => {
     return (
-        <div className="relative group overflow-hidden rounded-[32px] bg-white dark:bg-card backdrop-blur-2xl border border-gray-200 dark:border-border p-6 shadow-xl transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]">
+        <div className="relative group overflow-hidden rounded-[32px] bg-white dark:bg-slate-900 backdrop-blur-2xl border border-gray-200 dark:border-slate-700 p-6 shadow-xl transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]">
             {/* Background Glow */}
             <div className={`absolute -right-4 -bottom-4 w-24 h-24 blur-3xl opacity-10 group-hover:opacity-20 transition-opacity rounded-full ${iconBgColor}`} />
 
             <div className="relative flex items-center">
-                <div className={`flex items-center justify-center w-12 h-12 rounded-[20px] bg-white dark:bg-white/[0.04] border border-gray-200 dark:border-border shadow-inner transition-transform duration-300 group-hover:rotate-6`}>
+                <div className={`flex items-center justify-center w-12 h-12 rounded-[20px] bg-white dark:bg-white/[0.04] border border-gray-200 dark:border-slate-700 shadow-inner transition-transform duration-300 group-hover:rotate-6`}>
                     <Icon className={`w-6 h-6 ${iconColor}`} />
                 </div>
                 <div className="ml-5">

@@ -227,7 +227,7 @@ export function MobileSidebar({
 }) {
     return (
         <div
-            className="lg:hidden fixed left-0 w-72 max-w-[85vw] bg-white dark:bg-card border-r border-gray-200 dark:border-gray-700 flex flex-col transition-transform duration-300 ease-in-out shadow-2xl"
+            className="lg:hidden fixed left-0 w-72 max-w-[85vw] bg-white dark:bg-slate-900 border-r border-gray-200 dark:border-gray-700 flex flex-col transition-transform duration-300 ease-in-out shadow-2xl"
             style={{
                 top: 0,
                 bottom: 0,

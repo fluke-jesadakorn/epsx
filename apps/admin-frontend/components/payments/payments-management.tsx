@@ -240,7 +240,7 @@ export function PaymentsManagement() {
             <div className="relative max-w-7xl mx-auto">
                 {/* Hero Section */}
                 <div className="text-center mb-12">
-                    <div className="inline-flex p-4 bg-white dark:bg-white/[0.04] rounded-[32px] border border-gray-200 dark:border-border text-[#1fc7d4] mb-8 shadow-xl">
+                    <div className="inline-flex p-4 bg-white dark:bg-white/[0.04] rounded-[32px] border border-gray-200 dark:border-slate-700 text-[#1fc7d4] mb-8 shadow-xl">
                         <CreditCard className="w-12 h-12" />
                     </div>
                     <h1 className="text-4xl sm:text-6xl font-black bg-gradient-to-r from-[#1fc7d4] via-[#7645d9] to-[#1fc7d4] bg-clip-text text-transparent mb-4 tracking-tighter">
@@ -254,7 +254,7 @@ export function PaymentsManagement() {
                 {/* Action Cards */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-12">
                     <div
-                        className="group relative overflow-hidden rounded-[32px] bg-white dark:bg-card backdrop-blur-2xl border border-gray-200 dark:border-border p-8 shadow-xl transition-all duration-300 hover:border-[#1fc7d4]/30 cursor-pointer text-center"
+                        className="group relative overflow-hidden rounded-[32px] bg-white dark:bg-slate-900 backdrop-blur-2xl border border-gray-200 dark:border-slate-700 p-8 shadow-xl transition-all duration-300 hover:border-[#1fc7d4]/30 cursor-pointer text-center"
                         onClick={() => loadPayments()}
                     >
                         <div className="absolute -right-8 -top-8 w-32 h-32 bg-[#1fc7d4]/5 rounded-full blur-3xl group-hover:bg-[#1fc7d4]/10 transition-colors" />
@@ -271,7 +271,7 @@ export function PaymentsManagement() {
                     </div>
 
                     <div
-                        className="group relative overflow-hidden rounded-[32px] bg-white dark:bg-card backdrop-blur-2xl border border-gray-200 dark:border-border p-8 shadow-xl transition-all duration-300 hover:border-[#7645d9]/30 cursor-pointer text-center"
+                        className="group relative overflow-hidden rounded-[32px] bg-white dark:bg-slate-900 backdrop-blur-2xl border border-gray-200 dark:border-slate-700 p-8 shadow-xl transition-all duration-300 hover:border-[#7645d9]/30 cursor-pointer text-center"
                         onClick={exportPaymentsToCSV}
                     >
                         <div className="absolute -right-8 -top-8 w-32 h-32 bg-[#7645d9]/5 rounded-full blur-3xl group-hover:bg-[#7645d9]/10 transition-colors" />
@@ -291,7 +291,7 @@ export function PaymentsManagement() {
                 {/* Stats Grid */}
                 {stats && (
                     <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-                        <div className="group relative bg-white dark:bg-card backdrop-blur-2xl border border-gray-200 dark:border-border rounded-[32px] p-8 shadow-xl transition-all duration-300 hover:border-[#1fc7d4]/30 overflow-hidden text-center">
+                        <div className="group relative bg-white dark:bg-slate-900 backdrop-blur-2xl border border-gray-200 dark:border-slate-700 rounded-[32px] p-8 shadow-xl transition-all duration-300 hover:border-[#1fc7d4]/30 overflow-hidden text-center">
                             <div className="absolute -right-6 -top-6 w-20 h-20 bg-[#1fc7d4]/5 rounded-full blur-3xl group-hover:bg-[#1fc7d4]/10 transition-colors" />
                             <div className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em] mb-4">Total Revenue</div>
                             <div className="text-3xl sm:text-4xl font-black bg-gradient-to-r from-[#1fc7d4] to-[#7645d9] bg-clip-text text-transparent tracking-tighter mb-2">
@@ -300,7 +300,7 @@ export function PaymentsManagement() {
                             <div className="text-sm font-bold text-muted-foreground/60">Platform Total</div>
                         </div>
 
-                        <div className="group relative bg-white dark:bg-card backdrop-blur-2xl border border-gray-200 dark:border-border rounded-[32px] p-8 shadow-xl transition-all duration-300 hover:border-[#31d0aa]/30 overflow-hidden text-center">
+                        <div className="group relative bg-white dark:bg-slate-900 backdrop-blur-2xl border border-gray-200 dark:border-slate-700 rounded-[32px] p-8 shadow-xl transition-all duration-300 hover:border-[#31d0aa]/30 overflow-hidden text-center">
                             <div className="absolute -right-6 -top-6 w-20 h-20 bg-[#31d0aa]/5 rounded-full blur-3xl group-hover:bg-[#31d0aa]/10 transition-colors" />
                             <div className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em] mb-4">Successful</div>
                             <div className="text-3xl sm:text-4xl font-black text-[#31d0aa] tracking-tighter mb-2">
@@ -309,7 +309,7 @@ export function PaymentsManagement() {
                             <div className="text-sm font-bold text-muted-foreground/60">Completed</div>
                         </div>
 
-                        <div className="group relative bg-white dark:bg-card backdrop-blur-2xl border border-gray-200 dark:border-border rounded-[32px] p-8 shadow-xl transition-all duration-300 hover:border-[#ffb237]/30 overflow-hidden text-center">
+                        <div className="group relative bg-white dark:bg-slate-900 backdrop-blur-2xl border border-gray-200 dark:border-slate-700 rounded-[32px] p-8 shadow-xl transition-all duration-300 hover:border-[#ffb237]/30 overflow-hidden text-center">
                             <div className="absolute -right-6 -top-6 w-20 h-20 bg-[#ffb237]/5 rounded-full blur-3xl group-hover:bg-[#ffb237]/10 transition-colors" />
                             <div className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em] mb-4">Pending</div>
                             <div className="text-3xl sm:text-4xl font-black text-[#ffb237] tracking-tighter mb-2">
@@ -318,7 +318,7 @@ export function PaymentsManagement() {
                             <div className="text-sm font-bold text-muted-foreground/60">In Progress</div>
                         </div>
 
-                        <div className="group relative bg-white dark:bg-card backdrop-blur-2xl border border-gray-200 dark:border-border rounded-[32px] p-8 shadow-xl transition-all duration-300 hover:border-[#ed4b9e]/30 overflow-hidden text-center">
+                        <div className="group relative bg-white dark:bg-slate-900 backdrop-blur-2xl border border-gray-200 dark:border-slate-700 rounded-[32px] p-8 shadow-xl transition-all duration-300 hover:border-[#ed4b9e]/30 overflow-hidden text-center">
                             <div className="absolute -right-6 -top-6 w-20 h-20 bg-[#ed4b9e]/5 rounded-full blur-3xl group-hover:bg-[#ed4b9e]/10 transition-colors" />
                             <div className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em] mb-4">Today</div>
                             <div className="text-3xl sm:text-4xl font-black text-[#ed4b9e] tracking-tighter mb-2 truncate">
@@ -330,7 +330,7 @@ export function PaymentsManagement() {
                 )}
 
                 {/* Filter Section */}
-                <div className="relative overflow-hidden rounded-[32px] bg-white dark:bg-card backdrop-blur-2xl border border-gray-200 dark:border-border p-6 shadow-xl mb-12">
+                <div className="relative overflow-hidden rounded-[32px] bg-white dark:bg-slate-900 backdrop-blur-2xl border border-gray-200 dark:border-slate-700 p-6 shadow-xl mb-12">
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 items-end">
                         <div className="space-y-2">
                             <label className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em] ml-2">Search</label>
@@ -341,7 +341,7 @@ export function PaymentsManagement() {
                                     placeholder="Reference, wallet..."
                                     value={filters.search}
                                     onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-                                    className="w-full pl-11 pr-4 py-3 bg-white dark:bg-white/[0.04] border border-gray-200 dark:border-border rounded-2xl text-foreground placeholder-muted-foreground/50 focus:outline-none focus:border-[#1fc7d4]/50 focus:bg-gray-50 dark:focus:bg-white/10 transition-all font-bold text-sm"
+                                    className="w-full pl-11 pr-4 py-3 bg-white dark:bg-white/[0.04] border border-gray-200 dark:border-slate-700 rounded-2xl text-foreground placeholder-muted-foreground/50 focus:outline-none focus:border-[#1fc7d4]/50 focus:bg-gray-50 dark:focus:bg-white/10 transition-all font-bold text-sm"
                                 />
                             </div>
                         </div>
@@ -351,7 +351,7 @@ export function PaymentsManagement() {
                             <select
                                 value={filters.status}
                                 onChange={(e) => setFilters({ ...filters, status: e.target.value })}
-                                className="w-full px-4 py-3 bg-white dark:bg-white/[0.04] border border-gray-200 dark:border-border rounded-2xl text-foreground focus:outline-none focus:border-[#1fc7d4]/50 focus:bg-gray-50 dark:focus:bg-white/10 transition-all font-bold text-sm"
+                                className="w-full px-4 py-3 bg-white dark:bg-white/[0.04] border border-gray-200 dark:border-slate-700 rounded-2xl text-foreground focus:outline-none focus:border-[#1fc7d4]/50 focus:bg-gray-50 dark:focus:bg-white/10 transition-all font-bold text-sm"
                             >
                                 <option value="">All Status</option>
                                 <option value="succeeded">Succeeded</option>
@@ -365,7 +365,7 @@ export function PaymentsManagement() {
                             <select
                                 value={filters.payment_method}
                                 onChange={(e) => setFilters({ ...filters, payment_method: e.target.value })}
-                                className="w-full px-4 py-3 bg-white dark:bg-white/[0.04] border border-gray-200 dark:border-border rounded-2xl text-foreground focus:outline-none focus:border-[#1fc7d4]/50 focus:bg-gray-50 dark:focus:bg-white/10 transition-all font-bold text-sm"
+                                className="w-full px-4 py-3 bg-white dark:bg-white/[0.04] border border-gray-200 dark:border-slate-700 rounded-2xl text-foreground focus:outline-none focus:border-[#1fc7d4]/50 focus:bg-gray-50 dark:focus:bg-white/10 transition-all font-bold text-sm"
                             >
                                 <option value="">All Methods</option>
                                 <option value="on_chain">On Chain</option>
@@ -378,7 +378,7 @@ export function PaymentsManagement() {
                             <select
                                 value={filters.plan_template}
                                 onChange={(e) => setFilters({ ...filters, plan_template: e.target.value as PermissionTemplateName })}
-                                className="w-full px-4 py-3 bg-white dark:bg-white/[0.04] border border-gray-200 dark:border-border rounded-2xl text-foreground focus:outline-none focus:border-[#1fc7d4]/50 focus:bg-gray-50 dark:focus:bg-white/10 transition-all font-bold text-sm"
+                                className="w-full px-4 py-3 bg-white dark:bg-white/[0.04] border border-gray-200 dark:border-slate-700 rounded-2xl text-foreground focus:outline-none focus:border-[#1fc7d4]/50 focus:bg-gray-50 dark:focus:bg-white/10 transition-all font-bold text-sm"
                             >
                                 <option value="BASIC">Basic</option>
                                 <option value="PRO">Pro</option>
@@ -389,7 +389,7 @@ export function PaymentsManagement() {
 
                         <button
                             onClick={() => setFilters({ status: '', payment_method: '', date_range: '', plan_template: 'BASIC', search: '' })}
-                            className="w-full px-4 py-3 bg-white dark:bg-white/[0.04] border border-gray-200 dark:border-border rounded-2xl text-muted-foreground hover:text-foreground hover:bg-black/[0.05] dark:hover:bg-white/10 font-black text-xs uppercase tracking-widest transition-all"
+                            className="w-full px-4 py-3 bg-white dark:bg-white/[0.04] border border-gray-200 dark:border-slate-700 rounded-2xl text-muted-foreground hover:text-foreground hover:bg-black/[0.05] dark:hover:bg-white/10 font-black text-xs uppercase tracking-widest transition-all"
                         >
                             Reset
                         </button>
@@ -406,13 +406,13 @@ export function PaymentsManagement() {
                 )}
 
                 {/* Payments Table */}
-                <div className="relative overflow-hidden rounded-[32px] bg-white dark:bg-card backdrop-blur-2xl border border-gray-200 dark:border-border shadow-xl">
+                <div className="relative overflow-hidden rounded-[32px] bg-white dark:bg-slate-900 backdrop-blur-2xl border border-gray-200 dark:border-slate-700 shadow-xl">
                     <div className="p-8">
                         <div className="flex flex-col sm:flex-row items-center justify-between mb-8 gap-4">
                             <h2 className="text-2xl font-black bg-gradient-to-r from-[#1fc7d4] to-[#7645d9] bg-clip-text text-transparent uppercase tracking-tight">
                                 Recent Transactions
                             </h2>
-                            <div className="px-4 py-1.5 bg-white dark:bg-white/[0.04] rounded-full border border-gray-200 dark:border-border text-xs font-black text-muted-foreground uppercase tracking-widest leading-none">
+                            <div className="px-4 py-1.5 bg-white dark:bg-white/[0.04] rounded-full border border-gray-200 dark:border-slate-700 text-xs font-black text-muted-foreground uppercase tracking-widest leading-none">
                                 {payments.length} Payments
                             </div>
                         </div>

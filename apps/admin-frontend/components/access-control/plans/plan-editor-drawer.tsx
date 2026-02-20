@@ -118,8 +118,8 @@ export function PlanEditorDrawer({ planId, onClose, onPlanUpdated, onDuplicate }
                 onClick={onClose}
             />
             {/* Drawer */}
-            <div className="fixed inset-y-0 right-0 z-50 w-full max-w-full sm:max-w-xl flex flex-col bg-gray-50 dark:bg-slate-950 border-l border-gray-200 dark:border-border shadow-2xl animate-in slide-in-from-right duration-300">
-                <div className="flex items-center justify-between px-3 sm:px-5 py-3 border-b border-gray-200 dark:border-border shrink-0 gap-2">
+            <div className="fixed inset-y-0 right-0 z-50 w-full max-w-full sm:max-w-xl flex flex-col bg-gray-50 dark:bg-slate-950 border-l border-gray-200 dark:border-slate-700 shadow-2xl animate-in slide-in-from-right duration-300">
+                <div className="flex items-center justify-between px-3 sm:px-5 py-3 border-b border-gray-200 dark:border-slate-700 shrink-0 gap-2">
                     <div className="flex items-center gap-2 sm:gap-3 min-w-0">
                         {selectedPlan != null ? (
                             <>

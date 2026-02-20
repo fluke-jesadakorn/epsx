@@ -68,7 +68,7 @@ export function AddResourceModal({
                             placeholder="Search..."
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
-                            className="pl-9 bg-gray-50 dark:bg-card/50"
+                            className="pl-9 bg-gray-50 dark:bg-slate-900/50"
                         />
                     </div>
 
@@ -108,7 +108,7 @@ export function AddResourceModal({
                     </div>
                 </div>
 
-                <DialogFooter className="px-6 py-4 bg-gray-50 dark:bg-card/50 border-t border-gray-100 dark:border-gray-800">
+                <DialogFooter className="px-6 py-4 bg-gray-50 dark:bg-slate-900/50 border-t border-gray-100 dark:border-gray-800">
                     <Button variant="outline" onClick={onClose} disabled={isLoading}>
                         Cancel
                     </Button>

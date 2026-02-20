@@ -4,7 +4,6 @@ import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
 
 import { toast } from '@/hooks/use-toast'
-import { createNotificationsClient } from '@/shared/api/notifications'
 import { useSharedAuth } from '@/shared/components/auth'
 import { MAX_DROPDOWN_NOTIFICATIONS } from '@/shared/components/notifications/constants'
 import type { Notification } from '@/shared/components/notifications/types'
@@ -15,20 +14,12 @@ import {
 } from '@/shared/components/notifications/utils'
 import { useSSENotifications } from '@/shared/hooks/use-sse-notifications'
 import { createAdminApiClient } from '@/shared/utils/api-client'
+import {
+  deleteAdminNotificationAction,
+  getAdminNotificationsAction,
+} from '@/app/actions/notifications'
+import type { SSENotification } from '@/shared/api/notifications'
 
-interface SSENotificationData {
-  id: string
-  title: string
-  message: string
-  notification_type: 'security' | 'system' | 'info'
-  priority: 'critical' | 'high' | 'normal' | 'low'
-  timestamp: string
-  wallet_address: string
-}
-
-/**
- *
- */
 // eslint-disable-next-line max-lines-per-function
 export function AdminNotificationBell() {
   const pathname = usePathname()
@@ -37,41 +28,36 @@ export function AdminNotificationBell() {
   const [showNotifications, setShowNotifications] = useState(false)
   const [loading, setLoading] = useState(true)
 
-  // Skip notification fetching on auth page to prevent 401 errors during login redirect
   const isOnAuthPage = pathname === '/auth' || pathname.startsWith('/auth')
-
-  // Get auth context for session refresh
   const { refreshSession } = useSharedAuth()
 
-  // Define fetchNotifications before SSE hook
   const fetchNotifications = async () => {
     try {
       setLoading(true)
-      const client = createNotificationsClient(createAdminApiClient())
-      const data = await client.getAllNotifications({
+      const data = await getAdminNotificationsAction({
         page: 1,
         limit: MAX_DROPDOWN_NOTIFICATIONS,
-        status: 'unread'
+        status: 'unread',
       })
 
-      const mappedNotifications: Notification[] = data.data.notifications.map(n => ({
-        id: n.id,
-        title: n.title,
-        message: n.message,
-        type: n.notification_type,
-        priority: n.priority,
-        timestamp: n.timestamp,
-        wallet_address: n.wallet_address,
-        read: Boolean(n.read_at)
-      }))
-
-      setNotifications(mappedNotifications)
-      setCount(data.data.unread_count)
-    } catch (error: unknown) {
-      const apiError = error as Record<string, unknown>
-      if ((apiError.status as number) !== 401) {
-        // Silently fail
+      if (data.success && data.data?.notifications) {
+        const mapped: Notification[] = data.data.notifications.map(n => ({
+          id: n.id,
+          title: n.title,
+          message: n.message,
+          type: n.notification_type,
+          priority: n.priority,
+          timestamp: n.timestamp,
+          wallet_address: n.wallet_address,
+          read: Boolean(n.read_at),
+        }))
+        setNotifications(mapped)
+        setCount(data.data.unread_count ?? 0)
+      } else {
+        setNotifications([])
+        setCount(0)
       }
+    } catch {
       setNotifications([])
       setCount(0)
     } finally {
@@ -79,18 +65,16 @@ export function AdminNotificationBell() {
     }
   }
 
-  // SSE real-time notifications for admin
   const { isConnected: sseConnected, reconnect: _reconnectSSE } = useSSENotifications({
     apiClient: createAdminApiClient(),
-    autoConnect: !isOnAuthPage, // Don't auto-connect on auth page
+    autoConnect: !isOnAuthPage,
     refreshSession,
-    onNotification: (sseNotif: SSENotificationData) => {
-      // Add to notifications list
+    onNotification: (sseNotif: SSENotification) => {
       const newNotification: Notification = {
         id: sseNotif.id,
         title: sseNotif.title,
         message: sseNotif.message,
-        type: sseNotif.notification_type,
+        type: sseNotif.notification_type as Notification['type'],
         priority: sseNotif.priority,
         timestamp: sseNotif.timestamp,
         wallet_address: sseNotif.wallet_address,
@@ -98,29 +82,22 @@ export function AdminNotificationBell() {
       }
 
       setNotifications(prev => {
-        // Prevent duplicate notifications
-        if (prev.some(n => n.id === newNotification.id)) {
-          return prev
-        }
-        // Only increment count when actually adding a new notification
+        if (prev.some(n => n.id === newNotification.id)) { return prev }
         setCount(c => c + 1)
         return [newNotification, ...prev]
       })
     },
-    onError: () => {
-      // Silently fail
-    },
-    onConnect: () => {
-    },
+    onError: () => { /* silently fail */ },
+    onConnect: () => { /* no-op */ },
   })
 
   useEffect(() => {
-    // Skip fetching on auth page
     if (isOnAuthPage) {
       setLoading(false)
       return
     }
     void fetchNotifications()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOnAuthPage])
 
   const handleToggleDropdown = (e: React.MouseEvent) => {
@@ -135,23 +112,17 @@ export function AdminNotificationBell() {
   const handleDeleteNotification = async (e: React.MouseEvent, notificationId: string) => {
     e.stopPropagation()
     try {
-      const client = createNotificationsClient(createAdminApiClient())
-      await client.deleteAdminNotification(notificationId)
-
-      // Remove from local state
+      await deleteAdminNotificationAction(notificationId)
       setNotifications(prev => prev.filter(n => n.id !== notificationId))
       setCount(prev => Math.max(0, prev - 1))
-
       toast({ title: 'Notification deleted' })
     } catch {
-      // Silently fail
       toast({ title: 'Failed to delete notification', variant: 'destructive' })
     }
   }
 
   return (
     <>
-      {/* Notification Bell Button */}
       <div className="relative">
         <button
           onClick={handleToggleDropdown}
@@ -170,7 +141,6 @@ export function AdminNotificationBell() {
           )}
         </button>
 
-        {/* Notification Dropdown */}
         {showNotifications && (
           <div className="absolute top-12 right-0 z-50 w-80 rounded-xl border border-border bg-popover p-4 shadow-2xl">
             <div className="space-y-4">
@@ -245,10 +215,7 @@ export function AdminNotificationBell() {
 
               <div className="border-t border-border pt-3">
                 <button
-                  onClick={() => {
-                    handleCloseDropdown()
-                    // TODO: Navigate to notifications page
-                  }}
+                  onClick={handleCloseDropdown}
                   className="w-full rounded-lg bg-muted py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
                 >
                   View All Notifications
@@ -259,7 +226,6 @@ export function AdminNotificationBell() {
         )}
       </div>
 
-      {/* Backdrop - close dropdown when clicking outside */}
       {showNotifications && (
         <div
           className="fixed inset-0 z-40"

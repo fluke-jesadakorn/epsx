@@ -179,7 +179,7 @@ export function APIKeyManager({ currentUser, onStatsChange }: APIKeyManagerProps
     <div className="space-y-8">
       {/* Create New Key */}
       <div className="relative rounded-2xl bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-rose-500/10 p-[1px]">
-        <Card className="rounded-2xl border-0 bg-white/80 dark:bg-card backdrop-blur-sm">
+        <Card className="rounded-2xl border-0 bg-white/80 dark:bg-slate-900 backdrop-blur-sm">
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -400,7 +400,7 @@ export function APIKeyManager({ currentUser, onStatsChange }: APIKeyManagerProps
       </div>
 
       {/* Existing Keys */}
-      <Card className="rounded-2xl border-0 bg-white/80 dark:bg-card backdrop-blur-sm shadow-xl">
+      <Card className="rounded-2xl border-0 bg-white/80 dark:bg-slate-900 backdrop-blur-sm shadow-xl">
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -441,7 +441,7 @@ export function APIKeyManager({ currentUser, onStatsChange }: APIKeyManagerProps
           ) : (
             <div className="space-y-4">
               {apiKeys.map((apiKey) => (
-                <div key={apiKey.id} className="group relative overflow-hidden rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-card transition-all duration-200 hover:shadow-lg hover:border-gray-300 dark:hover:border-gray-700">
+                <div key={apiKey.id} className="group relative overflow-hidden rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-slate-900 transition-all duration-200 hover:shadow-lg hover:border-gray-300 dark:hover:border-gray-700">
                   {/* Card Header & Key Section */}
                   <div className="p-5 pb-4">
                     <div className="flex items-start justify-between mb-4">

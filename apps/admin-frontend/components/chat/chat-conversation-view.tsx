@@ -102,23 +102,18 @@ export function ChatConversationView({ conv, topics, onUpdate }: Props) {
     onUpdate();
   };
 
-  const handleAssignMe = async () => {
-    const addr: string = (walletAddress as string | null | undefined) ?? '';
-    if (addr === '') {
-      return;
-    }
+  const handleAssign = async (addr: string) => {
     await assignAgent(conv.id, addr);
     onUpdate();
   };
 
-  const canAssign = conv.assigned_agent !== (walletAddress ?? '');
   const canResolve = conv.status !== 'resolved';
   const canClose = conv.status !== 'closed';
 
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="border-b border-gray-200 dark:border-border bg-white dark:bg-card p-4 backdrop-blur-sm">
+      <div className="border-b border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 backdrop-blur-sm">
         <div className="flex items-start justify-between gap-4 mb-3">
           <div className="flex-1 min-w-0">
             <h2 className="text-lg font-bold text-foreground mb-2 truncate">{conv.subject}</h2>
@@ -159,7 +154,7 @@ export function ChatConversationView({ conv, topics, onUpdate }: Props) {
           </div>
         ) : msgs.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center">
-            <div className="w-12 h-12 rounded-xl bg-gray-100 dark:bg-slate-800/40 flex items-center justify-center mb-3 border border-gray-200 dark:border-border">
+            <div className="w-12 h-12 rounded-xl bg-gray-100 dark:bg-slate-800/40 flex items-center justify-center mb-3 border border-gray-200 dark:border-slate-700">
               <MessageCircle className="w-6 h-6 text-muted-foreground/30" />
             </div>
             <p className="text-sm text-muted-foreground">No messages yet</p>
@@ -185,7 +180,7 @@ export function ChatConversationView({ conv, topics, onUpdate }: Props) {
                     </div>
                   )}
                   <div className="flex justify-center">
-                    <div className="px-3 py-1.5 bg-gray-100 dark:bg-slate-800/30 border border-gray-200 dark:border-border rounded-full text-[11px] text-muted-foreground/60">
+                    <div className="px-3 py-1.5 bg-gray-100 dark:bg-slate-800/30 border border-gray-200 dark:border-slate-700 rounded-full text-[11px] text-muted-foreground/60">
                       {m.content}
                     </div>
                   </div>
@@ -205,7 +200,7 @@ export function ChatConversationView({ conv, topics, onUpdate }: Props) {
                 <div className={`flex gap-2.5 ${isRight ? 'justify-end' : 'justify-start'}`}>
                   {/* Avatar for left-side messages */}
                   {!isRight && (
-                    <div className="shrink-0 w-8 h-8 rounded-full bg-gray-100 dark:bg-slate-800/60 border border-gray-200 dark:border-border flex items-center justify-center mt-5">
+                    <div className="shrink-0 w-8 h-8 rounded-full bg-gray-100 dark:bg-slate-800/60 border border-gray-200 dark:border-slate-700 flex items-center justify-center mt-5">
                       <User className="w-4 h-4 text-muted-foreground/60" />
                     </div>
                   )}
@@ -233,7 +228,7 @@ export function ChatConversationView({ conv, topics, onUpdate }: Props) {
                           ? isAi
                             ? 'bg-purple-500/10 border border-purple-500/20 text-foreground rounded-br-md'
                             : 'bg-gradient-to-br from-violet-500/15 to-purple-500/10 border border-violet-500/20 text-foreground rounded-br-md'
-                          : 'bg-gray-100 dark:bg-slate-800/50 border border-gray-200 dark:border-border text-foreground rounded-bl-md'
+                          : 'bg-gray-100 dark:bg-slate-800/50 border border-gray-200 dark:border-slate-700 text-foreground rounded-bl-md'
                       }`}
                     >
                       <p className="whitespace-pre-wrap break-words">{m.content}</p>
@@ -264,7 +259,9 @@ export function ChatConversationView({ conv, topics, onUpdate }: Props) {
         onSend={handleSend}
         onResolve={canResolve ? handleResolve : undefined}
         onClose={canClose ? handleClose : undefined}
-        onAssignMe={canAssign ? handleAssignMe : undefined}
+        onAssign={handleAssign}
+        myWallet={(walletAddress as string | undefined) ?? ''}
+        assignedAgent={conv.assigned_agent}
       />
     </div>
   );

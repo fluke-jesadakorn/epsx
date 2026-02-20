@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 # EPSX Backend - Rust API server for production deployment
 
-FROM rust:1.85-slim-bookworm AS builder
+FROM rust:1.88-slim-bookworm AS builder
 WORKDIR /app
 
 RUN apt-get update && apt-get install -y --no-install-recommends \

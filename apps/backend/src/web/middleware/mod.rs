@@ -11,6 +11,7 @@ pub mod auth_middleware;
 pub mod bearer_middleware;
 
 // Rate limiting for API protection
+pub mod governor_limiter;
 pub mod rate_limiter;
 pub mod rate_limit_middleware;
 pub mod multi_level_rate_limiter;

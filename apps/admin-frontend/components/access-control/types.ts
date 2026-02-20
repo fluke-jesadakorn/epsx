@@ -347,6 +347,6 @@ export const POLICY_TYPE_CONFIG: Record<
     icon: '⚙️',
     gradient: 'from-gray-500/20 via-slate-500/20 to-gray-500/20',
     badgeClass:
-      'bg-gray-50 text-gray-700 border-gray-200 dark:bg-card/30 dark:text-gray-400 dark:border-gray-700',
+      'bg-gray-50 text-gray-700 border-gray-200 dark:bg-slate-900/30 dark:text-gray-400 dark:border-gray-700',
   },
 };

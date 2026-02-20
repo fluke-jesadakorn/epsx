@@ -141,7 +141,7 @@ interface TemplatesPanelProps {
 export function TemplatesPanel({ templates, onClose }: TemplatesPanelProps) {
   return (
     <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-r from-purple-500/20 via-orange-500/20 to-purple-500/20 p-0.5">
-      <div className="relative bg-white dark:bg-card backdrop-blur-xl rounded-2xl sm:rounded-3xl p-4 sm:p-6">
+      <div className="relative bg-white dark:bg-slate-900 backdrop-blur-xl rounded-2xl sm:rounded-3xl p-4 sm:p-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg sm:text-xl font-bold bg-gradient-to-r from-purple-400 to-orange-400 bg-clip-text text-transparent">Policy Templates</h3>
           <Button variant="ghost" size="sm" onClick={onClose} className="h-10 w-10 rounded-2xl">
@@ -151,7 +151,7 @@ export function TemplatesPanel({ templates, onClose }: TemplatesPanelProps) {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {templates.map(template => (
-            <div key={template.id} className="bg-white dark:bg-white/[0.04] dark:bg-slate-800/50 backdrop-blur-sm rounded-2xl p-4 shadow-xl border border-gray-200 dark:border-border cursor-pointer hover:scale-[1.02] hover:border-purple-500/30 transition-all">
+            <div key={template.id} className="bg-white dark:bg-white/[0.04] dark:bg-slate-800/50 backdrop-blur-sm rounded-2xl p-4 shadow-xl border border-gray-200 dark:border-slate-700 cursor-pointer hover:scale-[1.02] hover:border-purple-500/30 transition-all">
               <div className="flex items-start justify-between mb-2">
                 <h4 className="font-semibold text-foreground">{template.name}</h4>
                 <Badge variant="glass" className="text-xs">{template.category}</Badge>
@@ -177,7 +177,7 @@ interface ConfigurationSectionProps {
 export function PolicyConfiguration({ formData, setFormData }: ConfigurationSectionProps) {
   return (
     <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-r from-purple-500/20 via-orange-500/20 to-purple-500/20 p-0.5">
-      <div className="relative bg-white dark:bg-card backdrop-blur-xl rounded-2xl sm:rounded-3xl p-4 sm:p-6">
+      <div className="relative bg-white dark:bg-slate-900 backdrop-blur-xl rounded-2xl sm:rounded-3xl p-4 sm:p-6">
         <h3 className="text-lg sm:text-xl font-bold bg-gradient-to-r from-purple-400 to-orange-400 bg-clip-text text-transparent mb-4 sm:mb-6">Policy Configuration</h3>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
@@ -242,7 +242,7 @@ interface TargetActionsProps {
 export function TargetActions({ actions, onAdd, onRemove }: TargetActionsProps) {
   return (
     <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-r from-purple-500/20 via-orange-500/20 to-purple-500/20 p-0.5">
-      <div className="relative bg-white dark:bg-card backdrop-blur-xl rounded-2xl sm:rounded-3xl p-4 sm:p-6">
+      <div className="relative bg-white dark:bg-slate-900 backdrop-blur-xl rounded-2xl sm:rounded-3xl p-4 sm:p-6">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-3">
           <h3 className="text-lg sm:text-xl font-bold bg-gradient-to-r from-purple-400 to-orange-400 bg-clip-text text-transparent">Target Actions</h3>
           <Button size="sm" onClick={onAdd} className="min-h-[44px] rounded-2xl bg-gradient-to-r from-purple-500 to-orange-500 hover:shadow-xl hover:shadow-purple-500/30 w-full sm:w-auto">
@@ -253,7 +253,7 @@ export function TargetActions({ actions, onAdd, onRemove }: TargetActionsProps) 
 
         <div className="space-y-3">
           {actions.map((action, index) => (
-            <div key={index} className="flex items-center gap-3 p-3 sm:p-4 bg-white dark:bg-white/[0.04] dark:bg-slate-800/50 backdrop-blur-sm border border-gray-200 dark:border-border rounded-2xl">
+            <div key={index} className="flex items-center gap-3 p-3 sm:p-4 bg-white dark:bg-white/[0.04] dark:bg-slate-800/50 backdrop-blur-sm border border-gray-200 dark:border-slate-700 rounded-2xl">
               <span className="font-mono text-sm flex-1 text-foreground">{action}</span>
               <Button
                 size="sm"
@@ -292,7 +292,7 @@ interface ConditionsBuilderProps {
 export function ConditionsBuilder({ formData, setFormData, onAdd, onRemove, onUpdate }: ConditionsBuilderProps) {
   return (
     <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-r from-purple-500/20 via-orange-500/20 to-purple-500/20 p-0.5">
-      <div className="relative bg-white dark:bg-card backdrop-blur-xl rounded-2xl sm:rounded-3xl p-4 sm:p-6">
+      <div className="relative bg-white dark:bg-slate-900 backdrop-blur-xl rounded-2xl sm:rounded-3xl p-4 sm:p-6">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-3">
           <h3 className="text-lg sm:text-xl font-bold bg-gradient-to-r from-purple-400 to-orange-400 bg-clip-text text-transparent">Policy Conditions</h3>
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 w-full sm:w-auto">
@@ -327,7 +327,7 @@ export function ConditionsBuilder({ formData, setFormData, onAdd, onRemove, onUp
             );
 
             return (
-              <div key={index} className="p-4 border-2 border-gray-200 dark:border-border rounded-2xl bg-white dark:bg-white/[0.04] dark:bg-slate-800/50 backdrop-blur-sm">
+              <div key={index} className="p-4 border-2 border-gray-200 dark:border-slate-700 rounded-2xl bg-white dark:bg-white/[0.04] dark:bg-slate-800/50 backdrop-blur-sm">
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                   <div>
                     <label className="block text-sm font-semibold mb-2 text-foreground">Field</label>
@@ -419,7 +419,7 @@ interface ActionsResponsesProps {
 export function ActionsResponses({ formData, setFormData }: ActionsResponsesProps) {
   return (
     <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-r from-purple-500/20 via-orange-500/20 to-purple-500/20 p-0.5">
-      <div className="relative bg-white dark:bg-card backdrop-blur-xl rounded-2xl sm:rounded-3xl p-4 sm:p-6">
+      <div className="relative bg-white dark:bg-slate-900 backdrop-blur-xl rounded-2xl sm:rounded-3xl p-4 sm:p-6">
         <h3 className="text-lg sm:text-xl font-bold bg-gradient-to-r from-purple-400 to-orange-400 bg-clip-text text-transparent mb-4 sm:mb-6">Actions & Responses</h3>
 
         <div className="space-y-4 sm:space-y-6">
@@ -475,7 +475,7 @@ export function TestResults({ testResults }: TestResultsProps) {
 
   return (
     <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-r from-emerald-500/20 via-teal-500/20 to-emerald-500/20 p-0.5">
-      <div className="relative bg-white dark:bg-card backdrop-blur-xl rounded-2xl sm:rounded-3xl p-4 sm:p-6">
+      <div className="relative bg-white dark:bg-slate-900 backdrop-blur-xl rounded-2xl sm:rounded-3xl p-4 sm:p-6">
         <div className="flex items-center gap-3 mb-4">
           <div className="h-10 w-10 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-2xl flex items-center justify-center">
             <CheckCircleIcon className="h-5 w-5 text-white" />
@@ -497,7 +497,7 @@ export function TestResults({ testResults }: TestResultsProps) {
 
           <div>
             <span className="text-sm font-semibold text-foreground">Reason:</span>
-            <p className="text-sm text-muted-foreground mt-2 p-3 bg-white dark:bg-white/[0.04] backdrop-blur-sm border border-gray-200 dark:border-border rounded-xl">{testResults.final_decision_reason}</p>
+            <p className="text-sm text-muted-foreground mt-2 p-3 bg-white dark:bg-white/[0.04] backdrop-blur-sm border border-gray-200 dark:border-slate-700 rounded-xl">{testResults.final_decision_reason}</p>
           </div>
 
           <div className="flex items-center gap-2">

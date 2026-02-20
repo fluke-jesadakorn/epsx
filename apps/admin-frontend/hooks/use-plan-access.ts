@@ -1,5 +1,6 @@
 'use client';
 
+import { useAuth } from '@/shared/auth';
 import { createPlansClient } from '@/shared/api/plans';
 import type { PlanAccessData } from '@/shared/types/payment';
 import { createAdminApiClient } from '@/shared/utils/api-client';
@@ -26,11 +27,17 @@ const DEFAULT_FREE_TIER: PlanAccessData = {
 };
 
 export function usePlanAccess(): UsePlanAccessResult {
+    const { isAuthenticated } = useAuth();
     const [planAccess, setPlanAccess] = useState<PlanAccessData | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
     const fetchPlanAccess = async (): Promise<void> => {
+        if (!isAuthenticated) {
+            setPlanAccess(DEFAULT_FREE_TIER);
+            setLoading(false);
+            return;
+        }
         try {
             setLoading(true);
             setError(null);
@@ -53,7 +60,7 @@ export function usePlanAccess(): UsePlanAccessResult {
 
     useEffect(() => {
         void fetchPlanAccess();
-    }, []);
+    }, [isAuthenticated]);
 
     return {
         planAccess,

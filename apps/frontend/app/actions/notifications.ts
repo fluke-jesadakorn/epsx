@@ -10,6 +10,8 @@ import { getServerActionClient } from '@/shared/utils/server-fetch';
  */
 export async function getInitialNotificationsAction(filters: {
   page: number;
+  limit?: number;
+  status?: string;
   type?: string;
   priority?: string;
 }): Promise<NotificationsResponse> {
@@ -19,7 +21,8 @@ export async function getInitialNotificationsAction(filters: {
   try {
     return await notifications.getNotifications({
       page: filters.page,
-      limit: 20,
+      limit: filters.limit ?? 20,
+      status: filters.status as 'read' | 'unread' | 'all' | undefined,
       type: filters.type as any,
       priority: filters.priority as any,
     });
@@ -32,7 +35,7 @@ export async function getInitialNotificationsAction(filters: {
         total_count: 0,
         unread_count: 0,
         page: 1,
-        limit: 20,
+        limit: filters.limit ?? 20,
         total_pages: 0,
       },
       error: {

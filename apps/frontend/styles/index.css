@@ -20,6 +20,7 @@
  */
 @import "tailwindcss";
 @source "@/shared";
+@custom-variant dark (&:where(.dark, .dark *));
 
 /* ============================================================================
    BASE STYLES - Essential foundations

@@ -165,7 +165,8 @@ export class SharedWeb3AuthClient {
   // ============================================================================
 
   async requestChallenge(
-    walletAddress: string
+    walletAddress: string,
+    turnstileToken?: string,
   ): Promise<Web3ChallengeResponse> {
     // Deduplicate concurrent challenge requests
     // Normalize wallet address for cache key
@@ -186,19 +187,25 @@ export class SharedWeb3AuthClient {
       url: challengeUrl,
       wallet_address: walletAddress,
       backend_url: this.backendUrl,
+      has_turnstile: Boolean(turnstileToken),
     });
 
     const challengePromise = (async () => {
       try {
+        const body: Record<string, string> = {
+          wallet_address: walletAddress,
+        };
+        if (turnstileToken) {
+          body.turnstile_token = turnstileToken;
+        }
+
         const response = await fetch(challengeUrl, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             Accept: 'application/json',
           },
-          body: JSON.stringify({
-            wallet_address: walletAddress,
-          }),
+          body: JSON.stringify(body),
           signal: AbortSignal.timeout(10000), // 10s timeout
         });
 

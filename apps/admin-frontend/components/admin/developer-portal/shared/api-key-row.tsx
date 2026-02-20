@@ -84,7 +84,7 @@ export const ApiKeyRow: React.FC<ApiKeyRowProps> = ({
     const permissionGroups = extendedKey.permission_groups ?? [];
 
     return (
-        <TableRow className="hover:bg-gray-50 dark:hover:bg-white/[0.02] border-gray-200 dark:border-border transition-colors">
+        <TableRow className="hover:bg-gray-50 dark:hover:bg-white/[0.02] border-gray-200 dark:border-slate-700 transition-colors">
             {/* User / Client */}
             <TableCell className="py-6 px-6">
                 <div className="flex flex-col">
@@ -104,7 +104,7 @@ export const ApiKeyRow: React.FC<ApiKeyRowProps> = ({
             {/* API Key */}
             <TableCell className="py-6 px-6">
                 <div className="flex items-center space-x-3">
-                    <div className="px-3 py-1.5 bg-white dark:bg-white/[0.04] border border-gray-200 dark:border-border rounded-lg font-mono text-xs font-bold text-[#1fc7d4]">
+                    <div className="px-3 py-1.5 bg-white dark:bg-white/[0.04] border border-gray-200 dark:border-slate-700 rounded-lg font-mono text-xs font-bold text-[#1fc7d4]">
                         {maskKeyPrefix(keyPrefix)}
                     </div>
                     <button
@@ -142,7 +142,7 @@ export const ApiKeyRow: React.FC<ApiKeyRowProps> = ({
                         <span className="text-[10px] font-black text-muted-foreground/30 uppercase tracking-widest">No scope</span>
                     )}
                     {(permissionGroups.length > 3 || apiKey.allowed_modules.length > 3) && (
-                        <span className="inline-flex items-center px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-widest bg-white dark:bg-white/[0.04] text-muted-foreground border border-gray-200 dark:border-border">
+                        <span className="inline-flex items-center px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-widest bg-white dark:bg-white/[0.04] text-muted-foreground border border-gray-200 dark:border-slate-700">
                             +{Math.max(permissionGroups.length, apiKey.allowed_modules.length) - 3}
                         </span>
                     )}

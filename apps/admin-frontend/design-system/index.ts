@@ -4,13 +4,13 @@ export { cn } from '@/shared/utils/cn';
 export { PancakePhoneTheme } from './pancake-phone-theme';
 
 export const adminCardVariants = cva(
-  'rounded-2xl border bg-white dark:bg-card transition-all duration-200',
+  'rounded-2xl border bg-white dark:bg-slate-900 transition-all duration-200',
   {
     variants: {
       variant: {
-        default: 'border-gray-200 dark:border-border',
-        pancake: 'border-gray-200 dark:border-border shadow-sm',
-        glass: 'border-gray-200/50 dark:border-border backdrop-blur-sm',
+        default: 'border-gray-200 dark:border-slate-700',
+        pancake: 'border-gray-200 dark:border-slate-700 shadow-sm',
+        glass: 'border-gray-200/50 dark:border-slate-700 backdrop-blur-sm',
       },
       hover: {
         none: '',

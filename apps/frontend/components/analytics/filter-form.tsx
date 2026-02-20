@@ -84,7 +84,7 @@ export default function FilterForm({ filterOptions, currentParams }: FilterFormP
 
   return (
     <form onSubmit={handleSubmit}>
-      <div className="rounded-xl border border-gray-200 dark:border-white/[0.06] bg-white dark:bg-card backdrop-blur-sm">
+      <div className="rounded-xl border border-gray-200 dark:border-white/[0.06] bg-white dark:bg-slate-900 backdrop-blur-sm">
         {/* Filter bar */}
         <div className="flex flex-col gap-3 p-3 sm:flex-row sm:items-end sm:gap-3 sm:p-4">
           {/* Label */}
@@ -108,7 +108,7 @@ export default function FilterForm({ filterOptions, currentParams }: FilterFormP
               <SelectTrigger className="h-9 border-gray-200 dark:border-white/[0.08] bg-gray-100 dark:bg-slate-800/60 text-sm text-slate-200 hover:bg-gray-100 dark:bg-slate-800">
                 <SelectValue placeholder="All Countries" />
               </SelectTrigger>
-              <SelectContent className="border-gray-200 dark:border-border bg-gray-100 dark:bg-slate-800">
+              <SelectContent className="border-gray-200 dark:border-slate-700 bg-gray-100 dark:bg-slate-800">
                 <SelectItem value="all">All Countries</SelectItem>
                 {countries.map(c => (
                   <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
@@ -127,7 +127,7 @@ export default function FilterForm({ filterOptions, currentParams }: FilterFormP
               <SelectTrigger className="h-9 border-gray-200 dark:border-white/[0.08] bg-gray-100 dark:bg-slate-800/60 text-sm text-slate-200 hover:bg-gray-100 dark:bg-slate-800">
                 <SelectValue placeholder="All Sectors" />
               </SelectTrigger>
-              <SelectContent className="border-gray-200 dark:border-border bg-gray-100 dark:bg-slate-800">
+              <SelectContent className="border-gray-200 dark:border-slate-700 bg-gray-100 dark:bg-slate-800">
                 <SelectItem value="all">All Sectors</SelectItem>
                 {sectors.map(s => (
                   <SelectItem key={s} value={s}>{s}</SelectItem>

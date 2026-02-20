@@ -90,7 +90,7 @@ function LoadingGrid() {
       {Array.from({ length: 10 }).map((_, i) => (
         <div
           key={`loading-${String(i)}`}
-          className="animate-pulse rounded-2xl border border-gray-200 dark:border-border bg-white dark:bg-card p-6"
+          className="animate-pulse rounded-2xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6"
         >
           <div className="mb-4 h-4 w-20 rounded bg-gray-100 dark:bg-slate-800 mx-auto" />
           <div className="mb-2 h-10 w-24 rounded bg-gray-100 dark:bg-slate-800 mx-auto" />

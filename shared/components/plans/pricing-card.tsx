@@ -58,24 +58,24 @@ export function PricingCard({
         if (isSelected) {
             return {
                 borderClass: 'border-blue-500/20 ring-1 ring-blue-500/20 shadow-2xl shadow-blue-500/10',
-                bgClass: 'bg-white dark:bg-card dark:border-blue-900/30',
+                bgClass: 'bg-white dark:bg-slate-900 dark:border-blue-900/30',
             }
         }
         if (isDisabled) {
             return {
-                borderClass: 'border-gray-200 dark:border-border',
-                bgClass: 'bg-gray-50 dark:bg-card',
+                borderClass: 'border-gray-200 dark:border-slate-700',
+                bgClass: 'bg-gray-50 dark:bg-slate-900',
             }
         }
         if (card.highlight === true) {
             return {
                 borderClass: 'border-blue-500/30 shadow-2xl shadow-blue-900/20',
-                bgClass: 'bg-white dark:bg-card',
+                bgClass: 'bg-white dark:bg-slate-900',
             }
         }
         return {
-            borderClass: 'border-gray-200 dark:border-border hover:border-gray-300 dark:hover:border-white/20',
-            bgClass: 'bg-white dark:bg-card',
+            borderClass: 'border-gray-200 dark:border-slate-700 hover:border-gray-300 dark:hover:border-white/20',
+            bgClass: 'bg-white dark:bg-slate-900',
         }
     }
 

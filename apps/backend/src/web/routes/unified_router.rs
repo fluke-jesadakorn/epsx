@@ -12,6 +12,7 @@ use std::sync::Arc;
 use tower_http::cors::CorsLayer;
 use axum::http::Method;
 
+
 use crate::infrastructure::container::DomainContainer;
 
 /// Unified Route Builder - Single source of truth for all application routes
@@ -179,6 +180,13 @@ impl UnifiedRouteBuilder {
         let app_state = self.create_app_state();
 
         Router::new()
+            // Threat detection wrapper to block critical threats globally from hitting auth
+            .layer(axum_middleware::from_fn_with_state(
+                app_state.clone(),
+                crate::web::middleware::governor_limiter::threat_aware_middleware
+            ))
+            // Strict governor rate limiting for all auth endpoints
+            .layer(crate::web::middleware::governor_limiter::auth_rate_limiter())
             // Web3 authentication endpoints
             .route("/web3/challenge", post(generate_challenge_handler))
             .route("/web3/verify", post(verify_signature_handler))
@@ -339,6 +347,8 @@ impl UnifiedRouteBuilder {
         let app_state = self.create_app_state();
 
         Router::new()
+            // Strict rate limiter for all user settings/emails
+            .layer(crate::web::middleware::governor_limiter::email_rate_limiter())
             // User profile and settings - using available handlers
             .route("/profile", get(crate::web::user::unified_user_handlers::get_current_user_profile))
             .route("/permissions", get(crate::web::user::unified_user_handlers::get_user_permissions))
@@ -456,6 +466,7 @@ impl UnifiedRouteBuilder {
 
         // Authenticated user chat routes
         let auth_routes = Router::new()
+            .layer(crate::web::middleware::governor_limiter::chat_rate_limiter())
             .route("/conversations", get(chat_handlers::list_conversations).post(chat_handlers::create_conversation))
             .route("/conversations/{id}", get(chat_handlers::get_conversation))
             .route("/conversations/{id}/messages", get(chat_handlers::list_messages).post(chat_handlers::send_message))

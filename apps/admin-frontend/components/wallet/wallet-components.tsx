@@ -115,7 +115,7 @@ export function DraggablePlanItem({ id, label, description, isAssigned = false, 
 
     if (isAssigned) {
         return (
-            <div className="flex items-center gap-3 p-4 rounded-xl border bg-gray-50 dark:bg-card/50 border-gray-200 dark:border-gray-800 opacity-60 cursor-not-allowed">
+            <div className="flex items-center gap-3 p-4 rounded-xl border bg-gray-50 dark:bg-slate-900/50 border-gray-200 dark:border-gray-800 opacity-60 cursor-not-allowed">
                 <div className="h-10 w-10 rounded-lg bg-gray-200 dark:bg-gray-800 flex items-center justify-center flex-shrink-0 text-gray-400">
                     <Package className="h-5 w-5" />
                 </div>

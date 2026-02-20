@@ -25,7 +25,7 @@ export default async function ConversationPage({ params }: Props) {
   return (
     <div className="p-8">
       <Breadcrumb />
-      <div className="h-[calc(100vh-10rem)] border border-gray-200 dark:border-border rounded-2xl bg-gray-100 dark:bg-white/80 dark:bg-card/80 overflow-hidden backdrop-blur-sm">
+      <div className="h-[calc(100vh-10rem)] border border-gray-200 dark:border-slate-700 rounded-2xl bg-gray-100 dark:bg-white/80 dark:bg-slate-900/80 overflow-hidden backdrop-blur-sm">
         <ChatConversationView
           conv={conv}
           topics={topics}

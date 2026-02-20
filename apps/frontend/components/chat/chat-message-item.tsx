@@ -15,7 +15,7 @@ export function ChatMessageItem({ msg, isUser }: MsgItemProps) {
   if (msg.sender_type === 'system') {
     return (
       <div className="flex justify-center my-3">
-        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-100 dark:bg-slate-800/30 border border-slate-200 dark:border-border">
+        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-100 dark:bg-slate-800/30 border border-slate-200 dark:border-slate-700">
           <Info className="w-3 h-3 text-muted-foreground/70" />
           <span className="text-[11px] text-muted-foreground/80">{msg.content}</span>
         </div>

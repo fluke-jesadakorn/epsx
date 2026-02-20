@@ -27,6 +27,7 @@ export function useAuthModalLogic({
 }: UseAuthModalLogicProps) {
     const [step, setStep] = useState<AuthStep>('connect');
     const [error, setError] = useState<string | null>(null);
+    const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
 
     const { address, isConnected, chain, connector } = useAccount();
     const { connect, connectors, error: connectError, isPending: isConnecting } = useConnect();
@@ -42,11 +43,12 @@ export function useAuthModalLogic({
 
     const isCorrectChain = chain !== undefined && SUPPORTED_CHAINS.includes(chain.id);
 
-    // Sign message hook
+    // Sign message hook – now receives the Turnstile token
     const { handleSign, isSigning } = useSignMessage({
         address,
         walletClient,
         variant,
+        turnstileToken,
         authenticateWithDirectApi,
         onSuccess,
         onError,
@@ -60,6 +62,13 @@ export function useAuthModalLogic({
             setError(connectError.message || 'Failed to connect');
         }
     }, [connectError]);
+
+    // Reset turnstile token when modal opens/closes
+    useEffect(() => {
+        if (!isOpen) {
+            setTurnstileToken(null);
+        }
+    }, [isOpen]);
 
     useEffect(() => {
         if (!isOpen) { return; }
@@ -103,6 +112,7 @@ export function useAuthModalLogic({
 
     const handleRetry = useCallback(() => {
         setError(null);
+        setTurnstileToken(null);
         if (isConnected && address !== undefined) {
             setStep(isCorrectChain ? 'sign' : 'switch-chain');
         } else {
@@ -114,7 +124,20 @@ export function useAuthModalLogic({
         disconnect();
         setStep('connect');
         setError(null);
+        setTurnstileToken(null);
     }, [disconnect]);
+
+    const handleTurnstileSuccess = useCallback((token: string) => {
+        setTurnstileToken(token);
+    }, []);
+
+    const handleTurnstileError = useCallback(() => {
+        setTurnstileToken(null);
+    }, []);
+
+    const handleTurnstileExpire = useCallback(() => {
+        setTurnstileToken(null);
+    }, []);
 
     return {
         step,
@@ -131,5 +154,9 @@ export function useAuthModalLogic({
         handleSign,
         handleRetry,
         handleDisconnect,
+        turnstileToken,
+        handleTurnstileSuccess,
+        handleTurnstileError,
+        handleTurnstileExpire,
     };
 }

@@ -64,7 +64,7 @@ export function EditPermissionSheet({ perm, onOpenChange, onSuccess }: Props) {
 
     return (
         <Sheet open={perm !== null} onOpenChange={onOpenChange}>
-            <SheetContent side="right" className="w-[400px] sm:w-[540px] bg-white dark:bg-card border-gray-200 dark:border-border text-white flex flex-col h-full">
+            <SheetContent side="right" className="w-[400px] sm:w-[540px] bg-white dark:bg-slate-900 border-gray-200 dark:border-slate-700 text-white flex flex-col h-full">
                 <SheetHeader>
                     <SheetTitle>Edit Permission</SheetTitle>
                     <SheetDescription className="font-mono text-xs text-cyan-400">

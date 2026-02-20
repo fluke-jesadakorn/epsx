@@ -129,7 +129,7 @@ export async function AccessOverview() {
                             const canRenew = group.can_renew ?? (isPlan && !isFree && daysRemaining !== null && daysRemaining <= 30);
 
                             return (
-                                <div key={group.id} className={`bg-white/80 dark:bg-card backdrop-blur-sm rounded-2xl sm:rounded-3xl p-6 shadow-xl border-2 transition-all duration-300 hover:shadow-2xl flex flex-col ${isPlan ? 'border-blue-300/50 dark:border-blue-700/50' : 'border-purple-300/50 dark:border-purple-700/50'}`}>
+                                <div key={group.id} className={`bg-white/80 dark:bg-slate-900 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-6 shadow-xl border-2 transition-all duration-300 hover:shadow-2xl flex flex-col ${isPlan ? 'border-blue-300/50 dark:border-blue-700/50' : 'border-purple-300/50 dark:border-purple-700/50'}`}>
                                     <div className="flex items-center justify-between mb-4">
                                         <div className="flex items-center gap-2">
                                             <div className="text-3xl">{isPlan ? '💎' : '👥'}</div>
@@ -224,7 +224,7 @@ export async function AccessOverview() {
                     </div>
 
                     {data.direct_permissions.length > 0 && (
-                        <div className="bg-white/80 dark:bg-card backdrop-blur-sm rounded-3xl border-2 border-indigo-100 dark:border-indigo-900/50 p-6">
+                        <div className="bg-white/80 dark:bg-slate-900 backdrop-blur-sm rounded-3xl border-2 border-indigo-100 dark:border-indigo-900/50 p-6">
                             <h4 className="font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
                                 <span className="text-xl">✨</span> External / Direct Access
                             </h4>
@@ -235,7 +235,7 @@ export async function AccessOverview() {
                                         ? `${perm.days_remaining}d left`
                                         : status.label;
                                     return (
-                                        <div key={perm.permission} className="flex items-center justify-between text-[11px] p-3 rounded-xl bg-gray-50/50 dark:bg-card border border-gray-100 dark:border-gray-800 group hover:border-indigo-200 dark:hover:border-indigo-800 transition-colors">
+                                        <div key={perm.permission} className="flex items-center justify-between text-[11px] p-3 rounded-xl bg-gray-50/50 dark:bg-slate-900 border border-gray-100 dark:border-gray-800 group hover:border-indigo-200 dark:hover:border-indigo-800 transition-colors">
                                             <div className="flex items-center gap-2 truncate mr-2">
                                                 <PermissionBadge permission={perm.permission} size="sm" showNote />
                                                 {perm.source && (
@@ -261,7 +261,7 @@ export async function AccessOverview() {
                         <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 text-sm font-bold shadow-sm">F</span>
                         Feature Access
                     </h3>
-                    <div className="bg-white/80 dark:bg-card backdrop-blur-xl rounded-3xl border-2 border-gray-100 dark:border-gray-800 p-6 shadow-xl relative overflow-hidden group">
+                    <div className="bg-white/80 dark:bg-slate-900 backdrop-blur-xl rounded-3xl border-2 border-gray-100 dark:border-gray-800 p-6 shadow-xl relative overflow-hidden group">
                         <div className="relative z-10 space-y-1">
                             <FeatureRow label="Market Rankings" included={data.groups.some(g => g.permissions.some(p => p.includes('rankings:view')))} />
                             <FeatureRow label="Advanced Analytics" included={data.groups.some(g => g.permissions.some(p => p.includes('analytics:advanced')))} />

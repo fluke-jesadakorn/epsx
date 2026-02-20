@@ -1,6 +1,7 @@
 'use client';
 
 import type { Connector } from 'wagmi';
+import { TurnstileWidget } from '../turnstile-widget';
 
 export interface ConnectStepProps {
     connectors: readonly Connector[];
@@ -91,6 +92,10 @@ export interface SignStepProps {
     isSigning: boolean;
     isWalletClientLoading: boolean;
     hasWalletClient: boolean;
+    turnstileToken?: string | null;
+    onTurnstileSuccess?: (token: string) => void;
+    onTurnstileError?: () => void;
+    onTurnstileExpire?: () => void;
 }
 
 export function SignStep({
@@ -99,8 +104,16 @@ export function SignStep({
     handleDisconnect,
     isSigning,
     isWalletClientLoading,
-    hasWalletClient
+    hasWalletClient,
+    turnstileToken,
+    onTurnstileSuccess,
+    onTurnstileError,
+    onTurnstileExpire,
 }: SignStepProps) {
+    const isTurnstileReady = Boolean(turnstileToken);
+    const isWalletReady = !isWalletClientLoading && hasWalletClient;
+    const canSign = isWalletReady && isTurnstileReady && !isSigning;
+
     return (
         <div className="auth-step auth-step-enter">
             <div className="auth-step-header">
@@ -110,8 +123,37 @@ export function SignStep({
             <p className="auth-address">
                 {address.slice(0, 6)}...{address.slice(-4)}
             </p>
+
+            {/* Turnstile CAPTCHA verification */}
+            {onTurnstileSuccess && (
+                <div style={{ marginTop: '1rem' }}>
+                    <div className="auth-step-header">
+                        <span className={`auth-step-number ${isTurnstileReady ? 'auth-step-complete' : ''}`}>
+                            {isTurnstileReady ? '✓' : '2'}
+                        </span>
+                        <span className="auth-step-label">
+                            {isTurnstileReady ? 'Verified' : 'Human Verification'}
+                        </span>
+                    </div>
+                    {!isTurnstileReady && (
+                        <TurnstileWidget
+                            onSuccess={onTurnstileSuccess}
+                            onError={onTurnstileError}
+                            onExpire={onTurnstileExpire}
+                            action="auth"
+                            className="my-3"
+                        />
+                    )}
+                    {isTurnstileReady && (
+                        <p className="auth-step-desc" style={{ color: '#4ade80', fontSize: '0.8rem' }}>
+                            ✅ Verification complete
+                        </p>
+                    )}
+                </div>
+            )}
+
             <div className="auth-step-header" style={{ marginTop: '1.5rem' }}>
-                <span className="auth-step-number">2</span>
+                <span className="auth-step-number">{onTurnstileSuccess ? '3' : '2'}</span>
                 <span className="auth-step-label">Verify Ownership</span>
             </div>
             <p className="auth-step-desc">
@@ -120,18 +162,20 @@ export function SignStep({
             <button
                 className="auth-btn-primary"
                 onClick={handleSign}
-                disabled={isSigning || isWalletClientLoading || !hasWalletClient}
+                disabled={!canSign}
             >
                 {isSigning ? (
                     <>
                         <span className="auth-spinner" />
                         Sign in Wallet...
                     </>
-                ) : isWalletClientLoading || !hasWalletClient ? (
+                ) : !isWalletReady ? (
                     <>
                         <span className="auth-spinner" />
                         Preparing Wallet...
                     </>
+                ) : !isTurnstileReady ? (
+                    '🛡️ Complete Verification First'
                 ) : (
                     '✍️ Sign Message'
                 )}

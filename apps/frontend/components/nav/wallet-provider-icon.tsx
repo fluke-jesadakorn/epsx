@@ -218,7 +218,7 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
         <button
           className={`flex items-center gap-2 rounded-2xl px-3 py-2 text-sm font-medium transition-all duration-200
             text-slate-600 hover:bg-slate-50/80 hover:text-slate-700 
-            dark:text-slate-300 dark:hover:bg-gray-100 dark:bg-slate-800/40 dark:hover:text-slate-200 
+            dark:text-slate-300 dark:hover:bg-slate-700 dark:bg-slate-800/40 dark:hover:text-slate-200 
             bg-transparent border-0 ${className}`}
         >
           <Wallet className={`h-4 w-4 ${status.color === 'text-red-500' ? 'text-red-500' : 'text-orange-500'}`} />
@@ -230,7 +230,7 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
         align="end"
         sideOffset={8}
         style={{ zIndex: 99999 }}
-        className="w-72 p-0 bg-white/98 backdrop-blur-xl border border-slate-200 dark:bg-card/95 dark:border-slate-700 shadow-2xl rounded-2xl overflow-hidden"
+        className="w-72 p-0 bg-white/98 backdrop-blur-xl border border-slate-200 dark:bg-slate-900/95 dark:border-slate-700 shadow-2xl rounded-2xl overflow-hidden"
       >
         {/* ═══════════════════════════════════════════════════════════════
             HEADER - Wallet Info Card
@@ -265,7 +265,7 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
               bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700
               text-slate-700 dark:text-slate-300 text-sm font-medium transition-all duration-150"
           >
-            {copied ? <Check className="h-4 w-4 text-emerald-500" /> : <Copy className="h-4 w-4" />}
+            {copied ? <Check className="h-4 w-4 text-emerald-500" /> : <Copy className="h-4 w-4 text-orange-500" />}
             {copied ? 'Copied!' : 'Copy'}
           </button>
           <button
@@ -274,7 +274,7 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
               bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700
               text-slate-700 dark:text-slate-300 text-sm font-medium transition-all duration-150"
           >
-            <ExternalLink className="h-4 w-4" />
+            <ExternalLink className="h-4 w-4 text-orange-500" />
             Explorer
           </button>
         </div>
@@ -340,11 +340,11 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
             <Link
               href="/account"
               className="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer
-                hover:bg-slate-100 dark:hover:bg-gray-100 dark:bg-slate-800 transition-colors"
+                hover:bg-slate-100 dark:hover:bg-slate-700 dark:bg-slate-800 transition-colors"
             >
-              <Settings className="h-4 w-4 text-slate-500" />
+              <Settings className="h-4 w-4 text-orange-500" />
               <span className="flex-1 text-sm font-medium text-slate-700 dark:text-slate-300">Account Settings</span>
-              <ChevronRight className="h-4 w-4 text-slate-400" />
+              <ChevronRight className="h-4 w-4 text-orange-500" />
             </Link>
           </DropdownMenuItem>
 
@@ -352,11 +352,11 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
             <Link
               href="/developer"
               className="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer
-                hover:bg-slate-100 dark:hover:bg-gray-100 dark:bg-slate-800 transition-colors"
+                hover:bg-slate-100 dark:hover:bg-slate-700 dark:bg-slate-800 transition-colors"
             >
-              <Code className="h-4 w-4 text-slate-500" />
+              <Code className="h-4 w-4 text-orange-500" />
               <span className="flex-1 text-sm font-medium text-slate-700 dark:text-slate-300">Developer Portal</span>
-              <ChevronRight className="h-4 w-4 text-slate-400" />
+              <ChevronRight className="h-4 w-4 text-orange-500" />
             </Link>
           </DropdownMenuItem>
         </div>
@@ -370,12 +370,12 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
           <button
             onClick={handleThemeToggle}
             className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl
-              hover:bg-slate-100 dark:hover:bg-gray-100 dark:bg-slate-800 transition-colors"
+              hover:bg-slate-100 dark:hover:bg-slate-700 dark:bg-slate-800 transition-colors"
           >
             {currentTheme === 'dark' ? (
-              <Moon className="h-4 w-4 text-slate-500" />
+              <Moon className="h-4 w-4 text-orange-500" />
             ) : (
-              <Sun className="h-4 w-4 text-amber-500" />
+              <Sun className="h-4 w-4 text-orange-500" />
             )}
             <span className="flex-1 text-left text-sm font-medium text-slate-700 dark:text-slate-300">
               {currentTheme === 'dark' ? 'Dark Mode' : 'Light Mode'}

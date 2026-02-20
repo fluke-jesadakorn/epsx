@@ -64,7 +64,8 @@ tokio = { version = "1.0", features = ["full"] }
 tokio-stream = { version = "0.1", features = ["sync"] }
 async-stream = "0.3"
 tower = { version = "0.5", features = ["util", "timeout", "full"] }
-tower-http = { version = "0.5", features = ["cors", "compression-gzip", "trace", "timeout", "limit", "request-id", "set-header", "util"] }
+tower-http = { version = "0.5", features = ["cors", "compression-gzip", "trace", "timeout", "limit", "request-id", "set-header", "util", "catch-panic"] }
+tower_governor = "0.8.0" # Rate Limiting
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tokio-retry = "0.3"
@@ -121,6 +122,7 @@ diesel = { version = "2.1", features = ["postgres", "uuid", "chrono", "numeric",
 diesel-async = { version = "0.4", features = ["postgres", "deadpool", "async-connection-wrapper", "bb8"] }
 diesel_migrations = "2.1"
 deadpool = { version = "0.9", features = ["rt_tokio_1"] }
+governor = "0.10.0"
 # Diesel provides type-safe ORM with async support via diesel-async
 # Using deadpool 0.9 (from diesel-async dependency) for async connection pooling
 # Note: diesel-async 0.4 requires diesel 2.1.x and deadpool 0.9.x
