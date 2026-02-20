@@ -13,7 +13,7 @@
  * @param root0.reset
  */
 export default function GlobalError({
-    _error,
+    error,
     reset,
 }: {
     error: Error & { digest?: string }

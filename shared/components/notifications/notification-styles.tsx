@@ -1,7 +1,7 @@
 
 import { AlertCircle, CheckCircle, Info, XCircle } from 'lucide-react'
 import React from 'react'
-import type { NotificationType, NotificationVariant } from './unified-notification-types'
+import type { NotificationType, NotificationVariant } from './notification-types'
 
 const TEXT_WHITE = 'text-white'
 

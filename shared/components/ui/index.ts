@@ -68,7 +68,7 @@ export {
     MinimalThemeToggle, OptimizedThemeToggle, SimpleThemeToggle, ThemeToggle,
     ThemeToggleCSS, UnifiedThemeToggle, type ThemeToggleIconType,
     type ThemeToggleSize, type ThemeToggleVariant, type UnifiedThemeToggleProps
-} from './unified-theme-toggle';
+} from './theme-toggle';
 
 // Tooltip
 export {

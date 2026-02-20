@@ -1,6 +1,6 @@
 'use client';
 
-import { useUnifiedWeb3 } from '@/shared/components/providers/unified-web3-provider';
+import { useUnifiedWeb3 } from '@/shared/components/providers/web3-provider';
 
 import {
   Button,

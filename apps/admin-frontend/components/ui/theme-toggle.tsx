@@ -11,7 +11,7 @@ export {
   MinimalThemeToggle, OptimizedThemeToggle, SimpleThemeToggle, ThemeToggle,
   ThemeToggleCSS, UnifiedThemeToggle, type ThemeToggleIconType,
   type ThemeToggleSize, type ThemeToggleVariant, type UnifiedThemeToggleProps
-} from '@/shared/components/ui/unified-theme-toggle';
+} from '@/shared/components/ui/theme-toggle';
 
 // Legacy default export that matches admin's original behavior
-export { AdminThemeToggle as default } from '@/shared/components/ui/unified-theme-toggle';
+export { AdminThemeToggle as default } from '@/shared/components/ui/theme-toggle';

@@ -2,7 +2,7 @@ import { X } from 'lucide-react'
 import React from 'react'
 import { cn } from '../../utils/cn'
 import { typeStyles, variantStyles, type TypeStyle, type VariantStyle } from './notification-styles'
-import type { IconType, NotificationType, NotificationVariant } from './unified-notification-types'
+import type { IconType, NotificationType, NotificationVariant } from './notification-types'
 
 // Helper to get type/variant styles
 export function useNotificationStyles(type: NotificationType, variant: NotificationVariant) {

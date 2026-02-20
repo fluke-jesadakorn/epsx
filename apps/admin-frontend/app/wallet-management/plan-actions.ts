@@ -1,5 +1,6 @@
 'use server';
 
+import { redirectOnForbidden } from '@/lib/api-error';
 import type {
     AssignmentDto,
     CreatePlanRequest,
@@ -7,7 +8,6 @@ import type {
     UpdatePlanRequest,
     UserPlanMembership
 } from '@/lib/api/plan-management-client';
-import { redirectOnForbidden } from '@/lib/api-error';
 import { createAdminApiClient, extractArrayOrEmpty } from '@/shared/api';
 import { API_ROUTES } from '@/shared/config/route-constants';
 import { revalidatePath } from 'next/cache';
@@ -49,7 +49,7 @@ function mapAssignmentToMembership(assignment: AssignmentDto): UserPlanMembershi
             updated_at: assignment.assigned_at,
             default_expiry_days: assignment.default_expiry_days,
             tier_level: assignment.priority_level ?? 0,
-        } as PermissionPlan
+        } as unknown as PermissionPlan
     };
 }
 

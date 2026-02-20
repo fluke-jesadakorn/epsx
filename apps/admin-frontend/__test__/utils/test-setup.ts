@@ -11,16 +11,16 @@
  * - Environment validation
  */
 
-import type { Page, APIRequestContext } from '@playwright/test';
+import type { APIRequestContext, Page } from '@playwright/test';
 import { test as base, expect } from '@playwright/test';
 
 import { getBackendUrl } from '@/shared/utils/url-resolver';
 import {
-  TEST_USERS,
-  TEST_SESSIONS,
-  TEST_ENVIRONMENT_CONFIG,
-  TestDatabaseUtilities,
   MockAPIClient,
+  TEST_ENVIRONMENT_CONFIG,
+  TEST_SESSIONS,
+  TEST_USERS,
+  TestDatabaseUtilities,
   type TestUser
 } from '../fixtures/admin-test-fixtures';
 
@@ -45,13 +45,13 @@ export const test = base.extend<AdminTestFixtures>({
       'X-Test-Environment': 'true',
       'X-Test-Run-ID': `test-${Date.now()}`
     });
-    
+
     // Set viewport for consistent testing
     await page.setViewportSize({ width: 1920, height: 1080 });
-    
+
     // Block unnecessary resources for faster testing
     await page.route('**/*.{png,jpg,jpeg,svg}', route => route.abort());
-    
+
     await use(page);
   },
 
@@ -60,7 +60,7 @@ export const test = base.extend<AdminTestFixtures>({
     await use(request);
   },
 
-  testUser: async ({}, use) => {
+  testUser: async ({ }, use) => {
     // Provide default test user
     const admin = TEST_USERS['ADMIN'];
     if (!admin) {
@@ -69,17 +69,17 @@ export const test = base.extend<AdminTestFixtures>({
     await use(admin);
   },
 
-  dbUtils: async ({}, use) => {
+  dbUtils: async ({ }, use) => {
     const utils = TestDatabaseUtilities.getInstance();
     await use(utils);
   },
 
-  mockAPI: async ({}, use) => {
+  mockAPI: async ({ }, use) => {
     const mockClient = new MockAPIClient();
     await use(mockClient);
   },
 
-  performanceMonitor: async ({}, use) => {
+  performanceMonitor: async ({ }, use) => {
     // eslint-disable-next-line @typescript-eslint/no-use-before-define
     const monitor = new PerformanceMonitor();
     await use(monitor);
@@ -132,9 +132,9 @@ export class PerformanceMonitor {
    *
    */
   endMeasurement(): PerformanceMetrics | null {
-  // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
+    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
     if (!this.currentMetric?.startTime) {
-       
+
       console.warn('⚠️ No active measurement to end');
       return null;
     }
@@ -189,7 +189,7 @@ export class PerformanceMonitor {
    *
    */
   getAverageResponseTime(): number {
-    if (this.metrics.length === 0) {return 0;}
+    if (this.metrics.length === 0) { return 0; }
     return this.metrics.reduce((sum, metric) => sum + metric.duration, 0) / this.metrics.length;
   }
 
@@ -267,12 +267,12 @@ export class AuthenticationHelper {
    */
   async loginAsUser(userType: keyof typeof TEST_USERS): Promise<string | null> {
     const user = TEST_USERS[userType];
-    const session = Object.values(TEST_SESSIONS).find(s => s.userId === user.id);
+    const session = Object.values(TEST_SESSIONS).find(s => s.userId === user?.id);
 
     try {
       // Navigate to login page
       await this.page.goto('/');
-      
+
       // Check if already logged in
       try {
         await this.page.waitForURL('**/login**', { timeout: 5000 });
@@ -292,7 +292,7 @@ export class AuthenticationHelper {
       await this.page.waitForURL('**/oauth/authorize**', { timeout: 10000 });
       await this.page.fill('input[name="email"]', TEST_ENVIRONMENT_CONFIG.auth.testEmail);
       await this.page.fill('input[name="password"]', TEST_ENVIRONMENT_CONFIG.auth.testPassword);
-      
+
       const submitBtn = this.page.locator('button[type="submit"]').first();
       await submitBtn.click();
 
@@ -300,10 +300,10 @@ export class AuthenticationHelper {
       await this.page.waitForFunction(
         () => {
           const url = window.location.href;
-          return !url.includes('/login') && 
-   
-                 !url.includes('/oauth/authorize') && 
-                 (url.includes('localhost:3001') ?? url.includes('admin.epsx.io'));
+          return !url.includes('/login') &&
+
+            !url.includes('/oauth/authorize') &&
+            (url.includes('localhost:3001') ?? url.includes('admin.epsx.io'));
         },
         { timeout: 30000 }
       );
@@ -311,19 +311,19 @@ export class AuthenticationHelper {
       await this.page.waitForLoadState('networkidle');
 
       // Extract session token
-   
+
       const token = await this.extractAuthToken();
-      
+
       if (token) {
         return token;
       } else {
-         
-        console.error(`❌ Failed to extract auth token for ${user.name}`);
+
+        console.error(`❌ Failed to extract auth token for ${user?.name}`);
         return null;
       }
     } catch (_error) {
-       
-      console.error(`❌ Login failed for ${user.name}:`, _error);
+
+      console.error(`❌ Login failed for ${user?.name}:`, _error);
       return null;
     }
   }
@@ -333,8 +333,8 @@ export class AuthenticationHelper {
    */
   async extractAuthToken(): Promise<string | null> {
     return await this.page.evaluate(() => {
-      return localStorage.getItem('auth_token') ?? 
-             document.cookie.split(';').find(c => c.trim().startsWith('session='))?.split('=')[1] ?? null;
+      return localStorage.getItem('auth_token') ??
+        document.cookie.split(';').find(c => c.trim().startsWith('session='))?.split('=')[1] ?? null;
     });
   }
 
@@ -357,12 +357,12 @@ export class AuthenticationHelper {
    *
    */
   async logout(): Promise<void> {
-    
+
     try {
       // Try to find and click logout button
       const logoutSelectors = [
         'button:has-text("Logout")',
-        'button:has-text("Sign out")', 
+        'button:has-text("Sign out")',
         'a:has-text("Logout")',
         'a:has-text("Sign out")'
       ];
@@ -382,7 +382,7 @@ export class AuthenticationHelper {
       });
 
     } catch (_error) {
-       
+
       console.error('⚠️ Logout error:', _error);
     }
   }
@@ -416,7 +416,7 @@ export class SecurityTestHelper {
    * @param token
    */
   async testSQLInjection(endpoint: string, payloads: string[], token?: string): Promise<SecurityTestResult[]> {
-    
+
     const results: SecurityTestResult[] = [];
 
     for (const payload of payloads) {
@@ -454,7 +454,7 @@ export class SecurityTestHelper {
    * @param token
    */
   async testXSS(endpoint: string, payloads: string[], token?: string): Promise<SecurityTestResult[]> {
-    
+
     const results: SecurityTestResult[] = [];
 
     for (const payload of payloads) {
@@ -476,9 +476,9 @@ export class SecurityTestHelper {
         if (response.ok()) {
           try {
             const responseData = await response.json();
-            sanitized = !responseData.name?.includes('<script>') && 
-                       !responseData.name?.includes('javascript:');
-          } catch {}
+            sanitized = !responseData.name?.includes('<script>') &&
+              !responseData.name?.includes('javascript:');
+          } catch { }
         }
 
         results.push({
@@ -509,9 +509,9 @@ export class SecurityTestHelper {
    * @param token
    */
   async testRateLimiting(endpoint: string, requestCount: number, token?: string): Promise<RateLimitTestResult> {
-    
+
     const startTime = performance.now();
-    const requests = Array.from({ length: requestCount }, (_, i) => 
+    const requests = Array.from({ length: requestCount }, (_, i) =>
       this.request.get(`${this.baseUrl}${endpoint}?test=${i}`, {
         headers: token ? { 'Authorization': `Bearer ${token}` } : {}
       }).catch(() => ({ status: () => 0, ok: () => false }))
@@ -556,7 +556,7 @@ export class SecurityTestHelper {
       });
 
       return {
-        protected: response.status() === 403 ?? response.status() === 400,
+        protected: response.status() === 403 || response.status() === 400,
         status: response.status(),
         responseTime: 0
       };
@@ -611,7 +611,7 @@ export class EnvironmentValidator {
    *
    */
   static async validateTestEnvironment(): Promise<ValidationResult> {
-    
+
     const results: ValidationResult = {
       database: false,
       api: false,
@@ -625,8 +625,8 @@ export class EnvironmentValidator {
       results.database = true;
     } catch (_error) {
       results.database = false;
-      results.errors.push(`Database validation failed: ${error}`);
-       
+      results.errors.push(`Database validation failed: ${_error}`);
+
       console.error('❌ Database validation failed:', _error);
     }
 
@@ -634,17 +634,17 @@ export class EnvironmentValidator {
     try {
       const response = await fetch(`${TEST_ENVIRONMENT_CONFIG.api.baseUrl}/health`);
       results.api = response.ok;
-      
+
       if (results.api) {
       } else {
         results.errors.push(`API health check failed: ${response.status}`);
-         
+
         console.error('❌ API validation failed:', response.status);
       }
     } catch (_error) {
       results.api = false;
-      results.errors.push(`API validation failed: ${error}`);
-       
+      results.errors.push(`API validation failed: ${_error}`);
+
       console.error('❌ API validation failed:', _error);
     }
 
@@ -654,18 +654,18 @@ export class EnvironmentValidator {
       results.authentication = true;
     } catch (_error) {
       results.authentication = false;
-      results.errors.push(`Authentication validation failed: ${error}`);
-       
+      results.errors.push(`Authentication validation failed: ${_error}`);
+
       console.error('❌ Authentication validation failed:', _error);
     }
 
     const allValid = results.database && results.api && results.authentication;
-    
+
     if (allValid) {
     } else {
-       
+
       console.error('❌ Test environment validation failed');
-       
+
       console.error('Errors:', results.errors);
     }
 
@@ -679,7 +679,7 @@ export class EnvironmentValidator {
 
     // Implementation: Validate that test users have correct permissions
     // This would check the database or API to ensure test users exist with proper permissions
-    
+
     return true;
   }
 }
@@ -712,14 +712,14 @@ export class TestDataManager {
    *
    */
   async setupTestData(): Promise<void> {
-    
+
     try {
       await this.dbUtils.seedTestUsers();
       await this.dbUtils.seedRoleProfiles();
       await this.dbUtils.seedTestSessions();
-      
+
     } catch (_error) {
-       
+
       console.error('❌ Test data setup failed:', _error);
       throw _error;
     }
@@ -729,11 +729,11 @@ export class TestDataManager {
    *
    */
   async cleanupTestData(): Promise<void> {
-    
+
     try {
       await this.dbUtils.cleanupTestData();
     } catch (_error) {
-       
+
       console.error('❌ Test data cleanup failed:', _error);
       throw _error;
     }
@@ -743,29 +743,29 @@ export class TestDataManager {
    *
    */
   async resetTestData(): Promise<void> {
-    
+
     await this.cleanupTestData();
     await this.setupTestData();
-    
+
   }
 
   /**
    *
    */
   async verifyTestDataIntegrity(): Promise<boolean> {
-    
+
     try {
       const isValid = await this.dbUtils.verifyDatabaseIntegrity();
-      
+
       if (isValid) {
       } else {
-         
+
         console.error('❌ Test data integrity check failed');
       }
-      
+
       return isValid;
     } catch (_error) {
-       
+
       console.error('❌ Test data integrity verification failed:', _error);
       return false;
     }
@@ -811,7 +811,7 @@ export class GlobalTestSetup {
 
     // Validate environment
     const validation = await EnvironmentValidator.validateTestEnvironment();
-    if (!validation.database ?? !validation.api) {
+    if (!validation.database || !validation.api) {
       throw new Error(`Environment validation failed: ${validation.errors.join(', ')}`);
     }
 

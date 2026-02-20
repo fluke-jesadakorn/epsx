@@ -4,15 +4,15 @@
 import React, { useEffect, useState } from 'react'
 import { cn } from '../../utils/cn'
 import { positions } from './notification-styles'
-import { UnifiedAlert } from './unified-alert'
+import { UnifiedAlert } from './alert'
 import {
     NotificationCloseButton,
     NotificationContent,
     NotificationIcon,
     NotificationProgressBar,
     useNotificationStyles
-} from './unified-notification-components'
-import type { IconType, NotificationType, NotificationVariant, Position } from './unified-notification-types'
+} from './notification-components'
+import type { IconType, NotificationType, NotificationVariant, Position } from './notification-types'
 
 export interface UnifiedNotificationProps {
     type?: NotificationType
@@ -193,9 +193,9 @@ function NotificationBody({
     )
 }
 
-export * from './unified-alert'
-export * from './unified-notification-types'
-export * from './use-unified-toast'
+export * from './alert'
+export * from './notification-types'
+export * from './use-toast'
 
 // Legacy component aliases for backward compatibility
 export const MetroNotification = (props: UnifiedNotificationProps) =>

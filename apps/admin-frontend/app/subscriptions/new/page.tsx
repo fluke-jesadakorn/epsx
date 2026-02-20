@@ -85,8 +85,8 @@ function AccessContextSelector({
           <label
             key={option.value}
             className={`relative flex flex-col p-4 rounded-xl border-2 cursor-pointer transition-all ${context === option.value
-                ? 'border-primary bg-primary/5'
-                : 'border-border hover:border-border/80 bg-muted/30'
+              ? 'border-primary bg-primary/5'
+              : 'border-border hover:border-border/80 bg-muted/30'
               }`}
           >
             <input
@@ -352,7 +352,7 @@ export default function NewSubscriptionPage() {
 
   const defaultExpiryDate = new Date()
   defaultExpiryDate.setFullYear(defaultExpiryDate.getFullYear() + 1)
-  const defaultExpiryString = defaultExpiryDate.toISOString().split('T')[0]
+  const defaultExpiryString = defaultExpiryDate.toISOString().split('T')[0] ?? ''
 
   return (
     <div className="min-h-screen p-6">

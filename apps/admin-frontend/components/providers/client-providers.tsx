@@ -8,7 +8,7 @@ import { SettingsProvider } from './settings-provider';
 
 import { SharedOpenIDWeb3Provider } from '@/shared/components/auth';
 import { CommonProviders } from '@/shared/components/providers/common-providers';
-import { UnifiedWeb3Provider } from '@/shared/components/providers/unified-web3-provider';
+import { UnifiedWeb3Provider } from '@/shared/components/providers/web3-provider';
 import type { State } from 'wagmi';
 
 /**

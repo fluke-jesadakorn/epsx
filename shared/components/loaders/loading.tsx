@@ -1,7 +1,7 @@
 
 import { type ReactNode } from 'react'
 import { cn } from '../../utils/cn'
-import { UnifiedLoader, type LoaderVariant } from './unified-loader'
+import { UnifiedLoader, type LoaderVariant } from './loader'
 
 export interface UnifiedLoadingProps {
     type?: 'page' | 'section' | 'inline'

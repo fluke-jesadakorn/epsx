@@ -3,7 +3,7 @@
  * Provides mock data for all API endpoints used by the admin portal.
  */
 
-import { TEST_USERS, TEST_SESSIONS } from './admin-test-fixtures';
+import { TEST_SESSIONS, TEST_USERS } from './admin-test-fixtures';
 
 export const MOCK_WALLET = '0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B';
 
@@ -17,7 +17,7 @@ export const MOCK_ADMIN = {
   updated_at: '2024-06-01T00:00:00Z',
 };
 
-export const MOCK_TOKEN = TEST_SESSIONS.VALID_ADMIN.token;
+export const MOCK_TOKEN = TEST_SESSIONS.VALID_ADMIN?.token ?? 'mock-admin-token';
 
 export const ADMIN_PERMISSIONS = [
   'admin:users:manage',

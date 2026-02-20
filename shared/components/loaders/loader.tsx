@@ -12,7 +12,7 @@ import {
     StackLoader,
     type LoaderSize,
     type LoaderVariant
-} from './unified-loader-variants';
+} from './loader-variants';
 
 type LoaderType = 'spinner' | 'dots' | 'bars' | 'pulse' | 'stack';
 
@@ -78,7 +78,7 @@ export function UnifiedLoader({
     )
 }
 
-export * from './unified-loading';
-export * from './unified-progress-bar';
-export * from './unified-skeleton';
+export * from './loading';
+export * from './progress-bar';
+export * from './skeleton';
 

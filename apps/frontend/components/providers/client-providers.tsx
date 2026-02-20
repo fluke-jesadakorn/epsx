@@ -5,7 +5,7 @@ import '@/lib/polyfills';
 import { PerformanceProvider } from '@/components/common/performance-provider';
 import { Toaster } from '@/components/ui/toaster';
 import { CommonProviders } from '@/shared/components/providers/common-providers';
-import { UnifiedWeb3Provider } from '@/shared/components/providers/unified-web3-provider';
+import { UnifiedWeb3Provider } from '@/shared/components/providers/web3-provider';
 import React from 'react';
 import type { State } from 'wagmi';
 

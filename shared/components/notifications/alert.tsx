@@ -2,7 +2,7 @@
 import React from 'react'
 import { cn } from '../../utils/cn'
 import { typeStyles, variantStyles } from './notification-styles'
-import type { IconType, NotificationType, NotificationVariant } from './unified-notification-types'
+import type { IconType, NotificationType, NotificationVariant } from './notification-types'
 
 export interface UnifiedAlertProps {
     type?: NotificationType

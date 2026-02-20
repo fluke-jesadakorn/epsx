@@ -1,7 +1,7 @@
 
 import { useState } from 'react'
-import { UnifiedNotification, type UnifiedNotificationProps } from './unified-notification'
-import type { IconType, NotificationVariant, Position } from './unified-notification-types'
+import { UnifiedNotification, type UnifiedNotificationProps } from './notification'
+import type { IconType, NotificationVariant, Position } from './notification-types'
 
 // Toast Notification Manager
 export interface ToastNotification extends Omit<UnifiedNotificationProps, 'visible' | 'onClose'> {

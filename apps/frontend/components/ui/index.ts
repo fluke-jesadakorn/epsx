@@ -53,20 +53,20 @@ export {
 export {
   UnifiedLoader, UnifiedLoading, UnifiedProgressBar, UnifiedSkeleton,
   type UnifiedLoaderProps, type UnifiedLoadingProps, type UnifiedProgressBarProps, type UnifiedSkeletonProps
-} from '@/shared/components/loaders/unified-loader';
+} from '@/shared/components/loaders/loader';
 
 export {
   AnimatedThemeToggle, GradientThemeToggle,
   MinimalThemeToggle, OptimizedThemeToggle, ThemeToggle,
   ThemeToggleCSS, UnifiedThemeToggle, type ThemeToggleIconType,
   type ThemeToggleSize, type ThemeToggleVariant, type UnifiedThemeToggleProps
-} from '@/shared/components/ui/unified-theme-toggle';
+} from '@/shared/components/ui/theme-toggle';
 
 export {
   MetroNotification, ProfessionalAlert, ProfessionalNotification, UnifiedAlert, UnifiedNotification, useAdminToast,
   useAnalyticsToast, useMetroToast, usePancakeToast, useProfessionalToast, useUnifiedToast,
   type UnifiedNotificationProps, type UnifiedAlertProps, type ToastNotification, type UseUnifiedToastProps
-} from '@/shared/components/notifications/unified-notification';
+} from '@/shared/components/notifications/notification';
 
 // ============================================================================
 // FRONTEND-SPECIFIC COMPONENTS - Keep local

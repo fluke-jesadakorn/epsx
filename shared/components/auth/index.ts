@@ -12,21 +12,21 @@ export { AuthStatus } from './auth-status';
 export type { AuthStatusProps } from './auth-status';
 
 // Unified progressive auth gate component
-export { default as UnifiedProgressiveAuthGate } from './unified-progressive-auth-gate';
+export { default as UnifiedProgressiveAuthGate } from './progressive-auth-gate';
 
 export type {
   UnifiedProgressiveAuthGateProps
-} from './unified-progressive-auth-gate';
+} from './progressive-auth-gate';
 
 // Progressive auth gate convenience components
 export {
   RequireFullAuth, RequireProgressiveAuth, RequireSignIn
-} from './unified-progressive-auth-gate';
+} from './progressive-auth-gate';
 
 // Higher-order component and hooks
 export {
   useProgressiveAuthStatus, withProgressiveAuth
-} from './unified-progressive-auth-gate';
+} from './progressive-auth-gate';
 
 // Auth provider and context
 export { SharedOpenIDWeb3Provider, useSharedAuth, useAuth } from './provider';
