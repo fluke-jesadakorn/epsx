@@ -24,12 +24,13 @@ export async function getTopicsAction(): Promise<ChatTopic[]> {
 export async function createConversationAction(
   topicId: string,
   subject: string,
-  message: string
+  message: string,
+  turnstileToken?: string
 ): Promise<ChatConversation | null> {
   try {
     const client = getServerActionClient();
     const api = createSupportChatClient(client);
-    const res = await api.createConversation({ topic_id: topicId, subject, message });
+    const res = await api.createConversation({ topic_id: topicId, subject, message, turnstile_token: turnstileToken });
     if (res.success && res.data) {
       revalidatePath('/chat');
       return res.data;

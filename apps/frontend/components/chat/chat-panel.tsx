@@ -37,10 +37,18 @@ export function ChatPanel({ isOpen, onClose, walletAddr }: PanelProps) {
   const [loading, setLoading] = useState(false);
 
   const loadData = useCallback(async () => {
-    const [topicsData, convosData] = await Promise.all([getTopicsAction(), listConversationsAction()]);
-    setTopics(topicsData);
-    setConvos(convosData);
-    if (convosData.length === 0) {
+    try {
+      const [topicsData, convosData] = await Promise.all([getTopicsAction(), listConversationsAction()]);
+      const t = Array.isArray(topicsData) ? topicsData : [];
+      const c = Array.isArray(convosData) ? convosData : [];
+      setTopics(t);
+      setConvos(c);
+      if (c.length === 0) {
+        setView('topics');
+      }
+    } catch {
+      setTopics([]);
+      setConvos([]);
       setView('topics');
     }
   }, []);
@@ -58,7 +66,7 @@ export function ChatPanel({ isOpen, onClose, walletAddr }: PanelProps) {
       setConvos((prev) => [convo, ...prev]);
       setActiveConvo(convo);
       const newMsgs = await getMessagesAction(convo.id);
-      setMsgs(newMsgs);
+      setMsgs(Array.isArray(newMsgs) ? newMsgs : []);
       setView('conversation');
     }
     setLoading(false);
@@ -70,7 +78,7 @@ export function ChatPanel({ isOpen, onClose, walletAddr }: PanelProps) {
     if (convo) {
       setActiveConvo(convo);
       const newMsgs = await getMessagesAction(id);
-      setMsgs(newMsgs);
+      setMsgs(Array.isArray(newMsgs) ? newMsgs : []);
       void markConversationReadAction(id);
       setView('conversation');
     }

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
+import { TurnstileWidget } from '@/shared/components/turnstile-widget';
 import type { ChatTopic } from '@/shared/api/chat';
 import {
   MessageCircle,
@@ -45,7 +46,7 @@ const DEFAULT_COLOR = { bg: 'bg-muted', icon: 'text-muted-foreground', border: '
 
 interface TopicSelectorProps {
   topics: ChatTopic[];
-  onSelect: (topicId: string, subject: string, message: string) => void;
+  onSelect: (topicId: string, subject: string, message: string, turnstileToken?: string) => void;
   compact?: boolean;
 }
 
@@ -54,13 +55,14 @@ export function ChatTopicSelector({ topics, onSelect, compact }: TopicSelectorPr
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
 
   const handleSubmit = useCallback(() => {
-    if (selected && subject.trim() && message.trim() && !sending) {
+    if (selected && subject.trim() && message.trim() && !sending && turnstileToken !== null) {
       setSending(true);
-      onSelect(selected, subject.trim(), message.trim());
+      onSelect(selected, subject.trim(), message.trim(), turnstileToken);
     }
-  }, [selected, subject, message, onSelect, sending]);
+  }, [selected, subject, message, onSelect, sending, turnstileToken]);
 
   const getIcon = (iconName: string | null) => {
     if (!iconName) return HelpCircle;
@@ -123,9 +125,16 @@ export function ChatTopicSelector({ topics, onSelect, compact }: TopicSelectorPr
           </div>
         </div>
 
+        <TurnstileWidget
+          action="chat"
+          onSuccess={setTurnstileToken}
+          onExpire={() => setTurnstileToken(null)}
+          className="mt-3"
+        />
+
         <button
           onClick={handleSubmit}
-          disabled={!subject.trim() || !message.trim() || sending}
+          disabled={!subject.trim() || !message.trim() || sending || turnstileToken === null}
           className="w-full mt-4 py-3 rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 text-white font-semibold text-sm hover:from-blue-400 hover:to-blue-500 disabled:opacity-40 disabled:cursor-not-allowed disabled:from-muted disabled:to-muted disabled:text-muted-foreground transition-all shadow-sm shadow-blue-500/20 flex items-center justify-center gap-2"
         >
           <Send className="w-4 h-4" />

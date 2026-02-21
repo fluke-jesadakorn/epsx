@@ -36,7 +36,7 @@ export function ChatReplyInput({ onSend, onResolve, onClose, onAssign, myWallet,
     setLoadingAgents(true);
     void (async () => {
       const res = await listAdminAgents(search !== '' ? search : undefined);
-      if (res.data) {
+      if (Array.isArray(res.data)) {
         setAgents(res.data);
       }
       setLoadingAgents(false);

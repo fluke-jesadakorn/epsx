@@ -60,7 +60,7 @@ export function ChatInbox({ topics, initConvos, userAddr }: Props) {
 
   const reloadConvos = useCallback(async () => {
     const data = await listConversationsAction();
-    setConvos(data);
+    setConvos(Array.isArray(data) ? data : []);
   }, []);
 
   // Load messages on selection change
@@ -72,7 +72,7 @@ export function ChatInbox({ topics, initConvos, userAddr }: Props) {
     const load = async () => {
       setLoadingMsgs(true);
       const data = await getMessagesAction(selected);
-      setMsgs(data);
+      setMsgs(Array.isArray(data) ? data : []);
       setLoadingMsgs(false);
       if (markedRef.current !== selected) {
         markedRef.current = selected;
@@ -137,8 +137,8 @@ export function ChatInbox({ topics, initConvos, userAddr }: Props) {
   }, [selected, isPending]);
 
   const handleCreate = useCallback(
-    async (topicId: string, subject: string, message: string) => {
-      const convo = await createConversationAction(topicId, subject, message);
+    async (topicId: string, subject: string, message: string, turnstileToken?: string) => {
+      const convo = await createConversationAction(topicId, subject, message, turnstileToken);
       if (convo) {
         await reloadConvos();
         setSelected(convo.id);

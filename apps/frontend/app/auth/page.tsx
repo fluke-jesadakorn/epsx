@@ -7,6 +7,7 @@ import { CheckCircle, Cpu, Database, Globe, Lock, ShieldCheck, Zap } from 'lucid
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect } from 'react';
 import { toast } from 'sonner';
+import { useAccount } from 'wagmi';
 
 const features = [
     { icon: Database, title: "Data Accuracy", desc: "Institutional-grade precision for every metric." },
@@ -26,14 +27,16 @@ function AuthContent() {
     const searchParams = useSearchParams();
     const returnUrl = searchParams.get('return_url') ?? '/';
     const { isAuthenticated, user } = useSharedAuth();
+    const { isConnected } = useAccount();
 
-    // Auto-redirect when authenticated
+    // Auto-redirect only when both authenticated AND wallet connected
+    // Prevents bounce-back when cookies exist but wagmi session expired
     useEffect(() => {
-        if (isAuthenticated && user) {
+        if (isAuthenticated && user && isConnected) {
             router.push(returnUrl);
             router.refresh();
         }
-    }, [isAuthenticated, user, returnUrl, router]);
+    }, [isAuthenticated, user, isConnected, returnUrl, router]);
 
     const handleAuthSuccess = (_walletAddress: string) => {
         toast.success('Authenticated successfully');

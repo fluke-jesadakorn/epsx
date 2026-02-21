@@ -138,13 +138,6 @@ export function WalletConnectAuth({
     if (error) { setLocalError(error); }
   }, [error]);
 
-  // Handle callbacks
-  useEffect(() => {
-    if (isAuthenticated && user?.wallet_address && onAuthSuccess) {
-      onAuthSuccess(user.wallet_address);
-    }
-  }, [isAuthenticated, user?.wallet_address, onAuthSuccess]);
-
   useEffect(() => {
     if (error && onAuthError) { onAuthError(error); }
   }, [error, onAuthError]);
@@ -214,8 +207,9 @@ export function WalletConnectAuth({
     return <LoadingButton message="Loading..." className={className} />;
   }
 
-  // Authenticated
-  if (isAuthenticated && user?.wallet_address) {
+  // Authenticated AND wallet connected - show connected state
+  // If only cookies exist but wagmi disconnected, show connect flow instead
+  if (isAuthenticated && user?.wallet_address && wagmiConnected) {
     return <ConnectedWalletDropdown className={className} />;
   }
 

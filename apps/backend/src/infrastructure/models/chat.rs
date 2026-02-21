@@ -88,6 +88,8 @@ pub struct CreateConversationRequest {
     pub topic_id: Uuid,
     pub subject: String,
     pub message: String,
+    #[serde(default)]
+    pub turnstile_token: Option<String>,
 }
 
 #[derive(Debug, Deserialize, ToSchema)]

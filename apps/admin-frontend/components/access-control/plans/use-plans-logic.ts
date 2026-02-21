@@ -60,6 +60,20 @@ export function useLoadPlansAndPermissions() {
     return { permissions, plans, isLoading, setPlans, load };
 }
 
+/** datetime-local input value → RFC3339 UTC string for backend */
+function toIso(dt: string): string {
+    if (!dt) { return ''; }
+    if (dt.includes('Z') || /[+-]\d{2}:\d{2}$/.test(dt)) { return dt; }
+    // YYYY-MM-DDTHH:mm:ss → append Z; YYYY-MM-DDTHH:mm → append :00Z
+    return dt.length === 16 ? `${dt}:00Z` : `${dt}Z`;
+}
+
+/** RFC3339 UTC string → datetime-local input value (YYYY-MM-DDTHH:mm) */
+function toLocal(iso: string): string {
+    if (!iso) { return ''; }
+    return iso.slice(0, 16);
+}
+
 export function usePlanEditForm() {
     const [selectedPlan, setSelectedPlan] = useState<PermissionPlan | null>(null);
     const [form, setForm] = useState<PlanEditFormState>({
@@ -75,6 +89,12 @@ export function usePlanEditForm() {
         is_public: true,
         is_active: true,
         features: [],
+        promoEnabled: false,
+        promoType: 'percentage',
+        promoValue: 0,
+        promoPrice: 0,
+        promoStart: '',
+        promoEnd: '',
     });
     const [hasChanges, setHasChanges] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
@@ -95,12 +115,19 @@ export function usePlanEditForm() {
                 is_public: true,
                 is_active: true,
                 features: [],
+                promoEnabled: false,
+                promoType: 'percentage',
+                promoValue: 0,
+                promoPrice: 0,
+                promoStart: '',
+                promoEnd: '',
             });
         } else {
             setSelectedPlan(plan);
             const features = Array.isArray(plan.plan_metadata?.features)
                 ? (plan.plan_metadata?.features as string[])
                 : [];
+            const promo = plan.plan_metadata?.promotion as Record<string, unknown> | undefined;
             setForm({
                 name: plan.name,
                 description: plan.description,
@@ -114,6 +141,12 @@ export function usePlanEditForm() {
                 is_public: plan.is_public !== false,
                 is_active: plan.is_active !== false,
                 features,
+                promoEnabled: promo?.enabled === true,
+                promoType: (promo?.type as 'percentage' | 'fixed') ?? 'percentage',
+                promoValue: Number(promo?.value) || 0,
+                promoPrice: Number(promo?.price) || 0,
+                promoStart: toLocal((promo?.start_date as string) ?? ''),
+                promoEnd: toLocal((promo?.end_date as string) ?? ''),
             });
         }
         setHasChanges(false);
@@ -143,6 +176,14 @@ export function usePlanEditForm() {
                 plan_metadata: {
                     ...selectedPlan.plan_metadata,
                     features: form.features,
+                    promotion: {
+                        enabled: form.promoEnabled,
+                        type: form.promoType,
+                        value: form.promoValue,
+                        price: form.promoPrice,
+                        start_date: toIso(form.promoStart),
+                        end_date: toIso(form.promoEnd),
+                    },
                 },
             });
             toast.success('Plan updated');

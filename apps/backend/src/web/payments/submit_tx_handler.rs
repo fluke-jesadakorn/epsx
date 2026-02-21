@@ -127,23 +127,30 @@ pub async fn submit_transaction_handler(
     })?;
 
     // Check deduplication
-    let existing: Result<Option<String>, _> = diesel::sql_query(
-        "SELECT payment_reference FROM payments WHERE transaction_hash = $1 LIMIT 1",
+    #[derive(diesel::QueryableByName)]
+    struct DedupRow {
+        #[diesel(sql_type = diesel::sql_types::Text)]
+        payment_reference: String,
+        #[diesel(sql_type = diesel::sql_types::Text)]
+        status: String,
+    }
+
+    let existing: Result<Option<DedupRow>, _> = diesel::sql_query(
+        "SELECT payment_reference, status FROM payments WHERE transaction_hash = $1 LIMIT 1",
     )
     .bind::<diesel::sql_types::Text, _>(&payload.transaction_hash)
-    .get_result::<crate::web::payments::validation_handlers::PaymentExistsRow>(&mut conn)
+    .get_result::<DedupRow>(&mut conn)
     .await
-    .optional()
-    .map(|opt| opt.map(|row| row.payment_reference));
+    .optional();
 
-    if let Ok(Some(existing_ref)) = existing {
-        info!("Transaction already submitted: {}", existing_ref);
+    if let Ok(Some(row)) = existing {
+        info!("Transaction already submitted: {} (status={})", row.payment_reference, row.status);
         return Ok(Json(SubmitTransactionResponse {
             success: true,
             message: "Transaction already being monitored".to_string(),
             data: Some(SubmitTransactionData {
-                payment_reference: existing_ref,
-                status: "pending".to_string(),
+                payment_reference: row.payment_reference,
+                status: row.status,
                 transaction_hash: payload.transaction_hash,
             }),
         }));
@@ -284,6 +291,87 @@ pub async fn submit_transaction_handler(
                 "Failed to submit transaction",
                 format!("Database error: {}", e),
             ));
+        }
+    }
+
+    // Fix 1: Assign plan immediately for credit-only payments
+    if payment_status == "confirmed" {
+        #[derive(diesel::QueryableByName)]
+        struct CreditAssignment {
+            #[diesel(sql_type = diesel::sql_types::Uuid)]
+            id: Uuid,
+            #[diesel(sql_type = diesel::sql_types::Timestamptz)]
+            expires_at: chrono::DateTime<chrono::Utc>,
+            #[diesel(sql_type = diesel::sql_types::Bool)]
+            is_active: bool,
+        }
+
+        // Deactivate other active subscription plans
+        diesel::sql_query(
+            r#"
+            UPDATE wallet_plan_assignments
+            SET is_active = false, updated_at = NOW()
+            WHERE LOWER(wallet_address) = LOWER($1)
+              AND is_active = true
+              AND plan_id != $2
+              AND plan_id IN (SELECT id FROM plans WHERE plan_type = 'subscription')
+            "#,
+        )
+        .bind::<diesel::sql_types::Text, _>(&wallet_address)
+        .bind::<diesel::sql_types::Uuid, _>(plan_uuid)
+        .execute(&mut conn)
+        .await
+        .ok();
+
+        let existing_assign: Option<CreditAssignment> = diesel::sql_query(
+            "SELECT id, expires_at, is_active FROM wallet_plan_assignments WHERE LOWER(wallet_address) = LOWER($1) AND plan_id = $2 ORDER BY is_active DESC, expires_at DESC LIMIT 1"
+        )
+        .bind::<diesel::sql_types::Text, _>(&wallet_address)
+        .bind::<diesel::sql_types::Uuid, _>(plan_uuid)
+        .get_result(&mut conn)
+        .await
+        .optional()
+        .ok()
+        .flatten();
+
+        let now = chrono::Utc::now();
+        if let Some(existing) = existing_assign {
+            let base = if existing.is_active && existing.expires_at > now { existing.expires_at } else { now };
+            let new_expiry = base + chrono::Duration::days(30);
+            diesel::sql_query(
+                r#"
+                UPDATE wallet_plan_assignments
+                SET expires_at = $1, payment_reference = $2, updated_at = NOW(), is_active = true
+                WHERE id = $3
+                "#,
+            )
+            .bind::<diesel::sql_types::Timestamptz, _>(new_expiry)
+            .bind::<diesel::sql_types::Text, _>(&payment_reference)
+            .bind::<diesel::sql_types::Uuid, _>(existing.id)
+            .execute(&mut conn)
+            .await
+            .ok();
+            info!("Extended/reactivated plan {} for wallet {} via credits until {}", plan_uuid, wallet_address, new_expiry);
+        } else {
+            let new_expiry = now + chrono::Duration::days(30);
+            diesel::sql_query(
+                r#"
+                INSERT INTO wallet_plan_assignments (
+                    wallet_address, plan_id, assigned_at, expires_at, is_active,
+                    assignment_source, assignment_reason, payment_reference,
+                    auto_renew, assignment_metadata
+                )
+                VALUES ($1, $2, NOW(), $3, true, 'credit', 'Plan purchase via wallet credits', $4, false, '{}')
+                "#,
+            )
+            .bind::<diesel::sql_types::Text, _>(&wallet_address)
+            .bind::<diesel::sql_types::Uuid, _>(plan_uuid)
+            .bind::<diesel::sql_types::Timestamptz, _>(new_expiry)
+            .bind::<diesel::sql_types::Text, _>(&payment_reference)
+            .execute(&mut conn)
+            .await
+            .ok();
+            info!("Created plan assignment for wallet {} → plan {} via credits (expires: {})", wallet_address, plan_uuid, new_expiry);
         }
     }
 

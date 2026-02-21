@@ -46,34 +46,39 @@ docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --force-rec
 
 **Full rebuild & deploy:**
 ```bash
-export DOCKER_DEFAULT_PLATFORM=linux/arm64
-WC_PROJECT_ID="04e0a500abfa1e095bf8f64b15fa2812"
+# Source all env vars from .env.prod (single source of truth)
+set -a && source infrastructure/docker/.env.prod && set +a
+export DOCKER_DEFAULT_PLATFORM=$DOCKER_PLATFORM
 
-# Build all images
+# Build frontend
 docker build \
-  --build-arg NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=$WC_PROJECT_ID \
-  --build-arg NEXT_PUBLIC_APP_URL=https://epsx.io \
-  --build-arg NEXT_PUBLIC_BACKEND_URL=https://api.epsx.io \
-  --build-arg NEXT_PUBLIC_ADMIN_URL=https://admin.epsx.io \
-  --build-arg NEXT_PUBLIC_BLOCKCHAIN_NETWORK=mainnet \
-  --build-arg NEXT_PUBLIC_CHAIN_ID=56 \
-  --build-arg NEXT_PUBLIC_OAUTH_CLIENT_ID=epsx-frontend \
-  --build-arg NEXT_PUBLIC_PAYMENT_ESCROW_MAINNET=0x56e44c9b61Aa24D47C22414e799DA8D76B345Db0 \
-  --build-arg NEXT_PUBLIC_PAYMENT_RECEIVER_MAINNET=0xea64439c9cb1b9Aa588a8D1cE61292DB4036E3dF \
+  --build-arg NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=$WALLETCONNECT_PROJECT_ID \
+  --build-arg NEXT_PUBLIC_APP_URL=$FRONTEND_URL \
+  --build-arg NEXT_PUBLIC_BACKEND_URL=$BACKEND_URL \
+  --build-arg NEXT_PUBLIC_ADMIN_URL=$ADMIN_FRONTEND_URL \
+  --build-arg NEXT_PUBLIC_BLOCKCHAIN_NETWORK=$NEXT_PUBLIC_BLOCKCHAIN_NETWORK \
+  --build-arg NEXT_PUBLIC_CHAIN_ID=$NEXT_PUBLIC_CHAIN_ID \
+  --build-arg NEXT_PUBLIC_OAUTH_CLIENT_ID=$OAUTH_CLIENT_ID \
+  --build-arg NEXT_PUBLIC_PAYMENT_ESCROW_MAINNET=$NEXT_PUBLIC_PAYMENT_ESCROW_MAINNET \
+  --build-arg NEXT_PUBLIC_PAYMENT_RECEIVER_MAINNET=$NEXT_PUBLIC_PAYMENT_RECEIVER_MAINNET \
+  --build-arg NEXT_PUBLIC_TURNSTILE_SITE_KEY=$NEXT_PUBLIC_TURNSTILE_SITE_KEY \
   -f apps/frontend/Dockerfile -t epsx-frontend:prod .
 
+# Build admin frontend
 docker build \
-  --build-arg NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=$WC_PROJECT_ID \
-  --build-arg NEXT_PUBLIC_APP_URL=https://admin.epsx.io \
-  --build-arg NEXT_PUBLIC_BACKEND_URL=https://api.epsx.io \
-  --build-arg NEXT_PUBLIC_ADMIN_URL=https://admin.epsx.io \
-  --build-arg NEXT_PUBLIC_BLOCKCHAIN_NETWORK=mainnet \
-  --build-arg NEXT_PUBLIC_CHAIN_ID=56 \
+  --build-arg NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=$WALLETCONNECT_PROJECT_ID \
+  --build-arg NEXT_PUBLIC_APP_URL=$ADMIN_FRONTEND_URL \
+  --build-arg NEXT_PUBLIC_BACKEND_URL=$BACKEND_URL \
+  --build-arg NEXT_PUBLIC_ADMIN_URL=$ADMIN_FRONTEND_URL \
+  --build-arg NEXT_PUBLIC_BLOCKCHAIN_NETWORK=$NEXT_PUBLIC_BLOCKCHAIN_NETWORK \
+  --build-arg NEXT_PUBLIC_CHAIN_ID=$NEXT_PUBLIC_CHAIN_ID \
   --build-arg NEXT_PUBLIC_OAUTH_CLIENT_ID=epsx-admin \
-  --build-arg NEXT_PUBLIC_PAYMENT_ESCROW_MAINNET=0x56e44c9b61Aa24D47C22414e799DA8D76B345Db0 \
-  --build-arg NEXT_PUBLIC_PAYMENT_RECEIVER_MAINNET=0xea64439c9cb1b9Aa588a8D1cE61292DB4036E3dF \
+  --build-arg NEXT_PUBLIC_PAYMENT_ESCROW_MAINNET=$NEXT_PUBLIC_PAYMENT_ESCROW_MAINNET \
+  --build-arg NEXT_PUBLIC_PAYMENT_RECEIVER_MAINNET=$NEXT_PUBLIC_PAYMENT_RECEIVER_MAINNET \
+  --build-arg NEXT_PUBLIC_TURNSTILE_SITE_KEY=$NEXT_PUBLIC_TURNSTILE_SITE_KEY \
   -f apps/admin-frontend/Dockerfile -t epsx-admin-frontend:prod .
 
+# Build backend
 docker build -f apps/backend/Dockerfile -t epsx-backend:prod .
 
 # Deploy

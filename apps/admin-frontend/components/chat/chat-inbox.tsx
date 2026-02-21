@@ -29,7 +29,7 @@ export function ChatInbox({ initConvs, topics }: Props) {
       topicId !== '' ? topicId : undefined,
       undefined
     );
-    if (res.success && res.data) {
+    if (res.success && Array.isArray(res.data)) {
       setConvs(res.data);
       // Auto-select first if none selected
       const first = res.data[0];

@@ -315,6 +315,106 @@ export function PlanEditor({
                             placeholder="0"
                         />
                     </div>
+                    <div className="flex items-center justify-between p-4 rounded-lg bg-white dark:bg-white/[0.04] border border-gray-200 dark:border-slate-700">
+                        <div className="flex flex-col">
+                            <span className="text-sm font-medium text-foreground/80 dark:text-white/80">Enable Promotion</span>
+                            <span className="text-xs text-white/40">Apply discount to this plan</span>
+                        </div>
+                        <Switch
+                            checked={form.promoEnabled}
+                            onCheckedChange={(checked) => {
+                                setForm((p) => ({ ...p, promoEnabled: checked }));
+                                setHasChanges(true);
+                            }}
+                        />
+                    </div>
+                    <div className="space-y-2">
+                        <Label>Discount Type</Label>
+                        <Select
+                            value={form.promoType}
+                            onValueChange={(val) => {
+                                setForm((p) => ({ ...p, promoType: val as 'percentage' | 'fixed' }));
+                                setHasChanges(true);
+                            }}
+                            disabled={!form.promoEnabled}
+                        >
+                            <SelectTrigger className="bg-white dark:bg-white/[0.04] border-gray-200 dark:border-slate-700">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="percentage">% Percentage</SelectItem>
+                                <SelectItem value="fixed">$ Fixed Amount</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div className="space-y-2">
+                        <Label>{form.promoType === 'percentage' ? 'Discount (%)' : 'Discount ($)'}</Label>
+                        <Input
+                            type="text"
+                            inputMode="decimal"
+                            value={form.promoValue}
+                            onChange={(e) => {
+                                const v = parseFloat(e.target.value);
+                                setForm((p) => ({ ...p, promoValue: isNaN(v) ? 0 : v }));
+                                setHasChanges(true);
+                            }}
+                            className="bg-white dark:bg-white/[0.04] border-gray-200 dark:border-slate-700"
+                            placeholder={form.promoType === 'percentage' ? '20' : '5.00'}
+                            disabled={!form.promoEnabled}
+                        />
+                    </div>
+                    <div className="space-y-2">
+                        <Label className="flex items-center gap-2">
+                            Final Price ($)
+                            <TooltipIcon text="Override calculated price. Leave 0 to auto-calculate." />
+                        </Label>
+                        <Input
+                            type="text"
+                            inputMode="decimal"
+                            value={form.promoPrice}
+                            onChange={(e) => {
+                                const v = parseFloat(e.target.value);
+                                setForm((p) => ({ ...p, promoPrice: isNaN(v) ? 0 : v }));
+                                setHasChanges(true);
+                            }}
+                            className="bg-white dark:bg-white/[0.04] border-gray-200 dark:border-slate-700"
+                            placeholder="0 = auto"
+                            disabled={!form.promoEnabled}
+                        />
+                        {form.promoEnabled && form.promoValue > 0 && form.promoPrice === 0 && (
+                            <p className="text-xs text-muted-foreground">
+                                Auto: ${form.promoType === 'percentage'
+                                    ? Math.max(0, form.price * (1 - form.promoValue / 100)).toFixed(2)
+                                    : Math.max(0, form.price - form.promoValue).toFixed(2)}
+                            </p>
+                        )}
+                    </div>
+                    <div className="space-y-2">
+                        <Label>Start Date</Label>
+                        <Input
+                            type="datetime-local"
+                            value={form.promoStart}
+                            onChange={(e) => {
+                                setForm((p) => ({ ...p, promoStart: e.target.value }));
+                                setHasChanges(true);
+                            }}
+                            className="bg-white dark:bg-white/[0.04] border-gray-200 dark:border-slate-700"
+                            disabled={!form.promoEnabled}
+                        />
+                    </div>
+                    <div className="space-y-2">
+                        <Label>End Date</Label>
+                        <Input
+                            type="datetime-local"
+                            value={form.promoEnd}
+                            onChange={(e) => {
+                                setForm((p) => ({ ...p, promoEnd: e.target.value }));
+                                setHasChanges(true);
+                            }}
+                            className="bg-white dark:bg-white/[0.04] border-gray-200 dark:border-slate-700"
+                            disabled={!form.promoEnabled}
+                        />
+                    </div>
                 </div>
 
                 {/* Status */}

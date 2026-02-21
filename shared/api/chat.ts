@@ -59,6 +59,7 @@ export interface CreateConversationReq {
   topic_id: string;
   subject: string;
   message: string;
+  turnstile_token?: string;
 }
 
 export interface SendMessageReq {

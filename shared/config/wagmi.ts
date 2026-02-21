@@ -87,7 +87,7 @@ export function getDefaultChains(): Chain[] {
 }
 
 export const DEFAULT_APP_NAME = 'EPSX';
-export const DEFAULT_PROJECT_ID = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID ?? '04e0a500abfa1e095bf8f64b15fa2812';
+export const DEFAULT_PROJECT_ID = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || '04e0a500abfa1e095bf8f64b15fa2812';
 export const DEFAULT_LEARN_MORE_URL = 'https://epsx.io';
 
 export interface WagmiConfigOptions {

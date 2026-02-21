@@ -49,7 +49,7 @@ export function ChatConversationView({ conv, topics, onUpdate }: Props) {
   const loadMsgs = useCallback(async () => {
     setLoading(true);
     const res = await getMessages(conv.id);
-    if (res.success && res.data) {
+    if (res.success && Array.isArray(res.data)) {
       setMsgs(res.data);
     }
     setLoading(false);

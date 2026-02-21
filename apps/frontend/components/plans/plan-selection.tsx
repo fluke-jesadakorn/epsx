@@ -45,22 +45,34 @@ export function PlanSelection({ currentUser: _currentUser, className }: PlanSele
 
   // Transform backend plan to pricing card format
   const transformToPricingCard = (plan: Plan): PricingCardData => {
-    const price = typeof plan.current_price === 'string'
+    const basePrice = typeof plan.current_price === 'string'
       ? parseFloat(plan.current_price)
       : plan.current_price
-    const isFree = price === 0
+
+    const hasPromo = plan.promotion_active === true &&
+      plan.effective_price !== undefined &&
+      plan.effective_price < basePrice
+
+    const displayPrice = hasPromo ? (plan.effective_price ?? basePrice) : basePrice
+    const isFree = displayPrice === 0
+
+    const discount = plan.promotion_discount ?? 0
+    const savedAmt = hasPromo ? basePrice - displayPrice : 0
 
     return {
       id: plan.id,
       title: plan.name,
-      price: isFree ? 'Free' : `$${price.toFixed(2)} ${plan.currency || 'USD'}`,
+      price: isFree ? 'Free' : `$${displayPrice.toFixed(2)} ${plan.currency || 'USD'}`,
+      originalPrice: hasPromo ? `$${basePrice.toFixed(2)} ${plan.currency || 'USD'}` : undefined,
       features: Array.isArray(plan.features)
         ? plan.features.map(f => typeof f === 'string' ? { text: f, included: true } : f)
         : [],
       highlight: plan.is_highlighted ?? plan.is_promoted ?? false,
       buttonText: isFree ? 'Start Free' : 'Get Started',
-      promotions: [],
+      promotions: hasPromo ? [`${Math.round(discount)}% OFF`] : [],
       badges: [],
+      savings: hasPromo ? `Save $${savedAmt.toFixed(2)}` : undefined,
+      promotion_ends_at: hasPromo ? plan.promotion_ends_at : undefined,
       tier_level: plan.tier_level,
       plan_type: plan.plan_type,
       description: plan.description,

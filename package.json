@@ -166,6 +166,10 @@
     "url": "git+https://github.com/fluke-jesadakorn/epsx.git"
   },
   "keywords": [],
+  "overrides": {
+    "react": "19.2.3",
+    "react-dom": "19.2.3"
+  },
   "type": "commonjs",
   "bugs": {
     "url": "https://github.com/fluke-jesadakorn/epsx/issues"

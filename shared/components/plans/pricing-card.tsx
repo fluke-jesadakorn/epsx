@@ -1,7 +1,8 @@
 'use client'
 
 import { cn } from '@/shared/utils'
-import { Check, Clock, Lock, Sparkles, TrendingUp } from 'lucide-react'
+import { getTimeRemaining } from '@/shared/utils/promo'
+import { Check, Clock, Flame, Lock, Sparkles, TrendingUp } from 'lucide-react'
 
 export interface PricingCardData {
     id: number | string
@@ -14,6 +15,7 @@ export interface PricingCardData {
     promotions?: string[]
     badges?: string[]
     savings?: string
+    promotion_ends_at?: string
     tier_level?: number
     plan_type?: string
     description?: string
@@ -102,6 +104,13 @@ export function PricingCard({
                 </div>
             )}
 
+            {/* Sale ribbon */}
+            {(card.promotions?.length ?? 0) > 0 && !isDisabled && (
+                <div className="absolute top-0 left-0 z-20 bg-red-500 text-white text-xs font-bold px-3 py-1 rounded-br-lg rounded-tl-2xl uppercase tracking-wider">
+                    SALE
+                </div>
+            )}
+
             {/* Popular/Highlight badge */}
             {card.highlight === true && !isDisabled && (
                 <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 z-20">
@@ -177,6 +186,9 @@ export function PricingCard({
 // ============================================================================
 
 function PricingCardHeader({ card }: { card: PricingCardData }) {
+    const promoBadge = card.promotions?.[0]
+    const timeLeft = card.promotion_ends_at !== undefined ? getTimeRemaining(card.promotion_ends_at) : null
+
     return (
         <div className="text-center mb-6">
             <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 uppercase tracking-widest mb-4">
@@ -192,10 +204,29 @@ function PricingCardHeader({ card }: { card: PricingCardData }) {
                         USD
                     </span>
                 )}
+                {promoBadge !== undefined && (
+                    <span className="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full self-center">
+                        {promoBadge}
+                    </span>
+                )}
             </div>
+
             {card.originalPrice !== undefined && card.originalPrice !== '' && (
                 <p className="text-gray-500 line-through text-sm">
                     {card.originalPrice}
+                </p>
+            )}
+
+            {card.savings !== undefined && card.savings !== '' && (
+                <p className="text-green-500 text-sm font-semibold mt-1">
+                    {card.savings}
+                </p>
+            )}
+
+            {timeLeft !== null && timeLeft !== 'Expired' && (
+                <p className="text-orange-400 text-xs mt-1 flex items-center justify-center gap-1">
+                    <Flame className="w-3 h-3" />
+                    Ends in {timeLeft.replace(' left', '')}
                 </p>
             )}
         </div>

@@ -324,6 +324,15 @@ impl BlockchainMonitor {
             info!("Created new plan assignment for user {} → plan {} (expires: {})", wallet_addr.as_str(), plan_uuid, new_expiry);
         }
 
+        // Fix 2: Sync payments.status so frontend polling resolves correctly
+        diesel::sql_query(
+            "UPDATE payments SET status = 'confirmed', completed_at = NOW() WHERE transaction_hash = $1 AND status != 'confirmed'"
+        )
+        .bind::<diesel::sql_types::Text, _>(&event.transaction_hash)
+        .execute(&mut conn)
+        .await
+        .ok();
+
         // Step 6: Update event status to completed
         diesel::sql_query(
             r#"

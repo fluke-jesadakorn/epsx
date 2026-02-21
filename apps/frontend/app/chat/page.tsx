@@ -19,9 +19,11 @@ export default function ChatPage() {
       return;
     }
     const load = async () => {
-      const [t, c] = await Promise.all([getTopicsAction(), listConversationsAction()]);
-      setTopics(t);
-      setConvos(c);
+      try {
+        const [t, c] = await Promise.all([getTopicsAction(), listConversationsAction()]);
+        setTopics(Array.isArray(t) ? t : []);
+        setConvos(Array.isArray(c) ? c : []);
+      } catch { /* API unavailable */ }
       setLoading(false);
     };
     void load();

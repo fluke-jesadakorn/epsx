@@ -13,6 +13,10 @@ interface PlanResponse {
   plan_type: string;
   plan_group?: string;
   current_price: string | number;
+  effective_price?: number;
+  promotion_active?: boolean;
+  promotion_discount?: number;
+  promotion_ends_at?: string;
   currency?: string;
   display_order?: number;
   is_active: boolean;
@@ -37,39 +41,42 @@ export default async function DynamicPricingSection({ initialAffiliateCode }: Dy
     });
 
     if (response.success && response.data && Array.isArray(response.data)) {
-      const planData = response.data.map((item: PlanResponse) => ({
-        id: item.id,
-        name: item.name,
-        planType: item.plan_type,
-        planGroup: item.plan_group ?? 'personal',
-        basePrice: parseFloat(String(item.current_price)) || 0,
-        currentPrice: parseFloat(String(item.current_price)) || 0,
-        effectivePrice: parseFloat(String(item.current_price)) || 0,
-        currency: item.currency ?? 'USD',
-        displayOrder: item.display_order ?? 0,
-        isActive: item.is_active,
-        isHighlighted: item.is_highlighted ?? item.is_promoted ?? false,
-        features: Array.isArray(item.features) ? item.features : [],
-        activePromotions: [],
-        promotionalBadges: [],
-      }));
-
-      const transformToPricingCard = (plan: typeof planData[number]): PricingCardData => {
-        const hasDiscount = plan.currentPrice < plan.basePrice;
-
+      const planData = response.data.map((item: PlanResponse) => {
+        const basePrice = parseFloat(String(item.current_price)) || 0;
+        const hasPromo = item.promotion_active === true &&
+          item.effective_price !== undefined &&
+          item.effective_price < basePrice;
         return {
-          id: plan.id,
-          title: plan.name,
-          price: plan.effectivePrice === 0 ? 'Free' : `$${plan.effectivePrice.toFixed(2)} ${plan.currency}`,
-          originalPrice: hasDiscount ? `$${plan.basePrice.toFixed(2)} ${plan.currency}` : undefined,
-          features: plan.features.map((feature: string) => ({ text: feature, included: true })),
-          highlight: plan.isHighlighted,
-          buttonText: plan.effectivePrice === 0 ? 'Start Free' : 'Get Started',
-          promotions: plan.activePromotions ?? [],
-          badges: plan.promotionalBadges ?? [],
-          savings: hasDiscount ? `Save ${plan.currency} ${(plan.basePrice - plan.currentPrice).toFixed(2)}` : undefined
+          id: item.id,
+          name: item.name,
+          planType: item.plan_type,
+          planGroup: item.plan_group ?? 'personal',
+          basePrice,
+          effectivePrice: hasPromo ? (item.effective_price ?? basePrice) : basePrice,
+          currency: item.currency ?? 'USD',
+          displayOrder: item.display_order ?? 0,
+          isActive: item.is_active,
+          isHighlighted: item.is_highlighted ?? item.is_promoted ?? false,
+          features: Array.isArray(item.features) ? item.features : [],
+          hasPromo,
+          promoDiscount: item.promotion_discount ?? 0,
+          promoEndsAt: item.promotion_ends_at,
         };
-      };
+      });
+
+      const transformToPricingCard = (plan: typeof planData[number]): PricingCardData => ({
+        id: plan.id,
+        title: plan.name,
+        price: plan.effectivePrice === 0 ? 'Free' : `$${plan.effectivePrice.toFixed(2)} ${plan.currency}`,
+        originalPrice: plan.hasPromo ? `$${plan.basePrice.toFixed(2)} ${plan.currency}` : undefined,
+        features: plan.features.map((feature: string) => ({ text: feature, included: true })),
+        highlight: plan.isHighlighted,
+        buttonText: plan.effectivePrice === 0 ? 'Start Free' : 'Get Started',
+        promotions: plan.hasPromo ? [`${Math.round(plan.promoDiscount)}% OFF`] : [],
+        badges: [],
+        savings: plan.hasPromo ? `Save $${(plan.basePrice - plan.effectivePrice).toFixed(2)}` : undefined,
+        promotion_ends_at: plan.hasPromo ? plan.promoEndsAt : undefined,
+      });
 
       const active = planData.filter((p) => p.isActive);
       const sorted = (items: typeof active) => items.sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));

@@ -17,6 +17,11 @@ export interface Plan {
     is_highlighted?: boolean
     is_promoted?: boolean
     tier_level: number
+    display_order?: number
+    effective_price?: number
+    promotion_active?: boolean
+    promotion_discount?: number
+    promotion_ends_at?: string
 }
 
 export interface PricingCardData {
@@ -30,6 +35,7 @@ export interface PricingCardData {
     promotions?: string[]
     badges?: string[]
     savings?: string
+    promotion_ends_at?: string
     // Extended properties for payment flow logic
     tier_level: number
     plan_type?: string

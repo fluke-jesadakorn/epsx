@@ -57,17 +57,27 @@ impl Promotion {
 
         let now = Utc::now();
 
-        let start = match DateTime::parse_from_rfc3339(&self.start_date) {
-            Ok(dt) => dt.with_timezone(&Utc),
-            Err(_) => return false,
+        // Empty start_date = no start restriction (already started)
+        let started = if self.start_date.is_empty() {
+            true
+        } else {
+            match DateTime::parse_from_rfc3339(&self.start_date) {
+                Ok(dt) => now >= dt.with_timezone(&Utc),
+                Err(_) => true,
+            }
         };
 
-        let end = match DateTime::parse_from_rfc3339(&self.end_date) {
-            Ok(dt) => dt.with_timezone(&Utc),
-            Err(_) => return false,
+        // Empty end_date = no end restriction (never expires)
+        let not_ended = if self.end_date.is_empty() {
+            true
+        } else {
+            match DateTime::parse_from_rfc3339(&self.end_date) {
+                Ok(dt) => now <= dt.with_timezone(&Utc),
+                Err(_) => true,
+            }
         };
 
-        now >= start && now <= end
+        started && not_ended
     }
 
     pub fn get_status(&self) -> PromotionStatus {
@@ -77,22 +87,26 @@ impl Promotion {
 
         let now = Utc::now();
 
-        let start = match DateTime::parse_from_rfc3339(&self.start_date) {
-            Ok(dt) => dt.with_timezone(&Utc),
-            Err(_) => return PromotionStatus::Disabled,
-        };
-
-        let end = match DateTime::parse_from_rfc3339(&self.end_date) {
-            Ok(dt) => dt.with_timezone(&Utc),
-            Err(_) => return PromotionStatus::Disabled,
-        };
-
-        if now < start {
-            PromotionStatus::Upcoming
-        } else if now > end {
-            PromotionStatus::Expired
+        let start_opt = if self.start_date.is_empty() {
+            None
         } else {
-            PromotionStatus::Active
+            DateTime::parse_from_rfc3339(&self.start_date)
+                .ok()
+                .map(|dt| dt.with_timezone(&Utc))
+        };
+
+        let end_opt = if self.end_date.is_empty() {
+            None
+        } else {
+            DateTime::parse_from_rfc3339(&self.end_date)
+                .ok()
+                .map(|dt| dt.with_timezone(&Utc))
+        };
+
+        match (start_opt, end_opt) {
+            (Some(start), _) if now < start => PromotionStatus::Upcoming,
+            (_, Some(end)) if now > end => PromotionStatus::Expired,
+            _ => PromotionStatus::Active,
         }
     }
 

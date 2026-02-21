@@ -51,6 +51,12 @@ export interface PlanEditFormState {
     is_public: boolean;
     is_active: boolean;
     features: string[];
+    promoEnabled: boolean;
+    promoType: 'percentage' | 'fixed';
+    promoValue: number;
+    promoPrice: number;
+    promoStart: string;
+    promoEnd: string;
 }
 
 export const FREE_PLAN_ID = '00000000-0000-0000-0000-000000000000';
