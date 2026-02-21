@@ -25,12 +25,15 @@ playwright-report/
 
 # Environment Files
 .env
-.env.deploy
-.env.docker
-.env.local
-.env.*.local
+.env.*
 !.env.example
 !.env.template
+!.env.*.template
+**/.env
+**/.env.*
+!**/.env.example
+!**/.env.template
+!**/.env.*.template
 production.env
 development.env
 
