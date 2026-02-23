@@ -341,21 +341,22 @@ impl WalletUserSearchPort for WalletUserRepositoryAdapter {
 
         let rows = diesel::sql_query(
             r#"
-            SELECT DISTINCT
-                wu.wallet_address, wu.is_active, wu.wallet_metadata,
-                wu.created_at, wu.updated_at, wu.last_auth_at
-            FROM wallet_users wu
-            LEFT JOIN wallet_plan_assignments wga ON wu.wallet_address = wga.wallet_address
-            LEFT JOIN plan_permissions pgm ON wga.plan_id = pgm.plan_id
-            LEFT JOIN permissions p1 ON pgm.permission_id = p1.id
-            LEFT JOIN wallet_direct_permissions wdp ON wu.wallet_address = wdp.wallet_address
-            LEFT JOIN permissions p2 ON wdp.permission_id = p2.id
-            WHERE wu.is_active = true
-              AND (
-                (p1.permission_string = $1 AND p1.is_active = true AND wga.is_active = true)
-                OR
-                (p2.permission_string = $1 AND p2.is_active = true AND wdp.is_active = true)
-              )
+            SELECT
+                wallet_address, is_active, wallet_metadata,
+                created_at, updated_at, last_auth_at
+            FROM wallet_users
+            WHERE is_active = true AND wallet_address IN (
+                SELECT wga.wallet_address
+                FROM wallet_plan_assignments wga
+                JOIN plan_permissions pgm ON wga.plan_id = pgm.plan_id
+                JOIN permissions p1 ON pgm.permission_id = p1.id
+                WHERE p1.permission_string = $1 AND p1.is_active = true AND wga.is_active = true
+                UNION
+                SELECT wdp.wallet_address
+                FROM wallet_direct_permissions wdp
+                JOIN permissions p2 ON wdp.permission_id = p2.id
+                WHERE p2.permission_string = $1 AND p2.is_active = true AND wdp.is_active = true
+            )
             "#
         )
             .bind::<diesel::sql_types::Text, _>(permission_str)
@@ -405,17 +406,18 @@ impl WalletUserSearchPort for WalletUserRepositoryAdapter {
 
         let rows = diesel::sql_query(
             r#"
-            SELECT DISTINCT
-                wu.wallet_address, wu.is_active, wu.wallet_metadata,
-                wu.created_at, wu.updated_at, wu.last_auth_at
-            FROM wallet_users wu
-            INNER JOIN wallet_plan_assignments wga ON wu.wallet_address = wga.wallet_address
-            INNER JOIN plans pg ON wga.plan_id = pg.id
-            WHERE wu.is_active = true
-              AND wga.is_active = true
-              AND pg.is_active = true
-              AND (pg.name = $1 OR pg.slug = $1)
-            ORDER BY wu.created_at DESC
+            SELECT
+                wallet_address, is_active, wallet_metadata,
+                created_at, updated_at, last_auth_at
+            FROM wallet_users
+            WHERE is_active = true AND wallet_address IN (
+                SELECT wga.wallet_address
+                FROM wallet_plan_assignments wga
+                JOIN plans pg ON wga.plan_id = pg.id
+                WHERE wga.is_active = true AND pg.is_active = true
+                  AND (pg.name = $1 OR pg.slug = $1)
+            )
+            ORDER BY created_at DESC
             "#
         )
             .bind::<diesel::sql_types::Text, _>(type_filter)
@@ -456,22 +458,23 @@ impl WalletUserSearchPort for WalletUserRepositoryAdapter {
     async fn find_by_permission_plan(&self, permission_plan: &str) -> AppResult<Vec<WalletUser>> {
         let mut conn = self.db_pool.conn().await?;
 
-        let rows = diesel::sql_query(r#"
-            SELECT DISTINCT
-                wu.wallet_address,
-                wu.is_active,
-                wu.wallet_metadata,
-                wu.created_at,
-                wu.updated_at,
-                wu.last_auth_at
-            FROM wallet_users wu
-            INNER JOIN wallet_plan_assignments wga ON wu.wallet_address = wga.wallet_address
-            INNER JOIN plans pg ON wga.plan_id = pg.id
-            WHERE wu.is_active = true
-              AND wga.is_active = true
-              AND pg.is_active = true
-              AND (pg.name = $1 OR pg.slug = $1)
-            ORDER BY wu.created_at DESC
+        let rows = diesel::sql_query(            r#"
+            SELECT
+                wallet_address,
+                is_active,
+                wallet_metadata,
+                created_at,
+                updated_at,
+                last_auth_at
+            FROM wallet_users
+            WHERE is_active = true AND wallet_address IN (
+                SELECT wga.wallet_address
+                FROM wallet_plan_assignments wga
+                JOIN plans pg ON wga.plan_id = pg.id
+                WHERE wga.is_active = true AND pg.is_active = true
+                  AND (pg.name = $1 OR pg.slug = $1)
+            )
+            ORDER BY created_at DESC
             "#)
             .bind::<diesel::sql_types::Text, _>(permission_plan)
             .load::<WalletUserQueryResult>(&mut conn)
@@ -764,12 +767,9 @@ impl WalletUserAnalyticsPort for WalletUserRepositoryAdapter {
         let chain_rows = diesel::sql_query(
             r#"
             SELECT
-                (wallet_metadata->>'primary_chain_id')::text as chain_id,
-                COUNT(*) as count
-            FROM wallet_users
-            WHERE is_active = true
-              AND wallet_metadata->>'primary_chain_id' IS NOT NULL
-            GROUP BY (wallet_metadata->>'primary_chain_id')::text
+                chain_id,
+                count
+            FROM mv_web3_chain_distribution
             ORDER BY count DESC
             "#
         )

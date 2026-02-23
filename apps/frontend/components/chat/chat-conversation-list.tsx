@@ -1,9 +1,9 @@
 'use client';
 
 import type { ChatConversation } from '@/shared/api/chat';
-import { ChatStatusBadge } from './chat-status-badge';
 import { formatDistanceToNow } from 'date-fns';
-import { Plus, MessageCircle, ChevronRight } from 'lucide-react';
+import { ChevronRight, MessageCircle, Plus } from 'lucide-react';
+import { ChatStatusBadge } from './chat-status-badge';
 
 interface ConvoListProps {
   convos: ChatConversation[];
@@ -56,9 +56,8 @@ export function ChatConversationList({ convos, onSelect, onNew }: ConvoListProps
             <button
               key={convo.id}
               onClick={() => onSelect(convo.id)}
-              className={`group w-full px-4 py-3.5 border-b border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-gray-100 dark:bg-slate-800/30 transition-all text-left ${
-                hasUnread ? 'bg-blue-50 dark:bg-blue-500/5 border-l-2 border-l-blue-500' : ''
-              }`}
+              className={`group w-full px-4 py-3.5 border-b border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/60 bg-white dark:bg-slate-900 transition-all text-left ${hasUnread ? 'bg-blue-50 dark:bg-blue-500/5 border-l-2 border-l-blue-500' : ''
+                }`}
             >
               <div className="flex items-start justify-between gap-2 mb-1.5">
                 <h4 className={`text-sm truncate flex-1 leading-tight ${hasUnread ? 'font-bold text-foreground' : 'font-medium text-foreground/80'}`}>

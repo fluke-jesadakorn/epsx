@@ -158,7 +158,7 @@ pub async fn get_user_plans_handler(
           AND (wga.expires_at IS NULL
                OR wga.expires_at > NOW()
                OR (wga.expires_at + (g.grace_period_hours || ' hours')::INTERVAL) > NOW())
-          AND (g.plan_type = 'subscription' OR g.plan_type = 'enterprise' OR g.plan_type = 'api-developer')
+          AND (g.plan_type = 'subscription' OR g.plan_type = 'enterprise' OR g.plan_type = 'api-developer' OR g.plan_type = 'manual' OR g.plan_type = 'system')
         ORDER BY g.tier_level DESC, wga.assigned_at DESC
         "#
     )
@@ -187,8 +187,8 @@ pub async fn get_user_plans_handler(
         // Extract ranking offset from metadata or permission string
         let ranking_offset = extract_ranking_offset(&sub.plan_metadata, sub.offset_permission.as_deref());
         
-        // Check if user can upgrade (ranking_offset > 0 means not full access)
-        let can_upgrade = ranking_offset > 0;
+        // Check if user can upgrade (offset > 1 means not full access; 0 and 1 both = full access)
+        let can_upgrade = ranking_offset > 1;
 
         // Build summary list
         let all_plans = active_subs.iter().map(|s| PlanSummary {

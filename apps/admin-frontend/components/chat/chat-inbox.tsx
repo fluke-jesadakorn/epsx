@@ -21,6 +21,7 @@ export function ChatInbox({ initConvs, topics }: Props) {
   const [status, setStatus] = useState('');
   const [topicId, setTopicId] = useState('');
   const [loading, setLoading] = useState(false);
+  const [mobileView, setMobileView] = useState<'list' | 'chat'>('list');
 
   const loadConvs = useCallback(async () => {
     setLoading(true);
@@ -63,12 +64,17 @@ export function ChatInbox({ initConvs, topics }: Props) {
     void loadConvs();
   }, [loadConvs]);
 
+  const handleMobileBack = useCallback(() => {
+    setMobileView('list');
+    setSelected(null);
+  }, []);
+
   const selectedConv = convs.find(c => c.id === selected);
 
   return (
-    <div className="h-[calc(100vh-14rem)] flex gap-4">
+    <div className="h-[calc(100vh-10rem)] md:h-[calc(100vh-14rem)] flex flex-col md:flex-row md:gap-4">
       {/* Left: Conversation List */}
-      <div className="w-[360px] flex-shrink-0 flex flex-col">
+      <div className={`w-full md:w-[360px] md:flex-shrink-0 flex flex-col ${mobileView === 'chat' ? 'hidden md:flex' : 'flex'}`}>
         <ChatFilterBar
           status={status}
           topicId={topicId}
@@ -101,6 +107,7 @@ export function ChatInbox({ initConvs, topics }: Props) {
                 selected={selected === c.id}
                 onClick={() => {
                   setSelected(c.id);
+                  setMobileView('chat');
                 }}
               />
             ))
@@ -109,12 +116,13 @@ export function ChatInbox({ initConvs, topics }: Props) {
       </div>
 
       {/* Right: Conversation View */}
-      <div className="flex-1 border border-gray-200 dark:border-slate-700 rounded-2xl bg-white dark:bg-slate-900/80 overflow-hidden backdrop-blur-sm">
+      <div className={`flex-1 border border-gray-200 dark:border-slate-700 rounded-2xl bg-white dark:bg-slate-900/80 overflow-hidden backdrop-blur-sm ${mobileView === 'list' ? 'hidden md:block' : 'block'}`}>
         {selectedConv ? (
           <ChatConversationView
             conv={selectedConv}
             topics={topics}
             onUpdate={handleUpdate}
+            onBack={handleMobileBack}
           />
         ) : (
           <div className="flex flex-col items-center justify-center h-full text-center">

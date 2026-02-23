@@ -2,9 +2,9 @@
 
 import { createPlansClient } from '@/shared/api/plans';
 import { FREE_PLAN_NAME } from '@/shared/config/constants';
+import type { PlanAccessData } from '@/shared/types/payment';
 import { createFrontendApiClient } from '@/shared/utils/api-client';
 import { useEffect, useState } from 'react';
-import { usePlanAccess } from './use-plan-access';
 
 export interface UpgradeOption {
     id: number;
@@ -24,19 +24,14 @@ interface UseUpgradeOptionsResult {
  * Hook to fetch available upgrade options for the current user
  * Uses public plans API and client-side filtering since backend doesn't offer "next plan" endpoint
  */
-export function useUpgradeOptions(): UseUpgradeOptionsResult {
+export function useUpgradeOptions(planAccess?: PlanAccessData | null): UseUpgradeOptionsResult {
     const [nextPlan, setNextPlan] = useState<UpgradeOption | null>(null);
     const [recommendedPlan, setRecommendedPlan] = useState<UpgradeOption | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    const { planAccess, loading: accessLoading } = usePlanAccess();
-
     useEffect(() => {
         const fetchUpgradeOptions = async () => {
-            // Wait for plan access to be loaded (to know current tier)
-            if (accessLoading) {return;}
-
             try {
                 setLoading(true);
                 const plansClient = createPlansClient(createFrontendApiClient());
@@ -92,7 +87,7 @@ export function useUpgradeOptions(): UseUpgradeOptionsResult {
                     setRecommendedPlan(rec ?? candidates[Math.min(1, candidates.length - 1)]);
                 }
             } catch (_err) {
-      // Error logged silently
+                // Error logged silently
                 setError('Failed to load upgrade options');
             } finally {
                 setLoading(false);
@@ -100,7 +95,7 @@ export function useUpgradeOptions(): UseUpgradeOptionsResult {
         };
 
         void fetchUpgradeOptions();
-    }, [accessLoading, planAccess]);
+    }, [planAccess]);
 
     return {
         nextPlan,

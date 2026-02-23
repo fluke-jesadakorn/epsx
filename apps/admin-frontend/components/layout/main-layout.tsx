@@ -4,8 +4,8 @@ import type { ReactNode} from 'react';
 import { Suspense } from 'react';
 
 import { Breadcrumb } from './breadcrumb';
-import { Header } from './header';
-import { Sidebar } from './sidebar';
+import { Header } from './Header';
+import { Sidebar } from './Sidebar';
 
 interface User {
   id: string;

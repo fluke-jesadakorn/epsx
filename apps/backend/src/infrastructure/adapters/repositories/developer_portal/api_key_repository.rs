@@ -331,6 +331,132 @@ impl ApiKeyRepository {
         }).collect())
     }
 
+    /// Get module access for multiple API keys
+    async fn get_module_access_for_keys(
+        &self,
+        conn: &mut diesel_async::AsyncPgConnection,
+        api_key_ids: &[Uuid],
+    ) -> AppResult<std::collections::HashMap<Uuid, Vec<ModuleAccess>>> {
+        if api_key_ids.is_empty() {
+            return Ok(std::collections::HashMap::new());
+        }
+
+        #[derive(Queryable)]
+        struct ModuleAccessRow {
+            api_key_id: Uuid,
+            module_id: Uuid,
+            access_level: String,
+            custom_rate_limit: Option<i32>,
+            custom_quotas: serde_json::Value,
+            module_name: String,
+        }
+
+        let rows = api_key_module_access::table
+            .inner_join(api_modules::table.on(api_key_module_access::module_id.eq(api_modules::id)))
+            .filter(api_key_module_access::api_key_id.eq_any(api_key_ids))
+            .select((
+                api_key_module_access::api_key_id,
+                api_key_module_access::module_id,
+                api_key_module_access::access_level,
+                api_key_module_access::custom_rate_limit,
+                api_key_module_access::custom_quotas,
+                api_modules::name,
+            ))
+            .load::<ModuleAccessRow>(conn)
+            .await
+            .map_err(|e| AppError::database_error(format!("Failed to fetch bulk module access: {}", e)))?;
+
+        let mut map: std::collections::HashMap<Uuid, Vec<ModuleAccess>> = std::collections::HashMap::new();
+        for row in rows {
+            map.entry(row.api_key_id).or_default().push(ModuleAccess {
+                module_id: row.module_id,
+                module_name: row.module_name,
+                access_level: AccessLevel::from(row.access_level.as_str()),
+                custom_rate_limit: row.custom_rate_limit,
+                custom_quotas: row.custom_quotas,
+            });
+        }
+        Ok(map)
+    }
+
+    /// Get permission plans for multiple API keys
+    async fn get_permission_plans_for_keys(
+        &self,
+        conn: &mut diesel_async::AsyncPgConnection,
+        api_key_ids: &[Uuid],
+    ) -> AppResult<std::collections::HashMap<Uuid, Vec<PlanInfo>>> {
+        use crate::schemas::primary::plans;
+        use crate::schemas::primary::api_key_permissions;
+
+        if api_key_ids.is_empty() {
+            return Ok(std::collections::HashMap::new());
+        }
+
+        #[derive(Queryable)]
+        struct PlanAssignmentRow {
+            api_key_id: Uuid,
+            plan_id: Uuid,
+        }
+
+        // 1. Get plan IDs from permissions table
+        let assignments = api_key_permissions::table
+            .filter(api_key_permissions::api_key_id.eq_any(api_key_ids))
+            .filter(api_key_permissions::is_active.eq(true))
+            .select((api_key_permissions::api_key_id, api_key_permissions::plan_id))
+            .load::<PlanAssignmentRow>(conn)
+            .await
+            .map_err(|e| AppError::database_error(format!("Failed to fetch bulk permission IDs: {}", e)))?;
+
+        if assignments.is_empty() {
+            return Ok(std::collections::HashMap::new());
+        }
+
+        let plan_ids: Vec<Uuid> = assignments.iter().map(|a| a.plan_id).collect();
+
+        // 2. Fetch plans details
+        #[derive(Queryable)]
+        struct PlanRow {
+            id: Uuid,
+            name: String,
+            slug: String,
+            description: String,
+            plan_type: String,
+        }
+
+        let plan_rows = plans::table
+            .filter(plans::id.eq_any(&plan_ids))
+            .select((
+                plans::id,
+                plans::name,
+                plans::slug,
+                plans::description,
+                plans::plan_type,
+            ))
+            .load::<PlanRow>(conn)
+            .await
+            .map_err(|e| AppError::database_error(format!("Failed to fetch plans: {}", e)))?;
+
+        let mut plans_map: std::collections::HashMap<Uuid, PlanInfo> = std::collections::HashMap::new();
+        for row in plan_rows {
+            plans_map.insert(row.id, PlanInfo {
+                id: row.id,
+                name: row.name,
+                slug: row.slug,
+                description: Some(row.description),
+                plan_type: row.plan_type,
+            });
+        }
+
+        let mut result_map: std::collections::HashMap<Uuid, Vec<PlanInfo>> = std::collections::HashMap::new();
+        for assignment in assignments {
+            if let Some(plan_info) = plans_map.get(&assignment.plan_id) {
+                result_map.entry(assignment.api_key_id).or_default().push(plan_info.clone());
+            }
+        }
+
+        Ok(result_map)
+    }
+
     /// Get selected permissions for an API key
     /// Uses raw SQL to handle Nullable<Array<Nullable<Text>>> column type
     async fn get_selected_permissions_for_key(
@@ -436,10 +562,14 @@ impl ApiKeyRepository {
             .await
             .map_err(|e| AppError::database_error(format!("Failed to list API keys: {}", e)))?;
 
-        let mut keys = Vec::new();
+        let api_key_ids: Vec<Uuid> = rows.iter().map(|r| r.id).collect();
+        let mut modules_map = self.get_module_access_for_keys(&mut conn, &api_key_ids).await?;
+        let mut permission_plans_map = self.get_permission_plans_for_keys(&mut conn, &api_key_ids).await?;
+
+        let mut keys = Vec::with_capacity(rows.len());
         for row in rows {
-            let modules = self.get_module_access_for_key(&mut conn, row.id).await?;
-            let permission_plans = self.get_permission_plans_for_key(&mut conn, row.id).await?;
+            let modules = modules_map.remove(&row.id).unwrap_or_default();
+            let permission_plans = permission_plans_map.remove(&row.id).unwrap_or_default();
             keys.push(ApiKey {
                 id: row.id,
                 key_prefix: row.key_prefix,
@@ -557,10 +687,14 @@ impl ApiKeyRepository {
             .await
             .map_err(|e| AppError::database_error(format!("Failed to list API keys: {}", e)))?;
 
-        let mut keys = Vec::new();
+        let api_key_ids: Vec<Uuid> = rows.iter().map(|r| r.id).collect();
+        let mut modules_map = self.get_module_access_for_keys(&mut conn, &api_key_ids).await?;
+        let mut permission_plans_map = self.get_permission_plans_for_keys(&mut conn, &api_key_ids).await?;
+
+        let mut keys = Vec::with_capacity(rows.len());
         for row in rows {
-            let modules = self.get_module_access_for_key(&mut conn, row.id).await?;
-            let permission_plans = self.get_permission_plans_for_key(&mut conn, row.id).await?;
+            let modules = modules_map.remove(&row.id).unwrap_or_default();
+            let permission_plans = permission_plans_map.remove(&row.id).unwrap_or_default();
             keys.push(ApiKey {
                 id: row.id,
                 key_prefix: row.key_prefix,
@@ -762,10 +896,14 @@ impl ApiKeyRepository {
             .map_err(|e| AppError::database_error(format!("Failed to list expiring keys: {}", e)))?;
 
         // Build full ApiKey objects with modules and plans
-        let mut api_keys_result = Vec::new();
+        let api_key_ids: Vec<Uuid> = rows.iter().map(|r| r.id).collect();
+        let mut modules_map = self.get_module_access_for_keys(&mut conn, &api_key_ids).await?;
+        let mut permission_plans_map = self.get_permission_plans_for_keys(&mut conn, &api_key_ids).await?;
+
+        let mut api_keys_result = Vec::with_capacity(rows.len());
         for row in rows {
-            let modules = self.get_module_access_for_key(&mut conn, row.id).await?;
-            let permission_plans = self.get_permission_plans_for_key(&mut conn, row.id).await?;
+            let modules = modules_map.remove(&row.id).unwrap_or_default();
+            let permission_plans = permission_plans_map.remove(&row.id).unwrap_or_default();
             
             api_keys_result.push(ApiKey {
                 id: row.id,

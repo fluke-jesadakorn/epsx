@@ -313,15 +313,23 @@ pub async fn update_plan_handler(
     
 
     
-    // Inject ranking_offset permission if present in metadata
-    let mut permissions = request.permissions;
-    if let Some(perms) = &mut permissions {
-        if let Some(meta) = &request.metadata {
-            if let Some(offset) = meta.get("ranking_offset").and_then(|v| v.as_i64()) {
-                 let perm = format!("epsx:rankings:offset:{}", offset);
-                 if !perms.contains(&perm) {
-                     perms.push(perm);
-                 }
+    // Sync metadata from permission strings (permissions are authoritative when set by admin)
+    let permissions = request.permissions;
+    let mut metadata = request.metadata;
+    if let Some(ref perms) = permissions {
+        if let Some(ref mut meta) = metadata {
+            if let Some(obj) = meta.as_object_mut() {
+                for perm in perms {
+                    if let Some(val) = perm.strip_prefix("epsx:rankings:offset:") {
+                        if let Ok(offset) = val.parse::<i64>() {
+                            obj.insert("ranking_offset".to_string(), serde_json::json!(offset));
+                        }
+                    } else if let Some(val) = perm.strip_prefix("epsx:rankings:limit:") {
+                        if let Ok(limit) = val.parse::<i64>() {
+                            obj.insert("rankings_limit".to_string(), serde_json::json!(limit));
+                        }
+                    }
+                }
             }
         }
     }
@@ -330,7 +338,7 @@ pub async fn update_plan_handler(
         id: plan_id.clone(),
         name: request.name,
         description: request.description,
-        price: request.current_price, 
+        price: request.current_price,
         currency: Some("USD".to_string()),
         billing_cycle: request.billing_model.map(|b| match b.to_lowercase().as_str() {
              "yearly" => BillingCycle::Yearly,
@@ -343,7 +351,7 @@ pub async fn update_plan_handler(
         is_active: request.is_active,
         is_promoted: None,
         tier_level: request.tier_level,
-        metadata: request.metadata,
+        metadata,
     };
 
     match command_handler.handle(command).await {

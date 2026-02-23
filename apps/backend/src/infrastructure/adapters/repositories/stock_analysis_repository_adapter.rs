@@ -5,8 +5,8 @@ use tracing::{debug, error, info};
 use crate::domain::market_analytics::aggregates::eps_ranking::{EPSRanking as DDDEPSRanking, RankingEntry, RankingType, RankingPeriod};
 use crate::domain::market_analytics::value_objects::*;
 use crate::domain::shared_kernel::entities::eps_growth::{EPSRanking as LegacyEPSRanking};
-use crate::domain::shared_kernel::services::eps_ranking_service::{EPSRankingService, EPSRankingParams, EPSRepository};
-use crate::domain::shared_kernel::entities::eps_growth::{EPSGrowthData, EPSRanking};
+use crate::domain::shared_kernel::services::eps_ranking_service::{EPSRankingService, EPSRankingParams};
+use crate::domain::shared_kernel::EPSGrowthData;
 
 // Mock implementation of EPSRepository for testing
 #[cfg(test)]
@@ -27,7 +27,7 @@ impl EPSRepository for MockEPSRepository {
         _sort_by: Option<String>,
         _page: i32,
         _limit: i32,
-    ) -> Result<Vec<EPSRanking>, AppError> {
+    ) -> Result<Vec<LegacyEPSRanking>, AppError> {
         Ok(Vec::new())
     }
 

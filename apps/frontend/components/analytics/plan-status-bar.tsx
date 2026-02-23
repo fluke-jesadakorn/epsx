@@ -1,10 +1,9 @@
 'use client';
 
-import { usePlanAccess } from '@/hooks/use-plan-access';
 import { useUpgradeOptions } from '@/hooks/use-upgrade-options';
-import type { PlanAccessData } from '@/shared/types/payment';
 import { cn } from '@/lib/utils';
 import { FREE_PLAN_NAME, FREE_PLAN_RANKING_OFFSET } from '@/shared/config/constants';
+import type { PlanAccessData } from '@/shared/types/payment';
 import { Crown, Lock, Rocket, Shield, Sparkles, Star, Zap } from 'lucide-react';
 import Link from 'next/link';
 
@@ -57,28 +56,11 @@ function getTierConfig(tierLevel: number): TierConfig {
     return TIER_STYLES[effectiveTier] ?? TIER_STYLES[0];
 }
 
-export function PlanStatusBar({ className, planAccess: propPlanAccess }: PlanStatusBarProps): React.ReactElement {
-    const { planAccess: hookPlanAccess, loading } = usePlanAccess();
-    const { nextPlan } = useUpgradeOptions();
+export function PlanStatusBar({ className, planAccess }: PlanStatusBarProps): React.ReactElement | null {
+    const { nextPlan } = useUpgradeOptions(planAccess);
 
-    // Use prop if provided, otherwise fall back to hook
-    const planAccess = propPlanAccess !== undefined ? propPlanAccess : hookPlanAccess;
-
-    if (loading) {
-        return (
-            <div className={cn('animate-pulse rounded-2xl bg-gray-100 dark:bg-slate-800/50 p-4', className)}>
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-xl bg-slate-700" />
-                        <div className="space-y-2">
-                            <div className="h-4 w-32 rounded bg-slate-700" />
-                            <div className="h-3 w-48 rounded bg-slate-700" />
-                        </div>
-                    </div>
-                    <div className="h-10 w-28 rounded-xl bg-slate-700" />
-                </div>
-            </div>
-        );
+    if (planAccess === undefined) {
+        return null;
     }
 
     const rankingOffset = planAccess?.ranking_offset ?? FREE_PLAN_RANKING_OFFSET;
@@ -91,21 +73,22 @@ export function PlanStatusBar({ className, planAccess: propPlanAccess }: PlanSta
     const TierIcon = tierConfig.icon;
 
     // Calculate visible rank range
-    const visibleRankStart = rankingOffset + 1;
-    const isTopRanks = rankingOffset === 0;
+    // Backend is 1-based: offset=1 → skip=0 → shows from rank 1 (full access)
+    // offset=0 is also full access; offset=100 → skip=99 → shows from rank 100
+    const isTopRanks = rankingOffset <= 1;
+    const visibleRankStart = isTopRanks ? 1 : rankingOffset;
     const rankRangeText = isTopRanks
         ? 'All ranks (1+)'
         : `Ranks ${visibleRankStart}+`;
 
     // Calculate locked ranks for upgrade prompt
-    // FIX: "1-1" display issue. If offset is 1, it means Rank 1 is locked.
-    // Display "Unlock Rank 1" instead of "Unlock ranks 1-1".
+    // locked ranks = offset - 1 (since 1-based: offset=2 → rank 1 locked, offset=100 → ranks 1-99 locked)
     let lockedRanksText = null;
-    if (rankingOffset > 0) {
-        if (rankingOffset === 1) {
+    if (rankingOffset > 1) {
+        if (rankingOffset === 2) {
             lockedRanksText = `Unlock Rank 1`;
         } else {
-            lockedRanksText = `Unlock ranks 1-${rankingOffset}`;
+            lockedRanksText = `Unlock ranks 1-${rankingOffset - 1}`;
         }
     }
 
@@ -158,15 +141,15 @@ export function PlanStatusBar({ className, planAccess: propPlanAccess }: PlanSta
                             <span className="text-sm text-slate-300">
                                 Viewing: <span className="font-semibold text-white">{rankRangeText}</span>
                             </span>
-                            {rankingOffset > 0 && (
+                            {rankingOffset > 1 && (
                                 <>
                                     <span className="text-slate-500">•</span>
                                     <div className="flex items-center gap-1 text-sm text-slate-400">
                                         <Lock className="h-3 w-3" />
                                         <span>
-                                            {rankingOffset === 1
+                                            {rankingOffset === 2
                                                 ? 'Rank 1 locked'
-                                                : `Ranks 1-${rankingOffset} locked`
+                                                : `Ranks 1-${rankingOffset - 1} locked`
                                             }
                                         </span>
                                     </div>

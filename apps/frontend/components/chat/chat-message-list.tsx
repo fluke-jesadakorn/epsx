@@ -33,7 +33,7 @@ export function ChatMessageList({ msgs, userAddr }: MsgListProps) {
   let lastDate: Date | null = null;
 
   return (
-    <div className="flex-1 overflow-y-auto px-4 py-4 bg-white dark:bg-slate-950/20">
+    <div className="flex-1 overflow-y-auto px-4 py-4 bg-slate-50/50 dark:bg-slate-950/20">
       {msgs.map((msg) => {
         const msgDate = new Date(msg.created_at);
         const showDateSep = !lastDate || !isSameDay(lastDate, msgDate);

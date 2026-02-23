@@ -188,8 +188,8 @@ fn get_required_permission(method: &str, path: &str) -> Option<String> {
         (_, p) if p.contains("/admin/") => Some("admin:dashboard:view".to_string()),
 
         // Analytics routes (user-facing)
-        ("GET", p) if p.starts_with("/api/auth/analytics") => Some("epsx:analytics:read".to_string()),
-        ("GET", p) if p.starts_with("/api/analytics") => Some("epsx:analytics:read".to_string()),
+        ("GET", p) if p.starts_with("/api/auth/analytics") => None,
+        ("GET", p) if p.starts_with("/api/analytics") => None,
 
         // Export routes
         ("POST", p) if p.contains("/export") => Some("epsx:export:csv".to_string()),
@@ -354,7 +354,7 @@ mod tests {
         // Analytics (user-facing)
         assert_eq!(
             get_required_permission("GET", "/api/auth/analytics"),
-            Some("epsx:analytics:read".to_string())
+            None
         );
 
         // Payment admin routes

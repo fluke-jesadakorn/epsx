@@ -819,7 +819,7 @@ impl UnifiedPermissionService {
             SELECT g.plan_metadata, g.id as plan_id
             FROM wallet_plan_assignments wgm
             JOIN plans g ON wgm.plan_id = g.id
-            WHERE wgm.wallet_address = $1
+            WHERE LOWER(wgm.wallet_address) = $1
               AND wgm.is_active = TRUE
               AND g.is_active = TRUE
               AND (wgm.expires_at IS NULL OR wgm.expires_at > NOW())

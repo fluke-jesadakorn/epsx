@@ -281,10 +281,6 @@ impl UnifiedRouteBuilder {
             .layer(Extension(eps_ranking_service))
             .layer(Extension(permission_service))
             .layer(axum_middleware::from_fn_with_state(
-                "epsx:analytics:read",
-                crate::web::middleware::perm_guard
-            ))
-            .layer(axum_middleware::from_fn_with_state(
                 app_state,
                 crate::web::middleware::optional_bearer_middleware
             ))

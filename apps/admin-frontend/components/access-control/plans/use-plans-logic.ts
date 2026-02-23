@@ -24,6 +24,7 @@ import { logger } from '@/shared/utils/logger';
 import {
     type DragDropContext,
     FREE_PLAN_ID,
+    getFeatureValue,
     type PlanDeletionContext,
     type PlanEditFormState,
 } from './types';
@@ -161,6 +162,11 @@ export function usePlanEditForm() {
         }
         setIsSaving(true);
         try {
+            const offsetStr = getFeatureValue(form.permissions, 'epsx:rankings:offset');
+            const limitStr = getFeatureValue(form.permissions, 'epsx:rankings:limit');
+            const rankingOffset = offsetStr !== null ? parseInt(offsetStr, 10) : undefined;
+            const rankingsLimit = limitStr !== null ? parseInt(limitStr, 10) : undefined;
+
             const updated = await updatePlanAction(selectedPlan.id, {
                 name: form.name,
                 description: form.description,
@@ -175,6 +181,8 @@ export function usePlanEditForm() {
                 is_active: form.is_active,
                 plan_metadata: {
                     ...selectedPlan.plan_metadata,
+                    ...(rankingOffset !== undefined && !isNaN(rankingOffset) ? { ranking_offset: rankingOffset } : {}),
+                    ...(rankingsLimit !== undefined && !isNaN(rankingsLimit) ? { rankings_limit: rankingsLimit } : {}),
                     features: form.features,
                     promotion: {
                         enabled: form.promoEnabled,

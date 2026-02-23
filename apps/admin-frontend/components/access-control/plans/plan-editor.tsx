@@ -1,4 +1,4 @@
-import { Calendar, Clock, Hash, Package, Users } from 'lucide-react';
+import { Calendar, Clock, Hash, Loader2, Package, Trash2, Users } from 'lucide-react';
 import React from 'react';
 
 import { Input } from '@/components/ui/input';
@@ -14,6 +14,7 @@ import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { type PermissionDefinition } from '@/lib/api/permissions-client';
 import { type PermissionPlan } from '@/lib/api/plan-management-client';
+import { Button } from '@/shared/components/ui/button';
 import {
     Tooltip,
     TooltipContent,
@@ -33,10 +34,13 @@ import {
 export interface PlanEditorProps {
     selectedPlan: PermissionPlan | null;
     form: PlanEditFormState;
-    setForm: (
-        f: (prev: PlanEditFormState) => PlanEditFormState
-    ) => void;
+    setForm: (f: (prev: PlanEditFormState) => PlanEditFormState) => void;
     setHasChanges: (hasChanges: boolean) => void;
+    hasChanges?: boolean;
+    isSaving?: boolean;
+    onSave?: () => void;
+    onDiscard?: () => void;
+    onDelete?: () => void;
     permissions: PermissionDefinition[];
     onPermissionsChanged?: () => void;
 }
@@ -58,6 +62,11 @@ export function PlanEditor({
     form,
     setForm,
     setHasChanges,
+    hasChanges,
+    isSaving,
+    onSave,
+    onDiscard,
+    onDelete,
     permissions,
     onPermissionsChanged,
 }: PlanEditorProps) {
@@ -124,6 +133,43 @@ export function PlanEditor({
                     )}
                 </div>
             </div>
+
+            {/* Action bar (full-page editor only) */}
+            {onSave != null && (
+                <div className="px-4 sm:px-8 py-3 border-b border-gray-200 dark:border-slate-700 shrink-0 flex items-center justify-between gap-3">
+                    <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={onDelete}
+                        disabled={isSaving}
+                        className="gap-2"
+                    >
+                        <Trash2 className="w-4 h-4" />
+                        Delete
+                    </Button>
+                    <div className="flex items-center gap-2">
+                        {hasChanges === true && (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={onDiscard}
+                                disabled={isSaving}
+                            >
+                                Discard
+                            </Button>
+                        )}
+                        <Button
+                            size="sm"
+                            onClick={onSave}
+                            disabled={!hasChanges || isSaving}
+                            className="gap-2"
+                        >
+                            {isSaving === true && <Loader2 className="w-4 h-4 animate-spin" />}
+                            Save Changes
+                        </Button>
+                    </div>
+                </div>
+            )}
 
             {/* Scrollable content */}
             <div className="flex-1 overflow-y-auto p-4 sm:p-8 space-y-6">

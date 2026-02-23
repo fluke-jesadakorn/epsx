@@ -136,7 +136,7 @@ export function ChatPanel({ isOpen, onClose, walletAddr }: PanelProps) {
 
   return (
     <div
-      className={`fixed bottom-24 right-6 w-[400px] h-[580px] bg-white dark:bg-slate-950 backdrop-blur-xl border border-slate-200 dark:border-white/8 rounded-3xl shadow-2xl shadow-black/10 flex flex-col z-50 overflow-hidden transition-all duration-300 origin-bottom-right ${
+      className={`fixed bottom-2 right-2 md:bottom-24 md:right-6 w-[calc(100vw-1rem)] md:w-[400px] max-w-[400px] h-[calc(100vh-4rem)] md:h-[580px] max-h-[580px] bg-white dark:bg-slate-950 backdrop-blur-xl border border-slate-200 dark:border-white/8 rounded-3xl shadow-2xl shadow-black/10 flex flex-col z-50 overflow-hidden transition-all duration-300 origin-bottom-right ${
         isOpen ? 'scale-100 opacity-100 translate-y-0' : 'scale-95 opacity-0 translate-y-4 pointer-events-none'
       }`}
     >

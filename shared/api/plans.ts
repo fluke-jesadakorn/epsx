@@ -243,8 +243,8 @@ export class PlansApi {
    * Get public plans
    * GET /api/public/plans
    */
-  async getPublicPlans(filters?: { category?: string; group?: string }): Promise<ApiResponse<PublicPlan[]>> {
-    return this.client.get<PublicPlan[]>('/api/public/plans', filters);
+  async getPublicPlans(filters?: { category?: string; group?: string; affiliate_code?: string }): Promise<ApiResponse<PublicPlan[]>> {
+    return this.client.get<PublicPlan[]>('/api/public/plans', filters as Record<string, string>);
   }
 
   /**

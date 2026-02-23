@@ -21,9 +21,9 @@ export default async function ChatPage() {
   const topics = topicsRes.success && topicsRes.data ? topicsRes.data : [];
 
   return (
-    <div className="p-8">
+    <div className="p-4 md:p-8">
       <Breadcrumb />
-      <div className="flex items-center gap-3 mb-6">
+      <div className="flex items-center gap-3 mb-4 md:mb-6">
         <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-sm shadow-violet-500/20">
           <MessageCircle className="w-5 h-5 text-white" />
         </div>

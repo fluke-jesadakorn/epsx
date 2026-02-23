@@ -9,9 +9,9 @@ use crate::web::auth::AppState;
 use crate::web::api_response::ApiResponse;
 
 use utoipa::ToSchema;
-use serde::Serialize; // Ensure Serialize is available
+use serde::{Deserialize, Serialize}; // Ensure Serialize and Deserialize are available
 
-#[derive(Debug, Serialize, ToSchema, Clone)]
+#[derive(Debug, Serialize, Deserialize, ToSchema, Clone)]
 pub struct PublicPlanResponse {
     pub id: String,
     pub name: String,
@@ -54,6 +54,22 @@ pub async fn get_public_plans(
     let group_filter = query.get("group").map(|s| s.to_lowercase());
 
     tracing::info!("Fetching public subscription plans");
+
+    let category_str = category_filter.as_deref().unwrap_or("any");
+    let group_str = group_filter.as_deref().unwrap_or("any");
+    let cache_key = format!("cache:public_plans:cat_{}:grp_{}", category_str, group_str);
+
+    if let Some(redis_pool) = &app_state.redis_pool {
+        let mut conn = redis_pool.get_connection();
+        use redis::AsyncCommands;
+        let cache_res: redis::RedisResult<Option<String>> = conn.get(&cache_key).await;
+        if let Ok(Some(cached_str)) = cache_res {
+            if let Ok(parsed) = serde_json::from_str::<Vec<PublicPlanResponse>>(&cached_str) {
+                tracing::info!("Cache hit for public plans: {}", cache_key);
+                return (StatusCode::OK, Json(ApiResponse::success(parsed)));
+            }
+        }
+    }
 
     // Get plans from database instead of hardcoded data
     let db_plans = match app_state.plan_repo.get_subscription_plans().await {
@@ -182,6 +198,15 @@ pub async fn get_public_plans(
     let mut final_plans = plans;
     final_plans.sort_by_key(|p| p.tier_level);
 
+    // Save to cache
+    if let Some(redis_pool) = &app_state.redis_pool {
+        let mut conn = redis_pool.get_connection();
+        use redis::AsyncCommands;
+        if let Ok(json_str) = serde_json::to_string(&final_plans) {
+            let _: redis::RedisResult<()> = conn.set_ex(&cache_key, json_str, 900).await;
+        }
+    }
+
     (
         StatusCode::OK,
         Json(ApiResponse::success(final_plans))
@@ -221,6 +246,20 @@ pub async fn get_public_plan_by_id(
             );
         }
     };
+
+    let cache_key = format!("cache:public_plan:{}", plan_uuid);
+
+    if let Some(redis_pool) = &app_state.redis_pool {
+        let mut conn = redis_pool.get_connection();
+        use redis::AsyncCommands;
+        let cache_res: redis::RedisResult<Option<String>> = conn.get(&cache_key).await;
+        if let Ok(Some(cached_str)) = cache_res {
+            if let Ok(parsed) = serde_json::from_str::<PublicPlanResponse>(&cached_str) {
+                tracing::info!("Cache hit for public plan: {}", cache_key);
+                return (StatusCode::OK, Json(ApiResponse::success(parsed)));
+            }
+        }
+    }
 
     // Get all plans and find the one with matching ID
     let db_plans = match app_state.plan_repo.get_subscription_plans().await {
@@ -307,6 +346,14 @@ pub async fn get_public_plan_by_id(
         tier_level: plan.tier_level,
         plan_group: plan.plan_group.clone(),
     };
+
+    if let Some(redis_pool) = &app_state.redis_pool {
+        let mut conn = redis_pool.get_connection();
+        use redis::AsyncCommands;
+        if let Ok(json_str) = serde_json::to_string(&plan_data) {
+            let _: redis::RedisResult<()> = conn.set_ex(&cache_key, json_str, 900).await;
+        }
+    }
 
     tracing::info!(plan_id = %plan_id, "Plan retrieved successfully");
     (

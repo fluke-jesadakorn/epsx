@@ -1,14 +1,14 @@
 'use client';
 
-import { PricingCard } from '@/shared/components/plans/pricing-card';
-import type { PricingCardData } from '@/shared/types/plans';
+import { getPublicPlansAction } from '@/app/actions/plans';
+import { PricingCard, type PricingCardData } from '@/shared/components/plans/pricing-card';
 import { Check, MessageSquare, Star } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
 interface AffiliateInfo {
-    commission_rate?: number;
+    commission_rate: number;
 }
 
 interface ApiPlanData {
@@ -26,8 +26,8 @@ interface ApiPlanData {
     isHighlighted?: boolean;
     is_highlighted?: boolean;
     is_promoted?: boolean;
-    activePromotions?: unknown[];
-    promotionalBadges?: unknown[];
+    activePromotions?: string[];
+    promotionalBadges?: string[];
 }
 
 interface ApiResponse {
@@ -55,7 +55,8 @@ const transformToPricingCard = (plan: ApiPlanData): PricingCardData => {
         buttonText: plan.effectivePrice === 0 ? 'Start Free' : 'Get Started',
         promotions: plan.activePromotions ?? [],
         badges: plan.promotionalBadges ?? [],
-        savings: hasDiscount ? `Save ${plan.currency} ${(plan.basePrice - plan.currentPrice).toFixed(2)}` : undefined
+        savings: hasDiscount ? `Save ${plan.currency} ${(plan.basePrice - plan.currentPrice).toFixed(2)}` : undefined,
+        tier_level: 0,
     };
 };
 
@@ -175,9 +176,9 @@ const ContactCard = (): JSX.Element => (
                     <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 uppercase tracking-widest mb-4">
                         Custom
                     </h3>
-                    <div className="flex items-center justify-center gap-2 mb-2">
-                        <span className="text-4xl sm:text-5xl font-black tracking-tighter text-purple-500 dark:text-purple-400">
-                            Contact Us
+                    <div className="flex items-center justify-center gap-2 mb-2 min-w-0">
+                        <span className="text-2xl sm:text-3xl font-black tracking-tighter text-purple-500 dark:text-purple-400">
+                            Revenue Share
                         </span>
                     </div>
                 </div>
@@ -228,23 +229,13 @@ export const DynamicPricingClient = ({
     // Helper to fetch updated plans client-side
     const fetchPlansWithCode = async (code: string): Promise<void> => {
         try {
-            const baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:8080';
-            const response = await fetch(`${baseUrl}/api/public/plans?affiliate_code=${encodeURIComponent(code)}`);
-            if (!response.ok) {
+            const result = await getPublicPlansAction({ affiliate_code: code });
+
+            if (!result.success || !Array.isArray(result.data)) {
                 return;
             }
 
-            const result: unknown = await response.json();
-            if (typeof result !== 'object' || result === null) {
-                return;
-            }
-
-            const typedResult = result as ApiResponse;
-            if (!typedResult.success || !Array.isArray(typedResult.data)) {
-                return;
-            }
-
-            const planData = typedResult.data;
+            const planData = result.data as unknown as ApiPlanData[];
             setPersonalPlans(sortByDisplayOrder(filterByGroup(planData, 'personal')).map(transformToPricingCard));
             setEnterprisePlans(sortByDisplayOrder(filterByGroup(planData, 'enterprise')).map(transformToPricingCard));
             setApiPlans(sortByDisplayOrder(filterByGroup(planData, 'api')).map(transformToPricingCard));
@@ -292,8 +283,8 @@ export const DynamicPricingClient = ({
                 key={card.id}
                 card={card}
                 onSelect={handlePlanClick}
-                affiliateInfo={_affiliateInfo}
-                affiliateCode={affiliateCode}
+                affiliateInfo={_affiliateInfo ?? undefined}
+                affiliateCode={affiliateCode ?? undefined}
             />
         ));
     };

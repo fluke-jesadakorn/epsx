@@ -36,6 +36,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Migration safety**: Never drop/delete existing data unless the structural change requires it. Prefer `ALTER TABLE ADD/RENAME` over `DROP`+recreate. Use `IF EXISTS`/`IF NOT EXISTS` guards.
 
 ### Deployment (Local Docker + Cloudflare Tunnel)
+**CRITICAL: Never deploy to production unless explicitly instructed by the user. Making code changes locally is always safe; deploying to prod requires explicit user confirmation each time.**
+
 Production runs locally via Docker Compose with Cloudflare Tunnel exposing services.
 
 **Quick deploy (restart with existing images):**
@@ -109,6 +111,37 @@ curl -s https://api.epsx.io/health   # Backend health
 curl -s -o /dev/null -w "%{http_code}" https://epsx.io        # Frontend
 curl -s -o /dev/null -w "%{http_code}" https://admin.epsx.io  # Admin (307 = OK, redirects to auth)
 ```
+
+**Troubleshooting - 502 / "Unable to reach origin service":**
+
+Cloudflared uses Docker service names (`backend`, `frontend`, `admin-frontend`) for routing. When a container is restarted manually (outside docker compose), its service name DNS alias may not be re-registered in the Docker network. Diagnose:
+```bash
+docker run --rm --network epsx_prod_network alpine nslookup backend
+# If NXDOMAIN → DNS alias is missing
+```
+Fix without full redeploy (briefly disconnects backend from network):
+```bash
+docker network disconnect epsx_prod_network epsx-prod-backend
+docker network connect --alias backend epsx_prod_network epsx-prod-backend
+docker restart epsx-prod-cloudflared
+```
+Fix via full redeploy (preferred):
+```bash
+cd infrastructure/docker
+docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --force-recreate
+```
+**Rule:** Always use `docker compose up --force-recreate` to restart containers, never `docker restart <container>` alone.
+
+## Architecture Constraints
+
+### Permissions & Plan Logic — Backend Only
+All business logic related to permissions, plan access, ranking offsets, feature flags, and subscription rules **must be implemented in the Rust backend only**. Frontend (`apps/frontend`) and admin-frontend (`apps/admin-frontend`) are UI-only layers:
+- **Never** compute or derive permission values in frontend/admin code
+- **Never** parse or transform permission strings (e.g., `epsx:rankings:offset:N`) in frontend
+- **Never** calculate ranking offsets, access levels, or plan features client-side
+- Frontends only display data returned by backend APIs and pass user inputs as-is
+
+The backend is the single source of truth for all permission derivations.
 
 ## Architecture
 

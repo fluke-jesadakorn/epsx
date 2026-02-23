@@ -306,15 +306,11 @@ impl SimpleContainer {
 
                 // Try to create Redis client for permission caching
                 match redis::Client::open(url.as_str()) {
-                    Ok(client) => {
-                        let redis_client = Arc::new(client);
-                        let perm_cache = Arc::new(UnifiedPermissionCache::new(Arc::clone(&redis_client)));
-                        let perm_service = Arc::new(UnifiedPermissionService::new(
-                            *db_pool,
-                            Arc::clone(&perm_cache),
-                        ));
-                        tracing::info!("UnifiedPermissionService initialized with Redis cache");
-                        (pool, broadcaster, Some(perm_cache), perm_service)
+                    Ok(_) => {
+                        // PERMISSION CACHE DISABLED FOR SECURITY CONTROL
+                        let perm_service = Arc::new(UnifiedPermissionService::new_without_cache(*db_pool));
+                        tracing::info!("UnifiedPermissionService initialized (cache disabled for security control)");
+                        (pool, broadcaster, None, perm_service)
                     }
                     Err(e) => {
                         tracing::warn!("Failed to create Redis client for permission cache: {}", e);

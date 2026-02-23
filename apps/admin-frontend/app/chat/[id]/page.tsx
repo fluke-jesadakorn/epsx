@@ -23,9 +23,9 @@ export default async function ConversationPage({ params }: Props) {
   const topics = topicsRes.success && topicsRes.data ? topicsRes.data : [];
 
   return (
-    <div className="p-8">
+    <div className="p-4 md:p-8">
       <Breadcrumb />
-      <div className="h-[calc(100vh-10rem)] border border-gray-200 dark:border-slate-700 rounded-2xl bg-gray-100 dark:bg-white/80 dark:bg-slate-900/80 overflow-hidden backdrop-blur-sm">
+      <div className="h-[calc(100vh-7rem)] md:h-[calc(100vh-10rem)] border border-gray-200 dark:border-slate-700 rounded-2xl bg-gray-100 dark:bg-white/80 dark:bg-slate-900/80 overflow-hidden backdrop-blur-sm">
         <ChatConversationView
           conv={conv}
           topics={topics}

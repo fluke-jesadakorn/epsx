@@ -80,8 +80,9 @@ export function useWalletDetailViewLogic({
                 const existingGroups = new Set(
                     [...accessData.data.authorizedPlans, ...pendingDrops]
                         .map(p => p.planGroup ?? 'personal')
+                        .filter(g => g !== 'custom')
                 );
-                if (existingGroups.size > 0 && !existingGroups.has(draggedGroup)) {
+                if (draggedGroup !== 'custom' && existingGroups.size > 0 && !existingGroups.has(draggedGroup)) {
                     toast.error(`Cannot mix plan groups. Wallet has "${[...existingGroups][0]}" plans assigned.`);
                     return;
                 }

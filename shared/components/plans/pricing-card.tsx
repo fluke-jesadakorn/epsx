@@ -195,12 +195,12 @@ function PricingCardHeader({ card }: { card: PricingCardData }) {
                 {card.title}
             </h3>
 
-            <div className="flex items-center justify-center gap-2 mb-2">
-                <span className="text-5xl sm:text-6xl font-black tracking-tighter text-blue-500">
+            <div className="flex items-center justify-center gap-2 mb-2 min-w-0">
+                <span className="text-3xl sm:text-4xl font-black tracking-tighter text-blue-500 break-all">
                     {card.price === 'Free' ? 'Free' : card.price.split(' ')[0]}
                 </span>
                 {card.price !== 'Free' && (
-                    <span className="text-xl font-bold text-blue-500 self-end mb-2">
+                    <span className="text-base font-bold text-blue-500 self-end mb-1">
                         USD
                     </span>
                 )}

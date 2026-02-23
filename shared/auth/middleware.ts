@@ -166,6 +166,18 @@ function handleAuthenticatedOnLogin(
     const { homePath, noRedirect } = options;
     if (noRedirect) { return null; }
 
+    // Break infinite redirect loop if token is expired but cookie isn't cleared
+    if (request.nextUrl.searchParams.get('reason') === 'no-session' || request.nextUrl.searchParams.has('clear')) {
+        const responseNext = NextResponse.next();
+        // Clear all auth cookies to prevent infinite redirect loops
+        responseNext.cookies.delete(COOKIES.access_token);
+        responseNext.cookies.delete(COOKIES.user);
+        responseNext.cookies.delete(COOKIES.id_token);
+        responseNext.cookies.delete(COOKIES.refresh_token);
+        responseNext.cookies.delete(COOKIES.sid);
+        return responseNext;
+    }
+
     const returnUrlCookie = request.cookies.get(COOKIES.return_url)?.value;
     const returnUrlParam = request.nextUrl.searchParams.get('return_url');
     const targetPath = returnUrlCookie ?? returnUrlParam ?? homePath;

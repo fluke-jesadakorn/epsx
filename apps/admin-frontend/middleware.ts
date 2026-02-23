@@ -1,6 +1,6 @@
+import { COOKIES } from '@/shared/auth/cookies';
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import { COOKIES } from '@/shared/auth/cookies';
 
 const PUBLIC_ROUTES = [
     '/login',
@@ -55,6 +55,18 @@ export function middleware(request: NextRequest) {
 
     // Authenticated user on login page -> redirect home
     if (pathname === LOGIN_PATH) {
+        // Break infinite redirect loop if token is expired but cookie isn't cleared
+        if (request.nextUrl.searchParams.get('reason') === 'no-session' || request.nextUrl.searchParams.has('clear')) {
+            const resp = NextResponse.next();
+            // Clear all auth cookies to prevent infinite redirect loops
+            resp.cookies.delete(COOKIES.access_token);
+            resp.cookies.delete(COOKIES.user);
+            resp.cookies.delete(COOKIES.id_token);
+            resp.cookies.delete(COOKIES.refresh_token);
+            resp.cookies.delete(COOKIES.sid);
+            return resp;
+        }
+
         const raw = request.cookies.get(COOKIES.return_url)?.value ?? '/';
         const returnUrl = isPublicRoute(raw) ? '/' : raw;
         const resp = NextResponse.redirect(new URL(returnUrl, request.url));

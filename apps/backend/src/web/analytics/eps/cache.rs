@@ -99,22 +99,8 @@ pub async fn get_unified_analytics_rankings_cached(
   let cache_key = generate_cache_key(&params, rank_offset);
   debug!("Generated cache key: {}", cache_key);
 
-  // Check cache first (1-hour TTL) unless in development
-  // Bypass cache in development to ensure experimental changes are reflected immediately
-  if !crate::config::env::is_development() {
-      if let Some(cached_data) = cache.get(&cache_key) {
-        if
-          let Ok(cached_response) = serde_json::from_str::<CardDashboardResponse>(
-            &cached_data
-          )
-        {
-          info!("Cache hit for analytics rankings - returning cached data");
-          return Ok(Json(cached_response));
-        }
-      }
-  } else {
-      debug!("Development environment detected - skipping cache lookup");
-  }
+  // CACHE DISABLED FOR SECURITY CONTROL (Always fetch fresh from DB/TradingView)
+  debug!("Development environment or security override - skipping cache lookup");
 
   debug!("Cache miss for analytics rankings - fetching fresh data");
 
@@ -312,10 +298,8 @@ pub async fn get_unified_analytics_rankings_cached(
   // Store response in cache with 1-hour TTL (3600 seconds)
   // Only cache in non-development environments
   if !crate::config::env::is_development() {
-    if let Ok(serialized_response) = serde_json::to_string(&card_response) {
-      cache.set(&cache_key, serialized_response, Some(3600));
-      debug!("Successfully cached analytics rankings with key: {}", cache_key);
-    }
+      // CACHE WRITE DISABLED FOR SECURITY CONTROL
+      debug!("Cache write skipped due to security settings");
   }
 
   Ok(Json(card_response))

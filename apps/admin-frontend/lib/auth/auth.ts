@@ -296,7 +296,7 @@ export async function requireAdminSession(): Promise<AdminSession> {
   const session = await getAdminSession();
 
   if (!session.isAuthenticated) {
-    redirect('/auth');
+    redirect('/auth?reason=no-session');
   }
 
   if (!session.hasAdminAccess) {

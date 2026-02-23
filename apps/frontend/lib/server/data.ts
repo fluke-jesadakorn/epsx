@@ -5,7 +5,7 @@
 
 import type { AnalyticsFiltersResponse } from '@/shared/api/analytics';
 import { createPlatformAnalyticsClient } from '@/shared/api/analytics';
-import { COOKIES } from '@/shared/auth/cookies';
+import { getServerAuthToken } from '@/shared/auth/cookies';
 import type { CardDashboardResponse, FilterOptions, SymbolCardData } from '@/shared/types/analytics';
 import { logger } from '@/shared/utils/logger';
 
@@ -24,7 +24,7 @@ async function hasServerAccessToken(): Promise<boolean> {
     try {
         const { cookies } = await import('next/headers');
         const cookieStore = await cookies();
-        return Boolean(cookieStore.get(COOKIES.access_token)?.value);
+        return Boolean(getServerAuthToken(cookieStore));
     } catch {
         return false;
     }

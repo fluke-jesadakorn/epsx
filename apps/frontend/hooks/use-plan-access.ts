@@ -1,10 +1,10 @@
 'use client';
 
-import { useAuth } from '@/shared/auth';
 import { createPlansClient } from '@/shared/api/plans';
+import { useAuth } from '@/shared/components/auth/provider';
 import type { PlanAccessData } from '@/shared/types/payment';
 import { createFrontendApiClient } from '@/shared/utils/api-client';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { FREE_PLAN_RANKING_OFFSET, FREE_PLAN_TIER_LEVEL } from '@/shared/config/constants';
 
@@ -38,22 +38,23 @@ const DEFAULT_FREE_TIER: PlanAccessData = {
  * const { planAccess } = usePlanAccess();
  */
 export function usePlanAccess(): UsePlanAccessResult {
-    const { isAuthenticated } = useAuth();
+    const { isAuthenticated, user } = useAuth();
     const [planAccess, setPlanAccess] = useState<PlanAccessData | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    const fetchPlanAccess = async (): Promise<void> => {
+    const fetchPlanAccess = useCallback(async (): Promise<void> => {
         if (!isAuthenticated) {
             setPlanAccess(DEFAULT_FREE_TIER);
             setLoading(false);
             return;
         }
+
         try {
             setLoading(true);
             setError(null);
 
-            const plansClient = createPlansClient(createFrontendApiClient());
+            const plansClient = createPlansClient(createFrontendApiClient({ token: user?.access }));
             const response = await plansClient.getMyPlanAccess();
 
             if (response.success && response.data) {
@@ -67,7 +68,7 @@ export function usePlanAccess(): UsePlanAccessResult {
         } finally {
             setLoading(false);
         }
-    };
+    }, [isAuthenticated, user?.access]);
 
     useEffect(() => {
         void fetchPlanAccess();

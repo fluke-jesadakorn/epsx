@@ -184,29 +184,31 @@ pub async fn create_assignment(
 
             let plan_ref = plan.as_ref().ok_or(diesel::result::Error::NotFound)?;
 
-            // Cross-group validation: reject if wallet has plans from a different group
-            #[derive(QueryableByName)]
-            struct ExistingGroup {
-                #[diesel(sql_type = diesel::sql_types::Text)]
-                plan_group: String,
-            }
+            // Cross-group validation: reject if wallet has plans from a different group (excluding 'custom')
+            if plan_ref.plan_group != "custom" {
+                #[derive(QueryableByName)]
+                struct ExistingGroup {
+                    #[diesel(sql_type = diesel::sql_types::Text)]
+                    plan_group: String,
+                }
 
-            let existing_groups: Vec<ExistingGroup> = diesel::sql_query(
-                r#"
-                SELECT DISTINCT p.plan_group
-                FROM wallet_plan_assignments wpa
-                JOIN plans p ON wpa.plan_id = p.id
-                WHERE wpa.wallet_address = $1 AND wpa.is_active = true AND wpa.plan_id != $2
-                "#
-            )
-            .bind::<diesel::sql_types::Text, _>(&wallet_clone)
-            .bind::<diesel::sql_types::Uuid, _>(plan_uuid)
-            .load(conn)
-            .await?;
+                let existing_groups: Vec<ExistingGroup> = diesel::sql_query(
+                    r#"
+                    SELECT DISTINCT p.plan_group
+                    FROM wallet_plan_assignments wpa
+                    JOIN plans p ON wpa.plan_id = p.id
+                    WHERE wpa.wallet_address = $1 AND wpa.is_active = true AND wpa.plan_id != $2 AND p.plan_group != 'custom'
+                    "#
+                )
+                .bind::<diesel::sql_types::Text, _>(&wallet_clone)
+                .bind::<diesel::sql_types::Uuid, _>(plan_uuid)
+                .load(conn)
+                .await?;
 
-            for eg in &existing_groups {
-                if eg.plan_group != plan_ref.plan_group {
-                    return Err(diesel::result::Error::RollbackTransaction);
+                for eg in &existing_groups {
+                    if eg.plan_group != plan_ref.plan_group {
+                        return Err(diesel::result::Error::RollbackTransaction);
+                    }
                 }
             }
 

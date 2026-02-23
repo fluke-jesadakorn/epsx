@@ -8,7 +8,7 @@ import { createFrontendApiClient } from '@/shared/utils/api-client'
 import { Bell, ExternalLink } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useBrowserNotifications } from './browser-notifications'
 import {
   getInitialNotificationsAction,
@@ -67,6 +67,18 @@ function NotificationItem({ notification, onNotificationClick, onDeleteNotificat
 export function NotificationBellClient() {
   const router = useRouter()
   const [isOpen, setIsOpen] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!isOpen) return
+    const handler = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setIsOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => { document.removeEventListener('mousedown', handler) }
+  }, [isOpen])
 
   // Get authentication state
   const { isAuthenticated, user, refreshSession } = useSharedAuth()
@@ -104,8 +116,7 @@ export function NotificationBellClient() {
     },
   })
 
-  const handleToggleDropdown = (e: React.MouseEvent) => {
-    e.stopPropagation()
+  const handleToggleDropdown = () => {
     setIsOpen(!isOpen)
   }
 
@@ -132,7 +143,7 @@ export function NotificationBellClient() {
   }
 
   return (
-    <div className="relative">
+    <div className="relative" ref={containerRef}>
       <button
         onClick={handleToggleDropdown}
         className="relative flex items-center gap-2 rounded-2xl px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50/80 hover:text-slate-700 dark:text-slate-300 dark:hover:bg-gray-100 dark:bg-slate-800/40 dark:hover:text-slate-200"
@@ -147,12 +158,6 @@ export function NotificationBellClient() {
 
       {isOpen && (
         <>
-          {/* Backdrop */}
-          <div
-            className="fixed inset-0 z-40"
-            onClick={handleCloseDropdown}
-          />
-
           {/* Dropdown */}
           <div className="absolute top-full right-0 z-50 mt-2 w-96 rounded-2xl border border-orange-100/50 bg-white/95 backdrop-blur-xl shadow-2xl dark:border-slate-700/50 dark:bg-slate-900/95">
             {loading ? (
@@ -226,3 +231,4 @@ export function NotificationBellClient() {
     </div>
   )
 }
+
