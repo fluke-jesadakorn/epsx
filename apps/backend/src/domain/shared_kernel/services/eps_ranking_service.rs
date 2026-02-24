@@ -345,7 +345,6 @@ impl EPSRankingService {
         debug!("Getting total count for params: {:?}", params);
 
         // For now, only use country filter to get total count
-        // TODO: Extend repository to support sector and other filters
         let validated_country = if let Some(ref country) = params.country {
             Some(CountryValidator::validate_country(country)
                 .map_err(|e| AppError::new(crate::core::errors::ErrorKind::ValidationError, e))?)

@@ -98,10 +98,6 @@ export default async function RootLayout({
     }
   }
 
-  // Check for auth cookie presence on server
-  // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-  const hasAuthCookie = rawCookie ? (rawCookie.includes('epsx.user') || rawCookie.includes('epsx.access_token')) : false;
-
   return (
     <html
       lang="en"
@@ -162,7 +158,7 @@ export default async function RootLayout({
           <ErrorBoundary>
             <ClientProviders initialUser={user} initialState={initialState}>
               <div className="flex-1 relative overflow-hidden">
-                <LayoutWrapper initialUser={user} hasAuthCookie={hasAuthCookie}>
+                <LayoutWrapper initialUser={user}>
                   {children}
                 </LayoutWrapper>
               </div>

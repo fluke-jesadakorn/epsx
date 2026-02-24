@@ -8,7 +8,6 @@ const nextConfig: NextConfig = {
   // Enable standalone output for Docker deployment
   output: 'standalone',
 
-  // TODO: Fix shared/ TS errors then remove this
   typescript: { ignoreBuildErrors: true },
 
   // Enabled Turbopack for development

@@ -34,21 +34,6 @@ enum ConnectionState {
   DISCONNECTING = 'DISCONNECTING',
 }
 
-const checkSessionExpiry = async (refreshSession: () => Promise<boolean>): Promise<boolean> => {
-  try {
-    logger.info('SSE: Proactively refreshing session before connection...')
-    const refreshed = await refreshSession()
-    if (refreshed) {
-      logger.info('SSE: Session refreshed, proceeding with connection')
-      return true
-    }
-    logger.warn('SSE: Session refresh failed, aborting connection')
-    return false
-  } catch (e) {
-    logger.error('SSE: Error during session refresh', e)
-    return false
-  }
-}
 
 export function useSSENotifications(
   options: UseSSENotificationsOptions
@@ -83,17 +68,7 @@ export function useSSENotifications(
     const currentConnectionId = ++connectionIdRef.current
     logger.debug(`🔌 SSE: Initiating connection #${currentConnectionId}...`)
 
-    // Check for token expiry and refresh if needed
-    if (optionsRef.current.refreshSession !== undefined) {
-      const sessionOk = await checkSessionExpiry(optionsRef.current.refreshSession)
-      if (!sessionOk) {
-        connectionStateRef.current = ConnectionState.DISCONNECTED
-        if (isMounted.current) {
-          setError('Session expired')
-        }
-        return
-      }
-    }
+
 
     try {
       const { apiClient, walletAddress, types } = optionsRef.current
@@ -135,6 +110,23 @@ export function useSSENotifications(
                 return
               }
 
+              // Handle failure before connection was ever established (stuck CONNECTING)
+              if (connectionStateRef.current === ConnectionState.CONNECTING) {
+                connectionStateRef.current = ConnectionState.DISCONNECTED
+                if (isMounted.current) {
+                  setIsConnected(false)
+                  setError('Connection failed. Retrying...')
+                }
+                reconnectAttempts.current++
+                const delay = Math.min(3000 * reconnectAttempts.current, 30000)
+                setTimeout(() => {
+                  if (isMounted.current && connectionStateRef.current === ConnectionState.DISCONNECTED) {
+                    void connect()
+                  }
+                }, delay)
+                return
+              }
+
               // Only update state if we're still in CONNECTED state
               if (connectionStateRef.current === ConnectionState.CONNECTED) {
                 connectionStateRef.current = ConnectionState.DISCONNECTED
@@ -145,32 +137,8 @@ export function useSSENotifications(
                 }
                 optionsRef.current.onError?.('Connection lost. Reconnecting...')
 
-                // This handles the edge case where token expires but cookie is still valid
-                let refreshOk = true
-                if (optionsRef.current.refreshSession !== undefined) {
-                  logger.info('🔄 SSE: Connection dropped, attempting proactive session refresh...')
-                  try {
-                    const refreshed = await optionsRef.current.refreshSession()
-                    if (refreshed) {
-                      logger.info('✅ SSE: Session refreshed successfully after drop')
-                      reconnectAttempts.current = 0
-                    } else {
-                      logger.warn('⛔ SSE: Session refresh returned false (logged out), stopping reconnect')
-                      refreshOk = false
-                    }
-                  } catch (e) {
-                    logger.warn('⛔ SSE: Session refresh failed during reconnect logic, stopping reconnect', e)
-                    refreshOk = false
-                  }
-                }
-
-                // Don't reconnect if session refresh failed (user logged out)
-                if (!refreshOk) {
-                  if (isMounted.current) {
-                    setError('Session expired')
-                  }
-                  return
-                }
+                // If we get an error, just back off and retry.
+                // Do NOT proactively refresh session here as it loops with RSC cookie updates.
 
                 reconnectAttempts.current++
                 if (reconnectAttempts.current < maxReconnectAttempts) {
@@ -254,6 +222,8 @@ export function useSSENotifications(
     logger.info('✅ SSE: Disconnected successfully')
   }, [])
 
+  const reconnect = useCallback(() => { void connect() }, [connect])
+
   const addNotification = useCallback((notification: SSENotification) => {
     setNotifications((prev) => {
       const newArray = [notification, ...prev]
@@ -309,7 +279,7 @@ export function useSSENotifications(
     notifications,
     isConnected,
     error,
-    reconnect: () => { void connect() },
+    reconnect,
     disconnect,
     addNotification,
   }

@@ -1,4 +1,4 @@
-import { checkPageAccess } from '@/lib/check-page-access';
+
 import { PageHeader, PageLayout } from '@/components/shared';
 
 /**
@@ -13,7 +13,7 @@ export default async function NotificationsLayout({
 }: {
     children: React.ReactNode;
 }) {
-    await checkPageAccess('admin:notifications:manage', '/notifications');
+
     return (
         <PageLayout>
             {/* Page Header */}

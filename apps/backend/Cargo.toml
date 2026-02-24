@@ -45,7 +45,7 @@ cli-tools = ["dep:clap", "database"]
 [dependencies]
 # Core server dependencies (always required)
 anyhow = "1.0.100"
-axum = { version = "0.8.6", features = ["ws", "macros"] }
+axum = { version = "0.8.6", features = ["ws", "macros", "multipart"] }
 # axum-extra removed - not used
 async-trait = "0.1"
 chrono = { version = "0.4.42", features = ["serde"] }

@@ -5,7 +5,7 @@
  * AI-ready architecture via sender_type and metadata fields.
  */
 
-import type { UnifiedApiClient, ApiResponse } from '../utils/api-client';
+import type { ApiResponse, UnifiedApiClient } from '../utils/api-client';
 
 // ============================================================================
 // TYPES
@@ -37,6 +37,13 @@ export interface ChatConversation {
   updated_at: string;
 }
 
+export interface ChatAttachment {
+  url: string;
+  filename: string;
+  file_type: string;
+  size: number;
+}
+
 export interface ChatMessage {
   id: string;
   conversation_id: string;
@@ -44,7 +51,7 @@ export interface ChatMessage {
   sender_address: string | null;
   content: string;
   is_read: boolean;
-  metadata: Record<string, unknown>;
+  metadata: { attachments?: ChatAttachment[] } & Record<string, unknown>;
   created_at: string;
 }
 
@@ -83,7 +90,7 @@ export interface UnreadCountResp {
 // ============================================================================
 
 export class SupportChatApi {
-  constructor(private client: UnifiedApiClient) {}
+  constructor(private client: UnifiedApiClient) { }
 
   // Topics
   async getTopics(): Promise<ApiResponse<ChatTopic[]>> {
@@ -107,8 +114,8 @@ export class SupportChatApi {
     return this.client.get(`/api/chat/conversations/${id}/messages`);
   }
 
-  async sendMessage(id: string, content: string): Promise<ApiResponse<ChatMessage>> {
-    return this.client.post(`/api/chat/conversations/${id}/messages`, { content });
+  async sendMessage(id: string, content: string, turnstileToken?: string): Promise<ApiResponse<ChatMessage>> {
+    return this.client.post(`/api/chat/conversations/${id}/messages`, { content, turnstile_token: turnstileToken });
   }
 
   async updateStatus(id: string, status: string): Promise<ApiResponse<ChatConversation>> {
@@ -145,8 +152,8 @@ export class SupportChatApi {
     return this.client.get(`/api/admin/chat/conversations/${id}/messages`);
   }
 
-  async adminSendReply(id: string, content: string): Promise<ApiResponse<ChatMessage>> {
-    return this.client.post(`/api/admin/chat/conversations/${id}/messages`, { content });
+  async adminSendReply(id: string, content: string, turnstileToken?: string): Promise<ApiResponse<ChatMessage>> {
+    return this.client.post(`/api/admin/chat/conversations/${id}/messages`, { content, turnstile_token: turnstileToken });
   }
 
   async adminAssignAgent(id: string, agentAddress?: string): Promise<ApiResponse<ChatConversation>> {

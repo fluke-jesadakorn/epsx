@@ -95,15 +95,17 @@ export function SharedOpenIDWeb3Provider({
   const [showSignInModal, setShowSignInModal] = useState(false);
 
   const [client] = useState(() => {
+    // Use centralized URL resolver as fallback when prop is empty/undefined
+    // Bracket notation bypasses webpack build-time inlining for NEXT_PUBLIC_* vars
+    const envBackendUrl = typeof window !== 'undefined'
+      ? (process.env['NEXT_PUBLIC_BACKEND_URL'] ?? '')
+      : (process.env['BACKEND_URL'] ?? process.env['NEXT_PUBLIC_BACKEND_URL'] ?? '');
     const resolvedBackendUrl =
-      backendUrl ??
+      (backendUrl !== undefined && backendUrl !== '' ? backendUrl : null) ??
+      (envBackendUrl !== '' ? envBackendUrl : null) ??
       (typeof window !== 'undefined'
-        ? (process.env.NEXT_PUBLIC_BACKEND_URL !== undefined && process.env.NEXT_PUBLIC_BACKEND_URL !== ''
-          ? process.env.NEXT_PUBLIC_BACKEND_URL
-          : window.location.origin.replace(/:300[0-9]/, ':8080'))
-        : (process.env.BACKEND_URL !== undefined && process.env.BACKEND_URL !== ''
-          ? process.env.BACKEND_URL
-          : 'http://localhost:8080'));
+        ? window.location.origin.replace(/:300[0-9]/, ':8080')
+        : 'https://api.epsx.io');
 
     logger.info('[AUTH] Provider: Configuration', {
       provided: backendUrl,

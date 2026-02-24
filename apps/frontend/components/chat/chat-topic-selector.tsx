@@ -101,6 +101,12 @@ export function ChatTopicSelector({ topics, onSelect, compact }: TopicSelectorPr
           </div>
         </div>
 
+        <div className="flex items-center gap-2 mb-1">
+          <div className="flex-1 h-px bg-slate-200 dark:bg-white/8" />
+          <span className="text-[10px] font-semibold text-muted-foreground/40 uppercase tracking-wider">Details</span>
+          <div className="flex-1 h-px bg-slate-200 dark:bg-white/8" />
+        </div>
+
         <div className="space-y-3 flex-1">
           <div>
             <label className="text-[11px] font-semibold text-muted-foreground mb-1.5 block uppercase tracking-wider">Subject</label>

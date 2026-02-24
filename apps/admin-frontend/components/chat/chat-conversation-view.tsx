@@ -1,15 +1,16 @@
 /* eslint-disable max-lines-per-function */
 'use client';
 
-import { useEffect, useRef, useState, useCallback } from 'react';
-import { ArrowLeft, User, Bot, Headset, Wallet, Tag, UserCheck, MessageCircle } from 'lucide-react';
-import type { ChatConversation, ChatMessage, ChatTopic } from '@/shared/api/chat';
-import { ChatStatusBadge } from './chat-status-badge';
-import { ChatReplyInput } from './chat-reply-input';
-import { getMessages, sendReply, assignAgent, updateStatus, markAsRead } from '@/app/actions/chat';
+import { assignAgent, getMessages, markAsRead, sendReply, updateStatus } from '@/app/actions/chat';
+import type { ChatAttachment, ChatConversation, ChatMessage, ChatTopic } from '@/shared/api/chat';
+import { COOKIES } from '@/shared/auth/cookies';
 import { useSharedAuth } from '@/shared/components/auth';
-import { useChatSSE } from '@/shared/hooks/use-chat-sse';
 import type { ChatSSEEvent } from '@/shared/hooks/use-chat-sse';
+import { useChatSSE } from '@/shared/hooks/use-chat-sse';
+import { ArrowLeft, Bot, Check, CheckCheck, Download, FileText, Headset, MessageCircle, Tag, User, UserCheck, Wallet, X, ZoomIn, ZoomOut } from 'lucide-react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { ChatReplyInput } from './chat-reply-input';
+import { ChatStatusBadge } from './chat-status-badge';
 
 interface Props {
   conv: ChatConversation;
@@ -23,25 +24,250 @@ function truncAddr(addr: string): string {
 }
 
 function formatTime(date: string): string {
-  return new Date(date).toLocaleTimeString('en-US', {
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  return new Date(date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 }
 
 function formatDate(date: string): string {
-  return new Date(date).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
+  return new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function getToken(): string | null {
+  if (typeof document === 'undefined') return null;
+  try {
+    const cookies: Record<string, string> = {};
+    for (const c of document.cookie.split(';')) {
+      const [k, v] = c.trim().split('=');
+      if (k && v) cookies[k] = v;
+    }
+    const raw = cookies[COOKIES.user];
+    if (!raw) return null;
+    const user = JSON.parse(decodeURIComponent(raw)) as { access?: string };
+    return user.access ?? null;
+  } catch { return null; }
+}
+
+function getBackendUrl(): string {
+  if (typeof window !== 'undefined') {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { getBackendUrl: gbu } = require('@/shared/utils/url-resolver') as { getBackendUrl: (ctx: string) => string };
+      return gbu('client');
+    } catch { /* ignore */ }
+  }
+  return '';
+}
+
+async function uploadFile(convId: string, file: File): Promise<ChatMessage | null> {
+  const token = getToken();
+  const form = new FormData();
+  form.append('file', file);
+  try {
+    const res = await fetch(`${getBackendUrl()}/api/admin/chat/conversations/${convId}/upload`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: form,
+    });
+    const json = await res.json() as { success?: boolean; data?: { message?: ChatMessage } };
+    return json.success === true ? (json.data?.message ?? null) : null;
+  } catch { return null; }
+}
+
+async function notifyTyping(convId: string, isTyping: boolean): Promise<void> {
+  const token = getToken();
+  try {
+    await fetch(`${getBackendUrl()}/api/admin/chat/conversations/${convId}/typing`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: JSON.stringify({ is_typing: isTyping }),
+    });
+  } catch { /* non-critical */ }
+}
+
+function SimpleMarkdown({ text }: { text: string }) {
+  const lines = text.split('\n');
+  return (
+    <div className="whitespace-pre-wrap break-words">
+      {lines.map((line, i) => {
+        const parts: React.ReactNode[] = [];
+        let rest = line;
+        let key = 0;
+        const re = /(\*\*(.+?)\*\*|_(.+?)_|`([^`]+)`|\[([^\]]+)\]\(([^)]+)\))/g;
+        let last = 0;
+        let m: RegExpExecArray | null;
+        while ((m = re.exec(rest)) !== null) {
+          if (m.index > last) parts.push(rest.slice(last, m.index));
+          if (m[2] !== undefined) parts.push(<strong key={key++} className="font-bold">{m[2]}</strong>);
+          else if (m[3] !== undefined) parts.push(<em key={key++} className="italic">{m[3]}</em>);
+          else if (m[4] !== undefined) parts.push(<code key={key++} className="bg-black/10 rounded px-1 text-xs font-mono">{m[4]}</code>);
+          else if (m[5] !== undefined) {
+            try {
+              const url = m[6] as string;
+              const parsedUrl = new URL(url);
+              const isTrusted = parsedUrl.hostname.endsWith('epsx.io') || parsedUrl.hostname === 'localhost';
+              if (isTrusted) {
+                parts.push(<a key={key++} href={url} target="_blank" rel="noopener noreferrer" className="underline opacity-90">{m[5]}</a>);
+              } else {
+                parts.push(<span key={key++} className="text-red-400/80 italic text-xs" title="External links are restricted for security reasons">[External Link Removed]</span>);
+              }
+            } catch {
+              parts.push(<span key={key++}>{m[5]}</span>);
+            }
+          }
+          last = m.index + m[0].length;
+        }
+        if (last < rest.length) parts.push(rest.slice(last));
+        return <p key={i} className="mb-1 last:mb-0">{parts.length > 0 ? parts : '\u00a0'}</p>;
+      })}
+    </div>
+  );
+}
+
+function ImageLightbox({ src, alt, onClose }: { src: string; alt: string; onClose: () => void }) {
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const dragStart = useRef({ x: 0, y: 0 });
+
+  const zoomIn = useCallback(() => setZoom(z => Math.min(z + 0.5, 4)), []);
+  const zoomOut = useCallback(() => setZoom(z => {
+    const next = Math.max(z - 0.5, 0.5);
+    if (next <= 1) setPan({ x: 0, y: 0 });
+    return next;
+  }), []);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+      if (e.key === '+' || e.key === '=') zoomIn();
+      if (e.key === '-') zoomOut();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose, zoomIn, zoomOut]);
+
+  const handleWheel = useCallback((e: React.WheelEvent) => {
+    e.stopPropagation();
+    setZoom(z => {
+      const next = Math.max(0.5, Math.min(4, z * (1 - e.deltaY * 0.001)));
+      if (next <= 1) setPan({ x: 0, y: 0 });
+      return next;
+    });
+  }, []);
+
+  const handlePointerDown = (e: React.PointerEvent<HTMLImageElement>) => {
+    e.stopPropagation();
+    if (zoom <= 1) return;
+    setIsDragging(true);
+    dragStart.current = { x: e.clientX - pan.x, y: e.clientY - pan.y };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLImageElement>) => {
+    e.stopPropagation();
+    if (!isDragging) return;
+    setPan({ x: e.clientX - dragStart.current.x, y: e.clientY - dragStart.current.y });
+  };
+
+  const handlePointerUp = (e: React.PointerEvent<HTMLImageElement>) => {
+    e.stopPropagation();
+    setIsDragging(false);
+    e.currentTarget.releasePointerCapture(e.pointerId);
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-[9999] bg-black/85 backdrop-blur-sm flex items-center justify-center overflow-hidden"
+      onClick={onClose}
+      onWheel={handleWheel}
+    >
+      <div className="absolute top-4 right-4 flex items-center gap-1.5 z-10">
+        <button onClick={e => { e.stopPropagation(); zoomIn(); }} className="w-9 h-9 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors">
+          <ZoomIn className="w-4 h-4" />
+        </button>
+        <button onClick={e => { e.stopPropagation(); zoomOut(); }} className="w-9 h-9 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors">
+          <ZoomOut className="w-4 h-4" />
+        </button>
+        <button onClick={e => { e.stopPropagation(); onClose(); }} className="w-9 h-9 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors ml-1">
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+      <div className="absolute bottom-4 inset-x-0 text-center pointer-events-none z-10">
+        <span className="text-white/40 text-xs px-3 py-1.5 rounded-full bg-black/50 backdrop-blur-md">
+          {Math.round(zoom * 100)}% · scroll to zoom · drag to pan · esc to close
+        </span>
+      </div>
+      <div
+        className="w-full h-full flex items-center justify-center"
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={src}
+          alt={alt}
+          draggable={false}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerCancel={handlePointerUp}
+          onClick={e => e.stopPropagation()}
+          style={{
+            transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+            transition: isDragging ? 'none' : 'transform 0.1s ease-out',
+            cursor: zoom > 1 ? (isDragging ? 'grabbing' : 'grab') : 'default',
+            touchAction: 'none'
+          }}
+          className="max-w-[90vw] max-h-[90vh] object-contain rounded-xl select-none"
+        />
+      </div>
+    </div>
+  );
+}
+
+function AttachmentView({ att, isRight }: { att: ChatAttachment; isRight: boolean }) {
+  const [open, setOpen] = useState(false);
+  const isImage = att.file_type.startsWith('image/');
+  const src = att.url.startsWith('/api') ? `${getBackendUrl()}${att.url}` : att.url;
+
+  if (isImage) {
+    return (
+      <>
+        <button type="button" onClick={() => setOpen(true)} className="block mt-2 cursor-zoom-in focus:outline-none">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={src} alt={att.filename} className="max-w-full max-h-48 rounded-xl border border-white/10 object-cover hover:opacity-90 transition-opacity" />
+        </button>
+        {open && <ImageLightbox src={src} alt={att.filename} onClose={() => setOpen(false)} />}
+      </>
+    );
+  }
+
+  return (
+    <a
+      href={src}
+      target="_blank"
+      rel="noopener noreferrer"
+      download={att.filename}
+      className={`flex items-center gap-2 mt-2 px-3 py-2 rounded-xl border transition-colors ${isRight
+        ? 'bg-violet-500/10 border-violet-500/20 hover:bg-violet-500/20'
+        : 'bg-gray-200 dark:bg-slate-700/50 border-gray-300 dark:border-slate-600 hover:bg-gray-300 dark:hover:bg-slate-700'
+        }`}
+    >
+      <FileText className="w-4 h-4 shrink-0 text-muted-foreground" />
+      <div className="min-w-0 flex-1">
+        <p className="text-xs font-medium truncate">{att.filename}</p>
+        <p className="text-[10px] text-muted-foreground/60">{(att.size / 1024).toFixed(1)} KB</p>
+      </div>
+      <Download className="w-3.5 h-3.5 shrink-0 text-muted-foreground/60" />
+    </a>
+  );
 }
 
 export function ChatConversationView({ conv, topics, onUpdate, onBack }: Props) {
   const [msgs, setMsgs] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(true);
+  const [userTyping, setUserTyping] = useState(false);
+  const [readUpToId, setReadUpToId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const markedRef = useRef<string | null>(null);
+  const typingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { user } = useSharedAuth();
   const walletAddress = user?.wallet_address;
 
@@ -58,7 +284,6 @@ export function ChatConversationView({ conv, topics, onUpdate, onBack }: Props) 
 
   useEffect(() => {
     void loadMsgs();
-    // Mark as read once per conversation
     if (markedRef.current !== conv.id) {
       markedRef.current = conv.id;
       void markAsRead(conv.id);
@@ -70,13 +295,28 @@ export function ChatConversationView({ conv, topics, onUpdate, onBack }: Props) 
     if (ref !== null) {
       ref.scrollTop = ref.scrollHeight;
     }
-  }, [msgs]);
+  }, [msgs, userTyping]);
 
-  // SSE: real-time message delivery & status updates
   const handleSSE = useCallback((evt: ChatSSEEvent) => {
     if (evt.type === 'new_message' && evt.message && evt.conversation_id === conv.id) {
       setMsgs((prev) => prev.some((m) => m.id === evt.message?.id) ? prev : [...prev, evt.message as ChatMessage]);
+      setUserTyping(false);
       void markAsRead(conv.id);
+    }
+    if ((evt.type === 'typing_start' || evt.type === 'typing_stop') && evt.conversation_id === conv.id && evt.sender === 'user') {
+      const typing = evt.type === 'typing_start';
+      setUserTyping(typing);
+      if (typing) {
+        if (typingTimer.current) clearTimeout(typingTimer.current);
+        typingTimer.current = setTimeout(() => setUserTyping(false), 5000);
+      }
+    }
+    if (evt.type === 'messages_read' && evt.conversation_id === conv.id && evt.reader === 'user') {
+      setMsgs((prev) => {
+        const lastAgentMsg = [...prev].reverse().find((m) => m.sender_type === 'agent');
+        if (lastAgentMsg) setReadUpToId(lastAgentMsg.id);
+        return prev;
+      });
     }
     if ((evt.type === 'status_changed' || evt.type === 'agent_assigned') && evt.conversation_id === conv.id) {
       onUpdate();
@@ -85,28 +325,29 @@ export function ChatConversationView({ conv, topics, onUpdate, onBack }: Props) 
 
   useChatSSE({ enabled: true, mode: 'admin', onEvent: handleSSE });
 
-  const handleSend = async (content: string) => {
-    const res = await sendReply(conv.id, content);
+  const handleSend = async (content: string, turnstileToken: string) => {
+    const res = await sendReply(conv.id, content, turnstileToken);
     if (res.success && res.data) {
       setMsgs(prev => [...prev, res.data as ChatMessage]);
       onUpdate();
     }
   };
 
-  const handleResolve = async () => {
-    await updateStatus(conv.id, 'resolved');
-    onUpdate();
+  const handleUpload = async (file: File) => {
+    const msg = await uploadFile(conv.id, file);
+    if (msg) {
+      setMsgs(prev => [...prev, msg]);
+      onUpdate();
+    }
   };
 
-  const handleClose = async () => {
-    await updateStatus(conv.id, 'closed');
-    onUpdate();
+  const handleTyping = (isTyping: boolean) => {
+    void notifyTyping(conv.id, isTyping);
   };
 
-  const handleAssign = async (addr: string) => {
-    await assignAgent(conv.id, addr);
-    onUpdate();
-  };
+  const handleResolve = async () => { await updateStatus(conv.id, 'resolved'); onUpdate(); };
+  const handleClose = async () => { await updateStatus(conv.id, 'closed'); onUpdate(); };
+  const handleAssign = async (addr: string) => { await assignAgent(conv.id, addr); onUpdate(); };
 
   const canResolve = conv.status !== 'resolved';
   const canClose = conv.status !== 'closed';
@@ -152,10 +393,7 @@ export function ChatConversationView({ conv, topics, onUpdate, onBack }: Props) 
       </div>
 
       {/* Messages */}
-      <div
-        ref={scrollRef}
-        className="flex-1 overflow-y-auto p-5 space-y-4 bg-gray-50 dark:bg-slate-950/20"
-      >
+      <div ref={scrollRef} className="flex-1 overflow-y-auto p-5 space-y-4 bg-gray-50 dark:bg-slate-950/20">
         {loading ? (
           <div className="flex flex-col items-center justify-center h-full">
             <div className="w-10 h-10 rounded-xl bg-violet-500/10 flex items-center justify-center mb-3">
@@ -176,20 +414,19 @@ export function ChatConversationView({ conv, topics, onUpdate, onBack }: Props) 
             const isSystem = m.sender_type === 'system';
             const isAi = m.sender_type === 'ai';
             const isRight = isAgent || isAi;
-
-            // Date separator
+            const attachments = m.metadata?.attachments ?? [];
+            const isAttachmentOnly = m.content.startsWith('[attachment:') && attachments.length > 0;
             const showDate = i === 0 || formatDate(msgs[i - 1]?.created_at ?? '') !== formatDate(m.created_at);
+
+            // Read receipt for agent messages
+            let readReached = false;
+            if (!readReached && readUpToId && m.id === readUpToId) readReached = true;
+            const isRead = isRight && (readReached || m.id === readUpToId || m.is_read);
 
             if (isSystem) {
               return (
                 <div key={m.id}>
-                  {showDate && (
-                    <div className="flex items-center gap-3 my-4">
-                      <div className="flex-1 h-px bg-gray-200 dark:bg-white/[0.04]" />
-                      <span className="text-[10px] text-muted-foreground/40 font-medium uppercase tracking-widest">{formatDate(m.created_at)}</span>
-                      <div className="flex-1 h-px bg-gray-200 dark:bg-white/[0.04]" />
-                    </div>
-                  )}
+                  {showDate && <DateSep date={m.created_at} />}
                   <div className="flex justify-center">
                     <div className="px-3 py-1.5 bg-gray-100 dark:bg-slate-800/30 border border-gray-200 dark:border-slate-700 rounded-full text-[11px] text-muted-foreground/60">
                       {m.content}
@@ -201,61 +438,48 @@ export function ChatConversationView({ conv, topics, onUpdate, onBack }: Props) 
 
             return (
               <div key={m.id}>
-                {showDate && (
-                  <div className="flex items-center gap-3 my-4">
-                    <div className="flex-1 h-px bg-white dark:bg-white/[0.04]" />
-                    <span className="text-[10px] text-muted-foreground/40 font-medium uppercase tracking-widest">{formatDate(m.created_at)}</span>
-                    <div className="flex-1 h-px bg-white dark:bg-white/[0.04]" />
-                  </div>
-                )}
+                {showDate && <DateSep date={m.created_at} />}
                 <div className={`flex gap-2.5 ${isRight ? 'justify-end' : 'justify-start'}`}>
-                  {/* Avatar for left-side messages */}
                   {!isRight && (
                     <div className="shrink-0 w-8 h-8 rounded-full bg-gray-100 dark:bg-slate-800/60 border border-gray-200 dark:border-slate-700 flex items-center justify-center mt-5">
                       <User className="w-4 h-4 text-muted-foreground/60" />
                     </div>
                   )}
-
                   <div className={`max-w-[70%] flex flex-col ${isRight ? 'items-end' : 'items-start'}`}>
-                    {/* Sender label */}
                     <div className="flex items-center gap-1.5 mb-1 px-1">
-                      {isAi ? (
-                        <Bot className="w-3 h-3 text-purple-400" />
-                      ) : isAgent ? (
-                        <Headset className="w-3 h-3 text-cyan-400" />
-                      ) : null}
+                      {isAi ? <Bot className="w-3 h-3 text-purple-400" /> : isAgent ? <Headset className="w-3 h-3 text-cyan-400" /> : null}
                       <span className="text-[10px] font-bold text-muted-foreground/60 uppercase tracking-wider">
                         {isAi ? 'AI' : isAgent ? 'Agent' : 'User'}
                       </span>
-                      <span className="text-[10px] text-muted-foreground/30">
-                        {formatTime(m.created_at)}
-                      </span>
+                      <span className="text-[10px] text-muted-foreground/30">{formatTime(m.created_at)}</span>
                     </div>
-
-                    {/* Message bubble */}
-                    <div
-                      className={`rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
-                        isRight
-                          ? isAi
-                            ? 'bg-purple-500/10 border border-purple-500/20 text-foreground rounded-br-md'
-                            : 'bg-gradient-to-br from-violet-500/15 to-purple-500/10 border border-violet-500/20 text-foreground rounded-br-md'
-                          : 'bg-gray-100 dark:bg-slate-800/50 border border-gray-200 dark:border-slate-700 text-foreground rounded-bl-md'
-                      }`}
-                    >
-                      <p className="whitespace-pre-wrap break-words">{m.content}</p>
-                    </div>
-                  </div>
-
-                  {/* Avatar for right-side messages */}
-                  {isRight && (
-                    <div className={`shrink-0 w-8 h-8 rounded-full flex items-center justify-center mt-5 ${
-                      isAi ? 'bg-purple-500/15 border border-purple-500/20' : 'bg-cyan-500/15 border border-cyan-500/20'
-                    }`}>
-                      {isAi ? (
-                        <Bot className="w-4 h-4 text-purple-400" />
-                      ) : (
-                        <Headset className="w-4 h-4 text-cyan-400" />
+                    <div className={`rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${isRight
+                      ? isAi
+                        ? 'bg-purple-500/10 border border-purple-500/20 text-foreground rounded-br-md'
+                        : 'bg-gradient-to-br from-violet-500/15 to-purple-500/10 border border-violet-500/20 text-foreground rounded-br-md'
+                      : 'bg-gray-100 dark:bg-slate-800/50 border border-gray-200 dark:border-slate-700 text-foreground rounded-bl-md'
+                      }`}>
+                      {!isAttachmentOnly && (
+                        <SimpleMarkdown text={m.content} />
                       )}
+                      {attachments.map((att, ai) => (
+                        <AttachmentView key={ai} att={att} isRight={isRight} />
+                      ))}
+                    </div>
+                    {/* Read receipt for agent messages */}
+                    {isRight && (
+                      <div className="flex items-center gap-1 mt-1 px-1">
+                        {isRead
+                          ? <CheckCheck className="w-3.5 h-3.5 text-blue-400" />
+                          : <Check className="w-3.5 h-3.5 text-muted-foreground/30" />
+                        }
+                      </div>
+                    )}
+                  </div>
+                  {isRight && (
+                    <div className={`shrink-0 w-8 h-8 rounded-full flex items-center justify-center mt-5 ${isAi ? 'bg-purple-500/15 border border-purple-500/20' : 'bg-cyan-500/15 border border-cyan-500/20'
+                      }`}>
+                      {isAi ? <Bot className="w-4 h-4 text-purple-400" /> : <Headset className="w-4 h-4 text-cyan-400" />}
                     </div>
                   )}
                 </div>
@@ -263,17 +487,45 @@ export function ChatConversationView({ conv, topics, onUpdate, onBack }: Props) 
             );
           })
         )}
+
+        {/* User typing indicator */}
+        {userTyping && (
+          <div className="flex gap-2.5 justify-start">
+            <div className="shrink-0 w-8 h-8 rounded-full bg-gray-100 dark:bg-slate-800/60 border border-gray-200 dark:border-slate-700 flex items-center justify-center">
+              <User className="w-4 h-4 text-muted-foreground/60" />
+            </div>
+            <div className="bg-gray-100 dark:bg-slate-800/50 border border-gray-200 dark:border-slate-700 rounded-2xl rounded-bl-md px-4 py-3 flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/50 animate-bounce" style={{ animationDelay: '0ms' }} />
+              <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/50 animate-bounce" style={{ animationDelay: '150ms' }} />
+              <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/50 animate-bounce" style={{ animationDelay: '300ms' }} />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Reply Input */}
       <ChatReplyInput
         onSend={handleSend}
+        onUpload={handleUpload}
+        onTyping={handleTyping}
         onResolve={canResolve ? handleResolve : undefined}
         onClose={canClose ? handleClose : undefined}
         onAssign={handleAssign}
         myWallet={(walletAddress as string | undefined) ?? ''}
         assignedAgent={conv.assigned_agent}
       />
+    </div>
+  );
+}
+
+function DateSep({ date }: { date: string }) {
+  return (
+    <div className="flex items-center gap-3 my-4">
+      <div className="flex-1 h-px bg-white dark:bg-white/[0.04]" />
+      <span className="text-[10px] text-muted-foreground/40 font-medium uppercase tracking-widest">
+        {new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+      </span>
+      <div className="flex-1 h-px bg-white dark:bg-white/[0.04]" />
     </div>
   );
 }

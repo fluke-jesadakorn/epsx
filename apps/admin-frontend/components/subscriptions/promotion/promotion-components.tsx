@@ -1,6 +1,6 @@
 'use client';
 
-import { Gift, Plus, Ticket, TrendingUp } from 'lucide-react';
+import { Gift, Ticket, TrendingUp } from 'lucide-react';
 import { toast } from 'sonner';
 
 import type { DisplayPromotion } from '@/components/promotions/types';
@@ -202,20 +202,3 @@ export function PromotionCard({ promo }: PromotionCardProps) {
     );
 }
 
-export function CreatePromotionCard() {
-    return (
-        <div
-            className={cn(
-                'flex-shrink-0 w-48 bg-card rounded-xl border border-dashed border-success/30 p-4',
-                'flex flex-col items-center justify-center cursor-pointer',
-                'hover:bg-success/5 hover:border-success/50 transition-all duration-200'
-            )}
-            onClick={() => toast.info('Create promotion modal coming soon')}
-        >
-            <div className="w-10 h-10 rounded-full bg-success/10 flex items-center justify-center mb-2">
-                <Plus className="h-5 w-5 text-success" />
-            </div>
-            <span className="text-sm font-medium text-success">New Promotion</span>
-        </div>
-    );
-}

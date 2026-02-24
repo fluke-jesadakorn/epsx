@@ -75,7 +75,7 @@ interface VerifyAndLoginProps {
     walletClient: WalletClient;
     variant: 'user' | 'admin';
     turnstileToken?: string;
-    loginAct: (token: string, data: Record<string, unknown>) => Promise<{ success: boolean; error?: string }>;
+    loginAct: (token: string, data: Record<string, unknown>, refreshToken?: string) => Promise<{ success: boolean; error?: string }>;
     authenticateWithDirectApi: (user: {
         wallet_address: string;
         permissions: string[];
@@ -125,7 +125,7 @@ async function verifyAndLogin({
         expires_at: Date.now() + 2592000000,
     };
 
-    const actionResult = await loginAct(result.access_token, cookieData);
+    const actionResult = await loginAct(result.access_token, cookieData, result.refresh_token);
     if (actionResult.success !== true) {
         throw new Error((typeof actionResult.error === 'string' && actionResult.error !== '') ? actionResult.error : 'Failed to save session');
     }

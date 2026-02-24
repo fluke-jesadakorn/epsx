@@ -250,6 +250,10 @@ export const planMgmt = {
     const res = await adminApiClient.get<string[]>('/api/admin/permissions/available');
     return extractArrayOrEmpty<string>(res);
   },
+  getPermissionDefinitions: async () => {
+    const res = await adminApiClient.get<PermissionDefinitionDto[]>('/api/admin/permissions/definitions');
+    return extractArrayOrEmpty<PermissionDefinitionDto>(res);
+  },
 
   // Memberships
   getUserPlans: async (userId: string) => {

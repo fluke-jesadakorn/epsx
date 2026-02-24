@@ -1,10 +1,10 @@
+import { getMyPlanAccessAction } from '@/app/actions/plans';
+import { getWatchlistAction } from '@/app/actions/watchlist';
 import PlanStatusBar from '@/components/analytics/plan-status-bar';
 import ServerCardDashboard from '@/components/analytics/server-card-dashboard';
 import { WatchlistProvider } from '@/components/portfolio/watchlist-provider';
-import { getMyPlanAccessAction } from '@/app/actions/plans';
-import { getWatchlistAction } from '@/app/actions/watchlist';
-import { checkPageAccess } from '@/lib/check-page-access';
-import { BarChart3, TrendingUp, Sparkles } from 'lucide-react';
+
+import { BarChart3, Sparkles, TrendingUp } from 'lucide-react';
 
 interface AnalyticsPageProps {
   searchParams: Promise<{
@@ -20,7 +20,7 @@ interface AnalyticsPageProps {
 }
 
 export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps) {
-  await checkPageAccess('admin:analytics:view', '/analytics');
+
 
   const resolvedSearchParams = await searchParams;
   const [planAccess, watchlist] = await Promise.all([
@@ -49,7 +49,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
                   <BarChart3 className="h-5 w-5 text-white" />
                 </div>
                 <div>
-                  <h1 className="text-2xl font-bold text-white">Analytics</h1>
+                  <h1 className="text-2xl font-bold text-foreground">Analytics</h1>
                   <p className="text-sm text-slate-400">Top-performing stocks by EPS growth</p>
                 </div>
               </div>

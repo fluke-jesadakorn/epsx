@@ -81,7 +81,7 @@ export function useNotificationBell(
     apiClient,
     walletAddress,
     refreshSession: options.refreshSession,
-    autoConnect: false, // We'll control it manually
+    autoConnect: sseEnabled && isAuthenticated && Boolean(walletAddress),
     onNotification: useCallback(
       (sseNotif: { id: string; title: string; message: string; notification_type: string; priority: string; timestamp: string; expires_at?: string; wallet_address: string; data?: Record<string, unknown> }) => {
         // Map SSE notification to Notification format
@@ -304,13 +304,9 @@ export function useNotificationBell(
     }
   }, [isAuthenticated, walletAddress]) // Only depend on primitive values
 
-  // Connect SSE when authenticated and enabled
-  useEffect(() => {
-    if (sseEnabled === true && isAuthenticated === true && walletAddress !== undefined && walletAddress !== '' && isSSEConnected === false) {
-      logger.info('🔌 Connecting SSE for authenticated user:', { walletAddress })
-      reconnectSSE()
-    }
-  }, [sseEnabled, isAuthenticated, walletAddress, isSSEConnected, reconnectSSE])
+  // Use ref so the effect doesn't re-run just because reconnectSSE got a new reference
+  const reconnectSSERef = useRef(reconnectSSE)
+  reconnectSSERef.current = reconnectSSE
 
   return {
     notifications,

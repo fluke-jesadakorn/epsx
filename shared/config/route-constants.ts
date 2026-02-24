@@ -223,6 +223,7 @@ export const API_ROUTES = {
     CONVERSATIONS: '/api/chat/conversations',
     UNREAD: '/api/chat/unread',
     STREAM: '/api/chat/stream',
+    FILES: '/api/chat/files',
     // Admin
     ADMIN_CONVERSATIONS: '/api/admin/chat/conversations',
     ADMIN_STATS: '/api/admin/chat/stats',

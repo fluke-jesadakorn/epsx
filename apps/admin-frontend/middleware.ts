@@ -1,4 +1,4 @@
-import { COOKIES } from '@/shared/auth/cookies';
+import { COOKIES, getServerAuthToken } from '@/shared/auth/cookies';
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
@@ -32,13 +32,36 @@ function isPublicRoute(pathname: string): boolean {
 export function middleware(request: NextRequest) {
     const { pathname, search } = request.nextUrl;
 
+    const token = getServerAuthToken(request.cookies);
+    const hasToken = token !== null;
+
+    // Handle /auth (LOGIN_PATH) before public route check so authenticated users are redirected
+    if (pathname === LOGIN_PATH) {
+        if (hasToken) {
+            // Break infinite redirect loop if token is expired but cookie isn't cleared
+            if (request.nextUrl.searchParams.get('reason') === 'no-session' || request.nextUrl.searchParams.has('clear')) {
+                const resp = NextResponse.next();
+                resp.cookies.delete(COOKIES.access_token);
+                resp.cookies.delete(COOKIES.user);
+                resp.cookies.delete(COOKIES.id_token);
+                resp.cookies.delete(COOKIES.refresh_token);
+                resp.cookies.delete(COOKIES.sid);
+                return resp;
+            }
+            const raw = request.cookies.get(COOKIES.return_url)?.value ?? '/';
+            const returnUrl = isPublicRoute(raw) ? '/' : raw;
+            const resp = NextResponse.redirect(new URL(returnUrl, request.url));
+            resp.cookies.delete(COOKIES.return_url);
+            return resp;
+        }
+        return NextResponse.next();
+    }
+
     if (isPublicRoute(pathname)) {
         return NextResponse.next();
     }
 
-    const token = request.cookies.get(COOKIES.access_token)?.value;
-
-    if (token === undefined || token === '') {
+    if (!hasToken) {
         const url = new URL(LOGIN_PATH, request.url);
         const resp = NextResponse.redirect(url);
         if (pathname !== '/' && !pathname.startsWith('/_next') && !pathname.startsWith('/api')) {
@@ -50,27 +73,6 @@ export function middleware(request: NextRequest) {
                 maxAge: 300,
             });
         }
-        return resp;
-    }
-
-    // Authenticated user on login page -> redirect home
-    if (pathname === LOGIN_PATH) {
-        // Break infinite redirect loop if token is expired but cookie isn't cleared
-        if (request.nextUrl.searchParams.get('reason') === 'no-session' || request.nextUrl.searchParams.has('clear')) {
-            const resp = NextResponse.next();
-            // Clear all auth cookies to prevent infinite redirect loops
-            resp.cookies.delete(COOKIES.access_token);
-            resp.cookies.delete(COOKIES.user);
-            resp.cookies.delete(COOKIES.id_token);
-            resp.cookies.delete(COOKIES.refresh_token);
-            resp.cookies.delete(COOKIES.sid);
-            return resp;
-        }
-
-        const raw = request.cookies.get(COOKIES.return_url)?.value ?? '/';
-        const returnUrl = isPublicRoute(raw) ? '/' : raw;
-        const resp = NextResponse.redirect(new URL(returnUrl, request.url));
-        resp.cookies.delete(COOKIES.return_url);
         return resp;
     }
 

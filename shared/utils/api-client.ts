@@ -13,6 +13,7 @@
  * - Configurable request options and timeouts
  */
 
+import { refreshSessionAction } from '../auth/actions';
 import { COOKIES } from '../auth/cookies';
 import { logger } from './logger';
 import { getBackendUrl } from './url-resolver';
@@ -380,7 +381,6 @@ export class UnifiedApiClient {
 
   private async refreshClientToken(): Promise<{ success: boolean; access_token?: string }> {
     try {
-      const { refreshSessionAction } = await import('../auth/actions');
       const refreshResult = (await refreshSessionAction()) as { success: boolean; access_token?: string };
 
       if (refreshResult.success && refreshResult.access_token !== undefined && refreshResult.access_token !== '') {

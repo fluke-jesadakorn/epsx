@@ -81,12 +81,15 @@ pub async fn create_conversation(
         }
     }
 
+    let sanitized_subject = crate::infrastructure::security::sanitize_chat_content(body.subject.trim());
+    let sanitized_message = crate::infrastructure::security::sanitize_chat_content(body.message.trim());
+
     match ChatRepository::create_conversation(
         &app_state.db_pool,
         body.topic_id,
         &ctx.wallet_address,
-        body.subject.trim(),
-        body.message.trim(),
+        &sanitized_subject,
+        &sanitized_message,
     ).await {
         Ok(conv) => {
             // Publish to Redis for admin notification
@@ -172,11 +175,37 @@ pub async fn list_messages(
 pub async fn send_message(
     State(app_state): State<AppState>,
     Extension(ctx): Extension<OpenIDUserContext>,
+    headers: HeaderMap,
     Path(id): Path<Uuid>,
     Json(body): Json<SendMessageRequest>,
 ) -> Result<Json<UnifiedApiResponse<ChatMessageDb>>, Json<UnifiedApiResponse<()>>> {
     if body.content.trim().is_empty() {
         return Err(Json(UnifiedApiResponse::error(400, "Invalid request", "Message content required")));
+    }
+
+    if let Some(token) = &body.turnstile_token {
+        let remote_ip = headers
+            .get("cf-connecting-ip")
+            .or_else(|| headers.get("x-forwarded-for"))
+            .and_then(|h| h.to_str().ok())
+            .map(|s| s.split(',').next().unwrap_or(s).trim());
+
+        match crate::infrastructure::security::verify_turnstile_token(token, remote_ip).await {
+            Ok(result) if result.success => {
+                info!("Turnstile verification passed for user chat message");
+            }
+            Ok(result) => {
+                warn!(error_codes = ?result.error_codes, "Chat Turnstile verification failed");
+                return Err(Json(UnifiedApiResponse::error(400, "Captcha failed", "Human verification failed")));
+            }
+            Err(e) => {
+                error!("Turnstile verification error: {}", e);
+                if crate::config::env::is_production() {
+                    return Err(Json(UnifiedApiResponse::error(503, "Verification unavailable", "Try again later")));
+                }
+                warn!("Turnstile verification error in dev mode – allowing request");
+            }
+        }
     }
 
     // Verify ownership
@@ -187,12 +216,14 @@ pub async fn send_message(
         Err(e) => return Err(Json(UnifiedApiResponse::error(500, "Database error", &e))),
     };
 
+    let sanitized_content = crate::infrastructure::security::sanitize_chat_content(body.content.trim());
+
     match ChatRepository::send_message(
         &app_state.db_pool,
         id,
         "user",
         Some(&ctx.wallet_address),
-        body.content.trim(),
+        &sanitized_content,
     ).await {
         Ok(msg) => {
             // Publish to Redis
@@ -277,15 +308,30 @@ pub async fn mark_read(
     Path(id): Path<Uuid>,
 ) -> Result<Json<UnifiedApiResponse<()>>, Json<UnifiedApiResponse<()>>> {
     // Verify ownership
-    match ChatRepository::get_conversation(&app_state.db_pool, id).await {
-        Ok(Some(conv)) if conv.wallet_address == ctx.wallet_address => {}
+    let conv = match ChatRepository::get_conversation(&app_state.db_pool, id).await {
+        Ok(Some(conv)) if conv.wallet_address == ctx.wallet_address => conv,
         Ok(Some(_)) => return Err(Json(UnifiedApiResponse::error(403, "Forbidden", "Not your conversation"))),
         Ok(None) => return Err(Json(UnifiedApiResponse::error(404, "Not found", "Conversation not found"))),
         Err(e) => return Err(Json(UnifiedApiResponse::error(500, "Database error", &e))),
-    }
+    };
 
     match ChatRepository::mark_read_by_user(&app_state.db_pool, id).await {
-        Ok(()) => Ok(Json(UnifiedApiResponse::success(()))),
+        Ok(()) => {
+            // Notify assigned agent that user has read messages
+            if let Some(broadcaster) = &app_state.redis_broadcaster {
+                let event = serde_json::json!({
+                    "type": "messages_read",
+                    "conversation_id": id,
+                    "reader": "user",
+                });
+                let payload = serde_json::to_string(&event).unwrap_or_default();
+                let _ = broadcaster.publish_to_channel("chat:new", &payload).await;
+                if let Some(agent) = &conv.assigned_agent {
+                    let _ = broadcaster.publish_to_channel(&format!("chat:agent:{}", agent), &payload).await;
+                }
+            }
+            Ok(Json(UnifiedApiResponse::success(())))
+        }
         Err(e) => {
             error!("Failed to mark read: {}", e);
             Err(Json(UnifiedApiResponse::error(500, "Failed to mark read", &e)))

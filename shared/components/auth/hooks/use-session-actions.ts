@@ -21,7 +21,7 @@ export function useSessionActions({
     const clearServerSession = useCallback(async () => {
         try {
             const result = await logoutAction();
-            if (result?.success === false) {
+            if (result.success === false) {
                 logger.error('[AUTH] Error: Failed to clear server session:', result.error);
             }
         } catch (e: unknown) {
@@ -35,7 +35,7 @@ export function useSessionActions({
             logger.info('Logging out user');
 
             await clearServerSession();
-            await client.logout();
+            client.logout();
             logger.info('Logout successful');
         } catch (err: unknown) {
             const errorMessage = err instanceof Error ? err.message : 'Logout failed';
@@ -53,7 +53,7 @@ export function useSessionActions({
             const errorMessage = err instanceof Error ? err.message : 'Failed to refresh user data';
             setError(errorMessage);
             onAuthError?.(errorMessage);
-            throw new Error(errorMessage);
+            throw new Error(errorMessage, { cause: err });
         }
     }, [client, setError, onAuthError]);
 
@@ -61,7 +61,8 @@ export function useSessionActions({
         try {
             // Use server action (can read HttpOnly refresh_token cookie)
             const result = await refreshSessionAction();
-            if (result.success) {
+            if (result.success && result.access_token !== undefined && result.access_token !== '') {
+                client.updateTokens(result.access_token, result.expires_in);
                 await client.loadCurrentUser();
                 return true;
             }

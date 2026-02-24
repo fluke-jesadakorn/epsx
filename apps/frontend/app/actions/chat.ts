@@ -1,7 +1,7 @@
 'use server';
 
+import type { ChatConversation, ChatMessage, ChatTopic } from '@/shared/api/chat';
 import { createSupportChatClient } from '@/shared/api/chat';
-import type { ChatTopic, ChatConversation, ChatMessage } from '@/shared/api/chat';
 import { logger } from '@/shared/utils/logger';
 import { getServerActionClient } from '@/shared/utils/server-fetch';
 import { revalidatePath } from 'next/cache';
@@ -87,11 +87,11 @@ export async function getMessagesAction(id: string): Promise<ChatMessage[]> {
   return [];
 }
 
-export async function sendMessageAction(id: string, content: string): Promise<ChatMessage | null> {
+export async function sendMessageAction(id: string, content: string, turnstileToken?: string): Promise<ChatMessage | null> {
   try {
     const client = getServerActionClient();
     const api = createSupportChatClient(client);
-    const res = await api.sendMessage(id, content);
+    const res = await api.sendMessage(id, content, turnstileToken);
     if (res.success && res.data) {
       revalidatePath(`/chat/${id}`);
       return res.data;
@@ -137,6 +137,33 @@ export async function markConversationReadAction(id: string): Promise<boolean> {
     logger.debug('Failed to mark read:', e);
   }
   return false;
+}
+
+export async function notifyTypingAction(id: string, isTyping: boolean): Promise<void> {
+  try {
+    const client = getServerActionClient();
+    await client.post(`/api/chat/conversations/${id}/typing`, { is_typing: isTyping });
+  } catch { /* non-critical */ }
+}
+
+export async function uploadAttachmentAction(convId: string, formData: FormData): Promise<ChatMessage | null> {
+  try {
+    const { cookies } = await import('next/headers');
+    const { getServerAuthToken } = await import('@/shared/auth/cookies');
+    const { getBackendUrl } = await import('@/shared/utils/url-resolver');
+    const cookieStore = await cookies();
+    const token = getServerAuthToken(cookieStore);
+    const res = await fetch(`${getBackendUrl('server')}/api/chat/conversations/${convId}/upload`, {
+      method: 'POST',
+      headers: token !== null ? { Authorization: `Bearer ${token}` } : {},
+      body: formData,
+    });
+    const json = await res.json() as { success?: boolean; data?: { message?: ChatMessage } };
+    return json.success === true ? (json.data?.message ?? null) : null;
+  } catch (e) {
+    logger.debug('Failed to upload attachment:', e);
+    return null;
+  }
 }
 
 export async function getUnreadCountAction(): Promise<number> {

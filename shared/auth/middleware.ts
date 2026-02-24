@@ -1,16 +1,14 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { logger } from '../utils/logger';
-import { COOKIES } from './cookies';
+import { COOKIES, getServerAuthToken } from './cookies';
 
 export interface AuthMiddlewareConfig {
     /** The path to redirect to for login */
     loginPath?: string;
     /** The path to redirect to after successful login if no return URL */
     homePath?: string;
-    /** Cookie name for the access token */
-    tokenCookieName?: string;
-    /** List of public routes that don't require authentication */
+/** List of public routes that don't require authentication */
     publicRoutes?: string[];
     /** If true, the middleware will not redirect, only set headers */
     noRedirect?: boolean;
@@ -23,7 +21,6 @@ export interface AuthMiddlewareConfig {
 export function createAuthMiddleware(config: AuthMiddlewareConfig) {
     const loginPath = config.loginPath ?? '/auth';
     const homePath = config.homePath ?? '/';
-    const tokenCookieName = config.tokenCookieName ?? COOKIES.access_token;
     const publicRoutes = config.publicRoutes;
     const noRedirect = config.noRedirect ?? false;
 
@@ -35,13 +32,12 @@ export function createAuthMiddleware(config: AuthMiddlewareConfig) {
         const response = NextResponse.next();
         applySecurityHeaders(response, pathname);
 
-        // 2. Validate Authentication
-        const token = request.cookies.get(tokenCookieName)?.value;
-        const isAuthenticated = validateToken(token);
+        // 2. Validate Authentication — use unified token resolution (sid → access_token → user.access)
+        const token = getServerAuthToken(request.cookies);
+        const isAuthenticated = token !== null;
 
         logger.debug('[AUTH] Middleware Auth Check:', {
             pathname,
-            tokenCookieName,
             hasToken: Boolean(token),
             isAuthenticated,
             allCookies: request.cookies.getAll().map(c => c.name),
@@ -187,14 +183,6 @@ function handleAuthenticatedOnLogin(
     const responseRedirect = NextResponse.redirect(new URL(targetPath, request.url));
     responseRedirect.cookies.delete(COOKIES.return_url);
     return responseRedirect;
-}
-
-/**
- * Validates a JWT token.
- * Simple check for non-empty string.
- */
-function validateToken(token: string | undefined): boolean {
-    return token !== undefined && token !== '';
 }
 
 /**

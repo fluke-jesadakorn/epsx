@@ -159,7 +159,7 @@ pub async fn get_user_plans_handler(
                OR wga.expires_at > NOW()
                OR (wga.expires_at + (g.grace_period_hours || ' hours')::INTERVAL) > NOW())
           AND (g.plan_type = 'subscription' OR g.plan_type = 'enterprise' OR g.plan_type = 'api-developer' OR g.plan_type = 'manual' OR g.plan_type = 'system')
-        ORDER BY g.tier_level DESC, wga.assigned_at DESC
+        ORDER BY wga.assigned_at DESC
         "#
     )
     .bind::<diesel::sql_types::Text, _>(&user_context.wallet_address)
@@ -168,8 +168,19 @@ pub async fn get_user_plans_handler(
     .unwrap_or_default();
 
 
-    if let Some(sub) = active_subs.as_slice().first() {
-        // Effective plan is the one with highest tier_level (first in list due to sort)
+    if !active_subs.is_empty() {
+        // Sort by ranking_offset ascending (lowest = best access), tie-break by tier_level desc
+        let mut subs_with_offset: Vec<(i32, usize)> = active_subs.iter().enumerate()
+            .map(|(i, s)| (extract_ranking_offset(&s.plan_metadata, s.offset_permission.as_deref()), i))
+            .collect();
+        subs_with_offset.sort_by(|(offset_a, idx_a), (offset_b, idx_b)| {
+            offset_a.cmp(offset_b)
+                .then(active_subs[*idx_b].tier_level.cmp(&active_subs[*idx_a].tier_level))
+        });
+
+        let &(ranking_offset, best_idx) = subs_with_offset.get(0).expect("non-empty");
+        let sub = &active_subs[best_idx];
+
         let days_remaining = sub.expires_at
             .map(|exp| if exp > now { (exp - now).num_days() } else { 0 })
             .unwrap_or(3650); // Effectively unlimited if NULL (permanent)
@@ -183,19 +194,16 @@ pub async fn get_user_plans_handler(
         } else {
             "active"
         };
-        
-        // Extract ranking offset from metadata or permission string
-        let ranking_offset = extract_ranking_offset(&sub.plan_metadata, sub.offset_permission.as_deref());
-        
+
         // Check if user can upgrade (offset > 1 means not full access; 0 and 1 both = full access)
         let can_upgrade = ranking_offset > 1;
 
-        // Build summary list
-        let all_plans = active_subs.iter().map(|s| PlanSummary {
+        // Build summary list — mark the best-access plan as effective
+        let all_plans = active_subs.iter().enumerate().map(|(i, s)| PlanSummary {
             plan_name: s.name.clone(),
             expires_at: s.expires_at,
             tier_level: s.tier_level,
-            is_effective: s.tier_level == sub.tier_level, // Simple check, assuming unique tiers or first is best
+            is_effective: i == best_idx,
         }).collect();
 
         return Ok(Json(UserPlansResponse {

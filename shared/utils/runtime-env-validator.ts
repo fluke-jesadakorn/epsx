@@ -74,10 +74,14 @@ export function validateRuntimeEnvironment(isDevelopment = false): ValidationRes
   }
 
   // Special handling for NEXT_PUBLIC_OAUTH_CLIENT_ID
-  validateOauthClientId(process.env['NEXT_PUBLIC_OAUTH_CLIENT_ID'], skipStrictValidation, errors);
+  // Use dynamic key lookup to bypass webpack build-time inlining — reads from actual runtime env
+  const oauthKey: keyof NodeJS.ProcessEnv = 'NEXT_PUBLIC_OAUTH_CLIENT_ID';
+  validateOauthClientId(process.env[oauthKey], skipStrictValidation, errors);
 
   // Optional Web3 variables - validate blockchain network
-  validateBlockchainNetwork(process.env['NEXT_PUBLIC_BLOCKCHAIN_NETWORK'], errors);
+  // Use dynamic key lookup to bypass webpack build-time inlining
+  const blockchainKey: keyof NodeJS.ProcessEnv = 'NEXT_PUBLIC_BLOCKCHAIN_NETWORK';
+  validateBlockchainNetwork(process.env[blockchainKey], errors);
 
   return {
     isValid: errors.length === 0,
@@ -154,15 +158,21 @@ export function getRuntimeEnvironment(isDevelopment = false): RequiredEnvVars & 
     logger.warn('⚠️ Environment warnings:', validation.warnings.join('\n'));
   }
 
+  // Use variable keys to bypass webpack build-time inlining for NEXT_PUBLIC_* vars
+  // that must be read from actual runtime environment
+  const env = process.env as Record<string, string | undefined>;
+  const oauthKey = 'NEXT_PUBLIC_OAUTH_CLIENT_ID';
+  const blockchainKey = 'NEXT_PUBLIC_BLOCKCHAIN_NETWORK';
+
   return {
     // Required variables with centralized URL resolver fallbacks
     NEXT_PUBLIC_BACKEND_URL: process.env.NEXT_PUBLIC_BACKEND_URL ?? getBackendUrl(URLContext.CLIENT),
     NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL ?? getFrontendUrl(URLContext.CLIENT),
     NEXT_PUBLIC_ADMIN_URL: process.env.NEXT_PUBLIC_ADMIN_URL ?? getAdminUrl(URLContext.CLIENT),
-    NEXT_PUBLIC_OAUTH_CLIENT_ID: process.env.NEXT_PUBLIC_OAUTH_CLIENT_ID ?? (isDevelopment ? 'epsx-frontend' : ''),
+    NEXT_PUBLIC_OAUTH_CLIENT_ID: env[oauthKey] ?? (isDevelopment ? 'epsx-frontend' : ''),
 
     // Optional Web3 variables
-    NEXT_PUBLIC_BLOCKCHAIN_NETWORK: process.env.NEXT_PUBLIC_BLOCKCHAIN_NETWORK ?? 'testnet',
+    NEXT_PUBLIC_BLOCKCHAIN_NETWORK: env[blockchainKey] ?? 'testnet',
     NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID ?? 'epsx-web3-frontend',
 
     // Optional Firebase variables

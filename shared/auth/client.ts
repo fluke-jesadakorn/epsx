@@ -195,7 +195,7 @@ export class SharedWeb3AuthClient {
         const body: Record<string, string> = {
           wallet_address: walletAddress,
         };
-        if (turnstileToken) {
+        if (turnstileToken !== undefined && turnstileToken !== '') {
           body.turnstile_token = turnstileToken;
         }
 
@@ -228,7 +228,7 @@ export class SharedWeb3AuthClient {
         // Clear cache on error
         this.challengeCache.delete(cacheKey);
 
-        let errorMessage = 'Challenge request failed';
+        let errorMessage: string;
 
         if (error instanceof TypeError && error.message.includes('fetch')) {
           errorMessage = `Network error: Cannot connect to backend at ${this.backendUrl}. Please check your internet connection and ensure the backend service is running.`;
@@ -261,6 +261,7 @@ export class SharedWeb3AuthClient {
     return challengePromise;
   }
 
+  // eslint-disable-next-line complexity, sonarjs/cognitive-complexity
   private async handleChallengeError(
     response: Response,
     context: { url: string; walletAddress: string; initialErrorData?: unknown }
@@ -275,7 +276,6 @@ export class SharedWeb3AuthClient {
       try {
         if (response.status === 404) {
           errorMessage =
-            errorMessage =
             'Authentication endpoint not found. The backend may need to be updated with Web3 authentication routes.';
         } else if (contentType?.includes('application/json') === true) {
           errorData = (await response.json()) as unknown;
@@ -361,7 +361,7 @@ export class SharedWeb3AuthClient {
     try {
       logger.info('Sending Web3 verify request', {
         url: `${this.backendUrl}/api/auth/web3/verify`,
-        wallet_address: request.wallet_address ?? 'MISSING',
+        wallet_address: request.wallet_address,
         has_signature: Boolean(request.signature),
         has_message: Boolean(request.message),
         has_nonce: Boolean(request.nonce)
@@ -382,7 +382,7 @@ export class SharedWeb3AuthClient {
 
       // Clear challenge cache after any verification attempt (success or failure)
       // because the backend handles nonce lifecycle
-      const normalizedAddress = (request.wallet_address ?? '').trim().toLowerCase();
+      const normalizedAddress = request.wallet_address.trim().toLowerCase();
       const cacheKey = `${normalizedAddress}_${this.clientId}`;
       this.challengeCache.delete(cacheKey);
 
@@ -399,22 +399,23 @@ export class SharedWeb3AuthClient {
   }
 
   private async handleAuthResponseError(response: Response, walletAddress: string): Promise<never> {
-    let errorMessage = 'Verification failed';
+    let errorMessage: string;
     let errorData: Record<string, unknown> | null = null;
 
     try {
-      errorData = (await response.json()) as Record<string, unknown>;
+      const parsedData = (await response.json()) as Record<string, unknown>;
+      errorData = parsedData;
       errorMessage = (errorData.message as string | undefined) ?? (errorData.error as string | undefined) ?? `Verification failed: ${response.status} ${response.statusText}`;
     } catch (_e) {
       errorMessage = `Verification failed: ${response.status} ${response.statusText}`;
     }
 
     const errorDetails = {
-      status: response.status ?? 0,
-      status_text: response.statusText ?? 'Unknown',
-      url: `${this.backendUrl ?? 'unknown'}/api/auth/web3/verify`,
-      wallet_address: walletAddress ?? 'unknown',
-      error_message: errorMessage ?? 'Unknown error',
+      status: response.status,
+      status_text: response.statusText,
+      url: `${this.backendUrl}/api/auth/web3/verify`,
+      wallet_address: walletAddress,
+      error_message: errorMessage,
       error_data: errorData ?? 'No response data',
       error_data_json: errorData !== null ? JSON.stringify(errorData) : 'null'
     };
@@ -431,13 +432,13 @@ export class SharedWeb3AuthClient {
     if (result.success === false || result.authenticated === false) {
       const errorMsg = result.message ?? result.error ?? 'Authentication failed';
       logger.error(
-        `Web3 authentication failed in backend - Success: ${result.success ?? false}, Authenticated: ${result.authenticated ?? false}, Wallet: ${walletAddress ?? 'unknown'}, Message: ${errorMsg}`,
+        `Web3 authentication failed in backend - Success: ${String(result.success)}, Authenticated: ${String(result.authenticated)}, Wallet: ${walletAddress}, Message: ${errorMsg}`,
         {
-          success: result.success ?? false,
-          authenticated: result.authenticated ?? false,
-          wallet_address: walletAddress ?? 'unknown',
+          success: result.success,
+          authenticated: result.authenticated,
+          wallet_address: walletAddress,
           error_message: errorMsg,
-          backend_url: this.backendUrl ?? 'unknown'
+          backend_url: this.backendUrl
         }
       );
       throw new Error(errorMsg);
@@ -464,10 +465,10 @@ export class SharedWeb3AuthClient {
   private formatAuthErrorMessage(error: unknown, walletAddress: string): string {
     if (error instanceof TypeError && error.message.includes('fetch')) {
       logger.error(
-        `Web3 authentication network error - Backend: ${this.backendUrl}, Wallet: ${walletAddress ?? 'unknown'}`,
+        `Web3 authentication network error - Backend: ${this.backendUrl}, Wallet: ${walletAddress}`,
         {
-          wallet_address: walletAddress ?? 'unknown',
-          backend_url: this.backendUrl ?? 'unknown',
+          wallet_address: walletAddress,
+          backend_url: this.backendUrl,
           error_type: 'NetworkError'
         }
       );
@@ -477,12 +478,12 @@ export class SharedWeb3AuthClient {
     const message = error instanceof Error ? error.message : String(error);
     const errorType = error instanceof Error ? error.constructor.name : typeof error;
     logger.error(
-      `Web3 authentication error - Type: ${errorType}, Message: ${message ?? 'Unknown'}, Wallet: ${walletAddress ?? 'unknown'}, Backend: ${this.backendUrl ?? 'unknown'}`,
+      `Web3 authentication error - Type: ${errorType}, Message: ${message}, Wallet: ${walletAddress}, Backend: ${this.backendUrl}`,
       {
-        error_message: message ?? 'Unknown error',
-        wallet_address: walletAddress ?? 'unknown',
+        error_message: message,
+        wallet_address: walletAddress,
         error_type: errorType,
-        backend_url: this.backendUrl ?? 'unknown'
+        backend_url: this.backendUrl
       }
     );
     return message;
@@ -519,6 +520,7 @@ export class SharedWeb3AuthClient {
   }
 
   // Refresh tokens using backend refresh endpoint
+  // eslint-disable-next-line complexity
   async refreshTokens(): Promise<boolean> {
     if (this.refreshToken === null || this.refreshToken === '') {
       // refresh_token is HttpOnly, so we can't read it from JS
@@ -688,6 +690,14 @@ export class SharedWeb3AuthClient {
     this.notifyListeners();
   }
 
+  /**
+   * Update tokens manually (e.g. after a server action refreshed them)
+   */
+  updateTokens(accessToken: string, expiresIn?: number): void {
+    this.accessToken = accessToken;
+    this.tokenExpiry = Date.now() + (expiresIn ?? 3600) * 1000;
+  }
+
   async loadCurrentUser(): Promise<UserInfoResponse | null> {
     try {
       if (!this.isAuthenticated()) {
@@ -722,7 +732,7 @@ export class SharedWeb3AuthClient {
     return null;
   }
 
-  async logout(): Promise<void> {
+  logout(): void {
     this.clearTokens();
   }
 

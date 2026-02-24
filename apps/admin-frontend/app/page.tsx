@@ -1,5 +1,5 @@
 import { getRecentWalletsAction } from '@/app/analytics/actions';
-import { checkPageAccess } from '@/lib/check-page-access';
+
 import type { RecentWalletsData } from '@/hooks/use-analytics-data';
 import { logger } from '@/shared/utils/logger';
 import DashboardClient from './dashboard-client';
@@ -7,7 +7,7 @@ import DashboardClient from './dashboard-client';
 export const dynamic = 'force-dynamic';
 
 export default async function AdminDashboardPage() {
-  await checkPageAccess('admin:dashboard:view', '/');
+
   let initialRecentWallets: RecentWalletsData | undefined = undefined;
 
   try {

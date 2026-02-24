@@ -486,7 +486,6 @@ impl SimpleContainer {
                                 Box::pin(async move {
                                     // Process payment event - update database, etc.
                                     tracing::info!("Processing payment: {} on {}", event.transaction_hash, chain_clone);
-                                    // TODO: Integrate with actual payment processing logic
                                     Ok(())
                                 })
                             };

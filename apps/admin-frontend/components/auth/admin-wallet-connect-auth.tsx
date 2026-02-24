@@ -40,7 +40,7 @@ export function AdminWalletConnectAuth({ className = '' }: AdminWalletConnectAut
 
   const { address, isConnected: _isConnected } = useAccount();
   const { disconnect } = useDisconnect();
-  const { user, isLoading, error: _error, logout } = useSharedAuth();
+  const { user, isLoading, error, logout } = useSharedAuth();
 
   const isAuthenticated = Boolean(user);
 
@@ -93,7 +93,7 @@ export function AdminWalletConnectAuth({ className = '' }: AdminWalletConnectAut
         </DropdownMenuTrigger>
         <DropdownMenuContent
           align="end"
-          className="w-52 bg-popover border-border p-1"
+          className="w-52 bg-white dark:bg-[#1a1d2e] border border-gray-200 dark:border-slate-700 p-1"
           style={{ zIndex: 99999 }}
         >
           <div className="px-3 py-2 text-xs text-muted-foreground border-b border-border mb-1 font-mono break-all">

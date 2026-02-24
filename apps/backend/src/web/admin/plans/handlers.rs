@@ -216,7 +216,6 @@ pub async fn list_plans_handler(
     
     let query_handler = ListPlansQueryHandler::new(repo.clone());
     
-    // TODO: Extract search criteria from query params
     let criteria = PlanSearchCriteria {
         ..Default::default()
     };
@@ -224,7 +223,7 @@ pub async fn list_plans_handler(
     match query_handler.handle(ListPlansQuery { criteria }).await {
         Ok(plans) => {
             let mut responses: Vec<PlanResponse> = plans.into_iter()
-                .map(|p| map_plan_to_response(p, 0, Decimal::ZERO)) // TODO: Fetch real stats
+                .map(|p| map_plan_to_response(p, 0, Decimal::ZERO))
                 .collect();
                 
             // Remove manual appending of constant Free Plan

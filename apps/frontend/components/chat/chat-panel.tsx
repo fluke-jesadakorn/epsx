@@ -1,24 +1,27 @@
+/* eslint-disable max-lines-per-function */
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import type { ChatTopic, ChatConversation, ChatMessage } from '@/shared/api/chat';
-import { ChatTopicSelector } from './chat-topic-selector';
-import { ChatConversationList } from './chat-conversation-list';
-import { ChatHeader } from './chat-header';
-import { ChatMessageList } from './chat-message-list';
-import { ChatInput } from './chat-input';
-import { X, MessageCircle } from 'lucide-react';
 import {
-  getTopicsAction,
-  listConversationsAction,
   createConversationAction,
   getMessagesAction,
+  getTopicsAction,
+  listConversationsAction,
+  markConversationReadAction,
+  notifyTypingAction,
   sendMessageAction,
   updateConversationStatusAction,
-  markConversationReadAction
+  uploadAttachmentAction,
 } from '@/app/actions/chat';
-import { useChatSSE } from '@/shared/hooks/use-chat-sse';
+import type { ChatConversation, ChatMessage, ChatTopic } from '@/shared/api/chat';
 import type { ChatSSEEvent } from '@/shared/hooks/use-chat-sse';
+import { useChatSSE } from '@/shared/hooks/use-chat-sse';
+import { MessageCircle, X } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { ChatConversationList } from './chat-conversation-list';
+import { ChatHeader } from './chat-header';
+import { ChatInput } from './chat-input';
+import { ChatMessageList } from './chat-message-list';
+import { ChatTopicSelector } from './chat-topic-selector';
 
 type View = 'topics' | 'list' | 'conversation';
 
@@ -28,6 +31,7 @@ interface PanelProps {
   walletAddr?: string;
 }
 
+
 export function ChatPanel({ isOpen, onClose, walletAddr }: PanelProps) {
   const [view, setView] = useState<View>('list');
   const [topics, setTopics] = useState<ChatTopic[]>([]);
@@ -35,6 +39,9 @@ export function ChatPanel({ isOpen, onClose, walletAddr }: PanelProps) {
   const [activeConvo, setActiveConvo] = useState<ChatConversation | null>(null);
   const [msgs, setMsgs] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(false);
+  const [agentTyping, setAgentTyping] = useState(false);
+  const [readUpToId, setReadUpToId] = useState<string | null>(null);
+  const typingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const loadData = useCallback(async () => {
     try {
@@ -81,24 +88,35 @@ export function ChatPanel({ isOpen, onClose, walletAddr }: PanelProps) {
       setMsgs(Array.isArray(newMsgs) ? newMsgs : []);
       void markConversationReadAction(id);
       setView('conversation');
+      setAgentTyping(false);
+      setReadUpToId(null);
     }
     setLoading(false);
   }, [convos]);
 
-  const handleSendMsg = useCallback(async (content: string) => {
-    if (!activeConvo) {
-      return;
-    }
-    const msg = await sendMessageAction(activeConvo.id, content);
+  const handleSendMsg = useCallback(async (content: string, turnstileToken: string) => {
+    if (!activeConvo) return;
+    const msg = await sendMessageAction(activeConvo.id, content, turnstileToken);
     if (msg) {
       setMsgs((prev) => [...prev, msg]);
     }
   }, [activeConvo]);
 
+  const handleUpload = useCallback(async (file: File) => {
+    if (!activeConvo) return;
+    const formData = new FormData();
+    formData.append('file', file);
+    const msg = await uploadAttachmentAction(activeConvo.id, formData);
+    if (msg) setMsgs((prev) => [...prev, msg]);
+  }, [activeConvo]);
+
+  const handleTyping = useCallback((isTyping: boolean) => {
+    if (!activeConvo) return;
+    void notifyTypingAction(activeConvo.id, isTyping);
+  }, [activeConvo]);
+
   const handleResolve = useCallback(async () => {
-    if (!activeConvo) {
-      return;
-    }
+    if (!activeConvo) return;
     const updated = await updateConversationStatusAction(activeConvo.id, 'resolved');
     if (updated) {
       setActiveConvo(updated);
@@ -110,19 +128,37 @@ export function ChatPanel({ isOpen, onClose, walletAddr }: PanelProps) {
     setView('list');
     setActiveConvo(null);
     setMsgs([]);
+    setAgentTyping(false);
+    setReadUpToId(null);
   }, []);
 
-  // SSE: real-time messages & status updates
+  // SSE: real-time messages, typing, read receipts, status updates
   const handleSSE = useCallback((evt: ChatSSEEvent) => {
     if (evt.type === 'new_message' && evt.message) {
       if (activeConvo && evt.conversation_id === activeConvo.id) {
         setMsgs((prev) => prev.some((m) => m.id === evt.message?.id) ? prev : [...prev, evt.message as ChatMessage]);
+        setAgentTyping(false);
       } else {
-        // Update unread for other conversations
         setConvos((prev) => prev.map((c) =>
           c.id === evt.conversation_id ? { ...c, unread_user: c.unread_user + 1 } : c
         ));
       }
+    }
+    if ((evt.type === 'typing_start' || evt.type === 'typing_stop') && evt.conversation_id === activeConvo?.id && evt.sender === 'agent') {
+      const typing = evt.type === 'typing_start';
+      setAgentTyping(typing);
+      if (typing) {
+        if (typingTimer.current) clearTimeout(typingTimer.current);
+        typingTimer.current = setTimeout(() => setAgentTyping(false), 5000);
+      }
+    }
+    if (evt.type === 'messages_read' && evt.conversation_id === activeConvo?.id && evt.reader === 'agent') {
+      // Find the last user message id
+      setMsgs((prev) => {
+        const lastUserMsg = [...prev].reverse().find((m) => m.sender_type === 'user');
+        if (lastUserMsg) setReadUpToId(lastUserMsg.id);
+        return prev;
+      });
     }
     if (evt.type === 'status_changed' && evt.conversation) {
       setConvos((prev) => prev.map((c) => c.id === evt.conversation_id ? { ...c, status: evt.conversation?.status ?? c.status } : c));
@@ -136,9 +172,8 @@ export function ChatPanel({ isOpen, onClose, walletAddr }: PanelProps) {
 
   return (
     <div
-      className={`fixed bottom-2 right-2 md:bottom-24 md:right-6 w-[calc(100vw-1rem)] md:w-[400px] max-w-[400px] h-[calc(100vh-4rem)] md:h-[580px] max-h-[580px] bg-white dark:bg-slate-950 backdrop-blur-xl border border-slate-200 dark:border-white/8 rounded-3xl shadow-2xl shadow-black/10 flex flex-col z-50 overflow-hidden transition-all duration-300 origin-bottom-right ${
-        isOpen ? 'scale-100 opacity-100 translate-y-0' : 'scale-95 opacity-0 translate-y-4 pointer-events-none'
-      }`}
+      className={`fixed bottom-2 right-2 md:bottom-24 md:right-6 w-[calc(100vw-1rem)] md:w-[400px] max-w-[400px] h-[calc(100vh-4rem)] md:h-[580px] max-h-[580px] bg-white dark:bg-slate-950 backdrop-blur-xl border border-slate-200 dark:border-white/8 rounded-3xl shadow-2xl shadow-black/10 flex flex-col z-50 overflow-hidden transition-all duration-300 origin-bottom-right ${isOpen ? 'scale-100 opacity-100 translate-y-0' : 'scale-95 opacity-0 translate-y-4 pointer-events-none'
+        }`}
     >
       {view === 'topics' && (
         <>
@@ -171,8 +206,18 @@ export function ChatPanel({ isOpen, onClose, walletAddr }: PanelProps) {
             onClose={onClose}
             onResolve={handleResolve}
           />
-          <ChatMessageList msgs={msgs} userAddr={walletAddr} />
-          <ChatInput onSend={handleSendMsg} disabled={loading || activeConvo.status === 'closed'} />
+          <ChatMessageList
+            msgs={msgs}
+            userAddr={walletAddr}
+            agentTyping={agentTyping}
+            readUpToId={readUpToId}
+          />
+          <ChatInput
+            onSend={handleSendMsg}
+            onUpload={handleUpload}
+            onTyping={handleTyping}
+            disabled={loading || activeConvo.status === 'closed'}
+          />
         </>
       )}
     </div>

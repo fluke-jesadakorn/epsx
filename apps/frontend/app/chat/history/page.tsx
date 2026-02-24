@@ -70,7 +70,7 @@ export default function ChatHistoryPage() {
       <div className="flex items-center gap-3 mb-6">
         <Link
           href="/chat"
-          className="w-9 h-9 rounded-xl hover:bg-slate-100 dark:hover:bg-gray-100 dark:bg-slate-800/50 flex items-center justify-center transition-colors border border-slate-200 dark:border-white/8"
+          className="w-9 h-9 rounded-xl hover:bg-slate-100 dark:hover:bg-white/10 dark:bg-slate-800/50 flex items-center justify-center transition-colors border border-slate-200 dark:border-white/8"
         >
           <ArrowLeft className="w-4 h-4" />
         </Link>
@@ -131,7 +131,7 @@ export default function ChatHistoryPage() {
               <button
                 key={convo.id}
                 onClick={() => handleSelect(convo.id)}
-                className={`group w-full px-5 py-4 hover:bg-slate-50 dark:hover:bg-gray-100 dark:bg-slate-800/30 transition-all text-left ${
+                className={`group w-full px-5 py-4 hover:bg-slate-50 dark:hover:bg-white/10 dark:bg-slate-800/30 transition-all text-left ${
                   hasUnread ? 'bg-blue-50 dark:bg-blue-500/5 border-l-2 border-l-blue-500' : ''
                 } ${i < filtered.length - 1 ? 'border-b border-slate-200 dark:border-slate-700' : ''}`}
               >

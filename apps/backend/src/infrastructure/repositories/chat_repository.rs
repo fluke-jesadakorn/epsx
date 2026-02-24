@@ -57,6 +57,7 @@ impl ChatRepository {
             sender_type: "user".to_string(),
             sender_address: Some(wallet.to_string()),
             content: first_message.to_string(),
+            metadata: serde_json::Value::Null,
         };
 
         diesel::insert_into(chat_messages::table)
@@ -187,6 +188,17 @@ impl ChatRepository {
         sender_address: Option<&str>,
         content: &str,
     ) -> Result<ChatMessageDb, String> {
+        Self::send_message_with_meta(pool, conv_id, sender_type, sender_address, content, None).await
+    }
+
+    pub async fn send_message_with_meta(
+        pool: &TlsPool,
+        conv_id: Uuid,
+        sender_type: &str,
+        sender_address: Option<&str>,
+        content: &str,
+        metadata: Option<serde_json::Value>,
+    ) -> Result<ChatMessageDb, String> {
         let mut conn = pool.get().await.map_err(|e| e.to_string())?;
 
         let msg = NewMessage {
@@ -194,6 +206,7 @@ impl ChatRepository {
             sender_type: sender_type.to_string(),
             sender_address: sender_address.map(|s| s.to_string()),
             content: content.to_string(),
+            metadata: metadata.unwrap_or(serde_json::Value::Null),
         };
 
         let created: ChatMessageDb = diesel::insert_into(chat_messages::table)

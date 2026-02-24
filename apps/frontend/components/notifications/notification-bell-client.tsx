@@ -7,7 +7,6 @@ import { useNotificationBell } from '@/shared/hooks/use-notification-bell'
 import { createFrontendApiClient } from '@/shared/utils/api-client'
 import { Bell, ExternalLink } from 'lucide-react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import { useBrowserNotifications } from './browser-notifications'
 import {
@@ -26,7 +25,7 @@ interface NotificationItemProps {
 
 function NotificationItem({ notification, onNotificationClick, onDeleteNotification }: NotificationItemProps) {
   return (
-    <div className="flex items-start gap-3 px-4 py-3 border-b border-orange-50 dark:border-slate-800 group">
+    <div className="flex items-start gap-3 px-4 py-3 border-b border-orange-50 dark:border-slate-800 group hover:bg-orange-50/50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer">
       <div className={`w-8 h-8 rounded-full ${getPriorityColor(notification.priority)} flex items-center justify-center flex-shrink-0`}>
         <span className="text-sm">{getNotificationIcon(notification.type)}</span>
       </div>
@@ -65,7 +64,6 @@ function NotificationItem({ notification, onNotificationClick, onDeleteNotificat
 }
 
 export function NotificationBellClient() {
-  const router = useRouter()
   const [isOpen, setIsOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
 
@@ -125,10 +123,7 @@ export function NotificationBellClient() {
   }
 
   const handleNotificationClick = async (notificationId: string) => {
-    handleCloseDropdown()
-    // Auto-mark as read when clicked
     await markAsRead(notificationId)
-    router.push(`/notifications?id=${notificationId}`)
   }
 
   // Delete notification functionality using server action
@@ -146,7 +141,7 @@ export function NotificationBellClient() {
     <div className="relative" ref={containerRef}>
       <button
         onClick={handleToggleDropdown}
-        className="relative flex items-center gap-2 rounded-2xl px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50/80 hover:text-slate-700 dark:text-slate-300 dark:hover:bg-gray-100 dark:bg-slate-800/40 dark:hover:text-slate-200"
+        className="relative flex items-center gap-2 rounded-2xl px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50/80 hover:text-slate-700 dark:text-slate-300 dark:hover:bg-white/10 dark:bg-slate-800/40 dark:hover:text-slate-200"
       >
         <Bell className="h-5 w-5 text-orange-500" />
         {count > 0 && (
@@ -217,7 +212,7 @@ export function NotificationBellClient() {
                   <Link
                     href="/notifications"
                     onClick={handleCloseDropdown}
-                    className="w-full flex items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-gray-100 dark:bg-slate-800/40"
+                    className="w-full flex items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-white/10 dark:bg-slate-800/40"
                   >
                     <ExternalLink className="h-4 w-4" />
                     View All Notifications

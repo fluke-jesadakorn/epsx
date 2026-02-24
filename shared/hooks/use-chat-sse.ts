@@ -10,7 +10,7 @@ import { API_ROUTES } from '../config/route-constants';
 // ============================================================================
 
 export interface ChatSSEEvent {
-  type: 'new_message' | 'new_conversation' | 'status_changed' | 'agent_assigned';
+  type: 'new_message' | 'new_conversation' | 'status_changed' | 'agent_assigned' | 'typing_start' | 'typing_stop' | 'messages_read';
   conversation_id: string;
   message?: ChatMessage;
   status?: string;
@@ -18,6 +18,8 @@ export interface ChatSSEEvent {
   conversation?: ChatConversation;
   wallet_address?: string;
   subject?: string;
+  sender?: 'user' | 'agent';
+  reader?: 'user' | 'agent';
 }
 
 interface UseChatSSEOpts {

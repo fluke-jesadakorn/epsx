@@ -29,7 +29,6 @@ export function ClientProviders({ children, initialUser, initialState }: { child
         <SettingsProvider>
           <SharedOpenIDWeb3Provider
             clientId="epsx-admin"
-            backendUrl={process.env.NEXT_PUBLIC_BACKEND_URL}
             initialUser={initialUser}
           >
             {children}

@@ -5,7 +5,6 @@ import {
     BarChart3,
     CheckCircle,
     Clock,
-    CreditCard,
     DollarSign,
     Eye,
     RefreshCcw,
@@ -238,19 +237,6 @@ export function PaymentsManagement() {
             </div>
 
             <div className="relative max-w-7xl mx-auto">
-                {/* Hero Section */}
-                <div className="text-center mb-12">
-                    <div className="inline-flex p-4 bg-white dark:bg-white/[0.04] rounded-[32px] border border-gray-200 dark:border-slate-700 text-[#1fc7d4] mb-8 shadow-xl">
-                        <CreditCard className="w-12 h-12" />
-                    </div>
-                    <h1 className="text-4xl sm:text-6xl font-black bg-gradient-to-r from-[#1fc7d4] via-[#7645d9] to-[#1fc7d4] bg-clip-text text-transparent mb-4 tracking-tighter">
-                        Payments Hub
-                    </h1>
-                    <p className="text-lg font-bold text-muted-foreground max-w-2xl mx-auto">
-                        Manage payments, user access, and payment links
-                    </p>
-                </div>
-
                 {/* Action Cards */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-12">
                     <div
@@ -264,7 +250,7 @@ export function PaymentsManagement() {
                             </div>
                             <h3 className="text-2xl font-black text-foreground uppercase tracking-tight mb-2">Refresh Data</h3>
                             <p className="text-muted-foreground font-bold mb-8">Reload payment data from the server</p>
-                            <button className="w-full max-w-[200px] py-3 rounded-2xl bg-gray-100 dark:bg-slate-800 hover:bg-slate-700 text-white font-black text-sm uppercase tracking-widest transition-all">
+                            <button className="w-full max-w-[200px] py-3 rounded-2xl bg-gray-900 dark:bg-slate-800 hover:bg-gray-700 dark:hover:bg-slate-700 text-white font-black text-sm uppercase tracking-widest transition-all">
                                 Refresh Now
                             </button>
                         </div>
@@ -281,7 +267,7 @@ export function PaymentsManagement() {
                             </div>
                             <h3 className="text-2xl font-black text-foreground uppercase tracking-tight mb-2">Export Analysis</h3>
                             <p className="text-muted-foreground font-bold mb-8">Download detailed report in CSV format</p>
-                            <button className="w-full max-w-[200px] py-3 rounded-2xl bg-gray-100 dark:bg-slate-800 hover:bg-slate-700 text-white font-black text-sm uppercase tracking-widest transition-all">
+                            <button className="w-full max-w-[200px] py-3 rounded-2xl bg-gray-900 dark:bg-slate-800 hover:bg-gray-700 dark:hover:bg-slate-700 text-white font-black text-sm uppercase tracking-widest transition-all">
                                 Export CSV Files
                             </button>
                         </div>

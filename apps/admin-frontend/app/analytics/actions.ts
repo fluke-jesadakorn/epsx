@@ -25,15 +25,15 @@ async function processApiResponse<T>(
     if (!res.success) {
         redirectOnForbidden(res, '/analytics');
 
-        if (res.error?.code === '401' || res.error?.code === 'UNAUTHORIZED') {
-            await logout();
-            redirect('/auth');
-        }
-
         logger.error(`${errorMessage}: ${res.error?.message} (${res.error?.code})`, { error: res.error });
 
         if (defaultValue !== undefined) {
             return defaultValue;
+        }
+
+        if (res.error?.code === '401' || res.error?.code === 'UNAUTHORIZED') {
+            await logout();
+            redirect('/auth');
         }
 
         throw new Error(res.error?.message ?? errorMessage);
@@ -126,7 +126,8 @@ export async function getApiKeysAction(): Promise<ApiKeysResponse> {
 export async function getRecentWalletsAction(limit = 10, days = 30): Promise<RecentWalletsData> {
     return handleAction(
         (apiClient) => apiClient.get<RecentWalletsData>(`/api/admin/web3/recent-wallets?limit=${limit}&days=${days}`),
-        'Failed to fetch recent wallets'
+        'Failed to fetch recent wallets',
+        { recent_wallets: [], analytics: { total_in_period: 0, daily_breakdown: [], period_days: days, avg_daily: 0 }, metadata: { limit, total_count: 0, has_more: false, generated_at: new Date().toISOString() } }
     );
 }
 

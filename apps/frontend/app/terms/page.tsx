@@ -1,4 +1,4 @@
-"use client";
+"use client"
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Suspense } from "react";
@@ -43,47 +43,45 @@ function SubscribeForm() {
   };
 
   return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
-        <FormField
-          control={form.control}
-          name="email"
-          render={({ field }) => (
-            <FormItem>
-              <FormControl asChild>
-                <InputWithIcon
-                  placeholder="Enter your email"
-                  icon={
-                    <svg
-                      className="h-4 w-4 text-purple-400"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <rect width="20" height="16" x="2" y="4" rx="2" />
-                      <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
-                    </svg>
-                  }
-                  className="bg-[#27262c] border-[#383241] focus:border-purple-500 focus-visible:ring-purple-500/20"
-                  {...field}
-                />
-              </FormControl>
-              <FormMessage className="text-red-400" />
-            </FormItem>
-          )}
-        />
+    <Form {...form} onSubmit={handleSubmit}>
+      <FormField
+        control={form.control}
+        name="email"
+        render={({ field }) => (
+          <FormItem>
+            <FormControl asChild>
+              <InputWithIcon
+                placeholder="Enter your email"
+                icon={
+                  <svg
+                    className="h-4 w-4 text-purple-400"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <rect width="20" height="16" x="2" y="4" rx="2" />
+                    <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
+                  </svg>
+                }
+                className="bg-[#27262c] border-[#383241] focus:border-purple-500 focus-visible:ring-purple-500/20"
+                {...field}
+              />
+            </FormControl>
+            <FormMessage className="text-red-400" />
+          </FormItem>
+        )}
+      />
 
-        <Button
-          type="submit"
-          className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-bold flex items-center gap-2"
-        >
-          <Send className="h-4 w-4" />
-          Subscribe
-        </Button>
-      </form>
+      <Button
+        type="submit"
+        className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-bold flex items-center gap-2"
+      >
+        <Send className="h-4 w-4" />
+        Subscribe
+      </Button>
     </Form>
   );
 }

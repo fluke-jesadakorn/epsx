@@ -9,14 +9,16 @@ import { MessageCircle } from 'lucide-react';
 interface MsgListProps {
   msgs: ChatMessage[];
   userAddr?: string;
+  agentTyping?: boolean;
+  readUpToId?: string | null;
 }
 
-export function ChatMessageList({ msgs, userAddr }: MsgListProps) {
+export function ChatMessageList({ msgs, userAddr, agentTyping, readUpToId }: MsgListProps) {
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [msgs]);
+  }, [msgs, agentTyping]);
 
   if (msgs.length === 0) {
     return (
@@ -31,6 +33,7 @@ export function ChatMessageList({ msgs, userAddr }: MsgListProps) {
   }
 
   let lastDate: Date | null = null;
+  let readReached = false;
 
   return (
     <div className="flex-1 overflow-y-auto px-4 py-4 bg-slate-50/50 dark:bg-slate-950/20">
@@ -39,6 +42,12 @@ export function ChatMessageList({ msgs, userAddr }: MsgListProps) {
         const showDateSep = !lastDate || !isSameDay(lastDate, msgDate);
         lastDate = msgDate;
         const isUser = msg.sender_type === 'user' && msg.sender_address === userAddr;
+
+        // Track whether agent has read past this message
+        if (!readReached && readUpToId && msg.id === readUpToId) {
+          readReached = true;
+        }
+        const isRead = isUser && (readReached || msg.id === readUpToId || msg.is_read);
 
         return (
           <div key={msg.id}>
@@ -51,10 +60,24 @@ export function ChatMessageList({ msgs, userAddr }: MsgListProps) {
                 <div className="flex-1 h-px bg-border/40" />
               </div>
             )}
-            <ChatMessageItem msg={msg} isUser={isUser} />
+            <ChatMessageItem msg={msg} isUser={isUser} isRead={isRead} />
           </div>
         );
       })}
+
+      {agentTyping === true && (
+        <div className="flex gap-2.5 mb-4">
+          <div className="shrink-0 w-8 h-8 rounded-full bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
+            <MessageCircle className="w-4 h-4 text-blue-400" />
+          </div>
+          <div className="bg-slate-100 dark:bg-slate-800/50 border border-slate-200 dark:border-white/8 rounded-2xl rounded-bl-md px-4 py-3 flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/50 animate-bounce" style={{ animationDelay: '0ms' }} />
+            <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/50 animate-bounce" style={{ animationDelay: '150ms' }} />
+            <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/50 animate-bounce" style={{ animationDelay: '300ms' }} />
+          </div>
+        </div>
+      )}
+
       <div ref={endRef} />
     </div>
   );

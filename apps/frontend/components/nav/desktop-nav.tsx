@@ -36,7 +36,7 @@ function GroupDropdown({ group }: { group: NavGroup }) {
         align="start"
         sideOffset={8}
         style={{ zIndex: 99999 }}
-        className="w-52 p-1.5 bg-white border border-slate-200 shadow-lg rounded-lg dark:bg-slate-900 dark:border-slate-700"
+        className="w-52 p-1.5 bg-white border border-slate-200 shadow-xl rounded-lg dark:bg-slate-900 dark:border-slate-700"
       >
         {group.items.map(item => {
           const Icon = item.icon;

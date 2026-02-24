@@ -182,7 +182,7 @@ export default async function RootLayout({
           <ClientProviders initialState={initialState}>
             <SharedOpenIDWeb3Provider
               clientId="epsx-frontend"
-              backendUrl={process.env.NEXT_PUBLIC_BACKEND_URL}
+              backendUrl={process.env['NEXT_PUBLIC_BACKEND_URL'] || process.env['BACKEND_URL'] || undefined}
               initialUser={initialUser}
             >
               {/* Mobile navigation optimized for touch */}

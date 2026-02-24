@@ -440,6 +440,7 @@ impl UnifiedRouteBuilder {
 
     fn create_chat_routes(&self) -> Router {
         use crate::web::user::chat_handlers;
+        use crate::web::user::chat_upload_handlers;
 
         let app_state = self.create_app_state();
 
@@ -455,6 +456,10 @@ impl UnifiedRouteBuilder {
             .layer(Self::create_sse_cors_layer())
             .with_state(app_state.clone());
 
+        // File serving (UUID filenames, no auth – unguessable paths)
+        let file_route = Router::new()
+            .route("/files/{conv_id}/{filename}", get(chat_upload_handlers::serve_attachment));
+
         // Topics (public, no auth needed)
         let public_routes = Router::new()
             .route("/topics", get(chat_handlers::list_topics))
@@ -466,6 +471,8 @@ impl UnifiedRouteBuilder {
             .route("/conversations", get(chat_handlers::list_conversations).post(chat_handlers::create_conversation))
             .route("/conversations/{id}", get(chat_handlers::get_conversation))
             .route("/conversations/{id}/messages", get(chat_handlers::list_messages).post(chat_handlers::send_message))
+            .route("/conversations/{id}/upload", post(chat_upload_handlers::upload_attachment))
+            .route("/conversations/{id}/typing", post(chat_upload_handlers::user_typing))
             .route("/conversations/{id}/status", put(chat_handlers::update_status))
             .route("/conversations/{id}/read", put(chat_handlers::mark_read))
             .route("/unread", get(chat_handlers::get_unread))
@@ -475,7 +482,7 @@ impl UnifiedRouteBuilder {
                 crate::web::middleware::bearer_middleware
             ));
 
-        sse_route.merge(admin_sse_route).merge(public_routes).merge(auth_routes)
+        sse_route.merge(admin_sse_route).merge(file_route).merge(public_routes).merge(auth_routes)
     }
 
     // ============================================================================

@@ -1,7 +1,7 @@
 'use client';
 
 import { getAndClearReturnUrlAction } from '@/lib/auth/auth-actions';
-import { AuthModal , useSharedAuth } from '@/shared/components/auth';
+import { AuthModal } from '@/shared/components/auth';
 import { UnifiedThemeToggle } from '@/shared/components/ui/theme-toggle';
 import { logger } from '@/shared/utils/logger';
 import {
@@ -12,8 +12,9 @@ import {
     Shield,
     ShieldCheck,
 } from 'lucide-react';
+import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import React, { useEffect, useState } from 'react';
+import { useRef, useState } from 'react';
 
 const features = [
     { icon: ShieldCheck, title: 'Role-Based Access', desc: 'Granular permission controls for every admin role.' },
@@ -28,38 +29,12 @@ const benefits = [
     'Role-Based Access Control',
 ];
 
-interface Props {
-    serverHasSession: boolean;
-}
-
-export default function AuthPageClient({ serverHasSession }: Props) {
+export default function AuthPageClient() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const [showModal, setShowModal] = useState(false);
-    const [mounted, setMounted] = useState(false);
-    const redirectingRef = React.useRef(false);
-
-    const { isAuthenticated, user } = useSharedAuth();
+    const redirectingRef = useRef(false);
     const reason = searchParams.get('reason');
-
-    useEffect(() => { setMounted(true); }, []);
-
-    // Redirect when both server + client confirm auth
-    useEffect(() => {
-        if (!mounted || redirectingRef.current) {return;}
-
-        const checkAndRedirect = async () => {
-            if (serverHasSession && isAuthenticated && user) {
-                if (redirectingRef.current) {return;}
-                redirectingRef.current = true;
-                const returnUrl = await getAndClearReturnUrlAction();
-                logger.info('[AUTH] Server+Client authenticated, redirecting to', { returnUrl });
-                router.push(returnUrl);
-            }
-        };
-
-        void checkAndRedirect();
-    }, [mounted, serverHasSession, isAuthenticated, user, router]);
 
     const handleAuthSuccess = async () => {
         try {
@@ -74,27 +49,6 @@ export default function AuthPageClient({ serverHasSession }: Props) {
             router.replace('/');
         }
     };
-
-    if (!mounted) {
-        return (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-background">
-                <div className="h-8 w-8 animate-spin rounded-full border-t-2 border-purple-500" />
-            </div>
-        );
-    }
-
-    // Authenticated state - show brief redirect screen
-    if (serverHasSession && isAuthenticated && user) {
-        return (
-            <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-background text-foreground">
-                <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-green-500/10 ring-1 ring-green-500/20">
-                    <ShieldCheck className="h-8 w-8 text-green-400" />
-                </div>
-                <p className="text-lg font-medium">Admin Access Granted</p>
-                <p className="text-sm text-slate-500">Redirecting...</p>
-            </div>
-        );
-    }
 
     return (
         <div className="fixed inset-0 z-50 flex w-full flex-col overflow-y-auto bg-background lg:flex-row">
@@ -255,6 +209,13 @@ export default function AuthPageClient({ serverHasSession }: Props) {
                         <div className="h-1 w-1 animate-pulse rounded-full bg-green-500" />
                         <span className="hidden sm:inline">Admin Network Secure</span>
                         <span className="sm:hidden">Secure Connection</span>
+                    </div>
+
+                    {/* Manual redirect fallback */}
+                    <div className="mt-4 text-center">
+                        <Link href="/" className="text-xs text-slate-500 hover:text-purple-500 transition-colors underline underline-offset-2">
+                            Go to Dashboard
+                        </Link>
                     </div>
                 </div>
             </div>

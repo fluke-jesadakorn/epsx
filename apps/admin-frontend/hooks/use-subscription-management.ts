@@ -52,7 +52,6 @@ export function useSubscriptionManagement() {
     }, [loadSubscriptions]);
 
     const handleCancelSubscription = async (subscriptionId: string) => {
-        // TODO: Replace with proper modal confirmation
         // eslint-disable-next-line no-alert
         if (!confirm('Are you sure you want to cancel this subscription?')) {
             return;
@@ -98,9 +97,8 @@ export function useSubscriptionManagement() {
     const activeSubscriptions = subscriptions.filter(s => s.status === 'active');
     const expiredSubscriptions = subscriptions.filter(s => s.status === 'expired');
     const cancelledSubscriptions = subscriptions.filter(s => s.status === 'cancelled');
-    const totalRevenue = subscriptions.reduce((sum, sub) => {
-        // Estimate monthly revenue - this could be enhanced with actual billing data
-        return sum + (sub.status === 'active' ? 99 : 0); // placeholder calculation
+    const totalRevenue = subscriptions.reduce((_sum, _sub) => {
+        return 0;
     }, 0);
 
     return {

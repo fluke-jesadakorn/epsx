@@ -129,6 +129,8 @@ services:
       timeout: 5s
       retries: 3
       start_period: 60s
+    volumes:
+      - prod_chat_uploads:/data/chat_uploads
     security_opt:
       - no-new-privileges:true
     read_only: true
@@ -154,6 +156,7 @@ services:
     environment:
       NODE_ENV: ${NODE_ENV}
       ENV: ${ENV}
+      BACKEND_URL: ${BACKEND_URL}
       FRONTEND_URL: ${FRONTEND_URL}
       ADMIN_FRONTEND_URL: ${ADMIN_FRONTEND_URL}
       NEXT_PUBLIC_BACKEND_URL: ${BACKEND_URL}
@@ -165,6 +168,7 @@ services:
       NEXT_PUBLIC_PAYMENT_ESCROW_MAINNET: ${NEXT_PUBLIC_PAYMENT_ESCROW_MAINNET:-${PAYMENT_ESCROW_CONTRACT_MAINNET:-}}
       NEXT_PUBLIC_PAYMENT_RECEIVER_MAINNET: ${NEXT_PUBLIC_PAYMENT_RECEIVER_MAINNET:-${COMPANY_WALLET_MAINNET}}
       NEXT_PUBLIC_TURNSTILE_SITE_KEY: ${NEXT_PUBLIC_TURNSTILE_SITE_KEY}
+      NEXT_PUBLIC_OAUTH_CLIENT_ID: ${OAUTH_CLIENT_ID}
       PORT: 3000
       HOSTNAME: 0.0.0.0
     ports:
@@ -202,6 +206,7 @@ services:
     environment:
       NODE_ENV: ${NODE_ENV}
       ENV: ${ENV}
+      BACKEND_URL: ${BACKEND_URL}
       FRONTEND_URL: ${FRONTEND_URL}
       ADMIN_FRONTEND_URL: ${ADMIN_FRONTEND_URL}
       NEXT_PUBLIC_BACKEND_URL: ${BACKEND_URL}
@@ -213,6 +218,7 @@ services:
       NEXT_PUBLIC_PAYMENT_ESCROW_MAINNET: ${NEXT_PUBLIC_PAYMENT_ESCROW_MAINNET:-${PAYMENT_ESCROW_CONTRACT_MAINNET:-}}
       NEXT_PUBLIC_PAYMENT_RECEIVER_MAINNET: ${NEXT_PUBLIC_PAYMENT_RECEIVER_MAINNET:-${COMPANY_WALLET_MAINNET}}
       NEXT_PUBLIC_TURNSTILE_SITE_KEY: ${NEXT_PUBLIC_TURNSTILE_SITE_KEY}
+      NEXT_PUBLIC_OAUTH_CLIENT_ID: epsx-admin
       PORT: 3000
       HOSTNAME: 0.0.0.0
     ports:
@@ -282,3 +288,5 @@ volumes:
     name: epsx_prod_postgres_data
   prod_redis_data:
     name: epsx_prod_redis_data
+  prod_chat_uploads:
+    name: epsx_prod_chat_uploads

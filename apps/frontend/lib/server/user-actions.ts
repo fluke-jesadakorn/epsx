@@ -302,30 +302,6 @@ export async function getPaymentStatus(paymentId?: string) {
   }
 }
 
-export async function getBatchStocks(_symbols: string[]) {
-  // TODO: Implement when backend is ready
-  return {
-    success: true,
-    data: {},
-    errors: [],
-    cached: _symbols,
-    fetched: []
-  };
-}
-
-export async function preloadStocks(_symbols: string[]) {
-  // TODO: Implement when backend is ready
-}
-
-export async function checkStockCacheStatus(symbols: string[]) {
-  // TODO: Implement when backend is ready
-  return {
-    cached: {},
-    notCached: symbols,
-    symbols
-  };
-}
-
 export async function getDebugSessionInfo() {
   try {
     const { headers } = await import('next/headers');

@@ -7,8 +7,6 @@ import { MainLayout } from './main-layout'
 
 import { useSharedAuth } from '@/shared/components/auth'
 
-import { AdminAuthModal } from '@/components/auth/admin-auth-modal'
-
 interface AuthLayoutProps {
   children: ReactNode
   user?: {
@@ -17,7 +15,6 @@ interface AuthLayoutProps {
     name?: string
     role: string
   }
-  hasAuthCookie?: boolean
 }
 
 // Pages that should NEVER have the admin layout
@@ -33,10 +30,10 @@ const NO_LAYOUT_PATHS = [
 
 /**
  * AuthLayout
- * Simplified: Relies on Proxy for protection.
- * Primarily serves as a wrapper to inject User context into MainLayout.
+ * Middleware handles auth protection server-side.
+ * This wraps authenticated pages with MainLayout + user context.
  */
-export function AuthLayout({ children, user: serverUser, hasAuthCookie }: AuthLayoutProps) {
+export function AuthLayout({ children, user: serverUser }: AuthLayoutProps) {
   const pathname = usePathname()
   const { user: authUser } = useSharedAuth()
 
@@ -54,12 +51,9 @@ export function AuthLayout({ children, user: serverUser, hasAuthCookie }: AuthLa
     role: 'admin'
   } : serverUser
 
-  // Always show layout for all pages except the excluded ones
   return (
-    <AdminAuthModal initialHasAuthCookie={hasAuthCookie}>
-      <MainLayout user={layoutUser}>
-        {children}
-      </MainLayout>
-    </AdminAuthModal>
+    <MainLayout user={layoutUser}>
+      {children}
+    </MainLayout>
   )
 }

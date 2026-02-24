@@ -77,6 +77,12 @@ pub struct NewMessage {
     pub sender_type: String,
     pub sender_address: Option<String>,
     pub content: String,
+    pub metadata: serde_json::Value,
+}
+
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct TypingRequest {
+    pub is_typing: bool,
 }
 
 // ============================================================================
@@ -95,6 +101,8 @@ pub struct CreateConversationRequest {
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct SendMessageRequest {
     pub content: String,
+    #[serde(default)]
+    pub turnstile_token: Option<String>,
 }
 
 #[derive(Debug, Deserialize, ToSchema)]

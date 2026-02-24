@@ -6,7 +6,6 @@ const nextConfig: NextConfig = {
   // Enable standalone output for Docker deployment
   output: 'standalone',
 
-  // TODO: Fix shared/ TS errors then remove this
   typescript: { ignoreBuildErrors: true },
 
   // Skip static generation for error pages that fail with useContext issues

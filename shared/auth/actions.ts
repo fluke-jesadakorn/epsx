@@ -101,7 +101,7 @@ export async function logoutAction() {
         let walletAddress = '';
         if (userCookie !== undefined && userCookie !== '') {
             const user = JSON.parse(userCookie) as UserInfoResponse;
-            walletAddress = user.wallet_address ?? '';
+            walletAddress = user.wallet_address;
         }
 
         logger.info('[AUTH] logoutAction: Starting logout', { walletAddress: walletAddress.slice(0, 8) });
@@ -109,8 +109,8 @@ export async function logoutAction() {
         // Call backend logout endpoint if we have wallet address
         if (walletAddress !== '') {
             try {
-                const { getBackendUrl } = await import('../utils/url-resolver');
-                const backendUrl = getBackendUrl('server');
+                const { getBackendUrl: getBackendUrlFn } = await import('../utils/url-resolver');
+                const backendUrl = getBackendUrlFn('server');
 
                 await fetch(`${backendUrl}/api/auth/web3/logout`, {
                     method: 'DELETE',
@@ -165,8 +165,8 @@ export async function refreshSessionAction() {
         }
 
         // Import dynamically to avoid bundling issues
-        const { getBackendUrl } = await import('../utils/url-resolver');
-        const backendUrl = getBackendUrl('server');
+        const { getBackendUrl: getBackendUrlFn } = await import('../utils/url-resolver');
+        const backendUrl = getBackendUrlFn('server');
 
         // Determine client_id from environment
         const clientId = process.env.NEXT_PUBLIC_OAUTH_CLIENT_ID ?? 'epsx-frontend';
@@ -199,7 +199,7 @@ export async function refreshSessionAction() {
         updateSessionCookies(cookieStore, data);
 
         logger.info('[AUTH] refreshSessionAction: Token refreshed successfully');
-        return { success: true, access_token: data.access_token };
+        return { success: true, access_token: data.access_token, expires_in: data.expires_in };
     } catch (error) {
         logger.error('[AUTH] refreshSessionAction error:', error instanceof Error ? error.message : String(error));
         return { success: false, error: 'Internal server error' };
@@ -266,7 +266,7 @@ export async function challengeAction(walletAddress: string, turnstileToken?: st
     const url = `${getBackendUrl('server')}/api/auth/web3/challenge`;
 
     const body: Record<string, string> = { wallet_address: walletAddress };
-    if (turnstileToken) {
+    if (turnstileToken !== undefined && turnstileToken !== '') {
         body.turnstile_token = turnstileToken;
     }
 

@@ -299,6 +299,8 @@ pub fn create_admin_routes() -> Router<AppState> {
     .route("/chat/conversations", get(super::chat_handlers::admin_list_conversations))
     .route("/chat/conversations/{id}", get(super::chat_handlers::admin_get_conversation))
     .route("/chat/conversations/{id}/messages", get(super::chat_handlers::admin_list_messages).post(super::chat_handlers::admin_send_reply))
+    .route("/chat/conversations/{id}/upload", post(crate::web::user::chat_upload_handlers::admin_upload_attachment))
+    .route("/chat/conversations/{id}/typing", post(crate::web::user::chat_upload_handlers::admin_typing))
     .route("/chat/conversations/{id}/assign", put(super::chat_handlers::admin_assign_agent))
     .route("/chat/conversations/{id}/status", put(super::chat_handlers::admin_update_status))
     .route("/chat/conversations/{id}/read", put(super::chat_handlers::admin_mark_read))

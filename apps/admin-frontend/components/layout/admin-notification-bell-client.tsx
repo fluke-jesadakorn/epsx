@@ -142,10 +142,10 @@ export function AdminNotificationBell() {
         </button>
 
         {showNotifications && (
-          <div className="absolute top-12 right-0 z-50 w-80 rounded-xl border border-border bg-popover p-4 shadow-2xl">
+          <div className="absolute top-12 right-0 z-50 w-80 rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-[#1a1d2e] p-4 shadow-2xl" onClick={e => e.stopPropagation()}>
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-popover-foreground">
+                <h3 className="text-sm font-semibold text-foreground">
                   Notifications
                 </h3>
                 {count > 0 && (
@@ -180,7 +180,7 @@ export function AdminNotificationBell() {
                   {notifications.map((notification) => (
                     <div
                       key={notification.id}
-                      className="group rounded-lg border border-border bg-muted/30 p-3 hover:bg-accent transition-colors"
+                      className="group rounded-lg border border-border bg-muted/30 p-3 hover:bg-accent hover:border-border/80 transition-colors cursor-pointer"
                     >
                       <div className="flex items-start gap-3">
                         <span className="text-lg">{getNotificationIcon(notification.type)}</span>
@@ -228,7 +228,7 @@ export function AdminNotificationBell() {
 
       {showNotifications && (
         <div
-          className="fixed inset-0 z-40"
+          className="fixed inset-0 z-[39]"
           onClick={handleCloseDropdown}
         />
       )}

@@ -10,7 +10,7 @@
  
 'use client';
 
-import { ChevronRight, Gift, Plus, RefreshCw } from 'lucide-react';
+import { ChevronRight, Gift, RefreshCw } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import { toast } from 'sonner';
 
@@ -22,7 +22,6 @@ import { createAdminApiClient } from '@/shared/utils/api-client';
 
 import {
   CompactPromotionList,
-  CreatePromotionCard,
   isExpired,
   PromotionCard,
   PromotionStats
@@ -121,14 +120,6 @@ export function PromotionSection({ initialPromotions, className, compactMode = f
           >
             <RefreshCw className={cn('h-3 w-3', isRefreshing && 'animate-spin')} />
           </Button>
-          <Button
-            size="sm"
-            className="gap-1 text-xs bg-success hover:bg-success/90"
-            onClick={() => toast.info('Create promotion modal coming soon')}
-          >
-            <Plus className="h-3 w-3" />
-            New
-          </Button>
         </div>
       </div>
 
@@ -152,8 +143,6 @@ export function PromotionSection({ initialPromotions, className, compactMode = f
             {displayedPromotions.map((promo) => (
               <PromotionCard key={promo.id} promo={promo} />
             ))}
-
-            <CreatePromotionCard />
           </div>
 
           {/* Show More */}

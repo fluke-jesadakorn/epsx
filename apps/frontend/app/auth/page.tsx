@@ -4,6 +4,7 @@ import { WalletConnectAuth } from '@/components/auth/wallet-connect-auth';
 import { useSharedAuth } from '@/shared/components/auth';
 import { UnifiedThemeToggle } from '@/shared/components/ui/theme-toggle';
 import { CheckCircle, Cpu, Database, Globe, Lock, ShieldCheck, Zap } from 'lucide-react';
+import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect } from 'react';
 import { toast } from 'sonner';
@@ -192,6 +193,13 @@ function AuthContent() {
                         <div className="h-1 w-1 rounded-full bg-green-500 animate-pulse" />
                         <span className="hidden sm:inline">Network Secure & Operational</span>
                         <span className="sm:hidden">Secure Connection</span>
+                    </div>
+
+                    {/* Manual redirect fallback */}
+                    <div className="mt-4 text-center">
+                        <Link href="/" className="text-xs text-slate-500 hover:text-orange-500 transition-colors underline underline-offset-2">
+                            Go to Homepage
+                        </Link>
                     </div>
                 </div>
             </div>

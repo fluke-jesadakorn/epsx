@@ -44,6 +44,7 @@ export interface SignatureVerificationResponse {
   permissions: string[];
   is_new_user: boolean;
   access_token?: string;
+  refresh_token?: string;
   error?: string;
 }
 

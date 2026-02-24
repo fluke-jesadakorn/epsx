@@ -251,7 +251,7 @@ export function AdminPermissions({ user }: AdminPermissionsProps) {
               <div key={category.name} className="border border-slate-200 dark:border-slate-700 rounded-lg">
                 <button
                   onClick={() => toggleCategory(category.name)}
-                  className="w-full flex items-center justify-between p-4 hover:bg-slate-50 dark:hover:bg-gray-100 dark:bg-slate-800 rounded-t-lg"
+                  className="w-full flex items-center justify-between p-4 hover:bg-slate-50 dark:hover:bg-white/10 dark:bg-slate-800 rounded-t-lg"
                 >
                   <div className="flex items-center gap-3">
                     <span className="text-lg">{category.icon}</span>

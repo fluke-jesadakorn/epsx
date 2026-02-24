@@ -44,7 +44,7 @@ export function MainLayout({ children, user }: MainLayoutProps) {
         {/* Content Wrapper - Fixed frame, internal main scrolls */}
         <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
           {/* Breadcrumb - Fixed with glass effect */}
-          <div className="border-b border-gray-200 dark:border-slate-700 bg-white/80 dark:bg-[#13151e]/80 backdrop-blur-xl px-3 sm:px-4 lg:px-6 py-2 sm:py-3 z-30">
+          <div className="relative border-b border-gray-200 dark:border-slate-700 bg-white dark:bg-[#13151e] px-3 sm:px-4 lg:px-6 py-2 sm:py-3 z-30">
             <Breadcrumb />
           </div>
 
@@ -56,7 +56,7 @@ export function MainLayout({ children, user }: MainLayoutProps) {
           </main>
 
           {/* Footer - Fixed with glass effect */}
-          <footer className="border-t border-gray-200 dark:border-slate-700 bg-white/80 dark:bg-[#13151e]/80 backdrop-blur-xl px-4 py-3">
+          <footer className="border-t border-gray-200 dark:border-slate-700 bg-white dark:bg-[#13151e] px-4 py-3">
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium text-foreground">
                 EPSX Admin Dashboard
