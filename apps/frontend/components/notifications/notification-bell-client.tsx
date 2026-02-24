@@ -141,7 +141,7 @@ export function NotificationBellClient() {
     <div className="relative" ref={containerRef}>
       <button
         onClick={handleToggleDropdown}
-        className="relative flex items-center gap-2 rounded-2xl px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50/80 hover:text-slate-700 dark:text-slate-300 dark:hover:bg-white/10 dark:bg-slate-800/40 dark:hover:text-slate-200"
+        className="relative flex items-center gap-2 rounded-2xl px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50/80 hover:text-slate-700 dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-slate-200"
       >
         <Bell className="h-5 w-5 text-orange-500" />
         {count > 0 && (
@@ -212,7 +212,7 @@ export function NotificationBellClient() {
                   <Link
                     href="/notifications"
                     onClick={handleCloseDropdown}
-                    className="w-full flex items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-white/10 dark:bg-slate-800/40"
+                    className="w-full flex items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-white/10"
                   >
                     <ExternalLink className="h-4 w-4" />
                     View All Notifications

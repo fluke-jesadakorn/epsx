@@ -9,7 +9,7 @@ import { EditWalletMetadataModal } from './edit-wallet-metadata-modal';
 import { ReenableWalletModal } from './reenable-wallet-modal';
 import type { WalletData } from './types';
 import { WalletFilterBar } from './wallet-filter-bar';
-import { WalletListRow } from './wallet-list-row';
+import { WalletListRow, WalletMobileCard } from './wallet-list-row';
 
 interface WalletSectionProps {
     className?: string;
@@ -97,7 +97,31 @@ export function WalletSection({ className, initialData }: WalletSectionProps) {
                 onFilterChange={setFilters}
             />
 
-            <div className="border border-border/60 rounded-lg overflow-hidden">
+            {/* Mobile cards */}
+            <div className="md:hidden">
+                {isLoading ? (
+                    Array.from({ length: 6 }).map((_, i) => (
+                        // eslint-disable-next-line react/no-array-index-key
+                        <Skeleton key={`m-skeleton-${i}`} className="h-36 w-full rounded-2xl mb-3" />
+                    ))
+                ) : wallets.length === 0 ? (
+                    <WalletEmptyState onClearFilters={() => setFilters({ search: '', platform: 'all', status: 'all', sortBy: 'created_at', sortOrder: 'desc' })} />
+                ) : (
+                    <div className="grid grid-cols-1 gap-3">
+                        {wallets.map((wallet) => (
+                            <WalletMobileCard
+                                key={wallet.walletAddress}
+                                wallet={wallet}
+                                onView={() => router.push(`/wallet-management/${encodeURIComponent(wallet.walletAddress)}`)}
+                                onEnable={() => setReenableModalWallet(wallet)}
+                            />
+                        ))}
+                    </div>
+                )}
+            </div>
+
+            {/* Desktop / tablet table */}
+            <div className="hidden md:block border border-border/60 rounded-lg overflow-hidden">
                 <ListHeader />
                 {isLoading ? (
                     Array.from({ length: 9 }).map((_, i) => (

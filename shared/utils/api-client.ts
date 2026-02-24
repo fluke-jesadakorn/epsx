@@ -19,6 +19,17 @@ import { logger } from './logger';
 import { getBackendUrl } from './url-resolver';
 
 // ============================================================================
+// SESSION EXPIRY HANDLER
+// ============================================================================
+
+let sessionExpiredHandler: (() => void) | undefined;
+let isRedirecting = false;
+
+export function registerSessionExpiredHandler(fn: () => void): void {
+  sessionExpiredHandler = fn;
+}
+
+// ============================================================================
 // CORE TYPES AND INTERFACES
 // ============================================================================
 
@@ -240,12 +251,27 @@ export class UnifiedApiClient {
   private async handleUnauthorized(endpoint: string, config: RequestConfig, headers: Record<string, string>): Promise<unknown | null> {
     if (headers['x-retry'] === 'true') { return null; }
 
+    if (!this.isServerSide && isRedirecting) {
+      return this.createUnauthorizedResponse(headers);
+    }
+
     const refreshResult = await this.handleTokenRefresh();
     if (refreshResult.success && refreshResult.access_token !== undefined && refreshResult.access_token !== '') {
       return await this.request(endpoint, {
         ...config,
         headers: { ...config.headers, 'x-retry': 'true' }
       });
+    }
+
+    if (!this.isServerSide) {
+      if (!isRedirecting) {
+        isRedirecting = true;
+        if (sessionExpiredHandler !== undefined) {
+          sessionExpiredHandler();
+        } else if (typeof window !== 'undefined') {
+          window.location.href = '/auth?clear=true';
+        }
+      }
     }
 
     return this.createUnauthorizedResponse(headers);

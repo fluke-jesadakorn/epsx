@@ -727,7 +727,7 @@ export class SharedWeb3AuthClient {
   async fetchCurrentUser(): Promise<UserInfoResponse | null> {
     if (this.user !== null) { return this.user; }
     if (this.accessToken !== null && this.accessToken !== '') {
-      return await Promise.resolve(this.decodeUserFromToken(this.accessToken));
+      return this.decodeUserFromToken(this.accessToken);
     }
     return null;
   }

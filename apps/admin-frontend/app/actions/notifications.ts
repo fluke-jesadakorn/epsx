@@ -39,6 +39,18 @@ export async function getAdminNotificationsAction(filters: {
   }
 }
 
+export async function markAllAsReadAction(): Promise<{ success: boolean; updated_count: number }> {
+  const client = getAdminServerActionClient();
+  const notifications = createNotificationsClient(client);
+
+  try {
+    return await notifications.markAllAsRead();
+  } catch (error) {
+    logger.error('Failed to mark all notifications as read:', error);
+    return { success: false, updated_count: 0 };
+  }
+}
+
 export async function deleteAdminNotificationAction(notificationId: string): Promise<{ success: boolean; message: string }> {
   const client = getAdminServerActionClient();
   const notifications = createNotificationsClient(client);

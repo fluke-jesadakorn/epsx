@@ -283,83 +283,12 @@ async fn validate_bearer_token(token: &str, app_state: &AppState) -> Result<Web3
                 });
             },
             Err(e) => {
-                debug!("RS256 token validation failed: {}, trying legacy HS256 fallback", e);
+                warn!("RS256 token validation failed: {}", e);
             }
         }
     }
-    
-    // Fallback: Try HS256 validation (legacy method - matches SSE handler)
-    if let Some(wallet_address) = validate_token_hs256_legacy(token) {
-        warn!("Token validated using legacy HS256 method (deprecated) for wallet: {}", wallet_address);
-        return Ok(Web3AuthContext {
-            wallet_address: wallet_address.to_lowercase(),
-            permissions: vec![], // Legacy tokens don't have permissions in claims
-            plans: vec![],
-            is_active: true,
-            verified_at: Utc::now(),
-            signature_hash: String::new(),
-            chain_id: 56,
-            last_auth_at: Utc::now(),
-            bearer_token: Some(token.to_string()),
-            token_expires_at: None,
-            auth_method: AuthMethod::BearerToken,
-        });
-    }
-    
-    Err(Web3AuthError::TokenVerificationFailed("Token validation failed with all methods".to_string()))
-}
 
-/// Legacy HS256 token validation (fallback for older tokens)
-/// Matches the logic in SSE handler's extract_wallet_from_token function
-fn validate_token_hs256_legacy(token: &str) -> Option<String> {
-    use jsonwebtoken::{decode, DecodingKey, Validation, Algorithm};
-    
-    #[derive(Debug, serde::Deserialize)]
-    struct LegacyTokenClaims {
-        #[serde(default)]
-        wallet_address: String,
-        #[serde(default)]
-        sub: String,
-    }
-    
-    // First, try legacy format: "web3_token_{wallet_address}"
-    if token.starts_with("web3_token_") {
-        let wallet = token.strip_prefix("web3_token_").unwrap_or("").to_string();
-        if !wallet.is_empty() && wallet.len() >= 20 {
-            debug!("Validated legacy web3_token_ format for wallet: {}", wallet);
-            return Some(wallet.to_lowercase());
-        }
-    }
-    
-    // Fall back to JWT decoding using JWT_SECRET environment variable
-    let secret = std::env::var("JWT_SECRET")
-        .unwrap_or_else(|_| "epsx-web3-bearer-token-secret-key".to_string());
-    let decoding_key = DecodingKey::from_secret(secret.as_bytes());
-    
-    let mut validation = Validation::new(Algorithm::HS256);
-    validation.validate_exp = true;
-    
-    // Try to decode token
-    match decode::<LegacyTokenClaims>(token, &decoding_key, &validation) {
-        Ok(token_data) => {
-            let wallet = if !token_data.claims.wallet_address.is_empty() {
-                token_data.claims.wallet_address
-            } else {
-                token_data.claims.sub
-            };
-            
-            if !wallet.is_empty() && wallet != "anonymous" {
-                debug!("Validated legacy HS256 JWT for wallet: {}", wallet);
-                Some(wallet.to_lowercase())
-            } else {
-                None
-            }
-        }
-        Err(e) => {
-            debug!("Legacy HS256 JWT validation failed: {:?}", e);
-            None
-        }
-    }
+    Err(Web3AuthError::TokenVerificationFailed("RS256 token validation failed".to_string()))
 }
 
 /// Extract Web3 authentication context from request

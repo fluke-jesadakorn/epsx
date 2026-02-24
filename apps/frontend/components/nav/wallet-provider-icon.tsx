@@ -217,8 +217,8 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
       <DropdownMenuTrigger asChild>
         <button
           className={`flex items-center gap-2 rounded-2xl px-3 py-2 text-sm font-medium transition-all duration-200
-            text-slate-600 hover:bg-slate-50/80 hover:text-slate-700 
-            dark:text-slate-300 dark:hover:bg-slate-700 dark:bg-slate-800/40 dark:hover:text-slate-200 
+            text-slate-600 hover:bg-slate-50/80 hover:text-slate-700
+            dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-slate-200
             bg-transparent border-0 ${className}`}
         >
           <Wallet className={`h-4 w-4 ${status.color === 'text-red-500' ? 'text-red-500' : 'text-orange-500'}`} />

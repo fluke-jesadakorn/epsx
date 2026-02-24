@@ -52,7 +52,7 @@ export function Header({ user }: HeaderProps) {
       <header className="sticky top-0 z-40 border-b border-gray-200 dark:border-slate-700 bg-white dark:bg-[#13151e]">
         <div className="flex h-14 items-center justify-between px-4 gap-3">
           <div className="flex items-center gap-2 min-w-0">
-            <span className="text-lg font-semibold text-foreground whitespace-nowrap">EPSX</span>
+            <img src="/epsx-logo.svg" alt="EPSX" className="h-6 w-auto" />
             <span className="text-xs text-muted-foreground font-medium uppercase tracking-wider whitespace-nowrap">Admin</span>
           </div>
           <div className="h-8 w-24 bg-muted rounded-md animate-pulse flex-shrink-0" />
@@ -67,7 +67,7 @@ export function Header({ user }: HeaderProps) {
         {/* Logo / Title */}
         <div className="flex items-center gap-2 min-w-0 flex-shrink">
           <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity min-w-0">
-            <span className="text-xl font-bold bg-gradient-to-r from-[#1fc7d4] to-[#7645d9] bg-clip-text text-transparent whitespace-nowrap">EPSX</span>
+            <img src="/epsx-logo.svg" alt="EPSX" className="h-7 w-auto" />
             <span className="text-[10px] font-bold text-cyan-400 uppercase tracking-widest whitespace-nowrap hidden sm:inline-block">Admin</span>
           </Link>
         </div>

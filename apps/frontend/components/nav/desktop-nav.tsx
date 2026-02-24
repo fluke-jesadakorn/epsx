@@ -21,11 +21,10 @@ function GroupDropdown({ group }: { group: NavGroup }) {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button
-          className={`flex items-center gap-1 px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
-            active
+          className={`flex items-center gap-1 px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${active
               ? 'text-slate-900 dark:text-white'
               : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
-          }`}
+            }`}
         >
           {group.icon != null && <group.icon className="h-4 w-4 text-orange-500" />}
           {group.label}
@@ -45,11 +44,10 @@ function GroupDropdown({ group }: { group: NavGroup }) {
             <DropdownMenuItem key={item.key} asChild className="p-0">
               <Link
                 href={item.href}
-                className={`flex items-center gap-2.5 px-2.5 py-2 rounded-md text-sm cursor-pointer transition-colors ${
-                  itemActive
+                className={`flex items-center gap-2.5 px-2.5 py-2 rounded-md text-sm cursor-pointer transition-colors ${itemActive
                     ? 'bg-slate-100 text-slate-900 dark:bg-slate-800 dark:text-white'
                     : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white'
-                }`}
+                  }`}
               >
                 {Icon != null && <Icon className="h-4 w-4 shrink-0 text-orange-500" />}
                 <div className="min-w-0">
@@ -72,9 +70,7 @@ export function DesktopNav() {
     <div className="hidden lg:flex items-center gap-6">
       {/* Logo */}
       <Link href="/" className="flex items-center hover:opacity-80 transition-opacity">
-        <span className="text-xl font-bold bg-gradient-to-r from-blue-500 to-purple-600 bg-clip-text text-transparent">
-          EPSX
-        </span>
+        <img src="/epsx-logo.svg" alt="EPSX" className="h-8 w-auto" />
       </Link>
 
       {/* Group dropdowns */}

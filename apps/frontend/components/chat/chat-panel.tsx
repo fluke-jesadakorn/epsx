@@ -66,10 +66,15 @@ export function ChatPanel({ isOpen, onClose, walletAddr }: PanelProps) {
     }
   }, [isOpen, loadData]);
 
-  const handleCreateConvo = useCallback(async (topicId: string, subject: string, message: string) => {
+  const handleCreateConvo = useCallback(async (topicId: string, subject: string, message: string, turnstileToken?: string, file?: File) => {
     setLoading(true);
-    const convo = await createConversationAction(topicId, subject, message);
+    const convo = await createConversationAction(topicId, subject, message, turnstileToken);
     if (convo) {
+      if (file) {
+        const formData = new FormData();
+        formData.append('file', file);
+        void uploadAttachmentAction(convo.id, formData);
+      }
       setConvos((prev) => [convo, ...prev]);
       setActiveConvo(convo);
       const newMsgs = await getMessagesAction(convo.id);

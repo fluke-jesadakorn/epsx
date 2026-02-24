@@ -547,16 +547,18 @@ impl UnifiedRouteBuilder {
         sse_route.merge(notification_routes)
     }
 
-    // Create permissive CORS for EventSource connections
+    // Create CORS for EventSource connections - restricted to known origins
     fn create_sse_cors_layer() -> CorsLayer {
-        use tower_http::cors::Any;
-        use axum::http::HeaderName;
+        use axum::http::{HeaderName, HeaderValue};
         use std::time::Duration;
 
-        // EventSource cannot send custom headers or credentials
-        // Use permissive CORS without credentials
-        CorsLayer::new()
-            .allow_origin(Any)
+        let allowed_origins = crate::web::security::get_allowed_origins();
+        let origins: Vec<HeaderValue> = allowed_origins
+            .into_iter()
+            .filter_map(|o| o.parse::<HeaderValue>().ok())
+            .collect();
+
+        let mut layer = CorsLayer::new()
             .allow_methods([Method::GET, Method::OPTIONS])
             .allow_headers([
                 HeaderName::from_static("accept"),
@@ -568,7 +570,13 @@ impl UnifiedRouteBuilder {
                 HeaderName::from_static("cache-control"),
             ])
             .allow_credentials(false)
-            .max_age(Duration::from_secs(3600))
+            .max_age(Duration::from_secs(3600));
+
+        if !origins.is_empty() {
+            layer = layer.allow_origin(origins);
+        }
+
+        layer
     }
 
     // ============================================================================

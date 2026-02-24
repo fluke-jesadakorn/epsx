@@ -66,14 +66,15 @@ export function useNotificationBell(
     onNotificationReceived,
   } = options
 
+  // Store options in a ref so mutable callbacks/objects don't cause infinite re-renders
+  const optionsRef = useRef(options)
+  optionsRef.current = options
+
+
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [count, setCount] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-
-  // Use refs to stabilize dependencies
-  const optionsRef = useRef(options)
-  optionsRef.current = options
 
   // SSE real-time notifications (only if apiClient is provided)
   const sseEnabled = enableSSE && Boolean(apiClient);
@@ -107,7 +108,7 @@ export function useNotificationBell(
 
         // Show browser notification for high priority
         if (
-          browserNotifications &&
+          optionsRef.current.browserNotifications &&
           (sseNotif.priority === 'high' || sseNotif.priority === 'critical')
         ) {
           const notifType =
@@ -119,7 +120,7 @@ export function useNotificationBell(
                   ? 'analytics'
                   : 'system'
 
-          browserNotifications.showNotification(
+          optionsRef.current.browserNotifications.showNotification(
             notifType,
             sseNotif.title,
             sseNotif.message
@@ -127,9 +128,9 @@ export function useNotificationBell(
         }
 
         // Call custom callback
-        onNotificationReceived?.(newNotification)
+        optionsRef.current.onNotificationReceived?.(newNotification)
       },
-      [browserNotifications, onNotificationReceived]
+      [] // Options accessed via ref
     ),
     onError: useCallback((sseError: string) => {
       logger.warn('SSE connection error:', sseError)
@@ -147,6 +148,7 @@ export function useNotificationBell(
       setNotifications([])
       setCount(0)
       setLoading(false)
+      setError(null)
       return
     }
 
@@ -154,7 +156,7 @@ export function useNotificationBell(
       setLoading(true)
       setError(null)
 
-      const data = await actions.getNotifications({
+      const data = await optionsRef.current.actions.getNotifications({
         page: 1,
         limit: MAX_DROPDOWN_NOTIFICATIONS,
         status: 'unread',
@@ -194,13 +196,14 @@ export function useNotificationBell(
     } finally {
       setLoading(false)
     }
-  }, [actions, isAuthenticated, walletAddress])
+  }, [isAuthenticated, walletAddress]) // Options accessed via ref
+
 
   // Mark notification as read using server action
   const markAsRead = useCallback(
     async (notificationId: string) => {
       try {
-        await actions.markAsRead(notificationId)
+        await optionsRef.current.actions.markAsRead(notificationId)
 
         // Update local state
         setNotifications((prev) =>
@@ -211,13 +214,13 @@ export function useNotificationBell(
         logger.error('Failed to mark notification as read:', err)
       }
     },
-    [actions]
+    [] // Options accessed via ref
   )
 
   // Mark all notifications as read using server action
   const markAllAsRead = useCallback(async () => {
     try {
-      await actions.markAllAsRead()
+      await optionsRef.current.actions.markAllAsRead()
 
       // Update local state
       setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))
@@ -225,88 +228,12 @@ export function useNotificationBell(
     } catch (err) {
       logger.error('Failed to mark all notifications as read:', err)
     }
-  }, [actions])
+  }, []) // Options accessed via ref
 
   // Fetch notifications when authentication state changes
   useEffect(() => {
-    const { isAuthenticated: currentIsAuthenticated, walletAddress: currentWalletAddress } = optionsRef.current
-
-    if (currentIsAuthenticated === false || currentWalletAddress === undefined || currentWalletAddress === '') {
-      setNotifications([])
-      setCount(0)
-      setLoading(false)
-      setError(null)
-      return
-    }
-
-    let isMounted = true
-    setLoading(true)
-    setError(null)
-
-    const loadNotifications = async () => {
-      try {
-        const { actions: currentActions } = optionsRef.current
-        const data = await currentActions.getNotifications({
-          page: 1,
-          limit: MAX_DROPDOWN_NOTIFICATIONS,
-          status: 'unread',
-        })
-
-        if (!isMounted) { return }
-
-        // Safety check: ensure response has expected structure
-        if (!data.data?.notifications) {
-          logger.warn('Unexpected notification response format:', data)
-          setNotifications([])
-          setCount(0)
-          return
-        }
-
-        const mappedNotifications: Notification[] = data.data.notifications.map((n: ApiNotification) => ({
-          id: n.id,
-          title: n.title,
-          message: n.message,
-          type: isNotificationType(n.notification_type) ? n.notification_type : 'system',
-          priority: isNotificationPriority(n.priority) ? n.priority : 'normal',
-          timestamp: n.timestamp,
-          expires_at: n.expires_at,
-          action_url: n.action_url,
-          image_url: n.image_url,
-          wallet_address: n.wallet_address,
-          data: n.data,
-          read: Boolean(n.read_at),
-        }))
-
-        setNotifications(mappedNotifications)
-        setCount(data.data.unread_count ?? 0)
-      } catch (err) {
-        if (!isMounted) { return }
-
-        // Silently fail if not authenticated - this is expected
-        const apiError = err as { status?: number }
-        if (apiError.status !== 401) {
-          logger.warn('Failed to fetch notifications:', err)
-          setError('Failed to load notifications')
-        }
-        setNotifications([])
-        setCount(0)
-      } finally {
-        if (isMounted) {
-          setLoading(false)
-        }
-      }
-    }
-
-    void loadNotifications()
-
-    return () => {
-      isMounted = false
-    }
-  }, [isAuthenticated, walletAddress]) // Only depend on primitive values
-
-  // Use ref so the effect doesn't re-run just because reconnectSSE got a new reference
-  const reconnectSSERef = useRef(reconnectSSE)
-  reconnectSSERef.current = reconnectSSE
+    void fetchNotifications()
+  }, [fetchNotifications])
 
   return {
     notifications,

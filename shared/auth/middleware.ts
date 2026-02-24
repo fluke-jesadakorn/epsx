@@ -203,6 +203,7 @@ function checkIsPublicRoute(pathname: string, publicRoutes: string[] | undefined
  */
 function applySecurityHeaders(response: NextResponse, pathname: string) {
     const headers = response.headers;
+    const isProd = process.env.NODE_ENV === 'production';
 
     // Standard security headers
     headers.set('X-DNS-Prefetch-Control', 'on');
@@ -210,6 +211,27 @@ function applySecurityHeaders(response: NextResponse, pathname: string) {
     headers.set('X-Content-Type-Options', 'nosniff');
     headers.set('X-XSS-Protection', '1; mode=block');
     headers.set('Referrer-Policy', 'origin-when-cross-origin');
+    headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=()');
+
+    // HSTS - enforce HTTPS in production
+    if (isProd) {
+        headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+    }
+
+    // Content Security Policy
+    const csp = [
+        "default-src 'self'",
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://challenges.cloudflare.com",
+        "style-src 'self' 'unsafe-inline'",
+        "img-src 'self' data: blob: https:",
+        "font-src 'self' data:",
+        "connect-src 'self' https://*.epsx.io wss://*.epsx.io https://challenges.cloudflare.com https://*.walletconnect.com wss://*.walletconnect.com https://*.walletconnect.org wss://*.walletconnect.org",
+        "frame-src https://challenges.cloudflare.com https://verify.walletconnect.com https://verify.walletconnect.org",
+        "object-src 'none'",
+        "base-uri 'self'",
+        "form-action 'self'",
+    ].join('; ');
+    headers.set('Content-Security-Policy', csp);
 
     // Conditional caching headers
     if (pathname.includes('/api/')) {

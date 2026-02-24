@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { TurnstileWidget } from '@/shared/components/turnstile-widget';
 import type { ChatTopic } from '@/shared/api/chat';
 import {
@@ -17,6 +17,8 @@ import {
   ArrowLeft,
   Send,
   ChevronRight,
+  Paperclip,
+  X,
   type LucideIcon
 } from 'lucide-react';
 
@@ -46,7 +48,7 @@ const DEFAULT_COLOR = { bg: 'bg-muted', icon: 'text-muted-foreground', border: '
 
 interface TopicSelectorProps {
   topics: ChatTopic[];
-  onSelect: (topicId: string, subject: string, message: string, turnstileToken?: string) => void;
+  onSelect: (topicId: string, subject: string, message: string, turnstileToken?: string, file?: File) => void;
   compact?: boolean;
 }
 
@@ -56,13 +58,21 @@ export function ChatTopicSelector({ topics, onSelect, compact }: TopicSelectorPr
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const handleSubmit = useCallback(() => {
     if (selected && subject.trim() && message.trim() && !sending && turnstileToken !== null) {
       setSending(true);
-      onSelect(selected, subject.trim(), message.trim(), turnstileToken);
+      onSelect(selected, subject.trim(), message.trim(), turnstileToken, pendingFile ?? undefined);
     }
-  }, [selected, subject, message, onSelect, sending, turnstileToken]);
+  }, [selected, subject, message, onSelect, sending, turnstileToken, pendingFile]);
+
+  const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) setPendingFile(file);
+    e.target.value = '';
+  }, []);
 
   const getIcon = (iconName: string | null) => {
     if (!iconName) return HelpCircle;
@@ -129,6 +139,36 @@ export function ChatTopicSelector({ topics, onSelect, compact }: TopicSelectorPr
               className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-white/8 bg-white dark:bg-slate-800/30 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500/30 transition-all resize-none placeholder:text-muted-foreground/40"
             />
           </div>
+
+          <div className="flex items-center gap-2 mt-1">
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/jpeg,image/png,image/gif,image/webp,application/pdf"
+              onChange={handleFileChange}
+              className="hidden"
+            />
+            <button
+              type="button"
+              onClick={() => fileRef.current?.click()}
+              disabled={sending}
+              className="flex items-center gap-1.5 text-xs text-muted-foreground/60 hover:text-muted-foreground transition-colors disabled:opacity-30"
+            >
+              <Paperclip className="w-3.5 h-3.5" />
+              Attach file
+            </button>
+            <span className="text-[10px] text-muted-foreground/30">JPG, PNG, GIF, WebP, PDF · Max 5MB</span>
+          </div>
+
+          {pendingFile !== null && (
+            <div className="flex items-center gap-2 mt-2 px-3 py-2 bg-blue-500/10 border border-blue-500/20 rounded-xl text-xs text-blue-400">
+              <Paperclip className="w-3.5 h-3.5 shrink-0" />
+              <span className="flex-1 truncate">{pendingFile.name}</span>
+              <button onClick={() => setPendingFile(null)} className="shrink-0 hover:opacity-70">
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
         </div>
 
         <TurnstileWidget

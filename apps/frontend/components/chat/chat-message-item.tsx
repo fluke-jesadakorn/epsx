@@ -1,10 +1,11 @@
 'use client';
 
 import type { ChatAttachment, ChatMessage } from '@/shared/api/chat';
+import { ChatMarkdown } from '@/shared/components/chat/chat-markdown';
+import { ImageLightbox } from '@/shared/components/media/image-lightbox';
 import { formatDistanceToNow } from 'date-fns';
-import { Bot, Check, CheckCheck, Download, FileText, Headset, Info, X, ZoomIn, ZoomOut } from 'lucide-react';
-import type React from 'react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { Bot, Check, CheckCheck, Download, FileText, Headset, Info } from 'lucide-react';
+import { useState } from 'react';
 
 interface MsgItemProps {
   msg: ChatMessage;
@@ -12,175 +13,11 @@ interface MsgItemProps {
   isRead?: boolean;
 }
 
-function getBackendUrl(): string {
-  if (typeof window !== 'undefined') {
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { getBackendUrl } = require('@/shared/utils/url-resolver') as { getBackendUrl: (ctx: string) => string };
-      return getBackendUrl('client');
-    } catch { /* ignore */ }
-  }
-  return '';
-}
-
-function SimpleMarkdown({ text }: { text: string }) {
-  const lines = text.split('\n');
-  return (
-    <div className="whitespace-pre-wrap break-words">
-      {lines.map((line, i) => {
-        const parts: React.ReactNode[] = [];
-        let rest = line;
-        let key = 0;
-        // inline: bold, italic, code, link
-        const re = /(\*\*(.+?)\*\*|_(.+?)_|`([^`]+)`|\[([^\]]+)\]\(([^)]+)\))/g;
-        let last = 0;
-        let m: RegExpExecArray | null;
-        while ((m = re.exec(rest)) !== null) {
-          if (m.index > last) parts.push(rest.slice(last, m.index));
-          if (m[2] !== undefined) parts.push(<strong key={key++} className="font-bold">{m[2]}</strong>);
-          else if (m[3] !== undefined) parts.push(<em key={key++} className="italic">{m[3]}</em>);
-          else if (m[4] !== undefined) parts.push(<code key={key++} className="bg-black/20 rounded px-1 text-xs font-mono">{m[4]}</code>);
-          else if (m[5] !== undefined) {
-            try {
-              const url = m[6] as string;
-              const parsedUrl = new URL(url);
-              const isTrusted = parsedUrl.hostname.endsWith('epsx.io') || parsedUrl.hostname === 'localhost';
-              if (isTrusted) {
-                parts.push(<a key={key++} href={url} target="_blank" rel="noopener noreferrer" className="underline opacity-90">{m[5]}</a>);
-              } else {
-                parts.push(<span key={key++} className="text-red-400/80 italic text-xs" title="External links are restricted for security reasons">[External Link Removed]</span>);
-              }
-            } catch {
-              parts.push(<span key={key++}>{m[5]}</span>);
-            }
-          }
-          last = m.index + m[0].length;
-        }
-        if (last < rest.length) parts.push(rest.slice(last));
-        return <p key={i} className="mb-1 last:mb-0">{parts.length > 0 ? parts : '\u00a0'}</p>;
-      })}
-    </div>
-  );
-}
-
-function ImageLightbox({ src, alt, onClose }: { src: string; alt: string; onClose: () => void }) {
-  const [zoom, setZoom] = useState(1);
-  const [pan, setPan] = useState({ x: 0, y: 0 });
-  const [isDragging, setIsDragging] = useState(false);
-  const dragStart = useRef({ x: 0, y: 0 });
-
-  const zoomIn = useCallback(() => setZoom(z => Math.min(z + 0.5, 4)), []);
-  const zoomOut = useCallback(() => setZoom(z => {
-    const next = Math.max(z - 0.5, 0.5);
-    if (next <= 1) setPan({ x: 0, y: 0 });
-    return next;
-  }), []);
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-      if (e.key === '+' || e.key === '=') zoomIn();
-      if (e.key === '-') zoomOut();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose, zoomIn, zoomOut]);
-
-  const handleWheel = useCallback((e: React.WheelEvent) => {
-    e.stopPropagation();
-    setZoom(z => {
-      const next = Math.max(0.5, Math.min(4, z * (1 - e.deltaY * 0.001)));
-      if (next <= 1) setPan({ x: 0, y: 0 });
-      return next;
-    });
-  }, []);
-
-  const handlePointerDown = (e: React.PointerEvent<HTMLImageElement>) => {
-    e.stopPropagation();
-    if (zoom <= 1) return;
-    setIsDragging(true);
-    dragStart.current = { x: e.clientX - pan.x, y: e.clientY - pan.y };
-    e.currentTarget.setPointerCapture(e.pointerId);
-  };
-
-  const handlePointerMove = (e: React.PointerEvent<HTMLImageElement>) => {
-    e.stopPropagation();
-    if (!isDragging) return;
-    setPan({ x: e.clientX - dragStart.current.x, y: e.clientY - dragStart.current.y });
-  };
-
-  const handlePointerUp = (e: React.PointerEvent<HTMLImageElement>) => {
-    e.stopPropagation();
-    setIsDragging(false);
-    e.currentTarget.releasePointerCapture(e.pointerId);
-  };
-
-  return (
-    <div
-      className="fixed inset-0 z-[9999] bg-black/85 backdrop-blur-sm flex items-center justify-center overflow-hidden"
-      onClick={onClose}
-      onWheel={handleWheel}
-    >
-      {/* Controls */}
-      <div className="absolute top-4 right-4 flex items-center gap-1.5 z-10">
-        <button
-          onClick={e => { e.stopPropagation(); zoomIn(); }}
-          className="w-9 h-9 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors"
-        >
-          <ZoomIn className="w-4 h-4" />
-        </button>
-        <button
-          onClick={e => { e.stopPropagation(); zoomOut(); }}
-          className="w-9 h-9 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors"
-        >
-          <ZoomOut className="w-4 h-4" />
-        </button>
-        <button
-          onClick={e => { e.stopPropagation(); onClose(); }}
-          className="w-9 h-9 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors ml-1"
-        >
-          <X className="w-4 h-4" />
-        </button>
-      </div>
-
-      {/* Zoom label */}
-      <div className="absolute bottom-4 inset-x-0 text-center pointer-events-none z-10">
-        <span className="text-white/40 text-xs px-3 py-1.5 rounded-full bg-black/50 backdrop-blur-md">
-          {Math.round(zoom * 100)}% · scroll to zoom · drag to pan · esc to close
-        </span>
-      </div>
-
-      {/* Image Container */}
-      <div
-        className="w-full h-full flex items-center justify-center"
-      >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={src}
-          alt={alt}
-          draggable={false}
-          onPointerDown={handlePointerDown}
-          onPointerMove={handlePointerMove}
-          onPointerUp={handlePointerUp}
-          onPointerCancel={handlePointerUp}
-          onClick={e => e.stopPropagation()}
-          style={{
-            transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
-            transition: isDragging ? 'none' : 'transform 0.1s ease-out',
-            cursor: zoom > 1 ? (isDragging ? 'grabbing' : 'grab') : 'default',
-            touchAction: 'none'
-          }}
-          className="max-w-[90vw] max-h-[90vh] object-contain rounded-xl select-none"
-        />
-      </div>
-    </div>
-  );
-}
 
 function AttachmentView({ att }: { att: ChatAttachment }) {
   const [open, setOpen] = useState(false);
   const isImage = att.file_type.startsWith('image/');
-  const src = att.url.startsWith('/api') ? `${getBackendUrl()}${att.url}` : att.url;
+  const src = att.url;
 
   if (isImage) {
     return (
@@ -190,7 +27,6 @@ function AttachmentView({ att }: { att: ChatAttachment }) {
           onClick={() => setOpen(true)}
           className="block mt-2 cursor-zoom-in focus:outline-none"
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={src}
             alt={att.filename}
@@ -263,7 +99,7 @@ export function ChatMessageItem({ msg, isUser, isRead }: MsgItemProps) {
             }`}
         >
           {!isAttachmentOnly && (
-            <SimpleMarkdown text={msg.content} />
+            <ChatMarkdown text={msg.content} />
           )}
           {attachments.map((att, i) => (
             <AttachmentView key={i} att={att} />

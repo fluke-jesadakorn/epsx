@@ -18,8 +18,8 @@ import {
   Home,
   Key,
   LayoutDashboard,
-  Link as LinkIcon,
   Link2,
+  Link as LinkIcon,
   Lock,
   MessageCircle,
   Palette,
@@ -169,8 +169,8 @@ export function Sidebar() {
   const toggleExpanded = (itemId: string) => {
     setExpandedItems(prev => {
       const next = new Set(prev);
-      if (next.has(itemId)) {next.delete(itemId);}
-      else {next.add(itemId);}
+      if (next.has(itemId)) { next.delete(itemId); }
+      else { next.add(itemId); }
       return next;
     });
   };
@@ -191,7 +191,7 @@ export function Sidebar() {
             <Home className="w-5 h-5" />
           </div>
           <div>
-            <h1 className="text-xl font-bold tracking-tight text-foreground">EPSX</h1>
+            <img src="/epsx-logo.svg" alt="EPSX" className="h-8 w-auto mb-1" />
             <p className="text-[10px] uppercase tracking-[0.2em] font-bold text-cyan-400 -mt-1">Admin</p>
           </div>
         </div>

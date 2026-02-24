@@ -425,7 +425,10 @@ impl UnifiedWeb3AuthService {
             statement: Some("Sign in to EPSX Data Analytics Platform".to_string()),
             uri,
             version: siwe::Version::V1,
-            chain_id: 1, // Ethereum mainnet (could be configurable)
+            chain_id: std::env::var("CHAIN_ID")
+                .ok()
+                .and_then(|v| v.parse::<u64>().ok())
+                .unwrap_or(56), // Default to BSC Mainnet
             nonce: nonce.to_string(),
             issued_at,
             expiration_time,

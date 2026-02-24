@@ -5,10 +5,12 @@ import { assignAgent, getMessages, markAsRead, sendReply, updateStatus } from '@
 import type { ChatAttachment, ChatConversation, ChatMessage, ChatTopic } from '@/shared/api/chat';
 import { COOKIES } from '@/shared/auth/cookies';
 import { useSharedAuth } from '@/shared/components/auth';
+import { ChatMarkdown } from '@/shared/components/chat/chat-markdown';
 import type { ChatSSEEvent } from '@/shared/hooks/use-chat-sse';
 import { useChatSSE } from '@/shared/hooks/use-chat-sse';
 import { ArrowLeft, Bot, Check, CheckCheck, Download, FileText, Headset, MessageCircle, Tag, User, UserCheck, Wallet, X, ZoomIn, ZoomOut } from 'lucide-react';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { ChatReplyInput } from './chat-reply-input';
 import { ChatStatusBadge } from './chat-status-badge';
 
@@ -83,44 +85,6 @@ async function notifyTyping(convId: string, isTyping: boolean): Promise<void> {
   } catch { /* non-critical */ }
 }
 
-function SimpleMarkdown({ text }: { text: string }) {
-  const lines = text.split('\n');
-  return (
-    <div className="whitespace-pre-wrap break-words">
-      {lines.map((line, i) => {
-        const parts: React.ReactNode[] = [];
-        let rest = line;
-        let key = 0;
-        const re = /(\*\*(.+?)\*\*|_(.+?)_|`([^`]+)`|\[([^\]]+)\]\(([^)]+)\))/g;
-        let last = 0;
-        let m: RegExpExecArray | null;
-        while ((m = re.exec(rest)) !== null) {
-          if (m.index > last) parts.push(rest.slice(last, m.index));
-          if (m[2] !== undefined) parts.push(<strong key={key++} className="font-bold">{m[2]}</strong>);
-          else if (m[3] !== undefined) parts.push(<em key={key++} className="italic">{m[3]}</em>);
-          else if (m[4] !== undefined) parts.push(<code key={key++} className="bg-black/10 rounded px-1 text-xs font-mono">{m[4]}</code>);
-          else if (m[5] !== undefined) {
-            try {
-              const url = m[6] as string;
-              const parsedUrl = new URL(url);
-              const isTrusted = parsedUrl.hostname.endsWith('epsx.io') || parsedUrl.hostname === 'localhost';
-              if (isTrusted) {
-                parts.push(<a key={key++} href={url} target="_blank" rel="noopener noreferrer" className="underline opacity-90">{m[5]}</a>);
-              } else {
-                parts.push(<span key={key++} className="text-red-400/80 italic text-xs" title="External links are restricted for security reasons">[External Link Removed]</span>);
-              }
-            } catch {
-              parts.push(<span key={key++}>{m[5]}</span>);
-            }
-          }
-          last = m.index + m[0].length;
-        }
-        if (last < rest.length) parts.push(rest.slice(last));
-        return <p key={i} className="mb-1 last:mb-0">{parts.length > 0 ? parts : '\u00a0'}</p>;
-      })}
-    </div>
-  );
-}
 
 function ImageLightbox({ src, alt, onClose }: { src: string; alt: string; onClose: () => void }) {
   const [zoom, setZoom] = useState(1);
@@ -174,7 +138,7 @@ function ImageLightbox({ src, alt, onClose }: { src: string; alt: string; onClos
     e.currentTarget.releasePointerCapture(e.pointerId);
   };
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-[9999] bg-black/85 backdrop-blur-sm flex items-center justify-center overflow-hidden"
       onClick={onClose}
@@ -196,9 +160,7 @@ function ImageLightbox({ src, alt, onClose }: { src: string; alt: string; onClos
           {Math.round(zoom * 100)}% · scroll to zoom · drag to pan · esc to close
         </span>
       </div>
-      <div
-        className="w-full h-full flex items-center justify-center"
-      >
+      <div className="w-full h-full flex items-center justify-center">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={src}
@@ -218,14 +180,15 @@ function ImageLightbox({ src, alt, onClose }: { src: string; alt: string; onClos
           className="max-w-[90vw] max-h-[90vh] object-contain rounded-xl select-none"
         />
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
 function AttachmentView({ att, isRight }: { att: ChatAttachment; isRight: boolean }) {
   const [open, setOpen] = useState(false);
   const isImage = att.file_type.startsWith('image/');
-  const src = att.url.startsWith('/api') ? `${getBackendUrl()}${att.url}` : att.url;
+  const src = att.url;
 
   if (isImage) {
     return (
@@ -460,7 +423,7 @@ export function ChatConversationView({ conv, topics, onUpdate, onBack }: Props) 
                       : 'bg-gray-100 dark:bg-slate-800/50 border border-gray-200 dark:border-slate-700 text-foreground rounded-bl-md'
                       }`}>
                       {!isAttachmentOnly && (
-                        <SimpleMarkdown text={m.content} />
+                        <ChatMarkdown text={m.content} />
                       )}
                       {attachments.map((att, ai) => (
                         <AttachmentView key={ai} att={att} isRight={isRight} />

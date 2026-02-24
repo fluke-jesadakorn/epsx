@@ -145,9 +145,14 @@ export function ChatInbox({ topics, initConvos, userAddr }: Props) {
   }, [selected]);
 
   const handleCreate = useCallback(
-    async (topicId: string, subject: string, message: string, turnstileToken?: string) => {
+    async (topicId: string, subject: string, message: string, turnstileToken?: string, file?: File) => {
       const convo = await createConversationAction(topicId, subject, message, turnstileToken);
       if (convo) {
+        if (file) {
+          const formData = new FormData();
+          formData.append('file', file);
+          void uploadAttachmentAction(convo.id, formData);
+        }
         await reloadConvos();
         setSelected(convo.id);
         setShowNew(false);

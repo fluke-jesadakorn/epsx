@@ -18,6 +18,138 @@ import { formatRelativeTime } from '@/shared/utils';
 import type { WalletData } from './types';
 import { getPlanDisplay, PLATFORM_ICONS, PLATFORM_LABELS, STATUS_CONFIG } from './wallet-card-sections';
 
+interface WalletMobileCardProps {
+    wallet: WalletData;
+    onView?: () => void;
+    onEnable?: () => void;
+}
+
+export function WalletMobileCard({ wallet, onView, onEnable }: WalletMobileCardProps) {
+    const [copied, setCopied] = useState(false);
+    const router = useRouter();
+    const isDisabled = wallet.status === 'disabled';
+    const statusConfig = STATUS_CONFIG[wallet.status];
+    const plan = getPlanDisplay(wallet);
+
+    const handleCopy = async (e: React.MouseEvent) => {
+        e.stopPropagation();
+        const success = await copyToClipboard(wallet.walletAddress);
+        if (success) {
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        }
+    };
+
+    return (
+        <div
+            className={cn(
+                'group relative overflow-hidden rounded-2xl border border-border/60 bg-card p-4 cursor-pointer transition-all hover:border-[#7645d9]/30 hover:shadow-lg hover:shadow-[#7645d9]/10',
+                isDisabled && 'opacity-60'
+            )}
+            onClick={onView}
+        >
+            {/* Top row: avatar + address + status */}
+            <div className="flex items-center gap-3 mb-3">
+                <div className="relative shrink-0">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-[#1fc7d4] to-[#7645d9] text-xs font-black text-white">
+                        {wallet.walletAddress.slice(2, 4).toUpperCase()}
+                    </div>
+                    <div className={cn('absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-background', statusConfig.dotClass)} />
+                </div>
+                <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5">
+                        <span className="font-mono text-sm font-semibold truncate">
+                            {wallet.walletAddress.slice(0, 6)}...{wallet.walletAddress.slice(-4)}
+                        </span>
+                        <button
+                            onClick={(e) => void handleCopy(e)}
+                            className={cn('shrink-0 rounded p-0.5 transition-colors', copied ? 'text-emerald-400' : 'text-muted-foreground hover:text-foreground')}
+                        >
+                            {copied ? <CheckCircle2 size={11} /> : <Copy size={11} />}
+                        </button>
+                    </div>
+                    {wallet.label !== undefined && wallet.label !== '' ? (
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 bg-[#1fc7d4]/10 text-[#1fc7d4] border-[#1fc7d4]/20 mt-0.5">
+                            {wallet.label}
+                        </Badge>
+                    ) : wallet.note !== undefined && wallet.note !== '' ? (
+                        <span className="text-[10px] text-muted-foreground truncate block mt-0.5 max-w-[160px]">{wallet.note}</span>
+                    ) : null}
+                </div>
+                <Badge variant="outline" className={cn('text-xs shrink-0', statusConfig.className)}>
+                    {statusConfig.label}
+                </Badge>
+            </div>
+
+            {/* Info row: plan + dates */}
+            <div className="grid grid-cols-3 gap-2 mb-3 text-xs">
+                <div className="flex flex-col gap-0.5">
+                    <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Plan</span>
+                    <div className="flex items-center gap-1 text-foreground font-medium">
+                        <CreditCard size={10} className="text-muted-foreground shrink-0" />
+                        <span className="truncate">{plan.name}</span>
+                    </div>
+                </div>
+                <div className="flex flex-col gap-0.5">
+                    <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Joined</span>
+                    <div className="flex items-center gap-1 text-muted-foreground">
+                        <User size={10} className="shrink-0" />
+                        <span className="truncate">{formatRelativeTime(wallet.createdAt)}</span>
+                    </div>
+                </div>
+                <div className="flex flex-col gap-0.5">
+                    <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Last Login</span>
+                    <div className="flex items-center gap-1 text-muted-foreground">
+                        <Clock size={10} className="shrink-0" />
+                        <span className="truncate">{wallet.lastAuthAt !== undefined && wallet.lastAuthAt !== '' ? formatRelativeTime(wallet.lastAuthAt) : 'Never'}</span>
+                    </div>
+                </div>
+            </div>
+
+            {/* Platforms + actions */}
+            <div className="flex items-center justify-between" onClick={e => e.stopPropagation()}>
+                <div className="flex items-center gap-1">
+                    {wallet.platforms.length > 0 ? wallet.platforms.map(p => (
+                        <div key={p} title={PLATFORM_LABELS[p]} className="p-1 rounded text-muted-foreground border border-border/40 hover:text-foreground transition-colors">
+                            {PLATFORM_ICONS[p]}
+                        </div>
+                    )) : <span className="text-xs text-muted-foreground">—</span>}
+                </div>
+                <div className="flex items-center gap-1">
+                    <Button size="sm" variant="ghost" className="h-7 px-2 text-xs gap-1" onClick={onView}>
+                        <Edit size={12} /> Edit
+                    </Button>
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
+                                <MoreHorizontal size={14} />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-44">
+                            <DropdownMenuItem onClick={(e) => { void handleCopy(e as unknown as React.MouseEvent); }}>
+                                <Copy className="h-3.5 w-3.5 mr-2" /> Copy Address
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            {isDisabled ? (
+                                <DropdownMenuItem onClick={() => onEnable?.()} className="text-emerald-500 focus:text-emerald-400">
+                                    <CheckCircle2 className="h-3.5 w-3.5 mr-2" /> Enable Wallet
+                                </DropdownMenuItem>
+                            ) : (
+                                <DropdownMenuItem
+                                    onClick={() => router.push(`/wallet-management/wallets/${encodeURIComponent(wallet.walletAddress)}/disable`)}
+                                    className="text-red-500 focus:text-red-400"
+                                >
+                                    <ShieldCheck className="h-3.5 w-3.5 mr-2" /> Disable Wallet
+                                </DropdownMenuItem>
+                            )}
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 interface WalletListRowProps {
     wallet: WalletData;
     onView?: () => void;

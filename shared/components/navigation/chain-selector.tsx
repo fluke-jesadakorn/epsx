@@ -114,9 +114,9 @@ export function ChainSelector({ className = '', compact = false }: ChainSelector
                     size={compact ? "sm" : "default"}
                     disabled={isSwitching || !isConnected}
                     className={`
-            ${compact ? 'h-8 px-3 text-xs' : 'h-10 px-4 text-sm'} 
+            ${compact ? 'h-8 px-3 text-xs' : 'h-10 px-4 text-sm'}
             rounded-full bg-transparent hover:bg-slate-50/80 hover:text-slate-700
-            dark:bg-transparent dark:hover:bg-white/10 dark:bg-slate-800/40 dark:hover:text-slate-200
+            dark:bg-transparent dark:hover:bg-white/10 dark:hover:text-slate-200
             disabled:opacity-50 disabled:cursor-not-allowed
             ${className}
           `}

@@ -211,10 +211,15 @@ pub fn validate_security_config() -> Result<(), Vec<String>> {
             errors.push("COOKIE_ENCRYPTION_KEY is required in production".to_string());
         }
         
-        // Validate JWT secret length
-        if let Ok(jwt_secret) = get_env_var("JWT_SECRET") {
-            if jwt_secret.len() < 32 {
-                errors.push("JWT_SECRET must be at least 32 characters in production".to_string());
+        // JWT_SECRET is mandatory in production
+        match get_env_var("JWT_SECRET") {
+            Ok(jwt_secret) => {
+                if jwt_secret.len() < 32 {
+                    errors.push("JWT_SECRET must be at least 32 characters in production".to_string());
+                }
+            }
+            Err(_) => {
+                errors.push("JWT_SECRET is required in production".to_string());
             }
         }
         

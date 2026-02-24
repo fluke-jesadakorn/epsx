@@ -129,19 +129,10 @@ pub async fn sse_notifications_handler(
                 }
                 Err(e) => {
                     tracing::warn!("SSE Auth: Token validation failed: {}", e);
-                    // Fallback to legacy extraction (only if needed/safe)
-                    if let Some(legacy_wallet) = extract_wallet_from_token(Some(&token)) {
-                        wallet_address = legacy_wallet;
-                         tracing::warn!("SSE Auth: Validated using legacy method (deprecated)");
-                    }
                 }
             }
         } else {
              tracing::error!("SSE Auth: Token service not available");
-             // Fallback
-             if let Some(legacy_wallet) = extract_wallet_from_token(Some(&token)) {
-                wallet_address = legacy_wallet;
-            }
         }
     }
 
@@ -387,68 +378,3 @@ fn parse_notification_types(types_str: Option<String>) -> Option<Vec<Notificatio
 }
 
 
-/// Extract wallet address from Bearer token string
-/// Returns None if token is invalid or missing
-fn extract_wallet_from_token(token: Option<&str>) -> Option<String> {
-    use jsonwebtoken::{decode, DecodingKey, Validation, Algorithm};
-    use serde::Deserialize;
-
-    #[derive(Debug, Deserialize)]
-    struct TokenClaims {
-        #[serde(default)]
-        wallet_address: String,
-        #[serde(default)]
-        sub: String,
-    }
-
-    let token = token?;
-
-    // First, try legacy format: "web3_token_{wallet_address}"
-    if token.starts_with("web3_token_") {
-        let wallet = token.strip_prefix("web3_token_").unwrap_or("").to_string();
-        if !wallet.is_empty() && wallet.len() >= 20 {
-            tracing::debug!("Extracted wallet from legacy token format: {}", wallet);
-            return Some(wallet.to_lowercase());
-        }
-    }
-
-    // Fall back to JWT decoding using environment variable
-    let secret = std::env::var("JWT_SECRET")
-        .unwrap_or_else(|_| "epsx-web3-bearer-token-secret-key".to_string());
-    let decoding_key = DecodingKey::from_secret(secret.as_bytes());
-
-    let mut validation = Validation::new(Algorithm::HS256);
-    validation.validate_exp = true;
-
-    // Try to decode token
-    match decode::<TokenClaims>(token, &decoding_key, &validation) {
-        Ok(token_data) => {
-            let wallet = if !token_data.claims.wallet_address.is_empty() {
-                token_data.claims.wallet_address
-            } else {
-                token_data.claims.sub
-            };
-
-            if !wallet.is_empty() && wallet != "anonymous" {
-                tracing::debug!("Extracted wallet from JWT token: {}", wallet);
-                Some(wallet.to_lowercase())
-            } else {
-                None
-            }
-        }
-        Err(e) => {
-            // Only log unexpected errors - ExpiredSignature and InvalidAlgorithm are expected 
-            // when primary token validation already failed
-            match e.kind() {
-                jsonwebtoken::errors::ErrorKind::ExpiredSignature |
-                jsonwebtoken::errors::ErrorKind::InvalidAlgorithm => {
-                    tracing::debug!("Legacy token decode skipped (expected): {:?}", e.kind());
-                }
-                _ => {
-                    tracing::warn!("Failed to decode token as JWT: {:?}", e);
-                }
-            }
-            None
-        }
-    }
-}

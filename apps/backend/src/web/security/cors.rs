@@ -1,6 +1,6 @@
 // CORS Configuration Module - Production CORS Security
 use axum::http::{HeaderValue, HeaderName, Method, header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE}};
-use tower_http::cors::{CorsLayer, Any, AllowOrigin};
+use tower_http::cors::{CorsLayer, AllowOrigin};
 
 use std::time::Duration;
 
@@ -85,30 +85,15 @@ fn production_cors_with_origins(allowed_origins: Vec<String>) -> CorsLayer {
     }
 }
 
-/// Fallback CORS configuration for production when origin parsing fails
+/// Restrictive CORS fallback - denies cross-origin requests when config is missing/invalid
 fn production_cors_fallback() -> CorsLayer {
+    tracing::error!("CORS: Using deny-by-default fallback. Set FRONTEND_URL and ADMIN_FRONTEND_URL env vars.");
+    // Deny all cross-origin requests by allowing no origins
     CorsLayer::new()
-        .allow_origin(Any) // This should be avoided in production
-        .allow_methods([Method::GET, Method::POST, Method::OPTIONS])
-        .allow_headers([
-            ACCEPT,
-            AUTHORIZATION,
-            CONTENT_TYPE,
-            HeaderName::from_static("x-access-level"),
-            HeaderName::from_static("x-admin-context"),
-            HeaderName::from_static("rsc"),
-            HeaderName::from_static("next-router-prefetch"),
-            HeaderName::from_static("next-router-state-tree"),
-            HeaderName::from_static("next-url"),
-            HeaderName::from_static("referer"),
-            HeaderName::from_static("purpose"),
-            HeaderName::from_static("x-middleware-prefetch"),
-            HeaderName::from_static("x-nextjs-data"),
-            // Common HTTP headers needed by browsers and clients
-            HeaderName::from_static("cache-control"),
-        ])
-        .allow_credentials(false) // Safer default
-        .max_age(Duration::from_secs(300)) // 5 minutes
+        .allow_methods([Method::GET, Method::OPTIONS])
+        .allow_headers([ACCEPT, CONTENT_TYPE])
+        .allow_credentials(false)
+        .max_age(Duration::from_secs(60))
 }
 
 /// Development CORS configuration - more permissive for local development
@@ -166,10 +151,21 @@ fn development_cors() -> CorsLayer {
         .max_age(ONE_HOUR) // 1 hour
 }
 
-/// CORS configuration for OIDC endpoints - Allow any origin
+/// CORS configuration for OIDC endpoints - restricted to known frontend origins
 pub fn oidc_cors_layer() -> CorsLayer {
+    let allowed_origins = super::get_allowed_origins();
+    let origins: Vec<HeaderValue> = allowed_origins
+        .into_iter()
+        .filter_map(|o| o.parse::<HeaderValue>().ok())
+        .collect();
+
+    if origins.is_empty() {
+        tracing::warn!("OIDC CORS: No origins configured, using restrictive fallback");
+        return production_cors_fallback();
+    }
+
     CorsLayer::new()
-        .allow_origin(Any)
+        .allow_origin(origins)
         .allow_methods([
             Method::GET,
             Method::POST,
@@ -179,24 +175,18 @@ pub fn oidc_cors_layer() -> CorsLayer {
             ACCEPT,
             AUTHORIZATION,
             CONTENT_TYPE,
-            // Next.js React Server Components header
             HeaderName::from_static("rsc"),
-            // Next.js Router headers for prefetching
             HeaderName::from_static("next-router-prefetch"),
             HeaderName::from_static("next-router-state-tree"),
             HeaderName::from_static("next-url"),
             HeaderName::from_static("referer"),
-            HeaderName::from_static("purpose"),
-            HeaderName::from_static("x-middleware-prefetch"),
-            HeaderName::from_static("x-nextjs-data"),
-            // Common HTTP headers needed by browsers and clients
             HeaderName::from_static("cache-control"),
         ])
         .expose_headers([
             HeaderName::from_static("x-request-id"),
         ])
-        .allow_credentials(false) // Must be false when using Any origin
-        .max_age(ONE_DAY) // 24 hours
+        .allow_credentials(true)
+        .max_age(ONE_DAY)
 }
 
 /// CORS configuration for admin endpoints
