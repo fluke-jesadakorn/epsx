@@ -37,7 +37,7 @@ interface ModalState {
  */
 const AccessDeniedView: React.FC<{ accessDenied: AccessDeniedState }> = ({ accessDenied }) => (
     <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="relative overflow-hidden rounded-[32px] bg-white dark:bg-slate-900 backdrop-blur-2xl border border-gray-200 dark:border-slate-700 p-12 shadow-xl text-center max-w-md">
+        <div className="relative overflow-hidden rounded-2xl bg-card border border-border/20 p-12 shadow-xl text-center max-w-md">
             <div className="inline-flex p-4 bg-red-500/10 rounded-[24px] border border-red-500/10 text-red-500 mb-6 font-bold">
                 <Shield className="w-12 h-12" />
             </div>
@@ -46,7 +46,7 @@ const AccessDeniedView: React.FC<{ accessDenied: AccessDeniedState }> = ({ acces
             </h2>
             <p className="text-muted-foreground font-bold mb-6">{accessDenied.message}</p>
             {accessDenied.code !== undefined && (
-                <div className="px-4 py-2 bg-white dark:bg-white/[0.04] rounded-xl border border-gray-200 dark:border-slate-700 text-xs font-mono text-muted-foreground">
+                <div className="px-4 py-2 bg-muted/30 rounded-xl border border-border/20 text-xs font-mono text-muted-foreground">
                     Error: {accessDenied.code}
                 </div>
             )}
@@ -150,9 +150,9 @@ const DeveloperPortalModals = ({
         )}
         {newApiKey !== null && (
             <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200">
-                    <div className="p-6 border-b border-gray-100 dark:border-gray-700">
-                        <h2 className="text-xl font-black text-gray-900 dark:text-gray-100 uppercase tracking-tight flex items-center gap-2">
+                <div className="bg-card rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200">
+                    <div className="p-6 border-b border-gray-100 dark:border-border/40">
+                        <h2 className="text-xl font-black text-foreground uppercase tracking-tight flex items-center gap-2">
                             <Key className="w-5 h-5 text-amber-500" />
                             API Key Created
                         </h2>
@@ -167,21 +167,21 @@ const DeveloperPortalModals = ({
                         <div className="space-y-2">
                             <label className="text-xs font-black uppercase text-gray-500 tracking-wider">Your API Key</label>
                             <div className="relative group">
-                                <code className="block w-full p-4 pr-12 bg-gray-50 dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-gray-700 font-mono text-sm break-all">
+                                <code className="block w-full p-4 pr-12 bg-muted/30 rounded-xl border border-border/40 font-mono text-sm break-all">
                                     {newApiKey}
                                 </code>
                                 <button
                                     onClick={() => {
                                         onCopyToClipboard(newApiKey, 'API Key');
                                     }}
-                                    className="absolute right-3 top-3 p-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:border-primary transition-all shadow-sm"
+                                    className="absolute right-3 top-3 p-2 bg-card border border-gray-200 dark:border-border/40 rounded-lg hover:border-primary transition-all shadow-sm"
                                 >
                                     <Copy className="w-4 h-4" />
                                 </button>
                             </div>
                         </div>
                     </div>
-                    <div className="p-6 bg-gray-50 dark:bg-slate-900/50 flex justify-end">
+                    <div className="p-6 bg-muted/20 flex justify-end">
                         <button
                             onClick={onNewApiKeyClose}
                             className="px-6 py-2 bg-primary text-primary-foreground rounded-xl font-bold hover:opacity-90 transition-all shadow-lg shadow-primary/20"

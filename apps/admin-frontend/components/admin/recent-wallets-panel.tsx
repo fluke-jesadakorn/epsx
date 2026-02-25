@@ -86,7 +86,7 @@ export function RecentWalletsPanel({ initialData }: { initialData?: RecentWallet
 
   if (loading) {
     return (
-      <div className="h-full bg-card backdrop-blur-sm rounded-2xl sm:rounded-3xl shadow-xl border border-border p-6">
+      <div className="h-full rounded-2xl border border-border/20 overflow-hidden bg-card shadow-xl p-6">
         <div className="flex items-center justify-between mb-6">
           <div>
             <div className="flex items-center gap-2 mb-2">
@@ -119,7 +119,7 @@ export function RecentWalletsPanel({ initialData }: { initialData?: RecentWallet
 
   if (typeof error === 'string') {
     return (
-      <div className="h-full bg-card backdrop-blur-sm rounded-2xl sm:rounded-3xl shadow-xl border border-border p-6">
+      <div className="h-full rounded-2xl border border-border/20 overflow-hidden bg-card shadow-xl p-6">
         <div className="flex items-center justify-between mb-6">
           <div>
             <div className="flex items-center gap-2 mb-2">
@@ -152,153 +152,154 @@ export function RecentWalletsPanel({ initialData }: { initialData?: RecentWallet
     : data.recent_wallets.slice(0, 5);
 
   return (
-    <div className="h-full bg-white dark:bg-slate-900 rounded-[32px] shadow-xl border border-gray-200 dark:border-slate-700 p-8 relative overflow-hidden group">
-      {/* Decorative background element */}
-      <div className="absolute -right-12 -top-12 w-48 h-48 bg-[#1fc7d4]/5 rounded-full blur-3xl group-hover:bg-[#1fc7d4]/10 transition-colors" />
+    <div className="h-full rounded-2xl border border-border/20 overflow-hidden bg-card shadow-xl">
+      <div className="h-[3px] bg-gradient-to-r from-[#1fc7d4] to-[#7645d9]" />
 
-      <div className="relative z-10 flex items-center justify-between mb-8">
+      <div className="p-8">
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <Wallet className="h-5 w-5" />
+              <h3 className="text-lg font-semibold">Recent Wallets</h3>
+              {data.analytics.total_in_period > 0 && (
+                <Badge variant="secondary" className="ml-2">
+                  {data.analytics.total_in_period} this month
+                </Badge>
+              )}
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Wallets connected in the last 30 days
+            </p>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => { void fetchRecentWallets(true); }}
+            disabled={refreshing}
+            className="h-8 w-8 p-0"
+          >
+            <RefreshCw
+              className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`}
+            />
+          </Button>
+        </div>
+
         <div>
-          <div className="flex items-center gap-2 mb-2">
-            <Wallet className="h-5 w-5" />
-            <h3 className="text-lg font-semibold">Recent Wallets</h3>
-            {data.analytics.total_in_period > 0 && (
-              <Badge variant="secondary" className="ml-2">
-                {data.analytics.total_in_period} this month
-              </Badge>
-            )}
-          </div>
-          <p className="text-sm text-muted-foreground">
-            Wallets connected in the last 30 days
-          </p>
-        </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => { void fetchRecentWallets(true); }}
-          disabled={refreshing}
-          className="h-8 w-8 p-0"
-        >
-          <RefreshCw
-            className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`}
-          />
-        </Button>
-      </div>
-
-      <div>
-        {/* Analytics Summary */}
-        <div className="mb-8 grid grid-cols-3 gap-4">
-          <div className="rounded-3xl bg-blue-50/5 p-4 text-center border border-blue-500/10 backdrop-blur-sm">
-            <div className="mb-1 flex items-center justify-center gap-1.5 text-[#1fc7d4]">
-              <TrendingUp className="h-4 w-4" />
-              <span className="text-xs font-bold uppercase tracking-wider">Total</span>
-            </div>
-            <div className="text-2xl font-bold text-foreground">
-              {data.analytics.total_in_period}
-            </div>
-            <div className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">connections</div>
-          </div>
-          <div className="rounded-3xl bg-emerald-50/5 p-4 text-center border border-[#31d0aa]/10 backdrop-blur-sm">
-            <div className="mb-1 flex items-center justify-center gap-1.5 text-[#31d0aa]">
-              <Calendar className="h-4 w-4" />
-              <span className="text-xs font-bold uppercase tracking-wider">Daily Avg</span>
-            </div>
-            <div className="text-2xl font-bold text-foreground">
-              {data.analytics.avg_daily.toFixed(1)}
-            </div>
-            <div className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">per day</div>
-          </div>
-          <div className="rounded-3xl bg-purple-50/5 p-4 text-center border border-[#7645d9]/10 backdrop-blur-sm">
-            <div className="mb-1 flex items-center justify-center gap-1.5 text-[#7645d9]">
-              <Eye className="h-4 w-4" />
-              <span className="text-xs font-bold uppercase tracking-wider">Active</span>
-            </div>
-            <div className="text-2xl font-bold text-foreground">
-              {data.recent_wallets.filter(w => w.is_active).length}
-            </div>
-            <div className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">wallets</div>
-          </div>
-        </div>
-
-        {/* Wallet List */}
-        <div className="space-y-2">
-          {displayedWallets.length === 0 ? (
-            <div className="py-8 text-center text-muted-foreground">
-              <Wallet className="mx-auto mb-2 h-8 w-8 opacity-50" />
-              <p className="font-medium">No recent wallet connections</p>
-              <p className="text-sm mt-1">New wallets will appear here when users connect</p>
-              <div className="mt-4">
-                <Link
-                  href="/wallet-management"
-                  className="inline-flex items-center gap-2 rounded-md bg-blue-100 px-3 py-2 text-sm font-medium text-blue-800 hover:bg-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:hover:bg-blue-900/50"
-                >
-                  View All Wallets
-                </Link>
+          {/* Analytics Summary */}
+          <div className="mb-8 grid grid-cols-3 gap-4">
+            <div className="rounded-xl bg-muted/30 p-4 text-center border border-border/40">
+              <div className="mb-1 flex items-center justify-center gap-1.5 text-[#1fc7d4]">
+                <TrendingUp className="h-4 w-4" />
+                <span className="text-xs font-bold uppercase tracking-wider">Total</span>
               </div>
+              <div className="text-2xl font-bold text-foreground">
+                {data.analytics.total_in_period}
+              </div>
+              <div className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">connections</div>
             </div>
-          ) : (
-            displayedWallets.map((wallet, index) => (
-              <div
-                key={wallet.wallet_address}
-                className="flex items-center justify-between rounded-2xl border border-gray-200 dark:border-slate-700 p-4 hover:bg-gray-100 dark:hover:bg-white/5 transition-all group/item active:scale-[0.99]"
-              >
-                <div className="flex items-center gap-4">
-                  <div className="relative">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-[#1fc7d4] to-[#7645d9] text-xs font-bold text-white shadow-lg shadow-cyan-500/10">
-                      {index + 1}
+            <div className="rounded-xl bg-muted/30 p-4 text-center border border-border/40">
+              <div className="mb-1 flex items-center justify-center gap-1.5 text-[#31d0aa]">
+                <Calendar className="h-4 w-4" />
+                <span className="text-xs font-bold uppercase tracking-wider">Daily Avg</span>
+              </div>
+              <div className="text-2xl font-bold text-foreground">
+                {data.analytics.avg_daily.toFixed(1)}
+              </div>
+              <div className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">per day</div>
+            </div>
+            <div className="rounded-xl bg-muted/30 p-4 text-center border border-border/40">
+              <div className="mb-1 flex items-center justify-center gap-1.5 text-[#7645d9]">
+                <Eye className="h-4 w-4" />
+                <span className="text-xs font-bold uppercase tracking-wider">Active</span>
+              </div>
+              <div className="text-2xl font-bold text-foreground">
+                {data.recent_wallets.filter(w => w.is_active).length}
+              </div>
+              <div className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">wallets</div>
+            </div>
+          </div>
+
+          {/* Wallet List */}
+          <div className="space-y-2">
+            {displayedWallets.length === 0 ? (
+              <div className="py-8 text-center text-muted-foreground">
+                <Wallet className="mx-auto mb-2 h-8 w-8 opacity-50" />
+                <p className="font-medium">No recent wallet connections</p>
+                <p className="text-sm mt-1">New wallets will appear here when users connect</p>
+                <div className="mt-4">
+                  <Link
+                    href="/wallet-management"
+                    className="inline-flex items-center gap-2 rounded-md bg-blue-100 px-3 py-2 text-sm font-medium text-blue-800 hover:bg-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:hover:bg-blue-900/50"
+                  >
+                    View All Wallets
+                  </Link>
+                </div>
+              </div>
+            ) : (
+              displayedWallets.map((wallet, index) => (
+                <div
+                  key={wallet.wallet_address}
+                  className="flex items-center justify-between rounded-xl border border-border/40 p-4 hover:bg-muted/30 transition-colors active:scale-[0.99]"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="relative">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-[#1fc7d4] to-[#7645d9] text-xs font-bold text-white shadow-lg shadow-cyan-500/10">
+                        {index + 1}
+                      </div>
+                      {wallet.connection_info.is_new && (
+                        <div className="absolute -top-1 -right-1 h-3.5 w-3.5 rounded-full border-2 border-[#1a1c24] bg-[#31d0aa] animate-pulse" />
+                      )}
+                    </div>
+                    <div>
+                      <div className="font-mono text-sm font-bold text-foreground">
+                        {formatWalletAddress(wallet.wallet_address)}
+                      </div>
+                      <div className="mt-1 flex items-center gap-2">
+                        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest bg-muted/50 px-2 py-0.5 rounded-lg border border-border/40">
+                          {wallet.active_permissions_count} permissions
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1">
+                      {formatTimeAgo(wallet.created_at)}
                     </div>
                     {wallet.connection_info.is_new && (
-                      <div className="absolute -top-1 -right-1 h-3.5 w-3.5 rounded-full border-2 border-[#1a1c24] bg-[#31d0aa] animate-pulse" />
+                      <Badge variant="default" className="rounded-lg bg-[#31d0aa] text-white text-[9px] font-bold py-0 h-4 border-none shadow-sm shadow-[#31d0aa]/20">
+                        NEW
+                      </Badge>
                     )}
                   </div>
-                  <div>
-                    <div className="font-mono text-sm font-bold text-foreground">
-                      {formatWalletAddress(wallet.wallet_address)}
-                    </div>
-                    <div className="mt-1 flex items-center gap-2">
-                      <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest bg-white dark:bg-white/[0.04] px-2 py-0.5 rounded-lg border border-gray-200 dark:border-slate-700">
-                        {wallet.active_permissions_count} permissions
-                      </span>
-                    </div>
-                  </div>
                 </div>
-                <div className="text-right">
-                  <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1">
-                    {formatTimeAgo(wallet.created_at)}
-                  </div>
-                  {wallet.connection_info.is_new && (
-                    <Badge variant="default" className="rounded-lg bg-[#31d0aa] text-white text-[9px] font-bold py-0 h-4 border-none shadow-sm shadow-[#31d0aa]/20">
-                      NEW
-                    </Badge>
-                  )}
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-
-        {/* Show More/Less Button */}
-        {data.recent_wallets.length > 5 && (
-          <div className="mt-4 text-center">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setExpanded(!expanded)}
-            >
-              {expanded
-                ? 'Show Less'
-                : `Show All (${data.recent_wallets.length})`}
-            </Button>
+              ))
+            )}
           </div>
-        )}
 
-        {/* View All Link */}
-        <div className="mt-4 border-t pt-4">
-          <Link
-            href="/wallet-management"
-            className="text-sm font-medium text-blue-600 hover:text-blue-800 dark:text-[#1fc7d4] dark:hover:text-[#1fc7d4]/80"
-          >
-            View All Wallets →
-          </Link>
+          {/* Show More/Less Button */}
+          {data.recent_wallets.length > 5 && (
+            <div className="mt-4 text-center">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setExpanded(!expanded)}
+              >
+                {expanded
+                  ? 'Show Less'
+                  : `Show All (${data.recent_wallets.length})`}
+              </Button>
+            </div>
+          )}
+
+          {/* View All Link */}
+          <div className="mt-4 border-t pt-4">
+            <Link
+              href="/wallet-management"
+              className="text-sm font-medium text-blue-600 hover:text-blue-800 dark:text-[#1fc7d4] dark:hover:text-[#1fc7d4]/80"
+            >
+              View All Wallets →
+            </Link>
+          </div>
         </div>
       </div>
     </div>

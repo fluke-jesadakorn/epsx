@@ -30,7 +30,7 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
 
   return (
     <WatchlistProvider initial={watchlist}>
-      <div className="relative min-h-screen bg-gray-50 dark:bg-slate-950">
+      <div className="relative min-h-screen bg-gray-50 dark:bg-background">
         {/* Background */}
         <div className="fixed inset-0 z-0">
           <div className="absolute inset-0 bg-gradient-to-b from-white dark:from-slate-950 via-gray-50 dark:via-slate-900 to-white dark:to-slate-950" />

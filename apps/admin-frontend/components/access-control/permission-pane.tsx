@@ -77,11 +77,11 @@ export function PermissionPane({
 
     return (
         <div className={cn(
-            'flex flex-col h-full border border-gray-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-900 backdrop-blur-xl overflow-hidden',
+            'flex flex-col h-full border border-border/20 rounded-lg bg-card overflow-hidden',
             className
         )}>
             {/* Header */}
-            <div className="shrink-0 p-3 border-b border-gray-200 dark:border-slate-700 bg-white dark:bg-white/[0.04]">
+            <div className="shrink-0 p-3 border-b border-border/20 bg-muted/30">
                 <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
                         <h3 className="text-xs font-semibold tracking-wide text-foreground/80">
@@ -123,7 +123,7 @@ export function PermissionPane({
                         placeholder="Filter permissions..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="h-8 pl-8 pr-8 text-xs bg-black/20 border-gray-200 dark:border-slate-700"
+                        className="h-8 pl-8 pr-8 text-xs bg-black/20 border-border/20"
                     />
                     {searchQuery && (
                         <button
@@ -159,8 +159,8 @@ export function PermissionPane({
                                 <div
                                     className={cn(
                                         'sticky top-0 z-10 flex items-center gap-2 px-3 py-1.5',
-                                        'bg-white dark:bg-slate-900 backdrop-blur border-b border-gray-200 dark:border-slate-700 cursor-pointer select-none',
-                                        'hover:bg-gray-100 dark:hover:bg-white/5 transition-colors'
+                                        'bg-card backdrop-blur border-b border-border/20 cursor-pointer select-none',
+                                        'hover:bg-muted/30 transition-colors'
                                     )}
                                     onClick={() => toggleGroup(platform)}
                                 >

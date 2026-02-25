@@ -31,7 +31,7 @@ interface MainLayoutProps {
  */
 export function MainLayout({ children, user }: MainLayoutProps) {
   return (
-    <div className="flex h-screen w-full overflow-hidden bg-gray-100 dark:bg-[#0f1117] bg-grid-pattern">
+    <div className="flex h-screen w-full overflow-hidden bg-background">
       {/* Sidebar Navigation - Fixed height handled by parent h-screen */}
       <Sidebar />
 
@@ -50,7 +50,7 @@ export function MainLayout({ children, user }: MainLayoutProps) {
           </main>
 
           {/* Footer - Fixed with glass effect */}
-          <footer className="border-t border-gray-200 dark:border-slate-700 bg-white dark:bg-[#13151e] px-4 py-3">
+          <footer className="border-t border-border/40 bg-card px-4 py-3">
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium text-foreground">
                 EPSX Admin Dashboard

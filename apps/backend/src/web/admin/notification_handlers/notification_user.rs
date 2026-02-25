@@ -179,7 +179,7 @@ pub async fn mark_notification_read_handler(
     let rows_affected = diesel::sql_query(
         r#"
         UPDATE wallet_notifications
-        SET status = 'read', updated_at = $1
+        SET status = 'read', read_at = $1, updated_at = $1
         WHERE id = $2 AND (LOWER(recipient_wallet_address) = $3 OR recipient_wallet_address = 'all' OR recipient_wallet_address IS NULL)
         "#
     )

@@ -50,7 +50,7 @@ const getStatusBadgeClass = (status: string): string => {
         case 'expired':
             return 'bg-yellow-100 dark:bg-yellow-900/50 text-yellow-800 dark:text-yellow-200 hover:bg-yellow-200 border-none';
         default:
-            return 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-300';
+            return 'bg-muted/30 text-gray-800 dark:text-muted-foreground';
     }
 };
 
@@ -84,7 +84,7 @@ export const ApiKeyRow: React.FC<ApiKeyRowProps> = ({
     const permissionGroups = extendedKey.permission_groups ?? [];
 
     return (
-        <TableRow className="hover:bg-gray-50 dark:hover:bg-white/[0.02] border-gray-200 dark:border-slate-700 transition-colors">
+        <TableRow className="hover:bg-gray-50 dark:hover:bg-white/[0.02] border-border/20 transition-colors">
             {/* User / Client */}
             <TableCell className="py-6 px-6">
                 <div className="flex flex-col">
@@ -104,12 +104,12 @@ export const ApiKeyRow: React.FC<ApiKeyRowProps> = ({
             {/* API Key */}
             <TableCell className="py-6 px-6">
                 <div className="flex items-center space-x-3">
-                    <div className="px-3 py-1.5 bg-white dark:bg-white/[0.04] border border-gray-200 dark:border-slate-700 rounded-lg font-mono text-xs font-bold text-[#1fc7d4]">
+                    <div className="px-3 py-1.5 bg-muted/30 border border-border/20 rounded-lg font-mono text-xs font-bold text-[#1fc7d4]">
                         {maskKeyPrefix(keyPrefix)}
                     </div>
                     <button
                         onClick={() => onCopyKeyPrefix(keyPrefix)}
-                        className="p-2 text-muted-foreground/50 hover:text-[#1fc7d4] hover:bg-gray-100 dark:hover:bg-white/5 rounded-lg transition-all"
+                        className="p-2 text-muted-foreground/50 hover:text-[#1fc7d4] hover:bg-muted/30 rounded-lg transition-all"
                         title="Copy key prefix"
                     >
                         <Copy className="w-4 h-4" />
@@ -142,7 +142,7 @@ export const ApiKeyRow: React.FC<ApiKeyRowProps> = ({
                         <span className="text-[10px] font-black text-muted-foreground/30 uppercase tracking-widest">No scope</span>
                     )}
                     {(permissionGroups.length > 3 || apiKey.allowed_modules.length > 3) && (
-                        <span className="inline-flex items-center px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-widest bg-white dark:bg-white/[0.04] text-muted-foreground border border-gray-200 dark:border-slate-700">
+                        <span className="inline-flex items-center px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-widest bg-muted/30 text-muted-foreground border border-border/20">
                             +{Math.max(permissionGroups.length, apiKey.allowed_modules.length) - 3}
                         </span>
                     )}

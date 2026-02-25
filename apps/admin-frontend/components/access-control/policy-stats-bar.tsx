@@ -86,8 +86,8 @@ export function PolicyStatsBar({ stats, isLoading = false, className }: PolicySt
         label="Total Policies"
         value={stats.totalPolicies}
         subLabel={`${stats.activeSubscriptions} plans, ${stats.activeGroups} groups`}
-        iconBg="bg-blue-100 dark:bg-blue-900/30"
-        iconColor="text-blue-600 dark:text-blue-400"
+        iconBg="bg-[#1fc7d4]/15"
+        iconColor="text-[#1fc7d4]"
       />
 
       {/* Active Members */}
@@ -96,8 +96,8 @@ export function PolicyStatsBar({ stats, isLoading = false, className }: PolicySt
         label="Active Members"
         value={stats.totalMembers.toLocaleString()}
         subLabel="Across all policies"
-        iconBg="bg-emerald-100 dark:bg-emerald-900/30"
-        iconColor="text-emerald-600 dark:text-emerald-400"
+        iconBg="bg-[#31d0aa]/15"
+        iconColor="text-[#31d0aa]"
       />
 
       {/* Monthly Revenue */}
@@ -106,8 +106,8 @@ export function PolicyStatsBar({ stats, isLoading = false, className }: PolicySt
         label="Monthly Revenue"
         value={`$${stats.totalMRR.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
         subLabel="From subscriptions"
-        iconBg="bg-purple-100 dark:bg-purple-900/30"
-        iconColor="text-purple-600 dark:text-purple-400"
+        iconBg="bg-[#7645d9]/15"
+        iconColor="text-[#7645d9]"
       />
 
       {/* Expiring Soon */}
@@ -117,12 +117,12 @@ export function PolicyStatsBar({ stats, isLoading = false, className }: PolicySt
         value={stats.expiringSoon}
         subLabel="Within 7 days"
         iconBg={stats.expiringSoon > 0
-          ? "bg-amber-100 dark:bg-amber-900/30"
-          : "bg-gray-100 dark:bg-gray-800/50"
+          ? "bg-[#ffb237]/15"
+          : "bg-muted/30"
         }
         iconColor={stats.expiringSoon > 0
-          ? "text-amber-600 dark:text-amber-400"
-          : "text-gray-500 dark:text-gray-400"
+          ? "text-[#ffb237]"
+          : "text-muted-foreground"
         }
       />
     </div>
@@ -145,26 +145,26 @@ export function PolicyStatsCompact({ stats, isLoading = false }: PolicyStatsBarP
 
   return (
     <div className="flex items-center gap-3 overflow-x-auto pb-2">
-      <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 flex-shrink-0">
+      <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#1fc7d4]/15 text-[#1fc7d4] flex-shrink-0">
         <Layers className="h-4 w-4" />
         <span className="text-sm font-semibold">{stats.totalPolicies}</span>
         <span className="text-xs">policies</span>
       </div>
 
-      <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 flex-shrink-0">
+      <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#31d0aa]/15 text-[#31d0aa] flex-shrink-0">
         <Users className="h-4 w-4" />
         <span className="text-sm font-semibold">{stats.totalMembers}</span>
         <span className="text-xs">members</span>
       </div>
 
-      <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 flex-shrink-0">
+      <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#7645d9]/15 text-[#7645d9] flex-shrink-0">
         <TrendingUp className="h-4 w-4" />
         <span className="text-sm font-semibold">${stats.totalMRR.toFixed(0)}</span>
         <span className="text-xs">MRR</span>
       </div>
 
       {stats.expiringSoon > 0 && (
-        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 flex-shrink-0">
+        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#ffb237]/15 text-[#ffb237] flex-shrink-0">
           <Clock className="h-4 w-4" />
           <span className="text-sm font-semibold">{stats.expiringSoon}</span>
           <span className="text-xs">expiring</span>

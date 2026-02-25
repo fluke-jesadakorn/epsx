@@ -13,7 +13,7 @@ export function WalletDragOverlay({ activeDragItem }: WalletDragOverlayProps) {
         <DragOverlay>
             {activeDragItem !== null && (
                 <div className={cn(
-                    "flex items-center gap-2 px-3 py-2 bg-white dark:bg-gray-800 rounded-lg shadow-xl border opacity-90 scale-105 pointer-events-none",
+                    "flex items-center gap-2 px-3 py-2 bg-card rounded-lg shadow-xl border opacity-90 scale-105 pointer-events-none",
                     activeDragItem.type === 'permission' ? "border-blue-500" : "border-purple-500"
                 )}>
                     {activeDragItem.type === 'permission' ? (

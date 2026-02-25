@@ -60,7 +60,7 @@ export function Breadcrumb({
                       href={item.href}
                       className={cn(
                         "group flex items-center gap-2 px-4 py-3 rounded-lg transition-all duration-300",
-                        "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100",
+                        "text-muted-foreground hover:text-gray-900 dark:hover:text-gray-100",
                         "hover:bg-yellow-50 dark:hover:bg-yellow-900/10",
                         "border-2 border-transparent hover:border-yellow-400/30",
                         "font-light tracking-wide"
@@ -115,7 +115,7 @@ export function Breadcrumb({
 
   if (variant === 'minimal') {
     return (
-      <nav className={cn("flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400 mb-4", className)}>
+      <nav className={cn("flex items-center gap-1 text-sm text-muted-foreground mb-4", className)}>
         {allItems.map((item, index) => {
           const isLast = index === allItems.length - 1
           const Icon = item.icon
@@ -131,7 +131,7 @@ export function Breadcrumb({
                   {item.label}
                 </Link>
               ) : (
-                <span className="text-gray-900 dark:text-gray-100 font-medium flex items-center gap-1">
+                <span className="text-foreground font-medium flex items-center gap-1">
                   {Icon && <Icon className="h-3 w-3" />}
                   {item.label}
                 </span>
@@ -159,7 +159,7 @@ export function Breadcrumb({
                 href={item.href}
                 className={cn(
                   "flex items-center gap-1 px-2 py-1 rounded-md transition-all",
-                  "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100",
+                  "text-muted-foreground hover:text-gray-900 dark:hover:text-gray-100",
                   "hover:bg-yellow-50 dark:hover:bg-yellow-900/10"
                 )}
               >
@@ -167,7 +167,7 @@ export function Breadcrumb({
                 {item.label}
               </Link>
             ) : (
-              <span className="text-gray-900 dark:text-gray-100 font-medium flex items-center gap-1">
+              <span className="text-foreground font-medium flex items-center gap-1">
                 {Icon && <Icon className="h-4 w-4" />}
                 {item.label}
               </span>

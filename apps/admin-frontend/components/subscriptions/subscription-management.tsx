@@ -50,18 +50,6 @@ export function SubscriptionManagement({ currentUser: _currentUser }: Subscripti
         gradient="purple"
       />
       <div className="max-w-7xl mx-auto space-y-8">
-        <div className="text-center mb-12">
-          <div className="relative inline-block mb-6">
-            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-primary via-secondary to-primary bg-clip-text text-transparent">
-              📋 Subscription Management
-            </h1>
-            <div className="absolute -top-2 -right-2 w-4 h-4 bg-primary/20 rounded-full animate-ping" />
-          </div>
-          <p className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto">
-            Manage user subscriptions, track usage, and handle billing for all plans
-          </p>
-        </div>
-
         <SubscriptionActions
           onRefresh={() => { void loadSubscriptions(); }}
           isLoading={loading}
@@ -84,12 +72,13 @@ export function SubscriptionManagement({ currentUser: _currentUser }: Subscripti
           onApply={() => { void loadSubscriptions(); }}
         />
 
-        <div className="bg-card/90 backdrop-blur-sm border border-border/30 overflow-hidden rounded-3xl shadow-sm">
+        <div className="rounded-2xl border border-border/20 overflow-hidden bg-card shadow-xl">
+          <div className="h-[3px] bg-gradient-to-r from-[#7645d9] to-[#ed4b9e]" />
+          <div className="flex items-center justify-between px-4 py-3 border-b border-border/20">
+            <h2 className="text-xs font-bold text-[#7645d9] uppercase tracking-[0.2em]">SUBSCRIPTIONS</h2>
+          </div>
           <div className="p-8">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold bg-gradient-to-r from-primary via-secondary to-primary bg-clip-text text-transparent">
-                Subscriptions
-              </h2>
               <div className="text-sm text-muted-foreground">
                 {filteredSubscriptions.length} subscriptions
               </div>

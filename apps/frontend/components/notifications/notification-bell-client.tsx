@@ -5,7 +5,7 @@ import { useSharedAuth } from '@/shared/components/auth'
 import { formatTimestamp, getNotificationIcon, getPriorityColor } from '@/shared/components/notifications/utils'
 import { useNotificationBell } from '@/shared/hooks/use-notification-bell'
 import { createFrontendApiClient } from '@/shared/utils/api-client'
-import { Bell, ExternalLink } from 'lucide-react'
+import { Bell, ExternalLink, RefreshCw, LogIn } from 'lucide-react'
 import Link from 'next/link'
 import { useEffect, useRef, useState } from 'react'
 import { useBrowserNotifications } from './browser-notifications'
@@ -96,6 +96,7 @@ export function NotificationBellClient() {
     notifications,
     count,
     loading,
+    error,
     fetchNotifications,
     markAsRead,
     markAsUnread,
@@ -176,12 +177,34 @@ export function NotificationBellClient() {
                   Loading notifications...
                 </p>
               </div>
+            ) : !isAuthenticated ? (
+              <div className="px-4 py-8 text-center">
+                <LogIn className="h-12 w-12 mx-auto mb-3 text-slate-300 dark:text-slate-600" />
+                <p className="text-sm text-slate-500 dark:text-slate-400 mb-3">
+                  Sign in to see notifications
+                </p>
+                <Link
+                  href="/auth"
+                  onClick={handleCloseDropdown}
+                  className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium bg-orange-500 text-white hover:bg-orange-600 transition-colors"
+                >
+                  <LogIn className="h-4 w-4" />
+                  Connect Wallet
+                </Link>
+              </div>
             ) : notifications.length === 0 ? (
               <div className="px-4 py-8 text-center">
                 <Bell className="h-12 w-12 mx-auto mb-3 text-slate-300 dark:text-slate-600" />
-                <p className="text-sm text-slate-500 dark:text-slate-400">
-                  No notifications yet
+                <p className="text-sm text-slate-500 dark:text-slate-400 mb-3">
+                  {error !== null ? 'Could not load notifications' : 'No notifications yet'}
                 </p>
+                <button
+                  onClick={() => { void fetchNotifications() }}
+                  className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium text-orange-600 hover:bg-orange-50 dark:text-orange-400 dark:hover:bg-orange-900/20 transition-colors"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                  {error !== null ? 'Retry' : 'Refresh'}
+                </button>
               </div>
             ) : (
               <>

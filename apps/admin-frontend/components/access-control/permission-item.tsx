@@ -37,7 +37,7 @@ export function PermissionItem({
     return (
         <div
             className={cn(
-                'group flex items-start gap-3 px-3 py-2 border-b border-gray-200 dark:border-slate-700 last:border-b-0',
+                'group flex items-start gap-3 px-3 py-2 border-b border-border/20 last:border-b-0',
                 'terminal-hover cursor-pointer select-none',
                 isSelected && 'bg-cyan-500/10'
             )}
@@ -76,7 +76,7 @@ export function PermissionItem({
                     {onEdit && (
                         <button
                             onClick={(e) => { e.stopPropagation(); onEdit(permission); }}
-                            className="p-1 rounded hover:bg-black/[0.05] dark:hover:bg-white/10 text-muted-foreground hover:text-cyan-400 transition-colors"
+                            className="p-1 rounded hover:bg-muted/50 text-muted-foreground hover:text-cyan-400 transition-colors"
                         >
                             <Pencil className="w-3 h-3" />
                         </button>
@@ -84,7 +84,7 @@ export function PermissionItem({
                     {onDelete && !permission.is_system && (
                         <button
                             onClick={(e) => { e.stopPropagation(); onDelete(permission); }}
-                            className="p-1 rounded hover:bg-black/[0.05] dark:hover:bg-white/10 text-muted-foreground hover:text-red-400 transition-colors"
+                            className="p-1 rounded hover:bg-muted/50 text-muted-foreground hover:text-red-400 transition-colors"
                         >
                             <Trash2 className="w-3 h-3" />
                         </button>

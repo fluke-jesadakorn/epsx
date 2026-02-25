@@ -140,7 +140,7 @@ function ImageLightbox({ src, alt, onClose }: { src: string; alt: string; onClos
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[9999] bg-black/85 backdrop-blur-sm flex items-center justify-center overflow-hidden"
+      className="fixed inset-0 z-[9999] bg-black/85 flex items-center justify-center overflow-hidden"
       onClick={onClose}
       onWheel={handleWheel}
     >
@@ -210,7 +210,7 @@ function AttachmentView({ att, isRight }: { att: ChatAttachment; isRight: boolea
       download={att.filename}
       className={`flex items-center gap-2 mt-2 px-3 py-2 rounded-xl border transition-colors ${isRight
         ? 'bg-violet-500/10 border-violet-500/20 hover:bg-violet-500/20'
-        : 'bg-gray-200 dark:bg-slate-700/50 border-gray-300 dark:border-slate-600 hover:bg-gray-300 dark:hover:bg-slate-700'
+        : 'bg-gray-200 dark:bg-muted/50 border-gray-300 dark:border-border/40 hover:bg-gray-300 dark:hover:bg-slate-700'
         }`}
     >
       <FileText className="w-4 h-4 shrink-0 text-muted-foreground" />
@@ -318,7 +318,7 @@ export function ChatConversationView({ conv, topics, onUpdate, onBack }: Props) 
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="border-b border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 backdrop-blur-sm">
+      <div className="border-b border-border/20 bg-card p-4">
         <div className="flex items-start justify-between gap-4 mb-3">
           <div className="flex items-center gap-2 flex-1 min-w-0">
             {onBack && (
@@ -356,7 +356,7 @@ export function ChatConversationView({ conv, topics, onUpdate, onBack }: Props) 
       </div>
 
       {/* Messages */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto p-5 space-y-4 bg-gray-50 dark:bg-slate-950/20">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto p-5 space-y-4 bg-background/20">
         {loading ? (
           <div className="flex flex-col items-center justify-center h-full">
             <div className="w-10 h-10 rounded-xl bg-violet-500/10 flex items-center justify-center mb-3">
@@ -366,7 +366,7 @@ export function ChatConversationView({ conv, topics, onUpdate, onBack }: Props) 
           </div>
         ) : msgs.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center">
-            <div className="w-12 h-12 rounded-xl bg-gray-100 dark:bg-slate-800/40 flex items-center justify-center mb-3 border border-gray-200 dark:border-slate-700">
+            <div className="w-12 h-12 rounded-xl bg-gray-100 dark:bg-card/40 flex items-center justify-center mb-3 border border-border/20">
               <MessageCircle className="w-6 h-6 text-muted-foreground/30" />
             </div>
             <p className="text-sm text-muted-foreground">No messages yet</p>
@@ -391,7 +391,7 @@ export function ChatConversationView({ conv, topics, onUpdate, onBack }: Props) 
                 <div key={m.id}>
                   {showDate && <DateSep date={m.created_at} />}
                   <div className="flex justify-center">
-                    <div className="px-3 py-1.5 bg-gray-100 dark:bg-slate-800/30 border border-gray-200 dark:border-slate-700 rounded-full text-[11px] text-muted-foreground/60">
+                    <div className="px-3 py-1.5 bg-gray-100 dark:bg-card/30 border border-border/20 rounded-full text-[11px] text-muted-foreground/60">
                       {m.content}
                     </div>
                   </div>
@@ -404,7 +404,7 @@ export function ChatConversationView({ conv, topics, onUpdate, onBack }: Props) 
                 {showDate && <DateSep date={m.created_at} />}
                 <div className={`flex gap-2.5 ${isRight ? 'justify-end' : 'justify-start'}`}>
                   {!isRight && (
-                    <div className="shrink-0 w-8 h-8 rounded-full bg-gray-100 dark:bg-slate-800/60 border border-gray-200 dark:border-slate-700 flex items-center justify-center mt-5">
+                    <div className="shrink-0 w-8 h-8 rounded-full bg-gray-100 dark:bg-card/60 border border-border/20 flex items-center justify-center mt-5">
                       <User className="w-4 h-4 text-muted-foreground/60" />
                     </div>
                   )}
@@ -420,7 +420,7 @@ export function ChatConversationView({ conv, topics, onUpdate, onBack }: Props) 
                       ? isAi
                         ? 'bg-purple-500/10 border border-purple-500/20 text-foreground rounded-br-md'
                         : 'bg-gradient-to-br from-violet-500/15 to-purple-500/10 border border-violet-500/20 text-foreground rounded-br-md'
-                      : 'bg-gray-100 dark:bg-slate-800/50 border border-gray-200 dark:border-slate-700 text-foreground rounded-bl-md'
+                      : 'bg-gray-100 dark:bg-card/50 border border-border/20 text-foreground rounded-bl-md'
                       }`}>
                       {!isAttachmentOnly && (
                         <ChatMarkdown text={m.content} />
@@ -454,10 +454,10 @@ export function ChatConversationView({ conv, topics, onUpdate, onBack }: Props) 
         {/* User typing indicator */}
         {userTyping && (
           <div className="flex gap-2.5 justify-start">
-            <div className="shrink-0 w-8 h-8 rounded-full bg-gray-100 dark:bg-slate-800/60 border border-gray-200 dark:border-slate-700 flex items-center justify-center">
+            <div className="shrink-0 w-8 h-8 rounded-full bg-gray-100 dark:bg-card/60 border border-border/20 flex items-center justify-center">
               <User className="w-4 h-4 text-muted-foreground/60" />
             </div>
-            <div className="bg-gray-100 dark:bg-slate-800/50 border border-gray-200 dark:border-slate-700 rounded-2xl rounded-bl-md px-4 py-3 flex items-center gap-1.5">
+            <div className="bg-gray-100 dark:bg-card/50 border border-border/20 rounded-2xl rounded-bl-md px-4 py-3 flex items-center gap-1.5">
               <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/50 animate-bounce" style={{ animationDelay: '0ms' }} />
               <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/50 animate-bounce" style={{ animationDelay: '150ms' }} />
               <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/50 animate-bounce" style={{ animationDelay: '300ms' }} />
@@ -484,11 +484,11 @@ export function ChatConversationView({ conv, topics, onUpdate, onBack }: Props) 
 function DateSep({ date }: { date: string }) {
   return (
     <div className="flex items-center gap-3 my-4">
-      <div className="flex-1 h-px bg-white dark:bg-white/[0.04]" />
+      <div className="flex-1 h-px bg-muted/30" />
       <span className="text-[10px] text-muted-foreground/40 font-medium uppercase tracking-widest">
         {new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
       </span>
-      <div className="flex-1 h-px bg-white dark:bg-white/[0.04]" />
+      <div className="flex-1 h-px bg-muted/30" />
     </div>
   );
 }

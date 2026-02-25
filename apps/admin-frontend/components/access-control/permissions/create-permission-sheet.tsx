@@ -63,7 +63,7 @@ export function CreatePermissionSheet({
 
     return (
         <Sheet open={open} onOpenChange={onOpenChange}>
-            <SheetContent side="right" className="w-[400px] sm:w-[540px] bg-white dark:bg-slate-900 border-gray-200 dark:border-slate-700 text-white flex flex-col h-full">
+            <SheetContent side="right" className="w-[400px] sm:w-[540px] bg-card border-border/20 text-white flex flex-col h-full">
                 <SheetHeader>
                     <SheetTitle>Create Permission</SheetTitle>
                     <SheetDescription>Define a new system permission.</SheetDescription>
@@ -75,13 +75,13 @@ export function CreatePermissionSheet({
                             placeholder="e.g. admin:users:delete"
                             value={formData.permission}
                             onChange={e => setFormData({ ...formData, permission: e.target.value })}
-                            className="font-mono bg-white dark:bg-white/[0.04]"
+                            className="font-mono bg-muted/30"
                         />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                             <Label>Name</Label>
-                            <Input value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} className="bg-white dark:bg-white/[0.04]" />
+                            <Input value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} className="bg-muted/30" />
                         </div>
                         <div className="space-y-2">
                             <Label>Platform</Label>
@@ -89,17 +89,17 @@ export function CreatePermissionSheet({
                                 placeholder="e.g. admin, epsx"
                                 value={formData.platform}
                                 onChange={e => setFormData({ ...formData, platform: e.target.value })}
-                                className="bg-white dark:bg-white/[0.04]"
+                                className="bg-muted/30"
                             />
                         </div>
                     </div>
                     <div className="space-y-2">
                         <Label>Category</Label>
-                        <Input value={formData.category} onChange={e => setFormData({ ...formData, category: e.target.value })} className="bg-white dark:bg-white/[0.04]" />
+                        <Input value={formData.category} onChange={e => setFormData({ ...formData, category: e.target.value })} className="bg-muted/30" />
                     </div>
                     <div className="space-y-2">
                         <Label>Description</Label>
-                        <Textarea value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} className="bg-white dark:bg-white/[0.04] min-h-[100px]" />
+                        <Textarea value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} className="bg-muted/30 min-h-[100px]" />
                     </div>
                     <SheetFooter className="mt-auto pt-6">
                         <Button type="button" disabled={submitting} onClick={() => void handleSubmit()} className="bg-emerald-500 w-full">

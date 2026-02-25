@@ -25,7 +25,7 @@ export const NewApiKeyModal: React.FC<NewApiKeyModalProps> = ({
     return (
         <Dialog open={true} onOpenChange={(open) => !open && onClose()}>
             <DialogContent className="sm:max-w-md p-0 gap-0">
-                <DialogHeader className="p-6 border-b border-gray-200 dark:border-gray-600">
+                <DialogHeader className="p-6 border-b border-border/40">
                     <DialogTitle>API Key Created</DialogTitle>
                 </DialogHeader>
 
@@ -43,25 +43,25 @@ export const NewApiKeyModal: React.FC<NewApiKeyModalProps> = ({
                         </div>
                     </div>
 
-                    <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+                    <div className="bg-gray-50 dark:bg-muted rounded-lg p-4">
                         <div className="flex items-center justify-between mb-2">
-                            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                            <label className="text-sm font-medium text-gray-700 dark:text-muted-foreground">
                                 Your API Key
                             </label>
                             <button
                                 onClick={() => onCopy(apiKey, 'API Key')}
-                                className="p-1 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
+                                className="p-1 text-muted-foreground hover:text-gray-600 dark:hover:text-foreground"
                             >
                                 <Copy className="w-4 h-4" />
                             </button>
                         </div>
-                        <code className="block text-sm font-mono text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800 p-3 rounded border border-gray-200 dark:border-gray-600 break-all">
+                        <code className="block text-sm font-mono text-foreground bg-card p-3 rounded border border-border/40 break-all">
                             {apiKey}
                         </code>
                     </div>
                 </div>
 
-                <DialogFooter className="p-6 border-t border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 sm:justify-end">
+                <DialogFooter className="p-6 border-t border-border/40 bg-gray-50 dark:bg-muted sm:justify-end">
                     <Button onClick={onClose}>
                         I&apos;ve Saved the Key
                     </Button>

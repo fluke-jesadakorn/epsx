@@ -70,14 +70,14 @@ export function WalletAccessSection({
     };
 
     return (
-        <div className="pt-4 border-t border-gray-200 dark:border-slate-700 space-y-6">
+        <div className="pt-4 border-t border-border/20 space-y-6">
             <div className="flex items-center justify-between">
                 <div>
-                    <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                    <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
                         <ShieldCheck className="h-5 w-5 text-purple-500 dark:text-purple-400" />
                         Wallet Identity & Access Management
                     </h2>
-                    <p className="text-sm text-gray-500 dark:text-slate-500 mt-1">Manage wallet identification, subscription plans, and access plans</p>
+                    <p className="text-sm text-gray-500 dark:text-muted-foreground mt-1">Manage wallet identification, subscription plans, and access plans</p>
                 </div>
             </div>
 

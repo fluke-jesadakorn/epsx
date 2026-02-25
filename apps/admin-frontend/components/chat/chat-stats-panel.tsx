@@ -53,7 +53,7 @@ export function ChatStatsPanel({ stats }: Props) {
         return (
           <div
             key={card.label}
-            className={`relative overflow-hidden bg-white dark:bg-slate-900 border ${card.borderColor} rounded-2xl p-4 backdrop-blur-sm group hover:bg-gray-50 dark:hover:bg-white/[0.06] transition-colors`}
+            className={`relative overflow-hidden bg-card border border-border/20 rounded-xl p-4 group hover:bg-muted/20 transition-colors`}
           >
             {/* Subtle gradient accent line */}
             <div className={`absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r ${card.accent} opacity-60`} />

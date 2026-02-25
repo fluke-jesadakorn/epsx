@@ -61,11 +61,11 @@ function ItemCardInfo({ item, isAuthorized, isPendingAdd, pendingChange }: ItemC
         <>
             <span className={cn('flex-shrink-0', config.color)}>{config.icon}</span>
             <div className="flex-1 min-w-0 overflow-hidden">
-                <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">
+                <p className="text-sm font-semibold text-foreground truncate">
                     {item.name}
                 </p>
                 {item.description !== undefined && item.description !== '' && (
-                    <p className="text-xs text-gray-600 dark:text-gray-400 truncate" title={item.description}>
+                    <p className="text-xs text-muted-foreground truncate" title={item.description}>
                         {item.description}
                     </p>
                 )}
@@ -134,7 +134,7 @@ export function ItemCard({ item, onClick, isAuthorized, isSelected, onSelect, pe
                     e.stopPropagation();
                     onSelect?.(isSelected !== true);
                 }}
-                className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded flex-shrink-0"
+                className="p-1.5 hover:bg-muted/30 rounded flex-shrink-0"
             >
                 {isSelected === true ? (
                     <CheckSquare className="h-4 w-4 text-blue-600" />
@@ -154,8 +154,8 @@ export function ItemCard({ item, onClick, isAuthorized, isSelected, onSelect, pe
                     isPendingAdd === true && 'border-dashed border-green-400 bg-green-50/50 dark:bg-green-900/10 opacity-60 blur-[0.5px]',
                     isPendingRemove === true && 'border-dashed border-red-400 bg-red-50/50 dark:bg-red-900/10 opacity-60 blur-[0.5px]',
                     isPending === false && isAuthorized === true
-                        ? 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-red-300 dark:hover:border-red-700'
-                        : isPending === false ? 'bg-white dark:bg-slate-900/50 border-gray-200 dark:border-gray-800 hover:border-green-300 dark:hover:border-green-700' : ''
+                        ? 'bg-card border-gray-200 dark:border-border/40 hover:border-red-300 dark:hover:border-red-700'
+                        : isPending === false ? 'bg-card/50 border-gray-200 dark:border-gray-800 hover:border-green-300 dark:hover:border-green-700' : ''
                 )}
             >
                 <ItemCardInfo
@@ -202,12 +202,12 @@ export const AvailableColumn = React.forwardRef<HTMLDivElement, AvailableColumnP
             onDragLeave={props.onDragLeave}
             onDrop={props.onDrop}
             className={cn(
-                'bg-gray-50 dark:bg-slate-900/50 rounded-xl border border-gray-200 dark:border-gray-700 transition-all h-[500px] flex flex-col overflow-hidden',
+                'bg-muted/20 rounded-xl border border-gray-200 dark:border-border/40 transition-all h-[500px] flex flex-col overflow-hidden',
                 props.dragState.dropTarget === 'available' && props.dragState.dragSource === 'authorized' && 'ring-2 ring-inset ring-green-500/50 bg-green-50/20 dark:bg-green-900/10'
             )}
         >
             <div className="flex items-center justify-between mb-3 px-3 pt-3">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                     AVAILABLE PLANS
                 </h4>
                 <Badge variant="secondary" className="text-xs">
@@ -299,12 +299,12 @@ export const AuthorizedColumn = React.forwardRef<HTMLDivElement, AuthorizedColum
             onDragLeave={props.onDragLeave}
             onDrop={props.onDrop}
             className={cn(
-                'bg-white dark:bg-slate-900/50 rounded-xl border border-gray-200 dark:border-gray-700 transition-all h-[500px] flex flex-col overflow-hidden',
+                'bg-card/50 rounded-xl border border-gray-200 dark:border-border/40 transition-all h-[500px] flex flex-col overflow-hidden',
                 props.dragState.dropTarget === 'authorized' && props.dragState.dragSource === 'available' && 'ring-2 ring-inset ring-blue-500/50 bg-blue-50/20 dark:bg-blue-900/10'
             )}
         >
             <div className="flex items-center justify-between mb-3 px-3 pt-3">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                     AUTHORIZED ACCESS
                 </h4>
                 <Badge variant="default" className="text-xs bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
@@ -344,7 +344,7 @@ export const AuthorizedColumn = React.forwardRef<HTMLDivElement, AuthorizedColum
                     <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
                 </div>
             ) : props.items.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-12 text-gray-400 dark:text-gray-500">
+                <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
                     <Package className="h-10 w-10 mb-3 opacity-50" />
                     <p className="text-sm">Drag groups here to authorize</p>
                 </div>
@@ -373,7 +373,7 @@ AuthorizedColumn.displayName = 'AuthorizedColumn';
 export function WalletAccessInfoBar() {
     return (
         <div className="p-4 border-b border-gray-100 dark:border-gray-800 bg-blue-50/30 dark:bg-blue-900/10">
-            <p className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-2">
+            <p className="text-sm text-muted-foreground flex items-center gap-2">
                 <Key className="h-4 w-4 text-blue-500" />
                 Need a new permission? <a href="/permissions" className="text-blue-600 dark:text-blue-400 hover:underline font-medium">Go to Permission Registry</a> to define it first.
             </p>
@@ -446,7 +446,7 @@ interface WalletAccessHeaderProps {
 export function WalletAccessHeader({ hasChanges, pendingCount, isLoading, onRefresh }: WalletAccessHeaderProps) {
     return (
         <div className="flex items-center justify-between p-4 border-b border-gray-100 dark:border-gray-800">
-            <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+            <h3 className="font-semibold text-foreground flex items-center gap-2">
                 <Shield className="h-5 w-5 text-blue-600" />
                 Access Permissions
                 {hasChanges && (
@@ -515,7 +515,7 @@ export function WalletAccessColumnsActions({
                 className={cn(
                     "rounded-full transition-all shadow-sm w-10 h-10 md:w-12 md:h-12",
                     selectedAvailable.size > 0
-                        ? "bg-white dark:bg-gray-700 text-green-600 hover:bg-green-50 hover:text-green-700 hover:shadow-md border-green-200"
+                        ? "bg-white dark:bg-muted text-green-600 hover:bg-green-50 hover:text-green-700 hover:shadow-md border-green-200"
                         : "opacity-50"
                 )}
             >
@@ -534,7 +534,7 @@ export function WalletAccessColumnsActions({
                 className={cn(
                     "rounded-full transition-all shadow-sm w-10 h-10 md:w-12 md:h-12",
                     selectedAuthorized.size > 0
-                        ? "bg-white dark:bg-gray-700 text-red-600 hover:bg-red-50 hover:text-red-700 hover:shadow-md border-red-200"
+                        ? "bg-white dark:bg-muted text-red-600 hover:bg-red-50 hover:text-red-700 hover:shadow-md border-red-200"
                         : "opacity-50"
                 )}
             >

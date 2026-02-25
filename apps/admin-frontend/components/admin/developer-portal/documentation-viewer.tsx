@@ -16,12 +16,12 @@ interface DocumentationViewerProps {
 
 const AuthSection: React.FC = () => (
     <div>
-        <h3 className="text-md font-semibold text-gray-900 dark:text-gray-100 mb-3 flex items-center">
+        <h3 className="text-md font-semibold text-foreground mb-3 flex items-center">
             <Shield className="w-5 h-5 mr-2 text-blue-600 dark:text-blue-400" />
             Authentication
         </h3>
-        <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
-            <p className="text-sm text-gray-700 dark:text-gray-300 mb-3">
+        <div className="bg-gray-50 dark:bg-muted rounded-lg p-4">
+            <p className="text-sm text-gray-700 dark:text-muted-foreground mb-3">
                 Include your API key in the Authorization header:
             </p>
             <code className="block bg-gray-900 text-green-400 p-3 rounded text-sm font-mono">
@@ -35,12 +35,12 @@ const AuthSection: React.FC = () => (
 
 const BaseUrlSection: React.FC = () => (
     <div>
-        <h3 className="text-md font-semibold text-gray-900 dark:text-gray-100 mb-3 flex items-center">
+        <h3 className="text-md font-semibold text-foreground mb-3 flex items-center">
             <Globe className="w-5 h-5 mr-2 text-blue-600" />
             Base URL
         </h3>
-        <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
-            <code className="text-sm font-mono text-gray-900 dark:text-gray-100">
+        <div className="bg-gray-50 dark:bg-muted rounded-lg p-4">
+            <code className="text-sm font-mono text-foreground">
                 https://api.epsx.com
             </code>
         </div>
@@ -49,14 +49,14 @@ const BaseUrlSection: React.FC = () => (
 
 const EndpointSection: React.FC<{ modules: Module[] }> = ({ modules }) => (
     <div>
-        <h3 className="text-md font-semibold text-gray-900 dark:text-gray-100 mb-3 flex items-center">
+        <h3 className="text-md font-semibold text-foreground mb-3 flex items-center">
             <Code className="w-5 h-5 mr-2 text-blue-600" />
             Available Endpoints
         </h3>
         <div className="space-y-4">
             {modules.map(module => (
-                <div key={module.id} className="border border-gray-200 dark:border-gray-600 rounded-lg p-4">
-                    <h4 className="font-medium text-gray-900 dark:text-gray-100 mb-2">
+                <div key={module.id} className="border border-border/40 rounded-lg p-4">
+                    <h4 className="font-medium text-foreground mb-2">
                         {module.display_name}
                     </h4>
                     <div className="space-y-2 text-sm">
@@ -64,10 +64,10 @@ const EndpointSection: React.FC<{ modules: Module[] }> = ({ modules }) => (
                             <span className="px-2 py-1 bg-green-100 text-green-800 rounded text-xs font-mono">
                                 GET
                             </span>
-                            <code className="text-gray-700 dark:text-gray-300">
+                            <code className="text-gray-700 dark:text-muted-foreground">
                                 /modules/{module.name}/status
                             </code>
-                            <span className="text-gray-500 dark:text-gray-400">
+                            <span className="text-muted-foreground">
                                 - Get module status
                             </span>
                         </div>
@@ -75,10 +75,10 @@ const EndpointSection: React.FC<{ modules: Module[] }> = ({ modules }) => (
                             <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-mono">
                                 GET
                             </span>
-                            <code className="text-gray-700 dark:text-gray-300">
+                            <code className="text-gray-700 dark:text-muted-foreground">
                                 /modules/{module.name}/data
                             </code>
-                            <span className="text-gray-500 dark:text-gray-400">
+                            <span className="text-muted-foreground">
                                 - Get module data
                             </span>
                         </div>
@@ -86,10 +86,10 @@ const EndpointSection: React.FC<{ modules: Module[] }> = ({ modules }) => (
                             <span className="px-2 py-1 bg-purple-100 text-purple-800 rounded text-xs font-mono">
                                 POST
                             </span>
-                            <code className="text-gray-700 dark:text-gray-300">
+                            <code className="text-gray-700 dark:text-muted-foreground">
                                 /modules/{module.name}/analyze
                             </code>
-                            <span className="text-gray-500 dark:text-gray-400">
+                            <span className="text-muted-foreground">
                                 - Perform analysis
                             </span>
                         </div>
@@ -102,7 +102,7 @@ const EndpointSection: React.FC<{ modules: Module[] }> = ({ modules }) => (
 
 const RateLimitSection: React.FC<{ availablePlans: Plan[] }> = ({ availablePlans }) => (
     <div>
-        <h3 className="text-md font-semibold text-gray-900 dark:text-gray-100 mb-3 flex items-center">
+        <h3 className="text-md font-semibold text-foreground mb-3 flex items-center">
             <AlertTriangle className="w-5 h-5 mr-2 text-blue-600" />
             Access Tiers & Rate Limits
         </h3>
@@ -124,7 +124,7 @@ const RateLimitSection: React.FC<{ availablePlans: Plan[] }> = ({ availablePlans
 
 const ErrorCodeSection: React.FC = () => (
     <div>
-        <h3 className="text-md font-semibold text-gray-900 dark:text-gray-100 mb-3">
+        <h3 className="text-md font-semibold text-foreground mb-3">
             Common Error Codes
         </h3>
         <div className="space-y-2 text-sm">
@@ -138,7 +138,7 @@ const ErrorCodeSection: React.FC = () => (
                     <code className={`px-2 py-1 bg-${err.color}-100 text-${err.color}-800 rounded`}>
                         {err.code}
                     </code>
-                    <span className="text-gray-700 dark:text-gray-300">
+                    <span className="text-gray-700 dark:text-muted-foreground">
                         {err.text}
                     </span>
                 </div>
@@ -150,12 +150,12 @@ const ErrorCodeSection: React.FC = () => (
 export const DocumentationViewer: React.FC<DocumentationViewerProps> = ({ modules, availablePlans = [] }) => {
     return (
         <div className="space-y-6">
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
-                <div className="p-6 border-b border-gray-200 dark:border-gray-600">
-                    <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+            <div className="bg-card rounded-lg shadow">
+                <div className="p-6 border-b border-border/40">
+                    <h2 className="text-lg font-semibold text-foreground">
                         API Documentation
                     </h2>
-                    <p className="text-sm text-gray-600 dark:text-gray-300">
+                    <p className="text-sm text-muted-foreground">
                         Complete guide to using our module-based API
                     </p>
                 </div>

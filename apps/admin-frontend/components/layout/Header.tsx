@@ -50,7 +50,7 @@ export function Header({ user }: HeaderProps) {
 
   if (!mounted) {
     return (
-      <header className="sticky top-0 z-40 border-b border-gray-200 dark:border-slate-700 bg-white dark:bg-[#13151e]">
+      <header className="sticky top-0 z-40 border-b border-border/40 bg-card">
         <div className="flex h-14 items-center justify-between px-4 gap-3">
           <div className="flex items-center gap-2 min-w-0">
             <Breadcrumb />
@@ -62,7 +62,7 @@ export function Header({ user }: HeaderProps) {
   }
 
   return (
-    <header className="sticky top-0 z-40 border-b border-gray-200 dark:border-slate-700 bg-white dark:bg-[#13151e]">
+    <header className="sticky top-0 z-40 border-b border-border/40 bg-card">
       <div className="flex h-16 items-center justify-between px-6 gap-3">
         {/* Breadcrumb */}
         <div className="flex items-center gap-2 min-w-0 flex-shrink">
@@ -76,7 +76,7 @@ export function Header({ user }: HeaderProps) {
             <AdminNotificationBell />
           </div>
 
-          <div className="w-[1px] h-6 bg-gray-200 dark:bg-border hidden sm:block" />
+          <div className="w-[1px] h-6 bg-border hidden sm:block" />
 
           {/* Theme Toggle */}
           <UnifiedThemeToggle variant="minimal" size="md" showTooltip={true} />

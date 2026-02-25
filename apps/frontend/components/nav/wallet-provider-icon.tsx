@@ -13,7 +13,6 @@ import {
 import { formatAddress } from '@/shared/auth/utils';
 import { useSharedAuth } from '@/shared/components/auth';
 import { getExplorerAddressLink } from '@/shared/config/constants';
-import { copyToClipboard } from '@/utils/clipboard';
 import { Check, Code, Copy, ExternalLink, LogOut, Settings, Wallet } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
@@ -89,15 +88,25 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
     }
   }, [isConnected, address]);
 
-  const handleCopyAddress = async () => {
-    if (address === undefined || address === null) {
-      return;
-    }
-    const success = await copyToClipboard(address);
-    if (success) {
+  const handleCopyAddress = () => {
+    if (address === undefined || address === null) return;
+    void navigator.clipboard.writeText(address).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    }
+    }).catch(() => {
+      const el = document.createElement('textarea');
+      el.value = address;
+      el.style.cssText = 'position:fixed;top:0;left:0;opacity:0';
+      document.body.appendChild(el);
+      el.focus();
+      el.select();
+      const ok = document.execCommand('copy');
+      document.body.removeChild(el);
+      if (ok) {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      }
+    });
   };
 
   const handleViewExplorer = () => {
@@ -252,7 +261,7 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
         ═══════════════════════════════════════════════════════════════ */}
         <div className="p-2 flex gap-2">
           <button
-            onClick={() => void handleCopyAddress()}
+            onClick={handleCopyAddress}
             className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl
               bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700
               text-slate-700 dark:text-slate-300 text-sm font-medium transition-all duration-150"

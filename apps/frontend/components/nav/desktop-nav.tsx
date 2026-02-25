@@ -22,8 +22,8 @@ function GroupDropdown({ group }: { group: NavGroup }) {
       <DropdownMenuTrigger asChild>
         <button
           className={`flex items-center gap-1 px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${active
-              ? 'text-slate-900 dark:text-white'
-              : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
+            ? 'text-slate-900 dark:text-white'
+            : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
             }`}
         >
           {group.icon != null && <group.icon className="h-4 w-4 text-orange-500" />}
@@ -45,8 +45,8 @@ function GroupDropdown({ group }: { group: NavGroup }) {
               <Link
                 href={item.href}
                 className={`flex items-center gap-2.5 px-2.5 py-2 rounded-md text-sm cursor-pointer transition-colors ${itemActive
-                    ? 'bg-slate-100 text-slate-900 dark:bg-slate-800 dark:text-white'
-                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white'
+                  ? 'bg-slate-100 text-slate-900 dark:bg-slate-800 dark:text-white'
+                  : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white'
                   }`}
               >
                 {Icon != null && <Icon className="h-4 w-4 shrink-0 text-orange-500" />}
@@ -69,8 +69,11 @@ export function DesktopNav() {
   return (
     <div className="hidden lg:flex items-center gap-6">
       {/* Logo */}
-      <Link href="/" className="flex items-center hover:opacity-80 transition-opacity">
-        <img src="/epsx-logo.svg" alt="EPSX" className="h-8 w-auto" />
+      <Link href="/" className="flex items-center gap-2.5 group">
+        <img src="/logos/epsx-icon.svg" alt="EPSX Icon" className="h-8 w-8 group-active:scale-95 transition-transform" />
+        <span className="text-xl font-black tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-[#488BFA] to-[#A43FF3] leading-none mt-0.5">
+          EPSX
+        </span>
       </Link>
 
       {/* Group dropdowns */}

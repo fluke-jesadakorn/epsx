@@ -84,7 +84,7 @@ export default function AuthPageClient() {
             </div>
 
             {/* Left Panel - Desktop branding */}
-            <div className="relative z-10 hidden w-full flex-col justify-center overflow-hidden p-8 text-foreground dark:text-white lg:flex lg:w-3/5 xl:p-20">
+            <div className="relative z-10 hidden w-full flex-col justify-center overflow-hidden p-8 text-foreground dark:text-foreground lg:flex lg:w-3/5 xl:p-20">
                 <div className="mb-12 animate-auth-fade-in">
                     <div className="mb-8 flex items-center gap-3">
                         <div className="rounded-2xl bg-gradient-to-br from-purple-500 to-orange-500 p-3 shadow-2xl shadow-purple-500/20 ring-1 ring-white/20 transition-transform hover:scale-105">
@@ -107,11 +107,11 @@ export default function AuthPageClient() {
                 <div className="grid max-w-2xl gap-8 sm:grid-cols-2">
                     {features.map((f, i) => (
                         <div key={i} className="group flex gap-4 animate-auth-slide-up" style={{ animationDelay: `${i * 100}ms` }}>
-                            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-white/[0.04] ring-1 ring-white/5 backdrop-blur-sm transition-all duration-300 group-hover:border-purple-500/20 group-hover:bg-purple-500/10">
+                            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-border/20 bg-white dark:bg-white/[0.04] ring-1 ring-white/5 transition-all duration-300 group-hover:border-purple-500/20 group-hover:bg-purple-500/10">
                                 <f.icon className="h-6 w-6 text-purple-400 transition-transform group-hover:scale-110" />
                             </div>
                             <div>
-                                <h3 className="text-lg font-bold text-foreground/90 dark:text-white/90">{f.title}</h3>
+                                <h3 className="text-lg font-bold text-foreground/90 dark:text-foreground/90">{f.title}</h3>
                                 <p className="mt-1 text-sm leading-snug text-slate-500">{f.desc}</p>
                             </div>
                         </div>
@@ -120,10 +120,10 @@ export default function AuthPageClient() {
             </div>
 
             {/* Right Panel - Auth card */}
-            <div className="relative z-10 flex w-full items-center justify-center p-4 sm:p-6 lg:w-2/5 lg:border-l lg:border-gray-200 dark:border-slate-700 lg:bg-white/[0.02] lg:backdrop-blur-3xl">
+            <div className="relative z-10 flex w-full items-center justify-center p-4 sm:p-6 lg:w-2/5 lg:border-l lg:border-border/20 lg:bg-white/[0.02] lg:backdrop-blur-3xl">
                 <div className="w-full max-w-md">
                     {/* Mobile header */}
-                    <div className="mb-8 mt-4 animate-auth-fade-in text-center text-foreground dark:text-white sm:mb-10 sm:mt-6 lg:hidden">
+                    <div className="mb-8 mt-4 animate-auth-fade-in text-center text-foreground dark:text-foreground sm:mb-10 sm:mt-6 lg:hidden">
                         <div className="mb-4 flex items-center justify-center gap-2 sm:mb-6">
                             <div className="rounded-xl bg-gradient-to-br from-purple-500 to-orange-500 p-2 shadow-xl shadow-purple-500/20 ring-1 ring-white/20 sm:rounded-2xl sm:p-3">
                                 <Shield className="h-8 w-8 text-white sm:h-10 sm:w-10" />
@@ -135,7 +135,7 @@ export default function AuthPageClient() {
                     </div>
 
                     {/* Auth card with glassmorphism */}
-                    <div className="group relative animate-auth-slide-up overflow-hidden rounded-2xl border border-gray-200 dark:border-slate-700 bg-white/90 dark:bg-slate-950/60 p-6 shadow-[0_24px_48px_-12px_rgba(0,0,0,0.5)] backdrop-blur-3xl sm:rounded-3xl sm:p-8 lg:p-10">
+                    <div className="group relative animate-auth-slide-up overflow-hidden rounded-2xl border border-border/20 bg-white/90 dark:bg-background/60 p-6 shadow-[0_24px_48px_-12px_rgba(0,0,0,0.5)] sm:rounded-3xl sm:p-8 lg:p-10">
                         {/* Shimmer line */}
                         <div className="absolute left-0 top-0 h-px w-full -translate-x-full bg-gradient-to-r from-transparent via-purple-500/50 to-transparent animate-[auth-shimmer_3s_infinite]" />
 
@@ -145,7 +145,7 @@ export default function AuthPageClient() {
                                 <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-purple-500/10 shadow-[0_0_40px_-10px_rgba(139,92,246,0.3)] ring-1 ring-purple-500/20 transition-transform hover:scale-105 lg:h-20 lg:w-20 lg:rounded-[2rem]">
                                     <Lock className="h-8 w-8 text-purple-400 lg:h-10 lg:w-10" />
                                 </div>
-                                <h2 className="mb-2 text-2xl font-bold tracking-tight text-foreground dark:text-white lg:text-3xl">Admin Portal</h2>
+                                <h2 className="mb-2 text-2xl font-bold tracking-tight text-foreground dark:text-foreground lg:text-3xl">Admin Portal</h2>
                                 <p className="text-sm font-medium text-slate-500 lg:text-base">Secure authentication via Web3</p>
                             </div>
 
@@ -186,7 +186,7 @@ export default function AuthPageClient() {
                                 </button>
 
                                 {/* Benefits */}
-                                <div className="border-t border-gray-200 dark:border-slate-700 pt-5 sm:pt-6">
+                                <div className="border-t border-border/20 pt-5 sm:pt-6">
                                     <div className="grid grid-cols-1 gap-3 sm:gap-4">
                                         {benefits.map((text, i) => (
                                             <div key={i} className="flex items-center gap-3 text-xs font-medium text-slate-400 sm:text-sm">
@@ -200,14 +200,14 @@ export default function AuthPageClient() {
                                 </div>
 
                                 {/* Mobile features grid */}
-                                <div className="border-t border-gray-200 dark:border-slate-700 pt-5 sm:pt-6 lg:hidden">
+                                <div className="border-t border-border/20 pt-5 sm:pt-6 lg:hidden">
                                     <div className="grid grid-cols-2 gap-3 sm:gap-4">
                                         {features.map((f, i) => (
-                                            <div key={i} className="flex flex-col items-center rounded-xl border border-gray-200 dark:border-slate-700 bg-white/[0.02] p-3 text-center transition-colors hover:bg-white/[0.04] sm:p-4">
+                                            <div key={i} className="flex flex-col items-center rounded-xl border border-border/20 bg-white/[0.02] p-3 text-center transition-colors hover:bg-white/[0.04] sm:p-4">
                                                 <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-lg bg-purple-500/10 ring-1 ring-purple-500/20">
                                                     <f.icon className="h-5 w-5 text-purple-400" />
                                                 </div>
-                                                <h4 className="text-xs font-semibold text-foreground/90 dark:text-white/90">{f.title}</h4>
+                                                <h4 className="text-xs font-semibold text-foreground/90 dark:text-foreground/90">{f.title}</h4>
                                             </div>
                                         ))}
                                     </div>

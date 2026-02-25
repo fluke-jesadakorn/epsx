@@ -35,7 +35,7 @@ export function AdminPermissions({ user }: AdminPermissionsProps) {
       case 'epsx': return 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300';
       case 'epsx-pay': return 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300';
       case 'epsx-token': return 'bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-300';
-      default: return 'bg-slate-100 text-slate-800 dark:bg-slate-900/60 dark:text-slate-300';
+      default: return 'bg-muted/30 text-muted-foreground';
     }
   };
 
@@ -177,9 +177,9 @@ export function AdminPermissions({ user }: AdminPermissionsProps) {
           </div>
 
           {user.permission_last_updated !== undefined && user.permission_last_updated !== 0 && (
-            <div className="flex items-center gap-2 p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
-              <Clock className="h-4 w-4 text-slate-500" />
-              <span className="text-sm text-slate-600 dark:text-slate-400">
+            <div className="flex items-center gap-2 p-3 bg-slate-50 dark:bg-card rounded-lg">
+              <Clock className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm text-slate-600 dark:text-muted-foreground">
                 Last updated: {formatDate(user.permission_last_updated)}
               </span>
               {user.permission_version !== undefined && user.permission_version !== 0 && (
@@ -251,15 +251,15 @@ export function AdminPermissions({ user }: AdminPermissionsProps) {
               <div key={category.name} className="border border-slate-200 dark:border-slate-700 rounded-lg">
                 <button
                   onClick={() => toggleCategory(category.name)}
-                  className="w-full flex items-center justify-between p-4 hover:bg-slate-50 dark:hover:bg-white/10 dark:bg-slate-800 rounded-t-lg"
+                  className="w-full flex items-center justify-between p-4 hover:bg-slate-50 dark:hover:bg-white/10 dark:bg-card rounded-t-lg"
                 >
                   <div className="flex items-center gap-3">
                     <span className="text-lg">{category.icon}</span>
                     <div className="text-left">
-                      <div className="font-medium text-slate-900 dark:text-slate-100">
+                      <div className="font-medium text-slate-900 dark:text-foreground">
                         {category.name.toUpperCase()} Platform
                       </div>
-                      <div className="text-sm text-slate-600 dark:text-slate-400">
+                      <div className="text-sm text-slate-600 dark:text-muted-foreground">
                         {category.permissions.length} permissions
                       </div>
                     </div>
@@ -277,7 +277,7 @@ export function AdminPermissions({ user }: AdminPermissionsProps) {
                 </button>
 
                 {expandedCategories.has(category.name) && (
-                  <div className="p-4 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
+                  <div className="p-4 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-card/50">
                     <div className="grid grid-cols-1 gap-2">
                       {category.permissions.map((permission, index) => {
                         const level = getPermissionLevel(permission);
@@ -291,10 +291,10 @@ export function AdminPermissions({ user }: AdminPermissionsProps) {
                           <div
                             // eslint-disable-next-line react/no-array-index-key
                             key={index}
-                            className="flex items-center justify-between p-3 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700"
+                            className="flex items-center justify-between p-3 bg-white dark:bg-card rounded-lg border border-slate-200 dark:border-slate-700"
                           >
                             <div className="flex-1">
-                              <div className="font-mono text-sm text-slate-900 dark:text-slate-100">
+                              <div className="font-mono text-sm text-slate-900 dark:text-foreground">
                                 {basePermission}
                               </div>
                               {isTemporary === true && expiryTimestamp !== undefined && expiryTimestamp !== 0 && (
@@ -323,7 +323,7 @@ export function AdminPermissions({ user }: AdminPermissionsProps) {
             ))}
 
             {filteredCategories.length === 0 && (
-              <div className="text-center py-8 text-slate-500 dark:text-slate-400">
+              <div className="text-center py-8 text-muted-foreground dark:text-muted-foreground">
                 {searchTerm ? 'No permissions found matching your search.' : 'No permissions in this category.'}
               </div>
             )}

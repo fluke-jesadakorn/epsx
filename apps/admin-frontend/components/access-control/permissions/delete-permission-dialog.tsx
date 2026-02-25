@@ -44,7 +44,7 @@ export function DeletePermissionDialog({
                     <Button
                         variant="ghost"
                         onClick={onClose}
-                        className="text-slate-400 hover:text-white hover:bg-gray-100 dark:hover:bg-white/5"
+                        className="text-slate-400 hover:text-white hover:bg-muted/30"
                     >
                         No, Keep it
                     </Button>

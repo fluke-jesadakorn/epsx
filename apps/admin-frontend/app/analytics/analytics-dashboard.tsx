@@ -120,8 +120,8 @@ function AnalyticsContent(): React.JSX.Element {
                 memoryUsage={memoryUsage}
             />
 
-            <Card className="bg-white dark:bg-slate-900 backdrop-blur-2xl border-gray-200 dark:border-slate-700 shadow-xl rounded-[32px] overflow-hidden">
-                <CardHeader className="p-8 border-b border-gray-200 dark:border-slate-700 bg-white dark:bg-white/[0.04]">
+            <Card className="bg-card border-border/20 shadow-xl rounded-2xl overflow-hidden">
+                <CardHeader className="p-8 border-b border-border/20 bg-muted/20">
                     <CardTitle className="text-lg font-black uppercase tracking-widest text-foreground">API Usage Analytics</CardTitle>
                 </CardHeader>
                 <CardContent className="p-8">
@@ -174,7 +174,7 @@ function SummarySection({ userStats, dashboardData, permissionAnalytics }: Summa
                     title={card.title}
                     value={card.value}
                     subtitle={card.subtitle}
-                    className="bg-white dark:bg-slate-900 backdrop-blur-2xl border-gray-200 dark:border-slate-700 shadow-xl rounded-[32px] p-8"
+                    className="bg-card border-border/20 shadow-xl rounded-2xl p-8"
                 />
             ))}
         </div>
@@ -228,7 +228,7 @@ function StatsSection({ activeUsers, userStats, permissionAnalytics, responseTim
                 trendValue={getTrendValue(userStats)}
                 statusColor="green"
                 rank={1}
-                className="bg-white dark:bg-slate-900 backdrop-blur-2xl border-gray-200 dark:border-slate-700 shadow-xl rounded-[32px] overflow-hidden"
+                className="bg-card border-border/20 shadow-xl rounded-2xl overflow-hidden"
             />
             <AnalyticsStatsCard
                 title="Expiring Permissions"
@@ -239,7 +239,7 @@ function StatsSection({ activeUsers, userStats, permissionAnalytics, responseTim
                 trendValue={getPermissionTrendValue(permissionAnalytics)}
                 statusColor={statusColor}
                 rank={2}
-                className="bg-white dark:bg-slate-900 backdrop-blur-2xl border-gray-200 dark:border-slate-700 shadow-xl rounded-[32px] overflow-hidden"
+                className="bg-card border-border/20 shadow-xl rounded-2xl overflow-hidden"
             />
             <AnalyticsStatsCard
                 title="Response Time"
@@ -250,7 +250,7 @@ function StatsSection({ activeUsers, userStats, permissionAnalytics, responseTim
                 trendValue="real-time"
                 statusColor={getResponseTimeStatus(responseTime)}
                 rank={3}
-                className="bg-white dark:bg-slate-900 backdrop-blur-2xl border-gray-200 dark:border-slate-700 shadow-xl rounded-[32px] overflow-hidden"
+                className="bg-card border-border/20 shadow-xl rounded-2xl overflow-hidden"
             />
         </div>
     );
@@ -271,7 +271,7 @@ function MetricsGrid({ userStats, permissionAnalytics, systemMetrics, memoryUsag
 
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-            <Card className="bg-white dark:bg-slate-900 backdrop-blur-2xl border-gray-200 dark:border-slate-700 shadow-xl rounded-[32px] overflow-hidden group">
+            <Card className="bg-card border-border/20 shadow-xl rounded-2xl overflow-hidden group">
                 <CardContent className="p-8">
                     <div className="flex items-center">
                         <div className="p-3 bg-[#1fc7d4]/10 rounded-2xl border border-[#1fc7d4]/10 text-[#1fc7d4]">
@@ -288,7 +288,7 @@ function MetricsGrid({ userStats, permissionAnalytics, systemMetrics, memoryUsag
                 </CardContent>
             </Card>
 
-            <Card className="bg-white dark:bg-slate-900 backdrop-blur-2xl border-gray-200 dark:border-slate-700 shadow-xl rounded-[32px] overflow-hidden group">
+            <Card className="bg-card border-border/20 shadow-xl rounded-2xl overflow-hidden group">
                 <CardContent className="p-8">
                     <div className="flex items-center">
                         <div className="p-3 bg-[#31d0aa]/10 rounded-2xl border border-[#31d0aa]/10 text-[#31d0aa]">
@@ -303,7 +303,7 @@ function MetricsGrid({ userStats, permissionAnalytics, systemMetrics, memoryUsag
                 </CardContent>
             </Card>
 
-            <Card className="bg-white dark:bg-slate-900 backdrop-blur-2xl border-gray-200 dark:border-slate-700 shadow-xl rounded-[32px] overflow-hidden group">
+            <Card className="bg-card border-border/20 shadow-xl rounded-2xl overflow-hidden group">
                 <CardContent className="p-8">
                     <div className="flex items-center">
                         <div className="p-3 bg-[#7645d9]/10 rounded-2xl border border-[#7645d9]/10 text-[#7645d9]">
@@ -318,7 +318,7 @@ function MetricsGrid({ userStats, permissionAnalytics, systemMetrics, memoryUsag
                 </CardContent>
             </Card>
 
-            <Card className="bg-white dark:bg-slate-900 backdrop-blur-2xl border-gray-200 dark:border-slate-700 shadow-xl rounded-[32px] overflow-hidden group">
+            <Card className="bg-card border-border/20 shadow-xl rounded-2xl overflow-hidden group">
                 <CardContent className="p-8">
                     <div className="flex items-center">
                         <div className="p-3 bg-[#ed4b9e]/10 rounded-2xl border border-[#ed4b9e]/10 text-[#ed4b9e]">

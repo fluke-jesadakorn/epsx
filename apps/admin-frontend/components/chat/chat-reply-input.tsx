@@ -143,7 +143,7 @@ export function ChatReplyInput({ onSend, onUpload, onTyping, onResolve, onClose,
   const canSend = (msg.trim() !== '' || pendingFile !== null) && !isPending && !(disabled ?? false) && (pendingFile !== null || turnstileToken !== null);
 
   return (
-    <div className="border-t border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
+    <div className="border-t border-border/20 bg-card p-4">
       {/* Action buttons row */}
       <div className="flex gap-2 mb-3 flex-wrap">
         {onAssign && (
@@ -158,9 +158,9 @@ export function ChatReplyInput({ onSend, onUpload, onTyping, onResolve, onClose,
                 <ChevronDown className="w-3 h-3" />
               </button>
             </PopoverTrigger>
-            <PopoverContent align="start" className="w-72 p-0 bg-white dark:bg-slate-900 border-gray-200 dark:border-slate-700">
-              <div className="p-2 border-b border-gray-200 dark:border-slate-700">
-                <div className="flex items-center gap-2 px-2 py-1.5 bg-gray-100 dark:bg-slate-800/60 rounded-lg">
+            <PopoverContent align="start" className="w-72 p-0 bg-card border-border/20">
+              <div className="p-2 border-b border-border/20">
+                <div className="flex items-center gap-2 px-2 py-1.5 bg-gray-100 dark:bg-card/60 rounded-lg">
                   <Search className="w-3.5 h-3.5 text-muted-foreground/50" />
                   <input
                     ref={searchRef}
@@ -172,7 +172,7 @@ export function ChatReplyInput({ onSend, onUpload, onTyping, onResolve, onClose,
                 </div>
               </div>
               {myWallet && myWallet !== (assignedAgent ?? '') && (
-                <div className="p-1 border-b border-gray-200 dark:border-slate-700">
+                <div className="p-1 border-b border-border/20">
                   <button
                     onClick={() => handleAssign(myWallet)}
                     className="w-full px-3 py-2 text-left rounded-md hover:bg-blue-500/10 transition-colors flex items-center gap-2"
@@ -206,7 +206,7 @@ export function ChatReplyInput({ onSend, onUpload, onTyping, onResolve, onClose,
                         className="w-full px-3 py-2 text-left rounded-md hover:bg-gray-100 dark:hover:bg-slate-800/60 transition-colors flex items-center justify-between gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
                       >
                         <div className="flex items-center gap-2 min-w-0">
-                          <div className="w-6 h-6 rounded-full bg-gray-100 dark:bg-slate-800/60 border border-gray-200 dark:border-slate-700 flex items-center justify-center shrink-0">
+                          <div className="w-6 h-6 rounded-full bg-gray-100 dark:bg-card/60 border border-border/20 flex items-center justify-center shrink-0">
                             <span className="text-[9px] font-bold text-muted-foreground/60">
                               {a.wallet_address.slice(2, 4).toUpperCase()}
                             </span>
@@ -242,8 +242,8 @@ export function ChatReplyInput({ onSend, onUpload, onTyping, onResolve, onClose,
               Saved
             </button>
           </PopoverTrigger>
-          <PopoverContent align="start" className="w-80 p-0 bg-white dark:bg-slate-900 border-gray-200 dark:border-slate-700">
-            <div className="p-2 border-b border-gray-200 dark:border-slate-700">
+          <PopoverContent align="start" className="w-80 p-0 bg-card border-border/20">
+            <div className="p-2 border-b border-border/20">
               <p className="text-xs font-bold text-muted-foreground uppercase tracking-wide px-1">Saved Replies</p>
             </div>
             <div className="max-h-56 overflow-y-auto p-1">
@@ -296,7 +296,7 @@ export function ChatReplyInput({ onSend, onUpload, onTyping, onResolve, onClose,
 
       {/* Input area */}
       <div className="flex gap-2">
-        <div className="flex-1 bg-gray-100 dark:bg-slate-800/60 border border-gray-200 dark:border-slate-700 rounded-xl focus-within:border-violet-500/40 focus-within:ring-1 focus-within:ring-violet-500/20 transition-all overflow-hidden">
+        <div className="flex-1 bg-gray-100 dark:bg-card/60 border border-border/20 rounded-xl focus-within:border-violet-500/40 focus-within:ring-1 focus-within:ring-violet-500/20 transition-all overflow-hidden">
           <div className="flex items-end">
             {onUpload !== undefined && (
               <>
@@ -338,7 +338,7 @@ export function ChatReplyInput({ onSend, onUpload, onTyping, onResolve, onClose,
           disabled={!canSend}
           className={`px-4 rounded-xl flex items-center justify-center transition-all ${canSend
               ? 'bg-gradient-to-r from-violet-500 to-purple-600 text-white hover:from-violet-400 hover:to-purple-500 shadow-sm shadow-violet-500/20'
-              : 'bg-gray-100 dark:bg-slate-800/40 text-muted-foreground/30 cursor-not-allowed'
+              : 'bg-gray-100 dark:bg-card/40 text-muted-foreground/30 cursor-not-allowed'
             }`}
         >
           <Send className="w-4 h-4" />

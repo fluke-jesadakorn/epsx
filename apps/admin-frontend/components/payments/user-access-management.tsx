@@ -76,80 +76,36 @@ export function UserAccessManagement() {
 
     return (
         <div className="space-y-6 sm:space-y-8">
-            {/* Background Decorations */}
-            <div className="fixed inset-0 overflow-hidden pointer-events-none">
-                <div className="absolute top-20 left-20 w-32 h-32 bg-gradient-to-r from-emerald-400/20 to-teal-500/20 rounded-full blur-xl" />
-                <div className="absolute top-40 right-32 w-24 h-24 bg-gradient-to-r from-green-400/20 to-emerald-500/20 rounded-full blur-lg" />
-            </div>
-
             <div className="relative max-w-7xl mx-auto">
-                {/* Hero Section */}
-                <div className="text-center mb-8 sm:mb-12">
-                    <div className="relative inline-block">
-                        <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-primary via-secondary to-primary bg-clip-text text-transparent mb-4">
-                            👥 User Plan Access
-                        </h1>
-                        <div className="absolute -top-2 -right-2 w-4 h-4 bg-primary/20 rounded-full animate-ping" />
-                    </div>
-                    <p className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto">
-                        View and manage user subscription access across all plans
-                    </p>
-                </div>
-
-                {/* Action Card */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 mb-8 sm:mb-12">
-                    <div
-                        className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-primary/10 p-0.5 cursor-pointer"
-                        onClick={() => loadUserAccess()}
+                {/* Action Bar */}
+                <div className="flex items-center gap-3 mb-6">
+                    <button
+                        onClick={() => void loadUserAccess()}
+                        className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-[#7645d9] to-[#5a33b8] hover:opacity-90 text-white rounded-xl font-semibold text-sm transition-all"
                     >
-                        <div className="relative bg-primary text-primary-foreground rounded-2xl sm:rounded-3xl hover:opacity-90 transition-opacity">
-                            <div className="p-6 sm:p-8">
-                                <div className="bg-white/20 rounded-2xl w-12 h-12 flex items-center justify-center mb-4 sm:mb-6">
-                                    <span className="text-xl sm:text-2xl">🔄</span>
-                                </div>
-                                <h3 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4">Refresh Data</h3>
-                                <p className="text-primary-foreground/80 mb-4 sm:mb-6 text-sm sm:text-base">Reload user access data from the server</p>
-                                <div className="bg-white/20 rounded-2xl px-4 sm:px-6 py-2 sm:py-3 text-center font-semibold text-sm sm:text-base min-h-[44px] flex items-center justify-center">
-                                    Refresh
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-secondary/10 p-0.5 cursor-pointer">
-                        <div className="relative bg-secondary text-secondary-foreground rounded-2xl sm:rounded-3xl hover:opacity-90 transition-opacity">
-                            <div className="p-6 sm:p-8">
-                                <div className="bg-white/20 rounded-2xl w-12 h-12 flex items-center justify-center mb-4 sm:mb-6">
-                                    <span className="text-xl sm:text-2xl">📊</span>
-                                </div>
-                                <h3 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4">Export Report</h3>
-                                <p className="text-secondary-foreground/80 mb-4 sm:mb-6 text-sm sm:text-base">Download user access data as CSV</p>
-                                <div className="bg-white/20 rounded-2xl px-4 sm:px-6 py-2 sm:py-3 text-center font-semibold text-sm sm:text-base min-h-[44px] flex items-center justify-center">
-                                    Export
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                        Refresh
+                    </button>
                 </div>
 
                 {/* Error State */}
                 {error && (
                     <div className="relative overflow-hidden rounded-2xl bg-destructive/10 p-0.5 mb-6">
-                        <div className="bg-destructive/5 backdrop-blur-xl rounded-2xl p-4 text-destructive border border-destructive/20">
+                        <div className="bg-destructive/5 rounded-2xl p-4 text-destructive border border-destructive/20">
                             {error}
                         </div>
                     </div>
                 )}
 
                 {/* User Access Table */}
-                <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-primary/10 p-0.5">
-                    <div className="relative bg-card rounded-2xl sm:rounded-3xl overflow-hidden border border-border/50">
+                <div className="rounded-2xl border border-border/20 overflow-hidden bg-card shadow-xl">
+                    <div className="h-[3px] bg-gradient-to-r from-[#31d0aa] to-[#1fc7d4]" />
+                    <div>
                         <div className="p-4 sm:p-6 lg:p-8">
                             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-3">
-                                <h2 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-primary via-secondary to-primary bg-clip-text text-transparent">
+                                <h2 className="text-xs font-bold text-[#31d0aa] uppercase tracking-[0.2em]">
                                     All Users with Plan Access
                                 </h2>
-                                <div className="text-sm text-muted-foreground">
+                                <div className="px-3 py-1 bg-muted/50 rounded-full border border-border/40 text-xs font-bold text-muted-foreground">
                                     {userAccess.length} users
                                 </div>
                             </div>

@@ -18,7 +18,7 @@ export function WalletDetailHeader({
         <div className="flex items-center gap-4">
             <Link
                 href="/wallet-management"
-                className="p-2 rounded-xl bg-white border hover:bg-gray-50 transition-colors"
+                className="p-2 rounded-xl bg-card border border-border/40 hover:bg-muted/30 transition-colors"
             >
                 <ArrowLeft className="h-5 w-5" />
             </Link>
@@ -27,7 +27,7 @@ export function WalletDetailHeader({
                     <span>👛</span>
                     Wallet Details
                 </h1>
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-muted-foreground">
                     Manage wallet access and plans
                 </p>
             </div>

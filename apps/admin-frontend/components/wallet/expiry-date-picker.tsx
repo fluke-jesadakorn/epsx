@@ -81,12 +81,12 @@ export function ExpiryDatePicker({
         <div className="fixed inset-0 z-50 flex items-center justify-center">
             {/* Backdrop */}
             <div
-                className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+                className="absolute inset-0 bg-black/50"
                 onClick={handleCancel}
             />
 
             {/* Modal */}
-            <div className="relative bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 w-full max-w-md mx-4 overflow-hidden">
+            <div className="relative bg-card rounded-2xl shadow-2xl border border-gray-200 dark:border-border/40 w-full max-w-md mx-4 overflow-hidden">
                 {/* Header */}
                 <div className="flex items-center justify-between p-4 border-b border-gray-100 dark:border-gray-800">
                     <div className="flex items-center gap-3">
@@ -94,11 +94,11 @@ export function ExpiryDatePicker({
                             <Calendar className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                         </div>
                         <div>
-                            <h3 className="font-semibold text-gray-900 dark:text-white">
+                            <h3 className="font-semibold text-foreground">
                                 Set Expiry Date
                             </h3>
-                            <p className="text-sm text-gray-500 dark:text-gray-400">
-                                Assigning {itemType}: <span className="font-medium text-gray-700 dark:text-gray-300">{itemName}</span>
+                            <p className="text-sm text-muted-foreground">
+                                Assigning {itemType}: <span className="font-medium text-gray-700 dark:text-muted-foreground">{itemName}</span>
                             </p>
                         </div>
                     </div>
@@ -114,7 +114,7 @@ export function ExpiryDatePicker({
                 <div className="p-4 space-y-4">
                     {/* Quick Presets */}
                     <div>
-                        <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2 block">
+                        <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2 block">
                             Quick Presets
                         </label>
                         <div className="grid grid-cols-4 gap-2">
@@ -126,7 +126,7 @@ export function ExpiryDatePicker({
                                         'px-3 py-2 rounded-lg text-sm font-medium transition-all',
                                         selectedDate && customDate === new Date(Date.now() + preset.days * 86400000).toISOString().split('T')[0]
                                             ? 'bg-blue-600 text-white'
-                                            : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+                                            : 'bg-muted/30 text-gray-700 dark:text-muted-foreground hover:bg-gray-200 dark:hover:bg-gray-700'
                                     )}
                                 >
                                     {preset.label}
@@ -137,7 +137,7 @@ export function ExpiryDatePicker({
 
                     {/* Custom Date */}
                     <div>
-                        <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2 block">
+                        <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2 block">
                             Custom Date
                         </label>
                         <div className="relative">
@@ -147,7 +147,7 @@ export function ExpiryDatePicker({
                                 value={customDate}
                                 onChange={(e) => handleCustomDateChange(e.target.value)}
                                 min={new Date().toISOString().split('T')[0]}
-                                className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                                className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-gray-200 dark:border-border/40 bg-card text-foreground focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                             />
                         </div>
                     </div>
@@ -169,11 +169,11 @@ export function ExpiryDatePicker({
                 </div>
 
                 {/* Footer */}
-                <div className="flex items-center justify-between p-4 border-t border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50">
+                <div className="flex items-center justify-between p-4 border-t border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-muted/50">
                     <Button
                         variant="ghost"
                         onClick={handleNoExpiry}
-                        className="text-gray-600 dark:text-gray-400"
+                        className="text-muted-foreground"
                     >
                         No Expiry
                     </Button>

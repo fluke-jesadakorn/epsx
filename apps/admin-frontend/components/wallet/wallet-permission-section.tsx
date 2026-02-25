@@ -43,10 +43,10 @@ function DraggablePermissionCard({
             {...listeners}
             {...attributes}
             className={cn(
-                "group flex items-center justify-between p-3 rounded-lg border bg-white dark:bg-gray-800 transition-all touch-none",
+                "group flex items-center justify-between p-3 rounded-lg border bg-card transition-all touch-none",
                 isDragging
                     ? "opacity-50 border-blue-400 rotate-2 scale-[1.02] shadow-xl z-50 cursor-grabbing"
-                    : "border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-700 hover:shadow-sm cursor-grab"
+                    : "border-gray-200 dark:border-border/40 hover:border-blue-300 dark:hover:border-blue-700 hover:shadow-sm cursor-grab"
             )}
         >
             <div className="flex items-center gap-3 overflow-hidden">
@@ -54,7 +54,7 @@ function DraggablePermissionCard({
                     <Key className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                 </div>
                 <div className="min-w-0">
-                    <p className="font-medium text-sm text-gray-900 dark:text-white truncate">
+                    <p className="font-medium text-sm text-foreground truncate">
                         {permission.name}
                     </p>
                     {permission.platform !== undefined && (
@@ -98,10 +98,10 @@ export function WalletPermissionSection({
     return (
         <div className="space-y-4">
             {/* Header */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="bg-card rounded-xl border border-gray-200 dark:border-border/40 p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
                 <div className="flex items-center gap-2 w-full sm:w-auto">
                     <Key className="h-5 w-5 text-gray-500" />
-                    <h3 className="font-semibold text-gray-900 dark:text-white">
+                    <h3 className="font-semibold text-foreground">
                         Direct Permissions
                     </h3>
                     <Badge variant="secondary" className="ml-2">
@@ -130,7 +130,7 @@ export function WalletPermissionSection({
             {/* List */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                 {filteredPermissions.length === 0 ? (
-                    <div className="col-span-full py-12 text-center text-gray-500 border border-dashed border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50/50 dark:bg-slate-900/50">
+                    <div className="col-span-full py-12 text-center text-gray-500 border border-dashed border-gray-200 dark:border-border/40 rounded-xl bg-muted/20">
                         <Key className="h-10 w-10 mx-auto mb-3 opacity-20" />
                         <p>No direct permissions assigned</p>
                     </div>

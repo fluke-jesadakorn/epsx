@@ -25,17 +25,17 @@ interface EditExpirationModalProps {
 }
 
 const KeyInfo: React.FC<{ clientName: string; expiresAt?: string }> = ({ clientName, expiresAt }) => (
-    <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+    <div className="bg-gray-50 dark:bg-muted/50 rounded-lg p-4">
         <div className="text-sm">
             <div className="flex justify-between mb-1">
-                <span className="text-gray-500 dark:text-gray-400">API Key:</span>
-                <span className="font-medium text-gray-900 dark:text-gray-100">
+                <span className="text-muted-foreground">API Key:</span>
+                <span className="font-medium text-foreground">
                     {clientName}
                 </span>
             </div>
             <div className="flex justify-between">
-                <span className="text-gray-500 dark:text-gray-400">Current Expiration:</span>
-                <span className="font-medium text-gray-900 dark:text-gray-100">
+                <span className="text-muted-foreground">Current Expiration:</span>
+                <span className="font-medium text-foreground">
                     {expiresAt !== undefined && expiresAt !== null && expiresAt !== ''
                         ? new Date(expiresAt).toLocaleDateString()
                         : 'Never'}
@@ -47,7 +47,7 @@ const KeyInfo: React.FC<{ clientName: string; expiresAt?: string }> = ({ clientN
 
 const PresetButtons: React.FC<{ onSetPreset: (days: number) => void; disabled: boolean }> = ({ onSetPreset, disabled }) => (
     <div>
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+        <label className="block text-sm font-medium text-gray-700 dark:text-muted-foreground mb-2">
             Quick Presets
         </label>
         <div className="flex flex-wrap gap-2">
@@ -126,7 +126,7 @@ export const EditExpirationModal: React.FC<EditExpirationModalProps> = ({
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
             <DialogContent className="sm:max-w-md p-0 gap-0">
-                <DialogHeader className="p-6 border-b border-gray-200 dark:border-gray-700">
+                <DialogHeader className="p-6 border-b border-gray-200 dark:border-border/40">
                     <DialogTitle className="flex items-center space-x-3">
                         <div className="p-2 bg-blue-100 dark:bg-blue-900/50 rounded-lg">
                             <Calendar className="w-5 h-5 text-blue-600 dark:text-blue-400" />
@@ -141,7 +141,7 @@ export const EditExpirationModal: React.FC<EditExpirationModalProps> = ({
                         <PresetButtons onSetPreset={setPreset} disabled={removeExpiration} />
 
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            <label className="block text-sm font-medium text-gray-700 dark:text-muted-foreground mb-2">
                                 Custom Expiration Date
                             </label>
                             <input
@@ -153,7 +153,7 @@ export const EditExpirationModal: React.FC<EditExpirationModalProps> = ({
                                 }}
                                 disabled={removeExpiration}
                                 min={new Date().toISOString().slice(0, 16)}
-                                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="w-full px-3 py-2 border border-border/40 rounded-lg bg-white dark:bg-muted text-foreground focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
                             />
                         </div>
 
@@ -172,7 +172,7 @@ export const EditExpirationModal: React.FC<EditExpirationModalProps> = ({
                             />
                             <label
                                 htmlFor="remove-expiration"
-                                className="text-sm text-gray-700 dark:text-gray-300"
+                                className="text-sm text-gray-700 dark:text-muted-foreground"
                             >
                                 Remove expiration (key never expires)
                             </label>
@@ -183,7 +183,7 @@ export const EditExpirationModal: React.FC<EditExpirationModalProps> = ({
                         )}
                     </div>
 
-                    <DialogFooter className="p-6 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50 sm:justify-end space-x-3 rounded-b-lg">
+                    <DialogFooter className="p-6 border-t border-gray-200 dark:border-border/40 bg-gray-50 dark:bg-muted/50 sm:justify-end space-x-3 rounded-b-lg">
                         <Button
                             type="button"
                             variant="outline"

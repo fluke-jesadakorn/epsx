@@ -90,16 +90,16 @@ function LoadingGrid() {
       {Array.from({ length: 10 }).map((_, i) => (
         <div
           key={`loading-${String(i)}`}
-          className="animate-pulse rounded-2xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-6"
+          className="animate-pulse rounded-2xl border border-border/20 bg-card p-6"
         >
-          <div className="mb-4 h-4 w-20 rounded bg-gray-100 dark:bg-slate-800 mx-auto" />
-          <div className="mb-2 h-10 w-24 rounded bg-gray-100 dark:bg-slate-800 mx-auto" />
-          <div className="mb-6 h-3 w-16 rounded bg-gray-100 dark:bg-slate-800 mx-auto" />
+          <div className="mb-4 h-4 w-20 rounded bg-gray-100 dark:bg-card mx-auto" />
+          <div className="mb-2 h-10 w-24 rounded bg-gray-100 dark:bg-card mx-auto" />
+          <div className="mb-6 h-3 w-16 rounded bg-gray-100 dark:bg-card mx-auto" />
           <div className="space-y-3">
-            <div className="h-8 rounded-lg bg-gray-100 dark:bg-slate-800" />
-            <div className="h-12 rounded-lg bg-gray-100 dark:bg-slate-800" />
+            <div className="h-8 rounded-lg bg-gray-100 dark:bg-card" />
+            <div className="h-12 rounded-lg bg-gray-100 dark:bg-card" />
           </div>
-          <div className="mt-4 h-10 rounded-xl bg-gray-100 dark:bg-slate-800" />
+          <div className="mt-4 h-10 rounded-xl bg-gray-100 dark:bg-card" />
         </div>
       ))}
     </div>
@@ -118,7 +118,7 @@ export default async function ServerCardDashboard({
       {/* Filters */}
       <Suspense
         fallback={
-          <div className="text-slate-600 dark:text-slate-200">
+          <div className="text-slate-600 dark:text-foreground">
             Loading filters...
           </div>
         }

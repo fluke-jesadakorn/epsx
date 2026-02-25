@@ -68,7 +68,7 @@ export function AddResourceModal({
                             placeholder="Search..."
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
-                            className="pl-9 bg-gray-50 dark:bg-slate-900/50"
+                            className="pl-9 bg-muted/20"
                         />
                     </div>
 
@@ -86,11 +86,11 @@ export function AddResourceModal({
                                         "w-full flex items-center justify-between p-3 rounded-lg text-left transition-colors border",
                                         selectedId === item.id
                                             ? "bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800"
-                                            : "bg-white dark:bg-gray-800 border-transparent hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-200 dark:hover:border-gray-600"
+                                            : "bg-card border-transparent hover:bg-muted/30 hover:border-gray-200 dark:hover:border-gray-600"
                                     )}
                                 >
                                     <div>
-                                        <p className="font-medium text-sm text-gray-900 dark:text-white">
+                                        <p className="font-medium text-sm text-foreground">
                                             {item.name}
                                         </p>
                                         {item.description && (
@@ -108,7 +108,7 @@ export function AddResourceModal({
                     </div>
                 </div>
 
-                <DialogFooter className="px-6 py-4 bg-gray-50 dark:bg-slate-900/50 border-t border-gray-100 dark:border-gray-800">
+                <DialogFooter className="px-6 py-4 bg-muted/20 border-t border-gray-100 dark:border-gray-800">
                     <Button variant="outline" onClick={onClose} disabled={isLoading}>
                         Cancel
                     </Button>

@@ -88,10 +88,10 @@ function UsageAnalyticsTab({ apiKeys }: UsageAnalyticsTabProps): React.JSX.Eleme
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+          <h2 className="text-lg font-semibold text-foreground">
             Usage Analytics
           </h2>
-          <p className="text-sm text-gray-600 dark:text-gray-300">
+          <p className="text-sm text-muted-foreground">
             Monitor API usage patterns and performance metrics
           </p>
         </div>
@@ -135,13 +135,13 @@ function UsageAnalyticsTab({ apiKeys }: UsageAnalyticsTabProps): React.JSX.Eleme
                 <BarChart3 className="w-6 h-6 text-blue-600" />
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600 dark:text-gray-300">
+                <p className="text-sm font-medium text-muted-foreground">
                   Total Requests
                 </p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                <p className="text-2xl font-bold text-foreground">
                   {totalRequests.toLocaleString()}
                 </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
+                <p className="text-xs text-muted-foreground">
                   Last {timeRange}
                 </p>
               </div>
@@ -156,13 +156,13 @@ function UsageAnalyticsTab({ apiKeys }: UsageAnalyticsTabProps): React.JSX.Eleme
                 <AlertTriangle className="w-6 h-6 text-red-600" />
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600 dark:text-gray-300">
+                <p className="text-sm font-medium text-muted-foreground">
                   Error Rate
                 </p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                <p className="text-2xl font-bold text-foreground">
                   {errorRate}%
                 </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
+                <p className="text-xs text-muted-foreground">
                   {totalErrors} errors
                 </p>
               </div>
@@ -177,13 +177,13 @@ function UsageAnalyticsTab({ apiKeys }: UsageAnalyticsTabProps): React.JSX.Eleme
                 <Clock className="w-6 h-6 text-green-600" />
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600 dark:text-gray-300">
+                <p className="text-sm font-medium text-muted-foreground">
                   Avg Latency
                 </p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                <p className="text-2xl font-bold text-foreground">
                   {Math.round(avgLatency)}ms
                 </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
+                <p className="text-xs text-muted-foreground">
                   Response time
                 </p>
               </div>
@@ -198,13 +198,13 @@ function UsageAnalyticsTab({ apiKeys }: UsageAnalyticsTabProps): React.JSX.Eleme
                 <Activity className="w-6 h-6 text-purple-600" />
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600 dark:text-gray-300">
+                <p className="text-sm font-medium text-muted-foreground">
                   Active Keys
                 </p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                <p className="text-2xl font-bold text-foreground">
                   {activeKeys.length}
                 </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
+                <p className="text-xs text-muted-foreground">
                   of {apiKeys.length} total
                 </p>
               </div>
@@ -232,13 +232,13 @@ function UsageAnalyticsTab({ apiKeys }: UsageAnalyticsTabProps): React.JSX.Eleme
                     minHeight: '4px'
                   }}
                 />
-                <div className="text-xs text-gray-500 dark:text-gray-400 mt-2 text-center">
+                <div className="text-xs text-muted-foreground mt-2 text-center">
                   {new Date(day.date).toLocaleDateString('en-US', {
                     month: 'short',
                     day: 'numeric'
                   })}
                 </div>
-                <div className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                <div className="text-xs font-medium text-gray-700 dark:text-muted-foreground">
                   {day.requests}
                 </div>
               </div>
@@ -260,12 +260,12 @@ function UsageAnalyticsTab({ apiKeys }: UsageAnalyticsTabProps): React.JSX.Eleme
                 : '0';
 
               return (
-                <div key={key.id} className="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
+                <div key={key.id} className="flex items-center justify-between p-4 border border-gray-200 dark:border-border/40 rounded-lg">
                   <div className="flex-1">
-                    <h4 className="font-medium text-gray-900 dark:text-gray-100">
+                    <h4 className="font-medium text-foreground">
                       {key.client_name}
                     </h4>
-                    <div className="flex items-center space-x-4 mt-1 text-sm text-gray-600 dark:text-gray-300">
+                    <div className="flex items-center space-x-4 mt-1 text-sm text-muted-foreground">
                       <span>{key.total_requests.toLocaleString()} requests</span>
                       <span>{key.rate_limit_per_minute}/min limit</span>
                       {key.last_used_at && (
@@ -276,10 +276,10 @@ function UsageAnalyticsTab({ apiKeys }: UsageAnalyticsTabProps): React.JSX.Eleme
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="text-lg font-bold text-gray-900 dark:text-gray-100">
+                    <div className="text-lg font-bold text-foreground">
                       {usagePercentage}%
                     </div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">
+                    <div className="text-xs text-muted-foreground">
                       of total usage
                     </div>
                   </div>
@@ -303,16 +303,16 @@ function UsageAnalyticsTab({ apiKeys }: UsageAnalyticsTabProps): React.JSX.Eleme
               const isNearLimit = usagePercentage > 80;
 
               return (
-                <div key={key.id} className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
+                <div key={key.id} className="p-4 border border-gray-200 dark:border-border/40 rounded-lg">
                   <div className="flex items-center justify-between mb-2">
-                    <h4 className="font-medium text-gray-900 dark:text-gray-100">
+                    <h4 className="font-medium text-foreground">
                       {key.client_name}
                     </h4>
-                    <span className={`text-sm ${isNearLimit ? 'text-red-600' : 'text-gray-600 dark:text-gray-300'}`}>
+                    <span className={`text-sm ${isNearLimit ? 'text-red-600' : 'text-muted-foreground'}`}>
                       {currentUsage}/{key.rate_limit_per_minute} requests/min
                     </span>
                   </div>
-                  <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                  <div className="w-full bg-gray-200 dark:bg-muted rounded-full h-2">
                     <div
                       className={`h-2 rounded-full ${isNearLimit ? 'bg-red-500' : usagePercentage > 60 ? 'bg-yellow-500' : 'bg-green-500'
                         }`}

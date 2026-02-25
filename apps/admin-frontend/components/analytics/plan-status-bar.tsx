@@ -66,7 +66,7 @@ export function PlanStatusBar({ className, planAccess: propPlanAccess }: PlanSta
 
     if (loading) {
         return (
-            <div className={cn('animate-pulse rounded-2xl bg-gray-100 dark:bg-slate-800/50 p-4', className)}>
+            <div className={cn('animate-pulse rounded-2xl bg-gray-100 dark:bg-card/50 p-4', className)}>
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <div className="h-10 w-10 rounded-xl bg-slate-700" />
@@ -116,7 +116,7 @@ export function PlanStatusBar({ className, planAccess: propPlanAccess }: PlanSta
 
     return (
         <div className={cn(
-            'relative overflow-hidden rounded-2xl border backdrop-blur-xl',
+            'relative overflow-hidden rounded-2xl border',
             `bg-gradient-to-r ${tierConfig.bgGradient}`,
             tierConfig.borderColor,
             className
@@ -160,7 +160,7 @@ export function PlanStatusBar({ className, planAccess: propPlanAccess }: PlanSta
                             </span>
                             {rankingOffset > 0 && (
                                 <>
-                                    <span className="text-slate-500">•</span>
+                                    <span className="text-muted-foreground">•</span>
                                     <div className="flex items-center gap-1 text-sm text-slate-400">
                                         <Lock className="h-3 w-3" />
                                         <span>

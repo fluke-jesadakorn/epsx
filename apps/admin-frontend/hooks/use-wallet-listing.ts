@@ -28,16 +28,22 @@ export function useWalletListing({ initialData }: UseWalletListingProps) {
     // State
     const [wallets, setWallets] = useState<WalletData[]>(initialData?.wallets ?? []);
     const [isLoading, setIsLoading] = useState(!initialData);
-    const [filters, setFilters] = useState<WalletFilters>({
+    const [filters, setFiltersRaw] = useState<WalletFilters>({
         search: '',
         platform: 'all',
         status: 'all',
         sortBy: 'created_at',
         sortOrder: 'desc',
     });
+    const setFilters = useCallback((f: WalletFilters) => {
+        setFiltersRaw(f);
+        setPage(1);
+    }, []);
 
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
+    const [limit, setLimit] = useState(initialData?.pagination.limit ?? 10);
+    const [total, setTotal] = useState(initialData?.pagination.total ?? 0);
 
     // Modals
     const [disableModalWallet, setDisableModalWallet] = useState<string | null>(null);
@@ -49,19 +55,20 @@ export function useWalletListing({ initialData }: UseWalletListingProps) {
     const loadData = useCallback(async () => {
         setIsLoading(true);
         try {
-            const res = await fetchWalletsAction(filters, page, 9);
+            const res = await fetchWalletsAction(filters, page, limit);
             if (!res.success) {
                 logger.error('Failed to load wallets:', { error: res.error });
                 return;
             }
             setWallets(res.wallets);
             setTotalPages(res.pagination.total_pages);
+            setTotal(res.pagination.total);
         } catch (err) {
             logger.error('Failed to load wallets:', { err });
         } finally {
             setIsLoading(false);
         }
-    }, [filters, page]);
+    }, [filters, page, limit]);
 
     useEffect(() => {
         if (isAuthenticated && !authLoading) {
@@ -122,6 +129,9 @@ export function useWalletListing({ initialData }: UseWalletListingProps) {
         page,
         setPage,
         totalPages,
+        limit,
+        setLimit,
+        total,
         disableModalWallet,
         setDisableModalWallet,
         reenableModalWallet,

@@ -71,10 +71,10 @@ export const SSENotificationSchema = z.object({
   notification_type: z.string(),
   title: z.string().min(1).max(200),
   message: z.string().min(1).max(1000),
-  data: z.record(z.string(), z.any()).optional(),
+  data: z.record(z.string(), z.any()).nullish(),
   priority: z.string(),
   timestamp: z.string().datetime(),
-  expires_at: z.string().datetime().optional(),
+  expires_at: z.string().datetime().nullish(),
 })
 
 export type SSENotificationValidated = z.infer<typeof SSENotificationSchema>

@@ -38,9 +38,9 @@ const labelSizeClasses = {
 }
 
 const variantClasses = {
-    default: 'text-gray-600 dark:text-gray-400',
+    default: 'text-muted-foreground',
     primary: 'text-blue-600 dark:text-blue-400',
-    muted: 'text-gray-400 dark:text-gray-500',
+    muted: 'text-muted-foreground',
     white: 'text-white'
 }
 
@@ -107,7 +107,7 @@ export function PageLoadingSpinner({
             className
         )}>
             <LoadingSpinner size="xl" variant="primary" />
-            <p className="text-gray-600 dark:text-gray-400 text-sm">{label}</p>
+            <p className="text-muted-foreground text-sm">{label}</p>
         </div>
     )
 }
@@ -154,7 +154,7 @@ export function SectionLoading({
                 <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full blur opacity-20" />
                 <LoadingSpinner size="lg" variant="primary" />
             </div>
-            <p className="text-gray-500 dark:text-gray-400 text-sm">{label}</p>
+            <p className="text-muted-foreground text-sm">{label}</p>
         </div>
     )
 }
@@ -167,8 +167,8 @@ export function SectionLoading({
 export function InlineLoading({ className }: { className?: string }) {
     return (
         <span className={cn('inline-flex items-center gap-1.5', className)}>
-            <Loader2 className="h-3 w-3 animate-spin text-gray-400 dark:text-gray-500" />
-            <span className="text-gray-400 dark:text-gray-500 text-xs">Loading...</span>
+            <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+            <span className="text-muted-foreground text-xs">Loading...</span>
         </span>
     )
 }

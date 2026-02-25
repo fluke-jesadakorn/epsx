@@ -18,17 +18,17 @@ const StatCard: React.FC<{
     value: string | number;
     iconBgClass?: string;
     iconColorClass?: string;
-}> = ({ icon, title, value, iconBgClass = 'bg-blue-100', iconColorClass = 'text-blue-600' }) => (
-    <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+}> = ({ icon, title, value, iconBgClass = 'bg-[#1fc7d4]/10', iconColorClass = 'text-[#1fc7d4]' }) => (
+    <div className="rounded-2xl bg-card border border-border/20 shadow-xl p-6">
         <div className="flex items-center">
-            <div className={`p-2 rounded-lg ${iconBgClass}`}>
-                {React.cloneElement(icon as React.ReactElement<any>, { className: `w-6 h-6 ${iconColorClass}` })}
+            <div className={`p-2 rounded-xl ${iconBgClass}`}>
+                {React.cloneElement(icon as React.ReactElement<{ className?: string }>, { className: `w-6 h-6 ${iconColorClass}` })}
             </div>
             <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600 dark:text-gray-300">
+                <p className="text-sm font-medium text-muted-foreground">
                     {title}
                 </p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                <p className="text-2xl font-bold text-foreground">
                     {value}
                 </p>
             </div>
@@ -42,14 +42,14 @@ const RecentApiKeyItem: React.FC<{ apiKey: ApiKey }> = ({ apiKey }) => {
         <div className="p-6">
             <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-4">
-                    <div className="p-2 bg-gray-100 dark:bg-gray-700 rounded-lg">
-                        <Key className="w-5 h-5 text-gray-600 dark:text-gray-300" />
+                    <div className="p-2 bg-muted/30 rounded-xl">
+                        <Key className="w-5 h-5 text-muted-foreground" />
                     </div>
                     <div>
-                        <h4 className="font-medium text-gray-900 dark:text-gray-100">
+                        <h4 className="font-medium text-foreground">
                             {apiKey.client_name}
                         </h4>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                        <p className="text-sm text-muted-foreground">
                             Key: {keyPreviewString !== '' ? `${keyPreviewString}...` : ''}
                         </p>
                     </div>
@@ -60,7 +60,7 @@ const RecentApiKeyItem: React.FC<{ apiKey: ApiKey }> = ({ apiKey }) => {
                     >
                         {apiKey.status}
                     </span>
-                    <div className="text-sm text-gray-500 dark:text-gray-400">
+                    <div className="text-sm text-muted-foreground">
                         {apiKey.total_requests.toLocaleString()} requests
                     </div>
                 </div>
@@ -71,7 +71,7 @@ const RecentApiKeyItem: React.FC<{ apiKey: ApiKey }> = ({ apiKey }) => {
                     apiKey.permission_groups.map((group) => (
                         <span
                             key={group.id}
-                            className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-purple-100 dark:bg-purple-900/50 text-purple-800 dark:text-purple-200"
+                            className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-[#7645d9]/10 text-[#7645d9] border border-[#7645d9]/20"
                         >
                             <Shield className="w-3 h-3 mr-1" />
                             {group.name}
@@ -80,7 +80,7 @@ const RecentApiKeyItem: React.FC<{ apiKey: ApiKey }> = ({ apiKey }) => {
                 {apiKey.allowed_modules.map(module => (
                     <span
                         key={module.module_id}
-                        className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200"
+                        className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-[#1fc7d4]/10 text-[#1fc7d4] border border-[#1fc7d4]/20"
                     >
                         {module.module_name}
                     </span>
@@ -91,22 +91,22 @@ const RecentApiKeyItem: React.FC<{ apiKey: ApiKey }> = ({ apiKey }) => {
 };
 
 const ModuleCard: React.FC<{ module: Module }> = ({ module }) => (
-    <div className="border border-gray-200 dark:border-gray-600 rounded-lg p-4">
+    <div className="border border-border/20 rounded-xl p-4">
         <div className="flex items-start justify-between mb-3">
             <div>
-                <h4 className="font-medium text-gray-900 dark:text-gray-100">
+                <h4 className="font-medium text-foreground">
                     {module.display_name}
                 </h4>
-                <p className="text-sm text-gray-500 dark:text-gray-400">{module.name}</p>
+                <p className="text-sm text-muted-foreground">{module.name}</p>
             </div>
-            <span className="px-2 py-1 bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-200 rounded-full text-xs font-medium">
+            <span className="px-2 py-1 bg-[#31d0aa]/10 text-[#31d0aa] border border-[#31d0aa]/20 rounded-full text-xs font-medium">
                 {module.status}
             </span>
         </div>
-        <p className="text-sm text-gray-600 dark:text-gray-300 mb-3">
+        <p className="text-sm text-muted-foreground mb-3">
             {module.description ?? 'No description available'}
         </p>
-        <div className="text-xs text-gray-500 dark:text-gray-400">
+        <div className="text-xs text-muted-foreground">
             <span className="font-medium">Category:</span>{' '}
             {module.category}
         </div>
@@ -132,40 +132,41 @@ export const PortalOverview: React.FC<PortalOverviewProps> = ({ apiKeys, modules
                     icon={<Activity />}
                     title="Active Keys"
                     value={apiKeys.filter(key => key.status === 'active').length}
-                    iconBgClass="bg-green-100 dark:bg-green-900/50"
-                    iconColorClass="text-green-600"
+                    iconBgClass="bg-[#31d0aa]/10"
+                    iconColorClass="text-[#31d0aa]"
                 />
                 <StatCard
                     icon={<BarChart3 />}
                     title="Total Requests"
                     value={totalRequests}
-                    iconBgClass="bg-purple-100 dark:bg-purple-900/50"
-                    iconColorClass="text-purple-600"
+                    iconBgClass="bg-[#7645d9]/10"
+                    iconColorClass="text-[#7645d9]"
                 />
                 <StatCard
                     icon={<Settings />}
                     title="Available Modules"
                     value={modules.length}
-                    iconBgClass="bg-orange-100 dark:bg-orange-900/50"
-                    iconColorClass="text-orange-600"
+                    iconBgClass="bg-[#ffb237]/10"
+                    iconColorClass="text-[#ffb237]"
                 />
             </div>
 
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
-                <div className="p-6 border-b">
+            <div className="rounded-2xl bg-card border border-border/20 overflow-hidden shadow-xl">
+                <div className="h-[3px] bg-gradient-to-r from-[#1fc7d4] to-[#7645d9]" />
+                <div className="p-6 border-b border-border/20">
                     <div className="flex items-center justify-between">
-                        <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">
+                        <h3 className="text-lg font-medium text-foreground">
                             Recent API Keys
                         </h3>
-                        <Button onClick={handleCreateKey} size="sm">
+                        <Button onClick={handleCreateKey} size="sm" className="bg-gradient-to-r from-[#7645d9] to-[#5a33b8] text-white rounded-xl">
                             <Plus className="w-4 h-4 mr-2" />
                             Create New Key
                         </Button>
                     </div>
                 </div>
-                <div className="divide-y text-sm">
+                <div className="divide-y divide-border/20 text-sm">
                     {apiKeys.length === 0 ? (
-                        <div className="p-6 text-center text-gray-500">No API keys found.</div>
+                        <div className="p-6 text-center text-muted-foreground">No API keys found.</div>
                     ) : (
                         apiKeys.slice(0, 5).map(apiKey => (
                             <RecentApiKeyItem key={apiKey.id} apiKey={apiKey} />
@@ -174,12 +175,13 @@ export const PortalOverview: React.FC<PortalOverviewProps> = ({ apiKeys, modules
                 </div>
             </div>
 
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
-                <div className="p-6 border-b">
-                    <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">
+            <div className="rounded-2xl bg-card border border-border/20 overflow-hidden shadow-xl">
+                <div className="h-[3px] bg-gradient-to-r from-[#7645d9] to-[#ed4b9e]" />
+                <div className="p-6 border-b border-border/20">
+                    <h3 className="text-lg font-medium text-foreground">
                         Available Modules
                     </h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-300">
+                    <p className="text-sm text-muted-foreground">
                         Choose from these modules when creating API keys
                     </p>
                 </div>

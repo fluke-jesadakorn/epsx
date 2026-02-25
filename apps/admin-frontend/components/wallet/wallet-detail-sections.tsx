@@ -66,12 +66,12 @@ export function WalletAvailablePlansCard({
     const hasPlans = plans.length > 0;
 
     return (
-        <Card className="flex-1 flex flex-col h-full border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-lg">
-            <CardHeader className="pb-3 border-b border-gray-200 dark:border-slate-700 bg-white dark:bg-white/[0.04]">
+        <Card className="flex-1 flex flex-col h-full border border-border/20 bg-card shadow-lg">
+            <CardHeader className="pb-3 border-b border-border/20 bg-muted/30">
                 <div className="flex items-center justify-between mb-3">
                     <div className="space-y-1">
-                        <CardTitle className="text-sm font-semibold text-gray-900 dark:text-slate-200">Available Plans</CardTitle>
-                        <p className="text-xs text-gray-500 dark:text-slate-500">Drag items to the right to assign</p>
+                        <CardTitle className="text-sm font-semibold text-gray-900 dark:text-foreground">Available Plans</CardTitle>
+                        <p className="text-xs text-gray-500 dark:text-muted-foreground">Drag items to the right to assign</p>
                     </div>
                     <Badge variant="outline" className="text-xs border-blue-500/30 text-blue-600 dark:text-blue-400">
                         {plans.length} available
@@ -81,7 +81,7 @@ export function WalletAvailablePlansCard({
                     placeholder="Search plans..."
                     value={searchQuery}
                     onChange={e => setSearchQuery(e.target.value)}
-                    className="h-8 text-xs bg-white/90 dark:bg-slate-950/50 border-gray-200 dark:border-slate-700 text-gray-800 dark:text-slate-200 placeholder:text-gray-400 dark:placeholder:text-slate-600 focus:border-blue-500/50"
+                    className="h-8 text-xs bg-white/90 dark:bg-background/50 border-border/20 text-gray-800 dark:text-foreground placeholder:text-gray-400 dark:placeholder:text-slate-600 focus:border-blue-500/50"
                 />
             </CardHeader>
             <CardContent className="p-0 overflow-y-auto max-h-[600px]">
@@ -96,11 +96,11 @@ export function WalletAvailablePlansCard({
                                 <button
                                     type="button"
                                     onClick={() => toggleGroup(g)}
-                                    className="w-full flex items-center gap-2 px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-slate-500 hover:bg-gray-100 dark:hover:bg-white/5 transition-colors"
+                                    className="w-full flex items-center gap-2 px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-muted-foreground hover:bg-muted/30 transition-colors"
                                 >
                                     {cfg?.icon}
                                     <span className="flex-1 text-left">{cfg?.label}</span>
-                                    <Badge variant="secondary" className="bg-white dark:bg-white/[0.04] text-gray-500 dark:text-slate-500 text-[10px] px-1.5 py-0">
+                                    <Badge variant="secondary" className="bg-muted/30 text-gray-500 dark:text-muted-foreground text-[10px] px-1.5 py-0">
                                         {groupPlans.length}
                                     </Badge>
                                     <ChevronDown className={cn('h-3 w-3 transition-transform', isCollapsed && '-rotate-90')} />
@@ -122,7 +122,7 @@ export function WalletAvailablePlansCard({
                         );
                     })
                 ) : (
-                    <div className="flex flex-col items-center justify-center py-12 text-gray-400 dark:text-slate-500">
+                    <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
                         <Package className="h-10 w-10 mb-3 opacity-20" />
                         <p>No available plans found.</p>
                     </div>
@@ -156,18 +156,18 @@ export function WalletMetadataCard({
     const statusConfig = STATUS_CONFIG[wallet.status];
 
     return (
-        <Card className="border-0 shadow-lg bg-white dark:bg-slate-900 ring-1 ring-white/10 overflow-hidden">
+        <Card className="border-0 shadow-lg bg-card ring-1 ring-white/10 overflow-hidden">
             <div className="h-1 bg-gradient-to-r from-amber-500 to-orange-500" />
-            <CardHeader className="pb-4 border-b border-gray-200 dark:border-slate-700 bg-white dark:bg-white/[0.04]">
+            <CardHeader className="pb-4 border-b border-border/20 bg-muted/30">
                 <CardTitle className="text-sm font-semibold uppercase tracking-wider text-amber-500 flex items-center justify-between">
                     <span>Wallet Details</span>
                     <div className="flex items-center gap-3">
                         <Badge className={cn('px-2 py-0.5 border text-[10px] font-bold shadow-sm', statusConfig.className)}>
                             {statusConfig.label}
                         </Badge>
-                        <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-gray-100 dark:bg-black/20 border border-gray-200 dark:border-slate-700 normal-case font-mono tracking-tight text-[10px]">
-                            <span className="text-gray-500 dark:text-slate-400">{wallet.walletAddress}</span>
-                            <button onClick={onCopyAddress} className="text-gray-400 dark:text-slate-500 hover:text-gray-900 dark:hover:text-white transition-colors">
+                        <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-gray-100 dark:bg-black/20 border border-border/20 normal-case font-mono tracking-tight text-[10px]">
+                            <span className="text-gray-500 dark:text-muted-foreground">{wallet.walletAddress}</span>
+                            <button onClick={onCopyAddress} className="text-muted-foreground hover:text-gray-900 dark:hover:text-white transition-colors">
                                 <Copy className="h-2.5 w-2.5" />
                             </button>
                         </div>
@@ -176,21 +176,21 @@ export function WalletMetadataCard({
             </CardHeader>
             <CardContent className="pt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                    <Label className="text-gray-600 dark:text-slate-400 text-xs font-normal">Label</Label>
+                    <Label className="text-gray-600 dark:text-muted-foreground text-xs font-normal">Label</Label>
                     <Input
                         value={metadataForm.label}
                         onChange={(e) => { setMetadataForm(p => ({ ...p, label: e.target.value })); setHasChanges(true); }}
                         placeholder="e.g. Main Trading Wallet"
-                        className="h-9 bg-white/90 dark:bg-slate-950/50 border-gray-200 dark:border-slate-700 text-gray-800 dark:text-slate-200 text-sm placeholder:text-gray-400 dark:placeholder:text-slate-600 focus:border-purple-500/50 focus:ring-purple-500/20"
+                        className="h-9 bg-white/90 dark:bg-background/50 border-border/20 text-gray-800 dark:text-foreground text-sm placeholder:text-gray-400 dark:placeholder:text-slate-600 focus:border-purple-500/50 focus:ring-purple-500/20"
                     />
                 </div>
                 <div className="space-y-2">
-                    <Label className="text-gray-600 dark:text-slate-400 text-xs font-normal">Private Note</Label>
+                    <Label className="text-gray-600 dark:text-muted-foreground text-xs font-normal">Private Note</Label>
                     <Input
                         value={metadataForm.note}
                         onChange={(e) => { setMetadataForm(p => ({ ...p, note: e.target.value })); setHasChanges(true); }}
                         placeholder="Internal notes..."
-                        className="h-9 bg-white/90 dark:bg-slate-950/50 border-gray-200 dark:border-slate-700 text-gray-800 dark:text-slate-200 text-sm placeholder:text-gray-400 dark:placeholder:text-slate-600 focus:border-purple-500/50 focus:ring-purple-500/20"
+                        className="h-9 bg-white/90 dark:bg-background/50 border-border/20 text-gray-800 dark:text-foreground text-sm placeholder:text-gray-400 dark:placeholder:text-slate-600 focus:border-purple-500/50 focus:ring-purple-500/20"
                     />
                 </div>
             </CardContent>
@@ -200,7 +200,7 @@ export function WalletMetadataCard({
                     size="sm"
                     onClick={onDiscard}
                     disabled={!hasChanges}
-                    className="text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white h-8 text-xs font-medium"
+                    className="text-gray-500 dark:text-muted-foreground hover:text-gray-900 dark:hover:text-white h-8 text-xs font-medium"
                 >
                     Discard
                 </Button>
@@ -227,15 +227,15 @@ export function WalletSubscriptionCard({
     return (
         <div className="relative group">
             <div className="absolute -inset-0.5 bg-gradient-to-br from-purple-500/10 to-blue-500/10 rounded-xl blur-sm opacity-75 group-hover:opacity-100 transition duration-1000" />
-            <div className="relative bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl p-4 space-y-4">
+            <div className="relative bg-card border border-border/20 rounded-xl p-4 space-y-4">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
                         <div className="w-10 h-10 rounded-lg bg-purple-500/10 flex items-center justify-center border border-purple-500/20">
                             <Package className="h-5 w-5 text-purple-400" />
                         </div>
                         <div>
-                            <h4 className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider leading-none mb-1">Active Subscription</h4>
-                            <p className="text-xs text-gray-500 dark:text-slate-400">
+                            <h4 className="text-sm font-bold text-foreground uppercase tracking-wider leading-none mb-1">Active Subscription</h4>
+                            <p className="text-xs text-gray-500 dark:text-muted-foreground">
                                 {subscription.plan_name}
                             </p>
                         </div>
@@ -243,7 +243,7 @@ export function WalletSubscriptionCard({
                     <div className="flex items-center gap-2">
                         <Badge className="bg-green-500/10 text-green-400 border-green-500/20 uppercase text-[10px] font-bold">Active</Badge>
                         <Link href={`/subscriptions/${subscription.id}`}>
-                            <Button size="sm" variant="outline" className="h-7 text-xs gap-1 border-gray-200 dark:border-slate-700 hover:bg-gray-100 dark:hover:bg-white/5">
+                            <Button size="sm" variant="outline" className="h-7 text-xs gap-1 border-border/20 hover:bg-muted/30">
                                 Manage
                                 <ExternalLink className="h-3 w-3" />
                             </Button>
@@ -253,11 +253,11 @@ export function WalletSubscriptionCard({
 
                 {/* Usage & Quotas */}
                 {subscription.current_usage && Object.keys(subscription.current_usage).length > 0 && (
-                    <div className="mt-3 pt-3 border-t border-gray-200 dark:border-slate-700 grid grid-cols-2 gap-4">
+                    <div className="mt-3 pt-3 border-t border-border/20 grid grid-cols-2 gap-4">
                         {Object.entries(subscription.current_usage).map(([key, value]) => (
                             <div key={key}>
-                                <span className="text-[10px] text-slate-500 uppercase font-medium">{key.replace('_', ' ')}</span>
-                                <div className="text-sm font-mono text-gray-700 dark:text-slate-300">
+                                <span className="text-[10px] text-muted-foreground uppercase font-medium">{key.replace('_', ' ')}</span>
+                                <div className="text-sm font-mono text-gray-700 dark:text-muted-foreground">
                                     {String(value)} / {subscription.quota_limits?.[key] !== undefined ? String(subscription.quota_limits[key]) : '∞'}
                                 </div>
                             </div>
@@ -265,7 +265,7 @@ export function WalletSubscriptionCard({
                     </div>
                 )}
 
-                <div className="flex justify-between items-center text-xs text-gray-500 dark:text-slate-500 pt-2">
+                <div className="flex justify-between items-center text-xs text-gray-500 dark:text-muted-foreground pt-2">
                     <span>Started: {subscription.created_at !== '' ? new Date(subscription.created_at).toLocaleDateString() : 'Never'}</span>
                     <span>Expires: {subscription.expires_at !== undefined && subscription.expires_at !== '' ? new Date(subscription.expires_at).toLocaleDateString() : 'Never'}</span>
                 </div>
@@ -300,9 +300,9 @@ export function WalletAssignedPlansCard({
     hasPending: boolean;
 }) {
     return (
-        <Card className="flex-1 flex flex-col h-full border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-lg min-h-0 overflow-hidden">
+        <Card className="flex-1 flex flex-col h-full border border-border/20 bg-card shadow-lg min-h-0 overflow-hidden">
             <div className="h-1 bg-gradient-to-r from-blue-500 to-cyan-500" />
-            <CardHeader className="pb-3 border-b border-gray-200 dark:border-slate-700 bg-white dark:bg-white/[0.04]">
+            <CardHeader className="pb-3 border-b border-border/20 bg-muted/30">
                 <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
                         <CardTitle className="text-sm font-semibold uppercase tracking-wider text-blue-600 dark:text-blue-400">Assigned Plans</CardTitle>
@@ -318,7 +318,7 @@ export function WalletAssignedPlansCard({
                     placeholder="Search within assignments..."
                     value={searchQuery}
                     onChange={e => setSearchQuery(e.target.value)}
-                    className="h-8 text-xs bg-white/90 dark:bg-slate-950/50 border-gray-200 dark:border-slate-700 text-gray-800 dark:text-slate-200 placeholder:text-gray-400 dark:placeholder:text-slate-600 focus:border-blue-500/50"
+                    className="h-8 text-xs bg-white/90 dark:bg-background/50 border-border/20 text-gray-800 dark:text-foreground placeholder:text-gray-400 dark:placeholder:text-slate-600 focus:border-blue-500/50"
                 />
             </CardHeader>
             <CardContent className="p-0 flex flex-col min-h-0">
@@ -338,13 +338,13 @@ export function WalletAssignedPlansCard({
                     />
                 </div>
                 {/* Action Button Bar */}
-                <div className="p-3 border-t border-gray-200 dark:border-slate-700 bg-white/90 dark:bg-slate-950/50 flex gap-2 justify-end">
+                <div className="p-3 border-t border-border/20 bg-white/90 dark:bg-background/50 flex gap-2 justify-end">
                     <Button
                         variant="ghost"
                         size="sm"
                         onClick={onDiscard}
                         disabled={!hasPending}
-                        className="text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white h-8 text-xs font-medium"
+                        className="text-gray-500 dark:text-muted-foreground hover:text-gray-900 dark:hover:text-white h-8 text-xs font-medium"
                     >
                         Discard
                     </Button>

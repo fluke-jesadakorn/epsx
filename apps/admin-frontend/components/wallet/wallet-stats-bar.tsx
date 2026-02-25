@@ -26,42 +26,37 @@ interface StatCardProps {
     gradient: string;
 }
 
-function StatCard({ label, value, change, changeLabel = '7d', icon, gradient }: StatCardProps) {
+function StatCard({ label, value, change, changeLabel = '7d', icon, gradient: _gradient }: StatCardProps) {
     const hasPositiveChange = change !== undefined && change > 0;
     const hasNegativeChange = change !== undefined && change < 0;
 
     return (
-        <div className={cn(
-            'relative overflow-hidden rounded-2xl p-0.5',
-            gradient
-        )}>
-            <div className="relative bg-card/95 backdrop-blur-xl rounded-2xl p-5">
-                <div className="flex items-center justify-between">
-                    <div className="text-muted-foreground">
-                        {icon}
+        <div className="rounded-xl bg-card border border-border/20 p-5 shadow-sm">
+            <div className="flex items-center justify-between">
+                <div className="text-muted-foreground">
+                    {icon}
+                </div>
+                {change !== undefined && (
+                    <div className={cn(
+                        'flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full',
+                        hasPositiveChange && 'bg-[#31d0aa]/10 text-[#31d0aa]',
+                        hasNegativeChange && 'bg-destructive/10 text-destructive',
+                        !hasPositiveChange && !hasNegativeChange && 'bg-muted text-muted-foreground'
+                    )}>
+                        {hasPositiveChange && <TrendingUp className="h-3 w-3" />}
+                        {hasNegativeChange && <TrendingDown className="h-3 w-3" />}
+                        {hasPositiveChange && '+'}
+                        {change} ({changeLabel})
                     </div>
-                    {change !== undefined && (
-                        <div className={cn(
-                            'flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full',
-                            hasPositiveChange && 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
-                            hasNegativeChange && 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
-                            !hasPositiveChange && !hasNegativeChange && 'bg-muted text-muted-foreground'
-                        )}>
-                            {hasPositiveChange && <TrendingUp className="h-3 w-3" />}
-                            {hasNegativeChange && <TrendingDown className="h-3 w-3" />}
-                            {hasPositiveChange && '+'}
-                            {change} ({changeLabel})
-                        </div>
-                    )}
-                </div>
-                <div className="mt-3">
-                    <p className="text-3xl font-bold text-foreground">
-                        {value.toLocaleString()}
-                    </p>
-                    <p className="text-sm text-muted-foreground mt-1">
-                        {label}
-                    </p>
-                </div>
+                )}
+            </div>
+            <div className="mt-3">
+                <p className="text-3xl font-bold text-foreground">
+                    {value.toLocaleString()}
+                </p>
+                <p className="text-sm text-muted-foreground mt-1">
+                    {label}
+                </p>
             </div>
         </div>
     );
@@ -75,19 +70,18 @@ function PlatformDistribution({
     total: number;
 }) {
     const platforms: { key: Platform; label: string; emoji: string; color: string }[] = [
-        { key: 'analytics', label: 'Analytics', emoji: '📊', color: 'bg-blue-500' },
-        { key: 'pay', label: 'Pay', emoji: '💳', color: 'bg-purple-500' },
-        { key: 'token', label: 'Token', emoji: '🪙', color: 'bg-amber-500' },
-        { key: 'markets', label: 'Markets', emoji: '📈', color: 'bg-green-500' },
+        { key: 'analytics', label: 'Analytics', emoji: '📊', color: 'bg-[#1fc7d4]' },
+        { key: 'pay', label: 'Pay', emoji: '💳', color: 'bg-[#7645d9]' },
+        { key: 'token', label: 'Token', emoji: '🪙', color: 'bg-[#ffb237]' },
+        { key: 'markets', label: 'Markets', emoji: '📈', color: 'bg-[#31d0aa]' },
     ];
 
     return (
-        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-muted/60 to-muted/80 p-0.5">
-            <div className="bg-card/95 backdrop-blur-xl rounded-2xl p-5">
-                <h4 className="text-sm font-semibold text-foreground/80 mb-4">
-                    Platform Distribution
-                </h4>
-                <div className="space-y-3">
+        <div className="rounded-xl bg-card border border-border/20 p-5 shadow-sm">
+            <h4 className="text-sm font-semibold text-foreground/80 mb-4">
+                Platform Distribution
+            </h4>
+            <div className="space-y-3">
                     {platforms.map((platform) => {
                         const count = (distribution[platform.key] as number | undefined) ?? 0;
                         const percentage = total > 0 ? Math.round((count / total) * 100) : 0;
@@ -112,7 +106,6 @@ function PlatformDistribution({
                             </div>
                         );
                     })}
-                </div>
             </div>
         </div>
     );
@@ -160,29 +153,29 @@ export function WalletStatsBar({
                     label="Total Wallets"
                     value={stats.total}
                     change={stats.changes.total}
-                    icon={<Wallet className="h-6 w-6" />}
-                    gradient="bg-gradient-to-r from-blue-400/20 via-purple-400/20 to-pink-400/20"
+                    icon={<Wallet className="h-6 w-6 text-[#1fc7d4]" />}
+                    gradient=""
                 />
                 <StatCard
                     label="Active"
                     value={stats.active}
                     change={stats.changes.active}
-                    icon={<Users className="h-6 w-6 text-green-500" />}
-                    gradient="bg-gradient-to-r from-green-400/20 to-emerald-400/20"
+                    icon={<Users className="h-6 w-6 text-[#31d0aa]" />}
+                    gradient=""
                 />
                 <StatCard
                     label="Disabled"
                     value={stats.disabled}
                     change={stats.changes.disabled}
-                    icon={<AlertTriangle className="h-6 w-6 text-amber-500" />}
-                    gradient="bg-gradient-to-r from-amber-400/20 to-orange-400/20"
+                    icon={<AlertTriangle className="h-6 w-6 text-[#ffb237]" />}
+                    gradient=""
                 />
                 <StatCard
                     label="Subscribed"
                     value={stats.subscribed}
                     change={stats.changes.subscribed}
-                    icon={<Package className="h-6 w-6 text-purple-500" />}
-                    gradient="bg-gradient-to-r from-purple-400/20 to-pink-400/20"
+                    icon={<Package className="h-6 w-6 text-[#7645d9]" />}
+                    gradient=""
                 />
             </div>
 

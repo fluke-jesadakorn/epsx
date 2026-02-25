@@ -86,7 +86,7 @@ export const RevokeKeyModal: React.FC<RevokeKeyModalProps> = ({
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
             <DialogContent className="sm:max-w-md p-0 gap-0">
-                <DialogHeader className="p-6 border-b border-gray-200 dark:border-gray-700">
+                <DialogHeader className="p-6 border-b border-gray-200 dark:border-border/40">
                     <DialogTitle className="flex items-center space-x-3">
                         <div className="p-2 bg-red-100 dark:bg-red-900/50 rounded-lg">
                             <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400" />
@@ -108,19 +108,19 @@ export const RevokeKeyModal: React.FC<RevokeKeyModalProps> = ({
                         </div>
 
                         {/* Key Info */}
-                        <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+                        <div className="bg-gray-50 dark:bg-muted/50 rounded-lg p-4">
                             <div className="text-sm">
                                 <div className="flex justify-between mb-1">
-                                    <span className="text-gray-500 dark:text-gray-400">Client Name:</span>
-                                    <span className="font-medium text-gray-900 dark:text-gray-100">
+                                    <span className="text-muted-foreground">Client Name:</span>
+                                    <span className="font-medium text-foreground">
                                         {apiKey.client_name}
                                     </span>
                                 </div>
                                 {/* eslint-disable-next-line @typescript-eslint/strict-boolean-expressions */}
                                 {apiKey.wallet_address && (
                                     <div className="flex justify-between">
-                                        <span className="text-gray-500 dark:text-gray-400">Wallet:</span>
-                                        <span className="font-mono text-xs text-gray-900 dark:text-gray-100">
+                                        <span className="text-muted-foreground">Wallet:</span>
+                                        <span className="font-mono text-xs text-foreground">
                                             {apiKey.wallet_address.slice(0, 6)}...{apiKey.wallet_address.slice(-4)}
                                         </span>
                                     </div>
@@ -130,13 +130,13 @@ export const RevokeKeyModal: React.FC<RevokeKeyModalProps> = ({
 
                         {/* Reason Selection */}
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            <label className="block text-sm font-medium text-gray-700 dark:text-muted-foreground mb-2">
                                 Reason for Revocation <span className="text-red-500">*</span>
                             </label>
                             <select
                                 value={selectedReason}
                                 onChange={(e) => setSelectedReason(e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                className="w-full px-3 py-2 border border-border/40 rounded-lg bg-white dark:bg-muted text-foreground focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                 required
                             >
                                 <option value="">Select a reason...</option>
@@ -151,7 +151,7 @@ export const RevokeKeyModal: React.FC<RevokeKeyModalProps> = ({
                         {/* Custom Reason */}
                         {selectedReason === 'Other (specify below)' && (
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                <label className="block text-sm font-medium text-gray-700 dark:text-muted-foreground mb-2">
                                     Specify Reason <span className="text-red-500">*</span>
                                 </label>
                                 <textarea
@@ -159,7 +159,7 @@ export const RevokeKeyModal: React.FC<RevokeKeyModalProps> = ({
                                     onChange={(e) => setCustomReason(e.target.value)}
                                     placeholder="Enter the reason for revocation..."
                                     rows={3}
-                                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                                    className="w-full px-3 py-2 border border-border/40 rounded-lg bg-white dark:bg-muted text-foreground placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
                                     required
                                 />
                             </div>
@@ -171,7 +171,7 @@ export const RevokeKeyModal: React.FC<RevokeKeyModalProps> = ({
                         )}
                     </div>
 
-                    <DialogFooter className="p-6 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50 sm:justify-end space-x-3 rounded-b-lg">
+                    <DialogFooter className="p-6 border-t border-gray-200 dark:border-border/40 bg-gray-50 dark:bg-muted/50 sm:justify-end space-x-3 rounded-b-lg">
                         <Button
                             type="button"
                             variant="outline"

@@ -60,8 +60,8 @@ export function CreditsManagement({ activeTab }: CreditsManagementProps) {
 
   if (error !== null && error.length > 0) {
     return (
-      <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
-        <p className="text-red-800 dark:text-red-200">{error}</p>
+      <div className="bg-destructive/10 border border-destructive/30 rounded-xl p-4">
+        <p className="text-destructive text-sm">{error}</p>
       </div>
     );
   }
@@ -92,62 +92,42 @@ function OverviewTab({ stats, onRefresh }: { stats: CreditStats | null; onRefres
           icon={<Coins className="w-6 h-6" />}
           label="Total Credits Outstanding"
           value={stats !== null ? `$${Number(stats.total_credits_outstanding).toFixed(2)}` : '$0.00'}
-          gradient="from-blue-500 to-cyan-500"
+          gradient="from-[#1fc7d4] to-[#7645d9]"
         />
         <StatCard
           icon={<TrendingUp className="w-6 h-6" />}
           label="Credits Granted Today"
           value={stats !== null ? `$${Number(stats.total_credits_granted_today).toFixed(2)}` : '$0.00'}
-          gradient="from-green-500 to-emerald-500"
+          gradient="from-[#31d0aa] to-[#1fc7d4]"
         />
         <StatCard
           icon={<TrendingDown className="w-6 h-6" />}
           label="Credits Used Today"
           value={stats !== null ? `$${Number(stats.total_credits_used_today).toFixed(2)}` : '$0.00'}
-          gradient="from-orange-500 to-pink-500"
+          gradient="from-[#ffb237] to-[#ed4b9e]"
         />
         <StatCard
           icon={<Users className="w-6 h-6" />}
           label="Active Users with Credits"
           value={stats?.active_users_with_credits?.toString() ?? '0'}
-          gradient="from-purple-500 to-indigo-500"
+          gradient="from-[#7645d9] to-[#ed4b9e]"
         />
       </div>
 
       {/* Actions */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-        <div
-          className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-primary/10 p-0.5 cursor-pointer hover:scale-105 transition-transform"
+      <div className="flex items-center gap-3">
+        <button
           onClick={handleRefreshClick}
+          className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-[#7645d9] to-[#5a33b8] hover:opacity-90 text-white rounded-xl font-semibold text-sm transition-all"
         >
-          <div className="relative bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-2xl sm:rounded-3xl">
-            <div className="p-6 sm:p-8">
-              <div className="bg-white/20 rounded-2xl w-12 h-12 flex items-center justify-center mb-4">
-                <span className="text-2xl">&#x1f504;</span>
-              </div>
-              <h3 className="text-xl sm:text-2xl font-bold mb-3">Refresh Stats</h3>
-              <p className="text-foreground/80 dark:text-white/80 mb-4 text-sm sm:text-base">Reload credit statistics from server</p>
-              <div className="bg-white/20 rounded-2xl px-6 py-3 text-center font-semibold">
-                Refresh
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-secondary/10 p-0.5 cursor-not-allowed opacity-75">
-          <div className="relative bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-2xl sm:rounded-3xl">
-            <div className="p-6 sm:p-8">
-              <div className="bg-white/20 rounded-2xl w-12 h-12 flex items-center justify-center mb-4">
-                <span className="text-2xl">&#x1f4ca;</span>
-              </div>
-              <h3 className="text-xl sm:text-2xl font-bold mb-3">Export Report</h3>
-              <p className="text-foreground/80 dark:text-white/80 mb-4 text-sm sm:text-base">Download credit analytics report</p>
-              <div className="bg-white/20 rounded-2xl px-6 py-3 text-center font-semibold">
-                Coming Soon
-              </div>
-            </div>
-          </div>
-        </div>
+          Refresh Stats
+        </button>
+        <button
+          disabled
+          className="flex items-center gap-2 px-4 py-2.5 bg-card border border-border/40 text-muted-foreground rounded-xl font-semibold text-sm opacity-50 cursor-not-allowed"
+        >
+          Export Report (Coming Soon)
+        </button>
       </div>
     </div>
   );
@@ -155,12 +135,12 @@ function OverviewTab({ stats, onRefresh }: { stats: CreditStats | null; onRefres
 
 function StatCard({ icon, label, value, gradient }: { icon: React.ReactNode; label: string; value: string; gradient: string }) {
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-xl border border-gray-200 dark:border-gray-700">
-      <div className={cn('w-12 h-12 rounded-xl bg-gradient-to-r mb-4 flex items-center justify-center text-white', gradient)}>
+    <div className="rounded-xl border border-border/20 bg-card p-5 overflow-hidden">
+      <div className={cn('w-10 h-10 rounded-lg bg-gradient-to-r mb-3 flex items-center justify-center text-white', gradient)}>
         {icon}
       </div>
-      <div className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">{label}</div>
-      <div className="text-3xl font-bold text-gray-900 dark:text-white">{value}</div>
+      <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.15em] mb-2">{label}</div>
+      <div className="text-2xl font-black text-foreground">{value}</div>
     </div>
   );
 }
@@ -226,9 +206,11 @@ function GrantCreditsTab() {
 
   return (
     <div className="max-w-2xl mx-auto">
-      <div className="bg-white dark:bg-gray-800 rounded-3xl p-8 shadow-xl border border-gray-200 dark:border-gray-700">
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-2">
-          {mode === 'grant' ? <Plus className="w-6 h-6 text-green-600" /> : <Minus className="w-6 h-6 text-red-600" />}
+      <div className="rounded-2xl border border-border/20 overflow-hidden bg-card shadow-xl">
+        <div className="h-[3px] bg-gradient-to-r from-[#31d0aa] to-[#1fc7d4]" />
+        <div className="p-6 sm:p-8">
+        <h2 className="text-xs font-bold text-[#31d0aa] uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
+          {mode === 'grant' ? <Plus className="w-4 h-4" /> : <Minus className="w-4 h-4" />}
           {mode === 'grant' ? 'Grant' : 'Revoke'} Credits
         </h2>
 
@@ -237,10 +219,10 @@ function GrantCreditsTab() {
           <button
             onClick={() => setMode('grant')}
             className={cn(
-              'flex-1 px-4 py-2 rounded-lg font-medium transition-colors',
+              'flex-1 px-4 py-2 rounded-lg font-semibold text-sm transition-colors',
               mode === 'grant'
-                ? 'bg-green-600 text-white'
-                : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                ? 'bg-gradient-to-r from-[#7645d9] to-[#5a33b8] text-white'
+                : 'bg-muted/50 border border-border/50 text-muted-foreground hover:text-foreground'
             )}
           >
             <Plus className="w-4 h-4 inline mr-2" />
@@ -249,10 +231,10 @@ function GrantCreditsTab() {
           <button
             onClick={() => setMode('revoke')}
             className={cn(
-              'flex-1 px-4 py-2 rounded-lg font-medium transition-colors',
+              'flex-1 px-4 py-2 rounded-lg font-semibold text-sm transition-colors',
               mode === 'revoke'
-                ? 'bg-red-600 text-white'
-                : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                ? 'bg-destructive text-white'
+                : 'bg-muted/50 border border-border/50 text-muted-foreground hover:text-foreground'
             )}
           >
             <Minus className="w-4 h-4 inline mr-2" />
@@ -261,20 +243,20 @@ function GrantCreditsTab() {
         </div>
 
         {success !== null && success.length > 0 && (
-          <div className="mb-4 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
-            <p className="text-green-800 dark:text-green-200">{success}</p>
+          <div className="mb-4 p-4 bg-success/10 border border-success/30 rounded-xl">
+            <p className="text-success text-sm">{success}</p>
           </div>
         )}
 
         {error !== null && error.length > 0 && (
-          <div className="mb-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-            <p className="text-red-800 dark:text-red-200">{error}</p>
+          <div className="mb-4 p-4 bg-destructive/10 border border-destructive/30 rounded-xl">
+            <p className="text-destructive text-sm">{error}</p>
           </div>
         )}
 
         <form onSubmit={(e) => void handleSubmit(e)} className="space-y-6">
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label className="block text-xs font-bold text-muted-foreground uppercase tracking-[0.15em] mb-2">
               Wallet Address
             </label>
             <input
@@ -283,12 +265,12 @@ function GrantCreditsTab() {
               onChange={(e) => setWalletAddress(e.target.value)}
               placeholder="0x..."
               required
-              className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+              className="w-full px-4 py-2.5 rounded-lg border border-border/50 bg-muted/50 text-foreground focus:ring-1 focus:ring-[#1fc7d4] focus:border-transparent transition-all text-sm"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label className="block text-xs font-bold text-muted-foreground uppercase tracking-[0.15em] mb-2">
               Amount (USD)
             </label>
             <input
@@ -299,12 +281,12 @@ function GrantCreditsTab() {
               placeholder="0.00"
               required
               min="0.01"
-              className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+              className="w-full px-4 py-2.5 rounded-lg border border-border/50 bg-muted/50 text-foreground focus:ring-1 focus:ring-[#1fc7d4] focus:border-transparent transition-all text-sm"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label className="block text-xs font-bold text-muted-foreground uppercase tracking-[0.15em] mb-2">
               Reason (optional)
             </label>
             <textarea
@@ -312,20 +294,20 @@ function GrantCreditsTab() {
               onChange={(e) => setReason(e.target.value)}
               placeholder="Promotional credit for early adopter..."
               rows={3}
-              className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+              className="w-full px-4 py-2.5 rounded-lg border border-border/50 bg-muted/50 text-foreground focus:ring-1 focus:ring-[#1fc7d4] focus:border-transparent transition-all text-sm"
             />
           </div>
 
           {mode === 'grant' && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label className="block text-xs font-bold text-muted-foreground uppercase tracking-[0.15em] mb-2">
                 Expiry Date (optional)
               </label>
               <input
                 type="datetime-local"
                 value={expiresAt}
                 onChange={(e) => setExpiresAt(e.target.value)}
-                className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+                className="w-full px-4 py-2.5 rounded-lg border border-border/50 bg-muted/50 text-foreground focus:ring-1 focus:ring-[#1fc7d4] focus:border-transparent transition-all text-sm"
               />
             </div>
           )}
@@ -334,13 +316,14 @@ function GrantCreditsTab() {
             type="submit"
             disabled={loading}
             className={cn(
-              'w-full py-3 rounded-lg font-bold text-white transition-all',
-              loading ? 'bg-gray-400 cursor-not-allowed' : mode === 'grant' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'
+              'w-full py-2.5 rounded-lg font-semibold text-sm text-white transition-all',
+              loading ? 'bg-muted cursor-not-allowed text-muted-foreground' : mode === 'grant' ? 'bg-gradient-to-r from-[#7645d9] to-[#5a33b8] hover:opacity-90' : 'bg-destructive hover:opacity-90'
             )}
           >
             {loading ? 'Processing...' : mode === 'grant' ? 'Grant Credits' : 'Revoke Credits'}
           </button>
         </form>
+        </div>
       </div>
     </div>
   );
@@ -374,8 +357,8 @@ function CreditHistoryTab() {
 
   return (
     <div className="max-w-6xl mx-auto">
-      <div className="bg-white dark:bg-gray-800 rounded-3xl p-6 shadow-xl border border-gray-200 dark:border-gray-700 mb-6">
-        <form onSubmit={(e) => void handleSearch(e)} className="flex gap-4">
+      <div className="rounded-xl border border-border/20 bg-card p-4 mb-6">
+        <form onSubmit={(e) => void handleSearch(e)} className="flex gap-3">
           <div className="flex-1">
             <input
               type="text"
@@ -383,13 +366,13 @@ function CreditHistoryTab() {
               onChange={(e) => setWalletAddress(e.target.value)}
               placeholder="Enter wallet address to search..."
               required
-              className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+              className="w-full px-4 py-2.5 rounded-lg border border-border/50 bg-muted/50 text-foreground focus:ring-1 focus:ring-[#1fc7d4] focus:border-transparent transition-all text-sm"
             />
           </div>
           <button
             type="submit"
             disabled={loading}
-            className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold transition-all flex items-center gap-2"
+            className="px-5 py-2.5 bg-gradient-to-r from-[#7645d9] to-[#5a33b8] hover:opacity-90 text-white rounded-lg font-semibold text-sm transition-all flex items-center gap-2 disabled:opacity-50"
           >
             <Search className="w-4 h-4" />
             {loading ? 'Searching...' : 'Search'}
@@ -398,61 +381,62 @@ function CreditHistoryTab() {
       </div>
 
       {error !== null && error.length > 0 && (
-        <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-          <p className="text-red-800 dark:text-red-200">{error}</p>
+        <div className="mb-4 p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
+          <p className="text-destructive text-sm">{error}</p>
         </div>
       )}
 
       {transactions.length > 0 && (
-        <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-          <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-            <h3 className="text-xl font-bold text-gray-900 dark:text-white">Credit Transactions ({transactions.length})</h3>
+        <div className="rounded-2xl border border-border/20 overflow-hidden bg-card shadow-xl">
+          <div className="h-[3px] bg-gradient-to-r from-[#1fc7d4] to-[#7645d9]" />
+          <div className="p-4 border-b border-border/20">
+            <h3 className="text-xs font-bold text-[#1fc7d4] uppercase tracking-[0.2em]">Credit Transactions ({transactions.length})</h3>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-gray-50 dark:bg-slate-900">
+              <thead className="bg-muted/30">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Type</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Amount</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Balance After</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Reason</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Date</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Granted By</th>
+                  <th className="px-4 py-3 text-left text-[10px] font-bold text-muted-foreground uppercase tracking-[0.15em]">Type</th>
+                  <th className="px-4 py-3 text-left text-[10px] font-bold text-muted-foreground uppercase tracking-[0.15em]">Amount</th>
+                  <th className="px-4 py-3 text-left text-[10px] font-bold text-muted-foreground uppercase tracking-[0.15em]">Balance After</th>
+                  <th className="px-4 py-3 text-left text-[10px] font-bold text-muted-foreground uppercase tracking-[0.15em]">Reason</th>
+                  <th className="px-4 py-3 text-left text-[10px] font-bold text-muted-foreground uppercase tracking-[0.15em]">Date</th>
+                  <th className="px-4 py-3 text-left text-[10px] font-bold text-muted-foreground uppercase tracking-[0.15em]">Granted By</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+              <tbody className="divide-y divide-border/20">
                 {transactions.map((tx) => {
                   const txAmount = Number(tx.amount);
                   const isCredit = txAmount > 0;
                   return (
-                    <tr key={tx.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                      <td className="px-6 py-4 whitespace-nowrap">
+                    <tr key={tx.id} className="hover:bg-muted/20 transition-colors">
+                      <td className="px-4 py-3 whitespace-nowrap">
                         <span className={cn(
-                          'px-2 py-1 rounded-full text-xs font-medium',
-                          isCredit ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' : 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400'
+                          'px-2 py-1 rounded-full text-xs font-semibold',
+                          isCredit ? 'bg-[#31d0aa]/10 text-[#31d0aa]' : 'bg-[#ffb237]/10 text-[#ffb237]'
                         )}>
                           {tx.tx_type}
                         </span>
                       </td>
                       <td className={cn(
-                        'px-6 py-4 whitespace-nowrap font-mono font-bold',
-                        isCredit ? 'text-green-600 dark:text-green-400' : 'text-orange-600 dark:text-orange-400'
+                        'px-4 py-3 whitespace-nowrap font-mono font-bold text-sm',
+                        isCredit ? 'text-[#31d0aa]' : 'text-[#ffb237]'
                       )}>
                         {isCredit ? '+' : ''}{txAmount.toFixed(2)}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-gray-900 dark:text-white font-mono">
+                      <td className="px-4 py-3 whitespace-nowrap text-foreground font-mono text-sm">
                         ${Number(tx.balance_after).toFixed(2)}
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400 max-w-xs truncate">
+                      <td className="px-4 py-3 text-sm text-muted-foreground max-w-xs truncate">
                         {tx.reason ?? '-'}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400 flex items-center gap-1">
+                      <td className="px-4 py-3 whitespace-nowrap text-xs text-muted-foreground flex items-center gap-1">
                         <Calendar className="w-3 h-3" />
                         {new Date(tx.created_at).toLocaleDateString()}
                         <Clock className="w-3 h-3 ml-2" />
                         {new Date(tx.created_at).toLocaleTimeString()}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-xs font-mono text-gray-600 dark:text-gray-400">
+                      <td className="px-4 py-3 whitespace-nowrap text-xs font-mono text-muted-foreground">
                         {tx.granted_by !== null && tx.granted_by.length > 0 ? `${tx.granted_by.slice(0, 6)}...${tx.granted_by.slice(-4)}` : 'System'}
                       </td>
                     </tr>
@@ -466,8 +450,8 @@ function CreditHistoryTab() {
 
       {!loading && transactions.length === 0 && (walletAddress === '' || walletAddress.length === 0) && (
         <div className="text-center py-12">
-          <Coins className="w-16 h-16 text-gray-400 dark:text-gray-600 mx-auto mb-4" />
-          <p className="text-gray-600 dark:text-gray-400">Enter a wallet address to view credit history</p>
+          <Coins className="w-12 h-12 text-muted-foreground/40 mx-auto mb-3" />
+          <p className="text-muted-foreground text-sm">Enter a wallet address to view credit history</p>
         </div>
       )}
     </div>

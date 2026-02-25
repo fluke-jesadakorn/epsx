@@ -60,27 +60,11 @@ export function PaymentLinksManagement() {
 
     return (
         <div className="space-y-6 sm:space-y-8">
-            {/* Background Decorations */}
-            <div className="fixed inset-0 overflow-hidden pointer-events-none">
-                <div className="absolute top-20 left-20 w-32 h-32 bg-gradient-to-r from-purple-400/20 to-pink-500/20 rounded-full blur-xl" />
-                <div className="absolute top-40 right-32 w-24 h-24 bg-gradient-to-r from-blue-400/20 to-indigo-500/20 rounded-full blur-lg" />
-            </div>
-
             <div className="relative max-w-7xl mx-auto">
-                {/* Hero Section */}
-                <div className="text-center mb-8 sm:mb-12">
-                    <div className="relative inline-block">
-                        <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-primary via-secondary to-primary bg-clip-text text-transparent mb-4">
-                            🔗 Payment Links
-                        </h1>
-                        <div className="absolute -top-2 -right-2 w-4 h-4 bg-primary/20 rounded-full animate-ping" />
-                    </div>
-                    <p className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto">
-                        Create and manage dynamic payment links for plans, products, and campaigns
-                    </p>
+                {/* Action Bar */}
+                <div className="flex items-center gap-3 mb-6">
+                    <ActionCards onCreateClick={() => setIsModalOpen(true)} onRefreshClick={() => void loadPaymentLinks()} />
                 </div>
-
-                <ActionCards onCreateClick={() => setIsModalOpen(true)} onRefreshClick={() => void loadPaymentLinks()} />
 
                 <FilterSection
                     filterType={filterType}
@@ -92,21 +76,22 @@ export function PaymentLinksManagement() {
 
                 {error && (
                     <div className="relative overflow-hidden rounded-2xl bg-destructive/10 p-0.5 mb-6">
-                        <div className="bg-destructive/5 backdrop-blur-xl rounded-2xl p-4 text-destructive border border-destructive/20">
+                        <div className="bg-destructive/5 rounded-2xl p-4 text-destructive border border-destructive/20">
                             {error}
                         </div>
                     </div>
                 )}
 
                 {/* Payment Links Table */}
-                <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-primary/10 p-0.5">
-                    <div className="relative bg-card/95 backdrop-blur-xl rounded-2xl sm:rounded-3xl overflow-hidden border border-border/50">
+                <div className="rounded-2xl border border-border/20 overflow-hidden bg-card shadow-xl">
+                    <div className="h-[3px] bg-gradient-to-r from-[#7645d9] to-[#ed4b9e]" />
+                    <div>
                         <div className="p-4 sm:p-6 lg:p-8">
                             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-3">
-                                <h2 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-primary via-secondary to-primary bg-clip-text text-transparent">
+                                <h2 className="text-xs font-bold text-[#7645d9] uppercase tracking-[0.2em]">
                                     All Payment Links
                                 </h2>
-                                <div className="text-sm text-muted-foreground">{paymentLinks.length} links</div>
+                                <div className="px-3 py-1 bg-muted/50 rounded-full border border-border/40 text-xs font-bold text-muted-foreground">{paymentLinks.length} links</div>
                             </div>
 
                             {paymentLinks.length === 0 ? (

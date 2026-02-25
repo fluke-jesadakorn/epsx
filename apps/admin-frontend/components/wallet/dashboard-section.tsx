@@ -28,7 +28,7 @@ function StatCard({ label, value, trend, trendUp, subValue, icon, colorClass, bg
             "relative overflow-hidden rounded-2xl p-0.5 transition-transform hover:scale-[1.02] duration-300",
             bgClass
         )}>
-            <div className="relative h-full bg-card/90 backdrop-blur-xl rounded-2xl p-5 flex flex-col justify-between">
+            <div className="relative h-full bg-card/90 rounded-2xl p-5 flex flex-col justify-between">
                 <div className="flex items-start justify-between mb-4">
                     <div className={cn("p-2 rounded-lg bg-muted/50", colorClass)}>
                         {icon}

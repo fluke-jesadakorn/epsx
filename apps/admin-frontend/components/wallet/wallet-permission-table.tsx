@@ -49,7 +49,7 @@ const SOURCE_CONFIG: Record<PermissionSource, { label: string; emoji: string; cl
     system: {
         label: 'System',
         emoji: '⚙️',
-        className: 'bg-gray-100 text-gray-800 dark:bg-slate-900/30 dark:text-gray-400',
+        className: 'bg-muted/30 text-muted-foreground',
     },
 };
 
@@ -115,7 +115,7 @@ function ExpiryBadge({ expiresAt }: { expiresAt?: string }) {
             'text-xs flex items-center gap-1',
             expired && 'text-red-600 dark:text-red-400',
             expiringSoon && !expired && 'text-amber-600 dark:text-amber-400',
-            !expired && !expiringSoon && 'text-gray-600 dark:text-gray-400'
+            !expired && !expiringSoon && 'text-muted-foreground'
         )}>
             <Clock className="h-3 w-3" />
             {expired ? (
@@ -139,7 +139,7 @@ function ExpiryBadge({ expiresAt }: { expiresAt?: string }) {
 function getStatusBadgeClass(isActive: boolean, expired: boolean): string {
     return isActive && !expired
         ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
-        : 'bg-gray-100 text-gray-800 dark:bg-slate-900/30 dark:text-gray-400';
+        : 'bg-muted/30 text-muted-foreground';
 }
 
 function getStatusText(isActive: boolean, expired: boolean): string {
@@ -177,7 +177,7 @@ function PermissionRow({
                 </TableCell>
             )}
             <TableCell>
-                <code className="px-2 py-1 bg-gray-100 dark:bg-gray-800 rounded text-sm font-mono">
+                <code className="px-2 py-1 bg-muted/30 rounded text-sm font-mono">
                     {permission.permission}
                 </code>
             </TableCell>
@@ -227,7 +227,7 @@ export function WalletPermissionTable({
 }: WalletPermissionTableProps) {
     if (permissions.length === 0) {
         return (
-            <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+            <div className="text-center py-8 text-muted-foreground">
                 <Settings className="h-12 w-12 mx-auto mb-3 opacity-30" />
                 <p className="font-medium">No permissions assigned</p>
                 <p className="text-sm mt-1">Use the form below to assign permissions</p>
@@ -251,17 +251,17 @@ export function WalletPermissionTable({
                     <div key={platform}>
                         <div className="flex items-center gap-2 mb-3">
                             <span className="text-lg">{PLATFORM_LABELS[platform].emoji}</span>
-                            <h4 className="font-semibold text-gray-900 dark:text-white">
+                            <h4 className="font-semibold text-foreground">
                                 {PLATFORM_LABELS[platform].label}
                             </h4>
                             <Badge variant="secondary" className="text-xs">
                                 {perms.length}
                             </Badge>
                         </div>
-                        <div className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+                        <div className="rounded-lg border border-gray-200 dark:border-border/40 overflow-hidden">
                             <Table>
                                 <TableHeader>
-                                    <TableRow className="bg-gray-50 dark:bg-gray-800/50">
+                                    <TableRow className="bg-gray-50 dark:bg-muted/50">
                                         <TableHead>Permission</TableHead>
                                         <TableHead>Source</TableHead>
                                         <TableHead>Expires</TableHead>
@@ -289,10 +289,10 @@ export function WalletPermissionTable({
 
     // Flat table view
     return (
-        <div className={cn('rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden', className)}>
+        <div className={cn('rounded-lg border border-gray-200 dark:border-border/40 overflow-hidden', className)}>
             <Table>
                 <TableHeader>
-                    <TableRow className="bg-gray-50 dark:bg-gray-800/50">
+                    <TableRow className="bg-gray-50 dark:bg-muted/50">
                         <TableHead>Platform</TableHead>
                         <TableHead>Permission</TableHead>
                         <TableHead>Source</TableHead>

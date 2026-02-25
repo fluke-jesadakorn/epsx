@@ -63,8 +63,8 @@ export const DeveloperPortalPage: React.FC = () => {
   if (authLoading) {
     return (
       <div className="flex items-center justify-center p-8">
-        <div className="rounded-full h-8 w-8 border-b-2 border-blue-600 opacity-75" />
-        <span className="ml-2 text-gray-600 dark:text-gray-300">Initializing...</span>
+        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-[#1fc7d4]" />
+        <span className="ml-2 text-muted-foreground text-sm">Initializing...</span>
       </div>
     );
   }
@@ -73,17 +73,11 @@ export const DeveloperPortalPage: React.FC = () => {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="text-center max-w-md">
-          <Shield className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">
-            Access Denied
-          </h2>
-          <p className="text-gray-600 dark:text-gray-300 mb-4">
-            {accessDenied.message}
-          </p>
+          <Shield className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
+          <h2 className="text-lg font-semibold text-foreground mb-2">Access Denied</h2>
+          <p className="text-muted-foreground mb-4">{accessDenied.message}</p>
           {accessDenied.code ? (
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              Error code: {accessDenied.code}
-            </p>
+            <p className="text-xs text-muted-foreground/60">Error code: {accessDenied.code}</p>
           ) : null}
         </div>
       </div>
@@ -93,63 +87,54 @@ export const DeveloperPortalPage: React.FC = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center p-8">
-        <div className="rounded-full h-8 w-8 border-b-2 border-blue-600 opacity-75" />
-        <span className="ml-2 text-gray-600 dark:text-gray-300">Loading developer portal...</span>
+        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-[#1fc7d4]" />
+        <span className="ml-2 text-muted-foreground text-sm">Loading developer portal...</span>
       </div>
     );
   }
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">
-          Developer Portal
-        </h1>
-        <p className="text-gray-600 dark:text-gray-300">
-          Manage API keys and third-party integrations
-        </p>
-      </div>
-
+    <div className="max-w-7xl mx-auto space-y-6">
       {/* Tab Navigation */}
-      <div className="flex space-x-1 mb-6 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg w-fit">
+      <div className="flex gap-1 p-1 bg-muted/50 border border-border/40 rounded-xl w-fit">
         <button
           onClick={() => setActiveTab('overview')}
-          className={`px-4 py-2 rounded-md font-medium transition-colors ${activeTab === 'overview'
-            ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
-            : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100'
+          className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors flex items-center gap-2 ${activeTab === 'overview'
+            ? 'bg-gradient-to-r from-[#7645d9] to-[#5a33b8] text-white shadow-sm'
+            : 'text-muted-foreground hover:text-foreground'
             }`}
         >
-          <BarChart3 className="w-4 h-4 inline mr-2" />
+          <BarChart3 className="w-3.5 h-3.5" />
           Overview
         </button>
         <button
           onClick={() => setActiveTab('keys')}
-          className={`px-4 py-2 rounded-md font-medium transition-colors ${activeTab === 'keys'
-            ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
-            : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100'
+          className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors flex items-center gap-2 ${activeTab === 'keys'
+            ? 'bg-gradient-to-r from-[#7645d9] to-[#5a33b8] text-white shadow-sm'
+            : 'text-muted-foreground hover:text-foreground'
             }`}
         >
-          <Key className="w-4 h-4 inline mr-2" />
+          <Key className="w-3.5 h-3.5" />
           API Keys
         </button>
         <button
           onClick={() => setActiveTab('docs')}
-          className={`px-4 py-2 rounded-md font-medium transition-colors ${activeTab === 'docs'
-            ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
-            : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100'
+          className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors flex items-center gap-2 ${activeTab === 'docs'
+            ? 'bg-gradient-to-r from-[#7645d9] to-[#5a33b8] text-white shadow-sm'
+            : 'text-muted-foreground hover:text-foreground'
             }`}
         >
-          <BookOpen className="w-4 h-4 inline mr-2" />
+          <BookOpen className="w-3.5 h-3.5" />
           Documentation
         </button>
         <button
           onClick={() => setActiveTab('usage')}
-          className={`px-4 py-2 rounded-md font-medium transition-colors ${activeTab === 'usage'
-            ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
-            : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100'
+          className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors flex items-center gap-2 ${activeTab === 'usage'
+            ? 'bg-gradient-to-r from-[#7645d9] to-[#5a33b8] text-white shadow-sm'
+            : 'text-muted-foreground hover:text-foreground'
             }`}
         >
-          <Activity className="w-4 h-4 inline mr-2" />
+          <Activity className="w-3.5 h-3.5" />
           Usage Analytics
         </button>
       </div>

@@ -120,12 +120,12 @@ export function AnalyticsStatsCard({
   const trendColors = {
     up: 'text-[#31d0aa] bg-[#31d0aa]/10 border border-[#31d0aa]/20',
     down: 'text-[#ed4b9e] bg-[#ed4b9e]/10 border border-[#ed4b9e]/20',
-    neutral: 'text-slate-400 bg-white dark:bg-white/[0.04] border border-gray-200 dark:border-slate-700'
+    neutral: 'text-slate-400 bg-muted/30 border border-border/20'
   };
 
   if (error) {
     return (
-      <div className="w-full max-w-sm mx-auto bg-white dark:bg-white/[0.04] backdrop-blur-xl rounded-2xl shadow-lg border border-red-500/30 overflow-hidden p-6">
+      <div className="w-full max-w-sm mx-auto bg-muted/30 rounded-2xl shadow-lg border border-red-500/30 overflow-hidden p-6">
         <div className="flex items-center justify-center h-24">
           <div className="text-center">
             <AnalyticsIcon name="error" className="text-red-400 mb-2" size={32} />
@@ -138,7 +138,7 @@ export function AnalyticsStatsCard({
 
   if (isLoading) {
     return (
-      <div className="w-full max-w-sm mx-auto bg-white dark:bg-white/[0.04] backdrop-blur-xl rounded-2xl shadow-lg border border-gray-200 dark:border-slate-700 overflow-hidden p-6">
+      <div className="w-full max-w-sm mx-auto bg-muted/30 rounded-2xl shadow-lg border border-border/20 overflow-hidden p-6">
         <div className="animate-pulse space-y-3">
           <div className="w-10 h-10 bg-gray-50 dark:bg-white/[0.06] rounded-lg" />
           <div className="w-20 h-4 bg-gray-50 dark:bg-white/[0.06] rounded" />
@@ -159,7 +159,7 @@ export function AnalyticsStatsCard({
   return (
     <div
       className={cn(
-        "group relative bg-white dark:bg-slate-900 backdrop-blur-2xl border border-gray-200 dark:border-slate-700 rounded-[32px] shadow-xl overflow-hidden transition-all duration-300 hover:border-[#1fc7d4]/30 active:scale-[0.99] p-8",
+        "group relative bg-card border border-border/20 rounded-2xl shadow-xl overflow-hidden transition-all duration-300 hover:border-[#1fc7d4]/30 active:scale-[0.99] p-8",
         className,
         onClick && 'cursor-pointer'
       )}
@@ -169,7 +169,7 @@ export function AnalyticsStatsCard({
       {/* Header Section */}
       <div className="flex items-center justify-between mb-8">
         <div className="flex items-center gap-4">
-          <div className="p-3 rounded-2xl bg-white dark:bg-white/[0.04] border border-gray-200 dark:border-slate-700 text-[#1fc7d4]">
+          <div className="p-3 rounded-2xl bg-muted/30 border border-border/20 text-[#1fc7d4]">
             <AnalyticsIcon name={iconName} size={24} />
           </div>
           <div>
@@ -187,7 +187,7 @@ export function AnalyticsStatsCard({
 
       {/* Status Badge */}
       <div className="mb-6 flex justify-center">
-        <span className={`px-4 py-2 rounded-full font-medium text-sm transition-colors backdrop-blur-sm ${statusColors[statusColor]}`}>
+        <span className={`px-4 py-2 rounded-full font-medium text-sm transition-colors ${statusColors[statusColor]}`}>
           ● {statusColor.toUpperCase()}
         </span>
       </div>
@@ -198,7 +198,7 @@ export function AnalyticsStatsCard({
           <span className="text-slate-200 font-medium text-sm">Status</span>
           <span className="text-slate-200 font-medium text-sm">{daysLeft}d left</span>
         </div>
-        <div className="w-full bg-gray-50 dark:bg-white/[0.06] rounded-full h-2 backdrop-blur-sm">
+        <div className="w-full bg-gray-50 dark:bg-white/[0.06] rounded-full h-2">
           <div
             className="bg-gradient-to-r from-purple-500 to-orange-500 h-2 rounded-full transition-all duration-1000 shadow-lg shadow-purple-500/20"
             style={{ width: `${progressPercentage}%` }}
@@ -209,7 +209,7 @@ export function AnalyticsStatsCard({
       {/* Value and Subtitle Section */}
       <div className="grid grid-cols-2 gap-4">
         {/* Main Value */}
-        <div className={`rounded-xl p-4 text-center backdrop-blur-sm ${statusColors[statusColor]}`}>
+        <div className={`rounded-xl p-4 text-center ${statusColors[statusColor]}`}>
           <div className="font-medium text-xs mb-1 opacity-80">Value</div>
           <div className="font-bold text-lg">
             {typeof value === 'number' ? value.toLocaleString() : value}
@@ -252,7 +252,7 @@ export function AnalyticsSummaryCard({
 }: AnalyticsSummaryCardProps) {
   return (
     <div className={cn(
-      "group relative bg-white dark:bg-slate-900 backdrop-blur-2xl border border-gray-200 dark:border-slate-700 rounded-[32px] p-8 shadow-xl transition-all duration-300 hover:border-[#1fc7d4]/30 overflow-hidden",
+      "group relative bg-card border border-border/20 rounded-2xl p-8 shadow-xl transition-all duration-300 hover:border-[#1fc7d4]/30 overflow-hidden",
       className
     )}>
       <div className="absolute -right-6 -top-6 w-24 h-24 bg-[#7645d9]/5 rounded-full blur-3xl group-hover:bg-[#7645d9]/10 transition-colors" />
@@ -296,7 +296,7 @@ export function AnalyticsUserCard({
     <div
       onClick={onViewDetails}
       className={cn(
-        "group relative w-full overflow-hidden rounded-[24px] border border-gray-200 dark:border-slate-700 bg-white/60 dark:bg-[#0f172a]/60 p-1 backdrop-blur-xl transition-all duration-300 hover:border-[#7645d9]/30 hover:shadow-2xl hover:shadow-[#7645d9]/10",
+        "group relative w-full overflow-hidden rounded-[24px] border border-border/20 bg-white/60 dark:bg-[#0f172a]/60 p-1 transition-all duration-300 hover:border-[#7645d9]/30 hover:shadow-2xl hover:shadow-[#7645d9]/10",
         className,
         onViewDetails && "cursor-pointer"
       )}
@@ -326,7 +326,7 @@ export function AnalyticsUserCard({
               </span>
               <button
                 onClick={handleCopy}
-                className="shrink-0 rounded-lg p-1.5 text-slate-400 hover:bg-black/[0.05] dark:hover:bg-white/10 hover:text-white transition-colors"
+                className="shrink-0 rounded-lg p-1.5 text-slate-400 hover:bg-muted/50 hover:text-white transition-colors"
                 title="Copy Address"
               >
                 <Copy size={14} />
@@ -334,7 +334,7 @@ export function AnalyticsUserCard({
             </div>
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-medium text-slate-400/80">
               <span className="uppercase tracking-wider">Account ID</span>
-              <span className="bg-white dark:bg-white/[0.04] px-1.5 py-0.5 rounded text-slate-300 font-mono">
+              <span className="bg-muted/30 px-1.5 py-0.5 rounded text-slate-300 font-mono">
                 #{Math.floor(Math.random() * 10000).toString().padStart(4, '0')}
               </span>
             </div>
@@ -344,8 +344,8 @@ export function AnalyticsUserCard({
         {/* Middle Section: Plan */}
         <div className="flex-1 min-w-0">
           <div className="flex flex-col gap-1.5">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Plan</span>
-            <div className="flex items-center gap-2 text-sm font-medium text-slate-200 bg-white dark:bg-white/[0.04] rounded-lg px-3 py-2 border border-gray-200 dark:border-slate-700 w-full">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Plan</span>
+            <div className="flex items-center gap-2 text-sm font-medium text-slate-200 bg-muted/30 rounded-lg px-3 py-2 border border-border/20 w-full">
               <AnalyticsIcon name="actions" size={16} className="text-[#1fc7d4] shrink-0" />
               <span className="font-mono text-xs sm:text-sm truncate" title={plan}>
                 {plan}
@@ -355,20 +355,20 @@ export function AnalyticsUserCard({
         </div>
 
         {/* Right Section: Actions */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 mt-2 lg:mt-0 lg:border-l lg:border-gray-200 dark:border-slate-700 lg:pl-8 shrink-0">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 mt-2 lg:mt-0 lg:border-l lg:border-border/20 lg:pl-8 shrink-0">
           <button
             onClick={(e) => {
               e.stopPropagation();
               onViewDetails?.();
             }}
-            className="group/btn flex items-center justify-center gap-2 rounded-xl bg-white dark:bg-white/[0.04] px-5 py-2.5 text-sm font-bold text-white transition-all hover:bg-black/[0.05] dark:hover:bg-white/10 hover:shadow-lg hover:shadow-purple-500/10 active:scale-95 border border-gray-200 dark:border-slate-700 hover:border-gray-200 dark:border-slate-700 w-full sm:w-auto"
+            className="group/btn flex items-center justify-center gap-2 rounded-xl bg-muted/30 px-5 py-2.5 text-sm font-bold text-white transition-all hover:bg-muted/50 hover:shadow-lg hover:shadow-purple-500/10 active:scale-95 border border-border/20 hover:border-border/20 w-full sm:w-auto"
           >
             <span>View Details</span>
             <ChevronRight size={16} className="text-slate-400 transition-transform group-hover/btn:translate-x-1" />
           </button>
 
           <button
-            className="flex h-10 w-full sm:w-10 items-center justify-center rounded-xl border border-transparent text-slate-400 transition-all hover:bg-gray-100 dark:hover:bg-white/5 hover:text-white hover:border-gray-200 dark:border-slate-700 active:scale-95 bg-white/[0.02] sm:bg-transparent"
+            className="flex h-10 w-full sm:w-10 items-center justify-center rounded-xl border border-transparent text-slate-400 transition-all hover:bg-muted/30 hover:text-white hover:border-border/20 active:scale-95 bg-white/[0.02] sm:bg-transparent"
             aria-label="More actions"
           >
             <MoreHorizontal size={20} />

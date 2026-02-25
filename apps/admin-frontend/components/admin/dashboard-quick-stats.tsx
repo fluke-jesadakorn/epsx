@@ -12,21 +12,23 @@ interface DashboardQuickStatsProps {
  */
 export function DashboardQuickStats({ stats }: DashboardQuickStatsProps) {
     return (
-        <div className="bg-white dark:bg-slate-900 rounded-[32px] p-8 shadow-xl border border-gray-200 dark:border-slate-700 relative overflow-hidden group">
-            <div className="absolute -right-6 -top-6 w-20 h-20 bg-[#1fc7d4]/10 rounded-full blur-2xl group-hover:bg-[#1fc7d4]/20 transition-colors" />
-            <h3 className="text-xl font-bold bg-gradient-to-r from-[#1fc7d4] to-[#7645d9] bg-clip-text text-transparent mb-6 flex items-center gap-3">
-                <Activity className="w-6 h-6 text-[#1fc7d4]" /> Quick Stats
-            </h3>
-            <div className="space-y-4">
-                <div className="flex justify-between items-center p-3 rounded-2xl bg-white dark:bg-white/[0.04] border border-gray-200 dark:border-slate-700 transition-colors hover:bg-black/[0.05] dark:hover:bg-white/10">
+        <div className="rounded-2xl border border-border/20 overflow-hidden bg-card shadow-xl">
+            <div className="h-[3px] bg-gradient-to-r from-[#1fc7d4] to-[#7645d9]" />
+            <div className="flex items-center justify-between px-4 py-3 border-b border-border/20">
+                <h2 className="text-xs font-bold text-[#1fc7d4] uppercase tracking-[0.2em] flex items-center gap-3">
+                    <Activity className="w-4 h-4" /> QUICK STATS
+                </h2>
+            </div>
+            <div className="p-6 space-y-4">
+                <div className="flex justify-between items-center p-3 rounded-xl bg-muted/30 border border-border/40 hover:bg-muted/50 transition-colors">
                     <span className="text-sm font-bold text-muted-foreground uppercase tracking-widest">Active Wallets</span>
                     <span className="font-bold text-foreground text-lg">{stats.activeWallets}</span>
                 </div>
-                <div className="flex justify-between items-center p-3 rounded-2xl bg-white dark:bg-white/[0.04] border border-gray-200 dark:border-slate-700 transition-colors hover:bg-black/[0.05] dark:hover:bg-white/10">
+                <div className="flex justify-between items-center p-3 rounded-xl bg-muted/30 border border-border/40 hover:bg-muted/50 transition-colors">
                     <span className="text-sm font-bold text-muted-foreground uppercase tracking-widest">System Health</span>
                     <span className="font-bold text-[#31d0aa] text-lg">{stats.systemHealth}%</span>
                 </div>
-                <div className="flex justify-between items-center p-3 rounded-2xl bg-white dark:bg-white/[0.04] border border-gray-200 dark:border-slate-700 transition-colors hover:bg-black/[0.05] dark:hover:bg-white/10">
+                <div className="flex justify-between items-center p-3 rounded-xl bg-muted/30 border border-border/40 hover:bg-muted/50 transition-colors">
                     <span className="text-sm font-bold text-muted-foreground uppercase tracking-widest">Response Time</span>
                     <span className="font-bold text-[#ffb237] text-lg">{stats.avgResponseTime}</span>
                 </div>

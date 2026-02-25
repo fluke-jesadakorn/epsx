@@ -13,7 +13,7 @@ export function PlanPromotions({ formData, setFormData }: PlanFormProps) {
     return (
         <div className="bg-gradient-to-r from-rose-50 to-red-50 dark:from-rose-900/20 dark:to-red-900/20 rounded-2xl p-6">
             <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+                <h3 className="text-lg font-bold text-foreground">
                     Promotion & Discounts
                 </h3>
                 {formData.promo_enabled &&
@@ -35,9 +35,9 @@ export function PlanPromotions({ formData, setFormData }: PlanFormProps) {
                         onChange={(e) =>
                             setFormData({ ...formData, promo_enabled: e.target.checked })
                         }
-                        className="w-6 h-6 rounded border-2 border-gray-300 dark:border-gray-600 text-rose-500 focus:ring-2 focus:ring-rose-500"
+                        className="w-6 h-6 rounded border-2 border-border/40 text-rose-500 focus:ring-2 focus:ring-rose-500"
                     />
-                    <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                    <span className="text-sm font-semibold text-gray-700 dark:text-muted-foreground">
                         Enable Promotion
                     </span>
                 </label>
@@ -46,7 +46,7 @@ export function PlanPromotions({ formData, setFormData }: PlanFormProps) {
             {formData.promo_enabled && (
                 <div className="space-y-4">
                     <div>
-                        <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                        <label className="block text-sm font-semibold text-gray-700 dark:text-muted-foreground mb-2">
                             Discount Type
                         </label>
                         <div className="grid grid-cols-2 gap-4">
@@ -55,7 +55,7 @@ export function PlanPromotions({ formData, setFormData }: PlanFormProps) {
                                 onClick={() =>
                                     setFormData({ ...formData, promo_type: 'percentage' })
                                 }
-                                className={`p-4 rounded-xl border-2 font-semibold ${formData.promo_type === 'percentage' ? 'border-rose-500 bg-rose-50 dark:bg-rose-900/20 text-rose-700 dark:text-rose-300' : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300'}`}
+                                className={`p-4 rounded-xl border-2 font-semibold ${formData.promo_type === 'percentage' ? 'border-rose-500 bg-rose-50 dark:bg-rose-900/20 text-rose-700 dark:text-rose-300' : 'border-border/40 bg-card text-gray-700 dark:text-muted-foreground'}`}
                             >
                                 % Percentage
                             </button>
@@ -64,7 +64,7 @@ export function PlanPromotions({ formData, setFormData }: PlanFormProps) {
                                 onClick={() =>
                                     setFormData({ ...formData, promo_type: 'fixed' })
                                 }
-                                className={`p-4 rounded-xl border-2 font-semibold ${formData.promo_type === 'fixed' ? 'border-rose-500 bg-rose-50 dark:bg-rose-900/20 text-rose-700 dark:text-rose-300' : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300'}`}
+                                className={`p-4 rounded-xl border-2 font-semibold ${formData.promo_type === 'fixed' ? 'border-rose-500 bg-rose-50 dark:bg-rose-900/20 text-rose-700 dark:text-rose-300' : 'border-border/40 bg-card text-gray-700 dark:text-muted-foreground'}`}
                             >
                                 $ Fixed Amount
                             </button>
@@ -73,7 +73,7 @@ export function PlanPromotions({ formData, setFormData }: PlanFormProps) {
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                            <label className="block text-sm font-semibold text-gray-700 dark:text-muted-foreground mb-2">
                                 {formData.promo_type === 'percentage'
                                     ? 'Discount (%)'
                                     : 'Discount Amount ($)'}
@@ -94,11 +94,11 @@ export function PlanPromotions({ formData, setFormData }: PlanFormProps) {
                                             : value
                                     setFormData({ ...formData, promo_value: newValue })
                                 }}
-                                className="w-full px-4 py-3 rounded-xl border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-rose-500 focus:ring-2 focus:ring-rose-500 focus:outline-none"
+                                className="w-full px-4 py-3 rounded-xl border-2 border-border/40 bg-card text-foreground focus:border-rose-500 focus:ring-2 focus:ring-rose-500 focus:outline-none"
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                            <label className="block text-sm font-semibold text-gray-700 dark:text-muted-foreground mb-2">
                                 Final Promotional Price ($)
                             </label>
                             <input
@@ -112,9 +112,9 @@ export function PlanPromotions({ formData, setFormData }: PlanFormProps) {
                                         promo_price: parseFloat(e.target.value) ?? 0,
                                     })
                                 }
-                                className="w-full px-4 py-3 rounded-xl border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-rose-500 focus:ring-2 focus:ring-rose-500 focus:outline-none"
+                                className="w-full px-4 py-3 rounded-xl border-2 border-border/40 bg-card text-foreground focus:border-rose-500 focus:ring-2 focus:ring-rose-500 focus:outline-none"
                             />
-                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                            <p className="text-xs text-muted-foreground mt-1">
                                 Auto: $
                                 {Promo.calcPrice({
                                     basePrice: formData.current_price,
@@ -127,7 +127,7 @@ export function PlanPromotions({ formData, setFormData }: PlanFormProps) {
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                            <label className="block text-sm font-semibold text-gray-700 dark:text-muted-foreground mb-2">
                                 Start Date
                             </label>
                             <input
@@ -136,11 +136,11 @@ export function PlanPromotions({ formData, setFormData }: PlanFormProps) {
                                 onChange={(e) =>
                                     setFormData({ ...formData, promo_start: e.target.value })
                                 }
-                                className="w-full px-4 py-3 rounded-xl border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-rose-500 focus:ring-2 focus:ring-rose-500 focus:outline-none"
+                                className="w-full px-4 py-3 rounded-xl border-2 border-border/40 bg-card text-foreground focus:border-rose-500 focus:ring-2 focus:ring-rose-500 focus:outline-none"
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                            <label className="block text-sm font-semibold text-gray-700 dark:text-muted-foreground mb-2">
                                 End Date
                             </label>
                             <input
@@ -149,7 +149,7 @@ export function PlanPromotions({ formData, setFormData }: PlanFormProps) {
                                 onChange={(e) =>
                                     setFormData({ ...formData, promo_end: e.target.value })
                                 }
-                                className="w-full px-4 py-3 rounded-xl border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-rose-500 focus:ring-2 focus:ring-rose-500 focus:outline-none"
+                                className="w-full px-4 py-3 rounded-xl border-2 border-border/40 bg-card text-foreground focus:border-rose-500 focus:ring-2 focus:ring-rose-500 focus:outline-none"
                             />
                         </div>
                     </div>

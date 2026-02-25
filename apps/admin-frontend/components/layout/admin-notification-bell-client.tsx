@@ -2,7 +2,7 @@
 
 import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
-import { Bell, ExternalLink } from 'lucide-react'
+import { Bell, ExternalLink, RefreshCw } from 'lucide-react'
 
 import {
   deleteAdminNotificationAction,
@@ -39,7 +39,7 @@ function NotificationItem({ notification, onToggleRead, onDeleteNotification }: 
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-start justify-between gap-2">
-          <p className={`text-sm font-medium line-clamp-1 ${notification.read ? 'text-slate-500 dark:text-slate-400' : 'text-slate-900 dark:text-slate-100'}`}>
+          <p className={`text-sm font-medium line-clamp-1 ${notification.read ? 'text-muted-foreground dark:text-muted-foreground' : 'text-slate-900 dark:text-foreground'}`}>
             {notification.title}
           </p>
           <button
@@ -51,21 +51,21 @@ function NotificationItem({ notification, onToggleRead, onDeleteNotification }: 
             className="flex-shrink-0 mt-1"
           >
             {notification.read ? (
-              <div className="w-2 h-2 rounded-full border border-slate-300 dark:border-slate-600 hover:border-orange-500 dark:hover:border-orange-400 transition-colors" />
+              <div className="w-2 h-2 rounded-full border border-slate-300 dark:border-border/40 hover:border-orange-500 dark:hover:border-orange-400 transition-colors" />
             ) : (
               <div className="w-2 h-2 rounded-full bg-orange-500 hover:bg-orange-400 transition-colors" />
             )}
           </button>
         </div>
-        <p className="text-xs text-slate-600 dark:text-slate-400 line-clamp-2 mt-0.5">
+        <p className="text-xs text-slate-600 dark:text-muted-foreground line-clamp-2 mt-0.5">
           {notification.message}
         </p>
         <div className="flex items-center gap-2 mt-1">
-          <p className="text-xs text-slate-400 dark:text-slate-500">
+          <p className="text-xs text-slate-400 dark:text-muted-foreground">
             {formatTimestamp(notification.timestamp)}
           </p>
           {notification.wallet_address !== undefined && notification.wallet_address !== 'all' && (
-            <span className="text-xs font-mono text-slate-400 dark:text-slate-500">
+            <span className="text-xs font-mono text-slate-400 dark:text-muted-foreground">
               {formatWalletAddress(notification.wallet_address)}
             </span>
           )}
@@ -73,7 +73,7 @@ function NotificationItem({ notification, onToggleRead, onDeleteNotification }: 
       </div>
       <button
         onClick={(e) => { onDeleteNotification(e, notification.id) }}
-        className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-500 dark:text-slate-500 dark:hover:text-red-400 flex-shrink-0"
+        className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-500 dark:text-muted-foreground dark:hover:text-red-400 flex-shrink-0"
         title="Delete notification"
       >
         ✕
@@ -90,6 +90,7 @@ export function AdminNotificationBell() {
   const [count, setCount] = useState(0)
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
 
   const isOnAuthPage = pathname === '/auth' || pathname.startsWith('/auth')
@@ -129,6 +130,7 @@ export function AdminNotificationBell() {
         }))
         setNotifications(mapped)
         setCount(data.data.unread_count ?? 0)
+        setError(null)
       } else {
         setNotifications([])
         setCount(0)
@@ -136,6 +138,7 @@ export function AdminNotificationBell() {
     } catch {
       setNotifications([])
       setCount(0)
+      setError('Failed to load notifications')
     } finally {
       setLoading(false)
     }
@@ -238,7 +241,7 @@ export function AdminNotificationBell() {
     <div className="relative" ref={containerRef}>
       <button
         onClick={handleToggleDropdown}
-        className="relative flex items-center gap-2 rounded-2xl px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50/80 hover:text-slate-700 dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-slate-200"
+        className="relative flex items-center gap-2 rounded-2xl px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50/80 hover:text-slate-700 dark:text-muted-foreground dark:hover:bg-white/10 dark:hover:text-slate-200"
       >
         <Bell className="h-4 w-4 text-orange-500" />
         {count > 0 && (
@@ -249,26 +252,33 @@ export function AdminNotificationBell() {
       </button>
 
       {isOpen && (
-        <div className="absolute top-full right-0 z-50 mt-2 w-96 rounded-2xl border border-orange-100/50 bg-white/95 backdrop-blur-xl shadow-2xl dark:border-slate-700/50 dark:bg-slate-900/95">
+        <div className="absolute top-full right-0 z-50 mt-2 w-96 rounded-2xl border border-orange-100/50 bg-white/95 shadow-2xl dark:border-border/40 dark:bg-card/95">
           {loading ? (
             <div className="px-4 py-8 text-center">
-              <Bell className="h-12 w-12 mx-auto mb-3 text-slate-300 dark:text-slate-600 animate-pulse" />
-              <p className="text-sm text-slate-500 dark:text-slate-400">
+              <Bell className="h-12 w-12 mx-auto mb-3 text-muted-foreground animate-pulse" />
+              <p className="text-sm text-muted-foreground dark:text-muted-foreground">
                 Loading notifications...
               </p>
             </div>
           ) : notifications.length === 0 ? (
             <div className="px-4 py-8 text-center">
-              <Bell className="h-12 w-12 mx-auto mb-3 text-slate-300 dark:text-slate-600" />
-              <p className="text-sm text-slate-500 dark:text-slate-400">
-                No notifications yet
+              <Bell className="h-12 w-12 mx-auto mb-3 text-muted-foreground" />
+              <p className="text-sm text-muted-foreground dark:text-muted-foreground mb-3">
+                {error !== null ? 'Could not load notifications' : 'No notifications yet'}
               </p>
+              <button
+                onClick={() => { void fetchNotifications() }}
+                className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium text-orange-600 hover:bg-orange-50 dark:text-orange-400 dark:hover:bg-orange-900/20 transition-colors"
+              >
+                <RefreshCw className="h-4 w-4" />
+                {error !== null ? 'Retry' : 'Refresh'}
+              </button>
             </div>
           ) : (
             <>
               <div className="px-4 py-3 border-b border-orange-100 dark:border-slate-700">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                  <h3 className="text-sm font-semibold text-slate-700 dark:text-muted-foreground">
                     Notifications
                   </h3>
                   {count > 0 && (
@@ -309,7 +319,7 @@ export function AdminNotificationBell() {
                     router.push('/notifications')
                     handleCloseDropdown()
                   }}
-                  className="w-full flex items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-white/10"
+                  className="w-full flex items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 dark:text-muted-foreground dark:hover:bg-white/10"
                 >
                   <ExternalLink className="h-4 w-4" />
                   View All Notifications

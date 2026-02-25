@@ -51,7 +51,7 @@ export function WalletAccessManager({
     }
 
     return (
-        <div className={cn('rounded-xl bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-gray-200 dark:border-gray-700', className)}>
+        <div className={cn('rounded-xl bg-card/80 border border-gray-200 dark:border-border/40', className)}>
             <WalletAccessHeader
                 hasChanges={hasChanges}
                 pendingCount={pendingCtx.pendingChanges.size}
@@ -69,7 +69,7 @@ export function WalletAccessManager({
 
             <WalletAccessInfoBar />
 
-            <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] gap-4 p-4 bg-gray-100 dark:bg-gray-800">
+            <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] gap-4 p-4 bg-muted/30">
                 <AvailableColumn
                     ref={dragCtx.availableRef}
                     items={filterCtx.availableItems}

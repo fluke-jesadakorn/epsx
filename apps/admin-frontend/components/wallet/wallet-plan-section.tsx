@@ -42,7 +42,7 @@ function PlanCard({
                 "group relative flex flex-col gap-2 p-4 rounded-xl border transition-all",
                 isOver
                     ? "bg-blue-50 border-blue-400 dark:bg-blue-900/20 dark:border-blue-500 shadow-md ring-1 ring-blue-400 scale-[1.01]"
-                    : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600"
+                    : "bg-card border-gray-200 dark:border-border/40 hover:border-gray-300 dark:hover:border-gray-600"
             )}
         >
             <div className="flex items-start justify-between gap-3">
@@ -51,10 +51,10 @@ function PlanCard({
                         <Users className="h-5 w-5 text-purple-600 dark:text-purple-400" />
                     </div>
                     <div>
-                        <h4 className="font-semibold text-gray-900 dark:text-white">
+                        <h4 className="font-semibold text-foreground">
                             {plan.name}
                         </h4>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                        <p className="text-sm text-muted-foreground">
                             {plan.description ?? 'No description'}
                         </p>
                     </div>
@@ -122,10 +122,10 @@ export function WalletPlanSection({
     return (
         <div className="space-y-4">
             {/* Header */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="bg-card rounded-xl border border-gray-200 dark:border-border/40 p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
                 <div className="flex items-center gap-2 w-full sm:w-auto">
                     <Package className="h-5 w-5 text-gray-500" />
-                    <h3 className="font-semibold text-gray-900 dark:text-white">
+                    <h3 className="font-semibold text-foreground">
                         Access Plans
                     </h3>
                     <Badge variant="secondary" className="ml-2">
@@ -154,7 +154,7 @@ export function WalletPlanSection({
             {/* List */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {filteredPlans.length === 0 ? (
-                    <div className="col-span-full py-12 text-center text-gray-500 border border-dashed border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50/50 dark:bg-slate-900/50">
+                    <div className="col-span-full py-12 text-center text-gray-500 border border-dashed border-gray-200 dark:border-border/40 rounded-xl bg-muted/20">
                         <Package className="h-10 w-10 mx-auto mb-3 opacity-20" />
                         <p>No plans assigned</p>
                     </div>

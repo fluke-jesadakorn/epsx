@@ -25,31 +25,32 @@ export function AuditLogTable({
     fetchLogs,
 }: AuditLogTableProps) {
     return (
-        <div className="bg-card rounded-2xl shadow-xl border border-border/20 overflow-hidden">
+        <div className="rounded-2xl border border-border/20 overflow-hidden bg-card shadow-xl">
+            <div className="h-[3px] bg-gradient-to-r from-[#7645d9] to-[#1fc7d4]" />
             {isLoadingLogs ? (
                 <div className="p-8 text-center">
-                    <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-4 text-indigo-500" />
-                    <p className="text-muted-foreground">Loading audit logs...</p>
+                    <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-4 text-[#7645d9]" />
+                    <p className="text-muted-foreground text-sm">Loading audit logs...</p>
                 </div>
             ) : error ? (
                 <div className="p-8 text-center">
-                    <p className="text-red-500 mb-4">{error}</p>
+                    <p className="text-destructive mb-4 text-sm">{error}</p>
                     <button
                         onClick={fetchLogs}
-                        className="px-4 py-2 bg-indigo-500 text-white rounded-xl hover:bg-indigo-600"
+                        className="px-4 py-2 bg-gradient-to-r from-[#7645d9] to-[#5a33b8] text-white rounded-xl hover:opacity-90 text-sm font-semibold"
                     >
                         Retry
                     </button>
                 </div>
             ) : logs.length === 0 ? (
                 <div className="p-8 text-center">
-                    <div className="text-6xl mb-4">📭</div>
-                    <p className="text-muted-foreground">No audit logs found</p>
+                    <div className="text-5xl mb-3">📭</div>
+                    <p className="text-muted-foreground text-sm">No audit logs found</p>
                 </div>
             ) : (
                 <>
                     {/* Table Header */}
-                    <div className="hidden md:grid grid-cols-12 gap-4 p-4 bg-muted/50 border-b border-border font-medium text-sm text-muted-foreground">
+                    <div className="hidden md:grid grid-cols-12 gap-4 px-4 py-3 bg-muted/30 border-b border-border/30 text-[10px] font-bold text-muted-foreground uppercase tracking-[0.15em]">
                         <div className="col-span-2">Time</div>
                         <div className="col-span-2">Action</div>
                         <div className="col-span-3">Actor</div>
@@ -58,7 +59,7 @@ export function AuditLogTable({
                     </div>
 
                     {/* Log Entries */}
-                    <div className="divide-y divide-border">
+                    <div className="divide-y divide-border/30">
                         {logs.map((log) => (
                             <AuditLogRow key={log.id} log={log} />
                         ))}
@@ -68,24 +69,24 @@ export function AuditLogTable({
 
             {/* Pagination */}
             {logs.length > 0 && (
-                <div className="p-4 bg-muted/50 border-t border-border flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">
+                <div className="px-4 py-3 bg-muted/20 border-t border-border/30 flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">
                         Page {page} of {totalPages}
                     </span>
                     <div className="flex gap-2">
                         <button
                             onClick={() => setPage(p => Math.max(1, p - 1))}
                             disabled={page === 1}
-                            className="p-2 rounded-lg bg-card border border-border disabled:opacity-50 hover:bg-muted"
+                            className="p-1.5 rounded-lg bg-card border border-border/40 disabled:opacity-40 hover:bg-muted transition-colors"
                         >
-                            <ChevronLeft className="w-5 h-5" />
+                            <ChevronLeft className="w-4 h-4" />
                         </button>
                         <button
                             onClick={() => setPage(p => Math.min(totalPages, p + 1))}
                             disabled={page === totalPages}
-                            className="p-2 rounded-lg bg-card border border-border disabled:opacity-50 hover:bg-muted"
+                            className="p-1.5 rounded-lg bg-card border border-border/40 disabled:opacity-40 hover:bg-muted transition-colors"
                         >
-                            <ChevronRight className="w-5 h-5" />
+                            <ChevronRight className="w-4 h-4" />
                         </button>
                     </div>
                 </div>

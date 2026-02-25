@@ -25,9 +25,9 @@ export function ApiHeader({ onRequestAccess }: ApiHeaderProps) {
         <div className="mb-8">
             <div className="flex items-center mb-4">
                 <BookOpen className="w-8 h-8 text-blue-600 mr-3" />
-                <h1 className="text-3xl font-bold text-gray-900 dark:text-white">API Documentation</h1>
+                <h1 className="text-3xl font-bold text-foreground">API Documentation</h1>
             </div>
-            <p className="text-lg text-gray-600 dark:text-gray-400 mb-6">
+            <p className="text-lg text-muted-foreground mb-6">
                 Complete guide to integrating with the EPSX module-based API platform. Access financial data, analytics, and market tools
                 programmatically.
             </p>
@@ -57,13 +57,13 @@ interface AuthenticationSectionProps {
 export function AuthenticationSection({ onCopy }: AuthenticationSectionProps) {
     return (
         <section className="mb-8">
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4 flex items-center">
+            <h2 className="text-2xl font-bold text-foreground mb-4 flex items-center">
                 <Shield className="w-6 h-6 text-blue-600 mr-2" />
                 Authentication
             </h2>
 
-            <div className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg p-6">
-                <p className="text-gray-600 dark:text-gray-400 mb-4">All API requests require authentication using an API key in the Authorization header:</p>
+            <div className="bg-card border border-border/20 rounded-xl p-6">
+                <p className="text-muted-foreground mb-4">All API requests require authentication using an API key in the Authorization header:</p>
 
                 <div className="bg-gray-900 rounded-lg p-4 mb-4">
                     <div className="flex items-center justify-between mb-2">
@@ -112,14 +112,14 @@ interface BaseUrlSectionProps {
 export function BaseUrlSection({ onCopy }: BaseUrlSectionProps) {
     return (
         <section className="mb-8">
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4 flex items-center">
+            <h2 className="text-2xl font-bold text-foreground mb-4 flex items-center">
                 <Globe className="w-6 h-6 text-blue-600 mr-2" />
                 Base URL
             </h2>
 
-            <div className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg p-6">
+            <div className="bg-card border border-border/20 rounded-xl p-6">
                 <div className="flex items-center justify-between">
-                    <code className="text-lg font-mono text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-700 px-3 py-2 rounded">https://api.epsx.com</code>
+                    <code className="text-lg font-mono text-foreground bg-muted/30 px-3 py-2 rounded">https://api.epsx.com</code>
                     <button
                         onClick={() => onCopy('https://api.epsx.com', 'Base URL')}
                         className="text-gray-400 hover:text-gray-600"
@@ -127,7 +127,7 @@ export function BaseUrlSection({ onCopy }: BaseUrlSectionProps) {
                         <Copy className="w-5 h-5" />
                     </button>
                 </div>
-                <p className="text-gray-600 dark:text-gray-400 mt-3">All API endpoints are relative to this base URL. HTTPS is required for all requests.</p>
+                <p className="text-muted-foreground mt-3">All API endpoints are relative to this base URL. HTTPS is required for all requests.</p>
             </div>
         </section>
     );
@@ -136,9 +136,9 @@ export function BaseUrlSection({ onCopy }: BaseUrlSectionProps) {
 export function RateLimitsSection() {
     return (
         <section className="mb-8">
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Rate Limits</h2>
+            <h2 className="text-2xl font-bold text-foreground mb-4">Rate Limits</h2>
 
-            <div className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg p-6">
+            <div className="bg-card border border-border/20 rounded-xl p-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {[
                         { level: 'Bronze', requests: '100/hour', daily: '1,000/day', color: 'amber' },
@@ -147,9 +147,9 @@ export function RateLimitsSection() {
                         { level: 'Platinum', requests: '10,000/hour', daily: '100,000/day', color: 'purple' },
                         { level: 'Enterprise', requests: 'Unlimited', daily: 'Fair usage', color: 'blue' },
                     ].map((tier) => (
-                        <div key={tier.level} className="border dark:border-gray-700 rounded-lg p-4">
+                        <div key={tier.level} className="border border-border/20 rounded-xl-lg p-4">
                             <h3 className={`font-semibold mb-2 text-${tier.color}-600`}>{tier.level}</h3>
-                            <div className="space-y-1 text-sm text-gray-600 dark:text-gray-400">
+                            <div className="space-y-1 text-sm text-muted-foreground">
                                 <div>Requests: {tier.requests}</div>
                                 <div>Daily limit: {tier.daily}</div>
                             </div>
@@ -181,32 +181,32 @@ export function ParametersTable({ parameters }: ParametersTableProps) {
 
     return (
         <div>
-            <h5 className="font-semibold text-gray-900 dark:text-white mb-2">Parameters</h5>
+            <h5 className="font-semibold text-foreground mb-2">Parameters</h5>
             <div className="overflow-x-auto">
                 <table className="min-w-full text-sm">
-                    <thead className="bg-gray-100 dark:bg-gray-700">
+                    <thead className="bg-muted/30">
                         <tr>
-                            <th className="text-left p-2 font-medium text-gray-700 dark:text-gray-300">Name</th>
-                            <th className="text-left p-2 font-medium text-gray-700 dark:text-gray-300">Type</th>
-                            <th className="text-left p-2 font-medium text-gray-700 dark:text-gray-300">Required</th>
-                            <th className="text-left p-2 font-medium text-gray-700 dark:text-gray-300">Description</th>
+                            <th className="text-left p-2 font-medium text-foreground/80">Name</th>
+                            <th className="text-left p-2 font-medium text-foreground/80">Type</th>
+                            <th className="text-left p-2 font-medium text-foreground/80">Required</th>
+                            <th className="text-left p-2 font-medium text-foreground/80">Description</th>
                         </tr>
                     </thead>
                     <tbody>
                         {parameters.map((param, paramIndex) => (
-                            <tr key={paramIndex} className="border-t dark:border-gray-700">
+                            <tr key={paramIndex} className="border-t border-border/20">
                                 <td className="p-2 font-mono text-blue-600">{param.name}</td>
-                                <td className="p-2 text-gray-600 dark:text-gray-400">{param.type}</td>
+                                <td className="p-2 text-muted-foreground">{param.type}</td>
                                 <td className="p-2">
                                     <span
                                         className={`px-2 py-1 rounded text-xs ${
-                                            param.required ? 'bg-red-100 text-red-800' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
+                                            param.required ? 'bg-red-100 text-red-800' : 'bg-muted/30 text-muted-foreground'
                                         }`}
                                     >
                                         {param.required ? 'Required' : 'Optional'}
                                     </span>
                                 </td>
-                                <td className="p-2 text-gray-600 dark:text-gray-400">{param.description}</td>
+                                <td className="p-2 text-muted-foreground">{param.description}</td>
                             </tr>
                         ))}
                     </tbody>
@@ -223,13 +223,13 @@ interface EndpointDetailsProps {
 
 export function EndpointDetails({ endpoint, onCopy }: EndpointDetailsProps) {
     return (
-        <div className="border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-900 p-4 space-y-4">
+        <div className="border-t border-border/20 bg-muted/20 p-4 space-y-4">
             <ParametersTable parameters={endpoint.parameters} />
 
             {/* Example Response */}
             <div>
                 <div className="flex items-center justify-between mb-2">
-                    <h5 className="font-semibold text-gray-900 dark:text-white">Example Response</h5>
+                    <h5 className="font-semibold text-foreground">Example Response</h5>
                     <button onClick={() => onCopy(endpoint.response, 'Example response')} className="text-gray-400 hover:text-gray-600">
                         <Copy className="w-4 h-4" />
                     </button>
@@ -242,7 +242,7 @@ export function EndpointDetails({ endpoint, onCopy }: EndpointDetailsProps) {
             {/* cURL Example */}
             <div>
                 <div className="flex items-center justify-between mb-2">
-                    <h5 className="font-semibold text-gray-900 dark:text-white">cURL Example</h5>
+                    <h5 className="font-semibold text-foreground">cURL Example</h5>
                     <button
                         onClick={() => {
                             const curlExample = `curl -X ${endpoint.method} \
@@ -289,17 +289,17 @@ export function EndpointCard({
     getAccessLevelColor,
 }: EndpointCardProps) {
     return (
-        <div className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg overflow-hidden">
+        <div className="bg-card border border-border/20 rounded-xl overflow-hidden">
             <button
                 onClick={() => onToggle(endpointKey)}
-                className="w-full p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                className="w-full p-4 text-left hover:bg-muted/30 transition-colors"
             >
                 <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-3">
                         <span className={`px-2 py-1 rounded text-xs font-mono font-semibold ${getMethodColor(endpoint.method)}`}>
                             {endpoint.method}
                         </span>
-                        <code className="text-sm font-mono text-gray-700 dark:text-gray-300">{endpoint.path}</code>
+                        <code className="text-sm font-mono text-foreground/80">{endpoint.path}</code>
                         <span className={`text-xs font-medium ${getAccessLevelColor(endpoint.accessLevel)}`}>{endpoint.accessLevel}</span>
                     </div>
                     {isExpanded ? (
@@ -308,7 +308,7 @@ export function EndpointCard({
                         <ChevronRight className="w-4 h-4 text-gray-400" />
                     )}
                 </div>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">{endpoint.description}</p>
+                <p className="text-sm text-muted-foreground mt-2">{endpoint.description}</p>
             </button>
 
             {isExpanded && <EndpointDetails endpoint={endpoint} onCopy={onCopy} />}
@@ -338,15 +338,15 @@ export function ModuleCard({
     getAccessLevelColor,
 }: ModuleCardProps) {
     return (
-        <div className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg overflow-hidden">
-            <button onClick={() => onToggle(module.name)} className="w-full p-6 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+        <div className="bg-card border border-border/20 rounded-xl overflow-hidden">
+            <button onClick={() => onToggle(module.name)} className="w-full p-6 text-left hover:bg-muted/30 transition-colors">
                 <div className="flex items-center justify-between">
                     <div>
-                        <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-1">{module.displayName}</h3>
-                        <p className="text-gray-600 dark:text-gray-400">{module.description}</p>
+                        <h3 className="text-xl font-semibold text-foreground mb-1">{module.displayName}</h3>
+                        <p className="text-muted-foreground">{module.description}</p>
                         <div className="mt-2 flex items-center space-x-4">
-                            <span className="text-sm text-gray-500 dark:text-gray-400">Category: {module.category}</span>
-                            <span className="text-sm text-gray-500 dark:text-gray-400">{module.endpoints.length} endpoints</span>
+                            <span className="text-sm text-muted-foreground">Category: {module.category}</span>
+                            <span className="text-sm text-muted-foreground">{module.endpoints.length} endpoints</span>
                         </div>
                     </div>
                     {isExpanded ? (
@@ -358,7 +358,7 @@ export function ModuleCard({
             </button>
 
             {isExpanded && (
-                <div className="border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
+                <div className="border-t border-border/20 bg-muted/20">
                     <div className="p-6 space-y-4">
                         {module.endpoints.map((endpoint, index) => {
                             const endpointKey = `${module.name}-${index}`;
@@ -407,7 +407,7 @@ export function ModulesList({
 }: ModulesListProps) {
     return (
         <section className="mb-8">
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4 flex items-center">
+            <h2 className="text-2xl font-bold text-foreground mb-4 flex items-center">
                 <Code className="w-6 h-6 text-blue-600 mr-2" />
                 API Modules
             </h2>
@@ -434,9 +434,9 @@ export function ModulesList({
 export function ErrorCodesSection() {
     return (
         <section className="mb-8">
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Error Codes</h2>
+            <h2 className="text-2xl font-bold text-foreground mb-4">Error Codes</h2>
 
-            <div className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg p-6">
+            <div className="bg-card border border-border/20 rounded-xl p-6">
                 <div className="space-y-4">
                     {[
                         { code: 200, status: 'OK', description: 'Request successful' },
@@ -447,7 +447,7 @@ export function ErrorCodesSection() {
                         { code: 429, status: 'Too Many Requests', description: 'Rate limit exceeded' },
                         { code: 500, status: 'Internal Server Error', description: 'Server error - contact support' },
                     ].map((error) => (
-                        <div key={error.code} className="flex items-center space-x-4 p-3 border dark:border-gray-700 rounded">
+                        <div key={error.code} className="flex items-center space-x-4 p-3 border border-border/20 rounded-xl">
                             <code
                                 className={`px-2 py-1 rounded text-sm font-mono ${
                                     error.code < 300
@@ -462,8 +462,8 @@ export function ErrorCodesSection() {
                                 {error.code}
                             </code>
                             <div>
-                                <span className="font-medium text-gray-900 dark:text-white">{error.status}</span>
-                                <span className="text-gray-500 dark:text-gray-400 ml-2">- {error.description}</span>
+                                <span className="font-medium text-foreground">{error.status}</span>
+                                <span className="text-muted-foreground ml-2">- {error.description}</span>
                             </div>
                         </div>
                     ))}
@@ -476,14 +476,14 @@ export function ErrorCodesSection() {
 export function SupportSection() {
     return (
         <section>
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Support</h2>
+            <h2 className="text-2xl font-bold text-foreground mb-4">Support</h2>
 
-            <div className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg p-6">
+            <div className="bg-card border border-border/20 rounded-xl p-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                        <h3 className="font-semibold text-gray-900 dark:text-white mb-2">Need Help?</h3>
-                        <p className="text-gray-600 dark:text-gray-400 mb-4">Our developer support team is here to help you integrate successfully.</p>
-                        <div className="space-y-2 text-sm text-gray-700 dark:text-gray-300">
+                        <h3 className="font-semibold text-foreground mb-2">Need Help?</h3>
+                        <p className="text-muted-foreground mb-4">Our developer support team is here to help you integrate successfully.</p>
+                        <div className="space-y-2 text-sm text-foreground/80">
                             <div>📧 Email: api-support@epsx.com</div>
                             <div>💬 Discord: EPSX Developers</div>
                             <div>📚 Knowledge Base: docs.epsx.com</div>
@@ -491,9 +491,9 @@ export function SupportSection() {
                     </div>
 
                     <div>
-                        <h3 className="font-semibold text-gray-900 dark:text-white mb-2">Status & Updates</h3>
-                        <p className="text-gray-600 dark:text-gray-400 mb-4">Stay informed about API updates and maintenance.</p>
-                        <div className="space-y-2 text-sm text-gray-700 dark:text-gray-300">
+                        <h3 className="font-semibold text-foreground mb-2">Status & Updates</h3>
+                        <p className="text-muted-foreground mb-4">Stay informed about API updates and maintenance.</p>
+                        <div className="space-y-2 text-sm text-foreground/80">
                             <div>🟢 API Status: status.epsx.com</div>
                             <div>📢 Changelog: github.com/epsx/api-changelog</div>
                             <div>🔔 Developer Newsletter: Subscribe for updates</div>

@@ -31,10 +31,10 @@ export function PlanAdvancedPermissions({
 
     return (
         <div className="bg-gradient-to-r from-gray-50 to-slate-50 dark:from-gray-900/30 dark:to-slate-900/30 rounded-2xl p-6">
-            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">
+            <h3 className="text-lg font-bold text-foreground mb-4">
                 Advanced Permissions
             </h3>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+            <p className="text-sm text-muted-foreground mb-4">
                 Manage specific permissions directly. API limits configured above are
                 automatically handled.
             </p>

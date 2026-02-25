@@ -56,7 +56,7 @@ export function PlanItem({
             style={style}
             onClick={() => onSelect?.(plan)}
             className={cn(
-                'p-3 cursor-pointer hover:bg-gray-100 dark:hover:bg-white/5 transition-colors border-l-4 group relative bg-transparent',
+                'p-3 cursor-pointer hover:bg-muted/30 transition-colors border-l-4 group relative bg-transparent',
                 selectedPlanId === plan.id
                     ? 'bg-cyan-500/10 border-l-[#1fc7d4]'
                     : GROUP_BORDER[g],
@@ -67,7 +67,7 @@ export function PlanItem({
             <div
                 {...(dragHandleProps ?? {})}
                 className={cn(
-                    'absolute left-1 top-1/2 -translate-y-1/2 p-1 text-slate-500 hover:text-white cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-opacity',
+                    'absolute left-1 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-white cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-opacity',
                     (disabled === true || isSys) ? 'hidden' : ''
                 )}
                 onClick={(e) => e.stopPropagation()}
@@ -84,7 +84,7 @@ export function PlanItem({
                                 <Shield className="h-3 w-3 text-purple-400" />
                             </div>
                         ) : (
-                            <div className="h-5 w-5 rounded bg-white dark:bg-white/[0.04] flex items-center justify-center text-[10px] font-mono text-muted-foreground shrink-0">
+                            <div className="h-5 w-5 rounded bg-muted/30 flex items-center justify-center text-[10px] font-mono text-muted-foreground shrink-0">
                                 {index + 1}
                             </div>
                         )}
@@ -94,7 +94,7 @@ export function PlanItem({
                         </Badge>
                         <span className={cn(
                             'flex items-center gap-1 text-[9px] font-medium uppercase shrink-0',
-                            active ? 'text-emerald-400' : 'text-slate-500'
+                            active ? 'text-emerald-400' : 'text-muted-foreground'
                         )}>
                             <span className={cn('h-1.5 w-1.5 rounded-full', active ? 'bg-emerald-400' : 'bg-slate-500')} />
                             {active ? 'On' : 'Off'}
@@ -107,12 +107,12 @@ export function PlanItem({
                                 e.stopPropagation();
                                 onDuplicate?.(plan);
                             }}
-                            className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-black/[0.05] dark:hover:bg-white/10 text-muted-foreground hover:text-[#1fc7d4]"
+                            className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-muted/50 text-muted-foreground hover:text-[#1fc7d4]"
                             title="Duplicate plan"
                         >
                             <Copy className="h-3.5 w-3.5" />
                         </button>
-                        <Badge variant="secondary" className="text-[10px] h-5 bg-white dark:bg-white/[0.04]">
+                        <Badge variant="secondary" className="text-[10px] h-5 bg-muted/30">
                             {permCount}
                         </Badge>
                     </div>
@@ -124,7 +124,7 @@ export function PlanItem({
                 </p>
 
                 {/* Row 3: Metadata */}
-                <div className="flex items-center gap-2 mt-2 pt-2 border-t border-gray-200 dark:border-slate-700 text-[10px] text-muted-foreground">
+                <div className="flex items-center gap-2 mt-2 pt-2 border-t border-border/20 text-[10px] text-muted-foreground">
                     <span className="flex items-center gap-0.5" title="Tier level">
                         <Hash className="h-2.5 w-2.5" />
                         {plan.tier_level}

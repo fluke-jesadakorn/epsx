@@ -22,7 +22,7 @@ export function PlanDeleteSection({
     onDelete,
 }: PlanDeleteSectionProps) {
     return (
-        <div className="mt-12 pt-8 border-t border-gray-200 dark:border-gray-700">
+        <div className="mt-12 pt-8 border-t border-gray-200 dark:border-border/40">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-6 bg-red-50 dark:bg-red-900/10 rounded-2xl border border-red-100 dark:border-red-900/30">
                 <div>
                     <h3 className="text-lg font-bold text-red-700 dark:text-red-400">

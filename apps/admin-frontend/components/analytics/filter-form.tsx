@@ -84,7 +84,7 @@ export default function FilterForm({ filterOptions, currentParams }: FilterFormP
 
   return (
     <form onSubmit={handleSubmit}>
-      <div className="rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 backdrop-blur-sm">
+      <div className="rounded-xl border border-border/20 bg-card">
         {/* Filter bar */}
         <div className="flex flex-col gap-3 p-3 sm:flex-row sm:items-end sm:gap-3 sm:p-4">
           {/* Label */}
@@ -105,10 +105,10 @@ export default function FilterForm({ filterOptions, currentParams }: FilterFormP
               Country
             </label>
             <Select value={filters.country} onValueChange={(v) => updateFilter('country', v)}>
-              <SelectTrigger className="h-9 border-gray-200 dark:border-white/[0.08] bg-gray-100 dark:bg-slate-800/60 text-sm text-slate-200 hover:bg-gray-100 dark:bg-slate-800">
+              <SelectTrigger className="h-9 border-gray-200 dark:border-white/[0.08] bg-gray-100 dark:bg-card/60 text-sm text-slate-200 hover:bg-gray-100 dark:bg-card">
                 <SelectValue placeholder="All Countries" />
               </SelectTrigger>
-              <SelectContent className="border-gray-200 dark:border-slate-700 bg-gray-100 dark:bg-slate-800">
+              <SelectContent className="border-border/20 bg-gray-100 dark:bg-card">
                 <SelectItem value="all">All Countries</SelectItem>
                 {countries.map(c => (
                   <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
@@ -124,10 +124,10 @@ export default function FilterForm({ filterOptions, currentParams }: FilterFormP
               Sector
             </label>
             <Select value={filters.sector} onValueChange={(v) => updateFilter('sector', v)}>
-              <SelectTrigger className="h-9 border-gray-200 dark:border-white/[0.08] bg-gray-100 dark:bg-slate-800/60 text-sm text-slate-200 hover:bg-gray-100 dark:bg-slate-800">
+              <SelectTrigger className="h-9 border-gray-200 dark:border-white/[0.08] bg-gray-100 dark:bg-card/60 text-sm text-slate-200 hover:bg-gray-100 dark:bg-card">
                 <SelectValue placeholder="All Sectors" />
               </SelectTrigger>
-              <SelectContent className="border-gray-200 dark:border-slate-700 bg-gray-100 dark:bg-slate-800">
+              <SelectContent className="border-border/20 bg-gray-100 dark:bg-card">
                 <SelectItem value="all">All Sectors</SelectItem>
                 {sectors.map(s => (
                   <SelectItem key={s} value={s}>{s}</SelectItem>
@@ -150,7 +150,7 @@ export default function FilterForm({ filterOptions, currentParams }: FilterFormP
               <button
                 type="button"
                 onClick={handleReset}
-                className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-gray-200 dark:border-white/[0.08] bg-gray-100 dark:bg-slate-800/60 px-3 text-sm font-medium text-slate-300 transition-colors hover:bg-slate-700/60"
+                className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-gray-200 dark:border-white/[0.08] bg-gray-100 dark:bg-card/60 px-3 text-sm font-medium text-slate-300 transition-colors hover:bg-slate-700/60"
               >
                 <RotateCcw className="h-3.5 w-3.5" />
                 <span className="hidden sm:inline">Reset</span>
@@ -165,10 +165,10 @@ export default function FilterForm({ filterOptions, currentParams }: FilterFormP
             <div className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
             <span>{activeCount} filter{activeCount !== 1 ? 's' : ''} active</span>
             {currentParams.country && (
-              <span className="rounded bg-gray-100 dark:bg-slate-800 px-1.5 py-0.5 text-slate-300">{currentParams.country}</span>
+              <span className="rounded bg-gray-100 dark:bg-card px-1.5 py-0.5 text-slate-300">{currentParams.country}</span>
             )}
             {currentParams.sector && (
-              <span className="rounded bg-gray-100 dark:bg-slate-800 px-1.5 py-0.5 text-slate-300">{currentParams.sector}</span>
+              <span className="rounded bg-gray-100 dark:bg-card px-1.5 py-0.5 text-slate-300">{currentParams.sector}</span>
             )}
           </div>
         )}

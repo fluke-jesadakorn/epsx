@@ -33,15 +33,15 @@ export function DraggablePermissionItem({ id, label, onRemove }: { id: string; l
             {...listeners}
             {...attributes}
             className={cn(
-                "group flex items-center justify-between gap-3 p-3 rounded-lg border bg-white dark:bg-gray-800 cursor-grab hover:border-purple-400 transition-all select-none",
-                isDragging ? "opacity-50 ring-2 ring-purple-500 z-50" : "border-gray-200 dark:border-gray-700 hover:shadow-sm"
+                "group flex items-center justify-between gap-3 p-3 rounded-lg border bg-card cursor-grab hover:border-purple-400 transition-all select-none",
+                isDragging ? "opacity-50 ring-2 ring-purple-500 z-50" : "border-gray-200 dark:border-border/40 hover:shadow-sm"
             )}
         >
             <div className="flex items-center gap-3 min-w-0">
                 <div className="h-8 w-8 rounded bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center flex-shrink-0 text-purple-600 dark:text-purple-400">
                     <Key className="h-4 w-4" />
                 </div>
-                <span className="text-sm font-medium truncate text-gray-900 dark:text-gray-100" title={label}>{label}</span>
+                <span className="text-sm font-medium truncate text-foreground" title={label}>{label}</span>
             </div>
             {onRemove && (
                 <Button
@@ -84,7 +84,7 @@ export function DroppablePermissionList({
             )}
         >
             {items.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-full text-gray-400 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl p-6">
+                <div className="flex flex-col items-center justify-center h-full text-gray-400 border-2 border-dashed border-gray-200 dark:border-border/40 rounded-xl p-6">
                     <Key className="h-8 w-8 mb-2 opacity-20" />
                     <p className="text-sm text-center">{emptyMessage}</p>
                 </div>
@@ -115,8 +115,8 @@ export function DraggablePlanItem({ id, label, description, isAssigned = false, 
 
     if (isAssigned) {
         return (
-            <div className="flex items-center gap-3 p-4 rounded-xl border bg-gray-50 dark:bg-slate-900/50 border-gray-200 dark:border-gray-800 opacity-60 cursor-not-allowed">
-                <div className="h-10 w-10 rounded-lg bg-gray-200 dark:bg-gray-800 flex items-center justify-center flex-shrink-0 text-gray-400">
+            <div className="flex items-center gap-3 p-4 rounded-xl border bg-muted/20 border-gray-200 dark:border-gray-800 opacity-60 cursor-not-allowed">
+                <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center flex-shrink-0 text-gray-400">
                     <Package className="h-5 w-5" />
                 </div>
                 <div>
@@ -132,7 +132,7 @@ export function DraggablePlanItem({ id, label, description, isAssigned = false, 
             ref={setNodeRef}
             className={cn(
                 "group flex items-center gap-4 p-4 rounded-xl border transition-all select-none",
-                "bg-gray-100 dark:bg-slate-800/50 border-gray-200 dark:border-slate-700 hover:border-blue-500/50 hover:bg-gray-200 dark:hover:bg-slate-700",
+                "bg-gray-100 dark:bg-card/50 border-border/20 hover:border-blue-500/50 hover:bg-gray-200 dark:hover:bg-slate-700",
                 isDragging ? "opacity-50 ring-2 ring-blue-500 z-50 scale-105 shadow-2xl" : "shadow-sm"
             )}
             {...listeners}
@@ -142,8 +142,8 @@ export function DraggablePlanItem({ id, label, description, isAssigned = false, 
                 <Package className="h-5 w-5" />
             </div>
             <div className="min-w-0 flex-1">
-                <p className="font-semibold text-sm text-gray-800 dark:text-slate-200 group-hover:text-gray-900 dark:group-hover:text-white transition-colors">{label}</p>
-                {description && <p className="text-xs text-gray-500 dark:text-slate-400 truncate mt-0.5">{description}</p>}
+                <p className="font-semibold text-sm text-gray-800 dark:text-foreground group-hover:text-gray-900 dark:group-hover:text-white transition-colors">{label}</p>
+                {description && <p className="text-xs text-gray-500 dark:text-muted-foreground truncate mt-0.5">{description}</p>}
             </div>
             {onManage && (
                 <Button
@@ -199,11 +199,11 @@ export function DroppablePlanList({
                 "min-h-[500px] h-full rounded-2xl transition-all duration-200 p-4 border-2 border-dashed",
                 isOver
                     ? "bg-blue-500/5 border-blue-500/50"
-                    : "bg-transparent border-gray-200 dark:border-slate-700/50 hover:border-gray-300 dark:hover:border-slate-600/50"
+                    : "bg-transparent border-border/20/50 hover:border-gray-300 dark:hover:border-slate-600/50"
             )}
         >
             {allItems.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-full text-gray-400 dark:text-slate-500">
+                <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
                     <Package className="h-10 w-10 mb-3 opacity-20" />
                     <p className="text-sm text-center font-medium">{emptyMessage}</p>
                 </div>
@@ -211,7 +211,7 @@ export function DroppablePlanList({
                 <div className="space-y-3">
                     {allItems.map(plan => (
                         <div key={plan.id} className={cn(
-                            "flex items-center justify-between p-4 rounded-xl border bg-white dark:bg-slate-800/80 border-gray-200 dark:border-slate-700 shadow-sm transition-all",
+                            "flex items-center justify-between p-4 rounded-xl border bg-white dark:bg-card/80 border-border/20 shadow-sm transition-all",
                             plan.isPending && "border-amber-500/50 bg-amber-500/10 dark:bg-amber-500/10"
                         )}>
                             <div className="flex items-center gap-4">
@@ -222,18 +222,18 @@ export function DroppablePlanList({
                                     <Package className="h-5 w-5" />
                                 </div>
                                 <div className="min-w-0">
-                                    <p className="font-semibold text-sm text-gray-900 dark:text-slate-200">
+                                    <p className="font-semibold text-sm text-gray-900 dark:text-foreground">
                                         {plan.name}
                                     </p>
                                     {plan.isPending ? (
                                         <div className="flex flex-col items-start mt-0.5">
                                             <span className="text-[10px] text-amber-600 dark:text-amber-400 font-bold uppercase tracking-wider leading-none mb-1">Pending Add</span>
-                                            <span className="text-[10px] text-gray-500 dark:text-slate-400/80 font-medium leading-none">
+                                            <span className="text-[10px] text-gray-500 dark:text-muted-foreground/80 font-medium leading-none">
                                                 {plan.expiresAt ? `Expires: ${new Date(plan.expiresAt).toLocaleDateString()} ${formatTimeRemaining(plan.expiresAt)}` : "Permanent"}
                                             </span>
                                         </div>
                                     ) : (
-                                        <p className="text-xs text-gray-500 dark:text-slate-400 mt-0.5">
+                                        <p className="text-xs text-gray-500 dark:text-muted-foreground mt-0.5">
                                             {plan.expiresAt ? `Expires: ${new Date(plan.expiresAt).toLocaleDateString()} ${formatTimeRemaining(plan.expiresAt)}` : "Permanent"}
                                         </p>
                                     )}
@@ -246,7 +246,7 @@ export function DroppablePlanList({
                                     <Button
                                         variant="ghost"
                                         size="sm"
-                                        className="h-8 px-3 text-xs font-medium text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-slate-700"
+                                        className="h-8 px-3 text-xs font-medium text-gray-500 dark:text-muted-foreground hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-slate-700"
                                         onClick={() => onManage(plan)}
                                     >
                                         Manage
@@ -256,7 +256,7 @@ export function DroppablePlanList({
                                     <Button
                                         variant="ghost"
                                         size="sm"
-                                        className="h-8 px-3 text-xs font-medium text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-slate-700"
+                                        className="h-8 px-3 text-xs font-medium text-gray-500 dark:text-muted-foreground hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-slate-700"
                                         onClick={() => onEdit(plan)}
                                     >
                                         Edit

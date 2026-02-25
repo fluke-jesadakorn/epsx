@@ -14,25 +14,25 @@ interface SubscriptionStatsProps {
 export function SubscriptionStats({ total, active, expired, revenue }: SubscriptionStatsProps) {
     return (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            <div className="bg-card/80 backdrop-blur-sm rounded-3xl p-6 border border-primary/20 shadow-sm">
+            <div className="bg-card/80 rounded-3xl p-6 border border-primary/20 shadow-sm">
                 <div className="text-secondary font-semibold mb-2">Total Subscriptions</div>
                 <div className="text-3xl font-bold text-foreground mb-1">{total}</div>
                 <div className="text-sm text-muted-foreground">All statuses</div>
             </div>
 
-            <div className="bg-card/80 backdrop-blur-sm rounded-3xl p-6 border border-primary/20 shadow-sm">
+            <div className="bg-card/80 rounded-3xl p-6 border border-primary/20 shadow-sm">
                 <div className="text-primary font-semibold mb-2">Active</div>
                 <div className="text-3xl font-bold text-foreground mb-1">{active}</div>
                 <div className="text-sm text-muted-foreground">Currently active</div>
             </div>
 
-            <div className="bg-card/80 backdrop-blur-sm rounded-3xl p-6 border border-primary/20 shadow-sm">
+            <div className="bg-card/80 rounded-3xl p-6 border border-primary/20 shadow-sm">
                 <div className="text-warning font-semibold mb-2">Expired</div>
                 <div className="text-3xl font-bold text-foreground mb-1">{expired}</div>
                 <div className="text-sm text-muted-foreground">Need renewal</div>
             </div>
 
-            <div className="bg-card/80 backdrop-blur-sm rounded-3xl p-6 border border-primary/20 shadow-sm">
+            <div className="bg-card/80 rounded-3xl p-6 border border-primary/20 shadow-sm">
                 <div className="text-success font-semibold mb-2">Est. Revenue</div>
                 <div className="text-3xl font-bold text-foreground mb-1">${revenue}</div>
                 <div className="text-sm text-muted-foreground">Monthly estimate</div>
@@ -205,7 +205,7 @@ export function SubscriptionFilters({
     onApply
 }: SubscriptionFiltersProps) {
     return (
-        <div className="bg-card/80 backdrop-blur-sm rounded-3xl p-6 border border-border/50 mb-8 shadow-sm">
+        <div className="bg-card/80 rounded-3xl p-6 border border-border/50 mb-8 shadow-sm">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div>
                     <label className="block text-sm font-semibold text-muted-foreground mb-2">

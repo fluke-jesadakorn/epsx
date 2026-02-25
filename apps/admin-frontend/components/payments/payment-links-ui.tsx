@@ -40,15 +40,14 @@ export function FilterSection({
     onReset,
 }: FilterSectionProps) {
     return (
-        <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-primary/10 p-0.5 mb-6">
-            <div className="relative bg-card rounded-2xl sm:rounded-3xl p-4 sm:p-6 border border-border/50">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="rounded-xl border border-border/20 bg-card p-4 mb-6">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div>
-                        <label className="block text-sm font-medium text-muted-foreground mb-2">Context Type</label>
+                        <label className="block text-xs font-bold text-muted-foreground uppercase tracking-[0.15em] mb-2">Context Type</label>
                         <select
                             value={filterType}
                             onChange={(e) => onFilterTypeChange(e.target.value)}
-                            className="w-full px-4 py-3 bg-muted/50 border border-border/50 rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                            className="w-full px-4 py-2.5 bg-muted/50 border border-border/50 rounded-xl text-foreground focus:outline-none focus:ring-1 focus:ring-[#1fc7d4] transition-all text-sm"
                         >
                             <option value="">All Types</option>
                             {CONTEXT_TYPES.map((type) => (
@@ -59,11 +58,11 @@ export function FilterSection({
                         </select>
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-muted-foreground mb-2">Status</label>
+                        <label className="block text-xs font-bold text-muted-foreground uppercase tracking-[0.15em] mb-2">Status</label>
                         <select
                             value={filterActive}
                             onChange={(e) => onFilterActiveChange(e.target.value)}
-                            className="w-full px-4 py-3 bg-muted/50 border border-border/50 rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                            className="w-full px-4 py-2.5 bg-muted/50 border border-border/50 rounded-xl text-foreground focus:outline-none focus:ring-1 focus:ring-[#1fc7d4] transition-all text-sm"
                         >
                             <option value="">All Status</option>
                             <option value="true">Active</option>
@@ -73,14 +72,13 @@ export function FilterSection({
                     <div className="flex items-end">
                         <button
                             onClick={onReset}
-                            className="w-full px-4 py-3 font-semibold rounded-xl bg-muted hover:bg-muted/80 text-muted-foreground transition-all border border-border/50"
+                            className="w-full px-4 py-2.5 font-semibold rounded-xl bg-muted hover:bg-muted/80 text-muted-foreground transition-all border border-border/50 text-sm"
                         >
                             Reset
                         </button>
                     </div>
                 </div>
             </div>
-        </div>
     );
 }
 
@@ -91,45 +89,21 @@ interface ActionCardsProps {
 
 export function ActionCards({ onCreateClick, onRefreshClick }: ActionCardsProps) {
     return (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 mb-8 sm:mb-12">
-            <div
-                className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-primary/10 p-0.5 cursor-pointer"
+        <>
+            <button
                 onClick={onCreateClick}
+                className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-[#7645d9] to-[#5a33b8] hover:opacity-90 text-white rounded-xl font-semibold text-sm transition-all"
             >
-                <div className="relative bg-primary text-primary-foreground rounded-2xl sm:rounded-3xl hover:opacity-90 transition-opacity">
-                    <div className="p-6 sm:p-8">
-                        <div className="bg-white/20 rounded-2xl w-12 h-12 flex items-center justify-center mb-4 sm:mb-6">
-                            <PlusIcon className="w-6 h-6" />
-                        </div>
-                        <h3 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4">Create Payment Link</h3>
-                        <p className="text-primary-foreground/80 mb-4 sm:mb-6 text-sm sm:text-base">
-                            Generate a new payment link for your products or services
-                        </p>
-                        <div className="bg-white/20 rounded-2xl px-4 sm:px-6 py-2 sm:py-3 text-center font-semibold text-sm sm:text-base min-h-[44px] flex items-center justify-center">
-                            New Link
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div
-                className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-secondary/10 p-0.5 cursor-pointer"
+                <PlusIcon className="w-4 h-4" />
+                New Link
+            </button>
+            <button
                 onClick={onRefreshClick}
+                className="flex items-center gap-2 px-4 py-2.5 bg-card border border-border/40 hover:border-[#7645d9]/40 text-foreground rounded-xl font-semibold text-sm transition-all"
             >
-                <div className="relative bg-secondary text-secondary-foreground rounded-2xl sm:rounded-3xl hover:opacity-90 transition-opacity">
-                    <div className="p-6 sm:p-8">
-                        <div className="bg-white/20 rounded-2xl w-12 h-12 flex items-center justify-center mb-4 sm:mb-6">
-                            <span className="text-xl sm:text-2xl">🔄</span>
-                        </div>
-                        <h3 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4">Refresh Data</h3>
-                        <p className="text-secondary-foreground/80 mb-4 sm:mb-6 text-sm sm:text-base">Reload payment links from the server</p>
-                        <div className="bg-white/20 rounded-2xl px-4 sm:px-6 py-2 sm:py-3 text-center font-semibold text-sm sm:text-base min-h-[44px] flex items-center justify-center">
-                            Refresh
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
+                Refresh
+            </button>
+        </>
     );
 }
 
@@ -398,7 +372,7 @@ export function CreatePaymentLinkModal({
                                     </select>
                                 </div>
 
-                                {(form.context_type === 'plan' ?? form.context_type === 'group') && (
+                                {(form.context_type === 'plan' || form.context_type === 'group') && (
                                     <div>
                                         <label className="block text-sm font-medium text-muted-foreground mb-2">
                                             {form.context_type === 'plan' ? 'Plan ID' : 'Group ID'}

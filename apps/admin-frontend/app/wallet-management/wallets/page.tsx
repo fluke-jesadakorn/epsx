@@ -9,7 +9,7 @@ export default async function WalletsPage() {
         sortBy: 'created_at',
         sortOrder: 'desc',
         search: ''
-    }, 1, 9).catch(() => undefined) as any;
+    }, 1, 10).catch(() => undefined) as any;
 
     const initialWalletsData = response?.success ? { wallets: response.wallets, pagination: response.pagination } : undefined;
 

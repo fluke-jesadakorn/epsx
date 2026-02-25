@@ -5,12 +5,12 @@ import type { PlanFormProps } from '@/components/plans/edit/types'
 export function PlanApiLimits({ formData, setFormData }: PlanFormProps) {
     return (
         <div className="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-2xl p-6">
-            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">
+            <h3 className="text-lg font-bold text-foreground mb-4">
                 API Limitations
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                    <label className="block text-sm font-semibold text-gray-700 dark:text-muted-foreground mb-2">
                         API Calls Limit (per month)
                     </label>
                     <input
@@ -23,14 +23,14 @@ export function PlanApiLimits({ formData, setFormData }: PlanFormProps) {
                                 api_calls_limit: parseInt(e.target.value) ?? 0,
                             })
                         }
-                        className="w-full px-4 py-3 rounded-xl border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-purple-500 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                        className="w-full px-4 py-3 rounded-xl border-2 border-border/40 bg-card text-foreground focus:border-purple-500 focus:ring-2 focus:ring-purple-500 focus:outline-none"
                     />
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    <p className="text-xs text-muted-foreground mt-1">
                         -1 = unlimited, 0 = not granted
                     </p>
                 </div>
                 <div>
-                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                    <label className="block text-sm font-semibold text-gray-700 dark:text-muted-foreground mb-2">
                         Ranking Offset (Premium Ranks)
                     </label>
                     <input
@@ -43,14 +43,14 @@ export function PlanApiLimits({ formData, setFormData }: PlanFormProps) {
                                 ranking_offset: parseInt(e.target.value) ?? 0,
                             })
                         }
-                        className="w-full px-4 py-3 rounded-xl border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-purple-500 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                        className="w-full px-4 py-3 rounded-xl border-2 border-border/40 bg-card text-foreground focus:border-purple-500 focus:ring-2 focus:ring-purple-500 focus:outline-none"
                     />
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    <p className="text-xs text-muted-foreground mt-1">
                         Number of top ranks locked. 0 = full access.
                     </p>
                 </div>
                 <div>
-                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                    <label className="block text-sm font-semibold text-gray-700 dark:text-muted-foreground mb-2">
                         Analytics Queries (per month)
                     </label>
                     <input
@@ -63,14 +63,14 @@ export function PlanApiLimits({ formData, setFormData }: PlanFormProps) {
                                 analytics_queries: parseInt(e.target.value) ?? 0,
                             })
                         }
-                        className="w-full px-4 py-3 rounded-xl border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-purple-500 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                        className="w-full px-4 py-3 rounded-xl border-2 border-border/40 bg-card text-foreground focus:border-purple-500 focus:ring-2 focus:ring-purple-500 focus:outline-none"
                     />
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    <p className="text-xs text-muted-foreground mt-1">
                         -1 = unlimited, 0 = not granted
                     </p>
                 </div>
                 <div>
-                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                    <label className="block text-sm font-semibold text-gray-700 dark:text-muted-foreground mb-2">
                         Export Limit (per day)
                     </label>
                     <input
@@ -83,9 +83,9 @@ export function PlanApiLimits({ formData, setFormData }: PlanFormProps) {
                                 export_limit: parseInt(e.target.value) ?? 0,
                             })
                         }
-                        className="w-full px-4 py-3 rounded-xl border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-purple-500 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                        className="w-full px-4 py-3 rounded-xl border-2 border-border/40 bg-card text-foreground focus:border-purple-500 focus:ring-2 focus:ring-purple-500 focus:outline-none"
                     />
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    <p className="text-xs text-muted-foreground mt-1">
                         -1 = unlimited, 0 = not granted
                     </p>
                 </div>
@@ -99,9 +99,9 @@ export function PlanApiLimits({ formData, setFormData }: PlanFormProps) {
                         onChange={(e) =>
                             setFormData({ ...formData, premium_features: e.target.checked })
                         }
-                        className="w-6 h-6 rounded border-2 border-gray-300 dark:border-gray-600 text-purple-500 focus:ring-2 focus:ring-purple-500"
+                        className="w-6 h-6 rounded border-2 border-border/40 text-purple-500 focus:ring-2 focus:ring-purple-500"
                     />
-                    <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                    <span className="text-sm font-semibold text-gray-700 dark:text-muted-foreground">
                         Enable Premium Features (Advanced Trading, Premium Analytics)
                     </span>
                 </label>

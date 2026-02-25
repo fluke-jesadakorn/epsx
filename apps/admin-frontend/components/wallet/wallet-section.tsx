@@ -4,7 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useWalletListing } from '@/hooks/use-wallet-listing';
 import { cn } from '@/lib/utils';
-import { BarChart3, Clock, CreditCard, Search, User } from 'lucide-react';
+import { BarChart3, ChevronLeft, ChevronRight, Clock, CreditCard, Search, User } from 'lucide-react';
+import { useState } from 'react';
 import { EditWalletMetadataModal } from './edit-wallet-metadata-modal';
 import { ReenableWalletModal } from './reenable-wallet-modal';
 import type { WalletData } from './types';
@@ -67,6 +68,96 @@ function ListHeader() {
     );
 }
 
+const PAGE_SIZES = [10, 25, 50];
+
+interface WalletPaginationProps {
+    page: number;
+    totalPages: number;
+    limit: number;
+    total: number;
+    onPageChange: (p: number) => void;
+    onLimitChange: (v: number) => void;
+}
+
+function WalletPagination({ page, totalPages, limit, total, onPageChange, onLimitChange }: WalletPaginationProps) {
+    const [goToInput, setGoToInput] = useState('');
+
+    const handleGoTo = () => {
+        const n = parseInt(goToInput, 10);
+        if (!isNaN(n) && n >= 1 && n <= totalPages) {
+            onPageChange(n);
+            setGoToInput('');
+        }
+    };
+
+    const start = (page - 1) * limit + 1;
+    const end = Math.min(page * limit, total);
+
+    return (
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-3 border-t border-border/30">
+            <div className="flex items-center gap-3">
+                <p className="text-xs text-muted-foreground whitespace-nowrap">
+                    {start}-{end} of {total}
+                </p>
+                <div className="flex items-center gap-1.5">
+                    <label className="text-xs text-muted-foreground" htmlFor="page-size">Show</label>
+                    <select
+                        id="page-size"
+                        value={limit}
+                        onChange={(e) => onLimitChange(Number(e.target.value))}
+                        className="h-7 rounded-md border border-border/50 bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
+                    >
+                        {PAGE_SIZES.map((s) => (
+                            <option key={s} value={s}>{s}</option>
+                        ))}
+                    </select>
+                </div>
+            </div>
+            <div className="flex items-center gap-2">
+                {totalPages > 2 && (
+                    <div className="flex items-center gap-1.5">
+                        <label className="text-xs text-muted-foreground whitespace-nowrap" htmlFor="go-to-page">Go to</label>
+                        <input
+                            id="go-to-page"
+                            type="number"
+                            min={1}
+                            max={totalPages}
+                            value={goToInput}
+                            onChange={(e) => setGoToInput(e.target.value)}
+                            onKeyDown={(e) => { if (e.key === 'Enter') { handleGoTo(); } }}
+                            placeholder={String(page)}
+                            className="h-7 w-14 rounded-md border border-border/50 bg-background px-2 text-xs text-center focus:outline-none focus:ring-1 focus:ring-ring [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                        />
+                    </div>
+                )}
+                <div className="flex items-center gap-1">
+                    <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-7 w-7"
+                        onClick={() => onPageChange(Math.max(1, page - 1))}
+                        disabled={page === 1}
+                    >
+                        <ChevronLeft size={14} />
+                    </Button>
+                    <span className="text-xs text-muted-foreground px-1.5 whitespace-nowrap">
+                        {page} / {totalPages}
+                    </span>
+                    <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-7 w-7"
+                        onClick={() => onPageChange(Math.min(totalPages, page + 1))}
+                        disabled={page === totalPages}
+                    >
+                        <ChevronRight size={14} />
+                    </Button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 export function WalletSection({ className, initialData }: WalletSectionProps) {
     const {
         wallets,
@@ -76,6 +167,9 @@ export function WalletSection({ className, initialData }: WalletSectionProps) {
         page,
         setPage,
         totalPages,
+        limit,
+        setLimit,
+        total,
         disableModalWallet: _disableModalWallet,
         setDisableModalWallet: _setDisableModalWallet,
         reenableModalWallet,
@@ -83,7 +177,7 @@ export function WalletSection({ className, initialData }: WalletSectionProps) {
         editMetadataWallet,
         setEditMetadataWallet,
         isActionLoading,
-        loadData,
+        loadData: _loadData,
         handleDisableWallet: _handleDisableWallet,
         handleReenableWallet,
         handleMetadataUpdateSuccess,
@@ -100,7 +194,7 @@ export function WalletSection({ className, initialData }: WalletSectionProps) {
             {/* Mobile cards */}
             <div className="md:hidden">
                 {isLoading ? (
-                    Array.from({ length: 6 }).map((_, i) => (
+                    Array.from({ length: Math.min(limit, 6) }).map((_, i) => (
                         // eslint-disable-next-line react/no-array-index-key
                         <Skeleton key={`m-skeleton-${i}`} className="h-36 w-full rounded-2xl mb-3" />
                     ))
@@ -121,10 +215,14 @@ export function WalletSection({ className, initialData }: WalletSectionProps) {
             </div>
 
             {/* Desktop / tablet table */}
-            <div className="hidden md:block border border-border/60 rounded-lg overflow-hidden">
+            <div className="hidden md:block rounded-2xl border border-border/20 overflow-hidden bg-card shadow-xl">
+                <div className="h-[3px] bg-gradient-to-r from-[#1fc7d4] to-[#7645d9]" />
+                <div className="flex items-center justify-between px-4 py-3 border-b border-border/20">
+                    <h2 className="text-xs font-bold text-[#1fc7d4] uppercase tracking-[0.2em]">Wallets</h2>
+                </div>
                 <ListHeader />
                 {isLoading ? (
-                    Array.from({ length: 9 }).map((_, i) => (
+                    Array.from({ length: limit }).map((_, i) => (
                         // eslint-disable-next-line react/no-array-index-key
                         <Skeleton key={`skeleton-${i}`} className="h-14 w-full rounded-none border-b border-border/40 last:border-0" />
                     ))
@@ -140,30 +238,15 @@ export function WalletSection({ className, initialData }: WalletSectionProps) {
                 ))}
             </div>
 
-            {!isLoading && totalPages > 1 && (
-                <div className="flex items-center justify-between pt-4 border-t border-border/40">
-                    <p className="text-sm text-muted-foreground">
-                        Page {page} of {totalPages}
-                    </p>
-                    <div className="flex items-center gap-2">
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setPage((p) => Math.max(1, p - 1))}
-                            disabled={page === 1}
-                        >
-                            Previous
-                        </Button>
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                            disabled={page === totalPages}
-                        >
-                            Next
-                        </Button>
-                    </div>
-                </div>
+            {!isLoading && total > 0 && (
+                <WalletPagination
+                    page={page}
+                    totalPages={totalPages}
+                    limit={limit}
+                    total={total}
+                    onPageChange={setPage}
+                    onLimitChange={(v) => { setLimit(v); setPage(1); }}
+                />
             )}
 
             {reenableModalWallet !== null && (

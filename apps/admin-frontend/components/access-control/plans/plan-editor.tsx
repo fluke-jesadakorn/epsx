@@ -79,7 +79,7 @@ function InputWithIcon({ icon: Icon, className, ...props }: InputIconProps) {
     return (
         <div className="relative">
             <Icon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none z-10" />
-            <Input className={`pl-9 bg-white dark:bg-white/[0.04] border-gray-200 dark:border-slate-700 ${className ?? ''}`} {...props} />
+            <Input className={`pl-9 bg-muted/30 border-border/20 ${className ?? ''}`} {...props} />
         </div>
     );
 }
@@ -105,7 +105,7 @@ function SectionHeader({ icon: Icon, children }: { icon?: React.ElementType; chi
             <Label className="text-[#1fc7d4] uppercase tracking-wider font-bold text-xs whitespace-nowrap">
                 {children}
             </Label>
-            <div className="h-px flex-1 bg-white dark:bg-white/[0.04]" />
+            <div className="h-px flex-1 bg-muted/30" />
         </div>
     );
 }
@@ -144,7 +144,7 @@ export function PlanEditor({
     return (
         <div className="h-full flex flex-col overflow-hidden">
             {/* Stats bar */}
-            <div className="px-4 sm:px-8 py-4 border-b border-gray-200 dark:border-slate-700 shrink-0">
+            <div className="px-4 sm:px-8 py-4 border-b border-border/20 shrink-0">
                 <div className="flex flex-wrap gap-3">
                     <StatCard icon={Users} iconClass="text-[#1fc7d4]" iconBg="bg-[#1fc7d4]/10">
                         <p className="text-base font-semibold text-white leading-tight">{selectedPlan.member_count ?? 0}</p>
@@ -171,7 +171,7 @@ export function PlanEditor({
 
             {/* Action bar (full-page editor only) */}
             {onSave != null && (
-                <div className="px-4 sm:px-8 py-3 border-b border-gray-200 dark:border-slate-700 shrink-0 flex items-center justify-between gap-3">
+                <div className="px-4 sm:px-8 py-3 border-b border-border/20 shrink-0 flex items-center justify-between gap-3">
                     <Button
                         variant="destructive"
                         size="sm"
@@ -235,7 +235,7 @@ export function PlanEditor({
                                 setForm((p) => ({ ...p, description: e.target.value }));
                                 setHasChanges(true);
                             }}
-                            className="bg-white dark:bg-white/[0.04] border-gray-200 dark:border-slate-700 min-h-[80px] resize-y"
+                            className="bg-muted/30 border-border/20 min-h-[80px] resize-y"
                             rows={3}
                         />
                     </div>
@@ -249,7 +249,7 @@ export function PlanEditor({
                             }}
                             disabled={isSys}
                         >
-                            <SelectTrigger className="bg-white dark:bg-white/[0.04] border-gray-200 dark:border-slate-700">
+                            <SelectTrigger className="bg-muted/30 border-border/20">
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -281,7 +281,7 @@ export function PlanEditor({
                             }}
                             disabled={isSys}
                         >
-                            <SelectTrigger className="bg-white dark:bg-white/[0.04] border-gray-200 dark:border-slate-700">
+                            <SelectTrigger className="bg-muted/30 border-border/20">
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -420,7 +420,7 @@ export function PlanEditor({
                     <div className={`sm:col-span-2 rounded-xl border p-4 transition-all ${
                         form.promoEnabled
                             ? 'border-amber-500/40 bg-amber-500/[0.03]'
-                            : 'border-gray-200 dark:border-slate-700'
+                            : 'border-border/20'
                     }`}>
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-3">
@@ -432,7 +432,7 @@ export function PlanEditor({
                                     }`} />
                                 </div>
                                 <div>
-                                    <p className="text-sm font-medium text-foreground/80 dark:text-white/80">Promotion</p>
+                                    <p className="text-sm font-medium text-foreground/80 dark:text-foreground/80">Promotion</p>
                                     <p className="text-xs text-muted-foreground">Apply a discount to this plan</p>
                                 </div>
                             </div>
@@ -456,7 +456,7 @@ export function PlanEditor({
                                             setHasChanges(true);
                                         }}
                                     >
-                                        <SelectTrigger className="bg-white dark:bg-white/[0.04] border-gray-200 dark:border-slate-700">
+                                        <SelectTrigger className="bg-muted/30 border-border/20">
                                             <SelectValue />
                                         </SelectTrigger>
                                         <SelectContent>
@@ -521,7 +521,7 @@ export function PlanEditor({
                                             setForm((p) => ({ ...p, promoStart: e.target.value }));
                                             setHasChanges(true);
                                         }}
-                                        className="bg-white dark:bg-white/[0.04] border-gray-200 dark:border-slate-700"
+                                        className="bg-muted/30 border-border/20"
                                     />
                                 </div>
                                 <div className="space-y-2">
@@ -536,7 +536,7 @@ export function PlanEditor({
                                             setForm((p) => ({ ...p, promoEnd: e.target.value }));
                                             setHasChanges(true);
                                         }}
-                                        className="bg-white dark:bg-white/[0.04] border-gray-200 dark:border-slate-700"
+                                        className="bg-muted/30 border-border/20"
                                     />
                                 </div>
                             </div>
@@ -547,13 +547,13 @@ export function PlanEditor({
                 {/* Status */}
                 <SectionHeader icon={CheckCircle2}>Status</SectionHeader>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-                    <div className="flex items-center justify-between p-4 rounded-lg bg-white dark:bg-white/[0.04] border border-gray-200 dark:border-slate-700">
+                    <div className="flex items-center justify-between p-4 rounded-lg bg-muted/30 border border-border/20">
                         <div className="flex items-center gap-3">
                             <div className="h-8 w-8 rounded-lg bg-blue-500/10 flex items-center justify-center shrink-0">
                                 <Globe className="w-4 h-4 text-blue-400" />
                             </div>
                             <div className="flex flex-col">
-                                <span className="text-sm font-medium text-foreground/80 dark:text-white/80">Public Visibility</span>
+                                <span className="text-sm font-medium text-foreground/80 dark:text-foreground/80">Public Visibility</span>
                                 <span className="text-xs text-muted-foreground">Show on pricing page</span>
                             </div>
                         </div>
@@ -571,19 +571,19 @@ export function PlanEditor({
                                 </div>
                             </TooltipTrigger>
                             {isLocked && (
-                                <TooltipContent side="left" className="bg-white dark:bg-slate-900 border-gray-200 dark:border-slate-700 text-white max-w-[200px]">
+                                <TooltipContent side="left" className="bg-card border-border/20 text-white max-w-[200px]">
                                     <p className="text-xs">System plan visibility cannot be changed</p>
                                 </TooltipContent>
                             )}
                         </Tooltip>
                     </div>
-                    <div className="flex items-center justify-between p-4 rounded-lg bg-white dark:bg-white/[0.04] border border-gray-200 dark:border-slate-700">
+                    <div className="flex items-center justify-between p-4 rounded-lg bg-muted/30 border border-border/20">
                         <div className="flex items-center gap-3">
                             <div className="h-8 w-8 rounded-lg bg-emerald-500/10 flex items-center justify-center shrink-0">
                                 <CheckCircle2 className="w-4 h-4 text-emerald-400" />
                             </div>
                             <div className="flex flex-col">
-                                <span className="text-sm font-medium text-foreground/80 dark:text-white/80">Active Status</span>
+                                <span className="text-sm font-medium text-foreground/80 dark:text-foreground/80">Active Status</span>
                                 <span className="text-xs text-muted-foreground">Plan assignments allowed</span>
                             </div>
                         </div>
@@ -601,7 +601,7 @@ export function PlanEditor({
                                 </div>
                             </TooltipTrigger>
                             {isLocked && (
-                                <TooltipContent side="left" className="bg-white dark:bg-slate-900 border-gray-200 dark:border-slate-700 text-white max-w-[200px]">
+                                <TooltipContent side="left" className="bg-card border-border/20 text-white max-w-[200px]">
                                     <p className="text-xs">System plan status cannot be changed</p>
                                 </TooltipContent>
                             )}
@@ -653,7 +653,7 @@ export function PlanEditor({
                             <div key={fp.prefix} className={`flex items-center justify-between p-3 rounded-lg border transition-colors ${
                                 isOn
                                     ? 'bg-[#1fc7d4]/[0.04] border-[#1fc7d4]/30'
-                                    : 'bg-white dark:bg-white/[0.04] border-gray-200 dark:border-slate-700'
+                                    : 'bg-muted/30 border-border/20'
                             }`}>
                                 <div className="flex items-center gap-3">
                                     <div className={`h-7 w-7 rounded-lg flex items-center justify-center shrink-0 transition-colors ${
@@ -694,7 +694,7 @@ export function PlanEditor({
                             setForm((p) => ({ ...p, features: list }));
                             setHasChanges(true);
                         }}
-                        className="bg-white dark:bg-white/[0.04] border-gray-200 dark:border-slate-700 min-h-[100px] font-mono text-sm"
+                        className="bg-muted/30 border-border/20 min-h-[100px] font-mono text-sm"
                         placeholder={'Advanced analytics\nUnlimited stock analysis\nPriority support'}
                     />
                 </div>
@@ -732,7 +732,7 @@ function StatCard({
     children: React.ReactNode;
 }) {
     return (
-        <div className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.03] border border-gray-200 dark:border-slate-700">
+        <div className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.03] border border-border/20">
             <div className={`h-9 w-9 rounded-lg ${iconBg} flex items-center justify-center shrink-0`}>
                 <Icon className={`w-4 h-4 ${iconClass}`} />
             </div>
@@ -749,7 +749,7 @@ function TooltipIcon({ text }: { text: string }) {
                     <span className="text-[10px] font-bold text-[#1fc7d4]">?</span>
                 </div>
             </TooltipTrigger>
-            <TooltipContent side="right" className="bg-white dark:bg-slate-900 border-gray-200 dark:border-slate-700 text-white max-w-[200px]">
+            <TooltipContent side="right" className="bg-card border-border/20 text-white max-w-[200px]">
                 <p className="text-xs">{text}</p>
             </TooltipContent>
         </Tooltip>
@@ -766,8 +766,8 @@ function EmptyState({
     description: string;
 }) {
     return (
-        <div className="h-full flex flex-col items-center justify-center border border-dashed border-gray-200 dark:border-slate-700 rounded-[32px] bg-white/60 dark:bg-slate-900/60 text-slate-500 p-8 text-center">
-            <div className="h-20 w-20 rounded-full bg-white dark:bg-white/[0.04] flex items-center justify-center mb-6">
+        <div className="h-full flex flex-col items-center justify-center border border-dashed border-border/20 rounded-2xl bg-card/60 text-muted-foreground p-8 text-center">
+            <div className="h-20 w-20 rounded-full bg-muted/30 flex items-center justify-center mb-6">
                 <Icon className="h-10 w-10 opacity-30" />
             </div>
             <h3 className="text-xl font-bold text-slate-300 mb-2">{title}</h3>

@@ -50,7 +50,7 @@ export function DeletePlanDialog({
                         assigned to this plan.
                     </DialogDescription>
                     <div className="mt-4">
-                        <Label className="text-xs text-slate-500 mb-2 block tracking-wider font-bold">
+                        <Label className="text-xs text-muted-foreground mb-2 block tracking-wider font-bold">
                             Type{' '}
                             <span className="text-white select-all">
                                 {planToDelete?.name}
@@ -61,7 +61,7 @@ export function DeletePlanDialog({
                             value={deleteConfirmationInput}
                             onChange={(e) => setDeleteConfirmationInput(e.target.value)}
                             placeholder="Type plan name"
-                            className="bg-white dark:bg-white/[0.04] border-gray-200 dark:border-slate-700 text-white placeholder:text-white/20"
+                            className="bg-muted/30 border-border/20 text-white placeholder:text-white/20"
                         />
                     </div>
                 </DialogHeader>
@@ -69,7 +69,7 @@ export function DeletePlanDialog({
                     <Button
                         variant="ghost"
                         onClick={onClose}
-                        className="text-slate-400 hover:text-white hover:bg-gray-100 dark:hover:bg-white/5"
+                        className="text-slate-400 hover:text-white hover:bg-muted/30"
                     >
                         Cancel
                     </Button>

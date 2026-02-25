@@ -64,7 +64,7 @@ export function EditPermissionSheet({ perm, onOpenChange, onSuccess }: Props) {
 
     return (
         <Sheet open={perm !== null} onOpenChange={onOpenChange}>
-            <SheetContent side="right" className="w-[400px] sm:w-[540px] bg-white dark:bg-slate-900 border-gray-200 dark:border-slate-700 text-white flex flex-col h-full">
+            <SheetContent side="right" className="w-[400px] sm:w-[540px] bg-card border-border/20 text-white flex flex-col h-full">
                 <SheetHeader>
                     <SheetTitle>Edit Permission</SheetTitle>
                     <SheetDescription className="font-mono text-xs text-cyan-400">
@@ -74,15 +74,15 @@ export function EditPermissionSheet({ perm, onOpenChange, onSuccess }: Props) {
                 <div className="space-y-6 pt-6 flex-1 flex flex-col overflow-y-auto">
                     <div className="space-y-2">
                         <Label>Name</Label>
-                        <Input value={name} onChange={e => setName(e.target.value)} className="bg-white dark:bg-white/[0.04]" />
+                        <Input value={name} onChange={e => setName(e.target.value)} className="bg-muted/30" />
                     </div>
                     <div className="space-y-2">
                         <Label>Category</Label>
-                        <Input value={category} onChange={e => setCategory(e.target.value)} className="bg-white dark:bg-white/[0.04]" />
+                        <Input value={category} onChange={e => setCategory(e.target.value)} className="bg-muted/30" />
                     </div>
                     <div className="space-y-2">
                         <Label>Description</Label>
-                        <Textarea value={description} onChange={e => setDescription(e.target.value)} className="bg-white dark:bg-white/[0.04] min-h-[100px]" />
+                        <Textarea value={description} onChange={e => setDescription(e.target.value)} className="bg-muted/30 min-h-[100px]" />
                     </div>
                     <SheetFooter className="mt-auto pt-6">
                         <Button type="button" disabled={submitting} onClick={() => void handleSubmit()} className="bg-cyan-500 w-full">

@@ -93,7 +93,7 @@ export default function EditPlanPage() {
             <button
               type="button"
               onClick={() => router.push('/subscriptions/plans')}
-              className="flex-1 px-6 py-3 rounded-xl font-semibold bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600 min-h-[44px]"
+              className="flex-1 px-6 py-3 rounded-xl font-semibold bg-gray-200 dark:bg-muted text-gray-700 dark:text-muted-foreground hover:bg-gray-300 dark:hover:bg-gray-600 min-h-[44px]"
             >
               Cancel
             </button>

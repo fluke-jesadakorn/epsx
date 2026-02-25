@@ -63,15 +63,15 @@ export function AdminProfileClient({ user }: AdminProfileClientProps) {
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Admin Profile Sidebar */}
         <div className="lg:col-span-1">
-          <Card className="border-yellow-200 dark:border-slate-700">
+          <Card className="border-border/20">
             <CardHeader className="text-center pb-4">
               <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-yellow-400 via-orange-500 to-pink-500">
                 <Crown className="h-10 w-10 text-white" />
               </div>
-              <CardTitle className="text-lg text-slate-900 dark:text-slate-100">
+              <CardTitle className="text-lg text-foreground">
                 {user.name ?? 'Admin user'}
               </CardTitle>
-              <p className="text-sm text-slate-600 dark:text-slate-400">
+              <p className="text-sm text-muted-foreground">
                 {user.email}
               </p>
               <div className="flex justify-center mt-2">
@@ -86,40 +86,40 @@ export function AdminProfileClient({ user }: AdminProfileClientProps) {
                   <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
                     {user.permissions.filter(p => p.startsWith('admin:')).length}
                   </div>
-                  <div className="text-sm text-slate-600 dark:text-slate-400">
+                  <div className="text-sm text-muted-foreground">
                     Admin Permissions
                   </div>
                 </div>
 
-                <div className="border-t border-slate-200 dark:border-slate-700 pt-4">
+                <div className="border-t border-border/20 pt-4">
                   <div className="text-sm space-y-2">
                     <div className="flex justify-between">
-                      <span className="text-slate-600 dark:text-slate-400">Total Permissions:</span>
-                      <span className="font-medium text-slate-900 dark:text-slate-100">
+                      <span className="text-muted-foreground">Total Permissions:</span>
+                      <span className="font-medium text-foreground">
                         {user.permissions.length}
                       </span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-slate-600 dark:text-slate-400">Platform:</span>
-                      <span className="font-medium text-slate-900 dark:text-slate-100">
+                      <span className="text-muted-foreground">Platform:</span>
+                      <span className="font-medium text-foreground">
                         {user.platform_context ?? 'admin'}
                       </span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-slate-600 dark:text-slate-400">Status:</span>
+                      <span className="text-muted-foreground">Status:</span>
                       <Badge variant={user.verified === true ? "default" : "secondary"}>
                         {user.verified === true ? 'Verified' : 'Unverified'}
                       </Badge>
                     </div>
                     {user.permission_last_updated !== undefined && user.permission_last_updated !== 0 && (
-                      <div className="text-xs text-slate-500 dark:text-slate-500 pt-2">
+                      <div className="text-xs text-muted-foreground/60 pt-2">
                         Last updated: {formatDate(user.permission_last_updated)}
                       </div>
                     )}
                   </div>
                 </div>
 
-                <div className="pt-4 border-t border-slate-200 dark:border-slate-700">
+                <div className="pt-4 border-t border-border/20">
                   <Button
                     variant="outline"
                     size="sm"
@@ -147,24 +147,24 @@ export function AdminProfileClient({ user }: AdminProfileClientProps) {
         {/* Main Content */}
         <div className="lg:col-span-3">
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-3 bg-slate-100 dark:bg-slate-800">
+            <TabsList className="grid w-full grid-cols-3 bg-muted/30">
               <TabsTrigger
                 value="account"
-                className="flex items-center gap-2 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700"
+                className="flex items-center gap-2 data-[state=active]:bg-card"
               >
                 <User className="h-4 w-4" />
                 <span className="hidden sm:inline">Account</span>
               </TabsTrigger>
               <TabsTrigger
                 value="permissions"
-                className="flex items-center gap-2 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700"
+                className="flex items-center gap-2 data-[state=active]:bg-card"
               >
                 <Shield className="h-4 w-4" />
                 <span className="hidden sm:inline">Permissions</span>
               </TabsTrigger>
               <TabsTrigger
                 value="settings"
-                className="flex items-center gap-2 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700"
+                className="flex items-center gap-2 data-[state=active]:bg-card"
               >
                 <Settings className="h-4 w-4" />
                 <span className="hidden sm:inline">Settings</span>
@@ -173,7 +173,7 @@ export function AdminProfileClient({ user }: AdminProfileClientProps) {
 
             <div className="mt-6">
               <TabsContent value="account" className="space-y-6">
-                <Card className="border-yellow-200 dark:border-slate-700">
+                <Card className="border-border/20">
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                       <User className="h-5 w-5 text-orange-500" />
@@ -183,42 +183,42 @@ export function AdminProfileClient({ user }: AdminProfileClientProps) {
                   <CardContent className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
-                        <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                        <label className="text-sm font-medium text-slate-700 dark:text-muted-foreground">
                           Admin ID
                         </label>
-                        <div className="mt-1 p-3 bg-slate-50 dark:bg-slate-800 rounded-lg font-mono text-sm">
+                        <div className="mt-1 p-3 bg-muted/30 rounded-lg font-mono text-sm">
                           {user.id}
                         </div>
                       </div>
                       <div>
-                        <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                        <label className="text-sm font-medium text-slate-700 dark:text-muted-foreground">
                           Email Address
                         </label>
-                        <div className="mt-1 p-3 bg-slate-50 dark:bg-slate-800 rounded-lg text-sm">
+                        <div className="mt-1 p-3 bg-muted/30 rounded-lg text-sm">
                           {user.email}
                         </div>
                       </div>
                       <div>
-                        <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                        <label className="text-sm font-medium text-slate-700 dark:text-muted-foreground">
                           Admin Level
                         </label>
-                        <div className="mt-1 p-3 bg-slate-50 dark:bg-slate-800 rounded-lg text-sm">
+                        <div className="mt-1 p-3 bg-muted/30 rounded-lg text-sm">
                           <Badge className={getAdminBadgeColor()}>
                             {getAdminLevel()}
                           </Badge>
                         </div>
                       </div>
                       <div>
-                        <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                        <label className="text-sm font-medium text-slate-700 dark:text-muted-foreground">
                           Platform Context
                         </label>
-                        <div className="mt-1 p-3 bg-slate-50 dark:bg-slate-800 rounded-lg text-sm">
+                        <div className="mt-1 p-3 bg-muted/30 rounded-lg text-sm">
                           {user.platform_context ?? 'admin'}
                         </div>
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t border-slate-200 dark:border-slate-700">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t border-border/20">
                       <div className="text-center p-4 bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 rounded-lg">
                         <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
                           {user.permissions.filter(p => p.startsWith('admin:')).length}
@@ -253,7 +253,7 @@ export function AdminProfileClient({ user }: AdminProfileClientProps) {
               </TabsContent>
 
               <TabsContent value="settings" className="space-y-6">
-                <Card className="border-yellow-200 dark:border-slate-700">
+                <Card className="border-border/20">
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                       <Settings className="h-5 w-5 text-orange-500" />
@@ -262,12 +262,12 @@ export function AdminProfileClient({ user }: AdminProfileClientProps) {
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="space-y-4">
-                      <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                      <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg">
                         <div>
-                          <div className="font-medium text-slate-900 dark:text-slate-100">
+                          <div className="font-medium text-foreground">
                             Security Notifications
                           </div>
-                          <div className="text-sm text-slate-600 dark:text-slate-400">
+                          <div className="text-sm text-muted-foreground">
                             Get notified about critical security events
                           </div>
                         </div>
@@ -276,12 +276,12 @@ export function AdminProfileClient({ user }: AdminProfileClientProps) {
                         </Badge>
                       </div>
 
-                      <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                      <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg">
                         <div>
-                          <div className="font-medium text-slate-900 dark:text-slate-100">
+                          <div className="font-medium text-foreground">
                             Admin Dashboard Updates
                           </div>
-                          <div className="text-sm text-slate-600 dark:text-slate-400">
+                          <div className="text-sm text-muted-foreground">
                             Real-time updates for admin activities
                           </div>
                         </div>
@@ -290,12 +290,12 @@ export function AdminProfileClient({ user }: AdminProfileClientProps) {
                         </Badge>
                       </div>
 
-                      <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                      <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg">
                         <div>
-                          <div className="font-medium text-slate-900 dark:text-slate-100">
+                          <div className="font-medium text-foreground">
                             System Maintenance Alerts
                           </div>
-                          <div className="text-sm text-slate-600 dark:text-slate-400">
+                          <div className="text-sm text-muted-foreground">
                             Notifications about scheduled maintenance
                           </div>
                         </div>
@@ -305,8 +305,8 @@ export function AdminProfileClient({ user }: AdminProfileClientProps) {
                       </div>
                     </div>
 
-                    <div className="pt-4 border-t border-slate-200 dark:border-slate-700">
-                      <h4 className="font-medium text-slate-900 dark:text-slate-100 mb-3">
+                    <div className="pt-4 border-t border-border/20">
+                      <h4 className="font-medium text-foreground mb-3">
                         Quick Admin Actions
                       </h4>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">

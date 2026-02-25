@@ -50,7 +50,7 @@ export default function AnalyticsLoading() {
               {/* Cards grid skeleton */}
               <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
                 {[...Array(6)].map((_, i) => (
-                  <div key={`card-skeleton-${String(i)}`} className="relative overflow-hidden rounded-2xl border border-blue-200/50 bg-white/60 p-6 backdrop-blur-sm dark:border-blue-700/50 dark:bg-slate-800/60">
+                  <div key={`card-skeleton-${String(i)}`} className="relative overflow-hidden rounded-2xl border border-blue-200/50 bg-white/60 p-6 dark:border-blue-700/50 dark:bg-card/60">
                     <div className="space-y-4">
                       <div className="flex items-center justify-between">
                         <Skeleton className="h-6 w-[100px]" />
@@ -71,7 +71,7 @@ export default function AnalyticsLoading() {
               {/* Additional loading indicators */}
               <div className="grid gap-4 md:grid-cols-2">
                 {[...Array(4)].map((_, i) => (
-                  <div key={`additional-skeleton-${String(i)}`} className="border rounded-xl p-4 space-y-3 bg-gray-100 dark:bg-white/40 backdrop-blur-sm dark:bg-slate-800/40">
+                  <div key={`additional-skeleton-${String(i)}`} className="border rounded-xl p-4 space-y-3 bg-gray-100 dark:bg-white/40 dark:bg-card/40">
                     <div className="flex items-center justify-between">
                       <Skeleton className="h-5 w-[120px]" />
                       <Skeleton className="h-5 w-[80px]" />

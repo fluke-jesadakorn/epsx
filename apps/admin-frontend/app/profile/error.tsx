@@ -25,18 +25,18 @@ export default function AdminProfileError({ error, reset }: AdminProfileErrorPro
     <div className="min-h-screen bg-background">
       <div className="container mx-auto px-6 py-8">
         <div className="max-w-2xl mx-auto">
-          <div className="bg-white dark:bg-slate-800 rounded-2xl border border-yellow-200 dark:border-slate-700 p-8 text-center">
+          <div className="bg-card rounded-2xl border border-border/20 p-8 text-center">
             <div className="flex justify-center mb-6">
               <div className="p-3 bg-red-100 dark:bg-red-900/20 rounded-full">
                 <AlertCircle className="h-8 w-8 text-red-600 dark:text-red-400" />
               </div>
             </div>
 
-            <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-4">
+            <h1 className="text-2xl font-bold text-foreground mb-4">
               Admin Profile Error
             </h1>
 
-            <p className="text-slate-600 dark:text-slate-400 mb-6">
+            <p className="text-muted-foreground mb-6">
               Something went wrong while loading your admin profile. This might be a temporary issue.
             </p>
 

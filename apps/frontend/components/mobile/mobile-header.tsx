@@ -1,15 +1,14 @@
 'use client';
 
-import { useState } from 'react';
-import Link from 'next/link';
-import { MobileNav } from './mobile-nav';
-import { 
-  Bell, 
-  Search, 
-  User,
-  Settings as _Settings
+import { Badge, Button } from '@/components/ui';
+import {
+  Bell,
+  Search,
+  User
 } from 'lucide-react';
-import { Button, Badge } from '@/components/ui';
+import Link from 'next/link';
+import { useState } from 'react';
+import { MobileNav } from './mobile-nav';
 
 interface MobileHeaderProps {
   title?: string;
@@ -24,13 +23,13 @@ interface MobileHeaderProps {
   onLogout?: () => void;
 }
 
-export function MobileHeader({ 
-  title, 
-  user, 
-  showSearch = true, 
+export function MobileHeader({
+  title,
+  user,
+  showSearch = true,
   showNotifications = true,
   notificationCount = 0,
-  onLogout 
+  onLogout
 }: MobileHeaderProps) {
   const [searchOpen, setSearchOpen] = useState(false);
 
@@ -41,16 +40,19 @@ export function MobileHeader({
           {/* Left side - Menu and Title */}
           <div className="flex items-center gap-3 flex-1">
             <MobileNav user={user} onLogout={onLogout} />
-            
+
             {title ? (
               <h1 className="text-lg font-semibold truncate">{title}</h1>
             ) : (
-              <Link href="/" className="flex items-center">
+              <Link href="/" className="flex items-center gap-2 group">
                 <img
-                  src="/epsx-logo.svg"
-                  alt="EPSX"
-                  className="h-6 w-auto object-contain"
+                  src="/logos/epsx-icon.svg"
+                  alt="EPSX Icon"
+                  className="h-6 w-6 group-active:scale-95 transition-transform"
                 />
+                <span className="text-lg font-black tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-[#488BFA] to-[#A43FF3] leading-none mt-0.5">
+                  EPSX
+                </span>
               </Link>
             )}
           </div>
@@ -58,9 +60,9 @@ export function MobileHeader({
           {/* Right side - Actions */}
           <div className="flex items-center gap-2">
             {showSearch && (
-              <Button 
-                variant="ghost" 
-                size="sm" 
+              <Button
+                variant="ghost"
+                size="sm"
                 className="p-2"
                 onClick={() => setSearchOpen(true)}
                 aria-label="Search"
@@ -70,17 +72,17 @@ export function MobileHeader({
             )}
 
             {showNotifications && (
-              <Button 
-                variant="ghost" 
-                size="sm" 
+              <Button
+                variant="ghost"
+                size="sm"
                 className="p-2 relative"
                 asChild
               >
                 <Link href="/notifications" aria-label="Notifications">
                   <Bell className="h-4 w-4" />
                   {notificationCount > 0 && (
-                    <Badge 
-                      variant="destructive" 
+                    <Badge
+                      variant="destructive"
                       className="absolute -top-1 -right-1 h-5 w-5 p-0 flex items-center justify-center text-xs"
                     >
                       {notificationCount > 9 ? '9+' : notificationCount}
@@ -91,9 +93,9 @@ export function MobileHeader({
             )}
 
             {user && (
-              <Button 
-                variant="ghost" 
-                size="sm" 
+              <Button
+                variant="ghost"
+                size="sm"
                 className="p-2"
                 asChild
               >
@@ -118,19 +120,19 @@ export function MobileHeader({
                 autoFocus
               />
             </div>
-            <Button 
-              variant="ghost" 
+            <Button
+              variant="ghost"
               size="sm"
               onClick={() => setSearchOpen(false)}
             >
               Cancel
             </Button>
           </div>
-          
+
           <div className="p-4">
             <div className="space-y-3">
               <div className="text-sm text-muted-foreground">Recent searches</div>
-              
+
               <div className="space-y-2">
                 {['AAPL', 'TSLA', 'MSFT', 'GOOGL'].map((symbol) => (
                   <button
@@ -145,7 +147,7 @@ export function MobileHeader({
               </div>
 
               <div className="text-sm text-muted-foreground mt-6">Popular patterns</div>
-              
+
               <div className="space-y-2">
                 {['Bull Flag', 'Head and Shoulders', 'Triangle Breakout'].map((pattern) => (
                   <button

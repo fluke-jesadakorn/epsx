@@ -49,7 +49,7 @@ export function PlanAnalyticsDashboard({ className }: PlanAnalyticsDashboardProp
         <div className={`space-y-6 ${className ?? ''}`}>
             <div>
                 <h2 className="text-2xl font-bold">Plan Analytics</h2>
-                <p className="text-gray-600 mt-1">
+                <p className="text-muted-foreground mt-1">
                     Analytics dashboard for permission plans
                 </p>
             </div>
@@ -94,7 +94,7 @@ export function PlanAnalyticsDashboard({ className }: PlanAnalyticsDashboardProp
 
             {stats.totalPlans === 0 && (
                 <Card>
-                    <CardContent className="p-6 text-center text-gray-500">
+                    <CardContent className="p-6 text-center text-muted-foreground">
                         No plans found. Create a plan to see analytics.
                     </CardContent>
                 </Card>

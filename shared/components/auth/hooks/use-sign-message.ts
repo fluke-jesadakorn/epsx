@@ -9,15 +9,29 @@ import type { AuthResult, AuthStep } from '../types';
 
 const sleep = (ms: number) => new Promise<void>(r => setTimeout(r, ms));
 
+/** Wait for wagmi config to reach 'connected' status */
+async function waitForConnected(cfg: Config, timeoutMs = 8000): Promise<void> {
+    const getStatus = () => cfg.state.status as string;
+    if (getStatus() === 'connected') return;
+    const start = Date.now();
+    while (Date.now() - start < timeoutMs) {
+        await sleep(300);
+        if (getStatus() === 'connected') return;
+    }
+}
+
 /** Retry getWalletClient to handle connector initialization race condition */
-async function getWalletClientSafe(cfg: Config, retries = 3): Promise<WalletClient> {
+async function getWalletClientSafe(cfg: Config, retries = 6): Promise<WalletClient> {
+    // Wait for wagmi to finish reconnecting before attempting
+    await waitForConnected(cfg, 8000);
+
     for (let i = 0; i < retries; i++) {
         try {
             return await getWalletClient(cfg);
         } catch (err) {
             const msg = String(err);
             if (i < retries - 1 && (msg.includes('is not a function') || msg.includes('connector'))) {
-                await sleep(800);
+                await sleep(500 + i * 300);
                 continue;
             }
             throw err;

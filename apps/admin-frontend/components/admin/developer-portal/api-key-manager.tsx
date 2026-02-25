@@ -51,11 +51,11 @@ const ApiKeyRow: React.FC<{
         <TableRow key={apiKey.id}>
             <TableCell>
                 <div className="flex flex-col">
-                    <span className="font-medium text-gray-900 dark:text-gray-100">
+                    <span className="font-medium text-foreground">
                         {apiKey.client_name}
                     </span>
                     <span
-                        className="text-xs text-gray-500 dark:text-gray-400 font-mono cursor-pointer hover:text-blue-600"
+                        className="text-xs text-muted-foreground font-mono cursor-pointer hover:text-[#1fc7d4]"
                         title={walletAddress !== '' ? walletAddress : 'Unknown'}
                         onClick={() => onCopy(walletAddress, 'Wallet address')}
                     >
@@ -65,7 +65,7 @@ const ApiKeyRow: React.FC<{
             </TableCell>
             <TableCell>
                 <div className="flex items-center space-x-2">
-                    <span className="font-mono text-sm text-gray-600 dark:text-gray-300">
+                    <span className="font-mono text-sm text-muted-foreground">
                         {showKeyValue === apiKey.id
                             ? keyPrefixValue
                             : maskKeyPrefix(keyPrefixValue)}
@@ -77,7 +77,7 @@ const ApiKeyRow: React.FC<{
                                 'API Key Prefix'
                             )
                         }
-                        className="p-1 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
+                        className="p-1 text-muted-foreground hover:text-foreground"
                     >
                         <Copy className="w-3 h-3" />
                     </button>
@@ -87,7 +87,7 @@ const ApiKeyRow: React.FC<{
                 <div className="flex flex-wrap gap-1">
                     {apiKey.permission_groups !== undefined && apiKey.permission_groups.length > 0 ? (
                         apiKey.permission_groups.map((group) => (
-                            <Badge key={group.id} variant="secondary" className="text-xs bg-purple-100 dark:bg-purple-900/50 text-purple-800 dark:text-purple-200 hover:bg-purple-200 border-none">
+                            <Badge key={group.id} variant="secondary" className="text-xs bg-[#7645d9]/10 text-[#7645d9] hover:bg-[#7645d9]/20 border border-[#7645d9]/20">
                                 {group.name}
                             </Badge>
                         ))
@@ -101,11 +101,11 @@ const ApiKeyRow: React.FC<{
                 </div>
             </TableCell>
             <TableCell>
-                <div className="text-sm text-gray-600 dark:text-gray-300">
+                <div className="text-sm text-muted-foreground">
                     {apiKey.expires_at !== undefined && apiKey.expires_at !== null && apiKey.expires_at !== '' ? (
                         new Date(apiKey.expires_at).toLocaleDateString()
                     ) : (
-                        <span className="text-gray-400">Never</span>
+                        <span className="text-muted-foreground/60">Never</span>
                     )}
                 </div>
             </TableCell>
@@ -113,9 +113,9 @@ const ApiKeyRow: React.FC<{
                 <Badge
                     variant={apiKey.status === 'active' ? 'default' : apiKey.status === 'revoked' ? 'destructive' : 'secondary'}
                     className={`
-  ${apiKey.status === 'active' ? 'bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-200 hover:bg-green-200 border-none' : ''}
-  ${apiKey.status === 'revoked' ? 'bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-200 hover:bg-red-200 border-none' : ''}
-  ${apiKey.status === 'expired' ? 'bg-yellow-100 dark:bg-yellow-900/50 text-yellow-800 dark:text-yellow-200 hover:bg-yellow-200 border-none' : ''}
+  ${apiKey.status === 'active' ? 'bg-[#31d0aa]/10 text-[#31d0aa] hover:bg-[#31d0aa]/20 border border-[#31d0aa]/20' : ''}
+  ${apiKey.status === 'revoked' ? 'bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20' : ''}
+  ${apiKey.status === 'expired' ? 'bg-[#ffb237]/10 text-[#ffb237] hover:bg-[#ffb237]/20 border border-[#ffb237]/20' : ''}
 `}
                 >
                     {apiKey.status}
@@ -126,7 +126,7 @@ const ApiKeyRow: React.FC<{
                     <Button
                         size="sm"
                         variant="ghost"
-                        className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+                        className="h-8 w-8 p-0 text-red-400 hover:text-red-300 hover:bg-red-500/10"
                         onClick={() => onRevoke(apiKey.id, apiKey.client_name)}
                     >
                         <Trash2 className="w-4 h-4" />
@@ -150,20 +150,21 @@ export const ApiKeyManager: React.FC<ApiKeyManagerProps> = ({
         <div className="space-y-6">
             <div className="flex items-center justify-between">
                 <div>
-                    <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                    <h2 className="text-lg font-semibold text-foreground">
                         API Key Management
                     </h2>
-                    <p className="text-sm text-gray-600 dark:text-gray-300">
+                    <p className="text-sm text-muted-foreground">
                         Create and manage API keys for third-party integrations
                     </p>
                 </div>
-                <Button onClick={() => { void router.push('/developer-portal/api-keys/create'); }}>
+                <Button onClick={() => { void router.push('/developer-portal/api-keys/create'); }} className="bg-gradient-to-r from-[#7645d9] to-[#5a33b8] text-white rounded-xl">
                     <Plus className="w-4 h-4 mr-2" />
                     Create API Key
                 </Button>
             </div>
 
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+            <div className="rounded-2xl bg-card border border-border/20 overflow-hidden shadow-xl">
+                <div className="h-[3px] bg-gradient-to-r from-[#1fc7d4] to-[#7645d9]" />
                 <Table>
                     <TableHeader>
                         <TableRow>

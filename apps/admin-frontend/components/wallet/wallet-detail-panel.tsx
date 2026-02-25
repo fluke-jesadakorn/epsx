@@ -127,8 +127,8 @@ export function WalletDetailPanel({
             <SheetContent className="w-full sm:max-w-2xl overflow-y-auto">
                 {wallet === null ? (
                     <div className="flex items-center justify-center h-full">
-                        <div className="text-center text-gray-500 dark:text-gray-400">
-                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4" />
+                        <div className="text-center text-muted-foreground">
+                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#1fc7d4] mx-auto mb-4" />
                             <p>Loading wallet details...</p>
                         </div>
                     </div>
@@ -153,14 +153,14 @@ export function WalletDetailPanel({
                             <WalletHeader wallet={wallet} />
 
                             {/* Label & Note Section */}
-                            <div className="p-4 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50/50 dark:bg-slate-900/30">
-                                <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4 flex items-center gap-2">
+                            <div className="p-4 rounded-xl border border-border/20 bg-muted/30">
+                                <h4 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
                                     🏷️ Label & Notes
                                 </h4>
 
                                 {/* Label */}
                                 <div className="mb-4">
-                                    <label className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5 block">
+                                    <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
                                         Label
                                     </label>
                                     {isEditingLabel ? (
@@ -191,7 +191,7 @@ export function WalletDetailPanel({
                                                 }}
                                                 className="h-9 w-9 p-0"
                                             >
-                                                <X className="h-4 w-4 text-gray-500" />
+                                                <X className="h-4 w-4 text-muted-foreground" />
                                             </Button>
                                         </div>
                                     ) : (
@@ -202,16 +202,16 @@ export function WalletDetailPanel({
                                             {wallet.label !== null && wallet.label !== undefined && wallet.label !== '' ? (
                                                 <WalletLabelBadge label={wallet.label} size="md" />
                                             ) : (
-                                                <span className="text-sm text-gray-400 italic">No label</span>
+                                                <span className="text-sm text-muted-foreground italic">No label</span>
                                             )}
-                                            <Pencil className="h-3.5 w-3.5 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                            <Pencil className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                                         </div>
                                     )}
                                 </div>
 
                                 {/* Note */}
                                 <div>
-                                    <label className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5 block">
+                                    <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
                                         Note
                                     </label>
                                     {isEditingNote ? (
@@ -226,7 +226,7 @@ export function WalletDetailPanel({
                                                 autoFocus
                                             />
                                             <div className="flex items-center justify-between">
-                                                <span className="text-xs text-gray-400">
+                                                <span className="text-xs text-muted-foreground">
                                                     {noteValue.length}/500
                                                 </span>
                                                 <div className="flex gap-2">
@@ -252,15 +252,15 @@ export function WalletDetailPanel({
                                         </div>
                                     ) : (
                                         <div
-                                            className="cursor-pointer group p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors -mx-2"
+                                            className="cursor-pointer group p-2 rounded-lg hover:bg-muted/30 transition-colors -mx-2"
                                             onClick={() => setIsEditingNote(true)}
                                         >
                                             {wallet.note !== null && wallet.note !== '' ? (
-                                                <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+                                                <p className="text-sm text-foreground whitespace-pre-wrap">
                                                     {wallet.note}
                                                 </p>
                                             ) : (
-                                                <p className="text-sm text-gray-400 italic flex items-center gap-1">
+                                                <p className="text-sm text-muted-foreground italic flex items-center gap-1">
                                                     <Pencil className="h-3 w-3" />
                                                     Click to add a note...
                                                 </p>
@@ -273,22 +273,22 @@ export function WalletDetailPanel({
                             {/* Active Subscriptions */}
                             {activeSubscriptions.length > 0 && (
                                 <div>
-                                    <h3 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                                        <Package className="h-5 w-5 text-purple-600" />
+                                    <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2">
+                                        <Package className="h-5 w-5 text-[#7645d9]" />
                                         Active Subscriptions
                                     </h3>
                                     <div className="space-y-3">
                                         {activeSubscriptions.map((sub) => (
                                             <div
                                                 key={sub.id}
-                                                className="p-4 rounded-xl border border-purple-200 dark:border-purple-800 bg-purple-50/50 dark:bg-purple-900/10 transition-colors"
+                                                className="p-4 rounded-xl border border-[#7645d9]/20 bg-[#7645d9]/5 transition-colors"
                                             >
                                                 <div className="flex items-center justify-between">
                                                     <div>
-                                                        <p className="font-bold text-gray-900 dark:text-white">
+                                                        <p className="font-bold text-foreground">
                                                             📦 {sub.planName}
                                                         </p>
-                                                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                                                        <p className="text-sm text-muted-foreground mt-1">
                                                             {sub.priceDisplay} • Since {formatDate(sub.startedAt)}
                                                         </p>
                                                     </div>
@@ -297,15 +297,15 @@ export function WalletDetailPanel({
                                                     </div>
                                                 </div>
                                                 {sub.grantedPermissions.length > 0 && (
-                                                    <div className="mt-3 pt-3 border-t border-purple-100 dark:border-purple-800/50">
-                                                        <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400 dark:text-gray-500 mb-2">
+                                                    <div className="mt-3 pt-3 border-t border-[#7645d9]/20">
+                                                        <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground mb-2">
                                                             Auto-granted Permissions
                                                         </p>
                                                         <div className="flex flex-wrap gap-1.5">
                                                             {sub.grantedPermissions.map((perm) => (
                                                                 <code
                                                                     key={perm}
-                                                                    className="text-[10px] px-2 py-0.5 bg-white dark:bg-gray-800 rounded-md border border-gray-200 dark:border-gray-700 font-mono text-purple-600 dark:text-purple-400"
+                                                                    className="text-[10px] px-2 py-0.5 bg-card rounded-md border border-border/40 font-mono text-[#7645d9]"
                                                                 >
                                                                     {perm}
                                                                 </code>
@@ -321,8 +321,8 @@ export function WalletDetailPanel({
 
                             {/* Permissions Section */}
                             <div>
-                                <h3 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                                    <Shield className="h-5 w-5 text-blue-600" />
+                                <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2">
+                                    <Shield className="h-5 w-5 text-[#1fc7d4]" />
                                     Security & Permissions
                                 </h3>
                                 <div className="space-y-4">
@@ -333,7 +333,7 @@ export function WalletDetailPanel({
                                     />
 
                                     {onAssignPermission !== undefined && (
-                                        <div className="p-4 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-black/20">
+                                        <div className="p-4 rounded-xl border border-border/20 bg-card">
                                             <AssignPermissionForm
                                                 walletAddress={wallet.walletAddress}
                                                 onAssign={handleAssignPermission}
@@ -345,8 +345,8 @@ export function WalletDetailPanel({
                             </div>
 
                             {/* Quick Actions */}
-                            <div className="pt-6 border-t border-gray-100 dark:border-gray-800">
-                                <h4 className="text-xs font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-4">
+                            <div className="pt-6 border-t border-border/20">
+                                <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-4">
                                     Administrative Actions
                                 </h4>
                                 <div className="flex flex-wrap gap-3">

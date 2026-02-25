@@ -72,7 +72,7 @@ export function WalletCard({
     return (
         <div
             className={cn(
-                "group relative w-full overflow-hidden rounded-[24px] border border-gray-200 dark:border-slate-700 bg-white/60 dark:bg-[#0f172a]/60 p-1 backdrop-blur-xl transition-all duration-300 hover:border-[#7645d9]/30 hover:shadow-2xl hover:shadow-[#7645d9]/10",
+                "group relative w-full overflow-hidden rounded-xl border border-border/40 bg-card/60 p-1 transition-all duration-300 hover:border-[#7645d9]/30 hover:shadow-2xl hover:shadow-[#7645d9]/10",
                 isSelected && 'ring-2 ring-[#1fc7d4] bg-[#1fc7d4]/5',
                 isDisabled && 'opacity-60 grayscale-[0.5]',
                 className
@@ -81,7 +81,7 @@ export function WalletCard({
             <div className="absolute -left-16 -top-16 h-32 w-32 rounded-full bg-[#1fc7d4]/5 blur-[50px] transition-all duration-500 group-hover:bg-[#1fc7d4]/10" />
             <div className="absolute -right-16 -bottom-16 h-32 w-32 rounded-full bg-[#7645d9]/5 blur-[50px] transition-all duration-500 group-hover:bg-[#7645d9]/10" />
 
-            <div className="relative flex flex-col gap-6 rounded-[20px] bg-white/[0.02] p-4 sm:p-5">
+            <div className="relative flex flex-col gap-6 rounded-xl bg-white/[0.02] p-4 sm:p-5">
                 <WalletCardIdentity
                     wallet={wallet}
                     isSelected={isSelected}

@@ -200,18 +200,23 @@ export function Sidebar() {
   };
 
   return (
-    <div className="w-56 sm:w-64 min-w-0 max-w-64 bg-white dark:bg-[#13151e] border-r border-gray-200 dark:border-slate-700 h-full flex flex-col z-20">
+    <div className="w-56 sm:w-64 min-w-0 max-w-64 bg-card border-r border-border/40 h-full flex flex-col z-20">
       {/* Header */}
       <div className="px-6 pt-5 pb-4">
-        <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#1fc7d4] to-[#7645d9] flex items-center justify-center text-white shadow-lg shadow-cyan-500/20">
-            <Home className="w-5 h-5" />
+        <Link href="/" className="flex items-center gap-3 group">
+          <div className="relative">
+            <div className="absolute inset-0 bg-gradient-to-br from-[#FF512F] to-[#DD2476] blur-xl opacity-20 group-hover:opacity-40 transition-opacity" />
+            <img src="/logos/epsx-icon.svg" alt="EPSX Icon" className="w-10 h-10 relative z-10 group-active:scale-95 transition-transform" />
           </div>
-          <div className="flex flex-col">
-            <img src="/epsx-logo.svg" alt="EPSX" className="h-7 w-auto" />
-            <p className="text-[10px] uppercase tracking-[0.2em] font-bold text-cyan-400 -mt-0.5">Admin</p>
+          <div className="flex flex-col justify-center">
+            <span className="text-2xl font-black tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-[#FF512F] to-[#DD2476] leading-none">
+              EPSX
+            </span>
+            <span className="text-[10px] uppercase tracking-[0.3em] font-bold text-[#FF512F] mt-0.5 ml-0.5">
+              ADMIN
+            </span>
           </div>
-        </div>
+        </Link>
       </div>
 
       {/* Navigation */}
@@ -252,7 +257,7 @@ export function Sidebar() {
                       onClick={() => toggleExpanded(item.id)}
                       className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-2xl transition-all duration-200 active:scale-[0.98] ${isActive || hasActiveChild
                         ? 'bg-gradient-to-r from-[#1fc7d4]/10 to-[#7645d9]/10 text-[#1fc7d4] border border-[#1fc7d4]/20 shadow-sm'
-                        : 'text-muted-foreground hover:bg-gray-100 dark:hover:bg-white/5 hover:text-foreground'
+                        : 'text-muted-foreground hover:bg-muted/30 hover:text-foreground'
                         }`}
                     >
                       <Icon className={`w-5 h-5 flex-shrink-0 ${isActive || hasActiveChild ? 'text-[#1fc7d4]' : ''}`} />
@@ -263,7 +268,7 @@ export function Sidebar() {
                     <Link href={href}>
                       <div className={`flex items-center gap-3 px-4 py-2.5 rounded-2xl transition-all duration-200 group-active:scale-[0.98] ${isActive
                         ? 'bg-gradient-to-r from-[#1fc7d4]/10 to-[#7645d9]/10 text-[#1fc7d4] border border-[#1fc7d4]/20 shadow-sm'
-                        : 'text-muted-foreground hover:bg-gray-100 dark:hover:bg-white/5 hover:text-foreground'
+                        : 'text-muted-foreground hover:bg-muted/30 hover:text-foreground'
                         }`}>
                         <Icon className={`w-5 h-5 flex-shrink-0 ${isActive ? 'text-[#1fc7d4]' : ''}`} />
                         <span className="text-sm font-semibold truncate">{item.label}</span>
@@ -281,7 +286,7 @@ export function Sidebar() {
 
                 {/* Children */}
                 {hasChildren && isExpanded && !isDisabled && (
-                  <div className="ml-6 mt-1 space-y-0.5 border-l border-gray-200 dark:border-slate-700 pl-2">
+                  <div className="ml-6 mt-1 space-y-0.5 border-l border-border/40 pl-2">
                     {item.children?.map(child => {
                       const childActive = isChildActive(child);
                       const ChildIcon = child.icon;
@@ -291,7 +296,7 @@ export function Sidebar() {
                         <Link key={child.id} href={childHref}>
                           <div className={`flex items-center gap-3 px-3 py-2 rounded-xl transition-all ${childActive
                             ? 'text-[#1fc7d4] bg-[#1fc7d4]/5 font-bold'
-                            : 'text-muted-foreground hover:text-foreground hover:bg-gray-100 dark:hover:bg-white/5'
+                            : 'text-muted-foreground hover:text-foreground hover:bg-muted/30'
                             }`}>
                             <ChildIcon className={`w-4 h-4 flex-shrink-0 ${childActive ? 'text-[#1fc7d4]' : ''}`} />
                             <span className="text-xs font-medium truncate">{child.label}</span>
@@ -314,7 +319,7 @@ export function Sidebar() {
         {/* Wallet Connection Prompt - shown when not authenticated */}
         {!isWalletConnected && (
           <div className="mb-4">
-            <div className="bg-gradient-to-br from-[#1fc7d4]/5 to-[#7645d9]/5 rounded-3xl p-5 border border-gray-200 dark:border-slate-700 backdrop-blur-sm relative overflow-hidden group">
+            <div className="bg-gradient-to-br from-[#1fc7d4]/5 to-[#7645d9]/5 rounded-xl p-4 border border-border/40 relative overflow-hidden group">
               <div className="absolute -right-4 -top-4 w-16 h-16 bg-[#1fc7d4]/10 rounded-full blur-2xl group-hover:bg-[#1fc7d4]/20 transition-colors" />
               <div className="relative z-10 text-center">
                 <p className="text-sm font-bold text-foreground mb-1">Full Access</p>
@@ -332,11 +337,11 @@ export function Sidebar() {
         )}
 
         {/* User Profile - Always visible at bottom */}
-        <div className="bg-white dark:bg-white/[0.04] rounded-3xl p-3 border border-gray-200 dark:border-slate-700">
+        <div className="bg-muted/30 rounded-xl p-3 border border-border/40">
           <div className="flex items-center gap-3">
             <div className={`w-10 h-10 rounded-2xl flex items-center justify-center text-white text-sm font-bold shadow-lg transition-all ${isWalletConnected
               ? 'bg-gradient-to-br from-[#1fc7d4] to-[#7645d9] shadow-cyan-500/10'
-              : 'bg-gray-100 dark:bg-slate-800 text-slate-500 shadow-none'
+              : 'bg-muted/50 text-muted-foreground shadow-none'
               }`}>
               {isWalletConnected ? 'AU' : '?'}
             </div>

@@ -50,7 +50,7 @@ export function AnalyticsCardGrid({ rankings, className }: AnalyticsCardGridProp
     if (rankings.length === 0) {
         return (
             <div className="py-12 text-center">
-                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gray-100 dark:bg-slate-800/50">
+                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gray-100 dark:bg-card/50">
                     <Sparkles className="h-8 w-8 text-slate-400" />
                 </div>
                 <p className="text-slate-400">No rankings data available</p>

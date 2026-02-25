@@ -25,6 +25,9 @@ import { getBackendUrl } from './url-resolver';
 let sessionExpiredHandler: (() => void) | undefined;
 let isRedirecting = false;
 
+// Mutex for token refresh to prevent simultaneous refresh attempts
+let refreshPromise: Promise<{ success: boolean; access_token?: string }> | null = null;
+
 // Shared client-side token accessible by all UnifiedApiClient instances.
 // Set by auth provider after login/hydration so client-side API calls work
 // (access_token cookie is HttpOnly and unreadable by JS).
@@ -342,28 +345,44 @@ export class UnifiedApiClient {
   }
 
   /**
-   * Internal helper to handle token refresh logic for 401 errors
+   * Internal helper to handle token refresh logic for 401 errors.
+   * Uses a mutex to deduplicate concurrent refresh attempts.
    */
   private async handleTokenRefresh(): Promise<{ success: boolean; access_token?: string }> {
-    try {
-      logger.debug('[UnifiedApiClient] 401 detected, attempting token refresh...');
-
-      const result = this.isServerSide
-        ? await this.refreshServerToken()
-        : await this.refreshClientToken();
-
-      if (result.success && result.access_token !== undefined && result.access_token !== '') {
-        logger.debug('[UnifiedApiClient] Token refreshed successfully');
-        this.setAuthToken(result.access_token);
-        return result;
-      }
-
-      logger.warn('[UnifiedApiClient] Token refresh attempt failed');
-      return { success: false };
-    } catch (refreshError) {
-      logger.error('[UnifiedApiClient] Error during token refresh:', refreshError);
-      return { success: false };
+    // Deduplicate: if a refresh is already in progress, reuse it
+    if (!this.isServerSide && refreshPromise !== null) {
+      return refreshPromise;
     }
+
+    const doRefresh = async (): Promise<{ success: boolean; access_token?: string }> => {
+      try {
+        logger.debug('[UnifiedApiClient] 401 detected, attempting token refresh...');
+
+        const result = this.isServerSide
+          ? await this.refreshServerToken()
+          : await this.refreshClientToken();
+
+        if (result.success && result.access_token !== undefined && result.access_token !== '') {
+          logger.debug('[UnifiedApiClient] Token refreshed successfully');
+          this.setAuthToken(result.access_token);
+          return result;
+        }
+
+        logger.warn('[UnifiedApiClient] Token refresh attempt failed');
+        return { success: false };
+      } catch (refreshError) {
+        logger.error('[UnifiedApiClient] Error during token refresh:', refreshError);
+        return { success: false };
+      } finally {
+        refreshPromise = null;
+      }
+    };
+
+    if (!this.isServerSide) {
+      refreshPromise = doRefresh();
+      return refreshPromise;
+    }
+    return doRefresh();
   }
 
   private async refreshServerToken(): Promise<{ success: boolean; access_token?: string }> {

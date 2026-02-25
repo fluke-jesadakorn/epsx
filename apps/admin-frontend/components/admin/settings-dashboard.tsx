@@ -51,14 +51,8 @@ const SettingsContent: React.FC<SettingsContentProps> = ({
 }) => {
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-40">
-        <div className="relative">
-          <div className="absolute inset-0 blur-2xl bg-cyan-500/20 rounded-full animate-pulse" />
-          <Loader2 className="h-16 w-16 animate-spin text-[#1fc7d4] relative z-10" />
-          <p className="mt-6 text-[10px] font-black uppercase tracking-[0.3em] text-cyan-400 text-center animate-pulse">
-            Syncing Nexus...
-          </p>
-        </div>
+      <div className="flex items-center justify-center py-16">
+        <Loader2 className="h-8 w-8 animate-spin text-[#1fc7d4]" />
       </div>
     );
   }
@@ -67,20 +61,19 @@ const SettingsContent: React.FC<SettingsContentProps> = ({
     case 'general':
       return (
         <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
-          <div className="relative overflow-hidden rounded-[40px] bg-white dark:bg-slate-900 backdrop-blur-2xl border border-gray-200 dark:border-slate-700 shadow-2xl">
-            <div className="bg-gradient-to-r from-cyan-500/10 to-transparent p-12">
-              <div className="flex items-center gap-8">
-                <div className="w-16 h-16 rounded-[24px] bg-cyan-500 flex items-center justify-center shadow-lg shadow-cyan-500/20">
-                  <Globe className="h-8 w-8 text-white" />
-                </div>
-                <div>
-                  <h2 className="text-3xl font-black text-foreground uppercase tracking-tight mb-2">System Configuration</h2>
-                  <p className="text-sm font-bold text-muted-foreground uppercase opacity-50 tracking-widest">Platform Core Parameters</p>
-                </div>
+          <div className="rounded-2xl bg-card border border-border/20 overflow-hidden shadow-xl">
+            <div className="h-[3px] bg-gradient-to-r from-[#1fc7d4] to-[#7645d9]" />
+            <div className="flex items-center gap-4 p-5 border-b border-border/20">
+              <div className="p-3 bg-gradient-to-br from-[#1fc7d4]/10 to-[#7645d9]/10 rounded-[18px] text-[#1fc7d4] border border-[#1fc7d4]/20">
+                <Globe className="w-5 h-5" />
+              </div>
+              <div>
+                <h2 className="text-base font-bold text-foreground uppercase tracking-wide">System Configuration</h2>
+                <p className="text-xs text-muted-foreground">Platform Core Parameters</p>
               </div>
             </div>
 
-            <div className="px-12 pb-16 space-y-12">
+            <div className="p-6 space-y-6">
               <div className="space-y-4">
                 <label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground ml-2">
                   System Designation
@@ -90,7 +83,7 @@ const SettingsContent: React.FC<SettingsContentProps> = ({
                     type="text"
                     value={settings.general.systemName}
                     onChange={(e) => handleSettingChange('general', 'systemName', e.target.value)}
-                    className="w-full h-16 bg-white dark:bg-white/[0.04] border border-gray-200 dark:border-slate-700 rounded-2xl px-6 font-black text-lg transition-all focus:border-cyan-500/50 focus:bg-white/[0.08] outline-none"
+                    className="w-full h-16 bg-muted/30 border border-border/40 rounded-2xl px-6 font-black text-lg transition-all focus:border-cyan-500/50 focus:bg-muted/50 outline-none"
                   />
                   <div className="absolute right-6 top-1/2 -translate-y-1/2 opacity-20 pointer-events-none">
                     <Zap className="w-6 h-6 text-cyan-400" />
@@ -107,7 +100,7 @@ const SettingsContent: React.FC<SettingsContentProps> = ({
                     type="email"
                     value={settings.general.adminEmail}
                     onChange={(e) => handleSettingChange('general', 'adminEmail', e.target.value)}
-                    className="w-full h-16 bg-white dark:bg-white/[0.04] border border-gray-200 dark:border-slate-700 rounded-2xl px-6 font-black text-lg transition-all focus:border-cyan-500/50 focus:bg-white/[0.08] outline-none"
+                    className="w-full h-16 bg-muted/30 border border-border/40 rounded-2xl px-6 font-black text-lg transition-all focus:border-cyan-500/50 focus:bg-muted/50 outline-none"
                   />
                   <div className="absolute right-6 top-1/2 -translate-y-1/2 opacity-20 pointer-events-none">
                     <RefreshCw className="w-6 h-6 text-cyan-400" />
@@ -115,9 +108,9 @@ const SettingsContent: React.FC<SettingsContentProps> = ({
                 </div>
               </div>
 
-              <div className="flex items-center justify-between p-8 rounded-[32px] bg-red-500/5 border border-red-500/10 hover:bg-red-500/10 transition-all">
+              <div className="flex items-center justify-between p-4 rounded-xl bg-muted/30 border border-border/40 hover:bg-red-500/10 transition-all">
                 <div className="flex items-center gap-6">
-                  <div className="w-12 h-12 rounded-2xl bg-red-500/20 flex items-center justify-center">
+                  <div className="w-12 h-12 rounded-xl bg-red-500/20 flex items-center justify-center">
                     <Shield className="w-6 h-6 text-red-500" />
                   </div>
                   <div>
@@ -128,7 +121,7 @@ const SettingsContent: React.FC<SettingsContentProps> = ({
                 <button
                   type="button"
                   onClick={() => { handleSettingChange('general', 'maintenanceMode', !settings.general.maintenanceMode); }}
-                  className={`relative w-24 h-12 rounded-full transition-all duration-300 ${settings.general.maintenanceMode ? 'bg-red-500' : 'bg-white dark:bg-white/[0.04]'
+                  className={`relative w-24 h-12 rounded-full transition-all duration-300 ${settings.general.maintenanceMode ? 'bg-red-500' : 'bg-muted/30'
                     }`}
                 >
                   <div className={`absolute top-2 left-2 w-8 h-8 rounded-full bg-white transition-transform duration-300 ${settings.general.maintenanceMode ? 'translate-x-[48px]' : 'translate-x-0'
@@ -142,27 +135,26 @@ const SettingsContent: React.FC<SettingsContentProps> = ({
     case 'notifications':
       return (
         <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
-          <div className="relative overflow-hidden rounded-[40px] bg-white dark:bg-slate-900 backdrop-blur-2xl border border-gray-200 dark:border-slate-700 shadow-2xl">
-            <div className="bg-gradient-to-r from-purple-500/10 to-transparent p-12">
-              <div className="flex items-center gap-8">
-                <div className="w-16 h-16 rounded-[24px] bg-purple-500 flex items-center justify-center shadow-lg shadow-purple-500/20">
-                  <Bell className="h-8 w-8 text-white" />
-                </div>
-                <div>
-                  <h2 className="text-3xl font-black text-foreground uppercase tracking-tight mb-2">Signal Processing</h2>
-                  <p className="text-sm font-bold text-muted-foreground uppercase opacity-50 tracking-widest">Network Alert Preferences</p>
-                </div>
+          <div className="rounded-2xl bg-card border border-border/20 overflow-hidden shadow-xl">
+            <div className="h-[3px] bg-gradient-to-r from-[#7645d9] to-[#ed4b9e]" />
+            <div className="flex items-center gap-4 p-5 border-b border-border/20">
+              <div className="p-3 bg-gradient-to-br from-[#7645d9]/10 to-[#ed4b9e]/10 rounded-[18px] text-[#7645d9] border border-[#7645d9]/20">
+                <Bell className="w-5 h-5" />
+              </div>
+              <div>
+                <h2 className="text-base font-bold text-foreground uppercase tracking-wide">Signal Processing</h2>
+                <p className="text-xs text-muted-foreground">Network Alert Preferences</p>
               </div>
             </div>
 
-            <div className="px-12 pb-16 grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
               {(Object.entries(settings.notifications) as Array<[keyof typeof settings.notifications, boolean]>).map(([key, value]) => (
                 <div
                   key={key}
-                  className="flex items-center justify-between p-8 rounded-[32px] bg-white dark:bg-white/[0.04] border border-gray-200 dark:border-slate-700 hover:bg-white/[0.08] transition-all"
+                  className="flex items-center justify-between p-4 rounded-xl bg-muted/30 border border-border/40 hover:bg-muted/50 transition-all"
                 >
                   <div className="flex items-center gap-6">
-                    <div className="w-12 h-12 rounded-2xl bg-purple-500/20 flex items-center justify-center">
+                    <div className="w-12 h-12 rounded-xl bg-purple-500/20 flex items-center justify-center">
                       <Zap className="w-6 h-6 text-purple-400" />
                     </div>
                     <div>
@@ -175,7 +167,7 @@ const SettingsContent: React.FC<SettingsContentProps> = ({
                   <button
                     type="button"
                     onClick={() => { handleSettingChange('notifications', key, !value); }}
-                    className={`relative w-20 h-10 rounded-full transition-all duration-300 ${value ? 'bg-purple-500' : 'bg-white dark:bg-white/[0.04]'
+                    className={`relative w-20 h-10 rounded-full transition-all duration-300 ${value ? 'bg-[#7645d9]' : 'bg-muted/30'
                       }`}
                   >
                     <div className={`absolute top-1.5 left-1.5 w-7 h-7 rounded-full bg-white transition-transform duration-300 ${value ? 'translate-x-[40px]' : 'translate-x-0'
@@ -190,20 +182,19 @@ const SettingsContent: React.FC<SettingsContentProps> = ({
     case 'security':
       return (
         <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
-          <div className="relative overflow-hidden rounded-[40px] bg-white dark:bg-slate-900 backdrop-blur-2xl border border-gray-200 dark:border-slate-700 shadow-2xl">
-            <div className="bg-gradient-to-r from-amber-500/10 to-transparent p-12">
-              <div className="flex items-center gap-8">
-                <div className="w-16 h-16 rounded-[24px] bg-amber-500 flex items-center justify-center shadow-lg shadow-amber-500/20">
-                  <Shield className="h-8 w-8 text-white" />
-                </div>
-                <div>
-                  <h2 className="text-3xl font-black text-foreground uppercase tracking-tight mb-2">Vault Protocols</h2>
-                  <p className="text-sm font-bold text-muted-foreground uppercase opacity-50 tracking-widest">Authentication and Access Controls</p>
-                </div>
+          <div className="rounded-2xl bg-card border border-border/20 overflow-hidden shadow-xl">
+            <div className="h-[3px] bg-gradient-to-r from-[#ffb237] to-[#ed4b9e]" />
+            <div className="flex items-center gap-4 p-5 border-b border-border/20">
+              <div className="p-3 bg-gradient-to-br from-[#ffb237]/10 to-[#ed4b9e]/10 rounded-[18px] text-[#ffb237] border border-[#ffb237]/20">
+                <Shield className="w-5 h-5" />
+              </div>
+              <div>
+                <h2 className="text-base font-bold text-foreground uppercase tracking-wide">Vault Protocols</h2>
+                <p className="text-xs text-muted-foreground">Authentication and Access Controls</p>
               </div>
             </div>
 
-            <div className="px-12 pb-16 space-y-12">
+            <div className="p-6 space-y-6">
               <div className="space-y-4">
                 <label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground ml-2">
                   Auto-Lock Duration (Minutes)
@@ -216,7 +207,7 @@ const SettingsContent: React.FC<SettingsContentProps> = ({
                       const val = parseInt(e.target.value);
                       handleSettingChange('security', 'sessionTimeout', isNaN(val) ? 30 : val);
                     }}
-                    className="w-full h-16 bg-white dark:bg-white/[0.04] border border-gray-200 dark:border-slate-700 rounded-2xl px-6 font-black text-lg transition-all focus:border-amber-500/50 focus:bg-white/[0.08] outline-none"
+                    className="w-full h-16 bg-muted/30 border border-border/40 rounded-2xl px-6 font-black text-lg transition-all focus:border-amber-500/50 focus:bg-muted/50 outline-none"
                   />
                   <div className="absolute right-6 top-1/2 -translate-y-1/2 opacity-20 pointer-events-none">
                     <Clock className="w-6 h-6 text-amber-400" />
@@ -231,20 +222,19 @@ const SettingsContent: React.FC<SettingsContentProps> = ({
     case 'appearance':
       return (
         <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
-          <div className="relative overflow-hidden rounded-[40px] bg-white dark:bg-slate-900 backdrop-blur-2xl border border-gray-200 dark:border-slate-700 shadow-2xl">
-            <div className="bg-gradient-to-r from-pink-500/10 to-transparent p-12">
-              <div className="flex items-center gap-8">
-                <div className="w-16 h-16 rounded-[24px] bg-pink-500 flex items-center justify-center shadow-lg shadow-pink-500/20">
-                  <Palette className="h-8 w-8 text-white" />
-                </div>
-                <div>
-                  <h2 className="text-3xl font-black text-foreground uppercase tracking-tight mb-2">Optical Customization</h2>
-                  <p className="text-sm font-bold text-muted-foreground uppercase opacity-50 tracking-widest">Visual Feedback and Interface Styling</p>
-                </div>
+          <div className="rounded-2xl bg-card border border-border/20 overflow-hidden shadow-xl">
+            <div className="h-[3px] bg-gradient-to-r from-[#ed4b9e] to-[#7645d9]" />
+            <div className="flex items-center gap-4 p-5 border-b border-border/20">
+              <div className="p-3 bg-gradient-to-br from-[#ed4b9e]/10 to-[#7645d9]/10 rounded-[18px] text-[#ed4b9e] border border-[#ed4b9e]/20">
+                <Palette className="w-5 h-5" />
+              </div>
+              <div>
+                <h2 className="text-base font-bold text-foreground uppercase tracking-wide">Optical Customization</h2>
+                <p className="text-xs text-muted-foreground">Visual Feedback and Interface Styling</p>
               </div>
             </div>
 
-            <div className="px-12 pb-16 space-y-12">
+            <div className="p-6 space-y-6">
               <div className="space-y-4">
                 <label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground ml-2">
                   Luminosity Mode
@@ -255,9 +245,9 @@ const SettingsContent: React.FC<SettingsContentProps> = ({
                       key={mode}
                       type="button"
                       onClick={() => { handleSettingChange('appearance', 'theme', mode as 'light' | 'dark' | 'auto'); }}
-                      className={`p-6 rounded-[24px] border transition-all text-center ${settings.appearance.theme === mode
-                        ? 'bg-pink-500/10 border-pink-500 shadow-lg shadow-pink-500/10'
-                        : 'bg-white dark:bg-white/[0.04] border-gray-200 dark:border-slate-700 hover:border-gray-200 dark:border-slate-700'
+                      className={`p-6 rounded-2xl border transition-all text-center ${settings.appearance.theme === mode
+                        ? 'bg-primary/10 border-primary shadow-lg shadow-pink-500/10'
+                        : 'bg-muted/30 border-border/40 hover:bg-muted/50'
                         }`}
                     >
                       <div className="font-black text-sm uppercase tracking-widest">
@@ -272,8 +262,8 @@ const SettingsContent: React.FC<SettingsContentProps> = ({
                 <label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground ml-2">
                   Interface Accent Chroma
                 </label>
-                <div className="flex flex-col sm:flex-row items-center gap-10 p-8 rounded-[32px] bg-white dark:bg-white/[0.04] border border-gray-200 dark:border-slate-700">
-                  <div className="relative w-24 h-24 rounded-[32px] overflow-hidden group shadow-2xl">
+                <div className="flex flex-col sm:flex-row items-center gap-10 p-4 rounded-xl bg-muted/30 border border-border/40">
+                  <div className="relative w-24 h-24 rounded-2xl overflow-hidden group shadow-2xl">
                     <input
                       type="color"
                       value={settings.appearance.primaryColor}
@@ -300,7 +290,7 @@ const SettingsContent: React.FC<SettingsContentProps> = ({
                         key={preset.name}
                         type="button"
                         onClick={() => handleSettingChange('appearance', 'primaryColor', preset.color)}
-                        className="w-10 h-10 rounded-full border-2 border-gray-200 dark:border-slate-700 hover:scale-110 transition-transform shadow-lg"
+                        className="w-10 h-10 rounded-full border-2 border-border/40 hover:scale-110 transition-transform shadow-lg"
                         style={{ backgroundColor: preset.color }}
                         title={preset.name}
                       />
@@ -416,13 +406,13 @@ export const SettingsDashboard: React.FC<SettingsDashboardProps> = () => {
   return (
     <div className="space-y-10">
       {/* Global Control Bar */}
-      <div className="flex items-center justify-end gap-4 p-6 rounded-[32px] bg-white dark:bg-slate-900 backdrop-blur-2xl border border-gray-200 dark:border-slate-700 shadow-xl">
+      <div className="flex items-center justify-end gap-4 p-4 rounded-xl bg-card border border-border/20 shadow-xl">
         <div className="flex items-center gap-4">
           <button
             type="button"
             onClick={() => { void handleResetSettings(); }}
             disabled={resetting || loading}
-            className="flex items-center gap-3 px-8 py-4 rounded-2xl bg-white dark:bg-white/[0.04] hover:bg-black/[0.05] dark:hover:bg-white/10 text-[10px] font-black uppercase tracking-widest transition-all disabled:opacity-50"
+            className="flex items-center gap-3 px-4 py-2 rounded-xl bg-muted/30 hover:bg-muted/50 border border-border/40 text-[10px] font-black uppercase tracking-widest transition-all disabled:opacity-50"
           >
             {resetting ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCcw className="w-4 h-4" />}
             Reset Logic
@@ -433,10 +423,10 @@ export const SettingsDashboard: React.FC<SettingsDashboardProps> = () => {
             onClick={() => { void handleSaveSettings(); }}
             disabled={saving || loading || !hasChanges}
             className={`
-              flex items-center gap-3 px-10 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all
+              flex items-center gap-3 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all
               ${hasChanges
-                ? 'bg-gradient-to-r from-orange-400 to-red-500 text-white shadow-lg shadow-orange-500/20 active:scale-95'
-                : 'bg-white dark:bg-white/[0.04] text-muted-foreground cursor-not-allowed'}
+                ? 'bg-gradient-to-r from-[#7645d9] to-[#5a33b8] text-white shadow-lg active:scale-95'
+                : 'bg-muted/30 border border-border/40 text-muted-foreground cursor-not-allowed'}
             `}
           >
             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}

@@ -81,7 +81,7 @@ function StatsGrid({ plans, avgRevenue }: { plans: PlanResponse[]; avgRevenue: n
 
   return (
     <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 mb-6 sm:mb-8">
-      <div className="bg-card rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl border border-primary/20">
+      <div className="bg-card rounded-2xl p-4 sm:p-6 shadow-xl border border-primary/20">
         <div className="flex items-center justify-between mb-3 sm:mb-4">
           <div className="text-xl sm:text-2xl">💳</div>
           <span className="text-xs sm:text-sm font-medium text-muted-foreground">Total</span>
@@ -93,7 +93,7 @@ function StatsGrid({ plans, avgRevenue }: { plans: PlanResponse[]; avgRevenue: n
         </div>
       </div>
 
-      <div className="bg-card/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl border border-secondary/20">
+      <div className="bg-card/80 rounded-2xl p-4 sm:p-6 shadow-xl border border-secondary/20">
         <div className="flex items-center justify-between mb-3 sm:mb-4">
           <div className="text-xl sm:text-2xl">✅</div>
           <span className="text-xs sm:text-sm font-medium text-muted-foreground">Active</span>
@@ -105,7 +105,7 @@ function StatsGrid({ plans, avgRevenue }: { plans: PlanResponse[]; avgRevenue: n
         </div>
       </div>
 
-      <div className="bg-card/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl border border-secondary/20">
+      <div className="bg-card/80 rounded-2xl p-4 sm:p-6 shadow-xl border border-secondary/20">
         <div className="flex items-center justify-between mb-3 sm:mb-4">
           <div className="text-xl sm:text-2xl">🏢</div>
           <span className="text-xs sm:text-sm font-medium text-muted-foreground">Enterprise</span>
@@ -117,7 +117,7 @@ function StatsGrid({ plans, avgRevenue }: { plans: PlanResponse[]; avgRevenue: n
         </div>
       </div>
 
-      <div className="bg-card/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl border border-success/20">
+      <div className="bg-card/80 rounded-2xl p-4 sm:p-6 shadow-xl border border-success/20">
         <div className="flex items-center justify-between mb-3 sm:mb-4">
           <div className="text-xl sm:text-2xl">💵</div>
           <span className="text-xs sm:text-sm font-medium text-muted-foreground">Price</span>
@@ -265,18 +265,11 @@ export function PlanManagement({ currentUser }: PlanManagementProps) {
   return (
     <div>
       <div className="space-y-6 sm:space-y-8">
-        <div className="fixed inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute top-20 left-20 w-32 h-32 bg-primary/10 rounded-full blur-3xl animate-pulse" />
-          <div className="absolute top-40 right-32 w-24 h-24 bg-secondary/10 rounded-full blur-2xl" />
-          <div className="absolute bottom-32 left-1/3 w-28 h-28 bg-primary/5 rounded-full blur-3xl" />
-        </div>
-
         <div className="relative max-w-7xl mx-auto">
-          <HeroSection />
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 mb-8 sm:mb-12">
             <div
-              className="relative group overflow-hidden rounded-2xl sm:rounded-3xl border border-success/20 bg-success/5 p-6 sm:p-8 cursor-pointer hover:bg-success/10 transition-all duration-300 active:scale-[0.98]"
+              className="relative group overflow-hidden rounded-2xl border border-success/20 bg-success/5 p-6 sm:p-8 cursor-pointer hover:bg-success/10 transition-all duration-300 active:scale-[0.98]"
               onClick={() => router.push('/subscriptions/plans/new')}
             >
               <div className="bg-success/20 text-success rounded-2xl w-12 h-12 flex items-center justify-center mb-4 sm:mb-6 group-hover:scale-110 transition-transform">
@@ -290,7 +283,7 @@ export function PlanManagement({ currentUser }: PlanManagementProps) {
             </div>
 
             <div
-              className="relative group overflow-hidden rounded-2xl sm:rounded-3xl border border-secondary/20 bg-secondary/5 p-6 sm:p-8 cursor-pointer hover:bg-secondary/10 transition-all duration-300 active:scale-[0.98]"
+              className="relative group overflow-hidden rounded-2xl border border-secondary/20 bg-secondary/5 p-6 sm:p-8 cursor-pointer hover:bg-secondary/10 transition-all duration-300 active:scale-[0.98]"
               onClick={() => loadPlans()}
             >
               <div className="bg-secondary/20 text-secondary rounded-2xl w-12 h-12 flex items-center justify-center mb-4 sm:mb-6 group-hover:scale-110 transition-transform">
@@ -527,8 +520,8 @@ function PlanGroupSection({
       items={plans.map((p: any) => p.id)}
       strategy={rectSwappingStrategy} // or verticalListSortingStrategy
     >
-      <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-border/20 p-0.5">
-        <div className="relative bg-card rounded-2xl sm:rounded-3xl p-4 sm:p-6 lg:p-8">
+      <div className="relative overflow-hidden rounded-2xl bg-border/20 p-0.5">
+        <div className="relative bg-card rounded-2xl p-4 sm:p-6 lg:p-8">
           {/* Header Section */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
             <div className="flex flex-col gap-2">

@@ -78,7 +78,7 @@ export function WalletPlatformFilter({
     return (
         <div className={cn('w-full', className)}>
             <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-blue-400/20 via-purple-400/20 to-pink-400/20 p-0.5">
-                <div className="relative bg-card/95 backdrop-blur-xl rounded-2xl p-2">
+                <div className="relative bg-card/95 rounded-2xl p-2">
                     <div className="grid grid-cols-5 gap-2">
                         {PLATFORM_OPTIONS.map((option) => {
                             const isSelected = value === option.value;

@@ -136,7 +136,7 @@ export function PolicyCard({
               </span>
             ))}
             {policy.permissions.length > 4 && (
-              <span className="text-xs px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg font-medium">
+              <span className="text-xs px-2 py-1 bg-[#1fc7d4]/15 text-[#1fc7d4] rounded-lg font-medium">
                 +{policy.permissions.length - 4} more
               </span>
             )}

@@ -235,7 +235,7 @@ export class AdminErrorBoundary extends Component<Props, State> {
             <CardContent className="space-y-4">
               {/* Error ID for support */}
               {this.state.errorId && (
-                <div className="text-xs text-gray-500 dark:text-gray-400 font-mono bg-gray-100 dark:bg-gray-800 p-2 rounded">
+                <div className="text-xs text-muted-foreground font-mono bg-muted/30 p-2 rounded">
                   Error ID: {this.state.errorId}
                   {this.state.retryCount > 0 && ` (Attempt ${this.state.retryCount + 1})`}
                 </div>
@@ -244,7 +244,7 @@ export class AdminErrorBoundary extends Component<Props, State> {
               {/* Development error details */}
               {process.env.NODE_ENV === 'development' && this.state.error && (
                 <details className="text-xs">
-                  <summary className="cursor-pointer text-gray-600 dark:text-gray-400 mb-2 flex items-center gap-1">
+                  <summary className="cursor-pointer text-muted-foreground mb-2 flex items-center gap-1">
                     <Bug className="w-3 h-3" />
                     Error Details (Development)
                   </summary>
@@ -290,7 +290,7 @@ export class AdminErrorBoundary extends Component<Props, State> {
                 </div>
               </div>
 
-              <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
+              <p className="text-xs text-muted-foreground text-center">
                 If this problem persists, please contact the system administrator with the error ID above.
               </p>
             </CardContent>

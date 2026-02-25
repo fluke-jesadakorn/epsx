@@ -120,12 +120,12 @@ export function SendNotificationForm({ onSuccess, onCancel }: SendNotificationFo
           <button
             type="button"
             onClick={() => setRecipientType('specific')}
-            className={`flex items-center gap-6 p-6 rounded-[24px] border transition-all ${recipientType === 'specific'
+            className={`flex items-center gap-6 p-6 rounded-xl border transition-all ${recipientType === 'specific'
                 ? 'bg-[#1fc7d4]/10 border-[#1fc7d4] shadow-[0_0_20px_rgba(31,199,212,0.1)]'
-                : 'bg-white dark:bg-white/[0.04] border-gray-200 dark:border-slate-700 hover:border-gray-200 dark:border-slate-700'
+                : 'bg-muted/30 border-border/40 hover:bg-muted/50'
               }`}
           >
-            <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${recipientType === 'specific' ? 'bg-[#1fc7d4] text-white' : 'bg-white dark:bg-white/[0.04] text-muted-foreground/30'
+            <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${recipientType === 'specific' ? 'bg-[#1fc7d4] text-white' : 'bg-muted/50 text-muted-foreground/30'
               }`}>
               <User className="h-6 w-6" />
             </div>
@@ -138,12 +138,12 @@ export function SendNotificationForm({ onSuccess, onCancel }: SendNotificationFo
           <button
             type="button"
             onClick={() => setRecipientType('broadcast')}
-            className={`flex items-center gap-6 p-6 rounded-[24px] border transition-all ${recipientType === 'broadcast'
+            className={`flex items-center gap-6 p-6 rounded-xl border transition-all ${recipientType === 'broadcast'
                 ? 'bg-amber-500/10 border-amber-500 shadow-[0_0_20px_rgba(245,158,11,0.1)]'
-                : 'bg-white dark:bg-white/[0.04] border-gray-200 dark:border-slate-700 hover:border-gray-200 dark:border-slate-700'
+                : 'bg-muted/30 border-border/40 hover:bg-muted/50'
               }`}
           >
-            <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${recipientType === 'broadcast' ? 'bg-amber-500 text-white' : 'bg-white dark:bg-white/[0.04] text-muted-foreground/30'
+            <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${recipientType === 'broadcast' ? 'bg-amber-500 text-white' : 'bg-muted/50 text-muted-foreground/30'
               }`}>
               <Users className="h-6 w-6" />
             </div>
@@ -168,7 +168,7 @@ export function SendNotificationForm({ onSuccess, onCancel }: SendNotificationFo
                 placeholder="0x..."
                 value={walletAddress}
                 onChange={(e) => setWalletAddress(e.target.value)}
-                className="h-14 bg-white dark:bg-white/[0.04] border-gray-200 dark:border-slate-700 rounded-2xl px-6 font-mono text-sm group-hover:bg-white/[0.08] focus:border-[#1fc7d4]/50 transition-all"
+                className="h-14 bg-muted/30 border-border/40 rounded-2xl px-6 font-mono text-sm group-hover:bg-muted/50 focus:border-[#1fc7d4]/50 transition-all"
               />
               <div className="absolute right-4 top-1/2 -translate-y-1/2 opacity-20 pointer-events-none font-black text-[10px] uppercase">
                 Required
@@ -183,10 +183,10 @@ export function SendNotificationForm({ onSuccess, onCancel }: SendNotificationFo
             Classification
           </label>
           <Select value={notificationType} onValueChange={(v) => setNotificationType(v as NotificationType)}>
-            <SelectTrigger className="h-14 bg-white dark:bg-white/[0.04] border-gray-200 dark:border-slate-700 rounded-2xl px-6 text-sm font-black uppercase tracking-widest hover:bg-white/[0.08]">
+            <SelectTrigger className="h-14 bg-muted/30 border-border/40 rounded-2xl px-6 text-sm font-black uppercase tracking-widest hover:bg-muted/50">
               <SelectValue />
             </SelectTrigger>
-            <SelectContent className="bg-white dark:bg-slate-900 border-gray-200 dark:border-slate-700 rounded-2xl overflow-hidden backdrop-blur-3xl">
+            <SelectContent className="bg-card border-border/40 rounded-2xl overflow-hidden backdrop-blur-3xl">
               <SelectItem value="system" className="p-4 focus:bg-[#1fc7d4]/10">
                 <div className="flex items-center font-black uppercase tracking-widest text-[10px]">
                   <Settings className="w-4 h-4 mr-3 text-cyan-400" /> System Alert
@@ -222,10 +222,10 @@ export function SendNotificationForm({ onSuccess, onCancel }: SendNotificationFo
             Priority Vector
           </label>
           <Select value={priority} onValueChange={(v) => setPriority(v as NotificationPriority)}>
-            <SelectTrigger className="h-14 bg-white dark:bg-white/[0.04] border-gray-200 dark:border-slate-700 rounded-2xl px-6 text-sm font-black uppercase tracking-widest hover:bg-white/[0.08]">
+            <SelectTrigger className="h-14 bg-muted/30 border-border/40 rounded-2xl px-6 text-sm font-black uppercase tracking-widest hover:bg-muted/50">
               <SelectValue />
             </SelectTrigger>
-            <SelectContent className="bg-white dark:bg-slate-900 border-gray-200 dark:border-slate-700 rounded-2xl overflow-hidden backdrop-blur-3xl">
+            <SelectContent className="bg-card border-border/40 rounded-2xl overflow-hidden backdrop-blur-3xl">
               <SelectItem value="low" className="p-4 focus:bg-[#1fc7d4]/10 font-black uppercase tracking-widest text-[10px] text-green-400">Low Clearance</SelectItem>
               <SelectItem value="normal" className="p-4 focus:bg-[#1fc7d4]/10 font-black uppercase tracking-widest text-[10px] text-cyan-400">Normal Operation</SelectItem>
               <SelectItem value="high" className="p-4 focus:bg-[#1fc7d4]/10 font-black uppercase tracking-widest text-[10px] text-amber-400">High Priority</SelectItem>
@@ -243,7 +243,7 @@ export function SendNotificationForm({ onSuccess, onCancel }: SendNotificationFo
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="Payload designation..."
-            className="h-14 bg-white dark:bg-white/[0.04] border-gray-200 dark:border-slate-700 rounded-2xl px-6 font-bold text-sm tracking-tight hover:bg-white/[0.08] focus:border-[#1fc7d4]/50 transition-all"
+            className="h-14 bg-muted/30 border-border/40 rounded-2xl px-6 font-bold text-sm tracking-tight hover:bg-muted/50 focus:border-[#1fc7d4]/50 transition-all"
           />
         </div>
 
@@ -257,7 +257,7 @@ export function SendNotificationForm({ onSuccess, onCancel }: SendNotificationFo
             onChange={(e) => setMessage(e.target.value)}
             placeholder="Enter transmission data..."
             rows={5}
-            className="bg-white dark:bg-white/[0.04] border-gray-200 dark:border-slate-700 rounded-2xl p-6 font-bold text-sm tracking-tight hover:bg-white/[0.08] focus:border-[#1fc7d4]/50 transition-all resize-none"
+            className="bg-muted/30 border-border/40 rounded-2xl p-6 font-bold text-sm tracking-tight hover:bg-muted/50 focus:border-[#1fc7d4]/50 transition-all resize-none"
           />
         </div>
 
@@ -271,7 +271,7 @@ export function SendNotificationForm({ onSuccess, onCancel }: SendNotificationFo
             value={actionUrl}
             onChange={(e) => setActionUrl(e.target.value)}
             placeholder="https://..."
-            className="h-12 bg-white dark:bg-white/[0.04] border-gray-200 dark:border-slate-700 rounded-2xl px-5 text-xs font-bold hover:bg-white/[0.08] focus:border-[#1fc7d4]/50 transition-all"
+            className="h-12 bg-muted/30 border-border/40 rounded-2xl px-5 text-xs font-bold hover:bg-muted/50 focus:border-[#1fc7d4]/50 transition-all"
           />
         </div>
 
@@ -285,13 +285,13 @@ export function SendNotificationForm({ onSuccess, onCancel }: SendNotificationFo
             value={imageUrl}
             onChange={(e) => setImageUrl(e.target.value)}
             placeholder="https://..."
-            className="h-12 bg-white dark:bg-white/[0.04] border-gray-200 dark:border-slate-700 rounded-2xl px-5 text-xs font-bold hover:bg-white/[0.08] focus:border-[#1fc7d4]/50 transition-all"
+            className="h-12 bg-muted/30 border-border/40 rounded-2xl px-5 text-xs font-bold hover:bg-muted/50 focus:border-[#1fc7d4]/50 transition-all"
           />
         </div>
       </div>
 
       {/* Execution Control */}
-      <div className="flex items-center gap-6 pt-10 border-t border-gray-200 dark:border-slate-700">
+      <div className="flex items-center gap-6 pt-10 border-t border-border/20">
         {onCancel && (
           <Button
             type="button"
@@ -306,7 +306,7 @@ export function SendNotificationForm({ onSuccess, onCancel }: SendNotificationFo
         <Button
           type="submit"
           disabled={loading}
-          className="flex-[2] py-7 rounded-2xl bg-[#1fc7d4] hover:bg-[#1fc7d4]/90 text-white font-black uppercase tracking-[0.2em] shadow-lg shadow-cyan-500/20 active:scale-95 transition-all"
+          className="flex-[2] py-7 rounded-xl bg-gradient-to-r from-[#7645d9] to-[#5a33b8] hover:opacity-90 text-white font-black uppercase tracking-[0.2em] shadow-lg active:scale-95 transition-all"
         >
           {loading ? (
             <div className="flex items-center justify-center">

@@ -128,11 +128,11 @@ export function PlanListSidebar({
             <button
                 type="button"
                 onClick={() => toggleCollapse(group)}
-                className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:bg-gray-100 dark:hover:bg-white/5 transition-colors"
+                className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:bg-muted/30 transition-colors"
             >
                 {cfg.icon}
                 <span className="flex-1 text-left">{cfg.label}</span>
-                <Badge variant="secondary" className="bg-white dark:bg-white/[0.04] text-muted-foreground text-[10px] px-1.5 py-0">
+                <Badge variant="secondary" className="bg-muted/30 text-muted-foreground text-[10px] px-1.5 py-0">
                     {count}
                 </Badge>
                 <ChevronDown className={cn('h-3 w-3 transition-transform', isCollapsed && '-rotate-90')} />
@@ -156,7 +156,7 @@ export function PlanListSidebar({
                             placeholder="Search plans..."
                             value={planSearch}
                             onChange={(e) => setPlanSearch(e.target.value)}
-                            className="h-9 w-56 pl-9 text-sm bg-white dark:bg-white/[0.04] border-gray-200 dark:border-slate-700 rounded-lg"
+                            className="h-9 w-56 pl-9 text-sm bg-muted/30 border-border/20 rounded-lg"
                         />
                     </div>
                     <CreatePlanSheet
@@ -168,7 +168,7 @@ export function PlanListSidebar({
                     />
                 </div>
             </div>
-            <div className="divide-y divide-white/5 border border-gray-200 dark:border-slate-700 rounded-xl overflow-hidden">
+            <div className="divide-y divide-white/5 border border-border/20 rounded-xl overflow-hidden">
                 {isSearchActive ? (
                     <>
                         {GROUP_ORDER.map((g) => {

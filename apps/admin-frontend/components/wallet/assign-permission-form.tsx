@@ -159,7 +159,7 @@ export function AssignPermissionForm({
     return (
         <form onSubmit={handleSubmit} className={cn('space-y-4', className)}>
             <div className="rounded-xl border-2 border-dashed border-blue-300 dark:border-blue-700 bg-blue-50/50 dark:bg-blue-900/10 p-4">
-                <h4 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                <h4 className="font-semibold text-foreground mb-4 flex items-center gap-2">
                     <Plus className="h-5 w-5 text-blue-600" />
                     Assign Permission
                 </h4>
@@ -171,7 +171,7 @@ export function AssignPermissionForm({
                             Platform
                         </Label>
                         <Select value={platform} onValueChange={(v) => handlePlatformChange(v as Platform)}>
-                            <SelectTrigger className="mt-1.5 bg-white dark:bg-gray-800">
+                            <SelectTrigger className="mt-1.5 bg-card">
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -192,7 +192,7 @@ export function AssignPermissionForm({
                             Permission
                         </Label>
                         <Select value={permission} onValueChange={setPermission}>
-                            <SelectTrigger className="mt-1.5 bg-white dark:bg-gray-800">
+                            <SelectTrigger className="mt-1.5 bg-card">
                                 <SelectValue placeholder="Select permission" />
                             </SelectTrigger>
                             <SelectContent>
@@ -211,7 +211,7 @@ export function AssignPermissionForm({
                             Duration
                         </Label>
                         <Select value={duration} onValueChange={setDuration}>
-                            <SelectTrigger className="mt-1.5 bg-white dark:bg-gray-800">
+                            <SelectTrigger className="mt-1.5 bg-card">
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -236,7 +236,7 @@ export function AssignPermissionForm({
                                 value={customDate}
                                 onChange={(e) => setCustomDate(e.target.value)}
                                 min={new Date().toISOString().split('T')[0]}
-                                className="mt-1.5 bg-white dark:bg-gray-800"
+                                className="mt-1.5 bg-card"
                             />
                         </div>
                     )}
@@ -251,7 +251,7 @@ export function AssignPermissionForm({
                             value={reason}
                             onChange={(e) => setReason(e.target.value)}
                             placeholder="e.g., Admin grant for premium support"
-                            className="mt-1.5 bg-white dark:bg-gray-800"
+                            className="mt-1.5 bg-card"
                         />
                     </div>
                 </div>
