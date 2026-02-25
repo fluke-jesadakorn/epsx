@@ -132,18 +132,18 @@ export function DraggablePlanItem({ id, label, description, isAssigned = false, 
             ref={setNodeRef}
             className={cn(
                 "group flex items-center gap-4 p-4 rounded-xl border transition-all select-none",
-                "bg-gray-100 dark:bg-slate-800/50 border-slate-700 hover:border-blue-500/50 hover:bg-gray-100 dark:bg-slate-800",
+                "bg-gray-100 dark:bg-slate-800/50 border-gray-200 dark:border-slate-700 hover:border-blue-500/50 hover:bg-gray-200 dark:hover:bg-slate-700",
                 isDragging ? "opacity-50 ring-2 ring-blue-500 z-50 scale-105 shadow-2xl" : "shadow-sm"
             )}
             {...listeners}
             {...attributes}
         >
-            <div className="h-10 w-10 rounded-lg bg-blue-500/10 flex items-center justify-center flex-shrink-0 text-blue-400 group-hover:text-blue-300 group-hover:bg-blue-500/20 transition-colors">
+            <div className="h-10 w-10 rounded-lg bg-blue-500/10 flex items-center justify-center flex-shrink-0 text-blue-500 dark:text-blue-400 group-hover:text-blue-600 dark:group-hover:text-blue-300 group-hover:bg-blue-500/20 transition-colors">
                 <Package className="h-5 w-5" />
             </div>
             <div className="min-w-0 flex-1">
-                <p className="font-semibold text-sm text-slate-200 group-hover:text-white transition-colors">{label}</p>
-                {description && <p className="text-xs text-slate-400 truncate mt-0.5">{description}</p>}
+                <p className="font-semibold text-sm text-gray-800 dark:text-slate-200 group-hover:text-gray-900 dark:group-hover:text-white transition-colors">{label}</p>
+                {description && <p className="text-xs text-gray-500 dark:text-slate-400 truncate mt-0.5">{description}</p>}
             </div>
             {onManage && (
                 <Button
@@ -199,11 +199,11 @@ export function DroppablePlanList({
                 "min-h-[500px] h-full rounded-2xl transition-all duration-200 p-4 border-2 border-dashed",
                 isOver
                     ? "bg-blue-500/5 border-blue-500/50"
-                    : "bg-transparent border-slate-700/50 hover:border-slate-600/50"
+                    : "bg-transparent border-gray-200 dark:border-slate-700/50 hover:border-gray-300 dark:hover:border-slate-600/50"
             )}
         >
             {allItems.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-full text-slate-500">
+                <div className="flex flex-col items-center justify-center h-full text-gray-400 dark:text-slate-500">
                     <Package className="h-10 w-10 mb-3 opacity-20" />
                     <p className="text-sm text-center font-medium">{emptyMessage}</p>
                 </div>
@@ -211,8 +211,8 @@ export function DroppablePlanList({
                 <div className="space-y-3">
                     {allItems.map(plan => (
                         <div key={plan.id} className={cn(
-                            "flex items-center justify-between p-4 rounded-xl border bg-slate-800/80 border-slate-700 shadow-sm transition-all",
-                            plan.isPending && "border-amber-500/50 bg-amber-500/10"
+                            "flex items-center justify-between p-4 rounded-xl border bg-white dark:bg-slate-800/80 border-gray-200 dark:border-slate-700 shadow-sm transition-all",
+                            plan.isPending && "border-amber-500/50 bg-amber-500/10 dark:bg-amber-500/10"
                         )}>
                             <div className="flex items-center gap-4">
                                 <div className={cn(
@@ -222,18 +222,18 @@ export function DroppablePlanList({
                                     <Package className="h-5 w-5" />
                                 </div>
                                 <div className="min-w-0">
-                                    <p className="font-semibold text-sm text-slate-200">
+                                    <p className="font-semibold text-sm text-gray-900 dark:text-slate-200">
                                         {plan.name}
                                     </p>
                                     {plan.isPending ? (
                                         <div className="flex flex-col items-start mt-0.5">
-                                            <span className="text-[10px] text-amber-400 font-bold uppercase tracking-wider leading-none mb-1">Pending Add</span>
-                                            <span className="text-[10px] text-slate-400/80 font-medium leading-none">
+                                            <span className="text-[10px] text-amber-600 dark:text-amber-400 font-bold uppercase tracking-wider leading-none mb-1">Pending Add</span>
+                                            <span className="text-[10px] text-gray-500 dark:text-slate-400/80 font-medium leading-none">
                                                 {plan.expiresAt ? `Expires: ${new Date(plan.expiresAt).toLocaleDateString()} ${formatTimeRemaining(plan.expiresAt)}` : "Permanent"}
                                             </span>
                                         </div>
                                     ) : (
-                                        <p className="text-xs text-slate-400 mt-0.5">
+                                        <p className="text-xs text-gray-500 dark:text-slate-400 mt-0.5">
                                             {plan.expiresAt ? `Expires: ${new Date(plan.expiresAt).toLocaleDateString()} ${formatTimeRemaining(plan.expiresAt)}` : "Permanent"}
                                         </p>
                                     )}
@@ -246,7 +246,7 @@ export function DroppablePlanList({
                                     <Button
                                         variant="ghost"
                                         size="sm"
-                                        className="h-8 px-3 text-xs font-medium text-slate-400 hover:text-white hover:bg-slate-700"
+                                        className="h-8 px-3 text-xs font-medium text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-slate-700"
                                         onClick={() => onManage(plan)}
                                     >
                                         Manage
@@ -256,7 +256,7 @@ export function DroppablePlanList({
                                     <Button
                                         variant="ghost"
                                         size="sm"
-                                        className="h-8 px-3 text-xs font-medium text-slate-400 hover:text-white hover:bg-slate-700"
+                                        className="h-8 px-3 text-xs font-medium text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-slate-700"
                                         onClick={() => onEdit(plan)}
                                     >
                                         Edit

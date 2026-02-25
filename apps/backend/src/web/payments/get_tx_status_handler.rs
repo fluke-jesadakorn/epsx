@@ -165,8 +165,8 @@ pub async fn get_transaction_status_handler(
             }))
         }
         None => {
-            // Transaction not found in database
-            Err(UnifiedErrorResponse::json(404, "Transaction not found", "No payment record found for this transaction hash. Make sure to submit the transaction first."))
+            // H6: Uniform error response to prevent tx hash enumeration
+            Err(UnifiedErrorResponse::json(404, "Transaction not found", "Unable to retrieve transaction status"))
         }
     }
 }

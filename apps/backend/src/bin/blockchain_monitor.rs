@@ -9,19 +9,20 @@ use tracing::{error, info, warn};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Initialize tracing subscriber for logging
-    tracing_subscriber::fmt()
-        .with_env_filter(
-            tracing_subscriber::EnvFilter::from_default_env()
-                .add_directive("epsx=info".parse()?)
-                .add_directive("blockchain_monitor=debug".parse()?)
-        )
-        .init();
+    // Load environment variables
+    dotenv::dotenv().ok();
+    
+    // Determine environment and log level
+    let is_production = std::env::var("RUST_ENV").unwrap_or_default() == "production" || 
+                        std::env::var("NODE_ENV").unwrap_or_default() == "production";
+    let log_level = std::env::var("LOG_LEVEL").unwrap_or_else(|_| "info".to_string());
+
+    // Initialize unified logger
+    epsx::infrastructure::logger::init_logger(is_production, &log_level);
 
     info!("Starting EPSX Blockchain Payment Monitor");
 
-    // Load environment variables
-    dotenv::dotenv().ok();
+    // Environment already loaded above
 
     // Load configuration from environment
     let database_url = std::env::var("DATABASE_URL")

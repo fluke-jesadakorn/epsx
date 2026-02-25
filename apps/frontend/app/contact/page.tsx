@@ -1,8 +1,6 @@
 import { Card, CardContent } from '@/components/ui';
-import { Mail, MessageSquare, Clock, Shield } from 'lucide-react';
-import { ContactForm, CopyEmailBtn } from './contact-form';
-
-const SUPPORT_EMAIL = 'support@epsx.io';
+import { Clock, Mail, MessageSquare, Shield } from 'lucide-react';
+import { CopyEmailBtn, MailtoBtn } from './contact-form';
 
 const INFO_CARDS = [
   {
@@ -56,62 +54,54 @@ export default function ContactPage() {
           </div>
         </div>
 
-        {/* Email highlight */}
-        <div className="container mx-auto px-4 pb-8">
-          <div className="flex items-center justify-center">
-            <div className="inline-flex items-center gap-3 bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl border border-purple-200/50 dark:border-purple-400/20 rounded-2xl px-6 py-3 shadow-lg">
-              <Mail className="h-5 w-5 text-purple-500" />
-              <a
-                href={`mailto:${SUPPORT_EMAIL}`}
-                className="text-lg font-semibold text-gray-800 dark:text-gray-100 hover:text-purple-500 dark:hover:text-purple-400 transition-colors"
-              >
-                {SUPPORT_EMAIL}
-              </a>
-              <CopyEmailBtn />
-            </div>
+        {/* Email CTA */}
+        <div className="container mx-auto px-4 pb-12">
+          <div className="max-w-lg mx-auto">
+            <Card className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl border border-purple-200/50 dark:border-purple-400/20 rounded-3xl shadow-2xl overflow-hidden">
+              <CardContent className="p-8 text-center">
+                <div className="inline-flex p-4 rounded-2xl bg-gradient-to-br from-purple-500 to-orange-500 mb-5">
+                  <Mail className="h-8 w-8 text-white" />
+                </div>
+                <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-2">
+                  Send us an email
+                </h2>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-5">
+                  Click below to open your email app
+                </p>
+                <MailtoBtn className="inline-flex items-center gap-2 bg-gradient-to-r from-purple-500 to-orange-500 hover:from-purple-600 hover:to-orange-600 text-white font-semibold px-8 py-3 rounded-xl transition-all" />
+                <div className="mt-4">
+                  <CopyEmailBtn />
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </div>
 
-        {/* Main content grid */}
+        {/* Info cards */}
         <div className="container mx-auto px-4 pb-16">
-          <div className="grid grid-cols-1 lg:grid-cols-5 gap-8 max-w-6xl mx-auto">
-            {/* Contact Form */}
-            <div className="lg:col-span-3">
-              <Card className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl border border-gray-200/50 dark:border-slate-600/30 rounded-3xl shadow-2xl overflow-hidden">
-                <CardContent className="p-8">
-                  <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-6">
-                    Send us a message
-                  </h2>
-                  <ContactForm />
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-4xl mx-auto">
+            {INFO_CARDS.map(c => (
+              <Card
+                key={c.title}
+                className={`bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl border ${c.border} rounded-3xl shadow-xl`}
+              >
+                <CardContent className="p-6">
+                  <div className="flex items-start gap-4">
+                    <div className={`p-3 rounded-2xl bg-gradient-to-br ${c.color} shrink-0`}>
+                      <c.icon className="h-5 w-5 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-gray-800 dark:text-gray-100 mb-1">
+                        {c.title}
+                      </h3>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        {c.desc}
+                      </p>
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
-            </div>
-
-            {/* Info cards */}
-            <div className="lg:col-span-2 space-y-4">
-              {INFO_CARDS.map(c => (
-                <Card
-                  key={c.title}
-                  className={`bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl border ${c.border} rounded-3xl shadow-xl`}
-                >
-                  <CardContent className="p-6">
-                    <div className="flex items-start gap-4">
-                      <div className={`p-3 rounded-2xl bg-gradient-to-br ${c.color} shrink-0`}>
-                        <c.icon className="h-5 w-5 text-white" />
-                      </div>
-                      <div>
-                        <h3 className="font-semibold text-gray-800 dark:text-gray-100 mb-1">
-                          {c.title}
-                        </h3>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">
-                          {c.desc}
-                        </p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+            ))}
           </div>
         </div>
       </div>

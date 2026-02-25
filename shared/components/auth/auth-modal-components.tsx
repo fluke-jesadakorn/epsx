@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import type { Connector } from 'wagmi';
 import { TurnstileWidget } from '../turnstile-widget';
 
@@ -11,6 +12,12 @@ export interface ConnectStepProps {
 }
 
 export function ConnectStep({ connectors, connect, isConnecting, error }: ConnectStepProps) {
+    const [connectingId, setConnectingId] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (!isConnecting) setConnectingId(null);
+    }, [isConnecting]);
+
     // Deduplicate connectors by name (RainbowKit registers multiple WalletConnect instances)
     const unique = connectors.filter((c, i, arr) => arr.findIndex((x) => x.name === c.name) === i);
 
@@ -25,7 +32,7 @@ export function ConnectStep({ connectors, connect, isConnecting, error }: Connec
                     <button
                         key={connector.uid}
                         className="auth-wallet-btn"
-                        onClick={() => connect({ connector })}
+                        onClick={() => { setConnectingId(connector.uid); connect({ connector }); }}
                         disabled={isConnecting}
                     >
                         <span className="auth-wallet-icon">
@@ -33,7 +40,7 @@ export function ConnectStep({ connectors, connect, isConnecting, error }: Connec
                                 connector.name === 'WalletConnect' ? '🔗' : '💼'}
                         </span>
                         <span className="auth-wallet-name">{connector.name}</span>
-                        {isConnecting && <span className="auth-spinner" />}
+                        {connectingId === connector.uid && <span className="auth-spinner" />}
                     </button>
                 ))}
             </div>
@@ -90,8 +97,6 @@ export interface SignStepProps {
     handleSign: () => void;
     handleDisconnect: () => void;
     isSigning: boolean;
-    isWalletClientLoading: boolean;
-    hasWalletClient: boolean;
     turnstileToken?: string | null;
     onTurnstileSuccess?: (token: string) => void;
     onTurnstileError?: () => void;
@@ -103,16 +108,13 @@ export function SignStep({
     handleSign,
     handleDisconnect,
     isSigning,
-    isWalletClientLoading,
-    hasWalletClient,
     turnstileToken,
     onTurnstileSuccess,
     onTurnstileError,
     onTurnstileExpire,
 }: SignStepProps) {
     const isTurnstileReady = Boolean(turnstileToken);
-    const isWalletReady = !isWalletClientLoading && hasWalletClient;
-    const canSign = isWalletReady && isTurnstileReady && !isSigning;
+    const canSign = isTurnstileReady && !isSigning;
 
     return (
         <div className="auth-step auth-step-enter">
@@ -168,11 +170,6 @@ export function SignStep({
                     <>
                         <span className="auth-spinner" />
                         Sign in Wallet...
-                    </>
-                ) : !isWalletReady ? (
-                    <>
-                        <span className="auth-spinner" />
-                        Preparing Wallet...
                     </>
                 ) : !isTurnstileReady ? (
                     '🛡️ Complete Verification First'

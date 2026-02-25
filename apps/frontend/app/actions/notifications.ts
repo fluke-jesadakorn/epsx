@@ -62,6 +62,21 @@ export async function markAsReadAction(notificationId: string): Promise<{ succes
 }
 
 /**
+ * Mark notification as unread
+ */
+export async function markAsUnreadAction(notificationId: string): Promise<{ success: boolean; message: string }> {
+  const client = getServerActionClient();
+  const notifications = createNotificationsClient(client);
+
+  try {
+    return await notifications.markAsUnread(notificationId);
+  } catch (error) {
+    logger.error('Failed to mark notification as unread:', error);
+    return { success: false, message: 'Failed to mark as unread' };
+  }
+}
+
+/**
  * Mark all notifications as read
  */
 export async function markAllAsReadAction(): Promise<{ success: boolean; updated_count: number }> {

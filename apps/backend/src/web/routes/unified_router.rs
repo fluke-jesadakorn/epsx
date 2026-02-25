@@ -493,6 +493,7 @@ impl UnifiedRouteBuilder {
         use crate::web::admin::notification_handlers::{
             get_user_notifications_handler,
             mark_notification_read_handler,
+            mark_notification_unread_handler,
             mark_all_notifications_read_handler,
             delete_notification_handler,
             clear_all_notifications_handler,
@@ -535,6 +536,7 @@ impl UnifiedRouteBuilder {
             .route("/mark-all-read", put(mark_all_notifications_read_handler))
             .route("/clear-all", delete(clear_all_notifications_handler))
             .route("/{id}/read", put(mark_notification_read_handler))
+            .route("/{id}/unread", put(mark_notification_unread_handler))
             .route("/{id}/acknowledge", put(acknowledge_notification_handler))
             .route("/{id}", delete(delete_notification_handler))
             .with_state(app_state.clone())

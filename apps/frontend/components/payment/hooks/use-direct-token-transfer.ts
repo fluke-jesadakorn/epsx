@@ -55,14 +55,26 @@ export function useDirectTokenTransfer({
         hash: txHash,
     })
 
-    // Handle transfer confirmation
+    // Handle transfer confirmation — M8: also verify receipt status
+    const {
+        data: receiptData
+    } = useWaitForTransactionReceipt({
+        hash: txHash,
+    })
+
     useEffect(() => {
         if (isConfirmed && txHash) {
+            // M8: Verify receipt status is 'success' (not just included in block)
+            if (receiptData && receiptData.status !== 'success') {
+                onError?.('Transaction was reverted on-chain. Please try again.')
+                setIsTransferring(false)
+                return
+            }
             devLog('✅ Transfer confirmed!')
             setIsTransferring(false)
             onSuccess?.(txHash)
         }
-    }, [isConfirmed, txHash, onSuccess])
+    }, [isConfirmed, txHash, onSuccess, receiptData, onError])
 
     // Handle errors
     useEffect(() => {

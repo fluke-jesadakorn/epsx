@@ -3,9 +3,11 @@ import ServerCardDashboard from '@/components/analytics/server-card-dashboard';
 import { ProgressiveAuthBanner } from '@/components/auth/progressive-auth-banner';
 import { AnalyticsAuthWrapper } from '@/components/auth/analytics-auth-wrapper';
 import { WatchlistProvider } from '@/components/portfolio/watchlist-provider';
+import { AnalyticsTransitionProvider } from '@/shared/components/analytics/analytics-transition-provider';
 import { getMyPlanAccessAction } from '@/app/actions/plans';
 import { getWatchlistAction } from '@/app/actions/watchlist';
 import { BarChart3, TrendingUp, Sparkles } from 'lucide-react';
+import { Suspense } from 'react';
 
 interface AnalyticsPageProps {
   searchParams: Promise<{
@@ -70,9 +72,13 @@ export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps
                 <PlanStatusBar planAccess={planAccess} />
               </div>
 
-              <ProgressiveAuthBanner />
+              <Suspense>
+                <ProgressiveAuthBanner />
+              </Suspense>
 
-              <ServerCardDashboard searchParams={{ ...resolvedSearchParams }} />
+              <AnalyticsTransitionProvider>
+                <ServerCardDashboard searchParams={{ ...resolvedSearchParams }} />
+              </AnalyticsTransitionProvider>
             </div>
           </div>
         </div>

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useAnalyticsTransition } from './analytics-transition-provider';
 
 interface JumpToPageFormProps {
   currentParams: string;
@@ -16,6 +17,7 @@ export default function JumpToPageForm({
 }: JumpToPageFormProps) {
   const [page, setPage] = useState('');
   const router = useRouter();
+  const { pending, start } = useAnalyticsTransition();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -23,7 +25,7 @@ export default function JumpToPageForm({
     if (pageNum >= 1 && pageNum <= totalPages) {
       const params = new URLSearchParams(currentParams);
       params.set('page', String(pageNum));
-      router.push(`/analytics?${params.toString()}`);
+      start(() => router.push(`/analytics?${params.toString()}`));
       setPage('');
     }
   };
@@ -42,9 +44,10 @@ export default function JumpToPageForm({
       />
       <button
         type="submit"
-        className="h-8 rounded-lg bg-purple-600 px-3 text-sm font-medium text-white hover:bg-purple-500 transition-colors"
+        disabled={pending}
+        className="h-8 rounded-lg bg-purple-600 px-3 text-sm font-medium text-white hover:bg-purple-500 transition-colors disabled:opacity-40"
       >
-        Go
+        {pending ? '...' : 'Go'}
       </button>
     </form>
   );

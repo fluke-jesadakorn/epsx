@@ -86,6 +86,14 @@ export default async function RootLayout({
     const userCookie = cookieStore.get(COOKIES.user)?.value;
     if (userCookie !== undefined && userCookie !== '') {
       initialUser = JSON.parse(decodeURIComponent(userCookie)) as UserInfoResponse;
+      // Include HttpOnly access_token for client-side hydration
+      // (JS can't read HttpOnly cookies, so pass it via initialUser)
+      if (initialUser !== null && (initialUser.access === undefined || initialUser.access === '')) {
+        const accessToken = cookieStore.get(COOKIES.access_token)?.value;
+        if (accessToken !== undefined && accessToken !== '') {
+          initialUser = { ...initialUser, access: accessToken };
+        }
+      }
     }
   } catch {
     // Invalid cookie - start fresh

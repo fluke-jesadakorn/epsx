@@ -1,6 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import { useAnalyticsTransition } from './analytics-transition-provider';
 
 interface PaginationButtonProps {
   page: number;
@@ -18,19 +19,20 @@ export default function PaginationButton({
   children
 }: PaginationButtonProps) {
   const router = useRouter();
+  const { pending, start } = useAnalyticsTransition();
 
   const handleClick = () => {
-    if (disabled) {return;}
-    
+    if (disabled || pending) {return;}
+
     const params = new URLSearchParams(currentParams);
     params.set('page', String(page));
-    router.push(`/analytics?${params.toString()}`);
+    start(() => router.push(`/analytics?${params.toString()}`));
   };
 
   return (
     <button
       onClick={handleClick}
-      disabled={disabled}
+      disabled={disabled || pending}
       className={className}
     >
       {children}

@@ -3,7 +3,6 @@
 import type { ReactNode} from 'react';
 import { Suspense } from 'react';
 
-import { Breadcrumb } from './breadcrumb';
 import { Header } from './Header';
 import { Sidebar } from './Sidebar';
 
@@ -43,11 +42,6 @@ export function MainLayout({ children, user }: MainLayoutProps) {
 
         {/* Content Wrapper - Fixed frame, internal main scrolls */}
         <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-          {/* Breadcrumb - Fixed with glass effect */}
-          <div className="relative border-b border-gray-200 dark:border-slate-700 bg-white dark:bg-[#13151e] px-3 sm:px-4 lg:px-6 py-2 sm:py-3 z-30">
-            <Breadcrumb />
-          </div>
-
           {/* Main Content - Scrollable */}
           <main className="flex-1 overflow-y-auto overflow-x-hidden p-0">
             <Suspense fallback={null}>

@@ -20,6 +20,7 @@ pub use notification_admin::{
 pub use notification_user::{
     get_user_notifications_handler,
     mark_notification_read_handler,
+    mark_notification_unread_handler,
     delete_notification_handler,
     get_unread_count_handler,
     mark_all_notifications_read_handler,

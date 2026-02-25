@@ -35,9 +35,7 @@ function NavContent() {
       <header className="sticky top-0 z-50 border-b border-slate-200/60 bg-white/95 backdrop-blur-md dark:border-slate-800 dark:bg-slate-950/95">
         <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4 md:px-6">
           <Link href="/" className="hover:opacity-80">
-            <span className="text-xl font-bold bg-gradient-to-r from-blue-500 to-purple-600 bg-clip-text text-transparent">
-              EPSX
-            </span>
+            <img src="/epsx-logo.svg" alt="EPSX" className="h-8 w-auto" />
           </Link>
           <div className="flex items-center gap-2">
             <div className="hidden md:flex items-center gap-2">
@@ -61,9 +59,7 @@ function NavContent() {
       <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4 md:px-6">
         {/* Mobile logo (shown <lg, DesktopNav has its own logo >=lg) */}
         <Link href="/" className="lg:hidden hover:opacity-80">
-          <span className="text-xl font-bold bg-gradient-to-r from-blue-500 to-purple-600 bg-clip-text text-transparent">
-            EPSX
-          </span>
+          <img src="/epsx-logo.svg" alt="EPSX" className="h-8 w-auto" />
         </Link>
 
         <DesktopNav />

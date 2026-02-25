@@ -28,8 +28,8 @@ const ERC20_TRANSFER_TOPIC: &str =
 pub struct TransactionMonitorConfig {
     /// RPC URL for blockchain queries
     pub rpc_url: String,
-    /// Payment receiver address (where tokens should be sent)
-    pub receiver_address: H160,
+    /// Payment receiver addresses (where tokens should be sent)
+    pub receiver_addresses: HashSet<H160>,
     /// Minimum confirmations required (15 for BSC mainnet)
     pub min_confirmations: u64,
     /// Polling interval in seconds
@@ -42,11 +42,27 @@ pub struct TransactionMonitorConfig {
 
 impl Default for TransactionMonitorConfig {
     fn default() -> Self {
-        let receiver = std::env::var("PAYMENT_RECEIVER_ADDRESS")
-            .or_else(|_| std::env::var("PAYMENT_ESCROW_ADDRESS"))
-            .ok()
-            .and_then(|addr| addr.parse::<H160>().ok())
-            .unwrap_or_else(H160::zero);
+        let mut receiver_addresses = HashSet::new();
+
+        if let Ok(addr_str) = std::env::var("PAYMENT_RECEIVER_ADDRESS") {
+            for s in addr_str.split(',') {
+                if let Ok(addr) = s.trim().parse::<H160>() {
+                    receiver_addresses.insert(addr);
+                }
+            }
+        }
+        
+        if let Ok(addr_str) = std::env::var("PAYMENT_ESCROW_ADDRESS") {
+            for s in addr_str.split(',') {
+                if let Ok(addr) = s.trim().parse::<H160>() {
+                    receiver_addresses.insert(addr);
+                }
+            }
+        }
+
+        if receiver_addresses.is_empty() {
+            error!("SECURITY: No PAYMENT_RECEIVER_ADDRESS or PAYMENT_ESCROW_ADDRESS configured. Transaction monitor will reject all payments.");
+        }
 
         let tokens_str = std::env::var("SUPPORTED_PAYMENT_TOKENS").unwrap_or_else(|_| {
             "0x55d398326f99059fF775485246999027B3197955,0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d,0x337610d27c682E347C9cD60BD4b3b107C9d34dDD,0x64544969ed7EBf5f083679233325356EbE738930".to_string()
@@ -65,8 +81,8 @@ impl Default for TransactionMonitorConfig {
         Self {
             rpc_url: std::env::var("BSC_RPC_URL")
                 .unwrap_or_else(|_| "https://bsc-dataseed.binance.org".to_string()),
-            receiver_address: receiver,
-            min_confirmations: if is_mainnet { 15 } else { 3 },
+            receiver_addresses,
+            min_confirmations: if is_mainnet { 50 } else { 3 },
             poll_interval_secs: 5,
             supported_tokens,
             pending_ttl_hours: 24,
@@ -77,6 +93,7 @@ impl Default for TransactionMonitorConfig {
 /// Parsed ERC20 Transfer event from tx receipt logs
 #[derive(Debug)]
 struct Erc20Transfer {
+    from: H160,
     token: H160,
     to: H160,
     amount: U256,
@@ -103,9 +120,9 @@ impl TransactionMonitorService {
     /// Start the background monitoring loop
     pub async fn start(&self) {
         info!(
-            "Transaction monitor started: confirmations={}, receiver={:?}, tokens={}, ttl={}h",
+            "Transaction monitor started: confirmations={}, receivers={:?}, tokens={}, ttl={}h",
             self.config.min_confirmations,
-            self.config.receiver_address,
+            self.config.receiver_addresses,
             self.config.supported_tokens.len(),
             self.config.pending_ttl_hours,
         );
@@ -160,11 +177,12 @@ impl TransactionMonitorService {
                     return None;
                 }
 
+                let from = H160::from(log.topics[1]);
                 let to = H160::from(log.topics[2]);
                 let amount = U256::from_big_endian(&log.data[..32]);
                 let token = log.address;
 
-                Some(Erc20Transfer { token, to, amount })
+                Some(Erc20Transfer { from, token, to, amount })
             })
             .collect()
     }
@@ -176,6 +194,7 @@ impl TransactionMonitorService {
         receipt: &TransactionReceipt,
         expected_amount: &bigdecimal::BigDecimal,
         expected_currency: &str,
+        expected_sender_wallet: &str,
     ) -> Result<(U256, H160), String> {
         let transfers = self.parse_erc20_transfers(receipt);
 
@@ -183,23 +202,29 @@ impl TransactionMonitorService {
             return Err("No ERC20 Transfer events in transaction".to_string());
         }
 
-        // Find a Transfer that sends to our receiver with a supported token
-        let receiver = self.config.receiver_address;
+        // Parse the expected sender wallet string to H160 to compare securely
+        let expected_from = expected_sender_wallet
+            .parse::<H160>()
+            .map_err(|e| format!("Invalid wallet_address format: {}", e))?;
+
+        // Find a Transfer that sends to any of our allowed receivers with a supported token
         let matching: Vec<&Erc20Transfer> = transfers
             .iter()
             .filter(|t| {
-                t.to == receiver
+                t.from == expected_from
+                    && self.config.receiver_addresses.contains(&t.to)
                     && self
                         .config
                         .supported_tokens
-                        .contains(&format!("{:?}", t.token).to_lowercase())
+                        .contains(&format!("{:#x}", t.token)) // ensuring it formats as 0x... lowercase
             })
             .collect();
 
         if matching.is_empty() {
             return Err(format!(
-                "No Transfer to receiver {:?} with supported token. Found {} transfers.",
-                receiver,
+                "No Transfer to valid receivers {:?} from {:?} with supported token. Found {} transfers.",
+                self.config.receiver_addresses,
+                expected_from,
                 transfers.len()
             ));
         }
@@ -529,6 +554,28 @@ impl TransactionMonitorService {
             }
         };
 
+        // M5: Check payment expiry — reject if created_at + TTL has passed
+        #[derive(diesel::QueryableByName)]
+        struct PaymentTimestamp {
+            #[diesel(sql_type = diesel::sql_types::Timestamptz)]
+            created_at: chrono::DateTime<Utc>,
+        }
+        let ts: Option<PaymentTimestamp> = diesel::sql_query(
+            "SELECT created_at FROM payments WHERE transaction_hash = $1 LIMIT 1"
+        )
+        .bind::<diesel::sql_types::Text, _>(tx_hash)
+        .get_result(&mut payments_conn)
+        .await
+        .ok();
+
+        if let Some(ts) = ts {
+            let age_hours = (Utc::now() - ts.created_at).num_hours();
+            if age_hours > self.config.pending_ttl_hours {
+                self.mark_as_failed(tx_hash, "Payment expired before blockchain confirmation").await?;
+                return Err(format!("Payment expired ({}h old, limit {}h)", age_hours, self.config.pending_ttl_hours));
+            }
+        }
+
         let plan_uuid = payment.plan_id;
         let wallet_address = payment.wallet_address;
 
@@ -544,7 +591,7 @@ impl TransactionMonitorService {
 
         // Verify ERC20 Transfer events in the receipt
         let (verified_amount, verified_token) =
-            self.verify_transfer_logs(receipt, &blockchain_amount, &payment.currency)?;
+            self.verify_transfer_logs(receipt, &blockchain_amount, &payment.currency, &wallet_address)?;
 
         info!(
             "On-chain verification passed: tx={}, amount_raw={}, token={:?}",
@@ -770,11 +817,10 @@ pub fn spawn_transaction_monitor() {
     tokio::spawn(async {
         let config = TransactionMonitorConfig::default();
 
-        if config.receiver_address == H160::zero() {
+        if config.receiver_addresses.is_empty() {
             warn!(
-                "PAYMENT_RECEIVER_ADDRESS/PAYMENT_ESCROW_ADDRESS not set, transaction monitor disabled"
+                "No PAYMENT_RECEIVES_ADDRESS or PAYMENT_ESCROW_ADDRESS found, transaction monitor running with defaults"
             );
-            return;
         }
 
         match TransactionMonitorService::new(config) {

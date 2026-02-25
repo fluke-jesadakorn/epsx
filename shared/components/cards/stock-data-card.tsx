@@ -42,7 +42,8 @@ const getRankTheme = (rank: number): { color: string; glow: 'blue' | 'purple' | 
   if (rank === 1) { return { color: 'text-yellow-400', glow: 'orange', label: 'CHAMPION' }; }
   if (rank === 2) { return { color: 'text-slate-300', glow: 'blue', label: 'ELITE' }; }
   if (rank === 3) { return { color: 'text-amber-500', glow: 'orange', label: 'LEGEND' }; }
-  if (rank <= 5) { return { color: 'text-blue-400', glow: 'blue', label: 'TOP 5' }; }
+  if (rank === 4) { return { color: 'text-emerald-400', glow: 'green', label: 'MASTER' }; }
+  if (rank === 5) { return { color: 'text-teal-400', glow: 'green', label: 'EXPERT' }; }
   return { color: 'text-blue-500', glow: 'none', label: `RANK #${rank}` };
 };
 
@@ -87,20 +88,25 @@ export const StockDataCard = ({
       )}
 
       {/* Top Rank Badge */}
-      {rank <= 3 && (
+      {rank <= 5 && (
         <div className="absolute top-3 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-20">
-          <div className="bg-gradient-to-r from-blue-600 to-cyan-500 text-white text-[10px] font-bold px-4 py-1.5 rounded-full shadow-lg uppercase tracking-wider">
+          <div className={cn(
+            "text-white text-[10px] font-bold px-4 py-1.5 rounded-full shadow-lg uppercase tracking-wider",
+            rank <= 3
+              ? "bg-gradient-to-r from-blue-600 to-cyan-500"
+              : "bg-gradient-to-r from-emerald-600 to-teal-500"
+          )}>
             {rankTheme.label}
           </div>
         </div>
       )}
 
-      <div className={cn("p-5 flex flex-col h-full relative z-10", rank <= 3 ? "pt-8" : "pt-5")}>
+      <div className={cn("p-5 flex flex-col h-full relative z-10", rank <= 5 ? "pt-8" : "pt-5")}>
 
         {/* Header */}
         <div className="text-center mb-4">
           <h3 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">
-            {rank > 3 ? rankTheme.label : 'Stock Symbol'}
+            {rank > 5 ? rankTheme.label : 'Stock Symbol'}
           </h3>
           <div className="flex items-center justify-center mb-0.5">
             <span className={cn("text-4xl font-black tracking-tighter", rankTheme.color)}>
@@ -120,7 +126,7 @@ export const StockDataCard = ({
         {/* Metrics */}
         <div className="space-y-2 mb-4 flex-grow">
           {/* EPS Growth */}
-          <div className="flex items-center justify-between group/feature p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-white/5 transition-colors">
+          <div className="flex items-center justify-between group/feature p-2 rounded-lg hover:bg-black/[0.05] dark:hover:bg-white/5 transition-colors">
             <div className="flex items-center gap-3">
               <div className={cn("p-1.5 rounded-md", isPositiveGrowth ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400")}>
                 <TrendingUp className="w-4 h-4" />

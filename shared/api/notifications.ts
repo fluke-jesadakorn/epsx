@@ -432,6 +432,34 @@ export class NotificationsAPIClient {
   }
 
   /**
+   * Mark notification as unread
+   * Route: PUT /api/notifications/{id}/unread
+   */
+  async markAsUnread(notificationId: string): Promise<{ success: boolean; message: string }> {
+    try {
+      const response = await this.client.put<{ success: boolean; message: string }>(
+        `${API_ROUTES.USERS.NOTIFICATIONS}/${notificationId}/unread`,
+        {},
+        {
+          headers: {
+            [API_VERSION_HEADER]: V1,
+            [ACCESS_LEVEL_HEADER]: AUTH_LEVEL,
+          },
+        }
+      )
+
+      if (!this.client.isApiSuccess(response)) {
+        handleNotificationError(response, 'mark notification as unread', { notificationId })
+      }
+
+      return response.data
+    } catch (error) {
+      if (error instanceof NotificationAPIError) { throw error }
+      handleNotificationError(error, 'mark notification as unread', { notificationId })
+    }
+  }
+
+  /**
    * Mark all notifications as read
    * Route: PUT /api/auth/notifications/mark-all-read
    */

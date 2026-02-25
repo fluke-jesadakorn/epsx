@@ -3,7 +3,9 @@
 
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+
+import { getAdminChatStats } from '@/app/actions/chat';
 
 import {
   BarChart3,
@@ -152,6 +154,21 @@ export function Sidebar() {
   const { isAuthenticated } = useSharedAuth();
 
   const isWalletConnected = isAuthenticated;
+  const [chatCount, setChatCount] = useState(0);
+
+  const loadChatStats = useCallback(async () => {
+    if (!isAuthenticated) return;
+    const res = await getAdminChatStats();
+    if (res.success && res.data) {
+      setChatCount(res.data.total_open + res.data.total_in_progress);
+    }
+  }, [isAuthenticated]);
+
+  useEffect(() => {
+    void loadChatStats();
+    const iv = setInterval(() => void loadChatStats(), 30_000);
+    return () => clearInterval(iv);
+  }, [loadChatStats]);
 
   // Auto-expand sections based on current path
   useEffect(() => {
@@ -185,14 +202,14 @@ export function Sidebar() {
   return (
     <div className="w-56 sm:w-64 min-w-0 max-w-64 bg-white dark:bg-[#13151e] border-r border-gray-200 dark:border-slate-700 h-full flex flex-col z-20">
       {/* Header */}
-      <div className="p-6">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#1fc7d4] to-[#7645d9] flex items-center justify-center text-white shadow-lg shadow-cyan-500/20">
+      <div className="px-6 pt-5 pb-4">
+        <div className="flex items-center gap-2.5">
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#1fc7d4] to-[#7645d9] flex items-center justify-center text-white shadow-lg shadow-cyan-500/20">
             <Home className="w-5 h-5" />
           </div>
-          <div>
-            <img src="/epsx-logo.svg" alt="EPSX" className="h-8 w-auto mb-1" />
-            <p className="text-[10px] uppercase tracking-[0.2em] font-bold text-cyan-400 -mt-1">Admin</p>
+          <div className="flex flex-col">
+            <img src="/epsx-logo.svg" alt="EPSX" className="h-7 w-auto" />
+            <p className="text-[10px] uppercase tracking-[0.2em] font-bold text-cyan-400 -mt-0.5">Admin</p>
           </div>
         </div>
       </div>
@@ -250,9 +267,13 @@ export function Sidebar() {
                         }`}>
                         <Icon className={`w-5 h-5 flex-shrink-0 ${isActive ? 'text-[#1fc7d4]' : ''}`} />
                         <span className="text-sm font-semibold truncate">{item.label}</span>
-                        {isActive && (
+                        {item.id === 'chat' && chatCount > 0 ? (
+                          <span className="ml-auto min-w-[20px] h-5 px-1.5 rounded-full bg-gradient-to-r from-violet-500 to-purple-500 text-white text-[10px] font-bold flex items-center justify-center shadow-sm shadow-violet-500/30">
+                            {chatCount > 99 ? '99+' : chatCount}
+                          </span>
+                        ) : isActive ? (
                           <div className="w-1.5 h-1.5 rounded-full bg-[#1fc7d4] ml-auto animate-pulse" />
-                        )}
+                        ) : null}
                       </div>
                     </Link>
                   )}

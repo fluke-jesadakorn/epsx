@@ -25,6 +25,15 @@ import { getBackendUrl } from './url-resolver';
 let sessionExpiredHandler: (() => void) | undefined;
 let isRedirecting = false;
 
+// Shared client-side token accessible by all UnifiedApiClient instances.
+// Set by auth provider after login/hydration so client-side API calls work
+// (access_token cookie is HttpOnly and unreadable by JS).
+let sharedClientToken: string | undefined;
+
+export function setSharedClientToken(token: string | undefined): void {
+  sharedClientToken = token;
+}
+
 export function registerSessionExpiredHandler(fn: () => void): void {
   sessionExpiredHandler = fn;
 }
@@ -195,8 +204,8 @@ export class UnifiedApiClient {
   }
 
   private getClientSideToken(): string | undefined {
-    // Return in-memory token (set via setAuthToken from provider)
-    return this.token;
+    // Per-instance token first, then shared token from auth provider
+    return this.token ?? sharedClientToken;
   }
 
   private async request<T>(
@@ -264,7 +273,8 @@ export class UnifiedApiClient {
     }
 
     if (!this.isServerSide) {
-      if (!isRedirecting) {
+      const onAuthPage = typeof window !== 'undefined' && window.location.pathname.startsWith('/auth');
+      if (!isRedirecting && !onAuthPage) {
         isRedirecting = true;
         if (sessionExpiredHandler !== undefined) {
           sessionExpiredHandler();
@@ -411,6 +421,8 @@ export class UnifiedApiClient {
 
       if (refreshResult.success && refreshResult.access_token !== undefined && refreshResult.access_token !== '') {
         this.token = refreshResult.access_token;
+        // Share refreshed token with all client instances
+        sharedClientToken = refreshResult.access_token;
         return { success: true, access_token: refreshResult.access_token };
       }
       return { success: false };

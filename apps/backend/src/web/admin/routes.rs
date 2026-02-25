@@ -124,6 +124,8 @@ use crate::web::auth::AppState;
 
 pub fn create_admin_routes() -> Router<AppState> {
   Router::new()
+    // Lightweight identity check used by admin-frontend middleware to gate page access
+    .route("/me", get(super::setup_handlers::admin_me_handler))
     // Security monitoring routes (require admin:security:* permissions)
     .route(
       "/security/events",

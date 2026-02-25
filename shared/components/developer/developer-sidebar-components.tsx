@@ -61,8 +61,8 @@ function SidebarNavItem({
                     <div className={cn(
                         "flex items-center gap-3 px-3 py-3 lg:py-2 rounded-lg min-w-0 overflow-hidden transition-all duration-200",
                         (isActive || hasActiveChild)
-                            ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200'
-                            : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800'
+                            ? 'bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300'
+                            : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5'
                     )}>
                         <span className="text-xl lg:text-lg flex-shrink-0">{item.icon}</span>
                         <div className="flex flex-col min-w-0">
@@ -105,8 +105,8 @@ function SidebarNavItem({
                                 <div className={cn(
                                     "flex items-center gap-3 px-3 py-3 lg:py-2 rounded-lg min-w-0 overflow-hidden transition-all duration-200",
                                     pathname === child.href || pathname.startsWith(`${child.href}/`)
-                                        ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/50 dark:text-blue-300'
-                                        : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/50'
+                                        ? 'bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-300'
+                                        : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/5'
                                 )}>
                                     <span className="text-base lg:text-sm flex-shrink-0">{child.icon}</span>
                                     <span className="text-base lg:text-sm font-medium text-ellipsis whitespace-nowrap overflow-hidden">

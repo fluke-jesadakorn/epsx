@@ -3,6 +3,7 @@
 import { useCallback } from 'react';
 import { loginAction } from '../../../auth/actions';
 import type { SharedWeb3AuthClient, UserInfoResponse } from '../../../auth/client';
+import { setSharedClientToken } from '../../../utils/api-client';
 import { logger } from '../../../utils/logger';
 
 interface UseWalletAuthProps {
@@ -189,6 +190,11 @@ function useDirectApiAuth({
                 packageTier: result.tier_level ?? 'free',
                 access: result.access_token,
             };
+
+            // Share token with all UnifiedApiClient instances
+            if (result.access_token !== undefined && result.access_token !== '') {
+                setSharedClientToken(result.access_token);
+            }
 
             setUser(user);
         } catch (error) {

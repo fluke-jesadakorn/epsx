@@ -17,20 +17,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let config = init_config();
 
     // Initialize tracing with level from configuration
-    // Filter out noisy tokio_postgres and rustls DEBUG logs by default
-    // Users can still enable them via RUST_LOG=tokio_postgres=debug,rustls=debug if needed
-    let filter = tracing_subscriber::EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| {
-            // Default: use LOG_LEVEL config + suppress noisy DEBUG logs
-            // This prevents verbose query preparation/execution logs from tokio_postgres
-            // and TLS handshake details from rustls
-            let filter_str = format!("{},tokio_postgres=warn,rustls=warn,hyper=error,h2=error", config.log_level);
-            tracing_subscriber::EnvFilter::new(&filter_str)
-        });
-    
-    tracing_subscriber::fmt()
-        .with_env_filter(filter)
-        .init();
+    // Uses the unified logging infrastructure
+    epsx::infrastructure::logger::init_logger(config.is_production(), &config.log_level);
 
     // Install default crypto provider for rustls
     let _ = rustls::crypto::ring::default_provider().install_default();

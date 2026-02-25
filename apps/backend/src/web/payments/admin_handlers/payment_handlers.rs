@@ -425,6 +425,7 @@ pub async fn admin_update_payment_status_handler(
 /// Process refund
 pub async fn admin_process_refund_handler(
     State(_app_state): State<crate::web::auth::AppState>,
+    axum::Extension(admin_ctx): axum::Extension<crate::web::middleware::OpenIDUserContext>,
     Path(payment_id): Path<Uuid>,
     Json(request): Json<RefundPaymentRequest>,
 ) -> Result<Json<RefundPaymentResponse>, Json<UnifiedErrorResponse>> {
@@ -433,8 +434,19 @@ pub async fn admin_process_refund_handler(
     use crate::infrastructure::database::get_payments_pool;
     use crate::schemas::payments::{payments, subscriptions, payment_audit_log};
 
+    // H7: Explicit permission check — don't rely solely on router middleware
+    if !admin_ctx.permissions.iter().any(|p| p == "admin:payments:refund" || p == "admin:*") {
+        return Err(Json(UnifiedErrorResponse::new(
+            403,
+            "Permission denied",
+            "admin:payments:refund permission required",
+        )));
+    }
+
+    let admin_wallet = &admin_ctx.wallet_address;
     info!(
-        "Admin processing refund for payment {}, reason: {}",
+        "Admin {} processing refund for payment {}, reason: {}",
+        admin_wallet,
         payment_id,
         request.reason
     );
@@ -518,7 +530,7 @@ pub async fn admin_process_refund_handler(
             payment_audit_log::old_status.eq(&old_status),
             payment_audit_log::new_status.eq("refunded"),
             payment_audit_log::reason.eq(&request.reason),
-            payment_audit_log::performed_by.eq("admin"),
+            payment_audit_log::performed_by.eq(admin_wallet.as_str()),
             payment_audit_log::created_at.eq(processed_at),
             payment_audit_log::metadata.eq(serde_json::json!({
                 "refund_id": refund_id,

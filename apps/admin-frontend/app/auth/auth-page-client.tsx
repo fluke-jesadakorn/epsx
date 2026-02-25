@@ -14,7 +14,8 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useAccount } from 'wagmi';
 
 const features = [
     { icon: ShieldCheck, title: 'Role-Based Access', desc: 'Granular permission controls for every admin role.' },
@@ -35,6 +36,24 @@ export default function AuthPageClient() {
     const [showModal, setShowModal] = useState(false);
     const redirectingRef = useRef(false);
     const reason = searchParams.get('reason');
+    const { status, isConnected } = useAccount();
+    const [timedOut, setTimedOut] = useState(false);
+    const wagmiReady = status !== 'reconnecting' && status !== 'connecting';
+    const isWagmiReady = wagmiReady || timedOut;
+
+    // Timeout: if wagmi reconnection takes >3s, unblock the UI
+    useEffect(() => {
+        if (wagmiReady) { return; }
+        const t = setTimeout(() => { setTimedOut(true); }, 3000);
+        return () => { clearTimeout(t); };
+    }, [wagmiReady]);
+
+    // Auto-open modal if wallet already connected
+    useEffect(() => {
+        if (isWagmiReady && isConnected && !showModal) {
+            setShowModal(true);
+        }
+    }, [isWagmiReady, isConnected]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const handleAuthSuccess = async () => {
         try {
@@ -150,10 +169,20 @@ export default function AuthPageClient() {
                                 <button
                                     type="button"
                                     onClick={() => { setShowModal(true); }}
-                                    className="flex w-full items-center justify-center gap-3 rounded-xl bg-gradient-to-r from-purple-500 to-orange-500 py-5 text-lg font-bold text-white shadow-2xl shadow-purple-500/10 transition-all hover:from-purple-600 hover:to-orange-600 hover:shadow-purple-500/20 active:scale-[0.98] sm:rounded-2xl sm:py-6 sm:text-xl"
+                                    disabled={!isWagmiReady}
+                                    className="flex w-full items-center justify-center gap-3 rounded-xl bg-gradient-to-r from-purple-500 to-orange-500 py-5 text-lg font-bold text-white shadow-2xl shadow-purple-500/10 transition-all hover:from-purple-600 hover:to-orange-600 hover:shadow-purple-500/20 active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed sm:rounded-2xl sm:py-6 sm:text-xl"
                                 >
-                                    <Lock className="h-5 w-5" />
-                                    Connect Wallet
+                                    {!isWagmiReady ? (
+                                        <>
+                                            <div className="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                                            Loading...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Lock className="h-5 w-5" />
+                                            Connect Wallet
+                                        </>
+                                    )}
                                 </button>
 
                                 {/* Benefits */}

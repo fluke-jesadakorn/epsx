@@ -27,7 +27,12 @@ pub async fn permission_validation_middleware(
     next: Next,
 ) -> Response {
     let method = request.method().clone();
-    let path = request.uri().path();
+    // Use OriginalUri to get the full path before .nest() stripping
+    let path = request.extensions()
+        .get::<axum::extract::OriginalUri>()
+        .map(|uri| uri.0.path().to_string())
+        .unwrap_or_else(|| request.uri().path().to_string());
+    let path = path.as_str();
 
     debug!("JWT permission validation: {} {}", method, path);
 

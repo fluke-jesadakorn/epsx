@@ -79,7 +79,7 @@ export default async function ServerTopPerformers({ className }: ServerTopPerfor
 
   try {
     const result = await getPublicRankingsAction({
-      page: 34,
+      page: 1,
       limit: 3,
       sort_by: 'growth_factor'
     });

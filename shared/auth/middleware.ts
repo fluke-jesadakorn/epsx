@@ -30,7 +30,7 @@ export function createAuthMiddleware(config: AuthMiddlewareConfig) {
 
         // 1. Initialize Response and Headers
         const response = NextResponse.next();
-        applySecurityHeaders(response, pathname);
+        applySecurityHeaders(response, pathname, request.nextUrl.hostname);
 
         // 2. Validate Authentication — use unified token resolution (sid → access_token → user.access)
         const token = getServerAuthToken(request.cookies);
@@ -139,9 +139,9 @@ function handleExplicitReturnUrl(request: NextRequest, loginPath: string): NextR
             return null;
         }
 
-        const cleanUrl = new URL(loginPath, request.url);
-        const responseRedirect = NextResponse.redirect(cleanUrl);
-        responseRedirect.cookies.set(COOKIES.return_url, returnUrl, {
+        // Pass through (keep return_url in URL) and also set cookie as backup
+        const response = NextResponse.next();
+        response.cookies.set(COOKIES.return_url, returnUrl, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
             sameSite: 'lax',
@@ -149,8 +149,8 @@ function handleExplicitReturnUrl(request: NextRequest, loginPath: string): NextR
             maxAge: 300
         });
 
-        logger.info('[AUTH] Middleware: Setting return_url cookie and redirecting', { returnUrl });
-        return responseRedirect;
+        logger.info('[AUTH] Middleware: Setting return_url cookie', { returnUrl });
+        return response;
     }
     return null;
 }
@@ -201,13 +201,15 @@ function checkIsPublicRoute(pathname: string, publicRoutes: string[] | undefined
 /**
  * Applies security headers to the response.
  */
-function applySecurityHeaders(response: NextResponse, pathname: string) {
+function applySecurityHeaders(response: NextResponse, pathname: string, hostname = 'localhost') {
     const headers = response.headers;
     const isProd = process.env.NODE_ENV === 'production';
 
     // Standard security headers
     headers.set('X-DNS-Prefetch-Control', 'on');
-    headers.set('X-Frame-Options', 'DENY');
+    // Allow same-origin iframe for Scalar API docs
+    const frameOpts = pathname === '/developer/docs/reference' ? 'SAMEORIGIN' : 'DENY';
+    headers.set('X-Frame-Options', frameOpts);
     headers.set('X-Content-Type-Options', 'nosniff');
     headers.set('X-XSS-Protection', '1; mode=block');
     headers.set('Referrer-Policy', 'origin-when-cross-origin');
@@ -219,14 +221,35 @@ function applySecurityHeaders(response: NextResponse, pathname: string) {
     }
 
     // Content Security Policy
+    let devConnectSrc = '';
+    if (!isProd) {
+        const devSources = new Set(['http://localhost:*', 'ws://localhost:*']);
+        // Add request hostname if meaningful
+        if (hostname !== 'localhost' && hostname !== '0.0.0.0') {
+            devSources.add(`http://${hostname}:*`);
+            devSources.add(`ws://${hostname}:*`);
+        }
+        // Add backend URL from env (handles IP-based access like Tailscale)
+        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
+        if (backendUrl !== undefined && backendUrl !== '') {
+            try {
+                const parsed = new URL(backendUrl);
+                const wsProto = parsed.protocol === 'https:' ? 'wss:' : 'ws:';
+                devSources.add(`${parsed.protocol}//${parsed.hostname}:*`);
+                devSources.add(`${wsProto}//${parsed.hostname}:*`);
+            } catch { /* ignore invalid URL */ }
+        }
+        devConnectSrc = ' ' + [...devSources].join(' ');
+    }
+
     const csp = [
         "default-src 'self'",
         "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://challenges.cloudflare.com",
         "style-src 'self' 'unsafe-inline'",
         "img-src 'self' data: blob: https:",
         "font-src 'self' data:",
-        "connect-src 'self' https://*.epsx.io wss://*.epsx.io https://challenges.cloudflare.com https://*.walletconnect.com wss://*.walletconnect.com https://*.walletconnect.org wss://*.walletconnect.org",
-        "frame-src https://challenges.cloudflare.com https://verify.walletconnect.com https://verify.walletconnect.org",
+        `connect-src 'self' https://*.epsx.io wss://*.epsx.io https://challenges.cloudflare.com https://*.walletconnect.com wss://*.walletconnect.com https://*.walletconnect.org wss://*.walletconnect.org https://*.bnbchain.org https://*.web3modal.org${devConnectSrc}`,
+        "frame-src 'self' https://challenges.cloudflare.com https://verify.walletconnect.com https://verify.walletconnect.org",
         "object-src 'none'",
         "base-uri 'self'",
         "form-action 'self'",

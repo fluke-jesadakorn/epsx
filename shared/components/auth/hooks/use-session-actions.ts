@@ -3,6 +3,7 @@
 import { useCallback } from 'react';
 import { logoutAction, refreshSessionAction } from '../../../auth/actions';
 import type { SharedWeb3AuthClient } from '../../../auth/client';
+import { setSharedClientToken } from '../../../utils/api-client';
 import { logger } from '../../../utils/logger';
 
 interface UseSessionActionsProps {
@@ -36,6 +37,7 @@ export function useSessionActions({
 
             await clearServerSession();
             client.logout();
+            setSharedClientToken(undefined);
             logger.info('Logout successful');
         } catch (err: unknown) {
             const errorMessage = err instanceof Error ? err.message : 'Logout failed';
@@ -63,6 +65,7 @@ export function useSessionActions({
             const result = await refreshSessionAction();
             if (result.success && result.access_token !== undefined && result.access_token !== '') {
                 client.updateTokens(result.access_token, result.expires_in);
+                setSharedClientToken(result.access_token);
                 await client.loadCurrentUser();
                 return true;
             }

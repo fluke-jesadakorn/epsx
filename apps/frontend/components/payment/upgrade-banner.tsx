@@ -54,7 +54,7 @@ export function UpgradeBanner({
             try {
                 setLoading(true);
                 const baseUrl = env.BACKEND_URL;
-                const url = `${baseUrl}/api/payments/subscriptions/upgrade-preview?new_plan_id=${newPlanId}`;
+                const url = `${baseUrl}/api/payments/plans/upgrade_preview?new_plan_id=${newPlanId}`;
 
                 const response = await fetch(url, {
                     method: 'GET',

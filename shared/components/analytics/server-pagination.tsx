@@ -69,10 +69,10 @@ export default function ServerPagination({
         </PaginationButton>
 
         <div className="flex items-center gap-1 mx-1">
-          {visiblePages.map((pageNum) => {
+          {visiblePages.map((pageNum, idx) => {
             if (pageNum === '...') {
               return (
-                <span key={`dots-${page}`} className="flex items-center justify-center w-9 h-9 text-slate-500 text-sm">
+                <span key={`dots-${idx}`} className="flex items-center justify-center w-9 h-9 text-slate-500 text-sm">
                   ...
                 </span>
               );

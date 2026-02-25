@@ -10,12 +10,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui';
-import { themeUtils } from '@/components/ui/safe-theme-script';
 import { formatAddress } from '@/shared/auth/utils';
 import { useSharedAuth } from '@/shared/components/auth';
 import { getExplorerAddressLink } from '@/shared/config/constants';
 import { copyToClipboard } from '@/utils/clipboard';
-import { Check, ChevronRight, Code, Copy, ExternalLink, LogOut, Moon, Settings, Sun, Wallet } from 'lucide-react';
+import { Check, Code, Copy, ExternalLink, LogOut, Settings, Wallet } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -70,7 +69,6 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
   const [isDisconnecting, setIsDisconnecting] = useState(false);
   const [authRetryCount, setAuthRetryCount] = useState(0);
   const [lastAuthError, setLastAuthError] = useState<string | null>(null);
-  const [currentTheme, setCurrentTheme] = useState<'light' | 'dark'>('light');
   const { address, isConnected, connector } = useAccount();
   const { disconnect } = useDisconnect();
   const { isInitialized } = useUnifiedWeb3();
@@ -80,7 +78,6 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
   useEffect(() => {
     if (!isHydrated) {
       setIsHydrated(true);
-      setCurrentTheme(themeUtils.getTheme());
     }
   }, [isHydrated]);
 
@@ -151,11 +148,6 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
     } finally {
       setIsDisconnecting(false);
     }
-  };
-
-  const handleThemeToggle = () => {
-    const newTheme = themeUtils.toggleTheme();
-    setCurrentTheme(newTheme);
   };
 
   // Loading state - only wait for hydration and initialization
@@ -340,11 +332,10 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
             <Link
               href="/account"
               className="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer
-                hover:bg-slate-100 dark:hover:bg-slate-700 dark:bg-slate-800 transition-colors"
+                hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
             >
               <Settings className="h-4 w-4 text-orange-500" />
               <span className="flex-1 text-sm font-medium text-slate-700 dark:text-slate-300">Account Settings</span>
-              <ChevronRight className="h-4 w-4 text-orange-500" />
             </Link>
           </DropdownMenuItem>
 
@@ -352,41 +343,12 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
             <Link
               href="/developer"
               className="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer
-                hover:bg-slate-100 dark:hover:bg-slate-700 dark:bg-slate-800 transition-colors"
+                hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
             >
               <Code className="h-4 w-4 text-orange-500" />
               <span className="flex-1 text-sm font-medium text-slate-700 dark:text-slate-300">Developer Portal</span>
-              <ChevronRight className="h-4 w-4 text-orange-500" />
             </Link>
           </DropdownMenuItem>
-        </div>
-
-        <DropdownMenuSeparator className="bg-slate-200/50 dark:bg-slate-700/50 my-0" />
-
-        {/* ═══════════════════════════════════════════════════════════════
-            THEME TOGGLE
-        ═══════════════════════════════════════════════════════════════ */}
-        <div className="p-2">
-          <button
-            onClick={handleThemeToggle}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl
-              hover:bg-slate-100 dark:hover:bg-slate-700 dark:bg-slate-800 transition-colors"
-          >
-            {currentTheme === 'dark' ? (
-              <Moon className="h-4 w-4 text-orange-500" />
-            ) : (
-              <Sun className="h-4 w-4 text-orange-500" />
-            )}
-            <span className="flex-1 text-left text-sm font-medium text-slate-700 dark:text-slate-300">
-              {currentTheme === 'dark' ? 'Dark Mode' : 'Light Mode'}
-            </span>
-            {/* Toggle Switch */}
-            <div className={`relative w-10 h-5 rounded-full transition-colors ${currentTheme === 'dark' ? 'bg-orange-500' : 'bg-slate-300'
-              }`}>
-              <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${currentTheme === 'dark' ? 'translate-x-5' : 'translate-x-0.5'
-                }`} />
-            </div>
-          </button>
         </div>
 
         <DropdownMenuSeparator className="bg-slate-200/50 dark:bg-slate-700/50 my-0" />

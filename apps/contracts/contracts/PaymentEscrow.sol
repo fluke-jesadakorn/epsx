@@ -6,6 +6,7 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/utils/Address.sol";
 
 /**
  * @title PaymentEscrow V2
@@ -19,6 +20,7 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
  */
 contract PaymentEscrow is AccessControl, Pausable, ReentrancyGuard {
     using SafeERC20 for IERC20;
+    using Address for address payable;
 
     // ============ Enums ============
 
@@ -119,10 +121,12 @@ contract PaymentEscrow is AccessControl, Pausable, ReentrancyGuard {
     // ============ Constructor ============
 
     constructor(address initialAdmin) {
+        require(initialAdmin != address(0), "Invalid admin address");
         _grantRole(DEFAULT_ADMIN_ROLE, initialAdmin);
         _grantRole(MANAGER_ROLE, initialAdmin);
-        // Default limits: no minimum, 1M tokens max, no daily limit
+        // Default limits: no minimum, 1M tokens max, 100K daily limit
         maxPaymentAmount = 1_000_000 * 1e18;
+        dailyLimitPerUser = 100_000 * 1e18;
         // Contract starts unpaused and ready to receive payments
     }
 
@@ -195,8 +199,7 @@ contract PaymentEscrow is AccessControl, Pausable, ReentrancyGuard {
 
         // Refund the native currency if any was sent (for MetaMask display only)
         if (msg.value > 0) {
-            (bool success, ) = payable(msg.sender).call{value: msg.value}("");
-            require(success, "Refund failed");
+            payable(msg.sender).sendValue(msg.value);
         }
 
         // Emit event for backend verification

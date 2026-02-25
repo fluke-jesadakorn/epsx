@@ -14,6 +14,8 @@ export const middleware = createAuthMiddleware({
         '/upgrade',
         '/api/auth',
         '/api/public',
+        '/developer/docs/reference',
+        '/developer/docs/openapi',
         '/_next',
         '/favicon.ico',
         '/robots.txt',

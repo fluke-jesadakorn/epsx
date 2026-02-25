@@ -46,7 +46,7 @@ pub async fn get_user_notifications_handler(
     axum::Extension(user_ctx): axum::Extension<crate::web::middleware::bearer_middleware::OpenIDUserContext>,
     Query(filters): Query<NotificationFilters>,
 ) -> Result<impl IntoResponse, AppError> {
-    let wallet_address = user_ctx.wallet_address.clone();
+    let wallet_address = user_ctx.wallet_address.clone().to_lowercase();
 
     let pg = Pagination::standard(filters.page, filters.limit);
 
@@ -159,7 +159,7 @@ pub async fn mark_notification_read_handler(
     axum::Extension(user_ctx): axum::Extension<crate::web::middleware::bearer_middleware::OpenIDUserContext>,
     Path(notification_id): Path<String>,
 ) -> Result<impl IntoResponse, AppError> {
-    let wallet_address = user_ctx.wallet_address.clone();
+    let wallet_address = user_ctx.wallet_address.clone().to_lowercase();
 
     let notif_uuid = uuid::Uuid::parse_str(&notification_id)
         .map_err(|e| AppError::new(ErrorKind::ValidationError, format!("Invalid notification ID: {}", e)))?;
@@ -180,7 +180,7 @@ pub async fn mark_notification_read_handler(
         r#"
         UPDATE wallet_notifications
         SET status = 'read', updated_at = $1
-        WHERE id = $2 AND (recipient_wallet_address = $3 OR recipient_wallet_address IS NULL)
+        WHERE id = $2 AND (LOWER(recipient_wallet_address) = $3 OR recipient_wallet_address = 'all' OR recipient_wallet_address IS NULL)
         "#
     )
     .bind::<diesel::sql_types::Timestamptz, _>(now)
@@ -200,6 +200,55 @@ pub async fn mark_notification_read_handler(
     Ok(Json(serde_json::json!({
         "success": true,
         "message": "Notification marked as read",
+        "notification_id": notification_id
+    })))
+}
+
+/// Mark notification as unread
+pub async fn mark_notification_unread_handler(
+    State(app_state): State<AppState>,
+    axum::Extension(user_ctx): axum::Extension<crate::web::middleware::bearer_middleware::OpenIDUserContext>,
+    Path(notification_id): Path<String>,
+) -> Result<impl IntoResponse, AppError> {
+    let wallet_address = user_ctx.wallet_address.clone().to_lowercase();
+
+    let notif_uuid = uuid::Uuid::parse_str(&notification_id)
+        .map_err(|e| AppError::new(ErrorKind::ValidationError, format!("Invalid notification ID: {}", e)))?;
+
+    let notifications_pool = if let Ok(p) = crate::infrastructure::database::get_notifications_pool().await {
+        std::sync::Arc::new(p)
+    } else {
+        app_state.db_pool.clone()
+    };
+    let mut conn = notifications_pool.get().await
+        .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to get database connection: {}", e)))?;
+
+    let now = Utc::now();
+
+    let rows_affected = diesel::sql_query(
+        r#"
+        UPDATE wallet_notifications
+        SET status = 'unread', updated_at = $1
+        WHERE id = $2 AND (LOWER(recipient_wallet_address) = $3 OR recipient_wallet_address = 'all' OR recipient_wallet_address IS NULL)
+        "#
+    )
+    .bind::<diesel::sql_types::Timestamptz, _>(now)
+    .bind::<diesel::sql_types::Uuid, _>(notif_uuid)
+    .bind::<diesel::sql_types::Text, _>(&wallet_address)
+    .execute(&mut conn)
+    .await
+    .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to mark notification as unread: {}", e)))?;
+
+    if rows_affected == 0 {
+        return Err(AppError::new(
+            ErrorKind::AggregateNotFound,
+            "Notification not found".to_string(),
+        ));
+    }
+
+    Ok(Json(serde_json::json!({
+        "success": true,
+        "message": "Notification marked as unread",
         "notification_id": notification_id
     })))
 }
@@ -225,7 +274,7 @@ pub async fn delete_notification_handler(
     axum::Extension(user_ctx): axum::Extension<crate::web::middleware::bearer_middleware::OpenIDUserContext>,
     Path(notification_id): Path<String>,
 ) -> Result<impl IntoResponse, AppError> {
-    let wallet_address = user_ctx.wallet_address.clone();
+    let wallet_address = user_ctx.wallet_address.clone().to_lowercase();
 
     let notif_uuid = uuid::Uuid::parse_str(&notification_id)
         .map_err(|e| AppError::new(ErrorKind::ValidationError, format!("Invalid notification ID: {}", e)))?;
@@ -245,7 +294,7 @@ pub async fn delete_notification_handler(
         r#"
         UPDATE wallet_notifications
         SET status = 'deleted', updated_at = NOW()
-        WHERE id = $1 AND status != 'deleted' AND (recipient_wallet_address = $2 OR recipient_wallet_address IS NULL)
+        WHERE id = $1 AND status != 'deleted' AND (LOWER(recipient_wallet_address) = $2 OR recipient_wallet_address = 'all' OR recipient_wallet_address IS NULL)
         "#
     )
     .bind::<diesel::sql_types::Uuid, _>(notif_uuid)
@@ -284,7 +333,7 @@ pub async fn get_unread_count_handler(
     State(app_state): State<AppState>,
     axum::Extension(user_ctx): axum::Extension<crate::web::middleware::bearer_middleware::OpenIDUserContext>,
 ) -> Result<impl IntoResponse, AppError> {
-    let wallet_address = user_ctx.wallet_address.clone();
+    let wallet_address = user_ctx.wallet_address.clone().to_lowercase();
 
     // Get notifications database connection
     let notifications_pool = if let Ok(p) = crate::infrastructure::database::get_notifications_pool().await {
@@ -303,7 +352,7 @@ pub async fn get_unread_count_handler(
 
     let unread_count: i64 = diesel::sql_query(
         "SELECT COUNT(*) as count FROM wallet_notifications \
-         WHERE (recipient_wallet_address = $1 OR recipient_wallet_address IS NULL) \
+         WHERE (LOWER(recipient_wallet_address) = $1 OR recipient_wallet_address = 'all' OR recipient_wallet_address IS NULL) \
          AND status != 'read' AND status != 'deleted'"
     )
     .bind::<diesel::sql_types::Text, _>(&wallet_address)
@@ -333,7 +382,7 @@ pub async fn mark_all_notifications_read_handler(
     State(app_state): State<AppState>,
     axum::Extension(user_ctx): axum::Extension<crate::web::middleware::bearer_middleware::OpenIDUserContext>,
 ) -> Result<impl IntoResponse, AppError> {
-    let wallet_address = user_ctx.wallet_address.clone();
+    let wallet_address = user_ctx.wallet_address.clone().to_lowercase();
 
     // Get notifications database connection
     let notifications_pool = if let Ok(p) = crate::infrastructure::database::get_notifications_pool().await {
@@ -350,7 +399,7 @@ pub async fn mark_all_notifications_read_handler(
         r#"
         UPDATE wallet_notifications
         SET status = 'read', updated_at = $1
-        WHERE (recipient_wallet_address = $2 OR recipient_wallet_address IS NULL) AND status != 'read' AND status != 'deleted'
+        WHERE (LOWER(recipient_wallet_address) = $2 OR recipient_wallet_address = 'all' OR recipient_wallet_address IS NULL) AND status != 'read' AND status != 'deleted'
         "#
     )
     .bind::<diesel::sql_types::Timestamptz, _>(now)
@@ -382,7 +431,7 @@ pub async fn clear_all_notifications_handler(
     State(app_state): State<AppState>,
     axum::Extension(user_ctx): axum::Extension<crate::web::middleware::bearer_middleware::OpenIDUserContext>,
 ) -> Result<impl IntoResponse, AppError> {
-    let wallet_address = user_ctx.wallet_address.clone();
+    let wallet_address = user_ctx.wallet_address.clone().to_lowercase();
 
     // Get notifications database connection
     let notifications_pool = if let Ok(p) = crate::infrastructure::database::get_notifications_pool().await {
@@ -398,7 +447,7 @@ pub async fn clear_all_notifications_handler(
         r#"
         UPDATE wallet_notifications
         SET status = 'deleted', updated_at = NOW()
-        WHERE (recipient_wallet_address = $1 OR recipient_wallet_address IS NULL) AND status != 'deleted'
+        WHERE (LOWER(recipient_wallet_address) = $1 OR recipient_wallet_address = 'all' OR recipient_wallet_address IS NULL) AND status != 'deleted'
         "#
     )
     .bind::<diesel::sql_types::Text, _>(&wallet_address)

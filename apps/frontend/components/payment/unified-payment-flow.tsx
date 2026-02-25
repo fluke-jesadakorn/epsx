@@ -32,6 +32,11 @@ interface RawPlan {
     tier_level?: number;
     plan_type?: string;
     description?: string;
+    effective_price?: number;
+    promotion_active?: boolean;
+    promotion_discount?: number;
+    promotion_ends_at?: string;
+    currency?: string;
 }
 
 interface UnifiedPaymentFlowProps {

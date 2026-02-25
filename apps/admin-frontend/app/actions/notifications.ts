@@ -39,6 +39,18 @@ export async function getAdminNotificationsAction(filters: {
   }
 }
 
+export async function markAsUnreadAction(notificationId: string): Promise<{ success: boolean; message: string }> {
+  const client = getAdminServerActionClient();
+  const notifications = createNotificationsClient(client);
+
+  try {
+    return await notifications.markAsUnread(notificationId);
+  } catch (error) {
+    logger.error('Failed to mark admin notification as unread:', error);
+    return { success: false, message: 'Failed to mark as unread' };
+  }
+}
+
 export async function markAllAsReadAction(): Promise<{ success: boolean; updated_count: number }> {
   const client = getAdminServerActionClient();
   const notifications = createNotificationsClient(client);
@@ -60,5 +72,17 @@ export async function deleteAdminNotificationAction(notificationId: string): Pro
   } catch (error) {
     logger.error('Failed to delete admin notification:', error);
     return { success: false, message: 'Failed to delete notification' };
+  }
+}
+
+export async function markAsReadAction(notificationId: string): Promise<{ success: boolean }> {
+  const client = getAdminServerActionClient();
+  const notifications = createNotificationsClient(client);
+
+  try {
+    return await notifications.markAsRead(notificationId);
+  } catch (error) {
+    logger.error('Failed to mark notification as read:', error);
+    return { success: false };
   }
 }

@@ -97,6 +97,19 @@ export interface WagmiConfigOptions {
     ssr?: boolean;
 }
 
+function getBscTransports(resolvedChains: Chain[]): Record<number, ReturnType<typeof http>> {
+    return resolvedChains.reduce<Record<number, ReturnType<typeof http>>>((acc, chain) => {
+        if (chain.id === bsc.id) {
+            acc[chain.id] = http('https://bsc-dataseed.bnbchain.org');
+        } else if (chain.id === bscTestnet.id) {
+            acc[chain.id] = http('https://bsc-testnet-dataseed.bnbchain.org');
+        } else {
+            acc[chain.id] = http(); // Anvil: use chain default
+        }
+        return acc;
+    }, {});
+}
+
 /**
  * Client-Side Configuration (Uses RainbowKit's getDefaultConfig)
  * WARNING: Do not call this from Server Components!
@@ -112,6 +125,7 @@ export function getConfig({
         appName,
         projectId,
         chains: resolvedChains as [Chain, ...Chain[]],
+        transports: getBscTransports(resolvedChains),
         ssr,
         storage: createStorage({
             storage: cookieStorage,
@@ -126,7 +140,11 @@ export function getConfig({
 export function getServerConfig() {
     const chains = getDefaultChains();
     const transports = chains.reduce<Record<number, ReturnType<typeof http>>>((acc, chain) => {
-        acc[chain.id] = http();
+        acc[chain.id] = chain.id === bsc.id
+            ? http('https://bsc-dataseed.bnbchain.org')
+            : chain.id === bscTestnet.id
+            ? http('https://bsc-testnet-dataseed.bnbchain.org')
+            : http();
         return acc;
     }, {});
 

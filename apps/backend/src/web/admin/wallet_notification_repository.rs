@@ -159,10 +159,10 @@ impl WalletNotificationRepository {
             .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to get database connection: {}", e)))?;
 
         // Build WHERE clause manually
-        let escaped_wallet = wallet_address.replace("'", "''");
+        let escaped_wallet = wallet_address.to_lowercase().replace("'", "''");
         let mut where_parts = vec![
             "status != 'deleted'".to_string(),
-            format!("(recipient_wallet_address = '{}' OR recipient_wallet_address = 'all')", escaped_wallet)
+            format!("(LOWER(recipient_wallet_address) = '{}' OR recipient_wallet_address = 'all')", escaped_wallet)
         ];
 
         if let Some(ref notif_type) = filter.notification_type {
@@ -307,10 +307,10 @@ impl WalletNotificationRepository {
         let mut conn = self.pool.get().await
             .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to get database connection: {}", e)))?;
 
-        let escaped_wallet = wallet_address.replace("'", "''");
+        let escaped_wallet = wallet_address.to_lowercase().replace("'", "''");
         let mut where_parts = vec![
             "status != 'deleted'".to_string(),
-            format!("(recipient_wallet_address = '{}' OR recipient_wallet_address = 'all')", escaped_wallet)
+            format!("(LOWER(recipient_wallet_address) = '{}' OR recipient_wallet_address = 'all')", escaped_wallet)
         ];
 
         if let Some(ref notif_type) = filter.notification_type {
@@ -396,11 +396,11 @@ impl WalletNotificationRepository {
         let mut conn = self.pool.get().await
             .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to get database connection: {}", e)))?;
 
-        let escaped_wallet = wallet_address.replace("'", "''");
+        let escaped_wallet = wallet_address.to_lowercase().replace("'", "''");
         let mut where_parts = vec![
             "status != 'deleted'".to_string(),
             "status != 'read'".to_string(),
-            format!("(recipient_wallet_address = '{}' OR recipient_wallet_address = 'all')", escaped_wallet)
+            format!("(LOWER(recipient_wallet_address) = '{}' OR recipient_wallet_address = 'all')", escaped_wallet)
         ];
 
         if let Some(ref notif_type) = filter.notification_type {
@@ -502,7 +502,7 @@ impl WalletNotificationRepository {
             r#"
             UPDATE wallet_notifications
             SET status = 'read', updated_at = $1
-            WHERE id = $2 AND (recipient_wallet_address = $3 OR recipient_wallet_address = 'all')
+            WHERE id = $2 AND (LOWER(recipient_wallet_address) = LOWER($3) OR recipient_wallet_address = 'all')
             "#
         )
         .bind::<diesel::sql_types::Timestamptz, _>(now)
@@ -526,7 +526,7 @@ impl WalletNotificationRepository {
             r#"
             UPDATE wallet_notifications
             SET status = 'read', updated_at = $1
-            WHERE (recipient_wallet_address = $2 OR recipient_wallet_address = 'all') AND status != 'read' AND status != 'deleted'
+            WHERE (LOWER(recipient_wallet_address) = LOWER($2) OR recipient_wallet_address = 'all') AND status != 'read' AND status != 'deleted'
             "#
         )
         .bind::<diesel::sql_types::Timestamptz, _>(now)
@@ -547,7 +547,7 @@ impl WalletNotificationRepository {
             r#"
             UPDATE wallet_notifications
             SET status = 'deleted', updated_at = NOW()
-            WHERE id = $1 AND status != 'deleted' AND (recipient_wallet_address = $2 OR recipient_wallet_address = 'all')
+            WHERE id = $1 AND status != 'deleted' AND (LOWER(recipient_wallet_address) = LOWER($2) OR recipient_wallet_address = 'all')
             "#
         )
         .bind::<diesel::sql_types::Uuid, _>(id)
@@ -568,7 +568,7 @@ impl WalletNotificationRepository {
             r#"
             UPDATE wallet_notifications
             SET status = 'deleted', updated_at = NOW()
-            WHERE (recipient_wallet_address = $1 OR recipient_wallet_address = 'all') AND status != 'deleted'
+            WHERE (LOWER(recipient_wallet_address) = LOWER($1) OR recipient_wallet_address = 'all') AND status != 'deleted'
             "#
         )
         .bind::<diesel::sql_types::Text, _>(wallet_address)
@@ -608,7 +608,7 @@ impl WalletNotificationRepository {
 
         let count = diesel::sql_query(
             "SELECT COUNT(*) as count FROM wallet_notifications \
-             WHERE (recipient_wallet_address = $1 OR recipient_wallet_address = 'all') \
+             WHERE (LOWER(recipient_wallet_address) = LOWER($1) OR recipient_wallet_address = 'all') \
              AND status != 'read' AND status != 'deleted'"
         )
         .bind::<diesel::sql_types::Text, _>(wallet_address)

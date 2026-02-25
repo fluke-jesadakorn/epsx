@@ -36,11 +36,9 @@ export function AuthModal({
         isSigning,
         isConnecting,
         isSwitching,
-        isWalletClientLoading,
         address,
         connectors,
         connect,
-        walletClient,
         handleSwitchChain,
         handleSign,
         handleRetry,
@@ -80,11 +78,9 @@ export function AuthModal({
                             isSigning={isSigning}
                             isConnecting={isConnecting}
                             isSwitching={isSwitching}
-                            isWalletClientLoading={isWalletClientLoading}
                             address={address ?? undefined}
                             connectors={connectors}
                             connect={connect}
-                            walletClient={walletClient}
                             handleSwitchChain={handleSwitchChain}
                             handleSign={handleSign}
                             handleRetry={handleRetry}
@@ -116,11 +112,9 @@ interface AuthModalContentProps {
     isSigning: boolean;
     isConnecting: boolean;
     isSwitching: boolean;
-    isWalletClientLoading: boolean;
     address?: string;
     connectors: readonly Connector[];
     connect: (args: { connector: Connector }) => void;
-    walletClient: unknown;
     handleSwitchChain: () => Promise<void>;
     handleSign: () => Promise<void>;
     handleRetry: () => void;
@@ -141,11 +135,9 @@ function AuthModalContent({
     isSigning,
     isConnecting,
     isSwitching,
-    isWalletClientLoading,
     address,
     connectors,
     connect,
-    walletClient,
     handleSwitchChain,
     handleSign,
     handleRetry,
@@ -184,8 +176,6 @@ function AuthModalContent({
                 handleSign={() => { void handleSign(); }}
                 handleDisconnect={handleDisconnect}
                 isSigning={isSigning}
-                isWalletClientLoading={isWalletClientLoading}
-                hasWalletClient={walletClient !== null && walletClient !== undefined}
                 turnstileToken={turnstileToken}
                 onTurnstileSuccess={onTurnstileSuccess}
                 onTurnstileError={onTurnstileError}

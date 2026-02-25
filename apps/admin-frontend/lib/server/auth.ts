@@ -49,14 +49,17 @@ export async function getServerSession(): Promise<{ isAuthenticated: boolean; us
  */
 export async function getAuthUser(): Promise<User | null> {
   try {
-    const { verifyJWTFromCookies } = await import('./token');
+    const { verifyJWTFromCookies, getJWTFromCookies } = await import('./token');
     const user = await verifyJWTFromCookies();
+    if (user === null) { return null; }
 
-    // PERMISSION REFACTOR: Backend (Rust) enforces actual admin access.
-    // If a valid JWT is present, we consider the user authenticated.
-    return user as User | null;
+    // Include raw JWT for client-side hydration (access_token is HttpOnly,
+    // so client JS can't read it from cookies — pass it via initialUser)
+    const token = await getJWTFromCookies();
+    const userWithAccess = { ...user, access: token ?? undefined };
+
+    return userWithAccess as unknown as User | null;
   } catch (error) {
-
     logger.error('❌ Admin: Failed to get auth user:', error);
     return null;
   }

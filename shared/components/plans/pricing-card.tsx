@@ -106,7 +106,7 @@ export function PricingCard({
 
             {/* Sale ribbon */}
             {(card.promotions?.length ?? 0) > 0 && !isDisabled && (
-                <div className="absolute top-0 left-0 z-20 bg-red-500 text-white text-xs font-bold px-3 py-1 rounded-br-lg rounded-tl-2xl uppercase tracking-wider">
+                <div className="absolute -top-px -left-px z-20 bg-red-500 text-white text-xs font-bold px-3 py-1 rounded-br-lg rounded-tl-2xl uppercase tracking-wider">
                     SALE
                 </div>
             )}
@@ -196,7 +196,7 @@ function PricingCardHeader({ card }: { card: PricingCardData }) {
             </h3>
 
             <div className="flex items-center justify-center gap-2 mb-2 min-w-0">
-                <span className="text-3xl sm:text-4xl font-black tracking-tighter text-blue-500 break-all">
+                <span className="text-3xl sm:text-4xl font-black tracking-tighter text-blue-500 whitespace-nowrap">
                     {card.price === 'Free' ? 'Free' : card.price.split(' ')[0]}
                 </span>
                 {card.price !== 'Free' && (

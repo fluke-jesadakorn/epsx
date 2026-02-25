@@ -30,6 +30,11 @@ interface RawPlan {
     tier_level?: number;
     plan_type?: string;
     description?: string;
+    effective_price?: number;
+    promotion_active?: boolean;
+    promotion_discount?: number;
+    promotion_ends_at?: string;
+    currency?: string;
 }
 
 interface PaymentToken {
@@ -99,7 +104,13 @@ export function usePaymentFlow({ preselectedId, initialPlans = [] }: UsePaymentF
 
     const amountInDecimals = useMemo(() => {
         if (!selectedPlan) { return 0n; }
-        const priceVal = selectedPlan.price.replace(/[^0-9.]/g, '');
+        // M7: Robust price parsing — strip non-numeric except first decimal point
+        const raw = selectedPlan.price.replace(/[^0-9.]/g, '');
+        const parts = raw.split('.');
+        const priceVal = parts.length > 1
+            ? `${parts[0]}.${parts.slice(1).join('')}`
+            : raw;
+        if (!priceVal || isNaN(Number(priceVal)) || Number(priceVal) <= 0) { return 0n; }
         return parseUnits(priceVal, selectedToken.decimals);
     }, [selectedPlan, selectedToken]);
 
@@ -144,15 +155,19 @@ export function usePaymentFlow({ preselectedId, initialPlans = [] }: UsePaymentF
             .filter((plan) => plan.is_active)
             .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0))
             .map((plan) => {
-                const price = typeof plan.current_price === 'string'
+                const basePrice = typeof plan.current_price === 'string'
                     ? parseFloat(plan.current_price)
                     : plan.current_price;
 
-                const basePrice = plan.base_price
-                    ? (typeof plan.base_price === 'string' ? parseFloat(plan.base_price) : plan.base_price)
-                    : null;
+                const hasPromo = plan.promotion_active === true &&
+                    plan.effective_price !== undefined &&
+                    plan.effective_price < basePrice;
 
-                const isFree = price === 0;
+                const displayPrice = hasPromo ? (plan.effective_price ?? basePrice) : basePrice;
+                const isFree = displayPrice === 0;
+                const currency = plan.currency ?? 'USD';
+                const discount = plan.promotion_discount ?? 0;
+                const savedAmt = hasPromo ? basePrice - displayPrice : 0;
 
                 const parsedFeatures = (Array.isArray(plan.features)
                     ? plan.features
@@ -163,11 +178,14 @@ export function usePaymentFlow({ preselectedId, initialPlans = [] }: UsePaymentF
                 return {
                     id: plan.id,
                     title: plan.name.replace(/\s+Plan$/i, ''),
-                    price: isFree ? 'Free' : `$${price}`,
-                    originalPrice: basePrice ? `$${basePrice}` : undefined,
+                    price: isFree ? 'Free' : `$${displayPrice.toFixed(2)} ${currency}`,
+                    originalPrice: hasPromo ? `$${basePrice.toFixed(2)} ${currency}` : undefined,
                     features: parsedFeatures.map((f) => typeof f === 'string' ? { text: f, included: true } : f),
                     highlight: plan.is_highlighted ?? plan.is_promoted,
                     buttonText: isFree ? 'Start Free' : 'Select Plan',
+                    promotions: hasPromo ? [`${Math.round(discount)}% OFF`] : [],
+                    savings: hasPromo ? `Save $${savedAmt.toFixed(2)}` : undefined,
+                    promotion_ends_at: hasPromo ? plan.promotion_ends_at : undefined,
                     tier_level: plan.tier_level ?? 0,
                     plan_type: plan.plan_type,
                     description: plan.description
@@ -240,7 +258,7 @@ export function usePaymentFlow({ preselectedId, initialPlans = [] }: UsePaymentF
         const fetchUpgradePreview = async () => {
             try {
                 const baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:8080';
-                const url = `${baseUrl}/api/payments/subscriptions/upgrade-preview?new_plan_id=${selectedPlan.id}`;
+                const url = `${baseUrl}/api/payments/plans/upgrade_preview?new_plan_id=${selectedPlan.id}`;
 
                 const response = await fetch(url, {
                     method: 'GET',

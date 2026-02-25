@@ -11,6 +11,7 @@ function AccessDeniedPageContent() {
   const reason = searchParams.get('reason') ?? undefined;
   const context = searchParams.get('context') ?? undefined;
   const permission = searchParams.get('permission') ?? undefined;
+  const detail = searchParams.get('detail') ?? undefined;
 
   return (
     <AccessDeniedContent
@@ -18,6 +19,7 @@ function AccessDeniedPageContent() {
       route={route}
       context={context}
       permission={permission}
+      detail={detail !== undefined && detail !== '' ? decodeURIComponent(detail) : undefined}
     />
   );
 }

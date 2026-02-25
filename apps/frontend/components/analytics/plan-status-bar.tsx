@@ -3,6 +3,7 @@
 import { useUpgradeOptions } from '@/hooks/use-upgrade-options';
 import { cn } from '@/lib/utils';
 import { FREE_PLAN_NAME, FREE_PLAN_RANKING_OFFSET } from '@/shared/config/constants';
+import { useSharedAuth } from '@/shared/components/auth/provider';
 import type { PlanAccessData } from '@/shared/types/payment';
 import { Crown, Lock, Rocket, Shield, Sparkles, Star, Zap } from 'lucide-react';
 import Link from 'next/link';
@@ -58,6 +59,7 @@ function getTierConfig(tierLevel: number): TierConfig {
 
 export function PlanStatusBar({ className, planAccess }: PlanStatusBarProps): React.ReactElement | null {
     const { nextPlan } = useUpgradeOptions(planAccess);
+    const { isAuthenticated } = useSharedAuth();
 
     if (planAccess === undefined) {
         return null;
@@ -113,29 +115,33 @@ export function PlanStatusBar({ className, planAccess }: PlanStatusBarProps): Re
             <div className="relative flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
                 {/* Plan Info */}
                 <div className="flex items-center gap-4">
-                    {/* Tier Icon */}
-                    <div className={cn(
-                        'flex h-12 w-12 items-center justify-center rounded-xl shadow-lg',
-                        `bg-gradient-to-br ${tierConfig.gradient}`
-                    )}>
-                        <TierIcon className="h-6 w-6 text-white" />
-                    </div>
+                    {/* Tier Icon — only when signed in */}
+                    {isAuthenticated && (
+                        <div className={cn(
+                            'flex h-12 w-12 items-center justify-center rounded-xl shadow-lg',
+                            `bg-gradient-to-br ${tierConfig.gradient}`
+                        )}>
+                            <TierIcon className="h-6 w-6 text-white" />
+                        </div>
+                    )}
 
                     {/* Plan Details */}
                     <div>
-                        <div className="flex items-center gap-2">
-                            <h3 className="text-base font-bold text-white">
-                                {planName ?? FREE_PLAN_NAME}
-                            </h3>
-                            {tierLevel > 0 && (
-                                <span className={cn(
-                                    'rounded-full px-2 py-0.5 text-xs font-semibold',
-                                    `bg-gradient-to-r ${tierConfig.gradient} text-white`
-                                )}>
-                                    Tier {tierLevel}
-                                </span>
-                            )}
-                        </div>
+                        {isAuthenticated && (
+                            <div className="flex items-center gap-2">
+                                <h3 className="text-base font-bold text-white">
+                                    {planName ?? FREE_PLAN_NAME}
+                                </h3>
+                                {tierLevel > 0 && (
+                                    <span className={cn(
+                                        'rounded-full px-2 py-0.5 text-xs font-semibold',
+                                        `bg-gradient-to-r ${tierConfig.gradient} text-white`
+                                    )}>
+                                        Tier {tierLevel}
+                                    </span>
+                                )}
+                            </div>
+                        )}
                         <div className="flex items-center gap-2 mt-1">
                             <Sparkles className="h-3.5 w-3.5 text-slate-400" />
                             <span className="text-sm text-slate-300">

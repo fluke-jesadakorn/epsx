@@ -6,11 +6,12 @@
  */
 
 import { useTheme } from 'next-themes';
-import Link from 'next/link';
+
 import { useEffect, useState } from 'react';
 
 import { AdminWalletConnectAuth } from '@/components/auth/admin-wallet-connect-auth';
 import { AdminNotificationBell } from './admin-notification-bell-client';
+import { Breadcrumb } from './breadcrumb';
 
 import { themeUtils } from '@/components/ui/safe-theme-script';
 import { ChainSelector } from '@/shared/components/navigation/chain-selector';
@@ -52,8 +53,7 @@ export function Header({ user }: HeaderProps) {
       <header className="sticky top-0 z-40 border-b border-gray-200 dark:border-slate-700 bg-white dark:bg-[#13151e]">
         <div className="flex h-14 items-center justify-between px-4 gap-3">
           <div className="flex items-center gap-2 min-w-0">
-            <img src="/epsx-logo.svg" alt="EPSX" className="h-6 w-auto" />
-            <span className="text-xs text-muted-foreground font-medium uppercase tracking-wider whitespace-nowrap">Admin</span>
+            <Breadcrumb />
           </div>
           <div className="h-8 w-24 bg-muted rounded-md animate-pulse flex-shrink-0" />
         </div>
@@ -64,12 +64,9 @@ export function Header({ user }: HeaderProps) {
   return (
     <header className="sticky top-0 z-40 border-b border-gray-200 dark:border-slate-700 bg-white dark:bg-[#13151e]">
       <div className="flex h-16 items-center justify-between px-6 gap-3">
-        {/* Logo / Title */}
+        {/* Breadcrumb */}
         <div className="flex items-center gap-2 min-w-0 flex-shrink">
-          <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity min-w-0">
-            <img src="/epsx-logo.svg" alt="EPSX" className="h-7 w-auto" />
-            <span className="text-[10px] font-bold text-cyan-400 uppercase tracking-widest whitespace-nowrap hidden sm:inline-block">Admin</span>
-          </Link>
+          <Breadcrumb />
         </div>
 
         {/* Right Actions */}

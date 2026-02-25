@@ -1,6 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import { useAnalyticsTransition } from './analytics-transition-provider';
 
 interface LimitSelectorFormProps {
   currentParams: string;
@@ -9,12 +10,13 @@ interface LimitSelectorFormProps {
 
 export default function LimitSelectorForm({ currentParams, currentLimit }: LimitSelectorFormProps) {
   const router = useRouter();
+  const { pending, start } = useAnalyticsTransition();
 
   const handleLimitChange = (newLimit: string) => {
     const params = new URLSearchParams(currentParams);
     params.set('limit', newLimit);
     params.set('page', '1');
-    router.push(`/analytics?${params.toString()}`);
+    start(() => router.push(`/analytics?${params.toString()}`));
   };
 
   return (
@@ -26,7 +28,8 @@ export default function LimitSelectorForm({ currentParams, currentLimit }: Limit
         id="limit-selector"
         value={currentLimit}
         onChange={(e) => handleLimitChange(e.target.value)}
-        className="h-8 rounded-lg border border-gray-200 dark:border-white/[0.08] bg-gray-100 dark:bg-slate-800/60 px-2 text-sm text-slate-200 hover:bg-slate-700/60 focus:outline-none focus:ring-1 focus:ring-purple-500 transition-colors"
+        disabled={pending}
+        className="h-8 rounded-lg border border-gray-200 dark:border-white/[0.08] bg-gray-100 dark:bg-slate-800/60 px-2 text-sm text-slate-200 hover:bg-slate-700/60 focus:outline-none focus:ring-1 focus:ring-purple-500 transition-colors disabled:opacity-40"
       >
         <option value="10">10</option>
         <option value="20">20</option>

@@ -1,6 +1,7 @@
 'use client';
 
 import { useTheme } from 'next-themes';
+import { usePathname } from 'next/navigation';
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 
 import { settingsApi } from '@/lib/api/settings-client';
@@ -74,10 +75,16 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
         }
     }, [applySettings]);
 
-    // Fetch and apply settings on mount
+    const pathname = usePathname();
+
+    // Fetch and apply settings on mount, skip on auth/login pages
     useEffect(() => {
-        refreshSettings();
-    }, [refreshSettings]);
+        if (pathname.startsWith('/auth') || pathname === '/login') {
+            setIsLoading(false);
+        } else {
+            void refreshSettings();
+        }
+    }, [pathname, refreshSettings]);
 
     return (
         <SettingsContext.Provider value={{ settings, isLoading, applySettings, refreshSettings }}>

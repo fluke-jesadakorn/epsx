@@ -2,12 +2,33 @@
 
 import { useCallback, useState } from 'react';
 import type { WalletClient } from 'viem';
+import type { Config } from 'wagmi';
+import { getWalletClient } from 'wagmi/actions';
 import { challengeAction, loginAction, verifyAction } from '../../../auth/actions';
 import type { AuthResult, AuthStep } from '../types';
 
+const sleep = (ms: number) => new Promise<void>(r => setTimeout(r, ms));
+
+/** Retry getWalletClient to handle connector initialization race condition */
+async function getWalletClientSafe(cfg: Config, retries = 3): Promise<WalletClient> {
+    for (let i = 0; i < retries; i++) {
+        try {
+            return await getWalletClient(cfg);
+        } catch (err) {
+            const msg = String(err);
+            if (i < retries - 1 && (msg.includes('is not a function') || msg.includes('connector'))) {
+                await sleep(800);
+                continue;
+            }
+            throw err;
+        }
+    }
+    throw new Error('Wallet not ready. Please refresh and try again.');
+}
+
 interface UseSignMessageProps {
     address?: string;
-    walletClient?: WalletClient | null;
+    config: Config;
     variant: 'user' | 'admin';
     turnstileToken?: string | null;
     authenticateWithDirectApi: (user: {
@@ -26,7 +47,7 @@ interface UseSignMessageProps {
 
 export function useSignMessage({
     address,
-    walletClient,
+    config,
     variant,
     turnstileToken,
     authenticateWithDirectApi,
@@ -39,11 +60,13 @@ export function useSignMessage({
     const [isSigning, setIsSigning] = useState(false);
 
     const handleSign = useCallback(async () => {
-        if (address === undefined || address === '' || walletClient === null || walletClient === undefined) { return; }
+        if (address === undefined || address === '') { return; }
         try {
             setError(null);
             setStep('authenticating');
             setIsSigning(true);
+
+            const walletClient = await getWalletClientSafe(config);
 
             const result = await verifyAndLogin({
                 address,
@@ -58,16 +81,46 @@ export function useSignMessage({
             onSuccess?.(result as AuthResult);
             onClose();
         } catch (err) {
-            const msg = err instanceof Error ? err.message : 'Authentication failed';
+            const msg = parseSignError(err);
             setError(msg);
             onError?.(msg);
             setStep('error');
         } finally {
             setIsSigning(false);
         }
-    }, [address, walletClient, variant, turnstileToken, authenticateWithDirectApi, onSuccess, onError, onClose, setStep, setError]);
+    }, [address, config, variant, turnstileToken, authenticateWithDirectApi, onSuccess, onError, onClose, setStep, setError]);
 
     return { handleSign, isSigning };
+}
+
+/** Parse sign/auth errors into user-friendly messages */
+function parseSignError(err: unknown): string {
+    const raw = err instanceof Error ? err.message : String(err);
+    const lower = raw.toLowerCase();
+
+    if (lower.includes('user rejected') || lower.includes('user denied'))
+        return 'Signature request rejected. Please approve the sign request in your wallet to log in.';
+
+    if (lower.includes('timeout') || lower.includes('timed out'))
+        return 'Signature request timed out. Please try again.';
+
+    if (lower.includes('disconnected') || lower.includes('resource not available'))
+        return 'Wallet disconnected. Please reconnect and try again.';
+
+    if (lower.includes('is not a function') || lower.includes('connector'))
+        return 'Wallet still initializing. Please try again in a moment.';
+
+    // Extract viem short message if available
+    const shortMatch = raw.match(/Short Message:\s*(.+?)(?:\n|$)/i)
+        ?? raw.match(/Details:\s*(.+?)(?:\n|$)/i);
+    if (shortMatch?.[1]) {
+        const short = shortMatch[1].trim();
+        if (short.length < 200) return short;
+    }
+
+    if (raw.length > 150) return 'Authentication failed. Please try again.';
+
+    return raw;
 }
 
 interface VerifyAndLoginProps {

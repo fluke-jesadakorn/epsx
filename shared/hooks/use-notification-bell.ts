@@ -25,6 +25,7 @@ interface BrowserNotificationAPI {
 interface NotificationActions {
   getNotifications: (filters: { page: number; limit: number; status?: string }) => Promise<{ success: boolean; data?: { notifications: ApiNotification[]; unread_count?: number } }>
   markAsRead: (notificationId: string) => Promise<{ success: boolean; message: string }>
+  markAsUnread: (notificationId: string) => Promise<{ success: boolean; message: string }>
   markAllAsRead: () => Promise<{ success: boolean; updated_count: number }>
   deleteNotification?: (notificationId: string) => Promise<{ success: boolean; message: string }>
   clearAll?: () => Promise<{ success: boolean; deleted_count: number }>
@@ -49,6 +50,7 @@ interface UseNotificationBellReturn {
   isSSEConnected: boolean
   fetchNotifications: () => Promise<void>
   markAsRead: (notificationId: string) => Promise<void>
+  markAsUnread: (notificationId: string) => Promise<void>
   markAllAsRead: () => Promise<void>
   reconnectSSE: () => void
 }
@@ -159,7 +161,7 @@ export function useNotificationBell(
       const data = await optionsRef.current.actions.getNotifications({
         page: 1,
         limit: MAX_DROPDOWN_NOTIFICATIONS,
-        status: 'unread',
+        status: 'all',
       })
 
       if (data.success && data.data?.notifications) {
@@ -203,15 +205,35 @@ export function useNotificationBell(
   const markAsRead = useCallback(
     async (notificationId: string) => {
       try {
-        await optionsRef.current.actions.markAsRead(notificationId)
+        const result = await optionsRef.current.actions.markAsRead(notificationId)
 
-        // Update local state
-        setNotifications((prev) =>
-          prev.map((n) => (n.id === notificationId ? { ...n, read: true } : n))
-        )
-        setCount((prev) => Math.max(0, prev - 1))
+        if (result.success) {
+          // Update local state only on success
+          setNotifications((prev) =>
+            prev.map((n) => (n.id === notificationId ? { ...n, read: true } : n))
+          )
+          setCount((prev) => Math.max(0, prev - 1))
+        }
       } catch (err) {
         logger.error('Failed to mark notification as read:', err)
+      }
+    },
+    [] // Options accessed via ref
+  )
+
+  // Mark notification as unread using server action
+  const markAsUnread = useCallback(
+    async (notificationId: string) => {
+      try {
+        const result = await optionsRef.current.actions.markAsUnread(notificationId)
+        if (result.success) {
+          setNotifications((prev) =>
+            prev.map((n) => (n.id === notificationId ? { ...n, read: false } : n))
+          )
+          setCount((prev) => prev + 1)
+        }
+      } catch (err) {
+        logger.error('Failed to mark notification as unread:', err)
       }
     },
     [] // Options accessed via ref
@@ -243,6 +265,7 @@ export function useNotificationBell(
     isSSEConnected,
     fetchNotifications,
     markAsRead,
+    markAsUnread,
     markAllAsRead,
     reconnectSSE,
   }

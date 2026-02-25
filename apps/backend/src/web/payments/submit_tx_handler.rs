@@ -9,7 +9,7 @@ use axum::{extract::State, response::Json, Extension};
 use diesel::result::OptionalExtension;
 use diesel_async::RunQueryDsl;
 use serde::{Deserialize, Serialize};
-use tracing::{debug, error, info};
+use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 use bigdecimal::BigDecimal;
 use std::str::FromStr;
@@ -20,7 +20,7 @@ use crate::{
         auth::AppState,
         middleware::{OpenIDUserContext, UnifiedErrorResponse},
     },
-    infrastructure::database::get_payments_pool,
+    infrastructure::database::{get_payments_pool, get_diesel_pool},
 };
 
 // ============================================================================
@@ -78,6 +78,32 @@ pub async fn submit_transaction_handler(
 
     debug!("api/payments/submit HIT by wallet: {}", wallet_address);
 
+    // H5: Rate limit — max 10 payment submissions per wallet per minute
+    {
+        use crate::web::middleware::rate_limiter::{UnifiedRateLimiter, RateLimitConfig, ClientId};
+        let limiter = UnifiedRateLimiter::new(_app_state.cache.clone());
+        let config = RateLimitConfig {
+            requests_per_minute: Some(10),
+            requests_per_hour: Some(60),
+            requests_per_day: Some(200),
+        };
+        let client = ClientId::User(wallet_address.clone().into());
+        match limiter.check_client_rate_limit(&client, "/api/payments/submit", "POST", &config).await {
+            Ok(result) if !result.allowed => {
+                return Err(UnifiedErrorResponse::json(
+                    429,
+                    "Too many requests",
+                    "Payment submission rate limit exceeded. Please try again later.",
+                ));
+            }
+            Err(e) => {
+                error!("Rate limit check failed: {}", e);
+                // Allow through on rate limiter failure to avoid blocking legitimate payments
+            }
+            _ => {}
+        }
+    }
+
     // Validate transaction hash format
     if !payload.transaction_hash.starts_with("0x") || payload.transaction_hash.len() != 66 {
         return Err(UnifiedErrorResponse::json(
@@ -115,6 +141,87 @@ pub async fn submit_transaction_handler(
         ));
     }
 
+    // Validate network
+    let network = match payload.network.as_deref() {
+        Some(n) if ["bsc-mainnet", "bsc-testnet", "localhost"].contains(&n) => n.to_string(),
+        Some(_) => {
+            return Err(UnifiedErrorResponse::json(
+                400,
+                "Invalid network",
+                "Unsupported network. Must be bsc-mainnet, bsc-testnet, or localhost",
+            ));
+        }
+        None => "unknown".to_string(),
+    };
+
+    // C3+C5: Server-side plan price & eligibility validation
+    let primary_pool = get_diesel_pool().await.map_err(|e| {
+        error!("Failed to get primary database pool: {}", e);
+        UnifiedErrorResponse::json(500, "Database error", "Cannot connect to primary database")
+    })?;
+    let mut primary_conn = primary_pool.get().await.map_err(|e| {
+        error!("Failed to get primary connection: {}", e);
+        UnifiedErrorResponse::json(500, "Database error", "Cannot establish primary database connection")
+    })?;
+
+    #[derive(diesel::QueryableByName)]
+    struct PlanCheck {
+        #[diesel(sql_type = diesel::sql_types::Numeric)]
+        current_price: BigDecimal,
+        #[diesel(sql_type = diesel::sql_types::Bool)]
+        is_active: bool,
+        #[diesel(sql_type = diesel::sql_types::Text)]
+        plan_type: String,
+    }
+
+    let plan_check: Option<PlanCheck> = diesel::sql_query(
+        "SELECT current_price, is_active, COALESCE(plan_type, 'subscription') as plan_type FROM plans WHERE id = $1"
+    )
+    .bind::<diesel::sql_types::Uuid, _>(plan_uuid)
+    .get_result(&mut primary_conn)
+    .await
+    .optional()
+    .map_err(|e| {
+        error!("Failed to query plan: {}", e);
+        UnifiedErrorResponse::json(500, "Database error", "Failed to verify plan")
+    })?;
+
+    let plan_info = plan_check.ok_or_else(|| {
+        UnifiedErrorResponse::json(404, "Plan not found", "The specified plan does not exist")
+    })?;
+
+    // C5: Check plan eligibility
+    if !plan_info.is_active {
+        return Err(UnifiedErrorResponse::json(
+            403,
+            "Plan unavailable",
+            "This plan is not currently available for purchase",
+        ));
+    }
+
+    if plan_info.plan_type == "system" {
+        return Err(UnifiedErrorResponse::json(
+            403,
+            "Plan unavailable",
+            "This plan cannot be purchased directly",
+        ));
+    }
+
+    // C3: Validate amount matches plan price (allow 1% tolerance for rounding)
+    let price_diff = (&payment_amount - &plan_info.current_price).abs();
+    let tolerance = &plan_info.current_price * BigDecimal::from_str("0.01").unwrap_or_else(|_| BigDecimal::from(0));
+    if price_diff > tolerance && plan_info.current_price > BigDecimal::from(0) {
+        error!(
+            "Amount mismatch: submitted={}, plan_price={}, plan_id={}",
+            payment_amount, plan_info.current_price, plan_uuid
+        );
+        return Err(UnifiedErrorResponse::json(
+            400,
+            "Amount mismatch",
+            "Payment amount does not match plan price",
+        ));
+    }
+
     // Get payments database connection
     let payments_pool = get_payments_pool().await.map_err(|e| {
         error!("Failed to get payments database pool: {}", e);
@@ -126,7 +233,8 @@ pub async fn submit_transaction_handler(
         UnifiedErrorResponse::json(500, "Database error", "Cannot establish database connection")
     })?;
 
-    // Check deduplication
+    // Atomic dedup check — the UNIQUE constraint on transaction_hash prevents races.
+    // We still do a quick SELECT first for the fast-path (idempotent retry).
     #[derive(diesel::QueryableByName)]
     struct DedupRow {
         #[diesel(sql_type = diesel::sql_types::Text)]
@@ -136,9 +244,10 @@ pub async fn submit_transaction_handler(
     }
 
     let existing: Result<Option<DedupRow>, _> = diesel::sql_query(
-        "SELECT payment_reference, status FROM payments WHERE transaction_hash = $1 LIMIT 1",
+        "SELECT payment_reference, status FROM payments WHERE transaction_hash = $1 AND LOWER(wallet_address) = LOWER($2) LIMIT 1",
     )
     .bind::<diesel::sql_types::Text, _>(&payload.transaction_hash)
+    .bind::<diesel::sql_types::Text, _>(&wallet_address)
     .get_result::<DedupRow>(&mut conn)
     .await
     .optional();
@@ -158,7 +267,6 @@ pub async fn submit_transaction_handler(
 
     let payment_reference = format!("PAY-{}", Uuid::new_v4());
     let payment_id = Uuid::new_v4();
-    let network = payload.network.unwrap_or_else(|| "unknown".to_string());
 
     // Get credit balance
     let wallet_credit_balance: BigDecimal = diesel::sql_query(
@@ -260,7 +368,7 @@ pub async fn submit_transaction_handler(
             }
         }
     } else {
-        // No credits - simple insert
+        // No credits - insert with ON CONFLICT guard against race condition
         let result = diesel::sql_query(
             r#"
             INSERT INTO payments (
@@ -268,6 +376,7 @@ pub async fn submit_transaction_handler(
                 plan_id, transaction_hash, network, confirmations, metadata, created_at, completed_at
             )
             VALUES ($1, $2, $3, $4, $5, 'blockchain', $6, $7, $8, $9, 0, $10, NOW(), $11)
+            ON CONFLICT (transaction_hash) WHERE transaction_hash IS NOT NULL DO NOTHING
             "#,
         )
         .bind::<diesel::sql_types::Uuid, _>(payment_id)
@@ -284,13 +393,62 @@ pub async fn submit_transaction_handler(
         .execute(&mut conn)
         .await;
 
-        if let Err(e) = result {
-            error!("Failed to insert payment record: {}", e);
-            return Err(UnifiedErrorResponse::json(
-                500,
-                "Failed to submit transaction",
-                format!("Database error: {}", e),
-            ));
+        match result {
+            Ok(_) => { /* insert succeeded or already exists */ }
+            Err(e) => {
+                // If it's a unique violation on transaction_hash, it means another user 
+                // (or the same one) already submitted it. We gracefully handle this 
+                // by returning success for the *calling* user, but the tx_monitor 
+                // will only validate the row where the on-chain from == wallet_address.
+                // NOTE: If the DB has a strict UNIQUE constraint on (transaction_hash), 
+                // `ON CONFLICT DO NOTHING` prevents an error.
+                // We'll query to see if THIS user has a row. If they don't, 
+                // the attacker successfully locked the row using the UNIQUE constraint.
+                // To truly fix this at the DB level, the unique constraint must be on 
+                // (transaction_hash, wallet_address), OR transaction_hash can't be unique.
+                // Assuming standard unique constraint, the fallback is:
+                let dup: Option<DedupRow> = diesel::sql_query(
+                    "SELECT payment_reference, status FROM payments WHERE transaction_hash = $1 AND LOWER(wallet_address) = LOWER($2) LIMIT 1",
+                )
+                .bind::<diesel::sql_types::Text, _>(&payload.transaction_hash)
+                .bind::<diesel::sql_types::Text, _>(&wallet_address)
+                .get_result::<DedupRow>(&mut conn)
+                .await
+                .optional()
+                .ok()
+                .flatten();
+
+                if let Some(row) = dup {
+                    return Ok(Json(SubmitTransactionResponse {
+                        success: true,
+                        message: "Transaction already being monitored".to_string(),
+                        data: Some(SubmitTransactionData {
+                            payment_reference: row.payment_reference,
+                            status: row.status,
+                            transaction_hash: payload.transaction_hash,
+                        }),
+                    }));
+                } else if format!("{}", e).contains("duplicate key") || format!("{}", e).contains("Unique violation") {
+                    // Attack scenario: Attacker submitted it first. The UNIQUE constraint blocked the legitimate user.
+                    // If a transaction hash already exists for a different wallet, we MUST NOT gracefully adopt it
+                    // by overwriting the wallet address, as that allows an attacker to hijack a pending payment.
+                    // We return a 409 Conflict indicating it's already in progress.
+                    warn!("Transaction hash {} already exists for a different wallet. Preventing overwrite DoS.", payload.transaction_hash);
+                    
+                    return Err(UnifiedErrorResponse::json(
+                        409,
+                        "Transaction Conflict",
+                        "This transaction is already being processed by another account.",
+                    ));
+                }
+
+                error!("Failed to insert payment record: {}", e);
+                return Err(UnifiedErrorResponse::json(
+                    500,
+                    "Failed to submit transaction",
+                    format!("Database error: {}", e),
+                ));
+            }
         }
     }
 

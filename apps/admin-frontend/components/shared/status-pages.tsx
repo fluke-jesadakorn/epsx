@@ -213,6 +213,7 @@ interface AccessDeniedContentProps {
   route?: string;
   context?: string;
   permission?: string;
+  detail?: string;
   showLoginButton?: boolean;
   showHomeButton?: boolean;
 }
@@ -223,6 +224,7 @@ export function AccessDeniedContent({
   route,
   context,
   permission,
+  detail,
   showLoginButton = true,
   showHomeButton = true,
 }: AccessDeniedContentProps) {
@@ -284,6 +286,12 @@ export function AccessDeniedContent({
                   <code className="text-foreground bg-white dark:bg-white/[0.04] backdrop-blur-sm border border-gray-200 dark:border-slate-700 px-2 py-1 rounded text-right break-all">
                     {decodeURIComponent(permission)}
                   </code>
+                </div>
+              )}
+              {detail && (
+                <div className="flex justify-between items-start gap-4 border-t border-gray-200 dark:border-slate-700 pt-3 mt-1">
+                  <span className="text-muted-foreground shrink-0">Backend Detail:</span>
+                  <span className="text-foreground text-right">{detail}</span>
                 </div>
               )}
             </div>

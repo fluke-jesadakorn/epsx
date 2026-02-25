@@ -57,20 +57,21 @@ const PAYMENT_RECEIVER_ADDRESSES: Record<number, string> = {
 
 // Token addresses by chain (env vars override defaults)
 const TOKEN_ADDRESSES: Record<number, Record<string, string>> = {
+  // M10: Use || not ?? — Next.js replaces unset NEXT_PUBLIC_* with "" at build time
   [CHAIN_IDS.BSC_TESTNET]: {
-    USDT: process.env.NEXT_PUBLIC_TESTNET_USDT_ADDRESS ?? bscTestnetDeployment.enabledTokens.USDT.address,
-    USDC: process.env.NEXT_PUBLIC_TESTNET_USDC_ADDRESS ?? bscTestnetDeployment.enabledTokens.USDC.address,
-    DAI: process.env.NEXT_PUBLIC_TESTNET_DAI_ADDRESS ?? '',
+    USDT: process.env.NEXT_PUBLIC_TESTNET_USDT_ADDRESS || bscTestnetDeployment.enabledTokens.USDT.address,
+    USDC: process.env.NEXT_PUBLIC_TESTNET_USDC_ADDRESS || bscTestnetDeployment.enabledTokens.USDC.address,
+    DAI: process.env.NEXT_PUBLIC_TESTNET_DAI_ADDRESS || '',
   },
   [CHAIN_IDS.LOCALHOST]: {
-    USDT: process.env.NEXT_PUBLIC_LOCAL_USDT_ADDRESS ?? localhostDeployment.tokens.USDT,
-    USDC: process.env.NEXT_PUBLIC_LOCAL_USDC_ADDRESS ?? localhostDeployment.tokens.USDC,
-    DAI: process.env.NEXT_PUBLIC_LOCAL_DAI_ADDRESS ?? '',
+    USDT: process.env.NEXT_PUBLIC_LOCAL_USDT_ADDRESS || localhostDeployment.tokens.USDT,
+    USDC: process.env.NEXT_PUBLIC_LOCAL_USDC_ADDRESS || localhostDeployment.tokens.USDC,
+    DAI: process.env.NEXT_PUBLIC_LOCAL_DAI_ADDRESS || '',
   },
   [CHAIN_IDS.BSC_MAINNET]: {
-    USDT: process.env.NEXT_PUBLIC_MAINNET_USDT_ADDRESS ?? '0x55d398326f99059fF775485246999027B3197955',
-    USDC: process.env.NEXT_PUBLIC_MAINNET_USDC_ADDRESS ?? '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d',
-    DAI: process.env.NEXT_PUBLIC_MAINNET_DAI_ADDRESS ?? '0x1AF3F329e8BE154074D8769D1FFa4eE058B1DBc3',
+    USDT: process.env.NEXT_PUBLIC_MAINNET_USDT_ADDRESS || '0x55d398326f99059fF775485246999027B3197955',
+    USDC: process.env.NEXT_PUBLIC_MAINNET_USDC_ADDRESS || '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d',
+    DAI: process.env.NEXT_PUBLIC_MAINNET_DAI_ADDRESS || '0x1AF3F329e8BE154074D8769D1FFa4eE058B1DBc3',
   },
 };
 

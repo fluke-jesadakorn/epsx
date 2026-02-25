@@ -173,13 +173,24 @@ async fn seed_super_admin_wallet(pool: &TlsPool) {
         }
     };
 
+    // Use environment variable if provided, otherwise fallback to constant
+    let env_wallet = std::env::var("SUPER_ADMIN_WALLET").unwrap_or_else(|_| SUPER_ADMIN_WALLET.to_string());
+    
+    // In production, we MUST require the ENV var. If it matches the hardcoded dev wallet and we're in prod, warn deeply.
+    let is_prod = std::env::var("NODE_ENV").unwrap_or_default() == "production" || 
+                  std::env::var("ENVIRONMENT").unwrap_or_default() == "production";
+                  
+    if is_prod && env_wallet == SUPER_ADMIN_WALLET {
+        tracing::warn!("⚠️ SECURITY WARNING: Using default hardcoded SUPER_ADMIN_WALLET in production! Set SUPER_ADMIN_WALLET env var to override.");
+    }
+
     // Ensure wallet_users entry exists (FK constraint)
     if let Err(e) = diesel::sql_query(
         r#"INSERT INTO wallet_users (wallet_address, is_active, tier_level, wallet_metadata)
         VALUES ($1, true, 'Bronze', '{}')
         ON CONFLICT (wallet_address) DO NOTHING"#
     )
-    .bind::<diesel::sql_types::Text, _>(SUPER_ADMIN_WALLET)
+    .bind::<diesel::sql_types::Text, _>(&env_wallet)
     .execute(&mut conn)
     .await
     {
@@ -195,12 +206,12 @@ async fn seed_super_admin_wallet(pool: &TlsPool) {
             is_active = true,
             assignment_source = 'system_seed'"#
     )
-    .bind::<diesel::sql_types::Text, _>(SUPER_ADMIN_WALLET)
+    .bind::<diesel::sql_types::Text, _>(&env_wallet)
     .bind::<diesel::sql_types::Uuid, _>(plan_id)
     .execute(&mut conn)
     .await
     {
-        Ok(_) => info!("Seeded Super Admin wallet assignment: {}", SUPER_ADMIN_WALLET),
+        Ok(_) => info!("Seeded Super Admin wallet assignment: {}", env_wallet),
         Err(e) => error!("Failed to seed Super Admin wallet assignment: {}", e),
     }
 }

@@ -67,7 +67,7 @@ tower = { version = "0.5", features = ["util", "timeout", "full"] }
 tower-http = { version = "0.5", features = ["cors", "compression-gzip", "trace", "timeout", "limit", "request-id", "set-header", "util", "catch-panic"] }
 tower_governor = "0.8.0" # Rate Limiting
 tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 tokio-retry = "0.3"
 url = "2.5"
 uuid = { version = "1.7", features = ["v4", "v5", "serde"] }

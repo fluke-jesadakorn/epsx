@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import type { SharedWeb3AuthClient, UserInfoResponse } from '../../../auth/client';
+import { setSharedClientToken } from '../../../utils/api-client';
 import { logger } from '../../../utils/logger';
 
 interface UseAuthInitializationProps {
@@ -34,6 +35,10 @@ export function useAuthInitialization({
                         wallet: initialUser.wallet_address,
                     });
                     client.setCurrentUser(initialUser);
+                    // Share access token with all UnifiedApiClient instances
+                    if (initialUser.access !== undefined && initialUser.access !== '') {
+                        setSharedClientToken(initialUser.access);
+                    }
                     hasStoredAuth = true;
                 }
 

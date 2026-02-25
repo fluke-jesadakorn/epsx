@@ -12,6 +12,7 @@ import { useBrowserNotifications } from './browser-notifications'
 import {
   getInitialNotificationsAction,
   markAsReadAction,
+  markAsUnreadAction,
   markAllAsReadAction,
   deleteNotificationAction,
 } from '@/app/actions/notifications'
@@ -19,29 +20,35 @@ import type { Notification } from '@/shared/types/notifications'
 
 interface NotificationItemProps {
   notification: Notification
-  onNotificationClick: (id: string) => void
+  onToggleRead: (id: string, read: boolean) => void
   onDeleteNotification: (e: React.MouseEvent, id: string) => void
 }
 
-function NotificationItem({ notification, onNotificationClick, onDeleteNotification }: NotificationItemProps) {
+function NotificationItem({ notification, onToggleRead, onDeleteNotification }: NotificationItemProps) {
   return (
-    <div className="flex items-start gap-3 px-4 py-3 border-b border-orange-50 dark:border-slate-800 group hover:bg-orange-50/50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer">
+    <div className="flex items-start gap-3 px-4 py-3 border-b border-orange-50 dark:border-slate-800 group hover:bg-orange-50/50 dark:hover:bg-slate-800/50 transition-colors">
       <div className={`w-8 h-8 rounded-full ${getPriorityColor(notification.priority)} flex items-center justify-center flex-shrink-0`}>
         <span className="text-sm">{getNotificationIcon(notification.type)}</span>
       </div>
-      <div
-        className="flex-1 min-w-0 cursor-pointer"
-        onClick={() => {
-          onNotificationClick(notification.id)
-        }}
-      >
+      <div className="flex-1 min-w-0">
         <div className="flex items-start justify-between gap-2">
-          <p className="text-sm font-medium text-slate-900 dark:text-slate-100 line-clamp-1">
+          <p className={`text-sm font-medium line-clamp-1 ${notification.read ? 'text-slate-500 dark:text-slate-400' : 'text-slate-900 dark:text-slate-100'}`}>
             {notification.title}
           </p>
-          {!notification.read && (
-            <div className="w-2 h-2 rounded-full bg-orange-500 flex-shrink-0 mt-1.5" />
-          )}
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              onToggleRead(notification.id, notification.read)
+            }}
+            title={notification.read ? 'Mark as unread' : 'Mark as read'}
+            className="flex-shrink-0 mt-1"
+          >
+            {notification.read ? (
+              <div className="w-2 h-2 rounded-full border border-slate-300 dark:border-slate-600 hover:border-orange-500 dark:hover:border-orange-400 transition-colors" />
+            ) : (
+              <div className="w-2 h-2 rounded-full bg-orange-500 hover:bg-orange-400 transition-colors" />
+            )}
+          </button>
         </div>
         <p className="text-xs text-slate-600 dark:text-slate-400 line-clamp-2 mt-0.5">
           {notification.message}
@@ -91,11 +98,13 @@ export function NotificationBellClient() {
     loading,
     fetchNotifications,
     markAsRead,
+    markAsUnread,
     markAllAsRead,
   } = useNotificationBell({
     actions: {
       getNotifications: getInitialNotificationsAction,
       markAsRead: markAsReadAction,
+      markAsUnread: markAsUnreadAction,
       markAllAsRead: markAllAsReadAction,
       deleteNotification: deleteNotificationAction,
     },
@@ -122,8 +131,13 @@ export function NotificationBellClient() {
     setIsOpen(false)
   }
 
-  const handleNotificationClick = async (notificationId: string) => {
-    await markAsRead(notificationId)
+  const handleToggleRead = async (notificationId: string, currentlyRead: boolean) => {
+    if (currentlyRead) {
+      await markAsUnread(notificationId)
+    } else {
+      await markAsRead(notificationId)
+    }
+    void fetchNotifications()
   }
 
   // Delete notification functionality using server action
@@ -143,7 +157,7 @@ export function NotificationBellClient() {
         onClick={handleToggleDropdown}
         className="relative flex items-center gap-2 rounded-2xl px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50/80 hover:text-slate-700 dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-slate-200"
       >
-        <Bell className="h-5 w-5 text-orange-500" />
+        <Bell className="h-4 w-4 text-orange-500" />
         {count > 0 && (
           <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-xs text-white">
             {count > 9 ? '9+' : count}
@@ -189,8 +203,8 @@ export function NotificationBellClient() {
                     <NotificationItem
                       key={notification.id}
                       notification={notification}
-                      onNotificationClick={(id) => {
-                        void handleNotificationClick(id)
+                      onToggleRead={(id, read) => {
+                        void handleToggleRead(id, read)
                       }}
                       onDeleteNotification={(e, id) => {
                         void handleDeleteNotification(e, id)

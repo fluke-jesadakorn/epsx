@@ -4,9 +4,26 @@ use axum::{
     extract::State,
     http::StatusCode,
     response::Json,
+    Extension,
 };
 use serde_json::{json, Value};
 use crate::web::auth::AppState;
+use crate::web::middleware::bearer_middleware::OpenIDUserContext;
+
+/// Lightweight admin identity check — used by admin-frontend middleware to gate access.
+/// Explicitly checks for admin:dashboard:view permission.
+/// Returns wallet address on success; 403 if not an admin.
+pub async fn admin_me_handler(
+    Extension(ctx): Extension<OpenIDUserContext>,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    if !crate::core::permissions::has_permission(&ctx.permissions, "admin:dashboard:view") {
+        return Err((StatusCode::FORBIDDEN, Json(json!({
+            "success": false,
+            "error": { "message": "Admin permissions required" }
+        }))));
+    }
+    Ok(Json(json!({ "wallet": ctx.wallet_address })))
+}
 
 /// Setup admin permissions for the test user
 /// This handler is for development/testing purposes
