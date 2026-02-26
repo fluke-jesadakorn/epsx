@@ -13,6 +13,7 @@ use crate::schemas::primary::api_keys;
 use crate::schemas::analytics::api_key_usage_logs;
 use crate::schemas::analytics::analytics_events; // Import the new table
 use crate::web::middleware::auth_middleware::Web3AuthContext;
+use crate::web::middleware::bearer_middleware::OpenIDUserContext;
 
 #[derive(Insertable)]
 #[diesel(table_name = analytics_events)]
@@ -37,12 +38,21 @@ pub async fn usage_tracking_middleware(
     let start_time = std::time::Instant::now();
     let method = request.method().to_string();
     let path = request.uri().path().to_string();
-    
-    let api_key_id_str = request.headers()
-        .get("x-api-key")
-        .and_then(|h| h.to_str().ok())
-        .map(|s| s.to_string());
-        
+
+    // Extract API key ID from OpenIDUserContext if auth_method == "api_key"
+    let api_key_id_from_ctx = request.extensions()
+        .get::<OpenIDUserContext>()
+        .filter(|ctx| ctx.auth_method == "api_key")
+        .and_then(|ctx| uuid::Uuid::parse_str(&ctx.jti).ok());
+
+    // Fallback: legacy x-api-key header
+    let api_key_id = api_key_id_from_ctx.or_else(|| {
+        request.headers()
+            .get("x-api-key")
+            .and_then(|h| h.to_str().ok())
+            .and_then(|s| uuid::Uuid::parse_str(s).ok())
+    });
+
     // Execute request first to get response status
     let response = next.run(request).await;
     let duration = start_time.elapsed().as_millis() as i32;
@@ -58,24 +68,22 @@ pub async fn usage_tracking_middleware(
                 .cloned()
         });
 
-    // 2. LEGACY API KEY TRACKING (Backwards Compatibility)
-    if let Some(key_id_str) = api_key_id_str {
-        if let Ok(key_id) = uuid::Uuid::parse_str(&key_id_str) {
-            let container_clone = container.clone();
-            let method_clone = method.clone();
-            let path_clone = path.clone();
-            
-            tokio::spawn(async move {
-                log_usage(
-                    container_clone, 
-                    key_id, 
-                    method_clone, 
-                    path_clone, 
-                    status_code, 
-                    duration
-                ).await;
-            });
-        }
+    // 2. API KEY USAGE TRACKING
+    if let Some(key_id) = api_key_id {
+        let container_clone = container.clone();
+        let method_clone = method.clone();
+        let path_clone = path.clone();
+
+        tokio::spawn(async move {
+            log_usage(
+                container_clone,
+                key_id,
+                method_clone,
+                path_clone,
+                status_code,
+                duration
+            ).await;
+        });
     }
 
     // 3. NEW ANALYTICS DB LOGGING

@@ -20,6 +20,7 @@ use tracing::debug;
 
 use crate::{
     auth::OpenIDTokenError,
+    infrastructure::adapters::repositories::developer_portal::ApiKeyRepository,
     web::auth::AppState,
 };
 
@@ -115,22 +116,21 @@ pub async fn bearer_middleware(
         ));
     }
 
-    // Validate JWT token
+    // Try JWT first (fast, no DB), then fall back to API key validation
     let user_context = match validate_bearer_token(&token, &app_state).await {
         Ok(context) => context,
-        Err(err) => {
-            debug!("Bearer token validation failed: {}", err);
-            return Err(create_auth_error(
-                StatusCode::UNAUTHORIZED,
-                "Token validation failed",
-                &format!("Invalid or expired token: {}", err)
-            ));
+        Err(_) => {
+            // JWT failed — try API key fallback (SHA-256 hash + DB lookup)
+            match validate_api_key(&token, &app_state).await {
+                Ok(context) => context,
+                Err((status, err)) => return Err((status, err)),
+            }
         }
     };
 
     debug!(
-        "Bearer token validated successfully for user: {}",
-        user_context.wallet_address
+        "Bearer token validated successfully for user: {} (method: {})",
+        user_context.wallet_address, user_context.auth_method
     );
 
     // Add user context to request extensions
@@ -208,6 +208,81 @@ fn create_auth_error(
 
 
 
+/// Validate a Bearer token as an API key (SHA-256 hash → DB lookup)
+/// Returns OpenIDUserContext with auth_method = "api_key" on success
+async fn validate_api_key(
+    token: &str,
+    app_state: &AppState,
+) -> Result<OpenIDUserContext, (StatusCode, Json<UnifiedErrorResponse>)> {
+    let repo = ApiKeyRepository::new(*app_state.db_pool);
+
+    let api_key = match repo.validate_key(token).await {
+        Ok(Some(key)) => key,
+        Ok(None) => {
+            return Err(create_auth_error(
+                StatusCode::UNAUTHORIZED,
+                "Invalid token",
+                "authentication_failed",
+            ));
+        }
+        Err(_) => {
+            return Err(create_auth_error(
+                StatusCode::UNAUTHORIZED,
+                "Invalid token",
+                "authentication_failed",
+            ));
+        }
+    };
+
+    // Check expiration
+    if let Some(exp) = api_key.expires_at {
+        if exp < chrono::Utc::now() {
+            return Err(create_auth_error(
+                StatusCode::UNAUTHORIZED,
+                "Token expired",
+                "token_expired",
+            ));
+        }
+    }
+
+    // Check status (validate_key filters active, but guard against race)
+    if !matches!(api_key.status, crate::domain::developer_portal::ApiKeyStatus::Active) {
+        return Err(create_auth_error(
+            StatusCode::UNAUTHORIZED,
+            "Token revoked",
+            "token_revoked",
+        ));
+    }
+
+    // Merge selected_permissions + plan permissions
+    let mut permissions = api_key.selected_permissions.clone();
+    for plan in &api_key.permission_plans {
+        // Plan permissions are loaded via the plan's features — use plan slug as permission prefix
+        // The selected_permissions already contain the actual IAM strings
+        let _ = plan; // Plans provide context but permissions are stored in selected_permissions
+    }
+    permissions.dedup();
+
+    let now = chrono::Utc::now();
+    let ctx = OpenIDUserContext {
+        sub: api_key.wallet_address.clone(),
+        wallet_address: api_key.wallet_address,
+        permissions,
+        auth_method: "api_key".to_string(),
+        jti: api_key.id.to_string(),
+        exp: api_key.expires_at.map(|e| e.timestamp()).unwrap_or(i64::MAX),
+        iat: api_key.created_at.timestamp(),
+        auth_time: now.timestamp(),
+    };
+
+    debug!(
+        "API key validated for user: {} (key: {}, permissions: {})",
+        ctx.wallet_address, api_key.key_prefix, ctx.permissions.len()
+    );
+
+    Ok(ctx)
+}
+
 /// Optional Bearer Token Middleware (for public/optional auth endpoints)
 /// Does not fail if no token is present, but validates if token exists
 pub async fn optional_bearer_middleware(
@@ -224,18 +299,18 @@ pub async fn optional_bearer_middleware(
     if let Some(header) = auth_header {
         if let Some(token) = header.strip_prefix("Bearer ") {
             if !token.is_empty() {
-                // Try to validate token
+                // Try JWT first, then API key fallback
                 match validate_bearer_token(token, &app_state).await {
-                    Ok(user_context) => {
-                        debug!(
-                            "Optional auth: Bearer token validated for user: {}",
-                            user_context.wallet_address
-                        );
-                        request.extensions_mut().insert(user_context);
+                    Ok(ctx) => {
+                        debug!("Optional auth: JWT validated for user: {}", ctx.wallet_address);
+                        request.extensions_mut().insert(ctx);
                     }
-                    Err(err) => {
-                        debug!("Optional auth: Token validation failed: {}", err);
-                        // Don't fail the request, just continue without user context
+                    Err(_) => {
+                        // JWT failed — try API key
+                        if let Ok(ctx) = validate_api_key(token, &app_state).await {
+                            debug!("Optional auth: API key validated for user: {}", ctx.wallet_address);
+                            request.extensions_mut().insert(ctx);
+                        }
                     }
                 }
             }
